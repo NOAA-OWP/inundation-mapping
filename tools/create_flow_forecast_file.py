@@ -7,6 +7,7 @@ import geopandas as gpd
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def create_flow_forecast_file(

@@ -13,6 +13,7 @@ from geopandas.tools import sjoin
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 temp_workspace = r''

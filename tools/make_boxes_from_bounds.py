@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 from datetime import datetime
 
 import geopandas as gpd
@@ -11,6 +12,7 @@ from utils.shared_functions import getDriver
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def find_hucs_of_bounding_boxes(

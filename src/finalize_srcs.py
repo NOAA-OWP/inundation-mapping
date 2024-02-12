@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 
 import geopandas as gpd
 import pandas as pd
@@ -11,6 +12,7 @@ from utils.shared_functions import getDriver
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def finalize_srcs(srcbase, srcfull, hydrotable, output_srcfull=None, output_hydrotable=None):

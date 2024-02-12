@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import concurrent.futures
+import os
 import warnings
 from functools import partial
 from threading import Lock
@@ -17,6 +18,7 @@ from scipy.optimize import newton
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 class OverlapWindowMerge:

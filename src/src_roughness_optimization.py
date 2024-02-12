@@ -17,6 +17,7 @@ from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MAX_THRESH, R
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def update_rating_curve(

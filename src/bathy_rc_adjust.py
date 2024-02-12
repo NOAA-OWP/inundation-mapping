@@ -8,6 +8,7 @@ import pandas as pd
 
 
 gpd.options.io_engine = "pyogrio"
+environ["PYOGRIO_USE_ARROW"] = 1
 
 
 sa_ratio_flag = float(environ['surf_area_thalweg_ratio_flag'])  # 10x

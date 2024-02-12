@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import geopandas as gpd
 import numpy as np
@@ -13,6 +14,7 @@ from utils.shared_variables import FIM_ID
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def Crosswalk_nwm_demDerived(

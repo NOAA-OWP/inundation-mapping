@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 from os.path import splitext
 
 import geopandas as gpd
@@ -10,6 +11,7 @@ from stream_branches import StreamNetwork
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def Subset_catch_list(

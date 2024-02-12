@@ -12,7 +12,7 @@ Description:
 import argparse
 import sys
 from collections import OrderedDict
-from os import remove
+from os import environ, remove
 from os.path import isfile
 
 import geopandas as gpd
@@ -30,6 +30,7 @@ from utils.shared_variables import FIM_ID
 
 
 gpd.options.io_engine = "pyogrio"
+environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def split_flows(

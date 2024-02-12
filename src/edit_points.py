@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import geopandas as gpd
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def Edit_points(

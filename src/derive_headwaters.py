@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import geopandas as gpd
 from shapely.geometry import Point
@@ -9,6 +10,7 @@ from utils.shared_functions import getDriver
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def findHeadWaterPoints(flows):

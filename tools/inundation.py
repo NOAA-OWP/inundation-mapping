@@ -19,6 +19,7 @@ from shapely.geometry import shape
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 class hydroTableHasOnlyLakes(Exception):

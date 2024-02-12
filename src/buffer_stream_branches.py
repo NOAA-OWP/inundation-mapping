@@ -9,6 +9,7 @@ from stream_branches import StreamBranchPolygons, StreamNetwork
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def buffer_stream_branches(

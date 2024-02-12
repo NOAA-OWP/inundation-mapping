@@ -68,7 +68,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     bathy_gdal = gdal_array.OpenArray(bathy_m)
 
     # Read in shapefiles
-    bathy_bounds = gpd.read_file(survey_gdb, layer=bathy_bounds, engine="pyogrio")
+    bathy_bounds = gpd.read_file(survey_gdb, layer=bathy_bounds, engine="pyogrio", use_arrow=True)
     nwm_streams = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_flows.gpkg", mask=bathy_bounds)
     nwm_catchments = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_catchments.gpkg", mask=bathy_bounds)
     bathy_bounds = bathy_bounds.to_crs(nwm_streams.crs)
@@ -125,7 +125,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     bathy_nwm_streams = bathy_nwm_streams.to_crs(epsg=5070)
     if os.path.exists(output):
         print(f"{output} already exists. Concatinating now...")
-        existing_bathy_file = gpd.read_file(output, engine="pyogrio")
+        existing_bathy_file = gpd.read_file(output, engine="pyogrio", use_arrow=True)
         bathy_nwm_streams = pd.concat([existing_bathy_file, bathy_nwm_streams])
     bathy_nwm_streams.to_file(output, index=False)
     print(f"Added {num_streams} new NWM features")

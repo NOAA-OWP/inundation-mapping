@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def inundate_events(hydrofabric_dir, forecast_file, inundation_file, inundation_polygon=None, jobs=1):

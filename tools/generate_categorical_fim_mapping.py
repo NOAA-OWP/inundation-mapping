@@ -20,6 +20,7 @@ from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def generate_categorical_fim(

@@ -10,6 +10,7 @@ from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def clip_wbd_to_dem_domain(dem: str, wbd_in: str, wbd_out: str, huc_level: int):

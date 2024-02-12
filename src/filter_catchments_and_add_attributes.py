@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import sys
 
 import geopandas as gpd
@@ -11,6 +12,7 @@ from utils.shared_variables import FIM_ID
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def filter_catchments_and_add_attributes(

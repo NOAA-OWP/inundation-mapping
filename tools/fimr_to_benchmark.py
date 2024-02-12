@@ -14,6 +14,7 @@ from tools_shared_functions import get_metadata
 
 
 gpd.options.io_engine = "pyogrio"
+os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 load_dotenv()
