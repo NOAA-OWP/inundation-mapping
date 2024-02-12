@@ -173,7 +173,9 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
     fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
     bathy_gdf = gpd.read_file(bathy_file, engine="pyogrio")
     buffered_bathy = bathy_gdf.geometry.buffer(wbd_buffer)  # We buffer the bathymetric data to get adjacent
-    wbd = gpd.read_file(wbd, mask=buffered_bathy)  # HUCs that could also have bathymetric reaches included
+    wbd = gpd.read_file(
+        wbd, mask=buffered_bathy, engine="fiona"
+    )  # HUCs that could also have bathymetric reaches included
     hucs_with_bathy = wbd.HUC8.to_list()
     hucs = [h for h in fim_hucs if h in hucs_with_bathy]
     log_file.write(f"Identified {len(hucs)} HUCs that have bathymetric data: {hucs}\n")

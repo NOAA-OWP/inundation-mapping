@@ -87,7 +87,7 @@ def add_crosswalk(
 
     elif (extent == 'MS') | (extent == 'GMS'):
         ## crosswalk using stream segment midpoint method
-        input_nwmcat = gpd.read_file(input_nwmcat_fileName)
+        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc, engine="fiona")
 
         # only reduce nwm catchments to mainstems if running mainstems
         if extent == 'MS':
