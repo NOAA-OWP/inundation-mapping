@@ -64,14 +64,21 @@ input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska') # alaska
 input_nwm_lakes = os.getenv('input_nwm_lakes')
 input_nwm_catchments = os.getenv('input_nwm_catchments')
 input_nwm_catchments_Alaska = os.getenv('input_nwm_catchments_Alaska')
+
 input_NLD = os.getenv('input_NLD')
+input_NLD_Alaska = os.getenv('input_NLD_Alaska')
+
 input_levees_preprocessed = os.getenv('input_levees_preprocessed')
+input_levees_preprocessed_Alaska = os.getenv('input_levees_preprocessed_Alaska')
+
 input_GL_boundaries = os.getenv('input_GL_boundaries')
 input_nwm_flows = os.getenv('input_nwm_flows')
 input_nwm_flows_Alaska = os.getenv('input_nwm_flows_Alaska') # alaska
 input_nwm_headwaters = os.getenv('input_nwm_headwaters')
 input_nwm_headwaters_Alaska = os.getenv('input_nwm_headwaters_Alaska')
+
 input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
+input_nld_levee_protected_areas_Alaska = os.getenv('input_nld_levee_protected_areas_Alaska')
 
 # Variables from config/params_template.env
 wbd_buffer = os.getenv('wbd_buffer')
@@ -189,6 +196,12 @@ def pre_clip_hucs_from_wbd(wbd_file, wbd_alaska_file, outputs_dir, huc_list, num
     for huc in hucs_to_pre_clip_list:
         print(f"Generating vectors for {huc}. ")
         procs_list.append([huc, outputs_dir, wbd_file, wbd_alaska_file])
+   
+
+    # # for debugging purposes, circumvent the parallelization process (so I can actually get line numbers for the errors)
+    # for procs in procs_list: ## debug
+    #     print(f'Running huc level clip vectors for {procs}')
+    #     huc_level_clip_vectors_to_wbd(procs) ## debug
 
     # Parallelize each huc in hucs_to_parquet_list
     logging.info('Parallelizing HUC level wbd pre-clip vector creation. ')
@@ -260,18 +273,21 @@ def huc_level_clip_vectors_to_wbd(args):
         huc_CRS = ALASKA_CRS
         input_NHD_WBHD_layer = 'WBD_National_South_Alaska'
         # input_WBD_filename = input_WBD_filename_ALASKA  
-        wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National_South_Alaska.gpkg',
+        wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National_South_Alaska.gpkg'
     else:
         huc_CRS = DEFAULT_FIM_PROJECTION_CRS
         input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
         # input_WBD_filename = input_WBD_filename_CONUS
-        wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National.gpkg',
+        wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National.gpkg'
 
 
     # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
     if huc2Identifier == "04":
         input_LANDSEA = f"{input_GL_boundaries}"
         print(f'Using {input_LANDSEA} for water body mask (Great Lakes)')
+    elif huc2Identifier == "19":
+        input_LANDSEA = f"{inputsDir}/landsea/water_polygons_alaska.gpkg" 
+        print(f'Using {input_LANDSEA} for water body mask (Alaska)')
     else:
         input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
 
@@ -334,8 +350,8 @@ def huc_level_clip_vectors_to_wbd(args):
             nwm_lakes=input_nwm_lakes,
             nwm_catchments=input_nwm_catchments_Alaska,
             subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
-            nld_lines=input_NLD,
-            nld_lines_preprocessed=input_levees_preprocessed,
+            nld_lines=input_NLD_Alaska,
+            nld_lines_preprocessed=input_levees_preprocessed_Alaska,
             landsea=input_LANDSEA,
             nwm_streams=input_nwm_flows_Alaska,
             subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
@@ -343,7 +359,7 @@ def huc_level_clip_vectors_to_wbd(args):
             subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
             subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
             wbd_buffer_distance=wbd_buffer_int,
-            levee_protected_areas=input_nld_levee_protected_areas,
+            levee_protected_areas=input_nld_levee_protected_areas_Alaska,
             subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
             huc_CRS=huc_CRS ## TODO: simplify
         )
@@ -402,7 +418,7 @@ def huc_level_clip_vectors_to_wbd(args):
         check=True,
         universal_newlines=True,
     )
-
+    
     msg = clip_wbd8_subprocess.stdout
     print(msg)
     logging.info(msg)

@@ -119,7 +119,7 @@ def subset_vector_layers(
         )
     del nld_lines
 
-    # Preprocced levee lines for burning
+    # Preprocessed levee lines for burning
     nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer)
     if not nld_lines_preprocessed.empty:
         nld_lines_preprocessed.to_file(
