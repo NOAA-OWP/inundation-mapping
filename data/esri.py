@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import os
-
 import geopandas as gpd
 import pandas as pd
 import requests

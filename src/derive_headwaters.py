@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
 
 import geopandas as gpd
 from shapely.geometry import Point

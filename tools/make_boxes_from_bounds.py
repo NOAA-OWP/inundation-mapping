@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
-from datetime import datetime
 
 import geopandas as gpd
 import pandas as pd

@@ -9,7 +9,6 @@ import fiona
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import pyogrio
 import rasterio
 from fiona.errors import DriverError
 from rasterio.io import DatasetReader

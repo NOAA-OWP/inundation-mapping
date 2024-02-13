@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
-import sys
 
 import geopandas as gpd
 import numpy as np

@@ -12,7 +12,7 @@ Description:
 import argparse
 import sys
 from collections import OrderedDict
-from os import environ, remove
+from os import remove
 from os.path import isfile
 
 import geopandas as gpd

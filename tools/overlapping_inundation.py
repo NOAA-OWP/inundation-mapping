@@ -2,7 +2,6 @@
 # coding: utf-8
 
 import concurrent.futures
-import os
 import warnings
 from functools import partial
 from threading import Lock

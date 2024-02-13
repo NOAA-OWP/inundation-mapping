@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from os.path import splitext
