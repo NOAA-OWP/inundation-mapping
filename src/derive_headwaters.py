@@ -10,7 +10,6 @@ from utils.shared_functions import getDriver
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def findHeadWaterPoints(flows):

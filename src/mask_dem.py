@@ -12,7 +12,6 @@ from rasterio.mask import mask
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def mask_dem(

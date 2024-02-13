@@ -11,7 +11,6 @@ from utils.fim_enums import FIM_exit_codes
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def Derive_level_paths(

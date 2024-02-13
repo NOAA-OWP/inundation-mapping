@@ -13,7 +13,6 @@ from tools_shared_functions import compute_stats_from_contingency_table
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 #####################################################

@@ -15,7 +15,6 @@ from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 epsg_code = re.search(r'\d+$', DEFAULT_FIM_PROJECTION_CRS).group()

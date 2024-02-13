@@ -26,7 +26,6 @@ from shapely.geometry import Polygon
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 warnings.simplefilter(action='ignore', category=FutureWarning)

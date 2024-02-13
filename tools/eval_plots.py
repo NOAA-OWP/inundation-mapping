@@ -21,7 +21,6 @@ from utils.shared_variables import VIZ_PROJECTION
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 # Get variables from .env file.

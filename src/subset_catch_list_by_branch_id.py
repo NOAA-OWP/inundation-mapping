@@ -11,7 +11,6 @@ from stream_branches import StreamNetwork
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def Subset_catch_list(

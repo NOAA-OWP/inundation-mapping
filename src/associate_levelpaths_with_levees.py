@@ -10,7 +10,6 @@ import pandas as pd
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def associate_levelpaths_with_levees(

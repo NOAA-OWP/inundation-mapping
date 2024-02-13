@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 ######################################################################################################

@@ -30,7 +30,6 @@ from utils.shared_variables import FIM_ID
 
 
 gpd.options.io_engine = "pyogrio"
-environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def split_flows(

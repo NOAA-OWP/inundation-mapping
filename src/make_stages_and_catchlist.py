@@ -9,7 +9,6 @@ import numpy as np
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def make_stages_and_catchlist(

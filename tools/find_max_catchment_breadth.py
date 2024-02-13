@@ -10,7 +10,6 @@ from shapely.geometry import Point
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 def Find_max_catchment_breadth(hydrofabric_dir):

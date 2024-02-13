@@ -8,7 +8,6 @@ from tqdm import tqdm
 
 
 gpd.options.io_engine = "pyogrio"
-os.environ["PYOGRIO_USE_ARROW"] = 1
 
 
 class ESRI_REST(object):
