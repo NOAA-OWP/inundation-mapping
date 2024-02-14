@@ -27,7 +27,6 @@ from dotenv import load_dotenv
 
     Usage:
         generate_pre_clip_fim_huc8.py
-            -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
             -n /data/inputs/pre_clip_huc8/24_3_20
             -u /data/inputs/huc_lists/included_huc8.lst
             -j 6
@@ -433,7 +432,6 @@ if __name__ == '__main__':
         'the output directory specified as the <outputs_dir> argument.',
         usage='''
             ./generate_pre_clip_fim_huc8.py
-                -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
                 -n /data/inputs/pre_clip_huc8/24_3_20
                 -u /data/inputs/huc_lists/included_huc8.lst
                 -j 6
