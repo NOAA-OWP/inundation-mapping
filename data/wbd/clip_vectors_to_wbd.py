@@ -143,10 +143,8 @@ def subset_vector_layers(
         )
     else:
         print("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
-        try:
-            sys.exit(0)
-        except:
-            print('Unable to exit system...') ## DEBUG
+        sys.exit(0)
+
     del nwm_headwaters
 
 
@@ -163,10 +161,8 @@ def subset_vector_layers(
         )
     else:
         print("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
-        try:
-            sys.exit(0)
-        except:
-            print('Unable to exit system...') ## DEBUG
+        sys.exit(0)
+
     del nwm_catchments
 
     # Subset nwm streams
@@ -207,7 +203,7 @@ def subset_vector_layers(
         )
     else:
         print("No NWM stream segments within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0) ## DEBUG this is another sys.exit that is getting stuck
+        sys.exit(0)
     del nwm_streams
 
 

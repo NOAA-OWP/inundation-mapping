@@ -196,12 +196,6 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
         procs_list.append([huc, outputs_dir])
 
         # procs_list.append([huc, outputs_dir, wbd_alaska_file])
-   
-
-    # # for debugging purposes, circumvent the parallelization process (so I can actually get line numbers for the errors)
-    # for procs in procs_list: ## debug
-    #     print(f'Running huc level clip vectors for {procs}')
-    #     huc_level_clip_vectors_to_wbd(procs) ## debug
 
     # Parallelize each huc in hucs_to_parquet_list
     logging.info('Parallelizing HUC level wbd pre-clip vector creation. ')
@@ -446,20 +440,7 @@ if __name__ == '__main__':
                 -o
         ''',
     )
-    # parser.add_argument( ## TODO: Decide if I still want this to be a viable input (or if it should always come from bash_variables.env)
-    #     '-wbd',
-    #     '--wbd_file',
-    #     help='OPTIONAL: CONUS .wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb '
-    #     'from src/bash_variables.env.',
-    #     default=input_WBD_gdb,
-    # )
-    # parser.add_argument( ## TODO: Check whether a separate file is needed here... or if the other one actually is sufficient!
-    #     '-wbdak',
-    #     '--wbd_alaska_file',
-    #     help='OPTIONAL: Alaska .wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb '
-    #     'from src/bash_variables.env.',
-    #     default=input_WBD_gdb_Alaska,
-    # )
+
     parser.add_argument(
         '-n',
         '--outputs_dir',
