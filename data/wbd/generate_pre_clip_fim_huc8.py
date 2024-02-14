@@ -119,14 +119,12 @@ def __setup_logger(outputs_dir):
     logging.info(f"\n \t Started: {start_time_string} \n")
 
 
-def pre_clip_hucs_from_wbd(wbd_file, wbd_alaska_file, outputs_dir, huc_list, number_of_jobs, overwrite):
+def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     '''
     The function is the main driver of the program to iterate and parallelize writing
     pre-clipped HUC8 vector files.
 
     Inputs:
-    - wbd_file:                       Default take from src/bash_variables.env, or provided as argument. ## TODO: Maybe remove this? Could make adding Alaska automation harder if you can overwrite and specify the WBD file here...
-    - wbd_alaska_file:                From src/bash_variables.env
     - outputs_dir:                    Output directory to stage pre-clipped vectors.
     - huc_list:                       List of Hucs to generate pre-clipped .gpkg files.
     - number_of_jobs:                 Amount of cpus used for parallelization.
@@ -195,7 +193,9 @@ def pre_clip_hucs_from_wbd(wbd_file, wbd_alaska_file, outputs_dir, huc_list, num
     procs_list = []
     for huc in hucs_to_pre_clip_list:
         print(f"Generating vectors for {huc}. ")
-        procs_list.append([huc, outputs_dir, wbd_file, wbd_alaska_file])
+        procs_list.append([huc, outputs_dir])
+
+        # procs_list.append([huc, outputs_dir, wbd_alaska_file])
    
 
     # # for debugging purposes, circumvent the parallelization process (so I can actually get line numbers for the errors)
@@ -236,9 +236,6 @@ def huc_level_clip_vectors_to_wbd(args):
     Inputs:
     - huc:                           Individual HUC to generate vector files for.
     - outputs_dir:                   Output directory to stage pre-clipped vectors.
-    - input_WBD_filename:      Filename of WBD to generate pre-clipped .gpkg files.
-    - input_WBD_filename_ALASKA:      Filename of WBD to generate pre-clipped .gpkg files. ## TODO: determine whether I actually need to add the separate alaska one
-
 
     Processing:
     - Define (unpack) arguments.
@@ -256,9 +253,7 @@ def huc_level_clip_vectors_to_wbd(args):
     # We have to explicitly unpack the args from pool.map()
     huc = args[0]
     outputs_dir = args[1]
-    input_WBD_filename = args[2]
-    # input_WBD_filename_CONUS = args[2]
-    # input_WBD_filename_ALASKA = args[3] ## TODO: carry forward? or see if it's even needed to have a separate WBD file 
+
 
 
     huc_directory = os.path.join(outputs_dir, huc)
@@ -272,12 +267,12 @@ def huc_level_clip_vectors_to_wbd(args):
     if huc2Identifier == '19':
         huc_CRS = ALASKA_CRS
         input_NHD_WBHD_layer = 'WBD_National_South_Alaska'
-        # input_WBD_filename = input_WBD_filename_ALASKA  
+        input_WBD_filename = input_WBD_gdb_Alaska  
         wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National_South_Alaska.gpkg'
     else:
         huc_CRS = DEFAULT_FIM_PROJECTION_CRS
         input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
-        # input_WBD_filename = input_WBD_filename_CONUS
+        input_WBD_filename = input_WBD_gdb
         wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National.gpkg'
 
 
@@ -451,20 +446,20 @@ if __name__ == '__main__':
                 -o
         ''',
     )
-    parser.add_argument( ## TODO: Decide if I still want this to be a viable input (or if it should always come from bash_variables.env)
-        '-wbd',
-        '--wbd_file',
-        help='OPTIONAL: CONUS .wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb '
-        'from src/bash_variables.env.',
-        default=input_WBD_gdb,
-    )
-    parser.add_argument( ## TODO: Check whether a separate file is needed here... or if the other one actually is sufficient!
-        '-wbdak',
-        '--wbd_alaska_file',
-        help='OPTIONAL: Alaska .wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb '
-        'from src/bash_variables.env.',
-        default=input_WBD_gdb_Alaska,
-    )
+    # parser.add_argument( ## TODO: Decide if I still want this to be a viable input (or if it should always come from bash_variables.env)
+    #     '-wbd',
+    #     '--wbd_file',
+    #     help='OPTIONAL: CONUS .wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb '
+    #     'from src/bash_variables.env.',
+    #     default=input_WBD_gdb,
+    # )
+    # parser.add_argument( ## TODO: Check whether a separate file is needed here... or if the other one actually is sufficient!
+    #     '-wbdak',
+    #     '--wbd_alaska_file',
+    #     help='OPTIONAL: Alaska .wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb '
+    #     'from src/bash_variables.env.',
+    #     default=input_WBD_gdb_Alaska,
+    # )
     parser.add_argument(
         '-n',
         '--outputs_dir',
