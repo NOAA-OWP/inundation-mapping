@@ -47,18 +47,18 @@ load_dotenv(f'{projectDir}/config/params_template.env')
 
 # Variables from src/bash_variables.env
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS') # alaska
+ALASKA_CRS = os.getenv('ALASKA_CRS')  # alaska
 
 inputsDir = os.getenv('inputsDir')
 
 input_WBD_gdb = os.getenv('input_WBD_gdb')
-input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska') # alaska
+input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # alaska
 
 input_DEM = os.getenv('input_DEM')
-input_DEM_Alaska = os.getenv('input_DEM_Alaska') # alaska
+input_DEM_Alaska = os.getenv('input_DEM_Alaska')  # alaska
 
 input_DEM_domain = os.getenv('input_DEM_domain')
-input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska') # alaska
+input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # alaska
 
 input_nwm_lakes = os.getenv('input_nwm_lakes')
 input_nwm_catchments = os.getenv('input_nwm_catchments')
@@ -72,7 +72,7 @@ input_levees_preprocessed_Alaska = os.getenv('input_levees_preprocessed_Alaska')
 
 input_GL_boundaries = os.getenv('input_GL_boundaries')
 input_nwm_flows = os.getenv('input_nwm_flows')
-input_nwm_flows_Alaska = os.getenv('input_nwm_flows_Alaska') # alaska
+input_nwm_flows_Alaska = os.getenv('input_nwm_flows_Alaska')  # alaska
 input_nwm_headwaters = os.getenv('input_nwm_headwaters')
 input_nwm_headwaters_Alaska = os.getenv('input_nwm_headwaters_Alaska')
 
@@ -242,15 +242,11 @@ def huc_level_clip_vectors_to_wbd(args):
     - .gpkg files* dependant on HUC's WBD (*differing amount based on individual huc)
     '''
 
-
     # We have to explicitly unpack the args from pool.map()
     huc = args[0]
     outputs_dir = args[1]
 
-
-
     huc_directory = os.path.join(outputs_dir, huc)
-
 
     # SET VARIABLES AND FILE INPUTS #
     hucUnitLength = len(huc)
@@ -260,7 +256,7 @@ def huc_level_clip_vectors_to_wbd(args):
     if huc2Identifier == '19':
         huc_CRS = ALASKA_CRS
         input_NHD_WBHD_layer = 'WBD_National_South_Alaska'
-        input_WBD_filename = input_WBD_gdb_Alaska  
+        input_WBD_filename = input_WBD_gdb_Alaska
         wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National_South_Alaska.gpkg'
     else:
         huc_CRS = DEFAULT_FIM_PROJECTION_CRS
@@ -268,13 +264,12 @@ def huc_level_clip_vectors_to_wbd(args):
         input_WBD_filename = input_WBD_gdb
         wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National.gpkg'
 
-
     # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
     if huc2Identifier == "04":
         input_LANDSEA = f"{input_GL_boundaries}"
         print(f'Using {input_LANDSEA} for water body mask (Great Lakes)')
     elif huc2Identifier == "19":
-        input_LANDSEA = f"{inputsDir}/landsea/water_polygons_alaska.gpkg" 
+        input_LANDSEA = f"{inputsDir}/landsea/water_polygons_alaska.gpkg"
         print(f'Using {input_LANDSEA} for water body mask (Alaska)')
     else:
         input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
@@ -349,11 +344,11 @@ def huc_level_clip_vectors_to_wbd(args):
             wbd_buffer_distance=wbd_buffer_int,
             levee_protected_areas=input_nld_levee_protected_areas_Alaska,
             subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-            huc_CRS=huc_CRS ## TODO: simplify
+            huc_CRS=huc_CRS,  # TODO: simplify
         )
 
     else:
-        # Not Alaska 
+        # Not Alaska
         subset_vector_layers(
             subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
             subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
@@ -378,7 +373,7 @@ def huc_level_clip_vectors_to_wbd(args):
             wbd_buffer_distance=wbd_buffer_int,
             levee_protected_areas=input_nld_levee_protected_areas,
             subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-            huc_CRS=huc_CRS ## TODO: simplify
+            huc_CRS=huc_CRS,  # TODO: simplify
         )
 
     msg = f"\n\t Completing Get Vector Layers and Subset: {huc} \n"
@@ -406,7 +401,7 @@ def huc_level_clip_vectors_to_wbd(args):
         check=True,
         universal_newlines=True,
     )
-    
+
     msg = clip_wbd8_subprocess.stdout
     print(msg)
     logging.info(msg)
@@ -445,11 +440,7 @@ if __name__ == '__main__':
         help='Directory to output all of the HUC level .gpkg files. Use the format: '
         '<year_month_day> (i.e. September 26, 2023 would be 23_9_26)',
     )
-    parser.add_argument(
-        '-u', 
-        '--huc_list', 
-        help='List of HUCs to genereate pre-clipped vectors for.'
-    )
+    parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
     parser.add_argument(
         '-j',
         '--number_of_jobs',
@@ -466,7 +457,6 @@ if __name__ == '__main__':
         help='OPTIONAL: Overwrite the file if already existing? (default false)',
         action='store_true',
     )
-
 
     args = vars(parser.parse_args())
 
