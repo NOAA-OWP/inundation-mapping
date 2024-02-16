@@ -46,7 +46,6 @@ usage()
       -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
                             will be skipped.
     "
-    exit
 }
 
 set -e
@@ -104,16 +103,20 @@ in
     shift
 done
 
+# exit 22 means bad argument
+
 # print usage if arguments empty
 if [ "$hucList" = "" ]
 then
     echo "ERROR: Missing -u Huclist argument"
     usage
+    exit 22
 fi
 if [ "$runName" = "" ]
 then
     echo "ERROR: Missing -n run time name argument"
     usage
+    exit 22
 fi
 
 # outputsDir & workDir come from the Dockerfile
@@ -137,6 +140,7 @@ then
     # NONE is not case sensitive
     echo "Error: The -ud <unit deny file> does not exist and is not the word NONE"
     usage
+    exit 22
 fi
 
 # validate and set defaults for the deny lists
@@ -148,6 +152,7 @@ then
     # NONE is not case sensitive
     echo "Error: The -bd <branch deny file> does not exist and is not the word NONE"
     usage
+    exit 22
 fi
 
 # We do a 1st cleanup of branch zero using branchZeroDenylist (which might be none).
@@ -164,6 +169,7 @@ then
     then
         echo "Error: The -zd <branch zero deny file> does not exist and is not the word NONE"
         usage
+        exit 22
     else
         # only if the deny branch zero has been overwritten and file exists
         has_deny_branch_zero_override=1
@@ -178,17 +184,7 @@ if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
     echo
     usage
-fi
-
-# Test to ensure we are not overuseing cores
-num_available_cores=$(echo $(grep -c processor /proc/cpuinfo))
-let total_requested_jobs=$jobHucLimit*$jobBranchLimit
-if [[ $total_requested_jobs -gt $num_available_cores ]]; then
-    echo
-    echo "ERROR: There are $num_available_cores available, but -jh (jobHucLimit) * -jb (jobBranchLimit)"\
-         "exceed the number of available cores"
-    echo
-    usage
+    exit 22
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
