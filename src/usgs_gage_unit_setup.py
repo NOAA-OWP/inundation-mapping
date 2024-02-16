@@ -13,6 +13,8 @@ from shapely.geometry import Point
 from utils.shared_variables import PREP_CRS
 
 
+gpd.options.io_engine = "pyogrio"
+
 warnings.simplefilter("ignore")
 
 

@@ -36,6 +36,9 @@ from tools_shared_variables import (
 from utils.shared_variables import VIZ_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def process_generate_categorical_fim(
     fim_run_dir,
     job_number_huc,

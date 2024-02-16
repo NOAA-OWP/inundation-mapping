@@ -9,6 +9,9 @@ import numpy as np
 import pandas as pd
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def associate_levelpaths_with_levees(
     levees_filename: str,
     levee_id_attribute: str,

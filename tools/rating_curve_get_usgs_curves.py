@@ -29,6 +29,9 @@ from tools_shared_variables import (
 from utils.shared_variables import PREP_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
     running script outside of business hours seems to be most consistent way

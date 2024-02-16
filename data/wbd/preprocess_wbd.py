@@ -9,6 +9,9 @@ import geopandas as gpd
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def clip_wbd_to_dem_domain(dem: str, wbd_in: str, wbd_out: str, huc_level: int):
     """
     Clips Watershed Boundary Dataset (WBD) to DEM domain

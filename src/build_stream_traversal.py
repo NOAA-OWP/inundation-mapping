@@ -4,6 +4,9 @@ import sys
 import geopandas as gpd
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 '''
 Description:
         This tool creates unique IDs for each segment and builds the To_Node, From_Node, and NextDownID

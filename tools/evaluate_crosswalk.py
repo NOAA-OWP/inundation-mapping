@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def evaluate_crosswalk(
     input_flows_fileName: str,
     input_nwmflows_fileName: str,

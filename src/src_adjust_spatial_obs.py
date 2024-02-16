@@ -20,6 +20,9 @@ from utils.shared_variables import (
 )
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 # Import variables from .env file
 load_dotenv('/foss_fim/src/bash_variables.env')
 outputsDir = os.getenv("outputsDir")

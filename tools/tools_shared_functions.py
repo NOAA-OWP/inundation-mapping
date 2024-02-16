@@ -22,6 +22,9 @@ from rasterio.warp import Resampling, calculate_default_transform, reproject
 from shapely.geometry import MultiPolygon, Polygon, shape
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def get_env_paths():
     load_dotenv()
     # import variables from .env file

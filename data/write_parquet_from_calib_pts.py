@@ -11,6 +11,9 @@ import geopandas as gpd
 from dotenv import load_dotenv
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 ######################################################################################################
 #                                                                                                    #
 #    Overview:                                                                                       #
