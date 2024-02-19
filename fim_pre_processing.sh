@@ -45,10 +45,7 @@ usage()
       -o                : Overwrite outputs if they already exist.
       -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
                             will be skipped.
-      -isaws            : If this param is included, AWS objects will be used where possible
-                        - Note: This feature is not yet implemented.
     "
-    exit
 }
 
 set -e
@@ -98,9 +95,6 @@ in
     -skipcal)
         skipcal=1
         ;;
-    -isaws)
-        isAWS=1
-        ;;
     -x)
         evaluateCrosswalk=1
         ;;
@@ -109,16 +103,20 @@ in
     shift
 done
 
+# exit 22 means bad argument
+
 # print usage if arguments empty
 if [ "$hucList" = "" ]
 then
     echo "ERROR: Missing -u Huclist argument"
     usage
+    exit 22
 fi
 if [ "$runName" = "" ]
 then
     echo "ERROR: Missing -n run time name argument"
     usage
+    exit 22
 fi
 
 # outputsDir & workDir come from the Dockerfile
@@ -131,7 +129,6 @@ if [ "$jobHucLimit" = "" ]; then jobHucLimit=1; fi
 if [ "$jobBranchLimit" = "" ]; then jobBranchLimit=1; fi
 if [ -z "$overwrite" ]; then overwrite=0; fi
 if [ -z "$skipcal" ]; then skipcal=0; fi
-if [ -z "$isAWS" ]; then isAWS=0; fi
 if [ -z "$evaluateCrosswalk" ]; then evaluateCrosswalk=0; fi
 
 # validate and set defaults for the deny lists
@@ -143,6 +140,7 @@ then
     # NONE is not case sensitive
     echo "Error: The -ud <unit deny file> does not exist and is not the word NONE"
     usage
+    exit 22
 fi
 
 # validate and set defaults for the deny lists
@@ -154,6 +152,7 @@ then
     # NONE is not case sensitive
     echo "Error: The -bd <branch deny file> does not exist and is not the word NONE"
     usage
+    exit 22
 fi
 
 # We do a 1st cleanup of branch zero using branchZeroDenylist (which might be none).
@@ -170,6 +169,7 @@ then
     then
         echo "Error: The -zd <branch zero deny file> does not exist and is not the word NONE"
         usage
+        exit 22
     else
         # only if the deny branch zero has been overwritten and file exists
         has_deny_branch_zero_override=1
@@ -184,6 +184,7 @@ if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
     echo
     usage
+    exit 22
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
@@ -236,7 +237,6 @@ echo "export deny_unit_list=$deny_unit_list" >> $args_file
 echo "export deny_branches_list=$deny_branches_list" >> $args_file
 echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
-echo "export isAWS=$isAWS" >> $args_file
 echo "export skipcal=$skipcal" >> $args_file
 echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
 

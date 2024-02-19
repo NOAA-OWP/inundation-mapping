@@ -9,6 +9,9 @@ import pandas as pd
 from stream_branches import StreamNetwork
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def Subset_catch_list(
     catch_list, stream_network, branch_id_attribute, branch_id_list=None, out_catch_list=None, verbose=False
 ):

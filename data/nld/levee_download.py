@@ -14,6 +14,9 @@ from tqdm import tqdm
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 epsg_code = re.search(r'\d+$', DEFAULT_FIM_PROJECTION_CRS).group()
 today = datetime.now().strftime('%y%m%d')
 nld_vector_output = os.path.join(INPUTS_DIR, 'nld_vectors', f'System_Routes_NLDFS_5070_{today}.gpkg')

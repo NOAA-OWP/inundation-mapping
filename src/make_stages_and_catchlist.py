@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import sys
 
 import geopandas as gpd
 import numpy as np
+
+
+gpd.options.io_engine = "pyogrio"
 
 
 def make_stages_and_catchlist(

@@ -11,6 +11,9 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import PREP_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def convert_grid_cells_to_points(raster, index_option, output_points_filename=False):
     # Input raster
     if isinstance(raster, str):

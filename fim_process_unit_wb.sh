@@ -129,7 +129,7 @@ fi
 
 # Move the contents of the temp directory into the outputs directory and update file permissions
 mv -f $tempHucDataDir $outputHucDataDir
-find $outputHucDataDir -type d -exec chmod 777 {} +
+find $outputHucDataDir -type d -exec chmod -R 777 {} +
 
 echo "============================================================================================="
 echo

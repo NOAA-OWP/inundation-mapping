@@ -46,8 +46,6 @@ usage()
       -o                : Overwrite outputs if they already exist.
       -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
                             will be skipped.
-      -isaws            : If this param is included, AWS objects will be used where possible
-                        - Note: This feature is not yet implemented.
       -x                : If this param is included, the crosswalk will be evaluated.
 
 
@@ -104,13 +102,13 @@ if [ -f "$hucList" ]; then
     if [ "$jobHucLimit" = "1" ]; then
         parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     else
-        parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
+        parallel -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
     fi
 else
     if [ "$jobHucLimit" = "1" ]; then
         parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName ::: $hucList
     else
-        parallel --eta -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file  $runName  ::: $hucList
+        parallel -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file  $runName  ::: $hucList
     fi
 fi
 
