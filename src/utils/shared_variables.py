@@ -139,6 +139,7 @@ OVERWRITE_NHD = 'OVERWRITE_NHD'
 OVERWRITE_ALL = 'OVERWRITE_ALL'
 
 # Rating Curve Adjustment (local calibration) variables
-DOWNSTREAM_THRESHOLD = 10  # distance in km to propogate new roughness values downstream
+USGS_CALB_TRACE_DIST = 8.0  # distance in km to walk the network and perform USGS rating calibation for SRCs
+DOWNSTREAM_THRESHOLD = 8.0  # distance in km to propogate new roughness values downstream (group mean)
 ROUGHNESS_MAX_THRESH = 0.8  # max allowable adjusted roughness value (void values larger than this)
 ROUGHNESS_MIN_THRESH = 0.001  # min allowable adjusted roughness value (void values smaller than this)
