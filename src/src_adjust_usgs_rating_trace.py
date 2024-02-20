@@ -195,6 +195,9 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
 
 
 def trace_network(df, start_id):
+    # This function creates a list of all upstream & downstream hydroids
+    # Input: df --> dataframe of demDerived_reaches with network attribs
+    # Input: start_id --> hydroid value where the trace routine will start
     current_id = start_id
     trace_up = []
     trace_down = []
@@ -297,7 +300,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)]
 
             # Calculate updstream/downstream trace ()
-            max_length = 8.0
             df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
 
             # Change the data type of 'HydroID' and 'NextDownID' to int
@@ -309,7 +311,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 start_id = row['hydroid']
 
                 # Trace the network for each row
-                up, down = trace_network(df, start_id, max_length)
+                up, down = trace_network(df, start_id)
 
                 # Append the results to the "usgs_elev" dataframe
                 usgs_elev = usgs_elev.copy()
@@ -420,6 +422,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
     with Pool(processes=job_number) as pool:
         log_output = pool.starmap(update_rating_curve, procs_list)
         log_file.writelines(["%s\n" % item for item in log_output])
+    # TO-DO update the error handling to properly capture issues in the multiprocessing
     # try statement for debugging
     # try:
     #     with Pool(processes=job_number) as pool:
