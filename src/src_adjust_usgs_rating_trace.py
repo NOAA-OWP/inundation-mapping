@@ -10,6 +10,7 @@ import pandas as pd
 
 from src_roughness_optimization import update_rating_curve
 from utils.shared_functions import check_file_age, concat_huc_csv
+from utils.shared_variables import USGS_CALB_TRACE_DIST
 
 
 '''
@@ -193,7 +194,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     return final_df
 
 
-def trace_network(df, start_id, max_length):
+def trace_network(df, start_id, USGS_CALB_TRACE_DIST):
     current_id = start_id
     trace_up = []
     trace_down = []
@@ -219,7 +220,7 @@ def trace_network(df, start_id, max_length):
             break
 
         accumulated_length += length
-        if accumulated_length >= max_length:
+        if accumulated_length >= float(USGS_CALB_TRACE_DIST):
             break
 
         if lake > 0:
@@ -247,7 +248,7 @@ def trace_network(df, start_id, max_length):
             break
 
         accumulated_length += length
-        if accumulated_length >= max_length:
+        if accumulated_length >= float(USGS_CALB_TRACE_DIST):
             break
 
         if lake > 0:
