@@ -12,7 +12,6 @@ from src_roughness_optimization import update_rating_curve
 from utils.shared_functions import check_file_age, concat_huc_csv
 
 
-# test
 '''
 The script ingests a USGS rating curve csv and a NWM flow recurrence interval database.
 The gage location will be associated to the corresponding hydroID and attributed with the HAND elevation value
@@ -132,10 +131,11 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         if merge_df['hydroid'].isnull().values.any():
             log_text += 'HUC: ' + str(merge_df['huc']) + ' --> Null values found in "hydroid"... \n'
 
-        # Create dataframe with crosswalked USGS flow and NWM recurr flow
+        # Create dataframe with crosswalked USGS flow and NWM recurr flow &
+        # find the index of the closest matching flow btw USGS rating and NWM recur
         calc_df = merge_df.loc[merge_df.groupby(['location_id', 'levpa_id'])['Q_find'].idxmin()].reset_index(
             drop=True
-        )  # find the index of the Q_1_5_find (closest matching flow)
+        )  
         # Calculate flow difference (variance) to check for large discrepancies between
         # NWM flow and USGS closest flow
         calc_df['check_variance'] = (
