@@ -22,8 +22,10 @@ from tqdm import tqdm
 from utils.shared_variables import PREP_CRS
 
 
-class StreamNetwork(gpd.GeoDataFrame):
+gpd.options.io_engine = "pyogrio"
 
+
+class StreamNetwork(gpd.GeoDataFrame):
     """
     Notes:
         - Many of the methods support two attributes called branch_id_attribute and values_excluded.

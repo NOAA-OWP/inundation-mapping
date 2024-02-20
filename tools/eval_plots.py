@@ -20,6 +20,9 @@ from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
 from utils.shared_variables import VIZ_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 # Get variables from .env file.
 load_dotenv()
 WBD_LAYER = os.getenv("WBD_LAYER")

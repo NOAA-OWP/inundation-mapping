@@ -8,6 +8,9 @@ import geopandas as gpd
 from stream_branches import StreamBranchPolygons, StreamNetwork
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def buffer_stream_branches(
     streams_file: str,
     branch_id_attribute: str,

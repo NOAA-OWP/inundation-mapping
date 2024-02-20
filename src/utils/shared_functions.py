@@ -18,6 +18,9 @@ from tqdm import tqdm
 import utils.shared_variables as sv
 
 
+gp.options.io_engine = "pyogrio"
+
+
 def getDriver(fileName):
     driverDictionary = {'.gpkg': 'GPKG', '.geojson': 'GeoJSON', '.shp': 'ESRI Shapefile'}
     driver = driverDictionary[splitext(fileName)[1]]

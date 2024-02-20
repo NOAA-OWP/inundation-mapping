@@ -12,6 +12,9 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def Crosswalk_nwm_demDerived(
     nwm_streams,
     demDerived,

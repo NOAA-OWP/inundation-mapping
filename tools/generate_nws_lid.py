@@ -14,6 +14,9 @@ from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 from utils.shared_variables import PREP_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 load_dotenv()
 # import variables from .env file
 API_BASE_URL = os.getenv("API_BASE_URL")

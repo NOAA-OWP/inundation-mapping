@@ -25,6 +25,9 @@ from rasterio import plot as rioplot
 from shapely.geometry import Polygon
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """

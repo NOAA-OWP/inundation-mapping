@@ -13,6 +13,9 @@ from dotenv import load_dotenv
 from tools_shared_functions import get_metadata
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 load_dotenv()
 
 

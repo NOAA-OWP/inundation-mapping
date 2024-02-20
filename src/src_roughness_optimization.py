@@ -16,6 +16,9 @@ from geopandas.tools import sjoin
 from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MAX_THRESH, ROUGHNESS_MIN_THRESH
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def update_rating_curve(
     fim_directory,
     water_edge_median_df,
