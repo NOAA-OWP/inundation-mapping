@@ -152,8 +152,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
         -run_dir $outputDestDir \
         -usgs_rc $usgs_rating_curve_csv \
         -nwm_recur $nwm_recur_file \
-        -j $jobLimit \
-        -debug
+        -j $jobLimit
     Tcount
     date -u
 fi
