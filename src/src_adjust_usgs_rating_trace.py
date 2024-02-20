@@ -272,7 +272,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
     # branch_huc_dict = pd.Series(usgs_df.levpa_id.values,index=usgs_df.huc).to_dict('list')
     # branch_huc_dict = usgs_df.set_index('huc').T.to_dict('list')
     huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
-    print("Code is here...........")
 
     for huc in sorted(
         huc_branch_dict.keys()
