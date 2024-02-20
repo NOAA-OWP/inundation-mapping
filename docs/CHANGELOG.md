@@ -2,6 +2,23 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.4.X.X - 2024-02-20 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
+
+This enhancement includes changes to the SRC calibration routine that uses the USGS published rating curve database. The modifications attempt to mimic the technique used in the stage-based CatFIM where the USGS WSE/flow is propagated upstream and downstream of the gauge location. This closes #892 
+
+### Additions
+`src/src_adjust_usgs_rating_trace.py`: updated SRC calibration routine to include the a new upstream/downstream tracing routine. The WSE(HAND stage) and flow targets obtained from the USGS rating curve are now applied to all hydroids within 8km (~5 miles) of the gauge location.  
+
+### Changes
+`fim_post_processing.sh`: using the new `src_adjust_usgs_rating_trace.py` in place of the `src_adjust_usgs_rating.py`
+`src/src_roughness_optimization.py`: minor changes to facilitate new calibration input (reset index)
+`src/utils/shared_variables.py`: added `USGS_CALB_TRACE_DIST` as the trace distance variable
+
+### Removals
+`src/src_adjust_usgs_rating.py`: deprecated (replaced with the new `src_adjust_usgs_rating_trace.py`)
+
+<br/><br/>
+
 ## v4.4.11.0 - 2024-02-16 - [PR#1077](https://github.com/NOAA-OWP/inundation-mapping/pull/1077)
 
 Replace `fiona` with `pyogrio` to improve I/O speed. `geopandas` will use `pyogrio` by default starting with version 1.0. `pyarrow` was also added as an environment variable to further speedup I/O. As a result of the changes in this PR, `fim_pipeline.sh` runs approximately 10% faster.
