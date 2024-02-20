@@ -136,7 +136,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
         # find the index of the closest matching flow btw USGS rating and NWM recur
         calc_df = merge_df.loc[merge_df.groupby(['location_id', 'levpa_id'])['Q_find'].idxmin()].reset_index(
             drop=True
-        )  
+        )
         # Calculate flow difference (variance) to check for large discrepancies between
         # NWM flow and USGS closest flow
         calc_df['check_variance'] = (
@@ -194,7 +194,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     return final_df
 
 
-def trace_network(df, start_id, USGS_CALB_TRACE_DIST):
+def trace_network(df, start_id):
     current_id = start_id
     trace_up = []
     trace_down = []
