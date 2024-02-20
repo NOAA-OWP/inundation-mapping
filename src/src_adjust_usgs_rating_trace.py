@@ -1,11 +1,11 @@
 import argparse
 import datetime as dt
-import geopandas as gpd
 import multiprocessing
 import os
 import sys
 from multiprocessing import Pool
 
+import geopandas as gpd
 import pandas as pd
 
 from src_roughness_optimization import update_rating_curve
@@ -192,6 +192,7 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     log_usgs_db.close()
     return final_df
 
+
 def trace_network(df, start_id, max_length):
     current_id = start_id
     trace_up = []
@@ -208,7 +209,7 @@ def trace_network(df, start_id, max_length):
         next_id = current_row['NextDownID'].values[0]
         order = current_row['order_'].values[0]
         length = current_row['LengthKm'].values[0]
-        lake = current_row['LakeID'].values[0]        
+        lake = current_row['LakeID'].values[0]
 
         # Assign start_order when first encountered
         if start_order is None:
@@ -223,7 +224,7 @@ def trace_network(df, start_id, max_length):
 
         if lake > 0:
             break
-        
+
         # not dropping the HydroID that has the gauge location (need later)
         trace_down.append(int(current_id))
 
@@ -251,13 +252,14 @@ def trace_network(df, start_id, max_length):
 
         if lake > 0:
             break
-        
+
         if current_id != start_id:
             trace_up.append(current_id)
 
         current_id = next_id
 
     return trace_up, trace_down
+
 
 def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
     procs_list = []  # Initialize list for mulitprocessing.
@@ -286,22 +288,25 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
             )
             htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-            dem_reaches_path = os.path.join(branch_dir, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg')
+            dem_reaches_path = os.path.join(
+                branch_dir,
+                'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
+            )
             df = gpd.read_file(dem_reaches_path)
             usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)]
 
             # Calculate updstream/downstream trace ()
             max_length = 8.0
             df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
-            
+
             # Change the data type of 'HydroID' and 'NextDownID' to int
             df['HydroID'] = df['HydroID'].astype(int)
             df['NextDownID'] = df['NextDownID'].astype(int)
-            
+
             # Loop through every row in the "usgs_elev" dataframe
             for index, row in usgs_elev.iterrows():
                 start_id = row['hydroid']
-                
+
                 # Trace the network for each row
                 up, down = trace_network(df, start_id, max_length)
 
@@ -309,14 +314,24 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 usgs_elev = usgs_elev.copy()
                 usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
                 usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
-            
+
             # Handle NaN values and ignore rows where up/down trace list is empty
-            usgs_elev['up'] = usgs_elev['up'].astype(str).apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
-            usgs_elev['down'] = usgs_elev['down'].astype(str).apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+            usgs_elev['up'] = (
+                usgs_elev['up']
+                .astype(str)
+                .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+            )
+            usgs_elev['down'] = (
+                usgs_elev['down']
+                .astype(str)
+                .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+            )
 
             # Combine the up & down hydroid lists into a new column
-            usgs_elev['trace_hydroid'] = [lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])]
-            
+            usgs_elev['trace_hydroid'] = [
+                lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])
+            ]
+
             # Drop up & down columns
             columns_to_drop = ['up', 'down']
             usgs_elev.drop(columns=columns_to_drop, inplace=True)
@@ -328,7 +343,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('nan', 0)
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('', 0)
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].astype(int)
-            
+
             # Rename columns
             usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
             usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
