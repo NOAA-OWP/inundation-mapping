@@ -145,7 +145,7 @@ def mitigate_branch_outlet_backpool(
         # Calculate flowline initial length
         toMetersConversion = 1e-3
         initial_length_km = flow.geometry.length.iloc[0] * toMetersConversion
-        
+
         # Reset index if there is an index mismatch
         if flow.index != outlet_point.index:
             print('WARNING: Index mismatch detected')
@@ -307,10 +307,11 @@ def mitigate_branch_outlet_backpool(
             print('WARNING: Zero stream segments found with NextDownID of -1.')
             one_neg1_nextdownid = False
 
-
         # Check whether catchment_pixels_geom exists
         if (catchment_pixels_geom is not None) and (one_neg1_nextdownid is True):
-            print('A catchment geom file and only one NextDownID of -1 were found, testing for backpool criteria...')  # verbose
+            print(
+                'A catchment geom file and only one NextDownID of -1 were found, testing for backpool criteria...'
+            )  # verbose
 
             # Check whether any pixel catchment is substantially larger than other catchments
             # (Backpool Error Criteria 1)
@@ -321,7 +322,6 @@ def mitigate_branch_outlet_backpool(
             # (Backpool Error Criteria 2)
 
             if flagged_catchment is True:
-
                 # Apply the function to create a new GeoDataFrame
                 last_point = split_flows_last_geom['geometry'].apply(extract_last_point).apply(Point)
                 last_point_geom = gpd.GeoDataFrame(last_point, columns=['geometry'], crs=split_flows_geom.crs)
