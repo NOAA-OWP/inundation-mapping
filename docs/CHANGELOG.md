@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.4.11.1 - 2024-03-08 - [PR#1080](https://github.com/NOAA-OWP/inundation-mapping/pull/1080)
+
+Fixes bug in bathymetric adjustment where `mask` is used with `geopandas.read_file`. The solution is to force `read_file` to use `fiona` instead of `pyogrio`.
+
+### Changes
+
+`src/bathymetric_adjustment.py`: Use `engine=fiona` instead of default `pyogrio` to use `mask=` with `geopandas.read_file`
+
+<br/><br/>
+
 ## v4.4.11.0 - 2024-02-16 - [PR#1077](https://github.com/NOAA-OWP/inundation-mapping/pull/1077)
 
 Replace `fiona` with `pyogrio` to improve I/O speed. `geopandas` will use `pyogrio` by default starting with version 1.0. `pyarrow` was also added as an environment variable to further speedup I/O. As a result of the changes in this PR, `fim_pipeline.sh` runs approximately 10% faster.
@@ -19,7 +29,6 @@ Replace `fiona` with `pyogrio` to improve I/O speed. `geopandas` will use `pyogr
         - `adjust_rc_with_feedback.py`, `check_deep_flooding.py`, `create_flow_forecast_file.py`, `eval_plots.py`, `evaluate_continuity.py`, `evaluate_crosswalk.py`, `fimr_to_benchmark.py`, `find_max_catchment_breadth.py`, `generate_categorical_fim.py`, `generate_categorical_fim_flows.py`, `generate_categorical_fim_mapping.py`, `generate_nws_lid.py`, `hash_compare.py`, `inundate_events.py`, `inundation.py`, `make_boxes_from_bounds.py`, `mosaic_inundation.py`, `overlapping_inundation.py`, `rating_curve_comparison.py`, `rating_curve_get_usgs_curves.py`, `test_case_by_hydro_id.py`, `tools_shared_functions.py`
         
 <br/><br/>
-
 
 ## v4.4.10.1 - 2024-02-16 - [PR#1075](https://github.com/NOAA-OWP/inundation-mapping/pull/1075)
 
