@@ -9,6 +9,8 @@ import geopandas as gpd
 import rasterio
 
 
+gpd.options.io_engine = "pyogrio"
+
 warnings.simplefilter("ignore")
 
 

@@ -16,6 +16,9 @@ from rasterio.windows import from_bounds
 from scipy.optimize import newton
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 class OverlapWindowMerge:
     def __init__(self, inundation_rsts, num_partitions=None, window_xy_size=None):
         """

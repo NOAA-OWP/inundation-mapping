@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import json
 
 import geopandas as gpd
 import pandas as pd
-from numpy import unique
 
-from utils.shared_functions import getDriver
+
+gpd.options.io_engine = "pyogrio"
 
 
 def finalize_srcs(srcbase, srcfull, hydrotable, output_srcfull=None, output_hydrotable=None):

@@ -11,6 +11,9 @@ import rasterio as rio
 from rasterio.mask import mask
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def mask_dem(
     dem_filename: str,
     nld_filename: str,

@@ -22,6 +22,52 @@ If both criteria are met for a branch, then the issue is mitigated by trimming t
 
 <br/><br/>
 
+
+## v4.4.11.1 - 2024-03-08 - [PR#1080](https://github.com/NOAA-OWP/inundation-mapping/pull/1080)
+
+Fixes bug in bathymetric adjustment where `mask` is used with `geopandas.read_file`. The solution is to force `read_file` to use `fiona` instead of `pyogrio`.
+
+### Changes
+
+`src/bathymetric_adjustment.py`: Use `engine=fiona` instead of default `pyogrio` to use `mask=` with `geopandas.read_file`
+
+<br/><br/>
+
+## v4.4.11.0 - 2024-02-16 - [PR#1077](https://github.com/NOAA-OWP/inundation-mapping/pull/1077)
+
+Replace `fiona` with `pyogrio` to improve I/O speed. `geopandas` will use `pyogrio` by default starting with version 1.0. `pyarrow` was also added as an environment variable to further speedup I/O. As a result of the changes in this PR, `fim_pipeline.sh` runs approximately 10% faster.
+
+### Changes
+
+- `Pipfile`: Upgraded `geopandas` from v0.12.2 to v0.14.3, added `pyogrio`, and fixed version of `pyflwdir`.
+- `src/bash_variables.env`: Added environment variable for `pyogrio` to use `pyarrow`
+- To all of the following files: Added `pyogrio` and `pyarrow`
+    - `data/`
+        - `bathymetry/preprocess_bathymetry.py`, `ble/ble_benchmark/create_flow_forecast_file.py`, `esri.py`, `nld/levee_download.py`, `usgs/acquire_and_preprocess_3dep_dems.py`, `wbd/clip_vectors_to_wbd.py`, `wbd/preprocess_wbd.py`, `write_parquet_from_calib_pts.py`
+    - `src/`
+        - `add_crosswalk.py`, `associate_levelpaths_with_levees.py`, `bathy_rc_adjust.py`, `bathymetric_adjustment.py`, `buffer_stream_branches.py`, `build_stream_traversal.py`, `crosswalk_nwm_demDerived.py`, `derive_headwaters.py`, `derive_level_paths.py`, `edit_points.py`, `filter_catchments_and_add_attributes.py`, `finalize_srcs.py`, `make_stages_and_catchlist.py`, `mask_dem.py`, `reachID_grid_to_vector_points.py`, `split_flows.py`, `src_adjust_spatial_obs.py`, `stream_branches.py`, `subset_catch_list_by_branch_id.py`, `usgs_gage_crosswalk.py`, `usgs_gage_unit_setup.py`, `utils/shared_functions.py`
+    - `tools/`
+        - `adjust_rc_with_feedback.py`, `check_deep_flooding.py`, `create_flow_forecast_file.py`, `eval_plots.py`, `evaluate_continuity.py`, `evaluate_crosswalk.py`, `fimr_to_benchmark.py`, `find_max_catchment_breadth.py`, `generate_categorical_fim.py`, `generate_categorical_fim_flows.py`, `generate_categorical_fim_mapping.py`, `generate_nws_lid.py`, `hash_compare.py`, `inundate_events.py`, `inundation.py`, `make_boxes_from_bounds.py`, `mosaic_inundation.py`, `overlapping_inundation.py`, `rating_curve_comparison.py`, `rating_curve_get_usgs_curves.py`, `test_case_by_hydro_id.py`, `tools_shared_functions.py`
+        
+<br/><br/>
+
+## v4.4.10.1 - 2024-02-16 - [PR#1075](https://github.com/NOAA-OWP/inundation-mapping/pull/1075)
+
+We recently added code to fim_pre_processing.sh that checks the CPU count. Earlier this test was being done in post-processing and was killing a pipeline that had already been running for a while.
+
+Fix:
+- Removed the CPU test from pre-processing. This puts us back to it possibly failing in post-processing but we have to leave it for now. 
+- Exit status codes (non 0) are now returned in pre-processing and post-processing when an error has occurred.
+
+Tested that the a non zero return exit from pre-processing shuts down the AWS step functions.
+
+### Changes
+- `fim_pre_processing.sh`: added non zero exit codes when in error, plus removed CPU test
+- `fim_post_processing.sh`:  added non zero exit codes when in error
+
+<br/><br/>
+
+
 ## v4.4.10.0 - 2024-02-02 - [PR#1054](https://github.com/NOAA-OWP/inundation-mapping/pull/1054)
 
 Recent testing exposed a bug with the `acquire_and_preprocess_3dep_dems.py` script. It lost the ability to be re-run and look for files that were unsuccessful earlier attempts and try them again. It may have been lost due to confusion of the word "retry". Now "retry" means restart the entire run. A new flag called "repair"  has been added meaning fix what failed earlier.  This is a key feature it is common for communication failures when calling USGS to download DEMs.  And with some runs taking many hours, this feature becomes important.

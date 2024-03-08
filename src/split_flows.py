@@ -69,6 +69,9 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def split_flows(
     flows_filename,
     dem_filename,

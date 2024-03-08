@@ -19,6 +19,9 @@ import utils.shared_validators as val
 from utils.shared_functions import FIM_Helpers as fh
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 '''
 TODO:
     - Add input args for resolution size, which means URL and block size also hve to be parameterized.
