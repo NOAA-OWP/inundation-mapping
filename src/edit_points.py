@@ -5,6 +5,9 @@ import argparse
 import geopandas as gpd
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def Edit_points(
     stream_reaches,
     branch_id_attribute,

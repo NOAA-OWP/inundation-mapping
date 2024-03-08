@@ -8,6 +8,9 @@ from shapely.geometry import Point
 from utils.shared_functions import getDriver
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def findHeadWaterPoints(flows):
     flows = flows.explode(index_parts=True)
     headwater_points = []

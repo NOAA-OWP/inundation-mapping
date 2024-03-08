@@ -22,12 +22,14 @@ import rasterio
 from shapely import ops, wkt
 from shapely.geometry import LineString, Point
 from shapely.ops import split as shapely_ops_split
-from tqdm import tqdm
 
 import build_stream_traversal
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
+
+
+gpd.options.io_engine = "pyogrio"
 
 
 def split_flows(
@@ -202,7 +204,7 @@ def split_flows(
         print("No relevant streams within HUC boundaries.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
-    for i, lineString in tqdm(enumerate(flows.geometry), total=len(flows.geometry)):
+    for i, lineString in enumerate(flows.geometry):
         # Reverse geometry order (necessary for BurnLines)
         lineString = LineString(lineString.coords[::-1])
 

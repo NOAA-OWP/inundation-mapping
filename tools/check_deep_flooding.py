@@ -14,6 +14,9 @@ from rasterio.warp import Resampling, calculate_default_transform, reproject
 from shapely.geometry import box
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def check_deep_flooding(args):
     depth_grid_path = args[0]
     shapefile_path = args[1]

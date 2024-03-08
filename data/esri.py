@@ -5,6 +5,9 @@ import requests
 from tqdm import tqdm
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 class ESRI_REST(object):
     """
     This class was built for querying ESRI REST endpoints for the purpose of downloading datasets.

@@ -10,6 +10,9 @@ from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def Derive_level_paths(
     in_stream_network,
     wbd,
@@ -98,7 +101,7 @@ def Derive_level_paths(
         reach_id_attribute=reach_id_attribute,
         toNode_attribute=toNode_attribute,
         fromNode_attribute=fromNode_attribute,
-        verbose=True,
+        verbose=False,
     )
 
     # derive arbolate sum

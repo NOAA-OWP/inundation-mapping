@@ -6,6 +6,9 @@ import os
 import geopandas as gpd
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def create_flow_forecast_file(
     ble_geodatabase,
     nwm_geodatabase,

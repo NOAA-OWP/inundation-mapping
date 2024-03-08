@@ -46,6 +46,7 @@ if [ "$runName" = "" ]
 then
     echo "ERROR: Missing -n run time name argument"
     usage
+    exit 22
 fi
 
 outputDestDir=$outputsDir/$runName
@@ -210,11 +211,14 @@ echo
 echo -e $startDiv"Combining crosswalk tables"
 # aggregate outputs
 Tstart
-python3 /foss_fim/tools/combine_crosswalk_tables.py \
+python3 $toolsDir/combine_crosswalk_tables.py \
     -d $outputDestDir \
     -o $outputDestDir/crosswalk_table.csv
 Tcount
 date -u
+
+find $outputDestDir -type d -exec chmod -R 777 {} +
+find $outputDestDir -type f -exec chmod -R 777 {} +
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
