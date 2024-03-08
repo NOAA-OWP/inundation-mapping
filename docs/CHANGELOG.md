@@ -23,6 +23,26 @@ If both criteria are met for a branch, then the issue is mitigated by trimming t
 <br/><br/>
 
 
+## v4.4.x.x - 2024-02-16 - [PR#1078](https://github.com/NOAA-OWP/inundation-mapping/pull/1078)
+
+Resolves issue #1033 by adding Alaska-specific data to the FIM input folders and updating the pre-clip vector process to use the proper data and CRS when an Alaska HUC is detected. The `-wbd` flag was removed from the optional arguments of `generate_pre_clip_fim_huc8`. The WBD file path will now only be sourced from the `bash_variables.env` file. The `bash_variables.env` file has been updated to include the new Alaska-specific FIM input files.
+
+### Changes
+
+- `/data/wbd/`
+    - `clip_vectors_to_wbd.py`: Replaced all CRS inputs with the `huc_CRS` variable, which is input based on whether the HUC is Alaska or CONUS. Previously, the default FIM projection was automatically assigned as the CRS (which had been retrieved from `utils.shared_variables`).
+
+    - `generate_pre_clip_fim_huc8.py`:
+        - Added Alaska projection and links to the new Alaska data file paths that were added to `bash_variables.env`.
+        - Removed the `wbd` argument from the `pre_clip_hucs_from_wbd` function and made it so that the code gets the WBD path from `bash_variables.env`.
+        - Added logic to check whether the HUC is in Alaska and, if so, use the Alaska-specific HUC and input file paths.
+        - Cleaned up the spelling and formatting of some comments
+- `/src/`
+    - `bash_variables.env`: Added the Alaska-specific projection (EPSG:3338) and file paths for Alaska-specific data (see data changelog for list of new input data)
+
+<br/><br/>
+
+
 ## v4.4.11.1 - 2024-03-08 - [PR#1080](https://github.com/NOAA-OWP/inundation-mapping/pull/1080)
 
 Fixes bug in bathymetric adjustment where `mask` is used with `geopandas.read_file`. The solution is to force `read_file` to use `fiona` instead of `pyogrio`.
