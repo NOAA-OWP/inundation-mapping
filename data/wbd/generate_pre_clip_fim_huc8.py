@@ -427,7 +427,7 @@ if __name__ == '__main__':
         'the output directory specified as the <outputs_dir> argument.',
         usage='''
             ./generate_pre_clip_fim_huc8.py
-                -n /data/inputs/pre_clip_huc8/24_3_20
+                -n /data/inputs/pre_clip_huc8/2024_3_20
                 -u /data/inputs/huc_lists/included_huc8.lst
                 -j 6
                 -o
@@ -438,7 +438,7 @@ if __name__ == '__main__':
         '-n',
         '--outputs_dir',
         help='Directory to output all of the HUC level .gpkg files. Use the format: '
-        '<year_month_day> (i.e. September 26, 2023 would be 23_9_26)',
+        '<year_month_day> (i.e. September 26, 2023 would be 2023_9_26)',
     )
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
     parser.add_argument(
