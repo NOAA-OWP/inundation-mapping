@@ -1,6 +1,57 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.13.0 - 2024-03-11 - [PR#1006](https://github.com/NOAA-OWP/inundation-mapping/pull/1006)
+
+Adds a new module that mitigates the branch outlet backpool error. In some HUCs, an overly-large catchment appears at the outlet of the branch (as in issue #985) which causes an artificially large amount of water to get routed to the smaller stream instead of the main stem. This issue is mitigated by trimming the levelpath just above the outlet and removing the offending pixel catchment from the pixel catchments and catchment reaches files. 
+
+The branch outlet backpool issue is identified based on two criteria: 
+  1. There is a pixel catchment that is abnormally large (more than two standard deviations above the mean.)
+  2. The abnormally-large pixel catchment occurs at the outlet of the levelpath.
+
+If both criteria are met for a branch, then the issue is mitigated by trimming the flowline to the third-to-last point.
+
+### Additions
+
+- `src/mitigate_branch_outlet_backpool.py`: Detects and mitigates the branch outlet backpool error. If both branch outlet backpool criteria are met, the snapped point is set to be the penultimate vertex and then the flowline is trimmed to that point (instead of the last point). Trims the `gw_catchments_pixels_<id>.tif` and `gw_catchments_reaches_<id>.tif` rasters by using `gdal_polygonize.py` to polygonize the `gw_pixel_catchments_<id>.tif` file, creating a mask that excludes the problematic pixel catchment, and then using that mask to trim the pixel catchment and catchment reaches rasters.
+
+### Changes
+
+- `src/delineate_hydros_and_produce_HAND.sh`: Adds the `mitigate_branch_outlet_backpool.py` module to run after the  `Gage Watershed for Pixels` step. 
+- `src/split_flows.py`: Improves documentation and readability.
+
+<br/><br/>
+
+
+## v4.4.12.0 - 2024-03-11 - [PR#1078](https://github.com/NOAA-OWP/inundation-mapping/pull/1078)
+
+Resolves issue #1033 by adding Alaska-specific data to the FIM input folders and updating the pre-clip vector process to use the proper data and CRS when an Alaska HUC is detected. The `-wbd` flag was removed from the optional arguments of `generate_pre_clip_fim_huc8`. The WBD file path will now only be sourced from the `bash_variables.env` file. The `bash_variables.env` file has been updated to include the new Alaska-specific FIM input files.
+
+### Changes
+
+- `/data/wbd/`
+    - `clip_vectors_to_wbd.py`: Replaced all CRS inputs with the `huc_CRS` variable, which is input based on whether the HUC is Alaska or CONUS. Previously, the default FIM projection was automatically assigned as the CRS (which had been retrieved from `utils.shared_variables`).
+
+    - `generate_pre_clip_fim_huc8.py`:
+        - Added Alaska projection and links to the new Alaska data file paths that were added to `bash_variables.env`.
+        - Removed the `wbd` argument from the `pre_clip_hucs_from_wbd` function and made it so that the code gets the WBD path from `bash_variables.env`.
+        - Added logic to check whether the HUC is in Alaska and, if so, use the Alaska-specific HUC and input file paths.
+        - Cleaned up the spelling and formatting of some comments
+- `/src/`
+    - `bash_variables.env`: Added the Alaska-specific projection (EPSG:3338) and file paths for Alaska-specific data (see data changelog for list of new input data)
+
+<br/><br/>
+
+
+## v4.4.11.1 - 2024-03-08 - [PR#1080](https://github.com/NOAA-OWP/inundation-mapping/pull/1080)
+
+Fixes bug in bathymetric adjustment where `mask` is used with `geopandas.read_file`. The solution is to force `read_file` to use `fiona` instead of `pyogrio`.
+
+### Changes
+
+`src/bathymetric_adjustment.py`: Use `engine=fiona` instead of default `pyogrio` to use `mask=` with `geopandas.read_file`
+
+<br/><br/>
 
 ## v4.4.x.x - 2024-02-23 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
@@ -159,7 +210,6 @@ The alpha test for v4.4.8.1 came back with a large degradation in skill and we n
 - `src`/`bash_variables.env`: changed the global roughness file to `${inputsDir}/rating_curve/variable_roughness/mannings_global_06_12.csv`
 
 <br/><br/>
-
 
 ## v4.4.8.1 - 2023-12-08 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
 
