@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
+
+Fixes bug where levee-protected areas were not being masked from branch 0 DEMs.
+
+### Changes
+
+`src/mask_dem.py`: Corrects indentation preventing masked branch 0 from overwriting existing DEM.
+
+<br/><br/>
+
 ## v4.4.13.0 - 2024-03-11 - [PR#1006](https://github.com/NOAA-OWP/inundation-mapping/pull/1006)
 
 Adds a new module that mitigates the branch outlet backpool error. In some HUCs, an overly-large catchment appears at the outlet of the branch (as in issue #985) which causes an artificially large amount of water to get routed to the smaller stream instead of the main stem. This issue is mitigated by trimming the levelpath just above the outlet and removing the offending pixel catchment from the pixel catchments and catchment reaches files. 
@@ -53,15 +64,6 @@ Fixes bug in bathymetric adjustment where `mask` is used with `geopandas.read_fi
 
 <br/><br/>
 
-## v4.4.x.x - 2024-02-23 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
-
-Fixes bug where levee-protected areas were not being masked from branch 0 DEMs.
-
-### Changes
-
-`src/mask_dem.py`: Corrects indentation preventing masked branch 0 from overwriting existing DEM.
-
-<br/><br/>
 
 ## v4.4.11.0 - 2024-02-16 - [PR#1077](https://github.com/NOAA-OWP/inundation-mapping/pull/1077)
 
