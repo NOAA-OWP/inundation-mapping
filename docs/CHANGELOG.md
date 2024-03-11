@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.____ - 2024-03-07 - [PR#1006](https://github.com/NOAA-OWP/inundation-mapping/pull/1006)
+## v4.4.13.0 - 2024-03-11 - [PR#1006](https://github.com/NOAA-OWP/inundation-mapping/pull/1006)
 
 Adds a new module that mitigates the branch outlet backpool error. In some HUCs, an overly-large catchment appears at the outlet of the branch (as in issue #985) which causes an artificially large amount of water to get routed to the smaller stream instead of the main stem. This issue is mitigated by trimming the levelpath just above the outlet and removing the offending pixel catchment from the pixel catchments and catchment reaches files. 
 
@@ -19,26 +19,6 @@ If both criteria are met for a branch, then the issue is mitigated by trimming t
 
 - `src/delineate_hydros_and_produce_HAND.sh`: Adds the `mitigate_branch_outlet_backpool.py` module to run after the  `Gage Watershed for Pixels` step. 
 - `src/split_flows.py`: Improves documentation and readability.
-
-<br/><br/>
-
-
-## v4.4.x.x - 2024-02-16 - [PR#1078](https://github.com/NOAA-OWP/inundation-mapping/pull/1078)
-
-Resolves issue #1033 by adding Alaska-specific data to the FIM input folders and updating the pre-clip vector process to use the proper data and CRS when an Alaska HUC is detected. The `-wbd` flag was removed from the optional arguments of `generate_pre_clip_fim_huc8`. The WBD file path will now only be sourced from the `bash_variables.env` file. The `bash_variables.env` file has been updated to include the new Alaska-specific FIM input files.
-
-### Changes
-
-- `/data/wbd/`
-    - `clip_vectors_to_wbd.py`: Replaced all CRS inputs with the `huc_CRS` variable, which is input based on whether the HUC is Alaska or CONUS. Previously, the default FIM projection was automatically assigned as the CRS (which had been retrieved from `utils.shared_variables`).
-
-    - `generate_pre_clip_fim_huc8.py`:
-        - Added Alaska projection and links to the new Alaska data file paths that were added to `bash_variables.env`.
-        - Removed the `wbd` argument from the `pre_clip_hucs_from_wbd` function and made it so that the code gets the WBD path from `bash_variables.env`.
-        - Added logic to check whether the HUC is in Alaska and, if so, use the Alaska-specific HUC and input file paths.
-        - Cleaned up the spelling and formatting of some comments
-- `/src/`
-    - `bash_variables.env`: Added the Alaska-specific projection (EPSG:3338) and file paths for Alaska-specific data (see data changelog for list of new input data)
 
 <br/><br/>
 
