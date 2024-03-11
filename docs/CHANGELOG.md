@@ -1,6 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.13.0 - 2024-03-11 - [PR#1006](https://github.com/NOAA-OWP/inundation-mapping/pull/1006)
+
+Adds a new module that mitigates the branch outlet backpool error. In some HUCs, an overly-large catchment appears at the outlet of the branch (as in issue #985) which causes an artificially large amount of water to get routed to the smaller stream instead of the main stem. This issue is mitigated by trimming the levelpath just above the outlet and removing the offending pixel catchment from the pixel catchments and catchment reaches files. 
+
+The branch outlet backpool issue is identified based on two criteria: 
+  1. There is a pixel catchment that is abnormally large (more than two standard deviations above the mean.)
+  2. The abnormally-large pixel catchment occurs at the outlet of the levelpath.
+
+If both criteria are met for a branch, then the issue is mitigated by trimming the flowline to the third-to-last point.
+
+### Additions
+
+- `src/mitigate_branch_outlet_backpool.py`: Detects and mitigates the branch outlet backpool error. If both branch outlet backpool criteria are met, the snapped point is set to be the penultimate vertex and then the flowline is trimmed to that point (instead of the last point). Trims the `gw_catchments_pixels_<id>.tif` and `gw_catchments_reaches_<id>.tif` rasters by using `gdal_polygonize.py` to polygonize the `gw_pixel_catchments_<id>.tif` file, creating a mask that excludes the problematic pixel catchment, and then using that mask to trim the pixel catchment and catchment reaches rasters.
+
+### Changes
+
+- `src/delineate_hydros_and_produce_HAND.sh`: Adds the `mitigate_branch_outlet_backpool.py` module to run after the  `Gage Watershed for Pixels` step. 
+- `src/split_flows.py`: Improves documentation and readability.
+
+<br/><br/>
+
 
 ## v4.4.12.0 - 2024-03-11 - [PR#1078](https://github.com/NOAA-OWP/inundation-mapping/pull/1078)
 
@@ -179,7 +200,6 @@ The alpha test for v4.4.8.1 came back with a large degradation in skill and we n
 - `src`/`bash_variables.env`: changed the global roughness file to `${inputsDir}/rating_curve/variable_roughness/mannings_global_06_12.csv`
 
 <br/><br/>
-
 
 ## v4.4.8.1 - 2023-12-08 - [PR#1047](https://github.com/NOAA-OWP/inundation-mapping/pull/1047)
 
