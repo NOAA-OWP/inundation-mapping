@@ -161,7 +161,7 @@ def write_categorical_flow_files(metadata, workspace):
                 all_data = pd.concat([all_data, data], ignore_index=True)
 
     # Write CatFIM flows to file
-    if all_data.empty is False:
+    if not all_data.empty:
         final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
         final_data.to_csv(workspace / 'catfim_flows_cms.csv', index=False)
     
