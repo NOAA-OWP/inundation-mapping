@@ -13,7 +13,7 @@ gpd.options.io_engine = "pyogrio"
 
 def update_benchmark_flows(version):
     """
-    Update benchmark flows of the levelpath in the domain that have valid flows
+    Update benchmark flows of the levelpath in the domain for stream segments missing from the flow file
 
     Parameters
     ----------
@@ -25,7 +25,7 @@ def update_benchmark_flows(version):
         levelpaths: gpd.GeoDataFrame, domain: gpd.GeoDataFrame, flows: pd.DataFrame
     ) -> pd.DataFrame:
         """
-        Update benchmark flows of the levelpath in the domain that have valid flows
+        Update benchmark flows of stream segments missing from the flow file
 
         Parameters
         ----------
@@ -118,7 +118,14 @@ def update_benchmark_flows(version):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    example_text = '''example:
+
+  %(prog)s -v dev-4.4.11.0
+  \n'''
+
+    parser = argparse.ArgumentParser(
+        epilog=example_text, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument('-v', '--version', help='Version of the model', type=str, required=True)
     args = vars(parser.parse_args())
 
