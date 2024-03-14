@@ -79,26 +79,6 @@ def get_all_active_usgs_sites():
 
     return gdf, list_of_sites, metadata_list
 
-def get_selected_usgs_sites(sites, metadata_list):
-    '''
-    Compile a list of all active usgs gage sites.
-    Return a GeoDataFrame of all sites.
-
-    Returns
-    -------
-    None.
-
-    '''
-
-    # Get a geospatial layer (gdf) for all acceptable sites
-    print("Aggregating WBD HUCs...")
-    gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
-    # Rename gdf fields
-    if 'columns' in gdf.values:
-        gdf.columns = gdf.columns.str.replace('identifiers_', '')
-
-    return gdf
-
 ##############################################################################
 # Generate categorical flows for each category across all sites.
 ##############################################################################
@@ -133,7 +113,7 @@ def write_categorical_flow_files(metadata, workspace):
         nws_lid = site.get('identifiers').get('nws_lid')
 
         # thresholds only provided for valid nws_lid.
-        if nws_lid == 'Bogus_ID':
+        if nws_lid == 'Bogus_ID' or nws_lid is None:
             continue
 
         # if invalid feature_id skip to next site
@@ -161,6 +141,7 @@ def write_categorical_flow_files(metadata, workspace):
                 all_data = pd.concat([all_data, data], ignore_index=True)
 
     # Write CatFIM flows to file
+    print("writing for CatFIM")
     if not all_data.empty:
         final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
         final_data.to_csv(workspace / 'catfim_flows_cms.csv', index=False)
@@ -272,7 +253,17 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
                 downstream_trace_distance=None,
             )
         
-        sites_gdf = get_selected_usgs_sites(selector, metadata_list)
+        # Get a geospatial layer (gdf) for all acceptable sites
+        print("Aggregating WBD HUCs...")
+        _ , sites_gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
+        if not sites_gdf.empty:
+          # Get a list of all sites in gdf
+          list_of_sites = sites_gdf['identifiers_usgs_site_code'].to_list()
+          # Rename gdf fields
+          sites_gdf.columns = sites_gdf.columns.str.replace('identifiers_', '')
+        else:
+            print("There is no acceptable site.")
+            sys.exit()
 
     # Create DataFrame to store all appended rating curves
     print('processing metadata')
