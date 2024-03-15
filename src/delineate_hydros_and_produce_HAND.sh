@@ -104,13 +104,13 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
     -t $slope_min \
     -b $lakes_buffer_dist_meters
 
-## GAGE WATERSHED FOR REACHES ##
-echo -e $startDiv"Gage Watershed for Reaches $hucNumber $current_branch_id"
-mpiexec -n $ncores_gw $taudemDir/gagewatershed \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
-    -gw $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
-    -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
-    -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
+# ## GAGE WATERSHED FOR REACHES ##
+# echo -e $startDiv"Gage Watershed for Reaches $hucNumber $current_branch_id"
+# mpiexec -n $ncores_gw $taudemDir/gagewatershed \
+#     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+#     -gw $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
+#     -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
+#     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $current_branch_id"
@@ -126,6 +126,25 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -gw $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
+
+## POLYGONIZE GAGE WATERSHEDS ##
+echo -e $startDiv"Polygonize Gage Watersheds $hucNumber $current_branch_id"
+gdal_polygonize.py -q -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
+    $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg catchments HydroID
+
+## DISSOLVE PIXEL CATCHMENTS TO REACHES ##
+echo -e $startDiv"Dissolve Pixel Catchments to Reaches $hucNumber $current_branch_id"
+python3 $srcDir/dissolve_pixel_catchments.py \
+    -gw $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg \
+    -r $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
+    -o $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg
+
+## RASTERIZE REACH CATCHMENTS ##
+echo -e $startDiv"Rasterize Reach Catchments $hucNumber $current_branch_id"
+gdal_rasterize -q -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+    -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
+    $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
+    $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif
 
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
 echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
@@ -166,11 +185,6 @@ if [ -f $tempHucDataDir/LandSea_subset.gpkg ]; then
         -co "TILED=YES" -te $xmin $ymin $xmax $ymax -ts $ncols $nrows $tempHucDataDir/LandSea_subset.gpkg \
         $tempCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif
 fi
-
-## POLYGONIZE REACH WATERSHEDS ##
-echo -e $startDiv"Polygonize Reach Watersheds $hucNumber $current_branch_id"
-gdal_polygonize.py -q -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
-    $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments HydroID
 
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##
 echo -e $startDiv"Process catchments and model streams $hucNumber $current_branch_id"
