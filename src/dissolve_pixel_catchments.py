@@ -34,14 +34,15 @@ def dissolve_pixel_catchments(pixel_catchments_file, reaches_file, output_file):
 
     # Dissolve gage watersheds to reaches
     dissolved = pixel_catchments[['id', 'geometry']].dissolve(by='id')
+    dissolved = dissolved.rename(columns={'id': 'HydroID'})
 
-    # Save the dissolved shapefile
+    # Save the dissolved GeoDataFrame
     dissolved.to_file(output_file)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Dissolve pixel catchments (gage watersheds) to reaches')
-    parser.add_argument('-gw', '--gage-watersheds-file', type=str, help='Path to pixel catchments file')
+    parser.add_argument('-gw', '--pixel-catchments-file', type=str, help='Path to pixel catchments file')
     parser.add_argument('-r', '--reaches-file', type=str, help='Path to reaches file')
     parser.add_argument('-o', '--output-file', type=str, help='Path to output file')
 
