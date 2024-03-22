@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.x.x.x - 2024-03-22 - [PR#1103](https://github.com/NOAA-OWP/inundation-mapping/pull/1103)
+
+Adds checks for intermediate files produced by Whitebox in the AGREE process (`src/agreedem.py`). Without these checks, if Whitebox fails to produce an output, no error is generated until much later in the `src/delineate_hydros_and_produce_HAND.sh` processing chain which makes troubleshooting difficult.
+
+### Changes
+
+- `src/agreedem.py`: Added checks to verify existence of intermediate files before continuing
+
+<br/><br/>
+
 ## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
 Fixes bug where levee-protected areas were not being masked from branch 0 DEMs.
