@@ -180,6 +180,8 @@ def agreedem(
             wbt.convert_nodata_to_zero(buf_output, buf_output_zerod)
             wbt.euclidean_allocation(buf_output_zerod, bufallo_grid)
 
+            assert os.path.exists(bufallo_grid), f'Buffer allocation grid not created: {bufallo_grid}'
+
             # Open distance, allocation, elevation grids.
             with rasterio.open(bufdist_grid) as bufdist, rasterio.open(
                 bufallo_grid
