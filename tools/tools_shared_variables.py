@@ -42,6 +42,7 @@ GO_DOWN_STATS = ["FAR", "FN_area_km2", "FP_area_km2", "FP_perc", "FN_perc", "PND
 # Variables for eval_plots.py
 BAD_SITES = [
     "baki3",  # USGS: ratio of evaluated vs domain is very low
+    "cart2",  # NWS:  added by request
     "eagi1",  # NWS:  ratio of evaluated vs domain is very low
     "efdn7",  # NWS:  mainstems does not extend sufficiently upstream (~30%)
     "erwn6",  # NWS:  ratio of evaluated vs domain is very low
