@@ -11,7 +11,7 @@ import pandas as pd
 gpd.options.io_engine = "pyogrio"
 
 
-def update_benchmark_flows(version):
+def update_benchmark_flows(version: str, output_dir_base: str):
     """
     Update benchmark flows of the levelpath in the domain for stream segments missing from the flow file
 
@@ -21,7 +21,7 @@ def update_benchmark_flows(version):
         FIM version
     """
 
-    def iterate_over_BAD_SITES(
+    def iterate_over_sites(
         levelpaths: gpd.GeoDataFrame, domain: gpd.GeoDataFrame, flows: pd.DataFrame
     ) -> pd.DataFrame:
         """
@@ -62,59 +62,53 @@ def update_benchmark_flows(version):
 
         return flows_out
 
-    BAD_SITES = [
-        ['cpei3', '04050001', 'USGS'],
-        ['hohn4', '02030103', 'Both'],
-        ['kilo1', '05040003', 'Both'],
-        ['monv1', '04300103', 'NWS'],
-        ['nhso1', '05040001', 'USGS'],
-        ['nmso1', '05040006', 'Both'],
-        ['pori3', '05120102', 'USGS'],
-        ['ptvn6', '02020005', 'Both'],
-        ['selt2', '12100304', 'NWS'],
-        ['sweg1', '03130001', 'Both'],
-        ['watw3', '07090001', 'NWS'],
-        ['weat2', '12030102', 'NWS'],
-        ['wkew3', '07120006', 'NWS'],
-    ]
+    for org in ['nws', 'usgs']:
+        base_dir = f'/data/test_cases/{org}_test_cases/validation_data_{org}'
 
-    for lid, huc8, organization in BAD_SITES:
-        if organization == 'USGS':
-            orgs = ['usgs']
-        elif organization == 'NWS':
-            orgs = ['nws']
-        else:
-            orgs = ['usgs', 'nws']
+        huc8s = next(os.walk(base_dir))[1]
 
-        # Read the input files
-        levelpath_file = f'/outputs/{version}/{huc8}/nwm_subset_streams_levelPaths.gpkg'
-        assert os.path.exists(levelpath_file), f"Levelpath file {levelpath_file} does not exist"
-        levelpaths = gpd.read_file(levelpath_file)
+        for huc8 in huc8s:
+            lids = next(os.walk(f'{base_dir}/{huc8}'))[1]
 
-        for org in orgs:
-            validation_path = f'/data/test_cases/{org}_test_cases/validation_data_{org}/{huc8}/{lid}'
+            for lid in lids:
+                # Read the input files
+                levelpath_file = f'/outputs/{version}/{huc8}/nwm_subset_streams_levelPaths.gpkg'
+                assert os.path.exists(levelpath_file), f"Levelpath file {levelpath_file} does not exist"
+                levelpaths = gpd.read_file(levelpath_file)
 
-            domain_file = f'{validation_path}/{lid}_domain.shp'
-            assert os.path.exists(domain_file), f"Domain file {domain_file} does not exist"
-            domain = gpd.read_file(domain_file)
+                validation_path = f'{base_dir}/{huc8}/{lid}'
 
-            magnitudes = next(os.walk(validation_path))[1]
+                domain_file = f'{validation_path}/{lid}_domain.shp'
+                assert os.path.exists(domain_file), f"Domain file {domain_file} does not exist"
+                domain = gpd.read_file(domain_file)
 
-            for magnitude in magnitudes:
-                flow_file_in = f'{validation_path}/{magnitude}/ahps_{lid}_huc_{huc8}_flows_{magnitude}.csv'
+                magnitudes = next(os.walk(validation_path))[1]
 
-                assert os.path.exists(flow_file_in), f"Flow file {flow_file_in} does not exist"
+                for magnitude in magnitudes:
+                    input_dir = f'{validation_path}/{magnitude}'
 
-                # Backup original flow file
-                backup_flow_file = flow_file_in + '.bak'
-                if not os.path.exists(backup_flow_file):
-                    shutil.copy2(flow_file_in, backup_flow_file)
+                    if output_dir_base is None:
+                        output_dir = input_dir
+                    elif not os.path.exists(output_dir_base):
+                        output_dir = os.path.join(output_dir_base, org)
+                        os.makedirs(output_dir)
 
-                flows = pd.read_csv(flow_file_in)
+                    flow_file_in = f'{input_dir}/ahps_{lid}_huc_{huc8}_flows_{magnitude}.csv'
+                    flow_file_out = f'{output_dir}/ahps_{lid}_huc_{huc8}_flows_{magnitude}.csv'
 
-                flows = iterate_over_BAD_SITES(levelpaths, domain, flows)
+                    assert os.path.exists(flow_file_in), f"Flow file {flow_file_in} does not exist"
 
-                flows.to_csv(flow_file_in, index=False)
+                    flows = pd.read_csv(flow_file_in)
+
+                    flows_new = iterate_over_sites(levelpaths, domain, flows)
+
+                    if len(flows_new) > len(flows):
+                        # Backup original flow file
+                        backup_flow_file = flow_file_in + '.bak'
+                        if not os.path.exists(backup_flow_file):
+                            shutil.copy2(flow_file_in, backup_flow_file)
+
+                        flows_new.to_csv(flow_file_out, index=False)
 
 
 if __name__ == "__main__":
@@ -127,6 +121,7 @@ if __name__ == "__main__":
         epilog=example_text, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument('-v', '--version', help='Version of the model', type=str, required=True)
+    parser.add_argument('-o', '--output_dir-base', help='Output directory', type=str, default=None)
     args = vars(parser.parse_args())
 
     update_benchmark_flows(**args)

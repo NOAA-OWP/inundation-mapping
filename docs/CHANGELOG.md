@@ -4,11 +4,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.x.x.x - 2024-03-14 - [PR#1094](https://github.com/NOAA-OWP/inundation-mapping/pull/1094)
 
-Extends flows (i.e., discharge) to stream segments missing from NWS or USGS validation flow files in the AHPS locations listed in `BAD_SITES` in `tools/tools_shared_variables.py`. The levelpath associated with existing flows in the AHPS domain is identified, and any stream segments of the levelpath in the domain missing from the flow file are added to the flow file by assigning the existing flow (this is a constant value regardless of other tributaries including other levelpaths in the domain).
-
-There were 15 `BAD_SITES` identified with flow issues related to "mainstems" as identified in `tools_shared_variables.py`. Of these, 13 were able to be fixed with this method and were removed from the `BAD_SITES` list.
-
-This is expected to be a very low-use tool so the AHPS sites and file paths are hardcoded in the file.
+Extends flows (i.e., discharge) to stream segments missing from NWS and USGS validation flow files. The levelpath associated with existing flows in the AHPS domain is identified, and any stream segments of the levelpath in the domain missing from the flow file are added to the flow file by assigning the existing flow (this is a constant value regardless of other tributaries including other levelpaths in the domain).
 
 ### Additions
 
