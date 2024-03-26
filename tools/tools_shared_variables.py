@@ -42,34 +42,22 @@ GO_DOWN_STATS = ["FAR", "FN_area_km2", "FP_area_km2", "FP_perc", "FN_perc", "PND
 # Variables for eval_plots.py
 BAD_SITES = [
     "baki3",  # USGS: ratio of evaluated vs domain is very low
-    "cpei3",  # USGS: mainstems does not extend sufficiently upstream (~35%), significant masking upstream
+    "cart2",  # NWS:  added by request
     "eagi1",  # NWS:  ratio of evaluated vs domain is very low
     "efdn7",  # NWS:  mainstems does not extend sufficiently upstream (~30%)
     "erwn6",  # NWS:  ratio of evaluated vs domain is very low
     "grfi2",  # USGS: incorrect location
-    "hohn4",  # Both: no mainstems in vicinity
     "kcdm7",  # USGS: incorrect location
-    "kilo1",  # Both: mainstems does not extend sufficiently upstream (~20%)
     "ksdm7",  # USGS: masked
     "levk1",  # NWS:  Incorrect feature_id assigned from WRDS, this has been corrected
     "lkcm7",  # NWS:  masked
     "loun7",  # NWS:  benchmark is not consistent between thresholds
     "lrlm7",  # NWS:  masked
     "mcri2",  # USGS: incorrect location
-    "monv1",  # NWS:  mainstems does not extend sufficiently upstream (~30%)
     "mtao1",  # USGS: ratio of evaluated vs domain is very low
-    "nhso1",  # USGS: mainstems does not extend sufficiently upstream (45%)
-    "nmso1",  # Both: mainstems does not extend sufficiently upstream
-    "pori3",  # USGS: mainstems does not extend sufficiently upstream
-    "ptvn6",  # Both: mainstems does not extend sufficiently upstream (50%)
     "roun6",  # USGS: ratio of evaluated vs domain is very low
     "rwdn4",  # Both: no mainstems in vicinity
-    "selt2",  # NWS:  mainstems does not extend sufficiently upstream (~30%)
-    "sweg1",  # Both: mainstems does not extend sufficiently upstream (~30%)
     "vcni3",  # USGS: ratio of evaluated vs domain is very low
-    "watw3",  # NWS:  mainstems does not extend sufficiently upstream (~30%)
-    "weat2",  # NWS:  mainstems does not extend sufficiently upstream (~50%)
-    "wkew3",  # NWS:  mainstems does not extend sufficiently upstream (~45%)
 ]
 DISCARD_AHPS_QUERY = "not flow.isnull() & masked_perc<97 & not nws_lid in @BAD_SITES"
 

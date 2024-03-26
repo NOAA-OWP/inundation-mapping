@@ -2,6 +2,20 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.x.x.x - 2024-03-14 - [PR#1094](https://github.com/NOAA-OWP/inundation-mapping/pull/1094)
+
+Extends flows (i.e., discharge) to stream segments missing from NWS and USGS validation flow files. The levelpath associated with existing flows in the AHPS domain is identified, and any stream segments of the levelpath in the domain missing from the flow file are added to the flow file by assigning the existing flow (this is a constant value regardless of other tributaries including other levelpaths in the domain).
+
+### Additions
+
+- `data/extend_benchmark_flows.py`: Adds missing flows to NWS or USGS benchmark flow files. The original flow file is saved with an appended `.bak`.
+
+### Changes
+
+- `tools/tools_shared_variables.py`: Removed corrected flow files from `BAD_SITES` list.
+
+<br/><br/>
+
 ## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
 Fixes bug where levee-protected areas were not being masked from branch 0 DEMs.
