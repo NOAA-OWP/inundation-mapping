@@ -56,22 +56,22 @@ def catchment_boundary_errors(
                 inund_poly = pd.concat([inund_poly,temp], ignore_index = True)
 
         # Get boundary lines for catchments and inundation
-        cb = catchments.boundary
-        ib = inund_poly.boundary
-        ib = ib.set_crs(cb.crs)
+        catchment_boundary = catchments.boundary
+        inundation_boundary = inund_poly.boundary
+        inundation_boundary = inundation_boundary.set_crs(catchment_boundary.crs)
 
         # Explode geometries to only keep single linestrings
-        cb = cb.explode(ignore_index = True)
-        ib = ib.explode(ignore_index = True)
+        catchment_boundary = catchment_boundary.explode(ignore_index = True)
+        inundation_boundary = inundation_boundary.explode(ignore_index = True)
 
         # Find intersection of inundation and catchments
         intersect = gpd.GeoDataFrame()
-        ib_df = gpd.GeoDataFrame(geometry = ib)
-        for i in cb:
-            ib_df = ib_df.assign(intersects = ib.intersects(i))
-            ib_df_1 = ib_df.loc[ib_df['intersects'] == True]
-            ib_df_2 = gpd.GeoDataFrame(geometry = ib_df_1.intersection(i))
-            intersect = pd.concat([intersect, ib_df_2])
+        inundation_boundary_df = gpd.GeoDataFrame(geometry = inundation_boundary)
+        for i in catchment_boundary:
+            inundation_boundary_df = inundation_boundary_df.assign(intersects = inundation_boundary.intersects(i))
+            inundation_boundary_df_1 = inundation_boundary_df.loc[inundation_boundary_df['intersects'] == True]
+            inundation_boundary_df_2 = gpd.GeoDataFrame(geometry = inundation_boundary_df_1.intersection(i))
+            intersect = pd.concat([intersect, inundation_boundary_df_2])
             
         intersect_exp = intersect.explode(ignore_index = True)
 
