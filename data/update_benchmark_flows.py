@@ -11,14 +11,16 @@ import pandas as pd
 gpd.options.io_engine = "pyogrio"
 
 
-def update_benchmark_flows(version: str, output_dir_base: str):
+def update_benchmark_flows(fim_dir: str, output_dir_base: str):
     """
     Update benchmark flows of the levelpath in the domain for stream segments missing from the flow file
 
     Parameters
     ----------
-    version : str
-        FIM version
+    fim_dir : str
+        Location of FIM files (e.g., "/outputs/dev-4.4.11.0")
+    output_dir_base : str
+        Output directory (e.g., "/outputs/temp"). If None, the output files will be saved in the input directory (the original files will be saved with a ".bak" extension appended to the original filename).
     """
 
     def iterate_over_sites(
@@ -72,7 +74,7 @@ def update_benchmark_flows(version: str, output_dir_base: str):
 
             for lid in lids:
                 # Read the input files
-                levelpath_file = f'/outputs/{version}/{huc8}/nwm_subset_streams_levelPaths.gpkg'
+                levelpath_file = f'{fim_dir}/{huc8}/nwm_subset_streams_levelPaths.gpkg'
                 assert os.path.exists(levelpath_file), f"Levelpath file {levelpath_file} does not exist"
                 levelpaths = gpd.read_file(levelpath_file)
 
@@ -114,13 +116,13 @@ def update_benchmark_flows(version: str, output_dir_base: str):
 if __name__ == "__main__":
     example_text = '''example:
 
-  %(prog)s -v dev-4.4.11.0
+  %(prog)s -f /outputs/dev-4.4.11.0 -o /outputs/temp
   \n'''
 
     parser = argparse.ArgumentParser(
         epilog=example_text, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument('-v', '--version', help='Version of the model', type=str, required=True)
+    parser.add_argument('-f', '--fim_dir', help='Location of FIM files', type=str, required=True)
     parser.add_argument('-o', '--output_dir-base', help='Output directory', type=str, default=None)
     args = vars(parser.parse_args())
 
