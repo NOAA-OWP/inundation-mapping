@@ -44,8 +44,8 @@ def subset_vector_layers(
     with rio.open(dem_filename) as dem_raster:
         dem_cellsize = max(dem_raster.res)
 
-    wbd = gpd.read_file(wbd_filename)
-    dem_domain = gpd.read_file(dem_domain)
+    wbd = gpd.read_file(wbd_filename, engine="pyogrio", use_arrow=True)
+    dem_domain = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
 
     # Get wbd buffer
     print(f"Create wbd buffer for {hucCode}", flush=True)

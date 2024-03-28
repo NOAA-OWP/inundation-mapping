@@ -8,6 +8,9 @@ import numpy as np
 import pandas as pd
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def evaluate_continuity(
     stream_network_file, forecast_file, stream_network_outfile=None, confluences_only=False, plot_file=None
 ):
