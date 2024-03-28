@@ -94,7 +94,7 @@ python3 $srcDir/associate_levelpaths_with_levees.py -nld $tempHucDataDir/nld_sub
 
 ## STREAM BRANCH POLYGONS
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"
-$srcDir/buffer_stream_branches.py -a $tempHucDataDir/HUC6_dem_domain.gpkg \
+$srcDir/buffer_stream_branches.py -a $tempHucDataDir/$dem_domain_filename \
     -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
     -i $branch_id_attribute \
     -d $branch_buffer_distance_meters \
