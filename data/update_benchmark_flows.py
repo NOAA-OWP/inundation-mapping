@@ -47,6 +47,9 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
         # Intersect levelpaths with the domain to get feature_ids
         levelpaths = gpd.sjoin(levelpaths, domain, how="inner", predicate="intersects")
 
+        if levelpaths.empty:
+            return flows
+
         # Find the levelpath that has flows in the flow file
         levelpath = levelpaths.loc[levelpaths['ID'].isin(flows['feature_id']), 'levpa_id'].values[0]
 
@@ -91,9 +94,11 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
 
                     if output_dir_base is None:
                         output_dir = input_dir
-                    elif not os.path.exists(output_dir_base):
+                    else:
                         output_dir = os.path.join(output_dir_base, org)
-                        os.makedirs(output_dir)
+
+                        if not os.path.exists(output_dir):
+                            os.makedirs(output_dir)
 
                     flow_file_in = f'{input_dir}/ahps_{lid}_huc_{huc8}_flows_{magnitude}.csv'
                     flow_file_out = f'{output_dir}/ahps_{lid}_huc_{huc8}_flows_{magnitude}.csv'
