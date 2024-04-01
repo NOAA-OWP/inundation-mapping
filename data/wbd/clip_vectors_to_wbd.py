@@ -11,7 +11,7 @@ from shapely.geometry import MultiPolygon, Polygon
 from utils.shared_functions import getDriver
 
 
-# from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
+gpd.options.io_engine = "pyogrio"
 
 
 def subset_vector_layers(
@@ -53,39 +53,62 @@ def subset_vector_layers(
     wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
     wbd_buffer = gpd.clip(wbd_buffer, dem_domain)
 
+    # Clip ocean water polygon for future masking ocean areas (where applicable)
+    landsea = gpd.read_file(landsea, mask=wbd_buffer, engine="fiona")
+    if not landsea.empty:
+        print(f"Create landsea gpkg for {hucCode}", flush=True)
+        landsea.to_file(
+            subset_landsea, driver=getDriver(subset_landsea), index=False, crs=huc_CRS, engine="fiona"
+        )
+
+        # Exclude landsea area from WBD
+        wbd = wbd.overlay(landsea, how='difference')
+        wbd.to_file(
+            wbd_filename,
+            layer='WBDHU8',
+            driver=getDriver(wbd_filename),
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
+        )
+
+        wbd_buffer = wbd_buffer.overlay(landsea, how='difference')
+
+    del landsea
+
     # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
     wbd_streams_buffer = wbd_buffer.copy()
     wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-8 * dem_cellsize, resolution=32)
 
     wbd_buffer = wbd_buffer[['geometry']]
     wbd_streams_buffer = wbd_streams_buffer[['geometry']]
-    wbd_buffer.to_file(wbd_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False, crs=huc_CRS)
-    wbd_streams_buffer.to_file(
-        wbd_streams_buffer_filename, driver=getDriver(wbd_streams_buffer_filename), index=False, crs=huc_CRS
+    wbd_buffer.to_file(
+        wbd_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False, crs=huc_CRS, engine="fiona"
     )
-
-    # Clip ocean water polygon for future masking ocean areas (where applicable)
-    landsea = gpd.read_file(landsea, mask=wbd_buffer)
-    if not landsea.empty:
-        print(f"Create landsea gpkg for {hucCode}", flush=True)
-        landsea.to_file(subset_landsea, driver=getDriver(subset_landsea), index=False, crs=huc_CRS)
-    del landsea
+    wbd_streams_buffer.to_file(
+        wbd_streams_buffer_filename,
+        driver=getDriver(wbd_streams_buffer_filename),
+        index=False,
+        crs=huc_CRS,
+        engine="fiona",
+    )
 
     # Clip levee-protected areas polygons for future masking ocean areas (where applicable)
     print(f"Subsetting Levee Protected Areas for {hucCode}", flush=True)
-    levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer)
+    levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
     if not levee_protected_areas.empty:
         levee_protected_areas.to_file(
             subset_levee_protected_areas,
             driver=getDriver(subset_levee_protected_areas),
             index=False,
             crs=huc_CRS,
+            engine="fiona",
         )
     del levee_protected_areas
 
     # Find intersecting lakes and writeout
     print(f"Subsetting NWM Lakes for {hucCode}", flush=True)
-    nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer)
+    nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer, engine="fiona")
     nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
 
     if not nwm_lakes.empty:
@@ -97,34 +120,43 @@ def subset_vector_layers(
         # Loop through the filled polygons and insert the new geometry
         for i in range(len(nwm_lakes_fill_holes.geoms)):
             nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
-        nwm_lakes.to_file(subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=huc_CRS)
+        nwm_lakes.to_file(
+            subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=huc_CRS, engine="fiona"
+        )
     del nwm_lakes
 
     # Find intersecting levee lines
     print(f"Subsetting NLD levee lines for {hucCode}", flush=True)
-    nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer)
+    nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
     if not nld_lines.empty:
-        nld_lines.to_file(subset_nld_lines, driver=getDriver(subset_nld_lines), index=False, crs=huc_CRS)
+        nld_lines.to_file(
+            subset_nld_lines, driver=getDriver(subset_nld_lines), index=False, crs=huc_CRS, engine="fiona"
+        )
     del nld_lines
 
     # Preprocessed levee lines for burning
-    nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer)
+    nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer, engine="fiona")
     if not nld_lines_preprocessed.empty:
         nld_lines_preprocessed.to_file(
             subset_nld_lines_preprocessed,
             driver=getDriver(subset_nld_lines_preprocessed),
             index=False,
             crs=huc_CRS,
+            engine="fiona",
         )
     del nld_lines_preprocessed
 
     # Subset NWM headwaters
     print(f"Subsetting NWM Headwater Points for {hucCode}", flush=True)
-    nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer)
+    nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
 
     if len(nwm_headwaters) > 0:
         nwm_headwaters.to_file(
-            subset_nwm_headwaters, driver=getDriver(subset_nwm_headwaters), index=False, crs=huc_CRS
+            subset_nwm_headwaters,
+            driver=getDriver(subset_nwm_headwaters),
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
         )
     else:
         print("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
@@ -134,11 +166,15 @@ def subset_vector_layers(
 
     # Find intersecting nwm_catchments
     print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
-    nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer)
+    nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
 
     if len(nwm_catchments) > 0:
         nwm_catchments.to_file(
-            subset_nwm_catchments, driver=getDriver(subset_nwm_catchments), index=False, crs=huc_CRS
+            subset_nwm_catchments,
+            driver=getDriver(subset_nwm_catchments),
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
         )
     else:
         print("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
@@ -149,7 +185,7 @@ def subset_vector_layers(
     # Subset nwm streams
     print(f"Subsetting NWM Streams for {hucCode}", flush=True)
 
-    nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer)
+    nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
 
     # NWM can have duplicate records, but appear to always be identical duplicates
     nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
@@ -177,7 +213,7 @@ def subset_vector_layers(
         nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
 
         nwm_streams.to_file(
-            subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False, crs=huc_CRS
+            subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False, crs=huc_CRS, engine="fiona"
         )
     else:
         print("No NWM stream segments within HUC " + str(hucCode) + " boundaries.")
@@ -230,7 +266,7 @@ if __name__ == '__main__':
         '-lps', '--subset-levee-protected-areas', help='Levee-protected areas subset', required=True
     )
 
-    parser.add_argument('-crs', '--huc-crs', help='HUC crs', required=True)
+    parser.add_argument('-crs', '--huc-CRS', help='HUC crs', required=True)
 
     args = vars(parser.parse_args())
 
