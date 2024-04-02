@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2024-04-02 - [PR#1110](https://github.com/NOAA-OWP/inundation-mapping/pull/1110)
+
+This PR reflects upgrades for openJDK from 17.0.8 to something higher, minimum of 17.0.9. After some research, we can not upgrade all the way to the latest openJDK but can jump up to 19.0.  This limitation is related to version of our base docker image.  openJDK was identified as requiring an upgrade by a system wide security scan.
+
+The "black" packages is also be upgraded from 23.7.0 to 24.3.
+
+**NOTE: the update of "black" has change the rules slightly for formatting. This is why you see a bunch of files being changed but only for the formatting changes.**
+
+### Files Change
+- `Dockerfile`, `Pipfile`, `Pipefile.lock`
+- `pre-commit-config.yaml` is also has Black upgraded for CI/CD tests for linting during GIT check ins.
+- `many files`:
+     - 19 files have had minor formatting changes related to the upgrade in the "black" package.
+
+<br/><br/>
+
 
 ## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
