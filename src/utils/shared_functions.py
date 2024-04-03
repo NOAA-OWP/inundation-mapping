@@ -187,19 +187,6 @@ def update_raster_profile(args):
     return elev_m_filename
 
 
-# def get_CRS_from_huc8(huc8_id):
-
-#     DEFAULT_FIM_PROJECTION_CRS = sv.DEFAULT_FIM_PROJECTION_CRS
-#     ALASKA_CRS = sv.ALASKA_CRS
-
-#     if huc8_id[:2] == '19':
-#         huc_CRS = ALASKA_CRS
-#     else:
-#         huc_CRS = DEFAULT_FIM_PROJECTION_CRS
-
-#     return huc_CRS
-
-
 ########################################################################
 # Function to check the age of a file (use for flagging potentially outdated input)
 ########################################################################

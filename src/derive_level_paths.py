@@ -59,20 +59,15 @@ def Derive_level_paths(
         sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
     if huc_id in HIGH_STREAM_DENSITY_HUCS:
-        print()  # debug
-        print('HUC is in high density HUC list... removing additional stream segments.')  # debug
-        print()  # debug
+        print('HUC is in high density HUC list... removing additional stream segments.')
         stream_network = stream_network.exclude_attribute_values(
             branch_id_attribute="order_", values_excluded=[1, 2, 3, 4]
         )
     elif huc_id in MEDIUM_HIGH_STREAM_DENSITY_HUCS:
-        print()  # debug
-        print('HUC is in medium-high density HUC list... removing additional stream segments.')  # debug
-        print()  # debug
+        print('HUC is in medium-high density HUC list... removing additional stream segments.')
         stream_network = stream_network.exclude_attribute_values(
             branch_id_attribute="order_", values_excluded=[1, 2, 3]
         )
-
     else:
         # values_exluded of 1 and 2 mean that we are dropping stream orders 1 and 2. We are leaving those
         # for branch zero.
