@@ -40,7 +40,7 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
 
         Returns
         -------
-        flows_out : pd.DataFrame
+        pd.DataFrame
             Flows with updated benchmark flows
         """
 
@@ -51,7 +51,12 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
             return flows
 
         # Find the levelpath that has flows in the flow file
-        levelpath = levelpaths.loc[levelpaths['ID'].isin(flows['feature_id']), 'levpa_id'].values[0]
+        levelpath = levelpaths.loc[levelpaths['ID'].isin(flows['feature_id']), 'levpa_id']
+
+        if levelpath.empty:
+            return flows
+
+        levelpath = levelpath.values[0]
 
         levelpaths = levelpaths[levelpaths['levpa_id'] == levelpath]
         IDs = levelpaths.loc[levelpaths['levpa_id'] == levelpath, 'ID']
@@ -68,6 +73,11 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
         return flows_out
 
     for org in ['nws', 'usgs']:
+        print('Processing', org)
+
+        count_total = 0
+        count_updated = 0
+
         base_dir = f'/data/test_cases/{org}_test_cases/validation_data_{org}'
 
         huc8s = next(os.walk(base_dir))[1]
@@ -78,13 +88,17 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
             for lid in lids:
                 # Read the input files
                 levelpath_file = f'{fim_dir}/{huc8}/nwm_subset_streams_levelPaths.gpkg'
-                assert os.path.exists(levelpath_file), f"Levelpath file {levelpath_file} does not exist"
+                if not os.path.exists(levelpath_file):
+                    continue
+
                 levelpaths = gpd.read_file(levelpath_file)
 
                 validation_path = f'{base_dir}/{huc8}/{lid}'
 
                 domain_file = f'{validation_path}/{lid}_domain.shp'
-                assert os.path.exists(domain_file), f"Domain file {domain_file} does not exist"
+                if not os.path.exists(domain_file):
+                    continue
+
                 domain = gpd.read_file(domain_file)
 
                 magnitudes = next(os.walk(validation_path))[1]
@@ -103,7 +117,8 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
                     flow_file_in = f'{input_dir}/ahps_{lid}_huc_{huc8}_flows_{magnitude}.csv'
                     flow_file_out = f'{output_dir}/ahps_{lid}_huc_{huc8}_flows_{magnitude}.csv'
 
-                    assert os.path.exists(flow_file_in), f"Flow file {flow_file_in} does not exist"
+                    if not os.path.exists(flow_file_in):
+                        continue
 
                     flows = pd.read_csv(flow_file_in)
 
@@ -116,6 +131,13 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
                             shutil.copy2(flow_file_in, backup_flow_file)
 
                         flows_new.to_csv(flow_file_out, index=False)
+
+                        count_updated += 1
+                        count_total += 1
+                    else:
+                        count_total += 1
+
+        print(f'Updated {count_updated} out of {count_total} flow files for {org}')
 
 
 if __name__ == "__main__":
