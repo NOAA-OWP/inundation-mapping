@@ -12,7 +12,6 @@ from usgs_gage_crosswalk import GageCrosswalk
 
 
 class test_usgs_gage_crosswalk(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """

@@ -10,7 +10,6 @@ import aggregate_branch_lists as src
 
 
 class test_aggregate_branch_lists(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """

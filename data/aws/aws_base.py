@@ -10,7 +10,6 @@ from utils.shared_functions import FIM_Helpers as fh
 
 
 class AWS_Base(object):
-
     '''
     This class implements all common variables related when communicating to AWS
     '''

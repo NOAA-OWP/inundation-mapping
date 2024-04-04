@@ -11,7 +11,6 @@ import generate_branch_list as src
 
 
 class test_Generate_branch_list(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """
