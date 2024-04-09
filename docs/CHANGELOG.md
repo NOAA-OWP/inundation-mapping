@@ -1,6 +1,26 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.x.x - 2024-04-09 - [PR#1114](https://github.com/NOAA-OWP/inundation-mapping/pull/1114)
+
+A recent dependabot PR for upgrading the `pillow` package was added and it has been merged into this PR.
+In this PR, we also moved `openpyxl` package, which was part of an independent dockerfile, Pipfile and Pipefile.lock in the "dev" directory. This is now merged into the parent standard docker image.
+
+Covers [PR 111](https://github.com/NOAA-OWP/inundation-mapping/pull/1111)
+
+### Changes
+- `Pipfile / Pipefile.lock`: As described above.
+- `data/ble/ble_benchmark/README.md`: Updated notes to remove talking the specific ble docker image.
+
+### Removals
+- `data/ble/ble_benchmark`
+   - `Dockerfile`: removed in favor the parent root Docker files.
+   - `Pipfile`: removed in favor the parent root Docker files.
+   - `Pipfile.lock` : removed in favor the parent root Docker files.
+
+<br/><br/>
+
+
 ## v4.4.13.2 - 2024-04-04 - [PR#1110](https://github.com/NOAA-OWP/inundation-mapping/pull/1110)
 
 This PR reflects upgrades for openJDK from 17.0.8 to something higher, minimum of 17.0.9. After some research, we can not upgrade all the way to the latest openJDK but can jump up to 19.0.  This limitation is related to version of our base docker image.  openJDK was identified as requiring an upgrade by a system wide security scan.
