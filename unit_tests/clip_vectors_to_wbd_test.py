@@ -11,7 +11,6 @@ import data.wbd.clip_vectors_to_wbd as src
 
 
 class test_clip_vectors_to_wbd(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """

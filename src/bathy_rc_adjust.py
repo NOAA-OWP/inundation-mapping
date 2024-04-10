@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 sa_ratio_flag = float(environ['surf_area_thalweg_ratio_flag'])  # 10x
 thal_stg_limit = float(environ['thalweg_stg_search_max_limit'])  # 3m
 bankful_xs_ratio_flag = float(environ['bankful_xs_area_ratio_flag'])  # 10x

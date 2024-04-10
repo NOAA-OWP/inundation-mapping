@@ -8,6 +8,9 @@ import geopandas
 from geopandas.testing import assert_geodataframe_equal
 
 
+geopandas.options.io_engine = "pyogrio"
+
+
 def main(arg1, arg2, image_only, log_file, gpkg):
     """
     This tool compares either directories or single files. It will create and compare a hashing for

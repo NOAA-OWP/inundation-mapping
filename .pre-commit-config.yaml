@@ -6,9 +6,10 @@ repos:
     rev: v4.4.0
     hooks:
         -   id: trailing-whitespace
-            exclude: CHANGELOG.md
+            # Below is python regex to exclude all .md files
+            exclude: .*md$
         -   id: end-of-file-fixer
-            exclude: Pipfile.lock
+            exclude:  Pipfile.lock
         -   id: check-added-large-files
             args: ['--maxkb=5000']
         -   id: check-json
@@ -20,7 +21,7 @@ repos:
             additional_dependencies: [flake8-pyproject]
 
 -   repo: https://github.com/psf/black
-    rev: 23.7.0
+    rev: 24.3.0
     hooks:
         -   id: black
             args: ['--line-length=110', '--skip-magic-trailing-comma', '--skip-string-normalization']

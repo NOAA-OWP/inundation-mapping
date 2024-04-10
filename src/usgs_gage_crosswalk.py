@@ -9,6 +9,8 @@ import geopandas as gpd
 import rasterio
 
 
+gpd.options.io_engine = "pyogrio"
+
 warnings.simplefilter("ignore")
 
 
@@ -111,9 +113,9 @@ class GageCrosswalk(object):
 
         # Prep and write out file
         elev_table = self.gages.copy()
-        elev_table.loc[
-            elev_table['location_id'] == elev_table['nws_lid'], 'location_id'
-        ] = None  # set location_id to None where there isn't a gage
+        elev_table.loc[elev_table['location_id'] == elev_table['nws_lid'], 'location_id'] = (
+            None  # set location_id to None where there isn't a gage
+        )
         elev_table = elev_table[elev_table['location_id'].notna()]
         elev_table.source = elev_table.source.apply(str.lower)
 

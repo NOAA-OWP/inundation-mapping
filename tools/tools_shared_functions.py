@@ -25,6 +25,9 @@ from shapely.geometry import MultiPolygon, Polygon, shape
 from urllib3.util.retry import Retry
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def get_env_paths():
     load_dotenv()
     # import variables from .env file
