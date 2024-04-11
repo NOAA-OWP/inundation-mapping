@@ -6,7 +6,8 @@ import sys
 import geopandas as gpd
 import pandas as pd
 import rasterio as rio
-from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon
+from shapely.ops import nearest_points
 
 from utils.shared_functions import getDriver
 
@@ -40,6 +41,52 @@ def subset_vector_layers(
     subset_levee_protected_areas,
     huc_CRS,
 ):
+    def extend_outlet_streams(streams, wbd_buffered, wbd):
+        """
+        Extend outlet streams to nearest buffered WBD boundary
+        """
+
+        wbd['geometry'] = wbd.geometry.boundary
+        wbd = gpd.GeoDataFrame(data=wbd, geometry='geometry')
+
+        wbd_buffered["linegeom"] = wbd_buffered.geometry
+
+        # Select only the streams that are outlets
+        levelpath_outlets = streams[streams['to'] == 0]
+
+        # Select only the streams that don't intersect the WBD boundary line
+        levelpath_outlets = levelpath_outlets[~levelpath_outlets.intersects(wbd['geometry'].iloc[0])]
+
+        levelpath_outlets['nearest_point'] = None
+        levelpath_outlets['last'] = None
+
+        for index, row in levelpath_outlets.iterrows():
+            coords = [(coords) for coords in list(row['geometry'].coords)]
+            last_coord = coords[-1]
+            levelpath_outlets.at[index, 'last'] = Point(last_coord)
+
+        wbd_buffered['geometry'] = wbd_buffered.geometry.boundary
+        wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
+
+        for index, row in levelpath_outlets.iterrows():
+            levelpath_geom = row['last']
+            nearest_point = nearest_points(levelpath_geom, wbd_buffered)
+
+            levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
+
+            levelpath_outlets.at[index, 'geometry'] = LineString(
+                list(row['geometry'].coords) + list([levelpath_outlets.at[index, 'nearest_point'].coords[0]])
+            )
+
+        levelpath_outlets = gpd.GeoDataFrame(data=levelpath_outlets, geometry='geometry')
+        levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point'])
+
+        # Replace the streams in the original file with the extended streams
+        streams = streams[~streams['ID'].isin(levelpath_outlets['ID'])]
+        streams = pd.concat([streams, levelpath_outlets], ignore_index=True)
+
+        return streams
+
     print(f"Getting Cell Size for {hucCode}", flush=True)
     with rio.open(dem_filename) as dem_raster:
         dem_cellsize = max(dem_raster.res)
@@ -61,7 +108,7 @@ def subset_vector_layers(
             subset_landsea, driver=getDriver(subset_landsea), index=False, crs=huc_CRS, engine="fiona"
         )
 
-        # Exclude landsea area from WBD
+        # Exclude landsea area from WBD and wbd_buffer
         wbd = wbd.overlay(landsea, how='difference')
         wbd.to_file(
             wbd_filename,
@@ -189,6 +236,8 @@ def subset_vector_layers(
 
     # NWM can have duplicate records, but appear to always be identical duplicates
     nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
+
+    nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
 
     nwm_streams_outlets = nwm_streams[~nwm_streams['to'].isin(nwm_streams['ID'])]
     nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
