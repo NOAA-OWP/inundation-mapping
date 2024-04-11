@@ -25,20 +25,26 @@ AWS Resource Name: `arn:aws:s3:::noaa-nws-owp-fim`
 
 ### Accessing Data using the AWS CLI
 
-This S3 Bucket (`s3://noaa-nws-owp-fim`) is set up as a "Requester Pays" bucket. Read more about what that means [here](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html). If you are using compute resources in the same region as the S3 Bucket, then there is no cost.
+Before attempts to download, you will need ESIP AWS cli credentials (Access key ID and Secret Access Key). We can provide those for you if you do not already have some. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov). We can show you how to load the keys via the "aws configure" command, or similar if you already have a set of keys from other AWS sources. Installing AWS credentials, you will need to install them on your machine. See [Configuration and credential file settings](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html). Generally the easiest way to run a command that starts with `aws configure`.  There are some nuances about installing your keys so feel free reach out to us if you need help.
+
+With the keys in place, you can test your credentials get a list folders prior to download as well as execute other S3 cli commands:
+```
+aws s3 ls s3://noaa-nws-owp-fim
+```
+
 ### Examples
 
 **Note:** All examples are based on linux pathing. Also, for each sample below, remove the line breaks [backslash(s) "\"] before running the command.
 
 The available inputs, test cases, and versioned FIM outputs can be found by running:
 ```
-aws s3 ls s3://noaa-nws-owp-fim/hand_fim/ --request-payer
+aws s3 ls s3://noaa-nws-owp-fim/hand_fim/
 ```
 
 Download a directory of sample outputs for a single HUC8:
 ```
 aws s3 sync s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_3_11_0/12090301 \
-    /your_local_folder_name/12090301 --request-payer
+    /your_local_folder_name/12090301
 ```
 By adjusting pathing, you can also download entire directories such as the `fim_4_3_11_0` folder. An entire output FIM set (e.g. `fim_4_3_11_0`) is approximately 1.1 TB.
 
@@ -83,7 +89,7 @@ Git will auto create a subfolder named `inundation-mapping` where the code will 
 Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). The FIM inputs directory can be found at `s3://noaa-nws-owp-fim/hand_fim/inputs`. It is appx 400GB and it needs to be in your `data` folder.
 
 ```
-aws s3 sync s3://noaa-nws-owp-fim/hand_fim/inputs /home/projects/fim/data/inputs --request-payer --dryrun
+aws s3 sync s3://noaa-nws-owp-fim/hand_fim/inputs /home/projects/fim/data/inputs --dryrun
 ```
 **Note**: When you include the `--dryrun` argument in the command, a large list will be returned showing you exactly which files are to be downloaded and where they will be saved. We recommend including this argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dryrun` argument.
 
@@ -153,7 +159,7 @@ To test in HUCs other than the provided HUCs, the following processes can be fol
 ```
 /foss_fim/src/acquire_and_preprocess_inputs.py -u <huc8s_to_process>
 ```
-    Sorry, this tool is deprecated, updates will be coming soon.
+    Sorry, this tool is deprecated, replacement scripts are coming soon.
 
 
 ### Evaluating Inundation Map Performance
