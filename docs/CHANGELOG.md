@@ -8,6 +8,8 @@ In this PR, we also moved `openpyxl` package, which was part of an independent d
 
 Covers [PR 111](https://github.com/NOAA-OWP/inundation-mapping/pull/1111)
 
+A small update to the README.md was also updated for an unrelated topic (about AWS S3 credentials).
+
 ### Changes
 - `Pipfile / Pipefile.lock`: As described above.
 - `data/ble/ble_benchmark/README.md`: Updated notes to remove talking the specific ble docker image.
