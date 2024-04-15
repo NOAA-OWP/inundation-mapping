@@ -1,12 +1,13 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2024-04-09 - [PR#1114](https://github.com/NOAA-OWP/inundation-mapping/pull/1114)
+## v4.4.13.3 - 2024-04-15 - [PR#1114](https://github.com/NOAA-OWP/inundation-mapping/pull/1114)
 
-A recent dependabot PR for upgrading the `pillow` package was added and it has been merged into this PR.
+Two recent dependabot PR's came in, one for upgrading the `pillow` package and the other for upgrading idna. Both have been adjusted in this PR. 
 In this PR, we also moved `openpyxl` package, which was part of an independent dockerfile, Pipfile and Pipefile.lock in the "dev" directory. This is now merged into the parent standard docker image.
 
-Covers [PR 111](https://github.com/NOAA-OWP/inundation-mapping/pull/1111)
+Covers [PR 1111](https://github.com/NOAA-OWP/inundation-mapping/pull/1111)
+Covers [PR 1119](https://github.com/NOAA-OWP/inundation-mapping/pull/1119)
 
 A small update to the README.md was also updated for an unrelated topic (about AWS S3 credentials).
 
