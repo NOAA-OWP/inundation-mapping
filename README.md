@@ -25,9 +25,9 @@ AWS Resource Name: `arn:aws:s3:::noaa-nws-owp-fim`
 
 ### Accessing Data using the AWS CLI
 
-Before attempts to download, you will need ESIP aws cli credentials (Access key ID and Secret Access Key). We can provide those for you if you do not already have some. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov). We can show you how to load the keys via the "aws configure" command, or similar if you already have a set of keys from other AWS sources.
+Before attempts to download, you will need ESIP AWS cli credentials (Access key ID and Secret Access Key). We can provide those for you if you do not already have some. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov). We can show you how to load the keys via the "aws configure" command, or similar if you already have a set of keys from other AWS sources. Installing AWS credentials, you will need to install them on your machine. See [Configuration and credential file settings](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html). Generally the easiest way to run a command that starts with `aws configure`.  There are some nuances about installing your keys so feel free reach out to us if you need help.
 
-With the keys in place, you can get a list folders prior to download as well as do other commands:
+With the keys in place, you can test your credentials get a list folders prior to download as well as execute other S3 cli commands:
 ```
 aws s3 ls s3://noaa-nws-owp-fim
 ```
