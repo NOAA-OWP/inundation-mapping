@@ -6,7 +6,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 Two recent dependabot PR's came in, one for upgrading the `pillow` package and the other for upgrading idna. Both have been adjusted in this PR. 
 In this PR, we also moved `openpyxl` package, which was part of an independent dockerfile, Pipfile and Pipefile.lock in the "dev" directory. This is now merged into the parent standard docker image.
 
-Covers [PR 1111](https://github.com/NOAA-OWP/inundation-mapping/pull/1111)
+Covers [PR 1111](https://github.com/NOAA-OWP/inundation-mapping/pull/1111) and 
 Covers [PR 1119](https://github.com/NOAA-OWP/inundation-mapping/pull/1119)
 
 A small update to the README.md was also updated for an unrelated topic (about AWS S3 credentials).
