@@ -25,11 +25,17 @@ AWS Resource Name: `arn:aws:s3:::noaa-nws-owp-fim`
 
 ### Accessing Data using the AWS CLI
 
-Before attempts to download, you will need ESIP AWS cli credentials (Access key ID and Secret Access Key). We can provide those for you if you do not already have some. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov). We can show you how to load the keys via the "aws configure" command, or similar if you already have a set of keys from other AWS sources. Installing AWS credentials, you will need to install them on your machine. See [Configuration and credential file settings](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html). Generally the easiest way to run a command that starts with `aws configure`.  There are some nuances about installing your keys so feel free reach out to us if you need help.
+Before attempts to download, you will need ESIP AWS cli credentials (Access key ID and Secret Access Key). We can provide those for you if you do not already have some. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov). 
+
+Once you get AWS credentials, open your terminal window and type:
+```
+aws configure --profile esip
+```
+It will ask you for the Access key ID, Secret Access Key, Region and default language (just hit tab for that entry).
 
 With the keys in place, you can test your credentials get a list folders prior to download as well as execute other S3 cli commands:
 ```
-aws s3 ls s3://noaa-nws-owp-fim
+aws s3 ls s3://noaa-nws-owp-fim --profile esip
 ```
 
 ### Examples
@@ -38,7 +44,7 @@ aws s3 ls s3://noaa-nws-owp-fim
 
 The available inputs, test cases, and versioned FIM outputs can be found by running:
 ```
-aws s3 ls s3://noaa-nws-owp-fim/hand_fim/
+aws s3 ls s3://noaa-nws-owp-fim/hand_fim/  --profile esip
 ```
 
 Download a directory of sample outputs for a single HUC8:
@@ -89,7 +95,7 @@ Git will auto create a subfolder named `inundation-mapping` where the code will 
 Input data can be found on the ESIP S3 Bucket (see "Accessing Data through ESIP S3 Bucket" section above). The FIM inputs directory can be found at `s3://noaa-nws-owp-fim/hand_fim/inputs`. It is appx 400GB and it needs to be in your `data` folder.
 
 ```
-aws s3 sync s3://noaa-nws-owp-fim/hand_fim/inputs /home/projects/fim/data/inputs --dryrun
+aws s3 sync s3://noaa-nws-owp-fim/hand_fim/inputs /home/projects/fim/data/inputs --profile esip --dryrun
 ```
 **Note**: When you include the `--dryrun` argument in the command, a large list will be returned showing you exactly which files are to be downloaded and where they will be saved. We recommend including this argument the first time you run the command, then quickly aborting it (CTRL-C) so you don't get the full list. However, you can see that your chosen target path on your machine is correct.  When you are happy with the pathing, run the `aws s3` command again and leave off the `--dryrun` argument.
 
