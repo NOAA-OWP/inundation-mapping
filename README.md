@@ -49,12 +49,12 @@ aws s3 ls s3://noaa-nws-owp-fim/hand_fim/  --profile esip
 
 Download a directory of sample outputs for a single HUC8:
 ```
-aws s3 sync s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_3_11_0/12090301 \
+aws s3 sync s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_4_0_0/12090301 \
     /your_local_folder_name/12090301
 ```
-By adjusting pathing, you can also download entire directories such as the `fim_4_3_11_0` folder. An entire output FIM set (e.g. `fim_4_3_11_0`) is approximately 1.1 TB.
+By adjusting pathing, you can also download entire directories such as the `fim_4_4_0_0` folder. An entire output FIM set (e.g. `fim_4_4_0_0`) is approximately 1.1 TB.
 
-**Note**: There may be newer editions than `fim_4_3_11_0`, and it is recommended to adjust the command above for the latest version.
+**Note**: There may be newer editions than `fim_4_4_0_0`, and it is recommended to adjust the command above for the latest version.
 
 ## Setting up your Environment
 
