@@ -1,6 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.4.X.X - 2024-02-20 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
+
+This enhancement includes changes to the SRC calibration routine that uses the USGS published rating curve database. The modifications attempt to mimic the technique used in the stage-based CatFIM where the USGS WSE/flow is propagated upstream and downstream of the gauge location. This closes #892 
+
+### Additions
+`src/src_adjust_usgs_rating_trace.py`: updated SRC calibration routine to include the a new upstream/downstream tracing routine. The WSE(HAND stage) and flow targets obtained from the USGS rating curve are now applied to all hydroids within 8km (~5 miles) of the gauge location.  
+
+### Changes
+`fim_post_processing.sh`: using the new `src_adjust_usgs_rating_trace.py` in place of the `src_adjust_usgs_rating.py`
+`src/src_roughness_optimization.py`: minor changes to facilitate new calibration input (reset index)
+`src/utils/shared_variables.py`: added `USGS_CALB_TRACE_DIST` as the trace distance variable
+
+### Removals
+`src/src_adjust_usgs_rating.py`: deprecated (replaced with the new `src_adjust_usgs_rating_trace.py`)
+
+<br/><br/>
+
+
 ## v4.4.13.3 - 2024-04-15 - [PR#1114](https://github.com/NOAA-OWP/inundation-mapping/pull/1114)
 
 Two recent dependabot PR's came in, one for upgrading the `pillow` package and the other for upgrading idna. Both have been adjusted in this PR. 
@@ -100,24 +119,6 @@ Fixes bug in bathymetric adjustment where `mask` is used with `geopandas.read_fi
 ### Changes
 
 `src/bathymetric_adjustment.py`: Use `engine=fiona` instead of default `pyogrio` to use `mask=` with `geopandas.read_file`
-
-<br/><br/>
-
-
-## v4.4.X.X - 2024-02-20 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
-
-This enhancement includes changes to the SRC calibration routine that uses the USGS published rating curve database. The modifications attempt to mimic the technique used in the stage-based CatFIM where the USGS WSE/flow is propagated upstream and downstream of the gauge location. This closes #892 
-
-### Additions
-`src/src_adjust_usgs_rating_trace.py`: updated SRC calibration routine to include the a new upstream/downstream tracing routine. The WSE(HAND stage) and flow targets obtained from the USGS rating curve are now applied to all hydroids within 8km (~5 miles) of the gauge location.  
-
-### Changes
-`fim_post_processing.sh`: using the new `src_adjust_usgs_rating_trace.py` in place of the `src_adjust_usgs_rating.py`
-`src/src_roughness_optimization.py`: minor changes to facilitate new calibration input (reset index)
-`src/utils/shared_variables.py`: added `USGS_CALB_TRACE_DIST` as the trace distance variable
-
-### Removals
-`src/src_adjust_usgs_rating.py`: deprecated (replaced with the new `src_adjust_usgs_rating_trace.py`)
 
 <br/><br/>
 
