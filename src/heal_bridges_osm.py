@@ -98,8 +98,6 @@ def burn_bridges(
     buffer_width,
     hucs_of_interest,
 ):
-    ###############################################################
-
     if not os.path.exists(bridge_lines_folder):
         os.mkdir(bridge_lines_folder)
 
