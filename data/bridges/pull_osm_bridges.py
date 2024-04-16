@@ -44,7 +44,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 #
 def combine_huc_features(location, output_lines_location, output_midpts_location):
     shapefile_names = Path(location).glob("huc*_osm_bridges.shp")
-    shapefiles = [shp for shp in shapefile_names] # need this to get the first item's crs
+    shapefiles = [shp for shp in shapefile_names]  # need this to get the first item's crs
     gdf = gpd.GeoDataFrame(
         pd.concat([gpd.read_file(shp) for shp in shapefiles], ignore_index=True),
         crs=gpd.read_file(shapefiles[0]).crs,
@@ -72,7 +72,7 @@ def process_osm_bridges(wbd_file, location, output_lines_location, output_midpts
     # the content of the following loop can be multiprocessed
     for row in huc8s.iterrows():
         huc = row[1]
-        huc_bridge_file = os.path.join(location,f"huc{huc['HUC8']}_osm_bridges.shp")
+        huc_bridge_file = os.path.join(location, f"huc{huc['HUC8']}_osm_bridges.shp")
 
         pull_osm_features_by_huc(huc_bridge_file, huc['HUC8'], huc['geometry'])
 

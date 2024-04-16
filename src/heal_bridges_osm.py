@@ -13,12 +13,7 @@ from shapely.geometry import shape
 
 
 def process_bridges_in_huc(
-    resolution,
-    buffer_width,
-    hand_grid_file,
-    osm_file,
-    bridge_lines_raster_filename,
-    updated_hand_filename,
+    resolution, buffer_width, hand_grid_file, osm_file, bridge_lines_raster_filename, updated_hand_filename
 ):
     if not os.path.exists(hand_grid_file):
         print(f"-- no hand grid, {hand_grid_file}")
@@ -43,13 +38,9 @@ def process_bridges_in_huc(
         osm_gdf['geometry'], hand_grid.read(1), affine=hand_grid.transform, stats="max"
     )
     # pull the values out of the geopandas columns so we can use them as floats
-    osm_gdf['max_hand'] = [
-        x.get('max') for x in osm_gdf.max_hand
-    ]  
+    osm_gdf['max_hand'] = [x.get('max') for x in osm_gdf.max_hand]
     # sort in case of overlaps; display max hand value at any given location
-    osm_gdf = osm_gdf.sort_values(
-        by="max_hand", ascending=False
-    )  
+    osm_gdf = osm_gdf.sort_values(by="max_hand", ascending=False)
     #######################################################
 
     ########### setup new raster to save bridge max hand values #############
@@ -75,7 +66,7 @@ def process_bridges_in_huc(
         out_arr = out.read(1)
         # this is where we create a generator of geom, value pairs to use in rasterizing
         shapes = ((geom, value) for geom, value in zip(osm_gdf.geometry, osm_gdf.max_hand))
-        # burn in values to any pixel that's touched by polygon and add nodata fill value 
+        # burn in values to any pixel that's touched by polygon and add nodata fill value
         burned = features.rasterize(
             shapes=shapes, fill=-999999, out=out_arr, transform=out.transform, all_touched=True
         )
@@ -125,7 +116,7 @@ def burn_bridges(
         if hucs_of_interest and huc not in hucs_of_interest:
             continue
         print(f"** Processing {huc}")
-        hand_grid_file = os.path.join(hand_grid_folder, f"{huc}","branches","0","rem_zeroed_masked_0.tif")
+        hand_grid_file = os.path.join(hand_grid_folder, f"{huc}", "branches", "0", "rem_zeroed_masked_0.tif")
         osm_file = os.path.join(osm_folder, f"huc{huc}_osm_bridges.shp")
         bridge_lines_raster_filename = os.path.join(bridge_lines_folder, f"{huc}_new_bridge_values.tif")
         updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_hand_values.tif")
