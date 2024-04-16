@@ -10,7 +10,6 @@ from unit_tests_utils import FIM_unit_test_helpers as ut_helpers
 
 
 class test_rating_curve_comparison(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """

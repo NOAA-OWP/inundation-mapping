@@ -17,7 +17,6 @@ import filter_catchments_and_add_attributes as src
 # use deny_gms_branches_dev.lst or the word "none" for the deny list arguments
 # (unit and branch deny list parameters). Key files need to exist for this unit test to work.
 class test_filter_catchments_and_add_attributes(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """
