@@ -1,23 +1,24 @@
-import osmnx as ox
-import geopandas as gpd
-from rasterstats import zonal_stats
-import rasterio
-import os
-from rasterio import transform, features
-from shapely.geometry import shape
-import numpy as np
-from pathlib import Path
-import pandas as pd
 import argparse
+import os
+from pathlib import Path
+
+import geopandas as gpd
+import numpy as np
+import osmnx as ox
+import pandas as pd
+import rasterio
+from rasterio import features, transform
+from rasterstats import zonal_stats
+from shapely.geometry import shape
+
 
 def process_bridges_in_huc(
-        huc_geom,
-        resolution,
-        buffer_width,
-        hand_grid_file,
-        osm_file,
-        bridge_lines_raster_filename,
-        updated_hand_filename
+    resolution,
+    buffer_width,
+    hand_grid_file,
+    osm_file,
+    bridge_lines_raster_filename,
+    updated_hand_filename,
 ):
     if not os.path.exists(hand_grid_file):
         print(f"-- no hand grid, {hand_grid_file}")
@@ -27,27 +28,31 @@ def process_bridges_in_huc(
     if os.path.exists(osm_file):
         osm_gdf = gpd.read_file(osm_file)
     else:
-        tags = {"bridge": True}
-        osm_gdf = ox.features_from_polygon(shape(huc_geom), tags) 
-        # may need to check for and fix point geometry and convert 'nodes' lists to strings, or do it before saving to shp
-        # ... or just skip
+        # skip this huc because it didn't pull in the initial OSM script
+        # and could have errors in the data or geometry
+        print(f"-- no OSM file, {osm_file}")
+        return
 
     osm_gdf = osm_gdf.to_crs(hand_grid.crs)
     osm_gdf.geometry = osm_gdf.buffer(buffer_width)
     #######################################################################
 
-
     ############# get max hand values for each bridge #########
     # find max hand value from raster each linestring intersects
-    osm_gdf['max_hand'] = zonal_stats(osm_gdf['geometry'],
-                    hand_grid.read(1),
-                    affine=hand_grid.transform,
-                    stats="max")
-    osm_gdf['max_hand'] = [x.get('max') for x in osm_gdf.max_hand] # pull the values out of the geopandas columns so we can use them as floats
-    osm_gdf = osm_gdf.sort_values(by="max_hand", ascending=False) # sort in case of overlaps; display max hand value at any given location
+    osm_gdf['max_hand'] = zonal_stats(
+        osm_gdf['geometry'], hand_grid.read(1), affine=hand_grid.transform, stats="max"
+    )
+    # pull the values out of the geopandas columns so we can use them as floats
+    osm_gdf['max_hand'] = [
+        x.get('max') for x in osm_gdf.max_hand
+    ]  
+    # sort in case of overlaps; display max hand value at any given location
+    osm_gdf = osm_gdf.sort_values(
+        by="max_hand", ascending=False
+    )  
     #######################################################
 
-    ########### burn in bridge max hand values ##################
+    ########### setup new raster to save bridge max hand values #############
     bbox = hand_grid.bounds
     xmin, ymin, xmax, ymax = bbox
     w = (xmax - xmin) // resolution
@@ -62,29 +67,28 @@ def process_bridges_in_huc(
         "crs": hand_grid.crs,
         "nodata": -999999,
         "transform": transform.from_bounds(xmin, ymin, xmax, ymax, w, h),
-        "compress": 'lzw'
+        "compress": 'lzw',
     }
 
     ################# rasterize new hand values ####################
     with rasterio.open(bridge_lines_raster_filename, 'w+', **out_meta) as out:
         out_arr = out.read(1)
         # this is where we create a generator of geom, value pairs to use in rasterizing
-        shapes = ((geom,value) for geom, value in zip(osm_gdf.geometry, osm_gdf.max_hand))
-        # burn in values and add a specific nodata fill value and any pixel that's touched by polygon
-        burned = features.rasterize(shapes=shapes, 
-                                    fill=-999999, 
-                                    out=out_arr, 
-                                    transform=out.transform, 
-                                    all_touched=True)
+        shapes = ((geom, value) for geom, value in zip(osm_gdf.geometry, osm_gdf.max_hand))
+        # burn in values to any pixel that's touched by polygon and add nodata fill value 
+        burned = features.rasterize(
+            shapes=shapes, fill=-999999, out=out_arr, transform=out.transform, all_touched=True
+        )
         out.write_band(1, burned)
     #################################################################
 
-    #################### update hand grid ##########################
+    #################### heal / update hand grid ##########################
     with rasterio.open(bridge_lines_raster_filename) as in_data:
         new_hand_values = in_data.read(1)
 
     hand_grid_vals = hand_grid.read(1)
-    combined_hand_values = np.where(new_hand_values==-999999,hand_grid_vals,new_hand_values)
+    # replace values at all locations where there are healed values available
+    combined_hand_values = np.where(new_hand_values == -999999, hand_grid_vals, new_hand_values)
 
     with rasterio.open(updated_hand_filename, 'w+', **out_meta) as out:
         out.write(combined_hand_values, 1)
@@ -94,39 +98,46 @@ def process_bridges_in_huc(
 
 
 def burn_bridges(
-        huc_shapefile,
-        hand_grid_folder,
-        osm_folder,
-        bridge_lines_folder,
-        updated_hand_folder,
-        resolution, 
-        buffer_width, 
-        hucs_of_interest
+    huc_shapefile,
+    hand_grid_folder,
+    osm_folder,
+    bridge_lines_folder,
+    updated_hand_folder,
+    resolution,
+    buffer_width,
+    hucs_of_interest,
 ):
     ###############################################################
+
+    if not os.path.exists(bridge_lines_folder):
+        os.mkdir(bridge_lines_folder)
+
+    if not os.path.exists(updated_hand_folder):
+        os.mkdir(updated_hand_folder)
 
     print("Opening CONUS HUC8 shapefile")
 
     gdf = gpd.read_file(huc_shapefile)
-    for index,row in gdf.iterrows():
-    ####################### open up hand grid, huc outline, and get osm bridges #####
+    # the following loop can be multiprocessed
+    for index, row in gdf.iterrows():
+        ####################### open up hand grid, huc outline, and get osm bridges #####
         huc = row['HUC8']
         if hucs_of_interest and huc not in hucs_of_interest:
             continue
         print(f"** Processing {huc}")
-        hand_grid_file = hand_grid_folder + f"{huc}_branches_0/rem_zeroed_masked_0.tif"
-        osm_file = osm_folder + f"huc{huc}_osm_bridges.shp"
-        bridge_lines_raster_filename = bridge_lines_folder + f"{huc}_new_bridge_values.tif"
-        updated_hand_filename = updated_hand_folder + f"{huc}_final_hand_values.tif"
+        hand_grid_file = os.path.join(hand_grid_folder, f"{huc}","branches","0","rem_zeroed_masked_0.tif")
+        osm_file = os.path.join(osm_folder, f"huc{huc}_osm_bridges.shp")
+        bridge_lines_raster_filename = os.path.join(bridge_lines_folder, f"{huc}_new_bridge_values.tif")
+        updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_hand_values.tif")
 
         process_bridges_in_huc(
-            row['geometry'],
             resolution,
             buffer_width,
             hand_grid_file,
             osm_file,
             bridge_lines_raster_filename,
-            updated_hand_filename)
+            updated_hand_filename,
+        )
 
     print("... done processing all HUC8s")
 
@@ -134,12 +145,11 @@ def burn_bridges(
 
 
 if __name__ == "__main__":
-
     '''
     Sample usage (min params):
         python3 /data/bridges/heal_bridges_osm.py
-            -g /data/inputs/hand_grids_here #xxx make this more accurate
-            -h /data/inputs/tx_hucs.shp
+            -g /data/inputs/hand_grids_here
+            -s /data/inputs/tx_hucs.shp
             -o /data/inputs/osm/
             -b /data/inputs/temp/
             -u /data/inputs/final_osm_hand/
@@ -161,6 +171,9 @@ if __name__ == "__main__":
         '-g',
         '--hand_grid_folder',
         help='REQUIRED: folder location of the HAND grid rasters.'
+        ' Assumes same file structure as in fim dev folders (should be path'
+        ' all the way up to previous_fim/<fim version> folder location).'
+        ' Script will access the huc folders and their contained branch 0 folders.'
         ' Files will NOT be modified here.',
         required=True,
     )
@@ -177,14 +190,14 @@ if __name__ == "__main__":
         '--bridge_lines_folder',
         help='REQUIRED: folder location of bridge lines rasters (can be a temporary folder,'
         ' as these are an intermediate step before being healed into HAND grids).'
-        ' Files will be saved to here.',
+        ' Files will be saved to here, and the folder will be created if it doesn\'t exist.',
         required=True,
     )
     parser.add_argument(
         '-u',
         '--updated_hand_folder',
         help='REQUIRED: folder location for final updated HAND grids, saved by HUC8.'
-        ' Files will be saved to here.',
+        ' Files will be saved to here, and the folder will be created if it doesn\'t exist.',
         required=True,
     )
     parser.add_argument(
@@ -209,7 +222,7 @@ if __name__ == "__main__":
         required=False,
         default=[],
     )
-    
+
     args = vars(parser.parse_args())
 
     burn_bridges(**args)
