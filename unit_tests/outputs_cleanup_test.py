@@ -16,7 +16,6 @@ from utils.shared_functions import FIM_Helpers as fh
 
 
 class test_outputs_cleanup(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """

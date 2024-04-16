@@ -55,6 +55,7 @@ def mask_dem(
     assert os.path.exists(catchments_filename), f"Catchments file {catchments_filename} does not exist"
 
     dem_masked = None
+    levee_catchments_masked = None
 
     with rio.open(dem_filename) as dem:
         dem_profile = dem.profile.copy()
@@ -104,24 +105,23 @@ def mask_dem(
 
             geoms = [feature["geometry"] for i, feature in levee_catchments_to_mask.iterrows()]
 
-            levee_catchments_masked = None
             if len(geoms) > 0:
                 levee_catchments_masked, _ = mask(dem, geoms, invert=True)
 
-            out_masked = None
-            if dem_masked is None:
-                if levee_catchments_masked is not None:
-                    out_masked = levee_catchments_masked
+        out_masked = None
+        if dem_masked is None:
+            if levee_catchments_masked is not None:
+                out_masked = levee_catchments_masked
 
+        else:
+            if levee_catchments_masked is None:
+                out_masked = dem_masked
             else:
-                if levee_catchments_masked is None:
-                    out_masked = dem_masked
-                else:
-                    out_masked = np.where(levee_catchments_masked == nodata, nodata, dem_masked)
+                out_masked = np.where(levee_catchments_masked == nodata, nodata, dem_masked)
 
-            if out_masked is not None:
-                with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
-                    dest.write(out_masked[0, :, :], indexes=1)
+        if out_masked is not None:
+            with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
+                dest.write(out_masked[0, :, :], indexes=1)
 
 
 if __name__ == '__main__':

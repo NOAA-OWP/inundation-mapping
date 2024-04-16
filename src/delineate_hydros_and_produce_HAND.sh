@@ -97,7 +97,8 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
-    -w $tempHucDataDir/wbd8_clp.gpkg -l $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
+    -w $tempHucDataDir/wbd8_clp.gpkg \
+    -l $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
     -n $b_arg \
     -m $max_split_distance_meters \
     -t $slope_min \
@@ -126,7 +127,24 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -o $tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
 
-# D8 REM ##
+## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
+echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
+date -u
+Tstart
+$srcDir/mitigate_branch_outlet_backpool.py \
+    -b $tempCurrentBranchDataDir \
+    -cp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
+    -cpp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg \
+    -cr $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
+    -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
+    -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
+    -n $b_arg \
+    -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+    -t $slope_min \
+    --calculate-stats
+Tcount
+
+## D8 REM ##
 echo -e $startDiv"D8 REM $hucNumber $current_branch_id"
 $srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif \
     -w $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \

@@ -27,7 +27,6 @@ from dotenv import load_dotenv
 
     Usage:
         generate_pre_clip_fim_huc8.py
-            -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
             -n /data/inputs/pre_clip_huc8/24_3_20
             -u /data/inputs/huc_lists/included_huc8.lst
             -j 6
@@ -48,18 +47,37 @@ load_dotenv(f'{projectDir}/config/params_template.env')
 
 # Variables from src/bash_variables.env
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+ALASKA_CRS = os.getenv('ALASKA_CRS')  # alaska
+
 inputsDir = os.getenv('inputsDir')
+
 input_WBD_gdb = os.getenv('input_WBD_gdb')
+input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # alaska
+
 input_DEM = os.getenv('input_DEM')
+input_DEM_Alaska = os.getenv('input_DEM_Alaska')  # alaska
+
 input_DEM_domain = os.getenv('input_DEM_domain')
+input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # alaska
+
 input_nwm_lakes = os.getenv('input_nwm_lakes')
 input_nwm_catchments = os.getenv('input_nwm_catchments')
+input_nwm_catchments_Alaska = os.getenv('input_nwm_catchments_Alaska')
+
 input_NLD = os.getenv('input_NLD')
+input_NLD_Alaska = os.getenv('input_NLD_Alaska')
+
 input_levees_preprocessed = os.getenv('input_levees_preprocessed')
+input_levees_preprocessed_Alaska = os.getenv('input_levees_preprocessed_Alaska')
+
 input_GL_boundaries = os.getenv('input_GL_boundaries')
 input_nwm_flows = os.getenv('input_nwm_flows')
+input_nwm_flows_Alaska = os.getenv('input_nwm_flows_Alaska')  # alaska
 input_nwm_headwaters = os.getenv('input_nwm_headwaters')
+input_nwm_headwaters_Alaska = os.getenv('input_nwm_headwaters_Alaska')
+
 input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
+input_nld_levee_protected_areas_Alaska = os.getenv('input_nld_levee_protected_areas_Alaska')
 
 # Variables from config/params_template.env
 wbd_buffer = os.getenv('wbd_buffer')
@@ -100,13 +118,12 @@ def __setup_logger(outputs_dir):
     logging.info(f"\n \t Started: {start_time_string} \n")
 
 
-def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, overwrite):
+def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     '''
     The function is the main driver of the program to iterate and parallelize writing
     pre-clipped HUC8 vector files.
 
     Inputs:
-    - wbd_file:                       Default take from src/bash_variables.env, or provided as argument.
     - outputs_dir:                    Output directory to stage pre-clipped vectors.
     - huc_list:                       List of Hucs to generate pre-clipped .gpkg files.
     - number_of_jobs:                 Amount of cpus used for parallelization.
@@ -143,8 +160,8 @@ def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, over
     if os.path.exists(huc_list):
         hucs_to_pre_clip_list = open(huc_list).read().splitlines()
     else:
-        logging.info("The huclist is not valid. Please check <huc_list> arguemnt.")
-        raise Exception("The huclist is not valid. Please check <huc_list> arguemnt.")
+        logging.info("The huclist is not valid. Please check <huc_list> argument.")
+        raise Exception("The huclist is not valid. Please check <huc_list> argument.")
 
     if os.path.exists(outputs_dir) and not overwrite:
         raise Exception(
@@ -175,7 +192,9 @@ def pre_clip_hucs_from_wbd(wbd_file, outputs_dir, huc_list, number_of_jobs, over
     procs_list = []
     for huc in hucs_to_pre_clip_list:
         print(f"Generating vectors for {huc}. ")
-        procs_list.append([huc, outputs_dir, wbd_file])
+        procs_list.append([huc, outputs_dir])
+
+        # procs_list.append([huc, outputs_dir, wbd_alaska_file])
 
     # Parallelize each huc in hucs_to_parquet_list
     logging.info('Parallelizing HUC level wbd pre-clip vector creation. ')
@@ -210,7 +229,6 @@ def huc_level_clip_vectors_to_wbd(args):
     Inputs:
     - huc:                           Individual HUC to generate vector files for.
     - outputs_dir:                   Output directory to stage pre-clipped vectors.
-    - input_WBD_filename:            Filename of WBD to generate pre-clipped .gpkg files.
 
     Processing:
     - Define (unpack) arguments.
@@ -227,19 +245,32 @@ def huc_level_clip_vectors_to_wbd(args):
     # We have to explicitly unpack the args from pool.map()
     huc = args[0]
     outputs_dir = args[1]
-    input_WBD_filename = args[2]
 
     huc_directory = os.path.join(outputs_dir, huc)
 
     # SET VARIABLES AND FILE INPUTS #
     hucUnitLength = len(huc)
     huc2Identifier = huc[:2]
-    input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
+
+    # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
+    if huc2Identifier == '19':
+        huc_CRS = ALASKA_CRS
+        input_NHD_WBHD_layer = 'WBD_National_South_Alaska'
+        input_WBD_filename = input_WBD_gdb_Alaska
+        wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National_South_Alaska.gpkg'
+    else:
+        huc_CRS = DEFAULT_FIM_PROJECTION_CRS
+        input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
+        input_WBD_filename = input_WBD_gdb
+        wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National.gpkg'
 
     # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
     if huc2Identifier == "04":
         input_LANDSEA = f"{input_GL_boundaries}"
         print(f'Using {input_LANDSEA} for water body mask (Great Lakes)')
+    elif huc2Identifier == "19":
+        input_LANDSEA = f"{inputsDir}/landsea/water_polygons_alaska.gpkg"
+        print(f'Using {input_LANDSEA} for water body mask (Alaska)')
     else:
         input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
 
@@ -252,7 +283,7 @@ def huc_level_clip_vectors_to_wbd(args):
             '-f',
             'GPKG',
             '-t_srs',
-            DEFAULT_FIM_PROJECTION_CRS,
+            huc_CRS,
             f'{huc_directory}/wbd.gpkg',
             input_WBD_filename,
             input_NHD_WBHD_layer,
@@ -286,32 +317,64 @@ def huc_level_clip_vectors_to_wbd(args):
     print(msg)
     logging.info(msg)
 
-    # Subset Vector Layers
-    subset_vector_layers(
-        subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
-        subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
-        hucCode=huc,
-        subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
-        wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
-        wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
-        wbd_filename=f"{huc_directory}/wbd.gpkg",
-        dem_filename=input_DEM,
-        dem_domain=input_DEM_domain,
-        nwm_lakes=input_nwm_lakes,
-        nwm_catchments=input_nwm_catchments,
-        subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
-        nld_lines=input_NLD,
-        nld_lines_preprocessed=input_levees_preprocessed,
-        landsea=input_LANDSEA,
-        nwm_streams=input_nwm_flows,
-        subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
-        nwm_headwaters=input_nwm_headwaters,
-        subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
-        subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
-        wbd_buffer_distance=wbd_buffer_int,
-        levee_protected_areas=input_nld_levee_protected_areas,
-        subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-    )
+    # Subset Vector Layers (after determining whether it's alaska or not)
+    if huc2Identifier == '19':
+        # Yes Alaska
+        subset_vector_layers(
+            subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
+            subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
+            hucCode=huc,
+            subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
+            wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
+            wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
+            wbd_filename=f"{huc_directory}/wbd.gpkg",
+            dem_filename=input_DEM_Alaska,
+            dem_domain=input_DEM_domain_Alaska,
+            nwm_lakes=input_nwm_lakes,
+            nwm_catchments=input_nwm_catchments_Alaska,
+            subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
+            nld_lines=input_NLD_Alaska,
+            nld_lines_preprocessed=input_levees_preprocessed_Alaska,
+            landsea=input_LANDSEA,
+            nwm_streams=input_nwm_flows_Alaska,
+            subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
+            nwm_headwaters=input_nwm_headwaters_Alaska,
+            subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
+            subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
+            wbd_buffer_distance=wbd_buffer_int,
+            levee_protected_areas=input_nld_levee_protected_areas_Alaska,
+            subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
+            huc_CRS=huc_CRS,  # TODO: simplify
+        )
+
+    else:
+        # Not Alaska
+        subset_vector_layers(
+            subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
+            subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
+            hucCode=huc,
+            subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
+            wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
+            wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
+            wbd_filename=f"{huc_directory}/wbd.gpkg",
+            dem_filename=input_DEM,
+            dem_domain=input_DEM_domain,
+            nwm_lakes=input_nwm_lakes,
+            nwm_catchments=input_nwm_catchments,
+            subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
+            nld_lines=input_NLD,
+            nld_lines_preprocessed=input_levees_preprocessed,
+            landsea=input_LANDSEA,
+            nwm_streams=input_nwm_flows,
+            subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
+            nwm_headwaters=input_nwm_headwaters,
+            subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
+            subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
+            wbd_buffer_distance=wbd_buffer_int,
+            levee_protected_areas=input_nld_levee_protected_areas,
+            subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
+            huc_CRS=huc_CRS,  # TODO: simplify
+        )
 
     msg = f"\n\t Completing Get Vector Layers and Subset: {huc} \n"
     print(msg)
@@ -326,12 +389,12 @@ def huc_level_clip_vectors_to_wbd(args):
             '-f',
             'GPKG',
             '-t_srs',
-            DEFAULT_FIM_PROJECTION_CRS,
+            huc_CRS,
             '-clipsrc',
             f'{huc_directory}/wbd_buffered.gpkg',
             f'{huc_directory}/wbd8_clp.gpkg',
-            f'{inputsDir}/wbd/WBD_National.gpkg',
-            'WBDHU8',
+            wbd_gpkg_path,
+            input_NHD_WBHD_layer,
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -364,30 +427,24 @@ if __name__ == '__main__':
         'the output directory specified as the <outputs_dir> argument.',
         usage='''
             ./generate_pre_clip_fim_huc8.py
-                -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
-                -n /data/inputs/pre_clip_huc8/24_3_20
+                -n /data/inputs/pre_clip_huc8/2024_3_20
                 -u /data/inputs/huc_lists/included_huc8.lst
                 -j 6
                 -o
         ''',
     )
-    parser.add_argument(
-        '-wbd',
-        '--wbd_file',
-        help='.wbd file to clip into individual HUC.gpkg files. Default is $input_WBD_gdb from src/bash_variables.env.',
-        default=input_WBD_gdb,
-    )
+
     parser.add_argument(
         '-n',
         '--outputs_dir',
         help='Directory to output all of the HUC level .gpkg files. Use the format: '
-        '<year_month_day> (i.e. September 26, 2023 would be 23_9_26)',
+        '<year_month_day> (i.e. September 26, 2023 would be 2023_9_26)',
     )
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
     parser.add_argument(
         '-j',
         '--number_of_jobs',
-        help='OPTIONAL: number of cores/processes (default=4). This is a memory intensive '
+        help='OPTIONAL: Number of cores/processes (default=4). This is a memory intensive '
         'script, and the multiprocessing will crash if too many CPUs are used. It is recommended to provide '
         'half the amount of available CPUs.',
         type=int,
@@ -397,7 +454,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-o',
         '--overwrite',
-        help='Overwrite the file if already existing? (default false)',
+        help='OPTIONAL: Overwrite the file if already existing? (default false)',
         action='store_true',
     )
 
