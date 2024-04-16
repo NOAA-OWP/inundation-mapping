@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.x.x.x - 2024-03-22 - [PR#1103](https://github.com/NOAA-OWP/inundation-mapping/pull/1103)
+
+Adds checks for intermediate files produced by Whitebox in the AGREE process (`src/agreedem.py`). Without these checks, if Whitebox fails to produce an output, no error is generated until much later in the `src/delineate_hydros_and_produce_HAND.sh` processing chain which makes troubleshooting difficult.
+
+### Changes
+
+- `src/agreedem.py`: Added checks to verify existence of intermediate files before continuing
+
+<br/><br/>
+
+
 ## v4.4.13.3 - 2024-04-15 - [PR#1114](https://github.com/NOAA-OWP/inundation-mapping/pull/1114)
 
 Two recent dependabot PR's came in, one for upgrading the `pillow` package and the other for upgrading idna. Both have been adjusted in this PR. 
@@ -40,16 +52,6 @@ The "black" packages is also be upgraded from 23.7.0 to 24.3.
 
 <br/><br/>
 
-
-## v4.x.x.x - 2024-03-22 - [PR#1103](https://github.com/NOAA-OWP/inundation-mapping/pull/1103)
-
-Adds checks for intermediate files produced by Whitebox in the AGREE process (`src/agreedem.py`). Without these checks, if Whitebox fails to produce an output, no error is generated until much later in the `src/delineate_hydros_and_produce_HAND.sh` processing chain which makes troubleshooting difficult.
-
-### Changes
-
-- `src/agreedem.py`: Added checks to verify existence of intermediate files before continuing
-
-<br/><br/>
 
 ## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
