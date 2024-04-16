@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2024-04-16 - [PR#xxx](https://github.com/NOAA-OWP/inundation-mapping/pull/xxx)
+## v4.4.x.x - 2024-04-16 - [PR#1122](https://github.com/NOAA-OWP/inundation-mapping/pull/1122)
 
 This PR includes 2 scripts to add Open Street Map bridge data into the HAND process: a script that pulls data from OSM and a script that heals those bridges in the HAND grids. Both scripts should be run as part of a pre-processing step for FIM runs. They only need to be run if we think OSM data has changed a lot or for any new FIM versions.
 
