@@ -427,7 +427,7 @@ if __name__ == '__main__':
         'the output directory specified as the <outputs_dir> argument.',
         usage='''
             ./generate_pre_clip_fim_huc8.py
-                -n /data/inputs/pre_clip_huc8/2024_3_20
+                -n /data/inputs/pre_clip_huc8/24_3_20
                 -u /data/inputs/huc_lists/included_huc8.lst
                 -j 6
                 -o

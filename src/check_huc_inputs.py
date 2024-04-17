@@ -14,7 +14,9 @@ def __read_included_files(parent_dir_path):
     # I have just replaced the pattern, but later we might want to clean this up.
 
     # filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc*.lst'))
-    filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc8.lst'))
+
+    included_huc_list = 'included_huc8_withAlaska.lst'  # previous: 'included_huc8.lst'
+    filename_patterns = glob(os.path.join(parent_dir_path, included_huc_list))
 
     accepted_hucs_set = set()
     for filename in filename_patterns:
