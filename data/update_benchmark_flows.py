@@ -50,11 +50,17 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
         if levelpaths.empty:
             return flows
 
+        # Find the levelpath with the highest order (to exclude tributaries)
+        levelpaths = levelpaths[levelpaths['order_'] == levelpaths['order_'].max()]
+
         # Find the levelpath that has flows in the flow file
         levelpath = levelpaths.loc[levelpaths['ID'].isin(flows['feature_id']), 'levpa_id']
 
         if levelpath.empty:
             return flows
+
+        # Remove flows not in the levelpath
+        flows = flows.iloc[flows.loc[flows['feature_id'].isin(levelpaths.ID), 'feature_id'].index]
 
         levelpath = levelpath.values[0]
 
@@ -65,10 +71,13 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
         IDs_to_add = levelpaths.loc[~IDs.isin(flows['feature_id']), 'ID']
 
         # Add the missing IDs with flows to the flow file
-        flows_out = pd.concat(
-            [flows, pd.DataFrame({'feature_id': IDs_to_add, 'discharge': flows.loc[0, 'discharge']})],
-            ignore_index=True,
-        )
+        if not IDs_to_add.empty:
+            flows_out = pd.concat(
+                [flows, pd.DataFrame({'feature_id': IDs_to_add, 'discharge': flows['discharge'].iloc[0]})],
+                ignore_index=True,
+            )
+        else:
+            flows_out = flows
 
         return flows_out
 
@@ -117,27 +126,28 @@ def update_benchmark_flows(fim_dir: str, output_dir_base: str):
                     flow_file_in = f'{input_dir}/ahps_{lid}_huc_{huc8}_flows_{magnitude}.csv'
                     flow_file_out = f'{output_dir}/ahps_{lid}_huc_{huc8}_flows_{magnitude}.csv'
 
+                    # Skip if flow file doesn't exist
                     if not os.path.exists(flow_file_in):
                         continue
 
-                    flows = pd.read_csv(flow_file_in)
+                    # Backup original flow file
+                    backup_flow_file = flow_file_out + '.bak'
+                    if not os.path.exists(backup_flow_file):
+                        shutil.copy2(flow_file_in, backup_flow_file)
+
+                    flows = pd.read_csv(backup_flow_file)
 
                     flows_new = iterate_over_sites(levelpaths, domain, flows)
 
-                    if len(flows_new) > len(flows):
-                        # Backup original flow file
-                        backup_flow_file = flow_file_in + '.bak'
-                        if not os.path.exists(backup_flow_file):
-                            shutil.copy2(flow_file_in, backup_flow_file)
-
-                        flows_new.to_csv(flow_file_out, index=False)
-
+                    if not flows_new.equals(flows):
                         count_updated += 1
                         count_total += 1
                     else:
                         count_total += 1
 
-        print(f'Updated {count_updated} out of {count_total} flow files for {org}')
+                    flows_new.to_csv(flow_file_out, index=False)
+
+        print(f'\tUpdated {count_updated} out of {count_total} flow files for {org}')
 
 
 if __name__ == "__main__":
