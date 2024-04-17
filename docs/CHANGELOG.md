@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.4.X.X - 2024-02-20 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
+## v4.4.15.0 - 2024-04-17 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
 
 This enhancement includes changes to the SRC calibration routine that uses the USGS published rating curve database. The modifications attempt to mimic the technique used in the stage-based CatFIM where the USGS WSE/flow is propagated upstream and downstream of the gauge location. This closes #892 
 
@@ -16,6 +16,10 @@ This enhancement includes changes to the SRC calibration routine that uses the U
 
 ### Removals
 `src/src_adjust_usgs_rating.py`: deprecated (replaced with the new `src_adjust_usgs_rating_trace.py`)
+
+<br/><br/>
+
+
 ## v4.4.14.1 - 2024-04-17 - [PR#1103](https://github.com/NOAA-OWP/inundation-mapping/pull/1103)
 
 Adds checks for intermediate files produced by Whitebox in the AGREE process (`src/agreedem.py`). Without these checks, if Whitebox fails to produce an output, no error is generated until much later in the `src/delineate_hydros_and_produce_HAND.sh` processing chain which makes troubleshooting difficult.
