@@ -4,11 +4,11 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.x.x.x - 2024-03-14 - [PR#1094](https://github.com/NOAA-OWP/inundation-mapping/pull/1094)
 
-Extends flows (i.e., discharge) to stream segments missing from NWS and USGS validation flow files. The levelpath associated with existing flows in the AHPS domain is identified, and any stream segments of the levelpath in the domain missing from the flow file are added to the flow file by assigning the existing flow (this is a constant value regardless of other tributaries including other levelpaths in the domain).
+Extends flows (i.e., discharge) to stream segments missing from NWS and USGS validation flow files. The levelpath associated with existing flows in the AHPS domain is identified, and any stream segments of the levelpath in the domain missing from the flow file are added to the flow file by assigning the existing flow (this is a constant value regardless of other tributaries including other levelpaths in the domain). Stream segments not on the levelpath within the domain are dropped from the flow file, including tributary flows. The original flow file is saved along with the output with an appended `.bak`.
 
 ### Additions
 
-- `data/extend_benchmark_flows.py`: Adds missing flows to NWS or USGS benchmark flow files. The original flow file is saved with an appended `.bak`.
+- `data/extend_benchmark_flows.py`: Adds missing flows to NWS or USGS benchmark flow files and removes flows from tributaries. The original flow file is saved with an appended `.bak`.
 
 ### Changes
 
