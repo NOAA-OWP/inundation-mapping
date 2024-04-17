@@ -17,7 +17,25 @@ branch_list_lst_file=$tempHucDataDir/branch_ids.lst
 
 branchSummaryLogFile=$outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
 
-## INITIALIZE TOTAL UNIT AND IT'S BRANCHES TIMER ##
+huc2Identifier=${hucNumber:0:2}
+
+
+## SET CRS and input DEM domain
+if [ $huc2Identifier -eq 19 ]; then
+    huc_CRS=$ALASKA_CRS
+    huc_input_DEM_domain=$input_DEM_domain_Alaska
+    dem_domain_filename=DEM_Domain.gpkg
+
+else
+    huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
+    huc_input_DEM_domain=$input_DEM_domain
+    dem_domain_filename=HUC6_dem_domain.gpkg
+
+fi
+
+echo -e $startDiv"Using CRS: $huc_CRS" ## debug
+
+## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 huc_start_time=`date +%s`
 date -u
@@ -28,7 +46,7 @@ cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 
 # Copy necessary files from $inputsDir into $tempHucDataDir to avoid File System Collisions
 # For buffer_stream_branches.py
-cp $input_DEM_domain $tempHucDataDir
+cp $huc_input_DEM_domain $tempHucDataDir
 # For usgs_gage_unit_setup.py
 cp $inputsDir/usgs_gages/usgs_gages.gpkg $tempHucDataDir
 cp $ras_rating_curve_points_gpkg $tempHucDataDir
@@ -47,7 +65,9 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
     -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg \
     -n $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg \
     -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
-    -wbd $tempHucDataDir/wbd.gpkg
+    -wbd $tempHucDataDir/wbd.gpkg \
+    -u $hucNumber
+
 
 # test if we received a non-zero code back from derive_level_paths.py
 #subscript_exit_code=$?
@@ -74,7 +94,7 @@ python3 $srcDir/associate_levelpaths_with_levees.py -nld $tempHucDataDir/nld_sub
 
 ## STREAM BRANCH POLYGONS
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"
-$srcDir/buffer_stream_branches.py -a $tempHucDataDir/HUC6_dem_domain.gpkg \
+$srcDir/buffer_stream_branches.py -a $tempHucDataDir/$dem_domain_filename \
     -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
     -i $branch_id_attribute \
     -d $branch_buffer_distance_meters \
@@ -99,7 +119,9 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
 [ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && \
 gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" \
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    -co "BIGTIFF=YES" -t_srs $DEFAULT_FIM_PROJECTION_CRS $input_DEM $tempHucDataDir/dem_meters.tif -q
+    -co "BIGTIFF=YES" -t_srs $huc_CRS $input_DEM $tempHucDataDir/dem_meters.tif
+
+Tcount
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"

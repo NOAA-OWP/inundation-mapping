@@ -11,16 +11,10 @@ been run for the HUCs being processed.
 
 ## Installation
 
-1. A Dockerfile is provided in the root of the `/foss_fim/data/ble/ble_benchmark` directory.
-The Docker image can be built using the following command from `/foss_fim/data/ble/ble_benchmark`:
+1. The Docker image can be run using the following command:
 ```
-docker build --rm --no-cache --force-rm -t dev:ble_benchmark .
-```
-
-2. The Docker image can be run using the following command:
-```
-docker run --rm -it -v ~/git/inundation-mapping:/foss_fim -v ~/efs/fim_data/fim_4_0_13_1:/data \
--v ~/efs/fim_data/fim_4_0_13_1/outputs:/outputs --name ble_benchmark dev:ble_benchmark
+docker run --rm -it -v ~/git/inundation-mapping:/foss_fim -v ~/efs/fim_data/:/data \
+-v ~/efs/fim_data/fim_4_4_x_x/outputs:/outputs --name ble_benchmark dev:ble_benchmark {your docker image name}
 ```
 
 ## Usage
