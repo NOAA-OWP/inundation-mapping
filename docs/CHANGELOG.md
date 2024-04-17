@@ -2,13 +2,17 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.x.x.x - 2024-03-22 - [PR#1103](https://github.com/NOAA-OWP/inundation-mapping/pull/1103)
+## v4.4.14.1 - 2024-04-17 - [PR#1103](https://github.com/NOAA-OWP/inundation-mapping/pull/1103)
 
 Adds checks for intermediate files produced by Whitebox in the AGREE process (`src/agreedem.py`). Without these checks, if Whitebox fails to produce an output, no error is generated until much later in the `src/delineate_hydros_and_produce_HAND.sh` processing chain which makes troubleshooting difficult.
 
 ### Changes
 
 - `src/agreedem.py`: Added checks to verify existence of intermediate files before continuing
+
+<br/><br/>
+
+
 ## v4.4.14.0 - 2024-04-17 - [PR#1106](https://github.com/NOAA-OWP/inundation-mapping/pull/10106)
 
 Updates the FIM pipeline so it can process HUCs in southern Alaska. Running FIM in southern Alaska requires that a different CRS and a few different files be used. Additionally, some of the Alaska HUCs displayed an issue where the input stream density was too high, so this update introduces some logic to adjust the threshold of stream orders to exclude based on whether an Alaska HUC is listed as high or medium-high stream density. This update intriduces new Alaska-specific inputs, which are listed in the PR. 
