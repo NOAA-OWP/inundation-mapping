@@ -30,6 +30,7 @@ PREP_PROJECTION = (
     'Wyoming."],BBOX[24.41,-124.79,49.38,-66.91]],ID["EPSG",5070]]'
 )
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+ALASKA_CRS = os.getenv('ALASKA_CRS')
 PREP_CRS = CRS(PREP_PROJECTION)
 VIZ_PROJECTION = (
     'PROJCS["WGS_1984_Web_Mercator_Auxiliary_Sphere",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",'
@@ -78,6 +79,25 @@ UNIT_ERRORS_MIN_PERCENT_THRESHOLD = 10  # as in 10% (should be a whole number)
 
 # -- Field Names -- #
 FIM_ID = 'fimid'
+
+# -- High stream density HUCs that require mitigation (currently just in Alaska) -- #
+HIGH_STREAM_DENSITY_HUCS = {'19020602', '19020503', '19020402', '19020104'}  # stream density 1.5+
+
+MEDIUM_HIGH_STREAM_DENSITY_HUCS = {  # stream density between 0.5 and 1.5
+    '19020504',
+    '19020502',
+    '19020601',
+    '19020505',
+    '19020101',  # 1.0-1.5
+    '19020102',
+    '19020501',
+    '19020301',
+    '19020401',
+    '19020302',
+    '19020103',
+    '19020202',  # 0.5-1.0
+}
+
 
 # -- Other -- #
 CONUS_STATE_LIST = {
