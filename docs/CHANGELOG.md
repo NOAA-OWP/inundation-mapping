@@ -1,6 +1,45 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.4.13.3 - 2024-04-15 - [PR#1114](https://github.com/NOAA-OWP/inundation-mapping/pull/1114)
+
+Two recent dependabot PR's came in, one for upgrading the `pillow` package and the other for upgrading idna. Both have been adjusted in this PR. 
+In this PR, we also moved `openpyxl` package, which was part of an independent dockerfile, Pipfile and Pipefile.lock in the "dev" directory. This is now merged into the parent standard docker image.
+
+Covers [PR 1111](https://github.com/NOAA-OWP/inundation-mapping/pull/1111) and 
+Covers [PR 1119](https://github.com/NOAA-OWP/inundation-mapping/pull/1119)
+
+A small update to the README.md was also updated for an unrelated topic (about AWS S3 credentials).
+
+### Changes
+- `Pipfile / Pipefile.lock`: As described above.
+- `data/ble/ble_benchmark/README.md`: Updated notes to remove talking the specific ble docker image.
+
+### Removals
+- `data/ble/ble_benchmark`
+   - `Dockerfile`: removed in favor the parent root Docker files.
+   - `Pipfile`: removed in favor the parent root Docker files.
+   - `Pipfile.lock` : removed in favor the parent root Docker files.
+
+<br/><br/>
+
+
+## v4.4.13.2 - 2024-04-04 - [PR#1110](https://github.com/NOAA-OWP/inundation-mapping/pull/1110)
+
+This PR reflects upgrades for openJDK from 17.0.8 to something higher, minimum of 17.0.9. After some research, we can not upgrade all the way to the latest openJDK but can jump up to 19.0.  This limitation is related to version of our base docker image.  openJDK was identified as requiring an upgrade by a system wide security scan.
+
+The "black" packages is also be upgraded from 23.7.0 to 24.3.
+
+**NOTE: the update of "black" has change the rules slightly for formatting. This is why you see a bunch of files being changed but only for the formatting changes.**
+
+### Files Change
+- `Dockerfile`, `Pipfile`, `Pipefile.lock`
+- `pre-commit-config.yaml` is also has Black upgraded for CI/CD tests for linting during GIT check ins.
+- `many files`:
+     - 19 files have had minor formatting changes related to the upgrade in the "black" package.
+
+<br/><br/>
+
 
 ## v4.x.x.x - 2024-03-14 - [PR#1094](https://github.com/NOAA-OWP/inundation-mapping/pull/1094)
 

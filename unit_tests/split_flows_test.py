@@ -10,7 +10,6 @@ import split_flows as src
 
 
 class test_split_flows(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """
