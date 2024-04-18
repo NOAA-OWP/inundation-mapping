@@ -15,6 +15,52 @@ Extends flows (i.e., discharge) to stream segments missing from NWS and USGS val
 
 <br/><br/>
 
+
+## v4.4.15.0 - 2024-04-17 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
+
+This enhancement includes changes to the SRC calibration routine that uses the USGS published rating curve database. The modifications attempt to mimic the technique used in the stage-based CatFIM where the USGS WSE/flow is propagated upstream and downstream of the gauge location. This closes #892 
+
+### Additions
+`src/src_adjust_usgs_rating_trace.py`: updated SRC calibration routine to include the a new upstream/downstream tracing routine. The WSE(HAND stage) and flow targets obtained from the USGS rating curve are now applied to all hydroids within 8km (~5 miles) of the gauge location.  
+
+### Changes
+`fim_post_processing.sh`: using the new `src_adjust_usgs_rating_trace.py` in place of the `src_adjust_usgs_rating.py`
+`src/src_roughness_optimization.py`: minor changes to facilitate new calibration input (reset index)
+`src/utils/shared_variables.py`: added `USGS_CALB_TRACE_DIST` as the trace distance variable
+
+### Removals
+`src/src_adjust_usgs_rating.py`: deprecated (replaced with the new `src_adjust_usgs_rating_trace.py`)
+
+<br/><br/>
+
+
+## v4.4.14.1 - 2024-04-17 - [PR#1103](https://github.com/NOAA-OWP/inundation-mapping/pull/1103)
+
+Adds checks for intermediate files produced by Whitebox in the AGREE process (`src/agreedem.py`). Without these checks, if Whitebox fails to produce an output, no error is generated until much later in the `src/delineate_hydros_and_produce_HAND.sh` processing chain which makes troubleshooting difficult.
+
+### Changes
+
+- `src/agreedem.py`: Added checks to verify existence of intermediate files before continuing
+
+<br/><br/>
+
+
+## v4.4.14.0 - 2024-04-17 - [PR#1106](https://github.com/NOAA-OWP/inundation-mapping/pull/10106)
+
+Updates the FIM pipeline so it can process HUCs in southern Alaska. Running FIM in southern Alaska requires that a different CRS and a few different files be used. Additionally, some of the Alaska HUCs displayed an issue where the input stream density was too high, so this update introduces some logic to adjust the threshold of stream orders to exclude based on whether an Alaska HUC is listed as high or medium-high stream density. This update intriduces new Alaska-specific inputs, which are listed in the PR. 
+
+### Changes
+- `data/wbd/generate_pre_clip_fim_huc8.py`: Adjusted comment.
+- `src/bash_variables.env`: Changed pre-clip HUC 8 directory to be a folder with both Alaska and CONUS HUCs.
+- `src/check_huc_inputs.py`: Changed the `included_huc_list` variable to refer to a HUC list that includes Alaska.
+- `src/derive_level_paths.py`: Add in logic to exclude different stream orders based on whether the HUC falls into the high or medium-high density HUC lists.
+- `src/run_by_branch.sh`: Add in logic to check whether the HUC is in Alaska or not and to use the correct CRS accordingly.
+- `src/run_unit_wb.sh`: Add in logic to check whether the HUC is in Alaska or not and to use the correct CRS and DEM domain filename accordingly.
+- `src/utils/shared_variables.py`: Add the Alaska CRS, a list of high stream density HUCs, and a list of medium-high stream density HUCs.
+
+<br/><br/>
+
+
 ## v4.4.13.3 - 2024-04-15 - [PR#1114](https://github.com/NOAA-OWP/inundation-mapping/pull/1114)
 
 Two recent dependabot PR's came in, one for upgrading the `pillow` package and the other for upgrading idna. Both have been adjusted in this PR. 
@@ -53,7 +99,6 @@ The "black" packages is also be upgraded from 23.7.0 to 24.3.
      - 19 files have had minor formatting changes related to the upgrade in the "black" package.
 
 <br/><br/>
-
 
 ## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
@@ -116,7 +161,6 @@ Fixes bug in bathymetric adjustment where `mask` is used with `geopandas.read_fi
 `src/bathymetric_adjustment.py`: Use `engine=fiona` instead of default `pyogrio` to use `mask=` with `geopandas.read_file`
 
 <br/><br/>
-
 
 ## v4.4.11.0 - 2024-02-16 - [PR#1077](https://github.com/NOAA-OWP/inundation-mapping/pull/1077)
 

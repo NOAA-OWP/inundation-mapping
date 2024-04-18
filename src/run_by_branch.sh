@@ -13,6 +13,13 @@ hucUnitLength=${#hucNumber}
 huc4Identifier=${hucNumber:0:4}
 huc2Identifier=${hucNumber:0:2}
 
+## SET CRS
+if [ $huc2Identifier -eq 19 ]; then
+    huc_CRS=$ALASKA_CRS
+else
+    huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
+fi
+
 # Skip branch zero
 if [ $current_branch_id = $branch_zero_id ]; then
     exit 0
@@ -39,19 +46,19 @@ date -u
 ## SUBSET VECTORS
 echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"
 echo -e "Querying NWM streams ..."
-ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -where $branch_id_attribute="$current_branch_id" \
+ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
     $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg \
     $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg
 echo -e "Querying NWM catchments ..."
-ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -where $branch_id_attribute="$current_branch_id" \
+ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
     $tempCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg \
     $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg
 echo -e "Querying NWM Dissolved Levelpaths headwaters ..."
-ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -where $branch_id_attribute="$current_branch_id" \
+ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
     $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg \
     $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
 #echo -e "Querying NWM headwaters ..."
-# ogr2ogr -f GPKG -t_srs $DEFAULT_FIM_PROJECTION_CRS -where $branch_id_attribute="$current_branch_id" \
+# ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
 #     $tempCurrentBranchDataDir/nwm_headwaters_$current_branch_id.gpkg \
 #      $tempHucDataDir/nwm_headwaters.gpkg
 
