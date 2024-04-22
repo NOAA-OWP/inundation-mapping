@@ -624,7 +624,7 @@ def get_metadata(
     params['downstream_trace_distance'] = downstream_trace_distance
     # Suppress Insecure Request Warning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-    
+
     # Request data from url
     response = requests.get(url, params=params, verify=False)
     #    print(response)
@@ -943,7 +943,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
     retry = Retry(connect=3, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
-    
+
     response = session.get(url, params=params, verify=False)
 
     if response.status_code == 200:
@@ -1172,15 +1172,15 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
 
     # Suppress Insecure Request Warning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-    
+
     # Call the API
     session = requests.Session()
     retry = Retry(connect=3, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
-    
+
     response = session.get(datum_url, params=params, verify=False)
-    
+
     # If successful get the navd adjustment
     if response.status_code == 200:
         results = response.json()

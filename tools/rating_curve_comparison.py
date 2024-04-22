@@ -896,9 +896,9 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
         dem_adj_elevation = rc[rc.location_id == gage].dem_adj_elevation.unique()[0]
         catchment_rem = (catchment_rem + dem_adj_elevation) * 3.28084
         max_elev = rc[(rc.source == 'FIM') & (rc.location_id == gage)].elevation_ft.max()
-        catchment_rem[np.where(catchment_rem > max_elev)] = (
-            np.nan
-        )  # <-- Comment out this line to get the full raster that is
+        catchment_rem[
+            np.where(catchment_rem > max_elev)
+        ] = np.nan  # <-- Comment out this line to get the full raster that is
         # used in rating curve creation
         # Create polygon for perimeter/area stats
         catchment_rem_1s = catchment_rem.copy()
