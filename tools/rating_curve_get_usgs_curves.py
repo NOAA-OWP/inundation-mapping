@@ -374,7 +374,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
 
     # Filter and save filtered file for viewing
     acceptable_sites_gdf = sites_gdf[
-        (sites_gdf['acceptable_codes'] == True) & (sites_gdf['acceptable_alt_error'] == True)
+        (sites_gdf['acceptable_codes'] is True) & (sites_gdf['acceptable_alt_error'] is True)
     ]
     acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
     acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_for_rating_curves.csv'))
