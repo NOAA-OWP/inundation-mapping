@@ -82,6 +82,7 @@ def get_all_active_usgs_sites():
 
     return gdf, list_of_sites, metadata_list
 
+
 ##############################################################################
 # Generate categorical flows for each category across all sites.
 ##############################################################################
@@ -148,7 +149,7 @@ def write_categorical_flow_files(metadata, workspace):
     if not all_data.empty:
         final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
         final_data.to_csv(workspace / 'catfim_flows_cms.csv', index=False)
-    
+
     return all_data
 
 
@@ -225,7 +226,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         select_by = 'usgs_site_code'
         selector = list_of_gage_sites
         print("Selected sites :", selector)
-        
+
         # Since there is a limit to number characters in url, split up selector if too many sites.
         max_sites = 150
         if len(selector) > max_sites:
@@ -255,15 +256,15 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
                 upstream_trace_distance=None,
                 downstream_trace_distance=None,
             )
-        
+
         # Get a geospatial layer (gdf) for all acceptable sites
         print("Aggregating WBD HUCs...")
-        _ , sites_gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
+        _, sites_gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
         if not sites_gdf.empty:
-          # Get a list of all sites in gdf
-          list_of_sites = sites_gdf['identifiers_usgs_site_code'].to_list()
-          # Rename gdf fields
-          sites_gdf.columns = sites_gdf.columns.str.replace('identifiers_', '')
+            # Get a list of all sites in gdf
+            list_of_sites = sites_gdf['identifiers_usgs_site_code'].to_list()
+            # Rename gdf fields
+            sites_gdf.columns = sites_gdf.columns.str.replace('identifiers_', '')
         else:
             print("There is no acceptable site.")
             sys.exit()
@@ -299,7 +300,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
             # To prevent time-out errors
             time.sleep(sleep_time)
             # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
-            
+
             datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous')
 
             # If datum API failed, print message and skip site.

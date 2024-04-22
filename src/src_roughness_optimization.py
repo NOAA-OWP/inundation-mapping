@@ -585,12 +585,12 @@ def branch_network_tracer(df_input_htable):
         while Q:
             q = Q.popleft()
             if q not in visited:
-                df_input_htable.loc[df_input_htable.HydroID == q, 'route_count'] = (
-                    vert_count  # assign var with flow order ranking
-                )
-                df_input_htable.loc[df_input_htable.HydroID == q, 'branch_id'] = (
-                    branch_count  # assign var with current branch id
-                )
+                df_input_htable.loc[
+                    df_input_htable.HydroID == q, 'route_count'
+                ] = vert_count  # assign var with flow order ranking
+                df_input_htable.loc[
+                    df_input_htable.HydroID == q, 'branch_id'
+                ] = branch_count  # assign var with current branch id
                 vert_count += 1
                 visited.add(q)
                 # find the id for the next downstream hydroid
@@ -676,9 +676,9 @@ def group_manningn_calc(df_nmerge, down_dist_thresh):
                 # only apply the group_calb_coef if there are 2 or more valid hydorids that contributed to the
                 # upstream group_calb_coef
                 if hyid_accum_count > 1:
-                    df_nmerge.loc[index, 'group_calb_coef'] = (
-                        group_calb_coef  # output the group_calb_coef var
-                    )
+                    df_nmerge.loc[
+                        index, 'group_calb_coef'
+                    ] = group_calb_coef  # output the group_calb_coef var
             else:
                 # reset the running average manningn variable (greater than 10km downstream)
                 run_avg_mann = 0
