@@ -122,8 +122,8 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     # Add survey meta data
     time_stamp = bathy_bounds.loc[0, 'SurveyDateStamp']
     time_stamp_obj = str(time_stamp)
-    
-    bathy_nwm_streams['SurveyDateStamp'] = time_stamp_obj #bathy_bounds.loc[0, 'SurveyDateStamp']
+
+    bathy_nwm_streams['SurveyDateStamp'] = time_stamp_obj  # bathy_bounds.loc[0, 'SurveyDateStamp']
     bathy_nwm_streams['SurveyId'] = bathy_bounds.loc[0, 'SurveyId']
     bathy_nwm_streams['Sheet_Name'] = bathy_bounds.loc[0, 'Sheet_Name']
     bathy_nwm_streams["Bathymetry_source"] = 'USACE eHydro'
@@ -135,7 +135,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     # schema = gpd.io.file.infer_schema(bathy_nwm_streams)
     # print(schema)
     # print("---------------------------")
-    
+
     if os.path.exists(output):
         print(f"{output} already exists. Concatinating now...")
         existing_bathy_file = gpd.read_file(output, engine="pyogrio", use_arrow=True)
