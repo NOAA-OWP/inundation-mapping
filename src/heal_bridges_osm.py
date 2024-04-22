@@ -153,7 +153,7 @@ if __name__ == "__main__":
         '-s',
         '--huc_shapefile',
         help='REQUIRED: full path of the shapefile, gpkg or gdb files that will'
-        ' contain in one layer all the HUC8s to process.',
+        ' contain in one layer all the HUC8s to process. Must contain field \'HUC8\'.',
         required=True,
     )
     parser.add_argument(

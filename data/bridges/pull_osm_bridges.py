@@ -108,7 +108,7 @@ if __name__ == "__main__":
         '-w',
         '--wbd_file',
         help='REQUIRED: location the shapefile, gpkg or gdb files that will'
-        ' contain all the HUC8 clip regions in one layer.',
+        ' contain all the HUC8 clip regions in one layer. Must contain field \'HUC8\'.',
         required=True,
     )
 
