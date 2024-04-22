@@ -1,12 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2024-04-17 - 
+## v4.4.x.x - 2024-04-19 - [PR#1125](https://github.com/NOAA-OWP/inundation-mapping/pull/1125)
 
-This is  the datum issue
+This PR focuses on updating the preprocess_bathymetry.py for 3 issues: 1) the capability of preprocessing SurveyJobs that have negative depth values, 2) changing the SurveyDateStamp format, and 3) the capability of including multiple SurveyJobs for one NWM feature-id if needed.
 
+### Changes
+`data/bathymetry/preprocess_bathymetry.py`: Addressing 3 issues including, the capability of preprocessing SurveyJobs that have negative depth values, changing the SurveyDateStamp format, and the capability of including multiple SurveyJobs for one NWM feature-id.
+
+### Testing
+This PR has been tested on 25 SurveyJobs over the Illinois River.
 
 <br/><br/>
+
 
 ## v4.4.15.0 - 2024-04-17 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
 
