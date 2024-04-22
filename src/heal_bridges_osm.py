@@ -120,8 +120,8 @@ def burn_bridges(
         updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_hand_values.tif")
 
         process_bridges_in_huc(
-            resolution,
-            buffer_width,
+            int(resolution),
+            int(buffer_width),
             hand_grid_file,
             osm_file,
             bridge_lines_raster_filename,
