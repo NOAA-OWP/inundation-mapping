@@ -760,9 +760,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
     )
     joined_gdf = joined_gdf.drop(columns='index_wbd')
 
-    # Remove all Alaska HUCS (Not in NWM v2.0 domain)
-    joined_gdf = joined_gdf[~joined_gdf.states.str.contains('AK')]
-
     # Create a dictionary of huc [key] and nws_lid[value]
     dictionary = joined_gdf.groupby('HUC8')['identifiers_nws_lid'].apply(list).to_dict()
 
