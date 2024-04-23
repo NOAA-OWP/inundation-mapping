@@ -261,16 +261,12 @@ def update_rating_curve(
                     + str(huc)
                     + '  branch id: '
                     + str(branch_id)
-                    + ' hydroid: '
-                    + str(row.hydroid)
         )
         log_text += (
                     'ERROR: "discharge_cms" column does not exist in df_nvalues df: '
                     + str(huc)
                     + '  branch id: '
                     + str(branch_id)
-                    + ' hydroid: '
-                    + str(row.hydroid)
                     + '\n'
         )
         return log_text
