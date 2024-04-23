@@ -62,6 +62,9 @@ def process_bridges_in_huc(
     }
 
     ################# rasterize new hand values ####################
+    # TODO: This little section and the next heal/update section are where we would
+    #   potentially pull lidar data into HAND grid instead of rasterizing the max HAND
+    #   data.
     with rasterio.open(bridge_lines_raster_filename, 'w+', **out_meta) as out:
         out_arr = out.read(1)
         # this is where we create a generator of geom, value pairs to use in rasterizing
@@ -136,7 +139,7 @@ def burn_bridges(
 if __name__ == "__main__":
     '''
     Sample usage (min params):
-        python3 /data/bridges/heal_bridges_osm.py
+        python3 src/heal_bridges_osm.py
             -g /data/inputs/hand_grids_here
             -s /data/inputs/tx_hucs.shp
             -o /data/inputs/osm/

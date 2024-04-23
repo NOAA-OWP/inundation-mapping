@@ -85,7 +85,7 @@ def process_osm_bridges(wbd_file, location, output_lines_location, output_midpts
 if __name__ == "__main__":
     '''
     Sample usage (min params):
-        python3 /foss_fim/data/bridges/pull_osm_bridges.py
+        python3 data/bridges/pull_osm_bridges.py
             -w /data/inputs/wbd/wbdhu8_a_us_oct2018.gdb
             -p /data/inputs/osm/
             -l /data/inputs/osm/osm_bridges.shp
