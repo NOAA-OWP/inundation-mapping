@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.4.x.x - 2024-04-23 - [PR#1128](https://github.com/NOAA-OWP/inundation-mapping/pull/1128)
+
+Fixes a KeyError in `src/mitigate_branch_outlet_backpool.py`.
+
+### Changes
+
+`src/mitigate_branch_outlet_backpool.py`: Addresses case where `catchments_df['outlier']` are all False.
+
+<br/><br/>
+
 ## v4.4.15.0 - 2024-04-17 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
 
 This enhancement includes changes to the SRC calibration routine that uses the USGS published rating curve database. The modifications attempt to mimic the technique used in the stage-based CatFIM where the USGS WSE/flow is propagated upstream and downstream of the gauge location. This closes #892 
