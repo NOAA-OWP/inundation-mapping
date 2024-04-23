@@ -255,6 +255,26 @@ def update_rating_curve(
             df_nvalues.loc[index, 'overbank_n'] = find_src_stage.overbank_n
             df_nvalues.loc[index, 'discharge_cms'] = find_src_stage.discharge_cms
 
+    if 'discharge_cms' not in df_nvalues:
+        print(
+                    'ERROR: "discharge_cms" column does not exist in df_nvalues df: '
+                    + str(huc)
+                    + '  branch id: '
+                    + str(branch_id)
+                    + ' hydroid: '
+                    + str(row.hydroid)
+        )
+        log_text += (
+                    'ERROR: "discharge_cms" column does not exist in df_nvalues df: '
+                    + str(huc)
+                    + '  branch id: '
+                    + str(branch_id)
+                    + ' hydroid: '
+                    + str(row.hydroid)
+                    + '\n'
+        )
+        return log_text
+    
     ## Calculate calibration coefficient
     df_nvalues = df_nvalues.rename(columns={'hydroid': 'HydroID'})  # rename the previous ManningN column
     df_nvalues['hydroid_calb_coef'] = df_nvalues['discharge_cms'] / df_nvalues['flow']  # Qobs / Qsrc
