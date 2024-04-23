@@ -248,14 +248,13 @@ python3 $srcDir/add_crosswalk.py \
     -e $min_catchment_area \
     -g $min_stream_length
 
-
 ## HEALED HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
-if  ["$healed_hand_hydrocondition" = "True"] && [ -f $tempCurrentBranchDataDir/dem_thalweg_cond_$current_branch_id.tif ] ; then
+if  ["$healed_hand_hydrocondition" = "True"] ; then #&& [ -f $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif ]
     echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
     gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
         -hr $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
         -d $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
-        -dt $tempCurrentBranchDataDir/dem_thalweg_cond_$current_branch_id.tif \
+        -dt $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
         --calc="hr+(d-dt)" --NoDataValue=$ndv \
         --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
 fi
