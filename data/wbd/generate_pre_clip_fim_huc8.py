@@ -27,8 +27,8 @@ from dotenv import load_dotenv
 
     Usage:
         generate_pre_clip_fim_huc8.py
-            -n /data/inputs/pre_clip_huc8/24_3_20
-            -u /data/inputs/huc_lists/included_huc8.lst
+            -n /data/inputs/pre_clip_huc8/24_04_23
+            -u /data/inputs/huc_lists/included_huc8_withAlaska.lst
             -j 6
             -o
 
@@ -36,7 +36,7 @@ from dotenv import load_dotenv
       If running this script to generate new data, modify the pre_clip_huc_dir variable in
       src/bash_variables.env to the corresponding outputs_dir argument after running and testing this script.
       The newly generated data should be created in a new folder using the format <year_month_day>
-             (i.e. September 26, 2023 would be 23_9_26)
+             (i.e. September 26, 2023 would be 23_09_26)
 '''
 
 srcDir = os.getenv('srcDir')
@@ -428,7 +428,7 @@ if __name__ == '__main__':
         usage='''
             ./generate_pre_clip_fim_huc8.py
                 -n /data/inputs/pre_clip_huc8/24_3_20
-                -u /data/inputs/huc_lists/included_huc8.lst
+                -u /data/inputs/huc_lists/included_huc8_withAlaska.lst
                 -j 6
                 -o
         ''',
@@ -438,7 +438,7 @@ if __name__ == '__main__':
         '-n',
         '--outputs_dir',
         help='Directory to output all of the HUC level .gpkg files. Use the format: '
-        '<year_month_day> (i.e. September 26, 2023 would be 2023_9_26)',
+        '<year_month_day> (i.e. September 26, 2023 would be 23_09_26)',
     )
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
     parser.add_argument(
