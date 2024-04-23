@@ -149,7 +149,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     echo
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow values)
-    python3 $srcDir/src_adjust_usgs_rating.py \
+    python3 $srcDir/src_adjust_usgs_rating_trace.py \
         -run_dir $outputDestDir \
         -usgs_rc $usgs_rating_curve_csv \
         -nwm_recur $nwm_recur_file \

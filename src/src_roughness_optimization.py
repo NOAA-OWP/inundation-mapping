@@ -115,6 +115,7 @@ def update_rating_curve(
     log_text += "DOWNSTREAM_THRESHOLD: " + str(down_dist_thresh) + 'km\n'
     log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
     df_nvalues = water_edge_median_df.copy()
+    df_nvalues.reset_index(inplace=True)
     df_nvalues = df_nvalues[
         (df_nvalues.hydroid.notnull()) & (df_nvalues.hydroid > 0)
     ]  # remove null entries that do not have a valid hydroid
@@ -243,6 +244,7 @@ def update_rating_curve(
             find_src_stage = df_htable_hydroid.loc[
                 df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()
             ]  # find closest matching stage to the user provided HAND value
+
             ## copy the corresponding htable values for the matching stage->HAND lookup
             df_nvalues.loc[index, 'feature_id'] = find_src_stage.feature_id
             df_nvalues.loc[index, 'LakeID'] = find_src_stage.LakeID
