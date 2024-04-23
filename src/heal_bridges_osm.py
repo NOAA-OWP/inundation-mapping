@@ -93,7 +93,7 @@ def process_bridges_in_huc(
 
 def burn_bridges(
     huc_shapefile,
-    hand_grid_folder,
+    hand_grid_path,
     osm_folder,
     bridge_lines_folder,
     updated_hand_folder,
@@ -109,29 +109,39 @@ def burn_bridges(
 
     print("Opening CONUS HUC8 shapefile")
 
-    gdf = gpd.read_file(huc_shapefile)
+    if hucs_of_interest:
+        hucs_of_interest = hucs_of_interest.split(',')
+    elif huc_shapefile:
+        gdf = gpd.read_file(huc_shapefile)
+        hucs_of_interest = gdf['HUC8']
+    else:
+        print("-- must specify hucs of interest or a shapefile")
+        return
+    
     # the following loop can be multiprocessed
-    for index, row in gdf.iterrows():
+    for huc in hucs_of_interest:
         ####################### open up hand grid, huc outline, and get osm bridges #####
-        huc = row['HUC8']
-        if hucs_of_interest and huc not in hucs_of_interest:
-            continue
         print(f"** Processing {huc}")
-        hand_grid_file = os.path.join(hand_grid_folder, f"{huc}", "branches", "0", "rem_zeroed_masked_0.tif")
+        # option to pass in HAND grid file individually for one HUC8 or to set a folder location to be able
+        # to process multiple HUCs in one go (FIM pipeline uses one HUC8 at a time)
+        if os.path.isdir(hand_grid_path):
+            hand_grid_path = os.path.join(hand_grid_path, f"{huc}", "branches", "0", "rem_zeroed_masked_0.tif")
         osm_file = os.path.join(osm_folder, f"huc{huc}_osm_bridges.shp")
         bridge_lines_raster_filename = os.path.join(bridge_lines_folder, f"{huc}_new_bridge_values.tif")
-        updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_hand_values.tif")
+        updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_osm_hand_values.tif")
 
         process_bridges_in_huc(
-            int(resolution),
-            int(buffer_width),
-            hand_grid_file,
+            resolution,
+            buffer_width,
+            hand_grid_path,
             osm_file,
             bridge_lines_raster_filename,
             updated_hand_filename,
         )
 
     print("... done processing all HUC8s")
+
+    # TODO: cleanup temp folder here if desired
 
     return
 
@@ -140,11 +150,14 @@ if __name__ == "__main__":
     '''
     Sample usage (min params):
         python3 src/heal_bridges_osm.py
-            -g /data/inputs/hand_grids_here
+            -g /data/inputs/hand_grids_here or individual hand grid path for single huc
             -s /data/inputs/tx_hucs.shp
             -o /data/inputs/osm/
             -b /data/inputs/temp/
             -u /data/inputs/final_osm_hand/
+            -i 12070205,12090301
+            -w 10
+            -r 10
 
     Notes:
         - This tool will run best if the pull_osm_bridges.py script is run first.
@@ -155,14 +168,17 @@ if __name__ == "__main__":
     parser.add_argument(
         '-s',
         '--huc_shapefile',
-        help='REQUIRED: full path of the shapefile, gpkg or gdb files that will'
-        ' contain in one layer all the HUC8s to process. Must contain field \'HUC8\'.',
-        required=True,
+        help='OPTIONAL: full path of the shapefile, gpkg or gdb files that will'
+        ' contain in one layer all the HUC8s to process. Must contain field \'HUC8\'.'
+        ' If this file isn\'t specified, then hucs_of_interest must be.',
+        required=False,
     )
     parser.add_argument(
         '-g',
-        '--hand_grid_folder',
-        help='REQUIRED: folder location of the HAND grid rasters.'
+        '--hand_grid_path',
+        help='REQUIRED: folder location of the HAND grid rasters OR file location of one'
+        ' particular HUC and branch combo\'s HAND grid (use this option with one specified'
+        ' HUC8 of interest in the hucs_of_interest argument).'
         ' Assumes same file structure as in fim dev folders (should be path'
         ' all the way up to previous_fim/<fim version> folder location).'
         ' Script will access the huc folders and their contained branch 0 folders.'
@@ -198,6 +214,7 @@ if __name__ == "__main__":
         help='OPTIONAL: Resolution of HAND grid. Default value is 10m',
         required=False,
         default=10,
+        type=int,
     )
     parser.add_argument(
         '-w',
@@ -205,14 +222,18 @@ if __name__ == "__main__":
         help='OPTIONAL: buffer width for OSM bridge lines. Default value is 10m (on each side)',
         required=False,
         default=10,
+        type=int,
     )
     parser.add_argument(
         '-i',
         '--hucs_of_interest',
-        help='OPTIONAL: subset of HUC8s of interest as a list. Default is empty list,'
-        ' and all HUC8s in the provided HUC8 shapefile will be processed.',
+        help='OPTIONAL: subset of HUC8s of interest as a list. Default is None,'
+        ' and all HUC8s in the provided HUC8 shapefile will be processed.'
+        ' Pass list of HUCs without brackets and separated by commas.'
+        ' Do not pass in an empty list as an argument.',
         required=False,
-        default=[],
+        default=None,
+        type=str,
     )
 
     args = vars(parser.parse_args())

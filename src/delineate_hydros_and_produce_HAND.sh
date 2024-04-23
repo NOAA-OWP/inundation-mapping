@@ -227,6 +227,16 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
     -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
 
+## HEAL HAND BRIDGES (note resolution and buffers are set to 10m)
+python3 $srcDir/heal_bridges_osm.py \
+            -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+            -i $hucNumber \
+            -o $inputsDir/osm \
+            -b $inputsDir/temp \
+            -u $inputsDir/final_osm_hand \
+            -w 10 \
+            -r 10 
+
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"
 python3 $srcDir/add_crosswalk.py \
