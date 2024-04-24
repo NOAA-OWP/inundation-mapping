@@ -235,7 +235,7 @@ python3 $srcDir/heal_bridges_osm.py \
             -b $inputsDir/temp \
             -u $inputsDir/final_osm_hand \
             -w 10 \
-            -r 10 
+            -r 10
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"
