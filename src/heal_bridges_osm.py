@@ -130,19 +130,11 @@ def burn_bridges(
                 hand_grid_path, f"{huc}", "branches", "0", "rem_zeroed_masked_0.tif"
             )
         osm_file = os.path.join(osm_folder, f"huc{huc}_osm_bridges.shp")
-        bridge_lines_raster_filename = os.path.join(
-            bridge_lines_folder,
-            f"{huc}_new_bridge_values.tif"
-        )
+        bridge_lines_raster_filename = os.path.join(bridge_lines_folder, f"{huc}_new_bridge_values.tif")
         updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_osm_hand_values.tif")
 
         process_bridges_in_huc(
-            resolution,
-            buffer_width,
-            hand_grid_path,
-            osm_file,
-            bridge_lines_raster_filename,
-            updated_hand_filename,
+            resolution, buffer_width, hand_grid_path, osm_file, bridge_lines_raster_filename, updated_hand_filename,
         )
 
     print("... done processing all HUC8s")
