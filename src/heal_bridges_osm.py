@@ -125,7 +125,9 @@ def burn_bridges(
         # option to pass in HAND grid file individually for one HUC8 or to set a folder location to be able
         # to process multiple HUCs in one go (FIM pipeline uses one HUC8 at a time)
         if os.path.isdir(hand_grid_path):
-            hand_grid_path = os.path.join(hand_grid_path, f"{huc}", "branches", "0", "rem_zeroed_masked_0.tif")
+            hand_grid_path = os.path.join(
+                hand_grid_path, f"{huc}", "branches", "0", "rem_zeroed_masked_0.tif"
+            )
         osm_file = os.path.join(osm_folder, f"huc{huc}_osm_bridges.shp")
         bridge_lines_raster_filename = os.path.join(bridge_lines_folder, f"{huc}_new_bridge_values.tif")
         updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_osm_hand_values.tif")
