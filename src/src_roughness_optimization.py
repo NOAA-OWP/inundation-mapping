@@ -222,6 +222,7 @@ def update_rating_curve(
             # filter htable for entries with matching hydroid and ignore stage 0
             # (first possible stage match at 1ft)
             df_htable_hydroid = df_htable[(df_htable.HydroID == row.hydroid) & (df_htable.stage > 0)]
+            print(df_htable_hydroid)
             if df_htable_hydroid.empty:
                 print(
                     'ERROR: df_htable_hydroid is empty but expected data: '
