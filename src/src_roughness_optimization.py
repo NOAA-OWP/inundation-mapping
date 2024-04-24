@@ -256,6 +256,7 @@ def update_rating_curve(
             df_nvalues.loc[index, 'discharge_cms'] = find_src_stage.discharge_cms
 
     if 'discharge_cms' not in df_nvalues:
+        print(df_nvalues)
         print(
                     'ERROR: "discharge_cms" column does not exist in df_nvalues df: '
                     + str(huc)
