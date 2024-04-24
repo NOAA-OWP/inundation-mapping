@@ -244,6 +244,7 @@ def update_rating_curve(
             find_src_stage = df_htable_hydroid.loc[
                 df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()
             ]  # find closest matching stage to the user provided HAND value
+            print(find_src_stage)
 
             ## copy the corresponding htable values for the matching stage->HAND lookup
             df_nvalues.loc[index, 'feature_id'] = find_src_stage.feature_id
