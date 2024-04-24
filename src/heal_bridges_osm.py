@@ -9,12 +9,7 @@ from rasterstats import zonal_stats
 
 
 def process_bridges_in_huc(
-    resolution,
-    buffer_width,
-    hand_grid_file,
-    osm_file,
-    bridge_lines_raster_filename,
-    updated_hand_filename
+    resolution, buffer_width, hand_grid_file, osm_file, bridge_lines_raster_filename, updated_hand_filename
 ):
     if not os.path.exists(hand_grid_file):
         print(f"-- no hand grid, {hand_grid_file}")
@@ -134,7 +129,12 @@ def burn_bridges(
         updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_osm_hand_values.tif")
 
         process_bridges_in_huc(
-            resolution, buffer_width, hand_grid_path, osm_file, bridge_lines_raster_filename, updated_hand_filename,
+            resolution,
+            buffer_width,
+            hand_grid_path,
+            osm_file,
+            bridge_lines_raster_filename,
+            updated_hand_filename,
         )
 
     print("... done processing all HUC8s")
