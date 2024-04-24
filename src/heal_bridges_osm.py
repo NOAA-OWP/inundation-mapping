@@ -1,19 +1,20 @@
 import argparse
 import os
-from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
-import osmnx as ox
-import pandas as pd
 import rasterio
 from rasterio import features, transform
 from rasterstats import zonal_stats
-from shapely.geometry import shape
 
 
 def process_bridges_in_huc(
-    resolution, buffer_width, hand_grid_file, osm_file, bridge_lines_raster_filename, updated_hand_filename
+    resolution,
+    buffer_width,
+    hand_grid_file,
+    osm_file,
+    bridge_lines_raster_filename,
+    updated_hand_filename
 ):
     if not os.path.exists(hand_grid_file):
         print(f"-- no hand grid, {hand_grid_file}")
@@ -117,19 +118,22 @@ def burn_bridges(
     else:
         print("-- must specify hucs of interest or a shapefile")
         return
-    
+
     # the following loop can be multiprocessed
     for huc in hucs_of_interest:
         ####################### open up hand grid, huc outline, and get osm bridges #####
         print(f"** Processing {huc}")
-        # option to pass in HAND grid file individually for one HUC8 or to set a folder location to be able
-        # to process multiple HUCs in one go (FIM pipeline uses one HUC8 at a time)
+        # option to pass in HAND grid file individually for one HUC8 or to set a folder location
+        # to be able to process multiple HUCs in one go (FIM pipeline uses one HUC8 at a time)
         if os.path.isdir(hand_grid_path):
             hand_grid_path = os.path.join(
                 hand_grid_path, f"{huc}", "branches", "0", "rem_zeroed_masked_0.tif"
             )
         osm_file = os.path.join(osm_folder, f"huc{huc}_osm_bridges.shp")
-        bridge_lines_raster_filename = os.path.join(bridge_lines_folder, f"{huc}_new_bridge_values.tif")
+        bridge_lines_raster_filename = os.path.join(
+            bridge_lines_folder,
+            f"{huc}_new_bridge_values.tif"
+        )
         updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_osm_hand_values.tif")
 
         process_bridges_in_huc(
@@ -231,7 +235,7 @@ if __name__ == "__main__":
         '--hucs_of_interest',
         help='OPTIONAL: subset of HUC8s of interest as a list. Default is None,'
         ' and all HUC8s in the provided HUC8 shapefile will be processed.'
-        ' Pass list of HUCs without brackets and separated by commas.'
+        ' Pass list of HUCs -without brackets- and separated by commas.'
         ' Do not pass in an empty list as an argument.',
         required=False,
         default=None,
