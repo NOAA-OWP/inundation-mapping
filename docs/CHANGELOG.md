@@ -3,12 +3,15 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.4.x.x - 2024-04-16 - [PR#1122](https://github.com/NOAA-OWP/inundation-mapping/pull/1122)
 
-This PR includes 2 scripts to add Open Street Map bridge data into the HAND process: a script that pulls data from OSM and a script that heals those bridges in the HAND grids. Both scripts should be run as part of a pre-processing step for FIM runs. They only need to be run if we think OSM data has changed a lot or for any new FIM versions.
+This PR includes 2 scripts to add Open Street Map bridge data into the HAND process: a script that pulls data from OSM and a script that heals those bridges in the HAND grids. Both scripts should be run as part of a pre-processing step for FIM runs. They only need to be run if we think OSM data has changed a lot or for any new FIM versions. This PR also modifies the shell script that should run the bridge healing during the FIM pipeline process.
 
-### Files Added
+### Additions
 - `data/bridges/pull_osm_bridges.py`: First pre-processing script that pulls OSM data and saves bridge lines out as separate shapefiles by HUC8 to a specified location
 - `src/heal_bridges_osm.py`: Second pre-processing script that uses the pre-saved OSM bridge lines and heals max HAND values across those bridge lines. Healed HAND grids are saved to a specified location.
 
+### Changes
+- `src/delineate_hydros_and_produce_HAND.sh`: add python call to run `heal_bridges_osm.py` after hydraulic properties are calculated
+  
 <br/><br/>
 
 
