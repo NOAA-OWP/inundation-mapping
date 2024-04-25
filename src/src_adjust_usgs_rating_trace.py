@@ -333,6 +333,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             usgs_elev['trace_hydroid'] = [
                 lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])
             ]
+            print(usgs_elev)
 
             # Drop up & down columns
             columns_to_drop = ['up', 'down']
