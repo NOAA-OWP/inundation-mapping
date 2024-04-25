@@ -298,6 +298,11 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             df = gpd.read_file(dem_reaches_path)
             usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)]
 
+            # Filter usgs_elev for gauge locations associated with a lakeid
+            usgs_elev = usgs_df[usgs_df['LakeID'] == 0]
+            if usgs_elev.empty:
+                break
+
             # Calculate updstream/downstream trace ()
             df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
 
