@@ -199,6 +199,8 @@ def update_rating_curve(
     df_htable = df_htable.rename(columns={'precalb_discharge_cms': 'discharge_cms'})
 
     ## loop through the user provided point data --> stage/flow dataframe row by row
+    print('check a:')
+    print(df_nvalues)
     for index, row in df_nvalues.iterrows():
         print('index & row')
         print(str(index))
