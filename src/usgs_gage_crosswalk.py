@@ -33,6 +33,8 @@ warnings.simplefilter("ignore")
         Directory to create output table. i.e. '/data/path/'
     branch_id: str
         ID of the current branch i.e. '3246000257'
+    huc_CRS: str
+        Projection to be used for the HUC
 '''
 
 
@@ -42,7 +44,7 @@ class GageCrosswalk(object):
         self.gages = self._load_gages(usgs_subset_gages_filename)
 
     def run_crosswalk(
-        self, input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_directory
+        self, input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_directory, huc_CRS,
     ):
         '''Run the gage crosswalk steps: 1) spatial join to branch catchments layer 2) snap sites to
         the dem-derived flows 3) sample both dems at the snapped points 4) write the crosswalked points
@@ -51,6 +53,7 @@ class GageCrosswalk(object):
         if self.gages.empty:
             print(f'There are no gages for branch {branch_id}')
             os._exit(0)
+            
         # Spatial join to fim catchments
         self.catchment_sjoin(input_catchment_filename)
         if self.gages.empty:
@@ -73,10 +76,30 @@ class GageCrosswalk(object):
         usgs_gages = gpd.read_file(gages_filename)
         return usgs_gages[(usgs_gages.levpa_id == self.branch_id)]
 
-    def catchment_sjoin(self, input_catchment_filename):
+    def catchment_sjoin(self, input_catchment_filename, huc_CRS):
         '''Spatial joins gages to FIM catchments'''
 
         input_catchments = gpd.read_file(input_catchment_filename, dtype={'HydroID': int})
+        
+        print('==========================================================') ## debug
+        print('self.crs:') ## debug
+        print(self.crs) ## debug
+        print() ## debug
+        print('input_catchments.crs:') ## debug
+        print(input_catchments.crs) ## debug
+        print() ## debug
+        print('==========================================================') ## debug
+
+
+
+        if input_catchments.crs != huc_CRS:
+            #reproject TODO
+            print('CRSs do not match! need to reproject!') ## DEBUG
+            input_catchments = input_catchments.to_crs(huc_CRS)
+
+        else:
+            print('crses match! cary on.') ## DEBUG
+
         self.gages = gpd.sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='inner')
 
     def snap_to_dem_derived_flows(self, input_flows_filename):
@@ -171,6 +194,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-b', '--branch-id', help='Branch ID used to filter the gages', type=str, required=True
     )
+    parser.add_argument('-huc_CRS', help='Projection to be used for the HUC.', type=str, required=True)
 
     args = vars(parser.parse_args())
 
@@ -181,6 +205,7 @@ if __name__ == '__main__':
     dem_adj_filename = args['dem_adj_filename']
     output_directory = args['output_directory']
     branch_id = args['branch_id']
+    huc_CRS = args['huc_CRS']
 
     assert os.path.isfile(usgs_gages_filename), f"The input file {usgs_gages_filename} does not exist."
 
