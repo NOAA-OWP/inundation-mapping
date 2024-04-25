@@ -119,6 +119,8 @@ def update_rating_curve(
     df_nvalues = df_nvalues[
         (df_nvalues.hydroid.notnull()) & (df_nvalues.hydroid > 0)
     ]  # remove null entries that do not have a valid hydroid
+    print('check df_nvalues:')
+    print(df_nvalues)
 
     ## Determine calibration data type for naming calb dataframe column
     if source_tag == 'point_obs':
