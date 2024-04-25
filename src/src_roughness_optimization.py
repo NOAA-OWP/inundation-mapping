@@ -200,6 +200,9 @@ def update_rating_curve(
 
     ## loop through the user provided point data --> stage/flow dataframe row by row
     for index, row in df_nvalues.iterrows():
+        print('index & row')
+        print(str(index))
+        print(str(row))
         if row.hydroid not in df_htable['HydroID'].values:
             print(
                 'ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
