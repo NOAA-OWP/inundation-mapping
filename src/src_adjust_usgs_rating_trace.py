@@ -318,6 +318,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
 
             # Filter usgs_elev for gauge locations associated with a lakeid
+            print(usgs_elev.head)
             usgs_elev = usgs_df[usgs_df['LakeID'] == 0]
 
             # Check that there are still valid entries in the usgs_elev
