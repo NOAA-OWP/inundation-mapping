@@ -340,7 +340,7 @@ def run_prep(
         print('Running the variable_mannings_calc function...')
 
         ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-        huc_list = os.listdir(fim_dir)
+        huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
         for huc in huc_list:
             # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
             if re.match(r'\d{8}', huc):
