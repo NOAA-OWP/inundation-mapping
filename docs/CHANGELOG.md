@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## vx.x.x.x - 2024-04-26 - [PR#1115](https://github.com/NOAA-OWP/inundation-mapping/pull/1115)
+
+This PR addresses issue #1040 and includes the following updates:
+- Upgraded to WRDS API version 3 and ensured schema compatibility of new USGS gages data.
+- Expanded data retrieval to include Alaska gages alongside CONUS gages. 
+- Enables retrieving SRC data for individual USGS gages, removing the necessity of using 'all' for the '-l' flag in rating_curve_get_usgs_curves.py." 
+
+
+### Changes
+ - `tools/tools_shared_functions.py`   
+    -  Improved the stability of API calls.
+    - Removed the exclusion of Alaska gages from USGS gages metadata (`usgs_gages.gpkg` output), preserving Alaska gages in the metadata.  
+- `rating_curve_get_usgs_curves.py` 
+    - Removed the exclusion of Alaska gages when retrieving SRC values.
+    - Enabled retrieving SRC data for individual USGS gages.
+- Moved the script `rating_curve_get_usgs_curves.py` from `tools` folder into `data/usgs`.
+
+<br/><br/>
 
 ## v4.4.15.0 - 2024-04-17 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
 
