@@ -2,6 +2,19 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.x.x.x - 2024-04-26 - [PR#1133](https://github.com/NOAA-OWP/inundation-mapping/pull/1133)
+
+Bug fix for error when reading the subfolders of a directory using `listdir()` where files exist that start with an 8-digit number that are later interpreted as directories.
+
+### Changes
+
+The following files were modified to use `listdir()` to read only directories instead of both directories and files:
+- `src/`
+    - `bathy_src_adjust_topwidth.py`, `identify_src_bankfull.py`, `subdiv_chan_obank_src.py`, `utils/shared_functions.py`
+- `tools/vary_mannings_n_composite.py`
+
+<br/><br/>
+
 ## v4.4.15.0 - 2024-04-17 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
 
 This enhancement includes changes to the SRC calibration routine that uses the USGS published rating curve database. The modifications attempt to mimic the technique used in the stage-based CatFIM where the USGS WSE/flow is propagated upstream and downstream of the gauge location. This closes #892 
