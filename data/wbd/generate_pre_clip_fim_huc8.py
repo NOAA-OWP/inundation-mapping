@@ -6,10 +6,13 @@ import logging
 import os
 import shutil
 import subprocess
+import traceback
 from multiprocessing import Pool
 
 from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
+
+from utils.shared_functions import FIM_Helpers as fh
 
 
 '''
@@ -246,178 +249,195 @@ def huc_level_clip_vectors_to_wbd(args):
     huc = args[0]
     outputs_dir = args[1]
 
-    huc_directory = os.path.join(outputs_dir, huc)
+    huc_processing_start = dt.datetime.now(dt.timezone.utc)
 
-    # SET VARIABLES AND FILE INPUTS #
-    hucUnitLength = len(huc)
-    huc2Identifier = huc[:2]
+    try:
 
-    # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
-    if huc2Identifier == '19':
-        huc_CRS = ALASKA_CRS
-        input_NHD_WBHD_layer = 'WBD_National_South_Alaska'
-        input_WBD_filename = input_WBD_gdb_Alaska
-        wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National_South_Alaska.gpkg'
-    else:
-        huc_CRS = DEFAULT_FIM_PROJECTION_CRS
-        input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
-        input_WBD_filename = input_WBD_gdb
-        wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National.gpkg'
+        huc_directory = os.path.join(outputs_dir, huc)
 
-    # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
-    if huc2Identifier == "04":
-        input_LANDSEA = f"{input_GL_boundaries}"
-        print(f'Using {input_LANDSEA} for water body mask (Great Lakes)')
-    elif huc2Identifier == "19":
-        input_LANDSEA = f"{inputsDir}/landsea/water_polygons_alaska.gpkg"
-        print(f'Using {input_LANDSEA} for water body mask (Alaska)')
-    else:
-        input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
+        # SET VARIABLES AND FILE INPUTS #
+        hucUnitLength = len(huc)
+        huc2Identifier = huc[:2]
 
-    print(f"\n Get WBD {huc}")
+        # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
+        if huc2Identifier == '19':
+            huc_CRS = ALASKA_CRS
+            input_NHD_WBHD_layer = 'WBD_National_South_Alaska'
+            input_WBD_filename = input_WBD_gdb_Alaska
+            wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National_South_Alaska.gpkg'
+        else:
+            huc_CRS = DEFAULT_FIM_PROJECTION_CRS
+            input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
+            input_WBD_filename = input_WBD_gdb
+            wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National.gpkg'
 
-    # TODO: Use Python API (osgeo.ogr) instead of using ogr2ogr executable
-    get_wbd_subprocess = subprocess.run(
-        [
-            'ogr2ogr',
-            '-f',
-            'GPKG',
-            '-t_srs',
-            huc_CRS,
-            f'{huc_directory}/wbd.gpkg',
-            input_WBD_filename,
-            input_NHD_WBHD_layer,
-            '-where',
-            f"HUC{hucUnitLength}='{huc}'",
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=True,
-        universal_newlines=True,
-    )
+        # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
+        if huc2Identifier == "04":
+            input_LANDSEA = f"{input_GL_boundaries}"
+            print(f'Using {input_LANDSEA} for water body mask (Great Lakes)')
+        elif huc2Identifier == "19":
+            input_LANDSEA = f"{inputsDir}/landsea/water_polygons_alaska.gpkg"
+            print(f'Using {input_LANDSEA} for water body mask (Alaska)')
+        else:
+            input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
 
-    msg = get_wbd_subprocess.stdout
-    print(msg)
-    logging.info(msg)
+        print(f"\n Get WBD {huc}")
 
-    if get_wbd_subprocess.stderr != "":
-        if "ERROR" in get_wbd_subprocess.stderr.upper():
-            msg = (
-                f" - Creating -- {huc_directory}/wbd.gpkg"
-                f"  ERROR -- details: ({get_wbd_subprocess.stderr})"
-            )
-            print(msg)
-            logging.error(msg)
-    else:
-        msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete \n"
+        # TODO: Use Python API (osgeo.ogr) instead of using ogr2ogr executable
+        get_wbd_subprocess = subprocess.run(
+            [
+                'ogr2ogr',
+                '-f',
+                'GPKG',
+                '-t_srs',
+                huc_CRS,
+                f'{huc_directory}/wbd.gpkg',
+                input_WBD_filename,
+                input_NHD_WBHD_layer,
+                '-where',
+                f"HUC{hucUnitLength}='{huc}'",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            universal_newlines=True,
+        )
+
+        msg = get_wbd_subprocess.stdout
         print(msg)
         logging.info(msg)
 
-    msg = f"Get Vector Layers and Subset {huc}"
-    print(msg)
-    logging.info(msg)
-
-    # Subset Vector Layers (after determining whether it's alaska or not)
-    if huc2Identifier == '19':
-        # Yes Alaska
-        subset_vector_layers(
-            subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
-            subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
-            hucCode=huc,
-            subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
-            wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
-            wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
-            wbd_filename=f"{huc_directory}/wbd.gpkg",
-            dem_filename=input_DEM_Alaska,
-            dem_domain=input_DEM_domain_Alaska,
-            nwm_lakes=input_nwm_lakes,
-            nwm_catchments=input_nwm_catchments_Alaska,
-            subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
-            nld_lines=input_NLD_Alaska,
-            nld_lines_preprocessed=input_levees_preprocessed_Alaska,
-            landsea=input_LANDSEA,
-            nwm_streams=input_nwm_flows_Alaska,
-            subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
-            nwm_headwaters=input_nwm_headwaters_Alaska,
-            subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
-            subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
-            wbd_buffer_distance=wbd_buffer_int,
-            levee_protected_areas=input_nld_levee_protected_areas_Alaska,
-            subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-            huc_CRS=huc_CRS,  # TODO: simplify
-        )
-
-    else:
-        # Not Alaska
-        subset_vector_layers(
-            subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
-            subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
-            hucCode=huc,
-            subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
-            wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
-            wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
-            wbd_filename=f"{huc_directory}/wbd.gpkg",
-            dem_filename=input_DEM,
-            dem_domain=input_DEM_domain,
-            nwm_lakes=input_nwm_lakes,
-            nwm_catchments=input_nwm_catchments,
-            subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
-            nld_lines=input_NLD,
-            nld_lines_preprocessed=input_levees_preprocessed,
-            landsea=input_LANDSEA,
-            nwm_streams=input_nwm_flows,
-            subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
-            nwm_headwaters=input_nwm_headwaters,
-            subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
-            subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
-            wbd_buffer_distance=wbd_buffer_int,
-            levee_protected_areas=input_nld_levee_protected_areas,
-            subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-            huc_CRS=huc_CRS,  # TODO: simplify
-        )
-
-    msg = f"\n\t Completing Get Vector Layers and Subset: {huc} \n"
-    print(msg)
-    logging.info(msg)
-
-    ## Clip WBD8 ##
-    print(f" Clip WBD {huc}")
-
-    clip_wbd8_subprocess = subprocess.run(
-        [
-            'ogr2ogr',
-            '-f',
-            'GPKG',
-            '-t_srs',
-            huc_CRS,
-            '-clipsrc',
-            f'{huc_directory}/wbd_buffered.gpkg',
-            f'{huc_directory}/wbd8_clp.gpkg',
-            wbd_gpkg_path,
-            input_NHD_WBHD_layer,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=True,
-        universal_newlines=True,
-    )
-
-    msg = clip_wbd8_subprocess.stdout
-    print(msg)
-    logging.info(msg)
-
-    if clip_wbd8_subprocess.stderr != "":
-        if "ERROR" in clip_wbd8_subprocess.stderr.upper():
-            msg = (
-                f" - Creating -- {huc_directory}/wbd.gpkg"
-                f"  ERROR -- details: ({clip_wbd8_subprocess.stderr})"
-            )
+        if get_wbd_subprocess.stderr != "":
+            if "ERROR" in get_wbd_subprocess.stderr.upper():
+                msg = (
+                    f" - Creating -- {huc_directory}/wbd.gpkg"
+                    f"  ERROR -- details: ({get_wbd_subprocess.stderr})"
+                )
+                print(msg)
+                logging.error(msg)
+        else:
+            msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete \n"
             print(msg)
-            logging.error(msg)
-    else:
-        msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete"
+            logging.info(msg)
+
+        msg = f"Get Vector Layers and Subset {huc}"
         print(msg)
         logging.info(msg)
+
+        # Subset Vector Layers (after determining whether it's alaska or not)
+        if huc2Identifier == '19':
+            # Yes Alaska
+            subset_vector_layers(
+                subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
+                subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
+                hucCode=huc,
+                subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
+                wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
+                wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
+                wbd_filename=f"{huc_directory}/wbd.gpkg",
+                dem_filename=input_DEM_Alaska,
+                dem_domain=input_DEM_domain_Alaska,
+                nwm_lakes=input_nwm_lakes,
+                nwm_catchments=input_nwm_catchments_Alaska,
+                subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
+                nld_lines=input_NLD_Alaska,
+                nld_lines_preprocessed=input_levees_preprocessed_Alaska,
+                landsea=input_LANDSEA,
+                nwm_streams=input_nwm_flows_Alaska,
+                subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
+                nwm_headwaters=input_nwm_headwaters_Alaska,
+                subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
+                subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
+                wbd_buffer_distance=wbd_buffer_int,
+                levee_protected_areas=input_nld_levee_protected_areas_Alaska,
+                subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
+                huc_CRS=huc_CRS,  # TODO: simplify
+            )
+
+        else:
+            # Not Alaska
+            subset_vector_layers(
+                subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
+                subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
+                hucCode=huc,
+                subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
+                wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
+                wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
+                wbd_filename=f"{huc_directory}/wbd.gpkg",
+                dem_filename=input_DEM,
+                dem_domain=input_DEM_domain,
+                nwm_lakes=input_nwm_lakes,
+                nwm_catchments=input_nwm_catchments,
+                subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
+                nld_lines=input_NLD,
+                nld_lines_preprocessed=input_levees_preprocessed,
+                landsea=input_LANDSEA,
+                nwm_streams=input_nwm_flows,
+                subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
+                nwm_headwaters=input_nwm_headwaters,
+                subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
+                subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
+                wbd_buffer_distance=wbd_buffer_int,
+                levee_protected_areas=input_nld_levee_protected_areas,
+                subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
+                huc_CRS=huc_CRS,  # TODO: simplify
+            )
+
+        msg = f"\n\t Completing Get Vector Layers and Subset: {huc} \n"
+        print(msg)
+        logging.info(msg)
+
+        ## Clip WBD8 ##
+        print(f" Clip WBD {huc}")
+
+        clip_wbd8_subprocess = subprocess.run(
+            [
+                'ogr2ogr',
+                '-f',
+                'GPKG',
+                '-t_srs',
+                huc_CRS,
+                '-clipsrc',
+                f'{huc_directory}/wbd_buffered.gpkg',
+                f'{huc_directory}/wbd8_clp.gpkg',
+                wbd_gpkg_path,
+                input_NHD_WBHD_layer,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            universal_newlines=True,
+        )
+
+        msg = clip_wbd8_subprocess.stdout
+        print(msg)
+        logging.info(msg)
+
+        if clip_wbd8_subprocess.stderr != "":
+            if "ERROR" in clip_wbd8_subprocess.stderr.upper():
+                msg = (
+                    f" - Creating -- {huc_directory}/wbd.gpkg"
+                    f"  ERROR -- details: ({clip_wbd8_subprocess.stderr})"
+                )
+                print(msg)
+                logging.error(msg)
+        else:
+            msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete"
+            print(msg)
+            logging.info(msg)
+
+    except Exception:
+        print(f"*** An error occurred while processing {huc}")
+        print(traceback.format_exc())
+        logging.critical(traceback.format_exc())
+        print()
+
+    huc_processing_end = dt.datetime.now(dt.timezone.utc)
+    time_duration = huc_processing_end - huc_processing_start
+    duraton_msg = f"\t \t run time for huc {huc}: is {str(time_duration).split('.')[0]}"
+    print(duraton_msg)
+    logging.info(duraton_msg)
+    return
 
 
 if __name__ == '__main__':
