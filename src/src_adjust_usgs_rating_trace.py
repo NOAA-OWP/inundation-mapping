@@ -353,14 +353,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
 
             usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
 
-            # Rename columns
-            usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
-            usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
-
-            # Filter out bogus hydroid entries cause by
-            # gauge locations associated with a lakeid
-            usgs_elev_trace = usgs_df[usgs_df['hydroid'] != 0]
-
             # Check that there are still valid entries in the usgs_elev
             # May have filtered out all if all locs were lakes
             if usgs_elev_trace.empty:
@@ -378,6 +370,10 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                     + '\n'
                 )
                 break
+
+            # Rename columns
+            usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
+            usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
 
             if debug_outputs_option:
                 usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
