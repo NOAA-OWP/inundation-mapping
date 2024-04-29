@@ -317,15 +317,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
                 usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
 
-            # Filter usgs_elev for gauge locations associated with a lakeid
-            print(usgs_elev.columns)
-            usgs_elev = usgs_df[usgs_df['LakeID'] == 0]
-
-            # Check that there are still valid entries in the usgs_elev
-            # May have filter out all if all locs were lakes
-            if usgs_elev.empty:
-                break
-
             # Handle NaN values and ignore rows where up/down trace list is empty
             usgs_elev['up'] = (
                 usgs_elev['up']
@@ -342,7 +333,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             usgs_elev['trace_hydroid'] = [
                 lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])
             ]
-            print(usgs_elev)
 
             # Drop up & down columns
             columns_to_drop = ['up', 'down']
@@ -359,6 +349,28 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             # Rename columns
             usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
             usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
+
+            # Filter out bogus hydroid entries cause by
+            # gauge locations associated with a lakeid
+            usgs_elev_trace = usgs_df[usgs_df['hydroid'] != 0]
+
+            # Check that there are still valid entries in the usgs_elev
+            # May have filtered out all if all locs were lakes
+            if usgs_elev_trace.empty:
+                print(
+                    "ALERT: did not find any valid hydroids to process: "
+                    + str(huc)
+                    + ' - branch-id: '
+                    + str(branch_id)
+                )
+                log_file.write(
+                    "ALERT: did not find any valid hydroids to process: "
+                    + str(huc)
+                    + ' - branch-id: '
+                    + str(branch_id)
+                    + '\n'
+                )
+                break
 
             if debug_outputs_option:
                 usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
