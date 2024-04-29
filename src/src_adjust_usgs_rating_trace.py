@@ -343,16 +343,15 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             # Explode the trace column
             usgs_elev_trace = usgs_elev.explode('trace_hydroid')
 
-            # Drop rows where 'trace_hydroid' column is empty
-            print(usgs_elev_trace['trace_hydroid'].astype(int))
-            usgs_elev_trace = usgs_elev_trace[usgs_elev_trace['trace_hydroid'].astype(int).notna()]
-
-            usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
-
             # Check for empty or nan trace lists and convert the column to integers
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('nan', 0)
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('', 0)
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].astype(int)
+
+            # Drop rows where 'trace_hydroid' column is empty
+            usgs_elev_trace = usgs_elev_trace[usgs_elev_trace['trace_hydroid'].notna()]
+
+            usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
 
             # Rename columns
             usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
