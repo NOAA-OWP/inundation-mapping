@@ -297,7 +297,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             )
             df = gpd.read_file(dem_reaches_path)
             usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'].astype(int) == int(branch_id))]
-            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
 
             # Calculate updstream/downstream trace ()
             df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
@@ -314,7 +313,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 up, down = trace_network(df, start_id)
 
                 # Append the results to the "usgs_elev" dataframe
-                #usgs_elev = usgs_elev.copy()
+                usgs_elev = usgs_elev.copy()
                 usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
                 usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
 
@@ -329,6 +328,8 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 .astype(str)
                 .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
             )
+            
+            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
 
             # Combine the up & down hydroid lists into a new column
             usgs_elev['trace_hydroid'] = [
