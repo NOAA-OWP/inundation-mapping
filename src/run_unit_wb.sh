@@ -241,18 +241,23 @@ export nrows=$nrows
 ## PRODUCE BRANCH ZERO HAND
 $srcDir/delineate_hydros_and_produce_HAND.sh "unit"
 
+#
 ## CREATE USGS GAGES FILE
 if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     python3 $srcDir/usgs_gage_unit_setup.py \
-        -gages $tempHucDataDir/usgs_gages.gpkg \
+        -gages /data/temp/emily/usgs_data_withAlaska/usgs_gages.gpkg \
         -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
         -ras $tempHucDataDir/$ras_rating_curve_gpkg_filename \
         -o $tempHucDataDir/usgs_subset_gages.gpkg \
         -huc $hucNumber \
         -ahps $tempHucDataDir/nws_lid.gpkg \
-        -bzero_id $branch_zero_id
+        -bzero_id $branch_zero_id \
+        -huc_CRS $huc_CRS
 fi
+
+#         -gages $tempHucDataDir/usgs_gages.gpkg \ TODO: add this back in once I'm ready to push
+
 
 ## USGS CROSSWALK ##
 if [ -f $tempHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg ]; then
@@ -263,7 +268,9 @@ if [ -f $tempHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg ]; then
         -cat $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$branch_zero_id.gpkg \
         -dem $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif \
         -dem_adj $tempCurrentBranchDataDir/dem_thalwegCond_$branch_zero_id.tif \
-        -out $tempCurrentBranchDataDir -b $branch_zero_id
+        -out $tempCurrentBranchDataDir \
+        -b $branch_zero_id \
+        -huc_CRS $huc_CRS
 fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##

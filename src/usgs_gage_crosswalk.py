@@ -55,16 +55,18 @@ class GageCrosswalk(object):
             os._exit(0)
             
         # Spatial join to fim catchments
-        self.catchment_sjoin(input_catchment_filename)
+        self.catchment_sjoin(input_catchment_filename, huc_CRS)
         if self.gages.empty:
             print(f'There are no gages for branch {branch_id}')
             os._exit(0)
 
         # Snap to dem derived flow lines
         self.snap_to_dem_derived_flows(input_flows_filename)
+
         # Sample DEM and thalweg adjusted DEM
         self.sample_dem(dem_filename, 'dem_elevation')
         self.sample_dem(dem_adj_filename, 'dem_adj_elevation')
+        
         # Write to csv
         num_gages = len(self.gages)
         print(f"{num_gages} gage{'' if num_gages == 1 else 's'} in branch {self.branch_id}")
@@ -74,6 +76,9 @@ class GageCrosswalk(object):
         '''Reads gage geopackage from huc level and filters based on current branch id'''
 
         usgs_gages = gpd.read_file(gages_filename)
+        # TODO: Do we need project this usgs gages to huc_CRS as well?
+        # usgs_gages.to_crs(huc_CRS, inplace=True)
+
         return usgs_gages[(usgs_gages.levpa_id == self.branch_id)]
 
     def catchment_sjoin(self, input_catchment_filename, huc_CRS):
@@ -81,24 +86,7 @@ class GageCrosswalk(object):
 
         input_catchments = gpd.read_file(input_catchment_filename, dtype={'HydroID': int})
         
-        print('==========================================================') ## debug
-        print('self.crs:') ## debug
-        print(self.crs) ## debug
-        print() ## debug
-        print('input_catchments.crs:') ## debug
-        print(input_catchments.crs) ## debug
-        print() ## debug
-        print('==========================================================') ## debug
-
-
-
-        if input_catchments.crs != huc_CRS:
-            #reproject TODO
-            print('CRSs do not match! need to reproject!') ## DEBUG
-            input_catchments = input_catchments.to_crs(huc_CRS)
-
-        else:
-            print('crses match! cary on.') ## DEBUG
+        input_catchments.to_crs(huc_CRS, inplace=True)
 
         self.gages = gpd.sjoin(self.gages, input_catchments[['HydroID', 'LakeID', 'geometry']], how='inner')
 
@@ -212,7 +200,7 @@ if __name__ == '__main__':
     # Instantiate class
     gage_crosswalk = GageCrosswalk(usgs_gages_filename, branch_id)
     gage_crosswalk.run_crosswalk(
-        input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_directory
+        input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_directory, huc_CRS,
     )
 
 """
