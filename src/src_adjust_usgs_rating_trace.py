@@ -360,7 +360,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                     + str(branch_id)
                 )
                 log_file.write(
-                    "\nALERT: did not find any valid hydroids to process: "
+                    "ALERT: did not find any valid hydroids to process: "
                     + str(huc)
                     + ' - branch-id: '
                     + str(branch_id)
@@ -506,7 +506,7 @@ def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_optio
 
     else:
         print('This may take a few minutes...')
-        log_file.write("starting create usgs rating db")
+        log_file.write("starting create usgs rating db\n")
         usgs_df = create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir)
 
         # Create huc proc_list for multiprocessing and execute the update_rating_curve function
