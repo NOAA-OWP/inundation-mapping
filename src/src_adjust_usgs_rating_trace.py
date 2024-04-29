@@ -296,7 +296,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
             )
             df = gpd.read_file(dem_reaches_path)
-            usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)]
+            usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == int(branch_id))]
 
             # Calculate updstream/downstream trace ()
             df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
