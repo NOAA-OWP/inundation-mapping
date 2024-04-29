@@ -297,7 +297,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             )
             df = gpd.read_file(dem_reaches_path)
             print(usgs_df)
-            usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == int(branch_id))]
+            usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'].astype(int) == int(branch_id))]
             print('\n\n filtered by branch \n\n')
             print(usgs_elev)
 
