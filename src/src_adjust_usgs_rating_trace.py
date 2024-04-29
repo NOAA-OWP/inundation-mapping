@@ -344,7 +344,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             usgs_elev_trace = usgs_elev.explode('trace_hydroid')
 
             # Drop rows where 'trace_hydroid' column is empty
-            usgs_elev = usgs_elev[usgs_elev['trace_hydroid'].notna()]
+            usgs_elev_trace = usgs_elev_trace[usgs_elev_trace['trace_hydroid'].notna()]
 
             usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
 
