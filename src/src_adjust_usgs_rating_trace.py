@@ -360,7 +360,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                     + str(branch_id)
                 )
                 log_file.write(
-                    "ALERT: did not find any valid hydroids to process: "
+                    "\nALERT: did not find any valid hydroids to process: "
                     + str(huc)
                     + ' - branch-id: '
                     + str(branch_id)
