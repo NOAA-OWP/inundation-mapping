@@ -374,73 +374,73 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                     + str(branch_id)
                     + '\n'
                 )
-                break
-
-            if debug_outputs_option:
-                usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
-
-            # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
-            if not os.path.exists(hand_path):
-                print(
-                    "WARNING: HAND grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: HAND grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            elif not os.path.exists(catchments_path):
-                print(
-                    "WARNING: Catchments grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: Catchments grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            elif not os.path.exists(htable_path):
-                print(
-                    "WARNING: hydroTable does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: hydroTable does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
             else:
-                # Additional arguments for src_roughness_optimization
-                source_tag = 'usgs_rating'  # tag to use in source attribute field
-                merge_prev_adj = False  # merge in previous SRC adjustment calculations
 
-                print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
-                procs_list.append(
-                    [
-                        branch_dir,
-                        usgs_elev_trace,
-                        htable_path,
-                        huc,
-                        branch_id,
-                        catchments_poly_path,
-                        debug_outputs_option,
-                        source_tag,
-                        merge_prev_adj,
-                    ]
-                )
+                if debug_outputs_option:
+                    usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
+
+                # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
+                if not os.path.exists(hand_path):
+                    print(
+                        "WARNING: HAND grid does not exist (skipping): "
+                        + str(huc)
+                        + ' - branch-id: '
+                        + str(branch_id)
+                    )
+                    log_file.write(
+                        "WARNING: HAND grid does not exist (skipping): "
+                        + str(huc)
+                        + ' - branch-id: '
+                        + str(branch_id)
+                        + '\n'
+                    )
+                elif not os.path.exists(catchments_path):
+                    print(
+                        "WARNING: Catchments grid does not exist (skipping): "
+                        + str(huc)
+                        + ' - branch-id: '
+                        + str(branch_id)
+                    )
+                    log_file.write(
+                        "WARNING: Catchments grid does not exist (skipping): "
+                        + str(huc)
+                        + ' - branch-id: '
+                        + str(branch_id)
+                        + '\n'
+                    )
+                elif not os.path.exists(htable_path):
+                    print(
+                        "WARNING: hydroTable does not exist (skipping): "
+                        + str(huc)
+                        + ' - branch-id: '
+                        + str(branch_id)
+                    )
+                    log_file.write(
+                        "WARNING: hydroTable does not exist (skipping): "
+                        + str(huc)
+                        + ' - branch-id: '
+                        + str(branch_id)
+                        + '\n'
+                    )
+                else:
+                    # Additional arguments for src_roughness_optimization
+                    source_tag = 'usgs_rating'  # tag to use in source attribute field
+                    merge_prev_adj = False  # merge in previous SRC adjustment calculations
+
+                    print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
+                    procs_list.append(
+                        [
+                            branch_dir,
+                            usgs_elev_trace,
+                            htable_path,
+                            huc,
+                            branch_id,
+                            catchments_poly_path,
+                            debug_outputs_option,
+                            source_tag,
+                            merge_prev_adj,
+                        ]
+                    )
 
     # multiprocess all available branches
     print(f"Calculating new SRCs for {len(procs_list)} branches using {job_number} jobs...")
