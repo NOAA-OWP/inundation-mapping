@@ -317,6 +317,9 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
                 usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
 
+                        
+            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
+
             # Handle NaN values and ignore rows where up/down trace list is empty
             usgs_elev['up'] = (
                 usgs_elev['up']
@@ -328,8 +331,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 .astype(str)
                 .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
             )
-            
-            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
 
             # Combine the up & down hydroid lists into a new column
             usgs_elev['trace_hydroid'] = [
