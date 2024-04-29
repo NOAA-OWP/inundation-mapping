@@ -317,9 +317,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
                 usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
 
-                        
-            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
-
             # Handle NaN values and ignore rows where up/down trace list is empty
             usgs_elev['up'] = (
                 usgs_elev['up']
@@ -356,6 +353,9 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             # Filter out bogus hydroid entries cause by
             # gauge locations associated with a lakeid
             usgs_elev_trace = usgs_df[usgs_df['hydroid'] != 0]
+
+                                    
+            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
 
             # Check that there are still valid entries in the usgs_elev
             # May have filtered out all if all locs were lakes
