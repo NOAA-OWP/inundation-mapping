@@ -369,7 +369,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                     + str(branch_id)
                     + '\n'
                 )
-                break
+                continue
 
             # Rename columns
             usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
