@@ -119,8 +119,6 @@ def update_rating_curve(
     df_nvalues = df_nvalues[
         (df_nvalues.hydroid.notnull()) & (df_nvalues.hydroid > 0)
     ]  # remove null entries that do not have a valid hydroid
-    print('check df_nvalues:')
-    print(df_nvalues)
 
     ## Determine calibration data type for naming calb dataframe column
     if source_tag == 'point_obs':
@@ -201,12 +199,7 @@ def update_rating_curve(
     df_htable = df_htable.rename(columns={'precalb_discharge_cms': 'discharge_cms'})
 
     ## loop through the user provided point data --> stage/flow dataframe row by row
-    print('check a:')
-    print(df_nvalues)
     for index, row in df_nvalues.iterrows():
-        print('index & row')
-        print(str(index))
-        print(str(row))
         if row.hydroid not in df_htable['HydroID'].values:
             print(
                 'ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
@@ -229,7 +222,6 @@ def update_rating_curve(
             # filter htable for entries with matching hydroid and ignore stage 0
             # (first possible stage match at 1ft)
             df_htable_hydroid = df_htable[(df_htable.HydroID == row.hydroid) & (df_htable.stage > 0)]
-            print(df_htable_hydroid)
             if df_htable_hydroid.empty:
                 print(
                     'ERROR: df_htable_hydroid is empty but expected data: '
@@ -252,7 +244,6 @@ def update_rating_curve(
             find_src_stage = df_htable_hydroid.loc[
                 df_htable_hydroid['stage'].sub(row.hand).abs().idxmin()
             ]  # find closest matching stage to the user provided HAND value
-            print(find_src_stage)
 
             ## copy the corresponding htable values for the matching stage->HAND lookup
             df_nvalues.loc[index, 'feature_id'] = find_src_stage.feature_id
@@ -265,7 +256,6 @@ def update_rating_curve(
             df_nvalues.loc[index, 'discharge_cms'] = find_src_stage.discharge_cms
 
     if 'discharge_cms' not in df_nvalues:
-        print(df_nvalues)
         print(
                     'ERROR: "discharge_cms" column does not exist in df_nvalues df: '
                     + str(huc)
