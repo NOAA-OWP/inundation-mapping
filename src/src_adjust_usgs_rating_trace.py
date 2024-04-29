@@ -314,7 +314,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 up, down = trace_network(df, start_id)
 
                 # Append the results to the "usgs_elev" dataframe
-                usgs_elev = usgs_elev.copy()
+                #usgs_elev = usgs_elev.copy()
                 usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
                 usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
 
