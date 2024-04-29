@@ -338,6 +338,8 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             columns_to_drop = ['up', 'down']
             usgs_elev.drop(columns=columns_to_drop, inplace=True)
 
+            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_' + str(branch_id) + '.csv'), index=False)
+
             # Explode the trace column
             usgs_elev_trace = usgs_elev.explode('trace_hydroid')
 
@@ -354,8 +356,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             # gauge locations associated with a lakeid
             usgs_elev_trace = usgs_df[usgs_df['hydroid'] != 0]
 
-                                    
-            usgs_elev.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
+            usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
 
             # Check that there are still valid entries in the usgs_elev
             # May have filtered out all if all locs were lakes
