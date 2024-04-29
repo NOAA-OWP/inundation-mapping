@@ -116,6 +116,7 @@ def update_rating_curve(
     log_text += "Merge Previous Adj Values: " + str(merge_prev_adj) + '\n'
     df_nvalues = water_edge_median_df.copy()
     df_nvalues.reset_index(inplace=True)
+    print(df_nvalues)
     df_nvalues = df_nvalues[
         (df_nvalues.hydroid.notnull()) & (df_nvalues.hydroid > 0)
     ]  # remove null entries that do not have a valid hydroid
