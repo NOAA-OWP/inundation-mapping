@@ -38,6 +38,8 @@ def subset_vector_layers(
     wbd_buffer_distance,
     levee_protected_areas,
     subset_levee_protected_areas,
+    osm_bridges,
+    subset_osm_bridges,
     huc_CRS,
 ):
     print(f"Getting Cell Size for {hucCode}", flush=True)
@@ -146,6 +148,22 @@ def subset_vector_layers(
 
     del nwm_catchments
 
+
+    # Subset OSM (Open Street Map) bridges
+    # TODO: if / else for Alaska. Do we need to temp reproject
+
+    # Subset nwm streams
+    print(f"Subsetting OSM Bridges for {hucCode}", flush=True)
+
+    subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer)
+    if not subset_osm_bridges_gdb.empty:
+        print(f"Create subset of osm bridges gpkg for {hucCode}", flush=True)
+        subset_osm_bridges_gdb.to_file(subset_osm_bridges, driver=getDriver(subset_osm_bridges_gdb), index=False, crs=huc_CRS)
+    else:
+        print("-- No applicable bridges for this HUC", flush=True)
+    del subset_osm_bridges_gdb    
+
+
     # Subset nwm streams
     print(f"Subsetting NWM Streams for {hucCode}", flush=True)
 
@@ -229,6 +247,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-lps', '--subset-levee-protected-areas', help='Levee-protected areas subset', required=True
     )
+
+    parser.add_argument(
+        '-osm', '--osm-bridges', help='Open Street Maps gkpg', required=True)
 
     parser.add_argument('-crs', '--huc-crs', help='HUC crs', required=True)
 
