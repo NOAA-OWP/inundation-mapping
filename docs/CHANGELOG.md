@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.x.x.x - 2024-04-30 - [PR#1136](https://github.com/NOAA-OWP/inundation-mapping/pull/1136)
+
+Levee-protected areas are associated with levelpaths based on a 1000 m buffer on each side of the levee line. However, not all levees are designed to protect against all associated levelpaths, especially where the levelpath flows through the levee-protected area. Levee-protected areas are unmasked by removing levelpaths from association that don't intersect levees but instead flow around them which allows inundation by these branches.
+
+### Changes
+
+- `src/associate_levelpaths_with_levees.py`: Finds levelpaths that don't intersect levees and removes them from their association with their levee-protected area.
+
+<br/><br/>
+
 ## v4.4.15.0 - 2024-04-17 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
 
 This enhancement includes changes to the SRC calibration routine that uses the USGS published rating curve database. The modifications attempt to mimic the technique used in the stage-based CatFIM where the USGS WSE/flow is propagated upstream and downstream of the gauge location. This closes #892 
