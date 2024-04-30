@@ -463,9 +463,49 @@ def update_rating_curve(
                         on='HydroID',
                     )
                     output_catchments['src_calibrated'].fillna('False', inplace=True)
-                    output_catchments.to_file(
-                        catchments_poly_path, driver="GPKG", index=False, overwrite=True,
-                    )  # overwrite the previous layer
+
+                    try:
+                        output_catchments.to_file(
+                            catchments_poly_path, driver="GPKG", index=False, overwrite=True,
+                        )  # overwrite the previous layer
+
+                    except Exception as e:
+                        print(
+                        "ERROR occurred while writing to catchments gpkg "
+                        + str(source_tag)
+                        + " for huc: "
+                        + str(huc)
+                        + ' &  branch id: '
+                        + str(branch_id)
+                        )
+                        log_text += "ERROR occurred while writing to catchments gpkg "
+                        + str(source_tag)
+                        + " for huc: "
+                        + str(huc)
+                        + ' &  branch id: '
+                        + str(branch_id) + '\n'
+                        log_text += f"{e}\n"
+                        # Delete the original GeoPackage file
+                        if os.path.exists(catchments_poly_path):
+                            os.remove(catchments_poly_path)
+                        try:
+                            # Attempt to write to the file again
+                            output_catchments.to_file(
+                                catchments_poly_path, driver="GPKG", index=False, overwrite=True,
+                            )
+                        except Exception as e:
+                            print(f"ERROR: Failed to write to GeoPackage file even after deleting the original: {e}")
+                            log_text += "ERROR occurred on second try to write to catchments gpkg "
+                            + str(source_tag)
+                            + " for huc: "
+                            + str(huc)
+                            + ' &  branch id: '
+                            + str(branch_id) + '\n'
+                            log_text += f"{e}\n"
+                    #output_catchments.to_file(
+                    #    catchments_poly_path, driver="GPKG", index=False, overwrite=True,
+                    #)  # overwrite the previous layer
+
                     df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
                     output_catchments=None
                 ## Optional ouputs:
