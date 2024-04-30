@@ -446,7 +446,7 @@ def update_rating_curve(
 
                 ## Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
                 if os.path.isfile(catchments_poly_path):
-                    input_catchments = gpd.read_file(catchments_poly_path, driver='GPKG')
+                    input_catchments = gpd.read_file(catchments_poly_path)
                     ## Create new "src_calibrated" column for viz query
                     if (
                         'src_calibrated' in input_catchments.columns
@@ -464,9 +464,10 @@ def update_rating_curve(
                     )
                     output_catchments['src_calibrated'].fillna('False', inplace=True)
                     output_catchments.to_file(
-                        catchments_poly_path, driver="GPKG", index=False
+                        catchments_poly_path, driver="GPKG", index=False, overwrite=True,
                     )  # overwrite the previous layer
                     df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
+                    output_catchments=None
                 ## Optional ouputs:
                 #   1) merge_n_csv csv with all of the calculated n values
                 #   2) a catchments .gpkg with new joined attributes
@@ -477,13 +478,14 @@ def update_rating_curve(
                     df_nmerge.to_csv(output_merge_n_csv, index=False)
                     ## output new catchments polygon layer with several new attributes appended
                     if os.path.isfile(catchments_poly_path):
-                        input_catchments = gpd.read_file(catchments_poly_path, driver='GPKG')
+                        input_catchments = gpd.read_file(catchments_poly_path)
                         output_catchments_fileName = os.path.join(
                             os.path.split(catchments_poly_path)[0],
                             "gw_catchments_src_adjust_" + str(branch_id) + ".gpkg",
                         )
                         output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
                         output_catchments.to_file(output_catchments_fileName, driver="GPKG", index=False)
+                        output_catchments=None
 
                 ## Merge the final ManningN dataframe to the original hydroTable
                 df_nmerge = df_nmerge.drop(
