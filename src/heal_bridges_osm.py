@@ -9,23 +9,32 @@ from rasterstats import zonal_stats
 
 
 def process_bridges_in_huc(
-    resolution, buffer_width, hand_grid_file, osm_file, bridge_lines_raster_filename, updated_hand_filename
+    source_hand_raster, bridge_file, output_bridge_lines_raster_file, output_final_burned_file, resolution
 ):
-    if not os.path.exists(hand_grid_file):
-        print(f"-- no hand grid, {hand_grid_file}")
-        return
-    hand_grid = rasterio.open(hand_grid_file)
+    """
+    Process:
+        - Use the osm_file, likely already pre-clipped to a huc, and create a raster from it.
+        - using the incomeing source_raster, likely a rem at this point, find the max point value for intersecting from the
+          line string. Fundemtally create a z value for the line string based on the touch point of the linestring on both
+          banks. TODO: how does it handle higher elevation on one bank? Might already be in this logic.. not sure.
+        - That value will be assigned to each cell that covers the bridge in the output raster.
+        - We do create a temp raster which we can removed in the "deny" list system. We can use it to show the point values
+          assigned to each cell of the bridge.
+    """
 
-    if os.path.exists(osm_file):
-        osm_gdf = gpd.read_file(osm_file)
+    if not os.path.exists(source_hand_raster):
+        print(f"-- no hand grid, {source_hand_raster}")
+        return
+    hand_grid = rasterio.open(source_hand_raster)
+
+    if os.path.exists(bridge_file):
+        osm_gdf = gpd.read_file(bridge_file)
     else:
         # skip this huc because it didn't pull in the initial OSM script
         # and could have errors in the data or geometry
-        print(f"-- no OSM file, {osm_file}")
+        print(f"-- no OSM file, {bridge_file}")
         return
 
-    osm_gdf = osm_gdf.to_crs(hand_grid.crs)
-    osm_gdf.geometry = osm_gdf.buffer(buffer_width)
     #######################################################################
 
     ############# get max hand values for each bridge #########
@@ -58,10 +67,7 @@ def process_bridges_in_huc(
     }
 
     ################# rasterize new hand values ####################
-    # TODO: This little section and the next heal/update section are where we would
-    #   potentially pull lidar data into HAND grid instead of rasterizing the max HAND
-    #   data.
-    with rasterio.open(bridge_lines_raster_filename, 'w+', **out_meta) as out:
+    with rasterio.open(output_bridge_lines_raster_file, 'w+', **out_meta) as out:
         out_arr = out.read(1)
         # this is where we create a generator of geom, value pairs to use in rasterizing
         shapes = ((geom, value) for geom, value in zip(osm_gdf.geometry, osm_gdf.max_hand))
@@ -73,73 +79,15 @@ def process_bridges_in_huc(
     #################################################################
 
     #################### heal / update hand grid ##########################
-    with rasterio.open(bridge_lines_raster_filename) as in_data:
+    with rasterio.open(output_bridge_lines_raster_file) as in_data:
         new_hand_values = in_data.read(1)
 
     hand_grid_vals = hand_grid.read(1)
     # replace values at all locations where there are healed values available
     combined_hand_values = np.where(new_hand_values == -999999, hand_grid_vals, new_hand_values)
 
-    with rasterio.open(updated_hand_filename, 'w+', **out_meta) as out:
+    with rasterio.open(output_final_burned_file, 'w+', **out_meta) as out:
         out.write(combined_hand_values, 1)
-    ###################################################################
-
-    return
-
-
-def burn_bridges(
-    huc_shapefile,
-    hand_grid_path,
-    osm_folder,
-    bridge_lines_folder,
-    updated_hand_folder,
-    resolution,
-    buffer_width,
-    hucs_of_interest,
-):
-    if not os.path.exists(bridge_lines_folder):
-        os.mkdir(bridge_lines_folder)
-
-    if not os.path.exists(updated_hand_folder):
-        os.mkdir(updated_hand_folder)
-
-    print("Opening CONUS HUC8 shapefile")
-
-    if hucs_of_interest:
-        hucs_of_interest = hucs_of_interest.split(',')
-    elif huc_shapefile:
-        gdf = gpd.read_file(huc_shapefile)
-        hucs_of_interest = gdf['HUC8']
-    else:
-        print("-- must specify hucs of interest or a shapefile")
-        return
-
-    # the following loop can be multiprocessed
-    for huc in hucs_of_interest:
-        ####################### open up hand grid, huc outline, and get osm bridges #####
-        print(f"** Processing {huc}")
-        # option to pass in HAND grid file individually for one HUC8 or to set a folder location
-        # to be able to process multiple HUCs in one go (FIM pipeline uses one HUC8 at a time)
-        if os.path.isdir(hand_grid_path):
-            hand_grid_path = os.path.join(
-                hand_grid_path, f"{huc}", "branches", "0", "rem_zeroed_masked_0.tif"
-            )
-        osm_file = os.path.join(osm_folder, f"huc{huc}_osm_bridges.shp")
-        bridge_lines_raster_filename = os.path.join(bridge_lines_folder, f"{huc}_new_bridge_values.tif")
-        updated_hand_filename = os.path.join(updated_hand_folder, f"{huc}_final_osm_hand_values.tif")
-
-        process_bridges_in_huc(
-            resolution,
-            buffer_width,
-            hand_grid_path,
-            osm_file,
-            bridge_lines_raster_filename,
-            updated_hand_filename,
-        )
-
-    print("... done processing all HUC8s")
-
-    # TODO: cleanup temp folder here if desired
 
     return
 
@@ -148,64 +96,42 @@ if __name__ == "__main__":
     '''
     Sample usage (min params):
         python3 src/heal_bridges_osm.py
-            -g /data/inputs/hand_grids_here or individual hand grid path for single huc
-            -s /data/inputs/tx_hucs.shp
-            -o /data/inputs/osm/
-            -b /data/inputs/temp/
-            -u /data/inputs/final_osm_hand/
-            -i 12070205,12090301
-            -w 10
+            -u 12090301
+            -g /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_3763000013.tif
+            -s /outputs/fim_4_4_15_0/1209301/osm_bridges_subset.gpkg
+            -t /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_bridge_3763000013.tif
+            -o /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_3763000013.tif
             -r 10
 
-    Notes:
-        - This tool will run best if the pull_osm_bridges.py script is run first.
     '''
 
     parser = argparse.ArgumentParser(description='Rasterizes max HAND values under OSM lines and heals HAND')
 
     parser.add_argument(
-        '-s',
-        '--huc_shapefile',
-        help='OPTIONAL: full path of the shapefile, gpkg or gdb files that will'
-        ' contain in one layer all the HUC8s to process. Must contain field \'HUC8\'.'
-        ' If this file isn\'t specified, then hucs_of_interest must be.',
-        required=False,
-    )
-    parser.add_argument(
         '-g',
-        '--hand_grid_path',
-        help='REQUIRED: folder location of the HAND grid rasters OR file location of one'
-        ' particular HUC and branch combo\'s HAND grid (use this option with one specified'
-        ' HUC8 of interest in the hucs_of_interest argument).'
-        ' Assumes same file structure as in fim dev folders (should be path'
-        ' all the way up to previous_fim/<fim version> folder location).'
-        ' Script will access the huc folders and their contained branch 0 folders.'
-        ' Files will NOT be modified here.',
+        '--source_hand_raster',
+        help='REQUIRED: Path and file name of source output raster that we can burn bridges into',
         required=True,
     )
+
+    parser.add_argument(
+        '-s', '--bridge_file', help='REQUIRED: A gpkg that contains the bridges vectors', required=True
+    )
+
+    parser.add_argument(
+        '-t',
+        '--output_bridge_lines_raster_file',
+        help='REQUIRED: Path and file name of the new raster with just the bridge cell values in it, not yet burned in',
+        required=True,
+    )
+
     parser.add_argument(
         '-o',
-        '--osm_folder',
-        help='REQUIRED: folder location of previously-downloaded OSM bridge line'
-        ' shapfiles, split by HUC8. Missing HUC8s will be downloaded on the fly.'
-        ' Files will NOT be modified here.',
+        '--output_bridge_lines_raster_file',
+        help='REQUIRED: Path and file name of the new raster with the bridges burned into it',
         required=True,
     )
-    parser.add_argument(
-        '-b',
-        '--bridge_lines_folder',
-        help='REQUIRED: folder location of bridge lines rasters (can be a temporary folder,'
-        ' as these are an intermediate step before being healed into HAND grids).'
-        ' Files will be saved to here, and the folder will be created if it doesn\'t exist.',
-        required=True,
-    )
-    parser.add_argument(
-        '-u',
-        '--updated_hand_folder',
-        help='REQUIRED: folder location for final updated HAND grids, saved by HUC8.'
-        ' Files will be saved to here, and the folder will be created if it doesn\'t exist.',
-        required=True,
-    )
+
     parser.add_argument(
         '-r',
         '--resolution',
@@ -214,26 +140,7 @@ if __name__ == "__main__":
         default=10,
         type=int,
     )
-    parser.add_argument(
-        '-w',
-        '--buffer_width',
-        help='OPTIONAL: buffer width for OSM bridge lines. Default value is 10m (on each side)',
-        required=False,
-        default=10,
-        type=int,
-    )
-    parser.add_argument(
-        '-i',
-        '--hucs_of_interest',
-        help='OPTIONAL: subset of HUC8s of interest as a list. Default is None,'
-        ' and all HUC8s in the provided HUC8 shapefile will be processed.'
-        ' Pass list of HUCs -without brackets- and separated by commas.'
-        ' Do not pass in an empty list as an argument.',
-        required=False,
-        default=None,
-        type=str,
-    )
 
     args = vars(parser.parse_args())
 
-    burn_bridges(**args)
+    process_bridges_in_huc(**args)
