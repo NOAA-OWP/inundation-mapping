@@ -46,6 +46,7 @@ urllib3 = "==1.26.18"
 pyflwdir = "==0.5.8"
 pillow = "==10.3.0"
 pyogrio = "==0.7.2"
+lmoments3 = "==1.0.6"
 openpyxl = "*"
 
 [requires]
