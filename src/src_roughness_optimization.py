@@ -446,7 +446,7 @@ def update_rating_curve(
 
                 ## Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
                 if os.path.isfile(catchments_poly_path):
-                    input_catchments = gpd.read_file(catchments_poly_path)
+                    input_catchments = gpd.read_file(catchments_poly_path, driver='GPKG')
                     ## Create new "src_calibrated" column for viz query
                     if (
                         'src_calibrated' in input_catchments.columns
@@ -477,7 +477,7 @@ def update_rating_curve(
                     df_nmerge.to_csv(output_merge_n_csv, index=False)
                     ## output new catchments polygon layer with several new attributes appended
                     if os.path.isfile(catchments_poly_path):
-                        input_catchments = gpd.read_file(catchments_poly_path)
+                        input_catchments = gpd.read_file(catchments_poly_path, driver='GPKG')
                         output_catchments_fileName = os.path.join(
                             os.path.split(catchments_poly_path)[0],
                             "gw_catchments_src_adjust_" + str(branch_id) + ".gpkg",
