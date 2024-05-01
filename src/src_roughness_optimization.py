@@ -447,7 +447,7 @@ def update_rating_curve(
                 ## Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
                 if os.path.isfile(catchments_poly_path):
                     try:
-                        input_catchments = gpd.read_file(catchments_poly_path, driver="GPKG")
+                        input_catchments = gpd.read_file(catchments_poly_path)
                         ## Create new "src_calibrated" column for viz query
                         if (
                             'src_calibrated' in input_catchments.columns
