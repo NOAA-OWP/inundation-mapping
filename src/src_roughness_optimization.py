@@ -470,21 +470,13 @@ def update_rating_curve(
                         )  # overwrite the previous layer
 
                     except Exception as e:
-                        print(
-                        "ERROR occurred while writing to catchments gpkg "
-                        + str(source_tag)
-                        + " for huc: "
-                        + str(huc)
-                        + ' &  branch id: '
-                        + str(branch_id)
+                        error_message = (
+                            "ERROR occurred while writing to catchments gpkg "
+                            f"for huc: {huc} & branch id: {branch_id}"
                         )
-                        log_text += "ERROR occurred while writing to catchments gpkg "
-                        + str(source_tag)
-                        + " for huc: "
-                        + str(huc)
-                        + ' &  branch id: '
-                        + str(branch_id) + '\n'
-                        log_text += f"{e}\n"
+                        print(error_message)
+                        log_text += f"{error_message}\n"
+                        log_text += f"Error details: {e}\n"
                         # Delete the original GeoPackage file
                         if os.path.exists(catchments_poly_path):
                             os.remove(catchments_poly_path)
@@ -494,14 +486,12 @@ def update_rating_curve(
                                 catchments_poly_path, driver="GPKG", index=False, overwrite=True,
                             )
                         except Exception as e:
-                            print(f"ERROR: Failed to write to GeoPackage file even after deleting the original: {e}")
-                            log_text += "ERROR occurred on second try to write to catchments gpkg "
-                            + str(source_tag)
-                            + " for huc: "
-                            + str(huc)
-                            + ' &  branch id: '
-                            + str(branch_id) + '\n'
-                            log_text += f"{e}\n"
+                            second_attempt_error_message = (
+                                "ERROR: Failed to write to catchments gpkg file even after deleting the original"
+                            )
+                            print(second_attempt_error_message)
+                            log_text += f"{second_attempt_error_message}\n"
+                            log_text += f"Second attempt error details: {e}\n"
                     #output_catchments.to_file(
                     #    catchments_poly_path, driver="GPKG", index=False, overwrite=True,
                     #)  # overwrite the previous layer
