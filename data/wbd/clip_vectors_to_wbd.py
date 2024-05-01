@@ -149,20 +149,20 @@ def subset_vector_layers(
     del nwm_catchments
 
     # Subset OSM (Open Street Map) bridges
-    # TODO: if / else for Alaska. Do we need to temp reproject
+    # TODO: Skipping Alaska for now. TBD later.
+    # TODO: for now it comes in a 5070, but we may have to check if the mask auto reproject to match.
+    if osm_bridges != "":
+        print(f"Subsetting OSM Bridges for {hucCode}", flush=True)
 
-    # Subset nwm streams
-    print(f"Subsetting OSM Bridges for {hucCode}", flush=True)
-
-    subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer)
-    if not subset_osm_bridges_gdb.empty:
-        print(f"Create subset of osm bridges gpkg for {hucCode}", flush=True)
-        subset_osm_bridges_gdb.to_file(
-            subset_osm_bridges, driver=getDriver(subset_osm_bridges_gdb), index=False, crs=huc_CRS
-        )
-    else:
-        print("-- No applicable bridges for this HUC", flush=True)
-    del subset_osm_bridges_gdb
+        subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer)
+        if not subset_osm_bridges_gdb.empty:
+            print(f"Create subset of osm bridges gpkg for {hucCode}", flush=True)
+            subset_osm_bridges_gdb.to_file(
+                subset_osm_bridges, driver=getDriver(subset_osm_bridges_gdb), index=False, crs=huc_CRS
+            )
+        else:
+            print("-- No applicable bridges for this HUC", flush=True)
+        del subset_osm_bridges_gdb
 
     # Subset nwm streams
     print(f"Subsetting NWM Streams for {hucCode}", flush=True)

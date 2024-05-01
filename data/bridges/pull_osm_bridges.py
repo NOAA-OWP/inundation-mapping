@@ -2,7 +2,6 @@ import argparse
 import datetime as dt
 import logging
 import os
-import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -11,7 +10,6 @@ import geopandas as gpd
 import osmnx as ox
 import pandas as pd
 import pyproj
-from shapely import LineString
 from shapely.geometry import shape
 
 
@@ -28,11 +26,13 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
     """
     tags = {"bridge": True}
     try:
+
         if os.path.exists(huc_bridge_file):
             logging.info(f" **{huc_bridge_file} already exists.. skipped")
             # return huc_bridge_file
             return ""
-        logging.info(f" ** Saving off {huc_num}")
+
+        logging.info(f" ** Createing gkpg for {huc_num}")
 
         gdf = ox.features_from_polygon(shape(huc_geom), tags)
 
@@ -54,18 +54,10 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         if len(cols_to_drop) > 0:
             gdf = gdf.drop(columns=cols_to_drop, axis=1)
 
-        # drops records with poly or multipolygons.
-        gdf = gdf[gdf.geom_type != 'Polygon']
-        gdf = gdf[gdf.geom_type != 'MultiPolygon']
+        gdf1 = gdf[gdf.geometry.apply(lambda x: x.geom_type == 'LineString')]
 
-        # fix geometry for saving if there are any Points
-        for i, row in gdf.iterrows():
-            if 'POINT' in str(row[1]):
-                new_geom = LineString([row[1], row[1]])
-                gdf.at[i, 'geometry'] = new_geom
-
-        gdf = gdf.to_crs(CRS)
-        gdf.to_file(huc_bridge_file, driver="GPKG")
+        gdf1 = gdf1.to_crs(CRS)
+        gdf1.to_file(huc_bridge_file, driver="GPKG")
 
         # returns the HUC but only if it failed so we can keep a list of failed HUCs
         return ""
@@ -77,9 +69,9 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         try:
             # rename and we can filter it out later. Even it fails sometimes
             if os.path.exists(huc_bridge_file):
-                os.rename(huc_bridge_file, f"bad_{huc_bridge_file}")
+                os.remove(huc_bridge_file)
         except Exception as ex:
-            print(f"Unable to rename {huc_bridge_file} for huc {huc_num} to add 'bad_' in front")
+            print(f"Unable to delete {huc_bridge_file} for huc {huc_num} to add 'bad_' in front")
             print(ex)
 
         return huc_num
@@ -91,48 +83,28 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 #
 def combine_huc_features(output_dir):
 
-    all_bridges_gdf = gpd.GeoDataFrame()
-
-    # Should skip file starting with "bad_"
     bridge_file_names = Path(output_dir).glob("huc_*_osm_bridges.gpkg")
 
     osm_bridge_file = os.path.join(output_dir, "osm_all_bridges.gpkg")
     osm_bridge_midpoints_file = os.path.join(output_dir, "osm_all_bridges_midpoints.gpkg")
 
-    is_first_valid_gdf_loaded = False
-
-    # Lots of the geopackages are invalid. We try to catch them above, but we neeed this as a safety
-    for i, bridge_file in enumerate(bridge_file_names):
-        logging.info(f"merging bridge {i}:{os.path.basename(bridge_file)}")
-        try:
-            bridge_gdf = gpd.read_file(bridge_file)
-            if is_first_valid_gdf_loaded is False:
-                all_bridges_gdf = bridge_gdf
-                is_first_valid_gdf_loaded = True
-            else:
-                # Not fond of copying directly back to a gpkg beign merged
-                temp_gdf = pd.concat(all_bridges_gdf, bridge_gdf)
-                all_bridges_gdf = temp_gdf
-
-        except Exception:
-            logging.error(f"Error: bridge file of {bridge_file} failed to merge")
-            logging.error(traceback.format_exc())
-
-    # To many gpkgs had errors and were blowing up on loading it as one large concat
-    # gdf = pd.concat([gpd.read_file(shp) for shp in bridge_file_names], ignore_index=True)
-
-    if len(all_bridges_gdf) == 0:
-        logging.error("The merged roll up of bridge data has no records.")
-        return
+    all_bridges_gdf_raw = pd.concat([gpd.read_file(gpkg) for gpkg in bridge_file_names], ignore_index=True)
 
     # only save out a subset of columns, because many hucs have different column names
     # and data, so you could end up with thousands of columns if you keep them all!
-    gdf = all_bridges_gdf.to_crs(CRS)
-    gdf[['osmid', 'geometry']].to_file(osm_bridge_file, driver="GPKG")
+    logging.info(f"Writing bridge lines {osm_bridge_file}")
+    section_time = dt.datetime.now(dt.timezone.utc)
+    logging.info(f"  .. started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
+
+    all_bridges_gdf = all_bridges_gdf_raw[['osmid', 'name', 'geometry']]
+    all_bridges_gdf.to_file(osm_bridge_file, driver="GPKG")
 
     # save out midpoints (centroids) of bridge lines
-    gdf['geometry'] = gdf.centroid
-    gdf[['osmid', 'geometry']].to_file(osm_bridge_midpoints_file, driver="GPKG")
+    logging.info(f"Writing centroids {osm_bridge_file}")
+    section_time = dt.datetime.now(dt.timezone.utc)
+    logging.info(f"  .. started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    all_bridges_gdf['geometry'] = all_bridges_gdf.centroid
+    all_bridges_gdf.to_file(osm_bridge_midpoints_file, driver="GPKG")
 
     return
 
@@ -174,7 +146,8 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs):
 
     logging.info("*** Reading in and reprojecting the WBD HUC8 file")
     logging.info("*** Depending on WBD size, this can take a bit. 5 to 40 mins is not uncommon.")
-    huc8s = gpd.read_file(wbd_file, layer="WBDHU8")
+
+    huc8s = gpd.read_file(wbd_file)
 
     if len(huc8s) == 0:
         raise Exception("wbd_file has no records")
@@ -214,15 +187,19 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs):
 
     logging.info("")
 
-    logging.info("Beginning combining features")
+    section_time = dt.datetime.now(dt.timezone.utc)
+    logging.info(f"Combining feature files started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
+
     # all huc8 processing must be completed before this function call
     combine_huc_features(output_folder)
 
     if len(failed_HUCs_list) > 0:
         logging.info("\n+++++++++++++++++++")
         logging.info("HUCs that failed to download from OSM correctly are:")
+        huc_error_msg = "  -- "
         for huc in failed_HUCs_list:
-            logging.info(f" --- {huc}")
+            huc_error_msg += f", {huc} "
+        logging.info(huc_error_msg)
         logging.info("  See logs for more details on each HUC fail")
         logging.info("+++++++++++++++++++")
 

@@ -321,6 +321,7 @@ def huc_level_clip_vectors_to_wbd(args):
     logging.info(msg)
 
     # Subset Vector Layers (after determining whether it's alaska or not)
+    # Skipping OSM for Alaska for now
     if huc2Identifier == '19':
         # Yes Alaska
         subset_vector_layers(
@@ -347,8 +348,8 @@ def huc_level_clip_vectors_to_wbd(args):
             wbd_buffer_distance=wbd_buffer_int,
             levee_protected_areas=input_nld_levee_protected_areas_Alaska,
             subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-            osm_bridges=input_osm_bridges,
-            subset_osm_bridges=f"{huc_directory}/osm_bridges_subset.gpkg",
+            osm_bridges="",
+            subset_osm_bridges="",
             huc_CRS=huc_CRS,  # TODO: simplify
         )
 
