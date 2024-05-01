@@ -446,23 +446,26 @@ def update_rating_curve(
 
                 ## Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
                 if os.path.isfile(catchments_poly_path):
-                    input_catchments = gpd.read_file(catchments_poly_path)
-                    ## Create new "src_calibrated" column for viz query
-                    if (
-                        'src_calibrated' in input_catchments.columns
-                    ):  # check if this attribute already exists and drop if needed
-                        input_catchments = input_catchments.drop(
-                            ['src_calibrated', 'obs_source', 'calb_coef_final'], axis=1, errors='ignore'
+                    try:
+                        input_catchments = gpd.read_file(catchments_poly_path, driver="GPKG")
+                        ## Create new "src_calibrated" column for viz query
+                        if (
+                            'src_calibrated' in input_catchments.columns
+                        ):  # check if this attribute already exists and drop if needed
+                            input_catchments = input_catchments.drop(
+                                ['src_calibrated', 'obs_source', 'calb_coef_final'], axis=1, errors='ignore'
+                            )
+                        df_nmerge['src_calibrated'] = np.where(
+                            df_nmerge['calb_coef_final'].notnull(), 'True', 'False'
                         )
-                    df_nmerge['src_calibrated'] = np.where(
-                        df_nmerge['calb_coef_final'].notnull(), 'True', 'False'
-                    )
-                    output_catchments = input_catchments.merge(
-                        df_nmerge[['HydroID', 'src_calibrated', 'obs_source', 'calb_coef_final']],
-                        how='left',
-                        on='HydroID',
-                    )
-                    output_catchments['src_calibrated'].fillna('False', inplace=True)
+                        output_catchments = input_catchments.merge(
+                            df_nmerge[['HydroID', 'src_calibrated', 'obs_source', 'calb_coef_final']],
+                            how='left',
+                            on='HydroID',
+                        )
+                        output_catchments['src_calibrated'].fillna('False', inplace=True)
+                    except Exception as e:
+                        print(f"Error reading GeoPackage file: {e}")
 
                     try:
                         output_catchments.to_file(
