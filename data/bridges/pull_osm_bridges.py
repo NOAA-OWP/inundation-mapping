@@ -32,7 +32,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             # return huc_bridge_file
             return ""
 
-        logging.info(f" ** Createing gkpg for {huc_num}")
+        logging.info(f" ** Creating gkpg for {huc_num}")
 
         gdf = ox.features_from_polygon(shape(huc_geom), tags)
 
