@@ -7,7 +7,8 @@ import os
 import shutil
 import subprocess
 import traceback
-from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
 
 from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
@@ -87,7 +88,7 @@ wbd_buffer = os.getenv('wbd_buffer')
 wbd_buffer_int = int(wbd_buffer)
 
 
-def __setup_logger(outputs_dir):
+def __setup_logger(outputs_dir, huc=None):
     '''
     Set up logging to file. Since log file includes the date, it will be overwritten if this
     script is run more than once on the same day.
@@ -95,7 +96,10 @@ def __setup_logger(outputs_dir):
     datetime_now = dt.datetime.now(dt.timezone.utc)
     curr_date = datetime_now.strftime("%m_%d_%Y")
 
-    log_file_name = f"generate_pre_clip_fim_huc8_{curr_date}.log"
+    if huc is None:
+        log_file_name = f"generate_pre_clip_fim_huc8_{curr_date}.log"
+    else:
+        log_file_name = f"mp_{huc}_generate_pre_clip_fim_huc8_{curr_date}.log"
 
     log_file_path = os.path.join(outputs_dir, log_file_name)
 
@@ -119,6 +123,22 @@ def __setup_logger(outputs_dir):
     logging.info('==========================================================================')
     logging.info("\n generate_pre_clip_fim_huc8.py")
     logging.info(f"\n \t Started: {start_time_string} \n")
+
+
+def __merge_mp_logs(outputs_dir):
+    log_file_list = list(Path(outputs_dir).rglob("mp_*"))
+    if len(log_file_list) > 0:
+        log_file_list.sort()
+
+    log_mp_rollup_file = os.path.join(outputs_dir, "mp_merged_logs.log")
+
+    with open(log_mp_rollup_file, 'a') as main_log:
+        # Iterate through list
+        for temp_log_file in log_file_list:
+            # Open each file in read mode
+            with open(temp_log_file) as infile:
+                main_log.write(infile.read())
+            os.remove(temp_log_file)
 
 
 def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
@@ -188,8 +208,6 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
 
         elif not os.path.isdir(os.path.join(outputs_dir, huc)):
             os.mkdir(os.path.join(outputs_dir, huc))
-            logging.info(f"Created directory: {outputs_dir}/{huc}, huc level files will be written there.")
-            print(f"Created directory: {outputs_dir}/{huc}, huc level files will be written there.")
 
     # Build arguments (procs_list) for each process to execute (huc_level_clip_vectors_to_wbd)
     procs_list = []
@@ -202,8 +220,23 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     # Parallelize each huc in hucs_to_parquet_list
     logging.info('Parallelizing HUC level wbd pre-clip vector creation. ')
     print('Parallelizing HUC level wbd pre-clip vector creation. ')
-    with Pool(processes=number_of_jobs) as pool:
-        pool.map(huc_level_clip_vectors_to_wbd, procs_list)
+    # with Pool(processes=number_of_jobs) as pool:
+    #    pool.map(huc_level_clip_vectors_to_wbd, procs_list)
+
+    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
+        futures = {}
+        for huc in hucs_to_pre_clip_list:
+            args = {"huc": huc, "outputs_dir": outputs_dir}
+            future = executor.submit(huc_level_clip_vectors_to_wbd, **args)
+            futures[future] = future
+
+        for future in as_completed(futures):
+            if future is not None:
+                if future.exception():
+                    raise future.exception()
+
+    print("Merging MP log files")
+    __merge_mp_logs(outputs_dir)
 
     # Get time metrics
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -223,7 +256,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     print(f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}")
 
 
-def huc_level_clip_vectors_to_wbd(args):
+def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
     '''
     Create pre-clipped vectors at the huc level. Necessary to have this as an additional
     function for multiprocessing. This is mostly a wrapper for the subset_vector_layers() method in
@@ -245,11 +278,10 @@ def huc_level_clip_vectors_to_wbd(args):
     - .gpkg files* dependant on HUC's WBD (*differing amount based on individual huc)
     '''
 
-    # We have to explicitly unpack the args from pool.map()
-    huc = args[0]
-    outputs_dir = args[1]
-
     huc_processing_start = dt.datetime.now(dt.timezone.utc)
+    # with this in Multi-proc, it needs it's own logger and unique logging file.
+    __setup_logger(outputs_dir, huc)
+    logging.info(f"Processing {huc}")
 
     try:
 
@@ -274,10 +306,10 @@ def huc_level_clip_vectors_to_wbd(args):
         # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
         if huc2Identifier == "04":
             input_LANDSEA = f"{input_GL_boundaries}"
-            print(f'Using {input_LANDSEA} for water body mask (Great Lakes)')
+            # print(f'Using {input_LANDSEA} for water body mask (Great Lakes)')
         elif huc2Identifier == "19":
             input_LANDSEA = f"{inputsDir}/landsea/water_polygons_alaska.gpkg"
-            print(f'Using {input_LANDSEA} for water body mask (Alaska)')
+            # print(f'Using {input_LANDSEA} for water body mask (Alaska)')
         else:
             input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
 
@@ -303,9 +335,7 @@ def huc_level_clip_vectors_to_wbd(args):
             universal_newlines=True,
         )
 
-        msg = get_wbd_subprocess.stdout
-        print(msg)
-        logging.info(msg)
+        logging.info(f"{huc} : {get_wbd_subprocess.stdout}")
 
         if get_wbd_subprocess.stderr != "":
             if "ERROR" in get_wbd_subprocess.stderr.upper():
@@ -314,14 +344,14 @@ def huc_level_clip_vectors_to_wbd(args):
                     f"  ERROR -- details: ({get_wbd_subprocess.stderr})"
                 )
                 print(msg)
-                logging.error(msg)
+                logging.info(msg)
         else:
             msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete \n"
             print(msg)
             logging.info(msg)
 
         msg = f"Get Vector Layers and Subset {huc}"
-        print(msg)
+        # print(msg)
         logging.info(msg)
 
         # Subset Vector Layers (after determining whether it's alaska or not)
@@ -383,12 +413,12 @@ def huc_level_clip_vectors_to_wbd(args):
                 huc_CRS=huc_CRS,  # TODO: simplify
             )
 
-        msg = f"\n\t Completing Get Vector Layers and Subset: {huc} \n"
+        msg = f" Completing Get Vector Layers and Subset: {huc} \n"
         print(msg)
         logging.info(msg)
 
         ## Clip WBD8 ##
-        print(f" Clip WBD {huc}")
+        print(f" Creating WBD buffer and clip version {huc}")
 
         clip_wbd8_subprocess = subprocess.run(
             [
@@ -409,9 +439,9 @@ def huc_level_clip_vectors_to_wbd(args):
             universal_newlines=True,
         )
 
-        msg = clip_wbd8_subprocess.stdout
-        print(msg)
-        logging.info(msg)
+        # msg = clip_wbd8_subprocess.stdout
+        # print(f"{huc} : {msg}")
+        # logging.info(f"{huc} : {msg}")
 
         if clip_wbd8_subprocess.stderr != "":
             if "ERROR" in clip_wbd8_subprocess.stderr.upper():
@@ -420,7 +450,7 @@ def huc_level_clip_vectors_to_wbd(args):
                     f"  ERROR -- details: ({clip_wbd8_subprocess.stderr})"
                 )
                 print(msg)
-                logging.error(msg)
+                logging.info(msg)
         else:
             msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete"
             print(msg)
@@ -429,7 +459,8 @@ def huc_level_clip_vectors_to_wbd(args):
     except Exception:
         print(f"*** An error occurred while processing {huc}")
         print(traceback.format_exc())
-        logging.critical(traceback.format_exc())
+        logging.info(f"*** An error occurred while processing {huc}")
+        logging.info(traceback.format_exc())
         print()
 
     huc_processing_end = dt.datetime.now(dt.timezone.utc)
