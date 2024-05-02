@@ -449,9 +449,7 @@ def update_rating_curve(
                     try:
                         input_catchments = gpd.read_file(catchments_poly_path)
                         ## Create new "src_calibrated" column for viz query
-                        if (
-                            'src_calibrated' in input_catchments.columns
-                        ):  # check if this attribute already exists and drop if needed
+                        if 'src_calibrated' in input_catchments.columns:
                             input_catchments = input_catchments.drop(
                                 ['src_calibrated', 'obs_source', 'calb_coef_final'], axis=1, errors='ignore'
                             )
@@ -464,43 +462,43 @@ def update_rating_curve(
                             on='HydroID',
                         )
                         output_catchments['src_calibrated'].fillna('False', inplace=True)
-                    except Exception as e:
-                        print(f"Error reading GeoPackage file: {e}")
 
-                    try:
-                        output_catchments.to_file(
-                            catchments_poly_path, driver="GPKG", index=False, overwrite=True,
-                        )  # overwrite the previous layer
-
-                    except Exception as e:
-                        error_message = (
-                            "ERROR occurred while writing to catchments gpkg "
-                            f"for huc: {huc} & branch id: {branch_id}"
-                        )
-                        print(error_message)
-                        log_text += f"{error_message}\n"
-                        log_text += f"Error details: {e}\n"
-                        # Delete the original GeoPackage file
-                        if os.path.exists(catchments_poly_path):
-                            os.remove(catchments_poly_path)
                         try:
-                            # Attempt to write to the file again
                             output_catchments.to_file(
                                 catchments_poly_path, driver="GPKG", index=False, overwrite=True,
-                            )
-                        except Exception as e:
-                            second_attempt_error_message = (
-                                "ERROR: Failed to write to catchments gpkg file even after deleting the original"
-                            )
-                            print(second_attempt_error_message)
-                            log_text += f"{second_attempt_error_message}\n"
-                            log_text += f"Second attempt error details: {e}\n"
-                    #output_catchments.to_file(
-                    #    catchments_poly_path, driver="GPKG", index=False, overwrite=True,
-                    #)  # overwrite the previous layer
+                            )  # overwrite the previous layer
 
-                    df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
-                    output_catchments=None
+                        except Exception as e:
+                            error_message = (
+                                "ERROR occurred while writing to catchments gpkg "
+                                f"for huc: {huc} & branch id: {branch_id}"
+                            )
+                            print(error_message)
+                            log_text += f"{error_message}\n"
+                            log_text += f"Error details: {e}\n"
+                            # Delete the original GeoPackage file
+                            if os.path.exists(catchments_poly_path):
+                                os.remove(catchments_poly_path)
+                            try:
+                                # Attempt to write to the file again
+                                output_catchments.to_file(
+                                    catchments_poly_path, driver="GPKG", index=False, overwrite=True,
+                                )
+                            except Exception as e:
+                                second_attempt_error_message = (
+                                    "ERROR: Failed to write to catchments gpkg file even after deleting the original"
+                                )
+                                print(second_attempt_error_message)
+                                log_text += f"{second_attempt_error_message}\n"
+                                log_text += f"Second attempt error details: {e}\n"
+
+                    except Exception as e:
+                        print(f"Error reading GeoPackage file: {e}")
+                        log_text += f"Error reading GeoPackage file: {e}\n"
+                        output_catchments = None
+
+                df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
+
                 ## Optional ouputs:
                 #   1) merge_n_csv csv with all of the calculated n values
                 #   2) a catchments .gpkg with new joined attributes
