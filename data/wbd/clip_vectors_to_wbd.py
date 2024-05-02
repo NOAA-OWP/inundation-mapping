@@ -60,6 +60,8 @@ def subset_vector_layers(
         levelpath_outlets['nearest_point'] = None
         levelpath_outlets['last'] = None
 
+        levelpath_outlets = levelpath_outlets.explode(index_parts=False)
+
         for index, row in levelpath_outlets.iterrows():
             coords = [(coords) for coords in list(row['geometry'].coords)]
             last_coord = coords[-1]
@@ -74,8 +76,12 @@ def subset_vector_layers(
 
             levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
 
+            levelpath_outlets_nearest_points = levelpath_outlets.at[index, 'nearest_point']
+            if isinstance(levelpath_outlets_nearest_points, pd.Series):
+                levelpath_outlets_nearest_points = levelpath_outlets_nearest_points.iloc[-1]
+
             levelpath_outlets.at[index, 'geometry'] = LineString(
-                list(row['geometry'].coords) + list([levelpath_outlets.at[index, 'nearest_point'].coords[0]])
+                list(row['geometry'].coords) + list([levelpath_outlets_nearest_points.coords[0]])
             )
 
         levelpath_outlets = gpd.GeoDataFrame(data=levelpath_outlets, geometry='geometry')
