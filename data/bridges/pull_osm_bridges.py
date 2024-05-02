@@ -63,8 +63,8 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         return ""
 
     except Exception:
-        logging.error(f"\t--- Couldn't write {huc_num}")
-        logging.error(traceback.format_exc())
+        logging.info(f"\t--- Couldn't write {huc_num}")
+        logging.info(traceback.format_exc())
 
         try:
             # rename and we can filter it out later. Even it fails sometimes
@@ -306,6 +306,6 @@ if __name__ == "__main__":
         process_osm_bridges(**args)
 
     except Exception:
-        logging.error(traceback.format_exc())
+        logging.info(traceback.format_exc())
         end_time = dt.datetime.now(dt.timezone.utc)
         logging.info(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
