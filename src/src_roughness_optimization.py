@@ -476,6 +476,7 @@ def update_rating_curve(
                             print(error_message)
                             log_text += f"{error_message}\n"
                             log_text += f"Error details: {e}\n"
+                            
                             # Delete the original GeoPackage file
                             if os.path.exists(catchments_poly_path):
                                 os.remove(catchments_poly_path)
@@ -484,6 +485,7 @@ def update_rating_curve(
                                 output_catchments.to_file(
                                     catchments_poly_path, driver="GPKG", index=False, overwrite=True,
                                 )
+                                log_text += 'Successful second attempt to write output_catchments gpkg' + '\n'
                             except Exception as e:
                                 second_attempt_error_message = (
                                     "ERROR: Failed to write to catchments gpkg file even after deleting the original"
