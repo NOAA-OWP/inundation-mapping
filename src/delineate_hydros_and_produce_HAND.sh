@@ -127,10 +127,10 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -o $tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
 
-## POLYGONIZE GAGE WATERSHEDS ##
-echo -e $startDiv"Polygonize Gage Watersheds $hucNumber $current_branch_id"
-gdal_polygonize.py -q -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
-    $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg catchments HydroID
+# ## POLYGONIZE GAGE WATERSHEDS ##
+# echo -e $startDiv"Polygonize Gage Watersheds $hucNumber $current_branch_id"
+# gdal_polygonize.py -q -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
+#     $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg catchments HydroID
 
 ## DISSOLVE PIXEL CATCHMENTS TO REACHES ##
 echo -e $startDiv"Dissolve Pixel Catchments to Reaches $hucNumber $current_branch_id"
