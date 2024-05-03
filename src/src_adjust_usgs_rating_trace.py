@@ -373,7 +373,9 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
 
             if debug_outputs_option:
-                usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False)
+                usgs_elev_trace.to_csv(
+                    os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False
+                )
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):

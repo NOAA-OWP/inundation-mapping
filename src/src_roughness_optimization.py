@@ -257,20 +257,20 @@ def update_rating_curve(
 
     if 'discharge_cms' not in df_nvalues:
         print(
-                    'ERROR: "discharge_cms" column does not exist in df_nvalues df: '
-                    + str(huc)
-                    + '  branch id: '
-                    + str(branch_id)
+            'ERROR: "discharge_cms" column does not exist in df_nvalues df: '
+            + str(huc)
+            + '  branch id: '
+            + str(branch_id)
         )
         log_text += (
-                    'ERROR: "discharge_cms" column does not exist in df_nvalues df: '
-                    + str(huc)
-                    + '  branch id: '
-                    + str(branch_id)
-                    + '\n'
+            'ERROR: "discharge_cms" column does not exist in df_nvalues df: '
+            + str(huc)
+            + '  branch id: '
+            + str(branch_id)
+            + '\n'
         )
         return log_text
-    
+
     ## Calculate calibration coefficient
     df_nvalues = df_nvalues.rename(columns={'hydroid': 'HydroID'})  # rename the previous ManningN column
     df_nvalues['hydroid_calb_coef'] = df_nvalues['discharge_cms'] / df_nvalues['flow']  # Qobs / Qsrc
@@ -465,7 +465,7 @@ def update_rating_curve(
 
                         try:
                             output_catchments.to_file(
-                                catchments_poly_path, driver="GPKG", index=False, overwrite=True,
+                                catchments_poly_path, driver="GPKG", index=False, overwrite=True
                             )  # overwrite the previous layer
 
                         except Exception as e:
@@ -476,20 +476,18 @@ def update_rating_curve(
                             print(error_message)
                             log_text += f"{error_message}\n"
                             log_text += f"Error details: {e}\n"
-                            
+
                             # Delete the original GeoPackage file
                             if os.path.exists(catchments_poly_path):
                                 os.remove(catchments_poly_path)
                             try:
                                 # Attempt to write to the file again
                                 output_catchments.to_file(
-                                    catchments_poly_path, driver="GPKG", index=False, overwrite=True,
+                                    catchments_poly_path, driver="GPKG", index=False, overwrite=True
                                 )
                                 log_text += 'Successful second attempt to write output_catchments gpkg' + '\n'
                             except Exception as e:
-                                second_attempt_error_message = (
-                                    "ERROR: Failed to write to catchments gpkg file even after deleting the original"
-                                )
+                                second_attempt_error_message = "ERROR: Failed to write to catchments gpkg file even after deleting the original"
                                 print(second_attempt_error_message)
                                 log_text += f"{second_attempt_error_message}\n"
                                 log_text += f"Second attempt error details: {e}\n"
@@ -518,7 +516,7 @@ def update_rating_curve(
                         )
                         output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
                         output_catchments.to_file(output_catchments_fileName, driver="GPKG", index=False)
-                        output_catchments=None
+                        output_catchments = None
 
                 ## Merge the final ManningN dataframe to the original hydroTable
                 df_nmerge = df_nmerge.drop(
