@@ -223,14 +223,14 @@ fi
 # May or may not be a bridge file, depends if the HUC has an applicble one.
 # Writing back over the rem_zeroed_masked branch tif
 if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
-echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
+    echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
     python3 $srcDir/heal_bridges_osm.py \
                 -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-                -s $inputsDir/osm_bridges_subset.gpkg \
-                -t $tempCurrentBranchDataDir/rem_zeroed_masked_bridge_$current_branch_id.tif \
-                -o $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+                -s $tempHucDataDir/osm_bridges_subset.gpkg \
+                -p $tempCurrentBranchDataDir/bridge_lines_raster_$current_branch_id.tif \
+                -t $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
                 -r 10
-elif
+else
     -e $startDiv"No applicable bridge data for $hucNumber"
 fi
 

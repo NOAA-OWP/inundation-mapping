@@ -72,37 +72,6 @@ def run_system_command(args):
     os.system(command)
 
 
-def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
-    print("Subsetting " + wbd_gpkg + "...")
-    # Read geopackage into dataframe.
-    wbd = gp.read_file(wbd_gpkg)
-    gdf = gp.GeoDataFrame(wbd)
-
-    for index, row in gdf.iterrows():
-        state = row["STATES"]
-        if state is not None:  # Some polygons are empty in the STATES field.
-            keep_flag = False  # Default to Fault, i.e. to delete the polygon.
-            if state in sv.CONUS_STATE_LIST:
-                keep_flag = True
-            # Only split if multiple states present. More efficient this way.
-            elif len(state) > 2:
-                for wbd_state in state.split(
-                    ","
-                ):  # Some polygons have multiple states, separated by a comma.
-                    if (
-                        wbd_state in sv.CONUS_STATE_LIST
-                    ):  # Check each polygon to make sure it's state abbrev name is allowed.
-                        keep_flag = True
-                        break
-            if not keep_flag:
-                gdf = gdf.drop(index)  # Delete from dataframe.
-
-    # Overwrite geopackage.
-    layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')
-    gdf.crs = sv.PREP_PROJECTION
-    gdf.to_file(multilayer_wbd_geopackage, layer=layer_name, driver='GPKG', index=False)
-
-
 def get_fossid_from_huc8(
     huc8_id,
     foss_id_attribute='fossid',

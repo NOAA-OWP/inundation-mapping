@@ -9,7 +9,7 @@ from rasterstats import zonal_stats
 
 
 def process_bridges_in_huc(
-    source_hand_raster, bridge_file, output_bridge_lines_raster_file, output_final_burned_file, resolution
+    source_hand_raster, bridge_vector_file, bridge_raster, output_bridge_lines_raster_file, resolution
 ):
     """
     Process:
@@ -25,15 +25,16 @@ def process_bridges_in_huc(
     if not os.path.exists(source_hand_raster):
         print(f"-- no hand grid, {source_hand_raster}")
         return
-    hand_grid = rasterio.open(source_hand_raster)
 
-    if os.path.exists(bridge_file):
-        osm_gdf = gpd.read_file(bridge_file)
+    if os.path.exists(bridge_vector_file):
+        osm_gdf = gpd.read_file(bridge_vector_file)
     else:
         # skip this huc because it didn't pull in the initial OSM script
         # and could have errors in the data or geometry
-        print(f"-- no OSM file, {bridge_file}")
+        print(f"-- no OSM file, {bridge_vector_file}")
         return
+
+    hand_grid = rasterio.open(source_hand_raster)
 
     #######################################################################
 
@@ -66,8 +67,8 @@ def process_bridges_in_huc(
         "compress": 'lzw',
     }
 
-    ################# rasterize new hand values ####################
-    with rasterio.open(output_bridge_lines_raster_file, 'w+', **out_meta) as out:
+    ################# rasterize the incoming bridge vectors ####################
+    with rasterio.open(bridge_raster, 'w+', **out_meta) as out:
         out_arr = out.read(1)
         # this is where we create a generator of geom, value pairs to use in rasterizing
         shapes = ((geom, value) for geom, value in zip(osm_gdf.geometry, osm_gdf.max_hand))
@@ -76,17 +77,16 @@ def process_bridges_in_huc(
             shapes=shapes, fill=-999999, out=out_arr, transform=out.transform, all_touched=True
         )
         out.write_band(1, burned)
-    #################################################################
 
     #################### heal / update hand grid ##########################
-    with rasterio.open(output_bridge_lines_raster_file) as in_data:
+    with rasterio.open(bridge_raster) as in_data:
         new_hand_values = in_data.read(1)
 
     hand_grid_vals = hand_grid.read(1)
     # replace values at all locations where there are healed values available
     combined_hand_values = np.where(new_hand_values == -999999, hand_grid_vals, new_hand_values)
 
-    with rasterio.open(output_final_burned_file, 'w+', **out_meta) as out:
+    with rasterio.open(output_bridge_lines_raster_file, 'w+', **out_meta) as out:
         out.write(combined_hand_values, 1)
 
     return
@@ -99,8 +99,8 @@ if __name__ == "__main__":
             -u 12090301
             -g /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_3763000013.tif
             -s /outputs/fim_4_4_15_0/1209301/osm_bridges_subset.gpkg
-            -t /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_bridge_3763000013.tif
-            -o /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_3763000013.tif
+            -p /outputs/fim_4_4_15_0/1209301/1209301/branches/3763000013/bridge_lines_raster_3763000013.tif
+            -t /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_3763000013.tif
             -r 10
 
     '''
@@ -110,25 +110,25 @@ if __name__ == "__main__":
     parser.add_argument(
         '-g',
         '--source_hand_raster',
-        help='REQUIRED: Path and file name of source output raster that we can burn bridges into',
+        help='REQUIRED: Path and file name of source output raster',
         required=True,
     )
 
     parser.add_argument(
-        '-s', '--bridge_file', help='REQUIRED: A gpkg that contains the bridges vectors', required=True
+        '-s', '--bridge_vector_file', help='REQUIRED: A gpkg that contains the bridges vectors', required=True
+    )
+
+    parser.add_argument(
+        '-p',
+        '--bridge_raster',
+        help='REQUIRED: Path and file name of the temp raster created by the bridge vectors',
+        required=True,
     )
 
     parser.add_argument(
         '-t',
         '--output_bridge_lines_raster_file',
-        help='REQUIRED: Path and file name of the new raster with just the bridge cell values in it, not yet burned in',
-        required=True,
-    )
-
-    parser.add_argument(
-        '-o',
-        '--output_bridge_lines_raster_file',
-        help='REQUIRED: Path and file name of the new raster with the bridges burned into it',
+        help='REQUIRED: Path and file name of the new raster with the bridge burned in',
         required=True,
     )
 
