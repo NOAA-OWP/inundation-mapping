@@ -241,7 +241,6 @@ def subset_vector_layers(
             engine="fiona",
         )
     else:
-        print("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
         logging.info("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
 
@@ -249,11 +248,12 @@ def subset_vector_layers(
 
     # Subset OSM (Open Street Map) bridges
     if osm_bridges != "":
-        print(f"Subsetting OSM Bridges for {hucCode}")
+        logging.info(f"Subsetting OSM Bridges for {hucCode}")
 
         subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
         if subset_osm_bridges_gdb.empty:
             print("-- No applicable bridges for this HUC")
+            logging.info("-- No applicable bridges for this HUC")
         else:
             logging.info(f"Create subset of osm bridges gpkg for {hucCode}")
             if is_alaska is True:
