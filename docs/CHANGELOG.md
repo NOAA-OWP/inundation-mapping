@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## vx.x.x.x - 2024-04-26 - [PR#1115](https://github.com/NOAA-OWP/inundation-mapping/pull/1115)
+## v4.4.15.4 - 2024-05-06 - [PR#1115](https://github.com/NOAA-OWP/inundation-mapping/pull/1115)
 
 This PR addresses issue #1040 and includes the following updates:
 - Upgraded to WRDS API version 3 and ensured schema compatibility of new USGS gages data.
