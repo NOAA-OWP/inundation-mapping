@@ -108,6 +108,7 @@ If you would like to contribute, please follow these steps:
    isort .
    black .
    flake8 .
+   
    # optionally close the container
    # Back on your terminal console (outside the container), use the typical git add, git commit, git push
 
