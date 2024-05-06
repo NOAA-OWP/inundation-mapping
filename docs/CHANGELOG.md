@@ -3,14 +3,25 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.4.x.x - 2024-04-16 - [PR#1122](https://github.com/NOAA-OWP/inundation-mapping/pull/1122)
 
-This PR includes 2 scripts to add Open Street Map bridge data into the HAND process: a script that pulls data from OSM and a script that heals those bridges in the HAND grids. Both scripts should be run as part of a pre-processing step for FIM runs. They only need to be run if we think OSM data has changed a lot or for any new FIM versions. This PR also modifies the shell script that should run the bridge healing during the FIM pipeline process.
+This PR includes 2 scripts to add Open Street Map bridge data into the HAND process: a script that pulls data from OSM and a script that heals those bridges in the HAND grids. Both scripts should be run as part of a pre-processing step for FIM runs. They only need to be run if we think OSM data has changed a lot or for any new FIM versions.
+
+A new docker image is also required for `pull_osm_bridges.py` (acquire and preprocess) script.
 
 ### Additions
 - `data/bridges/pull_osm_bridges.py`: First pre-processing script that pulls OSM data and saves bridge lines out as separate shapefiles by HUC8 to a specified location
 - `src/heal_bridges_osm.py`: Second pre-processing script that uses the pre-saved OSM bridge lines and heals max HAND values across those bridge lines. Healed HAND grids are saved to a specified location.
 
 ### Changes
-- `src/delineate_hydros_and_produce_HAND.sh`: add python call to run `heal_bridges_osm.py` after hydraulic properties are calculated
+- `Pipfile`, `Pipfile.lock`: Adjusted files to add new python package to docker image.
+- `data`
+    - `clip_vectors_to_wdbd.py`: Updated to pre-clip new bridge data. Logging upgraded.
+    - `generate_pre_clip_fim_huc8.py`: Updated to pre-clip new bridge data. Logging added and a system for multi-process logging.
+- `src`
+    - `delineate_hydros_and_produce_HAND.sh`: add python call to run `heal_bridges_osm.py` after hydraulic properties are calculated.
+    - `bash_variables.env`: Added new variable for OSM bridges and adjusted pre-clip output date
+    - `utils`
+        - `shared_functions.py`: removed function no longer in use.
+        - `shared_variables.py`: removed variables no longer in use.
   
 <br/><br/>
 

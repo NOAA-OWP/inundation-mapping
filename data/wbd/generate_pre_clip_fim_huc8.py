@@ -96,7 +96,7 @@ def __setup_logger(outputs_dir, huc=None):
     script is run more than once on the same day.
     '''
     datetime_now = dt.datetime.now(dt.timezone.utc)
-    curr_date = datetime_now.strftime("%m_%d_%Y")
+    curr_date = datetime_now.strftime("%y%my%d")
 
     if huc is None:
         log_file_name = f"generate_pre_clip_fim_huc8_{curr_date}.log"

@@ -219,6 +219,17 @@ if  [ -f $tempCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
 fi
 
 
+## HYDRAULIC PROPERTIES ##
+echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"
+$taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+    -catch $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif \
+    -catchlist $tempCurrentBranchDataDir/catch_list_$current_branch_id.txt \
+    -slp $tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif \
+    -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
+    -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
+
+
+
 ## HEAL HAND BRIDGES (note resolution is set to 10m)
 # May or may not be a bridge file, depends if the HUC has an applicble one.
 # Writing back over the rem_zeroed_masked branch tif
@@ -233,18 +244,6 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
 else
     -e $startDiv"No applicable bridge data for $hucNumber"
 fi
-
-
-## HYDRAULIC PROPERTIES ##
-echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"
-$taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-    -catch $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif \
-    -catchlist $tempCurrentBranchDataDir/catch_list_$current_branch_id.txt \
-    -slp $tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif \
-    -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
-    -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
-
-
 
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
