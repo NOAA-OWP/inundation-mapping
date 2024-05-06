@@ -165,9 +165,13 @@ if __name__ == '__main__':
         help='WARNING: only run this parameter if you know exactly what you are doing',
         required=False,
     )
-    parser.add_argument('-huc_CRS', '--huc_CRS', 
-                        help='Projection to use (based on whether the HUC is in Alaska or CONUS).', 
-                        type=str, required=True)
+    parser.add_argument(
+        '-huc_CRS',
+        '--huc_CRS',
+        help='Projection to use (based on whether the HUC is in Alaska or CONUS).',
+        type=str,
+        required=True,
+    )
 
     args = vars(parser.parse_args())
 
@@ -182,7 +186,9 @@ if __name__ == '__main__':
     huc_CRS = args['huc_CRS']
 
     if not filter_fim_inputs:
-        usgs_gage_subset = Gage2Branch(usgs_gages_filename, ras_locs_filename, nws_lid_filename, huc8, huc_CRS)
+        usgs_gage_subset = Gage2Branch(
+            usgs_gages_filename, ras_locs_filename, nws_lid_filename, huc8, huc_CRS
+        )
         if usgs_gage_subset.gages.empty:
             print(f'There are no gages identified for {huc8}')
             os._exit(0)

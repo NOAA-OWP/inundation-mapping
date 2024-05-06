@@ -44,7 +44,13 @@ class GageCrosswalk(object):
         self.gages = self._load_gages(usgs_subset_gages_filename)
 
     def run_crosswalk(
-        self, input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_directory, huc_CRS,
+        self,
+        input_catchment_filename,
+        input_flows_filename,
+        dem_filename,
+        dem_adj_filename,
+        output_directory,
+        huc_CRS,
     ):
         '''Run the gage crosswalk steps: 1) spatial join to branch catchments layer 2) snap sites to
         the dem-derived flows 3) sample both dems at the snapped points 4) write the crosswalked points
@@ -196,7 +202,12 @@ if __name__ == '__main__':
     # Instantiate class
     gage_crosswalk = GageCrosswalk(usgs_gages_filename, branch_id)
     gage_crosswalk.run_crosswalk(
-        input_catchment_filename, input_flows_filename, dem_filename, dem_adj_filename, output_directory, huc_CRS,
+        input_catchment_filename,
+        input_flows_filename,
+        dem_filename,
+        dem_adj_filename,
+        output_directory,
+        huc_CRS,
     )
 
 """
