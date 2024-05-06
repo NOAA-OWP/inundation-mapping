@@ -88,17 +88,29 @@ If you would like to contribute, please follow these steps:
 6. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables **within the Docker container***, however, it is recommended to run them through `pre-commit` **outside of the container**, as it picks up the correct configuration.
 
    ```
+   There are multiple ways to run pre-commit tests. Here are three:
+   
    # Check only the staged changes
    pre-commit run
 
    # Check all files in the repo
    pre-commit run -a
 
-   # Run only the flake8, isort, or black.
-   pre-commit run -a flake8
+   # Run only the isort, black, flake8 (in order).
    pre-commit run -a isort
-   pre-commit run -a black
+   pre-commit run -a black  (If it fails the first time, run it again and now apply a fix if required)
+   pre-commit run -a flake8
    ```
+    **Note: The pre-commit system can be a bit tricky. If you have trouble with pre-commit steps above, you have another option.** Some environments may require add the word **sudo** in front commands .
+   ```
+   - Open up a docker container
+   - cd /foss_fim
+   - isort .
+   - black .
+   - flake8 .
+   - optionally close the container
+   - Back on your terminal console (outside the container), use the typical git add, git commit, git push
+
 7. Build the Docker container:
     ```
     Docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>
