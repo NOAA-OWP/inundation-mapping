@@ -2,6 +2,21 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.4.15.2 - 2024-05-06 - [PR#1133](https://github.com/NOAA-OWP/inundation-mapping/pull/1133)
+
+Bug fix for error when reading the subfolders of a directory using `listdir()` where files exist that start with an 8-digit number that are later interpreted as directories.
+
+### Changes
+
+The following files were modified to use `listdir()` to read only directories instead of both directories and files:
+- `src/`
+    - `bathy_src_adjust_topwidth.py`, `identify_src_bankfull.py`, `subdiv_chan_obank_src.py`, `utils/shared_functions.py`
+- `tools/vary_mannings_n_composite.py`
+
+
+<br/><br/>
+
+
 ## v4.4.15.1 - 2024-05-06 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1038)
 
 This hotfix address a bug within the SRC adjustment routine to filter out USGS gauge locations that were conflated to lakeid reaches. These fatal errors were preventing `fim_post_processing.sh` from completing. There are also new try except blocks to handle potential errors when opening/writing SRC adjustment attributes to the catchment gpkg (unknown issues with collisions or corrupt gpkg files). Closes #1137 
