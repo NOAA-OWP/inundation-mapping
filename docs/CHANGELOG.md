@@ -12,6 +12,14 @@ The following files were modified to use `listdir()` to read only directories in
 - `src/`
     - `bathy_src_adjust_topwidth.py`, `identify_src_bankfull.py`, `subdiv_chan_obank_src.py`, `utils/shared_functions.py`
 - `tools/vary_mannings_n_composite.py`
+## v4.4.15.1 - 2024-05-06 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1038)
+
+This hotfix address a bug within the SRC adjustment routine to filter out USGS gauge locations that were conflated to lakeid reaches. These fatal errors were preventing `fim_post_processing.sh` from completing. There are also new try except blocks to handle potential errors when opening/writing SRC adjustment attributes to the catchment gpkg (unknown issues with collisions or corrupt gpkg files). Closes #1137 
+
+### Changes
+
+- `src/src_adjust_usgs_rating_trace.py`: Added filter for processing valid hydroids that meet criteria (i.e non-lakes) and more robust logging.
+- `src/src_roughness_optimization.py`: Added data checks and logging to ensure input calibration data files contains necessary attributes. Also included a new try/except block to trap and log issues with file collisions or corrupt catchment gpkg read/write.
 
 <br/><br/>
 
