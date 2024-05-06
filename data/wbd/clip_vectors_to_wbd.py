@@ -35,8 +35,6 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     levelpath_outlets['nearest_point'] = None
     levelpath_outlets['last'] = None
 
-    # print(list(levelpath_outlets.columns))
-
     levelpath_outlets = levelpath_outlets.explode(index_parts=False)
 
     for index, row in levelpath_outlets.iterrows():
@@ -57,18 +55,9 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
         if isinstance(levelpath_outlets_nearest_points, pd.Series):
             levelpath_outlets_nearest_points = levelpath_outlets_nearest_points.iloc[-1]
 
-        # tlist = list([levelpath_outlets.at[index, 'nearest_point'].coords[0]])
-        # tlist = list([levelpath_outlets.at[index, 'nearest_point'].row.geometry.get_coordinates().oords[0]])
-
         levelpath_outlets.at[index, 'geometry'] = LineString(
             list(row['geometry'].coords) + list([levelpath_outlets_nearest_points.coords[0]])
         )
-
-        # levelpath_outlets.at[index, 'geometry'] = LineString(
-        #    list(row.geometry.get_coordinates()) + list([levelpath_outlets.at[index, 'nearest_point'].coords[0]])
-        # )
-
-        # geometry.get_coordinates()
 
     levelpath_outlets = gpd.GeoDataFrame(data=levelpath_outlets, geometry='geometry')
     levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point'])
@@ -104,6 +93,9 @@ def subset_vector_layers(
     wbd_buffer_distance,
     levee_protected_areas,
     subset_levee_protected_areas,
+    osm_bridges,
+    subset_osm_bridges,
+    is_alaska,
     huc_CRS,
 ):
 
@@ -249,11 +241,34 @@ def subset_vector_layers(
             engine="fiona",
         )
     else:
-        print("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
         logging.info("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
 
     del nwm_catchments
+
+    # Subset OSM (Open Street Map) bridges
+    if osm_bridges != "":
+        logging.info(f"Subsetting OSM Bridges for {hucCode}")
+
+        subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
+        if subset_osm_bridges_gdb.empty:
+            print("-- No applicable bridges for this HUC")
+            logging.info("-- No applicable bridges for this HUC")
+        else:
+            logging.info(f"Create subset of osm bridges gpkg for {hucCode}")
+            if is_alaska is True:
+                # we need to reproject
+                subset_osm_bridges_gdb = subset_osm_bridges_gdb.to_crs(huc_CRS)
+
+            subset_osm_bridges_gdb.to_file(
+                subset_osm_bridges,
+                driver=getDriver(subset_osm_bridges),
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+
+        del subset_osm_bridges_gdb
 
     # Subset nwm streams
     logging.info(f"Subsetting NWM Streams for {hucCode}")
@@ -340,7 +355,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-lps', '--subset-levee-protected-areas', help='Levee-protected areas subset', required=True
     )
-
+    parser.add_argument('-osm', '--osm-bridges', help='Open Street Maps gkpg', required=True)
     parser.add_argument('-crs', '--huc-CRS', help='HUC crs', required=True)
 
     args = vars(parser.parse_args())

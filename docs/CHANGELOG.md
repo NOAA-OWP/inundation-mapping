@@ -1,6 +1,30 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.0.0 - 2024-05-06 - [PR#1122](https://github.com/NOAA-OWP/inundation-mapping/pull/1122)
+
+This PR includes 2 scripts to add Open Street Map bridge data into the HAND process: a script that pulls data from OSM and a script that heals those bridges in the HAND grids. Both scripts should be run as part of a pre-processing step for FIM runs. They only need to be run if we think OSM data has changed a lot or for any new FIM versions.
+
+A new docker image is also required for `pull_osm_bridges.py` (acquire and preprocess) script.
+
+### Additions
+- `data/bridges/pull_osm_bridges.py`: First pre-processing script that pulls OSM data and saves bridge lines out as separate shapefiles by HUC8 to a specified location
+- `src/heal_bridges_osm.py`: Second pre-processing script that uses the pre-saved OSM bridge lines and heals max HAND values across those bridge lines. Healed HAND grids are saved to a specified location.
+
+### Changes
+- `Pipfile`, `Pipfile.lock`: Adjusted files to add new python package to docker image.
+- `data`
+    - `clip_vectors_to_wdbd.py`: Updated to pre-clip new bridge data. Logging upgraded.
+    - `generate_pre_clip_fim_huc8.py`: Updated to pre-clip new bridge data. Logging added and a system for multi-process logging.
+- `src`
+    - `delineate_hydros_and_produce_HAND.sh`: add python call to run `heal_bridges_osm.py` after hydraulic properties are calculated.
+    - `bash_variables.env`: Added new variable for OSM bridges and adjusted pre-clip output date
+    - `utils`
+        - `shared_functions.py`: removed function no longer in use.
+        - `shared_variables.py`: removed variables no longer in use.
+  
+<br/><br/>
+
 ## v4.4.16.0 - 2024-05-06 - [PR#1121](https://github.com/NOAA-OWP/inundation-mapping/pull/1121)
 
 Some NWM streams, particularly in coastal areas, fail to reach the edge of the DEM resulting in reverse flow. This issue was resolved by clipping the ocean mask from the buffered WBD and DEM, and any remaining streams that didn't have outlets reaching the edge of the buffered WBD boundary were extended by snapping the end to the nearest point on the buffered WBD.

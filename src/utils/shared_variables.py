@@ -99,65 +99,6 @@ MEDIUM_HIGH_STREAM_DENSITY_HUCS = {  # stream density between 0.5 and 1.5
 }
 
 
-# -- Other -- #
-CONUS_STATE_LIST = {
-    "AL",
-    "AZ",
-    "AR",
-    "CA",
-    "CO",
-    "CT",
-    "DC",
-    "DE",
-    "FL",
-    "GA",
-    "HI",
-    "ID",
-    "IL",
-    "IN",
-    "IA",
-    "KS",
-    "KY",
-    "LA",
-    "ME",
-    "MD",
-    "MA",
-    "MI",
-    "MN",
-    "MS",
-    "MO",
-    "MT",
-    "NE",
-    "NV",
-    "NH",
-    "NJ",
-    "NM",
-    "NY",
-    "NC",
-    "ND",
-    "OH",
-    "OK",
-    "OR",
-    "PA",
-    "PR",
-    "RI",
-    "SC",
-    "SD",
-    "TN",
-    "TX",
-    "UT",
-    "VT",
-    "VA",
-    "WA",
-    "WV",
-    "WI",
-    "WY",
-}
-
-OVERWRITE_WBD = 'OVERWRITE_WBD'
-OVERWRITE_NHD = 'OVERWRITE_NHD'
-OVERWRITE_ALL = 'OVERWRITE_ALL'
-
 # Rating Curve Adjustment (local calibration) variables
 USGS_CALB_TRACE_DIST = 8.0  # distance in km to walk the network and perform USGS rating calibation for SRCs
 DOWNSTREAM_THRESHOLD = 8.0  # distance in km to propogate new roughness values downstream (group mean)
