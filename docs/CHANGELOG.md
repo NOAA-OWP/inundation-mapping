@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.X.X.X - 2024-05-13 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1038)
+## v4.4.15.1 - 2024-05-06 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1038)
 
 This hotfix address a bug within the SRC adjustment routine to filter out USGS gauge locations that were conflated to lakeid reaches. These fatal errors were preventing `fim_post_processing.sh` from completing. There are also new try except blocks to handle potential errors when opening/writing SRC adjustment attributes to the catchment gpkg (unknown issues with collisions or corrupt gpkg files). Closes #1137 
 
