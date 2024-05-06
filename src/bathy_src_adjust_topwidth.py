@@ -3,6 +3,7 @@
 import argparse
 import datetime as dt
 import os
+import re
 import sys
 from multiprocessing import Pool
 from os import environ
@@ -540,7 +541,7 @@ if __name__ == '__main__':
             begin_time = dt.datetime.now()
 
             ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-            huc_list = os.listdir(fim_dir)
+            huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
             huc_pass_list = []
             for huc in huc_list:
                 if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
