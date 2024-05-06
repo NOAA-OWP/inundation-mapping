@@ -245,7 +245,7 @@ $srcDir/delineate_hydros_and_produce_HAND.sh "unit"
 if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     python3 $srcDir/usgs_gage_unit_setup.py \
-        -gages /data/temp/emily/usgs_data_withAlaska/usgs_gages.gpkg \
+        -gages $tempHucDataDir/usgs_gages.gpkg \
         -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
         -ras $tempHucDataDir/$ras_rating_curve_gpkg_filename \
         -o $tempHucDataDir/usgs_subset_gages.gpkg \
@@ -254,8 +254,6 @@ if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
         -bzero_id $branch_zero_id \
         -huc_CRS $huc_CRS
 fi
-
-        # -gages $tempHucDataDir/usgs_gages.gpkg \ # Old gages path, TODO: add back in once testing is done?
 
 
 ## USGS CROSSWALK ##
