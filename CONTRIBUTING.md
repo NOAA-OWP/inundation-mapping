@@ -103,13 +103,13 @@ If you would like to contribute, please follow these steps:
    ```
     **Note: The pre-commit system can be a bit tricky. If you have trouble with pre-commit steps above, you have another option.** Some environments may require add the word **sudo** in front commands .
    ```
-   - Open up a docker container
-   - cd /foss_fim
-   - isort .
-   - black .
-   - flake8 .
-   - optionally close the container
-   - Back on your terminal console (outside the container), use the typical git add, git commit, git push
+   # Open up a docker container
+   cd /foss_fim
+   isort .
+   black .
+   flake8 .
+   # optionally close the container
+   # Back on your terminal console (outside the container), use the typical git add, git commit, git push
 
 7. Build the Docker container:
     ```
