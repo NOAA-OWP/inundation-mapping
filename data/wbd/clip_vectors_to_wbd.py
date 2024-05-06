@@ -270,7 +270,6 @@ def subset_vector_layers(
 
         del subset_osm_bridges_gdb
 
-
     # Subset nwm streams
     logging.info(f"Subsetting NWM Streams for {hucCode}")
     nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")

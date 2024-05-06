@@ -136,7 +136,6 @@ def __merge_mp_logs(outputs_dir):
 
     error_huc_found = False
 
-
     with open(log_mp_rollup_file, 'a') as main_log:
         # Iterate through list
         for temp_log_file in log_file_list:
