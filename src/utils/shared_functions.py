@@ -3,6 +3,7 @@
 import glob
 import inspect
 import os
+import re
 from concurrent.futures import as_completed
 from datetime import datetime, timezone
 from os.path import splitext
@@ -185,7 +186,7 @@ def concat_huc_csv(fim_dir, csv_name):
     '''
 
     merged_csv = []
-    huc_list = os.listdir(fim_dir)
+    huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
     for huc in huc_list:
         if huc != 'logs':
             csv_file = os.path.join(fim_dir, huc, str(csv_name))

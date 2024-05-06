@@ -270,6 +270,7 @@ def subset_vector_layers(
 
         del subset_osm_bridges_gdb
 
+
     # Subset nwm streams
     logging.info(f"Subsetting NWM Streams for {hucCode}")
     nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
@@ -355,9 +356,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-lps', '--subset-levee-protected-areas', help='Levee-protected areas subset', required=True
     )
-
     parser.add_argument('-osm', '--osm-bridges', help='Open Street Maps gkpg', required=True)
-
     parser.add_argument('-crs', '--huc-CRS', help='HUC crs', required=True)
 
     args = vars(parser.parse_args())

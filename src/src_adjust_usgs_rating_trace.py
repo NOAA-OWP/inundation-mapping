@@ -296,7 +296,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
             )
             df = gpd.read_file(dem_reaches_path)
-            usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id)]
+            usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'].astype(int) == int(branch_id))]
 
             # Calculate updstream/downstream trace ()
             df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
@@ -346,12 +346,36 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('', 0)
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].astype(int)
 
+            # Drop rows where 'trace_hydroid' column is empty
+            # Addresses backpool removals and lake gauges
+            usgs_elev_trace = usgs_elev_trace[usgs_elev_trace['trace_hydroid'].astype(int) != 0]
+
+            # Check that there are still valid entries in the usgs_elev
+            # May have filtered out all if all locs were lakes
+            if usgs_elev_trace.empty:
+                print(
+                    "ALERT: did not find any valid hydroids to process: "
+                    + str(huc)
+                    + ' - branch-id: '
+                    + str(branch_id)
+                )
+                log_file.write(
+                    "ALERT: did not find any valid hydroids to process: "
+                    + str(huc)
+                    + ' - branch-id: '
+                    + str(branch_id)
+                    + '\n'
+                )
+                continue
+
             # Rename columns
             usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
             usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
 
             if debug_outputs_option:
-                usgs_elev_trace.to_csv(os.path.join(branch_dir, 'water_edge_trace.csv'), index=False)
+                usgs_elev_trace.to_csv(
+                    os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False
+                )
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):
@@ -484,7 +508,7 @@ def run_prep(run_dir, usgs_rc_filepath, nwm_recurr_filepath, debug_outputs_optio
 
     else:
         print('This may take a few minutes...')
-        log_file.write("starting create usgs rating db")
+        log_file.write("starting create usgs rating db\n")
         usgs_df = create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir)
 
         # Create huc proc_list for multiprocessing and execute the update_rating_curve function

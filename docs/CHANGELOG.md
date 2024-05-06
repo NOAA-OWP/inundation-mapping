@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.4.x.x - 2024-04-16 - [PR#1122](https://github.com/NOAA-OWP/inundation-mapping/pull/1122)
+## v4.5.0.0 - 2024-05-06 - [PR#1122](https://github.com/NOAA-OWP/inundation-mapping/pull/1122)
 
 This PR includes 2 scripts to add Open Street Map bridge data into the HAND process: a script that pulls data from OSM and a script that heals those bridges in the HAND grids. Both scripts should be run as part of a pre-processing step for FIM runs. They only need to be run if we think OSM data has changed a lot or for any new FIM versions.
 
@@ -25,6 +25,74 @@ A new docker image is also required for `pull_osm_bridges.py` (acquire and prepr
   
 <br/><br/>
 
+## v4.4.16.0 - 2024-05-06 - [PR#1121](https://github.com/NOAA-OWP/inundation-mapping/pull/1121)
+
+Some NWM streams, particularly in coastal areas, fail to reach the edge of the DEM resulting in reverse flow. This issue was resolved by clipping the ocean mask from the buffered WBD and DEM, and any remaining streams that didn't have outlets reaching the edge of the buffered WBD boundary were extended by snapping the end to the nearest point on the buffered WBD.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Clips `landsea` ocean mask from the buffered WBD and adds a function to extend outlet streams to the buffered WBD
+- `data/wbd/clip_vectors_to_wbd.py`: Updated multi-processing and added more logging.
+
+<br/><br/>
+
+
+## v4.4.15.4 - 2024-05-06 - [PR#1115](https://github.com/NOAA-OWP/inundation-mapping/pull/1115)
+
+This PR addresses issue #1040 and includes the following updates:
+- Upgraded to WRDS API version 3 and ensured schema compatibility of new USGS gages data.
+- Expanded data retrieval to include Alaska gages alongside CONUS gages. 
+- Enables retrieving SRC data for individual USGS gages, removing the necessity of using 'all' for the '-l' flag in rating_curve_get_usgs_curves.py." 
+
+
+### Changes
+ - `tools/tools_shared_functions.py`   
+    -  Improved the stability of API calls.
+    - Removed the exclusion of Alaska gages from USGS gages metadata (`usgs_gages.gpkg` output), preserving Alaska gages in the metadata.  
+- `rating_curve_get_usgs_curves.py` 
+    - Removed the exclusion of Alaska gages when retrieving SRC values.
+    - Enabled retrieving SRC data for individual USGS gages.
+- Moved the script `rating_curve_get_usgs_curves.py` from `tools` folder into `data/usgs`.
+
+<br/><br/>
+
+## v4.4.15.3 - 2024-05-06 - [PR#1128](https://github.com/NOAA-OWP/inundation-mapping/pull/1128)
+
+Fixes a KeyError in `src/mitigate_branch_outlet_backpool.py`.
+
+### Changes
+
+`src/mitigate_branch_outlet_backpool.py`: Addresses case where `catchments_df['outlier']` are all False.
+
+
+<br/><br/>
+
+
+## v4.4.15.2 - 2024-05-06 - [PR#1133](https://github.com/NOAA-OWP/inundation-mapping/pull/1133)
+
+Bug fix for error when reading the subfolders of a directory using `listdir()` where files exist that start with an 8-digit number that are later interpreted as directories.
+
+### Changes
+
+The following files were modified to use `listdir()` to read only directories instead of both directories and files:
+- `src/`
+    - `bathy_src_adjust_topwidth.py`, `identify_src_bankfull.py`, `subdiv_chan_obank_src.py`, `utils/shared_functions.py`
+- `tools/vary_mannings_n_composite.py`
+
+
+<br/><br/>
+
+
+## v4.4.15.1 - 2024-05-06 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1038)
+
+This hotfix address a bug within the SRC adjustment routine to filter out USGS gauge locations that were conflated to lakeid reaches. These fatal errors were preventing `fim_post_processing.sh` from completing. There are also new try except blocks to handle potential errors when opening/writing SRC adjustment attributes to the catchment gpkg (unknown issues with collisions or corrupt gpkg files). Closes #1137 
+
+### Changes
+
+- `src/src_adjust_usgs_rating_trace.py`: Added filter for processing valid hydroids that meet criteria (i.e non-lakes) and more robust logging.
+- `src/src_roughness_optimization.py`: Added data checks and logging to ensure input calibration data files contains necessary attributes. Also included a new try/except block to trap and log issues with file collisions or corrupt catchment gpkg read/write.
+
+<br/><br/>
 
 ## v4.4.15.0 - 2024-04-17 - [PR#1081](https://github.com/NOAA-OWP/inundation-mapping/pull/1081)
 
@@ -109,6 +177,7 @@ The "black" packages is also be upgraded from 23.7.0 to 24.3.
      - 19 files have had minor formatting changes related to the upgrade in the "black" package.
 
 <br/><br/>
+
 
 ## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
