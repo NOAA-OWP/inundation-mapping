@@ -1,9 +1,9 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-05-07 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
+## v4.5.0.1 - 2024-05-07 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
-Fixes two bugs discovered in v4.4.5.0:
+Fixes two bugs discovered in v4.5.0.0:
 1. `echo` missing in bash command
 2. raster resolution of `dem_meters.tif` has now been explicitly set to 10 m in `gdalwarp`.
 
