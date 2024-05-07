@@ -2,6 +2,18 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.x.x.x - 2024-05-07 - [PR#1149](https://github.com/NOAA-OWP/inundation-mapping/pull/1149)
+
+This PR adds scripts that can identify areas within produced inundation rasters where glasswalling of inundation occurs due to catchment boundaries, know as catchment boundary issues.
+
+### Additions
+- `tools/identify_catchment_boundary.py`: Identifies where catchment boundaries are glasswalling inundation extent.
+
+- `tools/inundate_catchment_boundary.py`: Produces inundation for given HUC and identifies catchment boundary issues in produced FIM. 
+
+<br/><br/>
+
+
 ## v4.4.11.0 - 2024-02-16 - [PR#1077](https://github.com/NOAA-OWP/inundation-mapping/pull/1077)
 
 Replace `fiona` with `pyogrio` to improve I/O speed. `geopandas` will use `pyogrio` by default starting with version 1.0. `pyarrow` was also added as an environment variable to further speedup I/O. As a result of the changes in this PR, `fim_pipeline.sh` runs approximately 10% faster.
