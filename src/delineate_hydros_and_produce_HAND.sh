@@ -240,7 +240,7 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
                 -s $tempHucDataDir/osm_bridges_subset.gpkg \
                 -p $tempCurrentBranchDataDir/bridge_lines_raster_$current_branch_id.tif \
                 -t $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-                -r 10
+                -r $res
 else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
 fi

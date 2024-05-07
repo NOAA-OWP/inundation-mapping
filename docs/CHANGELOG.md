@@ -5,13 +5,14 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 Fixes two bugs discovered in v4.4.5.0:
 1. `echo` missing in bash command
-2. raster resolution of `dem_meters.tif` has now been explicitly set to 10 m in `gdalwarp`.
+2. raster resolution of `dem_meters.tif` has now been explicitly set in `gdalwarp`.
 
 ### Changes
 
 - `src/`
+    - `bash_variables.env`: added `res` environment variable for default raster cell size
     - `delineate_hydros_and_produce_HAND.sh`: added missing `echo`
-    - `run_unit_wb.sh`: `-tr` added to gdalwarp when generating `dem_meters.tif`
+    - `run_unit_wb.sh`: added `-tr` to gdalwarp when generating `dem_meters.tif`
 
 <br/><br/>
 
