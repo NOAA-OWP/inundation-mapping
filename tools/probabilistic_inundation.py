@@ -227,9 +227,7 @@ def inundate_hucs(
                 sys.exit(1)
 
                 # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(
-            executor_dict, True, f"Running {huc} probabilistic inundation with {num_jobs} workers"
-        )
+        progress_bar_handler(executor_dict, True, f"Running probabilistic inundation with {num_jobs} workers")
 
 
 if __name__ == '__main__':

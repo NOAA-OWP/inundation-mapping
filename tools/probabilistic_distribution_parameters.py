@@ -7,6 +7,7 @@ import sys
 import time
 import traceback
 import warnings
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from glob import glob
 from typing import Generator, Tuple
 
@@ -113,7 +114,7 @@ def get_score(
     return lmoment_distribution.name, lnse, params
 
 
-def fit_distributions(index: int, num_flows: int, output_file_name: str, reccurence_flows_dir: str = None):
+def fit_distributions(index: int, num_flows: int, output_file_name: str, reccurence_flows_file: str = None):
     """Fit probability distributions for recreating flow duration curve for NWM retrospective flows
 
     Parameters
@@ -124,7 +125,7 @@ def fit_distributions(index: int, num_flows: int, output_file_name: str, reccure
         How many flows to gather from NWM retrospective
     output_file_name : str
         Name of tile to save the DataFrame
-    reccurence_flows_dir : str, default=None
+    reccurence_flows_file : str, default=None
         Path to the reccurence flow netcdf file
 
     """
@@ -143,7 +144,7 @@ def fit_distributions(index: int, num_flows: int, output_file_name: str, reccure
     ]
 
     # Get reccurence interval dataset if path provided
-    reccurence = xr.open_dataset(reccurence_flows_dir) if reccurence_flows_dir is not None else None
+    reccurence = xr.open_dataset(reccurence_flows_file) if reccurence_flows_file is not None else None
 
     if not os.path.exists(output_file_name):
 
@@ -151,8 +152,10 @@ def fit_distributions(index: int, num_flows: int, output_file_name: str, reccure
             warnings.simplefilter("ignore")
 
             # Open NWM retrospective dataset
+
             ds = xr.open_zarr(
-                'https://noaa-nwm-retrospective-2-1-zarr-pds.s3.amazonaws.com/chrtout.zarr', consolidated=True
+                'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr',
+                consolidated=True,
             )
 
             # Get flows (maybe large amounts necessitating the dask config below)
@@ -214,8 +217,30 @@ def fit_distributions(index: int, num_flows: int, output_file_name: str, reccure
             df.to_csv(output_file_name, index=False)
 
 
+def progress_bar_handler(executor_dict, verbose, desc):
+    """Show progress of operation
+
+    Parameters
+    ----------
+    executor_dict: dict
+        Keys as futures and HUC ids as values
+    verbose: bool
+        Whether to print more progress
+    desc: str
+        Description of the process
+    """
+
+    for future in tqdm(
+        as_completed(executor_dict), total=len(executor_dict), disable=(not verbose), desc=desc
+    ):
+        try:
+            future.result()
+        except Exception as exc:
+            print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
+
+
 def run_linear_moment_fit(
-    output_directory: str, output_name: str, num_flows: int, reccurence_flow_file: str = None
+    output_directory: str, output_name: str, num_flows: int, num_jobs: int, reccurence_flows_file: str = None
 ):
     """Driver for processing fit of probability distributions
 
@@ -227,7 +252,9 @@ def run_linear_moment_fit(
         Name of the output file
     num_flows : int
         Number of flows to process
-    reccurence_flow_file : str, optional
+    num_jobs : int
+        Number of jobs to run concurrently
+    reccurence_flows_file : str, optional
         Reccurence flow NetCDF file
 
     """
@@ -238,16 +265,29 @@ def run_linear_moment_fit(
     print(time.localtime())
 
     # Loop through all split indices
-    for index in range(steps):
-        output_file_name = os.path.join(
-            output_directory, f"{output_name.split('.')[0]}{str(index)}.{output_name.split('.')[1]}"
-        )
+    with ProcessPoolExecutor(max_workers=num_jobs) as executor:
+        executor_dict = {}
+        for index in range(steps):
 
-        p = mp.Process(
-            target=fit_distributions, args=(index, num_flows, output_file_name, reccurence_flow_file)
-        )
-        p.start()
-        p.join()
+            output_file_name = os.path.join(
+                output_directory, f"{output_name.split('.')[0]}{str(index)}.{output_name.split('.')[1]}"
+            )
+            try:
+                future = executor.submit(
+                    fit_distributions,
+                    index=index,
+                    num_flows=num_flows,
+                    output_file_name=output_file_name,
+                    reccurence_flows_file=reccurence_flows_file,
+                )
+                executor_dict[future] = index
+
+            except Exception as ex:
+                print(f"*** {ex}")
+                traceback.print_exc()
+                sys.exit(1)
+
+        progress_bar_handler(executor_dict, True, f"Running linear moment fit with {num_jobs} workers")
 
     concat_df = pd.concat(
         [
@@ -298,8 +338,12 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        "-j", "--num_jobs", type=int, help="REQUIRED: Number of jobs to run concurrently", required=True
+    )
+
+    parser.add_argument(
         "-r",
-        "--reccurence_flow_file",
+        "--reccurence_flows_file",
         help="OPTIONAL: Reccurence flow NetCDF file to include in flow duration curves",
         required=False,
     )
