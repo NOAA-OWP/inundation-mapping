@@ -12,11 +12,11 @@
 
 _How does the changes affect the product?_
 - [ ] Code only?
-- [ ] Require new or adjusted data inputs. Does it have start, end and duration code (in UTC)?
-- [ ] If new or updated data updates, has FIM related code been updated and tested?
+- [ ] Require new or adjusted data inputs? Does it have start, end and duration code (in UTC)?
+- [ ] If new or updated data sets, has the FIM code been updated and tested with the new/adjusted data (subset is fine, but must be a subset of the new data)?
 - [ ] Require new pre-clip set?
 - [ ] Has new or updated python packages?
-- [ ] If applicable, is the deployment plan be calculated and work with Deployment person/team?
+- [ ] If applicable, has a deployment plan be created with the deployment person/team?
 
 
 ### Issuer Checklist (For developer use)
