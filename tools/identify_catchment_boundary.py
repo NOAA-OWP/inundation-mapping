@@ -5,14 +5,13 @@ import numpy as np
 import pandas as pd
 import rasterio
 import sys
-from timeit import default_timer as timer
 import traceback
 
+from timeit import default_timer as timer
 from concurrent import futures
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from rasterio import features
 from shapely.geometry import shape
-
 
 def catchment_boundary_errors(    
     hydrofabric_dir,
@@ -76,10 +75,6 @@ def catchment_boundary_errors(
                         intersect_lines_final = pd.concat([intersect_lines_final, boundary_line_df])
     # Export final file                   
     intersect_lines_final.to_file(output, index=False)
-
-        # # Send the executor to the progress bar and wait for all tasks to finish
-        # sf.progress_bar_handler(executor_dict, "Downloading USGG 3Dep Dems")
-
 
     # for huc in hucs:
 def identify_per_huc(hydrofabric_dir, huc, inundation_raster, output):
