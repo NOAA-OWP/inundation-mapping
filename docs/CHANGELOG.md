@@ -12,7 +12,8 @@ Fixes two bugs discovered in v4.5.0.0:
 - `src/`
     - `bash_variables.env`: added `res` environment variable for default raster cell size
     - `delineate_hydros_and_produce_HAND.sh`: added missing `echo`
-    - `run_unit_wb.sh`: added `-tr` to gdalwarp when generating `dem_meters.tif`
+    - `heal_bridges_osm.py`: fixed raster resolution and number of rows/columns
+    - `run_unit_wb.sh`: added `-tr` to gdalwarp when generating `dem_meters.tif`; removed extraneous `Tcount`
 
 <br/><br/>
 
