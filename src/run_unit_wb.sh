@@ -121,7 +121,6 @@ gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res $input_DEM $tempHucDataDir/dem_meters.tif
 
-Tcount
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"
