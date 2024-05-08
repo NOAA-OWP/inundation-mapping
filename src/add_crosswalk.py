@@ -244,6 +244,16 @@ def add_crosswalk(
                         (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
                     ]['HydroID'].item()
 
+                # output_flows has a higher order than the max_order
+                elif output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max() > max_order:
+                    update_id = output_flows.loc[
+                        (output_flows.From_Node == to_node)
+                        & (
+                            output_flows['order_']
+                            == output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max()
+                        )
+                    ]['HydroID'].values[0]
+
                 # Get the first one
                 # Same stream order, without drainage area info it is hard to know which is the main channel.
                 else:
