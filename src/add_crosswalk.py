@@ -257,9 +257,19 @@ def add_crosswalk(
                 # Get the first one
                 # Same stream order, without drainage area info it is hard to know which is the main channel.
                 else:
-                    update_id = output_flows.loc[
-                        (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
-                    ]['HydroID'].values[0]
+                    if max_order in output_flows.loc[output_flows.From_Node == to_node, 'order_'].values:
+                        update_id = output_flows.loc[
+                            (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
+                        ]['HydroID'].values[0]
+
+                    else:
+                        update_id = output_flows.loc[
+                            (output_flows.From_Node == to_node)
+                            & (
+                                output_flows['order_']
+                                == output_flows.loc[output_flows.From_Node == to_node, 'order_'].max()
+                            )
+                        ]['HydroID'].values[0]
 
             # no upstream segments; single downstream segment
             elif len(output_flows.loc[output_flows.From_Node == to_node]['HydroID']) == 1:
