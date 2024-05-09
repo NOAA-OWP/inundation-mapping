@@ -177,7 +177,7 @@ def associate_levelpaths_with_levees(
                 .reset_index(drop=True)
             )
 
-        levee_levelpath_nonintersections = None
+        levee_levelpath_nonintersections = pd.DataFrame(columns=[levee_id_attribute, branch_id_attribute])
         for j, row in out_df.iterrows():
             # Intersect levees and levelpaths
             row_intersections = gpd.overlay(
@@ -194,24 +194,16 @@ def associate_levelpaths_with_levees(
             row_intersections = row_intersections[row_intersections.geom_type == 'Point']
 
             # Find associated levelpaths that don't intersect levees
-            if len(row_intersections) == 0:
-                if levee_levelpath_nonintersections is None:
-                    levee_levelpath_nonintersections = row_intersections[
-                        levee_id_attribute, branch_id_attribute
-                    ]
-                else:
-                    levee_levelpath_nonintersections = pd.concat(
-                        [
-                            levee_levelpath_nonintersections,
-                            row_intersections[levee_id_attribute, branch_id_attribute],
-                        ]
-                    )
+            if row_intersections.empty:
+                levee_levelpath_nonintersections = pd.concat(
+                    [levee_levelpath_nonintersections, row[[levee_id_attribute, branch_id_attribute]]]
+                )
 
             # Remove levelpaths that cross the levee exactly once
             if len(row_intersections) == 1:
                 out_df = out_df.drop(j)
 
-        if levee_levelpath_nonintersections is not None:
+        if not levee_levelpath_nonintersections.empty:
 
             # Get levelpaths that intersect leveed areas
             leveed_area_levelpaths = gpd.sjoin(levelpaths, leveed_areas)
