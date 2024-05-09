@@ -1,6 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
+
+Fixes two bugs discovered in v4.5.0.0:
+1. `echo` missing in bash command
+2. raster resolution of `dem_meters.tif` has now been explicitly set in `gdalwarp`.
+
+### Changes
+
+- `src/`
+    - `add_crosswalk.py`: fixed stream order if max > `max_order`
+    - `bash_variables.env`: added `res` environment variable for default raster cell size
+    - `delineate_hydros_and_produce_HAND.sh`: added missing `echo`
+    - `heal_bridges_osm.py`: fixed raster resolution and number of rows/columns
+    - `run_unit_wb.sh`: added `-tr` to gdalwarp when generating `dem_meters.tif`; removed extraneous `Tcount`
+
+<br/><br/>
+
 ## v4.5.0.0 - 2024-05-06 - [PR#1122](https://github.com/NOAA-OWP/inundation-mapping/pull/1122)
 
 This PR includes 2 scripts to add Open Street Map bridge data into the HAND process: a script that pulls data from OSM and a script that heals those bridges in the HAND grids. Both scripts should be run as part of a pre-processing step for FIM runs. They only need to be run if we think OSM data has changed a lot or for any new FIM versions.

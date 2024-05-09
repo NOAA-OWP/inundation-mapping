@@ -52,8 +52,8 @@ def process_bridges_in_huc(
     ########### setup new raster to save bridge max hand values #############
     bbox = hand_grid.bounds
     xmin, ymin, xmax, ymax = bbox
-    w = (xmax - xmin) // resolution
-    h = (ymax - ymin) // resolution
+    w = hand_grid.shape[1]
+    h = hand_grid.shape[0]
 
     out_meta = {
         "driver": "GTiff",
@@ -74,7 +74,7 @@ def process_bridges_in_huc(
         shapes = ((geom, value) for geom, value in zip(osm_gdf.geometry, osm_gdf.max_hand))
         # burn in values to any pixel that's touched by polygon and add nodata fill value
         burned = features.rasterize(
-            shapes=shapes, fill=-999999, out=out_arr, transform=out.transform, all_touched=True
+            shapes=shapes, fill=-999999, out=out_arr, transform=hand_grid.transform, all_touched=True
         )
         out.write_band(1, burned)
 
@@ -138,7 +138,7 @@ if __name__ == "__main__":
         help='OPTIONAL: Resolution of HAND grid. Default value is 10m',
         required=False,
         default=10,
-        type=int,
+        type=float,
     )
 
     args = vars(parser.parse_args())
