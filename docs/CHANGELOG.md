@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.0.1 - 2024-05-07 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
+## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
 Fixes two bugs discovered in v4.5.0.0:
 1. `echo` missing in bash command
@@ -10,6 +10,7 @@ Fixes two bugs discovered in v4.5.0.0:
 ### Changes
 
 - `src/`
+    - `add_crosswalk.py`: fixed stream order if max > `max_order`
     - `bash_variables.env`: added `res` environment variable for default raster cell size
     - `delineate_hydros_and_produce_HAND.sh`: added missing `echo`
     - `heal_bridges_osm.py`: fixed raster resolution and number of rows/columns
