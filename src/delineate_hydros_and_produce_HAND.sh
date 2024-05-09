@@ -218,6 +218,7 @@ if  [ -f $tempCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
         --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
 fi
 
+
 ## HYDRAULIC PROPERTIES ##
 echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"
 $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
@@ -226,6 +227,24 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
     -slp $tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif \
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
     -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
+
+
+
+## HEAL HAND BRIDGES (note resolution is set to 10m)
+# May or may not be a bridge file, depends if the HUC has an applicble one.
+# Writing back over the rem_zeroed_masked branch tif
+if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
+    echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
+    python3 $srcDir/heal_bridges_osm.py \
+                -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+                -s $tempHucDataDir/osm_bridges_subset.gpkg \
+                -p $tempCurrentBranchDataDir/bridge_lines_raster_$current_branch_id.tif \
+                -t $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+                -r $res
+else
+    echo -e $startDiv"No applicable bridge data for $hucNumber"
+fi
+
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"

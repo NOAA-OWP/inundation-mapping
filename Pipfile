@@ -47,6 +47,7 @@ pyflwdir = "==0.5.8"
 pillow = "==10.3.0"
 pyogrio = "==0.7.2"
 openpyxl = "*"
+osmnx = "*"
 
 [requires]
 python_version = "3.10"
