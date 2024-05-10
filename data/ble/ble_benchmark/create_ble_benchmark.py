@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import datetime as dt
+import logging
 import os
 from datetime import datetime
 from glob import glob
 from io import BytesIO
 from urllib.request import urlopen
+from urllib.parse import urlsplit
 from zipfile import ZipFile
 
 import numpy as np
@@ -13,6 +16,28 @@ import pandas as pd
 from create_flow_forecast_file import create_flow_forecast_file
 from osgeo import gdal
 from preprocess_benchmark import preprocess_benchmark_static
+from src.utils.shared_validators import is_valid_huc
+
+
+def __setup_logger(output_folder_path):
+    start_time = datetime.now()
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"create_ble_benchmark-{file_dt_string}.log"
+
+    log_file_path = os.path.join(output_folder_path, log_file_name)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger()
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    logger.setLevel(logging.DEBUG)
+
+    logging.info(f'Started : {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info("----------------")
 
 
 def create_ble_benchmark(
@@ -59,12 +84,22 @@ def create_ble_benchmark(
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
 
+    __setup_logger(save_folder)
+
+    start_time = dt.datetime.now(dt.timezone.utc)
+
+    print("==================================")
+    logging.info("Starting load of BLE benchmark data")
+    logging.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    print()
+
+
     # EBFE_urls_20230608.xlsx acquired from FEMA (fethomps@usgs.gov)
     ext = os.path.splitext(input_file)[1]
     if ext == '.xlsx':
-        data = pd.read_excel(input_file, header=None, names=['size', 'units', 'URL'])
+        data = pd.read_excel(input_file, header=None, names=['Size', 'Units', 'URL'])
     elif ext == '.csv':
-        data = pd.read_csv(input_file, header=None, names=['size', 'units', 'URL'])
+        data = pd.read_csv(input_file, header=None, names=['Size', 'Units', 'URL'])
 
     # Subset Spatial Data URLs
     spatial_df = data[data['URL'].str.contains('SpatialData')]
@@ -78,8 +113,13 @@ def create_ble_benchmark(
 
     spatial_df, ble_geodatabase = download_and_extract_rasters(spatial_df, save_folder)
 
+    print()
+    logging.info ("=======================================")
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
+        logging.info("++++++++++++++++++++++++++")
+        logging.info(f"HUC is {huc}")
+
         # reference_raster is used to set the metadata for benchmark_raster
         reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif')
         for benchmark_raster in row['rasters']:
@@ -92,8 +132,10 @@ def create_ble_benchmark(
             out_raster_path = os.path.join(out_raster_dir, f"ble_huc_{huc}_extent_{magnitude}.tif")
 
             # Make benchmark inundation raster
+            logging.info(f"  {huc} : magnitude : {magnitude} : preprocessing stats")
             preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_path)
 
+            logging.info(f"  {huc} : magnitude : {magnitude} : creating flow file")
             create_flow_forecast_file(
                 huc,
                 ble_geodatabase,
@@ -103,6 +145,25 @@ def create_ble_benchmark(
                 nwm_stream_layer_name,
                 nwm_feature_id_field,
             )
+
+    # Get time metrics
+    end_time = dt.datetime.now(dt.timezone.utc)
+    logging.info("")
+    print("==================================")
+    logging.info("Complete")
+    logging.info(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+
+    time_delta = end_time - start_time
+    total_seconds = int(time_delta.total_seconds())
+
+    ___, rem_seconds = divmod(total_seconds, 60 * 60 * 24)
+    total_hours, rem_seconds = divmod(rem_seconds, 60 * 60)
+    total_mins, seconds = divmod(rem_seconds, 60)
+
+    time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
+
+    logging.info(f"Duration: {time_fmt}")
+    print()
 
 
 def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
@@ -131,20 +192,47 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     huc_names = []
     out_files = []
     out_list = []
+
+    logging.info ("=======================================")
+    logging.info ("Extracting and downloading spatial data")
+    print()
     for i, row in spatial_df.iterrows():
         # Extract HUC and HUC Name from URL
         url = row['URL']
+
+        if url is None:
+            continue
+        
+        logging.info("++++++++++++++++++++++++++")
+        logging.info(f"URL is {url}")
+
         huc, huc_name = os.path.basename(os.path.dirname(url)).split('_')
+
+        # Check to ensure it is a valid HUC (some are not)
+        is_ble_huc_valid, ___ = is_valid_huc(huc)
+
+        if not is_ble_huc_valid:
+            logging.info(f"Invalid huc")
+            continue
+
+        # logging.info
+        logging.info(f"{huc} : Downloading and extracting for {huc_name}")
         hucs.append(huc)
         huc_names.append(huc_name)
 
-        # Download and unzip file
+        # Download file
+        logging.info(f"  {huc} : Unzipping")
         save_file = os.path.join(save_folder, os.path.basename(url))
         if not os.path.exists(save_file):
             http_response = urlopen(url)
             zipfile = ZipFile(BytesIO(http_response.read()))
             zipfile.extractall(path=save_file)
+        else:
+            logging.info(f"  {huc} :  zip file already exists: {save_file}")
 
+
+        # Loading gdb
+        logging.info(f"  {huc} : Loading gdb")
         gdb_list = glob(os.path.join(save_file, '**', '*.gdb'), recursive=True)
 
         if len(gdb_list) == 1:
@@ -158,12 +246,15 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
                 if not os.path.exists(out_file):
                     # Read raster data from GDB
-                    print(f'Reading {depth_raster} for {huc}')
+                    print(f'.. {huc} : Reading {depth_raster}')
                     depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
 
                     extract_raster(depth_raster_path, out_file)
 
                 out_list.append(out_file)
+
+        else:
+            logging.info(f" {huc} : gdb_list does not equal 1")
 
         if len(out_list) > 0:
             out_files.append(out_list)
@@ -171,6 +262,10 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     spatial_df['HUC'] = hucs
     spatial_df['HUC_Name'] = huc_names
     spatial_df['rasters'] = out_files
+
+    print()
+    logging.info ("Extracting and downloading spatial data - COMPLETE")
+    print()
 
     return spatial_df, ble_geodatabase
 
@@ -208,7 +303,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Create BLE benchmark files',
         usage='''python3 /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py
-                                                -i /data/inputs/ble/ble_benchmark/EBFE_urls_20230608.xlsx
+                                                -i /data/inputs/ble/ble_benchmark/EBFE_urls_20240416.xlsx
                                                 -s /data/temp/ble_benchmark
                                                 -r /data/outputs/my_run/
                                                 -o /data/test_cases/ble_test_cases/validation_data_ble
