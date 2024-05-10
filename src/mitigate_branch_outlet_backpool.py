@@ -65,7 +65,10 @@ def mitigate_branch_outlet_backpool(
         catchments_df['outlier'] = abs(catchments_df['counts'] - mean_counts) > threshold
 
         # Quantify outliers
-        num_outlier = catchments_df['outlier'].value_counts()[True]
+        if catchments_df['outlier'].any():
+            num_outlier = catchments_df['outlier'].value_counts()[True]
+        elif ~catchments_df['outlier'].all():
+            num_outlier = 0
 
         if num_outlier == 0:
             print('No outliers detected in catchment size.')
