@@ -216,59 +216,83 @@ def generate_catfim_flows(
     threshold_url = f'{API_BASE_URL}/nws_threshold'
     ###################################################################
 
-    # Create workspace
-    workspace.mkdir(parents=True, exist_ok=True)
+    if skip_metadata_api == True:
+        # Skip metadata API because it is already downloaded!! 
+        print('Skipping metadata download because skip_metadata_api flag was used')
 
-    # Create HUC message directory to store messages that will be read and joined after multiprocessing
-    huc_messages_dir = os.path.join(workspace, 'huc_messages')
-    if not os.path.exists(huc_messages_dir):
-        os.mkdir(huc_messages_dir)
+        # Check to make sure the workspace exists (error out if it doesn't)
+        if os.path.isdir(workspace):
+            print(f"{workspace} exists.")
+        else:
+            print(f"{workspace} does not exist.")
+            # TODO: error out
 
-    # Open NWM flows geopackage
-    nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
-    nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
 
-    print(f'Retrieving metadata for site(s): {lid_to_run}...')
-    start_dt = datetime.now()
+        # Check to make sure the right files are are in the workspace file (error out if it doesn't)
+        if os.path.isdir(flows_file_temp):
+            print(f"{flows_file_temp} exists.")
+        else:
+            print(f"{flows_file_temp} does not exist.")
+            # TODO: error out
 
-    # Get metadata for 'CONUS'
-    print(metadata_url)
-    if lid_to_run != 'all':
-        all_lists, conus_dataframe = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=[lid_to_run],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-    else:
-        # Get CONUS metadata
-        conus_list, conus_dataframe = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=['all'],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-        # Get metadata for Islands
-        islands_list, islands_dataframe = get_metadata(
-            metadata_url,
-            select_by='state',
-            selector=['HI', 'PR'],
-            must_include=None,
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-        # Append the dataframes and lists
-        all_lists = conus_list + islands_list
-    print(len(all_lists))
 
-    end_dt = datetime.now()
-    time_duration = end_dt - start_dt
-    print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
-    print()
+    
+    # Use get_metadata() to download metadata from the API
+    else: 
+
+        # Create workspace
+        workspace.mkdir(parents=True, exist_ok=True)
+
+        # Create HUC message directory to store messages that will be read and joined after multiprocessing
+        huc_messages_dir = os.path.join(workspace, 'huc_messages')
+        if not os.path.exists(huc_messages_dir):
+            os.mkdir(huc_messages_dir)
+
+        # Open NWM flows geopackage
+        nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
+        nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
+
+        print(f'Retrieving metadata for site(s): {lid_to_run}...')
+        start_dt = datetime.now()
+
+        # Get metadata for 'CONUS'
+        print(metadata_url)
+        if lid_to_run != 'all':
+            all_lists, conus_dataframe = get_metadata(
+                metadata_url,
+                select_by='nws_lid',
+                selector=[lid_to_run],
+                must_include='nws_data.rfc_forecast_point',
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+        else:
+            # Get CONUS metadata
+            conus_list, conus_dataframe = get_metadata(
+                metadata_url,
+                select_by='nws_lid',
+                selector=['all'],
+                must_include='nws_data.rfc_forecast_point',
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+            # Get metadata for Islands
+            islands_list, islands_dataframe = get_metadata(
+                metadata_url,
+                select_by='state',
+                selector=['HI', 'PR'],
+                must_include=None,
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+            # Append the dataframes and lists
+            all_lists = conus_list + islands_list
+        print(len(all_lists))
+
+        end_dt = datetime.now()
+        time_duration = end_dt - start_dt
+        print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
+        print()
 
     print('Determining HUC using WBD layer...')
     start_dt = datetime.now()
