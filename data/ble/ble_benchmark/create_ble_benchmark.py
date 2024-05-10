@@ -7,8 +7,8 @@ import os
 from datetime import datetime
 from glob import glob
 from io import BytesIO
-from urllib.request import urlopen
 from urllib.parse import urlsplit
+from urllib.request import urlopen
 from zipfile import ZipFile
 
 import numpy as np
@@ -16,6 +16,7 @@ import pandas as pd
 from create_flow_forecast_file import create_flow_forecast_file
 from osgeo import gdal
 from preprocess_benchmark import preprocess_benchmark_static
+
 from src.utils.shared_validators import is_valid_huc
 
 
@@ -93,7 +94,6 @@ def create_ble_benchmark(
     logging.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
     print()
 
-
     # EBFE_urls_20230608.xlsx acquired from FEMA (fethomps@usgs.gov)
     ext = os.path.splitext(input_file)[1]
     if ext == '.xlsx':
@@ -114,7 +114,7 @@ def create_ble_benchmark(
     spatial_df, ble_geodatabase = download_and_extract_rasters(spatial_df, save_folder)
 
     print()
-    logging.info ("=======================================")
+    logging.info("=======================================")
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
         logging.info("++++++++++++++++++++++++++")
@@ -193,8 +193,8 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     out_files = []
     out_list = []
 
-    logging.info ("=======================================")
-    logging.info ("Extracting and downloading spatial data")
+    logging.info("=======================================")
+    logging.info("Extracting and downloading spatial data")
     print()
     for i, row in spatial_df.iterrows():
         # Extract HUC and HUC Name from URL
@@ -202,7 +202,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
         if url is None:
             continue
-        
+
         logging.info("++++++++++++++++++++++++++")
         logging.info(f"URL is {url}")
 
@@ -212,7 +212,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
         is_ble_huc_valid, ___ = is_valid_huc(huc)
 
         if not is_ble_huc_valid:
-            logging.info(f"Invalid huc")
+            logging.info("Invalid huc")
             continue
 
         # logging.info
@@ -229,7 +229,6 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
             zipfile.extractall(path=save_file)
         else:
             logging.info(f"  {huc} :  zip file already exists: {save_file}")
-
 
         # Loading gdb
         logging.info(f"  {huc} : Loading gdb")
@@ -264,7 +263,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     spatial_df['rasters'] = out_files
 
     print()
-    logging.info ("Extracting and downloading spatial data - COMPLETE")
+    logging.info("Extracting and downloading spatial data - COMPLETE")
     print()
 
     return spatial_df, ble_geodatabase
