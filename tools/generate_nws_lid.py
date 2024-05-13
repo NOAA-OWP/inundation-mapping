@@ -76,7 +76,6 @@ def generate_nws_lid(workspace):
         downstream_trace_distance=downstream_trace_distance,
     )
 
-
     # Append all lists
     all_lists = fcst_list + eval_list
 
@@ -117,7 +116,7 @@ def generate_nws_lid(workspace):
     print('Attributing nws_lid layer..')
 
     # Geodataframe from all_lists, reproject, and reset index.
-    _ , nws_lid_gdf = aggregate_wbd_hucs(all_lists, WBD_LAYER, retain_attributes=False)
+    _, nws_lid_gdf = aggregate_wbd_hucs(all_lists, WBD_LAYER, retain_attributes=False)
     nws_lid_gdf.columns = [name.replace('identifiers_', '') for name in nws_lid_gdf.columns]
     nws_lid_gdf.to_crs(PREP_PROJECTION, inplace=True)
     nws_lid_gdf.reset_index(drop=True)
