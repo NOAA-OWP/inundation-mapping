@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
-import sys
 
 import numpy as np
 import rasterio
@@ -38,14 +36,6 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
             (required for writing to output dataset).
 
     '''
-
-    # rasterio_gdal_path = rasterio._env.get_gdal_data()
-    # os.environ['GDAL_DATA'] = rasterio_gdal_path
-
-    # with warnings.catch_warnings():
-    #    warnings.simplefilter("ignore")
-
-    # with rasterio.Env(CPL_DEBUG=OFF, GDAL_CACHEMAX=512000000):
 
     # Open and read raster and benchmark rasters
     reference = rasterio.open(reference_raster)
