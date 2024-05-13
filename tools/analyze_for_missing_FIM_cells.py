@@ -41,7 +41,7 @@ def find_missing_fim_cells(fim_dir_str, huc8_num, dir_fig):
 
     with rasterio.open(rem_tif) as rem:
         # rem_nodata = rem.profile['nodata']
-        rem_extent = rioplot.plotting_extent(rem)
+        # rem_extent = rioplot.plotting_extent(rem)
         # rem_transform = rem.transform
         # rem_crs = rem.crs
         rem = rem.read(1)
@@ -78,6 +78,7 @@ def find_missing_fim_cells(fim_dir_str, huc8_num, dir_fig):
         f"{len(target_hydroids)} catchments in HUC {huc8_num} do not inundate, including HUC8s {target_hydroids}"
     )
 
+    """
     # # finding branch0 hydroIDs that have zero rem
     # catchments_rem0 = catchments.copy()
     # catchments_rem0 = np.where(np.isnan(rem_zeros), np.nan, catchments_rem0)
@@ -113,6 +114,10 @@ def find_missing_fim_cells(fim_dir_str, huc8_num, dir_fig):
 
     path_fig = Path(dir_fig, 'rem_zeros.png')
     plt.savefig(im, path_fig)
+
+    """
+
+    return [target_hydroids, cells_remaining, percentage_b0_rem0]
 
 
 if __name__ == "__main__":
