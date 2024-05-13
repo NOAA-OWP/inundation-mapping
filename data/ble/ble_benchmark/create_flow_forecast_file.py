@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 
-gpd.options.io_engine = "pyogrio"
+# gpd.options.io_engine = "pyogrio"
 
 
 def create_flow_forecast_file(
@@ -54,6 +54,9 @@ def create_flow_forecast_file(
     None.
 
     '''
+
+    # print(locals())
+    print(" ******************************************")
 
     def fill_missing_flows(forecast: pd.DataFrame, nwm_river_layer: pd.DataFrame):
         """
@@ -135,15 +138,25 @@ def create_flow_forecast_file(
         ble_xs_layer_name = 'XS_1D'
 
     xs_layer = gpd.read_file(ble_geodatabase, layer=ble_xs_layer_name)
+    # print("^^^^^^ xs_layer")
+    # print(xs_layer)
+    # print(xs_layer.crs)
 
     # Read in the NWM stream layer into a geopandas dataframe using the bounding box option based on the extents of the BLE XS layer.
-    nwm_river_layer = gpd.read_file(nwm_geodatabase, bbox=xs_layer, layer=nwm_stream_layer_name)
+    nwm_river_layer = gpd.read_file(nwm_geodatabase, mask=xs_layer, layer=nwm_stream_layer_name)
+    # print("^^^^^^ nwm_river_layer")
+    # print(nwm_river_layer)
+    # print(nwm_river_layer.crs)
 
     # Make sure xs_layer is in same projection as nwm_river_layer.
     xs_layer_proj = xs_layer.to_crs(nwm_river_layer.crs)
+    # print("^^^^^^ xs_layer_proj")
+    # print(xs_layer_proj)
 
     # Perform an intersection of the BLE layers and the NWM layers, using the keep_geom_type set to False produces a point output.
     intersection = gpd.overlay(xs_layer_proj, nwm_river_layer, how='intersection', keep_geom_type=False)
+    # print("^^^^^^ intersection")
+    # print(intersection)
 
     ## Create the flow forecast files
     # Define fields containing flow (typically these won't change for BLE)
@@ -168,12 +181,18 @@ def create_flow_forecast_file(
         forecast = forecast.groupby('feature_id').median()
         forecast = forecast.reset_index(level=0)
 
+        # print(f"forecast 2")
+        # print(len(forecast))
+
         # Convert CFS to CMS
         forecast['discharge'] = forecast['discharge'] * dischargeMultiplier
 
         # Assign flow to segments missing flows
         print(f'Filling in missing flows for {return_period[i]} flow.')
         forecast = fill_missing_flows(forecast, nwm_river_layer)
+
+        # print(f"forecast 3")
+        # print(len(forecast))
 
         # Set paths and write file
         output_dir = os.path.join(output_parent_dir, huc)

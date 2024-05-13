@@ -4,27 +4,29 @@ import argparse
 import datetime as dt
 import logging
 import os
+import shutil
 from datetime import datetime
 from glob import glob
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
+import rasterio
 from create_flow_forecast_file import create_flow_forecast_file
 from osgeo import gdal
 from preprocess_benchmark import preprocess_benchmark_static
 
-from src.utils.shared_validators import is_valid_huc
+from utils.shared_validators import is_valid_huc
 
 
 def __setup_logger(output_folder_path):
     start_time = datetime.now()
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_name = f"create_ble_benchmark-{file_dt_string}.log"
-
     log_file_path = os.path.join(output_folder_path, log_file_name)
 
     file_handler = logging.FileHandler(log_file_path)
@@ -94,15 +96,27 @@ def create_ble_benchmark(
     logging.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
     print()
 
-    # EBFE_urls_20230608.xlsx acquired from FEMA (fethomps@usgs.gov)
+    # set from GDAL options, mostly to shut off the verbosity
+    rasterio_gdal_path = rasterio._env.get_gdal_data()
+    os.environ['GDAL_DATA'] = rasterio_gdal_path
+    gdal_new_config = {'CPL_DEBUG': 'OFF', 'GDAL_CACHEMAX': '536870912', 'GDAL_DATA': rasterio_gdal_path}
+
+    for key, val in gdal_new_config.items():
+        gdal.SetConfigOption(key, val)
+
+    # Latest is:
+    # EBFE_urls_20240426.xlsx acquired from FEMA (fethomps@usgs.gov) (Florence Thompson)
+
+    # *** Note: with each new file we get from Florence, you might have to adjust the columns below.
     ext = os.path.splitext(input_file)[1]
     if ext == '.xlsx':
-        data = pd.read_excel(input_file, header=None, names=['Size', 'Units', 'URL'])
+        data = pd.read_excel(input_file, header=0, names=['date', 'size', 'units', 'URL'])
     elif ext == '.csv':
-        data = pd.read_csv(input_file, header=None, names=['Size', 'Units', 'URL'])
+        data = pd.read_csv(input_file, header=None, names=['size', 'units', 'URL'])
 
     # Subset Spatial Data URLs
     spatial_df = data[data['URL'].str.contains('SpatialData')]
+
     if huc is not None:
         spatial_df = spatial_df[spatial_df['URL'].str.contains(huc)]
 
@@ -115,10 +129,15 @@ def create_ble_benchmark(
 
     print()
     logging.info("=======================================")
+    logging.info("")
+    logging.info("Creating flow files")
+    logging.info("")
+    num_recs = len(spatial_df)
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
         logging.info("++++++++++++++++++++++++++")
         logging.info(f"HUC is {huc}")
+        print(f" Flow file {i+1} of {num_recs}")
 
         # reference_raster is used to set the metadata for benchmark_raster
         reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif')
@@ -145,6 +164,13 @@ def create_ble_benchmark(
                 nwm_stream_layer_name,
                 nwm_feature_id_field,
             )
+
+        # cleaning up temp files.
+        for f in Path(save_folder).glob(f"{huc}*"):
+            if os.path.isfile(f):
+                os.remove(f)
+            else:
+                shutil.rmtree(f, ignore_errors=True)
 
     # Get time metrics
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -195,10 +221,15 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
     logging.info("=======================================")
     logging.info("Extracting and downloading spatial data")
+
+    num_recs = len(spatial_df)
+    logging.info(f"  Number of HUC records to download is {num_recs}")
     print()
     for i, row in spatial_df.iterrows():
+
         # Extract HUC and HUC Name from URL
         url = row['URL']
+        print(f" Downloading {i+1} of {num_recs}")
 
         if url is None:
             continue
@@ -212,26 +243,32 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
         is_ble_huc_valid, ___ = is_valid_huc(huc)
 
         if not is_ble_huc_valid:
-            logging.info("Invalid huc")
+            logging.info(f"{huc} : Invalid huc")
             continue
 
         # logging.info
         logging.info(f"{huc} : Downloading and extracting for {huc_name}")
+
+        # we don't want to add a huc record if it is aleady there
+        if huc in hucs:
+            logging.info(f"{huc} : HUC is already included in the list. Skipping {url}")
+            continue
+
         hucs.append(huc)
         huc_names.append(huc_name)
 
         # Download file
-        logging.info(f"  {huc} : Unzipping")
         save_file = os.path.join(save_folder, os.path.basename(url))
         if not os.path.exists(save_file):
+            logging.info(f"Saving download file to {save_file}")
             http_response = urlopen(url)
             zipfile = ZipFile(BytesIO(http_response.read()))
             zipfile.extractall(path=save_file)
         else:
-            logging.info(f"  {huc} :  zip file already exists: {save_file}")
+            logging.info(f"{huc} :  zip file already exists in file system: {save_file}")
 
         # Loading gdb
-        logging.info(f"  {huc} : Loading gdb")
+        logging.info(f"{huc} : Loading gdb")
         gdb_list = glob(os.path.join(save_file, '**', '*.gdb'), recursive=True)
 
         if len(gdb_list) == 1:
@@ -245,7 +282,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
                 if not os.path.exists(out_file):
                     # Read raster data from GDB
-                    print(f'.. {huc} : Reading {depth_raster}')
+                    print(f'{huc} : Reading {depth_raster}')
                     depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
 
                     extract_raster(depth_raster_path, out_file)
@@ -253,7 +290,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
                 out_list.append(out_file)
 
         else:
-            logging.info(f" {huc} : gdb_list does not equal 1")
+            logging.info(f"{huc} : gdb_list does not equal 1")
 
         if len(out_list) > 0:
             out_files.append(out_list)
@@ -304,10 +341,10 @@ if __name__ == '__main__':
         usage='''python3 /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py
                                                 -i /data/inputs/ble/ble_benchmark/EBFE_urls_20240416.xlsx
                                                 -s /data/temp/ble_benchmark
-                                                -r /data/outputs/my_run/
-                                                -o /data/test_cases/ble_test_cases/validation_data_ble
+                                                -r /data/outputs/fim_test_BED/
+                                                -o /data/test_cases/test/ble_test_cases/validation_data_ble
                                                 -n /data/inputs/nwm_hydrofabric/nwm_flows.gpkg
-                                                -u 12030105
+                                                -u 12040101
                                             ''',
     )
     parser.add_argument('-i', '--input-file', type=str, help='Input file', required=True)
@@ -346,10 +383,4 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    start_time = datetime.now()
-    print('Pulling BLE Benchmark data...  \n')
-
     create_ble_benchmark(**args)
-
-    end_time = datetime.now()
-    print('\n Finished Pulling BLE Benchmark data \n', 'Total Time: ', end_time - start_time)

@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
+import sys
 
 import numpy as np
 import rasterio
+import rasterio._env
+import rasterio._path
+import rasterio.enums
 import rasterio.mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 
@@ -33,6 +38,15 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
             (required for writing to output dataset).
 
     '''
+
+    # rasterio_gdal_path = rasterio._env.get_gdal_data()
+    # os.environ['GDAL_DATA'] = rasterio_gdal_path
+
+    # with warnings.catch_warnings():
+    #    warnings.simplefilter("ignore")
+
+    # with rasterio.Env(CPL_DEBUG=OFF, GDAL_CACHEMAX=512000000):
+
     # Open and read raster and benchmark rasters
     reference = rasterio.open(reference_raster)
     benchmark = rasterio.open(benchmark_raster)
@@ -82,10 +96,11 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
 
     # Write out preprocessed benchmark array to raster if path is supplied
     if out_raster_path is not None:
-        with rasterio.Env():
+        with rasterio.Env(CPL_DEBUG=False):
             # Write out reassigned values to raster dataset
             with rasterio.open(out_raster_path, 'w', **profile) as dst:
                 dst.write(boolean_benchmark.astype('int8'), 1)
+
     return boolean_benchmark.astype('int8'), profile
 
 
