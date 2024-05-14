@@ -238,8 +238,8 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
     python3 $srcDir/heal_bridges_osm.py \
                 -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
                 -s $tempHucDataDir/osm_bridges_subset.gpkg \
-                -p $tempCurrentBranchDataDir/bridge_lines_raster_$current_branch_id.tif \
-                -t $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+                -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg \
+                -b 10 \
                 -r $res
 else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
