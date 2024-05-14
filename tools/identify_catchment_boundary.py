@@ -28,12 +28,14 @@ def catchment_boundary_errors(
     Args:
         hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
                                     fim_pipeline.
-        huc (str):               The HUC for which to check for catchment boundary issues.
+        hucs (str):                The HUC for which to check for catchment boundary issues.
         inundation_raster (str):  Full path to output inundation raster
                                     (encoded by positive and negative HydroIDs).
         output (str):             Path to output location for catchment boundary geopackage.
+        number_of_jobs (int):     Number of parallel jobs to run.
                                    
     """
+    
     # Validation
     total_cpus_available = os.cpu_count() - 1
     if number_of_jobs > total_cpus_available:

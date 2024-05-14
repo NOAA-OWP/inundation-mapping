@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-05-14 - [PR#1149](https://github.com/NOAA-OWP/inundation-mapping/pull/1149)
+
+This PR adds scripts that can identify areas within produced inundation rasters where glasswalling of inundation occurs due to catchment boundaries, know as catchment boundary issues.
+
+### Additions
+- `tools/identify_catchment_boundary.py`: Identifies where catchment boundaries are glasswalling inundation extent.
+
+- `tools/inundate_catchment_boundary.py`: Produces inundation for given HUC and identifies catchment boundary issues in produced FIM. 
+
+<br/><br/>
+
 ## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
 Fixes two bugs discovered in v4.5.0.0:
@@ -257,18 +268,6 @@ Fixes bug in bathymetric adjustment where `mask` is used with `geopandas.read_fi
 `src/bathymetric_adjustment.py`: Use `engine=fiona` instead of default `pyogrio` to use `mask=` with `geopandas.read_file`
 
 <br/><br/>
-
-## v4.x.x.x - 2024-05-07 - [PR#1149](https://github.com/NOAA-OWP/inundation-mapping/pull/1149)
-
-This PR adds scripts that can identify areas within produced inundation rasters where glasswalling of inundation occurs due to catchment boundaries, know as catchment boundary issues.
-
-### Additions
-- `tools/identify_catchment_boundary.py`: Identifies where catchment boundaries are glasswalling inundation extent.
-
-- `tools/inundate_catchment_boundary.py`: Produces inundation for given HUC and identifies catchment boundary issues in produced FIM. 
-
-<br/><br/>
-
 
 ## v4.4.11.0 - 2024-02-16 - [PR#1077](https://github.com/NOAA-OWP/inundation-mapping/pull/1077)
 
