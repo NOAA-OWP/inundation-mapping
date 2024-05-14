@@ -1,5 +1,12 @@
 """
-what is the purpose, example usage, link to the PR
+
+This tool analyzes the missing FIM cells after removing hydro-conditioning artifacts (thalweg rem).
+It calculates the number of FIM celles in each HUC that will not be inundated after removing thalweg rem.
+It also calculates the number of catchments that never shows any inundation because of the thalwag notch
+issues, called notched streams. Then it creates a bar chart depicting the percentage of notched streams in
+across all processed HUCs grouped by stream orders.
+
+You may find more detailes in PR #1156 (https://github.com/NOAA-OWP/inundation-mapping/pull/1156)
 
 """
 
@@ -64,7 +71,7 @@ def find_missing_fim_cells_for1huc(fim_dir, huc8_num):
         percentage_b0_rem0 = round(100 * (cells_remaining / non_zero_count), 4)
         print("")
         print(
-            f"Actual percentage of branch0, {ordr}-order stream cells that have not inundated: {percentage_b0_rem0}%"
+            f"Actual percentage of branch0, {ordr}-order stream cells that have not been inundated: {percentage_b0_rem0}%"
         )
 
         # Finding branch0 hydroIDs that do not have zero rem (never inundate, notches)
@@ -114,7 +121,8 @@ def analysis_missing_fim_cells(huc8_dir):
         thalwag_notch = []
         for subls in missing_fim_data:
             if len(subls[1]) >= (ord1 + 1):
-                thalwag_notch.append(len(subls[1][ord1][1]))
+                if subls[1][ord1][0] == ord1 + 1:
+                    thalwag_notch.append(len(subls[1][ord1][1]))
         thalwag_notch_ord.append(sum(thalwag_notch))
 
     # Number of streams grouped by stream orders
@@ -123,39 +131,12 @@ def analysis_missing_fim_cells(huc8_dir):
         streams = []
         for subls in missing_fim_data:
             if len(subls[1]) >= (ord1 + 1):
-                streams.append(subls[1][ord1][2])
+                if subls[1][ord1][0] == ord1 + 1:
+                    streams.append(subls[1][ord1][2])
         streams_ord.append(sum(streams))
 
     return thalwag_notch_ord, streams_ord
 
-
-# fim_dir = "/home/rdp-user/outputs/healded_fim_hca_01080107_if2/"
-# fim_dir_str = Path(fim_dir)
-# huc8_num = "01080107"
-huc8_dir = "/efs-drives/fim-dev-efs/fim-home/heidi.safa/outputs/healed-fim-removing-hcas-analysis/"
-thalwag_notch_ord, streams_ord = analysis_missing_fim_cells(huc8_dir)
-
-stream_orders = ["1st order", "2nd order", "3rd order", "4th order", "5th order", "6th order"]
-percentage_notches = [
-    round(100 * (thalwag_notch_ord[i] / streams_ord[i]), 4) for i in range(len(streams_ord))
-]
-
-path2savefig = (
-    "/efs-drives/fim-dev-efs/fim-home/heidi.safa/outputs/path2savefig_hh_rhcas/Thalwag_Notch_Streams_perc.png"
-)
-
-# creating the bar plot
-fig = plt.figure(figsize=(20, 10))
-colors = [(135, 206, 255)]
-plt.bar(stream_orders, percentage_notches, color=colors[0])
-
-plt.xlabel("Stream Orders", fontsize=20)
-plt.xticks(fontsize=20)
-plt.ylabel("Percentage of Thalwag Notch Streams (%)", fontsize=18)
-plt.yticks(fontsize=20)
-plt.title("Percentage of catchments that never been Inundated", fontsize=20)
-plt.show()
-plt.savefig(path2savefig)
 
 if __name__ == "__main__":
 
@@ -163,30 +144,44 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analysis for missing FIM cells.")
     parser.add_argument(
         "-r",
-        dest="fim_dir_str",
+        dest="huc8s_dir",
         help="Path to directory storing FIM outputs. Type = string",
         required=True,
         type=str,
     )
     parser.add_argument(
-        "-w", dest="huc8_num", help="HUC8 that is being analyzsd. Type = string", required=True, type=str
-    )
-    parser.add_argument(
-        "-o", dest="dir_fig", help="Path to save rem_zero. Type = string", required=True, type=str
+        "-o", dest="path2savefig", help="Path to save bar chart. Type = string", required=True, type=str
     )
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
 
-    fim_dir = args["fim_dir_str"]
-    huc8_num = args["huc8_num"]
-    dir_fig = args["dir_fig"]
+    huc8s_dir = args["huc8s_dir"]
+    path2savefig = args["path2savefig"]
 
-    if not os.path.exists(fim_dir):
-        print("FIM directory: " + fim_dir + " does not exist.")
+    if not os.path.exists(huc8s_dir):
+        print("FIM directory: " + huc8s_dir + " does not exist.")
         quit
 
-    if not os.path.exists(dir_fig):
-        os.mkdir(dir_fig)
+    if not os.path.exists(path2savefig):
+        os.mkdir(path2savefig)
 
-    analysis_missing_fim_cells(fim_dir, huc8_num, dir_fig)
+    thalwag_notch_ord, streams_ord = analysis_missing_fim_cells(huc8s_dir)
+
+    stream_orders = ["1st order", "2nd order", "3rd order", "4th order", "5th order", "6th order"]
+    percentage_notches = [
+        round(100 * (thalwag_notch_ord[i] / streams_ord[i]), 4) for i in range(len(streams_ord))
+    ]
+
+    path2savefig1 = os.path.join(path2savefig, "Thalwag_Notch_Streams_perc.png")
+
+    # creating the bar plot
+    fig = plt.figure(figsize=(20, 10))
+    plt.bar(stream_orders, percentage_notches)
+
+    plt.xlabel("Stream Orders", fontsize=20)
+    plt.xticks(fontsize=20)
+    plt.ylabel("Percentage of Thalwag Notch Streams (%)", fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.title("Percentage of catchments that will not been iundated", fontsize=24)
+    plt.savefig(path2savefig1)
