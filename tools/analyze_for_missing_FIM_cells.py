@@ -11,27 +11,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import rasterio
-from rasterio import plot as rioplot
+
+
+# from rasterio import plot as rioplot
 
 
 # This will make jupyter display all columns of the hydroTable
 pd.options.display.max_columns = None
 
-# -------------------------------------------
-# fim_dir_str = "/home/rdp-user/outputs/healded_fim_hca_01080107_if2/"
-# fim_dir_str = Path(fim_dir_str)
-# huc8_num = "01080107"
 
+# ------------------------------------------------------
+def find_missing_fim_cells_for1huc(fim_dir, huc8_num):
 
-def find_missing_fim_cells(fim_dir_str, huc8_num, dir_fig):
-
-    fim_dir = Path(fim_dir_str)
+    fim_dir = Path(fim_dir)
     branch0_dir = Path(fim_dir, huc8_num, "branches", "0")
     hydroTable_csv = Path(branch0_dir, "hydroTable_0.csv")
     hydroTable = pd.read_csv(hydroTable_csv)
-
-    branch0_streams = hydroTable[(hydroTable["order_"] == 1) | (hydroTable["order_"] == 2)]
-    branch0_hydroids = list(branch0_streams['HydroID'].drop_duplicates(keep='first'))
 
     rem_tif = Path(branch0_dir, "rem_zeroed_masked_0.tif")
     catchments_tif = Path(branch0_dir, "gw_catchments_reaches_filtered_addedAttributes_0.tif")
@@ -39,86 +34,128 @@ def find_missing_fim_cells(fim_dir_str, huc8_num, dir_fig):
     with rasterio.open(catchments_tif) as catchments:
         catchments = catchments.read(1)
 
-    with rasterio.open(rem_tif) as rem:
-        # rem_nodata = rem.profile['nodata']
-        # rem_extent = rioplot.plotting_extent(rem)
-        # rem_transform = rem.transform
-        # rem_crs = rem.crs
-        rem = rem.read(1)
+    stream_orders = list(hydroTable["order_"].drop_duplicates(keep='first'))
+    stream_orders = sorted(stream_orders)
 
-    # Filter the REM to the catchments of interest
-    rem = np.where(~np.isin(catchments, branch0_hydroids), np.nan, rem)
+    analysis_data_ordr = []
+    for ordr in stream_orders:
 
-    # Filter the REM again to only the 0 values
-    rem_zeros = rem.copy()
-    rem_zeros[np.where(rem_zeros != 0)] = np.nan
+        branch0_streams = hydroTable[(hydroTable["order_"] == ordr)]
+        num_streams_order = len(branch0_streams)
+        branch0_hydroids = list(branch0_streams['HydroID'].drop_duplicates(keep='first'))
 
-    cells_remaining = np.count_nonzero(~np.isnan(rem_zeros))
-    print(f"Actual count of cells remaining: {cells_remaining}")
+        with rasterio.open(rem_tif) as rem:
+            rem = rem.read(1)
 
-    non_zero_count = (catchments != 0).sum()
-    percentage_b0_rem0 = cells_remaining / non_zero_count
-    print(f"Actual percentage of branch0 stream cells that have not inundated: {percentage_b0_rem0}")
+        # Filter the REM to the catchments of interest
+        rem = np.where(~np.isin(catchments, branch0_hydroids), np.nan, rem)
 
-    # Finding branch0 hydroIDs that do not have zero rem (never inundate)
-    target_hydroids = []
-    for hydroid in branch0_hydroids:
+        # Filter the REM again to only the 0 values
+        rem_zeros = rem.copy()
+        rem_zeros[np.where(rem_zeros != 0)] = np.nan
 
-        rem_hydroid = rem.copy()
-        hydroid_ls = [hydroid]
-        rem_hydroid = np.where(~np.isin(catchments, hydroid_ls), np.nan, rem_hydroid)
+        cells_remaining = np.count_nonzero(~np.isnan(rem_zeros))
+        print("")
+        print(f"Analyzing Branch0, {ordr}-order streams FIM in HUC8 {huc8_num}")
+        print("")
+        print(f"Actual count of cells remaining: {cells_remaining}")
 
-        rem_hydroid_nonnan = rem_hydroid[~np.isnan(rem_hydroid)]
-        cond = min(rem_hydroid_nonnan)
+        non_zero_count = (catchments != 0).sum()
+        percentage_b0_rem0 = round(100 * (cells_remaining / non_zero_count), 4)
+        print("")
+        print(
+            f"Actual percentage of branch0, {ordr}-order stream cells that have not inundated: {percentage_b0_rem0}%"
+        )
 
-        if cond > 0:
-            target_hydroids.append(hydroid)
+        # Finding branch0 hydroIDs that do not have zero rem (never inundate, notches)
+        target_hydroids = []
+        for hydroid in branch0_hydroids:
 
-    print(
-        f"{len(target_hydroids)} catchments in HUC {huc8_num} do not inundate, including HUC8s {target_hydroids}"
-    )
+            rem_hydroid = rem.copy()
+            hydroid_ls = [hydroid]
+            rem_hydroid = np.where(~np.isin(catchments, hydroid_ls), np.nan, rem_hydroid)
 
-    """
-    # # finding branch0 hydroIDs that have zero rem
-    # catchments_rem0 = catchments.copy()
-    # catchments_rem0 = np.where(np.isnan(rem_zeros), np.nan, catchments_rem0)
+            rem_hydroid_nonnan = rem_hydroid[~np.isnan(rem_hydroid)]
+            cond = min(rem_hydroid_nonnan)
 
-    # catchments_rem0_ls = catchments_rem0[~np.isnan(catchments_rem0)].tolist()
-    # hydroids_rem0_ls = list(set(catchments_rem0_ls))
-    # hydroids_rem0 = [int(x) for x in hydroids_rem0_ls]
+            if cond > 0:
+                target_hydroids.append(hydroid)
 
-    # # finding inundated branch0 rem and hydroids
-    # rem_inund = rem.copy()
-    # rem_inund[np.where(rem_inund <= 0)] = np.nan
+        print("")
+        print(
+            f"{len(target_hydroids)} streams between {ordr}-order streams are thalwag notch, including hydroIDs {target_hydroids}"
+        )
 
-    # catchments_inund = catchments.copy()
-    # catchments_inund = np.where(np.isnan(rem_inund), np.nan, catchments_inund)
+        analysis = [ordr, target_hydroids, num_streams_order, cells_remaining, percentage_b0_rem0]
 
-    # catchments_inund_ls = catchments_inund[~np.isnan(catchments_inund)].tolist()
-    # hydroids_inund_ls = list(set(catchments_inund_ls))
-    # hydroids_inund = [int(x) for x in hydroids_inund_ls]
+        analysis_data_ordr.append(analysis)
 
-    # hydroIds_branch0_noinund = len(hydroids_inund) - len(list(set(hydroids_inund) & set(hydroids_rem0)))
+    return analysis_data_ordr
 
-    # Simple Plotting
-    # reaches_gpkg = Path(branch0_dir, "demDerived_reaches_split_filtered_addedAttributes_crosswalked_0.gpkg")
-    # reaches = gpd.read_file(reaches_gpkg)
-    # plot_bounds = reaches.loc[reaches.HydroID.astype(int) == hydroid].bounds.iloc[0]
 
-    # Plot the zero REM cells
-    fig = plt.figure(figsize=(12, 7))
-    ax = fig.subplots(1, 1)
+# ------------------------------------------------------
+def analysis_missing_fim_cells(huc8_dir):
 
-    # reaches.plot(ax=ax, color='brown')
-    im = ax.imshow(rem_zeros, cmap='bwr', extent=rem_extent, interpolation='none')
+    list_subdir = os.listdir(huc8_dir)
+    dir_path_ls = [os.path.join(huc8_dir, subdir) for subdir in list_subdir]
 
-    path_fig = Path(dir_fig, 'rem_zeros.png')
-    plt.savefig(im, path_fig)
+    missing_fim_data = []
+    for path1 in dir_path_ls:
 
-    """
+        list_subdir = os.listdir(path1)
+        huc8 = [stg for stg in list_subdir if stg.isdigit()][0]
+        missing_fim = find_missing_fim_cells_for1huc(path1, huc8)
 
-    return [target_hydroids, cells_remaining, percentage_b0_rem0]
+        missing_fim_data.append([huc8, missing_fim])
 
+    # Number of thalwag_notch_streams grouped by stream orders
+    thalwag_notch_ord = []
+    for ord1 in range(6):
+        thalwag_notch = []
+        for subls in missing_fim_data:
+            if len(subls[1]) >= (ord1 + 1):
+                thalwag_notch.append(len(subls[1][ord1][1]))
+        thalwag_notch_ord.append(sum(thalwag_notch))
+
+    # Number of streams grouped by stream orders
+    streams_ord = []
+    for ord1 in range(6):
+        streams = []
+        for subls in missing_fim_data:
+            if len(subls[1]) >= (ord1 + 1):
+                streams.append(subls[1][ord1][2])
+        streams_ord.append(sum(streams))
+
+    return thalwag_notch_ord, streams_ord
+
+
+# fim_dir = "/home/rdp-user/outputs/healded_fim_hca_01080107_if2/"
+# fim_dir_str = Path(fim_dir)
+# huc8_num = "01080107"
+huc8_dir = "/efs-drives/fim-dev-efs/fim-home/heidi.safa/outputs/healed-fim-removing-hcas-analysis/"
+thalwag_notch_ord, streams_ord = analysis_missing_fim_cells(huc8_dir)
+
+stream_orders = ["1st order", "2nd order", "3rd order", "4th order", "5th order", "6th order"]
+percentage_notches = [
+    round(100 * (thalwag_notch_ord[i] / streams_ord[i]), 4) for i in range(len(streams_ord))
+]
+
+path2savefig = (
+    "/efs-drives/fim-dev-efs/fim-home/heidi.safa/outputs/path2savefig_hh_rhcas/Thalwag_Notch_Streams_perc.png"
+)
+
+# creating the bar plot
+fig = plt.figure(figsize=(20, 10))
+colors = [(135, 206, 255)]
+plt.bar(stream_orders, percentage_notches, color=colors[0])
+
+plt.xlabel("Stream Orders", fontsize=20)
+plt.xticks(fontsize=20)
+plt.ylabel("Percentage of Thalwag Notch Streams (%)", fontsize=18)
+plt.yticks(fontsize=20)
+plt.title("Percentage of catchments that never been Inundated", fontsize=20)
+plt.show()
+plt.savefig(path2savefig)
 
 if __name__ == "__main__":
 
@@ -152,4 +189,4 @@ if __name__ == "__main__":
     if not os.path.exists(dir_fig):
         os.mkdir(dir_fig)
 
-    find_missing_fim_cells(fim_dir, huc8_num, dir_fig)
+    analysis_missing_fim_cells(fim_dir, huc8_num, dir_fig)
