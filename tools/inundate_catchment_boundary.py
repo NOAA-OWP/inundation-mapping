@@ -33,12 +33,14 @@ def produce_mosaicked_inundation(
     Possible outputs include inundation rasters encoded by HydroID (negative HydroID for dry and positive
     HydroID for wet), polygons depicting extent, and depth rasters. The function requires a flow file
     organized by NWM feature_id and discharge in cms. "feature_id" and "discharge" columns MUST be present
-    in the flow file.
+    in the flow file. This function also calls the catchment_boundary_errors function from 
+    identify_catchment_boundary.py to identify where in the produced final inundation map is impacted by
+    catchment boundary issues and to output a geopackage of linefiles identifying these locations.
 
     Args:
         hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
                                     fim_pipeline.
-        huc (str):                The HUC for which to produce mosaicked inundation files.
+        hucs (str):                The HUC for which to produce mosaicked inundation files.
         flow_file (str):          Path to flow file to be used for inundation.
                                     feature_ids in flow_file should be present in supplied HUC.
         inundation_raster (str):  Full path to output inundation raster

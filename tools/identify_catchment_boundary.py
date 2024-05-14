@@ -22,7 +22,7 @@ def catchment_boundary_errors(
 ):
     """
     This function compares output inundation raster extent to catchment extents to identify catchment boundary
-    issues. The output of this function is a shapefile of lines that identify areas of inundation with catchment 
+    issues. The output of this function is a geopackage of linefiles that identifys areas of inundation with catchment 
     boundary issues present.
 
     Args:
@@ -32,8 +32,7 @@ def catchment_boundary_errors(
         inundation_raster (str):  Full path to output inundation raster
                                     (encoded by positive and negative HydroIDs).
         output (str):             Path to output location for catchment boundary geopackage.
-        number_of_jobs (int):     Number of parallel jobs to run.
-                                   
+        number_of_jobs (int):     Number of parallel jobs to run.                           
     """
     
     # Validation
