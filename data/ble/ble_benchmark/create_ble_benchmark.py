@@ -132,6 +132,7 @@ def create_ble_benchmark(
     logging.info("")
     logging.info("Creating flow files")
     logging.info("")
+
     num_recs = len(spatial_df)
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
@@ -139,9 +140,9 @@ def create_ble_benchmark(
         logging.info(f"HUC is {huc}")
         print(f" Flow file {i+1} of {num_recs}")
 
-        # reference_raster is used to set the metadata for benchmark_raster
+        # Reference_raster is used to set the metadata for benchmark_raster
         reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif')
-        for benchmark_raster in row['rasters']:
+        for benchmark_raster in row['raster_path']:
             magnitude = '100yr' if 'BLE_DEP01PCT' in benchmark_raster else '500yr'
 
             out_raster_dir = os.path.join(benchmark_folder, huc, magnitude)
@@ -167,10 +168,10 @@ def create_ble_benchmark(
 
         # cleaning up temp files.
         for f in Path(save_folder).glob(f"{huc}*"):
-            if os.path.isfile(f):
+            if os.path.isfile(f) is True:
                 os.remove(f)
             else:
-                shutil.rmtree(f, ignore_errors=True)
+                shutil.rmtree(f, ignore_errors=False)
 
     # Get time metrics
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -231,9 +232,6 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
         url = row['URL']
         print(f" Downloading {i+1} of {num_recs}")
 
-        if url is None:
-            continue
-
         logging.info("++++++++++++++++++++++++++")
         logging.info(f"URL is {url}")
 
@@ -248,14 +246,6 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
         # logging.info
         logging.info(f"{huc} : Downloading and extracting for {huc_name}")
-
-        # we don't want to add a huc record if it is aleady there
-        if huc in hucs:
-            logging.info(f"{huc} : HUC is already included in the list. Skipping {url}")
-            continue
-
-        hucs.append(huc)
-        huc_names.append(huc_name)
 
         # Download file
         save_file = os.path.join(save_folder, os.path.basename(url))
@@ -286,19 +276,21 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
                     depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
 
                     extract_raster(depth_raster_path, out_file)
-
                 out_list.append(out_file)
 
         else:
             logging.info(f"{huc} : gdb_list does not equal 1")
-
         if len(out_list) > 0:
             out_files.append(out_list)
 
+    print(f"Number of hucs for spatial df = {len(hucs)}")
+    print(f"Number of HUC_Name for spatial df = {len(huc_names)}")
+    print(f"Number of raster files for spatial df = {len(out_files)}")
     spatial_df['HUC'] = hucs
     spatial_df['HUC_Name'] = huc_names
-    spatial_df['rasters'] = out_files
+    spatial_df['raster_path'] = out_files
 
+    spatial_df.to_csv(os.path.join(save_folder, "spatial_db_w_rasters.csv"), header=True, index=False)
     print()
     logging.info("Extracting and downloading spatial data - COMPLETE")
     print()
