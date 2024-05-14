@@ -97,7 +97,8 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
-    -w $tempHucDataDir/wbd8_clp.gpkg -l $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
+    -w $tempHucDataDir/wbd8_clp.gpkg \
+    -l $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
     -n $b_arg \
     -m $max_split_distance_meters \
     -t $slope_min \
@@ -126,7 +127,24 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -o $tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
 
-# D8 REM ##
+## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
+echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
+date -u
+Tstart
+$srcDir/mitigate_branch_outlet_backpool.py \
+    -b $tempCurrentBranchDataDir \
+    -cp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
+    -cpp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.gpkg \
+    -cr $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
+    -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
+    -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
+    -n $b_arg \
+    -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+    -t $slope_min \
+    --calculate-stats
+Tcount
+
+## D8 REM ##
 echo -e $startDiv"D8 REM $hucNumber $current_branch_id"
 $srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif \
     -w $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
@@ -200,6 +218,7 @@ if  [ -f $tempCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
         --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
 fi
 
+
 ## HYDRAULIC PROPERTIES ##
 echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"
 $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
@@ -208,6 +227,24 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
     -slp $tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif \
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
     -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
+
+
+
+## HEAL HAND BRIDGES (note resolution is set to 10m)
+# May or may not be a bridge file, depends if the HUC has an applicble one.
+# Writing back over the rem_zeroed_masked branch tif
+if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
+    echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
+    python3 $srcDir/heal_bridges_osm.py \
+                -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+                -s $tempHucDataDir/osm_bridges_subset.gpkg \
+                -p $tempCurrentBranchDataDir/bridge_lines_raster_$current_branch_id.tif \
+                -t $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+                -r $res
+else
+    echo -e $startDiv"No applicable bridge data for $hucNumber"
+fi
+
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"

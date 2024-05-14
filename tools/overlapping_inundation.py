@@ -57,12 +57,9 @@ class OverlapWindowMerge:
         )
 
         # get transform, width, height and bounds
-        (
-            self.proc_unit_transform,
-            self.proc_unit_width,
-            self.proc_unit_height,
-            final_bounds,
-        ) = self.get_final_dims()
+        (self.proc_unit_transform, self.proc_unit_width, self.proc_unit_height, final_bounds) = (
+            self.get_final_dims()
+        )
 
         self.proc_unit_bounds = np.array(
             [[final_bounds["top"], final_bounds["left"]], [final_bounds["bottom"], final_bounds["right"]]]

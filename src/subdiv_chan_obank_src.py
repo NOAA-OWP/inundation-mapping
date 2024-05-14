@@ -408,7 +408,7 @@ def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_
         print('Running the variable_mannings_calc function...')
 
         ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-        huc_list = os.listdir(fim_dir)
+        huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
         huc_list.sort()  # sort huc_list for helping track progress in future print statments
         for huc in huc_list:
             # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
