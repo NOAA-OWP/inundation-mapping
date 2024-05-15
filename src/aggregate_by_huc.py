@@ -258,10 +258,9 @@ class HucDirectory(object):
                 if not self.aggregate_bridge_pnts.empty:
 
                     # Remove bridge points that have the same osmid and feature_id
-                    self.aggregate_bridge_pnts
-                    g = self.aggregate_bridge_pnts.groupby(['osmid', 'feature_id'])['max_hand'].transform(
-                        'min'
-                    )
+                    g = self.aggregate_bridge_pnts.groupby(['osmid', 'feature_id'])[
+                        'max_discharge'
+                    ].transform('min')
                     self.aggregate_bridge_pnts = self.aggregate_bridge_pnts[
                         (self.aggregate_bridge_pnts['max_discharge'] == g)
                     ]
