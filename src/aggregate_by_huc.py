@@ -263,7 +263,7 @@ class HucDirectory(object):
                         'min'
                     )
                     self.aggregate_bridge_pnts = self.aggregate_bridge_pnts[
-                        (self.aggregate_bridge_pnts['max_hand'] == g)
+                        (self.aggregate_bridge_pnts['max_discharge'] == g)
                     ]
                     self.aggregate_bridge_pnts.to_file(bridge_pnts_file, index=False)
 
