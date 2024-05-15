@@ -1,10 +1,14 @@
 import argparse
 import os
+import re
 
 import geopandas as gpd
 import rasterio
 from rasterio import features
 from rasterstats import zonal_stats
+
+
+threatened_percent = 0.75
 
 
 def process_bridges_in_huc(
@@ -56,7 +60,16 @@ def process_bridges_in_huc(
     # Join the bridge points to the HAND catchments to get the HydroID and feature_id
     osm_gdf = osm_gdf.loc[osm_gdf.max_hand >= 0]
     catchments_df = gpd.read_file(catchments)
-    osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'geometry']], how='inner')
+    osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
+    osm_gdf = osm_gdf.drop(columns='index_right')
+    # Calculate threatened stage
+    osm_gdf['hand_75'] = osm_gdf.max_hand * threatened_percent
+    # Add the branch id to the catchments
+    branch_dir = re.search(r'branches/(\d{10}|0)/', catchments).group()
+    branch_id = re.search(r'(\d{10}|0)', branch_dir).group()
+    osm_gdf['branch'] = branch_id
+    osm_gdf['mainstem'] = False if branch_id == '0' else True
+    print(osm_gdf)
 
     # Write the bridge points to a geopackage
     osm_gdf.to_file(bridge_centroids, index=False)

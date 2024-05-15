@@ -9,6 +9,7 @@ from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
 
+import geopandas as gpd
 import pandas as pd
 
 from utils.shared_functions import progress_bar_handler
@@ -184,7 +185,18 @@ class HucDirectory(object):
         ras_elev_table = pd.read_csv(ras_elev_filename, dtype=self.ras_dtypes)
         self.agg_ras_elev_table = pd.concat([self.agg_ras_elev_table, ras_elev_table])
 
-    def agg_function(self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id):
+    def aggregate_bridge_pnts(self, branch_path, branch_id):
+        bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.gpkg')
+        if not os.path.isfile(bridge_filename):
+            return
+
+        bridge_pnts = gpd.read_file(bridge_filename)
+        # TODO Get the flows for each stage
+        self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
+
+    def agg_function(
+        self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, huc_id
+    ):
         try:
             # try catch and its own log file output in error only.
             for branch_id, branch_path in self.iter_branches():
@@ -198,6 +210,8 @@ class HucDirectory(object):
                     self.aggregate_hydrotables(branch_path, branch_id)
                 if src_cross_flag:
                     self.aggregate_src_full_crosswalk(branch_path, branch_id)
+                if bridge_flag:
+                    self.aggregate_bridge_pnts(branch_path, branch_id)
 
             ## After all of the branches are visited, the code below will write the aggregates
             if usgs_elev_flag:
@@ -231,6 +245,16 @@ class HucDirectory(object):
 
                 if not self.agg_ras_elev_table.empty:
                     self.agg_ras_elev_table.to_csv(ras_elev_table_file, index=False)
+
+            if bridge_flag:
+                bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.gpkg')
+                if os.path.isfile(bridge_pnts_file):
+                    os.remove(bridge_pnts_file)
+
+                if not self.aggregate_bridge_pnts.empty:
+
+                    # TODO Remove bridge points that have the same osmid and feature_id
+                    self.aggregate_bridge_pnts.to_file(bridge_pnts_file, index=False)
 
             # print(f"agg_by_huc for huc id {huc_id} is done")
 
@@ -282,6 +306,7 @@ def aggregate_by_huc(
     hydro_table_flag,
     src_cross_flag,
     ras_elev_flag,
+    bridge_flag,
     num_job_workers,
 ):
     assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
@@ -315,6 +340,8 @@ def aggregate_by_huc(
             agg_type += "_src_cross"
         if ras_elev_flag:
             agg_type += "_ras"
+        if bridge_flag:
+            agg_type += "_bridge"
         filelist = glob.glob(os.path.join(log_folder, f"*{agg_type}*"))
         for f in filelist:
             os.remove(f)
@@ -345,6 +372,7 @@ def aggregate_by_huc(
                         'hydro_table_flag': hydro_table_flag,
                         'src_cross_flag': src_cross_flag,
                         'ras_elev_flag': ras_elev_flag,
+                        'bridge_flag': bridge_flag,
                         'huc_id': huc_id,
                     }
 
@@ -368,6 +396,7 @@ def aggregate_by_huc(
                         'hydro_table_flag': hydro_table_flag,
                         'src_cross_flag': src_cross_flag,
                         'ras_elev_flag': ras_elev_flag,
+                        'bridge_flag': bridge_flag,
                         'huc_id': huc_id,
                     }
                     future = executor.submit(huc_dir.agg_function, **args_agg)
@@ -381,7 +410,14 @@ def aggregate_by_huc(
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
             log_error(
-                fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id, errMsg
+                fim_directory,
+                usgs_elev_flag,
+                hydro_table_flag,
+                src_cross_flag,
+                ras_elev_flag,
+                bridge_flag,
+                huc_id,
+                errMsg,
             )
             # sys.exit(1)
 
