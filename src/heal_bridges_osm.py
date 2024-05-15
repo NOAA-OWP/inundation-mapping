@@ -3,6 +3,7 @@ import os
 import re
 
 import geopandas as gpd
+import numpy as np
 import rasterio
 from rasterio import features
 from rasterstats import zonal_stats
@@ -63,7 +64,7 @@ def process_bridges_in_huc(
     osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
     osm_gdf = osm_gdf.drop(columns='index_right')
     # Calculate threatened stage
-    osm_gdf['hand_75'] = osm_gdf.max_hand * threatened_percent
+    osm_gdf['max_hand_75'] = osm_gdf.max_hand * threatened_percent
     # Add the branch id to the catchments
     branch_dir = re.search(r'branches/(\d{10}|0)/', catchments).group()
     branch_id = re.search(r'(\d{10}|0)', branch_dir).group()
@@ -75,6 +76,24 @@ def process_bridges_in_huc(
     osm_gdf.to_file(bridge_centroids, index=False)
 
     return
+
+
+def flow_lookup(stages, hydroid, hydroTable):
+
+    single_hydroTable = hydroTable.loc[hydroTable.HydroID == hydroid]
+    return_flows = np.interp(
+        stages, single_hydroTable.loc[:, 'stage'], single_hydroTable.loc[:, 'discharge_cms']
+    )
+    return return_flows
+
+
+def flows_from_hydrotable(bridge_pnts, hydroTable):
+
+    bridge_pnts['max_discharge'], bridge_pnts['max_discharge75'] = bridge_pnts.apply(
+        lambda row: flow_lookup((row.max_hand, row.max_hand_75), row.HydroID, hydroTable)
+    )
+
+    return bridge_pnts
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from os.path import join
 import geopandas as gpd
 import pandas as pd
 
+from heal_bridges_osm import flow_lookup
 from utils.shared_functions import progress_bar_handler
 
 
@@ -191,7 +192,10 @@ class HucDirectory(object):
             return
 
         bridge_pnts = gpd.read_file(bridge_filename)
-        # TODO Get the flows for each stage
+        hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
+        hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
+        # Get the flows for each stage
+        bridge_pnts = flow_lookup(bridge_pnts, hydrotable)
         self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
 
     def agg_function(
@@ -253,7 +257,14 @@ class HucDirectory(object):
 
                 if not self.aggregate_bridge_pnts.empty:
 
-                    # TODO Remove bridge points that have the same osmid and feature_id
+                    # Remove bridge points that have the same osmid and feature_id
+                    self.aggregate_bridge_pnts
+                    g = self.aggregate_bridge_pnts.groupby(['osmid', 'feature_id'])['max_hand'].transform(
+                        'min'
+                    )
+                    self.aggregate_bridge_pnts = self.aggregate_bridge_pnts[
+                        (self.aggregate_bridge_pnts['max_hand'] == g)
+                    ]
                     self.aggregate_bridge_pnts.to_file(bridge_pnts_file, index=False)
 
             # print(f"agg_by_huc for huc id {huc_id} is done")
@@ -473,6 +484,14 @@ if __name__ == '__main__':
         '-ras',
         '--ras_elev_flag',
         help='Perform aggregate on branch ras2fim elev tables',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '-bridge',
+        '--bridge_flag',
+        help='Perform aggregate on branch bridge centroid files',
         required=False,
         default=False,
         action='store_true',
