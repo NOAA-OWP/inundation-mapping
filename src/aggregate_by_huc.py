@@ -257,14 +257,18 @@ class HucDirectory(object):
 
                 if not self.aggregate_bridge_pnts.empty:
 
+                    # Just making things shorter so they are easier to read
+                    bridge_pnts = self.aggregate_bridge_pnts
                     # Remove bridge points that have the same osmid and feature_id
-                    g = self.aggregate_bridge_pnts.groupby(['osmid', 'feature_id'])[
-                        'max_discharge'
-                    ].transform('min')
-                    self.aggregate_bridge_pnts = self.aggregate_bridge_pnts[
-                        (self.aggregate_bridge_pnts['max_discharge'] == g)
-                    ]
-                    self.aggregate_bridge_pnts.to_file(bridge_pnts_file, index=False)
+
+                    g = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('min')
+                    bridge_pnts = bridge_pnts[(bridge_pnts['max_discharge'] == g)]
+                    # Set backwater bridge sites
+                    c = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('count')
+                    bridge_pnts['is_backwater'] = False
+                    bridge_pnts.loc[(c > 1) & (bridge_pnts.branch_id != 0), 'is_backwater'] = True
+                    # Write file
+                    bridge_pnts.to_file(bridge_pnts_file, index=False)
 
             # print(f"agg_by_huc for huc id {huc_id} is done")
 
