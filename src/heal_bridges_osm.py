@@ -8,7 +8,7 @@ from rasterstats import zonal_stats
 
 
 def process_bridges_in_huc(
-    source_hand_raster, bridge_vector_file, bridge_centroids, buffer_width, resolution
+    source_hand_raster, bridge_vector_file, catchments, bridge_centroids, buffer_width, resolution
 ):
 
     if not os.path.exists(source_hand_raster):
@@ -49,8 +49,16 @@ def process_bridges_in_huc(
     with rasterio.open(source_hand_raster, 'w', **profile) as new_hand_grid:
         new_hand_grid.write(hand_grid_array, 1)
 
+    # Switch the geometry over to the centroid points
     osm_gdf['geometry'] = osm_gdf['centroid_geometry']
     osm_gdf = osm_gdf.drop(columns='centroid_geometry')
+
+    # Join the bridge points to the HAND catchments to get the HydroID and feature_id
+    osm_gdf = osm_gdf.loc[osm_gdf.max_hand >= 0]
+    catchments_df = gpd.read_file(catchments)
+    osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'geometry']], how='inner')
+
+    # Write the bridge points to a geopackage
     osm_gdf.to_file(bridge_centroids, index=False)
 
     return
@@ -82,9 +90,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        '-p', '--catchments', help='REQUIRED: Path and file name of the catchments geopackage', required=True
+    )
+
+    parser.add_argument(
         '-c',
         '--bridge_centroids',
-        help='REQUIRED: Path and file name of the bridge centroid geopackage',
+        help='REQUIRED: Path and file name of the output bridge centroid geopackage',
         required=True,
     )
 

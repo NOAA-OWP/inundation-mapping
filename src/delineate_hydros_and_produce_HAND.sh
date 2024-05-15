@@ -236,11 +236,12 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
 if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
     echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
     python3 $srcDir/heal_bridges_osm.py \
-                -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-                -s $tempHucDataDir/osm_bridges_subset.gpkg \
-                -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg \
-                -b 10 \
-                -r $res
+        -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -s $tempHucDataDir/osm_bridges_subset.gpkg \
+        -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
+        -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg \
+        -b 10 \
+        -r $res
 else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
 fi
