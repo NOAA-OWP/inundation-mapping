@@ -11,8 +11,9 @@ from os.path import join
 
 import geopandas as gpd
 import pandas as pd
+import shapely
 
-from heal_bridges_osm import flow_lookup
+from heal_bridges_osm import flows_from_hydrotable
 from utils.shared_functions import progress_bar_handler
 
 
@@ -142,6 +143,20 @@ class HucDirectory(object):
         }
         self.agg_ras_elev_table = pd.DataFrame(columns=list(self.ras_dtypes.keys()))
 
+        self.bridge_dtypes = {
+            'osmid': int,
+            'name': str,
+            'max_hand': float,
+            'max_hand_75': float,
+            'feature_id': int,
+            'HydroID': int,
+            'order_': str,
+            'branch': str,
+            'mainstem': bool,
+            'geometry': shapely.geometry,
+        }
+        self.agg_bridge_pnts = gpd.GeoDataFrame(columns=list(self.bridge_dtypes.keys()))
+
     def iter_branches(self):
         if self.limit_branches:
             for branch in self.limit_branches:
@@ -195,7 +210,7 @@ class HucDirectory(object):
         hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
         hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
         # Get the flows for each stage
-        bridge_pnts = flow_lookup(bridge_pnts, hydrotable)
+        bridge_pnts = flows_from_hydrotable(bridge_pnts, hydrotable)
         self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
 
     def agg_function(
