@@ -266,7 +266,7 @@ class HucDirectory(object):
                     # Set backwater bridge sites
                     c = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('count')
                     bridge_pnts['is_backwater'] = False
-                    bridge_pnts.loc[(c > 1) & (bridge_pnts.branch_id != 0), 'is_backwater'] = True
+                    bridge_pnts.loc[(c > 1) & (bridge_pnts.branch_id != '0'), 'is_backwater'] = True
                     # Write file
                     bridge_pnts.to_file(bridge_pnts_file, index=False)
 
