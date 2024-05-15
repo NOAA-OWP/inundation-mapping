@@ -7,15 +7,19 @@ from rasterio import features
 from rasterstats import zonal_stats
 
 
-def process_bridges_in_huc(source_hand_raster, bridge_vector_file, bridge_centroids, buffer, resolution):
+def process_bridges_in_huc(
+    source_hand_raster, bridge_vector_file, bridge_centroids, buffer_width, resolution
+):
 
     if not os.path.exists(source_hand_raster):
         print(f"-- no hand grid, {source_hand_raster}")
         return
 
     if os.path.exists(bridge_vector_file):
+        # Read the bridge lines file and buffer it by half of the input width
         osm_gdf = gpd.read_file(bridge_vector_file)
-        osm_gdf['geometry'] = osm_gdf.geometry.buffer(buffer, resolution=resolution)
+        osm_gdf['centroid_geometry'] = osm_gdf.centroid
+        osm_gdf['geometry'] = osm_gdf.geometry.buffer(buffer_width, resolution=resolution)
     else:
         # skip this huc because it didn't pull in the initial OSM script
         # and could have errors in the data or geometry
@@ -38,14 +42,15 @@ def process_bridges_in_huc(source_hand_raster, bridge_vector_file, bridge_centro
         # Burn the bridges into the HAND grid
         shapes = ((geom, value) for geom, value in zip(osm_gdf.geometry, osm_gdf.max_hand))
         features.rasterize(
-            shapes=shapes, out=hand_grid_array, transform=hand_grid.transform, all_touched=True
+            shapes=shapes, out=hand_grid_array, transform=hand_grid.transform, all_touched=False
         )
 
     # Write the new HAND grid
     with rasterio.open(source_hand_raster, 'w', **profile) as new_hand_grid:
         new_hand_grid.write(hand_grid_array, 1)
 
-    osm_gdf['geometry'] = osm_gdf.centroid
+    osm_gdf['geometry'] = osm_gdf['centroid_geometry']
+    osm_gdf = osm_gdf.drop(columns='centroid_geometry')
     osm_gdf.to_file(bridge_centroids, index=False)
 
     return
@@ -85,7 +90,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '-b',
-        '--buffer',
+        '--buffer_width',
         help='OPTIONAL: Buffer to apply to OSM bridges. Default value is 10m (on each side)',
         required=False,
         default=10,
