@@ -153,6 +153,7 @@ def process_generate_categorical_fim(
         elapsed_time = (end - start) / 60
 
         print(f'Finished creating flow files in {elapsed_time} minutes')
+        
         # Generate CatFIM mapping
         print('Begin mapping')
         start = time.time()

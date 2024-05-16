@@ -45,67 +45,95 @@ def process_generate_flows(
     print(f'Iterating through {huc}')
     # Get list of nws_lids
     nws_lids = huc_dictionary[huc]
+
     # Loop through each lid in list to create flow file
-    for lid in nws_lids:
+    for lid in nws_lids: # TODO: Replace print statements with a progress bar
         # Convert lid to lower case
         lid = lid.lower()
-        # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
-        print("getting thresholds")
+        
+        # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.        
+        print() ## TEMP DEBUG
+        # print('===============') ## TEMP DEBUG
+        print(f'Getting thresholds for {lid}') ## TEMP DEBUG
         stages, flows = get_thresholds(
             threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-        )
+        ) 
+
         if stages is None or flows is None:
             print("Likely WRDS error")
             continue
+
         # Check if stages are supplied, if not write message and exit.
         if all(stages.get(category, None) is None for category in flood_categories):
             message = f'{lid}:missing threshold stages'
+            # print(message) ## temp debug
+            # print(f'Exiting processing for {lid} here because of missing stage') ## temp debug
             all_messages.append(message)
             continue
+        
         # Check if calculated flows are supplied, if not write message and exit.
         if all(flows.get(category, None) is None for category in flood_categories):
             message = f'{lid}:missing calculated flows'
+            # print(message) ## temp debug
             all_messages.append(message)
             continue
-        # find lid metadata from master list of metadata dictionaries (line 66).
+        
+        # Find lid metadata from master list of metadata dictionaries (line 66).
         metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
+
+        # print() ## TEMP DEBUG
+        # print(f'Metadata for {lid}: ') ## debug temp
+        # print(metadata) ## debug temp
 
         # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
         unfiltered_segments = list(set(get_nwm_segs(metadata)))
-
         desired_order = metadata['nwm_feature_data']['stream_order']
+
         # Filter segments to be of like stream order.
-        print("filtering segments")
+        # print() ## temp debug
+        # print("Filtering segments...")
         start = time.time()
+
         segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
+
         end = time.time()
         elapsed_time = round(((end - start) / 60), 6)
         print(f'Finished filtering segments in {elapsed_time} minutes')
-        # if no segments, write message and exit out
+
+        # If there are no segments, write message and exit out
         if not segments:
             message = f'{lid}:missing nwm segments'
+            # print(message) ## temp debug
             all_messages.append(message)
             continue
+    
         # For each flood category
         for category in flood_categories:
-            # G et the flow
+            # Get the flow
             flow = flows[category]
+
             # If there is a valid flow value, write a flow file.
             if flow:
                 # round flow to nearest hundredth
                 flow = round(flow, 2)
+
                 # Create the guts of the flow file.
                 flow_info = flow_data(segments, flow)
+
                 # Define destination path and create folders
                 output_file = (
                     workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
                 )
                 output_file.parent.mkdir(parents=True, exist_ok=True)
+
                 # Write flow file to file
                 flow_info.to_csv(output_file, index=False)
+
             else:
                 message = f'{lid}:{category} is missing calculated flow'
+                # print(message) ## temp debug
                 all_messages.append(message)
+    
         # Get various attributes of the site.
         lat = float(metadata['nws_preferred']['latitude'])
         lon = float(metadata['nws_preferred']['longitude'])
@@ -147,6 +175,7 @@ def process_generate_flows(
                 }
             )
             csv_df = pd.concat([csv_df, line_df])
+    
         # Round flow and stage columns to 2 decimal places.
         csv_df = csv_df.round({'q': 2, 'stage': 2})
 
@@ -156,13 +185,15 @@ def process_generate_flows(
             # Export DataFrame to csv containing attributes
             csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
             message = f'{lid}:flows available'
+            # print(message) ## temp debug
             all_messages.append(message)
         else:
             message = f'{lid}:missing all calculated flows'
+            # print(message) ## temp debug
             all_messages.append(message)
 
     # Write all_messages to huc-specific file.
-    print("Writing message file for huc")
+    print(f'Writing message file for {huc}')
     huc_messages_txt_file = os.path.join(huc_messages_dir, str(huc) + '_messages.txt')
     with open(huc_messages_txt_file, 'w') as f:
         for item in all_messages:
@@ -224,51 +255,77 @@ def generate_catfim_flows(
     if not os.path.exists(huc_messages_dir):
         os.mkdir(huc_messages_dir)
 
-    # Open NWM flows geopackage
+    # Open NWM flows geopackages
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
 
-    print(f'Retrieving metadata for site(s): {lid_to_run}...')
-    start_dt = datetime.now()
+    nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
+    nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
+    
 
-    # Get metadata for 'CONUS'
-    print(metadata_url)
-    if lid_to_run != 'all':
-        all_lists, conus_dataframe = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=[lid_to_run],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
+
+    skip_api = True ## TODO: make this an argument, eventually (or just have this be true if the following path is provided)
+    # flows_metadata_path = '/alaska_catfim/catfim_test1__flow_based' ## TODO: make this an input, eventually
+    #if skip_api == True:
+    #  print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
+    
+    if skip_api == True: # temp
+      print('Skipping full API pull, just grabbing alaska')
+      
+      # TEMP: just get alaska metadata
+      all_lists, islands_dataframe = get_metadata(
+              metadata_url,
+              select_by='state',
+              selector=['AK'],
+              must_include=None,
+              upstream_trace_distance=nwm_us_search,
+              downstream_trace_distance=nwm_ds_search,
+          )
+    
     else:
-        # Get CONUS metadata
-        conus_list, conus_dataframe = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=['all'],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-        # Get metadata for Islands
-        islands_list, islands_dataframe = get_metadata(
-            metadata_url,
-            select_by='state',
-            selector=['HI', 'PR'],
-            must_include=None,
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-        # Append the dataframes and lists
-        all_lists = conus_list + islands_list
-    print(len(all_lists))
-
-    end_dt = datetime.now()
-    time_duration = end_dt - start_dt
-    print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
-    print()
+  
+      print(f'Retrieving metadata for site(s): {lid_to_run}..')
+      start_dt = datetime.now()
+  
+      # Get metadata for 'CONUS'
+      print(metadata_url)
+      if lid_to_run != 'all':
+          all_lists, conus_dataframe = get_metadata(
+              metadata_url,
+              select_by='nws_lid',
+              selector=[lid_to_run],
+              must_include='nws_data.rfc_forecast_point',
+              upstream_trace_distance=nwm_us_search,
+              downstream_trace_distance=nwm_ds_search,
+          )
+      else:
+          # Get CONUS metadata
+          conus_list, conus_dataframe = get_metadata(
+              metadata_url,
+              select_by='nws_lid',
+              selector=['all'],
+              must_include='nws_data.rfc_forecast_point',
+              upstream_trace_distance=nwm_us_search,
+              downstream_trace_distance=nwm_ds_search,
+          )
+          # Get metadata for Islands and Alaska
+          islands_list, islands_dataframe = get_metadata(
+              metadata_url,
+              select_by='state',
+              selector=['HI', 'PR', 'AK'],
+              must_include=None,
+              upstream_trace_distance=nwm_us_search,
+              downstream_trace_distance=nwm_ds_search,
+          )
+          # Append the dataframes and lists
+          all_lists = conus_list + islands_list
+          
+      print(len(all_lists))
+  
+      end_dt = datetime.now()
+      time_duration = end_dt - start_dt
+      print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
+      print()
 
     print('Determining HUC using WBD layer...')
     start_dt = datetime.now()
@@ -276,6 +333,7 @@ def generate_catfim_flows(
     # Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer.
     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     # of all sites used later in script.
+    
     huc_dictionary, out_gdf = aggregate_wbd_hucs(
         metadata_list=all_lists, wbd_huc8_path=WBD_LAYER, retain_attributes=True
     )
@@ -290,24 +348,45 @@ def generate_catfim_flows(
     print()
 
     if stage_based:
-        return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df
+        return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df ## TODO: need to pass it the regular AND alaska nwm_flows_df?
 
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     start_dt = datetime.now()
 
+    test_lst = ['19020302', '19020505', '19020201', '19020401'] ## TEMP DEBUG HUC LIST
+
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            executor.submit(
-                process_generate_flows,
-                huc,
-                huc_dictionary,
-                threshold_url,
-                all_lists,
-                workspace,
-                attributes_dir,
-                huc_messages_dir,
-                nwm_flows_df,
-            )
+            if huc in test_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
+                print(f'HUC: {huc}') # TEMP DEBUG
+
+                if huc[:2] == '19':
+                    # Alaska
+                    executor.submit(
+                        process_generate_flows,
+                        huc,
+                        huc_dictionary,
+                        threshold_url,
+                        all_lists,
+                        workspace,
+                        attributes_dir,
+                        huc_messages_dir,
+                        nwm_flows_alaska_df,
+                    )
+
+                else:
+                    # Not Alaska
+                    executor.submit(
+                        process_generate_flows,
+                        huc,
+                        huc_dictionary,
+                        threshold_url,
+                        all_lists,
+                        workspace,
+                        attributes_dir,
+                        huc_messages_dir,
+                        nwm_flows_df,
+                    )
 
     end_dt = datetime.now()
     time_duration = end_dt - start_dt

@@ -63,9 +63,16 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     filtered_segments = []
 
     for feature_id in unfiltered_segments:
-        stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
+
+        try:
+            stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
+        except Exception as e:
+            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
+
         if stream_order == desired_order:
             filtered_segments.append(feature_id)
+        # else: 
+        #     print(f'Stream order for {feature_id} did not match desired stream order...') 
 
     return filtered_segments
 
@@ -660,7 +667,7 @@ def get_metadata(
             metadata.update(crosswalk_info)
         metadata_dataframe = pd.json_normalize(metadata_list)
         # Replace all periods with underscores in column names
-        metadata_dataframe.columns = metadata_dataframe.columns.str.replace('.', '_')
+        metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
     else:
         # if request was not succesful, print error message.
         print(f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}')

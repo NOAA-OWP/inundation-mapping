@@ -30,11 +30,14 @@ def generate_categorical_fim(
 
     # Log missing hucs
     missing_hucs = list(set(source_flow_dir_list) - set(output_flow_dir_list))
-    missing_hucs = [huc for huc in missing_hucs if "." not in huc]
+    missing_hucs = [huc for huc in missing_hucs if "." not in huc] 
+
     if len(missing_hucs) > 0:
         f = open(log_file, 'a+')
         f.write(f"Missing hucs from output directory: {', '.join(missing_hucs)}\n")
         f.close()
+
+        print(f"Missing hucs from output directory: {', '.join(missing_hucs)}\n") ## TEMP DEBUG
 
     # Loop through matching huc directories in the source_flow directory
     matching_hucs = list(set(output_flow_dir_list) & set(source_flow_dir_list))
@@ -210,6 +213,7 @@ def post_process_cat_fim_for_viz(
 
     # Find the FIM version
     merged_layer = os.path.join(output_catfim_dir, 'catfim_library.gpkg')
+
     if not os.path.exists(merged_layer):  # prevents appending to existing output
         huc_ahps_dir_list = os.listdir(output_catfim_dir)
         skip_list = ['errors', 'logs', 'gpkg', 'missing_files.txt', 'messages', merged_layer]
@@ -217,17 +221,24 @@ def post_process_cat_fim_for_viz(
         # Loop through all categories
         print("Building list of TIFs to reformat...")
         with ProcessPoolExecutor(max_workers=job_number_huc) as huc_exector:
+
             for huc in huc_ahps_dir_list:
                 if huc in skip_list:
                     continue
+
                 huc_dir = os.path.join(output_catfim_dir, huc)
+                print(f'huc_dir: {huc_dir}') ## TEMP DEBUG
+
                 try:
                     ahps_dir_list = os.listdir(huc_dir)
                 except NotADirectoryError:
+                    print('NotADirectoryError') ## TEMP DEBUG
                     continue
+
                 # If there's no mapping for a HUC, delete the HUC directory.
                 if ahps_dir_list == []:
                     os.rmdir(huc_dir)
+                    print(f'No mapping for HUC {huc}, deleting the HUC directory.') ## TEMP DEBUG
                     continue
 
                 huc_exector.submit(
