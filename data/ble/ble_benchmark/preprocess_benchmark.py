@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 
 import numpy as np
 import rasterio
-import rasterio._env
-import rasterio._path
-import rasterio.enums
+
+# import rasterio._env
+# import rasterio._path
+# import rasterio.enums
 import rasterio.mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 
@@ -37,9 +39,19 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
 
     '''
 
+    # gdal.SetConfigOption('CPL_LOG', '/dev/null')
+    # gdal.SetConfigOption('CPL_DEBUG', 'False')
+
+    # with rasterio.Env(CPL_DEBUG=False,
+    #                   GDAL_CACHEMAX=536870912,
+    #                   CPL_CURL_VERBOSE=False,
+    #                   GDAL_DATA=rasterio._env.get_gdal_data() ):
+
     # Open and read raster and benchmark rasters
-    reference = rasterio.open(reference_raster)
-    benchmark = rasterio.open(benchmark_raster)
+    logging.info(f"--- Opening reference_raster: {reference_raster}")
+    reference = rasterio.open(reference_raster, "r")
+    logging.info(f"--- Opening benchmark_raster: {benchmark_raster}")
+    benchmark = rasterio.open(benchmark_raster, "r")
     benchmark_arr = benchmark.read(1)
 
     # Set arbitrary no data value that is not possible value of the benchmark dataset. It is reassigned later.
@@ -86,7 +98,7 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
 
     # Write out preprocessed benchmark array to raster if path is supplied
     if out_raster_path is not None:
-        with rasterio.Env(CPL_DEBUG=False):
+        with rasterio.Env():
             # Write out reassigned values to raster dataset
             with rasterio.open(out_raster_path, 'w', **profile) as dst:
                 dst.write(boolean_benchmark.astype('int8'), 1)

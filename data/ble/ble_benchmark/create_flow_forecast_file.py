@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 
-# gpd.options.io_engine = "pyogrio"
+gpd.options.io_engine = "pyogrio"
 
 
 def create_flow_forecast_file(
@@ -55,8 +55,8 @@ def create_flow_forecast_file(
 
     '''
 
-    # print(locals())
     print(" ******************************************")
+    # print(locals())
 
     def fill_missing_flows(forecast: pd.DataFrame, nwm_river_layer: pd.DataFrame):
         """

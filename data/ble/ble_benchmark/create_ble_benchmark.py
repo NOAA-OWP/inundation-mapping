@@ -4,7 +4,7 @@ import argparse
 import datetime as dt
 import logging
 import os
-import shutil
+import sys
 from datetime import datetime
 from glob import glob
 from io import BytesIO
@@ -15,7 +15,8 @@ from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
-import rasterio
+
+# import rasterio
 from create_flow_forecast_file import create_flow_forecast_file
 from osgeo import gdal
 from preprocess_benchmark import preprocess_benchmark_static
@@ -97,12 +98,12 @@ def create_ble_benchmark(
     print()
 
     # set from GDAL options, mostly to shut off the verbosity
-    rasterio_gdal_path = rasterio._env.get_gdal_data()
-    os.environ['GDAL_DATA'] = rasterio_gdal_path
-    gdal_new_config = {'CPL_DEBUG': 'OFF', 'GDAL_CACHEMAX': '536870912', 'GDAL_DATA': rasterio_gdal_path}
+    # rasterio_gdal_path = rasterio._env.get_gdal_data()
+    # os.environ['GDAL_DATA'] = rasterio_gdal_path
+    # gdal_new_config = {'CPL_DEBUG': 'OFF', 'GDAL_CACHEMAX': '536870912', 'GDAL_DATA': rasterio_gdal_path}
 
-    for key, val in gdal_new_config.items():
-        gdal.SetConfigOption(key, val)
+    # for key, val in gdal_new_config.items():
+    #    gdal.SetConfigOption(key, val)
 
     # Latest is:
     # EBFE_urls_20240426.xlsx acquired from FEMA (fethomps@usgs.gov) (Florence Thompson)
@@ -125,7 +126,16 @@ def create_ble_benchmark(
     # Convert size to MiB
     spatial_df['MiB'] = np.where(spatial_df['units'] == 'GiB', spatial_df['size'] * 1000, spatial_df['size'])
 
+    # create some new empty columns
+    num_cols = len(spatial_df.columns)
+    spatial_df.insert(num_cols - 1, "HUC", "")
+    spatial_df.insert(num_cols, "HUC_Name", "")
+    spatial_df.insert(num_cols + 1, "raster_paths", "")
+    spatial_df = spatial_df.reset_index()
+
     spatial_df, ble_geodatabase = download_and_extract_rasters(spatial_df, save_folder)
+
+    print(ble_geodatabase)
 
     print()
     logging.info("=======================================")
@@ -134,6 +144,7 @@ def create_ble_benchmark(
     logging.info("")
 
     num_recs = len(spatial_df)
+    print(spatial_df)
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
         logging.info("++++++++++++++++++++++++++")
@@ -142,7 +153,11 @@ def create_ble_benchmark(
 
         # Reference_raster is used to set the metadata for benchmark_raster
         reference_raster = os.path.join(reference_folder, f'{huc}/branches/0/rem_zeroed_masked_0.tif')
-        for benchmark_raster in row['raster_path']:
+        print(f"number of rasters is {len(row['raster_paths'])}")
+        print(f"full raster path value is {row['raster_paths']}")
+        for benchmark_raster in row['raster_paths']:
+
+            print(f"benchmark raster is {benchmark_raster}")
             magnitude = '100yr' if 'BLE_DEP01PCT' in benchmark_raster else '500yr'
 
             out_raster_dir = os.path.join(benchmark_folder, huc, magnitude)
@@ -165,13 +180,7 @@ def create_ble_benchmark(
                 nwm_stream_layer_name,
                 nwm_feature_id_field,
             )
-
-        # cleaning up temp files.
-        for f in Path(save_folder).glob(f"{huc}*"):
-            if os.path.isfile(f) is True:
-                os.remove(f)
-            else:
-                shutil.rmtree(f, ignore_errors=False)
+        logging.info(f"HUC {huc} flowfiles complete")
 
     # Get time metrics
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -191,6 +200,7 @@ def create_ble_benchmark(
 
     logging.info(f"Duration: {time_fmt}")
     print()
+    return
 
 
 def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
@@ -226,11 +236,10 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     num_recs = len(spatial_df)
     logging.info(f"  Number of HUC records to download is {num_recs}")
     print()
-    for i, row in spatial_df.iterrows():
-
+    for idx, row in spatial_df.iterrows():
         # Extract HUC and HUC Name from URL
         url = row['URL']
-        print(f" Downloading {i+1} of {num_recs}")
+        print(f" Downloading {idx+1} of {num_recs}")
 
         logging.info("++++++++++++++++++++++++++")
         logging.info(f"URL is {url}")
@@ -244,18 +253,19 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
             logging.info(f"{huc} : Invalid huc")
             continue
 
+        hucs.append(huc)
+        huc_names.append(huc_name)
+
         # logging.info
         logging.info(f"{huc} : Downloading and extracting for {huc_name}")
 
         # Download file
         save_file = os.path.join(save_folder, os.path.basename(url))
+        logging.info(f"Saving download file to {save_file}")
         if not os.path.exists(save_file):
-            logging.info(f"Saving download file to {save_file}")
             http_response = urlopen(url)
             zipfile = ZipFile(BytesIO(http_response.read()))
             zipfile.extractall(path=save_file)
-        else:
-            logging.info(f"{huc} :  zip file already exists in file system: {save_file}")
 
         # Loading gdb
         logging.info(f"{huc} : Loading gdb")
@@ -266,7 +276,10 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
             src_ds = gdal.Open(ble_geodatabase, gdal.GA_ReadOnly)
             subdatasets = src_ds.GetSubDatasets()
 
+            src_ds = None
+
             # Find depth rasters
+            # huc_rasters = []
             for depth_raster in depth_rasters:
                 out_file = os.path.join(save_folder, f'{huc}_{depth_raster}.tif')
 
@@ -275,20 +288,39 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
                     print(f'{huc} : Reading {depth_raster}')
                     depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
 
-                    extract_raster(depth_raster_path, out_file)
+                    if extract_raster(huc, depth_raster_path, out_file) is False:
+                        continue
+
+                    # huc_rasters.append(out_file)
                 out_list.append(out_file)
 
-        else:
-            logging.info(f"{huc} : gdb_list does not equal 1")
+            # if len(huc_rasters) > 0:
+
+            #     spatial_df.at[idx, 'HUC'] = huc
+            #     spatial_df.at[idx, 'HUC_Name'] = huc_name
+            #     spatial_df.at[idx, 'raster_paths'] = huc_rasters
+
+            #     hucs.append(huc)
+            # huc_names.append(huc_name)
+            # out_files.append(str(huc_rasters))
+
         if len(out_list) > 0:
             out_files.append(out_list)
 
-    print(f"Number of hucs for spatial df = {len(hucs)}")
-    print(f"Number of HUC_Name for spatial df = {len(huc_names)}")
-    print(f"Number of raster files for spatial df = {len(out_files)}")
+    if len(hucs) == 0:
+        logging.info("No valid rasters remain. System aborted.")
+        sys.exit(1)
+
+    # this is ugly
+
+    # print("final hucs")
+    # print(hucs)
+    # print(huc_names)
+    # print(out_files)
+
     spatial_df['HUC'] = hucs
     spatial_df['HUC_Name'] = huc_names
-    spatial_df['raster_path'] = out_files
+    spatial_df['raster_paths'] = out_files
 
     spatial_df.to_csv(os.path.join(save_folder, "spatial_db_w_rasters.csv"), header=True, index=False)
     print()
@@ -298,7 +330,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     return spatial_df, ble_geodatabase
 
 
-def extract_raster(in_raster: str, out_raster: str):
+def extract_raster(huc: str, in_raster: str, out_raster: str):
     """
     Extract raster from GDB and save to out_raster
 
@@ -311,20 +343,66 @@ def extract_raster(in_raster: str, out_raster: str):
 
     Returns
     -------
-    None
+    True = raster saved
     """
 
     data_ds = gdal.Open(in_raster, gdal.GA_ReadOnly)
+    gt = data_ds.GetGeoTransform()
+
+    # Why are we using GDAL? becuase it is loading directliy from a gdb
+    # ie) in_raster is OpenFileGDB:"/data/test_cases/rob_ble_reload/
+    # download_files_test_large/08040301_SpatialData.zip/Spatial/LA_LowerRed_BLE.gdb":BLE_DEP0_2PCT
+
+    # TODO: May 15, 2024
+    # Some of them come in as 5m resolution is too big and memory failes. It will load but ReadAsArray fails
+    # we tried some gdal warp and various things to get it work.
+    # For now, we will just a have to skip anyting that is not 10m.
+
+    if gt[1] != 10.0:
+        #     # resample
+        #     layer_name = in_raster
+        #     # rename the file
+        #     resampled_file_name = file_name.replace(".tif", "_resampled.tif")
+
+        #     print(f"in : {in_raster} and resample : {resampled_file_name}")
+
+        #     print(f" --- gdal wrap : {dt.datetime.now(dt.timezone.utc).strftime('%H:%M:%S')}")
+        #     #gdal.WarpOptions(geoloc=True, format='GTiff', xRes=10.0, yRes=10.0)
+        #     # kwargs = {'format': 'GTiff', 'geoloc': True}
+        #     #gdal.Warp(in_raster, resampled_file_name, geoloc=True, format='GTiff', xRes=10, yRes=10)
+        #     gdal.Warp(in_raster, resampled_file_name, format='GTiff')
+
+        #     print(f" --- gdal re-open : {dt.datetime.now(dt.timezone.utc).strftime('%H:%M:%S')}")
+        #     # reload the resampled version
+        #     data_ds = gdal.Open(in_raster, gdal.GA_ReadOnly)
+        #     print(f" --- gdal re-open : {dt.datetime.now(dt.timezone.utc).strftime('%H:%M:%S')}")
+        #     gt = data_ds.GetGeoTransform()
+        #     print(gt)
+
+        logging.info(
+            f"Dropping {huc} raster not resolution of 10 m. It is {gt[1]} : raster input = {in_raster}"
+        )
+        return False
+
+    # print(f" --- read as array : {dt.datetime.now(dt.timezone.utc).strftime('%H:%M:%S')}")
     data = data_ds.ReadAsArray()
+    # print(f" --- GetRasterBand : {dt.datetime.now(dt.timezone.utc).strftime('%H:%M:%S')}")
     nodata = data_ds.GetRasterBand(1).GetNoDataValue()
 
     driver = gdal.GetDriverByName('GTiff')
     out_ds = driver.Create(out_raster, data.shape[1], data.shape[0], 1, gdal.GDT_Float32)
+    # print(f" --- SetGeoTransform : {dt.datetime.now(dt.timezone.utc).strftime('%H:%M:%S')}")
     out_ds.SetGeoTransform(data_ds.GetGeoTransform())
+    # print(f" --- SetProjection : {dt.datetime.now(dt.timezone.utc).strftime('%H:%M:%S')}")
     out_ds.SetProjection(data_ds.GetProjection())
+    # print(f" --- WriteArray : {dt.datetime.now(dt.timezone.utc).strftime('%H:%M:%S')}")
     out_ds.GetRasterBand(1).WriteArray(data)
     out_ds.GetRasterBand(1).SetNoDataValue(nodata)
+    # print(f" --- open raster done : {dt.datetime.now(dt.timezone.utc).strftime('%H:%M:%S')}")
+    data_ds = None
     out_ds = None
+
+    return True
 
 
 if __name__ == '__main__':
