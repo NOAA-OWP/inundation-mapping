@@ -69,8 +69,7 @@ def process_bridges_in_huc(
     branch_dir = re.search(r'branches/(\d{10}|0)/', catchments).group()
     branch_id = re.search(r'(\d{10}|0)', branch_dir).group()
     osm_gdf['branch'] = branch_id
-    osm_gdf['mainstem'] = False if branch_id == '0' else True
-    print(osm_gdf)
+    osm_gdf['mainstem'] = 0 if branch_id == '0' else 1
 
     # Write the bridge points to a geopackage
     osm_gdf.to_file(bridge_centroids, index=False)
@@ -79,7 +78,6 @@ def process_bridges_in_huc(
 
 
 def flow_lookup(stages, hydroid, hydroTable):
-
     single_hydroTable = hydroTable.loc[hydroTable.HydroID == hydroid]
     return_flows = np.interp(
         stages, single_hydroTable.loc[:, 'stage'], single_hydroTable.loc[:, 'discharge_cms']
@@ -88,11 +86,11 @@ def flow_lookup(stages, hydroid, hydroTable):
 
 
 def flows_from_hydrotable(bridge_pnts, hydroTable):
-
-    bridge_pnts['max_discharge'], bridge_pnts['max_discharge75'] = bridge_pnts.apply(
-        lambda row: flow_lookup((row.max_hand, row.max_hand_75), row.HydroID, hydroTable)
+    bridge_pnts[['max_discharge', 'max_discharge75']] = bridge_pnts.apply(
+        lambda row: flow_lookup((row.max_hand, row.max_hand_75), row.HydroID, hydroTable),
+        axis=1,
+        result_type='expand',
     )
-
     return bridge_pnts
 
 

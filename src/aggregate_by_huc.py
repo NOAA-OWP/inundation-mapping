@@ -11,7 +11,6 @@ from os.path import join
 
 import geopandas as gpd
 import pandas as pd
-import shapely
 
 from heal_bridges_osm import flows_from_hydrotable
 from utils.shared_functions import progress_bar_handler
@@ -152,8 +151,8 @@ class HucDirectory(object):
             'HydroID': int,
             'order_': str,
             'branch': str,
-            'mainstem': bool,
-            'geometry': shapely.geometry,
+            'mainstem': int,
+            'geometry': object,
         }
         self.agg_bridge_pnts = gpd.GeoDataFrame(columns=list(self.bridge_dtypes.keys()))
 
@@ -207,6 +206,8 @@ class HucDirectory(object):
             return
 
         bridge_pnts = gpd.read_file(bridge_filename)
+        if bridge_pnts.empty:
+            return
         hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
         hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
         # Get the flows for each stage
@@ -270,18 +271,17 @@ class HucDirectory(object):
                 if os.path.isfile(bridge_pnts_file):
                     os.remove(bridge_pnts_file)
 
-                if not self.aggregate_bridge_pnts.empty:
-
+                if not self.agg_bridge_pnts.empty:
                     # Just making things shorter so they are easier to read
-                    bridge_pnts = self.aggregate_bridge_pnts
+                    bridge_pnts = self.agg_bridge_pnts
+                    bridge_pnts.to_file(bridge_pnts_file.replace('centroids', 'centroids_all'), index=False)
                     # Remove bridge points that have the same osmid and feature_id
-
                     g = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('min')
-                    bridge_pnts = bridge_pnts[(bridge_pnts['max_discharge'] == g)]
+                    bridge_pnts = bridge_pnts.copy()[(bridge_pnts['max_discharge'] == g)]
                     # Set backwater bridge sites
-                    c = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('count')
-                    bridge_pnts['is_backwater'] = False
-                    bridge_pnts.loc[(c > 1) & (bridge_pnts.branch_id != '0'), 'is_backwater'] = True
+                    bridge_pnts['is_backwater'] = 0
+                    c = bridge_pnts.groupby(['osmid'])['feature_id'].transform('count')
+                    bridge_pnts.loc[(c > 1) & (bridge_pnts.branch != '0'), 'is_backwater'] = 1
                     # Write file
                     bridge_pnts.to_file(bridge_pnts_file, index=False)
 
