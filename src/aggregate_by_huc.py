@@ -274,14 +274,19 @@ class HucDirectory(object):
                 if not self.agg_bridge_pnts.empty:
                     # Just making things shorter so they are easier to read
                     bridge_pnts = self.agg_bridge_pnts
-                    bridge_pnts.to_file(bridge_pnts_file.replace('centroids', 'centroids_all'), index=False)
+                    # Use branch 0 to get the feature_id each bridge crosses
+                    b0 = bridge_pnts.loc[bridge_pnts.branch == '0', ['osmid', 'feature_id']]
+                    b0 = b0.rename(columns={'feature_id': 'crossing_feature_id'})
+                    bridge_pnts = bridge_pnts.merge(b0, on='osmid', how='left')
                     # Remove bridge points that have the same osmid and feature_id
                     g = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('min')
                     bridge_pnts = bridge_pnts.copy()[(bridge_pnts['max_discharge'] == g)]
                     # Set backwater bridge sites
                     bridge_pnts['is_backwater'] = 0
                     c = bridge_pnts.groupby(['osmid'])['feature_id'].transform('count')
-                    bridge_pnts.loc[(c > 1) & (bridge_pnts.branch != '0'), 'is_backwater'] = 1
+                    bridge_pnts.loc[
+                        (c > 1) & (bridge_pnts.feature_id != bridge_pnts.crossing_feature_id), 'is_backwater'
+                    ] = 1
                     # Write file
                     bridge_pnts.to_file(bridge_pnts_file, index=False)
 
