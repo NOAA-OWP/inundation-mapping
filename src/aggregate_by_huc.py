@@ -309,7 +309,16 @@ class HucDirectory(object):
 # ==============================
 # This is done independantly in each worker and does not attempt to write to a shared file
 # as those can collide with multi proc
-def log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id, errMsg):
+def log_error(
+    fim_directory,
+    usgs_elev_flag,
+    hydro_table_flag,
+    src_cross_flag,
+    ras_elev_flag,
+    bridge_flag,
+    huc_id,
+    errMsg,
+):
     file_name = f"agg_by_huc_{huc_id}"
     if usgs_elev_flag:
         file_name += "_elev"
@@ -319,6 +328,8 @@ def log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, r
         file_name += "_src_cross"
     if ras_elev_flag:
         file_name += "_ras"
+    if bridge_flag:
+        file_name += "_bridge"
     file_name += "_error.log"
 
     log_path = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
@@ -450,9 +461,6 @@ def aggregate_by_huc(
                 errMsg,
             )
             # sys.exit(1)
-
-        # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(executor_dict, f"Running aggregate_by_huc with {num_job_workers} workers")
 
         # Send the executor to the progress bar and wait for all MS tasks to finish
         progress_bar_handler(executor_dict, f"Running aggregate_by_huc with {num_job_workers} workers")
