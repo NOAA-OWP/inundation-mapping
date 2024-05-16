@@ -28,7 +28,7 @@ class Gage2Branch(object):
 
     def load_gages(self):
         # Read USGS gage file a
-        usgs_gages = gpd.read_file(self.usgs_gage_filename, dtype={'location_id': object})
+        usgs_gages = gpd.read_file(self.usgs_gage_filename, dtype={'location_id': object}, engine='fiona')
         usgs_gages['source'] = 'usgs_gage'
 
         # Read RAS2FIM point locations file
@@ -135,7 +135,7 @@ class Gage2Branch(object):
                 fim_inputs = fim_inputs.drop(fim_inputs.loc[fim_inputs.huc == huc_dir].index)
                 continue
 
-            gages = gpd.read_file(gage_file)
+            gages = gpd.read_file(gage_file, engine='fiona')
             level_paths = gages.levpa_id
             fim_inputs = fim_inputs.drop(
                 fim_inputs.loc[(fim_inputs.huc == huc_dir) & (~fim_inputs.levpa_id.isin(level_paths))].index
