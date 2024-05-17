@@ -81,6 +81,7 @@ class GageCrosswalk(object):
         '''Reads gage geopackage from huc level and filters based on current branch id'''
 
         usgs_gages = gpd.read_file(gages_filename, engine='fiona')
+
         # TODO: Do we need project this usgs gages to huc_CRS as well?
         # usgs_gages.to_crs(huc_CRS, inplace=True)
         return usgs_gages[(usgs_gages.levpa_id == self.branch_id)]
