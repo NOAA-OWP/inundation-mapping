@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## vx.x.x.x - 2024-05-16 - [PR#1159](https://github.com/NOAA-OWP/inundation-mapping/pull/1159)
+## v4.5.0.2 - 2024-05-17 - [PR#1159](https://github.com/NOAA-OWP/inundation-mapping/pull/1159)
 
 This PR addresses issue #1132 and include the following changes on `tools/generate_nws_lid.py` for updating `nws_lid.gpkg` dataset.
 
@@ -14,7 +14,6 @@ The lid stations in AK (Alaska), HI, and PR, with above two criteria have also b
 Also, In this revised version, I've eliminated the code sections that previously generated the "is_headwater" and "is_colocated" columns, which are not needed in FIM4. Therefore, in this updated version, these columns are no longer present. 
 
 Similar to 'usgs_gages.gpkg' dataset, all lid stations, including those in Alaska, are stored in a single gpkg file (`nws_lid.gpkg`) with EPSG=5070. The Alaska stations can be identified using their HUC8 numbers (beginning with '19'). 
-
 
 
 ### Changes
