@@ -57,12 +57,12 @@ class GageCrosswalk(object):
         to usgs_elev_table.csv
         '''
         if self.gages.empty:
-            print(f'There are no gages for branch {branch_id}')
+            print(f'There are no gages for branch {self.branch_id}')
             os._exit(0)
         # Spatial join to fim catchments
         self.catchment_sjoin(input_catchment_filename, huc_CRS)
         if self.gages.empty:
-            print(f'There are no gages for branch {branch_id}')
+            print(f'There are no gages for branch {self.branch_id}')
             os._exit(0)
 
         # Snap to dem derived flow lines
@@ -80,7 +80,8 @@ class GageCrosswalk(object):
     def _load_gages(self, gages_filename):
         '''Reads gage geopackage from huc level and filters based on current branch id'''
 
-        usgs_gages = gpd.read_file(gages_filename)
+        usgs_gages = gpd.read_file(gages_filename, engine='fiona')
+
         # TODO: Do we need project this usgs gages to huc_CRS as well?
         # usgs_gages.to_crs(huc_CRS, inplace=True)
         return usgs_gages[(usgs_gages.levpa_id == self.branch_id)]
