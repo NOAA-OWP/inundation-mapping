@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## vx.x.x.x - 2024-05-17 - [PR#1170](https://github.com/NOAA-OWP/inundation-mapping/pull/1170)
+
+This hotfix addresses the issue #1162 by explicitly using 'fiona' engine for reading gpkg files with Boolean dtype. This is applicable only for `usgs_gages.gpkg` and `usgs_subset_gages.gpkg` files. 
+
+
+
+### Changes
+- `src/usgs_gage_unit_setup.py`  ... changed only two lines for fiona engine
+- `src/usgs_gage_crosswalk.py` ...  changed only one line for fiona engine + two small changes to use `self.branch_id` for the correct log report
+- `tools/rating_curve_comparison.py`...  changed only one line for fiona engine
+
+<br/><br/>
+
+
 ## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
 Fixes two bugs discovered in v4.5.0.0:
