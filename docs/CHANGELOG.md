@@ -3,7 +3,6 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.5.1.2 - 2024-05-17 - [PR#1135](https://github.com/NOAA-OWP/inundation-mapping/pull/1135)
 
-
 Updates USGS gage processing to use the correct projection (determined by whether the HUC is in Alaska or not).
 
 ### Changes
