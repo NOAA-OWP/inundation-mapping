@@ -4,12 +4,16 @@ import argparse
 import os
 
 import fiona
+import fiona._env
+import fiona.env
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import rasterio._env
+from osgeo import gdal
 
 
-gpd.options.io_engine = "pyogrio"
+# gpd.options.io_engine = "pyogrio"
 
 
 def create_flow_forecast_file(
@@ -58,6 +62,10 @@ def create_flow_forecast_file(
     print(" ******************************************")
     # print(locals())
 
+    # gdal.SetConfigOption('GDAL_DATA', rasterio._env.get_gdal_data())
+    # gdal.SetConfigOption('CPL_LOG', '/dev/null')
+    # gdal.SetConfigOption('CPL_DEBUG', 'OFF')
+
     def fill_missing_flows(forecast: pd.DataFrame, nwm_river_layer: pd.DataFrame):
         """
         This function will fill in missing flows in the forecast dataframe.
@@ -84,7 +92,7 @@ def create_flow_forecast_file(
 
             nonintersects = merged[merged['discharge'].isna()]
 
-            print(f'Iteration {n}. {len(nonintersects)} segments remaining.')
+            # print(f'Iteration {n}. {len(nonintersects)} segments remaining.')
 
             updated = False
             for i, row in nonintersects.iterrows():
@@ -175,7 +183,6 @@ def create_flow_forecast_file(
         forecast['discharge'] = forecast['discharge'] * dischargeMultiplier
 
         # Assign flow to segments missing flows
-        print(f'Filling in missing flows for {return_period[i]} flow.')
         forecast = fill_missing_flows(forecast, nwm_river_layer)
 
         # Set paths and write file
@@ -184,6 +191,8 @@ def create_flow_forecast_file(
         os.makedirs(dir_of_csv, exist_ok=True)
         path_to_csv = os.path.join(dir_of_csv, "ble_huc_{}_flows_{}.csv".format(huc, return_period[i]))
         forecast.to_csv(path_to_csv, index=False)
+
+    return
 
 
 if __name__ == '__main__':

@@ -5,12 +5,20 @@ import logging
 
 import numpy as np
 import rasterio
+import rasterio._env
 
-# import rasterio._env
 # import rasterio._path
 # import rasterio.enums
 import rasterio.mask
+from osgeo import gdal
 from rasterio.warp import Resampling, calculate_default_transform, reproject
+
+
+# gdal.SetConfigOption('GDAL_DATA', rasterio._env.get_gdal_data())
+# gdal.SetConfigOption('CPL_LOG', 'NUL')
+# gdal.SetConfigOption('CPL_DEBUG', 'OFF')
+# gdal.SetConfigOption('OLC_FASTSETNEXTBYINDEX', '1')
+# gdal.SetConfigOption('OLC_FASTFEATURECOUNT', '1')
 
 
 def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_path=None):
@@ -39,19 +47,16 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
 
     '''
 
-    # gdal.SetConfigOption('CPL_LOG', '/dev/null')
-    # gdal.SetConfigOption('CPL_DEBUG', 'False')
-
-    # with rasterio.Env(CPL_DEBUG=False,
+    # with rasterio.Env(CPL_DEBUG="OFF"):
     #                   GDAL_CACHEMAX=536870912,
-    #                   CPL_CURL_VERBOSE=False,
     #                   GDAL_DATA=rasterio._env.get_gdal_data() ):
 
     # Open and read raster and benchmark rasters
-    logging.info(f"--- Opening reference_raster: {reference_raster}")
-    reference = rasterio.open(reference_raster, "r")
-    logging.info(f"--- Opening benchmark_raster: {benchmark_raster}")
-    benchmark = rasterio.open(benchmark_raster, "r")
+    # logging.info(f"--- Opening reference_raster: {reference_raster}")
+    # with rasterio.Env():
+    reference = rasterio.open(reference_raster)
+    # logging.info(f"--- Opening benchmark_raster: {benchmark_raster}")
+    benchmark = rasterio.open(benchmark_raster)
     benchmark_arr = benchmark.read(1)
 
     # Set arbitrary no data value that is not possible value of the benchmark dataset. It is reassigned later.
