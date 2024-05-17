@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-05-15 - [PR#1155](https://github.com/NOAA-OWP/inundation-mapping/pull/1155)
+
+Download and process the latest BLE benchmark data.
+
+### Changes
+- `data/ble/ble_benchmark`:
+     - `create_ble_benchmark.py`: Added logging system, added GDAL config to control output messages, add system to cleanup temp working files.
+     - `create_flow_forecast_file.py`: Add logging system.
+     - `preprocess_benchmark.py`: Adjust GDAL to control excess output.
+
+- `src/utils`:
+   - `shared_validators.py`: Add function to valid if huc is good.
+
+<br/><br/>
+
+
 ## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
 Fixes two bugs discovered in v4.5.0.0:

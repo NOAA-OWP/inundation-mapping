@@ -67,3 +67,38 @@ def is_valid_crs(crs):
         return False, err_msg, ""
 
     return True, "", crs_number
+
+
+# -------------------------------------------------
+def is_valid_huc(huc_number):
+    """
+    Returns:
+        - First is bool (True or False). True meaning it is a valid huc
+        - Second is a string, which might be empty, but if failed, then this will be the reason for failure
+
+        It is up to the calling code to decide if an exception should be raised.
+
+    Usage:
+        valid_huc, err_msg = is_valid_huc(huc_number)
+
+        (if you choose to hand it this way....)
+        if (valid_huc == False):
+            raise ValueError(err_msg)
+
+    """
+
+    err_msg = ""
+
+    if huc_number is None:
+        err_msg = "huc number not set"
+        return False, err_msg
+
+    if len(str(huc_number)) != 8:
+        err_msg = f"huc number of {huc_number} is not eight characters in length"
+        return False, err_msg
+
+    if huc_number.isnumeric() is False:
+        err_msg = f"huc number of {huc_number} is not a number"
+        return False, err_msg
+
+    return True, ""

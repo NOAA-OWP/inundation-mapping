@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 
 import numpy as np
 import rasterio
+import rasterio._env
 import rasterio.mask
+from osgeo import gdal
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 
 
@@ -33,8 +36,10 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
             (required for writing to output dataset).
 
     '''
-    # Open and read raster and benchmark rasters
+
+    # with rasterio.Env():
     reference = rasterio.open(reference_raster)
+    # logging.info(f"--- Opening benchmark_raster: {benchmark_raster}")
     benchmark = rasterio.open(benchmark_raster)
     benchmark_arr = benchmark.read(1)
 
@@ -86,6 +91,7 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
             # Write out reassigned values to raster dataset
             with rasterio.open(out_raster_path, 'w', **profile) as dst:
                 dst.write(boolean_benchmark.astype('int8'), 1)
+
     return boolean_benchmark.astype('int8'), profile
 
 
