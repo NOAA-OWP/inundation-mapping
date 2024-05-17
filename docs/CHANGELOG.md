@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.___ - 2024-05-17 - [PR#1135](https://github.com/NOAA-OWP/inundation-mapping/pull/1135)
+
+
+Updates USGS gage processing to use the correct projection (determined by whether the HUC is in Alaska or not).
+
+### Changes
+- `src/run_by_branch.sh`: Added `huc_CRS` as an input argument for `usgs_gage_crosswalk.py`
+- `src/run_unit_wb.sh`: Added `huc_CRS` as an input argument for `usgs_gage_unit_setup.py` and `usgs_gage_crosswalk.py`
+- `src/usgs_gage_crosswalk.py`: Added `huc_CRS` as an input argument for the `run_crosswalk()` function and added re-projection steps wherever new data is being read in so that the files are able to be properly merged.
+- `src/usgs_gage_unit_setup.py`: Added `huc_CRS` as an input argument for the `Gage2Branch()` crosswalking class.
+
+<br/><br/>
+
 ## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
 Fixes two bugs discovered in v4.5.0.0:
