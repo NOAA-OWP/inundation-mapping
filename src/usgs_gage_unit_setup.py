@@ -19,17 +19,18 @@ warnings.simplefilter("ignore")
 
 
 class Gage2Branch(object):
-    def __init__(self, usgs_gage_filename, ras_locs_filename, ahps_filename, huc8):
+    def __init__(self, usgs_gage_filename, ras_locs_filename, ahps_filename, huc8, huc_CRS):
         self.usgs_gage_filename = usgs_gage_filename
         self.ras_locs_filename = ras_locs_filename
         self.ahps_filename = ahps_filename
         self.huc8 = str(huc8)
-        self.load_gages()
+        self.load_gages(huc_CRS)
 
-    def load_gages(self):
+    def load_gages(self, huc_CRS):
         # Read USGS gage file a
         usgs_gages = gpd.read_file(self.usgs_gage_filename, dtype={'location_id': object})
         usgs_gages['source'] = 'usgs_gage'
+        usgs_gages.to_crs(huc_CRS, inplace=True)
 
         # Read RAS2FIM point locations file
         # !!! Geopandas is not honoring the dtype arg with this read_file below (huc8 being read as int64).
@@ -39,7 +40,7 @@ class Gage2Branch(object):
         ras_locs['location_id'] = ras_locs['fid_xs']
 
         # Convert ras locs crs to match usgs gage crs
-        ras_locs.to_crs(usgs_gages.crs, inplace=True)
+        ras_locs.to_crs(huc_CRS, inplace=True)
         ras_locs = ras_locs.rename(columns={'huc8': 'HUC8'})
 
         # Convert Multipoint geometry to Point geometry
@@ -66,6 +67,7 @@ class Gage2Branch(object):
             ahps_sites = ahps_sites.rename(
                 columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}
             )
+            ahps_sites.to_crs(huc_CRS, inplace=True)
             ahps_sites = ahps_sites[
                 ahps_sites.location_id.isna()
             ]  # Filter sites that are already in the USGS dataset
@@ -163,6 +165,13 @@ if __name__ == '__main__':
         help='WARNING: only run this parameter if you know exactly what you are doing',
         required=False,
     )
+    parser.add_argument(
+        '-huc_CRS',
+        '--huc_CRS',
+        help='Projection to use (based on whether the HUC is in Alaska or CONUS).',
+        type=str,
+        required=True,
+    )
 
     args = vars(parser.parse_args())
 
@@ -174,9 +183,12 @@ if __name__ == '__main__':
     huc8 = args['huc8_id']
     bzero_id = args['branch_zero_id']
     filter_fim_inputs = args['filter_fim_inputs']
+    huc_CRS = args['huc_CRS']
 
     if not filter_fim_inputs:
-        usgs_gage_subset = Gage2Branch(usgs_gages_filename, ras_locs_filename, nws_lid_filename, huc8)
+        usgs_gage_subset = Gage2Branch(
+            usgs_gages_filename, ras_locs_filename, nws_lid_filename, huc8, huc_CRS
+        )
         if usgs_gage_subset.gages.empty:
             print(f'There are no gages identified for {huc8}')
             os._exit(0)

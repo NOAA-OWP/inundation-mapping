@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.1.2 - 2024-05-17 - [PR#1135](https://github.com/NOAA-OWP/inundation-mapping/pull/1135)
+
+Updates USGS gage processing to use the correct projection (determined by whether the HUC is in Alaska or not).
+
+### Changes
+- `src/run_by_branch.sh`: Added `huc_CRS` as an input argument for `usgs_gage_crosswalk.py`
+- `src/run_unit_wb.sh`: Added `huc_CRS` as an input argument for `usgs_gage_unit_setup.py` and `usgs_gage_crosswalk.py`
+- `src/usgs_gage_crosswalk.py`: Added `huc_CRS` as an input argument for the `run_crosswalk()` function and added re-projection steps wherever new data is being read in so that the files are able to be properly merged.
+- `src/usgs_gage_unit_setup.py`: Added `huc_CRS` as an input argument for the `Gage2Branch()` crosswalking class.
+
+<br/><br/>
+
 ## v4.5.1.1 - 2024-05-17 - [PR#1094](https://github.com/NOAA-OWP/inundation-mapping/pull/1094)
 
 Extends flows (i.e., discharge) to stream segments missing from NWS and USGS validation flow files. The levelpath associated with existing flows in the AHPS domain is identified, and any stream segments of the levelpath in the domain missing from the flow file are added to the flow file by assigning the existing flow (this is a constant value regardless of other tributaries including other levelpaths in the domain). Stream segments not on the levelpath are dropped from the flow file, including tributary flows. The original flow file is saved along with the output with an appended `.bak`.
