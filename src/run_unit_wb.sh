@@ -119,13 +119,12 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
 [ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && \
 gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" \
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    -co "BIGTIFF=YES" -t_srs $huc_CRS $input_DEM $tempHucDataDir/dem_meters.tif
+    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res $input_DEM $tempHucDataDir/dem_meters.tif
 
-Tcount
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
+read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
     <<<$($srcDir/getRasterInfoNative.py $tempHucDataDir/dem_meters.tif)
 
 ## RASTERIZE NLD MULTILINES ##
