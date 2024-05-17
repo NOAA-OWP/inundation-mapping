@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-05-16 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
+
+This focuses on removing hydro-conditioning artifacts by subtracting the thalweg DEM from HAND REM and adding back the original DEM. Also, a new tool was created to test this feature over multiple HUCs
+
+### Additions
+- `tools/analyze_for_missing_FIM_cells.py`: A new script `analyze_for_missing_FIM_cells.py` was added to test and analyze healed HAND for hydro-conditioning artifacts FIM. 
+
+### Changes
+- `src/delineate_hydros_and_produce_HAND.sh`: Removing hydro-conditioning artifacts from HAND REM.
+- `config/params_template.env`: Creating an option to include/exclude healed HAND from FIM pipeline.
+
+### Testing
+This PR has been tested over 2 HUC8s including 12090301 and 01080107.
+
+<br/><br/>
+
 ## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
 Fixes two bugs discovered in v4.5.0.0:
