@@ -6,19 +6,9 @@ import logging
 import numpy as np
 import rasterio
 import rasterio._env
-
-# import rasterio._path
-# import rasterio.enums
 import rasterio.mask
 from osgeo import gdal
 from rasterio.warp import Resampling, calculate_default_transform, reproject
-
-
-# gdal.SetConfigOption('GDAL_DATA', rasterio._env.get_gdal_data())
-# gdal.SetConfigOption('CPL_LOG', 'NUL')
-# gdal.SetConfigOption('CPL_DEBUG', 'OFF')
-# gdal.SetConfigOption('OLC_FASTSETNEXTBYINDEX', '1')
-# gdal.SetConfigOption('OLC_FASTFEATURECOUNT', '1')
 
 
 def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_path=None):
@@ -47,12 +37,6 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
 
     '''
 
-    # with rasterio.Env(CPL_DEBUG="OFF"):
-    #                   GDAL_CACHEMAX=536870912,
-    #                   GDAL_DATA=rasterio._env.get_gdal_data() ):
-
-    # Open and read raster and benchmark rasters
-    # logging.info(f"--- Opening reference_raster: {reference_raster}")
     # with rasterio.Env():
     reference = rasterio.open(reference_raster)
     # logging.info(f"--- Opening benchmark_raster: {benchmark_raster}")

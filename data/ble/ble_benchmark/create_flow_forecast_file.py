@@ -60,11 +60,6 @@ def create_flow_forecast_file(
     '''
 
     print(" ******************************************")
-    # print(locals())
-
-    # gdal.SetConfigOption('GDAL_DATA', rasterio._env.get_gdal_data())
-    # gdal.SetConfigOption('CPL_LOG', '/dev/null')
-    # gdal.SetConfigOption('CPL_DEBUG', 'OFF')
 
     def fill_missing_flows(forecast: pd.DataFrame, nwm_river_layer: pd.DataFrame):
         """

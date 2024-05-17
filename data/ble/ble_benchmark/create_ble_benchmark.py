@@ -16,8 +16,6 @@ from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
-
-# import fiona
 import rasterio
 from create_flow_forecast_file import create_flow_forecast_file
 from osgeo import gdal
@@ -34,11 +32,6 @@ def __setup_logger(output_folder_path):
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_name = f"create_ble_benchmark-{file_dt_string}.log"
     log_file_path = os.path.join(output_folder_path, log_file_name)
-
-    # logging.basicConfig(
-    #     format='%(asctime)s -- ',
-    #     level=logging.INFO,
-    #     datefmt='%Y-%m-%d %H:%M:%S')
 
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
@@ -65,6 +58,7 @@ def create_ble_benchmark(
     nwm_stream_layer_name: str,
     nwm_feature_id_field: str,
     huc: str = None,
+    num_jobs: int = 1,
 ):
     """
     Downloads and preprocesses BLE benchmark datasets for purposes of evaluating FIM output.
@@ -148,6 +142,7 @@ def create_ble_benchmark(
     logging.info("")
 
     num_recs = len(spatial_df)
+
     for i, row in spatial_df.iterrows():
         huc = row['HUC']
         logging.info("++++++++++++++++++++++++++")
@@ -245,9 +240,6 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
     # Download and unzip each file
     hucs = []
-    # huc_names = []
-    # out_files = []
-    # out_list = []
 
     logging.info("=======================================")
     logging.info("Extracting and downloading spatial data")
@@ -266,8 +258,6 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
         logging.info(f"URL is {url}")
 
         huc, huc_name = os.path.basename(os.path.dirname(url)).split('_')
-        # hucs.append(huc)
-        # huc_names.append(huc_name)
 
         # Check to ensure it is a valid HUC (some are not)
         is_ble_huc_valid, ___ = is_valid_huc(huc)
@@ -281,76 +271,63 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
         spatial_df.at[idx, 'HUC_Name'] = huc_name
 
         hucs.append(huc)
-        # huc_names.append(huc_name)
 
         # logging.info
         logging.info(f"{huc} : Downloading and extracting for {huc_name}")
 
         # Download file
-        save_file = os.path.join(save_folder, os.path.basename(url))
-        logging.info(f"{huc} : Saving download file to {save_file}")
-        if not os.path.exists(save_file):
-            http_response = urlopen(url)
-            zipfile = ZipFile(BytesIO(http_response.read()))
-            zipfile.extractall(path=save_file)
-        else:
-            logging.info(f"{huc} : File already exists. Skipping download.")
+        try:
+            save_file = os.path.join(save_folder, os.path.basename(url))
+            logging.info(f"{huc} : Saving download file to {save_file}")
+            if not os.path.exists(save_file):
+                http_response = urlopen(url)
+                zipfile = ZipFile(BytesIO(http_response.read()))
+                zipfile.extractall(path=save_file)
+            else:
+                logging.info(f"{huc} : File already exists. Skipping download.")
+        except Exception:
+            logging.info(f"HUC {huc} - An error with downloading and unzipping.")
+            logging.info(traceback.format_exc())
+            continue
 
         # Loading gdb
         logging.info(f"{huc} : Loading gdb")
         gdb_list = glob(os.path.join(save_file, '**', '*.gdb'), recursive=True)
 
         if len(gdb_list) == 1:
-            ble_geodatabase = gdb_list[0]
-            src_ds = gdal.Open(ble_geodatabase, gdal.GA_ReadOnly)
-            subdatasets = src_ds.GetSubDatasets()
-
-            src_ds = None
-
-            # Find depth rasters
             raster_paths = []
-            for depth_raster in depth_rasters:
-                out_file = os.path.join(save_folder, f'{huc}_{depth_raster}.tif')
+            try:
+                ble_geodatabase = gdb_list[0]
+                src_ds = gdal.Open(ble_geodatabase, gdal.GA_ReadOnly)
+                subdatasets = src_ds.GetSubDatasets()
 
-                if not os.path.exists(out_file):
-                    # Read raster data from GDB
-                    logging.info(f'{huc} : Reading {depth_raster}')
-                    depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
+                src_ds = None
 
-                    if extract_raster(huc, depth_raster_path, out_file) is False:
-                        continue
+                # Find depth rasters
+                for depth_raster in depth_rasters:
+                    out_file = os.path.join(save_folder, f'{huc}_{depth_raster}.tif')
 
-                raster_paths.append(out_file)
+                    if not os.path.exists(out_file):
+                        # Read raster data from GDB
+                        logging.info(f'{huc} : Reading {depth_raster}')
+                        depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
 
-                # out_list.append(out_file)
+                        if extract_raster(huc, depth_raster_path, out_file) is False:
+                            continue
+
+                    raster_paths.append(out_file)
+
+            except Exception:
+                logging.info(f"HUC {huc} - An error with getting rasters.")
+                logging.info(traceback.format_exc())
+                continue
 
             if len(raster_paths) > 0:
                 spatial_df.at[idx, 'raster_paths'] = raster_paths
 
-            # huc_names.append(huc_name)
-            # out_files.append(str(huc_rasters))
-
-        # if len(out_list) > 0:
-        #    out_files.append(out_list)
-
     if len(hucs) == 0:
         logging.info("No valid rasters remain. System aborted.")
         sys.exit(1)
-
-    # this is ugly
-
-    # print(spatial_df)
-
-    # print("final hucs")
-    # print(hucs)
-    # print(huc_names)
-    # print(out_files)
-
-    # spatial_df['HUC'] = hucs
-    # spatial_df['HUC_Name'] = huc_names
-    # spatial_df['raster_paths'] = out_files
-
-    # print(out_files)
 
     spatial_df.to_csv(os.path.join(save_folder, "spatial_db_w_rasters.csv"), header=True, index=False)
     print()
@@ -474,6 +451,14 @@ if __name__ == '__main__':
         help='id field for nwm streams. Not required if NWM v2.1 is used (default id field is "ID")',
         required=False,
         default='ID',
+    )
+    parser.add_argument(
+        '-j',
+        '--num_jobs',
+        help='Number of jobs - aka: number of multi processes allowed to run at one time',
+        required=False,
+        default=1,
+        type=int,
     )
 
     args = vars(parser.parse_args())
