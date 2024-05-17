@@ -14,6 +14,56 @@ Updates USGS gage processing to use the correct projection (determined by whethe
 
 <br/><br/>
 
+## v4.5.1.1 - 2024-05-17 - [PR#1094](https://github.com/NOAA-OWP/inundation-mapping/pull/1094)
+
+Extends flows (i.e., discharge) to stream segments missing from NWS and USGS validation flow files. The levelpath associated with existing flows in the AHPS domain is identified, and any stream segments of the levelpath in the domain missing from the flow file are added to the flow file by assigning the existing flow (this is a constant value regardless of other tributaries including other levelpaths in the domain). Stream segments not on the levelpath are dropped from the flow file, including tributary flows. The original flow file is saved along with the output with an appended `.bak`.
+
+### Additions
+
+- `data/extend_benchmark_flows.py`: Adds missing flows to NWS or USGS benchmark flow files and removes flows from tributaries. The original flow file is saved with an appended `.bak`.
+
+### Changes
+
+- `tools/tools_shared_variables.py`: Removed corrected flow files from `BAD_SITES` list.
+
+<br/><br/>
+
+## v4.5.1.0 - 2024-05-17 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
+
+This focuses on removing hydro-conditioning artifacts by subtracting the thalweg DEM from HAND REM and adding back the original DEM. Also, a new tool was created to test this feature over multiple HUCs
+
+### Additions
+- `tools/analyze_for_missing_FIM_cells.py`: A new script `analyze_for_missing_FIM_cells.py` was added to test and analyze healed HAND for hydro-conditioning artifacts FIM. 
+
+### Changes
+- `src/delineate_hydros_and_produce_HAND.sh`: Removing hydro-conditioning artifacts from HAND REM.
+- `config/params_template.env`: Creating an option to include/exclude healed HAND from FIM pipeline.
+
+
+<br/><br/>
+
+## v4.5.0.2 - 2024-05-17 - [PR#1159](https://github.com/NOAA-OWP/inundation-mapping/pull/1159)
+
+This PR addresses issue #1132 and include the following changes on `tools/generate_nws_lid.py` for updating `nws_lid.gpkg` dataset.
+
+In this revised version, stations only from these two groups are retrieved:
+- lid stations with `rfc_forecast_point= True` 
+- lid stations in `/data/inputs/ahp_sites/evaluated_ahps_sites.csv`
+
+The lid stations in AK (Alaska), HI, and PR, with above two criteria have also been selected, as shown in the map below. In the previous version of the code, **all of lid stations** in PR and HI (regardless of meeting above two criteria), were also being retrieved. I have updated this version to exclude such stations. 
+
+Also, In this revised version, I've eliminated the code sections that previously generated the "is_headwater" and "is_colocated" columns, which are not needed in FIM4. Therefore, in this updated version, these columns are no longer present. 
+
+Similar to 'usgs_gages.gpkg' dataset, all lid stations, including those in Alaska, are stored in a single gpkg file (`nws_lid.gpkg`) with EPSG=5070. The Alaska stations can be identified using their HUC8 numbers (beginning with '19'). 
+
+
+### Changes
+- tools/generate_nws_lid.py
+
+<br/><br/>
+
+
+
 ## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
 Fixes two bugs discovered in v4.5.0.0:
