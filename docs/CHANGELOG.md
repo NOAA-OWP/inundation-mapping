@@ -16,6 +16,19 @@ Removes loading of `apache-arrow` repository from the Dockerfile where it was ca
 ## v4.5.x.x - 2024-05-09 - [PR#1154](https://github.com/NOAA-OWP/inundation-mapping/pull/1154)
 
 A number of python packages were updated in this PR. You will need to build a new Docker image for this release.
+## v4.5.2.0 - 2024-05-20 - [PR#1166](https://github.com/NOAA-OWP/inundation-mapping/pull/1166)
+
+The main goal of this PR is to create bridge point data that be used as a service in HydroVIS. Since every branch processes bridges separately, it's possible to inundate a bridge from more than just the feature_id it crosses. To reflect this, the `osm_bridge_centroids.gpkg` now found in HUC directories will have coincident points - one that is inundated from the reach it crosses and the other a backwater-influenced point indicated by the `is_backwater` field.
+
+### Changes
+
+- ` src/`
+    - `aggregate_by_huc.py`: Added the aggregation steps for bridge centroids; aggregation includes using SRCs to lookup flow values for each bridge, filtering out coincident points that have the same assigned feature_ids and higher overtopping flow, and assigning select points as backwater-influenced.
+    - ` delineate_hydros_and_produce_HAND.sh`: Moved the bridge healing to after the crosswalk so that the centroids can use the crosswalked catchments for feature_id and flow lookups.
+    -  `heal_bridges_osm.py`: Optimized the bridge healing so that it doesn't have to write out an intermediate raster; exports bridge centroids and spatial joins them to catchments; added functions for SRC flow lookups used in `aggregate_by_huc.py`.
+- ` fim_post_processing.sh`: Added a bridge flag input for `aggregate_by_huc.py`.
+- `data/bridges/pull_osm_bridges.py`: Removed the saving of a midpoint geopackage.
+- `config/deny_branch_zero.lst` & `deny_branches.lst`: Added `#osm_bridge_centroids_{}.gpkg` to the deny lists.
 
 <br/><br/>
 
