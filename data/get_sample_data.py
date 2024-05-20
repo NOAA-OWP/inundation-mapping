@@ -166,6 +166,10 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
     ## huc_lists
     copy_folder(os.path.join(input_path, 'huc_lists'), os.path.join(output_inputs_path, 'huc_lists'))
 
+    ## osm
+    osm = os.path.join('osm', 'bridges', '240426')
+    copy_file(os.path.join(input_path, osm), os.path.join(output_inputs_path, osm), 'osm_all_bridges.gpkg')
+
     ## nld_vectors
     copy_file(
         os.path.join(input_path, 'nld_vectors'),
