@@ -353,11 +353,14 @@ def generate_catfim_flows(
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     start_dt = datetime.now()
 
-    test_lst = ['19020302', '19020505', '19020201', '19020401'] ## TEMP DEBUG HUC LIST
+    huc_lst = ['19020302', '19020505', '19020201', '19020401'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    # run_all_hucs = False ## TODO: Add as argument input
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            if huc in test_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
+            if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
+            # if (huc in huc_lst or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
+
                 print(f'HUC: {huc}') # TEMP DEBUG
 
                 if huc[:2] == '19':
