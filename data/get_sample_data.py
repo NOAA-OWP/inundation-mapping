@@ -7,7 +7,9 @@ import shutil
 import subprocess
 
 from dotenv import load_dotenv
-from tools_shared_variables import INPUTS_DIR, OUTPUTS_DIR, TEST_CASES_DIR
+
+
+# from tools_shared_variables import INPUTS_DIR, OUTPUTS_DIR, TEST_CASES_DIR
 
 
 load_dotenv('/foss_fim/src/bash_variables.env')
@@ -15,14 +17,14 @@ load_dotenv('/foss_fim/src/bash_variables.env')
 pre_clip_huc_dir = os.environ["pre_clip_huc_dir"]
 
 
-def make_inputs(huc_list, data_path: str = INPUTS_DIR, output_root_folder: str = OUTPUTS_DIR):
+def get_sample_data(huc, data_path: str, output_root_folder: str):
     """
     Create input data for the flood inundation model
 
     Parameters
     ----------
-    huc_list : str
-        HUCs to process
+    huc : str
+        HUC to process
     input_path : str
         Path to the input data
     output_root_folder : str
@@ -114,24 +116,25 @@ def make_inputs(huc_list, data_path: str = INPUTS_DIR, output_root_folder: str =
 
     output_inputs_path = os.path.join(output_root_folder, 'inputs')
 
-    if isinstance(huc_list, str):
-        huc_list = [huc_list]
+    if isinstance(huc, str):
+        huc = [huc]
     else:
-        huc_list = huc_list.split(',')
+        huc = huc.split(',')
 
     if not os.path.exists(input_path):
         raise FileNotFoundError(f'{input_path} does not exist')
 
     ## 3dep_dems
-    dem_input_path = os.path.join(input_path, '3dep_dems', '10m_5070')
-    dem_output_path = os.path.join(output_inputs_path, '3dep_dems', '10m_5070')
+    dem_path = os.path.join('3dep_dems', '10m_5070')
+    dem_input_path = os.path.join(input_path, dem_path)
+    dem_output_path = os.path.join(output_inputs_path, dem_path)
 
     os.makedirs(dem_output_path, exist_ok=True)
 
     # dem_domain
     copy_file(dem_input_path, dem_output_path, 'HUC6_dem_domain.gpkg')
 
-    for huc in huc_list:
+    for huc in huc:
         # dem
         copy_file(dem_input_path, dem_output_path, f'HUC6_{huc[:6]}_dem.tif')
 
@@ -221,13 +224,17 @@ def make_inputs(huc_list, data_path: str = INPUTS_DIR, output_root_folder: str =
         'usgs_rating_curves.csv',
     )
 
+    ## recurr_flows
+    recurr_flows = os.path.join('inundation_review', 'inundation_nwm_recurr', 'nwm_recurr_flow_data')
+    copy_folder(os.path.join(data_path, recurr_flows), os.path.join(output_root_folder, recurr_flows))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create input data for the flood inundation model')
-    parser.add_argument('-u', '--huc-list', help='HUCs to process')
+    parser.add_argument('-u', '--huc', help='HUC to process')
     parser.add_argument('-i', '--data-path', help='Path to the input data')
     parser.add_argument('-o', '--output-root-folder', help='Path to save the output data')
 
     args = parser.parse_args()
 
-    make_inputs(**vars(args))
+    get_sample_data(**vars(args))
