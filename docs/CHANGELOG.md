@@ -1,10 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.5.x.x - 2024-05-20 - [PR#1172](https://github.com/NOAA-OWP/inundation-mapping/pull/1172)
+
+Removes loading of `apache-arrow` repository from the Dockerfile where it was causing a GPG key error during `docker build`.
+
+### Changes
+
+- Dockerfile: Adds a line remove the loading of apache-arrow during `apt-get update`.
+
+<br/><br/>
+
 ## v4.5.1.3 - 2024-05-17 - [PR#1170](https://github.com/NOAA-OWP/inundation-mapping/pull/1170)
 
 This hotfix addresses the issue #1162 by explicitly using 'fiona' engine for reading gpkg files with Boolean dtype. This is applicable only for `usgs_gages.gpkg` and `usgs_subset_gages.gpkg` files. 
-
 
 ### Changes
 - `src/usgs_gage_unit_setup.py`  ... changed only two lines for fiona engine
@@ -12,7 +22,6 @@ This hotfix addresses the issue #1162 by explicitly using 'fiona' engine for rea
 - `tools/rating_curve_comparison.py`...  changed only one line for fiona engine
 
 <br/><br/>
-
 
 ## v4.5.1.2 - 2024-05-17 - [PR#1135](https://github.com/NOAA-OWP/inundation-mapping/pull/1135)
 
@@ -51,7 +60,6 @@ This focuses on removing hydro-conditioning artifacts by subtracting the thalweg
 - `src/delineate_hydros_and_produce_HAND.sh`: Removing hydro-conditioning artifacts from HAND REM.
 - `config/params_template.env`: Creating an option to include/exclude healed HAND from FIM pipeline.
 
-
 <br/><br/>
 
 ## v4.5.0.2 - 2024-05-17 - [PR#1159](https://github.com/NOAA-OWP/inundation-mapping/pull/1159)
@@ -68,12 +76,10 @@ Also, In this revised version, I've eliminated the code sections that previously
 
 Similar to 'usgs_gages.gpkg' dataset, all lid stations, including those in Alaska, are stored in a single gpkg file (`nws_lid.gpkg`) with EPSG=5070. The Alaska stations can be identified using their HUC8 numbers (beginning with '19'). 
 
-
 ### Changes
 - tools/generate_nws_lid.py
 
 <br/><br/>
-
 
 ## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
@@ -127,7 +133,6 @@ Some NWM streams, particularly in coastal areas, fail to reach the edge of the D
 
 <br/><br/>
 
-
 ## v4.4.15.4 - 2024-05-06 - [PR#1115](https://github.com/NOAA-OWP/inundation-mapping/pull/1115)
 
 This PR addresses issue #1040 and includes the following updates:
@@ -155,9 +160,7 @@ Fixes a KeyError in `src/mitigate_branch_outlet_backpool.py`.
 
 `src/mitigate_branch_outlet_backpool.py`: Addresses case where `catchments_df['outlier']` are all False.
 
-
 <br/><br/>
-
 
 ## v4.4.15.2 - 2024-05-06 - [PR#1133](https://github.com/NOAA-OWP/inundation-mapping/pull/1133)
 
@@ -213,7 +216,6 @@ Adds checks for intermediate files produced by Whitebox in the AGREE process (`s
 
 <br/><br/>
 
-
 ## v4.4.14.0 - 2024-04-17 - [PR#1106](https://github.com/NOAA-OWP/inundation-mapping/pull/10106)
 
 Updates the FIM pipeline so it can process HUCs in southern Alaska. Running FIM in southern Alaska requires that a different CRS and a few different files be used. Additionally, some of the Alaska HUCs displayed an issue where the input stream density was too high, so this update introduces some logic to adjust the threshold of stream orders to exclude based on whether an Alaska HUC is listed as high or medium-high stream density. This update intriduces new Alaska-specific inputs, which are listed in the PR. 
@@ -252,7 +254,6 @@ A small update to the README.md was also updated for an unrelated topic (about A
 
 <br/><br/>
 
-
 ## v4.4.13.2 - 2024-04-04 - [PR#1110](https://github.com/NOAA-OWP/inundation-mapping/pull/1110)
 
 This PR reflects upgrades for openJDK from 17.0.8 to something higher, minimum of 17.0.9. After some research, we can not upgrade all the way to the latest openJDK but can jump up to 19.0.  This limitation is related to version of our base docker image.  openJDK was identified as requiring an upgrade by a system wide security scan.
@@ -268,7 +269,6 @@ The "black" packages is also be upgraded from 23.7.0 to 24.3.
      - 19 files have had minor formatting changes related to the upgrade in the "black" package.
 
 <br/><br/>
-
 
 ## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
@@ -301,7 +301,6 @@ If both criteria are met for a branch, then the issue is mitigated by trimming t
 
 <br/><br/>
 
-
 ## v4.4.12.0 - 2024-03-11 - [PR#1078](https://github.com/NOAA-OWP/inundation-mapping/pull/1078)
 
 Resolves issue #1033 by adding Alaska-specific data to the FIM input folders and updating the pre-clip vector process to use the proper data and CRS when an Alaska HUC is detected. The `-wbd` flag was removed from the optional arguments of `generate_pre_clip_fim_huc8`. The WBD file path will now only be sourced from the `bash_variables.env` file. The `bash_variables.env` file has been updated to include the new Alaska-specific FIM input files.
@@ -320,7 +319,6 @@ Resolves issue #1033 by adding Alaska-specific data to the FIM input folders and
     - `bash_variables.env`: Added the Alaska-specific projection (EPSG:3338) and file paths for Alaska-specific data (see data changelog for list of new input data)
 
 <br/><br/>
-
 
 ## v4.4.11.1 - 2024-03-08 - [PR#1080](https://github.com/NOAA-OWP/inundation-mapping/pull/1080)
 
@@ -366,7 +364,6 @@ Tested that the a non zero return exit from pre-processing shuts down the AWS st
 
 <br/><br/>
 
-
 ## v4.4.10.0 - 2024-02-02 - [PR#1054](https://github.com/NOAA-OWP/inundation-mapping/pull/1054)
 
 Recent testing exposed a bug with the `acquire_and_preprocess_3dep_dems.py` script. It lost the ability to be re-run and look for files that were unsuccessful earlier attempts and try them again. It may have been lost due to confusion of the word "retry". Now "retry" means restart the entire run. A new flag called "repair"  has been added meaning fix what failed earlier.  This is a key feature it is common for communication failures when calling USGS to download DEMs.  And with some runs taking many hours, this feature becomes important.
@@ -378,7 +375,6 @@ Also used the opportunity to fix a couple of other minor issues:
 4) quick upgrade to the tracker log that keeps track of duration of each unit being processed.
 
 ### Changes
-
 
 - `data\usgs\`
     - `acquire_and_preprocess_3dep_dems.py`: Re-add a feature which allowed for restarting and redo missing outputs or partial outputs. System now named as a "repair" system.
@@ -605,7 +601,6 @@ This issue closes [1028](https://github.com/NOAA-OWP/inundation-mapping/issues/1
         - Upgraded error handing for the gdal "processing" call.
 
 <br/><br/>
-
 
 ## v4.4.5.0 - 2023-10-26 - [PR#1018](https://github.com/NOAA-OWP/inundation-mapping/pull/1018)
 
@@ -1155,9 +1150,7 @@ Fixes a bug in CatFIM script where a bracket was missing on a pandas `concat` st
 ### Changes
 - `/tools/generate_categorical_fim.py`: fixes `concat` statement where bracket was missing.
 
-
 <br/><br/>
-
 
 ## v4.3.11.2 - 2023-05-19 - [PR#918](https://github.com/NOAA-OWP/inundation-mapping/pull/918)
 
