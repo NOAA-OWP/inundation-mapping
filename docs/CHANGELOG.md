@@ -12,6 +12,14 @@ Removes loading of `apache-arrow` repository from the Dockerfile where it was ca
 
 <br/><br/>
 
+
+## v4.5.x.x - 2024-05-09 - [PR#1154](https://github.com/NOAA-OWP/inundation-mapping/pull/1154)
+
+A number of python packages were updated in this PR. You will need to build a new Docker image for this release.
+
+<br/><br/>
+
+
 ## v4.5.1.3 - 2024-05-17 - [PR#1170](https://github.com/NOAA-OWP/inundation-mapping/pull/1170)
 
 This hotfix addresses the issue #1162 by explicitly using 'fiona' engine for reading gpkg files with Boolean dtype. This is applicable only for `usgs_gages.gpkg` and `usgs_subset_gages.gpkg` files. 
@@ -78,11 +86,6 @@ Similar to 'usgs_gages.gpkg' dataset, all lid stations, including those in Alask
 
 ### Changes
 - tools/generate_nws_lid.py
-
-<br/><br/>
-## v4.5.x.x - 2024-05-09 - [PR#1154](https://github.com/NOAA-OWP/inundation-mapping/pull/1154)
-
-A number of python packages were updated in this PR. You will need to build a new Docker image for this release.
 
 <br/><br/>
 
