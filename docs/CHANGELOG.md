@@ -16,6 +16,10 @@ Removes loading of `apache-arrow` repository from the Dockerfile where it was ca
 ## v4.5.x.x - 2024-05-09 - [PR#1154](https://github.com/NOAA-OWP/inundation-mapping/pull/1154)
 
 A number of python packages were updated in this PR. You will need to build a new Docker image for this release.
+
+<br/><br/>
+
+
 ## v4.5.2.0 - 2024-05-20 - [PR#1166](https://github.com/NOAA-OWP/inundation-mapping/pull/1166)
 
 The main goal of this PR is to create bridge point data that be used as a service in HydroVIS. Since every branch processes bridges separately, it's possible to inundate a bridge from more than just the feature_id it crosses. To reflect this, the `osm_bridge_centroids.gpkg` now found in HUC directories will have coincident points - one that is inundated from the reach it crosses and the other a backwater-influenced point indicated by the `is_backwater` field.
