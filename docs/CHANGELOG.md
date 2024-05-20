@@ -80,6 +80,12 @@ Similar to 'usgs_gages.gpkg' dataset, all lid stations, including those in Alask
 - tools/generate_nws_lid.py
 
 <br/><br/>
+## v4.5.x.x - 2024-05-09 - [PR#1154](https://github.com/NOAA-OWP/inundation-mapping/pull/1154)
+
+A number of python packages were updated in this PR. You will need to build a new Docker image for this release.
+
+<br/><br/>
+
 
 ## v4.5.0.1 - 2024-05-09 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
 
