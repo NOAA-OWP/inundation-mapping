@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import glob
 import os
 import re
 import shutil
@@ -166,10 +167,6 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
     ## huc_lists
     copy_folder(os.path.join(input_path, 'huc_lists'), os.path.join(output_inputs_path, 'huc_lists'))
 
-    ## osm
-    osm = os.path.join('osm', 'bridges', '240426')
-    copy_file(os.path.join(input_path, osm), os.path.join(output_inputs_path, osm), 'osm_all_bridges.gpkg')
-
     ## nld_vectors
     copy_file(
         os.path.join(input_path, 'nld_vectors'),
@@ -230,7 +227,9 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
 
     ## recurr_flows
     recurr_flows = os.path.join('inundation_review', 'inundation_nwm_recurr', 'nwm_recurr_flow_data')
-    copy_folder(os.path.join(data_path, recurr_flows), os.path.join(output_root_folder, recurr_flows))
+    for file in glob.glob(os.path.join(data_path, recurr_flows, 'nwm21_17C_recurr_*_0_cms.csv')):
+        input_file, basename = os.path.split(file)
+        copy_file(input_file, os.path.join(output_root_folder, recurr_flows), basename)
 
 
 if __name__ == '__main__':
