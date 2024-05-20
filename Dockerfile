@@ -9,6 +9,9 @@ ARG taudemVersion2=81f7a07cdd3721617a30ee4e087804fddbcffa88
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
+# remove reference to missing repo
+RUN rm /etc/apt/sources.list.d/apache-arrow.sources
+
 RUN apt-get update && apt-get install -y git  && rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/dtarb/taudem.git
@@ -65,6 +68,9 @@ RUN mkdir -p $workDir
 
 RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
+
+# remove reference to missing repo
+RUN rm /etc/apt/sources.list.d/apache-arrow.sources
 
 RUN apt-get update --fix-missing && apt-get install -y openjdk-19-jdk && rm -rf /var/lib/apt/lists/*
 
