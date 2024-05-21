@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-05-21 - [PR#1149](https://github.com/NOAA-OWP/inundation-mapping/pull/1149)
+
+This PR adds scripts that can identify areas within produced inundation rasters where glasswalling of inundation occurs due to catchment boundaries, know as catchment boundary issues.
+
+### Additions
+- `tools/identify_catchment_boundary.py`: Identifies where catchment boundaries are glasswalling inundation extent.
+
+- `tools/inundate_catchment_boundary.py`: Produces inundation for given HUC and identifies catchment boundary issues in produced FIM. 
+
+<br/><br/>
+
 
 ## v4.5.2.1 - 2024-05-21 - [PR#1172](https://github.com/NOAA-OWP/inundation-mapping/pull/1172)
 
