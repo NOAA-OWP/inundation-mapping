@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-05-09 - [PR#1154](https://github.com/NOAA-OWP/inundation-mapping/pull/1154)
+## v4.5.2.1 - 2024-05-21 - [PR#1154](https://github.com/NOAA-OWP/inundation-mapping/pull/1154)
 
 A number of python packages were updated in this PR. You will need to build a new Docker image for this release.
 
