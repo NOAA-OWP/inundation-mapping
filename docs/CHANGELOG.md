@@ -2,20 +2,15 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.5.x.x - 2024-05-20 - [PR#1172](https://github.com/NOAA-OWP/inundation-mapping/pull/1172)
+## v4.5.2.1 - 2024-05-21 - [PR#1172](https://github.com/NOAA-OWP/inundation-mapping/pull/1172)
 
 Removes loading of `apache-arrow` repository from the Dockerfile where it was causing a GPG key error during `docker build`.
+
+A number of python packages were updated in this PR. You will need to build a new Docker image for this release.
 
 ### Changes
 
 - Dockerfile: Adds a line remove the loading of apache-arrow during `apt-get update`.
-
-<br/><br/>
-
-
-## v4.5.x.x - 2024-05-09 - [PR#1154](https://github.com/NOAA-OWP/inundation-mapping/pull/1154)
-
-A number of python packages were updated in this PR. You will need to build a new Docker image for this release.
 
 <br/><br/>
 
@@ -74,7 +69,7 @@ Extends flows (i.e., discharge) to stream segments missing from NWS and USGS val
 
 <br/><br/>
 
-## v4.5.1.0 - 2024-05-17 - [PR#1150](https://github.com/NOAA-OWP/inundation-mapping/pull/1150)
+## v4.5.1.0 - 2024-05-17 - [PR#1156](https://github.com/NOAA-OWP/inundation-mapping/pull/1156)
 
 This focuses on removing hydro-conditioning artifacts by subtracting the thalweg DEM from HAND REM and adding back the original DEM. Also, a new tool was created to test this feature over multiple HUCs
 
