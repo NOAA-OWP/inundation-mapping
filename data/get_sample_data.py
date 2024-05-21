@@ -164,6 +164,12 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
         os.path.join(input_path, 'ahps_sites'), os.path.join(output_inputs_path, 'ahps_sites'), 'nws_lid.gpkg'
     )
 
+    ## bathymetry_adjustment
+    copy_file(
+        os.path.join(input_path, 'bathymetry'),
+        os.path.join(output_inputs_path, 'bathymetry'),
+        'bathymetry_adjustment_data.gpkg',
+    )
     ## huc_lists
     copy_folder(os.path.join(input_path, 'huc_lists'), os.path.join(output_inputs_path, 'huc_lists'))
 
