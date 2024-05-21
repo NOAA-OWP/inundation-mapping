@@ -121,5 +121,5 @@ RUN git clone https://github.com/NOAA-OWP/inundation-mapping.git $projectDir
 COPY sample-data /data
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
-ADD ./src/entrypoint.sh /
+ADD entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
