@@ -77,7 +77,6 @@ def catchment_boundary_errors(
     # Export final file                   
     intersect_lines_final.to_file(output, index=False)
 
-    # for huc in hucs:
 def identify_per_huc(hydrofabric_dir, huc, inundation_raster, output):
     print(f'Processing HUC:{huc} now.')
     # Get branch names for input HUC

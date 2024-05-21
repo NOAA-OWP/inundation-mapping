@@ -43,7 +43,8 @@ def produce_mosaicked_inundation(
         hucs (str):                The HUC for which to produce mosaicked inundation files.
         flow_file (str):          Path to flow file to be used for inundation.
                                     feature_ids in flow_file should be present in supplied HUC.
-        inundation_raster (str):  Full path to output inundation raster
+        boundary_output (str):    Full path to output catchment boundary line geopackage.
+        inundation_raster (str):  Full path to output inundation raster.
                                     (encoded by positive and negative HydroIDs).
         inuntation_polygon (str): Full path to output inundation polygon. Optional.
         depths_raster (str):      Full path to output depths_raster. Pixel values will be in meters. Optional.
