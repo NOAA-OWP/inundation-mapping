@@ -1,28 +1,23 @@
 import argparse
-import geopandas as gpd
 import os
+import sys
+import traceback
+from concurrent import futures
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+from timeit import default_timer as timer
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import sys
-import traceback
-
-from timeit import default_timer as timer
-from concurrent import futures
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from rasterio import features
 from shapely.geometry import shape
 
-def catchment_boundary_errors(    
-    hydrofabric_dir,
-    hucs,
-    inundation_raster,
-    output,
-    number_of_jobs
-):
+
+def catchment_boundary_errors(hydrofabric_dir, hucs, inundation_raster, output, number_of_jobs):
     """
     This function compares output inundation raster extent to catchment extents to identify catchment boundary
-    issues. The output of this function is a geopackage of linefiles that identifys areas of inundation with catchment 
+    issues. The output of this function is a geopackage of linefiles that identifys areas of inundation with catchment
     boundary issues present.
 
     Args:
@@ -32,9 +27,9 @@ def catchment_boundary_errors(
         inundation_raster (str):  Full path to output inundation raster
                                     (encoded by positive and negative HydroIDs).
         output (str):             Path to output location for catchment boundary geopackage.
-        number_of_jobs (int):     Number of parallel jobs to run.                           
+        number_of_jobs (int):     Number of parallel jobs to run.
     """
-    
+
     # Validation
     total_cpus_available = os.cpu_count() - 1
     if number_of_jobs > total_cpus_available:
@@ -74,32 +69,34 @@ def catchment_boundary_errors(
                         print('Process failed.')
                     else:
                         intersect_lines_final = pd.concat([intersect_lines_final, boundary_line_df])
-    # Export final file                   
+    # Export final file
     intersect_lines_final.to_file(output, index=False)
+
 
 def identify_per_huc(hydrofabric_dir, huc, inundation_raster, output):
     print(f'Processing HUC:{huc} now.')
     # Get branch names for input HUC
-    dirs = [x[1] for x in os.walk(f"{hydrofabric_dir}/{huc}/branches")] [0]
+    dirs = [x[1] for x in os.walk(f"{hydrofabric_dir}/{huc}/branches")][0]
 
     # merge all catchment geopackages into one file
     catchments = gpd.GeoDataFrame()
     for d in dirs:
-        catch = gpd.read_file(f"{hydrofabric_dir}/{huc}/branches/{d}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_{d}.gpkg")
-        catchments = pd.concat([catchments, catch], ignore_index = True)
+        catch = gpd.read_file(
+            f"{hydrofabric_dir}/{huc}/branches/{d}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_{d}.gpkg"
+        )
+        catchments = pd.concat([catchments, catch], ignore_index=True)
 
-    # Vectorize inundation 
+    # Vectorize inundation
     with rasterio.open(inundation_raster) as src:
         affine = src.transform
         band = src.read(1)
         band[np.where(band <= 0)] = 0
         band[np.where(band > 0)] = 1
         results = (
-        {'properties': {'raster_val': v}, 'geometry': s}
-        for i, (s, v) 
-        in enumerate(
-            features.shapes(band, mask=None, transform=affine)))
-    
+            {'properties': {'raster_val': v}, 'geometry': s}
+            for i, (s, v) in enumerate(features.shapes(band, mask=None, transform=affine))
+        )
+
     # Save features to geodataframe and select inundated pixels
     geoms = list(results)
     inund_poly = gpd.GeoDataFrame.from_features(geoms)
@@ -111,8 +108,8 @@ def identify_per_huc(hydrofabric_dir, huc, inundation_raster, output):
     inundation_boundary = inundation_boundary.set_crs(catchment_boundary.crs)
 
     # Save boundary lines to geodataframe
-    inundation_boundary_df = gpd.GeoDataFrame(geometry = inundation_boundary)
-    catchment_boundary_df = gpd.GeoDataFrame(geometry = catchment_boundary)
+    inundation_boundary_df = gpd.GeoDataFrame(geometry=inundation_boundary)
+    catchment_boundary_df = gpd.GeoDataFrame(geometry=catchment_boundary)
 
     # Dissolve geomtries into one multilinestring
     catchment_boundary_dissolve = catchment_boundary_df.dissolve()
@@ -120,15 +117,20 @@ def identify_per_huc(hydrofabric_dir, huc, inundation_raster, output):
 
     # Find intersection of inundation and catchments
     intersect = gpd.GeoDataFrame()
-    intersect = gpd.GeoDataFrame(geometry = inundation_boundary_dissolve.intersection(catchment_boundary_dissolve))
-        
-    intersect_exp = intersect.explode(ignore_index = True)
-    intersect_lines = intersect_exp.loc[intersect_exp.geom_type=='LineString']
+    intersect = gpd.GeoDataFrame(
+        geometry=inundation_boundary_dissolve.intersection(catchment_boundary_dissolve)
+    )
+
+    intersect_exp = intersect.explode(ignore_index=True)
+    intersect_lines = intersect_exp.loc[intersect_exp.geom_type == 'LineString']
     num_catchment_boundary_lines = len(intersect_lines)
 
-    print(f'Finished processing huc: {huc}. Number of boundary line issues identified: {num_catchment_boundary_lines}.')
+    print(
+        f'Finished processing huc: {huc}. Number of boundary line issues identified: {num_catchment_boundary_lines}.'
+    )
 
     return intersect_lines
+
 
 if __name__ == "__main__":
     # Parse arguments

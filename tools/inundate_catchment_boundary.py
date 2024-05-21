@@ -3,9 +3,9 @@ import errno
 import os
 from timeit import default_timer as timer
 
+from identify_catchment_boundary import catchment_boundary_errors
 from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
-from identify_catchment_boundary import catchment_boundary_errors
 
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
@@ -26,14 +26,13 @@ def produce_mosaicked_inundation(
     remove_intermediate=True,
     verbose=False,
     is_mosaic_for_branches=False,
-
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
     Possible outputs include inundation rasters encoded by HydroID (negative HydroID for dry and positive
     HydroID for wet), polygons depicting extent, and depth rasters. The function requires a flow file
     organized by NWM feature_id and discharge in cms. "feature_id" and "discharge" columns MUST be present
-    in the flow file. This function also calls the catchment_boundary_errors function from 
+    in the flow file. This function also calls the catchment_boundary_errors function from
     identify_catchment_boundary.py to identify where in the produced final inundation map is impacted by
     catchment boundary issues and to output a geopackage of linefiles identifying these locations.
 
@@ -147,11 +146,11 @@ def produce_mosaicked_inundation(
 
     ## call identify_catchment_boundary
     catchment_boundary_errors(
-        hydrofabric_dir= hydrofabric_dir,
-        hucs = hucs,
-        inundation_raster = mosaic_file_path,
-        output = boundary_output,
-        number_of_jobs = 4
+        hydrofabric_dir=hydrofabric_dir,
+        hucs=hucs,
+        inundation_raster=mosaic_file_path,
+        output=boundary_output,
+        number_of_jobs=4,
     )
     fh.vprint("Catchment boundary identification complete.", verbose)
 
@@ -180,7 +179,14 @@ if __name__ == "__main__":
         required=True,
         type=str,
     )
-    parser.add_argument("-o", "--boundary_output", help="Location of catchment boundary linefile output.", required=True, default=1, type=str)
+    parser.add_argument(
+        "-o",
+        "--boundary_output",
+        help="Location of catchment boundary linefile output.",
+        required=True,
+        default=1,
+        type=str,
+    )
 
     parser.add_argument(
         "-i", "--inundation-raster", help="Inundation raster output.", required=False, default=None, type=str
@@ -235,12 +241,10 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
     )
-    
 
     start = timer()
 
     # Extract to dictionary and run
     produce_mosaicked_inundation(**vars(parser.parse_args()))
-
 
     print(f"Completed in {round((timer() - start)/60, 2)} minutes.")
