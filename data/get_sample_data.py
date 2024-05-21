@@ -231,6 +231,13 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
         'usgs_rating_curves.csv',
     )
 
+    ## wbd
+    copy_file(
+        os.path.join(input_path, 'wbd'),
+        os.path.join(output_inputs_path, 'wbd'),
+        'WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg',
+    )
+
     ## recurr_flows
     recurr_flows = os.path.join('inundation_review', 'inundation_nwm_recurr', 'nwm_recurr_flow_data')
     for file in glob.glob(os.path.join(data_path, recurr_flows, 'nwm21_17C_recurr_*_0_cms.csv')):
