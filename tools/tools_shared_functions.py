@@ -601,7 +601,7 @@ def get_metadata(
     metadata_url : STR
         metadata base URL.
     select_by : STR
-        Location search option.
+        Location search option. Options include: 'state', TODO: add options
     selector : LIST
         Value to match location data against. Supplied as a LIST.
     must_include : STR, optional

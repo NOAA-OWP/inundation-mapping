@@ -270,13 +270,13 @@ def generate_catfim_flows(
     #  print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
     
     if skip_api == True: # temp
-      print('Skipping full API pull, just grabbing alaska')
+      print("Skipping full API pull, just get metadata for the following states: 'AK', 'NY'")
       
-      # TEMP: just get alaska metadata
-      all_lists, islands_dataframe = get_metadata(
+      # TEMP: just get metadata for the following states: 'AK', 'TX', 'SD', 'NY'
+      all_lists, conus_dataframe = get_metadata(
               metadata_url,
               select_by='state',
-              selector=['AK'],
+              selector=['AK', 'NY'],
               must_include=None,
               upstream_trace_distance=nwm_us_search,
               downstream_trace_distance=nwm_ds_search,
@@ -347,21 +347,19 @@ def generate_catfim_flows(
     print(f"Determining HUC using WBD layer Duration: {str(time_duration).split('.')[0]}")
     print()
 
-    if stage_based:
-        return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df ## TODO: need to pass it the regular AND alaska nwm_flows_df?
+    if stage_based: # If it's stage-based, the function stops running here
+        return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df
 
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     start_dt = datetime.now()
 
-    huc_lst = ['19020302', '19020505', '19020201', '19020401'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    huc_lst = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
     # run_all_hucs = False ## TODO: Add as argument input
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
             if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
             # if (huc in huc_lst or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
-
-                print(f'HUC: {huc}') # TEMP DEBUG
 
                 if huc[:2] == '19':
                     # Alaska
@@ -412,7 +410,7 @@ def generate_catfim_flows(
     # whether it was mapped or not (mapped field) and if not, why (status field).
 
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION) # TODO: Accomodate AK projection?
     viz_out_gdf.rename(
         columns={
             'identifiers_nwm_feature_id': 'nwm_seg',

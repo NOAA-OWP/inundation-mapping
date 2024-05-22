@@ -18,6 +18,7 @@ import rasterio
 from generate_categorical_fim_flows import generate_catfim_flows
 from generate_categorical_fim_mapping import manage_catfim_mapping, post_process_cat_fim_for_viz
 from rasterio.warp import Resampling, calculate_default_transform, reproject
+from dotenv import load_dotenv
 from tools_shared_functions import (
     filter_nwm_segments_by_stream_order,
     get_datum,
@@ -68,6 +69,39 @@ def process_generate_categorical_fim(
             'Please lower the job_number_huc or job_number_inundate '
             'values accordingly.'.format(job_number_huc, job_number_inundate)
         )
+
+    # Check input directories and raise error if necessary
+    output_flow_dir_list = os.listdir(fim_run_dir)
+    if len(output_flow_dir_list) == 0:
+        raise ValueError(
+            f'Output directory {fim_run_dir} is empty. '
+            'Verify that you have the correct input folder.'
+        )
+    else:
+        num_dir = len(output_flow_dir_list)
+        print(f'{num_dir} HUCs found in FIM run directory')
+
+    # Check that the .env file exists and raise error if necessary
+    load_dotenv()
+    API_BASE_URL = os.getenv('API_BASE_URL')
+    if API_BASE_URL == None:
+        raise ValueError(
+            f'API base url not found. '
+            'Ensure inundation_mapping/tools/ has an .env file with the following info: '
+            'API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, NWM_FLOWS_MS, '
+            'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
+        )
+
+    # Check that fim_inputs.csv exists and raise error if necessary
+    fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
+    if not os.path.exists(fim_inputs_csv_path):
+        raise ValueError(
+            f'{fim_inputs_csv_path} not found. '
+            'Verify that you have the correct input files.'
+        )
+
+
+    print()
 
     # Define default arguments. Modify these if necessary
     fim_version = os.path.split(fim_run_dir)[1]
@@ -377,8 +411,8 @@ def iterate_through_huc_stage_based(
             all_messages.append([f'{lid}:branch directory missing'])
             continue
         usgs_elev_df = pd.read_csv(usgs_elev_table)
+        
         # Make lid_directory.
-
         lid_directory = os.path.join(huc_directory, lid)
         if not os.path.exists(lid_directory):
             os.mkdir(lid_directory)
@@ -754,27 +788,55 @@ def generate_stage_based_categorical_fim(
 ):
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
 
-    (huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df) = generate_catfim_flows(
+    (huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = generate_catfim_flows(
         workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run
     )
 
+    huc_lst = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    # run_all_hucs = False ## TODO: Add as argument input
+
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            executor.submit(
-                iterate_through_huc_stage_based,
-                workspace,
-                huc,
-                fim_dir,
-                huc_dictionary,
-                threshold_url,
-                flood_categories,
-                all_lists,
-                past_major_interval_cap,
-                number_of_jobs,
-                number_of_interval_jobs,
-                attributes_dir,
-                nwm_flows_df,
-            )
+            if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
+            # if (huc in huc_lst or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
+
+                print(f'huc {huc} is included in list, running iterate_through_huc_stage_based') ## TEMP DEBUG
+
+                if huc[:2] == '19':
+                    # Alaska
+                    executor.submit(
+                        iterate_through_huc_stage_based,
+                        workspace,
+                        huc,
+                        fim_dir,
+                        huc_dictionary,
+                        threshold_url,
+                        flood_categories,
+                        all_lists,
+                        past_major_interval_cap,
+                        number_of_jobs,
+                        number_of_interval_jobs,
+                        attributes_dir,
+                        nwm_flows_alaska_df,
+                    )
+                else:
+                    # not Alaska
+                    executor.submit(
+                        iterate_through_huc_stage_based,
+                        workspace,
+                        huc,
+                        fim_dir,
+                        huc_dictionary,
+                        threshold_url,
+                        flood_categories,
+                        all_lists,
+                        past_major_interval_cap,
+                        number_of_jobs,
+                        number_of_interval_jobs,
+                        attributes_dir,
+                        nwm_flows_df,
+                    )
+
 
     print('Wrapping up Stage-Based CatFIM...')
     csv_files = os.listdir(attributes_dir)
@@ -796,7 +858,7 @@ def generate_stage_based_categorical_fim(
     # whether it was mapped or not (mapped field) and if not, why (status field).
 
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION) # TODO: Accomodate AK projection?
     viz_out_gdf.rename(
         columns={
             'identifiers_nwm_feature_id': 'nwm_seg',
@@ -981,10 +1043,10 @@ def produce_stage_based_catfim_tifs(
                 remaining_raster_array_original,
                 destination=remaining_raster_array,
                 src_transform=remaining_raster_src.transform,
-                src_crs=remaining_raster_src.crs,
+                src_crs=remaining_raster_src.crs, # TODO: Accomodate AK projection?
                 src_nodata=remaining_raster_src.nodata,
                 dst_transform=zero_branch_src.transform,
-                dst_crs=zero_branch_src.crs,
+                dst_crs=zero_branch_src.crs, # TODO: Accomodate AK projection?
                 dst_nodata=-1,
                 dst_resolution=zero_branch_src.res,
                 resampling=Resampling.nearest,

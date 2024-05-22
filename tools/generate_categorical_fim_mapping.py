@@ -28,9 +28,16 @@ def generate_categorical_fim(
     source_flow_dir_list = os.listdir(source_flow_dir)
     output_flow_dir_list = os.listdir(fim_run_dir)
 
+    print(f'fim_run_dir: {fim_run_dir}') ## TEMP DEBUG
+    print(f'source_flow_dir: {source_flow_dir}') ## TEMP DEBUG
+    print(f'source_flow_dir_list: {source_flow_dir_list}') ## TEMP DEBUG
+    print(f'output_flow_dir_list: {output_flow_dir_list}') ## TEMP DEBUG    
+
     # Log missing hucs
     missing_hucs = list(set(source_flow_dir_list) - set(output_flow_dir_list))
     missing_hucs = [huc for huc in missing_hucs if "." not in huc] 
+
+    print(f'missing_hucs: {missing_hucs}') ## TEMP DEBUG
 
     if len(missing_hucs) > 0:
         f = open(log_file, 'a+')
@@ -227,18 +234,18 @@ def post_process_cat_fim_for_viz(
                     continue
 
                 huc_dir = os.path.join(output_catfim_dir, huc)
-                print(f'huc_dir: {huc_dir}') ## TEMP DEBUG
+                print(f'huc_dir: {huc_dir}') ## TEMP DEBUG -> Add to logging
 
                 try:
                     ahps_dir_list = os.listdir(huc_dir)
                 except NotADirectoryError:
-                    print('NotADirectoryError') ## TEMP DEBUG
+                    print('NotADirectoryError') ## TEMP DEBUG -> Add to logging 
                     continue
 
                 # If there's no mapping for a HUC, delete the HUC directory.
                 if ahps_dir_list == []:
                     os.rmdir(huc_dir)
-                    print(f'No mapping for HUC {huc}, deleting the HUC directory.') ## TEMP DEBUG
+                    print(f'No mapping for HUC {huc}, deleting the HUC directory.') ## TEMP DEBUG -> Add to logging
                     continue
 
                 huc_exector.submit(
@@ -297,7 +304,7 @@ def reformat_inundation_maps(
         )
 
         # Convert list of shapes to polygon
-        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)
+        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION) # TODO: Accomodate AK projection?
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
 
@@ -309,7 +316,7 @@ def reformat_inundation_maps(
         extent_poly_diss['huc'] = huc
         extent_poly_diss['interval_stage'] = interval_stage
         # Project to Web Mercator
-        extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
+        extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION) # TODO: Accomodate AK projection?
 
         # Join attributes
         nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc': str})
