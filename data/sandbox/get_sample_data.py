@@ -239,10 +239,14 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
     )
 
     ## recurr_flows
+    recurr_intervals = ['2', '5', '10', '25', '50']
     recurr_flows = os.path.join('inundation_review', 'inundation_nwm_recurr', 'nwm_recurr_flow_data')
-    for file in glob.glob(os.path.join(data_path, recurr_flows, 'nwm21_17C_recurr_*_0_cms.csv')):
-        input_file, basename = os.path.split(file)
-        copy_file(input_file, os.path.join(output_root_folder, recurr_flows), basename)
+    for recurr_interval in recurr_intervals:
+        copy_file(
+            os.path.join(data_path, recurr_flows),
+            os.path.join(output_root_folder, recurr_flows),
+            f'nwm21_17C_recurr_{recurr_interval}_0_cms.csv',
+        )
 
 
 if __name__ == '__main__':
