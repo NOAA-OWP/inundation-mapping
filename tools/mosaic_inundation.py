@@ -34,8 +34,6 @@ def Mosaic_inundation(
         raise ValueError("Pass inundation_rasters or depths_raster for mosaic_attribute argument")
 
     # load file
-    print(f'Load file {map_file}') ## TEMP DEBUG
-
     if isinstance(map_file, pd.DataFrame):
         inundation_maps_df = map_file
         del map_file
@@ -45,12 +43,10 @@ def Mosaic_inundation(
         raise TypeError("Pass Pandas Dataframe or file path string to csv for map_file argument")
 
     # remove NaNs
-    print('Remove NANs') ## TEMP DEBUG
     inundation_maps_df = inundation_maps_df.dropna(axis=0, how="all")
 
     # subset
     if subset is not None:
-        print('Subsetting') ## TEMP DEBUG
         subset_mask = inundation_maps_df.loc[:, unit_attribute_name].isin(subset)
         inundation_maps_df = inundation_maps_df.loc[subset_mask, :]
 
@@ -59,8 +55,7 @@ def Mosaic_inundation(
 
     inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
 
-    # decide upon whether to display
-    print('Decide upon whether to display the progress bar') ## TEMP DEBUG
+    # decide upon whether to display the progress bar
     if verbose & len(aggregation_units) == 1:
         tqdm_disable = False
     elif verbose:
@@ -103,7 +98,6 @@ def Mosaic_inundation(
     # # inundation maps
     # inundation_maps_df.reset_index(drop=True)
 
-    print('Mosaic final inundation extent to polygon') ## TEMP DEBUG
     if inundation_polygon is not None:
         mosaic_final_inundation_extent_to_poly(ag_mosaic_output, inundation_polygon)
 

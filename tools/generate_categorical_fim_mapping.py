@@ -28,23 +28,14 @@ def generate_categorical_fim(
     source_flow_dir_list = os.listdir(source_flow_dir)
     output_flow_dir_list = os.listdir(fim_run_dir)
 
-    print(f'fim_run_dir: {fim_run_dir}') ## TEMP DEBUG
-    print(f'source_flow_dir: {source_flow_dir}') ## TEMP DEBUG
-    print(f'source_flow_dir_list: {source_flow_dir_list}') ## TEMP DEBUG
-    print(f'output_flow_dir_list: {output_flow_dir_list}') ## TEMP DEBUG    
-
     # Log missing hucs
     missing_hucs = list(set(source_flow_dir_list) - set(output_flow_dir_list))
     missing_hucs = [huc for huc in missing_hucs if "." not in huc] 
-
-    print(f'missing_hucs: {missing_hucs}') ## TEMP DEBUG
 
     if len(missing_hucs) > 0:
         f = open(log_file, 'a+')
         f.write(f"Missing hucs from output directory: {', '.join(missing_hucs)}\n")
         f.close()
-
-        print(f"Missing hucs from output directory: {', '.join(missing_hucs)}\n") ## TEMP DEBUG
 
     # Loop through matching huc directories in the source_flow directory
     matching_hucs = list(set(output_flow_dir_list) & set(source_flow_dir_list))
@@ -212,7 +203,7 @@ def post_process_huc_level(
 def post_process_cat_fim_for_viz(
     job_number_huc, job_number_tif, output_catfim_dir, attributes_dir, log_file="", fim_version=""
 ):
-    print("In post processing...")
+    print("Beginning post processing...")
     # Create workspace
     gpkg_dir = os.path.join(output_catfim_dir, 'gpkg')
     if not os.path.exists(gpkg_dir):

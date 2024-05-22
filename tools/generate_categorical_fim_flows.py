@@ -51,47 +51,42 @@ def process_generate_flows(
         # Convert lid to lower case
         lid = lid.lower()
         
-        # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.        
-        print() ## TEMP DEBUG
-        # print('===============') ## TEMP DEBUG
-        print(f'Getting thresholds for {lid}') ## TEMP DEBUG
+        # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.  
+
+        # print(f'Getting thresholds for {lid}') # TODO: Make verbose option
         stages, flows = get_thresholds(
             threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
         ) 
 
         if stages is None or flows is None:
-            print("Likely WRDS error")
+            message = f'{lid}: stages or flows is none, likely WRDS error'
+            all_messages.append(message)
+            # print(message) # TODO: Make verbose option
             continue
 
         # Check if stages are supplied, if not write message and exit.
         if all(stages.get(category, None) is None for category in flood_categories):
             message = f'{lid}:missing threshold stages'
-            # print(message) ## temp debug
-            # print(f'Exiting processing for {lid} here because of missing stage') ## temp debug
             all_messages.append(message)
+            # print(message) # TODO: Make verbose option
             continue
         
         # Check if calculated flows are supplied, if not write message and exit.
         if all(flows.get(category, None) is None for category in flood_categories):
             message = f'{lid}:missing calculated flows'
-            # print(message) ## temp debug
             all_messages.append(message)
+            # print(message) # TODO: Make verbose option
             continue
         
         # Find lid metadata from master list of metadata dictionaries (line 66).
         metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
-
-        # print() ## TEMP DEBUG
-        # print(f'Metadata for {lid}: ') ## debug temp
-        # print(metadata) ## debug temp
 
         # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
         unfiltered_segments = list(set(get_nwm_segs(metadata)))
         desired_order = metadata['nwm_feature_data']['stream_order']
 
         # Filter segments to be of like stream order.
-        # print() ## temp debug
-        # print("Filtering segments...")
+        # print("Filtering segments...") # TODO: Make verbose option
         start = time.time()
 
         segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
@@ -103,8 +98,8 @@ def process_generate_flows(
         # If there are no segments, write message and exit out
         if not segments:
             message = f'{lid}:missing nwm segments'
-            # print(message) ## temp debug
             all_messages.append(message)
+            # print(message) # TODO: Make verbose option
             continue
     
         # For each flood category
@@ -131,8 +126,8 @@ def process_generate_flows(
 
             else:
                 message = f'{lid}:{category} is missing calculated flow'
-                # print(message) ## temp debug
                 all_messages.append(message)
+                # print(message) # TODO: Make verbose option
     
         # Get various attributes of the site.
         lat = float(metadata['nws_preferred']['latitude'])
@@ -185,12 +180,12 @@ def process_generate_flows(
             # Export DataFrame to csv containing attributes
             csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
             message = f'{lid}:flows available'
-            # print(message) ## temp debug
             all_messages.append(message)
+            # print(message) # TODO: Make verbose option
         else:
             message = f'{lid}:missing all calculated flows'
-            # print(message) ## temp debug
             all_messages.append(message)
+            # print(message) # TODO: Make verbose option
 
     # Write all_messages to huc-specific file.
     print(f'Writing message file for {huc}')
@@ -358,7 +353,7 @@ def generate_catfim_flows(
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
+            if huc in huc_lst: # TEMP DEBUG ## TODO: Reve this filter and unindent the following part after done with testing
             # if (huc in huc_lst or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
 
                 if huc[:2] == '19':
