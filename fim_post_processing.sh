@@ -191,6 +191,7 @@ python3 $srcDir/aggregate_by_huc.py \
     -fim $outputDestDir \
     -i $fim_inputs \
     -htable \
+    -bridge \
     -j $jobLimit
 Tcount
 date -u
