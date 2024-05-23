@@ -218,12 +218,21 @@ python3 $toolsDir/combine_crosswalk_tables.py \
 Tcount
 date -u
 
+echo -e $startDiv"Resetting Permissions"
+Tstart
+    find $outputDestDir -type d -exec chmod -R 777 {} +
+    find $outputDestDir -type f -exec chmod 777 {} +  # just root level files
+Tcount
+date -u
+
 echo
 echo -e $startDiv"Scanning logs for errors. Results be saved in root not inside the log folder."
-grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
+Tstart
+    # grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
+    find $outputDestDir -type f | grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
+Tcount
+date -u
 
-find $outputDestDir -type d -exec chmod -R 777 {} +
-find $outputDestDir -type f -exec chmod -R 777 {} +
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
