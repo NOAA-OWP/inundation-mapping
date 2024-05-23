@@ -2,6 +2,21 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.5.x.x - 2024-05-22 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
+
+Contains files to create a self-contained FIM sandbox demo image, including:
+1. generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for a single HUC
+2. create a Docker image that contains the data generated in the previous step in `/data` and a copy of the `inundation-mapping` code in `/foss_fim`
+
+### Additions
+
+- `data/sandbox`
+    - `Dockerfile`: A copy of the root Dockerfile that also pulls code and data into the build image
+    - `fim-in-a-box.ipynb`: Jupyter script to run FIM and create evaluation metrics and inundation plot
+    - `get_sample_data.py`: Copies relevant data (e.g., `inputs` and `test_cases`) from the FIM data folder for a single HUC and saves it to a separate location
+
+<br/><br/>
+
 ## v4.5.2.1 - 2024-05-21 - [PR#1172](https://github.com/NOAA-OWP/inundation-mapping/pull/1172)
 
 Removes loading of `apache-arrow` repository from the Dockerfile where it was causing a GPG key error during `docker build`.
@@ -13,7 +28,6 @@ A number of python packages were updated in this PR. You will need to build a ne
 - Dockerfile: Adds a line remove the loading of apache-arrow during `apt-get update`.
 
 <br/><br/>
-
 
 ## v4.5.2.0 - 2024-05-20 - [PR#1166](https://github.com/NOAA-OWP/inundation-mapping/pull/1166)
 
@@ -30,7 +44,6 @@ The main goal of this PR is to create bridge point data that be used as a servic
 - `config/deny_branch_zero.lst` & `deny_branches.lst`: Added `#osm_bridge_centroids_{}.gpkg` to the deny lists.
 
 <br/><br/>
-
 
 ## v4.5.1.3 - 2024-05-17 - [PR#1170](https://github.com/NOAA-OWP/inundation-mapping/pull/1170)
 
