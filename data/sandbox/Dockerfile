@@ -119,6 +119,7 @@ RUN wbox_path=/usr/local/lib/python3.10/dist-packages/whitebox/ && \
 ## COPY CODE AND DATA ##
 RUN git clone https://github.com/NOAA-OWP/inundation-mapping.git $projectDir
 COPY sample-data /data
+COPY fim-in-a-box.ipynb /
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD entrypoint.sh /
