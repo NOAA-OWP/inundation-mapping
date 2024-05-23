@@ -353,7 +353,7 @@ def generate_catfim_flows(
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            if huc in huc_lst: # TEMP DEBUG ## TODO: Reve this filter and unindent the following part after done with testing
+            if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
             # if (huc in huc_lst or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
 
                 if huc[:2] == '19':

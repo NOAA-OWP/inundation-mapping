@@ -16,7 +16,7 @@ from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 
 from utils.shared_functions import getDriver
-from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
+from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION, ALASKA_CRS
 
 
 gpd.options.io_engine = "pyogrio"
@@ -171,7 +171,7 @@ def post_process_huc_level(
         with ProcessPoolExecutor(max_workers=job_number_tif) as executor:
             for tif_to_process in tifs_to_reformat_list:
                 if not os.path.exists(tif_to_process):
-                    continue
+                    continue 
                 try:
                     magnitude = os.path.split(tif_to_process)[1].split('_')[1]
                     try:
@@ -225,18 +225,15 @@ def post_process_cat_fim_for_viz(
                     continue
 
                 huc_dir = os.path.join(output_catfim_dir, huc)
-                print(f'huc_dir: {huc_dir}') ## TEMP DEBUG -> Add to logging
 
                 try:
                     ahps_dir_list = os.listdir(huc_dir)
                 except NotADirectoryError:
-                    print('NotADirectoryError') ## TEMP DEBUG -> Add to logging 
                     continue
 
                 # If there's no mapping for a HUC, delete the HUC directory.
                 if ahps_dir_list == []:
                     os.rmdir(huc_dir)
-                    print(f'No mapping for HUC {huc}, deleting the HUC directory.') ## TEMP DEBUG -> Add to logging
                     continue
 
                 huc_exector.submit(
@@ -283,10 +280,13 @@ def reformat_inundation_maps(
     interval_stage=None,
 ):
     try:
+        print(f'{ahps_lid} Inside reformat_inundation_maps...')
         # Convert raster to to shapes
         with rasterio.open(extent_grid) as src:
             image = src.read(1)
             mask = image > 0
+            
+        print(f'{ahps_lid} Converted raster into shapes, now to aggregate shapes...')
 
         # Aggregate shapes
         results = (
@@ -295,7 +295,10 @@ def reformat_inundation_maps(
         )
 
         # Convert list of shapes to polygon
-        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION) # TODO: Accomodate AK projection?
+        # extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION) # Previous code
+        extent_poly = gpd.GeoDataFrame.from_features(list(results)) # Update to accomodate AK projection
+        extent_poly = extent_poly.set_crs(src.crs) # Update to accomodate AK projection
+
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
 
@@ -306,8 +309,9 @@ def reformat_inundation_maps(
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
         extent_poly_diss['interval_stage'] = interval_stage
+
         # Project to Web Mercator
-        extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION) # TODO: Accomodate AK projection?
+        extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
 
         # Join attributes
         nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc': str})
@@ -320,6 +324,7 @@ def reformat_inundation_maps(
             right_on=['nws_lid', 'magnitude', 'huc'],
         )
         extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
+
         # Save dissolved multipolygon
         handle = os.path.split(extent_grid)[1].replace('.tif', '')
         diss_extent_filename = os.path.join(gpkg_dir, f"{handle}_{huc}_dissolved.gpkg")

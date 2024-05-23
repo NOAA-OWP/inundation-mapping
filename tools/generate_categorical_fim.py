@@ -793,7 +793,6 @@ def generate_stage_based_categorical_fim(
     )
 
     huc_lst = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
-    # run_all_hucs = False ## TODO: Add as argument input
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
