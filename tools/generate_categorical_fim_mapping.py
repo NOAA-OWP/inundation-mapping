@@ -280,13 +280,13 @@ def reformat_inundation_maps(
     interval_stage=None,
 ):
     try:
-        print(f'{ahps_lid} Inside reformat_inundation_maps...')
+        # print(f'{ahps_lid} Inside reformat_inundation_maps...')
         # Convert raster to to shapes
         with rasterio.open(extent_grid) as src:
             image = src.read(1)
             mask = image > 0
             
-        print(f'{ahps_lid} Converted raster into shapes, now to aggregate shapes...')
+        # print(f'{ahps_lid} Converted raster into shapes, now to aggregate shapes...')
 
         # Aggregate shapes
         results = (
