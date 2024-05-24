@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 
+import boto3
 from dotenv import load_dotenv
 
 
@@ -17,7 +18,14 @@ load_dotenv('/foss_fim/src/bash_variables.env')
 pre_clip_huc_dir = os.environ["pre_clip_huc_dir"]
 
 
-def get_sample_data(huc, data_path: str, output_root_folder: str):
+def get_sample_data(
+    huc,
+    data_path: str,
+    output_root_folder: str,
+    use_s3: bool = False,
+    aws_access_key_id: str = None,
+    aws_secret_access_key: str = None,
+):
     """
     Create input data for the flood inundation model
 
@@ -31,21 +39,36 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
         Path to save the output data
     """
 
-    def get_validation_hucs(org: str):
+    def get_validation_hucs(root_dir: str, org: str):
         """
         Get the list of HUCs for validation
 
         Parameters
         ----------
+        root_dir : str
+            Root directory
         org : str
             Organization name
         """
 
-        return [
-            d
-            for d in os.listdir(f'/data/test_cases/{org}_test_cases/validation_data_{org}')
-            if re.match(r'^\d{8}$', d)
-        ]
+        if use_s3:
+            return list(
+                set(
+                    [
+                        d.key.split('/')[4]
+                        for d in s3_resource.Bucket(bucket).objects.filter(
+                            Prefix=f'{root_dir}/test_cases/{org}_test_cases/validation_data_{org}'
+                        )
+                        if re.match(r'^\d{8}$', d.key.split('/')[4])
+                    ]
+                )
+            )
+        else:
+            return [
+                d
+                for d in os.listdir(f'/data/test_cases/{org}_test_cases/validation_data_{org}')
+                if re.match(r'^\d{8}$', d)
+            ]
 
     def copy_validation_data(org: str, huc: str, data_path: str, output_data_path: str):
         """
@@ -68,7 +91,7 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
         output_validation_path = os.path.join(output_data_path, validation_path)
         os.makedirs(output_validation_path, exist_ok=True)
 
-        shutil.copytree(os.path.join(data_path, validation_path), output_validation_path, dirs_exist_ok=True)
+        copy_folder(os.path.join(data_path, validation_path), output_validation_path)
 
     def copy_file(input_path, output_path, basename):
         """
@@ -87,7 +110,12 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
         if not os.path.exists(os.path.join(output_path, basename)):
             print(f"Copying {os.path.join(input_path, basename)} to {output_path}")
             os.makedirs(output_path, exist_ok=True)
-            shutil.copy2(os.path.join(input_path, basename), output_path)
+            if use_s3:
+                s3.download_file(
+                    bucket, os.path.join(input_path, basename), os.path.join(output_path, basename)
+                )
+            else:
+                shutil.copy2(os.path.join(input_path, basename), output_path)
         else:
             print(f"{os.path.join(output_path, basename)} already exists.")
 
@@ -105,14 +133,56 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
 
         if not os.path.exists(output_path):
             print(f"Copying {input_path} to {output_path}")
-            shutil.copytree(input_path, output_path, dirs_exist_ok=True)
+
+            if use_s3:
+                download_s3_folder(bucket, input_path, output_path)
+            else:
+                shutil.copytree(input_path, output_path, dirs_exist_ok=True)
         else:
             print(f"{output_path} already exists.")
 
-    nws_validation_hucs = get_validation_hucs('nws')
-    usgs_validation_hucs = get_validation_hucs('usgs')
+    def download_s3_folder(bucket_name, s3_folder, local_dir=None):
+        """
+        Download the contents of a folder directory
+        Args:
+            bucket_name: the name of the s3 bucket
+            s3_folder: the folder path in the s3 bucket
+            local_dir: a relative or absolute directory path in the local file system
+        """
+        Bucket = s3_resource.Bucket(bucket_name)
+        for obj in Bucket.objects.filter(Prefix=s3_folder):
+            target = (
+                obj.key if local_dir is None else os.path.join(local_dir, os.path.relpath(obj.key, s3_folder))
+            )
+            if not os.path.exists(os.path.dirname(target)):
+                os.makedirs(os.path.dirname(target))
+            if obj.key[-1] == '/':
+                continue
+            Bucket.download_file(obj.key, target)
 
-    input_path = os.path.join(data_path, 'inputs')
+    if use_s3:
+        if not aws_access_key_id or not aws_secret_access_key:
+            raise ValueError('AWS access key ID and secret access key are required when using S3')
+
+        s3 = boto3.client(
+            's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
+        )
+        s3_resource = boto3.resource(
+            's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
+        )
+
+        bucket, bucket_path = data_path.split('/', 1)
+        input_path = os.path.join(bucket_path, 'inputs')
+
+    else:
+        input_path = os.path.join(data_path, 'inputs')
+
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f'{input_path} does not exist')
+
+    root_dir = os.path.split(input_path)[0]
+    nws_validation_hucs = get_validation_hucs(root_dir, 'nws')
+    usgs_validation_hucs = get_validation_hucs(root_dir, 'usgs')
 
     output_inputs_path = os.path.join(output_root_folder, 'inputs')
 
@@ -120,9 +190,6 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
         huc = [huc]
     else:
         huc = huc.split(',')
-
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f'{input_path} does not exist')
 
     ## 3dep_dems
     dem_path = os.path.join('3dep_dems', '10m_5070')
@@ -245,10 +312,10 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
 
     ## recurr_flows
     recurr_intervals = ['2', '5', '10', '25', '50']
-    recurr_flows = os.path.join('inundation_review', 'inundation_nwm_recurr', 'nwm_recurr_flow_data')
+    recurr_flows = os.path.join('inputs', 'rating_curve', 'nwm_recur_flows')
     for recurr_interval in recurr_intervals:
         copy_file(
-            os.path.join(data_path, recurr_flows),
+            os.path.join(input_path, recurr_flows),
             os.path.join(output_root_folder, recurr_flows),
             f'nwm21_17C_recurr_{recurr_interval}_0_cms.csv',
         )
@@ -259,6 +326,9 @@ if __name__ == '__main__':
     parser.add_argument('-u', '--huc', help='HUC to process')
     parser.add_argument('-i', '--data-path', help='Path to the input data')
     parser.add_argument('-o', '--output-root-folder', help='Path to save the output data')
+    parser.add_argument('-s3', '--use-s3', action='store_true', help='Download data from S3')
+    parser.add_argument('-ak', '--aws-access-key-id', help='AWS access key ID', required=False)
+    parser.add_argument('-sk', '--aws-secret-access-key', help='AWS secret access key', required=False)
 
     args = parser.parse_args()
 
