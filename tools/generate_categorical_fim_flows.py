@@ -271,7 +271,7 @@ def generate_catfim_flows(
       all_lists, conus_dataframe = get_metadata(
               metadata_url,
               select_by='state',
-              selector=['AK'] #, 'NY'],
+              selector=['AK'], #, 'NY'],
               must_include=None,
               upstream_trace_distance=nwm_us_search,
               downstream_trace_distance=nwm_ds_search,
