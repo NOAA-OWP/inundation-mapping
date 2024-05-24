@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import glob
 import os
 import re
 import shutil
@@ -136,7 +135,7 @@ def get_sample_data(huc, data_path: str, output_root_folder: str):
     copy_file(dem_input_path, dem_output_path, 'HUC6_dem_domain.gpkg')
 
     ## test_cases
-    for test_case_dir in ['ble', 'ifc', 'usgs', 'ras2fim']:
+    for test_case_dir in ['ble', 'ifc', 'nws', 'usgs', 'ras2fim']:
         os.makedirs(
             os.path.join(output_root_folder, 'test_cases', f'{test_case_dir}_test_cases'), exist_ok=True
         )
