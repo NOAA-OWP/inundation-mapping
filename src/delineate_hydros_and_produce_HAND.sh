@@ -218,7 +218,6 @@ if  [ -f $tempCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
         --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
 fi
 
-
 ## HYDRAULIC PROPERTIES ##
 echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"
 $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
@@ -227,34 +226,6 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
     -slp $tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif \
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
     -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
-
-
-## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
-if [ "$healed_hand_hydrocondition" = true ]; then
-    echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
-    gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
-        -R $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-        -D $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
-        -T $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
-        --calc="R+(D-T)" --NoDataValue=$ndv \
-        --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
-fi
-
-
-## HEAL HAND BRIDGES (note resolution is set to 10m)
-# May or may not be a bridge file, depends if the HUC has an applicble one.
-# Writing back over the rem_zeroed_masked branch tif
-if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
-    echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
-    python3 $srcDir/heal_bridges_osm.py \
-                -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-                -s $tempHucDataDir/osm_bridges_subset.gpkg \
-                -p $tempCurrentBranchDataDir/bridge_lines_raster_$current_branch_id.tif \
-                -t $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-                -r $res
-else
-    echo -e $startDiv"No applicable bridge data for $hucNumber"
-fi
 
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
@@ -278,6 +249,30 @@ python3 $srcDir/add_crosswalk.py \
     -e $min_catchment_area \
     -g $min_stream_length
 
+## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
+if [ "$healed_hand_hydrocondition" = true ]; then
+    echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
+    gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
+        -R $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -D $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+        -T $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+        --calc="R+(D-T)" --NoDataValue=$ndv \
+        --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
+fi
+
+## HEAL HAND BRIDGES ##
+if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
+    echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
+    python3 $srcDir/heal_bridges_osm.py \
+        -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -s $tempHucDataDir/osm_bridges_subset.gpkg \
+        -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg \
+        -b 10 \
+        -r $res
+else
+    echo -e $startDiv"No applicable bridge data for $hucNumber"
+fi
 
 ## EVALUATE CROSSWALK ##
 if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
