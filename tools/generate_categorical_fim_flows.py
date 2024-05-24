@@ -259,7 +259,7 @@ def generate_catfim_flows(
     
 
 
-    skip_api = True ## TODO: make this an argument, eventually (or just have this be true if the following path is provided)
+    skip_api = False ## TODO: make this an argument, eventually (or just have this be true if the following path is provided)
     # flows_metadata_path = '/alaska_catfim/catfim_test1__flow_based' ## TODO: make this an input, eventually
     #if skip_api == True:
     #  print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
@@ -271,7 +271,7 @@ def generate_catfim_flows(
       all_lists, conus_dataframe = get_metadata(
               metadata_url,
               select_by='state',
-              selector=['AK', 'NY'],
+              selector=['AK'] #, 'NY'],
               must_include=None,
               upstream_trace_distance=nwm_us_search,
               downstream_trace_distance=nwm_ds_search,
@@ -348,41 +348,41 @@ def generate_catfim_flows(
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     start_dt = datetime.now()
 
-    huc_lst = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    # huc_lst = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
     # run_all_hucs = False ## TODO: Add as argument input
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
+            # if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
             # if (huc in huc_lst or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
 
-                if huc[:2] == '19':
-                    # Alaska
-                    executor.submit(
-                        process_generate_flows,
-                        huc,
-                        huc_dictionary,
-                        threshold_url,
-                        all_lists,
-                        workspace,
-                        attributes_dir,
-                        huc_messages_dir,
-                        nwm_flows_alaska_df,
-                    )
+            if huc[:2] == '19':
+                # Alaska
+                executor.submit(
+                    process_generate_flows,
+                    huc,
+                    huc_dictionary,
+                    threshold_url,
+                    all_lists,
+                    workspace,
+                    attributes_dir,
+                    huc_messages_dir,
+                    nwm_flows_alaska_df,
+                )
 
-                else:
-                    # Not Alaska
-                    executor.submit(
-                        process_generate_flows,
-                        huc,
-                        huc_dictionary,
-                        threshold_url,
-                        all_lists,
-                        workspace,
-                        attributes_dir,
-                        huc_messages_dir,
-                        nwm_flows_df,
-                    )
+            else:
+                # Not Alaska
+                executor.submit(
+                    process_generate_flows,
+                    huc,
+                    huc_dictionary,
+                    threshold_url,
+                    all_lists,
+                    workspace,
+                    attributes_dir,
+                    huc_messages_dir,
+                    nwm_flows_df,
+                )
 
     end_dt = datetime.now()
     time_duration = end_dt - start_dt

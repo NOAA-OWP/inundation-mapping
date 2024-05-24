@@ -792,49 +792,63 @@ def generate_stage_based_categorical_fim(
         workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run
     )
 
-    huc_lst = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    # print('huc_dictionary') ## TEMP DEBUG
+    # print(huc_dictionary) ## TEMP DEBUG
+    # print('out_gdf') ## TEMP DEBUG
+    # print(out_gdf) ## TEMP DEBUG
+    # print('metadata_url') ## TEMP DEBUG
+    # print(metadata_url) ## TEMP DEBUG
+    # print('threshold_url') ## TEMP DEBUG
+    # print(threshold_url) ## TEMP DEBUG
+    # print('all_lists') ## TEMP DEBUG
+    # print(all_lists) ## TEMP DEBUG
+    # print('nwm_flows_df') ## TEMP DEBUG
+    # print(nwm_flows_df) ## TEMP DEBUG
+    # print('nwm_flows_alaska_df') ## TEMP DEBUG
+    # print(nwm_flows_alaska_df) ## TEMP DEBUG
+
+    # huc_lst = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    # huc_lst = ['19020302'] # ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
+            # if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
             # if (huc in huc_lst or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
-
-                print(f'huc {huc} is included in list, running iterate_through_huc_stage_based') ## TEMP DEBUG
-
-                if huc[:2] == '19':
-                    # Alaska
-                    executor.submit(
-                        iterate_through_huc_stage_based,
-                        workspace,
-                        huc,
-                        fim_dir,
-                        huc_dictionary,
-                        threshold_url,
-                        flood_categories,
-                        all_lists,
-                        past_major_interval_cap,
-                        number_of_jobs,
-                        number_of_interval_jobs,
-                        attributes_dir,
-                        nwm_flows_alaska_df,
-                    )
-                else:
-                    # not Alaska
-                    executor.submit(
-                        iterate_through_huc_stage_based,
-                        workspace,
-                        huc,
-                        fim_dir,
-                        huc_dictionary,
-                        threshold_url,
-                        flood_categories,
-                        all_lists,
-                        past_major_interval_cap,
-                        number_of_jobs,
-                        number_of_interval_jobs,
-                        attributes_dir,
-                        nwm_flows_df,
-                    )
+            if huc[:2] == '19':
+                # Alaska
+                executor.submit(
+                    iterate_through_huc_stage_based,
+                    workspace,
+                    huc,
+                    fim_dir,
+                    huc_dictionary,
+                    threshold_url,
+                    flood_categories,
+                    all_lists,
+                    past_major_interval_cap,
+                    number_of_jobs,
+                    number_of_interval_jobs,
+                    attributes_dir,
+                    nwm_flows_alaska_df,
+                )
+            else:
+                # not Alaska
+                executor.submit(
+                    iterate_through_huc_stage_based,
+                    workspace,
+                    huc,
+                    fim_dir,
+                    huc_dictionary,
+                    threshold_url,
+                    flood_categories,
+                    all_lists,
+                    past_major_interval_cap,
+                    number_of_jobs,
+                    number_of_interval_jobs,
+                    attributes_dir,
+                    nwm_flows_df,
+                )
 
 
     print('Wrapping up Stage-Based CatFIM...')
