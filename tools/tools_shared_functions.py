@@ -71,8 +71,8 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
 
         if stream_order == desired_order:
             filtered_segments.append(feature_id)
-        # else: 
-        #     print(f'Stream order for {feature_id} did not match desired stream order...') 
+        # else:
+        #     print(f'Stream order for {feature_id} did not match desired stream order...')
 
     return filtered_segments
 

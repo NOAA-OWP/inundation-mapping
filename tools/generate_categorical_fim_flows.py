@@ -27,8 +27,12 @@ from utils.shared_variables import VIZ_PROJECTION
 gpd.options.io_engine = "pyogrio"
 
 
-def get_env_paths():
-    load_dotenv()
+def get_env_paths(env_file):
+
+    if os.path.exists(env_file) is False:
+        raise Exception(f"The environment file of {env_file} does not seem to exist")
+
+    load_dotenv(env_file)
     # import variables from .env file
     API_BASE_URL = os.getenv("API_BASE_URL")
     WBD_LAYER = os.getenv("WBD_LAYER")
@@ -47,16 +51,16 @@ def process_generate_flows(
     nws_lids = huc_dictionary[huc]
 
     # Loop through each lid in list to create flow file
-    for lid in nws_lids: # TODO: Replace print statements with a progress bar
+    for lid in nws_lids:  # TODO: Replace print statements with a progress bar
         # Convert lid to lower case
         lid = lid.lower()
-        
-        # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.  
+
+        # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
 
         # print(f'Getting thresholds for {lid}') # TODO: Make verbose option
         stages, flows = get_thresholds(
             threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-        ) 
+        )
 
         if stages is None or flows is None:
             message = f'{lid}: stages or flows is none, likely WRDS error'
@@ -70,14 +74,14 @@ def process_generate_flows(
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
             continue
-        
+
         # Check if calculated flows are supplied, if not write message and exit.
         if all(flows.get(category, None) is None for category in flood_categories):
             message = f'{lid}:missing calculated flows'
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
             continue
-        
+
         # Find lid metadata from master list of metadata dictionaries (line 66).
         metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
 
@@ -101,7 +105,7 @@ def process_generate_flows(
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
             continue
-    
+
         # For each flood category
         for category in flood_categories:
             # Get the flow
@@ -128,7 +132,7 @@ def process_generate_flows(
                 message = f'{lid}:{category} is missing calculated flow'
                 all_messages.append(message)
                 # print(message) # TODO: Make verbose option
-    
+
         # Get various attributes of the site.
         lat = float(metadata['nws_preferred']['latitude'])
         lon = float(metadata['nws_preferred']['longitude'])
@@ -170,7 +174,7 @@ def process_generate_flows(
                 }
             )
             csv_df = pd.concat([csv_df, line_df])
-    
+
         # Round flow and stage columns to 2 decimal places.
         csv_df = csv_df.round({'q': 2, 'stage': 2})
 
@@ -199,6 +203,7 @@ def generate_catfim_flows(
     workspace,
     nwm_us_search,
     nwm_ds_search,
+    env_file,
     stage_based,
     fim_dir,
     lid_to_run,
@@ -233,7 +238,7 @@ def generate_catfim_flows(
     '''
 
     all_start = datetime.now()
-    API_BASE_URL, WBD_LAYER = get_env_paths()
+    API_BASE_URL, WBD_LAYER = get_env_paths(env_file)
     # Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
     workspace = Path(workspace)
     nwm_us_search = int(nwm_us_search)
@@ -256,71 +261,71 @@ def generate_catfim_flows(
 
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
-    
 
-
-    skip_api = False ## TODO: make this an argument, eventually (or just have this be true if the following path is provided)
-    # flows_metadata_path = '/alaska_catfim/catfim_test1__flow_based' ## TODO: make this an input, eventually
-    #if skip_api == True:
+    #  TODO: make this an argument, eventually (or just have this be true if the following path is provided)
+    # flows_metadata_path = '/alaska_catfim/catfim_test1__flow_based'
+    #  TODO: make this an input, eventually
+    skip_api = False
+    # if skip_api == True:
     #  print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
-    
-    if skip_api == True: # temp
-      print("Skipping full API pull, just get metadata for the following states: 'AK', 'NY'")
-      
-      # TEMP: just get metadata for the following states: 'AK', 'TX', 'SD', 'NY'
-      all_lists, conus_dataframe = get_metadata(
-              metadata_url,
-              select_by='state',
-              selector=['AK'], #, 'NY'],
-              must_include=None,
-              upstream_trace_distance=nwm_us_search,
-              downstream_trace_distance=nwm_ds_search,
-          )
-    
+
+    if skip_api is True:  # temp
+        print("Skipping full API pull, just get metadata for the following states: 'AK', 'NY'")
+
+        # TEMP: just get metadata for the following states: 'AK', 'TX', 'SD', 'NY'
+        all_lists, conus_dataframe = get_metadata(
+            metadata_url,
+            select_by='state',
+            selector=['AK'],  # , 'NY'],
+            must_include=None,
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+
     else:
-  
-      print(f'Retrieving metadata for site(s): {lid_to_run}..')
-      start_dt = datetime.now()
-  
-      # Get metadata for 'CONUS'
-      print(metadata_url)
-      if lid_to_run != 'all':
-          all_lists, conus_dataframe = get_metadata(
-              metadata_url,
-              select_by='nws_lid',
-              selector=[lid_to_run],
-              must_include='nws_data.rfc_forecast_point',
-              upstream_trace_distance=nwm_us_search,
-              downstream_trace_distance=nwm_ds_search,
-          )
-      else:
-          # Get CONUS metadata
-          conus_list, conus_dataframe = get_metadata(
-              metadata_url,
-              select_by='nws_lid',
-              selector=['all'],
-              must_include='nws_data.rfc_forecast_point',
-              upstream_trace_distance=nwm_us_search,
-              downstream_trace_distance=nwm_ds_search,
-          )
-          # Get metadata for Islands and Alaska
-          islands_list, islands_dataframe = get_metadata(
-              metadata_url,
-              select_by='state',
-              selector=['HI', 'PR', 'AK'],
-              must_include=None,
-              upstream_trace_distance=nwm_us_search,
-              downstream_trace_distance=nwm_ds_search,
-          )
-          # Append the dataframes and lists
-          all_lists = conus_list + islands_list
-          
-      print(len(all_lists))
-  
-      end_dt = datetime.now()
-      time_duration = end_dt - start_dt
-      print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
-      print()
+
+        print(f'Retrieving metadata for site(s): {lid_to_run}..')
+        start_dt = datetime.now()
+
+        # Get metadata for 'CONUS'
+        print(metadata_url)
+        if lid_to_run != 'all':
+            all_lists, conus_dataframe = get_metadata(
+                metadata_url,
+                select_by='nws_lid',
+                selector=[lid_to_run],
+                must_include='nws_data.rfc_forecast_point',
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+        else:
+            # Get CONUS metadata
+            conus_list, conus_dataframe = get_metadata(
+                metadata_url,
+                select_by='nws_lid',
+                selector=['all'],
+                must_include='nws_data.rfc_forecast_point',
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+            # Get metadata for Islands and Alaska
+            islands_list, islands_dataframe = get_metadata(
+                metadata_url,
+                select_by='state',
+                selector=['HI', 'PR', 'AK'],
+                must_include=None,
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+            # Append the dataframes and lists
+            all_lists = conus_list + islands_list
+
+        print(len(all_lists))
+
+        end_dt = datetime.now()
+        time_duration = end_dt - start_dt
+        print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
+        print()
 
     print('Determining HUC using WBD layer...')
     start_dt = datetime.now()
@@ -328,7 +333,7 @@ def generate_catfim_flows(
     # Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer.
     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     # of all sites used later in script.
-    
+
     huc_dictionary, out_gdf = aggregate_wbd_hucs(
         metadata_list=all_lists, wbd_huc8_path=WBD_LAYER, retain_attributes=True
     )
@@ -342,8 +347,16 @@ def generate_catfim_flows(
     print(f"Determining HUC using WBD layer Duration: {str(time_duration).split('.')[0]}")
     print()
 
-    if stage_based: # If it's stage-based, the function stops running here
-        return huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df
+    if stage_based:  # If it's stage-based, the function stops running here
+        return (
+            huc_dictionary,
+            out_gdf,
+            metadata_url,
+            threshold_url,
+            all_lists,
+            nwm_flows_df,
+            nwm_flows_alaska_df,
+        )
 
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     start_dt = datetime.now()
@@ -405,7 +418,7 @@ def generate_catfim_flows(
     # whether it was mapped or not (mapped field) and if not, why (status field).
 
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION) # TODO: Accomodate AK projection?
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)  # TODO: Accomodate AK projection?
     viz_out_gdf.rename(
         columns={
             'identifiers_nwm_feature_id': 'nwm_seg',
@@ -479,6 +492,14 @@ if __name__ == '__main__':
     parser.add_argument(
         '-d', '--nwm_ds_search', help='Walk downstream on NWM network this many miles', required=True
     )
+
+    parser.add_argument(
+        '-e',
+        '--env_file',
+        help='docker mount path to the catfim environment file. ie) data/config/catfim.env',
+        required=True,
+    )
+
     parser.add_argument(
         '-a',
         '--stage_based',

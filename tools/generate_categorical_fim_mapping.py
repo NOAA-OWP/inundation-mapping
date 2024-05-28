@@ -16,7 +16,7 @@ from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 
 from utils.shared_functions import getDriver
-from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION, ALASKA_CRS
+from utils.shared_variables import ALASKA_CRS, PREP_PROJECTION, VIZ_PROJECTION
 
 
 gpd.options.io_engine = "pyogrio"
@@ -30,7 +30,7 @@ def generate_categorical_fim(
 
     # Log missing hucs
     missing_hucs = list(set(source_flow_dir_list) - set(output_flow_dir_list))
-    missing_hucs = [huc for huc in missing_hucs if "." not in huc] 
+    missing_hucs = [huc for huc in missing_hucs if "." not in huc]
 
     if len(missing_hucs) > 0:
         f = open(log_file, 'a+')
@@ -171,7 +171,7 @@ def post_process_huc_level(
         with ProcessPoolExecutor(max_workers=job_number_tif) as executor:
             for tif_to_process in tifs_to_reformat_list:
                 if not os.path.exists(tif_to_process):
-                    continue 
+                    continue
                 try:
                     magnitude = os.path.split(tif_to_process)[1].split('_')[1]
                     try:
@@ -285,7 +285,7 @@ def reformat_inundation_maps(
         with rasterio.open(extent_grid) as src:
             image = src.read(1)
             mask = image > 0
-            
+
         # print(f'{ahps_lid} Converted raster into shapes, now to aggregate shapes...')
 
         # Aggregate shapes
@@ -296,8 +296,8 @@ def reformat_inundation_maps(
 
         # Convert list of shapes to polygon
         # extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION) # Previous code
-        extent_poly = gpd.GeoDataFrame.from_features(list(results)) # Update to accomodate AK projection
-        extent_poly = extent_poly.set_crs(src.crs) # Update to accomodate AK projection
+        extent_poly = gpd.GeoDataFrame.from_features(list(results))  # Update to accomodate AK projection
+        extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
