@@ -50,6 +50,7 @@ def process_generate_categorical_fim(
     overwrite,
     search,
     lid_to_run,
+    lst_hucs,
     job_number_intervals,
     past_major_interval_cap,
 ):
@@ -81,16 +82,18 @@ def process_generate_categorical_fim(
         num_dir = len(output_flow_dir_list)
         print(f'{num_dir} HUCs found in FIM run directory')
 
-    # Check that the .env file exists and raise error if necessary
-    load_dotenv(env_file)
-    API_BASE_URL = os.getenv('API_BASE_URL')
-    if API_BASE_URL is None:
-        raise ValueError(
-            'API base url not found. '
-            'Ensure inundation_mapping/tools/ has an .env file with the following info: '
-            'API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, NWM_FLOWS_MS, '
-            'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
-        )
+    # # Check that the .env file exists and raise error if necessary
+    # load_dotenv(env_file)
+    # API_BASE_URL = os.getenv('API_BASE_URL')
+    # if API_BASE_URL is None:
+    #     raise ValueError(
+    #         'API base url not found. '
+    #         'Ensure inundation_mapping/tools/ has an .env file with the following info: '
+    #         'API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, NWM_FLOWS_MS, '
+    #         'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
+    #     )
+
+    # TODO: Add check for if lid_to_run and lst_hucs parameters conflict
 
     # Check that fim_inputs.csv exists and raise error if necessary
     fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
@@ -132,6 +135,13 @@ def process_generate_categorical_fim(
     log_dir = os.path.join(output_catfim_dir_parent, 'logs')
     log_file = os.path.join(log_dir, 'errors.log')
 
+    # Format lst_hucs # TODO TEMP DEBUG 
+
+    lst_hucs = lst_hucs.split()
+
+    print('lst_hucs:') ## TEMP DEBUG
+    print(lst_hucs) ## TEMP DEBUG
+
     # STAGE-BASED
     if stage_based:
         # Generate Stage-Based CatFIM mapping
@@ -144,6 +154,7 @@ def process_generate_categorical_fim(
             env_file,
             job_number_inundate,
             lid_to_run,
+            lst_hucs,
             attributes_dir,
             job_number_intervals,
             past_major_interval_cap,
@@ -178,6 +189,7 @@ def process_generate_categorical_fim(
             stage_based,
             fim_dir,
             lid_to_run,
+            lst_hucs,
             attributes_dir,
             job_number_huc,
         )
@@ -780,6 +792,7 @@ def generate_stage_based_categorical_fim(
     env_file,
     number_of_jobs,
     lid_to_run,
+    lst_hucs,
     attributes_dir,
     number_of_interval_jobs,
     past_major_interval_cap,
@@ -796,6 +809,7 @@ def generate_stage_based_categorical_fim(
             stage_based=True,
             fim_dir=fim_dir,
             lid_to_run=lid_to_run,
+            lst_hucs=lst_hucs,
         )
     )
 
@@ -814,47 +828,61 @@ def generate_stage_based_categorical_fim(
     # print('nwm_flows_alaska_df') ## TEMP DEBUG
     # print(nwm_flows_alaska_df) ## TEMP DEBUG
 
-    # huc_lst = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
-    # huc_lst = ['19020302'] # ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    # lst_hucs = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    # lst_hucs = ['19020302'] # ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+
+
+    # Set run parameter
+    if lst_hucs == ['all']: 
+        run_all_hucs = True
+        print('lst_hucs ==  all, running all hucs!') ## TEMP DEBUG
+    else:
+        run_all_hucs = False
+        print('lst_hucs specified, only running this HUC list') ## TEMP DEBUG
+        print(lst_hucs) ## TEMP DEBUG
+
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            # if huc in huc_lst: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
-            # if (huc in huc_lst or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
-            if huc[:2] == '19':
-                # Alaska
-                executor.submit(
-                    iterate_through_huc_stage_based,
-                    workspace,
-                    huc,
-                    fim_dir,
-                    huc_dictionary,
-                    threshold_url,
-                    flood_categories,
-                    all_lists,
-                    past_major_interval_cap,
-                    number_of_jobs,
-                    number_of_interval_jobs,
-                    attributes_dir,
-                    nwm_flows_alaska_df,
-                )
-            else:
-                # not Alaska
-                executor.submit(
-                    iterate_through_huc_stage_based,
-                    workspace,
-                    huc,
-                    fim_dir,
-                    huc_dictionary,
-                    threshold_url,
-                    flood_categories,
-                    all_lists,
-                    past_major_interval_cap,
-                    number_of_jobs,
-                    number_of_interval_jobs,
-                    attributes_dir,
-                    nwm_flows_df,
-                )
+            # if huc in lst_hucs: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
+            if (huc in lst_hucs or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
+
+                print(f'running huc: {huc}') ## TEMP DEBUG
+
+                if huc[:2] == '19':
+                    # Alaska
+                    executor.submit(
+                        iterate_through_huc_stage_based,
+                        workspace,
+                        huc,
+                        fim_dir,
+                        huc_dictionary,
+                        threshold_url,
+                        flood_categories,
+                        all_lists,
+                        past_major_interval_cap,
+                        number_of_jobs,
+                        number_of_interval_jobs,
+                        attributes_dir,
+                        nwm_flows_alaska_df,
+                    )
+                else:
+                    # not Alaska
+                    executor.submit(
+                        iterate_through_huc_stage_based,
+                        workspace,
+                        huc,
+                        fim_dir,
+                        huc_dictionary,
+                        threshold_url,
+                        flood_categories,
+                        all_lists,
+                        past_major_interval_cap,
+                        number_of_jobs,
+                        number_of_interval_jobs,
+                        attributes_dir,
+                        nwm_flows_df,
+                    )
 
     print('Wrapping up Stage-Based CatFIM...')
     csv_files = os.listdir(attributes_dir)
@@ -1094,21 +1122,19 @@ if __name__ == '__main__':
         help='Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_0_9_2',
         required=True,
     )
-
     parser.add_argument(
         '-e',
         '--env_file',
-        help='docker mount path to the catfim environment file. ie) data/config/catfim.env',
+        help='Docker mount path to the catfim environment file. ie) data/config/catfim.env',
         required=True,
     )
-
     parser.add_argument(
         '-jh',
         '--job_number_huc',
-        help='Number of processes to use for HUC scale operations.'
+        help='OPTIONAL: Number of processes to use for HUC scale operations.'
         ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'
         ' machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be '
-        'kept low (2-4)',
+        'kept low (2-4). Defaults to 1.',
         required=False,
         default=1,
         type=int,
@@ -1116,9 +1142,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-jn',
         '--job_number_inundate',
-        help='Number of processes to use for inundating'
+        help='OPTIONAL: Number of processes to use for inundating'
         ' HUC and inundation job numbers should multiply to no more than one less than the CPU count'
-        ' of the machine.',
+        ' of the machine. Defaults to 1.',
         required=False,
         default=1,
         type=int,
@@ -1126,7 +1152,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-a',
         '--stage_based',
-        help='Run stage-based CatFIM instead of flow-based?' ' NOTE: flow-based CatFIM is the default.',
+        help='Run stage-based CatFIM instead of flow-based? NOTE: Flow-based CatFIM is the default.',
         required=False,
         default=False,
         action='store_true',
@@ -1134,31 +1160,38 @@ if __name__ == '__main__':
     parser.add_argument(
         '-t',
         '--output_folder',
-        help='Target: Where the output folder will be',
+        help='OPTIONAL: Target location, Where the output folder will be. Defaults to /data/catfim/',
         required=False,
         default='/data/catfim/',
     )
-    parser.add_argument('-o', '--overwrite', help='Overwrite files', required=False, action="store_true")
+    parser.add_argument('-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true")
     parser.add_argument(
         '-s',
         '--search',
-        help='Upstream and downstream search in miles. How far up and downstream do you want to go?',
+        help='OPTIONAL: Upstream and downstream search in miles. How far up and downstream do you want to go? Defaults to 5.',
         required=False,
         default='5',
     )
     parser.add_argument(
         '-l',
         '--lid_to_run',
-        help='NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Default is all sites',
+        help='OPTIONAL: NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Defaults to all sites',
+        required=False,
+        default='all',
+    )
+    parser.add_argument(
+        '-lh',
+        '--lst_hucs',
+        help='OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs',
         required=False,
         default='all',
     )
     parser.add_argument(
         '-ji',
         '--job_number_intervals',
-        help='Number of processes to use for inundating multiple intervals in stage-based'
+        help='OPTIONAL: Number of processes to use for inundating multiple intervals in stage-based'
         ' inundation and interval job numbers should multiply to no more than one less than the CPU count '
-        'of the machine.',
+        'of the machine. Defaults to 1.',
         required=False,
         default=1,
         type=int,
@@ -1166,8 +1199,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-mc',
         '--past_major_interval_cap',
-        help='Stage-Based Only. How many feet past major do you want to go for the interval FIMs?'
-        ' of the machine.',
+        help='OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs?'
+        ' of the machine. Defaults to 5.',
         required=False,
         default=5.0,
         type=float,
