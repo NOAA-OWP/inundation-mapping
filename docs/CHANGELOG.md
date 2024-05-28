@@ -3,7 +3,6 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.5.x.x - 2024-05-17 - [PR#1169](https://github.com/NOAA-OWP/inundation-mapping/pull/1169)
 
-
 This tool scans all log directory looking for the word "error" (not case-sensitive). This is primary added to help find errors in the post processing logs such as src_optimization folder (and others).
 
 ### Changes
