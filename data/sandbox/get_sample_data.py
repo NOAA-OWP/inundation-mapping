@@ -267,17 +267,22 @@ def get_sample_data(
         'nwm_high_water_threshold_cms.csv',
     )
 
-    copy_folder(
-        os.path.join(input_path, 'rating_curve', 'nwm_recur_flows'),
-        os.path.join(output_inputs_path, 'rating_curve', 'nwm_recur_flows'),
-    )
-
     ras2fim_exports = os.path.join('rating_curve', 'ras2fim_exports')
     copy_file(
         os.path.join(input_path, ras2fim_exports),
         os.path.join(output_inputs_path, ras2fim_exports),
         'reformat_ras_rating_curve_points_rel_101.gpkg',
     )
+
+    ## recurr_flows
+    recurr_intervals = ['2', '5', '10', '25', '50']
+    recurr_flows = os.path.join('inputs', 'rating_curve', 'nwm_recur_flows')
+    for recurr_interval in recurr_intervals:
+        copy_file(
+            os.path.join(input_path, recurr_flows),
+            os.path.join(output_root_folder, recurr_flows),
+            f'nwm21_17C_recurr_{recurr_interval}_0_cms.csv',
+        )
 
     variable_roughness = os.path.join('rating_curve', 'variable_roughness')
     copy_file(
@@ -309,16 +314,6 @@ def get_sample_data(
         os.path.join(output_inputs_path, 'wbd'),
         'WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg',
     )
-
-    ## recurr_flows
-    recurr_intervals = ['2', '5', '10', '25', '50']
-    recurr_flows = os.path.join('inputs', 'rating_curve', 'nwm_recur_flows')
-    for recurr_interval in recurr_intervals:
-        copy_file(
-            os.path.join(input_path, recurr_flows),
-            os.path.join(output_root_folder, recurr_flows),
-            f'nwm21_17C_recurr_{recurr_interval}_0_cms.csv',
-        )
 
 
 if __name__ == '__main__':
