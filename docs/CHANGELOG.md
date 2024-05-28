@@ -3,15 +3,15 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.5.x.x - 2024-05-17 - [PR#1169](https://github.com/NOAA-OWP/inundation-mapping/pull/1169)
 
-Fixes two bugs discovered in v4.5.0.0:
-1. `echo` missing in bash command
-2. raster resolution of `dem_meters.tif` has now been explicitly set in `gdalwarp`.
 
 This tool scans all log directory looking for the word "error" (not case-sensitive). This is primary added to help find errors in the post processing logs such as src_optimization folder (and others).
 
 ### Changes
 
 - `fim_post_processing.sh`: as described
+
+<br/><br/>
+
 
 ## v4.5.2.1 - 2024-05-21 - [PR#1172](https://github.com/NOAA-OWP/inundation-mapping/pull/1172)
 
