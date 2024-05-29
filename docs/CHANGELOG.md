@@ -8,6 +8,7 @@ This tool scans all log directory looking for the word "error" (not case-sensiti
 ### Changes
 
 - `fim_post_processing.sh`: as described
+- `src\mitigate_branch_outlet_backpool.py`: Has the word error in text which fills up the error scan logs.
 
 <br/><br/>
 
