@@ -279,7 +279,7 @@ def generate_catfim_flows(
         all_lists, conus_dataframe = get_metadata(
             metadata_url,
             select_by='state',
-            selector=['AK'],  # , 'NY'],
+            selector=['AK', 'NY'],
             must_include=None,
             upstream_trace_distance=nwm_us_search,
             downstream_trace_distance=nwm_ds_search,
@@ -379,8 +379,7 @@ def generate_catfim_flows(
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
-            # if huc in lst_hucs: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
-            if (huc in lst_hucs or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
+            if (huc in lst_hucs or run_all_hucs == True): # TODO: test throughly
                 
                 print(f'running huc: {huc}') ## TEMP DEBUG
 
