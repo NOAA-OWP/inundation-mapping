@@ -82,23 +82,23 @@ def process_generate_categorical_fim(
         num_dir = len(output_flow_dir_list)
         print(f'{num_dir} HUCs found in FIM run directory')
 
-    # # Check that the .env file exists and raise error if necessary
-    # load_dotenv(env_file)
-    # API_BASE_URL = os.getenv('API_BASE_URL')
-    # if API_BASE_URL is None:
-    #     raise ValueError(
-    #         'API base url not found. '
-    #         'Ensure inundation_mapping/tools/ has an .env file with the following info: '
-    #         'API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, NWM_FLOWS_MS, '
-    #         'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
-    #     )
+    # Check that the .env file exists and raise error if necessary
+    load_dotenv(env_file)
+    API_BASE_URL = os.getenv('API_BASE_URL')
+    if API_BASE_URL is None:
+        raise ValueError(
+            'API base url not found. '
+            'Ensure inundation_mapping/tools/ has an .env file with the following info: '
+            'API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER, NWM_FLOWS_MS, '
+            'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
+        )
 
     # TODO: Add check for if lid_to_run and lst_hucs parameters conflict
 
     # Check that fim_inputs.csv exists and raise error if necessary
     fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
     if not os.path.exists(fim_inputs_csv_path):
-        raise ValueError(f'{fim_inputs_csv_path} not found. ' 'Verify that you have the correct input files.')
+        raise ValueError(f'{fim_inputs_csv_path} not found. Verify that you have the correct input files.')
 
     print()
 
