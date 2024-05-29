@@ -713,6 +713,9 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
     huc8 = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     print("WBD read.")
     huc8 = huc8[['HUC8', 'name', 'states', 'geometry']]
+
+    huc8.sort_values(by='HUC8', ascending=True, inplace=True)
+
     # Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
     crs_lookup = {'NAD27': 'EPSG:4267', 'NAD83': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
     # Create empty geodataframe and define CRS for potential horizontal datums

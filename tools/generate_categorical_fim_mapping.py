@@ -107,7 +107,7 @@ def run_inundation(
 ):
     huc_dir = os.path.join(fim_run_dir, huc)
     try:
-        print("Running Inundate_gms for " + huc)
+        print(f"Running Inundate_gms for {huc} : {ahps_site} : {magnitude}")
         map_file = Inundate_gms(
             hydrofabric_dir=fim_run_dir,
             forecast=magnitude_flows_csv,
@@ -120,7 +120,7 @@ def run_inundation(
             log_file=None,
             output_fileNames=None,
         )
-        print("Mosaicking for " + huc)
+        print(f"Mosaicking for {huc} : {ahps_site} : {magnitude}")
         Mosaic_inundation(
             map_file,
             mosaic_attribute='inundation_rasters',
@@ -133,12 +133,14 @@ def run_inundation(
             subset=None,
             verbose=False,
         )
+        print(f"Mosaicking complete for {huc} : {ahps_site} : {magnitude}")
 
     except Exception:
         # Log errors and their tracebacks
         f = open(log_file, 'a+')
         f.write(f"{output_extent_grid} - inundation error: {traceback.format_exc()}\n")
         f.close()
+        print(f"Exception: running inundation for {huc}" + traceback.format_exc())
 
     # Inundation.py appends the huc code to the supplied output_extent_grid.
     # Modify output_extent_grid to match inundation.py saved filename.
@@ -232,8 +234,11 @@ def post_process_cat_fim_for_viz(
                     continue
 
                 # If there's no mapping for a HUC, delete the HUC directory.
+
                 if ahps_dir_list == []:
-                    os.rmdir(huc_dir)
+                    # Temp DEBUG
+                    # os.rmdir(huc_dir)
+                    print(f"no mapping for {huc}")
                     continue
 
                 huc_exector.submit(

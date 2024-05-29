@@ -268,7 +268,7 @@ def generate_catfim_flows(
     #  TODO: make this an input, eventually
     # skip_api = False
 
-    skip_api = True ## TEMP DEBUG, set back to false when done testing
+    skip_api = True  # TEMP DEBUG, set back to false when done testing
     # if skip_api == True:
     #  print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
 
@@ -364,24 +364,25 @@ def generate_catfim_flows(
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     start_dt = datetime.now()
 
-    # lst_hucs = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
-    # run_all_hucs = False ## TODO: Add as argument input
+    # lst_hucs = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005',
+    # '02040101', '02050105'] # TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    # run_all_hucs = False # TODO: Add as argument input
 
     # Set run parameter
-    if lst_hucs == ['all']: 
+    if lst_hucs == ['all']:
         run_all_hucs = True
-        print('lst_hucs ==  all, running all hucs!') ## TEMP DEBUG
+        print('lst_hucs ==  all, running all hucs!')  # TEMP DEBUG
     else:
         run_all_hucs = False
-        print('lst_hucs specified, only running this HUC list') ## TEMP DEBUG
-        print(lst_hucs) ## TEMP DEBUG
+        print('lst_hucs specified, only running this HUC list')  # TEMP DEBUG
+        print(lst_hucs)  # TEMP DEBUG
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
-            if (huc in lst_hucs or run_all_hucs == True): # TODO: test throughly
-                
-                print(f'running huc: {huc}') ## TEMP DEBUG
+            if huc in lst_hucs or run_all_hucs is True:  # TODO: test throughly
+
+                print(f'running huc: {huc}')  # TEMP DEBUG
 
                 if huc[:2] == '19':
                     # Alaska

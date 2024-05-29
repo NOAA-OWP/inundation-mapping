@@ -135,16 +135,16 @@ def process_generate_categorical_fim(
     log_dir = os.path.join(output_catfim_dir_parent, 'logs')
     log_file = os.path.join(log_dir, 'errors.log')
 
-    # Format lst_hucs # TODO TEMP DEBUG 
+    # Format lst_hucs # TODO TEMP DEBUG
 
     lst_hucs = lst_hucs.split()
 
-    print('lst_hucs:') ## TEMP DEBUG
-    print(lst_hucs) ## TEMP DEBUG
+    print('lst_hucs:')  # TEMP DEBUG
+    print(lst_hucs)  # TEMP DEBUG
 
     # STAGE-BASED
     if stage_based:
-        # Generate Stage-Based CatFIM mapping
+        # Generate Stage-Based CatFIM mapping3
         nws_sites_layer = generate_stage_based_categorical_fim(
             output_mapping_dir,
             fim_version,
@@ -329,7 +329,8 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
         # Write out to file
         flows_df.to_file(nws_sites_layer)
     except Exception as e:
-        print(f"No LIDs, \n Exception: \n {repr(e)} \n")
+        print(f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
+        print(traceback.format_exc())
 
 
 def produce_inundation_map_with_stage_and_feature_ids(
@@ -813,40 +814,39 @@ def generate_stage_based_categorical_fim(
         )
     )
 
-    # print('huc_dictionary') ## TEMP DEBUG
-    # print(huc_dictionary) ## TEMP DEBUG
-    # print('out_gdf') ## TEMP DEBUG
-    # print(out_gdf) ## TEMP DEBUG
-    # print('metadata_url') ## TEMP DEBUG
-    # print(metadata_url) ## TEMP DEBUG
-    # print('threshold_url') ## TEMP DEBUG
-    # print(threshold_url) ## TEMP DEBUG
-    # print('all_lists') ## TEMP DEBUG
-    # print(all_lists) ## TEMP DEBUG
-    # print('nwm_flows_df') ## TEMP DEBUG
-    # print(nwm_flows_df) ## TEMP DEBUG
-    # print('nwm_flows_alaska_df') ## TEMP DEBUG
-    # print(nwm_flows_alaska_df) ## TEMP DEBUG
+    # TEMP DEBUG
+    # print(locals())
+    # print('huc_dictionary')
+    # print(huc_dictionary)
+    # print('out_gdf')
+    # print(out_gdf)
+    # print('metadata_url')
+    # print(metadata_url)
+    # print('threshold_url')
+    # print(threshold_url)
+    # print('all_lists')
+    # print(all_lists)
+    # print('nwm_flows_df')
+    # print(nwm_flows_df)
+    # print('nwm_flows_alaska_df')
+    # print(nwm_flows_alaska_df)
 
     # lst_hucs = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005', '02040101', '02050105'] ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
-    # lst_hucs = ['19020302'] # ## TEMP DEBUG HUC LIST # TODO: Add as an argument input?
-
+    # lst_hucs = ['19020302'] #  TEMP DEBUG HUC LIST # TODO: Add as an argument input?
 
     # Set run parameter
-    if lst_hucs == ['all']: 
+    if lst_hucs == ['all']:
         run_all_hucs = True
-        print('lst_hucs ==  all, running all hucs!') ## TEMP DEBUG
+        print('lst_hucs ==  all, running all hucs!')  # TEMP DEBUG
     else:
         run_all_hucs = False
-        print('lst_hucs specified, only running this HUC list') ## TEMP DEBUG
-        print(lst_hucs) ## TEMP DEBUG
-
+        print('lst_hucs specified, only running this HUC list')  # TEMP DEBUG
+        print(lst_hucs)  # TEMP DEBUG
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            if (huc in lst_hucs or run_all_hucs == True): # TODO: test throughly
-
-                print(f'running huc: {huc}') ## TEMP DEBUG
+            if huc in lst_hucs or run_all_hucs is True:  # TODO: test throughly
+                print(f'running huc: {huc}')  # TEMP DEBUG
 
                 if huc[:2] == '19':
                     # Alaska
@@ -998,6 +998,7 @@ def produce_stage_based_catfim_tifs(
 
     # Produce extent tif hand_stage. Multiprocess across branches.
     branches = os.listdir(branch_dir)
+    branches.sort()
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         for branch in branches:
             # Define paths to necessary files to produce inundation grids.
@@ -1022,7 +1023,9 @@ def produce_stage_based_catfim_tifs(
                 continue
 
             # Use hydroTable to determine hydroid_list from site_ms_segments.
-            hydrotable_df = pd.read_csv(hydrotable_path)
+            hydrotable_df = pd.read_csv(
+                hydrotable_path, low_memory=False, dtype={'HUC': str, 'LakeID': float, 'subdiv_applied': int}
+            )
             hydroid_list = []
 
             # Determine hydroids at which to perform inundation
@@ -1031,7 +1034,12 @@ def produce_stage_based_catfim_tifs(
                     subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
                     hydroid_list += list(subset_hydrotable_df.HydroID.unique())
                 except IndexError:
+                    print(
+                        f"Index Error for {huc} -- {branch} -- {category}. FeatureId is {feature_id} : Continuing on."
+                    )
                     pass
+
+            # print(f"{huc} -- {branch} -- {category}: Finished determining HydroID")
 
             # Some branches don't have matching hydroids
             # if len(hydroid_list) == 0:
@@ -1046,6 +1054,7 @@ def produce_stage_based_catfim_tifs(
             # Create inundation maps with branch and stage data
             try:
                 # print("Generating stage-based FIM for " + huc + " and branch " + branch) # TODO TEMP DEBUG UNCOMMENT THIS MAYBE AFTER DEBUGGING
+                print(f"{huc} -- {branch} -- {category} : Generating stage-based FIM")
                 executor.submit(
                     produce_inundation_map_with_stage_and_feature_ids,
                     rem_path,
@@ -1059,13 +1068,14 @@ def produce_stage_based_catfim_tifs(
                     branch,
                 )
             except Exception:
-                messages.append([f'{lid}:inundation failed at {category}'])
+                messages.append([f'{huc} -- {branch} -- {lid}:inundation failed at {category}'])
+                print(traceback.format_exc())
 
     # -- MOSAIC -- #
     # Merge all rasters in lid_directory that have the same magnitude/category.
     path_list = []
     lid_dir_list = os.listdir(lid_directory)
-    print("Merging " + category)
+    print(f"{huc}: Merging {category}")
     for f in lid_dir_list:
         if category in f:
             path_list.append(os.path.join(lid_directory, f))
@@ -1151,7 +1161,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-a',
         '--stage_based',
-        help='Run stage-based CatFIM instead of flow-based? NOTE: Flow-based CatFIM is the default.',
+        help='Run stage-based CatFIM instead of flow-based? Add this -a param to make it stage based,'
+        ' leave it off for flow based',
         required=False,
         default=False,
         action='store_true',
@@ -1163,7 +1174,9 @@ if __name__ == '__main__':
         required=False,
         default='/data/catfim/',
     )
-    parser.add_argument('-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true")
+    parser.add_argument(
+        '-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true"
+    )
     parser.add_argument(
         '-s',
         '--search',
