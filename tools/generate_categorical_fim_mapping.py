@@ -167,7 +167,7 @@ def post_process_huc_level(
         # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
         nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
 
-        print(f"Reformatting TIFs {ahps_lid} for {huc_dir}")
+        # print(f"Reformatting TIFs {ahps_lid} for {huc_dir}") ## TEMP DEBUG ADD BACK IN MAYBE AFTER DEBUGGING?
         with ProcessPoolExecutor(max_workers=job_number_tif) as executor:
             for tif_to_process in tifs_to_reformat_list:
                 if not os.path.exists(tif_to_process):

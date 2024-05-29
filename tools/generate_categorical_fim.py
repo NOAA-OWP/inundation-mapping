@@ -844,8 +844,7 @@ def generate_stage_based_categorical_fim(
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            # if huc in lst_hucs: # TEMP DEBUG ## TODO: Remove this filter and unindent the following part after done with testing
-            if (huc in lst_hucs or run_all_hucs == True): # TODO: Add in the run_all_hucs logic and test throughly
+            if (huc in lst_hucs or run_all_hucs == True): # TODO: test throughly
 
                 print(f'running huc: {huc}') ## TEMP DEBUG
 
@@ -1046,7 +1045,7 @@ def produce_stage_based_catfim_tifs(
 
             # Create inundation maps with branch and stage data
             try:
-                print("Generating stage-based FIM for " + huc + " and branch " + branch)
+                # print("Generating stage-based FIM for " + huc + " and branch " + branch) # TODO TEMP DEBUG UNCOMMENT THIS MAYBE AFTER DEBUGGING
                 executor.submit(
                     produce_inundation_map_with_stage_and_feature_ids,
                     rem_path,
