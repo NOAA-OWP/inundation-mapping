@@ -63,24 +63,24 @@ def process_generate_flows(
         )
 
         if stages is None or flows is None:
-            message = f'{lid}: stages or flows is none, likely WRDS error'
+            message = f'{huc} - {lid}: stages or flows is none, likely WRDS error'
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
             continue
 
         # Check if stages are supplied, if not write message and exit.
         if all(stages.get(category, None) is None for category in flood_categories):
-            message = f'{lid}:missing threshold stages'
+            message = f'{huc} - {lid}:missing threshold stages'
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
             continue
 
         # Check if calculated flows are supplied, if not write message and exit.
         if all(flows.get(category, None) is None for category in flood_categories):
-            message = f'{lid}:missing calculated flows'
+            message = f'{huc} - {lid}:missing calculated flows'
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
-            continue
+            continueF
 
         # Find lid metadata from master list of metadata dictionaries (line 66).
         metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
@@ -96,8 +96,8 @@ def process_generate_flows(
         segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
 
         end = time.time()
-        elapsed_time = round(((end - start) / 60), 6)
-        print(f'Finished filtering segments in {elapsed_time} minutes')
+        elapsed_time = round((end - start), 6)
+        print(f'{huc} - {lid}:  Finished filtering segments : {elapsed_time} minutes')
 
         # If there are no segments, write message and exit out
         if not segments:
@@ -263,41 +263,45 @@ def generate_catfim_flows(
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
 
-    print(f'Retrieving metadata for site(s): {lid_to_run}..')
-    start_dt = datetime.now()
-
-    # Get metadata for 'CONUS'
-    print(metadata_url)
-    if lid_to_run != 'all':
-        all_lists, conus_dataframe = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=[lid_to_run],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
+    skip_metadata_api = True  # TEMP DEBUG, set back to false when done testing
+    if skip_metadata_api == True:
+        print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
     else:
-        # Get CONUS metadata
-        conus_list, conus_dataframe = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=['all'],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-        # Get metadata for Islands and Alaska
-        islands_list, islands_dataframe = get_metadata(
-            metadata_url,
-            select_by='state',
-            selector=['HI', 'PR', 'AK'],
-            must_include=None,
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-        # Append the dataframes and lists
-        all_lists = conus_list + islands_list
+        print(f'Retrieving metadata for site(s): {lid_to_run}..')
+        start_dt = datetime.now()
+
+        # Get metadata for 'CONUS'
+        print(metadata_url)
+        if lid_to_run != 'all':
+            all_lists, ___ = get_metadata(
+                metadata_url,
+                select_by='nws_lid',
+                selector=[lid_to_run],
+                must_include='nws_data.rfc_forecast_point',
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+        else:
+            # Get CONUS metadata
+            conus_list, ___ = get_metadata(
+                metadata_url,
+                select_by='nws_lid',
+                selector=['all'],
+                must_include='nws_data.rfc_forecast_point',
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+            # Get metadata for Islands and Alaska
+            islands_list, ___ = get_metadata(
+                metadata_url,
+                select_by='state',
+                selector=['HI', 'PR', 'AK'],
+                must_include=None,
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+            # Append the lists
+            all_lists = conus_list + islands_list
 
         print(len(all_lists))
 
@@ -340,14 +344,18 @@ def generate_catfim_flows(
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     start_dt = datetime.now()
 
+    # lst_hucs = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005',
+    # '02040101', '02050105'] # TEMP DEBUG HUC LIST # TODO: Add as an argument input?
+    # run_all_hucs = False # TODO: Add as argument input
+
     # Set run parameter
     if lst_hucs == ['all']:
         run_all_hucs = True
-        # print('lst_hucs ==  all, running all hucs!')  # TEMP DEBUG
+        print('lst_hucs ==  all, running all hucs!')  # TEMP DEBUG
     else:
         run_all_hucs = False
-        # print('lst_hucs specified, only running this HUC list')  # TEMP DEBUG
-        # print(lst_hucs)  # TEMP DEBUG
+        print('lst_hucs specified, only running this HUC list')  # TEMP DEBUG
+        print(lst_hucs)  # TEMP DEBUG
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:

@@ -155,25 +155,38 @@ def run_inundation(
 def post_process_huc_level(
     job_number_tif, ahps_dir_list, huc_dir, attributes_dir, gpkg_dir, fim_version, huc
 ):
+    print(f">> we made it to post_process_huc_level for huc {huc}")
+    print("the ahps_dir_list is ...")
+    print(ahps_dir_list)
     # Loop through ahps sites
     for ahps_lid in ahps_dir_list:
+        print()
+        print("start interater for ahps_dir_list")
+        print(f">> ahps list is {ahps_lid}")
         tifs_to_reformat_list = []
         ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
+        print(f">> ahps_lid_dir is {ahps_lid_dir}")
 
         # Append desired filenames to list.
         tif_list = os.listdir(ahps_lid_dir)
         for tif in tif_list:
+            print(f"tif is at {tif}")
             if 'extent.tif' in tif:
                 tifs_to_reformat_list.append(os.path.join(ahps_lid_dir, tif))
 
         # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
         nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
 
+        if len(tifs_to_reformat_list) == 0;
+            print(f">> now tifs found for {huc} {ahps_lid} at {ahps_lid_dir}")
+            continue
+            
+
         # print(f"Reformatting TIFs {ahps_lid} for {huc_dir}") ## TEMP DEBUG ADD BACK IN MAYBE AFTER DEBUGGING?
         with ProcessPoolExecutor(max_workers=job_number_tif) as executor:
             for tif_to_process in tifs_to_reformat_list:
-                if not os.path.exists(tif_to_process):
-                    continue
+                #if not os.path.exists(tif_to_process):
+                #    continue
                 try:
                     magnitude = os.path.split(tif_to_process)[1].split('_')[1]
                     try:
@@ -186,6 +199,8 @@ def post_process_huc_level(
                             interval_stage = None
                     except ValueError:
                         interval_stage = None
+                        print(f"Value Error for {huc} - {ahps_lid} - magnitude {magnitude} at {ahps_lid_dir}")
+                        
                     executor.submit(
                         reformat_inundation_maps,
                         ahps_lid,
@@ -216,6 +231,11 @@ def post_process_cat_fim_for_viz(
 
     if not os.path.exists(merged_layer):  # prevents appending to existing output
         huc_ahps_dir_list = os.listdir(output_catfim_dir)
+        
+        print(">>>>>>>>>>>>>>>>>>>>>>>")
+        print("Here is the list of huc ahps dirs...")
+        print(huc_ahps_dir_list)
+        
         skip_list = ['errors', 'logs', 'gpkg', 'missing_files.txt', 'messages', merged_layer]
 
         # Loop through all categories
@@ -231,6 +251,7 @@ def post_process_cat_fim_for_viz(
                 try:
                     ahps_dir_list = os.listdir(huc_dir)
                 except NotADirectoryError:
+                    print(f"{huc_dir} directory missing. Continuing on")
                     continue
 
                 # If there's no mapping for a HUC, delete the HUC directory.
@@ -251,7 +272,8 @@ def post_process_cat_fim_for_viz(
                     fim_version,
                     huc,
                 )
-
+        print(">>>>>>>>>>>>>>>>>>>>>>>")
+        
         # Merge all layers
         print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
         for layer in os.listdir(gpkg_dir):
@@ -285,7 +307,7 @@ def reformat_inundation_maps(
     interval_stage=None,
 ):
     try:
-        # print(f'{ahps_lid} Inside reformat_inundation_maps...')
+        print(f'{huc} : {ahps_lid} Inside reformat_inundation_maps...')
         # Convert raster to to shapes
         with rasterio.open(extent_grid) as src:
             image = src.read(1)
@@ -337,13 +359,16 @@ def reformat_inundation_maps(
             MultiPolygon([feature]) if type(feature) is Polygon else feature
             for feature in extent_poly_diss["geometry"]
         ]
-
+        print(f"Inside reformat_inundation_maps - about to save {diss_extent_filename}")
         if not extent_poly_diss.empty:
             extent_poly_diss.to_file(
                 diss_extent_filename, driver=getDriver(diss_extent_filename), index=False
             )
+            print(f"Inside reformat_inundation_maps - Saved {diss_extent_filename}")
 
     except Exception:
+        print(f"Inside reformat_inundation_maps - exception thrown {diss_extent_filename}")
+        print(traceback.format_exc())
         pass
         # Log and clean out the gdb so it's not merged in later
 

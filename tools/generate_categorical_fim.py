@@ -4,6 +4,7 @@ import argparse
 import csv
 import glob
 import os
+import shutil
 import sys
 import time
 import traceback
@@ -63,7 +64,7 @@ def process_generate_categorical_fim(
 
     # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
-    total_cpus_available = os.cpu_count() - 1
+    total_cpus_available = os.cpu_count() - 2
     if total_cpus_requested > total_cpus_available:
         raise ValueError(
             'The HUC job number, {}, multiplied by the inundate job number, {}, '
@@ -105,6 +106,7 @@ def process_generate_categorical_fim(
     # Define default arguments. Modify these if necessary
     fim_version = os.path.split(fim_run_dir)[1]
 
+
     # Append option configuration (flow_based or stage_based) to output folder name.
     if stage_based:
         file_handle_appendage, catfim_method = "_stage_based", "STAGE-BASED"
@@ -113,13 +115,22 @@ def process_generate_categorical_fim(
 
     # Define output directories
     output_catfim_dir_parent = output_folder + file_handle_appendage
+  
     output_flows_dir = os.path.join(output_catfim_dir_parent, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir_parent, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir_parent, 'attributes')
 
     # Create output directories
-    if not os.path.exists(output_catfim_dir_parent):
-        os.mkdir(output_catfim_dir_parent)
+    """
+    if os.path.exists(output_catfim_dir_parent):
+        if overwrite is False:
+            raise Exception(f"The output folder of {output_catfim_dir_parent} already exists."
+                " If you want to overwrite it, please add the -o flag")
+        shutil.rmtree(output_catfim_dir_parent)
+   
+    os.mkdir(output_catfim_dir_parent)
+    """               
+    
     if not os.path.exists(output_flows_dir):
         os.mkdir(output_flows_dir)
     if not os.path.exists(output_mapping_dir):
@@ -135,12 +146,12 @@ def process_generate_categorical_fim(
     log_dir = os.path.join(output_catfim_dir_parent, 'logs')
     log_file = os.path.join(log_dir, 'errors.log')
 
-    # Format lst_hucs
+    # Format lst_hucs # TODO TEMP DEBUG
+
     lst_hucs = lst_hucs.split()
 
-    print('HUCs to run:')
-    print(lst_hucs)
-    print()
+    print('lst_hucs:')  # TEMP DEBUG
+    print(lst_hucs)  # TEMP DEBUG
 
     # STAGE-BASED
     if stage_based:
@@ -303,18 +314,7 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
 
     try:
         # Join failed sites to flows df
-
-
-        print('flows_df: ') # TEMP DEBUG
-        print(flows_df) # TEMP DEBUG
-        print(flows_df.columns) # TEMP DEBUG
-        print('mapping_df: ') # TEMP DEBUG
-        print(mapping_df) # TEMP DEBUG
-        print(mapping_df.columns) # TEMP DEBUG
-        print() # TEMP DEBUG
-
-        # flows_df = flows_df.merge(mapping_df, how='left', on='nws_lid')
-        flows_df = flows_df.merge(mapping_df, how='full', on='nws_lid')
+        flows_df = flows_df.merge(mapping_df, how='left', on='nws_lid')
 
         # Switch mapped column to no for failed sites and update status
         flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
@@ -339,7 +339,6 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
 
         # Write out to file
         flows_df.to_file(nws_sites_layer)
-
     except Exception as e:
         print(f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
         print(traceback.format_exc())
@@ -417,14 +416,8 @@ def iterate_through_huc_stage_based(
     usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
     branch_dir = os.path.join(fim_dir, huc, 'branches')
 
-    print(f'{huc}: Made output dir and defied paths...') # TEMP DEBUG
-
     # Loop through each lid in nws_lids list
     nws_lids = huc_dictionary[huc]
-
-    print(f'{huc}: Get LIDs...') # TEMP DEBUG
-    print(nws_lids) # TEMP DEBUG
-
     for lid in nws_lids:
         lid = lid.lower()  # Convert lid to lower case
         # -- If necessary files exist, continue -- #
@@ -450,7 +443,6 @@ def iterate_through_huc_stage_based(
             if os.path.exists(complete_marker):
                 all_messages.append([f"{lid}: already completed in previous run."])
                 continue
-    
         # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
         stages, flows = get_thresholds(
             threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
@@ -521,9 +513,6 @@ def iterate_through_huc_stage_based(
         metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
         lid_altitude = metadata['usgs_data']['altitude']
 
-        print(f'{huc}, {lid}: Found LID metadata from masterlist...') # TEMP DEBUG
-
-
         # Filter out sites that don't have "good" data
         try:
             if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list:
@@ -547,9 +536,6 @@ def iterate_through_huc_stage_based(
         except Exception as e:
             print(e)
             continue
-
-        print(f'{huc}, {lid}: Filtered out sites with bad data...') # TEMP DEBUG
-
 
         ### --- Do Datum Offset --- ###
         # determine source of interpolated threshold flows, this will be the rating curve that will be used.
@@ -649,8 +635,6 @@ def iterate_through_huc_stage_based(
                     )
                 continue
 
-        print(f'{huc}, {lid}: Concluded datum offset...') # TEMP DEBUG
-
         ### -- Concluded Datum Offset --- ###
         # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
         unfiltered_segments = list(set(get_nwm_segs(metadata)))
@@ -670,9 +654,6 @@ def iterate_through_huc_stage_based(
         interval_list = np.arange(
             min(stage_list), max(stage_list) + past_major_interval_cap, 1.0
         )  # Go an extra 10 ft beyond the max stage, arbitrary
-
-        print(f'{huc}, {lid}: Filtered segments to be of like stream order...')
-
 
         # Check for large discrepancies between the elevation values from WRDS and HAND.
         #   Otherwise this causes bad mapping.
@@ -805,9 +786,6 @@ def iterate_through_huc_stage_based(
         all_messages.append([f'{lid}:OK'])
         mark_complete(output_dir)
     # Write all_messages by HUC to be scraped later.
-
-    print(f'{huc}: Done iterating through LIDs in NWS LIDs') # TEMP DEBUG
-
     messages_dir = os.path.join(workspace, 'messages')
     if not os.path.exists(messages_dir):
         os.mkdir(messages_dir)
@@ -1034,6 +1012,7 @@ def produce_stage_based_catfim_tifs(
     branches.sort()
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         for branch in branches:
+            print(f"{huc} -- {branch} -- {lid} -- {category}: Determining HydroID")        
             # Define paths to necessary files to produce inundation grids.
             full_branch_path = os.path.join(branch_dir, branch)
             rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
@@ -1087,7 +1066,7 @@ def produce_stage_based_catfim_tifs(
             # Create inundation maps with branch and stage data
             try:
                 # print("Generating stage-based FIM for " + huc + " and branch " + branch) # TODO TEMP DEBUG UNCOMMENT THIS MAYBE AFTER DEBUGGING
-                print(f"{huc} -- {branch} -- {category} : Generating stage-based FIM")
+                # print(f"{huc} -- {branch} -- {category} : Generating stage-based FIM")
                 executor.submit(
                     produce_inundation_map_with_stage_and_feature_ids,
                     rem_path,
@@ -1123,6 +1102,7 @@ def produce_stage_based_catfim_tifs(
         # Loop through remaining items in list and sum them with summed_array
         for remaining_raster in path_list[1:]:
             remaining_raster_src = rasterio.open(remaining_raster)
+            print (f"{huc}: {category}: Reading raster, path is {remaining_raster}")
             remaining_raster_array_original = remaining_raster_src.read(1)
 
             # Reproject non-branch-zero grids so I can sum them with the branch zero grid
