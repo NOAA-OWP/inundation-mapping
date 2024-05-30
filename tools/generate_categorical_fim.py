@@ -135,12 +135,12 @@ def process_generate_categorical_fim(
     log_dir = os.path.join(output_catfim_dir_parent, 'logs')
     log_file = os.path.join(log_dir, 'errors.log')
 
-    # Format lst_hucs # TODO TEMP DEBUG
-
+    # Format lst_hucs
     lst_hucs = lst_hucs.split()
 
-    print('lst_hucs:')  # TEMP DEBUG
-    print(lst_hucs)  # TEMP DEBUG
+    print('HUCs to run:')
+    print(lst_hucs)
+    print()
 
     # STAGE-BASED
     if stage_based:
@@ -303,7 +303,18 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
 
     try:
         # Join failed sites to flows df
-        flows_df = flows_df.merge(mapping_df, how='left', on='nws_lid')
+
+
+        print('flows_df: ') # TEMP DEBUG
+        print(flows_df) # TEMP DEBUG
+        print(flows_df.columns) # TEMP DEBUG
+        print('mapping_df: ') # TEMP DEBUG
+        print(mapping_df) # TEMP DEBUG
+        print(mapping_df.columns) # TEMP DEBUG
+        print() # TEMP DEBUG
+
+        # flows_df = flows_df.merge(mapping_df, how='left', on='nws_lid')
+        flows_df = flows_df.merge(mapping_df, how='full', on='nws_lid')
 
         # Switch mapped column to no for failed sites and update status
         flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
@@ -328,6 +339,7 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
 
         # Write out to file
         flows_df.to_file(nws_sites_layer)
+
     except Exception as e:
         print(f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
         print(traceback.format_exc())
@@ -405,8 +417,14 @@ def iterate_through_huc_stage_based(
     usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
     branch_dir = os.path.join(fim_dir, huc, 'branches')
 
+    print(f'{huc}: Made output dir and defied paths...') # TEMP DEBUG
+
     # Loop through each lid in nws_lids list
     nws_lids = huc_dictionary[huc]
+
+    print(f'{huc}: Get LIDs...') # TEMP DEBUG
+    print(nws_lids) # TEMP DEBUG
+
     for lid in nws_lids:
         lid = lid.lower()  # Convert lid to lower case
         # -- If necessary files exist, continue -- #
@@ -432,6 +450,7 @@ def iterate_through_huc_stage_based(
             if os.path.exists(complete_marker):
                 all_messages.append([f"{lid}: already completed in previous run."])
                 continue
+    
         # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
         stages, flows = get_thresholds(
             threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
@@ -502,6 +521,9 @@ def iterate_through_huc_stage_based(
         metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
         lid_altitude = metadata['usgs_data']['altitude']
 
+        print(f'{huc}, {lid}: Found LID metadata from masterlist...') # TEMP DEBUG
+
+
         # Filter out sites that don't have "good" data
         try:
             if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list:
@@ -525,6 +547,9 @@ def iterate_through_huc_stage_based(
         except Exception as e:
             print(e)
             continue
+
+        print(f'{huc}, {lid}: Filtered out sites with bad data...') # TEMP DEBUG
+
 
         ### --- Do Datum Offset --- ###
         # determine source of interpolated threshold flows, this will be the rating curve that will be used.
@@ -624,6 +649,8 @@ def iterate_through_huc_stage_based(
                     )
                 continue
 
+        print(f'{huc}, {lid}: Concluded datum offset...') # TEMP DEBUG
+
         ### -- Concluded Datum Offset --- ###
         # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
         unfiltered_segments = list(set(get_nwm_segs(metadata)))
@@ -643,6 +670,9 @@ def iterate_through_huc_stage_based(
         interval_list = np.arange(
             min(stage_list), max(stage_list) + past_major_interval_cap, 1.0
         )  # Go an extra 10 ft beyond the max stage, arbitrary
+
+        print(f'{huc}, {lid}: Filtered segments to be of like stream order...')
+
 
         # Check for large discrepancies between the elevation values from WRDS and HAND.
         #   Otherwise this causes bad mapping.
@@ -775,6 +805,9 @@ def iterate_through_huc_stage_based(
         all_messages.append([f'{lid}:OK'])
         mark_complete(output_dir)
     # Write all_messages by HUC to be scraped later.
+
+    print(f'{huc}: Done iterating through LIDs in NWS LIDs') # TEMP DEBUG
+
     messages_dir = os.path.join(workspace, 'messages')
     if not os.path.exists(messages_dir):
         os.mkdir(messages_dir)

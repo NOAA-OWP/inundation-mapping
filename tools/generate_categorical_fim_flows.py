@@ -263,65 +263,41 @@ def generate_catfim_flows(
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
 
-    #  TODO: make this an argument, eventually (or just have this be true if the following path is provided)
-    # flows_metadata_path = '/alaska_catfim/catfim_test1__flow_based'
-    #  TODO: make this an input, eventually
-    # skip_api = False
+    print(f'Retrieving metadata for site(s): {lid_to_run}..')
+    start_dt = datetime.now()
 
-    skip_api = True  # TEMP DEBUG, set back to false when done testing
-    # if skip_api == True:
-    #  print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
-
-    if skip_api is True:  # temp
-        print("Skipping full API pull, just get metadata for the following states: 'AK', 'NY'")
-
-        # TEMP: just get metadata for the following states: 'AK', 'TX', 'SD', 'NY'
+    # Get metadata for 'CONUS'
+    print(metadata_url)
+    if lid_to_run != 'all':
         all_lists, conus_dataframe = get_metadata(
             metadata_url,
+            select_by='nws_lid',
+            selector=[lid_to_run],
+            must_include='nws_data.rfc_forecast_point',
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+    else:
+        # Get CONUS metadata
+        conus_list, conus_dataframe = get_metadata(
+            metadata_url,
+            select_by='nws_lid',
+            selector=['all'],
+            must_include='nws_data.rfc_forecast_point',
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+        # Get metadata for Islands and Alaska
+        islands_list, islands_dataframe = get_metadata(
+            metadata_url,
             select_by='state',
-            selector=['AK', 'NY'],
+            selector=['HI', 'PR', 'AK'],
             must_include=None,
             upstream_trace_distance=nwm_us_search,
             downstream_trace_distance=nwm_ds_search,
         )
-
-    else:
-
-        print(f'Retrieving metadata for site(s): {lid_to_run}..')
-        start_dt = datetime.now()
-
-        # Get metadata for 'CONUS'
-        print(metadata_url)
-        if lid_to_run != 'all':
-            all_lists, conus_dataframe = get_metadata(
-                metadata_url,
-                select_by='nws_lid',
-                selector=[lid_to_run],
-                must_include='nws_data.rfc_forecast_point',
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
-        else:
-            # Get CONUS metadata
-            conus_list, conus_dataframe = get_metadata(
-                metadata_url,
-                select_by='nws_lid',
-                selector=['all'],
-                must_include='nws_data.rfc_forecast_point',
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
-            # Get metadata for Islands and Alaska
-            islands_list, islands_dataframe = get_metadata(
-                metadata_url,
-                select_by='state',
-                selector=['HI', 'PR', 'AK'],
-                must_include=None,
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
-            # Append the dataframes and lists
-            all_lists = conus_list + islands_list
+        # Append the dataframes and lists
+        all_lists = conus_list + islands_list
 
         print(len(all_lists))
 
@@ -364,18 +340,14 @@ def generate_catfim_flows(
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     start_dt = datetime.now()
 
-    # lst_hucs = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005',
-    # '02040101', '02050105'] # TEMP DEBUG HUC LIST # TODO: Add as an argument input?
-    # run_all_hucs = False # TODO: Add as argument input
-
     # Set run parameter
     if lst_hucs == ['all']:
         run_all_hucs = True
-        print('lst_hucs ==  all, running all hucs!')  # TEMP DEBUG
+        # print('lst_hucs ==  all, running all hucs!')  # TEMP DEBUG
     else:
         run_all_hucs = False
-        print('lst_hucs specified, only running this HUC list')  # TEMP DEBUG
-        print(lst_hucs)  # TEMP DEBUG
+        # print('lst_hucs specified, only running this HUC list')  # TEMP DEBUG
+        # print(lst_hucs)  # TEMP DEBUG
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
