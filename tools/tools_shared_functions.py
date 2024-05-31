@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import gc
 import json
 import os
 import pathlib
@@ -344,6 +345,23 @@ def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: i
     return {x: y for x, y in zip(metric_df.columns, metric_df.values[0])}
 
 
+def delete_and_garbage_collect(objects_to_delete: list):
+    """
+    Deletes and garbage collects objects to free memory
+
+    Prammeters
+    ----------
+    object_to_delete : list
+        List of objects to delete and garbage collect
+
+    """
+
+    for obj in objects_to_delete:
+        del obj
+
+    gc.collect()
+
+
 def get_stats_table_from_binary_rasters(
     benchmark_raster_path: str, candidate_raster_path: str, agreement_raster: str = None, mask_dict: dict = {}
 ):
@@ -421,7 +439,7 @@ def get_stats_table_from_binary_rasters(
                 # Make sure features are present in bounding box area before projecting.
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
-                    del poly_all
+                    delete_and_garbage_collect([poly_all])
                     continue
 
                 # Project layer to reference crs.
@@ -435,17 +453,18 @@ def get_stats_table_from_binary_rasters(
                 else:
                     all_masks_df = poly_all_proj
 
-                del poly_all, poly_all_proj
+                delete_and_garbage_collect([poly_all, poly_all_proj])
 
     stats_table_dictionary = {}  # Initialize empty dictionary.
 
     c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
-    del candidate_raster, benchmark_raster
+    delete_and_garbage_collect([candidate_raster, benchmark_raster])
 
     agreement_map = c_aligned.gval.compute_agreement_map(
         b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
     )
-    del c_aligned, b_aligned
+
+    delete_and_garbage_collect([c_aligned, b_aligned])
 
     agreement_map_og = agreement_map.copy()
     agreement_map.rio.write_nodata(4, inplace=True)
@@ -469,7 +488,7 @@ def get_stats_table_from_binary_rasters(
     if agreement_raster != None:
         agreement_map_write = agreement_map.rio.write_nodata(10, encoded=True)
         agreement_map_write.rio.to_raster(agreement_raster, dtype=np.int32, driver="COG")
-        del agreement_map_write
+        delete_and_garbage_collect([agreement_map_write])
 
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
@@ -499,7 +518,7 @@ def get_stats_table_from_binary_rasters(
         }
     )
 
-    del crosstab_table, metrics_table
+    delete_and_garbage_collect([crosstab_table, metrics_table])
 
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
     if mask_dict != {}:
@@ -516,7 +535,7 @@ def get_stats_table_from_binary_rasters(
                 # Make sure features are present in bounding box area before projecting.
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
-                    del poly_all
+                    delete_and_garbage_collect([poly_all])
                     continue
 
                 poly_all_proj = poly_all.to_crs(agreement_map.rio.crs)
@@ -550,7 +569,7 @@ def get_stats_table_from_binary_rasters(
                     )
                     agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
                     agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.int32, driver="COG")
-                    del agreement_map_write
+                    delete_and_garbage_collect([agreement_map_write])
 
                 # Update stats table dictionary
                 stats_table_dictionary.update(
@@ -562,11 +581,11 @@ def get_stats_table_from_binary_rasters(
                         )
                     }
                 )
-                del agreement_map_include
+                delete_and_garbage_collect(
+                    [agreement_map_include, poly_all, poly_all_proj, metrics_table, crosstab_table]
+                )
 
-                del poly_all, poly_all_proj, metrics_table, crosstab_table
-
-    del agreement_map
+    delete_and_garbage_collect([agreement_map])
 
     return stats_table_dictionary
 

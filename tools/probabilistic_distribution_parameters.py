@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
-import multiprocessing as mp
 import os
-import sys
 import time
 import traceback
 import warnings
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from glob import glob
 from typing import Generator, Tuple
 
@@ -15,6 +12,7 @@ import dask
 import numpy as np
 import pandas as pd
 import xarray as xr
+from dask.distributed import Client, Lock, as_completed
 from lmoments3 import distr
 from numba import njit
 from scipy import stats
@@ -114,7 +112,13 @@ def get_score(
     return lmoment_distribution.name, lnse, params
 
 
-def fit_distributions(index: int, num_flows: int, output_file_name: str, reccurence_flows_file: str = None):
+def fit_distributions(
+    index: int,
+    num_flows: int,
+    output_file_name: str,
+    lock: dask.distributed.Lock,
+    reccurence_flows_file: str = None,
+):
     """Fit probability distributions for recreating flow duration curve for NWM retrospective flows
 
     Parameters
@@ -125,6 +129,8 @@ def fit_distributions(index: int, num_flows: int, output_file_name: str, reccure
         How many flows to gather from NWM retrospective
     output_file_name : str
         Name of tile to save the DataFrame
+    lock : mp.Lock
+        Mechanism to avoid ServerDisconnected errors
     reccurence_flows_file : str, default=None
         Path to the reccurence flow netcdf file
 
@@ -152,11 +158,14 @@ def fit_distributions(index: int, num_flows: int, output_file_name: str, reccure
             warnings.simplefilter("ignore")
 
             # Open NWM retrospective dataset
-
-            ds = xr.open_zarr(
-                'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr',
-                consolidated=True,
-            )
+            with lock:
+                try:
+                    ds = xr.open_zarr(
+                        'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr',
+                        consolidated=True,
+                    )
+                except FileNotFoundError:
+                    print('File is not accessible')
 
             # Get flows (maybe large amounts necessitating the dask config below)
             with dask.config.set(**{'array.slicing.split_large_chunks': True}):
@@ -168,7 +177,8 @@ def fit_distributions(index: int, num_flows: int, output_file_name: str, reccure
 
             # For each feature_id
             dfs = []
-            for i in tqdm(range(st.shape[1])):
+            for i in (pbar3 := tqdm(range(st.shape[1]))):
+                pbar3.set_description(f"Running feature {i}")
                 feat = int(st[:, i].coords['feature_id'].values)
 
                 # Get daily mean flows
@@ -217,30 +227,12 @@ def fit_distributions(index: int, num_flows: int, output_file_name: str, reccure
             df.to_csv(output_file_name, index=False)
 
 
-def progress_bar_handler(executor_dict, verbose, desc):
-    """Show progress of operation
-
-    Parameters
-    ----------
-    executor_dict: dict
-        Keys as futures and HUC ids as values
-    verbose: bool
-        Whether to print more progress
-    desc: str
-        Description of the process
-    """
-
-    for future in tqdm(
-        as_completed(executor_dict), total=len(executor_dict), disable=(not verbose), desc=desc
-    ):
-        try:
-            future.result()
-        except Exception as exc:
-            print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
-
-
 def run_linear_moment_fit(
-    output_directory: str, output_name: str, num_flows: int, num_jobs: int, reccurence_flows_file: str = None
+    output_directory: str,
+    output_name: str,
+    num_flows: int,
+    num_jobs: int = None,
+    threads_per_worker: int = None,
 ):
     """Driver for processing fit of probability distributions
 
@@ -254,41 +246,46 @@ def run_linear_moment_fit(
         Number of flows to process
     num_jobs : int
         Number of jobs to run concurrently
-    reccurence_flows_file : str, optional
-        Reccurence flow NetCDF file
-
+    threads_per_worker : int, optional
+        Number of threads to run per a worker
     """
-
-    steps = 2776738 // num_flows
 
     print('Begin fitting probability distributions')
     print(time.localtime())
 
-    # Loop through all split indices
-    with ProcessPoolExecutor(max_workers=num_jobs) as executor:
-        executor_dict = {}
-        for index in range(steps):
+    # If arguments are none Dask will automatically resolve
+    client = Client(threads_per_worker=threads_per_worker, n_workers=num_jobs)
+    num_jobs = num_jobs if num_jobs else len(client.scheduler_info()['workers'])
+    steps = 2776738 // num_flows
 
-            output_file_name = os.path.join(
-                output_directory, f"{output_name.split('.')[0]}{str(index)}.{output_name.split('.')[1]}"
-            )
-            try:
-                future = executor.submit(
-                    fit_distributions,
-                    index=index,
-                    num_flows=num_flows,
-                    output_file_name=output_file_name,
-                    reccurence_flows_file=reccurence_flows_file,
-                )
-                executor_dict[future] = index
+    lazy_results = []
+    lock = Lock()
 
-            except Exception as ex:
-                print(f"*** {ex}")
-                traceback.print_exc()
-                sys.exit(1)
+    print('Start', time.localtime())
 
-        progress_bar_handler(executor_dict, True, f"Running linear moment fit with {num_jobs} workers")
+    # For each set of batches create a future
+    for idx in range(steps):
+        output_file_name = os.path.join(
+            output_directory, f"{output_name.split('.')[0]}{str(idx)}.{output_name.split('.')[1]}"
+        )
+        lazy_result = dask.delayed(fit_distributions)(idx, num_flows, output_file_name, lock)
+        lazy_results.append(lazy_result)
 
+    # Run batches of size given available workers
+    for batch_idx in (pbar := tqdm(range(int(steps / num_jobs)))):
+        pbar.set_description(f"Running Batch {batch_idx}")
+
+        results = []
+        working_futures = client.compute(lazy_results[num_jobs * batch_idx : num_jobs * (batch_idx + 1)])
+        ac = as_completed(working_futures)
+
+        for job_idx, fut in (pbar2 := tqdm(enumerate(ac))):
+            pbar2.set_description(f"Running Job {job_idx}")
+
+            res = fut.result()
+            results.append(res)
+
+    # Concatenate all param files in to one
     concat_df = pd.concat(
         [
             pd.read_csv(param_file)
@@ -310,15 +307,10 @@ if __name__ == '__main__':
     python probabilistic_distribution_parameters.py
     -o "../prob_dist_test"
     -n "params.csv"
-    -f 8000
-    -j 1
+    -f 800
 
     NOTE: If the file name
     """
-
-    # run_linear_moment_fit(
-    #     "../prob_dist_test", "tester7.csv", 100, None
-    # )
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Fit probability distributions to flow duration curves. ")
@@ -338,13 +330,14 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-j", "--num_jobs", type=int, help="REQUIRED: Number of jobs to run concurrently", required=True
+        "-j", "--num_jobs", type=int, help="OPTIONAL: Number of jobs to run concurrently", required=False
     )
 
     parser.add_argument(
-        "-r",
-        "--reccurence_flows_file",
-        help="OPTIONAL: Reccurence flow NetCDF file to include in flow duration curves",
+        "-t",
+        "--threads_per_worker",
+        type=int,
+        help="OPTIONAL: Number of threads to run per a job/worker",
         required=False,
     )
 
