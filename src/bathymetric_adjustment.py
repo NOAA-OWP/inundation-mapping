@@ -13,7 +13,137 @@ import geopandas as gpd
 import pandas as pd
 from synthesize_test_cases import progress_bar_handler
 
+# -------------------------------------------------------
+# Load AI-based bathymetry data
+path_ml_bathy_parquet = "/efs-drives/fim-dev-efs/fim-home/heidi.safa/ml_bathy_adjustment/data/ml_outputs_v1.01.parquet"
+ml_bathy_data = pd.read_parquet(path_ml_bathy_parquet, engine='pyarrow') #
+ml_bathy_data.columns
+ml_bathy_data_df = ml_bathy_data[[
+    'COMID',
+    'owp_tw_inchan', # topwidth at in channel
+    'owp_roughness',
+    'owp_inchan_channel_area',
+    'owp_inchan_channel_perimeter',
+    'owp_inchan_channel_volume',
+    'owp_inchan_channel_bed_area',
+    'owp_y_inchan', # in channel depth
+    ]]
 
+# path_nwm_streams = "/efs-drives/fim-dev-efs/fim-data/inputs/nwm_hydrofabric/nwm_flows.gpkg"
+# # Load wbd and use it as a mask to pull the bathymetry data
+# wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'), engine="pyogrio", use_arrow=True)
+fim_dir = "/efs-drives/fim-dev-efs/fim-data/outputs/fim_4_4_15_0/"
+huc = "07130003"
+fim_huc_dir = join(fim_dir, huc)
+
+path_nwm_streams = join(fim_huc_dir, "nwm_subset_streams.gpkg")
+nwm_stream = gpd.read_file(path_nwm_streams)
+
+wbd8 = gpd.read_file(join(fim_huc_dir, 'wbd8.gpkg'), engine="pyogrio", use_arrow=True)
+nwm_stream_clp = nwm_stream.clip(wbd8)
+
+# Create a dictionary mapping ID to order
+id_to_order = dict(zip(nwm_stream_clp['ID'], nwm_stream_clp['order_']))
+# Create a dictionary mapping ID to geometry
+id_to_geometry = dict(zip(nwm_stream_clp['ID'], nwm_stream_clp['geometry']))
+
+# Use map to add the order column to ml_bathy_data_df
+ml_bathy_data_df['order_'] = ml_bathy_data_df['COMID'].map(id_to_order)
+
+# ml_bathy_data for huc of interest
+aib_bathy_data_df = ml_bathy_data_df.dropna(subset=['order_'])
+
+# Use map to add the geometry column to ml_bathy_data_df
+aib_bathy_data_df['geometry'] = aib_bathy_data_df['COMID'].map(id_to_geometry)
+
+# convert to geodataframe
+aib_bathy_data_gdf = gpd.GeoDataFrame(aib_bathy_data_df, geometry = aib_bathy_data_df['geometry'])
+aib_bathy_data_gdf.crs = nwm_stream.crs
+aib_bathy_data_gdf = aib_bathy_data_gdf.rename(columns={'ID': 'feature_id'})
+aib_bathy_data_gdf = aib_bathy_data_gdf.rename(columns={'owp_inchan_channel_area': 'missing_xs_area_m2'})
+
+missing_wet_perimeter_m = aib_bathy_data_gdf['owp_inchan_channel_perimeter']-aib_bathy_data_gdf['owp_tw_inchan']
+aib_bathy_data_gdf['missing_wet_perimeter_m'] = missing_wet_perimeter_m
+aib_bathy_data_gdf['Bathymetry_source'] = "AI_Based"
+
+log_text = f'Calculating bathymetry adjustment: {huc}\n'
+
+# Get src_full from each branch
+src_all_branches_path = []
+branches = os.listdir(join(fim_huc_dir, 'branches'))
+for branch in branches:
+    src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
+    if os.path.isfile(src_full):
+        src_all_branches_path.append(src_full)
+
+# Update src parameters with bathymetric data
+for src in src_all_branches_path:
+    src_df = pd.read_csv(src)
+    if 'Bathymetry_source' in src_df.columns:
+        src_df = src_df.drop(columns='Bathymetry_source')
+    branch = re.search(r'branches/(\d{10}|0)/', src).group()[9:-1]
+    log_text += f'  Branch: {branch}\n'
+
+    if aib_bathy_data_gdf.empty:
+        log_text += '  There were no bathymetry feature_ids for this branch'
+        src_df['Bathymetry_source'] = [""] * len(src_df)
+        src_df.to_csv(src, index=False)
+    # return log_text
+
+    # Merge in missing bathy data and fill Nans
+    try:
+        src_df = src_df.merge(
+            aib_bathy_data_gdf[
+                ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
+            ],
+            on='feature_id',
+            how='left',
+            validate='many_to_one',
+        )
+    # If there's more than one feature_id in the bathy data, just take the mean
+    except pd.errors.MergeError:
+        reconciled_bathy_data = aib_bathy_data_gdf.groupby('feature_id')[
+            ['missing_xs_area_m2', 'missing_wet_perimeter_m']
+        ].mean()
+        reconciled_bathy_data['Bathymetry_source'] = aib_bathy_data_gdf.groupby('feature_id')[
+            'Bathymetry_source'
+        ].first()
+        src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
+    # Exit if there are no recalculations to be made
+    if ~src_df['Bathymetry_source'].any(axis=None):
+        log_text += '    No matching feature_ids in this branch\n'
+        continue
+
+    src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
+    src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
+    # Add missing hydraulic geometry into base parameters
+    src_df['Volume (m3)'] = src_df['Volume (m3)'] + (
+        src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000)
+    )
+    src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (
+        src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000)
+    )
+    # Recalc discharge with adjusted geometries
+    src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
+    src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
+    src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
+    src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
+    src_df['Discharge (m3s-1)'] = (
+        src_df['WetArea (m2)']
+        * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
+        * pow(src_df['SLOPE'], 0.5)
+        / src_df['ManningN']
+    )
+    # Force zero stage to have zero discharge
+    src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+    # Calculate number of adjusted HydroIDs
+    count = len(src_df.loc[(src_df['Stage'] == 0) & (src_df['Bathymetry_source'] == 'USACE eHydro')])
+
+    # Write src back to file
+    src_df.to_csv(src, index=False)
+
+
+# -------------------------------------------------------
 def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input bathy_file.
