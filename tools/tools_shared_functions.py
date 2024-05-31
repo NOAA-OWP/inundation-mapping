@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
 import json
+import logging
 import os
 import pathlib
+from datetime import datetime, timezone
 from pathlib import Path
+import traceback
 
 import geopandas as gpd
 import numpy as np
@@ -1640,3 +1643,80 @@ def far(TP, FP, FN, TN=None):
 def mcc(TP, FP, FN, TN=None):
     '''Matthew's Correlation Coefficient'''
     return (TP * TN - FP * FN) / np.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))
+
+
+# ===============================
+def setup_logger(log_file_path):
+
+    start_time = datetime.now(timezone.utc)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.DEBUG)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    logger = logging.getLogger()
+    logger.addHandler(file_handler)
+    logger.setLevel(logging.DEBUG)
+
+    logging.info(f'Started (UTC): {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info("----------------")
+
+# ===============================
+def merge_log_files(log_file_and_path, file_prefix):
+    """
+    Overview:
+        This tool is mostly for merging log files during multi processing which each had their own file.
+
+        This will search all of the files in directory in the same folder as the
+        incoming log_file_and_path. It then looks for all files starting with the
+        file_prefix and adds them to the log file (via log_file_and_path)
+    Inputs:
+        - log_file_and_path: ie) C:\ras2fim_data\output_ras2fim\12090301_2277_231101\logs\ras2fim.log
+        - file_prefix: This value must be the start of file names. ie) mp_create_gdf_of_points
+            as in C:\...\12090301_2277_231101\logs\mp_create_gdf_of_points_1235.log
+    """
+
+    # -----------
+    # Validation
+    if log_file_and_path is None:
+        raise ValueError("Error: log_file_and_path not defined")
+
+    log_file_and_path = log_file_and_path.strip()
+
+    if log_file_and_path == "":
+        raise ValueError("Error: log_file_and_path can not be empty")
+
+    # The file need not exist, but folder must
+    folder_path = os.path.dirname(log_file_and_path)
+
+    if os.path.isfile(log_file_and_path) is False:
+        raise ValueError("Error: log file and path does not exist.")
+
+    log_file_list = list(Path(folder_path).rglob(f"{file_prefix}*"))
+    if len(log_file_list) > 0:
+        log_file_list.sort()
+
+        # self.lprint(".. merging log files")
+        # we are merging them in order (reg files, then warnings, then errors)
+
+        # open and write to the parent log
+        # This will write all logs including errors and warning
+        with open(log_file_and_path, 'a') as main_log:
+            # Iterate through list
+            for temp_log_file in log_file_list:
+                # Open each file in read mode
+                with open(temp_log_file) as infile:
+                    main_log.write(infile.read())
+
+
+    # now delete the all file with same prefix (reg, error and warning)
+    # iterate through them a second time (do it doesn't mess up the for loop above)
+    if len(log_file_list) > 0:
+        for temp_log_file in log_file_list:
+            try:
+                os.remove(temp_log_file)
+            except OSError:
+                print(f"Error deleting {temp_log_file}")
+                print(traceback.format_exc())
+

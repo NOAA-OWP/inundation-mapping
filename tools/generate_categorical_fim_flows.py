@@ -80,7 +80,7 @@ def process_generate_flows(
             message = f'{huc} - {lid}:missing calculated flows'
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
-            continueF
+            continue
 
         # Find lid metadata from master list of metadata dictionaries (line 66).
         metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
@@ -237,6 +237,8 @@ def generate_catfim_flows(
     -------
     None.
     '''
+  
+
 
     all_start = datetime.now()
     API_BASE_URL, WBD_LAYER = get_env_paths(env_file)
@@ -263,52 +265,54 @@ def generate_catfim_flows(
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
 
-    skip_metadata_api = True  # TEMP DEBUG, set back to false when done testing
-    if skip_metadata_api == True:
-        print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
+    #skip_metadata_api = True  # TEMP DEBUG, set back to false when done testing
+    #if skip_metadata_api == True:
+    #    print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
+    #else:
+    print(f'Retrieving metadata for site(s): {lid_to_run}..')
+    start_dt = datetime.now()
+
+    # TODO: Get metadata only for the hucs we have, not all
+    # but it is alot of work and only a nice to have
+    print(metadata_url)
+    if lid_to_run != 'all':
+        all_lists, ___ = get_metadata(
+            metadata_url,
+            select_by='nws_lid',
+            selector=[lid_to_run],
+            must_include='nws_data.rfc_forecast_point',
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
     else:
-        print(f'Retrieving metadata for site(s): {lid_to_run}..')
-        start_dt = datetime.now()
+        # Get CONUS metadata 
+        # TODO: check results: (does this not get more than just CONUS?)
+        conus_list, ___ = get_metadata(
+            metadata_url,
+            select_by='nws_lid',
+            selector=['all'],
+            must_include='nws_data.rfc_forecast_point',
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+        # Get metadata for Islands and Alaska
+        islands_list, ___ = get_metadata(
+            metadata_url,
+            select_by='state',
+            selector=['HI', 'PR', 'AK'],
+            must_include=None,
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+        # Append the lists
+        all_lists = conus_list + islands_list
 
-        # Get metadata for 'CONUS'
-        print(metadata_url)
-        if lid_to_run != 'all':
-            all_lists, ___ = get_metadata(
-                metadata_url,
-                select_by='nws_lid',
-                selector=[lid_to_run],
-                must_include='nws_data.rfc_forecast_point',
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
-        else:
-            # Get CONUS metadata
-            conus_list, ___ = get_metadata(
-                metadata_url,
-                select_by='nws_lid',
-                selector=['all'],
-                must_include='nws_data.rfc_forecast_point',
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
-            # Get metadata for Islands and Alaska
-            islands_list, ___ = get_metadata(
-                metadata_url,
-                select_by='state',
-                selector=['HI', 'PR', 'AK'],
-                must_include=None,
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
-            # Append the lists
-            all_lists = conus_list + islands_list
+    print(len(all_lists))
 
-        print(len(all_lists))
-
-        end_dt = datetime.now()
-        time_duration = end_dt - start_dt
-        print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
-        print()
+    end_dt = datetime.now()
+    time_duration = end_dt - start_dt
+    print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
+    print()
 
     print('Determining HUC using WBD layer...')
     start_dt = datetime.now()
@@ -324,6 +328,11 @@ def generate_catfim_flows(
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.astype({'metadata_sources': str})
+   
+    # Save the GDF for now
+    agg_wbd_hucs_file = os.path.join(workspace, "agg_wbd_hucs.gpkg")
+    out_gdf.to_file(agg_wbd_hucs_file, driver='GPKG')
+    print(f"agg_wbd_hucs.gpkg saved at {agg_wbd_hucs_file}")
 
     end_dt = datetime.now()
     time_duration = end_dt - start_dt

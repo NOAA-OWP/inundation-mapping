@@ -161,7 +161,7 @@ def post_process_huc_level(
     # Loop through ahps sites
     for ahps_lid in ahps_dir_list:
         print()
-        print("start interater for ahps_dir_list")
+        print("start iterater for ahps_dir_list")
         print(f">> ahps list is {ahps_lid}")
         tifs_to_reformat_list = []
         ahps_lid_dir = os.path.join(huc_dir, ahps_lid)
@@ -177,8 +177,8 @@ def post_process_huc_level(
         # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
         nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
 
-        if len(tifs_to_reformat_list) == 0;
-            print(f">> now tifs found for {huc} {ahps_lid} at {ahps_lid_dir}")
+        if len(tifs_to_reformat_list) == 0:
+            print(f">> no tifs found for {huc} {ahps_lid} at {ahps_lid_dir}")
             continue
             
 
@@ -236,6 +236,8 @@ def post_process_cat_fim_for_viz(
         print("Here is the list of huc ahps dirs...")
         print(huc_ahps_dir_list)
         
+        print()
+        
         skip_list = ['errors', 'logs', 'gpkg', 'missing_files.txt', 'messages', merged_layer]
 
         # Loop through all categories
@@ -243,6 +245,7 @@ def post_process_cat_fim_for_viz(
         with ProcessPoolExecutor(max_workers=job_number_huc) as huc_exector:
 
             for huc in huc_ahps_dir_list:
+                print(f"huc in process pools start is {huc}")
                 if huc in skip_list:
                     continue
 
