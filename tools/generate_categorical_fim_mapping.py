@@ -25,11 +25,16 @@ gpd.options.io_engine = "pyogrio"
 def generate_categorical_fim(
     fim_run_dir, source_flow_dir, output_catfim_dir, job_number_huc, job_number_inundate, depthtif, log_file
 ):
-    source_flow_dir_list = os.listdir(source_flow_dir)
-    output_flow_dir_list = os.listdir(fim_run_dir)
+    # source_flow_dir_list = os.listdir(source_flow_dir)
+    source_flow_huc_dir_list = [x for x in os.listdir(source_flow_dir) if os.path.isdir(os.path.join(source_flow_dir, x))
+                                and x[0] in ['0', '1', '2']]
+        
+    # output_flow_dir_list = os.listdir(fim_run_dir)
+    fim_source_huc_dir_list = [x for x in os.listdir(fim_run_dir) if os.path.isdir(os.path.join(fim_run_dir, x))
+                               and x[0] in ['0', '1', '2']]
 
     # Log missing hucs
-    missing_hucs = list(set(source_flow_dir_list) - set(output_flow_dir_list))
+    missing_hucs = list(set(source_flow_huc_dir_list) - set(fim_source_huc_dir_list))
     missing_hucs = [huc for huc in missing_hucs if "." not in huc]
 
     if len(missing_hucs) > 0:
@@ -38,7 +43,7 @@ def generate_categorical_fim(
         f.close()
 
     # Loop through matching huc directories in the source_flow directory
-    matching_hucs = list(set(output_flow_dir_list) & set(source_flow_dir_list))
+    matching_hucs = list(set(fim_source_huc_dir_list) & set(source_flow_huc_dir_list))
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in matching_hucs:
@@ -47,7 +52,10 @@ def generate_categorical_fim(
 
             # Get list of AHPS site directories
             ahps_site_dir = os.path.join(source_flow_dir, huc)
-            ahps_site_dir_list = os.listdir(ahps_site_dir)
+            
+            # ahps_site_dir_list = os.listdir(ahps_site_dir)
+            ahps_site_dir_list = [x for x in os.listdir(ahps_site_dir) if os.path.isdir(os.path.join(ahps_site_dir, x))]            
+            
 
             # Map path to huc directory inside out output_catfim_dir
             cat_fim_huc_dir = os.path.join(output_catfim_dir, huc)
@@ -58,7 +66,9 @@ def generate_categorical_fim(
             for ahps_site in ahps_site_dir_list:
                 # map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj)
                 ahps_site_parent = os.path.join(ahps_site_dir, ahps_site)
-                thresholds_dir_list = os.listdir(ahps_site_parent)
+                
+                # thresholds_dir_list = os.listdir(ahps_site_parent)
+                thresholds_dir_list = [x for x in os.listdir(ahps_site_parent) if os.path.isdir(os.path.join(ahps_site_parent, x))]            
 
                 # Map parent directory for all inundation output filesoutput files.
                 cat_fim_huc_ahps_dir = os.path.join(cat_fim_huc_dir, ahps_site)
@@ -152,13 +162,15 @@ def run_inundation(
             f.write('FAILURE_huc_{}:{}:{} map failed to create\n'.format(huc, ahps_site, magnitude))
 
 
-def post_process_huc_level(
-    job_number_tif, ahps_dir_list, huc_dir, attributes_dir, gpkg_dir, fim_version, huc
+def post_process_huc_level(output_catfim_dir, job_number_tif, ahps_dir_list, huc_dir, gpkg_dir, fim_version, huc
 ):
     print(f">> we made it to post_process_huc_level for huc {huc}")
     print("the ahps_dir_list is ...")
     print(ahps_dir_list)
     # Loop through ahps sites
+    
+    attributes_dir = os.path.join(output_catfim_dir, 'attributes')    
+    
     for ahps_lid in ahps_dir_list:
         print()
         print("start iterater for ahps_dir_list")
@@ -168,7 +180,9 @@ def post_process_huc_level(
         print(f">> ahps_lid_dir is {ahps_lid_dir}")
 
         # Append desired filenames to list.
-        tif_list = os.listdir(ahps_lid_dir)
+        tif_list = [x for x in os.listdir(ahps_lid_dir) if os.path.isdir(os.path.join(ahps_lid_dir, x))
+                    and x.endwith(".tif")]
+        #tif_list = os.listdir(ahps_lid_dir)
         for tif in tif_list:
             print(f"tif is at {tif}")
             if 'extent.tif' in tif:
@@ -217,28 +231,29 @@ def post_process_huc_level(
                     traceback.print_exc()
 
 
-def post_process_cat_fim_for_viz(
-    job_number_huc, job_number_tif, output_catfim_dir, attributes_dir, log_file="", fim_version=""
-):
+def post_process_cat_fim_for_viz(output_catfim_dir, job_number_huc, job_number_inundate, log_file, fim_version):
     print("Beginning post processing...")
-    # Create workspace
     gpkg_dir = os.path.join(output_catfim_dir, 'gpkg')
     if not os.path.exists(gpkg_dir):
         os.mkdir(gpkg_dir)
 
+    output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
+
     # Find the FIM version
-    merged_layer = os.path.join(output_catfim_dir, 'catfim_library.gpkg')
+    merged_layer = os.path.join(output_mapping_dir, 'catfim_library.gpkg')
 
     if not os.path.exists(merged_layer):  # prevents appending to existing output
-        huc_ahps_dir_list = os.listdir(output_catfim_dir)
+        #huc_ahps_dir_list = os.listdir(output_mapping_dir)
+        huc_ahps_dir_list = [x for x in os.listdir(output_mapping_dir) if os.path.isdir(os.path.join(output_mapping_dir, x))
+                    and x[0] in ['0', '1', '2']]        
         
         print(">>>>>>>>>>>>>>>>>>>>>>>")
-        print("Here is the list of huc ahps dirs...")
+        print("Here is the list of huc mapping ahps dirs...")
         print(huc_ahps_dir_list)
         
         print()
         
-        skip_list = ['errors', 'logs', 'gpkg', 'missing_files.txt', 'messages', merged_layer]
+        # skip_list = ['errors', 'logs', 'gpkg', 'missing_files.txt', 'messages', merged_layer]
 
         # Loop through all categories
         print("Building list of TIFs to reformat...")
@@ -246,13 +261,14 @@ def post_process_cat_fim_for_viz(
 
             for huc in huc_ahps_dir_list:
                 print(f"huc in process pools start is {huc}")
-                if huc in skip_list:
-                    continue
+                #if huc in skip_list:
+                #    continue
 
                 huc_dir = os.path.join(output_catfim_dir, huc)
 
                 try:
-                    ahps_dir_list = os.listdir(huc_dir)
+                    ahps_dir_list = [x for x in os.listdir(huc_dir) if os.path.isdir(os.path.join(huc_dir, x))]
+                    # ahps_dir_list = os.listdir(huc_dir)
                 except NotADirectoryError:
                     print(f"{huc_dir} directory missing. Continuing on")
                     continue
@@ -267,10 +283,10 @@ def post_process_cat_fim_for_viz(
 
                 huc_exector.submit(
                     post_process_huc_level,
-                    job_number_tif,
+                    output_catfim_dir,
+                    job_number_inundate,
                     ahps_dir_list,
                     huc_dir,
-                    attributes_dir,
                     gpkg_dir,
                     fim_version,
                     huc,
@@ -278,8 +294,9 @@ def post_process_cat_fim_for_viz(
         print(">>>>>>>>>>>>>>>>>>>>>>>")
         
         # Merge all layers
-        print(f"Merging {len(os.listdir(gpkg_dir))} layers...")
-        for layer in os.listdir(gpkg_dir):
+        gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
+        print(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")        
+        for layer in gpkg_files:
             # Open dissolved extent layers
             diss_extent_filename = os.path.join(gpkg_dir, layer)
             diss_extent = gpd.read_file(diss_extent_filename)
@@ -389,10 +406,8 @@ def manage_catfim_mapping(
     fim_run_dir,
     source_flow_dir,
     output_catfim_dir,
-    attributes_dir,
     job_number_huc,
     job_number_inundate,
-    overwrite,
     depthtif,
 ):
     # Create output directory
@@ -407,7 +422,7 @@ def manage_catfim_mapping(
     # Create error log path
     log_file = os.path.join(log_dir, 'errors.log')
 
-    job_number_tif = job_number_inundate
+    # job_number_tif = job_number_inundate
 
     print("Generating Categorical FIM")
     generate_categorical_fim(
@@ -429,7 +444,7 @@ def manage_catfim_mapping(
         .replace('_', '.')
     )
     post_process_cat_fim_for_viz(
-        job_number_huc, job_number_tif, output_catfim_dir, attributes_dir, log_file, fim_version
+        output_catfim_dir, job_number_huc, job_number_inundate, log_file, fim_version
     )
 
 

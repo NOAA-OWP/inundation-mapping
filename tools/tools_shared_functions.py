@@ -683,7 +683,7 @@ def get_metadata(
 ########################################################################
 # Function to assign HUC code using the WBD spatial layer using a spatial join
 ########################################################################
-def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
+def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, huc_list =list()):
     '''
     Assigns the proper FIM HUC 08 code to each site in the input DataFrame.
     Converts input DataFrame to a GeoDataFrame using lat/lon attributes
@@ -713,9 +713,13 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
     '''
     # Import huc8 layer as geodataframe and retain necessary columns
     print("Reading WBD...")
-    huc8 = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
+    huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     print("WBD read.")
-    huc8 = huc8[['HUC8', 'name', 'states', 'geometry']]
+    huc8 = huc8_all[['HUC8', 'name', 'states', 'geometry']]
+    
+    if len(huc_list) > 0:
+        # filter by hucs we are using
+        huc8 = huc8[huc8['HUC8'].isin(huc_list)]
 
     huc8.sort_values(by='HUC8', ascending=True, inplace=True)
 
@@ -1646,21 +1650,39 @@ def mcc(TP, FP, FN, TN=None):
 
 
 # ===============================
-def setup_logger(log_file_path):
+def setup_logger(log_file_path, log_process_name, add_muliproc_listener):
 
     start_time = datetime.now(timezone.utc)
 
+    # Create a logger
+    logger = logging.getLogger(log_process_name)
+    logger.setLevel(logging.DEBUG)
+
+    # Create a formatter to define the log format
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+    # Create a file handler to write logs to a file
     file_handler = logging.FileHandler(log_file_path)
     file_handler.setLevel(logging.DEBUG)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
 
-    logger = logging.getLogger()
+    # Create a stream handler to print logs to the console
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)  # You can set the desired log level for console output
+
+    # Add the handlers to the logger
     logger.addHandler(file_handler)
-    logger.setLevel(logging.DEBUG)
+    logger.addHandler(console_handler)
 
     logging.info(f'Started (UTC): {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
     logging.info("----------------")
+
+    # Now you can log messages with different levels
+    logger.debug('This is a test debug message')
+    logger.info('This is a test info message')
+    logger.warning('This is a test warning message')
+    logger.error('This is a test error message')
+    
 
 # ===============================
 def merge_log_files(log_file_and_path, file_prefix):

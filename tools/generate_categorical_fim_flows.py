@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
+import logging
 import os
+import pickle
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
@@ -39,8 +42,9 @@ def get_env_paths(env_file):
     return API_BASE_URL, WBD_LAYER
 
 
+# This one is for lid magnitudes only
 def process_generate_flows(
-    huc, huc_dictionary, threshold_url, all_lists, workspace, attributes_dir, huc_messages_dir, nwm_flows_df
+    huc, huc_dictionary, threshold_url, all_meta_lists, output_flows_dir, attributes_dir, huc_messages_dir, nwm_flows_df
 ):
     # Process each huc unit, first define message variable and flood categories.
     all_messages = []
@@ -70,20 +74,20 @@ def process_generate_flows(
 
         # Check if stages are supplied, if not write message and exit.
         if all(stages.get(category, None) is None for category in flood_categories):
-            message = f'{huc} - {lid}:missing threshold stages'
+            message = f'{huc} - {lid}: missing threshold stages'
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
             continue
 
         # Check if calculated flows are supplied, if not write message and exit.
         if all(flows.get(category, None) is None for category in flood_categories):
-            message = f'{huc} - {lid}:missing calculated flows'
+            message = f'{huc} - {lid}: missing calculated flows'
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
             continue
 
         # Find lid metadata from master list of metadata dictionaries (line 66).
-        metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
+        metadata = next((item for item in all_meta_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
 
         # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
         unfiltered_segments = list(set(get_nwm_segs(metadata)))
@@ -97,11 +101,11 @@ def process_generate_flows(
 
         end = time.time()
         elapsed_time = round((end - start), 6)
-        print(f'{huc} - {lid}:  Finished filtering segments : {elapsed_time} minutes')
+        print(f'{huc} - {lid}: Finished filtering segments : {elapsed_time} minutes')
 
         # If there are no segments, write message and exit out
         if not segments:
-            message = f'{lid}:missing nwm segments'
+            message = f'{lid}: missing nwm segments'
             all_messages.append(message)
             # print(message) # TODO: Make verbose option
             continue
@@ -120,9 +124,7 @@ def process_generate_flows(
                 flow_info = flow_data(segments, flow)
 
                 # Define destination path and create folders
-                output_file = (
-                    workspace / huc / lid / category / (f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
-                )
+                output_file = os.path.join(output_flows_dir, huc, lid, category, f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
                 output_file.parent.mkdir(parents=True, exist_ok=True)
 
                 # Write flow file to file
@@ -179,16 +181,16 @@ def process_generate_flows(
         csv_df = csv_df.round({'q': 2, 'stage': 2})
 
         # If a site folder exists (ie a flow file was written) save files containing site attributes.
-        output_dir = workspace / huc / lid
-        if output_dir.exists():
+        #output_dir = os.path.join(output_flows_dir ,huc, lid)
+        #if output_dir.exists():
             # Export DataFrame to csv containing attributes
-            csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
-            message = f'{lid}:flows available'
-            all_messages.append(message)
-            # print(message) # TODO: Make verbose option
-        else:
-            message = f'{lid}:missing all calculated flows'
-            all_messages.append(message)
+        csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
+        message = f'{lid}: flows available'
+        all_messages.append(message)
+        # print(message) # TODO: Make verbose option
+        # else:
+        #     message = f'{lid}: missing all calculated flows'
+        #     all_messages.append(message)
             # print(message) # TODO: Make verbose option
 
     # Write all_messages to huc-specific file.
@@ -199,18 +201,18 @@ def process_generate_flows(
             f.write("%s\n" % item)
 
 
+# lid_to_run is temp disabled
 def generate_catfim_flows(
-    workspace,
+    output_catfim_dir,
     nwm_us_search,
     nwm_ds_search,
     env_file,
-    stage_based,
-    fim_dir,
-    lid_to_run,
-    lst_hucs,
-    attributes_dir="",
-    job_number_huc=1,
+    job_number_inundate,
+    job_number_huc,    
+    is_stage_based,
+    lst_hucs
 ):
+    
     '''
     This will create static flow files for all nws_lids and save to the
     workspace directory with the following format:
@@ -224,8 +226,8 @@ def generate_catfim_flows(
     flow file to use for inundation mapping.
     Parameters
     ----------
-    workspace : STR
-        Location where output flow files will exist.
+    output_catfim_dir : STR
+        root catfim dir for the particular run. ie) fim_4_3_3_4_stage_based
     nwm_us_search : STR
         Upstream distance (in miles) for walking up NWM network.
     nwm_ds_search : STR
@@ -238,26 +240,23 @@ def generate_catfim_flows(
     None.
     '''
   
-
-
+    output_flows_dir = os.path.join(output_catfim_dir, "flows")
+    attributes_dir = os.path.join(output_catfim_dir, 'attributes')
+  
     all_start = datetime.now()
     API_BASE_URL, WBD_LAYER = get_env_paths(env_file)
-    # Define workspace and wbd_path as a pathlib Path. Convert search distances to integer.
-    workspace = Path(workspace)
     nwm_us_search = int(nwm_us_search)
     nwm_ds_search = int(nwm_ds_search)
     metadata_url = f'{API_BASE_URL}/metadata'
     threshold_url = f'{API_BASE_URL}/nws_threshold'
     ###################################################################
 
-    # Create workspace
-    workspace.mkdir(parents=True, exist_ok=True)
-
     # Create HUC message directory to store messages that will be read and joined after multiprocessing
-    huc_messages_dir = os.path.join(workspace, 'huc_messages')
+    huc_messages_dir = os.path.join(output_flows_dir, 'huc_messages')
     if not os.path.exists(huc_messages_dir):
         os.mkdir(huc_messages_dir)
 
+    logging.info("Loading nwm flow files")
     # Open NWM flows geopackages
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
@@ -265,28 +264,25 @@ def generate_catfim_flows(
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
 
-    #skip_metadata_api = True  # TEMP DEBUG, set back to false when done testing
-    #if skip_metadata_api == True:
-    #    print(f'Skipping API metadata, pulling data from {flows_metadata_path}')
-    #else:
-    print(f'Retrieving metadata for site(s): {lid_to_run}..')
     start_dt = datetime.now()
 
     # TODO: Get metadata only for the hucs we have, not all
     # but it is alot of work and only a nice to have
-    print(metadata_url)
-    if lid_to_run != 'all':
-        all_lists, ___ = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=[lid_to_run],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
+    
+    logging.info(metadata_url)
+    
+    all_meta_lists = []
+    # Check to see if meta file already exists
+    meta_file = os.path.join(output_catfim_dir, "metafile.pkl")
+    if os.path.isfile(meta_file) is True:
+        logging.info(f"Meta file already downloaded and exists at {meta_file}")
+            
+        with open(meta_file, "rb") as p_handle:
+            all_meta_lists = pickle.load(p_handle)
+            
     else:
-        # Get CONUS metadata 
-        # TODO: check results: (does this not get more than just CONUS?)
+        logging.info(f"Meta file will be downloaded and saved at {meta_file}")
+    
         conus_list, ___ = get_metadata(
             metadata_url,
             select_by='nws_lid',
@@ -295,6 +291,7 @@ def generate_catfim_flows(
             upstream_trace_distance=nwm_us_search,
             downstream_trace_distance=nwm_ds_search,
         )
+        
         # Get metadata for Islands and Alaska
         islands_list, ___ = get_metadata(
             metadata_url,
@@ -305,47 +302,52 @@ def generate_catfim_flows(
             downstream_trace_distance=nwm_ds_search,
         )
         # Append the lists
-        all_lists = conus_list + islands_list
+        all_meta_lists = conus_list + islands_list
 
-    print(len(all_lists))
-
+        with open(meta_file, "wb") as p_handle:
+            pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
     end_dt = datetime.now()
     time_duration = end_dt - start_dt
-    print(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
-    print()
-
-    print('Determining HUC using WBD layer...')
+    logging.info(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
+    
+    logging.info("")
+    logging.info('Determining HUC using WBD layer...')
     start_dt = datetime.now()
 
-    # Assign HUCs to all sites using a spatial join of the FIM 3 HUC layer.
+    # Assign HUCs to all sites using a spatial join of the FIM 4 HUC layer.
     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     # of all sites used later in script.
 
-    huc_dictionary, out_gdf = aggregate_wbd_hucs(
-        metadata_list=all_lists, wbd_huc8_path=WBD_LAYER, retain_attributes=True
-    )
-    # Drop list fields if invalid
-    out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
-    out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-    out_gdf = out_gdf.astype({'metadata_sources': str})
+    agg_wbd_hucs_file = os.path.join(output_flows_dir, "agg_wbd_hucs.gpkg")
+    if os.path.exists(agg_wbd_hucs_file) is False:
+        huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER,  True, lst_hucs)
+        
+        # Drop list fields if invalid
+        out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
+        out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+        out_gdf = out_gdf.astype({'metadata_sources': str})
    
-    # Save the GDF for now
-    agg_wbd_hucs_file = os.path.join(workspace, "agg_wbd_hucs.gpkg")
-    out_gdf.to_file(agg_wbd_hucs_file, driver='GPKG')
-    print(f"agg_wbd_hucs.gpkg saved at {agg_wbd_hucs_file}")
+        # Save the GDF for now
+        out_gdf.to_file(agg_wbd_hucs_file, driver='GPKG')
+        logging.info(f"agg_wbd_hucs.gpkg saved at {agg_wbd_hucs_file}")
+    else:
+        logging.info(f"{agg_wbd_hucs_file} already exists and is being loaded")
+        out_gdf = gpd.read_file(agg_wbd_hucs_file)
+        
 
     end_dt = datetime.now()
     time_duration = end_dt - start_dt
     print(f"Determining HUC using WBD layer Duration: {str(time_duration).split('.')[0]}")
     print()
 
-    if stage_based:  # If it's stage-based, the function stops running here
+    if is_stage_based:  # If it's stage-based, the function stops running here
         return (
             huc_dictionary,
             out_gdf,
             metadata_url,
             threshold_url,
-            all_lists,
+            all_meta_lists,
             nwm_flows_df,
             nwm_flows_alaska_df,
         )
@@ -353,53 +355,37 @@ def generate_catfim_flows(
     print("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
     start_dt = datetime.now()
 
-    # lst_hucs = ['19020302', '19020505', '19020201', '19020401', '19020502', '02020005',
-    # '02040101', '02050105'] # TEMP DEBUG HUC LIST # TODO: Add as an argument input?
-    # run_all_hucs = False # TODO: Add as argument input
-
-    # Set run parameter
-    if lst_hucs == ['all']:
-        run_all_hucs = True
-        print('lst_hucs ==  all, running all hucs!')  # TEMP DEBUG
-    else:
-        run_all_hucs = False
-        print('lst_hucs specified, only running this HUC list')  # TEMP DEBUG
-        print(lst_hucs)  # TEMP DEBUG
-
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
+            print(f'Processing flows for huc: {huc}')
 
-            if huc in lst_hucs or run_all_hucs is True:  # TODO: test throughly
+            if huc[:2] == '19':
+                # Alaska
+                executor.submit(
+                    process_generate_flows,
+                    huc,
+                    huc_dictionary,
+                    threshold_url,
+                    all_meta_lists,
+                    output_flows_dir,
+                    attributes_dir,
+                    huc_messages_dir,
+                    nwm_flows_alaska_df,
+                )
 
-                print(f'running huc: {huc}')  # TEMP DEBUG
-
-                if huc[:2] == '19':
-                    # Alaska
-                    executor.submit(
-                        process_generate_flows,
-                        huc,
-                        huc_dictionary,
-                        threshold_url,
-                        all_lists,
-                        workspace,
-                        attributes_dir,
-                        huc_messages_dir,
-                        nwm_flows_alaska_df,
-                    )
-
-                else:
-                    # Not Alaska
-                    executor.submit(
-                        process_generate_flows,
-                        huc,
-                        huc_dictionary,
-                        threshold_url,
-                        all_lists,
-                        workspace,
-                        attributes_dir,
-                        huc_messages_dir,
-                        nwm_flows_df,
-                    )
+            else:
+                # Not Alaska
+                executor.submit(
+                    process_generate_flows,
+                    huc,
+                    huc_dictionary,
+                    threshold_url,
+                    all_meta_lists,
+                    output_flows_dir,
+                    attributes_dir,
+                    huc_messages_dir,
+                    nwm_flows_df,
+                )
 
     end_dt = datetime.now()
     time_duration = end_dt - start_dt
@@ -408,7 +394,9 @@ def generate_catfim_flows(
 
     print('Wrapping up flows generation...')
     # Recursively find all *_attributes csv files and append
-    csv_files = os.listdir(attributes_dir)
+    # csv_files = os.listdir(attributes_dir)
+    csv_files = [x for x in os.listdir(attributes_dir) if x.endswith('.csv')]	    
+    
     all_csv_df = pd.DataFrame()
     for csv in csv_files:
         full_csv_path = os.path.join(attributes_dir, csv)
@@ -416,7 +404,7 @@ def generate_catfim_flows(
         temp_df = pd.read_csv(full_csv_path, dtype={'huc': str})
         all_csv_df = pd.concat([all_csv_df, temp_df], ignore_index=True)
     # Write to file
-    all_csv_df.to_csv(os.path.join(workspace, 'nws_lid_attributes.csv'), index=False)
+    all_csv_df.to_csv(os.path.join(output_flows_dir, 'nws_lid_attributes.csv'), index=False)
 
     # This section populates a shapefile of all potential sites and details
     # whether it was mapped or not (mapped field) and if not, why (status field).
@@ -473,7 +461,7 @@ def generate_catfim_flows(
     # viz_out_gdf = viz_out_gdf.filter(
     #     ['nws_lid', 'usgs_gage', 'nwm_seg', 'HUC8', 'mapped', 'status', 'geometry']
     # )
-    nws_lid_layer = os.path.join(workspace, 'nws_lid_sites.gpkg').replace('flows', 'mapping')
+    nws_lid_layer = os.path.join(output_flows_dir, 'nws_lid_sites.gpkg').replace('flows', 'mapping')
 
     viz_out_gdf.to_file(nws_lid_layer, driver='GPKG')
 
@@ -489,7 +477,7 @@ def generate_catfim_flows(
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Create forecast files for all nws_lid sites')
-    parser.add_argument('-w', '--workspace', help='Workspace where all data will be stored.', required=True)
+    parser.add_argument('-w', '--output_catfim_dir', help='Workspace where all data will be stored.', required=True)
     parser.add_argument(
         '-u', '--nwm_us_search', help='Walk upstream on NWM network this many miles', required=True
     )
