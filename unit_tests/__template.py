@@ -51,7 +51,7 @@ class test_Your_original_source_python_file_name(unittest.TestCase):
 
         src.subset_vector_layers(
             hucCode=params["hucCode"],
-            nwm_streams_filename=params["nwm_streams"],
+            streams_filename=params["streams"],
             etc=params["a_number"],
             etc2=params["a_list"],
         )
@@ -61,7 +61,7 @@ class test_Your_original_source_python_file_name(unittest.TestCase):
         # A message (string) can be added after the assert statement to provide detail on
         # the case being tested, and why it failed.
 
-        assert os.path.exists(params["nwm_streams"]) is True, "The nwm_streams file does not exist"
+        assert os.path.exists(params["streams"]) is True, "The streams file does not exist"
 
     # EXAMPLE OF A SUCCESSFUL TEST CASE WHICH CAPTURES AN EXCEPTION (FAILURE)
     def test_subset_vector_layers_fail_invalid_stream_path(self):
@@ -74,12 +74,12 @@ class test_Your_original_source_python_file_name(unittest.TestCase):
             "valid_data"
         ].copy()
 
-        params["nwm_streams"] = "/some/bad/path/"
+        params["streams"] = "/some/bad/path/"
 
         with pytest.raises(Exception):
             src.subset_vector_layers(
                 hucCode=params["hucCode"],
-                nwm_streams_filename=params["nwm_streams"],
+                streams_filename=params["streams"],
                 etc=params["a_number"],
                 etc2=params["a_list"],
             )

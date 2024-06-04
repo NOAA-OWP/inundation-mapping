@@ -18,7 +18,7 @@ def create_flow_forecast_file(
     nwm_geodatabase,
     output_parent_dir,
     ble_xs_layer_name='XS',
-    nwm_stream_layer_name='nwm_streams',
+    nwm_stream_layer_name='streams',
     nwm_feature_id_field='ID',
 ):
     '''
@@ -216,9 +216,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-l',
         '--nwm-stream-layer-name',
-        help='NWM streams layer. Default layer is "nwm_streams")',
+        help='NWM streams layer. Default layer is "streams")',
         required=False,
-        default='nwm_streams',
+        default='streams',
     )
     parser.add_argument(
         '-f',

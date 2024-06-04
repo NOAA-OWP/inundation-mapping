@@ -4,12 +4,12 @@
 level=$1
 
 if [ "$level" = "branch" ]; then
-    b_arg=$tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
-    z_arg=$tempCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg
+    b_arg=$tempCurrentBranchDataDir/subset_streams_levelPaths_$current_branch_id.gpkg
+    z_arg=$tempCurrentBranchDataDir/catchments_proj_subset_levelPaths_$current_branch_id.gpkg
 elif [ "$level" = "unit" ]; then
     # Branch zero has a different source for -b and -z arguments
-    b_arg=$tempHucDataDir/nwm_subset_streams.gpkg
-    z_arg=$tempHucDataDir/nwm_catchments_proj_subset.gpkg
+    b_arg=$tempHucDataDir/subset_streams.gpkg
+    z_arg=$tempHucDataDir/catchments_proj_subset.gpkg
 fi
 
 
@@ -242,7 +242,7 @@ python3 $srcDir/add_crosswalk.py \
     -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv \
     -w $tempHucDataDir/wbd8_clp.gpkg \
     -b $b_arg \
-    -y $tempCurrentBranchDataDir/nwm_catchments_proj_subset.tif \
+    -y $tempCurrentBranchDataDir/catchments_proj_subset.tif \
     -m $manning_n \
     -z $z_arg \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \

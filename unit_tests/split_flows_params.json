@@ -10,6 +10,6 @@
         "split_points_filename": "/data/outputs/unit_test_data/02020005/branches/2274000031/demDerived_reaches_split_points_2274000031.gpkg",
         "wbd8_clp_filename": "/data/outputs/unit_test_data/02020005/wbd8_clp.gpkg",
         "lakes_filename": "/data/outputs/unit_test_data/02020005/nwm_lakes_proj_subset.gpkg",
-        "nwm_streams_filename": "/data/outputs/unit_test_data/02020005/nwm_subset_streams_levelPaths.gpkg"
+        "streams_filename": "/data/outputs/unit_test_data/02020005/subset_streams_levelPaths.gpkg"
     }
 }

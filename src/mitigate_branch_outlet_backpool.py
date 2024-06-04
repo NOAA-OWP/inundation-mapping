@@ -27,7 +27,7 @@ def mitigate_branch_outlet_backpool(
     catchment_reaches_filename,
     split_flows_filename,
     split_points_filename,
-    nwm_streams_filename,
+    streams_filename,
     dem_filename,
     slope_min,
     calculate_stats,
@@ -266,10 +266,10 @@ def mitigate_branch_outlet_backpool(
 
     # --------------------------------------------------------------
     # Read in nwm lines, explode to ensure linestrings are the only geometry
-    nwm_streams = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
+    streams = gpd.read_file(streams_filename).explode(index_parts=True)
 
     # Check whether it's branch zero
-    if 'levpa_id' in nwm_streams.columns:
+    if 'levpa_id' in streams.columns:
         # --------------------------------------------------------------
         # If it's NOT branch zero, check for the two criteria and mitigate issue if needed
 

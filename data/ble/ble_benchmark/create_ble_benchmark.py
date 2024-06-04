@@ -238,9 +238,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-l',
         '--nwm-stream-layer-name',
-        help='NWM streams layer. Default layer is "nwm_streams"',
+        help='NWM streams layer. Default layer is "streams"',
         required=False,
-        default='nwm_streams',
+        default='streams',
     )
     parser.add_argument(
         '-id',

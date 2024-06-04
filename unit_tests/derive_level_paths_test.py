@@ -32,7 +32,7 @@ class test_Derive_level_paths(unittest.TestCase):
         Notes:
             Other params such as toNode_attribute and fromNode_attribute are defaulted and not passed into
             __main__ , so we skip them here.
-            Returns GeoDataframe (the nwm_subset_streams_levelPaths_dissolved.gpkg)
+            Returns GeoDataframe (the subset_streams_levelPaths_dissolved.gpkg)
         """
 
         params = self.params["valid_data"].copy()

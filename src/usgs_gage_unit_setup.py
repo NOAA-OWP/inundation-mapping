@@ -85,8 +85,8 @@ class Gage2Branch(object):
         self.gages.location_id.fillna(self.gages.nws_lid, inplace=True)
         self.gages.loc[self.gages['nws_lid'] == 'Bogus_ID', 'nws_lid'] = None
 
-    def sort_into_branch(self, nwm_subset_streams_levelPaths):
-        nwm_reaches = gpd.read_file(nwm_subset_streams_levelPaths)
+    def sort_into_branch(self, subset_streams_levelPaths):
+        nwm_reaches = gpd.read_file(subset_streams_levelPaths)
         nwm_reaches = nwm_reaches.rename(columns={'ID': 'feature_id'})
 
         if not self.gages[self.gages.feature_id.isnull()].empty:

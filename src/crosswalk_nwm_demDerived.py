@@ -16,7 +16,7 @@ gpd.options.io_engine = "pyogrio"
 
 
 def Crosswalk_nwm_demDerived(
-    nwm_streams,
+    streams,
     demDerived,
     wbd=None,
     node_prefix=None,
@@ -27,12 +27,12 @@ def Crosswalk_nwm_demDerived(
     verbose=False,
 ):
     # load nwm streams
-    if isinstance(nwm_streams, sb.StreamNetwork):
+    if isinstance(streams, sb.StreamNetwork):
         pass
-    elif isinstance(nwm_streams, str):
-        nwm_streams = sb.StreamNetwork.from_file(nwm_streams)
+    elif isinstance(streams, str):
+        streams = sb.StreamNetwork.from_file(streams)
     else:
-        raise TypeError("For nwm_streams pass file path string or GeoDataFrame object")
+        raise TypeError("For streams pass file path string or GeoDataFrame object")
 
     # load demDerived
     if isinstance(demDerived, sb.StreamNetwork):
@@ -42,17 +42,15 @@ def Crosswalk_nwm_demDerived(
     else:
         raise TypeError("demDerived pass file path string or GeoDataFrame object")
 
-    # clip nwm_streams
+    # clip streams
     if wbd is not None:
-        nwm_streams = nwm_streams.clip(wbd, keep_geom_type=True, verbose=verbose)
+        streams = streams.clip(wbd, keep_geom_type=True, verbose=verbose)
 
     # build traversal to nwm
-    nwm_streams = Add_traversal_to_NWM(
-        nwm_streams, node_prefix=node_prefix, outfile=nwm_outfile, verbose=verbose
-    )
+    streams = Add_traversal_to_NWM(streams, node_prefix=node_prefix, outfile=nwm_outfile, verbose=verbose)
 
     # create points for nwm and demDerived networks
-    nwm_points = nwm_streams.explode_to_points(sampling_size=sampling_size, verbose=verbose)
+    nwm_points = streams.explode_to_points(sampling_size=sampling_size, verbose=verbose)
     demDerived_points = demDerived.explode_to_points(sampling_size=sampling_size, verbose=verbose)
 
     # conflate points
@@ -80,23 +78,23 @@ def Crosswalk_nwm_demDerived(
     return (demDerived, crosswalk_table)
 
 
-def Add_traversal_to_NWM(nwm_streams, node_prefix=None, outfile=None, verbose=False):
-    if isinstance(nwm_streams, sb.StreamNetwork):
+def Add_traversal_to_NWM(streams, node_prefix=None, outfile=None, verbose=False):
+    if isinstance(streams, sb.StreamNetwork):
         pass
-    elif isinstance(nwm_streams, str):
-        nwm_streams = sb.StreamNetwork.from_file(nwm_streams)
+    elif isinstance(streams, str):
+        streams = sb.StreamNetwork.from_file(streams)
     else:
-        raise TypeError("nwm_streams_file pass file path string or GeoDataFrame object")
+        raise TypeError("streams_file pass file path string or GeoDataFrame object")
 
     # remove multilinestrings if any
-    anyMultiLineStrings = np.any(np.array([isinstance(g, MultiLineString) for g in nwm_streams.geometry]))
+    anyMultiLineStrings = np.any(np.array([isinstance(g, MultiLineString) for g in streams.geometry]))
     if anyMultiLineStrings:
-        nwm_streams = nwm_streams.dissolve_by_branch(
+        streams = streams.dissolve_by_branch(
             branch_id_attribute='ID', attribute_excluded=None, values_excluded=None, verbose=verbose
         )
 
     # create stream node ids
-    nwm_streams = nwm_streams.derive_nodes(
+    streams = streams.derive_nodes(
         toNode_attribute='To_Node',
         fromNode_attribute='From_Node',
         reach_id_attribute='ID',
@@ -106,13 +104,13 @@ def Add_traversal_to_NWM(nwm_streams, node_prefix=None, outfile=None, verbose=Fa
         verbose=verbose,
     )
     # inlets and outlets
-    nwm_streams = nwm_streams.derive_outlets(
+    streams = streams.derive_outlets(
         toNode_attribute='To_Node',
         fromNode_attribute='From_Node',
         outlets_attribute='outlet_id',
         verbose=verbose,
     )
-    nwm_streams = nwm_streams.derive_inlets(
+    streams = streams.derive_inlets(
         toNode_attribute='To_Node',
         fromNode_attribute='From_Node',
         inlets_attribute='inlet_id',
@@ -120,12 +118,12 @@ def Add_traversal_to_NWM(nwm_streams, node_prefix=None, outfile=None, verbose=Fa
     )
 
     # upstream and downstream dictionaries
-    upstreams, downstreams = nwm_streams.make_up_and_downstream_dictionaries(
+    upstreams, downstreams = streams.make_up_and_downstream_dictionaries(
         reach_id_attribute='ID', toNode_attribute='To_Node', fromNode_attribute='From_Node', verbose=verbose
     )
 
     # derive arbolate sum
-    nwm_streams = nwm_streams.get_arbolate_sum(
+    streams = streams.get_arbolate_sum(
         arbolate_sum_attribute='arbolate_sum',
         inlets_attribute='inlet_id',
         reach_id_attribute='ID',
@@ -138,7 +136,7 @@ def Add_traversal_to_NWM(nwm_streams, node_prefix=None, outfile=None, verbose=Fa
     )
 
     # derive levelpaths
-    nwm_streams = nwm_streams.derive_stream_branches(
+    streams = streams.derive_stream_branches(
         toNode_attribute='To_Node',
         fromNode_attribute='From_Node',
         upstreams=upstreams,
@@ -151,16 +149,16 @@ def Add_traversal_to_NWM(nwm_streams, node_prefix=None, outfile=None, verbose=Fa
         verbose=verbose,
     )
 
-    # nwm_streams = nwm_streams.dissolve_by_branch(
+    # streams = streams.dissolve_by_branch(
     #     branch_id_attribute='levpa_id', attribute_excluded=None, values_excluded=None, verbose=verbose
     # )
 
-    nwm_streams = nwm_streams.reset_index(drop=True)
+    streams = streams.reset_index(drop=True)
 
     if outfile is not None:
-        nwm_streams.write(outfile, index=False, verbose=verbose)
+        streams.write(outfile, index=False, verbose=verbose)
 
-    return nwm_streams
+    return streams
 
 
 if __name__ == '__main__':

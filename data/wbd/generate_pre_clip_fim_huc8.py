@@ -65,8 +65,9 @@ input_DEM_domain = os.getenv('input_DEM_domain')
 input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # alaska
 
 input_nwm_lakes = os.getenv('input_nwm_lakes')
-input_nwm_catchments = os.getenv('input_nwm_catchments')
-input_nwm_catchments_Alaska = os.getenv('input_nwm_catchments_Alaska')
+input_catchments = os.getenv('input_catchments')
+input_catchments_Alaska = os.getenv('input_catchments_Alaska')
+input_catchments_layer = os.getenv('input_catchments_layer')
 
 input_NLD = os.getenv('input_NLD')
 input_NLD_Alaska = os.getenv('input_NLD_Alaska')
@@ -75,10 +76,13 @@ input_levees_preprocessed = os.getenv('input_levees_preprocessed')
 input_levees_preprocessed_Alaska = os.getenv('input_levees_preprocessed_Alaska')
 
 input_GL_boundaries = os.getenv('input_GL_boundaries')
-input_nwm_flows = os.getenv('input_nwm_flows')
-input_nwm_flows_Alaska = os.getenv('input_nwm_flows_Alaska')  # alaska
+input_streams = os.getenv('input_streams')
+input_streams_Alaska = os.getenv('input_streams_Alaska')  # alaska
+stream_id_attribute = os.getenv('reach_id_attribute')
+
 input_nwm_headwaters = os.getenv('input_nwm_headwaters')
 input_nwm_headwaters_Alaska = os.getenv('input_nwm_headwaters_Alaska')
+hr_to_v2 = os.getenv('hr_to_v2')
 
 input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
 input_nld_levee_protected_areas_Alaska = os.getenv('input_nld_levee_protected_areas_Alaska')
@@ -145,7 +149,7 @@ def __merge_mp_logs(outputs_dir):
                 temp_upper_contents = contents.upper()
                 if "ERROR" in temp_upper_contents:
                     print(
-                        f"\nAn error exist in file {temp_log_file}."
+                        f"\nAn error exists in file {temp_log_file}."
                         " Check the merge logs for that huc number"
                     )
                     error_huc_found = True
@@ -384,7 +388,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
             # Yes Alaska
             subset_vector_layers(
                 subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
-                subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
+                subset_streams=f"{huc_directory}/subset_streams.gpkg",
                 hucCode=huc,
                 subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
                 wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
@@ -393,12 +397,12 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 dem_filename=input_DEM_Alaska,
                 dem_domain=input_DEM_domain_Alaska,
                 nwm_lakes=input_nwm_lakes,
-                nwm_catchments=input_nwm_catchments_Alaska,
-                subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
+                catchments=input_catchments_Alaska,
+                subset_catchments=f"{huc_directory}/catchments_proj_subset.gpkg",
                 nld_lines=input_NLD_Alaska,
                 nld_lines_preprocessed=input_levees_preprocessed_Alaska,
                 landsea=input_LANDSEA,
-                nwm_streams=input_nwm_flows_Alaska,
+                input_streams=input_streams_Alaska,
                 subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
                 nwm_headwaters=input_nwm_headwaters_Alaska,
                 subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
@@ -410,13 +414,17 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 subset_osm_bridges=f"{huc_directory}/osm_bridges_subset.gpkg",
                 is_alaska=True,
                 huc_CRS=huc_CRS,  # TODO: simplify
+                stream_id_attribute=stream_id_attribute,
+                stream_to_attribute='ToNode',
+                hr_to_v2=hr_to_v2,
+                catchments_layer=input_catchments_layer,
             )
 
         else:
             # Not Alaska
             subset_vector_layers(
                 subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
-                subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
+                subset_streams=f"{huc_directory}/subset_streams.gpkg",
                 hucCode=huc,
                 subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
                 wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
@@ -425,12 +433,12 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 dem_filename=input_DEM,
                 dem_domain=input_DEM_domain,
                 nwm_lakes=input_nwm_lakes,
-                nwm_catchments=input_nwm_catchments,
-                subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
+                catchments=input_catchments,
+                subset_catchments=f"{huc_directory}/catchments_proj_subset.gpkg",
                 nld_lines=input_NLD,
                 nld_lines_preprocessed=input_levees_preprocessed,
                 landsea=input_LANDSEA,
-                nwm_streams=input_nwm_flows,
+                input_streams=input_streams,
                 subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
                 nwm_headwaters=input_nwm_headwaters,
                 subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
@@ -442,6 +450,10 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 subset_osm_bridges=f"{huc_directory}/osm_bridges_subset.gpkg",
                 is_alaska=False,
                 huc_CRS=huc_CRS,  # TODO: simplify
+                stream_id_attribute=stream_id_attribute,
+                stream_to_attribute='ToNode',
+                hr_to_v2=hr_to_v2,
+                catchments_layer=input_catchments_layer,
             )
 
         msg = f" Completing Get Vector Layers and Subset: {huc} \n"

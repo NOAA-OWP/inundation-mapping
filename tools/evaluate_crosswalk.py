@@ -96,10 +96,10 @@ def _evaluate_crosswalk_intersections(input_flows_fileName: str, input_nwmflows_
     # fh.vprint('Checking for crosswalks between NWM and DEM-derived flowlines', verbose)
 
     flows = gpd.read_file(input_flows_fileName)
-    nwm_streams = gpd.read_file(input_nwmflows_fileName)
+    streams = gpd.read_file(input_nwmflows_fileName)
 
     # Compute the number of intersections between the NWM and DEM-derived flowlines
-    streams = nwm_streams
+    streams = streams
     xwalks = []
     intersects = flows.sjoin(streams)
 
@@ -115,7 +115,7 @@ def _evaluate_crosswalk_intersections(input_flows_fileName: str, input_nwmflows_
             for streams_idx in streams_idxs:
                 intersect = gpd.overlay(
                     flows[flows['HydroID'] == flows_id],
-                    nwm_streams[nwm_streams['ID'] == streams_idx],
+                    streams[streams['ID'] == streams_idx],
                     keep_geom_type=False,
                 )
 
@@ -174,25 +174,25 @@ def _evaluate_crosswalk_network(
 
     flows = gpd.read_file(input_flows_fileName)
     flows['HydroID'] = flows['HydroID'].astype(int)
-    nwm_streams = gpd.read_file(input_nwmflows_fileName)
-    nwm_streams = nwm_streams.rename(columns={'ID': 'feature_id'})
+    streams = gpd.read_file(input_nwmflows_fileName)
+    streams = streams.rename(columns={'ID': 'feature_id'})
     nwm_headwaters = gpd.read_file(input_nwm_headwaters_fileName)
 
-    streams_outlets = nwm_streams.loc[~nwm_streams.to.isin(nwm_streams.feature_id), 'feature_id']
+    streams_outlets = streams.loc[~streams.to.isin(streams.feature_id), 'feature_id']
     flows_outlets = flows.loc[~flows['NextDownID'].isin(flows['HydroID']), 'HydroID']
 
-    nwm_streams_headwaters_list = ~nwm_streams['feature_id'].isin(nwm_streams['to'])
+    streams_headwaters_list = ~streams['feature_id'].isin(streams['to'])
     # flows_headwaters_list = ~flows['LINKNO'].isin(flows['DSLINKNO'])
     flows_headwaters_list = ~flows['HydroID'].isin(flows['NextDownID'])
 
-    nwm_streams_headwaters = nwm_streams[nwm_streams_headwaters_list]
+    streams_headwaters = streams[streams_headwaters_list]
     flows_headwaters = flows[flows_headwaters_list]
 
     # Map headwater points to DEM-derived reaches
     flows_headwaters = flows_headwaters.sjoin_nearest(nwm_headwaters)
     flows_headwaters = flows_headwaters[['HydroID', 'ID']]
-    nwm_streams_headwaters = nwm_streams_headwaters.sjoin_nearest(nwm_headwaters)
-    nwm_streams_headwaters = nwm_streams_headwaters[['feature_id', 'ID']]
+    streams_headwaters = streams_headwaters.sjoin_nearest(nwm_headwaters)
+    streams_headwaters = streams_headwaters[['feature_id', 'ID']]
 
     def _hydroid_to_feature_id(df, hydroid, hydroid_attr, feature_id_attr):
         return df.loc[df[hydroid_attr] == hydroid, feature_id_attr]
@@ -222,7 +222,7 @@ def _evaluate_crosswalk_network(
 
     for feature_id in streams_outlets:
         streams_dict = _get_upstream_data(
-            nwm_streams, nwm_streams_headwaters, streams_dict, feature_id, 'feature_id', 'to'
+            streams, streams_headwaters, streams_dict, feature_id, 'feature_id', 'to'
         )
 
     results = []

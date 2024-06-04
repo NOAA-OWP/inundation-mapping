@@ -57,7 +57,7 @@ class test_split_flows(unittest.TestCase):
             split_points_filename=params["split_points_filename"],
             wbd8_clp_filename=params["wbd8_clp_filename"],
             lakes_filename=params["lakes_filename"],
-            nwm_streams_filename=params["nwm_streams_filename"],
+            streams_filename=params["streams_filename"],
         )
 
         error_msg = params["split_flows_filename"] + " does not exist"

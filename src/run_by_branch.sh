@@ -47,16 +47,16 @@ date -u
 echo -e $startDiv"Subsetting vectors to branches $hucNumber $current_branch_id"
 echo -e "Querying NWM streams ..."
 ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
-    $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg \
-    $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg
+    $tempCurrentBranchDataDir/subset_streams_levelPaths_$current_branch_id.gpkg \
+    $tempHucDataDir/subset_streams_levelPaths.gpkg
 echo -e "Querying NWM catchments ..."
 ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
-    $tempCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg \
-    $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg
+    $tempCurrentBranchDataDir/catchments_proj_subset_levelPaths_$current_branch_id.gpkg \
+    $tempHucDataDir/catchments_proj_subset_levelPaths.gpkg
 echo -e "Querying NWM Dissolved Levelpaths headwaters ..."
 ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
-    $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg \
-    $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
+    $tempCurrentBranchDataDir/subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg \
+    $tempHucDataDir/subset_streams_levelPaths_dissolved_headwaters.gpkg
 #echo -e "Querying NWM headwaters ..."
 # ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
 #     $tempCurrentBranchDataDir/nwm_headwaters_$current_branch_id.gpkg \
@@ -81,7 +81,7 @@ read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"
 gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax \
-    -ts $ncols $nrows $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg \
+    -ts $ncols $nrows $tempCurrentBranchDataDir/subset_streams_levelPaths_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
@@ -89,7 +89,7 @@ echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"
 gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax \
     -ts $ncols $nrows \
-    $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg \
+    $tempCurrentBranchDataDir/subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/headwaters_$current_branch_id.tif
 
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##

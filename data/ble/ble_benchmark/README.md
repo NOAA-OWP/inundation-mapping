@@ -37,7 +37,7 @@ options:
   -xs BLE_XS_LAYER_NAME, --ble-xs-layer-name BLE_XS_LAYER_NAME
                         BLE cross section layer. Default layer is "XS" (sometimes it is "XS_1D").
   -l NWM_STREAM_LAYER_NAME, --nwm-stream-layer-name NWM_STREAM_LAYER_NAME
-                        NWM streams layer. Default layer is "nwm_streams".
+                        NWM streams layer. Default layer is "streams".
   -id NWM_FEATURE_ID_FIELD, --nwm-feature-id-field NWM_FEATURE_ID_FIELD
                         ID field for NWM streams. Not required if NWM v2.1 is used (default id field is "ID").
 ```
@@ -50,7 +50,7 @@ python /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py \
 -r /data/outputs/fim_4_3_12_0 \
 -o /data/test_cases/ble_test_cases/validation_data_ble \
 -n /data/inputs/nwm_hydrofabric/nwm_flows.gpkg \
--l nwm_streams \
+-l streams \
 -u 12090301
 ```
 

@@ -26,7 +26,7 @@ Description
         lakes_filename:
             Filename of existing Lakes geometry file. i.e. <HUC_data_folder>/nwm_lakes_proj_subset.gpkg
 
-        nwm_streams_filename:
+        streams_filename:
             Filename of existing NWM streams input layer.
 
         max_length:
@@ -79,7 +79,7 @@ def split_flows(
     split_points_filename,
     wbd8_clp_filename,
     lakes_filename,
-    nwm_streams_filename,
+    streams_filename,
     max_length,
     slope_min,
     lakes_buffer_input,
@@ -188,15 +188,15 @@ def split_flows(
     print('Trimming DEM stream to NWM branch terminus...')
 
     # Read in nwm lines, explode to ensure linestrings are the only geometry
-    nwm_streams = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
+    streams = gpd.read_file(streams_filename).explode(index_parts=True)
 
     # If it's NOT branch 0: Dissolve levelpath
-    if 'levpa_id' in nwm_streams.columns:
-        if len(nwm_streams) > 1:
+    if 'levpa_id' in streams.columns:
+        if len(streams) > 1:
             # Dissolve the linestring TODO: How much faith should I hold that these are digitized with flow? (JC)
-            linestring_geo = ops.linemerge(nwm_streams.dissolve(by='levpa_id').iloc[0]['geometry'])
+            linestring_geo = ops.linemerge(streams.dissolve(by='levpa_id').iloc[0]['geometry'])
         else:
-            linestring_geo = nwm_streams.iloc[0]['geometry']
+            linestring_geo = streams.iloc[0]['geometry']
 
         # If the linesting is in MultiLineString format, get the last LineString
         if linestring_geo.geom_type == 'MultiLineString':
@@ -206,23 +206,23 @@ def split_flows(
         terminal_nwm_point = []
         last = Point(linestring_geo.coords[-1])
         terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
-        snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
+        snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(streams.crs)
 
         # Snap and trim the flowline to the snapped point
         flows = snap_and_trim_flow(snapped_point, flows)
 
     # If it is branch 0: Loop over NWM terminal segments
     else:
-        nwm_streams_terminal = nwm_streams[nwm_streams['to'] == 0]
-        if not nwm_streams_terminal.empty:
-            for i, row in nwm_streams_terminal.iterrows():
+        streams_terminal = streams[streams['to'] == 0]
+        if not streams_terminal.empty:
+            for i, row in streams_terminal.iterrows():
                 linestring_geo = row['geometry']
 
                 # Identify the end vertex (most downstream, should be last), transform into geodataframe
                 terminal_nwm_point = []
                 last = Point(linestring_geo.coords[-1])
                 terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
-                snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
+                snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(streams.crs)
 
                 # Snap and trim the flowline to the snapped point
                 flows = snap_and_trim_flow(snapped_point, flows)
