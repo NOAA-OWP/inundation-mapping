@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## vx.x.x.x - 2024-06-05 - [PR#1185](https://github.com/NOAA-OWP/inundation-mapping/pull/1185)
+This PR brings back the `preprocess_ahps_nws.py` code to FIM4 and generates AHPS benchmark datasets for the site SXRA2 in Alaska.  The new AHPS benchmark dataset is available on dev1 here: "/dev_fim_share/foss_fim/outputs/ali_ahps_alaska/AHPS_sxra2/19020302/"
+
+This PR closes issue #1130. 
+
+To process a new station, follow these steps:
+
+1. Add the name of the new site to the`/data/inputs/ahps_sites/evaluated_ahps_sites.csv` file.
+2. Collect/Download the grid depth dataset, typically available as ESRI gdb.
+3. Use arcpy (or ArcGIS pro ) to convert the grid depths (in ESRI gdb) into TIFF files
+    - Make sure the TIFF files have crs
+    - Store all the TIFF files in a directory called "depth_grid," which should be a sub-folder inside a folder named after the gage code (must be a 5-character code)
+4. Run the script as described below. Note that sites in CONUS and Alaska cannot be mixed in a single run. Separate runs should be done for Alaska sites and CONUS sites.
+
+There are three NWS LID sites in Alaska: MNDA2, SKLA2, and SXRA2. There is no FIM data for the MNDA2 region, so no attempt was made to process data for this site. Additionally, SKLA2 data has a datum issue that needs to be resolved before using new tool in this PR to create benchmark dataset. 
+
+### Additions
+- `data/nws/preprocess_ahps_nws.py`  ... retrieved from previous versions of FIM and updated for shapely v2
+
+### Changes
+- `tools/tools_shared_functions.py`  ... updated for shapely v2
+
+<br/><br/>
 
 ## v4.5.2.1 - 2024-05-21 - [PR#1172](https://github.com/NOAA-OWP/inundation-mapping/pull/1172)
 
