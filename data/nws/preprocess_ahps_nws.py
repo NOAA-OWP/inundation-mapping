@@ -436,7 +436,7 @@ if __name__ == '__main__':
         '-r', '--reference_raster', help='reference raster used for benchmark raster creation', required=True
     )
     args = vars(parser.parse_args())
-    
+
     # Run get_env_paths and static_flow_lids
     API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER = get_env_paths()
     preprocess_nws(**args)
