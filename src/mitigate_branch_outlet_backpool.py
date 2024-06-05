@@ -528,7 +528,7 @@ if __name__ == '__main__':
     )
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
-    parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
+    parser.add_argument('-n', '--streams-filename', help='streams-filename', required=True)
     parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
     parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
     parser.add_argument(

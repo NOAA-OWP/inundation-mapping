@@ -68,6 +68,7 @@ input_nwm_lakes = os.getenv('input_nwm_lakes')
 input_catchments = os.getenv('input_catchments')
 input_catchments_Alaska = os.getenv('input_catchments_Alaska')
 input_catchments_layer = os.getenv('input_catchments_layer')
+catchment_id_attribute = os.getenv('catchment_id_attribute')
 
 input_NLD = os.getenv('input_NLD')
 input_NLD_Alaska = os.getenv('input_NLD_Alaska')
@@ -416,6 +417,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 huc_CRS=huc_CRS,  # TODO: simplify
                 stream_id_attribute=stream_id_attribute,
                 stream_to_attribute='ToNode',
+                catchment_id_attribute=catchment_id_attribute,
                 hr_to_v2=hr_to_v2,
                 catchments_layer=input_catchments_layer,
             )
@@ -452,6 +454,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 huc_CRS=huc_CRS,  # TODO: simplify
                 stream_id_attribute=stream_id_attribute,
                 stream_to_attribute='ToNode',
+                catchment_id_attribute=catchment_id_attribute,
                 hr_to_v2=hr_to_v2,
                 catchments_layer=input_catchments_layer,
             )

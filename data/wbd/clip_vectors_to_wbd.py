@@ -48,6 +48,7 @@ def subset_vector_layers(
     stream_to_attribute='to',
     hr_to_v2=None,
     catchments_layer=None,
+    catchment_id_attribute='ID',
 ):
 
     def extend_outlet_streams(streams, wbd_buffered, wbd, stream_outlets, stream_id_attribute='ID'):
@@ -169,26 +170,6 @@ def subset_vector_layers(
         )
     del levee_protected_areas
 
-    # Find intersecting lakes and writeout
-    # print(f"Subsetting NWM Lakes for {hucCode}", flush=True)
-    logging.info(f"Subsetting NWM Lakes for {hucCode}")
-    nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer, engine="fiona")
-    nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
-
-    if not nwm_lakes.empty:
-        # Perform fill process to remove holes/islands in the NWM lake polygons
-        nwm_lakes = nwm_lakes.explode(index_parts=True)
-        nwm_lakes_fill_holes = MultiPolygon(
-            Polygon(p.exterior) for p in nwm_lakes['geometry']
-        )  # remove donut hole geometries
-        # Loop through the filled polygons and insert the new geometry
-        for i in range(len(nwm_lakes_fill_holes.geoms)):
-            nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
-        nwm_lakes.to_file(
-            subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=huc_CRS, engine="fiona"
-        )
-    del nwm_lakes
-
     # Find intersecting levee lines
     logging.info(f"Subsetting NLD levee lines for {hucCode}")
     nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
@@ -229,30 +210,6 @@ def subset_vector_layers(
 
     del nwm_headwaters
 
-    # Subset catchments
-    # print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
-    logging.info(f"Subsetting Catchments for {hucCode}")
-
-    if catchments_layer is not None:
-        if catchments_layer == 'NHDPlusCatchment':
-            catchments = catchments.format(hucCode[:4], hucCode[:4])
-        catchments = gpd.read_file(catchments, mask=wbd_buffer, layer=catchments_layer, engine="fiona")
-    else:
-        catchments = gpd.read_file(catchments, mask=wbd_buffer, engine="fiona")
-
-    if catchments.crs != huc_CRS:
-        catchments = catchments.to_crs(huc_CRS)
-
-    if len(catchments) > 0:
-        catchments.to_file(
-            subset_catchments, driver=getDriver(subset_catchments), index=False, crs=huc_CRS, engine="fiona"
-        )
-    else:
-        logging.info("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0)
-
-    del catchments
-
     # Subset OSM (Open Street Map) bridges
     if osm_bridges != "":
         logging.info(f"Subsetting OSM Bridges for {hucCode}")
@@ -277,6 +234,25 @@ def subset_vector_layers(
 
         del subset_osm_bridges_gdb
 
+    # Find intersecting lakes and writeout
+    # print(f"Subsetting NWM Lakes for {hucCode}", flush=True)
+    logging.info(f"Subsetting NWM Lakes for {hucCode}")
+    nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer, engine="fiona")
+    nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
+
+    if not nwm_lakes.empty:
+        # Perform fill process to remove holes/islands in the NWM lake polygons
+        nwm_lakes = nwm_lakes.explode(index_parts=True)
+        nwm_lakes_fill_holes = MultiPolygon(
+            Polygon(p.exterior) for p in nwm_lakes['geometry']
+        )  # remove donut hole geometries
+        # Loop through the filled polygons and insert the new geometry
+        for i in range(len(nwm_lakes_fill_holes.geoms)):
+            nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
+        nwm_lakes.to_file(
+            subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=huc_CRS, engine="fiona"
+        )
+
     # Subset streams
     logging.info(f"Subsetting NWM Streams for {hucCode}")
 
@@ -288,11 +264,21 @@ def subset_vector_layers(
     )
 
     hr_to_v2 = hr_to_v2.drop(columns=['geometry'])
-
+    hr_to_v2.rename(columns={'id': 'ID'}, inplace=True)
     hr_to_v2 = hr_to_v2[hr_to_v2['position'] == 'start']
 
     input_streams = gpd.read_file(input_streams, mask=wbd_buffer, engine="fiona")
 
+    # Find input_streams in lakes
+    input_streams_in_lakes = gpd.overlay(input_streams, nwm_lakes, how='intersection')
+    input_streams_in_lakes.rename(columns={'newID': 'Lake'}, inplace=True)
+    input_streams_in_lakes = input_streams_in_lakes[[stream_id_attribute, 'Lake']]
+
+    input_streams = input_streams.merge(input_streams_in_lakes, how='left', on=stream_id_attribute)
+
+    input_streams['Lake'] = input_streams['Lake'].fillna(-9999)
+
+    # Join crosswalk points
     input_streams = input_streams.merge(
         hr_to_v2, left_on=stream_id_attribute, right_on='point_id', how='inner'
     )
@@ -302,12 +288,11 @@ def subset_vector_layers(
     # NWM can have duplicate records, but appear to always be identical duplicates
     input_streams.drop_duplicates(subset=stream_id_attribute, keep="first", inplace=True)
 
-    input_streams_outlets = input_streams[
-        ~input_streams[stream_to_attribute].isin(input_streams[stream_id_attribute])
-    ]
-    input_streams_nonoutlets = input_streams[
-        input_streams[stream_to_attribute].isin(input_streams[stream_id_attribute])
-    ]
+    input_streams_are_not_outlets = input_streams[stream_to_attribute].isin(
+        input_streams[stream_id_attribute]
+    )
+    input_streams_outlets = input_streams[~input_streams_are_not_outlets]
+    input_streams_nonoutlets = input_streams[input_streams_are_not_outlets]
 
     input_streams = extend_outlet_streams(
         input_streams, wbd_buffer, wbd, input_streams_outlets, stream_id_attribute
@@ -343,6 +328,31 @@ def subset_vector_layers(
     del input_streams
 
     # Subset catchments
+    # print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
+    logging.info(f"Subsetting Catchments for {hucCode}")
+
+    if catchments_layer is not None:
+        if catchments_layer == 'NHDPlusCatchment':
+            catchments = catchments.format(hucCode[:4], hucCode[:4])
+        catchments = gpd.read_file(catchments, mask=wbd_buffer, layer=catchments_layer, engine="fiona")
+    else:
+        catchments = gpd.read_file(catchments, mask=wbd_buffer, engine="fiona")
+
+    # Join crosswalk points
+    catchments = catchments.merge(hr_to_v2, left_on=catchment_id_attribute, right_on='point_id', how='inner')
+
+    if catchments.crs != huc_CRS:
+        catchments = catchments.to_crs(huc_CRS)
+
+    if len(catchments) > 0:
+        catchments.to_file(
+            subset_catchments, driver=getDriver(subset_catchments), index=False, crs=huc_CRS, engine="fiona"
+        )
+    else:
+        logging.info("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
+        sys.exit(0)
+
+    del catchments
 
 
 if __name__ == '__main__':
@@ -363,8 +373,8 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--dem-filename', help='DEM filename', required=True)
     parser.add_argument('-j', '--dem-domain', help='DEM domain polygon', required=True)
     parser.add_argument('-l', '--nwm-lakes', help='NWM Lakes', required=True)
-    parser.add_argument('-m', '--nwm-catchments', help='NWM catchments', required=True)
-    parser.add_argument('-n', '--subset-nwm-catchments', help='NWM catchments subset', required=True)
+    parser.add_argument('-m', '--catchments', help='Catchments filename', required=True)
+    parser.add_argument('-n', '--subset-catchments', help='Catchments subset', required=True)
     parser.add_argument('-r', '--nld-lines', help='Levee vectors to use within project path', required=True)
     parser.add_argument(
         '-rp', '--nld-lines-preprocessed', help='Levee vectors to use for DEM burning', required=True
@@ -398,6 +408,9 @@ if __name__ == '__main__':
     parser.add_argument('-osm', '--osm-bridges', help='Open Street Maps gkpg', required=True)
     parser.add_argument('-crs', '--huc-CRS', help='HUC crs', required=True)
     parser.add_argument('-hr', '--hr-to-v2', help='HR to V2', required=False, default=None)
+    parser.add_argument(
+        '-mi', '--catchments-id-attribute', help='Catchments ID attribute', required=False, default='ID'
+    )
 
     args = vars(parser.parse_args())
 

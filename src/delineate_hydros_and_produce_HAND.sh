@@ -102,7 +102,8 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
     -n $b_arg \
     -m $max_split_distance_meters \
     -t $slope_min \
-    -b $lakes_buffer_dist_meters
+    -b $lakes_buffer_dist_meters \
+    -to $streams_to_attribute
 
 ## GAGE WATERSHED FOR REACHES ##
 echo -e $startDiv"Gage Watershed for Reaches $hucNumber $current_branch_id"
@@ -247,7 +248,9 @@ python3 $srcDir/add_crosswalk.py \
     -z $z_arg \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
-    -g $min_stream_length
+    -g $min_stream_length \
+    -di $catchment_id_attribute \
+    -ao $stream_order_attribute
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
 if [ "$healed_hand_hydrocondition" = true ]; then

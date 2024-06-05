@@ -83,6 +83,7 @@ def split_flows(
     max_length,
     slope_min,
     lakes_buffer_input,
+    streams_to_attribute='to',
 ):
     # --------------------------------------------------------------
     # Define functions
@@ -213,7 +214,7 @@ def split_flows(
 
     # If it is branch 0: Loop over NWM terminal segments
     else:
-        streams_terminal = streams[streams['to'] == 0]
+        streams_terminal = streams[streams[streams_to_attribute] == 0]
         if not streams_terminal.empty:
             for i, row in streams_terminal.iterrows():
                 linestring_geo = row['geometry']
@@ -446,10 +447,13 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
     parser.add_argument('-w', '--wbd8-clp-filename', help='wbd8-clp-filename', required=True)
     parser.add_argument('-l', '--lakes-filename', help='lakes-filename', required=True)
-    parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
+    parser.add_argument('-n', '--streams-filename', help='nwm-streams-filename', required=True)
     parser.add_argument('-m', '--max-length', help='Maximum split distance (meters)', required=True)
     parser.add_argument('-t', '--slope-min', help='Minimum slope', required=True)
     parser.add_argument('-b', '--lakes-buffer-input', help='Lakes buffer distance (meters)', required=True)
+    parser.add_argument(
+        '-to', '--streams-to-attribute', help='Streams to attribute', required=False, default='to'
+    )
 
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())

@@ -36,6 +36,9 @@ def add_crosswalk(
     min_catchment_area,
     min_stream_length,
     calibration_mode=False,
+    reach_id_attribute='ID',
+    catchment_id_attribute='ID',
+    stream_order_attribute='order_',
 ):
     input_catchments = gpd.read_file(input_catchments_fileName, engine="pyogrio", use_arrow=True)
     input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio", use_arrow=True)
@@ -44,126 +47,64 @@ def add_crosswalk(
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
-    if extent == 'FR':
-        ## crosswalk using majority catchment method
+    input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc, engine="fiona")
 
-        # calculate majority catchments
-        majority_calc = zonal_stats(
-            input_catchments, input_nwmcatras_fileName, stats=['majority'], geojson_out=True
-        )
-        input_majorities = gpd.GeoDataFrame.from_features(majority_calc)
-        input_majorities = input_majorities.rename(columns={'majority': 'feature_id'})
+    input_nwmcat = input_nwmcat.rename(columns={'ID': 'feature_id'})
+    if input_nwmcat.feature_id.dtype != 'int':
+        input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
+    input_nwmcat = input_nwmcat.set_index('feature_id')
 
-        input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
-        if input_majorities.feature_id.dtype != 'int':
-            input_majorities.feature_id = input_majorities.feature_id.astype(int)
-        if input_majorities.HydroID.dtype != 'int':
-            input_majorities.HydroID = input_majorities.HydroID.astype(int)
+    input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
 
-        input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
-        if input_nwmflows.feature_id.dtype != 'int':
-            input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
-        relevant_input_nwmflows = input_nwmflows[
-            input_nwmflows['feature_id'].isin(input_majorities['feature_id'])
-        ]
-        relevant_input_nwmflows = relevant_input_nwmflows.filter(items=['feature_id', 'order_'])
+    if input_nwmflows.feature_id.dtype != 'int':
+        input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
 
-        if input_catchments.HydroID.dtype != 'int':
-            input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
-        output_catchments = output_catchments.merge(
-            relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id'
-        )
+    # Create crosswalk
+    crosswalk = gpd.sjoin(input_flows, input_nwmcat, how='left', predicate='within').reset_index()
+    crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
 
-        if input_flows.HydroID.dtype != 'int':
-            input_flows.HydroID = input_flows.HydroID.astype(int)
-        output_flows = input_flows.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
-        if output_flows.HydroID.dtype != 'int':
-            output_flows.HydroID = output_flows.HydroID.astype(int)
-        output_flows = output_flows.merge(relevant_input_nwmflows[['order_', 'feature_id']], on='feature_id')
-        output_flows = output_flows.merge(
-            output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
-        )
+    # fill in missing ms
+    crosswalk_missing = crosswalk.loc[crosswalk.feature_id.isna()]
+    for index, stream in crosswalk_missing.iterrows():
+        # find closest nwm catchment by distance
+        distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
+        min_dist = min(distances)
+        nwmcat_index = distances.index(min_dist)
 
-    elif (extent == 'MS') | (extent == 'GMS'):
-        ## crosswalk using stream segment midpoint method
-        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc, engine="fiona")
+        # update crosswalk
+        crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmcat.iloc[
+            nwmcat_index
+        ].name
+        crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKm'] = input_nwmcat.iloc[
+            nwmcat_index
+        ].AreaSqKm
+        crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
+            nwmcat_index
+        ].SHAPE_Length
+        crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
+            nwmcat_index
+        ].SHAPE_Area
 
-        # only reduce nwm catchments to mainstems if running mainstems
-        if extent == 'MS':
-            input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem == 1]
+    crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
+    crosswalk = crosswalk.merge(input_nwmflows[['feature_id', stream_order_attribute]], on='feature_id')
 
-        input_nwmcat = input_nwmcat.rename(columns={'ID': 'feature_id'})
-        if input_nwmcat.feature_id.dtype != 'int':
-            input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
-        input_nwmcat = input_nwmcat.set_index('feature_id')
+    if len(crosswalk) < 1:
+        print("No relevant streams within HUC boundaries.")
+        sys.exit(0)
 
-        input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
-        if input_nwmflows.feature_id.dtype != 'int':
-            input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+    if input_catchments.HydroID.dtype != 'int':
+        input_catchments.HydroID = input_catchments.HydroID.astype(int)
+    output_catchments = input_catchments.merge(crosswalk, on='HydroID')
 
-        # Get stream midpoint
-        stream_midpoint = []
-        hydroID = []
-        for i, lineString in enumerate(input_flows.geometry):
-            hydroID = hydroID + [input_flows.loc[i, 'HydroID']]
-            stream_midpoint = stream_midpoint + [lineString.interpolate(0.5, normalized=True)]
+    if input_flows.HydroID.dtype != 'int':
+        input_flows.HydroID = input_flows.HydroID.astype(int)
+    output_flows = input_flows.merge(crosswalk, on='HydroID')
 
-        input_flows_midpoint = gpd.GeoDataFrame(
-            {'HydroID': hydroID, 'geometry': stream_midpoint}, crs=input_flows.crs, geometry='geometry'
-        )
-        input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
+    # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
+    if 'areasqkm' not in output_catchments.columns:
+        output_catchments['areasqkm'] = output_catchments.geometry.area / (1000**2)
 
-        # Create crosswalk
-        crosswalk = gpd.sjoin(
-            input_flows_midpoint, input_nwmcat, how='left', predicate='within'
-        ).reset_index()
-        crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
-
-        # fill in missing ms
-        crosswalk_missing = crosswalk.loc[crosswalk.feature_id.isna()]
-        for index, stream in crosswalk_missing.iterrows():
-            # find closest nwm catchment by distance
-            distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
-            min_dist = min(distances)
-            nwmcat_index = distances.index(min_dist)
-
-            # update crosswalk
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].name
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKM'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].AreaSqKM
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].Shape_Length
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].Shape_Area
-
-        crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
-        crosswalk = crosswalk.merge(input_nwmflows[['feature_id', 'order_']], on='feature_id')
-
-        if len(crosswalk) < 1:
-            print("No relevant streams within HUC boundaries.")
-            sys.exit(0)
-
-        if input_catchments.HydroID.dtype != 'int':
-            input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(crosswalk, on='HydroID')
-
-        if input_flows.HydroID.dtype != 'int':
-            input_flows.HydroID = input_flows.HydroID.astype(int)
-        output_flows = input_flows.merge(crosswalk, on='HydroID')
-
-        # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
-        if 'areasqkm' not in output_catchments.columns:
-            output_catchments['areasqkm'] = output_catchments.geometry.area / (1000**2)
-
-        output_flows = output_flows.merge(
-            output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID'
-        )
+    output_flows = output_flows.merge(output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID')
 
     output_flows['ManningN'] = mannings_n
 
@@ -189,7 +130,9 @@ def add_crosswalk(
             if len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1:
                 try:
                     # drainage area would be better than stream order but we would need to calculate
-                    max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_'])
+                    max_order = max(
+                        output_flows.loc[output_flows['NextDownID'] == short_id][stream_order_attribute]
+                    )
                 except Exception as e:
                     print(
                         f"short_id: {short_id} cannot calculate max stream order for "
@@ -199,20 +142,23 @@ def add_crosswalk(
                 if (
                     len(
                         output_flows.loc[
-                            (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
+                            (output_flows['NextDownID'] == short_id)
+                            & (output_flows[stream_order_attribute] == max_order)
                         ]['HydroID']
                     )
                     == 1
                 ):
                     update_id = output_flows.loc[
-                        (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
+                        (output_flows['NextDownID'] == short_id)
+                        & (output_flows[stream_order_attribute] == max_order)
                     ]['HydroID'].item()
 
                 else:
                     # Get the first one
                     # (same stream order, without drainage area info, hard to know which is the main channel)
                     update_id = output_flows.loc[
-                        (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
+                        (output_flows['NextDownID'] == short_id)
+                        & (output_flows[stream_order_attribute] == max_order)
                     ]['HydroID'].values[0]
 
             # single upstream segments
@@ -223,7 +169,7 @@ def add_crosswalk(
             elif len(output_flows.loc[output_flows.From_Node == to_node]['HydroID']) > 1:
                 try:
                     max_order = max(
-                        output_flows.loc[output_flows.From_Node == to_node]['HydroID']['order_']
+                        output_flows.loc[output_flows.From_Node == to_node][stream_order_attribute]
                     )  # drainage area would be better than stream order but we would need to calculate
                 except Exception as e:
                     print(
@@ -235,39 +181,52 @@ def add_crosswalk(
                 if (
                     len(
                         output_flows.loc[
-                            (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
+                            (output_flows['NextDownID'] == short_id)
+                            & (output_flows[stream_order_attribute] == max_order)
                         ]['HydroID']
                     )
                     == 1
                 ):
                     update_id = output_flows.loc[
-                        (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
+                        (output_flows.From_Node == to_node)
+                        & (output_flows[stream_order_attribute] == max_order)
                     ]['HydroID'].item()
 
                 # output_flows has a higher order than the max_order
-                elif output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max() > max_order:
+                elif (
+                    output_flows.loc[(output_flows.From_Node == to_node), stream_order_attribute].max()
+                    > max_order
+                ):
                     update_id = output_flows.loc[
                         (output_flows.From_Node == to_node)
                         & (
-                            output_flows['order_']
-                            == output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max()
+                            output_flows[stream_order_attribute]
+                            == output_flows.loc[
+                                (output_flows.From_Node == to_node), stream_order_attribute
+                            ].max()
                         )
                     ]['HydroID'].values[0]
 
                 # Get the first one
                 # Same stream order, without drainage area info it is hard to know which is the main channel.
                 else:
-                    if max_order in output_flows.loc[output_flows.From_Node == to_node, 'order_'].values:
+                    if (
+                        max_order
+                        in output_flows.loc[output_flows.From_Node == to_node, stream_order_attribute].values
+                    ):
                         update_id = output_flows.loc[
-                            (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
+                            (output_flows.From_Node == to_node)
+                            & (output_flows[stream_order_attribute] == max_order)
                         ]['HydroID'].values[0]
 
                     else:
                         update_id = output_flows.loc[
                             (output_flows.From_Node == to_node)
                             & (
-                                output_flows['order_']
-                                == output_flows.loc[output_flows.From_Node == to_node, 'order_'].max()
+                                output_flows[stream_order_attribute]
+                                == output_flows.loc[
+                                    output_flows.From_Node == to_node, stream_order_attribute
+                                ].max()
                             )
                         ]['HydroID'].values[0]
 
@@ -276,9 +235,12 @@ def add_crosswalk(
                 update_id = output_flows.loc[output_flows.From_Node == to_node]['HydroID'].item()
 
             else:
-                update_id = output_flows.loc[output_flows.HydroID == short_id]['HydroID'].item()
+                if len(output_flows.loc[output_flows.HydroID == short_id]['HydroID']) == 1:
+                    update_id = output_flows.loc[output_flows.HydroID == short_id]['HydroID'].item()
+                else:
+                    update_id = output_flows.loc[output_flows.HydroID == short_id]['HydroID'].values[0]
 
-            output_order = output_flows.loc[output_flows.HydroID == short_id]['order_']
+            output_order = output_flows.loc[output_flows.HydroID == short_id][stream_order_attribute]
             if len(output_order) == 1:
                 str_order = output_order.item()
             else:
@@ -304,7 +266,9 @@ def add_crosswalk(
         input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
     input_src_base = input_src_base.merge(
-        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
+        output_flows[['ManningN', 'HydroID', 'NextDownID', stream_order_attribute]],
+        left_on='CatchId',
+        right_on='HydroID',
     )
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
@@ -347,8 +311,8 @@ def add_crosswalk(
                     ['Discharge (m3s-1)'],
                 ] = src_stage[1]
 
-    if extent == 'FR':
-        output_src = output_src.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
+    # if extent == 'FR':
+    #     output_src = output_src.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
     elif (extent == 'MS') | (extent == 'GMS'):
         output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
 
@@ -362,7 +326,7 @@ def add_crosswalk(
             'HydroID',
             'feature_id',
             'NextDownID',
-            'order_',
+            stream_order_attribute,
             'Number of Cells',
             'SurfaceArea (m2)',
             'BedArea (m2)',
@@ -497,6 +461,23 @@ if __name__ == '__main__':
     )
     parser.add_argument("-e", "--min-catchment-area", help="Minimum catchment area", required=True)
     parser.add_argument("-g", "--min-stream-length", help="Minimum stream length", required=True)
+    parser.add_argument(
+        "-di",
+        "--catchment-id-attribute",
+        help="Attribute to use for catchment ID",
+        default="ID",
+        required=False,
+    )
+    parser.add_argument(
+        "-ai", "--reach-id-attribute", help="Attribute to use for reach ID", default="HydroID", required=False
+    )
+    parser.add_argument(
+        "-ao",
+        "--stream-order-attribute",
+        help="Attribute to use for stream order",
+        default="order_",
+        required=False,
+    )
 
     args = vars(parser.parse_args())
 
