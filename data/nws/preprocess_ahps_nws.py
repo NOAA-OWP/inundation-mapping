@@ -74,6 +74,7 @@ def preprocess_nws(source_dir, destination, reference_raster):
     # Get mainstems NWM segments
     # Workaround for sites in 02030103 and 02030104, many are not rfc_forecast_point = True
     list_of_sites = pd.read_csv(EVALUATED_SITES_CSV)['Total_List'].to_list()
+    print("getting mainstem nwm segments")
     ms_segs = mainstem_nwm_segs(metadata_url, list_of_sites)
 
     # Find depth grid subfolder
@@ -411,13 +412,14 @@ def preprocess_nws(source_dir, destination, reference_raster):
 
     # Combine all attribute files
     attribute_files = list(destination.rglob('*_attributes.csv'))
-    all_attributes = pd.DataFrame()
+    all_attributes_list = []
     for i in attribute_files:
         attribute_df = pd.read_csv(i, dtype={'huc': str})
-        all_attributes = all_attributes.append(attribute_df)
+        all_attributes_list.append(attribute_df)
+    all_attributes_df = pd.concat(all_attributes_list)
 
-    if not all_attributes.empty:
-        all_attributes.to_csv(destination / 'attributes.csv', index=False)
+    if not all_attributes_df.empty:
+        all_attributes_df.to_csv(destination / 'attributes.csv', index=False)
     return
 
 
@@ -434,7 +436,7 @@ if __name__ == '__main__':
         '-r', '--reference_raster', help='reference raster used for benchmark raster creation', required=True
     )
     args = vars(parser.parse_args())
-
+    
     # Run get_env_paths and static_flow_lids
     API_BASE_URL, EVALUATED_SITES_CSV, WBD_LAYER = get_env_paths()
     preprocess_nws(**args)
