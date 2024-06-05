@@ -10,6 +10,7 @@ from concurrent.futures import ProcessPoolExecutor
 from os.path import join
 
 import geopandas as gpd
+import glob
 import pandas as pd
 import matplotlib.pyplot as plt
 from synthesize_test_cases import progress_bar_handler
@@ -71,7 +72,6 @@ log_text = f'Calculating bathymetry adjustment: {huc}\n'
 src_all_branches_path = []
 branches = os.listdir(join(fim_huc_dir, 'branches'))
 for branch in branches:
-    print (branches)
     src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
     if os.path.isfile(src_full):
         src_all_branches_path.append(src_full)
@@ -79,7 +79,7 @@ for branch in branches:
 path_aib_src = join(fim_huc_dir, "aib_srcs")
 os.mkdir(path_aib_src)
 # Update src parameters with bathymetric data
-for src in src_all_branches_path[30:31]:
+for src in src_all_branches_path:
     src_df = pd.read_csv(src)
     if 'Bathymetry_source' in src_df.columns:
         src_df = src_df.drop(columns='Bathymetry_source')
@@ -181,6 +181,65 @@ for src in src_all_branches_path[30:31]:
 
         plt.close(fig)
 
+# Plot original srcs and ehydro and ai-based srcs
+path_aib = join(fim_huc_dir, "aib_srcs")
+path_ehydro = join(fim_huc_dir, "ehydro_srcs")
+path_branch = join(fim_huc_dir, "branches")
+csv_files_ehydro = glob.glob(join(path_ehydro,'*.csv'))
+
+for srch in csv_files_ehydro:
+
+    src_name = os.path.basename(srch)    
+    path2aib_src = join(path_aib, src_name)
+
+    branch = src_name.split(".")[0].split("_")[-1]
+    path2orig = join(path_branch,branch)
+    path2orig_src = join(path2orig, src_name)
+
+    src_df_ehydro = pd.read_csv(srch)
+    src_df_aib = pd.read_csv(path2aib_src)
+    src_df = pd.read_csv(path2orig_src)
+
+    src_df_ehydro_target = src_df_ehydro[["HydroID", "feature_id", "order_", "Stage","Discharge (m3s-1)", "Bathymetry_source"]]
+    src_df_aib_target = src_df_aib[["HydroID", "feature_id", "order_", "Stage","Discharge (m3s-1)", "Bathymetry_source"]]
+    src_df_target = src_df[["HydroID", "feature_id", "order_", "Stage","Discharge (m3s-1)", "Bathymetry_source"]]
+
+    hydro_ids = src_df_ehydro_target["HydroID"].drop_duplicates(keep = 'first')
+
+    path_fig = join(path_ehydro, branch)
+    os.mkdir(path_fig)
+
+    for hid in hydro_ids:
+
+        discharge_org_df = src_df_target[src_df_target['HydroID'] == hid]['Discharge (m3s-1)']
+        discharge_aib_df = src_df_aib_target[src_df_aib_target['HydroID'] == hid]['Discharge (m3s-1)']
+        discharge_ehydro_df = src_df_ehydro_target[src_df_ehydro_target['HydroID'] == hid]['Discharge (m3s-1)']
+
+        stage_df = src_df_ehydro_target[src_df_ehydro_target['HydroID'] == hid]['Stage']
+        feature_id = src_df_ehydro_target[src_df_ehydro_target['HydroID'] == hid]['feature_id'].drop_duplicates(keep = "first").iloc[0]
+
+        fig, ax = plt.subplots()
+
+        colors = ['darkmagenta', 'teal', 'darkorange']
+
+        # Define a list of line styles to use for the plots
+        line_styles = ['--', 'None', ':']
+
+        plt.plot(discharge_org_df, stage_df, label='Original', color=colors[1])
+        plt.plot(discharge_aib_df, stage_df, label='AI-Based Bathymetry', color=colors[0], linestyle=line_styles[0])
+        plt.plot(discharge_ehydro_df, stage_df, label='eHydro Bathymetry', color=colors[2], linestyle=line_styles[2])
+
+        plt.xlabel('Discharge (m3s-1)')
+        plt.ylabel('Stage (m)')
+        plt.title(f"HUC {huc}, FID = {feature_id}, HydroID = {hid}")
+        plt.legend()
+
+        fig_name = f"{feature_id}_{hid}.png"
+        path_savefig = join(path_fig, fig_name)
+        plt.savefig(path_savefig)
+
+        plt.close(fig)
+
 # -------------------------------------------------------
 def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
     """Function for correcting synthetic rating curves. It will correct each branch's
@@ -219,7 +278,10 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
         src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
         if os.path.isfile(src_full):
             src_all_branches.append(src_full)
+    
 
+    path_ehydro_src = join(fim_huc_dir, "ehydro_srcs")
+    os.mkdir(path_ehydro_src)
     # Update src parameters with bathymetric data
     for src in src_all_branches:
         src_df = pd.read_csv(src)
@@ -284,8 +346,13 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
         count = len(src_df.loc[(src_df['Stage'] == 0) & (src_df['Bathymetry_source'] == 'USACE eHydro')])
 
         # Write src back to file
-        src_df.to_csv(src, index=False)
+        src_name = os.path.basename(src)
+        path2save = join(path_ehydro_src, src_name)
+        # Write src back to file
+        src_df.to_csv(path2save, index=False) #src
+
         log_text += f'    Successfully recalculated {count} HydroIDs\n'
+
     return log_text
 
 
@@ -378,7 +445,11 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
 
 wbd_buffer = 50
 bathy_file = "/efs-drives/fim-dev-efs/fim-home/bathymetry_processing/bathymetry_illinois.gpkg"
-multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd8)
+output_suffix = "eHydro"
+number_of_jobs = 6
+verbose = False
+correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose)
+# multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd8, output_suffix, number_of_jobs, verbose)
 
 if __name__ == '__main__':
     """
