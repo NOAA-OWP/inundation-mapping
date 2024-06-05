@@ -424,6 +424,22 @@ def preprocess_nws(source_dir, destination, reference_raster):
 
 
 if __name__ == '__main__':
+
+    # sample:
+    # python  foss_fim/data/nws/preprocess_ahps_nws.py -s inputPath    -d outputPath    -r  referenceRaster
+
+    # inputPath: path to a directory containing a folder for each gage (gage/folder names must be 5 character). Each gage folder must
+    # have a sub-folder named "depth_grid" with depth grids as TIFF files prepared as below:
+    #     - Collect/Download the grid depth dataset, typically available as ESRI gdb.
+    #     - Use arcpy (or ArcGIS pro ) to convert the grid depths (in ESRI gdb) into TIFF file. Make sure the TIFF files have crs
+
+    # referenceRaster: path to an arbitrary output TIFF file from a FIM run. Note that for a site in CONUS, this referenceRaster
+    # must be from a FIM run for a CONUS HUC, and for a site in Alaska, this referenceRaster must be from a Alaska HUC FIM run.
+
+    # Two notes:
+    # 1- Sites in CONUS and Alaska cannot be mixed in a single run. Separate runs should be done for Alaska sites and CONUS sites.
+    # 2- Before running this script, add the name of the new site(s) to the  '/data/inputs/ahps_sites/evaluated_ahps_sites.csv' file
+
     # Parse arguments
     parser = argparse.ArgumentParser(
         description='Create preprocessed USGS benchmark datasets at AHPS locations.'
