@@ -8,6 +8,7 @@ import traceback
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor
 from os.path import join
+import shutil
 
 import geopandas as gpd
 import glob
@@ -15,233 +16,271 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from synthesize_test_cases import progress_bar_handler
 
-# -------------------------------------------------------
-# Load AI-based bathymetry data
-path_ml_bathy_parquet = "/efs-drives/fim-dev-efs/fim-home/heidi.safa/aib_bathy_adjustment/data/ml_outputs_v1.01.parquet"
-ml_bathy_data = pd.read_parquet(path_ml_bathy_parquet, engine='pyarrow') #
-ml_bathy_data.columns
-ml_bathy_data_df = ml_bathy_data[[
-    'COMID',
-    'owp_tw_inchan', # topwidth at in channel
-    'owp_roughness',
-    'owp_inchan_channel_area',
-    'owp_inchan_channel_perimeter',
-    'owp_inchan_channel_volume',
-    'owp_inchan_channel_bed_area',
-    'owp_y_inchan', # in channel depth
-    ]]
-
+path_aib_bathy_parquet = "/efs-drives/fim-dev-efs/fim-home/heidi.safa/aib_bathy_adjustment/data/ml_outputs_v1.01.parquet"
 fim_dir = "/efs-drives/fim-dev-efs/fim-home/heidi.safa/aib_bathy_adjustment/data/fim_4_4_15_0/"
 huc = "07130003"
-fim_huc_dir = join(fim_dir, huc)
-
-path_nwm_streams = join(fim_huc_dir, "nwm_subset_streams.gpkg")
-nwm_stream = gpd.read_file(path_nwm_streams)
-
-wbd8 = gpd.read_file(join(fim_huc_dir, 'wbd.gpkg'), engine="pyogrio", use_arrow=True)
-nwm_stream_clp = nwm_stream.clip(wbd8)
-
-# Create a dictionary mapping ID to order
-id_to_order = dict(zip(nwm_stream_clp['ID'], nwm_stream_clp['order_']))
-# Create a dictionary mapping ID to geometry
-id_to_geometry = dict(zip(nwm_stream_clp['ID'], nwm_stream_clp['geometry']))
-
-# Use map to add the order column to aib_bathy_data_df
-ml_bathy_data_df['order_'] = ml_bathy_data_df['COMID'].map(id_to_order)
-
-# aib_bathy_data for huc of interest
-aib_bathy_data_df = ml_bathy_data_df.dropna(subset=['order_'])
-
-# Use map to add the geometry column to aib_bathy_data_df
-aib_bathy_data_df['geometry'] = aib_bathy_data_df['COMID'].map(id_to_geometry)
-
-# convert to geodataframe
-aib_bathy_data_gdf = gpd.GeoDataFrame(aib_bathy_data_df, geometry = aib_bathy_data_df['geometry'])
-aib_bathy_data_gdf.crs = nwm_stream.crs
-aib_bathy_data_gdf = aib_bathy_data_gdf.rename(columns={'COMID': 'feature_id'})
-aib_bathy_data_gdf = aib_bathy_data_gdf.rename(columns={'owp_inchan_channel_area': 'missing_xs_area_m2'})
-
-# calculating missing_wet_perimeter_m and adding it to aib_bathy_data_gdf
-missing_wet_perimeter_m = aib_bathy_data_gdf['owp_inchan_channel_perimeter']-aib_bathy_data_gdf['owp_tw_inchan']
-aib_bathy_data_gdf['missing_wet_perimeter_m'] = missing_wet_perimeter_m
-aib_bathy_data_gdf['Bathymetry_source'] = "AI_Based"
-
-log_text = f'Calculating bathymetry adjustment: {huc}\n'
-
-# Get src_full from each branch
-src_all_branches_path = []
-branches = os.listdir(join(fim_huc_dir, 'branches'))
-for branch in branches:
-    src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
-    if os.path.isfile(src_full):
-        src_all_branches_path.append(src_full)
-
-path_aib_src = join(fim_huc_dir, "aib_srcs")
-os.mkdir(path_aib_src)
-# Update src parameters with bathymetric data
-for src in src_all_branches_path:
-    src_df = pd.read_csv(src)
-    if 'Bathymetry_source' in src_df.columns:
-        src_df = src_df.drop(columns='Bathymetry_source')
-    branch = re.search(r'branches/(\d{10}|0)/', src).group()[9:-1]
-    log_text += f'  Branch: {branch}\n'
-
-    # testing parameters
-    fids = src_df['feature_id'].drop_duplicates(keep = 'first')
-    aib_bathy = aib_bathy_data_gdf[['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m']]
-    aib_bathy_branch = aib_bathy[aib_bathy['feature_id'].isin(fids)]
-
-    discharge_org_all_df = src_df[["HydroID", "Discharge (m3s-1)"]]
-
-    # Merge in missing bathy data and fill Nans
-    try:
-        src_df = src_df.merge(
-            aib_bathy_data_gdf[
-                ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
-            ],
-            on='feature_id',
-            how='left',
-            validate='many_to_one',
-        )
-    # If there's more than one feature_id in the bathy data, just take the mean
-    except pd.errors.MergeError:
-        reconciled_bathy_data = aib_bathy_data_gdf.groupby('feature_id')[
-            ['missing_xs_area_m2', 'missing_wet_perimeter_m']
-        ].mean()
-        reconciled_bathy_data['Bathymetry_source'] = aib_bathy_data_gdf.groupby('feature_id')[
-            'Bathymetry_source'
-        ].first()
-        src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
-
-    # Exit if there are no recalculations to be made
-    if ~src_df['Bathymetry_source'].any(axis=None):
-        log_text += '    No matching feature_ids in this branch\n'
-        continue
-
-    src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
-    src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
-
-    # Add missing hydraulic geometry into base parameters
-    src_df['Volume (m3)'] = src_df['Volume (m3)'] + (
-        src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000)
-    )
-    src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (
-        src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000)
-    )
-    # Recalc discharge with adjusted geometries
-    src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
-    src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
-    src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
-    src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
-    src_df['Discharge (m3s-1)'] = (
-        src_df['WetArea (m2)']
-        * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-        * pow(src_df['SLOPE'], 0.5)
-        / src_df['ManningN']
-    )
-    # Force zero stage to have zero discharge
-    src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
-    # Calculate number of adjusted HydroIDs
-    # count = len(src_df.loc[(src_df['Stage'] == 0) & (src_df['Bathymetry_source'] == 'USACE eHydro')])
-
-    src_name = os.path.basename(src)
-    path2save = join(path_aib_src, src_name)
-    # Write src back to file
-    src_df.to_csv(path2save, index=False) #src
-
-    hydro_ids = src_df["HydroID"].drop_duplicates(keep = 'first')
-
-    path_fig = join(path_aib_src, branch)
-    os.mkdir(path_fig)
-    for hid in hydro_ids:
-
-        discharge_aib_df = src_df[src_df['HydroID'] == hid]['Discharge (m3s-1)']
-        discharge_org_df = discharge_org_all_df[discharge_org_all_df['HydroID'] == hid]['Discharge (m3s-1)']
-        stage_df = src_df[src_df['HydroID'] == hid]['Stage']
-        feature_id = src_df[src_df['HydroID'] == hid]['feature_id'].drop_duplicates(keep = "first").iloc[0]
-
-        fig, ax = plt.subplots()
-
-        colors = ['darkmagenta', 'teal']
-
-        # Define a list of line styles to use for the plots
-        line_styles = ['--', 'None']
-
-        plt.plot(discharge_aib_df, stage_df, label='AI-Based Bathymetry', color=colors[0], linestyle=line_styles[0])
-        plt.plot(discharge_org_df, stage_df, label='Original', color=colors[1])
-
-        plt.xlabel('Discharge (m3s-1)')
-        plt.ylabel('Stage (m)')
-        plt.title(f"HUC {huc}, FID = {feature_id}, HydroID = {hid}")
-        plt.legend()
-
-        fig_name = f"{feature_id}_{hid}.png"
-        path_savefig = join(path_fig, fig_name)
-        plt.savefig(path_savefig)
-
-        plt.close(fig)
-
-# Plot original srcs and ehydro and ai-based srcs
-path_aib = join(fim_huc_dir, "aib_srcs")
-path_ehydro = join(fim_huc_dir, "ehydro_srcs")
-path_branch = join(fim_huc_dir, "branches")
-csv_files_ehydro = glob.glob(join(path_ehydro,'*.csv'))
-
-for srch in csv_files_ehydro:
-
-    src_name = os.path.basename(srch)    
-    path2aib_src = join(path_aib, src_name)
-
-    branch = src_name.split(".")[0].split("_")[-1]
-    path2orig = join(path_branch,branch)
-    path2orig_src = join(path2orig, src_name)
-
-    src_df_ehydro = pd.read_csv(srch)
-    src_df_aib = pd.read_csv(path2aib_src)
-    src_df = pd.read_csv(path2orig_src)
-
-    src_df_ehydro_target = src_df_ehydro[["HydroID", "feature_id", "order_", "Stage","Discharge (m3s-1)", "Bathymetry_source"]]
-    src_df_aib_target = src_df_aib[["HydroID", "feature_id", "order_", "Stage","Discharge (m3s-1)", "Bathymetry_source"]]
-    src_df_target = src_df[["HydroID", "feature_id", "order_", "Stage","Discharge (m3s-1)", "Bathymetry_source"]]
-
-    hydro_ids = src_df_ehydro_target["HydroID"].drop_duplicates(keep = 'first')
-
-    path_fig = join(path_ehydro, branch)
-    os.mkdir(path_fig)
-
-    for hid in hydro_ids:
-
-        discharge_org_df = src_df_target[src_df_target['HydroID'] == hid]['Discharge (m3s-1)']
-        discharge_aib_df = src_df_aib_target[src_df_aib_target['HydroID'] == hid]['Discharge (m3s-1)']
-        discharge_ehydro_df = src_df_ehydro_target[src_df_ehydro_target['HydroID'] == hid]['Discharge (m3s-1)']
-
-        stage_df = src_df_ehydro_target[src_df_ehydro_target['HydroID'] == hid]['Stage']
-        feature_id = src_df_ehydro_target[src_df_ehydro_target['HydroID'] == hid]['feature_id'].drop_duplicates(keep = "first").iloc[0]
-
-        fig, ax = plt.subplots()
-
-        colors = ['darkmagenta', 'teal', 'darkorange']
-
-        # Define a list of line styles to use for the plots
-        line_styles = ['--', 'None', ':']
-
-        plt.plot(discharge_org_df, stage_df, label='Original', color=colors[1])
-        plt.plot(discharge_aib_df, stage_df, label='AI-Based Bathymetry', color=colors[0], linestyle=line_styles[0])
-        plt.plot(discharge_ehydro_df, stage_df, label='eHydro Bathymetry', color=colors[2], linestyle=line_styles[2])
-
-        plt.xlabel('Discharge (m3s-1)')
-        plt.ylabel('Stage (m)')
-        plt.title(f"HUC {huc}, FID = {feature_id}, HydroID = {hid}")
-        plt.legend()
-
-        fig_name = f"{feature_id}_{hid}.png"
-        path_savefig = join(path_fig, fig_name)
-        plt.savefig(path_savefig)
-
-        plt.close(fig)
 
 # -------------------------------------------------------
-def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
+def correct_rating_for_ai_based_bathymetry(path_aib_bathy_parquet, fim_dir, huc, ploting_flag):
+
+    # Load AI-based bathymetry data
+    ml_bathy_data = pd.read_parquet(path_aib_bathy_parquet, engine='pyarrow') #
+    ml_bathy_data_df = ml_bathy_data[[
+        'COMID',
+        'owp_tw_inchan', # topwidth at in channel
+        'owp_roughness',
+        'owp_inchan_channel_area',
+        'owp_inchan_channel_perimeter',
+        'owp_inchan_channel_volume',
+        'owp_inchan_channel_bed_area',
+        'owp_y_inchan', # in channel depth
+        ]]
+    
+    fim_huc_dir = join(fim_dir, huc)
+
+    path_nwm_streams = join(fim_huc_dir, "nwm_subset_streams.gpkg")
+    nwm_stream = gpd.read_file(path_nwm_streams)
+
+    wbd8 = gpd.read_file(join(fim_huc_dir, 'wbd.gpkg'), engine="pyogrio", use_arrow=True)
+    nwm_stream_clp = nwm_stream.clip(wbd8)
+
+    # Create a dictionary mapping ID to order
+    id_to_order = dict(zip(nwm_stream_clp['ID'], nwm_stream_clp['order_']))
+    # Create a dictionary mapping ID to geometry
+    id_to_geometry = dict(zip(nwm_stream_clp['ID'], nwm_stream_clp['geometry']))
+
+    # Use map to add the order column to aib_bathy_data_df
+    ml_bathy_data_df['order_'] = ml_bathy_data_df['COMID'].map(id_to_order)
+
+    # Mask aib_bathy_data for huc of interest
+    aib_bathy_data_df = ml_bathy_data_df.dropna(subset=['order_'])
+
+    # Use map to add the geometry column to aib_bathy_data_df
+    aib_bathy_data_df['geometry'] = aib_bathy_data_df['COMID'].map(id_to_geometry)
+
+    # Convert to geodataframe
+    aib_bathy_data_gdf = gpd.GeoDataFrame(aib_bathy_data_df, geometry = aib_bathy_data_df['geometry'])
+    aib_bathy_data_gdf.crs = nwm_stream.crs
+    aib_bathy_data_gdf = aib_bathy_data_gdf.rename(columns={'COMID': 'feature_id'})
+    aib_bathy_data_gdf = aib_bathy_data_gdf.rename(columns={'owp_inchan_channel_area': 'missing_xs_area_m2'})
+
+    # Calculating missing_wet_perimeter_m and adding it to aib_bathy_data_gdf
+    missing_wet_perimeter_m = aib_bathy_data_gdf['owp_inchan_channel_perimeter'] - aib_bathy_data_gdf['owp_tw_inchan']
+    aib_bathy_data_gdf['missing_wet_perimeter_m'] = missing_wet_perimeter_m
+    aib_bathy_data_gdf['Bathymetry_source'] = "AI_Based"
+
+    log_text = f'Calculating bathymetry adjustment: {huc}\n'
+
+    # Get src_full from each branch
+    src_all_branches_path = []
+    branches = os.listdir(join(fim_huc_dir, 'branches'))
+    for branch in branches:
+        src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
+        if os.path.isfile(src_full):
+            src_all_branches_path.append(src_full)
+
+    # Make a copy of original srcs
+    destination_dir = join(fim_huc_dir, "original_srcs")  
+    os.mkdir(destination_dir)
+    for file_path in src_all_branches_path:
+        shutil.copy(file_path, destination_dir)
+
+    # make a directory for ai-based bathy adjusted SRCs
+    path_aib_src = join(fim_huc_dir, "aib_srcs")
+    os.mkdir(path_aib_src)
+    # Update src parameters with bathymetric data
+    for src in src_all_branches_path:
+        src_df = pd.read_csv(src)
+        if 'Bathymetry_source' in src_df.columns:
+            src_df = src_df.drop(columns='Bathymetry_source')
+        branch = re.search(r'branches/(\d{10}|0)/', src).group()[9:-1]
+        log_text += f'  Branch: {branch}\n'
+
+        # # testing parameters
+        # fids = src_df['feature_id'].drop_duplicates(keep = 'first')
+        # aib_bathy = aib_bathy_data_gdf[['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m']]
+        # aib_bathy_branch = aib_bathy[aib_bathy['feature_id'].isin(fids)]
+
+        # Merge in missing bathy data and fill Nans
+        try:
+            src_df = src_df.merge(
+                aib_bathy_data_gdf[
+                    ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
+                ],
+                on='feature_id',
+                how='left',
+                validate='many_to_one',
+            )
+        # If there's more than one feature_id in the bathy data, just take the mean
+        except pd.errors.MergeError:
+            reconciled_bathy_data = aib_bathy_data_gdf.groupby('feature_id')[
+                ['missing_xs_area_m2', 'missing_wet_perimeter_m']
+            ].mean()
+            reconciled_bathy_data['Bathymetry_source'] = aib_bathy_data_gdf.groupby('feature_id')[
+                'Bathymetry_source'
+            ].first()
+            src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
+
+        # Exit if there are no recalculations to be made
+        if ~src_df['Bathymetry_source'].any(axis=None):
+            log_text += '    No matching feature_ids in this branch\n'
+            continue
+
+        src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
+        src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
+
+        # Add missing hydraulic geometry into base parameters
+        src_df['Volume (m3)'] = src_df['Volume (m3)'] + (
+            src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000)
+        )
+        src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (
+            src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000)
+        )
+        # Recalc discharge with adjusted geometries
+        src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
+        src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
+        src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
+        src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
+        src_df['Discharge (m3s-1)'] = (
+            src_df['WetArea (m2)']
+            * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
+            * pow(src_df['SLOPE'], 0.5)
+            / src_df['ManningN']
+        )
+        # Force zero stage to have zero discharge
+        src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+        # Calculate number of adjusted HydroIDs
+
+        if ploting_flag == "True":
+            # Write src in ai-based file
+            src_name = os.path.basename(src)
+            path2save = join(path_aib_src, src_name)
+            src_df.to_csv(path2save, index=False)
+
+        else:
+            # Write src back to file
+            src_df.to_csv(src, index=False)
+
+
+def plot_aib_original_src(fim_dir, huc):
+        
+    fim_huc_dir = join(fim_dir, huc)
+    path_aib = join(fim_huc_dir, "aib_srcs")
+    path_original = join(fim_huc_dir, "original_srcs")
+    csv_files_aib = glob.glob(join(path_aib,'*.csv'))
+    
+    # Plot original srcs and ai-based srcs
+    for src_aib in csv_files_aib:
+        src_name = os.path.basename(src_aib)
+        branch = src_name.split(".")[0].split("_")[-1]
+        path2orig_src = join(path_original, src_name)
+
+        src_df_aib = pd.read_csv(src_aib)
+        src_df = pd.read_csv(path2orig_src)
+
+        src_df_aib_target = src_df_aib[["HydroID", "feature_id", "order_", "Stage","Discharge (m3s-1)", "Bathymetry_source"]]
+        src_df_target = src_df[["HydroID", "feature_id", "order_", "Stage", "Discharge (m3s-1)", "Bathymetry_source"]]
+
+        hydro_ids = src_df_aib_target["HydroID"].drop_duplicates(keep = 'first')
+
+        path_fig = join(path_aib, branch)
+        os.mkdir(path_fig)
+
+        for hid in hydro_ids:
+
+            discharge_org_df = src_df_target[src_df_target['HydroID'] == hid]['Discharge (m3s-1)']
+            discharge_aib_df = src_df_aib_target[src_df_aib_target['HydroID'] == hid]['Discharge (m3s-1)']
+
+            stage_df = src_df_aib_target[src_df_aib_target['HydroID'] == hid]['Stage']
+            feature_id = src_df_aib_target[src_df_aib_target['HydroID'] == hid]['feature_id'].drop_duplicates(keep = "first").iloc[0]
+
+            fig, ax = plt.subplots()
+
+            colors = ['darkmagenta', 'teal', 'darkorange']
+
+            # Define a list of line styles to use for the plots
+            line_styles = ['--', 'None', ':']
+
+            plt.plot(discharge_org_df, stage_df, label='Original', color=colors[1])
+            plt.plot(discharge_aib_df, stage_df, label='AI-Based Bathymetry', color=colors[0], linestyle=line_styles[0])
+
+            plt.xlabel('Discharge (m3s-1)')
+            plt.ylabel('Stage (m)')
+            plt.title(f"HUC {huc}, FID = {feature_id}, HydroID = {hid}")
+            plt.legend()
+
+            fig_name = f"{feature_id}_{hid}.png"
+            path_savefig = join(path_fig, fig_name)
+            plt.savefig(path_savefig)
+
+            plt.close(fig)
+
+# Plot original srcs and ehydro and ai-based srcs
+def plot_ehydro_aib_original_srcs(fim_dir, huc):
+        
+    fim_huc_dir = join(fim_dir, huc)
+    path_aib = join(fim_huc_dir, "aib_srcs")
+    path_ehydro = join(fim_huc_dir, "ehydro_srcs")
+    path_original = join(fim_huc_dir, "original_srcs")
+    # csv_files_aib = glob.glob(join(path_aib,'*.csv'))
+    csv_files_ehydro = glob.glob(join(path_ehydro,'*.csv'))
+    
+    # Plot original srcs and ai-based and ehydro srcs
+    for src_eh in csv_files_ehydro:
+
+        src_name = os.path.basename(src_eh)    
+        path2aib_src = join(path_aib, src_name)
+
+        branch = src_name.split(".")[0].split("_")[-1]
+        path2orig_src = join(path_original, src_name)
+
+        src_df_ehydro = pd.read_csv(src_eh)
+        src_df_aib = pd.read_csv(path2aib_src)
+        src_df = pd.read_csv(path2orig_src)
+
+        src_df_ehydro_target = src_df_ehydro[["HydroID", "feature_id", "order_", "Stage", "Discharge (m3s-1)", "Bathymetry_source"]]
+        src_df_aib_target = src_df_aib[["HydroID", "feature_id", "order_", "Stage", "Discharge (m3s-1)", "Bathymetry_source"]]
+        src_df_target = src_df[["HydroID", "feature_id", "order_", "Stage", "Discharge (m3s-1)", "Bathymetry_source"]]
+
+        hydro_ids = src_df_ehydro_target["HydroID"].drop_duplicates(keep = 'first')
+
+        path_fig = join(path_ehydro, branch)
+        os.mkdir(path_fig)
+
+        for hid in hydro_ids:
+
+            discharge_org_df = src_df_target[src_df_target['HydroID'] == hid]['Discharge (m3s-1)']
+            discharge_aib_df = src_df_aib_target[src_df_aib_target['HydroID'] == hid]['Discharge (m3s-1)']
+            discharge_ehydro_df = src_df_ehydro_target[src_df_ehydro_target['HydroID'] == hid]['Discharge (m3s-1)']
+
+            stage_df = src_df_ehydro_target[src_df_ehydro_target['HydroID'] == hid]['Stage']
+            feature_id = src_df_ehydro_target[src_df_ehydro_target['HydroID'] == hid]['feature_id'].drop_duplicates(keep = "first").iloc[0]
+
+            fig, ax = plt.subplots()
+
+            colors = ['darkmagenta', 'teal', 'darkorange']
+
+            # Define a list of line styles to use for the plots
+            line_styles = ['--', 'None', ':']
+
+            plt.plot(discharge_org_df, stage_df, label='Original', color=colors[1])
+            plt.plot(discharge_aib_df, stage_df, label='AI-Based Bathymetry', color=colors[0], linestyle=line_styles[0])
+            plt.plot(discharge_ehydro_df, stage_df, label='eHydro Bathymetry', color=colors[2], linestyle=line_styles[2])
+
+            plt.xlabel('Discharge (m3s-1)')
+            plt.ylabel('Stage (m)')
+            plt.title(f"HUC {huc}, FID = {feature_id}, HydroID = {hid}")
+            plt.legend()
+
+            fig_name = f"{feature_id}_{hid}.png"
+            path_savefig = join(path_fig, fig_name)
+            plt.savefig(path_savefig)
+
+            plt.close(fig)
+
+# -------------------------------------------------------
+# Adjusting synthetic rating curves using 'USACE eHydro' bathymetry data
+def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, ploting_flag, verbose):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input bathy_file.
 
@@ -279,6 +318,11 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
         if os.path.isfile(src_full):
             src_all_branches.append(src_full)
     
+       # Make a copy of original srcs
+    destination_dir = join(fim_huc_dir, "original_srcs")  
+    os.mkdir(destination_dir)
+    for file_path in src_all_branches:
+        shutil.copy(file_path, destination_dir)
 
     path_ehydro_src = join(fim_huc_dir, "ehydro_srcs")
     os.mkdir(path_ehydro_src)
@@ -345,11 +389,14 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
         # Calculate number of adjusted HydroIDs
         count = len(src_df.loc[(src_df['Stage'] == 0) & (src_df['Bathymetry_source'] == 'USACE eHydro')])
 
-        # Write src back to file
-        src_name = os.path.basename(src)
-        path2save = join(path_ehydro_src, src_name)
-        # Write src back to file
-        src_df.to_csv(path2save, index=False) #src
+        if ploting_flag == "True":
+            # Write src in ai-based file
+            src_name = os.path.basename(src)
+            path2save = join(path_ehydro_src, src_name)
+            src_df.to_csv(path2save, index=False)
+        else:
+            # Write src back to file
+            src_df.to_csv(src, index=False)
 
         log_text += f'    Successfully recalculated {count} HydroIDs\n'
 
@@ -443,13 +490,33 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
     log_file.write('TOTAL RUN TIME: ' + str(tot_run_time))
     log_file.close()
 
-wbd_buffer = 50
-bathy_file = "/efs-drives/fim-dev-efs/fim-home/bathymetry_processing/bathymetry_illinois.gpkg"
-output_suffix = "eHydro"
-number_of_jobs = 6
-verbose = False
-correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose)
-# multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd8, output_suffix, number_of_jobs, verbose)
+# wbd_buffer = 50
+# bathy_file = "/efs-drives/fim-dev-efs/fim-home/bathymetry_processing/bathymetry_illinois.gpkg"
+# output_suffix = "eHydro"
+# number_of_jobs = 6
+# verbose = False
+# correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose)
+
+def apply_bathy_data_to_srcs (
+    fim_dir, 
+    huc,
+    path_aib_bathy_parquet,
+    bathy_file,
+    wbd_buffer,
+    wbd,
+    output_suffix,
+    number_of_jobs,
+    verbose,
+    bathymetry_source,
+    ploting_flag
+    ):
+
+    if bathymetry_source == "AI_Based":
+
+        correct_rating_for_ai_based_bathymetry(path_aib_bathy_parquet, fim_dir, huc, ploting_flag)
+
+    else: multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, number_of_jobs, verbose, ploting_flag)
+
 
 if __name__ == '__main__':
     """
