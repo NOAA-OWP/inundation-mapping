@@ -1390,8 +1390,8 @@ def process_extent(extent, profile, output_raster=False):
     # Fill holes in extent
     poly_extent_fill_holes = MultiPolygon(Polygon(p.exterior) for p in poly_extent['geometry'])
     # loop through the filled polygons and insert the new geometry
-    for i in range(len(poly_extent_fill_holes)):
-        poly_extent.loc[i, 'geometry'] = poly_extent_fill_holes[i]
+    for i, part in enumerate(poly_extent_fill_holes.geoms):
+        poly_extent.loc[i, 'geometry'] = part
 
     # Dissolve filled holes with main map and explode
     poly_extent['dissolve_field'] = 1
