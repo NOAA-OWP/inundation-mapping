@@ -112,12 +112,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-f",
-        "--flow_file",
+        "--flow_file_dir",
         help='Discharges in CMS as CSV file. "feature_id" and "discharge" columns MUST be supplied.',
         required=True,
         type=str,
     )
-    parser.add_argument("-o", "--gpkg-filename", help="Path to geopackage output.", required=True, type=str)
+    parser.add_argument("-o", "--output_dir", help="Path to geopackage output.", required=True, type=str)
 
     start = timer()
 
