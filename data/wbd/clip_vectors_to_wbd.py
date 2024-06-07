@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 import sys
 
 import geopandas as gpd
@@ -27,7 +28,7 @@ def subset_vector_layers(
     dem_filename,
     dem_domain,
     nwm_lakes,
-    catchments,
+    catchments_filename,
     subset_catchments,
     nld_lines,
     nld_lines_preprocessed,
@@ -333,10 +334,15 @@ def subset_vector_layers(
 
     if catchments_layer is not None:
         if catchments_layer == 'NHDPlusCatchment':
-            catchments = catchments.format(hucCode[:4], hucCode[:4])
-        catchments = gpd.read_file(catchments, mask=wbd_buffer, layer=catchments_layer, engine="fiona")
-    else:
-        catchments = gpd.read_file(catchments, mask=wbd_buffer, engine="fiona")
+            catchments_filename = catchments_filename.format(hucCode[:4], hucCode[:4])
+            catchments = os.path.join(os.path.split(catchments_filename)[0], catchments_layer + '.gpkg')
+            if not os.path.exists(catchments):
+                catchments_temp = gpd.read_file(catchments_filename, layer=catchments_layer)
+                catchments_temp = catchments_temp.to_crs(huc_CRS)
+                catchments_temp = catchments_temp.explode(index_parts=False)
+                catchments_temp.to_file(catchments, driver='GPKG')
+
+    catchments = gpd.read_file(catchments)
 
     # Join crosswalk points
     catchments = catchments.merge(hr_to_v2, left_on=catchment_id_attribute, right_on='point_id', how='inner')
@@ -373,7 +379,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--dem-filename', help='DEM filename', required=True)
     parser.add_argument('-j', '--dem-domain', help='DEM domain polygon', required=True)
     parser.add_argument('-l', '--nwm-lakes', help='NWM Lakes', required=True)
-    parser.add_argument('-m', '--catchments', help='Catchments filename', required=True)
+    parser.add_argument('-m', '--catchments-filename', help='Catchments filename', required=True)
     parser.add_argument('-n', '--subset-catchments', help='Catchments subset', required=True)
     parser.add_argument('-r', '--nld-lines', help='Levee vectors to use within project path', required=True)
     parser.add_argument(
