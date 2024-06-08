@@ -238,6 +238,8 @@ def subset_vector_layers(
     # print(f"Subsetting NWM Lakes for {hucCode}", flush=True)
     logging.info(f"Subsetting NWM Lakes for {hucCode}")
     nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer, engine="fiona")
+    nwm_lakes = nwm_lakes.to_crs(huc_CRS)
+
     nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
 
     if not nwm_lakes.empty:
@@ -266,8 +268,10 @@ def subset_vector_layers(
     hr_to_v2 = hr_to_v2.drop(columns=['geometry'])
     hr_to_v2.rename(columns={'id': 'ID'}, inplace=True)
     hr_to_v2 = hr_to_v2[hr_to_v2['position'] == 'start']
+    hr_to_v2 = hr_to_v2.drop(columns=['position'])
 
     input_streams = gpd.read_file(input_streams, mask=wbd_buffer, engine="fiona")
+    input_streams = input_streams.to_crs(huc_CRS)
 
     # Find input_streams in lakes
     input_streams_in_lakes = gpd.overlay(input_streams, nwm_lakes, how='intersection')
@@ -331,15 +335,15 @@ def subset_vector_layers(
     # print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
     logging.info(f"Subsetting Catchments for {hucCode}")
 
-    if catchments_layer is not None:
-        if catchments_layer == 'NHDPlusCatchment':
-            catchments = catchments.format(hucCode[:4], hucCode[:4])
-        catchments = gpd.read_file(catchments, mask=wbd_buffer, layer=catchments_layer, engine="fiona")
-    else:
-        catchments = gpd.read_file(catchments, mask=wbd_buffer, engine="fiona")
+    # if catchments_layer is not None:
+    #     if catchments_layer == 'NHDPlusCatchment':
+    #         catchments = catchments.format(hucCode[:4], hucCode[:4])
+    #     catchments = gpd.read_file(catchments, mask=wbd_buffer, layer=catchments_layer, engine="fiona")
+    #     # Join crosswalk points
+    #     catchments = catchments.merge(hr_to_v2, left_on=catchment_id_attribute, right_on='point_id', how='inner')
 
-    # Join crosswalk points
-    catchments = catchments.merge(hr_to_v2, left_on=catchment_id_attribute, right_on='point_id', how='inner')
+    # else:
+    catchments = gpd.read_file(catchments, mask=wbd_buffer, engine="fiona")
 
     if catchments.crs != huc_CRS:
         catchments = catchments.to_crs(huc_CRS)
@@ -356,6 +360,7 @@ def subset_vector_layers(
 
 
 if __name__ == '__main__':
+
     # print(sys.argv)
 
     parser = argparse.ArgumentParser(description='Subset vector layers')

@@ -63,7 +63,7 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/subset_streams.gpkg \
     -d $tempHucDataDir/subset_streams_levelPaths_dissolved.gpkg \
     -e $tempHucDataDir/nwm_headwaters.gpkg \
     -c $tempHucDataDir/catchments_proj_subset.gpkg \
-    -ci "NHDPlusID" \
+    -ci $catchment_id_attribute \
     -t $tempHucDataDir/catchments_proj_subset_levelPaths.gpkg \
     -n $tempHucDataDir/subset_streams_levelPaths_dissolved_headwaters.gpkg \
     -w $tempHucDataDir/nwm_lakes_proj_subset.gpkg \

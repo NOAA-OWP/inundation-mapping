@@ -77,13 +77,13 @@ def add_crosswalk(
         ].name
         crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKm'] = input_nwmcat.iloc[
             nwmcat_index
-        ].AreaSqKm
+        ].AreaSqKM
         crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
             nwmcat_index
-        ].SHAPE_Length
+        ].Shape_Length
         crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
             nwmcat_index
-        ].SHAPE_Area
+        ].Shape_Area
 
     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
     crosswalk = crosswalk.merge(input_nwmflows[['feature_id', stream_order_attribute]], on='feature_id')
@@ -311,9 +311,7 @@ def add_crosswalk(
                     ['Discharge (m3s-1)'],
                 ] = src_stage[1]
 
-    # if extent == 'FR':
-    #     output_src = output_src.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
-    elif (extent == 'MS') | (extent == 'GMS'):
+    if (extent == 'MS') | (extent == 'GMS'):
         output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
 
     output_crosswalk = output_src[['HydroID', 'feature_id']]
