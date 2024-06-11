@@ -31,7 +31,6 @@ def Derive_level_paths(
     fromNode_attribute="From_Node",
     reach_id_attribute="HydroID",
     verbose=False,
-    stream_order_attribute="order_",
     catchment_id_attribute="ID",
 ):
     if verbose:
@@ -63,18 +62,18 @@ def Derive_level_paths(
     if huc_id in HIGH_STREAM_DENSITY_HUCS:
         print('HUC is in high density HUC list... removing additional stream segments.')
         stream_network = stream_network.exclude_attribute_values(
-            branch_id_attribute=stream_order_attribute, values_excluded=[1, 2, 3, 4]
+            branch_id_attribute='order_', values_excluded=[1, 2, 3, 4]
         )
     elif huc_id in MEDIUM_HIGH_STREAM_DENSITY_HUCS:
         print('HUC is in medium-high density HUC list... removing additional stream segments.')
         stream_network = stream_network.exclude_attribute_values(
-            branch_id_attribute=stream_order_attribute, values_excluded=[1, 2, 3]
+            branch_id_attribute='order_', values_excluded=[1, 2, 3]
         )
     else:
         # values_exluded of 1 and 2 mean that we are dropping stream orders 1 and 2. We are leaving those
         # for branch zero.
         stream_network = stream_network.exclude_attribute_values(
-            branch_id_attribute=stream_order_attribute, values_excluded=[1, 2]
+            branch_id_attribute='order_', values_excluded=[1, 2]
         )
 
     # if there are no reaches at this point (due to filtering)
@@ -137,23 +136,22 @@ def Derive_level_paths(
         branch_id_attribute=branch_id_attribute,
         reach_id_attribute=reach_id_attribute,
         catchment_id_attribute=catchment_id_attribute,
-        comparison_attributes=["arbolate_sum", stream_order_attribute],
+        comparison_attributes=["arbolate_sum", 'order_'],
         comparison_function=max,
         verbose=verbose,
-        stream_order_attribute=stream_order_attribute,
     )
 
     # filter out streams without catchments
     if (catchments is not None) & (catchments_outfile is not None):
         catchments = gpd.read_file(catchments)
 
-        stream_network = stream_network.remove_branches_without_catchments(
-            catchments,
-            reach_id_attribute=reach_id_attribute,
-            branch_id_attribute=branch_id_attribute,
-            catchment_id_attribute=catchment_id_attribute,
-            verbose=verbose,
-        )
+        # stream_network = stream_network.remove_branches_without_catchments(
+        #     catchments,
+        #     reach_id_attribute=reach_id_attribute,
+        #     branch_id_attribute=branch_id_attribute,
+        #     catchment_id_attribute=catchment_id_attribute,
+        #     verbose=verbose,
+        # )
 
         # subset which columns to merge
         stream_network_to_merge = stream_network.filter(
@@ -193,7 +191,6 @@ def Derive_level_paths(
             values_excluded=None,  # [1,2],
             out_vector_files=out_stream_network_dissolved,
             verbose=verbose,
-            stream_order_attribute=stream_order_attribute,
         )
 
         stream_network = stream_network.remove_branches_in_waterbodies(
@@ -219,9 +216,6 @@ def Derive_level_paths(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create stream network level paths")
     parser.add_argument("-i", "--in-stream-network", help="Input stream network", required=True)
-    parser.add_argument(
-        "-io", "--stream-order-attribute", help="Stream order attribute", required=True, default='order_'
-    )
     parser.add_argument(
         "-s", "--buffer-wbd-streams", help="Input wbd buffer for stream network", required=True
     )

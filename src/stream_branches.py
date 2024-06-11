@@ -725,7 +725,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         comparison_function=max,
         max_branch_id_digits=6,
         verbose=False,
-        stream_order_attribute="order_",
     ):
         """Derives stream branches"""
 
@@ -809,12 +808,12 @@ class StreamNetwork(gpd.GeoDataFrame):
                     # ==================================================================================
                     # If the two stream orders aren't the same, then follow the highest order, otherwise use arbolate sum
                     if (
-                        upstream_reaches_compare_values.idxmax()[stream_order_attribute]
-                        == upstream_reaches_compare_values.idxmin()[stream_order_attribute]
+                        upstream_reaches_compare_values.idxmax()['order_']
+                        == upstream_reaches_compare_values.idxmin()['order_']
                     ):
                         decision_attribute = "arbolate_sum"
                     else:
-                        decision_attribute = stream_order_attribute
+                        decision_attribute = 'order_'
                     # Continue the current branch up the larger stream
                     continue_id = upstream_reaches_compare_values.idxmax()[decision_attribute]
                     self.loc[continue_id, branch_id_attribute] = current_reach_branch_id
@@ -955,7 +954,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         values_excluded=[1, 2],
         out_vector_files=None,
         verbose=False,
-        stream_order_attribute="order_",
     ):
         if verbose:
             print("Dissolving by branch ...")
@@ -971,16 +969,13 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # ensure the new stream order has the order from it's highest child
         max_stream_order = (
-            self[[branch_id_attribute, stream_order_attribute]]
-            .groupby(branch_id_attribute)
-            .max()[stream_order_attribute]
-            .copy()
+            self[[branch_id_attribute, 'order_']].groupby(branch_id_attribute).max()['order_'].copy()
         )
 
         self = self.dissolve(by=branch_id_attribute)
         self = self.rename(columns={"bids_temp": branch_id_attribute})
 
-        self[stream_order_attribute] = max_stream_order.values
+        self['order_'] = max_stream_order.values
 
         # merges each multi-line string to a singular linestring
         for lpid, row in tqdm(

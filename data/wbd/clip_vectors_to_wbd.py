@@ -16,6 +16,56 @@ from utils.shared_functions import getDriver
 gpd.options.io_engine = "pyogrio"
 
 
+def extend_outlet_streams(streams, wbd_buffered, wbd, stream_outlets, stream_id_attribute='ID'):
+    """
+    Extend outlet streams to nearest buffered WBD boundary
+    """
+
+    wbd['geometry'] = wbd.geometry.boundary
+    wbd = gpd.GeoDataFrame(data=wbd, geometry='geometry')
+
+    wbd_buffered["linegeom"] = wbd_buffered.geometry
+
+    # Select only the streams that don't intersect the WBD boundary line
+    levelpath_outlets = stream_outlets[~stream_outlets.intersects(wbd['geometry'].iloc[0])]
+
+    levelpath_outlets['nearest_point'] = None
+    levelpath_outlets['last'] = None
+
+    levelpath_outlets = levelpath_outlets.explode(index_parts=False)
+
+    for index, row in levelpath_outlets.iterrows():
+        coords = [(coords) for coords in list(row['geometry'].coords)]
+        last_coord = coords[-1]
+        levelpath_outlets.at[index, 'last'] = Point(last_coord)
+
+    wbd_buffered['geometry'] = wbd_buffered.geometry.boundary
+    wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
+
+    for index, row in levelpath_outlets.iterrows():
+        levelpath_geom = row['last']
+        nearest_point = nearest_points(levelpath_geom, wbd_buffered)
+
+        levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
+
+        levelpath_outlets_nearest_points = levelpath_outlets.at[index, 'nearest_point']
+        if isinstance(levelpath_outlets_nearest_points, pd.Series):
+            levelpath_outlets_nearest_points = levelpath_outlets_nearest_points.iloc[-1]
+
+        levelpath_outlets.at[index, 'geometry'] = LineString(
+            list(row['geometry'].coords) + list([levelpath_outlets_nearest_points.coords[0]])
+        )
+
+    levelpath_outlets = gpd.GeoDataFrame(data=levelpath_outlets, geometry='geometry')
+    levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point'])
+
+    # Replace the streams in the original file with the extended streams
+    streams = streams[~streams[stream_id_attribute].isin(levelpath_outlets[stream_id_attribute])]
+    streams = pd.concat([streams, levelpath_outlets], ignore_index=True)
+
+    return streams
+
+
 def subset_vector_layers(
     subset_nwm_lakes,
     subset_streams,
@@ -46,59 +96,11 @@ def subset_vector_layers(
     huc_CRS,
     stream_id_attribute='ID',
     stream_to_attribute='to',
+    stream_order_attribute='order_',
     hr_to_v2=None,
     catchments_layer=None,
     catchment_id_attribute='ID',
 ):
-
-    def extend_outlet_streams(streams, wbd_buffered, wbd, stream_outlets, stream_id_attribute='ID'):
-        """
-        Extend outlet streams to nearest buffered WBD boundary
-        """
-
-        wbd['geometry'] = wbd.geometry.boundary
-        wbd = gpd.GeoDataFrame(data=wbd, geometry='geometry')
-
-        wbd_buffered["linegeom"] = wbd_buffered.geometry
-
-        # Select only the streams that don't intersect the WBD boundary line
-        levelpath_outlets = stream_outlets[~stream_outlets.intersects(wbd['geometry'].iloc[0])]
-
-        levelpath_outlets['nearest_point'] = None
-        levelpath_outlets['last'] = None
-
-        levelpath_outlets = levelpath_outlets.explode(index_parts=False)
-
-        for index, row in levelpath_outlets.iterrows():
-            coords = [(coords) for coords in list(row['geometry'].coords)]
-            last_coord = coords[-1]
-            levelpath_outlets.at[index, 'last'] = Point(last_coord)
-
-        wbd_buffered['geometry'] = wbd_buffered.geometry.boundary
-        wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
-
-        for index, row in levelpath_outlets.iterrows():
-            levelpath_geom = row['last']
-            nearest_point = nearest_points(levelpath_geom, wbd_buffered)
-
-            levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
-
-            levelpath_outlets_nearest_points = levelpath_outlets.at[index, 'nearest_point']
-            if isinstance(levelpath_outlets_nearest_points, pd.Series):
-                levelpath_outlets_nearest_points = levelpath_outlets_nearest_points.iloc[-1]
-
-            levelpath_outlets.at[index, 'geometry'] = LineString(
-                list(row['geometry'].coords) + list([levelpath_outlets_nearest_points.coords[0]])
-            )
-
-        levelpath_outlets = gpd.GeoDataFrame(data=levelpath_outlets, geometry='geometry')
-        levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point'])
-
-        # Replace the streams in the original file with the extended streams
-        streams = streams[~streams[stream_id_attribute].isin(levelpath_outlets[stream_id_attribute])]
-        streams = pd.concat([streams, levelpath_outlets], ignore_index=True)
-
-        return streams
 
     # -------------------------------------------------------------------------------------------------------------------
     # print(f"Getting Cell Size for {hucCode}", flush=True)
@@ -255,6 +257,33 @@ def subset_vector_layers(
             subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=huc_CRS, engine="fiona"
         )
 
+    # Subset catchments
+    # print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
+    logging.info(f"Subsetting Catchments for {hucCode}")
+
+    # if catchments_layer is not None:
+    #     if catchments_layer == 'NHDPlusCatchment':
+    #         catchments = catchments.format(hucCode[:4], hucCode[:4])
+    #     catchments = gpd.read_file(catchments, mask=wbd_buffer, layer=catchments_layer, engine="fiona")
+    #     # Join crosswalk points
+    #     catchments = catchments.merge(hr_to_v2, left_on=catchment_id_attribute, right_on='point_id', how='inner')
+
+    # else:
+    catchments = gpd.read_file(catchments, mask=wbd_buffer, engine="fiona")
+
+    if catchments.crs != huc_CRS:
+        catchments = catchments.to_crs(huc_CRS)
+
+    if len(catchments) > 0:
+        catchments.to_file(
+            subset_catchments, driver=getDriver(subset_catchments), index=False, crs=huc_CRS, engine="fiona"
+        )
+    else:
+        logging.info("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
+        sys.exit(0)
+
+    del catchments
+
     # Subset streams
     logging.info(f"Subsetting NWM Streams for {hucCode}")
 
@@ -271,6 +300,7 @@ def subset_vector_layers(
     hr_to_v2 = hr_to_v2.drop(columns=['position'])
 
     input_streams = gpd.read_file(input_streams, mask=wbd_buffer, engine="fiona")
+    input_streams = input_streams.rename(columns={stream_order_attribute: 'order_'})
     input_streams = input_streams.to_crs(huc_CRS)
 
     # Find input_streams in lakes
@@ -330,33 +360,6 @@ def subset_vector_layers(
     )
 
     del input_streams
-
-    # Subset catchments
-    # print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
-    logging.info(f"Subsetting Catchments for {hucCode}")
-
-    # if catchments_layer is not None:
-    #     if catchments_layer == 'NHDPlusCatchment':
-    #         catchments = catchments.format(hucCode[:4], hucCode[:4])
-    #     catchments = gpd.read_file(catchments, mask=wbd_buffer, layer=catchments_layer, engine="fiona")
-    #     # Join crosswalk points
-    #     catchments = catchments.merge(hr_to_v2, left_on=catchment_id_attribute, right_on='point_id', how='inner')
-
-    # else:
-    catchments = gpd.read_file(catchments, mask=wbd_buffer, engine="fiona")
-
-    if catchments.crs != huc_CRS:
-        catchments = catchments.to_crs(huc_CRS)
-
-    if len(catchments) > 0:
-        catchments.to_file(
-            subset_catchments, driver=getDriver(subset_catchments), index=False, crs=huc_CRS, engine="fiona"
-        )
-    else:
-        logging.info("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0)
-
-    del catchments
 
 
 if __name__ == '__main__':

@@ -38,7 +38,6 @@ def add_crosswalk(
     calibration_mode=False,
     reach_id_attribute='ID',
     catchment_id_attribute='ID',
-    stream_order_attribute='order_',
 ):
     input_catchments = gpd.read_file(input_catchments_fileName, engine="pyogrio", use_arrow=True)
     input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio", use_arrow=True)
@@ -86,7 +85,7 @@ def add_crosswalk(
         ].Shape_Area
 
     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
-    crosswalk = crosswalk.merge(input_nwmflows[['feature_id', stream_order_attribute]], on='feature_id')
+    crosswalk = crosswalk.merge(input_nwmflows[['feature_id', 'order_']], on='feature_id')
 
     if len(crosswalk) < 1:
         print("No relevant streams within HUC boundaries.")
@@ -130,9 +129,7 @@ def add_crosswalk(
             if len(output_flows.loc[output_flows['NextDownID'] == short_id]['HydroID']) > 1:
                 try:
                     # drainage area would be better than stream order but we would need to calculate
-                    max_order = max(
-                        output_flows.loc[output_flows['NextDownID'] == short_id][stream_order_attribute]
-                    )
+                    max_order = max(output_flows.loc[output_flows['NextDownID'] == short_id]['order_'])
                 except Exception as e:
                     print(
                         f"short_id: {short_id} cannot calculate max stream order for "
@@ -142,23 +139,20 @@ def add_crosswalk(
                 if (
                     len(
                         output_flows.loc[
-                            (output_flows['NextDownID'] == short_id)
-                            & (output_flows[stream_order_attribute] == max_order)
+                            (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
                         ]['HydroID']
                     )
                     == 1
                 ):
                     update_id = output_flows.loc[
-                        (output_flows['NextDownID'] == short_id)
-                        & (output_flows[stream_order_attribute] == max_order)
+                        (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
                     ]['HydroID'].item()
 
                 else:
                     # Get the first one
                     # (same stream order, without drainage area info, hard to know which is the main channel)
                     update_id = output_flows.loc[
-                        (output_flows['NextDownID'] == short_id)
-                        & (output_flows[stream_order_attribute] == max_order)
+                        (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
                     ]['HydroID'].values[0]
 
             # single upstream segments
@@ -169,7 +163,7 @@ def add_crosswalk(
             elif len(output_flows.loc[output_flows.From_Node == to_node]['HydroID']) > 1:
                 try:
                     max_order = max(
-                        output_flows.loc[output_flows.From_Node == to_node][stream_order_attribute]
+                        output_flows.loc[output_flows.From_Node == to_node]['order_']
                     )  # drainage area would be better than stream order but we would need to calculate
                 except Exception as e:
                     print(
@@ -181,52 +175,39 @@ def add_crosswalk(
                 if (
                     len(
                         output_flows.loc[
-                            (output_flows['NextDownID'] == short_id)
-                            & (output_flows[stream_order_attribute] == max_order)
+                            (output_flows['NextDownID'] == short_id) & (output_flows['order_'] == max_order)
                         ]['HydroID']
                     )
                     == 1
                 ):
                     update_id = output_flows.loc[
-                        (output_flows.From_Node == to_node)
-                        & (output_flows[stream_order_attribute] == max_order)
+                        (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
                     ]['HydroID'].item()
 
                 # output_flows has a higher order than the max_order
-                elif (
-                    output_flows.loc[(output_flows.From_Node == to_node), stream_order_attribute].max()
-                    > max_order
-                ):
+                elif output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max() > max_order:
                     update_id = output_flows.loc[
                         (output_flows.From_Node == to_node)
                         & (
-                            output_flows[stream_order_attribute]
-                            == output_flows.loc[
-                                (output_flows.From_Node == to_node), stream_order_attribute
-                            ].max()
+                            output_flows['order_']
+                            == output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max()
                         )
                     ]['HydroID'].values[0]
 
                 # Get the first one
                 # Same stream order, without drainage area info it is hard to know which is the main channel.
                 else:
-                    if (
-                        max_order
-                        in output_flows.loc[output_flows.From_Node == to_node, stream_order_attribute].values
-                    ):
+                    if max_order in output_flows.loc[output_flows.From_Node == to_node, 'order_'].values:
                         update_id = output_flows.loc[
-                            (output_flows.From_Node == to_node)
-                            & (output_flows[stream_order_attribute] == max_order)
+                            (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
                         ]['HydroID'].values[0]
 
                     else:
                         update_id = output_flows.loc[
                             (output_flows.From_Node == to_node)
                             & (
-                                output_flows[stream_order_attribute]
-                                == output_flows.loc[
-                                    output_flows.From_Node == to_node, stream_order_attribute
-                                ].max()
+                                output_flows['order_']
+                                == output_flows.loc[output_flows.From_Node == to_node, 'order_'].max()
                             )
                         ]['HydroID'].values[0]
 
@@ -240,7 +221,7 @@ def add_crosswalk(
                 else:
                     update_id = output_flows.loc[output_flows.HydroID == short_id]['HydroID'].values[0]
 
-            output_order = output_flows.loc[output_flows.HydroID == short_id][stream_order_attribute]
+            output_order = output_flows.loc[output_flows.HydroID == short_id]['order_']
             if len(output_order) == 1:
                 str_order = output_order.item()
             else:
@@ -266,10 +247,10 @@ def add_crosswalk(
         input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
     input_src_base = input_src_base.merge(
-        output_flows[['ManningN', 'HydroID', 'NextDownID', stream_order_attribute]],
-        left_on='CatchId',
-        right_on='HydroID',
+        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
     )
+
+    input_src_base = input_src_base.drop_duplicates(ignore_index=True)
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
@@ -324,7 +305,7 @@ def add_crosswalk(
             'HydroID',
             'feature_id',
             'NextDownID',
-            stream_order_attribute,
+            'order_',
             'Number of Cells',
             'SurfaceArea (m2)',
             'BedArea (m2)',
@@ -468,13 +449,6 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         "-ai", "--reach-id-attribute", help="Attribute to use for reach ID", default="HydroID", required=False
-    )
-    parser.add_argument(
-        "-ao",
-        "--stream-order-attribute",
-        help="Attribute to use for stream order",
-        default="order_",
-        required=False,
     )
 
     args = vars(parser.parse_args())

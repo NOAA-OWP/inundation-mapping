@@ -249,8 +249,7 @@ python3 $srcDir/add_crosswalk.py \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
     -g $min_stream_length \
-    -di $catchment_id_attribute \
-    -ao $stream_order_attribute
+    -di $catchment_id_attribute
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
 if [ "$healed_hand_hydrocondition" = true ]; then
@@ -277,14 +276,14 @@ else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
 fi
 
-## EVALUATE CROSSWALK ##
-if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
-    echo -e $startDiv"Evaluate crosswalk $hucNumber $current_branch_id"
-    python3 $toolsDir/evaluate_crosswalk.py \
-        -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
-        -b $b_arg \
-        -c $tempHucDataDir/crosswalk_evaluation_$current_branch_id.csv \
-        -d $tempHucDataDir/nwm_headwater_points_subset.gpkg \
-        -u $hucNumber \
-        -z $current_branch_id
-fi
+# ## EVALUATE CROSSWALK ##
+# if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
+#     echo -e $startDiv"Evaluate crosswalk $hucNumber $current_branch_id"
+#     python3 $toolsDir/evaluate_crosswalk.py \
+#         -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+#         -b $b_arg \
+#         -c $tempHucDataDir/crosswalk_evaluation_$current_branch_id.csv \
+#         -d $tempHucDataDir/nwm_headwater_points_subset.gpkg \
+#         -u $hucNumber \
+#         -z $current_branch_id
+# fi

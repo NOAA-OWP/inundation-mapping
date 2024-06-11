@@ -79,6 +79,7 @@ input_GL_boundaries = os.getenv('input_GL_boundaries')
 input_streams = os.getenv('input_streams')
 input_streams_Alaska = os.getenv('input_streams_Alaska')  # alaska
 stream_id_attribute = os.getenv('reach_id_attribute')
+stream_order_attribute = os.getenv('stream_order_attribute')
 
 input_nwm_headwaters = os.getenv('input_nwm_headwaters')
 input_nwm_headwaters_Alaska = os.getenv('input_nwm_headwaters_Alaska')
@@ -418,6 +419,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 stream_to_attribute='ToNode',
                 catchment_id_attribute=catchment_id_attribute,
                 hr_to_v2=hr_to_v2,
+                stream_order_attribute=stream_order_attribute,
             )
 
         else:
@@ -454,6 +456,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 stream_to_attribute='ToNode',
                 catchment_id_attribute=catchment_id_attribute,
                 hr_to_v2=hr_to_v2,
+                stream_order_attribute=stream_order_attribute,
             )
 
         msg = f" Completing Get Vector Layers and Subset: {huc} \n"

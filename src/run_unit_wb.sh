@@ -55,7 +55,6 @@ cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths for $hucNumber"
 $srcDir/derive_level_paths.py -i $tempHucDataDir/subset_streams.gpkg \
-    -io $stream_order_attribute \
     -s $tempHucDataDir/wbd_buffered_streams.gpkg \
     -b $branch_id_attribute \
     -r $reach_id_attribute \
