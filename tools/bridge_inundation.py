@@ -1,13 +1,16 @@
+#!/usr/bin/env python3
+
 import argparse
 import errno
 import os
+import re
 from timeit import default_timer as timer
 
 import geopandas as gpd
 import pandas as pd
 
 
-def bridge_risk_status(hydrofabric_dir: str, flow_file_dir: str, output_dir: str) -> gpd.GeoDataFrame:
+def bridge_risk_status(hydrofabric_dir: str, flow_file: str, output_dir: str) -> gpd.GeoDataFrame:
     """
     This function detect which bridge points are affected by a specified flow file. The function requires a flow file (expected to follow
     the schema used by 'inundation_mosaic_wrapper') with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
@@ -17,7 +20,7 @@ def bridge_risk_status(hydrofabric_dir: str, flow_file_dir: str, output_dir: str
     Args:
         hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
                                     fim_pipeline.
-        flow_file_dir (str):      Path to flow file to be used for inundation.
+        flow_file (str):      Path to flow file to be used for inundation.
                                     feature_ids in flow_file should be present in supplied HUC.
         output (str):             Path to output geopackage.
     """
@@ -28,7 +31,7 @@ def bridge_risk_status(hydrofabric_dir: str, flow_file_dir: str, output_dir: str
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), dir_path)
 
     # Get the list of all hucs in the directory
-    entries = os.listdir(dir_path)
+    entries = [d for d in os.listdir(dir_path) if re.match(r'^\d{8}$', d)]
     hucs = []
     for entry in entries:
         # create the full path of the entry
@@ -38,12 +41,12 @@ def bridge_risk_status(hydrofabric_dir: str, flow_file_dir: str, output_dir: str
             hucs.append(entry)
 
     # Check that flow file exists
-    if not os.path.exists(flow_file_dir):
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file_dir)
+    if not os.path.exists(flow_file):
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file)
 
     # Read the flow_file
     dtype_dict = {'feature_id': str}
-    flow_file = pd.read_csv(flow_file_dir, dtype=dtype_dict)
+    flow_file_data = pd.read_csv(flow_file, dtype=dtype_dict)
 
     # Initialize an empty list to hold GeoDataFrames
     gdfs = []
@@ -70,7 +73,7 @@ def bridge_risk_status(hydrofabric_dir: str, flow_file_dir: str, output_dir: str
     bridge_points = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
 
     # Find the common feature_id between flow_file and bridge_points
-    merged_bri = bridge_points.merge(flow_file, on='feature_id', how='inner')
+    merged_bri = bridge_points.merge(flow_file_data, on='feature_id', how='inner')
 
     # Assign risk status for each point
     def risk_class(row):
@@ -112,7 +115,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-f",
-        "--flow_file_dir",
+        "--flow_file",
         help='Discharges in CMS as CSV file. "feature_id" and "discharge" columns MUST be supplied.',
         required=True,
         type=str,
