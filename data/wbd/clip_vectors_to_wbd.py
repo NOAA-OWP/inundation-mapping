@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 import sys
 
 import geopandas as gpd
@@ -261,14 +262,6 @@ def subset_vector_layers(
     # print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
     logging.info(f"Subsetting Catchments for {hucCode}")
 
-    # if catchments_layer is not None:
-    #     if catchments_layer == 'NHDPlusCatchment':
-    #         catchments = catchments.format(hucCode[:4], hucCode[:4])
-    #     catchments = gpd.read_file(catchments, mask=wbd_buffer, layer=catchments_layer, engine="fiona")
-    #     # Join crosswalk points
-    #     catchments = catchments.merge(hr_to_v2, left_on=catchment_id_attribute, right_on='point_id', how='inner')
-
-    # else:
     catchments = gpd.read_file(catchments, mask=wbd_buffer, engine="fiona")
 
     if catchments.crs != huc_CRS:
@@ -381,7 +374,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--dem-filename', help='DEM filename', required=True)
     parser.add_argument('-j', '--dem-domain', help='DEM domain polygon', required=True)
     parser.add_argument('-l', '--nwm-lakes', help='NWM Lakes', required=True)
-    parser.add_argument('-m', '--catchments', help='Catchments filename', required=True)
+    parser.add_argument('-m', '--catchments-filename', help='Catchments filename', required=True)
     parser.add_argument('-n', '--subset-catchments', help='Catchments subset', required=True)
     parser.add_argument('-r', '--nld-lines', help='Levee vectors to use within project path', required=True)
     parser.add_argument(
