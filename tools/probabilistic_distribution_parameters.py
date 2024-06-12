@@ -6,7 +6,7 @@ import time
 import traceback
 import warnings
 from glob import glob
-from typing import Generator, Tuple
+from typing import Generator, List, Tuple
 
 import dask
 import numpy as np
@@ -117,6 +117,7 @@ def fit_distributions(
     num_flows: int,
     output_file_name: str,
     lock: dask.distributed.Lock,
+    flow_ids: List = None,
     reccurence_flows_file: str = None,
 ):
     """Fit probability distributions for recreating flow duration curve for NWM retrospective flows
