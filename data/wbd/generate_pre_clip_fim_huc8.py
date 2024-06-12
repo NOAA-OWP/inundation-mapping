@@ -398,7 +398,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 dem_filename=input_DEM_Alaska,
                 dem_domain=input_DEM_domain_Alaska,
                 nwm_lakes=input_nwm_lakes,
-                catchments_filename=input_catchments_Alaska,
+                catchments=input_catchments_Alaska,
                 subset_catchments=f"{huc_directory}/catchments_proj_subset.gpkg",
                 nld_lines=input_NLD_Alaska,
                 nld_lines_preprocessed=input_levees_preprocessed_Alaska,
@@ -420,6 +420,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 catchment_id_attribute=catchment_id_attribute,
                 hr_to_v2=hr_to_v2,
                 stream_order_attribute=stream_order_attribute,
+                hr_to_v2_subset=f"{huc_directory}/hr_to_v2_subset.gpkg",
             )
 
         else:
@@ -435,7 +436,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 dem_filename=input_DEM,
                 dem_domain=input_DEM_domain,
                 nwm_lakes=input_nwm_lakes,
-                catchments_filename=input_catchments,
+                catchments=input_catchments,
                 subset_catchments=f"{huc_directory}/catchments_proj_subset.gpkg",
                 nld_lines=input_NLD,
                 nld_lines_preprocessed=input_levees_preprocessed,
@@ -457,6 +458,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 catchment_id_attribute=catchment_id_attribute,
                 hr_to_v2=hr_to_v2,
                 stream_order_attribute=stream_order_attribute,
+                hr_to_v2_subset=f"{huc_directory}/hr_to_v2_subset.gpkg",
             )
 
         msg = f" Completing Get Vector Layers and Subset: {huc} \n"

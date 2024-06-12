@@ -95,10 +95,11 @@ def subset_vector_layers(
     subset_osm_bridges,
     is_alaska,
     huc_CRS,
+    hr_to_v2,
+    hr_to_v2_subset,
     stream_id_attribute='ID',
     stream_to_attribute='to',
     stream_order_attribute='order_',
-    hr_to_v2=None,
     catchments_layer=None,
     catchment_id_attribute='ID',
 ):
@@ -287,10 +288,15 @@ def subset_vector_layers(
         engine="fiona",
     )
 
-    hr_to_v2 = hr_to_v2.drop(columns=['geometry'])
     hr_to_v2.rename(columns={'id': 'ID'}, inplace=True)
     hr_to_v2 = hr_to_v2[hr_to_v2['position'] == 'start']
     hr_to_v2 = hr_to_v2.drop(columns=['position'])
+    hr_to_v2 = hr_to_v2.to_crs(huc_CRS)
+    hr_to_v2.to_file(
+        hr_to_v2_subset, driver=getDriver(hr_to_v2_subset), index=False, crs=huc_CRS, engine="fiona"
+    )
+
+    hr_to_v2 = hr_to_v2.drop(columns=['geometry'])
 
     input_streams = gpd.read_file(input_streams, mask=wbd_buffer, engine="fiona")
     input_streams = input_streams.rename(columns={stream_order_attribute: 'order_'})
@@ -409,6 +415,7 @@ if __name__ == '__main__':
     parser.add_argument('-osm', '--osm-bridges', help='Open Street Maps gkpg', required=True)
     parser.add_argument('-crs', '--huc-CRS', help='HUC crs', required=True)
     parser.add_argument('-hr', '--hr-to-v2', help='HR to V2', required=False, default=None)
+    parser.add_argument('-hrs', '--hr-to-v2-subset', help='HR to V2 subset', required=False, default=None)
     parser.add_argument(
         '-mi', '--catchments-id-attribute', help='Catchments ID attribute', required=False, default='ID'
     )
