@@ -14,6 +14,14 @@ Contains files to create a self-contained FIM sandbox demo image, including:
     - `Dockerfile`: A copy of the root Dockerfile that also pulls code and data into the build image
     - `fim-in-a-box.ipynb`: Jupyter script to run FIM and create evaluation metrics and inundation plot
     - `get_sample_data.py`: Copies relevant data (e.g., `inputs` and `test_cases`) from the FIM data folder for a single HUC and saves it to a separate location
+## v4.5.x.x - 2024-05-29 - [PR#1183](https://github.com/NOAA-OWP/inundation-mapping/pull/1183)
+
+Upgrades whitebox from v2.3.1 to 2.3.4. Whitebox was upgraded by `pip install -U whitebox` and then `pipenv lock` to update the `Pipfile`.
+
+### Changes
+
+- `Dockerfile`: Removed whitebox hack
+- `Pipfile` and `Pipfile.lock`: Upgraded whitebox to v2.3.4.
 
 <br/><br/>
 

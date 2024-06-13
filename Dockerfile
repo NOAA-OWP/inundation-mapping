@@ -110,11 +110,11 @@ RUN pip3 install pipenv==2023.12.1 && PIP_NO_CACHE_DIR=off pipenv install --syst
 # We download and unzip it to the same file folder that pip deployed the whitebox library.
 # Whitebox also attempts to always download a folder called testdata regardless of use.
 # We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
-RUN wbox_path=/usr/local/lib/python3.10/dist-packages/whitebox/ && \
-    wget -P $wbox_path https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
-    unzip -o $wbox_path/WhiteboxTools_linux_musl.zip -d $wbox_path && \
-    cp $wbox_path/WBT/whitebox_tools $wbox_path && \
-    mkdir $wbox_path/testdata
+# RUN wbox_path=/usr/local/lib/python3.10/dist-packages/whitebox/WBT && \
+#     wget -P $wbox_path https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+#     unzip -o $wbox_path/WhiteboxTools_linux_musl.zip -d $wbox_path && \
+#     cp $wbox_path/whitebox_tools $wbox_path && \
+#     mkdir $wbox_path/testdata
 # ----------------------------------
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
