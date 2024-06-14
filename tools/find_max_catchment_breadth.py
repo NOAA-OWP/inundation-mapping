@@ -9,6 +9,9 @@ import pandas as pd
 from shapely.geometry import Point
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def Find_max_catchment_breadth(hydrofabric_dir):
     catchments_fileNames = glob_file_paths_for_catchments(hydrofabric_dir)
 

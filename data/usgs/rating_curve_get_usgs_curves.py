@@ -29,6 +29,9 @@ from tools_shared_variables import (
 from utils.shared_variables import PREP_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
     running script outside of business hours seems to be most consistent way
@@ -114,7 +117,7 @@ def write_categorical_flow_files(metadata, workspace):
         nws_lid = site.get('identifiers').get('nws_lid')
 
         # thresholds only provided for valid nws_lid.
-        if nws_lid == 'Bogus_ID':
+        if nws_lid == 'Bogus_ID' or nws_lid is None:
             continue
 
         # if invalid feature_id skip to next site
@@ -142,8 +145,11 @@ def write_categorical_flow_files(metadata, workspace):
                 all_data = pd.concat([all_data, data], ignore_index=True)
 
     # Write CatFIM flows to file
-    final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
-    final_data.to_csv(workspace / 'catfim_flows_cms.csv', index=False)
+    print("writing for CatFIM")
+    if not all_data.empty:
+        final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
+        final_data.to_csv(workspace / 'catfim_flows_cms.csv', index=False)
+
     return all_data
 
 
@@ -211,14 +217,16 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         os.mkdir(workspace)
 
     # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
-    print('getting metadata for all sites')
     if list_of_gage_sites == ['all']:
+        print('getting metadata for all sites')
         sites_gdf, sites_list, metadata_list = get_all_active_usgs_sites()
     # Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:
         # Define arguments to retrieve metadata and then get metadata from WRDS
         select_by = 'usgs_site_code'
         selector = list_of_gage_sites
+        print("Selected sites :", selector)
+
         # Since there is a limit to number characters in url, split up selector if too many sites.
         max_sites = 150
         if len(selector) > max_sites:
@@ -249,6 +257,18 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
                 downstream_trace_distance=None,
             )
 
+        # Get a geospatial layer (gdf) for all acceptable sites
+        print("Aggregating WBD HUCs...")
+        _, sites_gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
+        if not sites_gdf.empty:
+            # Get a list of all sites in gdf
+            list_of_sites = sites_gdf['identifiers_usgs_site_code'].to_list()
+            # Rename gdf fields
+            sites_gdf.columns = sites_gdf.columns.str.replace('identifiers_', '')
+        else:
+            print("There is no acceptable site.")
+            sys.exit()
+
     # Create DataFrame to store all appended rating curves
     print('processing metadata')
     all_rating_curves = pd.DataFrame()
@@ -262,7 +282,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
 
         # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
         #   datum adjustment section (region will need changed)
-        if usgs['state'] in ['Alaska', 'Puerto Rico', 'Virgin Islands', 'Hawaii']:
+        if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
             continue
         # Get rating curve for site
         location_ids = usgs['usgs_site_code']
@@ -280,6 +300,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
             # To prevent time-out errors
             time.sleep(sleep_time)
             # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
+
             datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous')
 
             # If datum API failed, print message and skip site.
@@ -288,6 +309,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
                 api_failure_messages.append(api_message)
                 print(api_message)
                 continue
+
             # If datum adjustment succeeded, calculate datum in NAVD88
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
             message = f'{location_ids}:succesfully converted NGVD29 to NAVD88'

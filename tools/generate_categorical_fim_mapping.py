@@ -19,6 +19,9 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def generate_categorical_fim(
     fim_run_dir, source_flow_dir, output_catfim_dir, job_number_huc, job_number_inundate, depthtif, log_file
 ):

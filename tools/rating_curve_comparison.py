@@ -25,6 +25,9 @@ from rasterio import plot as rioplot
 from shapely.geometry import Polygon
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """
@@ -893,9 +896,9 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
         dem_adj_elevation = rc[rc.location_id == gage].dem_adj_elevation.unique()[0]
         catchment_rem = (catchment_rem + dem_adj_elevation) * 3.28084
         max_elev = rc[(rc.source == 'FIM') & (rc.location_id == gage)].elevation_ft.max()
-        catchment_rem[
-            np.where(catchment_rem > max_elev)
-        ] = np.nan  # <-- Comment out this line to get the full raster that is
+        catchment_rem[np.where(catchment_rem > max_elev)] = (
+            np.nan
+        )  # <-- Comment out this line to get the full raster that is
         # used in rating curve creation
         # Create polygon for perimeter/area stats
         catchment_rem_1s = catchment_rem.copy()
@@ -1067,7 +1070,7 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     Merges the output dataframe from aggregate_metrics() with the usgs gages GIS data
     '''
     # Load in the usgs_gages geopackage
-    usgs_gages = gpd.read_file(gages_gpkg_filepath)
+    usgs_gages = gpd.read_file(gages_gpkg_filepath, engine='fiona')
     # Merge the stats for all of the recurrance intervals/thresholds
     usgs_gages = usgs_gages.merge(agg_recurr_stats_table, on='location_id')
     # Load in the rating curves file

@@ -14,7 +14,6 @@ from stream_branches import StreamNetwork
 
 
 class test_Derive_level_paths(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """

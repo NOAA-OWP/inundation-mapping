@@ -105,8 +105,16 @@ def agreedem(
         # Compute allocation and proximity grid using WhiteboxTools
         smo_output_zerod = os.path.join(workspace, 'agree_smogrid_zerod.tif')
         wbt.euclidean_distance(rivers_raster, vectdist_grid)
+
+        assert os.path.exists(vectdist_grid), f'Vector distance grid not created: {vectdist_grid}'
+
         wbt.convert_nodata_to_zero(smo_output, smo_output_zerod)
+
+        assert os.path.exists(smo_output_zerod), f'Vector allocation grid not created: {smo_output_zerod}'
+
         wbt.euclidean_allocation(smo_output_zerod, vectallo_grid)
+
+        assert os.path.exists(vectallo_grid), f'Vector allocation grid not created: {vectallo_grid}'
 
         # ------------------------------------------------------------------
         # 4. From Hellweger documentation: Compute the buffer grid
@@ -177,8 +185,16 @@ def agreedem(
             # Compute allocation and proximity grid using WhiteboxTools
             buf_output_zerod = os.path.join(workspace, 'agree_bufgrid_zerod.tif')
             wbt.euclidean_distance(bin_buf_output, bufdist_grid)
+
+            assert os.path.exists(bufdist_grid), f'Buffer allocation grid not created: {bufdist_grid}'
+
             wbt.convert_nodata_to_zero(buf_output, buf_output_zerod)
+
+            assert os.path.exists(buf_output_zerod), f'Buffer allocation grid not created: {buf_output_zerod}'
+
             wbt.euclidean_allocation(buf_output_zerod, bufallo_grid)
+
+            assert os.path.exists(bufallo_grid), f'Buffer allocation grid not created: {bufallo_grid}'
 
             # Open distance, allocation, elevation grids.
             with rasterio.open(bufdist_grid) as bufdist, rasterio.open(

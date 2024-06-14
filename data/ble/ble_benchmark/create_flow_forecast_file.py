@@ -9,6 +9,9 @@ import numpy as np
 import pandas as pd
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def create_flow_forecast_file(
     huc,
     ble_geodatabase,

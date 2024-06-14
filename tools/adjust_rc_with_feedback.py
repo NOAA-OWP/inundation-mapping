@@ -12,6 +12,9 @@ import rasterio
 from geopandas.tools import sjoin
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 temp_workspace = r''
 HAND_CRS = 'EPSG:3857'
 

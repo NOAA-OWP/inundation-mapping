@@ -18,6 +18,9 @@ from rasterio.mask import mask
 from shapely.geometry import shape
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 class hydroTableHasOnlyLakes(Exception):
     """Raised when a Hydro-Table only has lakes"""
 

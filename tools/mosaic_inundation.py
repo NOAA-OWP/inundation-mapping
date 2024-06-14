@@ -158,6 +158,8 @@ def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon
     from shapely.geometry.multipolygon import MultiPolygon
     from shapely.geometry.polygon import Polygon
 
+    gpd.options.io_engine = "pyogrio"
+
     with rasterio.open(inundation_raster) as src:
         # Open inundation_raster using rasterio.
         image = src.read(1)

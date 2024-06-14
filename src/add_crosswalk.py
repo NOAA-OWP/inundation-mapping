@@ -37,10 +37,10 @@ def add_crosswalk(
     min_stream_length,
     calibration_mode=False,
 ):
-    input_catchments = gpd.read_file(input_catchments_fileName)
-    input_flows = gpd.read_file(input_flows_fileName)
-    input_huc = gpd.read_file(input_huc_fileName)
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName)
+    input_catchments = gpd.read_file(input_catchments_fileName, engine="pyogrio", use_arrow=True)
+    input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio", use_arrow=True)
+    input_huc = gpd.read_file(input_huc_fileName, engine="pyogrio", use_arrow=True)
+    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine="pyogrio", use_arrow=True)
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
@@ -87,7 +87,7 @@ def add_crosswalk(
 
     elif (extent == 'MS') | (extent == 'GMS'):
         ## crosswalk using stream segment midpoint method
-        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
+        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc, engine="fiona")
 
         # only reduce nwm catchments to mainstems if running mainstems
         if extent == 'MS':
@@ -244,12 +244,32 @@ def add_crosswalk(
                         (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
                     ]['HydroID'].item()
 
+                # output_flows has a higher order than the max_order
+                elif output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max() > max_order:
+                    update_id = output_flows.loc[
+                        (output_flows.From_Node == to_node)
+                        & (
+                            output_flows['order_']
+                            == output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max()
+                        )
+                    ]['HydroID'].values[0]
+
                 # Get the first one
                 # Same stream order, without drainage area info it is hard to know which is the main channel.
                 else:
-                    update_id = output_flows.loc[
-                        (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
-                    ]['HydroID'].values[0]
+                    if max_order in output_flows.loc[output_flows.From_Node == to_node, 'order_'].values:
+                        update_id = output_flows.loc[
+                            (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
+                        ]['HydroID'].values[0]
+
+                    else:
+                        update_id = output_flows.loc[
+                            (output_flows.From_Node == to_node)
+                            & (
+                                output_flows['order_']
+                                == output_flows.loc[output_flows.From_Node == to_node, 'order_'].max()
+                            )
+                        ]['HydroID'].values[0]
 
             # no upstream segments; single downstream segment
             elif len(output_flows.loc[output_flows.From_Node == to_node]['HydroID']) == 1:
@@ -258,7 +278,11 @@ def add_crosswalk(
             else:
                 update_id = output_flows.loc[output_flows.HydroID == short_id]['HydroID'].item()
 
-            str_order = output_flows.loc[output_flows.HydroID == short_id]['order_'].item()
+            output_order = output_flows.loc[output_flows.HydroID == short_id]['order_']
+            if len(output_order) == 1:
+                str_order = output_order.item()
+            else:
+                str_order = output_order.max()
             sml_segs = pd.concat(
                 [
                     sml_segs,

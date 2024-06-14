@@ -11,6 +11,9 @@ from shapely.geometry import box
 from tqdm import tqdm
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def inundate_events(hydrofabric_dir, forecast_file, inundation_file, inundation_polygon=None, jobs=1):
     forecast_df = pd.read_csv(
         forecast_file, infer_datetime_format=True, dtype={'huc': str}, parse_dates=['date_time']

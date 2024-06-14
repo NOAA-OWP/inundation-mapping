@@ -10,7 +10,6 @@ from utils.shared_functions import FIM_Helpers as src
 
 
 class test_shared_functions(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """
