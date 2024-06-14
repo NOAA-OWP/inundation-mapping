@@ -13,6 +13,17 @@ This tool scans all log directory looking for the word "error" (not case-sensiti
 <br/><br/>
 
 
+## v4.5.2.2 - 2024-05-29 - [PR#1183](https://github.com/NOAA-OWP/inundation-mapping/pull/1183)
+
+Upgrades whitebox from v2.3.1 to 2.3.4. Whitebox was upgraded by `pip install -U whitebox` and then `pipenv lock` to update the `Pipfile`.
+
+### Changes
+
+- `Dockerfile`: Removed whitebox hack
+- `Pipfile` and `Pipfile.lock`: Upgraded whitebox to v2.3.4.
+
+<br/><br/>
+
 ## v4.5.2.1 - 2024-05-21 - [PR#1172](https://github.com/NOAA-OWP/inundation-mapping/pull/1172)
 
 Removes loading of `apache-arrow` repository from the Dockerfile where it was causing a GPG key error during `docker build`.
