@@ -4,7 +4,6 @@ import glob
 import inspect
 import os
 import re
-import sys
 from concurrent.futures import as_completed
 from datetime import datetime, timezone
 from os.path import splitext
@@ -15,12 +14,12 @@ import geopandas as gp
 import numpy as np
 import pandas as pd
 import rasterio
-from memory_profiler import profile
-from pyproj.crs import CRS
-from rasterio.warp import Resampling, calculate_default_transform, reproject
 from tqdm import tqdm
 
 import utils.shared_variables as sv
+
+
+gp.options.io_engine = "pyogrio"
 
 
 def getDriver(fileName):
@@ -72,37 +71,6 @@ def run_system_command(args):
 
     # Run system command.
     os.system(command)
-
-
-def subset_wbd_gpkg(wbd_gpkg, multilayer_wbd_geopackage):
-    print("Subsetting " + wbd_gpkg + "...")
-    # Read geopackage into dataframe.
-    wbd = gp.read_file(wbd_gpkg)
-    gdf = gp.GeoDataFrame(wbd)
-
-    for index, row in gdf.iterrows():
-        state = row["STATES"]
-        if state is not None:  # Some polygons are empty in the STATES field.
-            keep_flag = False  # Default to Fault, i.e. to delete the polygon.
-            if state in sv.CONUS_STATE_LIST:
-                keep_flag = True
-            # Only split if multiple states present. More efficient this way.
-            elif len(state) > 2:
-                for wbd_state in state.split(
-                    ","
-                ):  # Some polygons have multiple states, separated by a comma.
-                    if (
-                        wbd_state in sv.CONUS_STATE_LIST
-                    ):  # Check each polygon to make sure it's state abbrev name is allowed.
-                        keep_flag = True
-                        break
-            if not keep_flag:
-                gdf.drop(index, inplace=True)  # Delete from dataframe.
-
-    # Overwrite geopackage.
-    layer_name = os.path.split(wbd_gpkg)[1].strip('.gpkg')
-    gdf.crs = sv.PREP_PROJECTION
-    gdf.to_file(multilayer_wbd_geopackage, layer=layer_name, driver='GPKG', index=False)
 
 
 def get_fossid_from_huc8(
@@ -189,16 +157,6 @@ def update_raster_profile(args):
     return elev_m_filename
 
 
-def mem_profile(func):
-    def wrapper(*args, **kwargs):
-        if os.environ.get('mem') == "1":
-            profile(func)(*args, **kwargs)
-        else:
-            func(*args, **kwargs)
-
-    return wrapper
-
-
 ########################################################################
 # Function to check the age of a file (use for flagging potentially outdated input)
 ########################################################################
@@ -228,7 +186,7 @@ def concat_huc_csv(fim_dir, csv_name):
     '''
 
     merged_csv = []
-    huc_list = os.listdir(fim_dir)
+    huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
     for huc in huc_list:
         if huc != 'logs':
             csv_file = os.path.join(fim_dir, huc, str(csv_name))

@@ -20,6 +20,9 @@ from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
 from utils.shared_variables import VIZ_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 # Get variables from .env file.
 load_dotenv()
 WBD_LAYER = os.getenv("WBD_LAYER")
@@ -204,8 +207,8 @@ def scatterplot(dataframe, x_field, y_field, title_text, stats_text=False, annot
     axes.tick_params(labelsize='xx-large')
 
     # Define y axis label and x axis label.
-    axes.set_ylabel(f'{y_field.replace("_"," ")}', fontsize='xx-large', weight='bold')
-    axes.set_xlabel(f'{x_field.replace("_"," ")}', fontsize='xx-large', weight='bold')
+    axes.set_ylabel(f'{y_field.replace("_", " ")}', fontsize='xx-large', weight='bold')
+    axes.set_xlabel(f'{x_field.replace("_", " ")}', fontsize='xx-large', weight='bold')
 
     # Plot diagonal line
     diag_range = [0, 1]

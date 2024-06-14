@@ -9,6 +9,9 @@ import pandas as pd
 from stream_branches import StreamNetwork
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def Subset_catch_list(
     catch_list, stream_network, branch_id_attribute, branch_id_list=None, out_catch_list=None, verbose=False
 ):
@@ -17,7 +20,7 @@ def Subset_catch_list(
 
     # loading files
     catch_list = pd.read_csv(catch_list, sep=" ", header=None, skiprows=1)
-    catch_list.rename(columns={0: "HydroID", 1: "slopes", 2: "lengthKM", 3: "areasqkm"}, inplace=True)
+    catch_list = catch_list.rename(columns={0: "HydroID", 1: "slopes", 2: "lengthKM", 3: "areasqkm"})
     stream_network = StreamNetwork.from_file(stream_network, branch_id_attribute=branch_id_attribute)
     stream_network = StreamNetwork(
         stream_network.astype({'HydroID': int}), branch_id_attribute=branch_id_attribute

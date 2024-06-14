@@ -19,6 +19,9 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 def generate_categorical_fim(
     fim_run_dir, source_flow_dir, output_catfim_dir, job_number_huc, job_number_inundate, depthtif, log_file
 ):
@@ -312,7 +315,7 @@ def reformat_inundation_maps(
         handle = os.path.split(extent_grid)[1].replace('.tif', '')
         diss_extent_filename = os.path.join(gpkg_dir, f"{handle}_{huc}_dissolved.gpkg")
         extent_poly_diss["geometry"] = [
-            MultiPolygon([feature]) if type(feature) == Polygon else feature
+            MultiPolygon([feature]) if type(feature) is Polygon else feature
             for feature in extent_poly_diss["geometry"]
         ]
 

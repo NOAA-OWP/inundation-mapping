@@ -1,8 +1,8 @@
 {
     "valid_specific_branch_data": {
-        "src_dir": "/data/outputs/unit_test_data/02020005/branches/3246000009",
+        "src_dir": "/data/outputs/unit_test_data/02020005/branches/2274000018",
         "deny_list": "/foss_fim/config/deny_branches.lst",
-        "branch_id": "3246000009",
+        "branch_id": "2274000018",
         "verbose": true
     },
     "valid_directory_data": {

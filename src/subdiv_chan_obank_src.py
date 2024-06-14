@@ -81,7 +81,7 @@ def variable_mannings_calc(args):
                 + '\n'
             )
         else:
-            df_src_orig.drop(
+            df_src_orig = df_src_orig.drop(
                 [
                     'channel_n',
                     'overbank_n',
@@ -95,7 +95,6 @@ def variable_mannings_calc(args):
                     'WettedPerimeter_obank (m)',
                 ],
                 axis=1,
-                inplace=True,
                 errors='ignore',
             )  # drop these cols (in case vmann was previously performed)
 
@@ -165,7 +164,7 @@ def variable_mannings_calc(args):
             )
 
             ## drop the previously modified discharge column to be replaced with updated version
-            df_htable.drop(
+            df_htable = df_htable.drop(
                 [
                     'subdiv_applied',
                     'discharge_cms',
@@ -176,7 +175,6 @@ def variable_mannings_calc(args):
                 ],
                 axis=1,
                 errors='ignore',
-                inplace=True,
             )
             df_htable = df_htable.merge(
                 df_src_trim, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
@@ -250,10 +248,9 @@ def subdiv_geometry(df_src):
 
 def subdiv_mannings_eq(df_src):
     ## Calculate discharge (channel) using Manning's equation
-    df_src.drop(
+    df_src = df_src.drop(
         ['WetArea_chan (m2)', 'HydraulicRadius_chan (m)', 'Discharge_chan (m3s-1)', 'Velocity_chan (m/s)'],
         axis=1,
-        inplace=True,
         errors='ignore',
     )  # drop these cols (in case subdiv was previously performed)
     df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)'] / df_src['LENGTHKM'] / 1000
@@ -269,7 +266,7 @@ def subdiv_mannings_eq(df_src):
     df_src['Velocity_chan (m/s)'].fillna(0, inplace=True)
 
     ## Calculate discharge (overbank) using Manning's equation
-    df_src.drop(
+    df_src = df_src.drop(
         [
             'WetArea_obank (m2)',
             'HydraulicRadius_obank (m)',
@@ -277,12 +274,11 @@ def subdiv_mannings_eq(df_src):
             'Velocity_obank (m/s)',
         ],
         axis=1,
-        inplace=True,
         errors='ignore',
     )  # drop these cols (in case subdiv was previously performed)
     df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)'] / df_src['LENGTHKM'] / 1000
     df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
-    df_src.replace([np.inf, -np.inf], np.nan, inplace=True)  # need to replace inf instances (divide by 0)
+    df_src = df_src.replace([np.inf, -np.inf], np.nan)  # need to replace inf instances (divide by 0)
     df_src['HydraulicRadius_obank (m)'].fillna(0, inplace=True)
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
@@ -294,8 +290,8 @@ def subdiv_mannings_eq(df_src):
     df_src['Velocity_obank (m/s)'].fillna(0, inplace=True)
 
     ## Calcuate the total of the subdivided discharge (channel + overbank)
-    df_src.drop(
-        ['Discharge (m3s-1)_subdiv'], axis=1, inplace=True, errors='ignore'
+    df_src = df_src.drop(
+        ['Discharge (m3s-1)_subdiv'], axis=1, errors='ignore'
     )  # drop these cols (in case subdiv was previously performed)
     df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
     df_src.loc[df_src['Stage'] == 0, ['Discharge (m3s-1)_subdiv']] = 0
@@ -412,7 +408,7 @@ def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_
         print('Running the variable_mannings_calc function...')
 
         ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-        huc_list = os.listdir(fim_dir)
+        huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
         huc_list.sort()  # sort huc_list for helping track progress in future print statments
         for huc in huc_list:
             # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':

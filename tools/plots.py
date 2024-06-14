@@ -153,8 +153,8 @@ def set_axes(facetgrid):
 
 
 def preparing_data_for_plotting(metrics_table):
-    metrics_table.rename(
-        columns={'extent_config': 'Model', 'magnitude': 'Magnitude', 'TPR': 'POD'}, inplace=True
+    metrics_table = metrics_table.rename(
+        columns={'extent_config': 'Model', 'magnitude': 'Magnitude', 'TPR': 'POD'}
     )
 
     # set_mannings = lambda df: 0.06 if 'n_6' in df['version'] else 0.12
@@ -189,8 +189,8 @@ def robust_linear_model(metrics_table):
     # metric_indices = {m: metrics_table.loc[:, 'Metric'] == m for m in metrics}
     # mannings_indices = {m: metrics_table.loc[:, 'Mannings N'] == m for m in mannings}
 
-    metrics_table.set_index(['Metric', 'Mannings N'], inplace=True, drop=False)
-    metrics_table.sort_index(inplace=True)
+    metrics_table = metrics_table.set_index(['Metric', 'Mannings N'], drop=False)
+    metrics_table = metrics_table.sort_index()
     for met, man in product(metrics, mannings):
         y = metrics_table.loc[(met, man), 'Metric Value'].to_numpy()
 
@@ -207,14 +207,14 @@ def robust_linear_model(metrics_table):
         metrics_table.loc[(met, man), 'beta1'] = beta1
         metrics_table.loc[(met, man), 'beta1_pvalue'] = pval_beta1
 
-    metrics_table.reset_index(drop=True, inplace=True)
+    metrics_table = metrics_table.reset_index(drop=True)
 
     return metrics_table
 
 
 def annotate_rlm(facetgrid, metrics_table):
-    metrics_table.set_index(['Metric', 'Mannings N'], inplace=True, drop=False)
-    metrics_table.sort_index(inplace=True)
+    metrics_table = metrics_table.set_index(['Metric', 'Mannings N'], drop=False)
+    metrics_table = metrics_table.sort_index()
 
     metric_index_dict = {'CSI': 0, 'POD': 1, 'FAR': 2}
     mannings_index_dict = {0.06: 0, 0.12: 1}

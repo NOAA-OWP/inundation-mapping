@@ -56,7 +56,7 @@ docker run --rm -it --name mytest \
 	-v /abcd_share/foss_fim/outputs_temp/:/fim_temp \
 	fim_4:dev_20220208_8eba0ee
 ```
-* Call the `fim_pipeline.sh` script with the necessary arguments.
+* Call the `fim_pipeline.sh` script with the necessary arguments (`-n` must be `unit_test_data`).
 ```bash
 fim_pipeline.sh -n unit_test_data -u "02020005 05030104" \
 	-bd /foss_fim/config/deny_branch_unittests.lst \
@@ -79,18 +79,21 @@ python3 foss_fim/tools/synthesize_test_cases.py \
 ## Running unit tests
 
 ### If you'd like to test the whole unit test suite:
+When inside of the container, ensure you are within the root directory of the repository before running the `pytest` command.
 ```
+cd /foss_fim
 pytest /foss_fim/unit_tests
 ```
 
-__NOTE:__ This is subject to error, as the downloaded/generated data could potentially have a different path than what is specified in the `/unit_tests/*_params.json` files. The data files are not included in this repository, are potentially not uniform accross machines, and are subject to change.
+__NOTE:__ This is subject to error, as the downloaded/generated data could potentially have a different path than what is specified in the `/unit_tests/*_params.json` files. The data files are not included in this repository, so are subject to change.
 
 ### If you want to test just one unit test (from the root terminal window):
 
 ```bash
-pytest /foss_fim/unit_tests/gms/derive_level_paths_test.py
+cd /foss_fim
+pytest unit_tests/gms/derive_level_paths_test.py
 						or
-pytest /foss_fim/unit_tests/clip_vectors_to_wbd_test.py
+pytest unit_tests/inundate_gms_test.py
 ```
 
 ### If you'd like to run a particular test, you can, for example:
@@ -133,9 +136,7 @@ ie:
 
 ## [Pytest](https://docs.pytest.org/en/7.2.x/) particulars
 
-The `pyproject.toml` file has been added, which contains the build system requirements of Python projects.  This file used to specify which warnings are disabled to pass our unit tests.
-
-A `__init__.py` file has been added to the subdirectory of `/tools` in order for the `pytest` command run in the `/unit_tests` to pick up the tests in those directories as well.
+The `unit_tests/pyproject.toml` file is used to specify which warnings are disabled for our particular unit tests.
 
 Luckily, `pytest` works well with The Python Standard Library `unittest`. This made the migration of previous unit tests using `unittest` over to `pytest` quite simple. The caveat is that our current unit tests employ elements of both libraries. A full transition to `pytest` will ideally take place at a future date.
 

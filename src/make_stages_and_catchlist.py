@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
-import sys
 
 import geopandas as gpd
 import numpy as np
 
-from utils.shared_functions import mem_profile
+
+gpd.options.io_engine = "pyogrio"
 
 
-@mem_profile
 def make_stages_and_catchlist(
     flows_filename,
     catchments_filename,

@@ -5,10 +5,7 @@ import argparse
 import numpy as np
 import rasterio
 
-from utils.shared_functions import mem_profile
 
-
-@mem_profile
 def burn_in_levees(dem_filename, nld_filename, out_dem_filename):
     # TODO Document this code
     with rasterio.open(dem_filename) as dem, rasterio.open(nld_filename) as nld:

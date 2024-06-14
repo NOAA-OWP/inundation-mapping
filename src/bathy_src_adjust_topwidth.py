@@ -3,6 +3,7 @@
 import argparse
 import datetime as dt
 import os
+import re
 import sys
 from multiprocessing import Pool
 from os import environ
@@ -15,7 +16,6 @@ import seaborn as sns
 
 
 sns.set_theme(style="whitegrid")
-# from utils.shared_functions import mem_profile
 
 """
     Estimate feature_id missing bathymetry in the raw channel geometry using input bankfull regression geometry
@@ -412,30 +412,29 @@ def bathy_rc_lookup(args):
                 'Discharge (m3s-1)',
             ],
         ]
-        modified_hydro_table.rename(
-            columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True
+        modified_hydro_table = modified_hydro_table.rename(
+            columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}
         )
         df_htable = pd.read_csv(input_htable_fileName, dtype={'HUC': str})
-        df_htable.drop(
-            ['barc_on'], axis=1, inplace=True
+        df_htable = df_htable.drop(
+            ['barc_on'], axis=1
         )  # drop the default "barc_on" variable from add_crosswalk.py
         if not set(
             ['orig_discharge_cms', 'orig_Volume (m3)', 'orig_WetArea (m2)', 'orig_HydraulicRadius (m)']
         ).issubset(
             df_htable.columns
         ):  # check if "orig_" attributes do NOT already exist (likely generated from previous BARC run)
-            df_htable.rename(
+            df_htable = df_htable.rename(
                 columns={
                     'discharge_cms': 'orig_discharge_cms',
                     'Volume (m3)': 'orig_Volume (m3)',
                     'WetArea (m2)': 'orig_WetArea (m2)',
                     'HydraulicRadius (m)': 'orig_HydraulicRadius (m)',
-                },
-                inplace=True,
+                }
             )
         else:
-            df_htable.drop(
-                ['discharge_cms', 'Volume (m3)', 'WetArea (m2)', 'HydraulicRadius (m)'], axis=1, inplace=True
+            df_htable = df_htable.drop(
+                ['discharge_cms', 'Volume (m3)', 'WetArea (m2)', 'HydraulicRadius (m)'], axis=1
             )  # drop the previously modified columns - to be replaced with updated version
         df_htable = df_htable.merge(
             modified_hydro_table, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
@@ -542,7 +541,7 @@ if __name__ == '__main__':
             begin_time = dt.datetime.now()
 
             ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-            huc_list = os.listdir(fim_dir)
+            huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
             huc_pass_list = []
             for huc in huc_list:
                 if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':

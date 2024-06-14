@@ -25,6 +25,9 @@ from rasterio import plot as rioplot
 from shapely.geometry import Polygon
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 """
@@ -96,7 +99,7 @@ def generate_rating_curve_metrics(args):
     )
 
     # Filter out null and non-integer location_id entries (the crosswalk steps tries to fill AHPS only sites with the nws_lid)
-    elev_table.dropna(subset=['location_id'], inplace=True)
+    elev_table = elev_table.dropna(subset=['location_id'])
     elev_table = elev_table[elev_table['location_id'].apply(lambda x: str(x).isdigit())]
 
     # Read in the USGS gages rating curve database csv
@@ -122,9 +125,9 @@ def generate_rating_curve_metrics(args):
             branch_hydrotable = branch_hydrotable.loc[
                 branch_hydrotable.HydroID.isin(branch_elev_table.HydroID)
             ]
-            branch_hydrotable.drop(columns=['order_'], inplace=True)
+            branch_hydrotable = branch_hydrotable.drop(columns=['order_'])
             # Join SRC with elevation data
-            branch_elev_table.rename(columns={'feature_id': 'fim_feature_id'}, inplace=True)
+            branch_elev_table = branch_elev_table.rename(columns={'feature_id': 'fim_feature_id'})
             branch_hydrotable = branch_hydrotable.merge(branch_elev_table, on="HydroID")
             # Append to full rating curve dataframe
             if hydrotable.empty:
@@ -133,7 +136,7 @@ def generate_rating_curve_metrics(args):
                 hydrotable = pd.concat([hydrotable, branch_hydrotable])
 
         # Join rating curves with elevation data
-        # elev_table.rename(columns={'feature_id':'fim_feature_id'}, inplace=True)
+        # elev_table = elev_table.rename(columns={'feature_id':'fim_feature_id'})
         # hydrotable = hydrotable.merge(elev_table, on="HydroID")
         if 'location_id' in hydrotable.columns:
             relevant_gages = list(hydrotable.location_id.unique())
@@ -230,7 +233,7 @@ def generate_rating_curve_metrics(args):
 
             # Identify unique gages
             usgs_crosswalk = hydrotable.filter(items=['location_id', 'feature_id']).drop_duplicates()
-            usgs_crosswalk.dropna(subset=['location_id'], inplace=True)
+            usgs_crosswalk = usgs_crosswalk.dropna(subset=['location_id'])
 
             nwm_recurr_data_table = pd.DataFrame()
             # usgs_recurr_data = pd.DataFrame()
@@ -893,9 +896,9 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
         dem_adj_elevation = rc[rc.location_id == gage].dem_adj_elevation.unique()[0]
         catchment_rem = (catchment_rem + dem_adj_elevation) * 3.28084
         max_elev = rc[(rc.source == 'FIM') & (rc.location_id == gage)].elevation_ft.max()
-        catchment_rem[
-            np.where(catchment_rem > max_elev)
-        ] = np.nan  # <-- Comment out this line to get the full raster that is
+        catchment_rem[np.where(catchment_rem > max_elev)] = (
+            np.nan
+        )  # <-- Comment out this line to get the full raster that is
         # used in rating curve creation
         # Create polygon for perimeter/area stats
         catchment_rem_1s = catchment_rem.copy()
@@ -1067,7 +1070,7 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     Merges the output dataframe from aggregate_metrics() with the usgs gages GIS data
     '''
     # Load in the usgs_gages geopackage
-    usgs_gages = gpd.read_file(gages_gpkg_filepath)
+    usgs_gages = gpd.read_file(gages_gpkg_filepath, engine='fiona')
     # Merge the stats for all of the recurrance intervals/thresholds
     usgs_gages = usgs_gages.merge(agg_recurr_stats_table, on='location_id')
     # Load in the rating curves file
@@ -1131,7 +1134,7 @@ def calculate_rc_diff(rc):
     # Calculate water surface elevation difference at recurrence intervals
     rc_unmelt["yhat_minus_y"] = rc_unmelt[src_elev] - rc_unmelt[usgs_elev]
     # Remove duplicate location_id-recurr_interval pairs and pivot
-    rc_unmelt.set_index(['location_id', 'recurr_interval'], inplace=True, verify_integrity=False)
+    rc_unmelt = rc_unmelt.set_index(['location_id', 'recurr_interval'], verify_integrity=False)
     rc_unmelt = (
         rc_unmelt[~rc_unmelt.index.duplicated(keep='first')]
         .reset_index()

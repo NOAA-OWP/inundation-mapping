@@ -12,7 +12,6 @@ from usgs_gage_crosswalk import GageCrosswalk
 
 
 class test_usgs_gage_crosswalk(unittest.TestCase):
-
     """
     Allows the params to be loaded one and used for all test methods
     """
@@ -52,7 +51,7 @@ class test_usgs_gage_crosswalk(unittest.TestCase):
             params["input_flows_filename"],
             params["dem_filename"],
             params["dem_adj_filename"],
-            params["output_table_filename"],
+            params["output_directory"],
         )
 
         # Make sure that the usgs_elev_table.csv was written

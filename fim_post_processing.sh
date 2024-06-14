@@ -46,6 +46,7 @@ if [ "$runName" = "" ]
 then
     echo "ERROR: Missing -n run time name argument"
     usage
+    exit 22
 fi
 
 outputDestDir=$outputsDir/$runName
@@ -148,7 +149,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     echo
     echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow values)
-    python3 $srcDir/src_adjust_usgs_rating.py \
+    python3 $srcDir/src_adjust_usgs_rating_trace.py \
         -run_dir $outputDestDir \
         -usgs_rc $usgs_rating_curve_csv \
         -nwm_recur $nwm_recur_file \
@@ -190,6 +191,7 @@ python3 $srcDir/aggregate_by_huc.py \
     -fim $outputDestDir \
     -i $fim_inputs \
     -htable \
+    -bridge \
     -j $jobLimit
 Tcount
 date -u
@@ -210,11 +212,14 @@ echo
 echo -e $startDiv"Combining crosswalk tables"
 # aggregate outputs
 Tstart
-python3 /foss_fim/tools/combine_crosswalk_tables.py \
+python3 $toolsDir/combine_crosswalk_tables.py \
     -d $outputDestDir \
     -o $outputDestDir/crosswalk_table.csv
 Tcount
 date -u
+
+find $outputDestDir -type d -exec chmod -R 777 {} +
+find $outputDestDir -type f -exec chmod -R 777 {} +
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"

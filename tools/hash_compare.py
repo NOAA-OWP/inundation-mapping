@@ -8,6 +8,9 @@ import geopandas
 from geopandas.testing import assert_geodataframe_equal
 
 
+geopandas.options.io_engine = "pyogrio"
+
+
 def main(arg1, arg2, image_only, log_file, gpkg):
     """
     This tool compares either directories or single files. It will create and compare a hashing for
@@ -150,7 +153,7 @@ def compare_gpkg(file1, file2, list_of_failed_files=[], verbose=False):
     except AssertionError as e:
         print(f"\n {str(e)} \n")
         print("  The following files failed assert_geodataframe_equal: ")
-        print(f"    -{file1.rsplit('/',1)[-1]} ")
+        print(f"    {file1.rsplit('/', 1)[-1]} ")
         list_of_failed_files.append(f1_gdf)
 
 

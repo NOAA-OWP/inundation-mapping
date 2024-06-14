@@ -40,8 +40,8 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
 
     # Load wbd and use it as a mask to pull the bathymetry data
     fim_huc_dir = join(fim_dir, huc)
-    wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'))
-    bathy_data = gpd.read_file(bathy_file, mask=wbd8_clp)
+    wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'), engine="pyogrio", use_arrow=True)
+    bathy_data = gpd.read_file(bathy_file, mask=wbd8_clp, engine="fiona")
     bathy_data = bathy_data.rename(columns={'ID': 'feature_id'})
 
     # Get src_full from each branch
@@ -74,7 +74,7 @@ def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
                 ],
                 on='feature_id',
                 how='left',
-                validate='many_to_one'
+                validate='many_to_one',
             )
         # If there's more than one feature_id in the bathy data, just take the mean
         except pd.errors.MergeError:
@@ -171,9 +171,11 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
     # NOTE: This block can be removed if we have estimated bathymetry data for
     # the whole domain later.
     fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
-    bathy_gdf = gpd.read_file(bathy_file)
+    bathy_gdf = gpd.read_file(bathy_file, engine="pyogrio", use_arrow=True)
     buffered_bathy = bathy_gdf.geometry.buffer(wbd_buffer)  # We buffer the bathymetric data to get adjacent
-    wbd = gpd.read_file(wbd, mask=buffered_bathy)  # HUCs that could also have bathymetric reaches included
+    wbd = gpd.read_file(
+        wbd, mask=buffered_bathy, engine="fiona"
+    )  # HUCs that could also have bathymetric reaches included
     hucs_with_bathy = wbd.HUC8.to_list()
     hucs = [h for h in fim_hucs if h in hucs_with_bathy]
     log_file.write(f"Identified {len(hucs)} HUCs that have bathymetric data: {hucs}\n")

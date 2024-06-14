@@ -9,8 +9,10 @@ from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
 
+import geopandas as gpd
 import pandas as pd
 
+from heal_bridges_osm import flows_from_hydrotable
 from utils.shared_functions import progress_bar_handler
 
 
@@ -140,6 +142,20 @@ class HucDirectory(object):
         }
         self.agg_ras_elev_table = pd.DataFrame(columns=list(self.ras_dtypes.keys()))
 
+        self.bridge_dtypes = {
+            'osmid': int,
+            'name': str,
+            'max_hand': float,
+            'max_hand_75': float,
+            'feature_id': int,
+            'HydroID': int,
+            'order_': str,
+            'branch': str,
+            'mainstem': int,
+            'geometry': object,
+        }
+        self.agg_bridge_pnts = gpd.GeoDataFrame(columns=list(self.bridge_dtypes.keys()))
+
     def iter_branches(self):
         if self.limit_branches:
             for branch in self.limit_branches:
@@ -184,7 +200,23 @@ class HucDirectory(object):
         ras_elev_table = pd.read_csv(ras_elev_filename, dtype=self.ras_dtypes)
         self.agg_ras_elev_table = pd.concat([self.agg_ras_elev_table, ras_elev_table])
 
-    def agg_function(self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id):
+    def aggregate_bridge_pnts(self, branch_path, branch_id):
+        bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.gpkg')
+        if not os.path.isfile(bridge_filename):
+            return
+
+        bridge_pnts = gpd.read_file(bridge_filename)
+        if bridge_pnts.empty:
+            return
+        hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
+        hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
+        # Get the flows for each stage
+        bridge_pnts = flows_from_hydrotable(bridge_pnts, hydrotable)
+        self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
+
+    def agg_function(
+        self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, huc_id
+    ):
         try:
             # try catch and its own log file output in error only.
             for branch_id, branch_path in self.iter_branches():
@@ -198,6 +230,8 @@ class HucDirectory(object):
                     self.aggregate_hydrotables(branch_path, branch_id)
                 if src_cross_flag:
                     self.aggregate_src_full_crosswalk(branch_path, branch_id)
+                if bridge_flag:
+                    self.aggregate_bridge_pnts(branch_path, branch_id)
 
             ## After all of the branches are visited, the code below will write the aggregates
             if usgs_elev_flag:
@@ -232,6 +266,30 @@ class HucDirectory(object):
                 if not self.agg_ras_elev_table.empty:
                     self.agg_ras_elev_table.to_csv(ras_elev_table_file, index=False)
 
+            if bridge_flag:
+                bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.gpkg')
+                if os.path.isfile(bridge_pnts_file):
+                    os.remove(bridge_pnts_file)
+
+                if not self.agg_bridge_pnts.empty:
+                    # Just making things shorter so they are easier to read
+                    bridge_pnts = self.agg_bridge_pnts
+                    # Use branch 0 to get the feature_id each bridge crosses
+                    b0 = bridge_pnts.loc[bridge_pnts.branch == '0', ['osmid', 'feature_id']]
+                    b0 = b0.rename(columns={'feature_id': 'crossing_feature_id'})
+                    bridge_pnts = bridge_pnts.merge(b0, on='osmid', how='left')
+                    # Remove bridge points that have the same osmid and feature_id
+                    g = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('min')
+                    bridge_pnts = bridge_pnts.copy()[(bridge_pnts['max_discharge'] == g)]
+                    # Set backwater bridge sites
+                    bridge_pnts['is_backwater'] = 0
+                    c = bridge_pnts.groupby(['osmid'])['feature_id'].transform('count')
+                    bridge_pnts.loc[
+                        (c > 1) & (bridge_pnts.feature_id != bridge_pnts.crossing_feature_id), 'is_backwater'
+                    ] = 1
+                    # Write file
+                    bridge_pnts.to_file(bridge_pnts_file, index=False)
+
             # print(f"agg_by_huc for huc id {huc_id} is done")
 
         except Exception:
@@ -247,6 +305,7 @@ class HucDirectory(object):
                 hydro_table_flag,
                 src_cross_flag,
                 ras_elev_flag,
+                bridge_flag,
                 huc_id,
                 errMsg,
             )
@@ -255,7 +314,16 @@ class HucDirectory(object):
 # ==============================
 # This is done independantly in each worker and does not attempt to write to a shared file
 # as those can collide with multi proc
-def log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id, errMsg):
+def log_error(
+    fim_directory,
+    usgs_elev_flag,
+    hydro_table_flag,
+    src_cross_flag,
+    ras_elev_flag,
+    bridge_flag,
+    huc_id,
+    errMsg,
+):
     file_name = f"agg_by_huc_{huc_id}"
     if usgs_elev_flag:
         file_name += "_elev"
@@ -265,6 +333,8 @@ def log_error(fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, r
         file_name += "_src_cross"
     if ras_elev_flag:
         file_name += "_ras"
+    if bridge_flag:
+        file_name += "_bridge"
     file_name += "_error.log"
 
     log_path = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
@@ -282,6 +352,7 @@ def aggregate_by_huc(
     hydro_table_flag,
     src_cross_flag,
     ras_elev_flag,
+    bridge_flag,
     num_job_workers,
 ):
     assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
@@ -292,9 +363,9 @@ def aggregate_by_huc(
     if num_job_workers > total_cpus_available:
         raise ValueError(
             f'The number of jobs {num_job_workers}'
-            'exceeds your machine\'s available CPU count minus two. '
-            'Please lower the number of jobs '
-            'values accordingly.'
+            ' exceeds your machine\'s available CPU count minus two.'
+            ' Please lower the number of jobs'
+            ' values accordingly.'
         )
 
     # create log folder, might end up empty but at least create the folder
@@ -315,6 +386,8 @@ def aggregate_by_huc(
             agg_type += "_src_cross"
         if ras_elev_flag:
             agg_type += "_ras"
+        if bridge_flag:
+            agg_type += "_bridge"
         filelist = glob.glob(os.path.join(log_folder, f"*{agg_type}*"))
         for f in filelist:
             os.remove(f)
@@ -345,6 +418,7 @@ def aggregate_by_huc(
                         'hydro_table_flag': hydro_table_flag,
                         'src_cross_flag': src_cross_flag,
                         'ras_elev_flag': ras_elev_flag,
+                        'bridge_flag': bridge_flag,
                         'huc_id': huc_id,
                     }
 
@@ -368,6 +442,7 @@ def aggregate_by_huc(
                         'hydro_table_flag': hydro_table_flag,
                         'src_cross_flag': src_cross_flag,
                         'ras_elev_flag': ras_elev_flag,
+                        'bridge_flag': bridge_flag,
                         'huc_id': huc_id,
                     }
                     future = executor.submit(huc_dir.agg_function, **args_agg)
@@ -381,12 +456,16 @@ def aggregate_by_huc(
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
             log_error(
-                fim_directory, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, huc_id, errMsg
+                fim_directory,
+                usgs_elev_flag,
+                hydro_table_flag,
+                src_cross_flag,
+                ras_elev_flag,
+                bridge_flag,
+                huc_id,
+                errMsg,
             )
             # sys.exit(1)
-
-        # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(executor_dict, f"Running aggregate_by_huc with {num_job_workers} workers")
 
         # Send the executor to the progress bar and wait for all MS tasks to finish
         progress_bar_handler(executor_dict, f"Running aggregate_by_huc with {num_job_workers} workers")
@@ -437,6 +516,14 @@ if __name__ == '__main__':
         '-ras',
         '--ras_elev_flag',
         help='Perform aggregate on branch ras2fim elev tables',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '-bridge',
+        '--bridge_flag',
+        help='Perform aggregate on branch bridge centroid files',
         required=False,
         default=False,
         action='store_true',

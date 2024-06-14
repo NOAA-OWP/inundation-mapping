@@ -2,23 +2,20 @@
 
 import argparse
 import json
-import os
 import sys
 
 import geopandas as gpd
 import pandas as pd
-from memory_profiler import profile
 from numpy import unique
 from rasterstats import zonal_stats
 
-from utils.shared_functions import getDriver, mem_profile
+from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
 # TODO - Feb 17, 2023 - We want to explore using FR methodology as branch zero
 
 
-@mem_profile
 def add_crosswalk(
     input_catchments_fileName,
     input_flows_fileName,
@@ -40,10 +37,10 @@ def add_crosswalk(
     min_stream_length,
     calibration_mode=False,
 ):
-    input_catchments = gpd.read_file(input_catchments_fileName)
-    input_flows = gpd.read_file(input_flows_fileName)
-    input_huc = gpd.read_file(input_huc_fileName)
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName)
+    input_catchments = gpd.read_file(input_catchments_fileName, engine="pyogrio", use_arrow=True)
+    input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio", use_arrow=True)
+    input_huc = gpd.read_file(input_huc_fileName, engine="pyogrio", use_arrow=True)
+    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine="pyogrio", use_arrow=True)
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
@@ -55,7 +52,7 @@ def add_crosswalk(
             input_catchments, input_nwmcatras_fileName, stats=['majority'], geojson_out=True
         )
         input_majorities = gpd.GeoDataFrame.from_features(majority_calc)
-        input_majorities = input_majorities.rename(columns={'majority' : 'feature_id'})
+        input_majorities = input_majorities.rename(columns={'majority': 'feature_id'})
 
         input_majorities = input_majorities[:][input_majorities['feature_id'].notna()]
         if input_majorities.feature_id.dtype != 'int':
@@ -90,7 +87,7 @@ def add_crosswalk(
 
     elif (extent == 'MS') | (extent == 'GMS'):
         ## crosswalk using stream segment midpoint method
-        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc)
+        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc, engine="fiona")
 
         # only reduce nwm catchments to mainstems if running mainstems
         if extent == 'MS':
@@ -247,12 +244,32 @@ def add_crosswalk(
                         (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
                     ]['HydroID'].item()
 
+                # output_flows has a higher order than the max_order
+                elif output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max() > max_order:
+                    update_id = output_flows.loc[
+                        (output_flows.From_Node == to_node)
+                        & (
+                            output_flows['order_']
+                            == output_flows.loc[(output_flows.From_Node == to_node), 'order_'].max()
+                        )
+                    ]['HydroID'].values[0]
+
                 # Get the first one
                 # Same stream order, without drainage area info it is hard to know which is the main channel.
                 else:
-                    update_id = output_flows.loc[
-                        (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
-                    ]['HydroID'].values[0]
+                    if max_order in output_flows.loc[output_flows.From_Node == to_node, 'order_'].values:
+                        update_id = output_flows.loc[
+                            (output_flows.From_Node == to_node) & (output_flows['order_'] == max_order)
+                        ]['HydroID'].values[0]
+
+                    else:
+                        update_id = output_flows.loc[
+                            (output_flows.From_Node == to_node)
+                            & (
+                                output_flows['order_']
+                                == output_flows.loc[output_flows.From_Node == to_node, 'order_'].max()
+                            )
+                        ]['HydroID'].values[0]
 
             # no upstream segments; single downstream segment
             elif len(output_flows.loc[output_flows.From_Node == to_node]['HydroID']) == 1:
@@ -261,7 +278,11 @@ def add_crosswalk(
             else:
                 update_id = output_flows.loc[output_flows.HydroID == short_id]['HydroID'].item()
 
-            str_order = output_flows.loc[output_flows.HydroID == short_id]['order_'].item()
+            output_order = output_flows.loc[output_flows.HydroID == short_id]['order_']
+            if len(output_order) == 1:
+                str_order = output_order.item()
+            else:
+                str_order = output_order.max()
             sml_segs = pd.concat(
                 [
                     sml_segs,
@@ -323,7 +344,8 @@ def add_crosswalk(
             for src_index, src_stage in new_values.iterrows():
                 output_src.loc[
                     (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage[0]),
-                    ['Discharge (m3s-1)']] = src_stage[1]
+                    ['Discharge (m3s-1)'],
+                ] = src_stage[1]
 
     if extent == 'FR':
         output_src = output_src.merge(input_majorities[['HydroID', 'feature_id']], on='HydroID')
@@ -354,7 +376,7 @@ def add_crosswalk(
             'SLOPE',
             'ManningN',
             'Stage',
-            'Discharge (m3s-1)'
+            'Discharge (m3s-1)',
         ],
     ]
     output_hydro_table.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
@@ -402,7 +424,7 @@ def add_crosswalk(
     if output_hydro_table.HUC.dtype != 'str':
         output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
 
-    output_hydro_table.drop(columns=FIM_ID, inplace=True)
+    output_hydro_table = output_hydro_table.drop(columns=FIM_ID)
     if output_hydro_table.feature_id.dtype != 'int':
         output_hydro_table.feature_id = output_hydro_table.feature_id.astype(int)
     if output_hydro_table.feature_id.dtype != 'str':

@@ -8,6 +8,10 @@ import geopandas as gpd
 
 from stream_branches import StreamNetwork
 from utils.fim_enums import FIM_exit_codes
+from utils.shared_variables import HIGH_STREAM_DENSITY_HUCS, MEDIUM_HIGH_STREAM_DENSITY_HUCS
+
+
+gpd.options.io_engine = "pyogrio"
 
 
 def Derive_level_paths(
@@ -16,8 +20,8 @@ def Derive_level_paths(
     buffer_wbd_streams,
     out_stream_network,
     branch_id_attribute,
+    huc_id,
     out_stream_network_dissolved=None,
-    huc_id=None,
     headwaters_outfile=None,
     catchments=None,
     waterbodies=None,
@@ -54,11 +58,22 @@ def Derive_level_paths(
         print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
-    # values_exluded of 1 and 2 mean where are dropping stream orders 1 and 2. We are leaving those
-    # for branch zero.
-    stream_network = stream_network.exclude_attribute_values(
-        branch_id_attribute="order_", values_excluded=[1, 2]
-    )
+    if huc_id in HIGH_STREAM_DENSITY_HUCS:
+        print('HUC is in high density HUC list... removing additional stream segments.')
+        stream_network = stream_network.exclude_attribute_values(
+            branch_id_attribute="order_", values_excluded=[1, 2, 3, 4]
+        )
+    elif huc_id in MEDIUM_HIGH_STREAM_DENSITY_HUCS:
+        print('HUC is in medium-high density HUC list... removing additional stream segments.')
+        stream_network = stream_network.exclude_attribute_values(
+            branch_id_attribute="order_", values_excluded=[1, 2, 3]
+        )
+    else:
+        # values_exluded of 1 and 2 mean that we are dropping stream orders 1 and 2. We are leaving those
+        # for branch zero.
+        stream_network = stream_network.exclude_attribute_values(
+            branch_id_attribute="order_", values_excluded=[1, 2]
+        )
 
     # if there are no reaches at this point (due to filtering)
     if len(stream_network) == 0:
@@ -98,7 +113,7 @@ def Derive_level_paths(
         reach_id_attribute=reach_id_attribute,
         toNode_attribute=toNode_attribute,
         fromNode_attribute=fromNode_attribute,
-        verbose=True,
+        verbose=False,
     )
 
     # derive arbolate sum
@@ -145,16 +160,14 @@ def Derive_level_paths(
             stream_network_to_merge, how="inner", left_on=reach_id_attribute, right_on=reach_id_attribute
         )
 
-        catchments.reset_index(drop=True, inplace=True)
+        catchments = catchments.reset_index(drop=True)
 
         catchments.to_file(catchments_outfile, index=False, driver="GPKG")
 
     # derive headwaters
     if headwaters_outfile is not None:
         headwaters = stream_network.derive_headwater_points_with_inlets(
-            fromNode_attribute=fromNode_attribute,
-            inlets_attribute=inlets_attribute,
-            outlet_linestring_index=outlet_linestring_index,
+            inlets_attribute=inlets_attribute, outlet_linestring_index=outlet_linestring_index
         )
         # headwaters write
         headwaters.to_file(headwaters_outfile, index=False, driver="GPKG")

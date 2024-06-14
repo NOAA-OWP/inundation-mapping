@@ -18,6 +18,9 @@ from rasterio.mask import mask
 from shapely.geometry import shape
 
 
+gpd.options.io_engine = "pyogrio"
+
+
 class hydroTableHasOnlyLakes(Exception):
     """Raised when a Hydro-Table only has lakes"""
 
@@ -575,7 +578,7 @@ def __subset_hydroTable_to_forecast(hydroTable, forecast, subset_hucs=None):
             usecols=htable_req_cols,
         )
         # huc_error = hydroTable.HUC.unique()
-        hydroTable.set_index(['HUC', 'feature_id', 'HydroID'], inplace=True)
+        hydroTable = hydroTable.set_index(['HUC', 'feature_id', 'HydroID'])
 
     elif isinstance(hydroTable, pd.DataFrame):
         pass  # consider checking for correct dtypes, indices, and columns
@@ -593,7 +596,7 @@ def __subset_hydroTable_to_forecast(hydroTable, forecast, subset_hucs=None):
     if isinstance(forecast, str):
         try:
             forecast = pd.read_csv(forecast, dtype={'feature_id': str, 'discharge': float})
-            forecast.set_index('feature_id', inplace=True)
+            forecast = forecast.set_index('feature_id')
         except UnicodeDecodeError:
             forecast = read_nwm_forecast_file(forecast)
 
@@ -619,7 +622,7 @@ def __subset_hydroTable_to_forecast(hydroTable, forecast, subset_hucs=None):
     if not hydroTable.empty:
         if isinstance(forecast, str):
             forecast = pd.read_csv(forecast, dtype={'feature_id': str, 'discharge': float})
-            forecast.set_index('feature_id', inplace=True)
+            forecast = forecast.set_index('feature_id')
         elif isinstance(forecast, pd.DataFrame):
             pass  # consider checking for dtypes, indices, and columns
         else:
@@ -687,7 +690,7 @@ def read_nwm_forecast_file(forecast_file, rename_headers=True):
     flows_nc = xr.open_dataset(forecast_file, decode_cf='feature_id', engine='netcdf4')
 
     flows_df = flows_nc.to_dataframe()
-    flows_df.reset_index(inplace=True)
+    flows_df = flows_df.reset_index()
 
     flows_df = flows_df[['streamflow', 'feature_id']]
 
@@ -697,9 +700,9 @@ def read_nwm_forecast_file(forecast_file, rename_headers=True):
     convert_dict = {'feature_id': str, 'discharge': float}
     flows_df = flows_df.astype(convert_dict)
 
-    flows_df.set_index('feature_id', inplace=True, drop=True)
+    flows_df = flows_df.set_index('feature_id', drop=True)
 
-    flows_df.dropna(inplace=True)
+    flows_df = flows_df.dropna()
 
     return flows_df
 
@@ -711,7 +714,7 @@ def __vprint(message, verbose):
 
 def create_src_subset_csv(hydro_table, catchmentStagesDict, src_table):
     src_df = pd.DataFrame.from_dict(catchmentStagesDict, orient='index')
-    src_df.reset_index(inplace=True)
+    src_df = src_df.reset_index()
     src_df.columns = ['HydroID', 'stage_inund']
     htable_req_cols = ['HUC', 'feature_id', 'HydroID', 'stage', 'discharge_cms', 'LakeID']
     df_htable = pd.read_csv(
