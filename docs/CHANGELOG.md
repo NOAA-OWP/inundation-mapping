@@ -1,8 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.2.3 - 2024-06-14 - [PR#1169](https://github.com/NOAA-OWP/inundation-mapping/pull/1169)
 
-## v4.5.2.2 - 2024-05-29 - [PR#1183](https://github.com/NOAA-OWP/inundation-mapping/pull/1183)
+This tool scans all log directory looking for the word "error" (not case-sensitive). This is primary added to help find errors in the post processing logs such as src_optimization folder (and others).
+
+### Changes
+
+- `fim_post_processing.sh`: as described
+- `src\mitigate_branch_outlet_backpool.py`: Has the word error in text which fills up the error scan logs.
+
+<br/><br/>
+
+
+## v4.5.2.2 - 2024-06-14 - [PR#1183](https://github.com/NOAA-OWP/inundation-mapping/pull/1183)
 
 Upgrades whitebox from v2.3.1 to 2.3.4. Whitebox was upgraded by `pip install -U whitebox` and then `pipenv lock` to update the `Pipfile`.
 
