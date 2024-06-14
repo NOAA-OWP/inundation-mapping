@@ -9,6 +9,9 @@ ARG taudemVersion2=81f7a07cdd3721617a30ee4e087804fddbcffa88
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
+# remove reference to missing repo
+RUN rm /etc/apt/sources.list.d/apache-arrow.sources
+
 RUN apt-get update && apt-get install -y git  && rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/dtarb/taudem.git
@@ -66,6 +69,9 @@ RUN mkdir -p $workDir
 RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 
+# remove reference to missing repo
+RUN rm /etc/apt/sources.list.d/apache-arrow.sources
+
 RUN apt-get update --fix-missing && apt-get install -y openjdk-19-jdk && rm -rf /var/lib/apt/lists/*
 
 RUN apt update --fix-missing
@@ -91,7 +97,7 @@ ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/unit_tests:$projectDir/tools
 
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
+RUN pip3 install pipenv==2023.12.1 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
 
 # ----------------------------------
 # Mar 2023
@@ -104,11 +110,11 @@ RUN pip3 install pipenv==2022.4.8 && PIP_NO_CACHE_DIR=off pipenv install --syste
 # We download and unzip it to the same file folder that pip deployed the whitebox library.
 # Whitebox also attempts to always download a folder called testdata regardless of use.
 # We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
-RUN wbox_path=/usr/local/lib/python3.10/dist-packages/whitebox/ && \
-    wget -P $wbox_path https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
-    unzip -o $wbox_path/WhiteboxTools_linux_musl.zip -d $wbox_path && \
-    cp $wbox_path/WBT/whitebox_tools $wbox_path && \
-    mkdir $wbox_path/testdata
+# RUN wbox_path=/usr/local/lib/python3.10/dist-packages/whitebox/WBT && \
+#     wget -P $wbox_path https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+#     unzip -o $wbox_path/WhiteboxTools_linux_musl.zip -d $wbox_path && \
+#     cp $wbox_path/whitebox_tools $wbox_path && \
+#     mkdir $wbox_path/testdata
 # ----------------------------------
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
