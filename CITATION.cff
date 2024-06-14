@@ -1,11 +1,8 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
-- family-names: "Aristizabal"
-  given-names: "Fernando"
-  orcid: "https://orcid.org/0000-0003-2525-4712"
-title: "Generalized Mainstems (GMS): An improvement of the Height Above Nearest Drainage Method (HAND) for flood inundation mapping (FIM) that uses processing units of unit stream order"
-version: alpha
-doi: None
-date-released: pending
-url: "https://github.com/NOAA-OWP/fim_4"
+- family-names: "NOAA Office of Water Prediction"
+title: "Inundation Mapping"
+url: "https://github.com/NOAA-OWP/inundation-mapping"
+version: 4.4.2.1
+date-released: 2023

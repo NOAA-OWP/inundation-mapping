@@ -1,59 +1,51 @@
 #!/bin/bash -e
+
 :
-usage ()
+usage()
 {
-    echo
-    echo 'Produce FIM hydrofabric datasets for unit and branch scale.'
-    echo 'Usage : [REQ: -u <hucs> -n <run name> ]'
-    echo '        [OPT: -h -c <config file> -o'
-    echo '          -ud <unit deny list file>'
-    echo '          -bd <branch deny list file>'
-    echo '          -zd <branch zero deny list file>'
-    echo '          -jh <number of jobs for HUCs>'
-    echo '          -jb <number of jobs for branches>'
-    echo '          -skipcal <skip the PostGres calibration process>'
-    echo '          -isaws ]'
-    echo ''
-    echo 'REQUIRED:'
-    echo '  -u/--hucList    : HUC8s to run or multiple passed in quotes (space delimited) file.'
-    echo '                    A line delimited file, with a .lst extension, is also acceptable.'
-    echo '                    HUCs must present in inputs directory.'
-    echo '  -n/--runName    : A name to tag the output directories and log files.'
-    echo 
-    echo 'OPTIONS:'
-    echo '  -h/--help       : Help file'
-    echo '  -c/--config     : Configuration file with bash environment variables to export'
-    echo '                    Default (if arg not added) : /foss_fim/config/params_template.env'    
-    echo '  -ud/--unitDenylist'
-    echo '                    A file with a line delimited list of files in UNIT (HUC) directories to be removed'
-    echo '                    upon completion (see config/deny_unit.lst for a starting point)'
-    echo '                    Default (if arg not added) : /foss_fim/config/deny_unit.lst'
-    echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
-    echo '                    use the word NONE as this value for this parameter.'
-    echo '  -bd/--branchDenylist'
-    echo '                    A file with a line delimited list of files in BRANCHES directories to be removed' 
-    echo '                    upon completion of branch processing.'
-    echo '                    (see config/deny_branches.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_branches.lst'   
-    echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
-    echo '                    use the word NONE as this value for this parameter.'
-    echo '  -zd/--branchZeroDenylist'
-    echo '                    A file with a line delimited list of files in BRANCH ZERO directories to' 
-    echo '                    be removed upon completion of branch zero processing.'
-    echo '                    (see config/deny_branch_zero.lst for a starting point)'
-    echo '                    Default: /foss_fim/config/deny_branch_zero.lst'   
-    echo '                    -- Note: if you want to keep all output files (aka.. no files removed),'
-    echo '                    use the word NONE as this value for this parameter.'    
-    echo '  -jh/--jobLimit   : Max number of concurrent HUC jobs to run. Default 1 job at time.'
-    echo '  -jb/--jobBranchLimit : Max number of concurrent Branch jobs to run. Default 1 job at time.' 
-    echo '                         NOTE: Make sure that the multiplication of jh and jb subtract 2 (jh x jb -2) does not'
-    echo '                         exceed the total number of cores available.'
-    echo '  -o               : Overwrite outputs if already exist'
-    echo '  -skipcal         : If this param is included, post gres calibration system will be skipped'    
-    echo '  -isaws           : If this param is included, the code will use AWS objects where possible'
-    echo '                   : Note: This feature is not yet implemented'
-    echo
-    exit
+    echo "
+    This script collects & validates inputs, creates files & folders,
+        as well as loads/sets environment & configuration variables.
+
+    Usage : fim_pre_processing.sh [REQ: -u <hucs> -n <run name> ] [OPT: see below for OPTIONS]
+
+    REQUIRED:
+      -u/--hucList      : HUC8s to run; more than one HUC8 should be passed in quotes (space delimited).
+                            A line delimited file, with a .lst extension, is also acceptable.
+                            HUC8s must be present in inputs directory.
+      -n/--runName      : A name to tag the output directories and log files.
+
+    OPTIONS:
+      -h/--help         : Print usage statement.
+      -c/--config       : Configuration file with bash environment variables to export
+                        - Default: config/params_template.env
+      -ud/--unitDenylist
+                        A file with a line delimited list of files in UNIT (HUC) directories to be
+                            removed upon completion.
+                        - Default: config/deny_unit.lst
+                        - Note: if you want to keep all output files (aka.. no files removed),
+                            use the word NONE as this value for this parameter.
+      -bd/--branchDenylist
+                        A file with a line delimited list of files in BRANCHES directories to be
+                            removed upon completion of branch processing.
+                        - Default: config/deny_branches.lst
+                        - Note: if you want to keep all output files (aka.. no files removed),
+                            use the word NONE as this value for this parameter.
+      -zd/--branchZeroDenylist
+                        A file with a line delimited list of files in BRANCH ZERO directories to
+                            be removed upon completion of branch zero processing.
+                        - Default: config/deny_branch_zero.lst
+                        - Note: If you want to keep all output files (aka.. no files removed),
+                        use the word NONE as this value for this parameter.
+      -jh/--jobLimit    : Max number of concurrent HUC jobs to run. Default 1 job at time.
+      -jb/--jobBranchLimit
+                        Max number of concurrent Branch jobs to run. Default 1 job at time.
+                        - Note: Make sure that the product of jh and jb plus 2 (jh x jb + 2)
+                            does not exceed the total number of cores available.
+      -o                : Overwrite outputs if they already exist.
+      -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
+                            will be skipped.
+    "
 }
 
 set -e
@@ -80,7 +72,7 @@ in
     -jb|--jobBranchLimit)
         shift
         jobBranchLimit=$1
-        ;;        
+        ;;
     -h|--help)
         shift
         usage
@@ -96,39 +88,40 @@ in
     -zd|--branchZeroDenylist)
         shift
         deny_branch_zero_list=$1
-        ;;        
+        ;;
     -o)
         overwrite=1
         ;;
     -skipcal)
         skipcal=1
         ;;
-    -isaws)
-        isAWS=1
+    -x)
+        evaluateCrosswalk=1
         ;;
     *) ;;
     esac
     shift
 done
 
+# exit 22 means bad argument
+
 # print usage if arguments empty
 if [ "$hucList" = "" ]
 then
     echo "ERROR: Missing -u Huclist argument"
     usage
+    exit 22
 fi
 if [ "$runName" = "" ]
 then
     echo "ERROR: Missing -n run time name argument"
     usage
+    exit 22
 fi
 
-# TODO
-# update Dockerfile to add this as an env value, and delete line below
-projectDir=/foss_fim
-
-# outputDataDir, srcDir and others come from the Dockerfile
-outputRunDataDir=$outputDataDir/$runName
+# outputsDir & workDir come from the Dockerfile
+outputDestDir=$outputsDir/$runName
+tempRunDir=$workDir/$runName
 
 # default values
 if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi
@@ -136,7 +129,7 @@ if [ "$jobHucLimit" = "" ]; then jobHucLimit=1; fi
 if [ "$jobBranchLimit" = "" ]; then jobBranchLimit=1; fi
 if [ -z "$overwrite" ]; then overwrite=0; fi
 if [ -z "$skipcal" ]; then skipcal=0; fi
-if [ -z "$isAWS" ]; then isAWS=0; fi
+if [ -z "$evaluateCrosswalk" ]; then evaluateCrosswalk=0; fi
 
 # validate and set defaults for the deny lists
 if [ "$deny_unit_list" = "" ]
@@ -147,6 +140,7 @@ then
     # NONE is not case sensitive
     echo "Error: The -ud <unit deny file> does not exist and is not the word NONE"
     usage
+    exit 22
 fi
 
 # validate and set defaults for the deny lists
@@ -158,6 +152,7 @@ then
     # NONE is not case sensitive
     echo "Error: The -bd <branch deny file> does not exist and is not the word NONE"
     usage
+    exit 22
 fi
 
 # We do a 1st cleanup of branch zero using branchZeroDenylist (which might be none).
@@ -174,20 +169,22 @@ then
     then
         echo "Error: The -zd <branch zero deny file> does not exist and is not the word NONE"
         usage
+        exit 22
     else
         # only if the deny branch zero has been overwritten and file exists
-        has_deny_branch_zero_override=1 
+        has_deny_branch_zero_override=1
     fi
 else
     has_deny_branch_zero_override=1 # it is the value of NONE and is overridden
 fi
 
 # Safety feature to avoid accidentaly overwrites
-if [ -d $outputRunDataDir ] && [ $overwrite -eq 0 ]; then
+if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     echo
-    echo "ERROR: Output dir $outputRunDataDir exists. Use overwrite -o to run."
-    echo        
+    echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
+    echo
     usage
+    exit 22
 fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
@@ -197,39 +194,40 @@ source $srcDir/bash_functions.env
 export runName=$runName
 export jobHucLimit=$jobHucLimit
 
-num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList)
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList -i $inputsDir)
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 
 # make dirs
-if [ ! -d $outputRunDataDir ]; then
-    mkdir -p $outputRunDataDir
+if [ ! -d $outputDestDir ]; then
+    mkdir -p $outputDestDir
+    chmod 777 $outputDestDir
+    mkdir -p $tempRunDir
 else
     # remove these directories and files on a new or overwrite run
-    rm -rdf $outputRunDataDir/logs
-    rm -rdf $outputRunDataDir/branch_errors
-    rm -rdf $outputRunDataDir/unit_errors
-    rm -rdf $outputRunDataDir/eval
-    rm -f $outputRunDataDir/crosswalk_table.csv
-    rm -f $outputRunDataDir/fim_inputs*
-    rm -f $outputRunDataDir/*.env
+    rm -rdf $outputDestDir/logs
+    rm -rdf $outputDestDir/branch_errors
+    rm -rdf $outputDestDir/unit_errors
+    rm -rdf $outputDestDir/eval
+    rm -f $outputDestDir/crosswalk_table.csv
+    rm -f $outputDestDir/fim_inputs*
+    rm -f $outputDestDir/*.env
 fi
 
-#logFile=$outputRunDataDir/logs/unit/summary_unit.log
-mkdir -p $outputRunDataDir/logs/unit
-mkdir -p $outputRunDataDir/logs/branch
-mkdir -p $outputRunDataDir/unit_errors
-mkdir -p $outputRunDataDir/branch_errors
+mkdir -p $outputDestDir/logs/unit
+mkdir -p $outputDestDir/logs/branch
+mkdir -p $outputDestDir/unit_errors
+mkdir -p $outputDestDir/branch_errors
 
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)
-cp $envFile $outputRunDataDir/params.env
+cp $envFile $outputDestDir/params.env
 
 # create an new .env file on the fly that contains all runtime values
 # that any unit can load it independently (in seperate AWS objects, AWS fargates)
 # or via pipeline. There is likely a more elegent way to do this.
 
-args_file=$outputRunDataDir/runtime_args.env
+args_file=$outputDestDir/runtime_args.env
 
 # the jobHucLimit is not from the args files, only jobBranchLimit
 echo "export runName=$runName" >> $args_file
@@ -239,8 +237,8 @@ echo "export deny_unit_list=$deny_unit_list" >> $args_file
 echo "export deny_branches_list=$deny_branches_list" >> $args_file
 echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
-echo "export isAWS=$isAWS" >> $args_file
 echo "export skipcal=$skipcal" >> $args_file
+echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
 
 echo "--- Pre-processing is complete"
 

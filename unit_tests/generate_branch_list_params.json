@@ -1,8 +1,7 @@
 {
-	"valid_data":
-	{
-		"stream_network_dissolved": "/outputs/fim_unit_test_data_do_not_remove/05030104/nwm_subset_streams_levelPaths_dissolved.gpkg",
-		"branch_id_attribute": "levpa_id",
-		"output_branch_list_file": "/outputs/fim_unit_test_data_do_not_remove/05030104/branch_ids.lst"
-	}
+    "valid_data": {
+        "stream_network_dissolved": "/data/outputs/unit_test_data/05030104/nwm_subset_streams_levelPaths_dissolved.gpkg",
+        "branch_id_attribute": "levpa_id",
+        "output_branch_list_file": "/data/outputs/unit_test_data/05030104/branch_ids.lst"
+    }
 }

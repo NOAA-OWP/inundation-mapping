@@ -1,7 +1,7 @@
 # To Do List
 
 ## Eval
-- *Testing Architecture & Modularity:* The test case functionality requires more modularity. There should be a clear set of tools that abstract away the model or test cases used. 
+- *Testing Architecture & Modularity:* The test case functionality requires more modularity. There should be a clear set of tools that abstract away the model or test cases used.
     - User tools should allow any predicted raster and any benchmark raster to be compared given proper encoding.
         - This function should be command line oriented and allow for a list or file to be evaluated using multiple CPUs
     - Eval tools for FIM 3, Lisflood, GMS, etc can then wrap around these core eval tools
@@ -12,7 +12,7 @@
 - *Evaluation extents:* The evaluation extents between FR, MS, GMS are not consistent. While this does have a small effect on CSI, MCC should be immune to it and generally shows a similar trend
 
 
-## GMS 
+## GMS
 - *NWM Divergences:* Levelpath derivation doesn't handle divergences (eg 12020002).
     - it shortens the effective length of levelpaths thus reducing the rating curve height of the most upstream catchment
     - it also creates more levelpaths and likely increases computational time

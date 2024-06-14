@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
+import os
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description='Checks final FIM outputs to identify missing HUCs')
-    parser.add_argument('-i','--huc-list-dir', help='list of HUCs to run', required=True)
-    parser.add_argument('-o','--output-folder', help='directory of HUCs completed', required=True)
+    parser.add_argument('-i', '--huc-list-dir', help='list of HUCs to run', required=True)
+    parser.add_argument('-o', '--output-folder', help='directory of HUCs completed', required=True)
 
     args = vars(parser.parse_args())
 
@@ -18,7 +17,6 @@ if __name__ == '__main__':
     if not os.path.isfile(huc_list_dir):
         huc_list = huc_list_dir.split()
     else:
-
         with open(huc_list_dir) as f:
             huc_list = f.read().splitlines()
 
@@ -33,4 +31,4 @@ if __name__ == '__main__':
     missing_hucs = list(set(huc_list) - set(output_huc_list))
 
     if len(missing_hucs) > 0:
-        print (f"MISSING {len(missing_hucs)} HUCS from outputs: {missing_hucs}")
+        print(f"MISSING {len(missing_hucs)} HUCS from outputs: {missing_hucs}")

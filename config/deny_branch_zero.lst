@@ -31,7 +31,7 @@ dem_lateral_thalweg_adj_{}.tif
 dem_meters_{}.tif
 dem_thalwegCond_{}.tif
 flowaccum_d8_burned_filled_{}.tif
-#flowdir_d8_burned_filled_{}.tif
+flowdir_d8_burned_filled_{}.tif
 flowdir_d8_burned_filled_flows_{}.tif
 flows_grid_boolean_{}.tif
 flows_points_pixels_{}.gpkg
@@ -44,11 +44,12 @@ gw_catchments_reaches_{}.tif
 headwaters_{}.tif
 #hydroTable_{}.csv
 idFile_{}.txt
-#LandSea_subset_{}.tif
+LandSea_subset_{}.tif
 nld_rasterized_elev_{}.tif
 nwm_catchments_proj_subset_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_dissolved_headwaters_{}.gpkg
+#osm_bridge_centroids_{}.gpkg
 rem_{}.tif
 #rem_zeroed_masked_{}.tif
 slopes_d8_dem_meters_{}.tif

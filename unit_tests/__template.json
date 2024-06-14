@@ -1,11 +1,12 @@
 {
-	"valid_data":
-	{
-		"some param name (suggested to match the method param name)": "some value",
-		"another one and as many lines as you need": "some value",
-		"for 'None', you can just leave this field out, but sometimes it seems like jsut passing the value of None seems to work (not validated) ": "some value",
-		"for numerics, just put the number": 20,
-	    "for lists/collections: ": ["value 1", "value 2"],
-		"inline json comments don't work (let us know if you figure it out)": "sorry"
-	}
+    "valid_data": {
+        "some_param_name__suggested_to_match_the_method_param_name": "some value",
+        "another_one_and_as_many_lines_as_you_need": "some value",
+        "a_number": 20,
+        "a_list": [
+            "value 1",
+            "value 2"
+        ],
+        "inline_json_comments_dont_work": "sorry"
+    }
 }
