@@ -161,6 +161,9 @@ def get_sample_data(
             Bucket.download_file(obj.key, target)
 
     if use_s3:
+        if data_path.startswith('s3://'):
+            data_path = data_path[5:]
+
         if not aws_access_key_id or not aws_secret_access_key:
             raise ValueError('AWS access key ID and secret access key are required when using S3')
 

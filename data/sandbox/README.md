@@ -9,7 +9,7 @@ Contains files to create a self-contained FIM sandbox demo image, including:
 An example workflow for these files is as follows:
 1. In an `inundation-mapping` Docker container, run `get_sample_data.py` to generate sample `input` and `test_cases` data. The `-s3` flag can be used to download from an AWS S3 bucket; access keys must be provided. Note: `get_sample_data.py` currently doesn't support HUCs in Alaska.
 ```
-/foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_fim/data/sandbox/sample-data
+python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i noaa-nws-owp-fim/hand_fim -o /foss_fim/data/sandbox/sample-data -s3 -ak [AWS access key ID] -sk [AWS secret access key]
 ```
 
 2. From the root of the `inundation-mapping` repository, copy `Pipfile`, `Pipfile.lock`, and `entrypoint.sh` to the `sandbox` folder:
@@ -37,5 +37,5 @@ fim_pipeline.sh -u 03100204 -jh 1 -jb 5 -n sandbox_run
 
 6. Evaluate against benchmark data. The `-b` argument must be followed by whichever benchmark is desired to be evaluated against (e.g., `nws`, `usgs`, or `ble`). All benchmarks do not exist for all HUCs, so the benchmark data must exist for the desired HUC or the evaluation will fail.
 ```
-/foss_fim/tools/synthesize_test_cases.py -c DEV -jh 1 -jb 5 -vr -vg -o -v sandbox_run -b nws
+python /foss_fim/tools/synthesize_test_cases.py -c DEV -jh 1 -jb 5 -vr -vg -o -v sandbox_run -b nws
 ```
