@@ -22,7 +22,7 @@ def associate_levelpaths_with_levees(
     out_filename: str,
 ):
     """
-    Finds the level path associated with each levee. Ignores level paths that cross a levee exactly once.
+    Finds the levelpath(s) associated with each levee. Ignores levelpaths that cross a levee exactly once.
 
     Parameters
     ----------
@@ -177,7 +177,6 @@ def associate_levelpaths_with_levees(
                 .reset_index(drop=True)
             )
 
-        # Remove levelpaths that cross the levee exactly once
         for j, row in out_df.iterrows():
             # Intersect levees and levelpaths
             row_intersections = gpd.overlay(
@@ -193,8 +192,22 @@ def associate_levelpaths_with_levees(
             # Select Point geometry type
             row_intersections = row_intersections[row_intersections.geom_type == 'Point']
 
+            # Remove levelpaths that cross the levee exactly once
             if len(row_intersections) == 1:
                 out_df = out_df.drop(j)
+
+            # Find associated levelpaths that don't intersect levees
+            elif row_intersections.empty:
+                # Get levelpaths that intersect leveed areas
+                leveed_area_levelpaths = gpd.overlay(
+                    levelpaths[levelpaths[branch_id_attribute] == row[branch_id_attribute]],
+                    leveed_areas[leveed_areas[levee_id_attribute] == row[levee_id_attribute]],
+                    how='intersection',
+                    keep_geom_type=False,
+                )
+
+                if not leveed_area_levelpaths.empty:
+                    out_df = out_df.drop(j)
 
         out_df.to_csv(out_filename, columns=[levee_id_attribute, branch_id_attribute], index=False)
 
