@@ -7,11 +7,6 @@ import traceback
 from pathlib import Path
 
 
-#import colored as cl
-# NOTE: This code was copied/pasted from ras2fim which has a color component in it as well
-# using colors in the console to highlight screen outputs.
-
-
 # Careful... You might not put shared_functions here as it can create circular references,
 #  so shared_functions is put inside functions only/as is need
 
@@ -25,8 +20,9 @@ from pathlib import Path
 # those outputs in the master log file.
 
 
-# This is not a perfect system. When rolling multi-proc logs into a rollup log, there can still be 
+# This is not a perfect system. When rolling multi-proc logs into a rollup log, there can still be
 # collisions but it is rare.
+
 
 class FIM_logger:
     CUSTOM_LOG_FILES_PATHS = {}
@@ -70,7 +66,7 @@ class FIM_logger:
         """
         During this process, a second log file will be created as an error file which will
         duplicate all log message with the levels of ERROR, and CRITICAL.
-        
+
         input:
             - log_file_path : ie) /data/catfim/test/logs/gen_catfim.log
         """
@@ -111,23 +107,23 @@ class FIM_logger:
         #     os.remove(self.LOG_WARNING_FILE_PATH)
 
         self.LOG_SYSTEM_IS_SETUP = True
+        return
 
     # -------------------------------------------------
-    def MP_Log_setup(self, file_prefix, log_folder):
+    def MP_Log_setup(self, parent_log_output_file, file_prefix):
         """
         Overview:
             This is for logs used inside code that is multi-processing, aka. inside the actual functions
             of the call from Pool
-                
+
             This method is sort of a wrapper in that it just manually creates a file name
-            using a defined file path. 
+            using a defined file path.
             The file name is calculated as such {file_prefix}-{date_with_milliseconds and random key}.log()
             ie) produce_geocurves-231122_1407441234_12345.log
-            
+
             The extra file portion is added as in MultiProc, you can have dozens of processes
             and each are loggign to their own file. At then end of an MP, you call a function called merge_log_files
             which will merge them into a parent log file if requested.
-
 
         Inputs:
             file_prefix (str): a value to prepend to the file names. Often is the name of the function
@@ -138,11 +134,13 @@ class FIM_logger:
                the same folder as the master log file.
         """
         # -----------------
+        log_folder = os.path.dirname(parent_log_output_file)
         file_id = self.get_date_with_milli()
         log_file_name = f"{file_prefix}-{file_id}.log"
         log_file_path = os.path.join(log_folder, log_file_name)
 
         self.setup(log_file_path)
+        return
 
     # -------------------------------------------------
     def __calc_warning_error_file_names(self, log_file_and_path):
@@ -152,7 +150,7 @@ class FIM_logger:
             into the file name.
             Why not update LOG_WARNING_FILE_PATH and LOG_ERROR_FILE_PATH
         Input:
-            log_file_and_path: ie) \data\outputs\rob_test\logs\catfim.log
+            log_file_and_path: ie) /data/outputs/rob_test/logs/catfim.log
         Output:
             Updates LOG_WARNING_FILE_PATH and LOG_ERROR_FILE_PATH variables
         """
@@ -174,9 +172,10 @@ class FIM_logger:
         self.LOG_ERROR_FILE_PATH = os.path.join(
             folder_path, file_name_parts[0] + "_errors" + file_name_parts[1]
         )
+        return
 
     # -------------------------------------------------
-    def merge_log_files(self, parent_log_file_and_path, file_prefix):
+    def merge_log_files(self, parent_log_output_file, file_prefix):
         """
         Overview:
             This tool is mostly for merging log files during multi processing which each had their own file.
@@ -185,22 +184,22 @@ class FIM_logger:
             incoming log_file_and_path. It then looks for all files starting with the
             file_prefix and adds them to the log file (via log_file_and_path)
         Inputs:
-            - log_file_and_path: ie) \data\outputs\rob_test\logs\catfim.log
+            - log_file_and_path: ie) /data/outputs/rob_test/logs/catfim.log
             - file_prefix: This value must be the start of file names. ie) mp_create_gdf_of_points
-                as in \data\outputs\rob_test\logs\mp_generate_categorical_fim(_231122_1407444333_12345).log
+                as in /data/outputs/rob_test/logs/mp_generate_categorical_fim(_231122_1407444333_12345).log
         """
 
         # -----------
         # Validation
-        if parent_log_file_and_path is None:
+        if parent_log_output_file is None:
             raise ValueError("Error: parent_log_file_and_path not defined")
 
-        parent_log_file_and_path = parent_log_file_and_path.strip()
+        parent_log_output_file = parent_log_output_file.strip()
 
-        if parent_log_file_and_path == "":
+        if parent_log_output_file == "":
             raise ValueError("Error: parent log_file_and_path can not be empty")
 
-        folder_path = os.path.dirname(parent_log_file_and_path)
+        folder_path = os.path.dirname(parent_log_output_file)
         os.makedirs(folder_path, exist_ok=True)
 
         log_file_list = list(Path(folder_path).rglob(f"{file_prefix}*"))
@@ -212,46 +211,52 @@ class FIM_logger:
 
             # open and write to the parent log
             # This will write all logs including errors and warning
-            with open(parent_log_file_and_path, 'a+') as main_log:
+            with open(parent_log_output_file, 'a+') as main_log:
                 # Iterate through list
                 for temp_log_file in log_file_list:
                     # Open each file in read mode
                     with open(temp_log_file) as infile:
                         main_log.write(infile.read())
+                    os.remove(temp_log_file)
 
             # now the warning files if there are any
             log_warning_file_list = list(Path(folder_path).rglob(f"{file_prefix}*_warnings*"))
             if len(log_warning_file_list) > 0:
                 log_warning_file_list.sort()
-                with open(self.LOG_WARNING_FILE_PATH, 'a+') as warning_log:
+                parent_warning_file = parent_log_output_file.replace(".log", "_warnings.log")
+                with open(parent_warning_file, 'a+') as warning_log:
                     # Iterate through list
                     for temp_log_file in log_warning_file_list:
                         # Open each file in read mode
                         with open(temp_log_file) as infile:
                             warning_log.write(infile.read())
+                        os.remove(temp_log_file)
 
             # now the warning files if there are any
             log_error_file_list = list(Path(folder_path).rglob(f"{file_prefix}*_errors*"))
             if len(log_error_file_list) > 0:
                 log_error_file_list.sort()
+                parent_error_file = parent_log_output_file.replace(".log", "_errors.log")
                 # doesn't yet exist, then create a blank one
-                with open(self.LOG_ERROR_FILE_PATH, 'a+') as error_log:
+                with open(parent_error_file, 'a+') as error_log:
                     # Iterate through list
                     for temp_log_file in log_error_file_list:
                         # Open each file in read mode
                         with open(temp_log_file) as infile:
                             error_log.write(infile.read())
+                        os.remove(temp_log_file)
 
         # now delete the all file with same prefix (reg, error and warning)
         # iterate through them a second time (do it doesn't mess up the for loop above)
-        if len(log_file_list) > 0:
-            for temp_log_file in log_file_list:
-                try:
-                    os.remove(temp_log_file)
-                except OSError:
-                    self.error(f"Error deleting {temp_log_file}")
-                    self.error(traceback.format_exc())
-    
+        # if len(log_file_list) > 0:
+        #     for temp_log_file in log_file_list:
+        #         try:
+        #             os.remove(temp_log_file)
+        #         except OSError:
+        #             self.error(f"Error deleting {temp_log_file}")
+        #             self.error(traceback.format_exc())
+        return
+
     # -------------------------------------------------
     def trace(self, msg):
         # goes to file only, not console
@@ -280,7 +285,7 @@ class FIM_logger:
     def notice(self, msg):
         # goes to console and log file
         level = "NOTICE  "  # keeps spacing the same
-        #print(f"{cl.fore.TURQUOISE_2}{msg}{cl.style.RESET}")
+        # print(f"{cl.fore.TURQUOISE_2}{msg}{cl.style.RESET}")
         print(f"{level}{msg}")
 
         if self.LOG_FILE_PATH == "":
@@ -295,8 +300,8 @@ class FIM_logger:
         # goes to console and log file
         level = "SUCCESS "  # keeps spacing the same
 
-        #c_msg_type = f"{cl.fore.SPRING_GREEN_2B}<{level}>{cl.style.RESET}"
-        #print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
+        # c_msg_type = f"{cl.fore.SPRING_GREEN_2B}<{level}>{cl.style.RESET}"
+        # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
         print(f"{level}{msg}")
 
         if self.LOG_FILE_PATH == "":
@@ -311,8 +316,8 @@ class FIM_logger:
         # goes to console and log file and warning log file
         level = "WARNING "  # keeps spacing the same
 
-        #c_msg_type = f"{cl.fore.LIGHT_YELLOW}<{level}>{cl.style.RESET}"
-        #print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
+        # c_msg_type = f"{cl.fore.LIGHT_YELLOW}<{level}>{cl.style.RESET}"
+        # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
         print(f"{level}{msg}")
 
         if self.LOG_FILE_PATH == "":
@@ -331,9 +336,9 @@ class FIM_logger:
         # goes to console and log file and error log file
         level = "ERROR   "  # keeps spacing the same
 
-        #c_msg_type = f"{cl.fore.RED_1}<{level}>{cl.style.RESET}"
-        #print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
-        print(f"{level}{msg}")        
+        # c_msg_type = f"{cl.fore.RED_1}<{level}>{cl.style.RESET}"
+        # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
+        print(f"{level}{msg}")
 
         if self.LOG_FILE_PATH == "":
             print(self.LOG_SYS_NOT_SETUP_MSG)
@@ -350,10 +355,10 @@ class FIM_logger:
     def critical(self, msg):
         level = "CRITICAL"  # keeps spacing the same
 
-        #c_msg_type = f"{cl.style.BOLD}{cl.fore.RED_3A}{cl.back.WHITE}{self.__get_dt()}"
-        #c_msg_type += f" <{level}>"
-        #print(f" {c_msg_type} : {msg} {cl.style.RESET}")
-        print(f"{level}{msg}")        
+        # c_msg_type = f"{cl.style.BOLD}{cl.fore.RED_3A}{cl.back.WHITE}{self.__get_dt()}"
+        # c_msg_type += f" <{level}>"
+        # print(f" {c_msg_type} : {msg} {cl.style.RESET}")
+        print(f"{level}{msg}")
 
         if self.LOG_FILE_PATH == "":
             print(self.LOG_SYS_NOT_SETUP_MSG)
@@ -365,7 +370,6 @@ class FIM_logger:
         # and also write to error logs
         with open(self.LOG_ERROR_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
-            
 
     # -------------------------------------------------
     def get_date_with_milli(self, add_random=True):
@@ -384,4 +388,3 @@ class FIM_logger:
             str_date += "_" + str(random_id)
 
         return str_date
-            

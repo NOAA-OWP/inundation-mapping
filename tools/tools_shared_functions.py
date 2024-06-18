@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
+import datetime as dt
 import json
 import logging
 import os
 import pathlib
-from datetime import datetime, timezone
-from pathlib import Path
 import traceback
+from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
@@ -16,6 +16,7 @@ import rasterio.crs
 import rasterio.shutil
 import requests
 import rioxarray as rxr
+import urllib3
 import xarray as xr
 from dotenv import load_dotenv
 from geocube.api.core import make_geocube
@@ -487,9 +488,7 @@ def get_stats_table_from_binary_rasters(
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
 
-        from datetime import datetime
-
-        now = datetime.now()
+        now = dt.datetime.now()
         current_time = now.strftime("%m/%d/%Y %H:%M:%S")
 
         with open(legend_txt, 'w') as f:
@@ -683,7 +682,7 @@ def get_metadata(
 ########################################################################
 # Function to assign HUC code using the WBD spatial layer using a spatial join
 ########################################################################
-def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, huc_list =list()):
+def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, huc_list=list()):
     '''
     Assigns the proper FIM HUC 08 code to each site in the input DataFrame.
     Converts input DataFrame to a GeoDataFrame using lat/lon attributes
@@ -716,7 +715,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     print("WBD read.")
     huc8 = huc8_all[['HUC8', 'name', 'states', 'geometry']]
-    
+
     if len(huc_list) > 0:
         # filter by hucs we are using
         huc8 = huc8[huc8['HUC8'].isin(huc_list)]
@@ -957,6 +956,9 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
 
     # Call the API
     session = requests.Session()
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     retry = Retry(connect=3, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)

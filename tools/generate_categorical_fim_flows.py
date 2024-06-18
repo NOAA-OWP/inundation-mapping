@@ -2,14 +2,15 @@
 
 import argparse
 import csv
-#import logging
+
+# import logging
 import os
 import pickle
 import sys
 import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import geopandas as gpd
@@ -27,6 +28,7 @@ from tools_shared_functions import (
 
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
+
 
 # will become global once initiallized
 FLOG = fl.FIM_logger()
@@ -47,8 +49,8 @@ def get_env_paths(env_file):
     return API_BASE_URL, WBD_LAYER
 
 
-# This one is for lid magnitudes only and is part of an MP pool 
-def process_generate_flows(
+# This one is for lid magnitudes only and is part of an MP pool
+def generate_flows_for_huc(
     huc,
     huc_dictionary,
     threshold_url,
@@ -58,91 +60,102 @@ def process_generate_flows(
     huc_messages_dir,
     nwm_flows_df,
     parent_log_output_file,
-    parent_log_file_prefix
+    log_file_prefix,
 ):
 
-    # Note: parent_log_file_prefix is "MP_process_gen_flows", meaning all logs created by this function start
-    #  with the phrase "MP_process_gen_flows". This will roll up to the master catfim log.
-    # This is setting up logging for this function to go up to the parent
-    log_folder = os.path.dirname(parent_log_output_file)
-    MP_LOG.MP_Log_setup(parent_log_file_prefix, log_folder)    
+    try:
+        # Note: parent_log_file_prefix is "MP_process_gen_flows", meaning all logs created by this function start
+        #  with the phrase "MP_process_gen_flows". This will roll up to the master catfim log.
+        # This is setting up logging for this function to go up to the parent
+        MP_LOG.MP_Log_setup(parent_log_output_file, log_file_prefix)
 
-    # Process each huc unit, first define message variable and flood categories.
-    all_messages = []
-    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
+        # Process each huc unit, first define message variable and flood categories.
+        all_messages = []
+        flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
 
-    MP_LOG.lprint(f'-- MP_Log --- processing_generate_flow start for {huc}')
-   
-    # Get list of nws_lids
-    nws_lids = huc_dictionary[huc]
+        MP_LOG.lprint(f'Start generating flows for {huc}')
 
-    # Loop through each lid in list to create flow file
-    for lid in nws_lids:  # TODO: Replace print statements with a progress bar
-        # Convert lid to lower case
-        lid = lid.lower()
+        nws_lids = huc_dictionary[huc]
 
-        # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
+        if len(nws_lids) == 0:
+            MP_LOG.lprint(f"huc {huc} has no applicable nws_lids")
+            return
 
-        # print(f'Getting thresholds for {lid}') # TODO: Make verbose option
-        stages, flows = get_thresholds(
-            threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-        )
+        # Loop through each lid in list to create flow file
+        for lid in nws_lids:
+            # Convert lid to lower case
+            lid = lid.lower()
 
-        if stages is None or flows is None:
-            message = f'{huc} - {lid}: stages or flows is none, likely WRDS error'
-            all_messages.append(message)
-            MP_LOG.warning(message)
-            # print(message) # TODO: Make verbose option
-            continue
+            # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated
+            # flows.
+            # TODO:  Jun 17, 2024 - This gets recalled for every huc but only uses the nws_list.
+            # Move this somewhere outside the huc list so it doesn't need to be called over and over again
+            MP_LOG.trace(f'Getting thresholds for {lid}')
+            stages, flows = get_thresholds(
+                threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+            )
 
-        # Check if stages are supplied, if not write message and exit.
-        if all(stages.get(category, None) is None for category in flood_categories):
-            message = f'{huc} - {lid}: missing threshold stages'
-            all_messages.append(message)
-            MP_LOG.warning(message)
-            # print(message) # TODO: Make verbose option
-            continue
+            if len(stages) == 0 or len(flows) == 0:
+                message = f'{huc} - {lid}: stages or flows is none, likely WRDS error'
+                all_messages.append(message)
+                MP_LOG.warning(message)
+                # print(message) # TODO: Make verbose option
+                continue
 
-        # Check if calculated flows are supplied, if not write message and exit.
-        if all(flows.get(category, None) is None for category in flood_categories):
-            message = f'{huc} - {lid}: missing calculated flows'
-            all_messages.append(message)
-            MP_LOG.warning(message)
-            # print(message) # TODO: Make verbose option
-            continue
+            # Check if stages are supplied, if not write message and exit.
+            if all(stages.get(category, None) is None for category in flood_categories):
+                message = f'{huc} - {lid}: missing threshold stages'
+                all_messages.append(message)
+                MP_LOG.warning(message)
+                # print(message) # TODO: Make verbose option
+                continue
 
-        # Find lid metadata from master list of metadata dictionaries (line 66).
-        metadata = next((item for item in all_meta_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
+            # Check if calculated flows are supplied, if not write message and exit.
+            if all(flows.get(category, None) is None for category in flood_categories):
+                message = f'{huc} - {lid}: missing calculated flows'
+                all_messages.append(message)
+                MP_LOG.warning(message)
+                # print(message) # TODO: Make verbose option
+                continue
 
-        # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
-        unfiltered_segments = list(set(get_nwm_segs(metadata)))
-        desired_order = metadata['nwm_feature_data']['stream_order']
+            # Find lid metadata from master list of metadata dictionaries (line 66).
+            metadata = next(
+                (item for item in all_meta_lists if item['identifiers']['nws_lid'] == lid.upper()), False
+            )
 
-        # Filter segments to be of like stream order.
-        # print("Filtering segments...") # TODO: Make verbose option
-        start = time.time()
+            # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
+            unfiltered_segments = list(set(get_nwm_segs(metadata)))
+            desired_order = metadata['nwm_feature_data']['stream_order']
 
-        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
+            # Filter segments to be of like stream order.
+            # print("Filtering segments...") # TODO: Make verbose option
+            start = time.time()
 
-        end = time.time()
-        elapsed_time = round((end - start), 6)
-        MP_LOG.trace(f'{huc} - {lid}: Finished filtering segments : {elapsed_time} minutes')
+            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
 
-        # If there are no segments, write message and exit out
-        if not segments:
-            message = f'{lid}: missing nwm segments'
-            all_messages.append(message)
-            MP_LOG.warning(message)
-            # print(message) # TODO: Make verbose option
-            continue
+            end = time.time()
+            elapsed_time = round((end - start), 6)
+            MP_LOG.trace(
+                f"{huc} - {lid}: Finished filtering segments : {str(elapsed_time).split('.')[0]} minutes"
+            )
 
-        # For each flood category
-        for category in flood_categories:
-            # Get the flow
-            flow = flows[category]
+            # If there are no segments, write message and exit out
+            if len(segments) == 0:
+                message = f'{lid}: missing nwm segments'
+                all_messages.append(message)
+                MP_LOG.warning(message)
+                continue
 
-            # If there is a valid flow value, write a flow file.
-            if flow:
+            # For each flood category
+            for category in flood_categories:
+                # Get the flow
+                flow = flows[category]
+                if flow is None:
+                    MP_LOG.trace(f"{category} flow is none")
+                    continue
+
+                # If there is a valid flow value, write a flow file.
+                # if flow:
                 # round flow to nearest hundredth
                 flow = round(flow, 2)
 
@@ -150,99 +163,106 @@ def process_generate_flows(
                 flow_info = flow_data(segments, flow)
 
                 # Define destination path and create folders
-                output_file = os.path.join(output_flows_dir, huc, lid, category, f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
-                output_file.parent.mkdir(parents=True, exist_ok=True)
+                csv_output_folder = os.path.join(output_flows_dir, huc, lid, category)
+                os.makedirs(csv_output_folder, exist_ok=True)
+                output_file = os.path.join(csv_output_folder, f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
 
                 # Write flow file to file
                 flow_info.to_csv(output_file, index=False)
 
+                # else:
+                #     message = f'{lid}: magnitude : {category} is missing calculated flow'
+                #     all_messages.append(message)
+                #     MP_LOG.warning(message)
+
+            # Get various attributes of the site.
+            lat = float(metadata['nws_preferred']['latitude'])
+            lon = float(metadata['nws_preferred']['longitude'])
+            wfo = metadata['nws_data']['wfo']
+            rfc = metadata['nws_data']['rfc']
+            state = metadata['nws_data']['state']
+            county = metadata['nws_data']['county']
+            name = metadata['nws_data']['name']
+            flow_source = flows['source']
+            stage_source = stages['source']
+            wrds_timestamp = stages['wrds_timestamp']
+            nrldb_timestamp = metadata['nrldb_timestamp']
+            nwis_timestamp = metadata['nwis_timestamp']
+
+            # Create a csv with same information as shapefile but with each threshold as new record.
+            csv_df = pd.DataFrame()
+            for threshold in flood_categories:
+                line_df = pd.DataFrame(
+                    {
+                        'nws_lid': [lid],
+                        'name': name,
+                        'WFO': wfo,
+                        'rfc': rfc,
+                        'huc': [huc],
+                        'state': state,
+                        'county': county,
+                        'magnitude': threshold,
+                        'q': flows[threshold],
+                        'q_uni': flows['units'],
+                        'q_src': flow_source,
+                        'stage': stages[threshold],
+                        'stage_uni': stages['units'],
+                        's_src': stage_source,
+                        'wrds_time': wrds_timestamp,
+                        'nrldb_time': nrldb_timestamp,
+                        'nwis_time': nwis_timestamp,
+                        'lat': [lat],
+                        'lon': [lon],
+                    }
+                )
+                csv_df = pd.concat([csv_df, line_df])
+
+            # Round flow and stage columns to 2 decimal places.
+            csv_df = csv_df.round({'q': 2, 'stage': 2})
+
+            # If a site folder exists (ie a flow file was written) save files containing site attributes.
+            huc_lid_flow_dir = os.path.join(output_flows_dir, huc, lid)
+
+            if os.path.exists(huc_lid_flow_dir):
+                # Export DataFrame to csv containing attributes
+                csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
+                message = f'{lid}: flows available'
             else:
-                message = f'{lid}:{category} is missing calculated flow'
+                message = f'{lid}: missing all calculated flows'
                 all_messages.append(message)
-                MP_LOG.warning(message)
+                MP_LOG.warning(f"Missing all calculated flows for {huc} - {lid}")
                 # print(message) # TODO: Make verbose option
 
-        # Get various attributes of the site.
-        lat = float(metadata['nws_preferred']['latitude'])
-        lon = float(metadata['nws_preferred']['longitude'])
-        wfo = metadata['nws_data']['wfo']
-        rfc = metadata['nws_data']['rfc']
-        state = metadata['nws_data']['state']
-        county = metadata['nws_data']['county']
-        name = metadata['nws_data']['name']
-        flow_source = flows['source']
-        stage_source = stages['source']
-        wrds_timestamp = stages['wrds_timestamp']
-        nrldb_timestamp = metadata['nrldb_timestamp']
-        nwis_timestamp = metadata['nwis_timestamp']
+        # Write all_messages to huc-specific file.
+        # MP_LOG.lprint(f'Writing message file for {huc}')
+        huc_messages_txt_file = os.path.join(huc_messages_dir, str(huc) + '_messages.txt')
+        with open(huc_messages_txt_file, 'w') as f:
+            for item in all_messages:
+                f.write("%s\n" % item)
+        MP_LOG.lprint(f'--- generate_flow_for_huc done for {huc}')
 
-        # Create a csv with same information as shapefile but with each threshold as new record.
-        csv_df = pd.DataFrame()
-        for threshold in flood_categories:
-            line_df = pd.DataFrame(
-                {
-                    'nws_lid': [lid],
-                    'name': name,
-                    'WFO': wfo,
-                    'rfc': rfc,
-                    'huc': [huc],
-                    'state': state,
-                    'county': county,
-                    'magnitude': threshold,
-                    'q': flows[threshold],
-                    'q_uni': flows['units'],
-                    'q_src': flow_source,
-                    'stage': stages[threshold],
-                    'stage_uni': stages['units'],
-                    's_src': stage_source,
-                    'wrds_time': wrds_timestamp,
-                    'nrldb_time': nrldb_timestamp,
-                    'nwis_time': nwis_timestamp,
-                    'lat': [lat],
-                    'lon': [lon],
-                }
-            )
-            csv_df = pd.concat([csv_df, line_df])
+    except Exception as ex:
+        MP_LOG.error(f"An error occured while generating flows for huc {huc}")
+        MP_LOG.error(f"Details: {ex}")
+        MP_LOG.error(traceback.format_exc())
 
-        # Round flow and stage columns to 2 decimal places.
-        csv_df = csv_df.round({'q': 2, 'stage': 2})
-
-        # If a site folder exists (ie a flow file was written) save files containing site attributes.
-        output_dir = os.path.join(output_flows_dir ,huc, lid)
-        if output_dir.exists():
-            # Export DataFrame to csv containing attributes
-            csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)        
-            message = f'{lid}: flows available'
-        else:
-            message = f'{lid}: missing all calculated flows'
-            all_messages.append(message)
-            # print(message) # TODO: Make verbose option
-
-    # Write all_messages to huc-specific file.
-    MP_LOG.lprint(f'Writing message file for {huc}')
-    huc_messages_txt_file = os.path.join(huc_messages_dir, str(huc) + '_messages.txt')
-    with open(huc_messages_txt_file, 'w') as f:
-        for item in all_messages:
-            f.write("%s\n" % item)
-    MP_LOG.lprint(f'--- processing_generate_flow done for {huc}')
-    MP_LOG.lprint("")
+    print("")
     return
 
 
 # This is called from within this script and is not MP, so it can use FLOG directly
 # lid_to_run is temp disabled
-def generate_catfim_flows(
+def generate_flows(
     output_catfim_dir,
     nwm_us_search,
     nwm_ds_search,
     env_file,
-    job_number_inundate,
-    job_number_huc,    
+    job_number_huc,
     is_stage_based,
     lst_hucs,
-    log_output_file="",
+    nwm_metafile,
+    log_output_file,
 ):
-    
     '''
     This will create static flow files for all nws_lids and save to the
     workspace directory with the following format:
@@ -269,18 +289,16 @@ def generate_catfim_flows(
     -------
     None.
     '''
-    
-    if log_output_file == "":
-        log_output_file = os.path.join(output_catfim_dir, "logs", "gen_cat_fim_flows.log")
-        FLOG.setup(log_output_file)
-    else:
-        # just pass pointer from other script or function so this one can write to the same master log
-        FLOG.setup(log_output_file)
-  
+
+    FLOG.setup(log_output_file)  # reusing the parent logs
+
     output_flows_dir = os.path.join(output_catfim_dir, "flows")
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
-  
-    all_start = datetime.now()
+    if os.path.exists(attributes_dir) is False:
+        os.mkdir(attributes_dir)
+    mapping_dir = os.path.join(output_catfim_dir, "mapping")  # create var but don't make folder yet
+
+    all_start = datetime.now(timezone.utc)
     API_BASE_URL, WBD_LAYER = get_env_paths(env_file)
     nwm_us_search = int(nwm_us_search)
     nwm_ds_search = int(nwm_ds_search)
@@ -292,7 +310,9 @@ def generate_catfim_flows(
     huc_messages_dir = os.path.join(output_flows_dir, 'huc_messages')
     os.makedirs(huc_messages_dir, exist_ok=True)
 
-    FLOG.lprint("Loading nwm flow files")
+    FLOG.lprint("Loading nwm flow metadata")
+    start_dt = datetime.now(timezone.utc)
+
     # Open NWM flows geopackages
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
@@ -300,73 +320,45 @@ def generate_catfim_flows(
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
 
-    start_dt = datetime.now()
+    all_meta_lists = __load_nwm_metadata(
+        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile
+    )
+    FLOG.trace(f"Len of all_meta_lists is {len(all_meta_lists)}")
 
-    # TODO: Get metadata only for the hucs we have, not all
-    # but it is alot of work and only a nice to have
-    
-    FLOG.lprint(metadata_url)
-    
-    all_meta_lists = []
-    # Check to see if meta file already exists
-    meta_file = os.path.join(output_catfim_dir, "metafile.pkl")
-    
-    # This feature means we can copy the pickle file to another enviro (AWS?) as it won't need to call
-    # WRDS unless we need a smaller or modified version. This one likely has all nws_lid data.
-    if os.path.isfile(meta_file) is True:
-        FLOG.lprint(f"Meta file already downloaded and exists at {meta_file}")
-            
-        with open(meta_file, "rb") as p_handle:
-            all_meta_lists = pickle.load(p_handle)
-            
-    else:
-        FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
-    
-        conus_list, ___ = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=['all'],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-        
-        # Get metadata for Islands and Alaska
-        islands_list, ___ = get_metadata(
-            metadata_url,
-            select_by='state',
-            selector=['HI', 'PR', 'AK'],
-            must_include=None,
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-        # Append the lists
-        all_meta_lists = conus_list + islands_list
-
-        with open(meta_file, "wb") as p_handle:
-            pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
-        
-        
-    # TODO: PUT IN A filter for selected lids.        
-        
-    end_dt = datetime.now()
+    end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt
-    FLOG.lprint(f"Retrieving metadata Duration: {str(time_duration).split('.')[0]}")
-    
-    FLOG.lprint("")
-    FLOG.lprint('Determining HUC using WBD layer...')
+    FLOG.lprint(f"Retrieving metadata - Duration: {str(time_duration).split('.')[0]}")
+
+    print("")
 
     # Assign HUCs to all sites using a spatial join of the FIM 4 HUC layer.
     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     # of all sites used later in script.
 
-    huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER,  True, lst_hucs)
-    # Drop list fields if invalid
-    out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
-    out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-    out_gdf = out_gdf.astype({'metadata_sources': str})
+    FLOG.lprint("Start aggregate_wbd_hucs")
+    start_dt = datetime.now(timezone.utc)
 
-    FLOG.lprint("")
+    # TEMP DEBUGGING
+    is_debug_override = True
+    if is_debug_override:
+        # Ensured I had a 12040101 fim output dir to match this.
+        # but you might have to run this once to get the agg_wbd that matches for the 12040101
+        agg_gpkg = os.path.join(output_catfim_dir, "agg_wbd.gpkg")
+        huc_dictionary = {}
+        huc_dictionary["12040101"] = ['CFKT2', 'FCWT2', 'HMMT2', 'POET2', 'PTET2']
+        out_gdf = gpd.read_file(agg_gpkg)
+    else:
+        huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
+
+    if is_debug_override:
+        out_gdf.to_file(agg_gpkg, driver='GPKG')
+
+    end_dt = datetime.now(timezone.utc)
+    time_duration = end_dt - start_dt
+    FLOG.lprint(f"End aggregate_wbd_hucs - Duration: {str(time_duration).split('.')[0]}")
+    print("")
+
+    FLOG.lprint("Start Flow Generation")
 
     if is_stage_based:  # If it's stage-based, the function stops running here
         return (
@@ -379,63 +371,48 @@ def generate_catfim_flows(
             nwm_flows_alaska_df,
         )
 
-    FLOG.trace("Generating flows for hucs using " + str(job_number_huc) + " jobs...")
-    start_dt = datetime.now()
+    start_dt = datetime.now(timezone.utc)
 
     child_log_file_prefix = "MP_process_gen_flows"
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
-            FLOG.lprint(f'Generating flows for huc: {huc}')
 
-            if huc[:2] == '19':
-                # Alaska
-                executor.submit(
-                    process_generate_flows,
-                    huc,
-                    huc_dictionary,
-                    threshold_url,
-                    all_meta_lists,
-                    output_flows_dir,
-                    attributes_dir,
-                    huc_messages_dir,
-                    nwm_flows_alaska_df,
-                    str(FLOG.LOG_FILE_PATH),
-                    child_log_file_prefix
-                )
-
-            else:
-                # Not Alaska
-                executor.submit(
-                    process_generate_flows,
-                    huc,
-                    huc_dictionary,
-                    threshold_url,
-                    all_meta_lists,
-                    output_flows_dir,
-                    attributes_dir,
-                    huc_messages_dir,
-                    nwm_flows_df,
-                    str(FLOG.LOG_FILE_PATH),
-                    child_log_file_prefix                    
-                )
+            flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
+            executor.submit(
+                generate_flows_for_huc,
+                huc,
+                huc_dictionary,
+                threshold_url,
+                all_meta_lists,
+                output_flows_dir,
+                attributes_dir,
+                huc_messages_dir,
+                flows_df,
+                log_output_file,
+                child_log_file_prefix,
+            )
+    # end ProcessPoolExecutor
 
     # rolls up logs from child MP processes into this parent_log_output_file
-    MP_LOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix )
+    MP_LOG.merge_log_files(log_output_file, child_log_file_prefix)
 
-    end_dt = datetime.now()
+    end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt
-    FLOG.lprint(f"Generating flows for hucs Duration: {str(time_duration).split('.')[0]}")
+    FLOG.lprint(f"End flow generation - Duration: {str(time_duration).split('.')[0]}")
     print()
 
-    FLOG.lprint('Wrapping up flows generation...')
-    FLOG.lprint("")
+    FLOG.lprint('Start wrapping up flows generation...')
     # Recursively find all *_attributes csv files and append
     # csv_files = os.listdir(attributes_dir)
-    csv_files = [x for x in os.listdir(attributes_dir) if x.endswith('.csv')]	    
-    
+    csv_files = [x for x in os.listdir(attributes_dir) if x.endswith('_attributes.csv')]
+
+    if len(csv_files) == 0:
+        MP_LOG.critical(f"No new flow files exist in the {attributes_dir} folder (errors in creating them?)")
+        sys.exit(1)
+
     all_csv_df = pd.DataFrame()
-    for csv in csv_files:
-        full_csv_path = os.path.join(attributes_dir, csv)
+    for csv_file in csv_files:
+        full_csv_path = os.path.join(attributes_dir, csv_file)
         # Huc has to be read in as string to preserve leading zeros.
         temp_df = pd.read_csv(full_csv_path, dtype={'huc': str})
         all_csv_df = pd.concat([all_csv_df, temp_df], ignore_index=True)
@@ -445,8 +422,13 @@ def generate_catfim_flows(
     # This section populates a shapefile of all potential sites and details
     # whether it was mapped or not (mapped field) and if not, why (status field).
 
+    if not os.path.exists(mapping_dir):
+        os.mkdir(mapping_dir)
+
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)  # TODO: Accomodate AK projection?
+
+    # TODO: Accomodate AK projection?
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
     viz_out_gdf.rename(
         columns={
             'identifiers_nwm_feature_id': 'nwm_seg',
@@ -485,9 +467,11 @@ def generate_catfim_flows(
     if len(huc_message_list) > 0:
         messages_df = pd.DataFrame(huc_message_list, columns=['message'])
         messages_df = (
-            messages_df['message'].str.split(':', n=1, expand=True).rename(columns={0: 'nws_lid', 1: 'status'})
+            messages_df['message']
+            .str.split(':', n=1, expand=True)
+            .rename(columns={0: 'nws_lid', 1: 'status'})
         )
-    
+
         status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
 
         # Join messages to populate status field to candidate sites. Assign
@@ -499,23 +483,71 @@ def generate_catfim_flows(
     # viz_out_gdf = viz_out_gdf.filter(
     #     ['nws_lid', 'usgs_gage', 'nwm_seg', 'HUC8', 'mapped', 'status', 'geometry']
     # )
-    nws_lid_layer = os.path.join(output_flows_dir, 'nws_lid_sites.gpkg').replace('flows', 'mapping')
-
+    nws_lid_layer = os.path.join(mapping_dir, 'nws_lid_sites.gpkg')
     viz_out_gdf.to_file(nws_lid_layer, driver='GPKG')
 
     # time operation
-    all_end = datetime.now()
+    all_end = datetime.now(timezone.utc)
     all_time_duration = all_end - all_start
-    FLOG.lprint(f"Duration: {str(all_time_duration).split('.')[0]}")
+    FLOG.lprint(f"End Wrapping up flows generation Duration: {str(all_time_duration).split('.')[0]}")
     print()
 
     return nws_lid_layer
 
 
+# local script calls __load_nwm_metadata so FLOG is already setup
+def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile):
+    FLOG.trace(metadata_url)
+
+    all_meta_lists = []
+    # Check to see if meta file already exists
+    # This feature means we can copy the pickle file to another enviro (AWS?) as it won't need to call
+    # WRDS unless we need a smaller or modified version. This one likely has all nws_lid data.
+
+    if os.path.isfile(nwm_metafile) is True:
+        FLOG.lprint(f"Meta file already downloaded and exists at {nwm_metafile}")
+
+        with open(nwm_metafile, "rb") as p_handle:
+            all_meta_lists = pickle.load(p_handle)
+
+    else:
+        meta_file = os.path.join(output_catfim_dir, "nwm_metafile.pkl")
+
+        FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
+
+        conus_list, ___ = get_metadata(
+            metadata_url,
+            select_by='nws_lid',
+            selector=['all'],
+            must_include='nws_data.rfc_forecast_point',
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+
+        # Get metadata for Islands and Alaska
+        islands_list, ___ = get_metadata(
+            metadata_url,
+            select_by='state',
+            selector=['HI', 'PR', 'AK'],
+            must_include=None,
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+        # Append the lists
+        all_meta_lists = conus_list + islands_list
+
+        with open(meta_file, "wb") as p_handle:
+            pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    return all_meta_lists
+
+
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Create forecast files for all nws_lid sites')
-    parser.add_argument('-w', '--output_catfim_dir', help='Workspace where all data will be stored.', required=True)
+    parser.add_argument(
+        '-w', '--output_catfim_dir', help='Workspace where all data will be stored.', required=True
+    )
     parser.add_argument(
         '-u', '--nwm_us_search', help='Walk upstream on NWM network this many miles', required=True
     )
@@ -547,8 +579,10 @@ if __name__ == '__main__':
     )
     args = vars(parser.parse_args())
 
-    # TODO: NOTE: Due to the new fim_loggign system, this file might work anymore from command line. 
+    # TODO: NOTE: Due to the new fim_loggign system, this file might work anymore from command line.
     # Fixes and testing coming.
 
+    # TODO: Jun 13 - fix incoming args
+
     # Run get_env_paths and static_flow_lids
-    generate_catfim_flows(**args)
+    generate_flows(**args)

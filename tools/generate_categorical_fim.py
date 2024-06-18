@@ -3,6 +3,7 @@
 import argparse
 import csv
 import glob
+
 # import logging
 import os
 import random
@@ -11,7 +12,8 @@ import sys
 import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
-#from logging.handlers import QueueHandler, QueueListener
+
+# from logging.handlers import QueueHandler, QueueListener
 from datetime import datetime, timezone
 from itertools import repeat
 from pathlib import Path
@@ -21,10 +23,9 @@ import numpy as np
 import pandas as pd
 import rasterio
 from dotenv import load_dotenv
-from generate_categorical_fim_flows import generate_catfim_flows
+from generate_categorical_fim_flows import generate_flows
 from generate_categorical_fim_mapping import manage_catfim_mapping, post_process_cat_fim_for_viz
 from rasterio.warp import Resampling, calculate_default_transform, reproject
-
 from tools_shared_functions import (
     filter_nwm_segments_by_stream_order,
     get_datum,
@@ -43,11 +44,21 @@ from tools_shared_variables import (
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
+
 # global RLOG
 FLOG = fl.FIM_logger()  # the non mp version
 MP_LOG = fl.FIM_logger()  # the Multi Proc version
 
 gpd.options.io_engine = "pyogrio"
+
+
+"""
+Jun 17, 2024
+This system is continuing to mature over time. It has a number of optimizations that can still be applied in areas such as logic, performance
+and error handling.
+
+In the interium there is still a consider amount of debug lines and tools embedded in that can be commented on/off as required.
+"""
 
 
 def process_generate_categorical_fim(
@@ -61,9 +72,11 @@ def process_generate_categorical_fim(
     search,
     job_number_intervals,
     past_major_interval_cap,
+    nwm_metafile,
 ):
-    print("================================")
-    print("Start generate categorical fim")
+
+    # ================================
+    # Validation and setup
 
     # Append option configuration (flow_based or stage_based) to output folder name.
     if is_stage_based:
@@ -73,7 +86,7 @@ def process_generate_categorical_fim(
 
     # Define output directories
     output_catfim_dir = output_folder + file_handle_appendage
-  
+
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
@@ -85,31 +98,27 @@ def process_generate_categorical_fim(
     # Create output directories (check against maping only as a proxy for all three)
     if os.path.exists(output_mapping_dir) is True:
         if overwrite is False:
-            raise Exception(f"The output mapping folder of {output_catfim_dir} already exists."
+            raise Exception(
+                f"The output mapping folder of {output_catfim_dir} already exists."
                 " If you want to overwrite it, please add the -o flag. Note: When overwritten, "
-                " the three folders of mapping, flows and attributes wil be deleted and rebuilt")
+                " the three folders of mapping, flows and attributes wil be deleted and rebuilt"
+            )
         shutil.rmtree(output_mapping_dir, ignore_errors=True)
         shutil.rmtree(output_flows_dir, ignore_errors=True)
         shutil.rmtree(attributes_dir, ignore_errors=True)
+
+        gpkg_dir = os.path.join(output_catfim_dir, 'gpkg')
+        shutil.rmtree(gpkg_dir, ignore_errors=True)
         # Keeps the logs folder
-    
-    os.makedirs(output_flows_dir, exist_ok=True)
-    os.makedirs(output_mapping_dir, exist_ok=True)
-    os.makedirs(attributes_dir, exist_ok=True)
 
-    # setup general logger    
-    log_folder = os.path.join(output_catfim_dir, "logs")
-    os.makedirs(log_folder, exist_ok=True)
-    start_time = datetime.now(timezone.utc)
-    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_name = f"catfim_{file_dt_string}.log"
-    log_output_file = os.path.join(log_folder, log_file_name)
-    FLOG.setup(log_output_file)
-
-    overall_start_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print(f"started : {dt_string}")
-    print()
+    if nwm_metafile != "":
+        if os.path.exists(nwm_metafile) is False:
+            raise Exception("The nwm_metadata (-me) file can not be found. Please remove or fix pathing.")
+        file_ext = os.path.splitext(nwm_metafile)
+        if file_ext.count == 0:
+            raise Exception("The nwm_metadata (-me) file appears to be invalid. It is missing an extension.")
+        if file_ext[1].lower() != ".pkl":
+            raise Exception("The nwm_metadata (-me) file appears to be invalid. The extention is not pkl.")
 
     # Define default arguments. Modify these if necessary
     fim_version = os.path.split(fim_run_dir)[1]
@@ -119,27 +128,47 @@ def process_generate_categorical_fim(
     total_cpus_available = os.cpu_count() - 2
     if total_cpus_requested > total_cpus_available:
         raise ValueError(
-            'The HUC job number, {}, multiplied by the inundate job number, {}, '
-            'exceeds your machine\'s available CPU count minus one. '
-            'Please lower the job_number_huc or job_number_inundate '
-            'values accordingly.'.format(job_number_huc, job_number_inundate)
+            f"The HUC job number (jh) [{job_number_huc}]"
+            f" multiplied by the inundate job number (jn) [{job_number_inundate}]"
+            f" multiplied by the job number intervals (ji) [{job_number_intervals}]"
+            " exceeds your machine\'s available CPU count minus one."
+            " Please lower one or more of those values accordingly."
         )
 
-   
-    # we are getting too many folders and files. We want just huc folders.    
+    # we are getting too many folders and files. We want just huc folders.
     # output_flow_dir_list = os.listdir(fim_run_dir)
     # looking for folders only starting with 0, 1, or 2
-    lst_hucs = [x for x in os.listdir(fim_run_dir) if os.path.isdir(os.path.join(fim_run_dir, x))
-                and x[0] in ['0', '1', '2']]
+    lst_hucs = [
+        x
+        for x in os.listdir(fim_run_dir)
+        if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
+    ]
     # print(lst_hucs)
-        
-    num_hucs = len(lst_hucs)        
+    lst_hucs.sort()
+
+    num_hucs = len(lst_hucs)
     if num_hucs == 0:
         raise ValueError(
-            f'Output directory {fim_run_dir} is empty. ' 'Verify that you have the correct input folder.'
+            f'Output directory {fim_run_dir} is empty. Verify that you have the correct input folder.'
         )
-    print(f"Processing {num_hucs} huc(s)")        
-    
+
+    # End of Validation and setup
+    # ================================
+
+    log_output_file = __setup_logger(output_catfim_dir)
+    overall_start_time = datetime.now(timezone.utc)
+    dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+
+    os.makedirs(output_flows_dir, exist_ok=True)
+    os.makedirs(output_mapping_dir, exist_ok=True)
+    os.makedirs(attributes_dir, exist_ok=True)
+
+    FLOG.lprint("================================")
+    FLOG.lprint(f"Start generate categorical fim - (UTC): {dt_string}")
+    FLOG.lprint("")
+
+    FLOG.lprint(f"Processing {num_hucs} huc(s)")
+
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
     if API_BASE_URL is None:
@@ -153,11 +182,20 @@ def process_generate_categorical_fim(
     # TODO: Add check for if lid_to_run and lst_hucs parameters conflict
 
     # Check that fim_inputs.csv exists and raise error if necessary
-    #fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
-    #if not os.path.exists(fim_inputs_csv_path):
+    # fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
+    # if not os.path.exists(fim_inputs_csv_path):
     #    raise ValueError(f'{fim_inputs_csv_path} not found. Verify that you have the correct input files.')
 
     print()
+
+    FLOG.lprint("Filtering HUCs that have related ahps site in them.")
+    valid_ahps_hucs = __filter_hucs_to_ahps(lst_hucs)
+
+    num_valid_hucs = len(valid_ahps_hucs)
+    if num_valid_hucs == 0:
+        raise Exception("None of the HUCs supplied have ahps sites in them. Check your fim output folder")
+    else:
+        FLOG.lprint(f"Processing {num_valid_hucs} huc(s) with AHPS sites")
 
     # Define upstream and downstream search in miles
     nwm_us_search, nwm_ds_search = search, search
@@ -172,20 +210,16 @@ def process_generate_categorical_fim(
             nwm_ds_search,
             env_file,
             job_number_inundate,
-            job_number_huc,            
-            lst_hucs,
+            job_number_huc,
+            valid_ahps_hucs,
             job_number_intervals,
-            past_major_interval_cap
+            past_major_interval_cap,
+            nwm_metafile,
         )
 
-        #job_number_tif = job_number_inundate * job_number_intervals
-        FLOG.lprint("Post-processing TIFs...")
+        # job_number_tif = job_number_inundate * job_number_intervals
         post_process_cat_fim_for_viz(
-            output_catfim_dir,
-            job_number_huc,
-            job_number_inundate,
-            fim_version,
-            log_output_file
+            output_catfim_dir, job_number_huc, job_number_inundate, fim_version, log_output_file
         )
 
         # Updating mapping status
@@ -196,25 +230,22 @@ def process_generate_categorical_fim(
     else:
         FLOG.lprint('Creating flow files using the ' + catfim_method + ' technique...')
         start = time.time()
-        nws_sites_layer = generate_catfim_flows(
+        nws_sites_layer = generate_flows(
             output_catfim_dir,
             nwm_us_search,
             nwm_ds_search,
             env_file,
-            job_number_inundate,
-            job_number_huc,            
+            job_number_huc,
             is_stage_based,
-            lst_hucs,
+            valid_ahps_hucs,
+            nwm_metafile,
             log_output_file,
         )
         end = time.time()
         elapsed_time = (end - start) / 60
-
-        FLOG.lprint(f'Finished creating flow files in {elapsed_time} minutes')
+        FLOG.lprint(f"Finished creating flow files in {str(elapsed_time).split('.')[0]} minutes")
 
         # Generate CatFIM mapping
-        FLOG.lprint('Begin mapping')
-        start = time.time()
         manage_catfim_mapping(
             fim_run_dir,
             output_flows_dir,
@@ -222,11 +253,8 @@ def process_generate_categorical_fim(
             job_number_huc,
             job_number_inundate,
             False,
-            str(FLOG.LOG_FILE_PATH),
+            log_output_file,
         )
-        end = time.time()
-        elapsed_time = (end - start) / 60
-        FLOG.lprint(f'Finished mapping in {elapsed_time} minutes')
 
         # Updating mapping status
         FLOG.lprint('Updating mapping status')
@@ -240,16 +268,32 @@ def process_generate_categorical_fim(
     FLOG.lprint("================================")
     FLOG.lprint("End generate categorical fim")
 
-    end_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    FLOG.lprint(f"ended: {dt_string}")
+    end_time = datetime.now(timezone.utc)
+    dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
+    FLOG.lprint(f"Ended (UTC): {dt_string}")
 
     # calculate duration
     time_duration = end_time - overall_start_time
     FLOG.lprint(f"Duration: {str(time_duration).split('.')[0]}")
-    FLOG.lprint("")
 
     return
+
+
+def __filter_hucs_to_ahps(lst_hucs):
+
+    # Most hucs do not have any ahps site in them. Let's filter out what we know if not applicable now.
+    # More will be filtered out later.
+
+    nws_lid_file_path = "/data/inputs/ahps_sites/nws_lid.gpkg"
+    all_ahps_sites = gpd.read_file(nws_lid_file_path)
+
+    ahps_hucs = all_ahps_sites['HUC8'].unique().tolist()
+
+    # Keep only hucs that are in the ahps_sites list
+    valid_hucs = [item for item in lst_hucs if item in ahps_hucs]
+
+    return valid_hucs
+
 
 def create_csvs(output_mapping_dir, reformatted_catfim_method):
     '''
@@ -306,21 +350,20 @@ def update_mapping_status(output_mapping_dir, nws_sites_layer):
     '''
     # Find all LIDs with empty mapping output folders
     subdirs = [str(i) for i in Path(output_mapping_dir).rglob('**/*') if i.is_dir()]
-    
-    FLOG.lprint("")
+
+    print("")
     FLOG.trace("subdirs are..")
     FLOG.trace(subdirs)
     FLOG.trace("")
-    
+
     empty_nws_lids = [Path(directory).name for directory in subdirs if not list(Path(directory).iterdir())]
-    FLOG.trace("")
     FLOG.trace("empty_nws_lids are..")
     FLOG.trace(empty_nws_lids)
     FLOG.trace("")
 
     # Write list of empty nws_lids to DataFrame, these are sites that failed in inundation.py
     mapping_df = pd.DataFrame({'nws_lid': empty_nws_lids})
-    
+
     mapping_df['did_it_map'] = 'no'
     mapping_df['map_status'] = ' and all categories failed to map'
 
@@ -366,28 +409,34 @@ def update_mapping_status(output_mapping_dir, nws_sites_layer):
 
 # This is part of an MP call and needs MP_LOG
 def produce_inundation_map_with_stage_and_feature_ids(
-    rem_path, catchments_path, hydroid_list, hand_stage, lid_directory, category, huc, lid, branch,
-    parent_log_output_file, parent_log_file_prefix
+    rem_path,
+    catchments_path,
+    hydroid_list,
+    hand_stage,
+    lid_directory,
+    category,
+    huc,
+    lid,
+    branch,
+    parent_log_output_file,
+    parent_log_file_prefix,
 ):
 
     # Open rem_path and catchment_path using rasterio.
-    
+
     """
     Note: parent_log_file_prefix is "MP_sb_{huc}_inundate", meaning all logs created by this function start
       with the phrase "MP_sb_{huc}_inundate".
-      They will be rolled up to its own huc level tif log named f"{huc}_sb_tifs_{file_dt_string}.log"	
+      They will be rolled up to its own huc level tif log named f"{huc}_sb_tifs_{file_dt_string}.log"
     """
     # This is setting up logging for this function to go up to the parent
-    log_folder = os.path.dirname(parent_log_output_file)
-    MP_LOG.MP_Log_setup(parent_log_file_prefix, log_folder)
-    
-    MP_LOG.lprint("")
+    MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
+
     MP_LOG.lprint("+++++++++++++++++++++++")
     MP_LOG.lprint(f"At the start of producing inundation maps for {huc}")
     MP_LOG.trace(locals())
-    MP_LOG.trace("+++++++++++++++++++++++")    
-    MP_LOG.lprint("")
-        
+    MP_LOG.trace("+++++++++++++++++++++++")
+
     rem_src = rasterio.open(rem_path)
     catchments_src = rasterio.open(catchments_path)
     rem_array = rem_src.read(1)
@@ -408,8 +457,8 @@ def produce_inundation_map_with_stage_and_feature_ids(
 
     # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
     is_all_zero = np.all((masked_reclass_rem_array == 0))
-    
-    # MP_LOG.lprint(f"is_all_zero is {is_all_zero}")
+
+    MP_LOG.lprint(f"masked_reclass_rem_array, is_all_zero is {is_all_zero} for huc {huc}")
 
     if not is_all_zero:
         output_tif = os.path.join(
@@ -424,6 +473,7 @@ def produce_inundation_map_with_stage_and_feature_ids(
             with rasterio.open(output_tif, 'w', **profile) as dst:
                 dst.write(masked_reclass_rem_array, 1)
     return
+
 
 def mark_complete(site_directory):
     marker_file = Path(site_directory) / 'complete.txt'
@@ -442,23 +492,22 @@ def iterate_through_huc_stage_based(
     flood_categories,
     all_lists,
     past_major_interval_cap,
-    number_of_jobs,
+    job_number_inundate,
     number_of_interval_jobs,
     nwm_flows_df,
     parent_log_output_file,
-    parent_log_file_prefix,  
+    parent_log_file_prefix,
 ):
     """_summary_
-       This and its children will create stage based tifs and inundate them 
-       
+       This and its children will create stage based tifs and inundate them
+
     Note: parent_log_file_prefix is "MP_gen_sb_fim", meaning all logs created by this function start
       with the phrase "MP_gen_sb_fim"
     """
-    
+
     # This is setting up logging for this function to go up to the parent
-    log_folder = os.path.dirname(parent_log_output_file)
-    MP_LOG.MP_Log_setup(parent_log_file_prefix, log_folder)
-    
+    MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
+
     missing_huc_files = []
     all_messages = []
     stage_based_att_dict = {}
@@ -467,15 +516,15 @@ def iterate_through_huc_stage_based(
     # But in this case, we want a seperate log file per HUC to keep the overall size of the files
     # down a little. So we will override the log_output_file to be specific to this huc
     log_folder = os.path.join(output_catfim_dir, "logs")
-    file_dt_string = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+    file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
     child_log_file_name = f"{huc}_sb_tifs_{file_dt_string}.log"
     child_log_output_file = os.path.join(log_folder, child_log_file_name)
 
     mapping_dir = os.path.join("output_catfim_dir", "mapping")
-    attributes_dir = os.path.join(output_catfim_dir, 'attributes')        
+    attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
-    #FLOG.lprint("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-    #FLOG.lprint(f'Iterating through {huc}...')
+    # FLOG.lprint("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+    # FLOG.lprint(f'Iterating through {huc}...')
     # Make output directory for huc.
     mapping_huc_directory = os.path.join(mapping_dir, huc)
     if not os.path.exists(mapping_huc_directory):
@@ -488,10 +537,10 @@ def iterate_through_huc_stage_based(
     # Loop through each lid in nws_lids list
     nws_lids = huc_dictionary[huc]
     for lid in nws_lids:
-        MP_LOG.lprint("")
+        MP_LOG.lprint("-----------------------------------")
         msg_id = f"{huc} -- lid id is {lid}"
         MP_LOG.lprint(msg_id)
-        
+
         lid = lid.lower()  # Convert lid to lower case
         # -- If necessary files exist, continue -- #
         if not os.path.exists(usgs_elev_table):
@@ -542,14 +591,14 @@ def iterate_through_huc_stage_based(
             acceptable_usgs_elev_df = usgs_elev_df[
                 (usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)
             ]
-        except Exception as e:
+        except Exception:
             # Not sure any of the sites actually have those USGS-related
             # columns in this particular file, so just assume it's fine to use
 
             # print("(Various columns related to USGS probably not in this csv)")
             # print(f"Exception: \n {repr(e)} \n")
             MP_LOG.error(f"{msg_id}:  An error has occurred while working with the usgs_elev table")
-            MP_LOG.error(traceback.format_exc())            
+            MP_LOG.error(traceback.format_exc())
             acceptable_usgs_elev_df = usgs_elev_df
 
         # Get the dem_adj_elevation value from usgs_elev_table.csv.
@@ -572,7 +621,9 @@ def iterate_through_huc_stage_based(
         except IndexError:  # Occurs when LID is missing from table
             MP_LOG.error(f"{msg_id}:  adjusting dem_adj_elevation")
             MP_LOG.error(traceback.format_exc())
-            MP_LOG.error(f'{msg_id}: likely unacceptable gage datum error or accuracy code(s); please see acceptance criteria')
+            MP_LOG.error(
+                f'{msg_id}: likely unacceptable gage datum error or accuracy code(s); please see acceptance criteria'
+            )
             continue
         # Initialize nested dict for lid attributes
         stage_based_att_dict.update({lid: {}})
@@ -601,7 +652,7 @@ def iterate_through_huc_stage_based(
             if not float(metadata['usgs_data']['alt_accuracy_code']) <= acceptable_alt_acc_thresh:
                 MP_LOG.warning(f"\t{msg_id}: Not in acceptable threshold range")
                 continue
-        except Exception as e:
+        except Exception:
             MP_LOG.error(f"{msg_id}:  filtering out 'bad' data in the usgs_data")
             MP_LOG.error(traceback.format_exc())
             continue
@@ -693,7 +744,7 @@ def iterate_through_huc_stage_based(
                 MP_LOG.error(traceback.format_exc())
                 e = str(e)
                 if crs is None:
-                   MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, CRS is missing')
+                    MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, CRS is missing')
                 if 'HTTPSConnectionPool' in e:
                     time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                     try:
@@ -701,7 +752,9 @@ def iterate_through_huc_stage_based(
                     except Exception:
                         MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, possible API issue')
                 if 'Invalid projection' in e:
-                    MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, invalid projection: crs={crs}')
+                    MP_LOG.error(
+                        f'{msg_id}: ERROR: NOAA VDatum adjustment error, invalid projection: crs={crs}'
+                    )
                 continue
 
         ### -- Concluded Datum Offset --- ###
@@ -753,7 +806,7 @@ def iterate_through_huc_stage_based(
                     huc,
                     lid_directory,
                     category,
-                    number_of_jobs,
+                    job_number_inundate,
                     child_log_output_file,
                     child_log_file_prefix,
                 )
@@ -773,13 +826,17 @@ def iterate_through_huc_stage_based(
                         }
                     }
                 )
-                
-                MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix )
-                
+
+                # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix )
+
             # If missing HUC file data, write message
             if huc in missing_huc_files:
                 MP_LOG.warning(f'{msg_id}:missing some HUC data')
 
+        # This function sometimes is called within a MP but sometimes not.
+        # So, we might have an MP inside an MP
+        # and we will need a new prefix for it.
+        child_log_file_prefix = "MP_produce_sb_tifs"
         with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
             try:
                 for interval_stage in interval_list:
@@ -805,7 +862,7 @@ def iterate_through_huc_stage_based(
                         huc,
                         lid_directory,
                         category,
-                        number_of_jobs,
+                        job_number_inundate,
                         child_log_output_file,
                         child_log_file_prefix,
                     )
@@ -816,12 +873,12 @@ def iterate_through_huc_stage_based(
             except Exception:
                 MP_LOG.critical("ERROR: ProcessPool has an error")
                 MP_LOG.critical(traceback.format_exc())
-                # merge MP Logs (Yes)                
-                MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix )                
+                # merge MP Logs (Yes)
+                MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
                 sys.exit(1)
-                
+
         # merge MP Logs (merging MP into an MP (proc_pool in a proc_pool))
-        MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix )
+        MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
 
         # Create a csv with same information as geopackage but with each threshold as new record.
         # Probably a less verbose way.
@@ -872,12 +929,12 @@ def iterate_through_huc_stage_based(
             csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
         else:
             FLOG.lprint(f'{lid}:missing all calculated flows')
-            all_messages.append([f'{lid}:missing all calculated flows'])            
+            all_messages.append([f'{lid}:missing all calculated flows'])
 
         # If it made it to this point (i.e. no continues), there were no major preventers of mapping
         MP_LOG.success(f'{msg_id}: OK')
         mark_complete(lid_directory)
-        
+
     # Write all_messages by HUC to be scraped later.
     if len(all_messages) > 0:
         messages_dir = os.path.join(mapping_dir, 'messages')
@@ -899,36 +956,37 @@ def generate_stage_based_categorical_fim(
     nwm_ds_search,
     env_file,
     job_number_inundate,
-    job_number_huc,    
+    job_number_huc,
     lst_hucs,
     number_of_interval_jobs,
     past_major_interval_cap,
+    nwm_metafile,
 ):
     flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
 
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
-    attributes_dir = os.path.join(output_catfim_dir, 'attributes')    
+    attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
-    # Calling generate_catfim_flows but in a Non MP mode, so just forward a pointer to our 
-    # current local FLOG object
-    (huc_dictionary, out_gdf, ___ , threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = (
-        generate_catfim_flows(
+    FLOG.lprint("Starting generate_catfim_flows")
+    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = (
+        generate_flows(
             output_catfim_dir,
             nwm_us_search,
             nwm_ds_search,
             env_file,
-            job_number_inundate,
-            job_number_huc,    
+            job_number_huc,
             True,
             lst_hucs,
+            nwm_metafile,
             str(FLOG.LOG_FILE_PATH),
         )
     )
+    FLOG.lprint("End generate_catfim_flows")
     # TEMP DEBUG
-    FLOG.lprint(">>>>>>>>>>>>>>>>>")
+    # FLOG.lprint(">>>>>>>>>>>>>>>>>")
     # print(locals())
-    #print(">>>>>>>>>>>>>>>>>")    
+    # print(">>>>>>>>>>>>>>>>>")
     # print('huc_dictionary')
     # print(huc_dictionary)
     # print('out_gdf')
@@ -948,53 +1006,32 @@ def generate_stage_based_categorical_fim(
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
             if huc in lst_hucs:
-                FLOG.lprint(f'Generating stage based fim for : {huc}') 
-
-                if huc[:2] == '19':
-                    # Alaska
-                    executor.submit(
-                        iterate_through_huc_stage_based,
-                        output_catfim_dir,
-                        huc,
-                        fim_run_dir,
-                        huc_dictionary,
-                        threshold_url,
-                        flood_categories,
-                        all_lists,
-                        past_major_interval_cap,
-                        job_number_inundate,
-                        number_of_interval_jobs,
-                        nwm_flows_alaska_df,
-                        str(FLOG.LOG_FILE_PATH),
-                        child_log_file_prefix
-                    )
-                else:
-                    # not Alaska
-                    executor.submit(
-                        iterate_through_huc_stage_based,
-                        output_catfim_dir,
-                        huc,
-                        fim_run_dir,
-                        huc_dictionary,
-                        threshold_url,
-                        flood_categories,
-                        all_lists,
-                        past_major_interval_cap,
-                        job_number_inundate,
-                        number_of_interval_jobs,
-                        nwm_flows_df,
-                        str(FLOG.LOG_FILE_PATH),
-                        child_log_file_prefix
-                    )
-
+                FLOG.lprint(f'Generating stage based catfim for : {huc}')
+                flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
+                executor.submit(
+                    iterate_through_huc_stage_based,
+                    output_catfim_dir,
+                    huc,
+                    fim_run_dir,
+                    huc_dictionary,
+                    threshold_url,
+                    flood_categories,
+                    all_lists,
+                    past_major_interval_cap,
+                    job_number_inundate,
+                    number_of_interval_jobs,
+                    flows_df,
+                    str(FLOG.LOG_FILE_PATH),
+                    child_log_file_prefix,
+                )
     # Need to merge MP logs here, merged into the "master log file"
-    FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix )
+    FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix)
 
     FLOG.lprint('Wrapping up Stage-Based CatFIM...')
     # csv_files = os.listdir(attributes_dir)
-    
+
     csv_files = [x for x in os.listdir(attributes_dir) if x.endswith('.csv')]
-    
+
     all_csv_df = pd.DataFrame()
     refined_csv_files_list = []
     for csv_file in csv_files:
@@ -1008,10 +1045,10 @@ def generate_stage_based_categorical_fim(
             FLOG.error("ERROR: loading csv {full_csv_path}")
             FLOG.error(traceback.format_exc())
             pass
-        
+
     # Write to file
     all_csv_df.to_csv(os.path.join(output_flows_dir, 'nws_lid_attributes.csv'), index=False)
-    FLOG.lprint(f".. all_csv_df saved at {all_csv_df}")    
+    FLOG.lprint(f".. all_csv_df saved at {all_csv_df}")
 
     # This section populates a geopackage of all potential sites and details
     # whether it was mapped or not (mapped field) and if not, why (status field).
@@ -1042,7 +1079,7 @@ def generate_stage_based_categorical_fim(
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
 
     # Create list from all messages in messages dir.
-    #messages_dir = os.path.join(workspace, 'messages')
+    # messages_dir = os.path.join(workspace, 'messages')
     # all_messages = []
     # all_message_csvs = os.listdir(messages_dir)
     # for message_csv in all_message_csvs:
@@ -1061,11 +1098,11 @@ def generate_stage_based_categorical_fim(
     # run previously and are picking back up with a restart)
     # 4.4.0.0, there was no messages column in nws_lid_sites.gkpg
     # if not os.path.exists(nws_sites_layer):
-        
+
     #     FLOG.lprint(f"nws_sites_layer does not exist")
-       
+
     #     # FIX:  (DO WE NEED IT?)
-        
+
     #     # Write messages to DataFrame, split into columns, aggregate messages.
     #     if len(all_messages) > 0:
 
@@ -1095,10 +1132,9 @@ def generate_stage_based_categorical_fim(
     #         viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
     #     else:
     #         FLOG.lprint(f"nws_sites_layer ({nws_sites_layer}) : has no messages")
-            
-    FLOG.lprint(">>>>>>>>>>>>>>>>>")
 
     return nws_sites_layer
+
 
 # Technically, this is once called as a non MP, but also called in an MP pool
 # we will use an MP object either way
@@ -1121,16 +1157,15 @@ def produce_stage_based_catfim_tifs(
     """
     Note: parent_log_file_prefix is "MP_{huc}_prod_sb_tifs", meaning all logs created by this function start
       with the phrase "MP_{huc}_prod_sb_tifs". The parent log rollup in this one is a bit differnent.
-      It does not go all the way up to the master log, but to a master for this HUC for tifs. 
-      The rollup file here is child_log_file_name = f"{huc}_sb_tifs_{file_dt_string}.log"	
+      It does not go all the way up to the master log, but to a master for this HUC for tifs.
+      The rollup file here is child_log_file_name = f"{huc}_sb_tifs_{file_dt_string}.log"
     """
-    
-    log_folder = os.path.dirname(parent_log_output_file)    
-    MP_LOG.MP_Log_setup(parent_log_file_prefix, log_folder)
+
+    MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
 
     messages = []
 
-    MP_LOG.lprint("")
+    MP_LOG.lprint("-----------------")
     msg_id = f"{huc} - {lid} - {category}"
     MP_LOG.lprint(f"{msg_id}: Starting to create tiffs")
 
@@ -1143,14 +1178,18 @@ def produce_stage_based_catfim_tifs(
 
     # Produce extent tif hand_stage. Multiprocess across branches.
     # branches = os.listdir(branch_dir)
-    branches = [x for x in os.listdir(branch_dir) if os.path.isdir(os.path.join(branch_dir, x)) and x[0] in ['0', '1', '2']]
+    branches = [
+        x
+        for x in os.listdir(branch_dir)
+        if os.path.isdir(os.path.join(branch_dir, x)) and x[0] in ['0', '1', '2']
+    ]
     branches.sort()
-    
+
     child_log_file_prefix = "MP_sb_{huc}_inundate"
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         for branch in branches:
             msg_id_w_branch = "{huc} -- {branch} -- {lid} -- {category}"
-            MP_LOG.trace(f"{msg_id} : Determining HydroID")        
+            MP_LOG.trace(f"{msg_id} : Determining HydroID")
             # Define paths to necessary files to produce inundation grids.
             full_branch_path = os.path.join(branch_dir, branch)
             rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
@@ -1185,18 +1224,20 @@ def produce_stage_based_catfim_tifs(
                     subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
                     hydroid_list += list(subset_hydrotable_df.HydroID.unique())
                 except IndexError:
-                    MP_LOG.trace(f"Index Error for {huc} -- {branch} -- {category}. FeatureId is {feature_id} : Continuing on.")
+                    MP_LOG.trace(
+                        f"Index Error for {huc} -- {branch} -- {category}. FeatureId is {feature_id} : Continuing on."
+                    )
                     pass
 
             # print(f"{huc} -- {branch} -- {category}: Finished determining HydroID")
 
             # Some branches don't have matching hydroids
             if len(hydroid_list) == 0:
-                #MP_LOG.trace(f"{lid}:no matching hydroids")
-                #MP_LOG.lprint(f" {huc} -- {branch} -- {category} >>>> has no matching hydroids")
+                # MP_LOG.trace(f"{lid}:no matching hydroids")
+                # MP_LOG.lprint(f" {huc} -- {branch} -- {category} >>>> has no matching hydroids")
                 continue
-            #MP_LOG.lprint(f" {huc} -- {branch} -- {category} +++++++++++++++++ DOES have matching hydroids")
-            #MP_LOG.lprint("")
+            # MP_LOG.lprint(f" {huc} -- {branch} -- {category} +++++++++++++++++ DOES have matching hydroids")
+            # MP_LOG.lprint("")
 
             # If no segments, write message and exit out
             if not segments:
@@ -1208,27 +1249,26 @@ def produce_stage_based_catfim_tifs(
                 # print("Generating stage-based FIM for " + huc + " and branch " + branch) # TODO TEMP DEBUG UNCOMMENT THIS MAYBE AFTER DEBUGGING
                 MP_LOG.lprint(f"{msg_id} : Generating stage-based FIM")
                 executor.submit(
-                        produce_inundation_map_with_stage_and_feature_ids,
-                        rem_path,
-                        catchments_path,
-                        hydroid_list,
-                        hand_stage,
-                        lid_directory,
-                        category,
-                        huc,
-                        lid,
-                        branch,
-                        parent_log_output_file,
-                        child_log_file_prefix
-                    )
-                
+                    produce_inundation_map_with_stage_and_feature_ids,
+                    rem_path,
+                    catchments_path,
+                    hydroid_list,
+                    hand_stage,
+                    lid_directory,
+                    category,
+                    huc,
+                    lid,
+                    branch,
+                    parent_log_output_file,
+                    child_log_file_prefix,
+                )
+
             except Exception:
                 MP_LOG.error(f'{msg_id}: inundation failed at {category}')
                 MP_LOG.error(traceback.format_exc())
 
-    MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix )
-    
-    
+    MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
+
     # -- MOSAIC -- #
     # Merge all rasters in lid_directory that have the same magnitude/category.
     path_list = []
@@ -1243,9 +1283,9 @@ def produce_stage_based_catfim_tifs(
             path_list.append(os.path.join(lid_directory, f))
 
     MP_LOG.error("???")
-    #MP_LOG.trace(f"path_list is (pre sort) is {path_list}")
-    #path_list.sort()  # To force branch 0 first in list, sort  it isn't branchs and we don't care the order for mosaiking
-    #MP_LOG.trace(f"path_list is (post sort) is {path_list}")    
+    # MP_LOG.trace(f"path_list is (pre sort) is {path_list}")
+    # path_list.sort()  # To force branch 0 first in list, sort  it isn't branchs and we don't care the order for mosaiking
+    # MP_LOG.trace(f"path_list is (post sort) is {path_list}")
 
     MP_LOG.trace(f"len of path_list is {len(path_list)}")
 
@@ -1289,8 +1329,20 @@ def produce_stage_based_catfim_tifs(
             MP_LOG.lprint(f"output_tif of {output_tif} : saved ??")
         del summed_array
 
-
     return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+
+
+def __setup_logger(output_catfim_dir):
+    # setup general logger
+    log_folder = os.path.join(output_catfim_dir, "logs")
+    os.makedirs(log_folder, exist_ok=True)
+    start_time = datetime.now(timezone.utc)
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"catfim_{file_dt_string}.log"
+    log_output_file = os.path.join(log_folder, log_file_name)
+    FLOG.setup(log_output_file)
+
+    return log_output_file
 
 
 if __name__ == '__main__':
@@ -1329,7 +1381,7 @@ if __name__ == '__main__':
         default=1,
         type=int,
     )
-    
+
     parser.add_argument(
         '-ji',
         '--job_number_intervals',
@@ -1340,7 +1392,7 @@ if __name__ == '__main__':
         default=1,
         type=int,
     )
-    
+
     parser.add_argument(
         '-a',
         '--is_stage_based',
@@ -1367,7 +1419,7 @@ if __name__ == '__main__':
         required=False,
         default='5',
     )
-    
+
     # lid_to_run temp disabled
     # parser.add_argument(
     #     '-l',
@@ -1376,7 +1428,7 @@ if __name__ == '__main__':
     #     required=False,
     #     default='all',
     # )
-    
+
     # lst_hucs temp disabled. All hucs in fim outputs in a directory will used
     # parser.add_argument(
     #     '-lh',
@@ -1396,12 +1448,21 @@ if __name__ == '__main__':
         type=float,
     )
 
+    parser.add_argument(
+        '-me',
+        '--nwm_metafile',
+        help='OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.'
+        ' e.g.: /data/catfim/nwm_metafile.pkl',
+        required=False,
+        default="",
+    )
+
     args = vars(parser.parse_args())
 
     try:
+
         # call main program
         process_generate_categorical_fim(**args)
 
     except Exception:
         FLOG.critical(traceback.format_exc())
-
