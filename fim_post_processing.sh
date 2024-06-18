@@ -112,7 +112,8 @@ if [ "$bathymetry_adjust" = "True" ]; then
     Tstart
     python3 $srcDir/bathymetric_adjustment.py \
         -fim_dir $outputDestDir \
-        -bathy $bathymetry_file \
+        -bathy_ehydro $bathymetry_file_ehydro \
+        -bathy_aibased $bathymetry_file_aibased \
         -buffer $wbd_buffer \
         -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg \
         -j $jobLimit
@@ -218,21 +219,8 @@ python3 $toolsDir/combine_crosswalk_tables.py \
 Tcount
 date -u
 
-echo -e $startDiv"Resetting Permissions"
-Tstart
-    find $outputDestDir -type d -exec chmod -R 777 {} +
-    find $outputDestDir -type f -exec chmod 777 {} +  # just root level files
-Tcount
-date -u
-
-echo
-echo -e $startDiv"Scanning logs for errors. Results be saved in root not inside the log folder."
-Tstart
-    # grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
-    find $outputDestDir -type f | grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
-Tcount
-date -u
-
+find $outputDestDir -type d -exec chmod -R 777 {} +
+find $outputDestDir -type f -exec chmod -R 777 {} +
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
