@@ -1,6 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-06-18 - [PR#1195](https://github.com/NOAA-OWP/inundation-mapping/pull/1195)
+
+It focuses on adjusting rating curves by using bathymetric data. The bathymetry data includes eHydro surveys and AI-based datasets created for all NWM streams. 
+
+### Changes
+- `src/bathymetric-adjustment.py`: 'correct_rating_for_ai_based_bathymetry" function was added to the script. This function processes AI-based bathymetry data and adjusts rating curves using this data.  Also "apply_src_adjustment_for_bathymetry' function was added to prioritize USACE eHydro over AI-based bathymetry dataset. Multi-processing function "multi_process_hucs" was also updated based on the latest code. 
+
+- `src/bash_variables.env`: New variables and their paths were added. 
+
+- `fim_post_processing.sh`: New arguments were added.
+
+### Testing
+This PR has been tested on 11 HUC8s around the Illinois River and Ohio River.
+
+<br/><br/>
+
+
 ## v4.5.2.3 - 2024-06-14 - [PR#1169](https://github.com/NOAA-OWP/inundation-mapping/pull/1169)
 
 This tool scans all log directory looking for the word "error" (not case-sensitive). This is primary added to help find errors in the post processing logs such as src_optimization folder (and others).
