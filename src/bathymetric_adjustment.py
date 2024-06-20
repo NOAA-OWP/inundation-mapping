@@ -457,7 +457,7 @@ if __name__ == '__main__':
         '-sor',
         '--strm_order',
         help="stream order on or higher for which AI-based bathymetry data is applied",
-        default=6,
+        default=7,
         required=False,
         type=int,
     )
