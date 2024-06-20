@@ -1,6 +1,26 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-06-20 - [PR#1196](https://github.com/NOAA-OWP/inundation-mapping/pull/1196)
+
+This PR adds a new tool, which is still in progress. The tool addresses the issue #994 (but is not going to close this issue yet). 
+The tool aims to update the HAND SRC by comparing water surface elevation (WSE) between RAS2FIM and HAND. The algorithm is as below:
+
+- For each RAS cross section, determine the HAND discharge adjustment (Q_Adjust):
+    - HAND minimum WSE is assumed the same as HAND Hydro-conditioned DEM
+    - RAS2FIM minimum WSE is already available from HEC-RAS runs.
+    - Calculate the difference between the minimum WSE values of RAS2FIM and HAND, and call it "WSE_base_error". This difference can address the bathymetry error in HAND SRC.  
+    - Add stage values into RAS2FIM rating curves (by subtracting DEM from WSE), and then interpolate a discharge for the "WSE_base_error". This interpolated discharge is called "Q_Adjust."
+- Calculate the median of "Q_Adjust" values for cross sections within HAND catchments.
+- Add the median "Q_Adjust" values to the flows of HAND SRC
+
+
+
+### Additions
+- tools/adjust_wse_with_ras2fim.py
+
+<br/><br/>
+
 ## v4.5.2.3 - 2024-06-14 - [PR#1169](https://github.com/NOAA-OWP/inundation-mapping/pull/1169)
 
 This tool scans all log directory looking for the word "error" (not case-sensitive). This is primary added to help find errors in the post processing logs such as src_optimization folder (and others).
