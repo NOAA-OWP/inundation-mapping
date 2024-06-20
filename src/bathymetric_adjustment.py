@@ -138,7 +138,7 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
             HUC-8 string.
         strm_order : int
             stream order on or higher for which you want to apply AI-based bathymetry data.
-            default = 6
+            default = 7
         bathy_file_aibased : str
             Path to AI-based bathymetric adjustment file, e.g.
             "/data/inputs/bathymetry/ml_outputs_v1.01.parquet".
@@ -328,7 +328,7 @@ def multi_process_hucs(
             Directory path for fim_pipeline output.
         strm_order : int
             stream order on or higher for which you want to apply AI-based bathymetry data.
-            default = 6
+            default = 7
         bathy_file_eHydro : str
             Path to eHydro bathymetric adjustment geopackage, e.g.
             "/data/inputs/bathymetry/bathymetry_adjustment_data.gpkg".
@@ -424,7 +424,7 @@ if __name__ == '__main__':
         fim_dir/logs/bathymetric_adjustment.log.
     strm_order : int
         stream order on or higher for which you want to apply AI-based bathymetry data.
-        default = 6
+        default = 7
     bathy_file_ehydro : str
         Path to eHydro bathymetric adjustment geopackage, e.g.
         "/data/inputs/bathymetry/bathymetry_adjustment_data.gpkg".
