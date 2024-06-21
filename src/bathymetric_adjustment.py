@@ -385,7 +385,7 @@ def multi_process_hucs(
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         # Loop through all hucs, build the arguments, and submit them to the process pool
         futures = {}
-        for huc in hucs:
+        for huc in fim_hucs:
             args = {
                 'fim_dir': fim_dir,
                 'huc': huc,
