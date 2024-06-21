@@ -112,8 +112,8 @@ if [ "$bathymetry_adjust" = "True" ]; then
     Tstart
     python3 $srcDir/bathymetric_adjustment.py \
         -fim_dir $outputDestDir \
-        -bathy_ehydro $bathymetry_file_ehydro \
-        -bathy_aibased $bathymetry_file_aibased \
+        -bathy_ehydro $bathy_file_ehydro \
+        -bathy_aibased $bathy_file_aibased \
         -buffer $wbd_buffer \
         -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg \
         -j $jobLimit
