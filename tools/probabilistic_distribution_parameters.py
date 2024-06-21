@@ -385,64 +385,50 @@ if __name__ == '__main__':
     NOTE: If the file name
     """
 
-    # # Parse arguments
-    # parser = argparse.ArgumentParser(description="Fit probability distributions to flow duration curves. ")
-    #
-    # parser.add_argument(
-    #     "-o", "--output_directory", help="REQUIRED: Must be an existing directory", required=True
-    # )
-    #
-    # parser.add_argument("-n", "--output_name", help='REQUIRED: Name to save each DataFrame', required=True)
-    #
-    # parser.add_argument(
-    #     "-f",
-    #     "--num_flows",
-    #     type=int,
-    #     help="REQUIRED: Number of flows to process per iteration (for memory purposes)",
-    #     required=True,
-    # )
-    #
-    # parser.add_argument(
-    #     "-s",
-    #     "--stream_file",
-    #     help="OPTIONAL: File to get stream ids to run distribution for CSV or Geopackage",
-    #     required=False,
-    # )
-    #
-    # parser.add_argument(
-    #     "-r",
-    #     "--recurrence_flows_file",
-    #     help="OPTIONAL: Recurrence flows NetCDF file to include in flow duration curves",
-    #     required=False,
-    # )
-    #
-    # parser.add_argument(
-    #     "-j", "--num_jobs", type=int, help="OPTIONAL: Number of jobs to run concurrently", required=False
-    # )
-    #
-    # parser.add_argument(
-    #     "-t",
-    #     "--threads_per_worker",
-    #     type=int,
-    #     help="OPTIONAL: Number of threads to run per a job/worker",
-    #     required=False,
-    # )
-    #
-    # args = vars(parser.parse_args())
+    # Parse arguments
+    parser = argparse.ArgumentParser(description="Fit probability distributions to flow duration curves. ")
 
-    args = {"output_directory": "../prob_dist_test", "output_name": "plink.csv", "num_flows": 800}
+    parser.add_argument(
+        "-o", "--output_directory", help="REQUIRED: Must be an existing directory", required=True
+    )
 
-    # idx = 0
-    # num_flows = args["num_flows"]
-    # output_directory = args["output_directory"]
-    # output_name = args["output_name"]
-    # lock, stream_ids, recurrence_flows_file = None, None, None
-    # output_file_name = os.path.join(
-    #     output_directory, f"{output_name.split('.')[0]}{str(idx)}.{output_name.split('.')[1]}"
-    # )
-    # fit_distributions(
-    #     idx, num_flows, output_file_name, lock, stream_ids, recurrence_flows_file
-    # )
+    parser.add_argument("-n", "--output_name", help='REQUIRED: Name to save each DataFrame', required=True)
+
+    parser.add_argument(
+        "-f",
+        "--num_flows",
+        type=int,
+        help="REQUIRED: Number of flows to process per iteration (for memory purposes)",
+        required=True,
+    )
+
+    parser.add_argument(
+        "-s",
+        "--stream_file",
+        help="OPTIONAL: File to get stream ids to run distribution for CSV or Geopackage",
+        required=False,
+    )
+
+    parser.add_argument(
+        "-r",
+        "--recurrence_flows_file",
+        help="OPTIONAL: Recurrence flows NetCDF file to include in flow duration curves",
+        required=False,
+    )
+
+    parser.add_argument(
+        "-j", "--num_jobs", type=int, help="OPTIONAL: Number of jobs to run concurrently", required=False
+    )
+
+    parser.add_argument(
+        "-t",
+        "--threads_per_worker",
+        type=int,
+        help="OPTIONAL: Number of threads to run per a job/worker",
+        required=False,
+    )
+
+    args = vars(parser.parse_args())
 
     try:
         # Catch all exceptions through the script if it came
