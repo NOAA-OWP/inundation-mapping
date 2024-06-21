@@ -44,6 +44,8 @@ def add_crosswalk(
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
+    input_catchments = input_catchments.dissolve(by='HydroID').reset_index()
+
     if extent == 'FR':
         ## crosswalk using majority catchment method
 
@@ -87,20 +89,22 @@ def add_crosswalk(
 
     elif (extent == 'MS') | (extent == 'GMS'):
         ## crosswalk using stream segment midpoint method
-        input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc, engine="fiona")
+        # input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc, engine="fiona")
 
         # only reduce nwm catchments to mainstems if running mainstems
         if extent == 'MS':
-            input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem == 1]
+            # input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem == 1]
+            input_nwmflows = input_nwmflows.loc[input_nwmflows.mainstem == 1]
 
-        input_nwmcat = input_nwmcat.rename(columns={'ID': 'feature_id'})
-        if input_nwmcat.feature_id.dtype != 'int':
-            input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
-        input_nwmcat = input_nwmcat.set_index('feature_id')
+        # input_nwmcat = input_nwmcat.rename(columns={'ID': 'feature_id'})
+        # if input_nwmcat.feature_id.dtype != 'int':
+        #     input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
+        # input_nwmcat = input_nwmcat.set_index('feature_id')
 
         input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
         if input_nwmflows.feature_id.dtype != 'int':
             input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+        input_nwmflows = input_nwmflows.set_index('feature_id')
 
         # Get stream midpoint
         stream_midpoint = []
@@ -115,8 +119,12 @@ def add_crosswalk(
         input_flows_midpoint = input_flows_midpoint.set_index('HydroID')
 
         # Create crosswalk
-        crosswalk = gpd.sjoin(
-            input_flows_midpoint, input_nwmcat, how='left', predicate='within'
+        crosswalk = gpd.sjoin_nearest(
+            # input_flows_midpoint, input_nwmcat, how='left', predicate='within'
+            input_flows_midpoint,
+            input_nwmflows,
+            how='left',
+            distance_col='distance',
         ).reset_index()
         crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
 
@@ -124,26 +132,39 @@ def add_crosswalk(
         crosswalk_missing = crosswalk.loc[crosswalk.feature_id.isna()]
         for index, stream in crosswalk_missing.iterrows():
             # find closest nwm catchment by distance
-            distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
+            # distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
+            distances = [stream.geometry.distance(poly) for poly in input_nwmflows.geometry]
             min_dist = min(distances)
             nwmcat_index = distances.index(min_dist)
 
             # update crosswalk
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmcat.iloc[
+            # crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmcat.iloc[
+            #     nwmcat_index
+            # ].name
+            # crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKM'] = input_nwmcat.iloc[
+            #     nwmcat_index
+            # ].AreaSqKM
+            # crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
+            #     nwmcat_index
+            # ].Shape_Length
+            # crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
+            #     nwmcat_index
+            # ].Shape_Area
+            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmflows.iloc[
                 nwmcat_index
             ].name
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKM'] = input_nwmcat.iloc[
+            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKM'] = input_nwmflows.iloc[
                 nwmcat_index
             ].AreaSqKM
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
+            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmflows.iloc[
                 nwmcat_index
             ].Shape_Length
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
+            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmflows.iloc[
                 nwmcat_index
             ].Shape_Area
 
         crosswalk = crosswalk.filter(items=['HydroID', 'feature_id'])
-        crosswalk = crosswalk.merge(input_nwmflows[['feature_id', 'order_']], on='feature_id')
+        crosswalk = crosswalk.merge(input_nwmflows[['order_']], on='feature_id')
 
         if len(crosswalk) < 1:
             print("No relevant streams within HUC boundaries.")
