@@ -6,9 +6,10 @@ import time
 import traceback
 import warnings
 from glob import glob
-from typing import Generator, List, Tuple
+from typing import Generator, List, Tuple, Union
 
 import dask
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -117,8 +118,8 @@ def fit_distributions(
     num_flows: int,
     output_file_name: str,
     lock: dask.distributed.Lock,
-    flow_ids: List = None,
-    reccurence_flows_file: str = None,
+    stream_ids: List = None,
+    recurrence_flows_file: str = None,
 ):
     """Fit probability distributions for recreating flow duration curve for NWM retrospective flows
 
@@ -130,10 +131,12 @@ def fit_distributions(
         How many flows to gather from NWM retrospective
     output_file_name : str
         Name of tile to save the DataFrame
-    lock : mp.Lock
+    lock : Lock
         Mechanism to avoid ServerDisconnected errors
-    reccurence_flows_file : str, default=None
-        Path to the reccurence flow netcdf file
+    stream_ids : List, default=None
+        List of stream ids to process
+    recurrence_flows_file : str, default=None
+        Path to the recurrence flows NetCDF file
 
     """
 
@@ -150,31 +153,77 @@ def fit_distributions(
         [distr.wei, stats.weibull_min],
     ]
 
-    # Get reccurence interval dataset if path provided
-    reccurence = xr.open_dataset(reccurence_flows_file) if reccurence_flows_file is not None else None
+    # Get recurrence interval dataset if path provided
+    recurrence = xr.open_dataset(recurrence_flows_file) if recurrence_flows_file is not None else None
 
     if not os.path.exists(output_file_name):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
 
-            # Open NWM retrospective dataset
-            with lock:
-                try:
-                    ds = xr.open_zarr(
-                        'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr',
-                        consolidated=True,
-                    )
-                except FileNotFoundError:
-                    print('File is not accessible')
+            def get_streamflows(
+                lock: Lock, index: int, num_flows: int, count: int, stream_ids: List = None
+            ) -> Union[xr.Dataset, xr.DataArray]:
+                """
+                Get streamflows from service with 5 attempts
 
-            # Get flows (maybe large amounts necessitating the dask config below)
-            with dask.config.set(**{'array.slicing.split_large_chunks': True}):
-                st = (
-                    ds["streamflow"]
-                    .isel(feature_id=slice(index * num_flows, (index + 1) * num_flows))
-                    .compute()
-                )
+                Parameters
+                ----------
+                lock : Lock
+                    Mechanism to avoid ServerDisconnected errors
+                index : int
+                    Index of the dataset to take streamflows from
+                num_flows : int
+                    Number of flows to select from dataset
+                count : int
+                    Number of connections to NWM retrospective dataset
+                stream_ids : List, default=None
+                    List of stream ids to process
+                """
+
+                try:
+
+                    with lock:
+                        ds = xr.open_zarr(
+                            'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr',
+                            consolidated=True,
+                        )
+
+                    with dask.config.set(**{'array.slicing.split_large_chunks': True}):
+
+                        if stream_ids is not None:
+                            st = ds["streamflow"].sel(feature_id=stream_ids).compute()
+                        else:
+                            st = (
+                                ds["streamflow"]
+                                .isel(feature_id=slice(index * num_flows, (index + 1) * num_flows))
+                                .compute()
+                            )
+
+                        return st
+
+                except Exception:
+
+                    if count < 5:
+                        count += 1
+                        time.sleep(1)
+                        return get_streamflows(
+                            lock=lock, index=index, num_flows=num_flows, count=count, stream_ids=stream_ids
+                        )
+                    else:
+                        print(f"Could not connect to NWM Retrosepctive Dataset for index {index}")
+                        return None
+
+            # Open NWM retrospective dataset
+            connection_count = 0
+
+            st = get_streamflows(
+                lock=lock, index=index, num_flows=num_flows, count=connection_count, stream_ids=stream_ids
+            )
+
+            # Exit operation but allow for other processes to run if return code is 1
+            if st is None:
+                return None
 
             # For each feature_id
             dfs = []
@@ -183,12 +232,12 @@ def fit_distributions(
                 feat = int(st[:, i].coords['feature_id'].values)
 
                 # Get daily mean flows
-                if reccurence is not None:
+                if recurrence is not None:
                     flows = np.sort(
                         np.hstack(
                             [
                                 st[:, i].resample({'time': "1D"}).mean(skipna=True),
-                                reccurence.sel({'feature_id': feat}).to_array()[:-1],
+                                recurrence.sel({'feature_id': feat}).to_array()[:-1],
                             ]
                         )
                     )
@@ -232,6 +281,8 @@ def run_linear_moment_fit(
     output_directory: str,
     output_name: str,
     num_flows: int,
+    stream_file: str = None,
+    recurrence_flows_file: str = None,
     num_jobs: int = None,
     threads_per_worker: int = None,
 ):
@@ -245,6 +296,10 @@ def run_linear_moment_fit(
         Name of the output file
     num_flows : int
         Number of flows to process
+    stream_file : str, default=None
+        Path to file with stream ids (CSV or Geopackage)
+    recurrence_flows_file : str, default=None
+        Path to the recurrence flows NetCDF file
     num_jobs : int
         Number of jobs to run concurrently
     threads_per_worker : int, optional
@@ -257,27 +312,44 @@ def run_linear_moment_fit(
     # If arguments are none Dask will automatically resolve
     client = Client(threads_per_worker=threads_per_worker, n_workers=num_jobs)
     num_jobs = num_jobs if num_jobs else len(client.scheduler_info()['workers'])
-    steps = 2776738 // num_flows
+
+    # Get stream IDs if file is passed
+    if stream_file:
+        stream_df = (
+            gpd.read_file(stream_file) if stream_file.split('.')[-1] == 'gpkg' else pd.read_csv(stream_file)
+        )
+        if 'ID' not in stream_df.columns:
+            raise ValueError('ID column not in stream file')
+        steps = stream_df.shape[0] // num_flows
+        stream_ids = np.array_split(stream_df['ID'].values, steps)
+
+    else:
+        steps = 2776738 // num_flows
+        stream_ids = None
 
     lazy_results = []
     lock = Lock()
 
     print('Start', time.localtime())
 
-    # For each set of batches create a future
-    for idx in range(steps):
-        output_file_name = os.path.join(
-            output_directory, f"{output_name.split('.')[0]}{str(idx)}.{output_name.split('.')[1]}"
-        )
-        lazy_result = dask.delayed(fit_distributions)(idx, num_flows, output_file_name, lock)
-        lazy_results.append(lazy_result)
-
     # Run batches of size given available workers
     for batch_idx in (pbar := tqdm(range(int(steps / num_jobs)))):
         pbar.set_description(f"Running Batch {batch_idx}")
 
+        lazy_results = []
+        for job_idx in range(num_jobs):
+            run_idx = job_idx + (num_jobs * batch_idx)
+            output_file_name = os.path.join(
+                output_directory, f"{output_name.split('.')[0]}{str(run_idx)}" f".{output_name.split('.')[1]}"
+            )
+            lazy_results.append(
+                dask.delayed(fit_distributions)(
+                    run_idx, num_flows, output_file_name, lock, stream_ids, recurrence_flows_file
+                )
+            )
+
         results = []
-        working_futures = client.compute(lazy_results[num_jobs * batch_idx : num_jobs * (batch_idx + 1)])
+        working_futures = client.compute(lazy_results)
         ac = as_completed(working_futures)
 
         for job_idx, fut in (pbar2 := tqdm(enumerate(ac))):
@@ -313,36 +385,64 @@ if __name__ == '__main__':
     NOTE: If the file name
     """
 
-    # Parse arguments
-    parser = argparse.ArgumentParser(description="Fit probability distributions to flow duration curves. ")
+    # # Parse arguments
+    # parser = argparse.ArgumentParser(description="Fit probability distributions to flow duration curves. ")
+    #
+    # parser.add_argument(
+    #     "-o", "--output_directory", help="REQUIRED: Must be an existing directory", required=True
+    # )
+    #
+    # parser.add_argument("-n", "--output_name", help='REQUIRED: Name to save each DataFrame', required=True)
+    #
+    # parser.add_argument(
+    #     "-f",
+    #     "--num_flows",
+    #     type=int,
+    #     help="REQUIRED: Number of flows to process per iteration (for memory purposes)",
+    #     required=True,
+    # )
+    #
+    # parser.add_argument(
+    #     "-s",
+    #     "--stream_file",
+    #     help="OPTIONAL: File to get stream ids to run distribution for CSV or Geopackage",
+    #     required=False,
+    # )
+    #
+    # parser.add_argument(
+    #     "-r",
+    #     "--recurrence_flows_file",
+    #     help="OPTIONAL: Recurrence flows NetCDF file to include in flow duration curves",
+    #     required=False,
+    # )
+    #
+    # parser.add_argument(
+    #     "-j", "--num_jobs", type=int, help="OPTIONAL: Number of jobs to run concurrently", required=False
+    # )
+    #
+    # parser.add_argument(
+    #     "-t",
+    #     "--threads_per_worker",
+    #     type=int,
+    #     help="OPTIONAL: Number of threads to run per a job/worker",
+    #     required=False,
+    # )
+    #
+    # args = vars(parser.parse_args())
 
-    parser.add_argument(
-        "-o", "--output_directory", help="REQUIRED: Must be an existing directory", required=True
-    )
+    args = {"output_directory": "../prob_dist_test", "output_name": "plink.csv", "num_flows": 800}
 
-    parser.add_argument("-n", "--output_name", help='REQUIRED: Name to save each DataFrame', required=True)
-
-    parser.add_argument(
-        "-f",
-        "--num_flows",
-        type=int,
-        help="REQUIRED: Number of flows to process per iteration (for memory purposes)",
-        required=True,
-    )
-
-    parser.add_argument(
-        "-j", "--num_jobs", type=int, help="OPTIONAL: Number of jobs to run concurrently", required=False
-    )
-
-    parser.add_argument(
-        "-t",
-        "--threads_per_worker",
-        type=int,
-        help="OPTIONAL: Number of threads to run per a job/worker",
-        required=False,
-    )
-
-    args = vars(parser.parse_args())
+    # idx = 0
+    # num_flows = args["num_flows"]
+    # output_directory = args["output_directory"]
+    # output_name = args["output_name"]
+    # lock, stream_ids, recurrence_flows_file = None, None, None
+    # output_file_name = os.path.join(
+    #     output_directory, f"{output_name.split('.')[0]}{str(idx)}.{output_name.split('.')[1]}"
+    # )
+    # fit_distributions(
+    #     idx, num_flows, output_file_name, lock, stream_ids, recurrence_flows_file
+    # )
 
     try:
         # Catch all exceptions through the script if it came
@@ -353,4 +453,4 @@ if __name__ == '__main__':
         run_linear_moment_fit(**args)
 
     except Exception:
-        print("The following error has occured:\n", traceback.format_exc())
+        print("The following error has occurred:\n", traceback.format_exc())

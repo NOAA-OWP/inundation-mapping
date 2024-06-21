@@ -16,11 +16,13 @@ import requests
 import rioxarray as rxr
 import xarray as xr
 from dotenv import load_dotenv
-from geocube.api.core import make_geocube
 from gval import CatStats
 from rasterio import features
 from rasterio.warp import Resampling, calculate_default_transform, reproject
+from requests.adapters import HTTPAdapter
 from shapely.geometry import MultiPolygon, Polygon, shape
+from urllib3.exceptions import InsecureRequestWarning
+from urllib3.util.retry import Retry
 
 
 gpd.options.io_engine = "pyogrio"
@@ -453,18 +455,22 @@ def get_stats_table_from_binary_rasters(
                 else:
                     all_masks_df = poly_all_proj
 
-                delete_and_garbage_collect([poly_all, poly_all_proj])
+                del poly_all, poly_all_proj
+                gc.collect()
 
     stats_table_dictionary = {}  # Initialize empty dictionary.
 
     c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
-    delete_and_garbage_collect([candidate_raster, benchmark_raster])
+
+    del candidate_raster, benchmark_raster
+    gc.collect()
 
     agreement_map = c_aligned.gval.compute_agreement_map(
         b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
     )
 
-    delete_and_garbage_collect([c_aligned, b_aligned])
+    del c_aligned, b_aligned
+    gc.collect()
 
     agreement_map_og = agreement_map.copy()
     agreement_map.rio.write_nodata(4, inplace=True)
@@ -487,8 +493,10 @@ def get_stats_table_from_binary_rasters(
     # Only write the agreement raster if user-specified.
     if agreement_raster != None:
         agreement_map_write = agreement_map.rio.write_nodata(10, encoded=True)
-        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.int32, driver="COG")
-        delete_and_garbage_collect([agreement_map_write])
+        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.uint8, driver="COG")
+
+        del agreement_map_write
+        gc.collect()
 
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
@@ -518,7 +526,8 @@ def get_stats_table_from_binary_rasters(
         }
     )
 
-    delete_and_garbage_collect([crosstab_table, metrics_table])
+    del crosstab_table, metrics_table
+    gc.collect()
 
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
     if mask_dict != {}:
@@ -535,7 +544,8 @@ def get_stats_table_from_binary_rasters(
                 # Make sure features are present in bounding box area before projecting.
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
-                    delete_and_garbage_collect([poly_all])
+                    del poly_all
+                    gc.collect()
                     continue
 
                 poly_all_proj = poly_all.to_crs(agreement_map.rio.crs)
@@ -568,7 +578,7 @@ def get_stats_table_from_binary_rasters(
                         os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
                     )
                     agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
-                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.int32, driver="COG")
+                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.uint8, driver="COG")
                     delete_and_garbage_collect([agreement_map_write])
 
                 # Update stats table dictionary
@@ -581,11 +591,11 @@ def get_stats_table_from_binary_rasters(
                         )
                     }
                 )
-                delete_and_garbage_collect(
-                    [agreement_map_include, poly_all, poly_all_proj, metrics_table, crosstab_table]
-                )
+                del agreement_map_include, poly_all, poly_all_proj, metrics_table, crosstab_table
+                gc.collect()
 
-    delete_and_garbage_collect([agreement_map])
+    del agreement_map
+    gc.collect()
 
     return stats_table_dictionary
 
@@ -638,6 +648,9 @@ def get_metadata(
     params['must_include'] = must_include
     params['upstream_trace_distance'] = upstream_trace_distance
     params['downstream_trace_distance'] = downstream_trace_distance
+    # Suppress Insecure Request Warning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
     # Request data from url
     response = requests.get(url, params=params, verify=False)
     #    print(response)
@@ -772,9 +785,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
         metadata_gdf, huc8, how='inner', predicate='intersects', lsuffix='ahps', rsuffix='wbd'
     )
     joined_gdf = joined_gdf.drop(columns='index_wbd')
-
-    # Remove all Alaska HUCS (Not in NWM v2.0 domain)
-    joined_gdf = joined_gdf[~joined_gdf.states.str.contains('AK')]
 
     # Create a dictionary of huc [key] and nws_lid[value]
     dictionary = joined_gdf.groupby('HUC8')['identifiers_nws_lid'].apply(list).to_dict()
@@ -951,8 +961,18 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
     params = {}
     params['threshold'] = threshold
     url = f'{threshold_url}/{select_by}/{selector}'
-    response = requests.get(url, params=params, verify=False)
-    if response.ok:
+
+    # response = requests.get(url, params=params, verify=False)
+
+    # Call the API
+    session = requests.Session()
+    retry = Retry(connect=3, backoff_factor=0.5)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+
+    response = session.get(url, params=params, verify=False)
+
+    if response.status_code == 200:
         thresholds_json = response.json()
         # Get metadata
         thresholds_info = thresholds_json['value_set']
@@ -1176,11 +1196,19 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
     params['t_v_frame'] = 'NAVD88'  # Target vertical datum
     params['tar_vertical_unit'] = 'm'  # Target vertical height
 
+    # Suppress Insecure Request Warning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
     # Call the API
-    response = requests.get(datum_url, params=params, verify=False)
+    session = requests.Session()
+    retry = Retry(connect=3, backoff_factor=0.5)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+
+    response = session.get(datum_url, params=params, verify=False)
 
     # If successful get the navd adjustment
-    if response:
+    if response.status_code == 200:
         results = response.json()
         # Get adjustment in meters (NGVD29 to NAVD88)
         adjustment = results['t_z']
@@ -1594,7 +1622,7 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
     for idx, wind in agreement_raster.block_windows(1):
         window_data = agreement_raster.read(1, window=wind)
         values, counts = np.unique(window_data, return_counts=True)
-        for val, cts in values_counts:
+        for val, cts in zip(values, counts):
             totals[val] += cts
 
     results = dict()
