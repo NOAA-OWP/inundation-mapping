@@ -381,6 +381,8 @@ def multi_process_hucs(
     log_file.write(f"Identified {len(hucs)} HUCs that have USACE eHydro bathymetric data: {hucs}\n")
     print(f"Identified {len(hucs)} HUCs that have USACE eHydro bathymetric data\n")
 
+    print(f"AI-Based bathymetry data is applied on streams with order {strm_order} or higher\n")
+
     failed_HUCs_list = []
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         # Loop through all hucs, build the arguments, and submit them to the process pool
