@@ -362,7 +362,7 @@ def run_linear_moment_fit(
     concat_df = pd.concat(
         [
             pd.read_csv(param_file)
-            for param_file in glob(os.path.join(output_directory, f"{output_name.split('.')[0]}*"))
+            for param_file in glob(os.path.join(output_directory, f"{output_name.split('.')[0]}[0-9]*"))
         ]
     )
 
