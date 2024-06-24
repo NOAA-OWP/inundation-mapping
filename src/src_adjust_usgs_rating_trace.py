@@ -94,14 +94,12 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
             '5_0_year_recurrence_flow_17C': '5_0_year',
             '10_0_year_recurrence_flow_17C': '10_0_year',
             '25_0_year_recurrence_flow_17C': '25_0_year',
-            '50_0_year_recurrence_flow_17C': '50_0_year'
+            '50_0_year_recurrence_flow_17C': '50_0_year',
         }
     )
 
     # convert cfs to cms (x 0.028317)
-    nwm_recur_df.loc[
-        :, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year']
-    ] *= 0.028317
+    nwm_recur_df.loc[:, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year']] *= 0.028317
 
     # merge nwm recurr with usgs_rc
     merge_df = usgs_rc_df.merge(nwm_recur_df, how='left', on='feature_id')

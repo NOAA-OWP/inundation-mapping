@@ -96,15 +96,13 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
             '5_0_year_recurrence_flow_17C': '5_0_year',
             '10_0_year_recurrence_flow_17C': '10_0_year',
             '25_0_year_recurrence_flow_17C': '25_0_year',
-            '50_0_year_recurrence_flow_17C': '50_0_year'
+            '50_0_year_recurrence_flow_17C': '50_0_year',
         },
         inplace=True,
     )
 
     # convert cfs to cms (x 0.028317)
-    nwm_recur_df.loc[
-        :, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year']
-    ] *= 0.028317
+    nwm_recur_df.loc[:, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year']] *= 0.028317
 
     # merge nwm recurr with ras_rc_df
     merge_df = ras_rc_df.merge(nwm_recur_df, how='left', on='feature_id')
