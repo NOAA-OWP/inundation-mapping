@@ -294,42 +294,42 @@ def apply_src_adjustment_for_bathymetry(
         log_text : str
     """
     log_text = ""
-try:
-    if os.path.exists(bathy_file_ehydro):
-        msg = f"correcting rating curve for ehydro bathy for huc : {huc}"
-        log_text += msg + '\n'
-        print(msg + '\n')
-        log_text += correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbose)
-    else:
-        print(f'USACE eHydro bathymetry file does not exist for huc: {huc}')
+    try:
+        if os.path.exists(bathy_file_ehydro):
+            msg = f"correcting rating curve for ehydro bathy for huc : {huc}"
+            log_text += msg + '\n'
+            print(msg + '\n')
+            log_text += correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbose)
+        else:
+            print(f'USACE eHydro bathymetry file does not exist for huc: {huc}')
 
     except Exception:
         log_text += f"An error has occurred while processing ehydro bathy for huc {huc}"
         log_text += traceback.format_exc()
 
-try:
+    try:
+        with open(log_file_path, "a") as log_file:
+            log_file.write(log_text + '\n')
+    except Exception:
+        print(f"Error trying to write to the log file of {log_file_path}")
+
+    log_text = ""
+    try:
+        if os.path.exists(bathy_file_aibased):
+            msg = f"correcting rating curve for ai based bathy for huc : {huc}"
+            log_text += msg + '\n'
+            print(msg + '\n')
+
+            log_text += correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_aibased, verbose)
+        else:
+            print(f'AI-based bathymetry file does not exist for huc : {huc}')
+
+    except Exception:
+        log_text += f"An error has occurred while processing ehydro bathy for huc {huc}"
+        log_text += traceback.format_exc()
+
     with open(log_file_path, "a") as log_file:
         log_file.write(log_text + '\n')
-except Exception:
-    print(f"Error trying to write to the log file of {log_file_path}")
-
-log_text = ""
-try:
-    if os.path.exists(bathy_file_aibased):
-        msg = f"correcting rating curve for ai based bathy for huc : {huc}"
-        log_text += msg + '\n'
-        print(msg + '\n')
-
-        log_text += correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_aibased, verbose)
-    else:
-        print(f'AI-based bathymetry file does not exist for huc : {huc}')
-
-except Exception:
-    log_text += f"An error has occurred while processing ehydro bathy for huc {huc}"
-    log_text += traceback.format_exc()
-
-with open(log_file_path, "a") as log_file:
-    log_file.write(log_text + '\n')
 
 
 # -------------------------------------------------------
