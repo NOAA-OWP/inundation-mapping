@@ -274,7 +274,7 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
     return log_text
 
 
-# -------------------------------------------------------
+# --------------------------------------------------------
 # Apply src_adjustment_for_bathymetry
 def apply_src_adjustment_for_bathymetry(
     fim_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, verbose, log_file_path
@@ -320,7 +320,9 @@ def apply_src_adjustment_for_bathymetry(
             log_text += msg + '\n'
             print(msg + '\n')
 
-            log_text += correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_aibased, verbose)
+            log_text += correct_rating_for_ai_based_bathymetry(
+                fim_dir, huc, strm_order, bathy_file_aibased, verbose
+            )
         else:
             print(f'AI-based bathymetry file does not exist for huc : {huc}')
 
@@ -413,7 +415,7 @@ def process_bathy_adjustment(
     msg = f"AI-Based bathymetry data is applied on streams with order {strm_order} or higher\n"
     log_text += msg
     print(msg)
-    
+
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         # Loop through all hucs, build the arguments, and submit them to the process pool
         futures = {}
@@ -436,10 +438,10 @@ def process_bathy_adjustment(
                     raise future.exception()
 
     ## Record run time and close log file
-    end_time = dt.datetime.now(dt.timezone.utc)    
-    log_text +=('END TIME: ' + str(end_time) + '\n')
+    end_time = dt.datetime.now(dt.timezone.utc)
+    log_text += 'END TIME: ' + str(end_time) + '\n'
     tot_run_time = end_time - begin_time
-    log_text += ('TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0])
+    log_text += 'TOTAL RUN TIME: ' + str(tot_run_time).split('.')[0]
     log_file.close()
 
 
