@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import os
 import time
 import traceback
@@ -310,7 +311,7 @@ def run_linear_moment_fit(
     print(time.localtime())
 
     # If arguments are none Dask will automatically resolve
-    client = Client(threads_per_worker=threads_per_worker, n_workers=num_jobs)
+    client = Client(threads_per_worker=threads_per_worker, n_workers=num_jobs, silence_logs=logging.ERROR)
     num_jobs = num_jobs if num_jobs else len(client.scheduler_info()['workers'])
 
     # Get stream IDs if file is passed
