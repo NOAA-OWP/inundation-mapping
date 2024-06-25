@@ -298,7 +298,7 @@ def apply_src_adjustment_for_bathymetry(
         if os.path.exists(bathy_file_ehydro):
             msg = f"correcting rating curve for ehydro bathy for huc : {huc}"
             log_text += msg + '\n'
-            print(msg + '\n')
+            print(msg)
             log_text += correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbose)
         else:
             print(f'USACE eHydro bathymetry file does not exist for huc: {huc}')
