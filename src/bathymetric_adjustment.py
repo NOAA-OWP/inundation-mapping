@@ -378,6 +378,7 @@ def multi_process_hucs(
     )  # HUCs that could also have bathymetric reaches included
     hucs_with_bathy = wbd.HUC8.to_list()
     hucs = [h for h in fim_hucs if h in hucs_with_bathy]
+    hucs.sort()
     log_file.write(f"Identified {len(hucs)} HUCs that have USACE eHydro bathymetric data: {hucs}\n")
     print(f"Identified {len(hucs)} HUCs that have USACE eHydro bathymetric data\n")
 
