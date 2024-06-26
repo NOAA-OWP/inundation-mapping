@@ -187,9 +187,12 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
         aib_bathy_data_df["order_"] < strm_order,
         ["missing_xs_area_m2", "missing_wet_perimeter_m", "Bathymetry_source"],
     ] = 0
-    aib_df = aib_bathy_data_df[
+    aib_df0 = aib_bathy_data_df[
         ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
     ]
+    #test = aib_df[aib_df.duplicated(subset='feature_id', keep=False)]
+    aib_df = aib_df0.drop_duplicates(subset=['feature_id'], keep = 'first')
+    aib_df.index = range(len(aib_df))
 
     # Get src_full from each branch
     src_all_branches_path = []
@@ -211,8 +214,8 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
         # Merge in missing bathy data and fill Nans
         if "missing_xs_area_m2" not in src_df.columns:
             src_df.drop(columns=["Bathymetry_source"], inplace=True)
-            src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
-            # print([src,src_df.columns])
+            src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')            
+            # print([src,src_df.columns]) src_df.Bathymetry_source
         else:
             src_df = pd.read_csv(src, low_memory=False)
             src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
@@ -316,7 +319,7 @@ def apply_src_adjustment_for_bathymetry(
     log_text = ""
     try:
         if os.path.exists(bathy_file_aibased):
-            msg = f"correcting rating curve for ai based bathy for huc : {huc}"
+            msg = f"correcting rating curve for AI-based bathy for huc : {huc}"
             log_text += msg + '\n'
             print(msg + '\n')
 
@@ -327,7 +330,7 @@ def apply_src_adjustment_for_bathymetry(
             print(f'AI-based bathymetry file does not exist for huc : {huc}')
 
     except Exception:
-        log_text += f"An error has occurred while processing ehydro bathy for huc {huc}"
+        log_text += f"An error has occurred while processing AI-based bathy for huc {huc}"
         log_text += traceback.format_exc()
 
     with open(log_file_path, "a") as log_file:
