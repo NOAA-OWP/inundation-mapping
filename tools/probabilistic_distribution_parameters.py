@@ -6,6 +6,7 @@ import os
 import time
 import traceback
 import warnings
+from datetime import datetime
 from glob import glob
 from typing import Generator, List, Tuple, Union
 
@@ -19,6 +20,32 @@ from lmoments3 import distr
 from numba import njit
 from scipy import stats
 from tqdm import tqdm
+
+
+def __setup_logger(output_folder_path):
+
+    start_time = datetime.now()
+
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"probabilistic_distribution_parameters-{file_dt_string}.log"
+
+    log_file_path = os.path.join(output_folder_path, log_file_name)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger()
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    logger.setLevel(logging.DEBUG)
+    logging.getLogger('asyncio').setLevel(logging.WARNING)
+    logging.getLogger('netCDF4').setLevel(logging.WARNING)
+
+    logging.info(f'Started : {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info("----------------")
+    return start_time
 
 
 @njit(fastmath=True)
@@ -95,7 +122,7 @@ def get_score(
     q_mean = np.nanmean(q_flow)
 
     if q_mean <= 0:
-        print('Mean flow is less than or equal to zero')
+        logging.info('Mean flow is less than or equal to zero')
         return lmoment_distribution.name, np.nan, {'params': 'N/a'}
 
     # Recreate flow duration curve, sort values, and get percentiles
@@ -212,7 +239,7 @@ def fit_distributions(
                             lock=lock, index=index, num_flows=num_flows, count=count, stream_ids=stream_ids
                         )
                     else:
-                        print(f"Could not connect to NWM Retrosepctive Dataset for index {index}")
+                        logging.WARNING(f"Could not connect to NWM Retrosepctive Dataset for index {index}")
                         return None
 
             # Open NWM retrospective dataset
@@ -307,9 +334,6 @@ def run_linear_moment_fit(
         Number of threads to run per a worker
     """
 
-    print('Begin fitting probability distributions')
-    print(time.localtime())
-
     # If arguments are none Dask will automatically resolve
     client = Client(threads_per_worker=threads_per_worker, n_workers=num_jobs, silence_logs=logging.ERROR)
     num_jobs = num_jobs if num_jobs else len(client.scheduler_info()['workers'])
@@ -328,14 +352,13 @@ def run_linear_moment_fit(
         steps = 2776738 // num_flows
         stream_ids = None
 
-    lazy_results = []
     lock = Lock()
-
-    print('Start', time.localtime())
 
     # Run batches of size given available workers
     for batch_idx in (pbar := tqdm(range(int(steps / num_jobs)))):
         pbar.set_description(f"Running Batch {batch_idx}")
+        batch_start_time = datetime.now()
+        logging.info(f'Running Batch {batch_idx}: {batch_start_time.strftime("%m/%d/%Y %H:%M:%S")}')
 
         lazy_results = []
         for job_idx in range(num_jobs):
@@ -355,9 +378,24 @@ def run_linear_moment_fit(
 
         for job_idx, fut in (pbar2 := tqdm(enumerate(ac))):
             pbar2.set_description(f"Running Job {job_idx}")
+            logging.info(f"Running Job {job_idx}")
 
             res = fut.result()
             results.append(res)
+
+        batch_end_time = datetime.now()
+        batch_td = batch_end_time - batch_start_time
+        logging.info(f'Completed Batch {batch_idx}: {batch_end_time.strftime("%m/%d/%Y %H:%M:%S")}')
+        logging.info(
+            "\n"
+            f"BATCH RUN TIME \n"
+            "-------- \n"
+            f"Days: {batch_td.days} \n"
+            f"Hours: {batch_td.seconds // 3600} \n"
+            f"Minutes: {(batch_td.seconds // 60) % 60} \n"
+            f"Seconds: {batch_td.seconds % 60}"
+            "\n--------\n"
+        )
 
     # Concatenate all param files in to one
     concat_df = pd.concat(
@@ -368,9 +406,6 @@ def run_linear_moment_fit(
     )
 
     concat_df.to_csv(os.path.join(output_directory, output_name), index=False)
-
-    print('End fitting probability distributions')
-    print(time.localtime())
 
 
 if __name__ == '__main__':
@@ -431,13 +466,30 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
+    if not os.path.exists(args["output_directory"]):
+        raise "Directory not found"
+
+    start_time = __setup_logger(args['output_directory'])
+
     try:
         # Catch all exceptions through the script if it came
         # from command line.
-        if not os.path.exists(args["output_directory"]):
-            raise "Directory not found"
-
         run_linear_moment_fit(**args)
 
     except Exception:
-        print("The following error has occurred:\n", traceback.format_exc())
+        logging.ERROR("The following error has occurred:\n", traceback.format_exc())
+
+    end_time = datetime.now()
+    td = end_time - start_time
+    logging.info("Completed Probabilistic Distribution Parameter Fit")
+    logging.info(f'Completed : {end_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info(
+        "\n"
+        f"PROCESS RUN TIME \n"
+        "-------- \n"
+        f"Days: {td.days} \n"
+        f"Hours: {td.seconds // 3600} \n"
+        f"Minutes: {(td.seconds // 60) % 60} \n"
+        f"Seconds: {td.seconds % 60}"
+        "\n--------\n"
+    )
