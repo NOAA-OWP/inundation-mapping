@@ -22,6 +22,9 @@ from scipy import stats
 from tqdm import tqdm
 
 
+NWM_V3_ZARR_URL = 'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr'
+
+
 def __setup_logger(output_folder_path):
 
     start_time = datetime.now()
@@ -212,10 +215,7 @@ def fit_distributions(
                 try:
 
                     with lock:
-                        ds = xr.open_zarr(
-                            'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr',
-                            consolidated=True,
-                        )
+                        ds = xr.open_zarr(NWM_V3_ZARR_URL, consolidated=True)
 
                     with dask.config.set(**{'array.slicing.split_large_chunks': True}):
 
