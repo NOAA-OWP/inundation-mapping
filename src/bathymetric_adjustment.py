@@ -190,8 +190,8 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
     aib_df0 = aib_bathy_data_df[
         ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
     ]
-    #test = aib_df[aib_df.duplicated(subset='feature_id', keep=False)]
-    aib_df = aib_df0.drop_duplicates(subset=['feature_id'], keep = 'first')
+    # test = aib_df[aib_df.duplicated(subset='feature_id', keep=False)]
+    aib_df = aib_df0.drop_duplicates(subset=['feature_id'], keep='first')
     aib_df.index = range(len(aib_df))
 
     # Get src_full from each branch
@@ -214,7 +214,7 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
         # Merge in missing bathy data and fill Nans
         if "missing_xs_area_m2" not in src_df.columns:
             src_df.drop(columns=["Bathymetry_source"], inplace=True)
-            src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')            
+            src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
             # print([src,src_df.columns]) src_df.Bathymetry_source
         else:
             src_df = pd.read_csv(src, low_memory=False)
@@ -299,7 +299,7 @@ def apply_src_adjustment_for_bathymetry(
     log_text = ""
     try:
         if os.path.exists(bathy_file_ehydro):
-            msg = f"correcting rating curve for ehydro bathy for huc : {huc}"
+            msg = f"Correcting rating curve for ehydro bathy for huc : {huc}"
             log_text += msg + '\n'
             print(msg)
             log_text += correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbose)
@@ -319,7 +319,7 @@ def apply_src_adjustment_for_bathymetry(
     log_text = ""
     try:
         if os.path.exists(bathy_file_aibased):
-            msg = f"correcting rating curve for AI-based bathy for huc : {huc}"
+            msg = f"Correcting rating curve for AI-based bathy for huc : {huc}"
             log_text += msg + '\n'
             print(msg + '\n')
 
