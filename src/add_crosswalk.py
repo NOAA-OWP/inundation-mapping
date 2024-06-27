@@ -126,33 +126,33 @@ def add_crosswalk(
 
         crosswalk.loc[crosswalk['distance'] > 100.0, 'feature_id'] = pd.NA
 
-        # fill in missing ms
-        crosswalk_missing = crosswalk.loc[crosswalk.feature_id.isna()]
+        # # fill in missing ms
+        # crosswalk_missing = crosswalk.loc[crosswalk.feature_id.isna()]
 
-        crosswalk = gpd.sjoin(
-            input_flows_midpoint, input_nwmcat, how='left', predicate='within'
-        ).reset_index()
-        crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
+        # crosswalk = gpd.sjoin(
+        #     input_flows_midpoint, input_nwmcat, how='left', predicate='within'
+        # ).reset_index()
+        # crosswalk = crosswalk.rename(columns={"index_right": "feature_id"})
 
-        for index, stream in crosswalk_missing.iterrows():
-            # find closest nwm catchment by distance
-            distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
-            min_dist = min(distances)
-            nwmcat_index = distances.index(min_dist)
+        # for index, stream in crosswalk_missing.iterrows():
+        #     # find closest nwm catchment by distance
+        #     distances = [stream.geometry.distance(poly) for poly in input_nwmcat.geometry]
+        #     min_dist = min(distances)
+        #     nwmcat_index = distances.index(min_dist)
 
-            # update crosswalk
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].name
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKM'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].AreaSqKM
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].Shape_Length
-            crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
-                nwmcat_index
-            ].Shape_Area
+        #     # update crosswalk
+        #     crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'feature_id'] = input_nwmcat.iloc[
+        #         nwmcat_index
+        #     ].name
+        #     crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'AreaSqKM'] = input_nwmcat.iloc[
+        #         nwmcat_index
+        #     ].AreaSqKM
+        #     crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Length'] = input_nwmcat.iloc[
+        #         nwmcat_index
+        #     ].Shape_Length
+        #     crosswalk.loc[crosswalk.HydroID == stream.HydroID, 'Shape_Area'] = input_nwmcat.iloc[
+        #         nwmcat_index
+        #     ].Shape_Area
 
         crosswalk = crosswalk.filter(items=['HydroID', 'feature_id', 'distance'])
         crosswalk = crosswalk.merge(input_nwmflows[['order_']], on='feature_id')
