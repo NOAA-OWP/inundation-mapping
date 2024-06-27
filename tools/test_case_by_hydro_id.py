@@ -263,13 +263,12 @@ if __name__ == "__main__":
             for branches in os.listdir(branches_dir):
                 if branches != "0":
                     continue
-                huc_gpkg = os.path.join(branches_dir, branches)
 
                 string_manip = (
                     "gw_catchments_reaches_filtered_addedAttributes_crosswalked_" + branches + ".gpkg"
                 )
 
-                huc_gpkg = os.path.join(huc_gpkg, string_manip)
+                huc_gpkg = os.path.join(branches_dir, branches, string_manip)
 
                 define_mag = agree_rast.split(version)
 
@@ -283,6 +282,7 @@ if __name__ == "__main__":
 
                 print('assembling_hydroalpha_for_single_huc')
                 get_geom = gpd.read_file(huc_gpkg)
+                catchment_crs = get_geom.crs
 
                 get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
 
@@ -293,13 +293,12 @@ if __name__ == "__main__":
                 hydro_geom_df = get_geom[["HydroID", "geometry"]]
 
                 geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how='inner')
+                geom_output = geom_output.set_crs(catchment_crs)
+                geom_output = geom_output.to_crs('EPSG:3857')
 
                 concat_df_list = [geom_output, csv_output]
 
                 csv_output = pd.concat(concat_df_list, sort=False)
-
-    print('projecting to 3857')
-    csv_output = csv_output.to_crs('EPSG:3857')
 
     print('manipulating the input string to exclude gpkg and include csv')
     csv_path_list = csv.split(".")
