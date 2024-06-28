@@ -33,6 +33,7 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     levelpath_outlets = levelpath_outlets[~levelpath_outlets.intersects(wbd['geometry'].iloc[0])]
 
     levelpath_outlets['nearest_point'] = None
+    levelpath_outlets['nearest_point_wbd'] = None
     levelpath_outlets['last'] = None
 
     levelpath_outlets = levelpath_outlets.explode(index_parts=False)
@@ -51,7 +52,7 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
         nearest_point_wbd = nearest_points(levelpath_geom, wbd.geometry)
 
         levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
-        levelpath_outlets.at[index, 'nearest_point_wbd'] = nearest_point_wbd[1]['geometry'].iloc[0]
+        levelpath_outlets.at[index, 'nearest_point_wbd'] = nearest_point_wbd[1].iloc[0]
 
         levelpath_outlets_nearest_points = levelpath_outlets.at[index, 'nearest_point']
         levelpath_outlets_nearest_points_wbd = levelpath_outlets.at[index, 'nearest_point_wbd']
@@ -65,7 +66,7 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
             )
 
     levelpath_outlets = gpd.GeoDataFrame(data=levelpath_outlets, geometry='geometry')
-    levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point'])
+    levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point', 'nearest_point_wbd'])
 
     # Replace the streams in the original file with the extended streams
     streams = streams[~streams['ID'].isin(levelpath_outlets['ID'])]
