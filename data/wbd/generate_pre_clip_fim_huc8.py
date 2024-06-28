@@ -83,6 +83,8 @@ input_nwm_headwaters_Alaska = os.getenv('input_nwm_headwaters_Alaska')
 input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
 input_nld_levee_protected_areas_Alaska = os.getenv('input_nld_levee_protected_areas_Alaska')
 
+input_osm_bridges = os.getenv('osm_bridges')
+
 # Variables from config/params_template.env
 wbd_buffer = os.getenv('wbd_buffer')
 wbd_buffer_int = int(wbd_buffer)
@@ -94,7 +96,7 @@ def __setup_logger(outputs_dir, huc=None):
     script is run more than once on the same day.
     '''
     datetime_now = dt.datetime.now(dt.timezone.utc)
-    curr_date = datetime_now.strftime("%m_%d_%Y")
+    curr_date = datetime_now.strftime("%y%my%d")
 
     if huc is None:
         log_file_name = f"generate_pre_clip_fim_huc8_{curr_date}.log"
@@ -132,13 +134,31 @@ def __merge_mp_logs(outputs_dir):
 
     log_mp_rollup_file = os.path.join(outputs_dir, "mp_merged_logs.log")
 
+    error_huc_found = False
+
     with open(log_mp_rollup_file, 'a') as main_log:
         # Iterate through list
         for temp_log_file in log_file_list:
             # Open each file in read mode
             with open(temp_log_file) as infile:
-                main_log.write(infile.read())
+                contents = infile.read()
+                temp_upper_contents = contents.upper()
+                if "ERROR" in temp_upper_contents:
+                    print(
+                        f"\nAn error exist in file {temp_log_file}."
+                        " Check the merge logs for that huc number"
+                    )
+                    error_huc_found = True
+                main_log.write(contents)
             os.remove(temp_log_file)
+
+    if error_huc_found:
+        print(
+            "\n\nOften you can just create a new huc list with the fails, re-run to a"
+            " 1temp directory and recheck if errors still exists. Sometimes multi-prod can create"
+            " contention errors.\nFor each HUC that is sucessful, you can just copy it back"
+            " into the original full pre-clip folder.\n"
+        )
 
 
 def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
@@ -175,10 +195,6 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
         )
         number_of_jobs = total_cpus_available - 2
 
-    # Set up logging and set start_time
-    __setup_logger(outputs_dir)
-    start_time = dt.datetime.now(dt.timezone.utc)
-
     # Read in huc_list file and turn into a list data structure
     if os.path.exists(huc_list):
         hucs_to_pre_clip_list = open(huc_list).read().splitlines()
@@ -191,6 +207,10 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
             f"The directory: {outputs_dir} already exists. Use 'overwrite' argument if the intent"
             " is to re-generate all of the data. "
         )
+
+    # Set up logging and set start_time
+    __setup_logger(outputs_dir)
+    start_time = dt.datetime.now(dt.timezone.utc)
 
     # Iterate over the huc_list argument and create a directory for each huc.
     for huc in hucs_to_pre_clip_list:
@@ -222,6 +242,11 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     print('Parallelizing HUC level wbd pre-clip vector creation. ')
     # with Pool(processes=number_of_jobs) as pool:
     #    pool.map(huc_level_clip_vectors_to_wbd, procs_list)
+
+    # TODO: Mar 5, 2024: Python native logging does not work well with Multi-proc. We will
+    # likely eventually drop in ras2fim's logging system.
+    # The log files for each multi proc has tons and tons of duplicate lines crossing mp log
+    # processes, but does always log correctly back to the parent log
 
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         futures = {}
@@ -381,6 +406,9 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 wbd_buffer_distance=wbd_buffer_int,
                 levee_protected_areas=input_nld_levee_protected_areas_Alaska,
                 subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
+                osm_bridges=input_osm_bridges,
+                subset_osm_bridges=f"{huc_directory}/osm_bridges_subset.gpkg",
+                is_alaska=True,
                 huc_CRS=huc_CRS,  # TODO: simplify
             )
 
@@ -410,6 +438,9 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 wbd_buffer_distance=wbd_buffer_int,
                 levee_protected_areas=input_nld_levee_protected_areas,
                 subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
+                osm_bridges=input_osm_bridges,
+                subset_osm_bridges=f"{huc_directory}/osm_bridges_subset.gpkg",
+                is_alaska=False,
                 huc_CRS=huc_CRS,  # TODO: simplify
             )
 

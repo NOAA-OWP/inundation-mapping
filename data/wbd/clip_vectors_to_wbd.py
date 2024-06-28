@@ -35,8 +35,6 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     levelpath_outlets['nearest_point'] = None
     levelpath_outlets['last'] = None
 
-    # print(list(levelpath_outlets.columns))
-
     levelpath_outlets = levelpath_outlets.explode(index_parts=False)
 
     for index, row in levelpath_outlets.iterrows():
@@ -50,7 +48,7 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     for index, row in levelpath_outlets.iterrows():
         levelpath_geom = row['last']
         nearest_point = nearest_points(levelpath_geom, wbd_buffered)
-        nearest_point_wbd = nearest_points(levelpath_geom, wbd)
+        nearest_point_wbd = nearest_points(levelpath_geom, wbd.geometry)
 
         levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
         levelpath_outlets.at[index, 'nearest_point_wbd'] = nearest_point_wbd[1]['geometry'].iloc[0]
@@ -100,6 +98,9 @@ def subset_vector_layers(
     wbd_buffer_distance,
     levee_protected_areas,
     subset_levee_protected_areas,
+    osm_bridges,
+    subset_osm_bridges,
+    is_alaska,
     huc_CRS,
 ):
 
@@ -245,11 +246,34 @@ def subset_vector_layers(
             engine="fiona",
         )
     else:
-        print("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
         logging.info("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
 
     del nwm_catchments
+
+    # Subset OSM (Open Street Map) bridges
+    if osm_bridges != "":
+        logging.info(f"Subsetting OSM Bridges for {hucCode}")
+
+        subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
+        if subset_osm_bridges_gdb.empty:
+            print("-- No applicable bridges for this HUC")
+            logging.info("-- No applicable bridges for this HUC")
+        else:
+            logging.info(f"Create subset of osm bridges gpkg for {hucCode}")
+            if is_alaska is True:
+                # we need to reproject
+                subset_osm_bridges_gdb = subset_osm_bridges_gdb.to_crs(huc_CRS)
+
+            subset_osm_bridges_gdb.to_file(
+                subset_osm_bridges,
+                driver=getDriver(subset_osm_bridges),
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+
+        del subset_osm_bridges_gdb
 
     # Subset nwm streams
     logging.info(f"Subsetting NWM Streams for {hucCode}")
