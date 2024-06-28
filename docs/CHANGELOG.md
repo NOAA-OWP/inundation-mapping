@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2024-06-28 - [PR#1198](https://github.com/NOAA-OWP/inundation-mapping/pull/1198)
+
+This PR updates scripts that use the recurrence flow files. The new flow files (NWM V3) are in `/inputs/rating_curve/nwm_recur_flows/`.
+
+### Changes
+
+- `src/bash_variables.env`: high water threshold and recurrence flows CSV files were updated into new NWM v3 flow files.
+- `src/src_adjust_ras2fim_rating.py`: 100 year recurrence was removed since it is not included in the new AEP.
+- `src/src_adjust_usgs_rating_trace.py`: 100 year recurrence was removed since it is not included in the new AEP.
+- `tools/rating_curve_comparison.py`: 100 year recurrence was removed since it is not included in the new AEP. Also, the name of recurrence flow CSV file was updated.
+
+<br/><br/>
+
 ## v4.5.2.3 - 2024-06-14 - [PR#1169](https://github.com/NOAA-OWP/inundation-mapping/pull/1169)
 
 This tool scans all log directory looking for the word "error" (not case-sensitive). This is primary added to help find errors in the post processing logs such as src_optimization folder (and others).
