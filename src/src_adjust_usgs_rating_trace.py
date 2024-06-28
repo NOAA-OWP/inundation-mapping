@@ -87,7 +87,8 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
 
     # read in the NWM recurr csv file
     nwm_recur_df = pd.read_csv(nwm_recurr_filepath, dtype={'feature_id': int})
-    nwm_recur_df = nwm_recur_df.drop(columns=["Unnamed: 0"])
+    if "Unnamed: 0" in nwm_recur_df.columns:
+        nwm_recur_df = nwm_recur_df.drop(columns=["Unnamed: 0"])
     nwm_recur_df = nwm_recur_df.rename(
         columns={
             '2_0_year_recurrence_flow_17C': '2_0_year',
