@@ -261,14 +261,9 @@ def fit_distributions(
 
                 # Get daily mean flows
                 if recurrence is not None:
-                    flows = np.sort(
-                        np.hstack(
-                            [
-                                st[:, i].resample({'time': "1D"}).mean(skipna=True),
-                                recurrence.sel({'feature_id': feat}).to_array()[:-1],
-                            ]
-                        )
-                    )
+                    fls = st[:, i].resample({'time': "1D"}).mean(skipna=True)
+                    rec_fls = recurrence.sel({'feature_id': feat}).to_array()[[-7, -6, -5, -4, -3, -1]]
+                    flows = np.sort(np.hstack([fls, rec_fls[rec_fls > np.max(fls)]]))
                 else:
                     flows = np.sort(st[:, i].resample({'time': "1D"}).mean(skipna=True).dropna('time'))
 
@@ -355,7 +350,10 @@ def run_linear_moment_fit(
     lock = Lock()
 
     # Run batches of size given available workers
-    for batch_idx in (pbar := tqdm(range(int(steps / num_jobs)))):
+    num_batches = int(steps / num_jobs)
+    logging.info(f'Number of Batches: {num_batches} \n')
+
+    for batch_idx in (pbar := tqdm(range(num_batches))):
         pbar.set_description(f"Running Batch {batch_idx}")
         batch_start_time = datetime.now()
         logging.info(f'Running Batch {batch_idx}: {batch_start_time.strftime("%m/%d/%Y %H:%M:%S")}')
