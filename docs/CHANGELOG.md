@@ -2,6 +2,18 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.4.x.x - 2024-04-15 - [PR#1121](https://github.com/NOAA-OWP/inundation-mapping/pull/1121)
+## v4.5.x.x - 2024-07-01 - [PR#1204](https://github.com/NOAA-OWP/inundation-mapping/pull/1204)
+
+Bug fix for extending outlets in order to ensure proper flow direction in depression filling algorithm. This PR adds a distance criteria that in order for the end of an outlet stream to be snapped to the wbd_buffered boundary, the end point must be less than 100 meters from the WBD boundary.
+
+Also adds missing argparse arguments so that the script can be run from the command line.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Adds a 100 meter distance threshold to WBD to snap outlets to buffered WBD.
+
+<br/><br/>
+
 ## v4.5.2.3 - 2024-06-14 - [PR#1169](https://github.com/NOAA-OWP/inundation-mapping/pull/1169)
 
 This tool scans all log directory looking for the word "error" (not case-sensitive). This is primary added to help find errors in the post processing logs such as src_optimization folder (and others).
@@ -12,7 +24,6 @@ This tool scans all log directory looking for the word "error" (not case-sensiti
 - `src\mitigate_branch_outlet_backpool.py`: Has the word error in text which fills up the error scan logs.
 
 <br/><br/>
-
 
 ## v4.5.2.2 - 2024-06-14 - [PR#1183](https://github.com/NOAA-OWP/inundation-mapping/pull/1183)
 
