@@ -470,7 +470,11 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     if not os.path.exists(args["output_directory"]):
-        raise "Directory not found"
+        try:
+            logging.info("Creating non-existent output directory")
+            os.makedirs(args["output_directory"])
+        except Exception as e:
+            raise e("Unable to find directory")
 
     start_time = __setup_logger(args['output_directory'])
 
