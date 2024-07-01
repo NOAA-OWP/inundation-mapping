@@ -33,6 +33,7 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     levelpath_outlets = levelpath_outlets[~levelpath_outlets.intersects(wbd['geometry'].iloc[0])]
 
     levelpath_outlets['nearest_point'] = None
+    levelpath_outlets['nearest_point_wbd'] = None
     levelpath_outlets['last'] = None
 
     levelpath_outlets = levelpath_outlets.explode(index_parts=False)
@@ -48,19 +49,24 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     for index, row in levelpath_outlets.iterrows():
         levelpath_geom = row['last']
         nearest_point = nearest_points(levelpath_geom, wbd_buffered)
+        nearest_point_wbd = nearest_points(levelpath_geom, wbd.geometry)
 
         levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
+        levelpath_outlets.at[index, 'nearest_point_wbd'] = nearest_point_wbd[1].iloc[0]
 
         levelpath_outlets_nearest_points = levelpath_outlets.at[index, 'nearest_point']
+        levelpath_outlets_nearest_points_wbd = levelpath_outlets.at[index, 'nearest_point_wbd']
         if isinstance(levelpath_outlets_nearest_points, pd.Series):
             levelpath_outlets_nearest_points = levelpath_outlets_nearest_points.iloc[-1]
 
-        levelpath_outlets.at[index, 'geometry'] = LineString(
-            list(row['geometry'].coords) + list([levelpath_outlets_nearest_points.coords[0]])
-        )
+        # Extend outlet stream only if nearest snap point is within 100m of the end of WBD
+        if Point(row['geometry'].coords[-1]).distance(levelpath_outlets_nearest_points_wbd) < 100:
+            levelpath_outlets.at[index, 'geometry'] = LineString(
+                list(row['geometry'].coords) + list([levelpath_outlets_nearest_points.coords[0]])
+            )
 
     levelpath_outlets = gpd.GeoDataFrame(data=levelpath_outlets, geometry='geometry')
-    levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point'])
+    levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point', 'nearest_point_wbd'])
 
     # Replace the streams in the original file with the extended streams
     streams = streams[~streams['ID'].isin(levelpath_outlets['ID'])]
@@ -356,6 +362,8 @@ if __name__ == '__main__':
         '-lps', '--subset-levee-protected-areas', help='Levee-protected areas subset', required=True
     )
     parser.add_argument('-osm', '--osm-bridges', help='Open Street Maps gkpg', required=True)
+    parser.add_argument('-osms', '--subset-osm-bridges', help='Open Street Maps subset', required=True)
+    parser.add_argument('-ak', '--is-alaska', help='If in Alaska', required=True, type=bool)
     parser.add_argument('-crs', '--huc-CRS', help='HUC crs', required=True)
 
     args = vars(parser.parse_args())
