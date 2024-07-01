@@ -21,6 +21,8 @@ from numba import njit
 from scipy import stats
 from tqdm import tqdm
 
+from utils.shared_functions import FIM_Helpers as fh
+
 
 NWM_V3_ZARR_URL = 'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr'
 
@@ -259,13 +261,16 @@ def fit_distributions(
                 pbar3.set_description(f"Running feature {i}")
                 feat = int(st[:, i].coords['feature_id'].values)
 
-                # Get daily mean flows
-                if recurrence is not None:
-                    fls = st[:, i].resample({'time': "1D"}).mean(skipna=True)
-                    rec_fls = recurrence.sel({'feature_id': feat}).to_array()[[-7, -6, -5, -4, -3, -1]]
-                    flows = np.sort(np.hstack([fls, rec_fls[rec_fls > np.max(fls)]]))
-                else:
-                    flows = np.sort(st[:, i].resample({'time': "1D"}).mean(skipna=True).dropna('time'))
+                try:
+                    # Get daily mean flows
+                    if recurrence is not None:
+                        fls = st[:, i].resample({'time': "1D"}).mean(skipna=True)
+                        rec_fls = recurrence.sel({'feature_id': feat}).to_array()[[-7, -6, -5, -4, -3, -1]]
+                        flows = np.sort(np.hstack([fls, rec_fls[rec_fls > np.max(fls)]]))
+                    else:
+                        flows = np.sort(st[:, i].resample({'time': "1D"}).mean(skipna=True).dropna('time'))
+                except Exception:
+                    return None
 
                 # Run parameter fit and calculate score for each distribution
                 feature_ids, names, scores, parameters, max_flows = [], [], [], [], []
@@ -329,6 +334,8 @@ def run_linear_moment_fit(
         Number of threads to run per a worker
     """
 
+    start_time = datetime.now()
+
     # If arguments are none Dask will automatically resolve
     client = Client(threads_per_worker=threads_per_worker, n_workers=num_jobs, silence_logs=logging.ERROR)
     num_jobs = num_jobs if num_jobs else len(client.scheduler_info()['workers'])
@@ -354,9 +361,11 @@ def run_linear_moment_fit(
     logging.info(f'Number of Batches: {num_batches} \n')
 
     for batch_idx in (pbar := tqdm(range(num_batches))):
-        pbar.set_description(f"Running Batch {batch_idx}")
+        pbar.set_description(f"Running Batch {batch_idx+1}")
         batch_start_time = datetime.now()
-        logging.info(f'Running Batch {batch_idx}: {batch_start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+        logging.info(
+            f'Running Batch {batch_idx + 1} of {num_batches} : {batch_start_time.strftime("%m/%d/%Y %H:%M:%S")}'
+        )
 
         lazy_results = []
         for job_idx in range(num_jobs):
@@ -375,25 +384,16 @@ def run_linear_moment_fit(
         ac = as_completed(working_futures)
 
         for job_idx, fut in (pbar2 := tqdm(enumerate(ac))):
-            pbar2.set_description(f"Running Job {job_idx}")
-            logging.info(f"Running Job {job_idx}")
+            pbar2.set_description(f"Running Job {job_idx + 1}")
+            logging.info(f"Running Job {job_idx + 1}")
 
             res = fut.result()
             results.append(res)
 
         batch_end_time = datetime.now()
-        batch_td = batch_end_time - batch_start_time
         logging.info(f'Completed Batch {batch_idx}: {batch_end_time.strftime("%m/%d/%Y %H:%M:%S")}')
-        logging.info(
-            "\n"
-            f"BATCH RUN TIME \n"
-            "-------- \n"
-            f"Days: {batch_td.days} \n"
-            f"Hours: {batch_td.seconds // 3600} \n"
-            f"Minutes: {(batch_td.seconds // 60) % 60} \n"
-            f"Seconds: {batch_td.seconds % 60}"
-            "\n--------\n"
-        )
+        logging.info(f"Batch Run {fh.print_date_time_duration(batch_start_time, batch_end_time)}")
+        logging.info(f"Current Processing {fh.print_date_time_duration(start_time, batch_end_time)} \n")
 
     # Concatenate all param files in to one
     concat_df = pd.concat(
@@ -404,6 +404,11 @@ def run_linear_moment_fit(
     )
 
     concat_df.to_csv(os.path.join(output_directory, output_name), index=False)
+
+    end_time = datetime.now()
+    logging.info("Completed Probabilistic Distribution Parameter Fit")
+    logging.info(f'Completed : {end_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info(f"Batch Run {fh.print_date_time_duration(start_time, end_time)}")
 
 
 if __name__ == '__main__':
@@ -476,18 +481,3 @@ if __name__ == '__main__':
 
     except Exception:
         logging.ERROR("The following error has occurred:\n", traceback.format_exc())
-
-    end_time = datetime.now()
-    td = end_time - start_time
-    logging.info("Completed Probabilistic Distribution Parameter Fit")
-    logging.info(f'Completed : {end_time.strftime("%m/%d/%Y %H:%M:%S")}')
-    logging.info(
-        "\n"
-        f"PROCESS RUN TIME \n"
-        "-------- \n"
-        f"Days: {td.days} \n"
-        f"Hours: {td.seconds // 3600} \n"
-        f"Minutes: {(td.seconds // 60) % 60} \n"
-        f"Seconds: {td.seconds % 60}"
-        "\n--------\n"
-    )
