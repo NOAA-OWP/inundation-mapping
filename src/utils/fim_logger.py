@@ -6,7 +6,6 @@ import random
 import traceback
 from pathlib import Path
 
-
 # Careful... You might not put shared_functions here as it can create circular references,
 #  so shared_functions is put inside functions only/as is need
 
@@ -60,6 +59,18 @@ class FIM_logger:
         cur_dt = dt.datetime.now()
         ret_dt = f"{cur_dt.strftime('%Y-%m-%d')} {cur_dt.strftime('%H:%M:%S')}"
         return ret_dt
+    
+    # -------------------------------------------------
+    def calc_log_name_and_path(self, output_log_dir, file_prefix):
+        # setup general logger
+        os.makedirs(output_log_dir, exist_ok=True)
+        start_time = dt.datetime.now(dt.timezone.utc)
+        file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+        log_file_name = f"{file_prefix}_{file_dt_string}.log"
+        log_output_file = os.path.join(output_log_dir, log_file_name)
+
+        return log_output_file
+
 
     # -------------------------------------------------
     def setup(self, log_file_path: str):
@@ -110,6 +121,19 @@ class FIM_logger:
         return
 
     # -------------------------------------------------
+    def MP_calc_prefix_name(self, parent_log_output_file, file_prefix):
+        """_summary_
+            Uses the file name of the parent log to create the new prefix name (without MP date)
+            
+            You don't need to use this method if you don't want to prepend the parent file name prefix
+        """
+
+        parent_log_file_name = os.path.basename(parent_log_output_file).replace(".log", "")
+        prefix = f"{parent_log_file_name}--{file_prefix}"
+        return prefix
+
+
+    # -------------------------------------------------
     def MP_Log_setup(self, parent_log_output_file, file_prefix):
         """
         Overview:
@@ -130,13 +154,14 @@ class FIM_logger:
                that called this method. Note: Later, when a person has these MP_Logs cleaned up
                they will use this file_prefix again to search and remove the temp MP_log files as they
                get rolled back up to the master log file.
-            log_folder_path (str): folder location for the files to be created. Note: it has to be in
+            parent_log_output_file (str): folder location for the files to be created. Note: it has to be in
                the same folder as the master log file.
         """
         # -----------------
         log_folder = os.path.dirname(parent_log_output_file)
-        file_id = self.get_date_with_milli()
-        log_file_name = f"{file_prefix}-{file_id}.log"
+        
+        random_id = random.randrange(10000000, 999999999)
+        log_file_name = f"{file_prefix}___{random_id}.log"
         log_file_path = os.path.join(log_folder, log_file_name)
 
         self.setup(log_file_path)
@@ -202,29 +227,31 @@ class FIM_logger:
         folder_path = os.path.dirname(parent_log_output_file)
         os.makedirs(folder_path, exist_ok=True)
 
-        log_file_list = list(Path(folder_path).rglob(f"{file_prefix}*"))
+        log_file_list_paths = list(Path(folder_path).rglob(f"{file_prefix}*"))
+        log_file_list = [str(x) for x in log_file_list_paths] 
+        
         if len(log_file_list) > 0:
             log_file_list.sort()
 
-            # self.lprint(".. merging log files")
             # we are merging them in order (reg files, then warnings, then errors)
 
             # open and write to the parent log
             # This will write all logs including errors and warning
-            with open(parent_log_output_file, 'a+') as main_log:
+            with open(parent_log_output_file, 'a') as main_log:
                 # Iterate through list
                 for temp_log_file in log_file_list:
                     # Open each file in read mode
                     with open(temp_log_file) as infile:
                         main_log.write(infile.read())
-                    os.remove(temp_log_file)
+                    if "warning" not in temp_log_file and "error" not in temp_log_file:
+                        os.remove(temp_log_file)
 
             # now the warning files if there are any
             log_warning_file_list = list(Path(folder_path).rglob(f"{file_prefix}*_warnings*"))
             if len(log_warning_file_list) > 0:
                 log_warning_file_list.sort()
                 parent_warning_file = parent_log_output_file.replace(".log", "_warnings.log")
-                with open(parent_warning_file, 'a+') as warning_log:
+                with open(parent_warning_file, 'a') as warning_log:
                     # Iterate through list
                     for temp_log_file in log_warning_file_list:
                         # Open each file in read mode
@@ -238,7 +265,7 @@ class FIM_logger:
                 log_error_file_list.sort()
                 parent_error_file = parent_log_output_file.replace(".log", "_errors.log")
                 # doesn't yet exist, then create a blank one
-                with open(parent_error_file, 'a+') as error_log:
+                with open(parent_error_file, 'a') as error_log:
                     # Iterate through list
                     for temp_log_file in log_error_file_list:
                         # Open each file in read mode
@@ -246,15 +273,6 @@ class FIM_logger:
                             error_log.write(infile.read())
                         os.remove(temp_log_file)
 
-        # now delete the all file with same prefix (reg, error and warning)
-        # iterate through them a second time (do it doesn't mess up the for loop above)
-        # if len(log_file_list) > 0:
-        #     for temp_log_file in log_file_list:
-        #         try:
-        #             os.remove(temp_log_file)
-        #         except OSError:
-        #             self.error(f"Error deleting {temp_log_file}")
-        #             self.error(traceback.format_exc())
         return
 
     # -------------------------------------------------
@@ -267,6 +285,8 @@ class FIM_logger:
 
         with open(self.LOG_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
+            
+        return
 
     # -------------------------------------------------
     def lprint(self, msg):
@@ -280,6 +300,8 @@ class FIM_logger:
 
         with open(self.LOG_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
+            
+        return
 
     # -------------------------------------------------
     def notice(self, msg):
@@ -294,6 +316,8 @@ class FIM_logger:
 
         with open(self.LOG_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
+            
+        return
 
     # -------------------------------------------------
     def success(self, msg):
@@ -310,6 +334,8 @@ class FIM_logger:
 
         with open(self.LOG_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
+            
+        return
 
     # -------------------------------------------------
     def warning(self, msg):
@@ -330,6 +356,8 @@ class FIM_logger:
         # and also write to warning logs
         with open(self.LOG_WARNING_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
+            
+        return            
 
     # -------------------------------------------------
     def error(self, msg):
@@ -350,6 +378,9 @@ class FIM_logger:
         # and also write to error logs
         with open(self.LOG_ERROR_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
+        
+        return
+
 
     # -------------------------------------------------
     def critical(self, msg):
@@ -371,20 +402,4 @@ class FIM_logger:
         with open(self.LOG_ERROR_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
 
-    # -------------------------------------------------
-    def get_date_with_milli(self, add_random=True):
-        # This returns a pattern of YYMMDD_HHMMSSf_{random 5 digit} (f meaning milliseconds to 6 decimals)
-        # Some multi processing functions use this for file names.
-
-        # We found that some processes can get stuck which can create collisions, so we added a 5 digit
-        # random num on the end (10000 - 99999). Yes.. it happened.
-
-        # If add_random is False, the the 5 digit suffix will be dropped, output is 231122_1407444333
-        # If add_ramdon is True, the output example would be 231122_1407444333_12345
-
-        str_date = dt.datetime.utcnow().strftime("%y%m%d_%H%M%S%f")
-        if add_random is True:
-            random_id = random.randrange(10000, 99999)
-            str_date += "_" + str(random_id)
-
-        return str_date
+        return

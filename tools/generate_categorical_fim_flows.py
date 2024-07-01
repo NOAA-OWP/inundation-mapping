@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse
-import csv
+# import csv
 
 # import logging
 import os
@@ -128,16 +127,8 @@ def generate_flows_for_huc(
             desired_order = metadata['nwm_feature_data']['stream_order']
 
             # Filter segments to be of like stream order.
-            # print("Filtering segments...") # TODO: Make verbose option
-            start = time.time()
 
             segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
-
-            end = time.time()
-            elapsed_time = round((end - start), 6)
-            MP_LOG.trace(
-                f"{huc} - {lid}: Finished filtering segments : {str(elapsed_time).split('.')[0]} minutes"
-            )
 
             # If there are no segments, write message and exit out
             if len(segments) == 0:
@@ -335,11 +326,13 @@ def generate_flows(
     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     # of all sites used later in script.
 
-    FLOG.lprint("Start aggregate_wbd_hucs")
+    FLOG.lprint("\nStart aggregate_wbd_hucs")
     start_dt = datetime.now(timezone.utc)
 
+
+    # ++++++++++++++++++++++++++++
     # TEMP DEBUGGING
-    is_debug_override = True
+    is_debug_override = False # If true, it will skip loading the agg from code and load the gpkg in stead
     if is_debug_override:
         # Ensured I had a 12040101 fim output dir to match this.
         # but you might have to run this once to get the agg_wbd that matches for the 12040101
@@ -352,13 +345,14 @@ def generate_flows(
 
     if is_debug_override:
         out_gdf.to_file(agg_gpkg, driver='GPKG')
+    # ++++++++++++++++++++++++++++
 
     end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt
     FLOG.lprint(f"End aggregate_wbd_hucs - Duration: {str(time_duration).split('.')[0]}")
     print("")
 
-    FLOG.lprint("Start Flow Generation")
+    FLOG.lprint("\nStart Flow Generation")
 
     if is_stage_based:  # If it's stage-based, the function stops running here
         return (
@@ -373,7 +367,12 @@ def generate_flows(
 
     start_dt = datetime.now(timezone.utc)
 
-    child_log_file_prefix = "MP_process_gen_flows"
+    # pulls out the parent log file and replaces it with the child prefix
+    # catfim if coming from generate_categorical_fim.py
+
+
+    child_log_file_prefix = FLOG.MP_calc_prefix_name(log_output_file,
+                                                     "MP_process_gen_flows")
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
@@ -541,48 +540,4 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
 
     return all_meta_lists
 
-
-if __name__ == '__main__':
-    # Parse arguments
-    parser = argparse.ArgumentParser(description='Create forecast files for all nws_lid sites')
-    parser.add_argument(
-        '-w', '--output_catfim_dir', help='Workspace where all data will be stored.', required=True
-    )
-    parser.add_argument(
-        '-u', '--nwm_us_search', help='Walk upstream on NWM network this many miles', required=True
-    )
-    parser.add_argument(
-        '-d', '--nwm_ds_search', help='Walk downstream on NWM network this many miles', required=True
-    )
-
-    parser.add_argument(
-        '-e',
-        '--env_file',
-        help='docker mount path to the catfim environment file. ie) data/config/catfim.env',
-        required=True,
-    )
-
-    parser.add_argument(
-        '-a',
-        '--stage_based',
-        help='Run stage-based CatFIM instead of flow-based? NOTE: flow-based CatFIM is the default.',
-        required=False,
-        default=False,
-        action='store_true',
-    )
-    parser.add_argument(
-        '-f',
-        '--fim-dir',
-        help='Path to FIM outputs directory. Only use this option if you are running in alt-catfim mode.',
-        required=False,
-        default="",
-    )
-    args = vars(parser.parse_args())
-
-    # TODO: NOTE: Due to the new fim_loggign system, this file might work anymore from command line.
-    # Fixes and testing coming.
-
-    # TODO: Jun 13 - fix incoming args
-
-    # Run get_env_paths and static_flow_lids
-    generate_flows(**args)
+# Can't be used via command line

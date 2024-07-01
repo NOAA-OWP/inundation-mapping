@@ -80,12 +80,12 @@ def process_generate_categorical_fim(
 
     # Append option configuration (flow_based or stage_based) to output folder name.
     if is_stage_based:
-        file_handle_appendage, catfim_method = "_stage_based", "STAGE-BASED"
+        catfim_method = "stage_based"
     else:
-        file_handle_appendage, catfim_method = "_flow_based", "FLOW-BASED"
+        catfim_method = "flow_based"
 
     # Define output directories
-    output_catfim_dir = output_folder + file_handle_appendage
+    output_catfim_dir = output_folder + "_" + catfim_method
 
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
@@ -103,12 +103,14 @@ def process_generate_categorical_fim(
                 " If you want to overwrite it, please add the -o flag. Note: When overwritten, "
                 " the three folders of mapping, flows and attributes wil be deleted and rebuilt"
             )
+            
+        gpkg_dir = os.path.join(output_mapping_dir, 'gpkg')
+        shutil.rmtree(gpkg_dir, ignore_errors=True)
+            
         shutil.rmtree(output_mapping_dir, ignore_errors=True)
         shutil.rmtree(output_flows_dir, ignore_errors=True)
         shutil.rmtree(attributes_dir, ignore_errors=True)
 
-        gpkg_dir = os.path.join(output_catfim_dir, 'gpkg')
-        shutil.rmtree(gpkg_dir, ignore_errors=True)
         # Keeps the logs folder
 
     if nwm_metafile != "":
@@ -155,7 +157,10 @@ def process_generate_categorical_fim(
     # End of Validation and setup
     # ================================
 
-    log_output_file = __setup_logger(output_catfim_dir)
+    log_dir = os.path.join(output_catfim_dir, "logs")
+    log_output_file = FLOG.calc_log_name_and_path(log_dir, "catfim")
+    FLOG.setup(log_output_file)
+    
     overall_start_time = datetime.now(timezone.utc)
     dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
 
@@ -164,7 +169,7 @@ def process_generate_categorical_fim(
     os.makedirs(attributes_dir, exist_ok=True)
 
     FLOG.lprint("================================")
-    FLOG.lprint(f"Start generate categorical fim - (UTC): {dt_string}")
+    FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
     FLOG.lprint("")
 
     FLOG.lprint(f"Processing {num_hucs} huc(s)")
@@ -188,7 +193,7 @@ def process_generate_categorical_fim(
 
     print()
 
-    FLOG.lprint("Filtering HUCs that have related ahps site in them.")
+    FLOG.lprint("Filtering out HUCs that do not have related ahps site in them.")
     valid_ahps_hucs = __filter_hucs_to_ahps(lst_hucs)
 
     num_valid_hucs = len(valid_ahps_hucs)
@@ -262,8 +267,7 @@ def process_generate_categorical_fim(
 
     # Create CSV versions of the final geopackages.
     FLOG.lprint('Creating CSVs. This may take several minutes.')
-    reformatted_catfim_method = catfim_method.lower().replace('-', '_')
-    create_csvs(output_mapping_dir, reformatted_catfim_method)
+    create_csvs(output_mapping_dir, is_stage_based)
 
     FLOG.lprint("================================")
     FLOG.lprint("End generate categorical fim")
@@ -295,7 +299,7 @@ def __filter_hucs_to_ahps(lst_hucs):
     return valid_hucs
 
 
-def create_csvs(output_mapping_dir, reformatted_catfim_method):
+def create_csvs(output_mapping_dir, is_stage_based):
     '''
     Produces CSV versions of desired geopackage in the output_mapping_dir.
 
@@ -311,17 +315,27 @@ def create_csvs(output_mapping_dir, reformatted_catfim_method):
     None.
 
     '''
-
+    
+    if is_stage_based is True:
+        catfim_method = "stage_based"
+    else:
+        catfim_method = "flow_based"
+        
     # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
     gpkg_list = glob.glob(os.path.join(output_mapping_dir, '*.gpkg'))
+    
+    # catfim_library.gpkg is saved as (flow_based or stage_based)_catfim.csv
+    # nws_lid_sites.gpkg is saved as (flow_based or stage_based)_catfim_sites.csv 
+
+        
     for gpkg in gpkg_list:
         FLOG.lprint(f"Creating CSV for {gpkg}")
         gdf = gpd.read_file(gpkg, engine='fiona')
         parent_directory = os.path.split(gpkg)[0]
         if 'catfim_library' in gpkg:
-            file_name = reformatted_catfim_method + '_catfim.csv'
+            file_name = f"{catfim_method}_catfim.csv"
         if 'nws_lid_sites' in gpkg:
-            file_name = reformatted_catfim_method + '_catfim_sites.csv'
+            file_name = f"{catfim_method}_catfim_sites.csv"
 
         csv_output_path = os.path.join(parent_directory, file_name)
         gdf.to_csv(csv_output_path)
@@ -352,15 +366,11 @@ def update_mapping_status(output_mapping_dir, nws_sites_layer):
     subdirs = [str(i) for i in Path(output_mapping_dir).rglob('**/*') if i.is_dir()]
 
     print("")
-    FLOG.trace("subdirs are..")
-    FLOG.trace(subdirs)
-    FLOG.trace("")
 
     empty_nws_lids = [Path(directory).name for directory in subdirs if not list(Path(directory).iterdir())]
-    FLOG.trace("empty_nws_lids are..")
-    FLOG.trace(empty_nws_lids)
-    FLOG.trace("")
-
+    if len(empty_nws_lids) > 0:
+        FLOG.warning(f"Empty_nws_lids are.. {empty_nws_lids}")
+    
     # Write list of empty nws_lids to DataFrame, these are sites that failed in inundation.py
     mapping_df = pd.DataFrame({'nws_lid': empty_nws_lids})
 
@@ -402,13 +412,13 @@ def update_mapping_status(output_mapping_dir, nws_sites_layer):
         # Write out to file
         flows_df.to_file(nws_sites_layer)
     except Exception as e:
-        FLOG.error(f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
-        FLOG.error(traceback.format_exc())
+        FLOG.critical(f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
+        FLOG.critical(traceback.format_exc())
     return
 
 
 # This is part of an MP call and needs MP_LOG
-def produce_inundation_map_with_stage_and_feature_ids(
+def produce_inundation_map_with_stage(
     rem_path,
     catchments_path,
     hydroid_list,
@@ -422,56 +432,65 @@ def produce_inundation_map_with_stage_and_feature_ids(
     parent_log_file_prefix,
 ):
 
+    """
     # Open rem_path and catchment_path using rasterio.
-
     """
-    Note: parent_log_file_prefix is "MP_sb_{huc}_inundate", meaning all logs created by this function start
-      with the phrase "MP_sb_{huc}_inundate".
-      They will be rolled up to its own huc level tif log named f"{huc}_sb_tifs_{file_dt_string}.log"
-    """
-    # This is setting up logging for this function to go up to the parent
-    MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
+    
+    try:
+        """
+        Note: parent_log_file_prefix is "MP_sb_{huc}_inundate", meaning all logs created by this function start
+        with the phrase "MP_sb_{huc}_inundate".
+        They will be rolled up to its own huc level tif log named f"{huc}_sb_tifs_{file_dt_string}.log"
+        """
+        # This is setting up logging for this function to go up to the parent
+        MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
 
-    MP_LOG.lprint("+++++++++++++++++++++++")
-    MP_LOG.lprint(f"At the start of producing inundation maps for {huc}")
-    MP_LOG.trace(locals())
-    MP_LOG.trace("+++++++++++++++++++++++")
+        MP_LOG.lprint("+++++++++++++++++++++++")
+        MP_LOG.lprint(f"At the start of producing inundation maps for {huc}")
+        MP_LOG.trace(locals())
+        MP_LOG.trace("+++++++++++++++++++++++")
 
-    rem_src = rasterio.open(rem_path)
-    catchments_src = rasterio.open(catchments_path)
-    rem_array = rem_src.read(1)
-    catchments_array = catchments_src.read(1)
+        rem_src = rasterio.open(rem_path)
+        catchments_src = rasterio.open(catchments_path)
+        rem_array = rem_src.read(1)
+        catchments_array = catchments_src.read(1)
 
-    # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
-    #   are <= to hand_stage and the catchments value is in the hydroid_list.
-    reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
-        'uint8'
-    )
-    hydroid_mask = np.isin(catchments_array, hydroid_list)
-    target_catchments_array = np.where(
-        (hydroid_mask is True) & (catchments_array != catchments_src.nodata), 1, 0
-    ).astype('uint8')
-    masked_reclass_rem_array = np.where(
-        (reclass_rem_array == 1) & (target_catchments_array == 1), 1, 0
-    ).astype('uint8')
-
-    # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
-    is_all_zero = np.all((masked_reclass_rem_array == 0))
-
-    MP_LOG.lprint(f"masked_reclass_rem_array, is_all_zero is {is_all_zero} for huc {huc}")
-
-    if not is_all_zero:
-        output_tif = os.path.join(
-            lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif'
+        # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
+        #   are <= to hand_stage and the catchments value is in the hydroid_list.
+        reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
+            'uint8'
         )
-        MP_LOG.lprint(f" +++ Output_Tif is {output_tif}")
-        with rasterio.Env():
-            profile = rem_src.profile
-            profile.update(dtype=rasterio.uint8)
-            profile.update(nodata=10)
+        hydroid_mask = np.isin(catchments_array, hydroid_list)
+        target_catchments_array = np.where(
+            (hydroid_mask is True) & (catchments_array != catchments_src.nodata), 1, 0
+        ).astype('uint8')
+        masked_reclass_rem_array = np.where(
+            (reclass_rem_array == 1) & (target_catchments_array == 1), 1, 0
+        ).astype('uint8')
 
-            with rasterio.open(output_tif, 'w', **profile) as dst:
-                dst.write(masked_reclass_rem_array, 1)
+        # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
+        is_all_zero = np.all((masked_reclass_rem_array == 0))
+
+        MP_LOG.lprint(f"masked_reclass_rem_array, is_all_zero is {is_all_zero} for huc {huc}")
+
+        # if not is_all_zero:
+        if is_all_zero is False:
+            output_tif = os.path.join(
+                lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif'
+            )
+            MP_LOG.lprint(f" +++ Output_Tif is {output_tif}")
+            with rasterio.Env():
+                profile = rem_src.profile
+                profile.update(dtype=rasterio.uint8)
+                profile.update(nodata=10)
+
+                with rasterio.open(output_tif, 'w', **profile) as dst:
+                    dst.write(masked_reclass_rem_array, 1)
+                
+    except Exception:
+        MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage")
+        MP_LOG.error(traceback.format_exc())
+        
     return
 
 
@@ -483,13 +502,13 @@ def mark_complete(site_directory):
 
 # This is always called as part of Multi-processing so uses MP_LOG variable and
 # creates it's own logging object.
-def iterate_through_huc_stage_based(
+def create_catfim_files_for_huc_stage_based(
     output_catfim_dir,
     huc,
     fim_dir,
     huc_dictionary,
     threshold_url,
-    flood_categories,
+    magnitudes,
     all_lists,
     past_major_interval_cap,
     job_number_inundate,
@@ -499,359 +518,170 @@ def iterate_through_huc_stage_based(
     parent_log_file_prefix,
 ):
     """_summary_
-       This and its children will create stage based tifs and inundate them
+       This and its children will create stage based tifs and catfim data based on a huc
 
     Note: parent_log_file_prefix is "MP_gen_sb_fim", meaning all logs created by this function start
       with the phrase "MP_gen_sb_fim"
     """
 
-    # This is setting up logging for this function to go up to the parent
-    MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
+    try:
+        # This is setting up logging for this function to go up to the parent
+        MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
 
-    missing_huc_files = []
-    all_messages = []
-    stage_based_att_dict = {}
+        missing_huc_files = []
+        all_messages = []
+        stage_based_att_dict = {}
 
-    # Normally, we would roll all of the MP logs into the parent "master" file. ie) parent_log_output_file
-    # But in this case, we want a seperate log file per HUC to keep the overall size of the files
-    # down a little. So we will override the log_output_file to be specific to this huc
-    log_folder = os.path.join(output_catfim_dir, "logs")
-    file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
-    child_log_file_name = f"{huc}_sb_tifs_{file_dt_string}.log"
-    child_log_output_file = os.path.join(log_folder, child_log_file_name)
+        # Normally, we would roll all of the MP logs into the parent "master" file. ie) parent_log_output_file
+        # But in this case, we want a seperate log file per HUC to keep the overall size of the files
+        # down a little. So we will override the log_output_file to be specific to this huc
+        log_folder = os.path.join(output_catfim_dir, "logs")
+        file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
+        child_log_file_name = f"{huc}_sb_tifs_{file_dt_string}.log"
+        child_log_output_file = os.path.join(log_folder, child_log_file_name)
 
-    mapping_dir = os.path.join("output_catfim_dir", "mapping")
-    attributes_dir = os.path.join(output_catfim_dir, 'attributes')
+        mapping_dir = os.path.join("output_catfim_dir", "mapping")
+        attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
-    # FLOG.lprint("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-    # FLOG.lprint(f'Iterating through {huc}...')
-    # Make output directory for huc.
-    mapping_huc_directory = os.path.join(mapping_dir, huc)
-    if not os.path.exists(mapping_huc_directory):
-        os.mkdir(mapping_huc_directory)
+        # FLOG.lprint("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+        # FLOG.lprint(f'Iterating through {huc}...')
+        # Make output directory for huc.
+        mapping_huc_directory = os.path.join(mapping_dir, huc)
+        if not os.path.exists(mapping_huc_directory):
+            os.mkdir(mapping_huc_directory)
 
-    # Define paths to necessary HAND and HAND-related files.
-    usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
-    branch_dir = os.path.join(fim_dir, huc, 'branches')
+        # Define paths to necessary HAND and HAND-related files.
+        usgs_elev_table = os.path.join(fim_dir, huc, 'usgs_elev_table.csv')
+        branch_dir = os.path.join(fim_dir, huc, 'branches')
 
-    # Loop through each lid in nws_lids list
-    nws_lids = huc_dictionary[huc]
-    for lid in nws_lids:
-        MP_LOG.lprint("-----------------------------------")
-        msg_id = f"{huc} -- lid id is {lid}"
-        MP_LOG.lprint(msg_id)
+        # Loop through each lid in nws_lids list
+        nws_lids = huc_dictionary[huc]
+        for lid in nws_lids:
+            MP_LOG.lprint("-----------------------------------")
+            msg_id = f"{huc} -- lid id is {lid}"
+            MP_LOG.lprint(msg_id)
 
-        lid = lid.lower()  # Convert lid to lower case
-        # -- If necessary files exist, continue -- #
-        if not os.path.exists(usgs_elev_table):
-            msg = f'{msg_id}: usgs_elev_table missing, likely unacceptable gage datum error-- more details to come in future release'
-            MP_LOG.error(msg)
-            continue
-        if not os.path.exists(branch_dir):
-            MP_LOG.error(f'{msg_id}: branch directory missing')
-            continue
-        usgs_elev_df = pd.read_csv(usgs_elev_table)
-
-        # Make lid_directory.
-        lid_directory = os.path.join(mapping_huc_directory, lid)
-        if not os.path.exists(lid_directory):
-            os.mkdir(lid_directory)
-        else:
-            complete_marker = os.path.join(lid_directory, 'complete.txt')
-            if os.path.exists(complete_marker):
-                MP_LOG.warning(f"{msg_id}: already completed in previous run.")
+            lid = lid.lower()  # Convert lid to lower case
+            # -- If necessary files exist, continue -- #
+            if not os.path.exists(usgs_elev_table):
+                msg = f'{msg_id}: usgs_elev_table missing, likely unacceptable gage datum error-- more details to come in future release'
+                MP_LOG.error(msg)
                 continue
-        # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
-        stages, flows = get_thresholds(
-            threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-        )
+            if not os.path.exists(branch_dir):
+                MP_LOG.error(f'{msg_id}: branch directory missing')
+                continue
+            usgs_elev_df = pd.read_csv(usgs_elev_table)
 
-        if stages is None:
-            MP_LOG.error(f'{msg_id}: error getting thresholds from WRDS API')
-            continue
-        # Check if stages are supplied, if not write message and exit.
-        if all(stages.get(category, None) is None for category in flood_categories):
-            MP_LOG.error(f'{msg_id}: missing threshold stages')
-            continue
-
-        try:
-            # Drop columns that offend acceptance criteria
-            usgs_elev_df['acceptable_codes'] = (
-                usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-                & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
-                & usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
-                & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list)
-            )
-
-            usgs_elev_df = usgs_elev_df.astype({'usgs_data_alt_accuracy_code': float})
-            usgs_elev_df['acceptable_alt_error'] = np.where(
-                usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
-            )
-
-            acceptable_usgs_elev_df = usgs_elev_df[
-                (usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)
-            ]
-        except Exception:
-            # Not sure any of the sites actually have those USGS-related
-            # columns in this particular file, so just assume it's fine to use
-
-            # print("(Various columns related to USGS probably not in this csv)")
-            # print(f"Exception: \n {repr(e)} \n")
-            MP_LOG.error(f"{msg_id}:  An error has occurred while working with the usgs_elev table")
-            MP_LOG.error(traceback.format_exc())
-            acceptable_usgs_elev_df = usgs_elev_df
-
-        # Get the dem_adj_elevation value from usgs_elev_table.csv.
-        # Prioritize the value that is not from branch 0.
-        try:
-            matching_rows = acceptable_usgs_elev_df.loc[
-                acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
-            ]
-
-            if len(matching_rows) == 2:  # It means there are two level paths, use the one that is not 0
-                lid_usgs_elev = acceptable_usgs_elev_df.loc[
-                    (acceptable_usgs_elev_df['nws_lid'] == lid.upper())
-                    & (acceptable_usgs_elev_df['levpa_id'] != 0),
-                    'dem_adj_elevation',
-                ].values[0]
+            # Make lid_directory.
+            lid_directory = os.path.join(mapping_huc_directory, lid)
+            if not os.path.exists(lid_directory):
+                os.mkdir(lid_directory)
             else:
-                lid_usgs_elev = acceptable_usgs_elev_df.loc[
-                    acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
-                ].values[0]
-        except IndexError:  # Occurs when LID is missing from table
-            MP_LOG.error(f"{msg_id}:  adjusting dem_adj_elevation")
-            MP_LOG.error(traceback.format_exc())
-            MP_LOG.error(
-                f'{msg_id}: likely unacceptable gage datum error or accuracy code(s); please see acceptance criteria'
+                complete_marker = os.path.join(lid_directory, 'complete.txt')
+                if os.path.exists(complete_marker):
+                    MP_LOG.warning(f"{msg_id}: already completed in previous run.")
+                    continue
+            # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
+            stages, flows = get_thresholds(
+                threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
             )
-            continue
-        # Initialize nested dict for lid attributes
-        stage_based_att_dict.update({lid: {}})
 
-        # Find lid metadata from master list of metadata dictionaries.
-        metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
-        lid_altitude = metadata['usgs_data']['altitude']
-
-        # Filter out sites that don't have "good" data
-        try:
-            if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list:
-                MP_LOG.warning(
-                    f"\t{msg_id}: {metadata['usgs_data']['coord_accuracy_code']} "
-                    "Not in acceptable coord acc codes"
-                )
+            if stages is None:
+                MP_LOG.error(f'{msg_id}: error getting thresholds from WRDS API')
                 continue
-            if not metadata['usgs_data']['coord_method_code'] in acceptable_coord_method_code_list:
-                MP_LOG.warning(f"\t{msg_id}: Not in acceptable coord method codes")
+            # Check if stages are supplied, if not write message and exit.
+            if all(stages.get(category, None) is None for category in magnitudes):
+                MP_LOG.error(f'{msg_id}: missing threshold stages')
                 continue
-            if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
-                MP_LOG.warning(f"\t{msg_id}: Not in acceptable alt method codes")
+
+            acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, msg_id)
+            if acceptable_usgs_elev_df is None:
+                raise Exception("acceptable_usgs_elev_df failed to be created")
+
+            # Get the dem_adj_elevation value from usgs_elev_table.csv.
+            # Prioritize the value that is not from branch 0.
+            lid_usgs_elev = __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, msg_id)
+            if lid_usgs_elev is None:
                 continue
-            if not metadata['usgs_data']['site_type'] in acceptable_site_type_list:
-                MP_LOG.warning(f"\t{msg_id}: Not in acceptable site type codes")
-                continue
-            if not float(metadata['usgs_data']['alt_accuracy_code']) <= acceptable_alt_acc_thresh:
-                MP_LOG.warning(f"\t{msg_id}: Not in acceptable threshold range")
-                continue
-        except Exception:
-            MP_LOG.error(f"{msg_id}:  filtering out 'bad' data in the usgs_data")
-            MP_LOG.error(traceback.format_exc())
-            continue
+            
+            
+            # Initialize nested dict for lid attributes
+            stage_based_att_dict.update({lid: {}})
 
-        ### --- Do Datum Offset --- ###
-        # determine source of interpolated threshold flows, this will be the rating curve that will be used.
-        rating_curve_source = flows.get('source')
-        if rating_curve_source is None:
-            MP_LOG.warning(f'{msg_id}:No source for rating curve')
-            continue
-        # Get the datum and adjust to NAVD if necessary.
-        nws_datum_info, usgs_datum_info = get_datum(metadata)
-        if rating_curve_source == 'USGS Rating Depot':
-            datum_data = usgs_datum_info
-        elif rating_curve_source == 'NRLDB':
-            datum_data = nws_datum_info
+            # Find lid metadata from master list of metadata dictionaries.
+            metadata = next((item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False)
+            lid_altitude = metadata['usgs_data']['altitude']
 
-        # If datum not supplied, skip to new site
-        datum = datum_data.get('datum', None)
-        if datum is None:
-            MP_LOG.warning(f'{msg_id}:datum info unavailable')
-            continue
-        # ___________________________________________________________________________________________________#
-        # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null).
-        # Modifying rating curve source will influence the rating curve and
-        #   datum retrieved for benchmark determinations.
-        if lid == 'bmbp1':
-            rating_curve_source = 'NRLDB'
-        # ___________________________________________________________________________________________________#
-
-        # SPECIAL CASE: Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29
-        #   conversion to NAVD88
-        # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7,
-        #   stkn4, wlln7
-        # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
-        if lid in [
-            'bgwn7',
-            'dlrt2',
-            'eagi1',
-            'eppt2',
-            'fatw3',
-            'jffw3',
-            'ldot2',
-            'mnvn4',
-            'nhpp1',
-            'pinn4',
-            'rgdt2',
-            'rgln4',
-            'rssk1',
-            'sign4',
-            'smfn7',
-            'stkn4',
-            'wlln7',
-        ]:
-            datum_data.update(crs='NAD83')
-        # ___________________________________________________________________________________________________#
-
-        # SPECIAL CASE: Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and
-        #   is actually NAD27.
-        # This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and
-        #   it matches NRLDB coordinates.
-        if lid == 'bmbp1':
-            datum_data.update(crs='NAD27')
-        # ___________________________________________________________________________________________________#
-
-        # SPECIAL CASE: Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure
-        #   datum reported in NAVD88.
-        # If NGVD29 it is converted to NAVD88.
-        # bgwn7, eagi1 vertical datum unknown, assume navd88
-        # fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
-        # wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
-        if lid in ['bgwn7', 'eagi1', 'fatw3']:
-            datum_data.update(vcs='NAVD88')
-        elif lid == 'wlln7':
-            datum_data.update(vcs='NGVD29')
-        # ___________________________________________________________________________________________________#
-
-        # Adjust datum to NAVD88 if needed
-        # Default datum_adj_ft to 0.0
-        datum_adj_ft = 0.0
-        crs = datum_data.get('crs')
-        if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
-            # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously
-            #   removed otherwise the region needs changed.
+            # Filter out sites that don't have "good" data
             try:
-                datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
-            except Exception as e:
-                MP_LOG.error(f"ERROR: {msg_id}: ngvd_to_navd_ft")
-                MP_LOG.error(traceback.format_exc())
-                e = str(e)
-                if crs is None:
-                    MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, CRS is missing')
-                if 'HTTPSConnectionPool' in e:
-                    time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
-                    try:
-                        datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
-                    except Exception:
-                        MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, possible API issue')
-                if 'Invalid projection' in e:
-                    MP_LOG.error(
-                        f'{msg_id}: ERROR: NOAA VDatum adjustment error, invalid projection: crs={crs}'
+                if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list:
+                    MP_LOG.warning(
+                        f"\t{msg_id}: {metadata['usgs_data']['coord_accuracy_code']} "
+                        "Not in acceptable coord acc codes"
                     )
+                    continue
+                if not metadata['usgs_data']['coord_method_code'] in acceptable_coord_method_code_list:
+                    MP_LOG.warning(f"\t{msg_id}: Not in acceptable coord method codes")
+                    continue
+                if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
+                    MP_LOG.warning(f"\t{msg_id}: Not in acceptable alt method codes")
+                    continue
+                if not metadata['usgs_data']['site_type'] in acceptable_site_type_list:
+                    MP_LOG.warning(f"\t{msg_id}: Not in acceptable site type codes")
+                    continue
+                if not float(metadata['usgs_data']['alt_accuracy_code']) <= acceptable_alt_acc_thresh:
+                    MP_LOG.warning(f"\t{msg_id}: Not in acceptable threshold range")
+                    continue
+            except Exception:
+                MP_LOG.error(f"{msg_id}:  filtering out 'bad' data in the usgs_data")
+                MP_LOG.error(traceback.format_exc())
                 continue
 
-        ### -- Concluded Datum Offset --- ###
-        # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
-        unfiltered_segments = list(set(get_nwm_segs(metadata)))
+            datum_adj_ft = __adjust_datum_ft(flows, metadata, msg_id)
+            if datum_adj_ft is None:
+                continue
+           
 
-        # Filter segments to be of like stream order.
-        desired_order = metadata['nwm_feature_data']['stream_order']
-        segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
-        action_stage = stages['action']
-        minor_stage = stages['minor']
-        moderate_stage = stages['moderate']
-        major_stage = stages['major']
-        stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
-        # Create a list of stages, incrementing by 1 ft.
-        if stage_list == []:
-            MP_LOG.warning(f'{msg_id}: WARNING: no stage values available')
-            continue
-        interval_list = np.arange(
-            min(stage_list), max(stage_list) + past_major_interval_cap, 1.0
-        )  # Go an extra 10 ft beyond the max stage, arbitrary
+            ### -- Concluded Datum Offset --- ###
+            # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
+            unfiltered_segments = list(set(get_nwm_segs(metadata)))
 
-        # Check for large discrepancies between the elevation values from WRDS and HAND.
-        #   Otherwise this causes bad mapping.
-        elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
-        if abs(elevation_diff) > 10:
-            MP_LOG.warning(f'{msg_id}: large discrepancy in elevation estimates from gage and HAND')
-            continue
+            # Filter segments to be of like stream order.
+            desired_order = metadata['nwm_feature_data']['stream_order']
+            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
+            action_stage = stages['action']
+            minor_stage = stages['minor']
+            moderate_stage = stages['moderate']
+            major_stage = stages['major']
+            stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
+            # Create a list of stages, incrementing by 1 ft.
+            if stage_list == []:
+                MP_LOG.warning(f'{msg_id}: WARNING: no stage values available')
+                continue
+            
+            interval_list = np.arange(
+                min(stage_list), max(stage_list) + past_major_interval_cap, 1.0
+            )  # Go an extra 10 ft beyond the max stage, arbitrary
 
-            # For each flood category
-        MP_LOG.lprint(f"{msg_id}: About to process flood categories")
-        child_log_file_prefix = "MP_{huc}_prod_sb_tifs"
-        for category in flood_categories:
-            MP_LOG.lprint(f"{msg_id}: Category is {category}")
-            # Pull stage value and confirm it's valid, then process
-            stage = stages[category]
+            # Check for large discrepancies between the elevation values from WRDS and HAND.
+            #   Otherwise this causes bad mapping.
+            elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
+            if abs(elevation_diff) > 10:
+                MP_LOG.warning(f'{msg_id}: large discrepancy in elevation estimates from gage and HAND')
+                continue
 
-            if stage is not None and datum_adj_ft is not None and lid_altitude is not None:
-                # Call function to execute mapping of the TIFs.
-                (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_catfim_tifs(
-                    stage,
-                    datum_adj_ft,
-                    branch_dir,
-                    lid_usgs_elev,
-                    lid_altitude,
-                    fim_dir,
-                    segments,
-                    lid,
-                    huc,
-                    lid_directory,
-                    category,
-                    job_number_inundate,
-                    child_log_output_file,
-                    child_log_file_prefix,
-                )
-                all_messages += messages
+            # For each flood category / magnitude
+            MP_LOG.lprint(f"{msg_id}: About to process flood categories")
+            child_log_file_prefix = "MP_{huc}_prod_sb_tifs"
+            for category in magnitudes:
+                MP_LOG.lprint(f"{msg_id}: Magnitude is {category}")
+                # Pull stage value and confirm it's valid, then process
+                stage = stages[category]
 
-                # Extra metadata for alternative CatFIM technique.
-                # TODO Revisit because branches complicate things
-                stage_based_att_dict[lid].update(
-                    {
-                        category: {
-                            'datum_adj_wse_ft': datum_adj_wse,
-                            'datum_adj_wse_m': datum_adj_wse_m,
-                            'hand_stage': hand_stage,
-                            'datum_adj_ft': datum_adj_ft,
-                            'lid_alt_ft': lid_altitude,
-                            'lid_alt_m': lid_altitude * 0.3048,
-                        }
-                    }
-                )
-
-                # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix )
-
-            # If missing HUC file data, write message
-            if huc in missing_huc_files:
-                MP_LOG.warning(f'{msg_id}:missing some HUC data')
-
-        # This function sometimes is called within a MP but sometimes not.
-        # So, we might have an MP inside an MP
-        # and we will need a new prefix for it.
-        child_log_file_prefix = "MP_produce_sb_tifs"
-        with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
-            try:
-                for interval_stage in interval_list:
-                    # Determine category the stage value belongs with.
-                    if action_stage <= interval_stage < minor_stage:
-                        category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
-                    if minor_stage <= interval_stage < moderate_stage:
-                        category = 'minor_' + str(interval_stage).replace('.', 'p') + 'ft'
-                    if moderate_stage <= interval_stage < major_stage:
-                        category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
-                    if interval_stage >= major_stage:
-                        category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
-                    executor.submit(
-                        produce_stage_based_catfim_tifs,
-                        interval_stage,
+                if stage is not None and datum_adj_ft is not None and lid_altitude is not None:
+                    # Call function to execute mapping of the TIFs.
+                    (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_catfim_tifs(
+                        stage,
                         datum_adj_ft,
                         branch_dir,
                         lid_usgs_elev,
@@ -866,87 +696,315 @@ def iterate_through_huc_stage_based(
                         child_log_output_file,
                         child_log_file_prefix,
                     )
-            except TypeError:  # sometimes the thresholds are Nonetypes
-                MP_LOG.error("ERROR: type error in ProcessPool somewhere")
-                MP_LOG.error(traceback.format_exc())
-                pass
-            except Exception:
-                MP_LOG.critical("ERROR: ProcessPool has an error")
-                MP_LOG.critical(traceback.format_exc())
-                # merge MP Logs (Yes)
-                MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
-                sys.exit(1)
+                    all_messages += messages
 
-        # merge MP Logs (merging MP into an MP (proc_pool in a proc_pool))
-        MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
+                    # Extra metadata for alternative CatFIM technique.
+                    # TODO Revisit because branches complicate things
+                    stage_based_att_dict[lid].update(
+                        {
+                            category: {
+                                'datum_adj_wse_ft': datum_adj_wse,
+                                'datum_adj_wse_m': datum_adj_wse_m,
+                                'hand_stage': hand_stage,
+                                'datum_adj_ft': datum_adj_ft,
+                                'lid_alt_ft': lid_altitude,
+                                'lid_alt_m': lid_altitude * 0.3048,
+                            }
+                        }
+                    )
 
-        # Create a csv with same information as geopackage but with each threshold as new record.
-        # Probably a less verbose way.
-        csv_df = pd.DataFrame()
-        for threshold in flood_categories:
-            try:
-                line_df = pd.DataFrame(
-                    {
-                        'nws_lid': [lid],
-                        'name': metadata['nws_data']['name'],
-                        'WFO': metadata['nws_data']['wfo'],
-                        'rfc': metadata['nws_data']['rfc'],
-                        'huc': [huc],
-                        'state': metadata['nws_data']['state'],
-                        'county': metadata['nws_data']['county'],
-                        'magnitude': threshold,
-                        'q': flows[threshold],
-                        'q_uni': flows['units'],
-                        'q_src': flows['source'],
-                        'stage': stages[threshold],
-                        'stage_uni': stages['units'],
-                        's_src': stages['source'],
-                        'wrds_time': stages['wrds_timestamp'],
-                        'nrldb_time': metadata['nrldb_timestamp'],
-                        'nwis_time': metadata['nwis_timestamp'],
-                        'lat': [float(metadata['nws_preferred']['latitude'])],
-                        'lon': [float(metadata['nws_preferred']['longitude'])],
-                        'dtm_adj_ft': stage_based_att_dict[lid][threshold]['datum_adj_ft'],
-                        'dadj_w_ft': stage_based_att_dict[lid][threshold]['datum_adj_wse_ft'],
-                        'dadj_w_m': stage_based_att_dict[lid][threshold]['datum_adj_wse_m'],
-                        'lid_alt_ft': stage_based_att_dict[lid][threshold]['lid_alt_ft'],
-                        'lid_alt_m': stage_based_att_dict[lid][threshold]['lid_alt_m'],
-                    }
-                )
-                csv_df = pd.concat([csv_df, line_df])
+                    # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix )
 
-            except Exception:
-                MP_LOG.error("ERROR: threshold has an error")
-                MP_LOG.error(traceback.format_exc())
-                # sys.exit(1)
-                # print(e)
+                # If missing HUC file data, write message
+                if huc in missing_huc_files:
+                    MP_LOG.warning(f'{msg_id}:missing some HUC data')
 
-        # Round flow and stage columns to 2 decimal places.
-        csv_df = csv_df.round({'q': 2, 'stage': 2})
-        # If a site folder exists (ie a flow file was written) save files containing site attributes.
-        if os.path.exists(lid_directory):
-            # Export DataFrame to csv containing attributes
-            csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
-        else:
-            FLOG.lprint(f'{lid}:missing all calculated flows')
-            all_messages.append([f'{lid}:missing all calculated flows'])
+            # This function sometimes is called within a MP but sometimes not.
+            # So, we might have an MP inside an MP
+            # and we will need a new prefix for it.
+            child_log_file_prefix = FLOG.MP_calc_prefix_name(parent_log_output_file,
+                                                            "MP_produce_sb_tifs")
+            with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
+                try:
+                    for interval_stage in interval_list:
+                        # Determine category the stage value belongs with.
+                        if action_stage <= interval_stage < minor_stage:
+                            category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
+                        if minor_stage <= interval_stage < moderate_stage:
+                            category = 'minor_' + str(interval_stage).replace('.', 'p') + 'ft'
+                        if moderate_stage <= interval_stage < major_stage:
+                            category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
+                        if interval_stage >= major_stage:
+                            category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
+                        executor.submit(
+                            produce_stage_based_catfim_tifs,
+                            interval_stage,
+                            datum_adj_ft,
+                            branch_dir,
+                            lid_usgs_elev,
+                            lid_altitude,
+                            fim_dir,
+                            segments,
+                            lid,
+                            huc,
+                            lid_directory,
+                            category,
+                            job_number_inundate,
+                            child_log_output_file,
+                            child_log_file_prefix,
+                        )
+                except TypeError:  # sometimes the thresholds are Nonetypes
+                    MP_LOG.error("ERROR: type error in ProcessPool somewhere")
+                    MP_LOG.error(traceback.format_exc())
+                    pass
+                except Exception:
+                    MP_LOG.critical("ERROR: ProcessPool has an error")
+                    MP_LOG.critical(traceback.format_exc())
+                    # merge MP Logs (Yes)
+                    MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
+                    sys.exit(1)
 
-        # If it made it to this point (i.e. no continues), there were no major preventers of mapping
-        MP_LOG.success(f'{msg_id}: OK')
-        mark_complete(lid_directory)
+            # merge MP Logs (merging MP into an MP (proc_pool in a proc_pool))
+            MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
 
-    # Write all_messages by HUC to be scraped later.
-    if len(all_messages) > 0:
-        messages_dir = os.path.join(mapping_dir, 'messages')
-        if not os.path.exists(messages_dir):
-            os.mkdir(messages_dir)
-        huc_messages_csv = os.path.join(messages_dir, huc + '_messages.csv')
-        with open(huc_messages_csv, 'w') as output_csv:
-            writer = csv.writer(output_csv)
-            writer.writerows(all_messages)
+            # Create a csv with same information as geopackage but with each threshold as new record.
+            # Probably a less verbose way.
+            csv_df = pd.DataFrame()
+            for threshold in magnitudes:
+                try:
+                    line_df = pd.DataFrame(
+                        {
+                            'nws_lid': [lid],
+                            'name': metadata['nws_data']['name'],
+                            'WFO': metadata['nws_data']['wfo'],
+                            'rfc': metadata['nws_data']['rfc'],
+                            'huc': [huc],
+                            'state': metadata['nws_data']['state'],
+                            'county': metadata['nws_data']['county'],
+                            'magnitude': threshold,
+                            'q': flows[threshold],
+                            'q_uni': flows['units'],
+                            'q_src': flows['source'],
+                            'stage': stages[threshold],
+                            'stage_uni': stages['units'],
+                            's_src': stages['source'],
+                            'wrds_time': stages['wrds_timestamp'],
+                            'nrldb_time': metadata['nrldb_timestamp'],
+                            'nwis_time': metadata['nwis_timestamp'],
+                            'lat': [float(metadata['nws_preferred']['latitude'])],
+                            'lon': [float(metadata['nws_preferred']['longitude'])],
+                            'dtm_adj_ft': stage_based_att_dict[lid][threshold]['datum_adj_ft'],
+                            'dadj_w_ft': stage_based_att_dict[lid][threshold]['datum_adj_wse_ft'],
+                            'dadj_w_m': stage_based_att_dict[lid][threshold]['datum_adj_wse_m'],
+                            'lid_alt_ft': stage_based_att_dict[lid][threshold]['lid_alt_ft'],
+                            'lid_alt_m': stage_based_att_dict[lid][threshold]['lid_alt_m'],
+                        }
+                    )
+                    csv_df = pd.concat([csv_df, line_df])
 
-    MP_LOG.lprint("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+                except Exception:
+                    MP_LOG.error("ERROR: threshold has an error")
+                    MP_LOG.error(traceback.format_exc())
+                    return 
+                    # sys.exit(1)
+
+            # Round flow and stage columns to 2 decimal places.
+            csv_df = csv_df.round({'q': 2, 'stage': 2})
+            # If a site folder exists (ie a flow file was written) save files containing site attributes.
+            if os.path.exists(lid_directory):
+                # Export DataFrame to csv containing attributes
+                csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
+            else:
+                FLOG.lprint(f'{lid}:missing all calculated flows')
+                all_messages.append([f'{lid}:missing all calculated flows'])
+
+            # If it made it to this point (i.e. no continues), there were no major preventers of mapping
+            MP_LOG.success(f'{msg_id}: OK')
+            mark_complete(lid_directory)
+
+        # Write all_messages by HUC to be scraped later.
+        if len(all_messages) > 0:
+            messages_dir = os.path.join(mapping_dir, 'messages')
+            if not os.path.exists(messages_dir):
+                os.mkdir(messages_dir)
+            huc_messages_csv = os.path.join(messages_dir, huc + '_messages.csv')
+            with open(huc_messages_csv, 'w') as output_csv:
+                writer = csv.writer(output_csv)
+                writer.writerows(all_messages)
+            
+    except Exception:
+        MP_LOG.error(f"{huc} : {lid} Error iterating through huc stage based")
+        MP_LOG.error(traceback.format_exc())            
+
     return
+
+
+def __adjust_datum_ft(flows, metadata, lid, msg_id):
+    
+    datum_adj_ft = None
+    ### --- Do Datum Offset --- ###
+    # determine source of interpolated threshold flows, this will be the rating curve that will be used.
+    rating_curve_source = flows.get('source')
+    if rating_curve_source is None:
+        MP_LOG.warning(f'{msg_id}:No source for rating curve')
+        return None
+    
+    # Get the datum and adjust to NAVD if necessary.
+    nws_datum_info, usgs_datum_info = get_datum(metadata)
+    if rating_curve_source == 'USGS Rating Depot':
+        datum_data = usgs_datum_info
+    elif rating_curve_source == 'NRLDB':
+        datum_data = nws_datum_info
+
+    # If datum not supplied, skip to new site
+    datum = datum_data.get('datum', None)
+    if datum is None:
+        MP_LOG.warning(f'{msg_id}:datum info unavailable')
+        return None
+    
+    # ___________________________________________________________________________________________________#
+    # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null).
+    # Modifying rating curve source will influence the rating curve and
+    #   datum retrieved for benchmark determinations.
+    if lid == 'bmbp1':
+        rating_curve_source = 'NRLDB'
+    # ___________________________________________________________________________________________________#
+
+    # SPECIAL CASE: Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29
+    #   conversion to NAVD88
+    # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7,
+    #   stkn4, wlln7
+    # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
+    if lid in [
+        'bgwn7',
+        'dlrt2',
+        'eagi1',
+        'eppt2',
+        'fatw3',
+        'jffw3',
+        'ldot2',
+        'mnvn4',
+        'nhpp1',
+        'pinn4',
+        'rgdt2',
+        'rgln4',
+        'rssk1',
+        'sign4',
+        'smfn7',
+        'stkn4',
+        'wlln7',
+    ]:
+        datum_data.update(crs='NAD83')
+    # ___________________________________________________________________________________________________#
+
+    # SPECIAL CASE: Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and
+    #   is actually NAD27.
+    # This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and
+    #   it matches NRLDB coordinates.
+    if lid == 'bmbp1':
+        datum_data.update(crs='NAD27')
+    # ___________________________________________________________________________________________________#
+
+    # SPECIAL CASE: Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure
+    #   datum reported in NAVD88.
+    # If NGVD29 it is converted to NAVD88.
+    # bgwn7, eagi1 vertical datum unknown, assume navd88
+    # fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
+    # wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
+    if lid in ['bgwn7', 'eagi1', 'fatw3']:
+        datum_data.update(vcs='NAVD88')
+    elif lid == 'wlln7':
+        datum_data.update(vcs='NGVD29')
+    # ___________________________________________________________________________________________________#
+
+    # Adjust datum to NAVD88 if needed
+    # Default datum_adj_ft to 0.0
+    datum_adj_ft = 0.0
+    crs = datum_data.get('crs')
+    if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
+        # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously
+        #   removed otherwise the region needs changed.
+        try:
+            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+        except Exception as e:
+            MP_LOG.error(f"ERROR: {msg_id}: ngvd_to_navd_ft")
+            MP_LOG.error(traceback.format_exc())
+            e = str(e)
+            if crs is None:
+                MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, CRS is missing')
+            if 'HTTPSConnectionPool' in e:
+                time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
+                try:
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+                except Exception:
+                    MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, possible API issue')
+            if 'Invalid projection' in e:
+                MP_LOG.error(
+                    f'{msg_id}: ERROR: NOAA VDatum adjustment error, invalid projection: crs={crs}'
+                )
+            return None
+        
+    return datum_adj_ft
+
+
+def __create_acceptable_usgs_elev_df(usgs_elev_df, msg_id):
+    acceptable_usgs_elev_df = None
+    try:
+        # Drop columns that offend acceptance criteria
+        usgs_elev_df['acceptable_codes'] = (
+            usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+            & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+            & usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+            & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list)
+        )
+
+        usgs_elev_df = usgs_elev_df.astype({'usgs_data_alt_accuracy_code': float})
+        usgs_elev_df['acceptable_alt_error'] = np.where(
+            usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
+        )
+
+        acceptable_usgs_elev_df = usgs_elev_df[
+            (usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)
+        ]
+    except Exception:
+        # Not sure any of the sites actually have those USGS-related
+        # columns in this particular file, so just assume it's fine to use
+
+        # print("(Various columns related to USGS probably not in this csv)")
+        # print(f"Exception: \n {repr(e)} \n")
+        MP_LOG.error(f"{msg_id}:  An error has occurred while working with the usgs_elev table")
+        MP_LOG.error(traceback.format_exc())
+        acceptable_usgs_elev_df = usgs_elev_df
+        
+    return acceptable_usgs_elev_df
+
+
+def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, msg_id):
+    
+    lid_usgs_elev = None
+    try:
+        matching_rows = acceptable_usgs_elev_df.loc[
+            acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
+        ]
+
+        if len(matching_rows) == 2:  # It means there are two level paths, use the one that is not 0
+            lid_usgs_elev = acceptable_usgs_elev_df.loc[
+                (acceptable_usgs_elev_df['nws_lid'] == lid.upper())
+                & (acceptable_usgs_elev_df['levpa_id'] != 0),
+                'dem_adj_elevation',
+            ].values[0]
+        else:
+            lid_usgs_elev = acceptable_usgs_elev_df.loc[
+                acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
+            ].values[0]
+            
+    except IndexError:  # Occurs when LID is missing from table
+        MP_LOG.error(f"{msg_id}:  adjusting dem_adj_elevation")
+        MP_LOG.error(traceback.format_exc())
+        MP_LOG.error(
+            f'{msg_id}: likely unacceptable gage datum error or accuracy code(s); please see acceptance criteria'
+        )
+    return lid_usgs_elev
 
 
 def generate_stage_based_categorical_fim(
@@ -962,7 +1020,7 @@ def generate_stage_based_categorical_fim(
     past_major_interval_cap,
     nwm_metafile,
 ):
-    flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
+    magnitudes = ['action', 'minor', 'moderate', 'major', 'record']
 
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
@@ -983,39 +1041,22 @@ def generate_stage_based_categorical_fim(
         )
     )
     FLOG.lprint("End generate_catfim_flows")
-    # TEMP DEBUG
-    # FLOG.lprint(">>>>>>>>>>>>>>>>>")
-    # print(locals())
-    # print(">>>>>>>>>>>>>>>>>")
-    # print('huc_dictionary')
-    # print(huc_dictionary)
-    # print('out_gdf')
-    # print(out_gdf)
-    # print('metadata_url')
-    # print(metadata_url)
-    # print('threshold_url')
-    # print(threshold_url)
-    # print('all_lists')
-    # print(all_lists)
-    # print('nwm_flows_df')
-    # print(nwm_flows_df)
-    # print('nwm_flows_alaska_df')
-    # print(nwm_flows_alaska_df)
 
-    child_log_file_prefix = "MP_gen_sb_fim"
+    child_log_file_prefix = FLOG.MP_calc_prefix_name(FLOG.LOG_FILE_PATH,
+                                                     "MP_gen_sb_fim")
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
             if huc in lst_hucs:
                 FLOG.lprint(f'Generating stage based catfim for : {huc}')
                 flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
                 executor.submit(
-                    iterate_through_huc_stage_based,
+                    create_catfim_files_for_huc_stage_based,
                     output_catfim_dir,
                     huc,
                     fim_run_dir,
                     huc_dictionary,
                     threshold_url,
-                    flood_categories,
+                    magnitudes,
                     all_lists,
                     past_major_interval_cap,
                     job_number_inundate,
@@ -1079,59 +1120,57 @@ def generate_stage_based_categorical_fim(
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
 
     # Create list from all messages in messages dir.
-    # messages_dir = os.path.join(workspace, 'messages')
-    # all_messages = []
-    # all_message_csvs = os.listdir(messages_dir)
-    # for message_csv in all_message_csvs:
-    #     full_message_csv_path = os.path.join(messages_dir, message_csv)
-    #     with open(full_message_csv_path, newline='') as message_file:
-    #         reader = csv.reader(message_file)
-    #         for row in reader:
-    #             all_messages.append(row)
+    messages_dir = os.path.join(output_flows_dir, 'messages')
+    all_messages = []
+    all_message_csvs = os.listdir(messages_dir)
+    for message_csv in all_message_csvs:
+        full_message_csv_path = os.path.join(messages_dir, message_csv)
+        with open(full_message_csv_path, newline='') as message_file:
+            reader = csv.reader(message_file)
+            for row in reader:
+                all_messages.append(row)
 
     # Filter out columns and write out to file
     nws_sites_layer = os.path.join(output_mapping_dir, 'nws_lid_sites.gpkg')
-    FLOG.lprint(f".. nws_sites_layer name is {nws_sites_layer}")
 
     # Only write to sites geopackage if it didn't exist yet
     # (and this line shouldn't have been reached if we had an interrupted
     # run previously and are picking back up with a restart)
-    # 4.4.0.0, there was no messages column in nws_lid_sites.gkpg
-    # if not os.path.exists(nws_sites_layer):
+    if not os.path.exists(nws_sites_layer):
 
-    #     FLOG.lprint(f"nws_sites_layer does not exist")
+        FLOG.lprint(f"nws_sites_layer does not exist")
 
-    #     # FIX:  (DO WE NEED IT?)
+        # FIX:  (DO WE NEED IT?)
 
-    #     # Write messages to DataFrame, split into columns, aggregate messages.
-    #     if len(all_messages) > 0:
+        # Write messages to DataFrame, split into columns, aggregate messages.
+        if len(all_messages) > 0:
 
-    #         FLOG.lprint(f"nws_sites_layer ({nws_sites_layer}) : adding messages")
-    #         messages_df = pd.DataFrame(all_messages, columns=['message'])
+            FLOG.lprint(f"nws_sites_layer ({nws_sites_layer}) : adding messages")
+            messages_df = pd.DataFrame(all_messages, columns=['message'])
 
-    #         messages_df = (
-    #             messages_df['message']
-    #             .str.split(':', n=1, expand=True)
-    #             .rename(columns={0: 'nws_lid', 1: 'status'})
-    #         )
-    #         status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
+            messages_df = (
+                messages_df['message']
+                .str.split(':', n=1, expand=True)
+                .rename(columns={0: 'nws_lid', 1: 'status'})
+            )
+            status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
 
-    #         # Join messages to populate status field to candidate sites. Assign
-    #         # status for null fields.
-    #         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
+            # Join messages to populate status field to candidate sites. Assign
+            # status for null fields.
+            viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
-    #         #    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
+            #    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
 
-    #         # Add acceptance criteria to viz_out_gdf before writing
-    #         viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
-    #         viz_out_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)
-    #         viz_out_gdf['acceptable_alt_acc_thresh'] = float(acceptable_alt_acc_thresh)
-    #         viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
-    #         viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
+            # Add acceptance criteria to viz_out_gdf before writing
+            viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
+            viz_out_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)
+            viz_out_gdf['acceptable_alt_acc_thresh'] = float(acceptable_alt_acc_thresh)
+            viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
+            viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
 
-    #         viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
-    #     else:
-    #         FLOG.lprint(f"nws_sites_layer ({nws_sites_layer}) : has no messages")
+            viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
+        else:
+            FLOG.lprint(f"nws_sites_layer ({nws_sites_layer}) : has no messages")
 
     return nws_sites_layer
 
@@ -1185,7 +1224,8 @@ def produce_stage_based_catfim_tifs(
     ]
     branches.sort()
 
-    child_log_file_prefix = "MP_sb_{huc}_inundate"
+    MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
+    child_log_file_prefix = FLOG.MP_calc_prefix_name(parent_log_output_file, f"MP_sb_{huc}_inundate")
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         for branch in branches:
             msg_id_w_branch = "{huc} -- {branch} -- {lid} -- {category}"
@@ -1249,7 +1289,7 @@ def produce_stage_based_catfim_tifs(
                 # print("Generating stage-based FIM for " + huc + " and branch " + branch) # TODO TEMP DEBUG UNCOMMENT THIS MAYBE AFTER DEBUGGING
                 MP_LOG.lprint(f"{msg_id} : Generating stage-based FIM")
                 executor.submit(
-                    produce_inundation_map_with_stage_and_feature_ids,
+                    produce_inundation_map_with_stage,
                     rem_path,
                     catchments_path,
                     hydroid_list,
@@ -1330,19 +1370,6 @@ def produce_stage_based_catfim_tifs(
         del summed_array
 
     return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
-
-
-def __setup_logger(output_catfim_dir):
-    # setup general logger
-    log_folder = os.path.join(output_catfim_dir, "logs")
-    os.makedirs(log_folder, exist_ok=True)
-    start_time = datetime.now(timezone.utc)
-    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_name = f"catfim_{file_dt_string}.log"
-    log_output_file = os.path.join(log_folder, log_file_name)
-    FLOG.setup(log_output_file)
-
-    return log_output_file
 
 
 if __name__ == '__main__':
