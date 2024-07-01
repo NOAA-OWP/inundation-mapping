@@ -7,6 +7,7 @@
         "dem_adj_filename": "/data/outputs/unit_test_data/02020005/branches/2274000028/dem_thalwegCond_2274000028.tif",
         "output_table_filename": "/data/outputs/unit_test_data/02020005/branches/2274000028/usgs_elev_table.csv",
         "output_directory": "/data/outputs/unit_test_data/02020005/branches/2274000028",
-        "branch_id": "2274000028"
+        "branch_id": "2274000028",
+        "huc_CRS": "EPSG:5070"
     }
 }

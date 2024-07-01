@@ -52,6 +52,7 @@ class test_usgs_gage_crosswalk(unittest.TestCase):
             params["dem_filename"],
             params["dem_adj_filename"],
             params["output_directory"],
+            params["huc_CRS"],
         )
 
         # Make sure that the usgs_elev_table.csv was written

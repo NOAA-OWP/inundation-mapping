@@ -43,6 +43,7 @@ class test_Derive_level_paths(unittest.TestCase):
             wbd=params["wbd"],
             out_stream_network=params["out_stream_network"],
             branch_id_attribute=params["branch_id_attribute"],
+            huc_id=params["huc_id"],
             out_stream_network_dissolved=params["out_stream_network_dissolved"],
             headwaters_outfile=params["headwaters_outfile"],
             catchments=params["catchments"],

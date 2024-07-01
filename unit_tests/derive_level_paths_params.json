@@ -6,6 +6,7 @@
 		"buffer_wbd_streams": "/data/outputs/unit_test_data/05030104/wbd_buffered_streams.gpkg",
 		"out_stream_network": "/data/outputs/unit_test_data/05030104/nwm_subset_streams_levelPaths.gpkg",
 		"branch_id_attribute": "levpa_id",
+		"huc_id": "05030104",
 		"out_stream_network_dissolved": "/data/outputs/unit_test_data/05030104/nwm_subset_streams_levelPaths.gpkg",
 		"headwaters_outfile": "/data/outputs/unit_test_data/05030104/nwm_headwaters.gpkg",
 		"catchments": "/data/outputs/unit_test_data/05030104/nwm_catchments_proj_subset.gpkg",
