@@ -27,6 +27,33 @@ from utils.shared_functions import FIM_Helpers as fh
 NWM_V3_ZARR_URL = 'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr'
 
 
+def __setup_logger(output_folder_path):
+
+    start_time = datetime.now()
+
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"probabilistic_distribution_parameters-{file_dt_string}.log"
+
+    log_file_path = os.path.join(output_folder_path, log_file_name)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger()
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    logger.setLevel(logging.DEBUG)
+    logging.getLogger('asyncio').setLevel(logging.WARNING)
+    logging.getLogger('netCDF4').setLevel(logging.WARNING)
+    logging.getLogger('numcodecs').setLevel(logging.WARNING)
+
+    logging.info(f'Started : {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info("----------------")
+    return start_time
+
+
 @njit(fastmath=True)
 def LNSE(q_flow: np.array, q_flow_pred: np.array, q_mean: float, length: int) -> float:
     """Calculate the log nash-sutcliffe efficiency (LNSE)
@@ -308,9 +335,7 @@ def run_linear_moment_fit(
         Number of threads to run per a worker
     """
 
-    logging.getLogger('asyncio').setLevel(logging.WARNING)
-    logging.getLogger('netCDF4').setLevel(logging.WARNING)
-    start_time = datetime.now()
+    start_time = __setup_logger(output_directory)
 
     # If arguments are none Dask will automatically resolve
     client = Client(threads_per_worker=threads_per_worker, n_workers=num_jobs, silence_logs=logging.ERROR)
