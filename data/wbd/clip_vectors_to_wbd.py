@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv
 import logging
-import os
 import sys
 
 import geopandas as gpd
