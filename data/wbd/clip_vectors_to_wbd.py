@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import logging
+import os
 import sys
 
 import geopandas as gpd
@@ -21,16 +23,23 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     Extend outlet streams to nearest buffered WBD boundary
     """
 
-    wbd['geometry'] = wbd.geometry.boundary
-    wbd = gpd.GeoDataFrame(data=wbd, geometry='geometry')
-
-    wbd_buffered["linegeom"] = wbd_buffered.geometry
-
     # Select only the streams that are outlets
     levelpath_outlets = streams[streams['to'] == 0]
 
-    # Select only the streams that don't intersect the WBD boundary line
-    levelpath_outlets = levelpath_outlets[~levelpath_outlets.intersects(wbd['geometry'].iloc[0])]
+    levelpath_outlets_columns = [x for x in levelpath_outlets.columns]
+
+    # Select streams that intersect the WBD but not the WBD buffer
+    levelpath_outlets = levelpath_outlets.sjoin(wbd)[levelpath_outlets_columns]
+
+    wbd_boundary = wbd.copy()
+    wbd_boundary['geometry'] = wbd_boundary.geometry.boundary
+    wbd_boundary = gpd.GeoDataFrame(data=wbd_boundary, geometry='geometry')
+
+    wbd_buffered["linegeom"] = wbd_buffered.geometry
+
+    levelpath_outlets = levelpath_outlets[
+        ~levelpath_outlets.intersects(wbd_buffered["linegeom"].boundary.iloc[0])
+    ]
 
     levelpath_outlets['nearest_point'] = None
     levelpath_outlets['nearest_point_wbd'] = None
@@ -46,10 +55,11 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     wbd_buffered['geometry'] = wbd_buffered.geometry.boundary
     wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
 
+    errors = 0
     for index, row in levelpath_outlets.iterrows():
         levelpath_geom = row['last']
         nearest_point = nearest_points(levelpath_geom, wbd_buffered)
-        nearest_point_wbd = nearest_points(levelpath_geom, wbd.geometry)
+        nearest_point_wbd = nearest_points(levelpath_geom, wbd_boundary.geometry)
 
         levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
         levelpath_outlets.at[index, 'nearest_point_wbd'] = nearest_point_wbd[1].iloc[0]
@@ -59,11 +69,16 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
         if isinstance(levelpath_outlets_nearest_points, pd.Series):
             levelpath_outlets_nearest_points = levelpath_outlets_nearest_points.iloc[-1]
 
-        # Extend outlet stream only if nearest snap point is within 100m of the end of WBD
-        if Point(row['geometry'].coords[-1]).distance(levelpath_outlets_nearest_points_wbd) < 100:
+        # Extend outlet stream if outlet point is outside of the WBD or nearest snap point is within 100m of the WBD boundary
+        outlet_point = Point(row['geometry'].coords[-1])
+        if (outlet_point.distance(levelpath_outlets_nearest_points_wbd) < 100) or (
+            ~outlet_point.intersects(wbd.geometry)[0]
+        ):
             levelpath_outlets.at[index, 'geometry'] = LineString(
                 list(row['geometry'].coords) + list([levelpath_outlets_nearest_points.coords[0]])
             )
+        else:
+            errors += 1
 
     levelpath_outlets = gpd.GeoDataFrame(data=levelpath_outlets, geometry='geometry')
     levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point', 'nearest_point_wbd'])
