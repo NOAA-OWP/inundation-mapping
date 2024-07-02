@@ -131,7 +131,7 @@ def generate_flows_for_huc(
             segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
 
             # If there are no segments, write message and exit out
-            if len(segments) == 0:
+            if not segments or len(segments) == 0:
                 message = f'{lid}: missing nwm segments'
                 all_messages.append(message)
                 MP_LOG.warning(message)
@@ -141,30 +141,29 @@ def generate_flows_for_huc(
             for category in flood_categories:
                 # Get the flow
                 flow = flows[category]
-                if flow is None:
+                if flow:
                     MP_LOG.trace(f"{category} flow is none")
-                    continue
 
-                # If there is a valid flow value, write a flow file.
-                # if flow:
-                # round flow to nearest hundredth
-                flow = round(flow, 2)
+                    # If there is a valid flow value, write a flow file.
+                    # if flow:
+                    # round flow to nearest hundredth
+                    flow = round(flow, 2)
 
-                # Create the guts of the flow file.
-                flow_info = flow_data(segments, flow)
+                    # Create the guts of the flow file.
+                    flow_info = flow_data(segments, flow)
 
-                # Define destination path and create folders
-                csv_output_folder = os.path.join(output_flows_dir, huc, lid, category)
-                os.makedirs(csv_output_folder, exist_ok=True)
-                output_file = os.path.join(csv_output_folder, f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
+                    # Define destination path and create folders
+                    csv_output_folder = os.path.join(output_flows_dir, huc, lid, category)
+                    os.makedirs(csv_output_folder, exist_ok=True)
+                    output_file = os.path.join(csv_output_folder, f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
 
-                # Write flow file to file
-                flow_info.to_csv(output_file, index=False)
+                    # Write flow file to file
+                    flow_info.to_csv(output_file, index=False)
 
-                # else:
-                #     message = f'{lid}: magnitude : {category} is missing calculated flow'
-                #     all_messages.append(message)
-                #     MP_LOG.warning(message)
+                else:
+                    message = f'{huc} - {lid}: magnitude : {category} is missing calculated flow'
+                    all_messages.append(message)
+                    MP_LOG.warning(message)
 
             # Get various attributes of the site.
             lat = float(metadata['nws_preferred']['latitude'])

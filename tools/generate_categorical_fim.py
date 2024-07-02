@@ -1228,7 +1228,7 @@ def produce_stage_based_catfim_tifs(
     child_log_file_prefix = FLOG.MP_calc_prefix_name(parent_log_output_file, f"MP_sb_{huc}_inundate")
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         for branch in branches:
-            msg_id_w_branch = "{huc} -- {branch} -- {lid} -- {category}"
+            msg_id_w_branch = f"{huc} -- {branch} -- {lid} -- {category}"
             MP_LOG.trace(f"{msg_id} : Determining HydroID")
             # Define paths to necessary files to produce inundation grids.
             full_branch_path = os.path.join(branch_dir, branch)
