@@ -140,15 +140,26 @@ def process_generate_categorical_fim(
     # we are getting too many folders and files. We want just huc folders.
     # output_flow_dir_list = os.listdir(fim_run_dir)
     # looking for folders only starting with 0, 1, or 2
-    lst_hucs = [
+
+    # for now, we are dropping all Alaska HUCS
+    
+    # DEBUG: July 2, 2024
+    # Override to keep just the one huc.
+    lst_hucs = ['19020301']
+    
+    
+    valid_ahps_hucs = [
         x
         for x in os.listdir(fim_run_dir)
-        if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
+            if os.path.isdir(os.path.join(fim_run_dir, x)) and
+            x[0] in ['0', '1', '2'] and
+            x[:2] != "19"
     ]
-    # print(lst_hucs)
-    lst_hucs.sort()
+    # print(valid_ahps_hucs)
 
-    num_hucs = len(lst_hucs)
+    valid_ahps_hucs.sort()
+
+    num_hucs = len(valid_ahps_hucs)
     if num_hucs == 0:
         raise ValueError(
             f'Output directory {fim_run_dir} is empty. Verify that you have the correct input folder.'
@@ -172,7 +183,7 @@ def process_generate_categorical_fim(
     FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
     FLOG.lprint("")
 
-    FLOG.lprint(f"Processing {num_hucs} huc(s)")
+    FLOG.lprint(f"Processing {num_hucs} huc(s) with Alaska removed")
 
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
@@ -191,16 +202,16 @@ def process_generate_categorical_fim(
     # if not os.path.exists(fim_inputs_csv_path):
     #    raise ValueError(f'{fim_inputs_csv_path} not found. Verify that you have the correct input files.')
 
-    print()
+    # print()
 
-    FLOG.lprint("Filtering out HUCs that do not have related ahps site in them.")
-    valid_ahps_hucs = __filter_hucs_to_ahps(lst_hucs)
+    # FLOG.lprint("Filtering out HUCs that do not have related ahps site in them.")
+    # valid_ahps_hucs = __filter_hucs_to_ahps(lst_hucs)
 
-    num_valid_hucs = len(valid_ahps_hucs)
-    if num_valid_hucs == 0:
-        raise Exception("None of the HUCs supplied have ahps sites in them. Check your fim output folder")
-    else:
-        FLOG.lprint(f"Processing {num_valid_hucs} huc(s) with AHPS sites")
+    # num_valid_hucs = len(valid_ahps_hucs)
+    # if num_valid_hucs == 0:
+    #     raise Exception("None of the HUCs supplied have ahps sites in them. Check your fim output folder")
+    # else:
+    #     FLOG.lprint(f"Processing {num_valid_hucs} huc(s) with AHPS sites")
 
     # Define upstream and downstream search in miles
     nwm_us_search, nwm_ds_search = search, search
@@ -354,8 +365,8 @@ def update_mapping_status(output_mapping_dir, nws_sites_layer):
     ----------
     output_mapping_dir : STR
         Path to the output directory of all inundation maps.
-    output_flows_dir : STR
-        Path to the directory containing all flows.
+    nws_sites_layer : STR
+        
 
     Returns
     -------
@@ -1128,7 +1139,7 @@ def generate_stage_based_categorical_fim(
         with open(full_message_csv_path, newline='') as message_file:
             reader = csv.reader(message_file)
             for row in reader:
-                all_messages.append(row)
+                all_messages.append(row.strip())
 
     # Filter out columns and write out to file
     nws_sites_layer = os.path.join(output_mapping_dir, 'nws_lid_sites.gpkg')
@@ -1139,8 +1150,6 @@ def generate_stage_based_categorical_fim(
     if not os.path.exists(nws_sites_layer):
 
         FLOG.lprint(f"nws_sites_layer does not exist")
-
-        # FIX:  (DO WE NEED IT?)
 
         # Write messages to DataFrame, split into columns, aggregate messages.
         if len(all_messages) > 0:
@@ -1493,3 +1502,4 @@ if __name__ == '__main__':
 
     except Exception:
         FLOG.critical(traceback.format_exc())
+
