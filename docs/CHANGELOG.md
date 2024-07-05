@@ -9,7 +9,12 @@ Also adds missing argparse arguments so that the script can be run from the comm
 
 ### Changes
 
-- `data/wbd/clip_vectors_to_wbd.py`: Adds a 100 meter distance threshold to WBD to snap outlets to buffered WBD.
+- `data`
+     - `wbd`
+          - `clip_vectors_to_wbd.py`: Adds a 100 meter distance threshold to WBD to snap outlets to buffered WBD.
+          - `generate_pre_clip_fim_huc8.py`: Upgrading logging system.
+- `src`
+     - `bash_variables.env`: Updated pre-clip input path to new pre-clip files.
 
 <br/><br/>
 
