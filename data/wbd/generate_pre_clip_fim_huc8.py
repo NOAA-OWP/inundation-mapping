@@ -373,8 +373,12 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
 
         sub_proc_stdout = get_wbd_subprocess.stdout
         sub_proc_stderror = get_wbd_subprocess.stderr
-        if sub_proc_stderror != "":
-            raise Exception(f"{huc} : Error creating wbd file for {huc}: Details: {sub_proc_stderror}")
+        if sub_proc_stderror.lower().startswith("warning") is True:
+            logging.info(f"Warning from ogr creating wbd file: {sub_proc_stderror}")
+        elif sub_proc_stderror != "":
+            raise Exception(
+                f"*** {huc} : Error creating wbd file from ogr for {huc}:" f" Details: {sub_proc_stderror}\n"
+            )
         else:
             msg = f"-- {huc} : Creating {huc_directory}/wbd.gpkg - Complete"
             if sub_proc_stdout != "":  # warnings?
@@ -475,12 +479,15 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
 
         sub_proc_stdout = clip_wbd8_subprocess.stdout
         sub_proc_stderror = clip_wbd8_subprocess.stderr
-        if sub_proc_stderror != "":
+        if sub_proc_stderror.lower().startswith("warning") is True:
+            logging.info(f"Warning from ogr clip: {sub_proc_stderror}")
+        elif sub_proc_stderror != "":
             raise Exception(
-                f"{huc} : Error WBD buffer and clip version for {huc}:" f" Details: {sub_proc_stderror}"
+                f"*** {huc} : Error WBD buffer and clip version from ogr for {huc}:"
+                f" Details: {sub_proc_stderror}\n"
             )
         else:
-            msg = f"-- {huc} : Creating WBD buffer and clip version - Complete \n"
+            msg = f"-- {huc} : Creating WBD buffer and clip version - Complete"
             if sub_proc_stdout != "":  # warnings?
                 msg += f": {sub_proc_stdout}"
 
