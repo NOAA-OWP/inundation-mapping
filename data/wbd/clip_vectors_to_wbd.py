@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 import sys
 
 import geopandas as gpd
@@ -64,8 +65,11 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
 
         levelpath_outlets_nearest_points = levelpath_outlets.at[index, 'nearest_point']
         levelpath_outlets_nearest_points_wbd = levelpath_outlets.at[index, 'nearest_point_wbd']
+
         if isinstance(levelpath_outlets_nearest_points, pd.Series):
             levelpath_outlets_nearest_points = levelpath_outlets_nearest_points.iloc[-1]
+        if isinstance(levelpath_outlets_nearest_points_wbd, pd.Series):
+            levelpath_outlets_nearest_points_wbd = levelpath_outlets_nearest_points_wbd.iloc[-1]
 
         # Extend outlet stream if outlet point is outside of the WBD or nearest snap point is within 100m of the WBD boundary
         outlet_point = Point(row['geometry'].coords[-1])
@@ -135,6 +139,7 @@ def subset_vector_layers(
     logging.info(f"Clip ocean water polygon for {hucCode}")
     landsea = gpd.read_file(landsea, mask=wbd_buffer, engine="fiona")
     if not landsea.empty:
+        os.makedirs(os.path.dirname(subset_landsea), exist_ok=True)
         # print(f"Create landsea gpkg for {hucCode}", flush=True)
         landsea.to_file(
             subset_landsea, driver=getDriver(subset_landsea), index=False, crs=huc_CRS, engine="fiona"
@@ -376,7 +381,7 @@ if __name__ == '__main__':
     )
     parser.add_argument('-osm', '--osm-bridges', help='Open Street Maps gkpg', required=True)
     parser.add_argument('-osms', '--subset-osm-bridges', help='Open Street Maps subset', required=True)
-    parser.add_argument('-ak', '--is-alaska', help='If in Alaska', required=True, type=bool)
+    parser.add_argument('-ak', '--is-alaska', help='If in Alaska', action='store_true')
     parser.add_argument('-crs', '--huc-CRS', help='HUC crs', required=True)
 
     args = vars(parser.parse_args())
