@@ -7,7 +7,7 @@ verify_ssl = true
 ipython = "==8.24.0"
 
 [packages]
-certifi = "==2023.7.22"
+certifi = "==2024.7.4"
 fiona = "==1.8.22"
 geopandas = "==0.14.3"
 numba = "==0.56.4"
