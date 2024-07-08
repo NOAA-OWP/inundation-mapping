@@ -143,6 +143,8 @@ def run_catfim_inundation(
     # end of ProcessPoolExecutor
 
     # rolls up logs from child MP processes into this parent_log_output_file
+    
+    # hold on merging it up for now, to keep the overall log size down a little
     FLOG.merge_log_files(log_output_file, child_log_file_prefix)
     
     print()
@@ -258,7 +260,6 @@ def post_process_huc(
         attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
         for ahps_lid in ahps_dir_list:
-            print()
             tifs_to_reformat_list = []
             mapping_huc_lid_dir = os.path.join(huc_dir, ahps_lid)
             MP_LOG.trace(f"mapping_huc_lid_dir is {mapping_huc_lid_dir}")
@@ -365,9 +366,9 @@ def post_process_cat_fim_for_viz(
     if not os.path.exists(gpkg_dir):
         os.mkdir(gpkg_dir)
 
-    merged_layer = os.path.join(output_mapping_dir, f'catfim_library.gpkg')
+    merged_layer_file_path = os.path.join(output_mapping_dir, f'catfim_library.gpkg')
 
-    if os.path.exists(merged_layer) is False:  # prevents appending to existing output
+    if os.path.exists(merged_layer_file_path) is False:  # prevents appending to existing output
         # huc_ahps_dir_list = os.listdir(output_mapping_dir)
         huc_ahps_dir_list = [
             x
@@ -426,32 +427,39 @@ def post_process_cat_fim_for_viz(
         # Merge all layers
         gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
         FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
-        ctr = 0
         
         # TODO: put a tqdm in here for visual only.
         
-        # TODO: why right this out for each merge?
-        
-        for layer in gpkg_files:
+        merged_layers_gdf = None        
+        for ctr, layer in enumerate(gpkg_files):
             FLOG.lprint(f"Merging number {ctr+1} of {len(gpkg_files)}")
-            # Open dissolved extent layers
+            
+            # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gkpg
             diss_extent_filename = os.path.join(gpkg_dir, layer)
-            diss_extent = gpd.read_file(diss_extent_filename, engine='fiona')
-            diss_extent['viz'] = 'yes'
+            diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
+            diss_extent_gdf['viz'] = 'yes'
+            
+            if ctr == 0:
+                merged_layers_gdf = diss_extent_gdf
+            else:
+                merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
 
             # Write/append aggregate diss_extent
             # FLOG.lprint(f"Merging layer: {layer}")
             #if os.path.isfile(merged_layer):
             #    diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False, mode='a')
             #else:
-            diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False)
-            del diss_extent
+            del diss_extent_gdf
 
             #shutil.rmtree(gpkg_dir)
-            ctr = ctr+1
+
+        if merged_layers_gdf is None:
+            raise Exception(f"No ahps - magnitude gpkgs found in {gpkg_dir}")
+
+        merged_layers_gdf.to_file(merged_layer_file_path, driver='GPKG', index=False)
 
     else:
-        FLOG.warning(f"{merged_layer} already exists.")
+        FLOG.warning(f"{merged_layer_file_path} already exists.")
 
     FLOG.lprint("End post processing TIFs...")
 
@@ -607,8 +615,6 @@ def manage_catfim_mapping(
         .replace('fim_', '')
         .replace('_', '.')
     )
-    
-    print(f"fim_version is {fim_version}")
     
     # Step 2
     post_process_cat_fim_for_viz(

@@ -142,12 +142,7 @@ def process_generate_categorical_fim(
     # looking for folders only starting with 0, 1, or 2
 
     # for now, we are dropping all Alaska HUCS
-    
-    # DEBUG: July 2, 2024
-    # Override to keep just the one huc.
-    lst_hucs = ['19020301']
-    
-    
+   
     valid_ahps_hucs = [
         x
         for x in os.listdir(fim_run_dir)
@@ -183,7 +178,7 @@ def process_generate_categorical_fim(
     FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
     FLOG.lprint("")
 
-    FLOG.lprint(f"Processing {num_hucs} huc(s) with Alaska removed")
+    FLOG.lprint(f"Processing {num_hucs} huc(s) with Alaska temporarily removed")
 
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
@@ -283,31 +278,15 @@ def process_generate_categorical_fim(
     FLOG.lprint("================================")
     FLOG.lprint("End generate categorical fim")
 
-    end_time = datetime.now(timezone.utc)
-    dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
+    overall_end_time = datetime.now(timezone.utc)
+    dt_string = overall_end_time.strftime("%m/%d/%Y %H:%M:%S")
     FLOG.lprint(f"Ended (UTC): {dt_string}")
 
     # calculate duration
-    time_duration = end_time - overall_start_time
+    time_duration = overall_end_time - overall_start_time
     FLOG.lprint(f"Duration: {str(time_duration).split('.')[0]}")
 
     return
-
-
-def __filter_hucs_to_ahps(lst_hucs):
-
-    # Most hucs do not have any ahps site in them. Let's filter out what we know if not applicable now.
-    # More will be filtered out later.
-
-    nws_lid_file_path = "/data/inputs/ahps_sites/nws_lid.gpkg"
-    all_ahps_sites = gpd.read_file(nws_lid_file_path)
-
-    ahps_hucs = all_ahps_sites['HUC8'].unique().tolist()
-
-    # Keep only hucs that are in the ahps_sites list
-    valid_hucs = [item for item in lst_hucs if item in ahps_hucs]
-
-    return valid_hucs
 
 
 def create_csvs(output_mapping_dir, is_stage_based):
@@ -337,7 +316,6 @@ def create_csvs(output_mapping_dir, is_stage_based):
     
     # catfim_library.gpkg is saved as (flow_based or stage_based)_catfim.csv
     # nws_lid_sites.gpkg is saved as (flow_based or stage_based)_catfim_sites.csv 
-
         
     for gpkg in gpkg_list:
         FLOG.lprint(f"Creating CSV for {gpkg}")
@@ -456,10 +434,10 @@ def produce_inundation_map_with_stage(
         # This is setting up logging for this function to go up to the parent
         MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
 
-        MP_LOG.lprint("+++++++++++++++++++++++")
-        MP_LOG.lprint(f"At the start of producing inundation maps for {huc}")
-        MP_LOG.trace(locals())
-        MP_LOG.trace("+++++++++++++++++++++++")
+        # MP_LOG.lprint("+++++++++++++++++++++++")
+        # MP_LOG.lprint(f"At the start of producing inundation maps for {huc}")
+        # MP_LOG.trace(locals())
+        # MP_LOG.trace("+++++++++++++++++++++++")
 
         rem_src = rasterio.open(rem_path)
         catchments_src = rasterio.open(catchments_path)
@@ -546,13 +524,20 @@ def create_catfim_files_for_huc_stage_based(
         # Normally, we would roll all of the MP logs into the parent "master" file. ie) parent_log_output_file
         # But in this case, we want a seperate log file per HUC to keep the overall size of the files
         # down a little. So we will override the log_output_file to be specific to this huc
-        log_folder = os.path.join(output_catfim_dir, "logs")
-        file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
-        child_log_file_name = f"{huc}_sb_tifs_{file_dt_string}.log"
-        child_log_output_file = os.path.join(log_folder, child_log_file_name)
+        #log_folder = os.path.join(output_catfim_dir, "logs")
+        #file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
+        
+       
+        
+        #child_log_file_name = f"{huc}_sb_tifs_{file_dt_string}.log"
+        #child_log_output_file = os.path.join(log_folder, child_log_file_name)
 
         mapping_dir = os.path.join("output_catfim_dir", "mapping")
         attributes_dir = os.path.join(output_catfim_dir, 'attributes')
+        output_flows_dir = os.path.join(output_catfim_dir, "flows")        
+        huc_messages_dir = os.path.join(output_flows_dir, 'huc_messages')
+        os.makedirs(huc_messages_dir, exist_ok=True)
+        
 
         # FLOG.lprint("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
         # FLOG.lprint(f'Iterating through {huc}...')
@@ -683,7 +668,19 @@ def create_catfim_files_for_huc_stage_based(
 
             # For each flood category / magnitude
             MP_LOG.lprint(f"{msg_id}: About to process flood categories")
-            child_log_file_prefix = "MP_{huc}_prod_sb_tifs"
+            
+            
+            # child_log_file_prefix = f"MP_{huc}_prod_sb_tifs"
+            
+            # This function sometimes is called within a MP but sometimes not.
+            # So, we might have an MP inside an MP
+            # and we will need a new prefix for it.
+            #child_log_file_prefix = FLOG.MP_calc_prefix_name(parent_log_output_file,
+            #                                                f"MP_{huc}_prod_sb_tifs")
+            
+            child_log_file_prefix = MP_LOG.MP_calc_prefix_name(parent_log_output_file,
+                                                                "MP_run_ind")
+            
             for category in magnitudes:
                 MP_LOG.lprint(f"{msg_id}: Magnitude is {category}")
                 # Pull stage value and confirm it's valid, then process
@@ -704,7 +701,7 @@ def create_catfim_files_for_huc_stage_based(
                         lid_directory,
                         category,
                         job_number_inundate,
-                        child_log_output_file,
+                        parent_log_output_file,
                         child_log_file_prefix,
                     )
                     all_messages += messages
@@ -724,17 +721,18 @@ def create_catfim_files_for_huc_stage_based(
                         }
                     )
 
-                    # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix )
-
                 # If missing HUC file data, write message
                 if huc in missing_huc_files:
                     MP_LOG.warning(f'{msg_id}:missing some HUC data')
 
-            # This function sometimes is called within a MP but sometimes not.
             # So, we might have an MP inside an MP
+            # let's merge what we have at this point, before we go into another MP
+            MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)            
+            
             # and we will need a new prefix for it.
-            child_log_file_prefix = FLOG.MP_calc_prefix_name(parent_log_output_file,
-                                                            "MP_produce_sb_tifs")
+            tif_child_log_file_prefix = MP_LOG.MP_calc_prefix_name(parent_log_output_file,
+                                                            f"MP_{huc}_prod_sb_tifs")
+            
             with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
                 try:
                     for interval_stage in interval_list:
@@ -761,8 +759,8 @@ def create_catfim_files_for_huc_stage_based(
                             lid_directory,
                             category,
                             job_number_inundate,
-                            child_log_output_file,
-                            child_log_file_prefix,
+                            parent_log_output_file,
+                            tif_child_log_file_prefix,
                         )
                 except TypeError:  # sometimes the thresholds are Nonetypes
                     MP_LOG.error("ERROR: type error in ProcessPool somewhere")
@@ -772,11 +770,11 @@ def create_catfim_files_for_huc_stage_based(
                     MP_LOG.critical("ERROR: ProcessPool has an error")
                     MP_LOG.critical(traceback.format_exc())
                     # merge MP Logs (Yes)
-                    MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
+                    MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix)
                     sys.exit(1)
 
             # merge MP Logs (merging MP into an MP (proc_pool in a proc_pool))
-            MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
+            MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix)
 
             # Create a csv with same information as geopackage but with each threshold as new record.
             # Probably a less verbose way.
@@ -1038,7 +1036,7 @@ def generate_stage_based_categorical_fim(
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
     FLOG.lprint("Starting generate_catfim_flows")
-    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = (
+    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df) = (
         generate_flows(
             output_catfim_dir,
             nwm_us_search,
@@ -1059,7 +1057,10 @@ def generate_stage_based_categorical_fim(
         for huc in huc_dictionary:
             if huc in lst_hucs:
                 FLOG.lprint(f'Generating stage based catfim for : {huc}')
-                flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
+                
+                # TODO: Add back in when we add AK back in
+                # flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df 
+                flows_df = nwm_flows_df # TODO: Remove when we add AK back in                
                 executor.submit(
                     create_catfim_files_for_huc_stage_based,
                     output_catfim_dir,
@@ -1100,7 +1101,6 @@ def generate_stage_based_categorical_fim(
 
     # Write to file
     all_csv_df.to_csv(os.path.join(output_flows_dir, 'nws_lid_attributes.csv'), index=False)
-    FLOG.lprint(f".. all_csv_df saved at {all_csv_df}")
 
     # This section populates a geopackage of all potential sites and details
     # whether it was mapped or not (mapped field) and if not, why (status field).
@@ -1484,6 +1484,7 @@ if __name__ == '__main__':
         type=float,
     )
 
+    # NOTE: This params is for quick debugging only and should not be used in a production mode
     parser.add_argument(
         '-me',
         '--nwm_metafile',

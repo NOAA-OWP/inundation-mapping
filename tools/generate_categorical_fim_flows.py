@@ -2,7 +2,7 @@
 
 # import csv
 
-# import logging
+import argparse
 import os
 import pickle
 import sys
@@ -91,8 +91,8 @@ def generate_flows_for_huc(
             # TODO:  Jun 17, 2024 - This gets recalled for every huc but only uses the nws_list.
             # Move this somewhere outside the huc list so it doesn't need to be called over and over again
             
-            # Careful, for "all_message.append" the syntax into it must be f'{lid}: (whever messages)
-            # this is gets parsed and logic used against it.
+            # Careful, for "all_message.append" the syntax into it must be f'{lid}:(whever messages)
+            # this is gets parsed and logic used against it. (no space after :)
             
             MP_LOG.trace(f'Getting thresholds for {lid}')
             stages, flows = get_thresholds(
@@ -129,7 +129,6 @@ def generate_flows_for_huc(
             desired_order = metadata['nwm_feature_data']['stream_order']
 
             # Filter segments to be of like stream order.
-
             segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
 
             # If there are no segments, write message and exit out
@@ -223,7 +222,6 @@ def generate_flows_for_huc(
                 message = f'{lid}: missing all calculated flows'
                 all_messages.append(message)
                 MP_LOG.warning(f"Missing all calculated flows for {huc} - {lid}")
-                # print(message) # TODO: Make verbose option
 
         # Write all_messages to huc-specific file.
         # MP_LOG.lprint(f'Writing message file for {huc}')
@@ -284,6 +282,9 @@ def generate_flows(
     '''
 
     FLOG.setup(log_output_file)  # reusing the parent logs
+    
+    #FLOG.trace("args coming into generate flows")
+    #FLOG.trace(locals()) # see all args coming in to the function
 
     output_flows_dir = os.path.join(output_catfim_dir, "flows")
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
@@ -314,6 +315,7 @@ def generate_flows(
     # nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     # nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
 
+    # nwm_metafile might be an empty string
     all_meta_lists = __load_nwm_metadata(
         output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile
     )
@@ -421,10 +423,6 @@ def generate_flows(
         inplace=True,
     )
     viz_out_gdf['nws_lid'] = viz_out_gdf['nws_lid'].str.lower()
-    FLOG.lprint("+++++++++++++++++++++\nviz_out_gdf part 1 is")
-    FLOG.lprint(f"len is {len(viz_out_gdf)}")
-    FLOG.lprint(viz_out_gdf)
-    FLOG.lprint("+++++++++++++++++++++\n")
 
     # Using list of csv_files, populate DataFrame of all nws_lids that had
     # a flow file produced and denote with "mapped" column.
@@ -433,19 +431,11 @@ def generate_flows(
         nws_lids.append(csv_file.split('_attributes')[0])
     lids_df = pd.DataFrame(nws_lids, columns=['nws_lid'])
     lids_df['mapped'] = 'yes'
-    FLOG.lprint("nws_lid...")
-    FLOG.lprint(lids_df)
 
     # Identify what lids were mapped by merging with lids_df. Populate
     # 'mapped' column with 'No' if sites did not map.
     viz_out_gdf = viz_out_gdf.merge(lids_df, how='left', on='nws_lid')
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
-
-    FLOG.lprint("+++++++++++++++++++++\nviz_out_gdf part 2 is")
-    FLOG.lprint(f"len is {len(viz_out_gdf)}")
-    FLOG.lprint(viz_out_gdf)
-    FLOG.lprint("+++++++++++++++++++++\nv")
-
 
     # Read all messages for all HUCs
     huc_message_list = []
@@ -471,35 +461,21 @@ def generate_flows(
         messages_df.drop_duplicates(subset="status", keep="first", inplace=True)
 
         # We want one viz_out_gdf record per ahps and if there are more than one, contact the messages
-
-        FLOG.lprint("^^^^^^^^^^^^^^^^^^^")
-        FLOG.lprint("messages_df..")
-        FLOG.lprint(f"len is: {len(messages_df)}")        
-        FLOG.lprint(messages_df)
-        
-        
+       
         #status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
         #df1 = df.groupby(['ID1','ID2'])['Status'].agg(lambda x: ','.join(x.dropna())).reset_index()
         status_df = messages_df.groupby(['nws_lid'])['status'].agg(lambda x: ', '.join(x)).reset_index()
         
-        FLOG.lprint("^^^^^^^^^^^^^^^^^^^")
-        FLOG.lprint("status_df..")
-        FLOG.lprint(f"len is: {len(status_df)}")
-        FLOG.lprint(status_df)
-
-
+         # some messages status values start with a space as the first character. Remove it
+         
+        # TODO: This did not work ???
+        status_df["status"] = status_df["status"].apply(lambda x: x.lstrip())
+        
         # Join messages to populate status field to candidate sites. Assign
         # status for null fields.
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
         
-       
-        
         viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
-        
-        FLOG.lprint("+++++++++++++++++++++\nviz_out_gdf part 2 is")
-        FLOG.lprint(f"len is {len(viz_out_gdf)}")
-        FLOG.lprint(viz_out_gdf)
-        FLOG.lprint("+++++++++++++++++++++\nv")
         
 
     # Filter out columns and write out to file
@@ -564,5 +540,86 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
 
     return all_meta_lists
 
-# Can't be used via command line
+
+if __name__ == '__main__':
+    # Parse arguments
+    parser = argparse.ArgumentParser(description='Create forecast files for all nws_lid sites')
+    parser.add_argument('-w', '--output_catfim_dir',
+                        help='Workspace where all data will be stored.',
+                        required=True)
+    
+    parser.add_argument(
+        '-log',
+        '--log_output_file',
+        help='REQUIRED: Path to where the output log file will be.'
+        r'ie) /data/catfim/rob_test/logs/catfim_2024_07_07-22_26_18.log',
+        required=True,
+        type=str,
+    )    
+    
+    parser.add_argument(
+        '-e',
+        '--env_file',
+        help='Docker mount path to the catfim environment file. ie) data/config/catfim.env',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-hucs',
+        '--lst_hucs',
+        help='list of hucs that you want to process. ie) -hucs 12090301 01100006 12040101',
+        required=True,
+        type=str,
+        nargs='+',
+    )
+    
+    parser.add_argument(
+        '-u', '--nwm_us_search',
+        help='Walk upstream on NWM network this many miles',
+        required=False,
+        default=5,
+    )
+    
+    parser.add_argument(
+        '-d', '--nwm_ds_search',
+        help='Walk downstream on NWM network this many miles',
+        required=False,
+        default=5,
+    )
+       
+    parser.add_argument(
+        '-jh',
+        '--job_number_huc',
+        help='OPTIONAL: Number of processes to use for HUC scale operations.'
+        ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'
+        ' machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be '
+        'kept low (2-4). Defaults to 1.',
+        required=False,
+        default=1,
+        type=int,
+    )        
+        
+    parser.add_argument(
+        '-a',
+        '--is_stage_based',
+        help='Is this a stage based or flow based run? Add the -a to mean is_stage_based is True ',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+    
+    parser.add_argument(
+        '-n',
+        '--nwm_metafile',
+        help='OPTIONAL: Path to the pre-made pickle file that already holds the nwm metadata',
+        required=False,
+        type=str,
+        default="",
+    )    
+    
+    args = vars(parser.parse_args())
+
+    # Run get_env_paths and static_flow_lids
+    generate_flows(**args)
+
 
