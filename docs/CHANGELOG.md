@@ -1,13 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-07-01 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
+## v4.5.2.5 - 2024-07-08 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
 
 Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on NWM streams within a threshold of 100 meters. DEM-derived streams that do not locate any NWM streams within 100 meters of their midpoints are removed from the FIM hydrofabric and their catchments are not inundated.
 
 ### Changes
 
 - `src/add_crosswalk.py`: Locates nearest NWM stream to midpoint of DEM-derived reaches if within 100 meters. Also fixes a couple of minor bugs. 
+
+<br/><br/>
+
+
 ## v4.5.2.4 - 2024-07-08 - [PR#1204](https://github.com/NOAA-OWP/inundation-mapping/pull/1204)
 
 Bug fix for extending outlets in order to ensure proper flow direction in depression filling algorithm. This PR adds a distance criteria that in order for the end of an outlet stream to be snapped to the wbd_buffered boundary, the end point must be less than 100 meters from the WBD boundary.
