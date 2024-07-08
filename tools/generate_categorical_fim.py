@@ -1036,7 +1036,8 @@ def generate_stage_based_categorical_fim(
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
     FLOG.lprint("Starting generate_catfim_flows")
-    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df) = (
+    # (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = ( # TODO: Add back in when we add AK back in
+    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df) = ( # TODO: Remove when we add AK back in
         generate_flows(
             output_catfim_dir,
             nwm_us_search,
@@ -1057,10 +1058,7 @@ def generate_stage_based_categorical_fim(
         for huc in huc_dictionary:
             if huc in lst_hucs:
                 FLOG.lprint(f'Generating stage based catfim for : {huc}')
-                
-                # TODO: Add back in when we add AK back in
-                # flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df 
-                flows_df = nwm_flows_df # TODO: Remove when we add AK back in                
+                flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
                 executor.submit(
                     create_catfim_files_for_huc_stage_based,
                     output_catfim_dir,
