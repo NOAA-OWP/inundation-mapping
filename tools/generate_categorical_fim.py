@@ -536,8 +536,8 @@ def create_catfim_files_for_huc_stage_based(
         attributes_dir = os.path.join(output_catfim_dir, 'attributes')
         output_flows_dir = os.path.join(output_catfim_dir, "flows")        
         huc_messages_dir = os.path.join(output_flows_dir, 'huc_messages')
-        os.makedirs(huc_messages_dir, exist_ok=True)
-        
+
+        all_messages = []
 
         # FLOG.lprint("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
         # FLOG.lprint(f'Iterating through {huc}...')
@@ -560,10 +560,18 @@ def create_catfim_files_for_huc_stage_based(
             lid = lid.lower()  # Convert lid to lower case
             # -- If necessary files exist, continue -- #
             if not os.path.exists(usgs_elev_table):
-                msg = f'{msg_id}: usgs_elev_table missing, likely unacceptable gage datum error-- more details to come in future release'
+                all_messages.append(
+                    [
+                        f'{lid}:usgs_elev_table missing, likely unacceptable gage datum error--'
+                        'more details to come in future release'
+                    ]
+                )
+                
+                msg = f'{msg_id}: usgs_elev_table missing, likely unacceptable gage datum error -- more details to come in future release'
                 MP_LOG.error(msg)
                 continue
             if not os.path.exists(branch_dir):
+                all_messages.append([f'{lid}:branch directory missing'])
                 MP_LOG.error(f'{msg_id}: branch directory missing')
                 continue
             usgs_elev_df = pd.read_csv(usgs_elev_table)
@@ -575,6 +583,7 @@ def create_catfim_files_for_huc_stage_based(
             else:
                 complete_marker = os.path.join(lid_directory, 'complete.txt')
                 if os.path.exists(complete_marker):
+                    all_messages.append([f"{lid}: already completed in previous run."])
                     MP_LOG.warning(f"{msg_id}: already completed in previous run.")
                     continue
             # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
@@ -583,10 +592,12 @@ def create_catfim_files_for_huc_stage_based(
             )
 
             if stages is None:
+                all_messages.append([f'{lid}:error getting thresholds from WRDS API'])                
                 MP_LOG.error(f'{msg_id}: error getting thresholds from WRDS API')
                 continue
             # Check if stages are supplied, if not write message and exit.
             if all(stages.get(category, None) is None for category in magnitudes):
+                all_messages.append([f'{lid}:missing threshold stages'])
                 MP_LOG.error(f'{msg_id}: missing threshold stages')
                 continue
 
@@ -633,10 +644,11 @@ def create_catfim_files_for_huc_stage_based(
                 MP_LOG.error(traceback.format_exc())
                 continue
 
-            datum_adj_ft = __adjust_datum_ft(flows, metadata, msg_id)
+            datum_adj_ft, datum_messages = __adjust_datum_ft(flows, metadata, msg_id)
+            
+            all_messages = all_messages + datum_messages
             if datum_adj_ft is None:
                 continue
-           
 
             ### -- Concluded Datum Offset --- ###
             # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
@@ -652,6 +664,7 @@ def create_catfim_files_for_huc_stage_based(
             stage_list = [i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None]
             # Create a list of stages, incrementing by 1 ft.
             if stage_list == []:
+                all_messages.append([f'{lid}:no stage values available'])
                 MP_LOG.warning(f'{msg_id}: WARNING: no stage values available')
                 continue
             
@@ -663,6 +676,7 @@ def create_catfim_files_for_huc_stage_based(
             #   Otherwise this causes bad mapping.
             elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
             if abs(elevation_diff) > 10:
+                all_messages.append([f'{lid}:large discrepancy in elevation estimates from gage and HAND'])                
                 MP_LOG.warning(f'{msg_id}: large discrepancy in elevation estimates from gage and HAND')
                 continue
 
@@ -723,6 +737,7 @@ def create_catfim_files_for_huc_stage_based(
 
                 # If missing HUC file data, write message
                 if huc in missing_huc_files:
+                    all_messages.append([f'{lid}:missing some HUC data'])
                     MP_LOG.warning(f'{msg_id}:missing some HUC data')
 
             # So, we might have an MP inside an MP
@@ -850,11 +865,14 @@ def create_catfim_files_for_huc_stage_based(
 
 def __adjust_datum_ft(flows, metadata, lid, msg_id):
     
+    all_messages = []
+    
     datum_adj_ft = None
     ### --- Do Datum Offset --- ###
     # determine source of interpolated threshold flows, this will be the rating curve that will be used.
     rating_curve_source = flows.get('source')
     if rating_curve_source is None:
+        all_messages.append([f'{lid}:No source for rating curve'])
         MP_LOG.warning(f'{msg_id}:No source for rating curve')
         return None
     
@@ -868,6 +886,7 @@ def __adjust_datum_ft(flows, metadata, lid, msg_id):
     # If datum not supplied, skip to new site
     datum = datum_data.get('datum', None)
     if datum is None:
+        all_messages.append([f'{lid}:datum info unavailable'])        
         MP_LOG.warning(f'{msg_id}:datum info unavailable')
         return None
     
@@ -940,20 +959,25 @@ def __adjust_datum_ft(flows, metadata, lid, msg_id):
             MP_LOG.error(traceback.format_exc())
             e = str(e)
             if crs is None:
+                all_messages.append([f'{lid}:NOAA VDatum adjustment error, CRS is missing'])
                 MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, CRS is missing')
             if 'HTTPSConnectionPool' in e:
                 time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                 try:
                     datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
                 except Exception:
+                    all_messages.append([f'{lid}:NOAA VDatum adjustment error, possible API issue'])
                     MP_LOG.error(f'{msg_id}: ERROR: NOAA VDatum adjustment error, possible API issue')
             if 'Invalid projection' in e:
+                all_messages.append(
+                    [f'{lid}:NOAA VDatum adjustment error, invalid projection: crs={crs}']
+                )                
                 MP_LOG.error(
                     f'{msg_id}: ERROR: NOAA VDatum adjustment error, invalid projection: crs={crs}'
                 )
             return None
         
-    return datum_adj_ft
+    return datum_adj_ft, all_messages
 
 
 def __create_acceptable_usgs_elev_df(usgs_elev_df, msg_id):
@@ -1035,9 +1059,15 @@ def generate_stage_based_categorical_fim(
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
+    # Create HUC message directory to store messages that will be read and joined after multiprocessing
+    huc_messages_dir = os.path.join(output_flows_dir, 'huc_messages')
+    os.makedirs(huc_messages_dir, exist_ok=True)
+
     FLOG.lprint("Starting generate_catfim_flows")
-    # (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = ( # TODO: Add back in when we add AK back in
-    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df) = ( # TODO: Remove when we add AK back in
+    
+    # TODO: Add back in when we add AK back in
+    # (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = (
+    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df) = (
         generate_flows(
             output_catfim_dir,
             nwm_us_search,
@@ -1058,7 +1088,11 @@ def generate_stage_based_categorical_fim(
         for huc in huc_dictionary:
             if huc in lst_hucs:
                 FLOG.lprint(f'Generating stage based catfim for : {huc}')
-                flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
+                
+                # put back in when we put alaska back in.
+                # flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
+                
+                flows_df = nwm_flows_df
                 executor.submit(
                     create_catfim_files_for_huc_stage_based,
                     output_catfim_dir,
@@ -1129,11 +1163,11 @@ def generate_stage_based_categorical_fim(
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
 
     # Create list from all messages in messages dir.
-    messages_dir = os.path.join(output_flows_dir, 'messages')
+    # messages_dir = os.path.join(output_flows_dir, 'messages')
     all_messages = []
-    all_message_csvs = os.listdir(messages_dir)
+    all_message_csvs = os.listdir(huc_messages_dir)
     for message_csv in all_message_csvs:
-        full_message_csv_path = os.path.join(messages_dir, message_csv)
+        full_message_csv_path = os.path.join(huc_messages_dir, message_csv)
         with open(full_message_csv_path, newline='') as message_file:
             reader = csv.reader(message_file)
             for row in reader:
