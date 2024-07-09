@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-07-09 - [PR#1210](https://github.com/NOAA-OWP/inundation-mapping/pull/1210)
+
+This PR reinstates the whitebox hack where whitebox is downloaded during the initial build of the Docker image so that external calls to download whitebox do not happen each time whitebox is run in `agreedem.py` during `fim_pipeline.sh`. Besides being unnecesary in our case, these external calls are a potential point of failure if the whitebox site is temporarily unavailable. The path in the whitebox hack has been adjusted accordingly.
+
+### Changes
+
+- `Dockerfile`: Uncomment the whitebox hack and update the path to `whitebox_tools`.
+
+<br/><br/>
+
 ## v4.5.2.5 - 2024-07-08 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
 
 Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on NWM streams within a threshold of 100 meters. DEM-derived streams that do not locate any NWM streams within 100 meters of their midpoints are removed from the FIM hydrofabric and their catchments are not inundated.
