@@ -10,11 +10,13 @@ import traceback
 from concurrent.futures import ProcessPoolExecutor
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import rasterio
 from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
 from rasterio.features import shapes
+from rasterio.warp import Resampling, calculate_default_transform, reproject
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 
@@ -30,19 +32,294 @@ MP_LOG = fl.FIM_logger()
 gpd.options.io_engine = "pyogrio"
 
 
+# Technically, this is once called as a non MP, but also called in an MP pool
+# we will use an MP object either way
+def produce_stage_based_catfim_tifs(
+    stage,
+    datum_adj_ft,
+    branch_dir,
+    lid_usgs_elev,
+    lid_altitude,
+    fim_dir,
+    segments,
+    lid,
+    huc,
+    lid_directory,
+    category,
+    number_of_jobs,
+    parent_log_output_file,
+    child_log_file_prefix,
+):
+
+    MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
+
+    messages = []
+
+    MP_LOG.lprint("-----------------")
+    huc_lid_cat_id = f"{huc} : {lid} : {category}"
+    MP_LOG.lprint(f"{huc_lid_cat_id}: Starting to create tifs")
+
+    # Determine datum-offset water surface elevation (from above).
+    datum_adj_wse = stage + datum_adj_ft + lid_altitude
+    datum_adj_wse_m = datum_adj_wse * 0.3048  # Convert ft to m
+
+    # Subtract HAND gage elevation from HAND WSE to get HAND stage.
+    hand_stage = datum_adj_wse_m - lid_usgs_elev
+
+    # TODO: see what happens if this is returned with tj
+
+    # If no segments, write message and exit out
+    if not segments or len(segments) == 0:
+        msg = ': missing nwm segments'
+        messages.append(lid + msg)
+        MP_LOG.warning(huc_lid_cat_id + msg)
+        return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+
+    # Produce extent tif hand_stage. Multiprocess across branches.
+    # branches = os.listdir(branch_dir)
+    branches = [
+        x
+        for x in os.listdir(branch_dir)
+        if os.path.isdir(os.path.join(branch_dir, x)) and x[0] in ['0', '1', '2']
+    ]
+    branches.sort()
+
+    # We need to merge what we have up to this point.
+    MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
+    child_log_file_prefix = MP_LOG.MP_calc_prefix_name(parent_log_output_file, "MP_prod_huc_mag_stage", huc)
+    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
+        for branch in branches:
+            msg_id_w_branch = f"{huc} - {branch} - {lid} - {category}"
+            MP_LOG.trace(f"{huc_lid_cat_id} : Determining HydroID")
+            # Define paths to necessary files to produce inundation grids.
+            full_branch_path = os.path.join(branch_dir, branch)
+            rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
+            catchments_path = os.path.join(
+                fim_dir,
+                huc,
+                full_branch_path,
+                'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif',
+            )
+            hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
+
+            if not os.path.exists(rem_path):
+                msg = ": rem doesn't exist"
+                messages.append(lid + msg)
+                MP_LOG.warning(msg_id_w_branch + msg)
+                continue
+            if not os.path.exists(catchments_path):
+                msg = ": catchments files don't exist"
+                messages.append(lid + msg)
+                MP_LOG.warning(msg_id_w_branch + msg)
+                continue
+            if not os.path.exists(hydrotable_path):
+                msg = ": hydrotable doesn't exist"
+                messages.append(lid + msg)
+                MP_LOG.warning(msg_id_w_branch + msg)
+                continue
+
+            # Use hydroTable to determine hydroid_list from site_ms_segments.
+            hydrotable_df = pd.read_csv(
+                hydrotable_path, low_memory=False, dtype={'HUC': str, 'LakeID': float, 'subdiv_applied': int}
+            )
+            hydroid_list = []
+
+            # Determine hydroids at which to perform inundation
+            for feature_id in segments:
+                # print(f"... feature id is {feature_id}")
+                try:
+                    subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
+                    hydroid_list += list(subset_hydrotable_df.HydroID.unique())
+                except IndexError:
+                    MP_LOG.trace(
+                        f"Index Error for {huc} -- {branch} -- {category}. FeatureId is {feature_id} : Continuing on."
+                    )
+                    pass
+
+            # Create inundation maps with branch and stage data
+            try:
+                # print("Generating stage-based FIM for " + huc + " and branch " + branch)
+                #
+                # # TODO TEMP DEBUG UNCOMMENT THIS MAYBE AFTER DEBUGGING
+                # MP_LOG.lprint(f"{huc_lid_cat_id} : Generating stage-based FIM")
+                executor.submit(
+                    produce_tif_per_huc_per_mag_for_stage,
+                    rem_path,
+                    catchments_path,
+                    hydroid_list,
+                    hand_stage,
+                    lid_directory,
+                    category,
+                    huc,
+                    lid,
+                    branch,
+                    parent_log_output_file,
+                    child_log_file_prefix,
+                )
+
+            except Exception:
+                msg = f': inundation failed at {category}'
+                messages.append(lid + msg)
+                MP_LOG.warning(msg_id_w_branch + msg)
+                MP_LOG.error(traceback.format_exc())
+
+    MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
+
+    # -- MOSAIC -- #
+    # Merge all rasters in lid_directory that have the same magnitude/category.
+    path_list = []
+
+    MP_LOG.trace(f"Merging files from {lid_directory}")
+    lid_dir_list = os.listdir(lid_directory)
+
+    MP_LOG.lprint(f"{huc}: Merging {category}")
+    # MP_LOG.trace("lid_dir_list is ")
+    # MP_LOG.trace(lid_dir_list)
+    # MP_LOG.lprint("")
+
+    for f in lid_dir_list:
+        if category in f:
+            path_list.append(os.path.join(lid_directory, f))
+
+    # MP_LOG.error("???")
+    # MP_LOG.trace(f"path_list is (pre sort) is {path_list}")
+    # path_list.sort()  # To force branch 0 first in list, sort  it isn't branchs and we don't care the order for mosaiking
+    # MP_LOG.trace(f"path_list is (post sort) is {path_list}")
+
+    path_list.sort()  # To force branch 0 first in list, sort
+
+    MP_LOG.trace(f"len of path_list is {len(path_list)}")
+
+    if len(path_list) > 0:
+        zero_branch_grid = path_list[0]
+        zero_branch_src = rasterio.open(zero_branch_grid)
+        zero_branch_array = zero_branch_src.read(1)
+        summed_array = zero_branch_array  # Initialize it as the branch zero array
+
+        # Loop through remaining items in list and sum them with summed_array
+        for remaining_raster in path_list[1:]:
+            remaining_raster_src = rasterio.open(remaining_raster)
+            MP_LOG.lprint(f"{huc}: {category}: Reading raster, path is {remaining_raster}")
+            remaining_raster_array_original = remaining_raster_src.read(1)
+
+            # Reproject non-branch-zero grids so I can sum them with the branch zero grid
+            remaining_raster_array = np.empty(zero_branch_array.shape, dtype=np.int8)
+            reproject(
+                remaining_raster_array_original,
+                destination=remaining_raster_array,
+                src_transform=remaining_raster_src.transform,
+                src_crs=remaining_raster_src.crs,  # TODO: Accomodate AK projection?
+                src_nodata=remaining_raster_src.nodata,
+                dst_transform=zero_branch_src.transform,
+                dst_crs=zero_branch_src.crs,  # TODO: Accomodate AK projection?
+                dst_nodata=-1,
+                dst_resolution=zero_branch_src.res,
+                resampling=Resampling.nearest,
+            )
+            # Sum rasters
+            summed_array = summed_array + remaining_raster_array
+
+        del zero_branch_array  # Clean up
+
+        # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
+        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')
+        profile = zero_branch_src.profile
+        summed_array = summed_array.astype('uint8')
+        with rasterio.open(output_tif, 'w', **profile) as dst:
+            dst.write(summed_array, 1)
+            MP_LOG.lprint(f"output_tif of {output_tif} : saved ??")
+        del summed_array
+
+    return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+
+
+# This is part of an MP call and needs MP_LOG
+# This does not actually inundate, it just uses the stage and the catchment to create a tif
+def produce_tif_per_huc_per_mag_for_stage(
+    rem_path,
+    catchments_path,
+    hydroid_list,
+    hand_stage,
+    lid_directory,
+    category,
+    huc,
+    lid,
+    branch,
+    parent_log_output_file,
+    child_log_file_prefix,
+):
+    """
+    # Open rem_path and catchment_path using rasterio.
+    """
+
+    try:
+        # This is setting up logging for this function to go up to the parent
+        MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
+
+        MP_LOG.lprint("+++++++++++++++++++++++")
+        MP_LOG.lprint(f"At the start of producing a tif for {huc}")
+        MP_LOG.trace(locals())
+        MP_LOG.trace("+++++++++++++++++++++++")
+
+        rem_src = rasterio.open(rem_path)
+        catchments_src = rasterio.open(catchments_path)
+        rem_array = rem_src.read(1)
+        catchments_array = catchments_src.read(1)
+
+        # TEMP: look at a catchment and rem from the same branch.
+        # Then look at a stage based 4.4.0.0 for this huc and see if we can figure out the
+        # intended results. Are we trying for a image that makes all values below the hand stage
+        # value to be a value (kinda like a 1 and 0 ?)
+
+        # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
+        #   are <= to hand_stage and the catchments value is in the hydroid_list.
+        reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
+            'uint8'
+        )
+        hydroid_mask = np.isin(catchments_array, hydroid_list)
+        target_catchments_array = np.where(
+            (hydroid_mask is True) & (catchments_array != catchments_src.nodata), 1, 0
+        ).astype('uint8')
+        masked_reclass_rem_array = np.where(
+            (reclass_rem_array == 1) & (target_catchments_array == 1), 1, 0
+        ).astype('uint8')
+
+        # TODO: Our problem seems to be here. Let's see what lead up to it.
+
+        # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
+        # to our mapping/huc/lid site
+        is_all_zero = np.all((masked_reclass_rem_array == 0))
+
+        MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
+
+        # if not is_all_zero:
+        if is_all_zero is False:
+            output_tif = os.path.join(
+                lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif'
+            )
+            MP_LOG.lprint(f" +++ Output_Tif is {output_tif}")
+            with rasterio.Env():
+                profile = rem_src.profile
+                profile.update(dtype=rasterio.uint8)
+                profile.update(nodata=10)
+
+                with rasterio.open(output_tif, 'w', **profile) as dst:
+                    dst.write(masked_reclass_rem_array, 1)
+
+    except Exception:
+        MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage")
+        MP_LOG.error(traceback.format_exc())
+
+    return
+
+
 # This is not part of an MP process, but needs to have FLOG carried over so this file can see it
 def run_catfim_inundation(
-    fim_run_dir,
-    output_flows_dir,
-    output_mapping_dir,
-    job_number_huc,
-    job_number_inundate,
-    depthtif,
-    log_output_file,
+    fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
 ):
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
-    
+
     print()
     FLOG.lprint(">>> Start Inundating and Mosaicking")
 
@@ -63,8 +340,7 @@ def run_catfim_inundation(
     matching_hucs = list(set(fim_source_huc_dir_list) & set(source_flow_huc_dir_list))
     matching_hucs.sort()
 
-    child_log_file_prefix = FLOG.MP_calc_prefix_name(log_output_file,
-                                                     "MP_run_ind")
+    child_log_file_prefix = FLOG.MP_calc_prefix_name(log_output_file, "MP_run_ind")
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in matching_hucs:
             if "." in huc:
@@ -138,18 +414,17 @@ def run_catfim_inundation(
                             FLOG.critical(traceback.format_exc())
                             FLOG.merge_log_files(log_output_file, child_log_file_prefix)
                             sys.exit(1)
-                            
 
     # end of ProcessPoolExecutor
 
     # rolls up logs from child MP processes into this parent_log_output_file
-    
+
     # hold on merging it up for now, to keep the overall log size down a little
-    FLOG.merge_log_files(log_output_file, child_log_file_prefix)
-    
+    FLOG.merge_log_files(log_output_file, child_log_file_prefix, True)
+
     print()
     FLOG.lprint(">>> End Inundating and Mosaicking")
-    
+
     return
 
 
@@ -164,13 +439,13 @@ def run_inundation(
     fim_run_dir,
     job_number_inundate,
     parent_log_output_file,
-    parent_log_file_prefix,
+    child_log_file_prefix,
 ):
-    # Note: parent_log_file_prefix is "MP_run_ind", meaning all logs created by this function start
+    # Note: child_log_file_prefix is "MP_run_ind", meaning all logs created by this function start
     #  with the phrase "MP_run_ind"
     #  They will be rolled up into the parent_log_output_file
     # This is setting up logging for this function to go up to the parent\
-    MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
+    MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
     # MP_LOG.trace(locals())
 
     huc_dir = os.path.join(fim_run_dir, huc)
@@ -190,7 +465,7 @@ def run_inundation(
             log_file=None,
             output_fileNames=None,
         )
-        
+
         MP_LOG.trace(f"Mosaicking for {huc} : {ahps_site} : {magnitude}")
         Mosaic_inundation(
             map_file,
@@ -214,7 +489,7 @@ def run_inundation(
     # Inundation.py appends the huc code to the supplied output_extent_grid for stage-based.
     # Modify output_extent_grid to match inundation.py saved filename.
     # Search for this file, if it didn't create, send message to log file.
-    
+
     # base_file_path, extension = os.path.splitext(output_extent_tif)
     # saved_extent_grid_filename = "{}_{}{}".format(base_file_path, huc, extension)
 
@@ -247,14 +522,20 @@ def post_process_huc(
     fim_version,
     huc,
     parent_log_output_file,
-    parent_log_file_prefix,
+    child_log_file_prefix,
+    progress_stmt,
 ):
 
-    # Note: parent_log_file_prefix is "MP_post_process_{huc}", meaning all logs created by this function start
+    # Note: child_log_file_prefix is "MP_post_process_{huc}", meaning all logs created by this function start
     #  with the phrase "MP_post_process_{huc}". This one rollups up to the master catfim log
     # This is setting up logging for this function to go up to the parent
     try:
-        MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
+        MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
+
+        MP_LOG.lprint("\n**********************")
+        MP_LOG.lprint(f'Post Processing {huc} ...')
+        MP_LOG.lprint(f'... {progress_stmt} ...')
+        MP_LOG.lprint("")
 
         # Loop through ahps sites
         attributes_dir = os.path.join(output_catfim_dir, 'attributes')
@@ -285,16 +566,16 @@ def post_process_huc(
             nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
 
             # We are going to do an MP in MP.
-            child_log_file_prefix = FLOG.MP_calc_prefix_name(parent_log_output_file,
-                                                            f"MP_reformat_tifs_{huc}")
+            child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
+                parent_log_output_file, "MP_reformat_tifs", huc
+            )
             # Weird case, we ahve to delete any of these files that might already exist (MP in MP)
             # Get parent log dir
-            log_dir = os.path.dirname(parent_log_output_file)
-            old_refomat_log_files = glob.glob(os.path.join(log_dir, 'MP_reformat_tifs_*'))
-            for log_file in old_refomat_log_files:
-                os.remove(log_file)            
+            # log_dir = os.path.dirname(parent_log_output_file)
+            # old_refomat_log_files = glob.glob(os.path.join(log_dir, 'MP_reformat_tifs_*'))
+            # for log_file in old_refomat_log_files:
+            #     os.remove(log_file)
 
-            # TEMP DEBUG ADD BACK IN MAYBE AFTER DEBUGGING?
             with ProcessPoolExecutor(max_workers=job_number_inundate) as executor:
                 for tif_to_process in tifs_to_reformat_list:
                     # If not os.path.exists(tif_to_process):
@@ -343,8 +624,8 @@ def post_process_huc(
             # end of ProcessPoolExecutor
 
             # rolls up logs from child MP processes into this parent_log_output_file
-            MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
-            
+            MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
+
     except Exception:
         MP_LOG.error(f"An error has occurred in post processing for {huc}")
         MP_LOG.error(traceback.format_exc())
@@ -360,13 +641,14 @@ def post_process_cat_fim_for_viz(
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
 
+    FLOG.lprint("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
     FLOG.lprint("Start post processing TIFs (TIF extents into poly into gpkg)...")
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     gpkg_dir = os.path.join(output_mapping_dir, 'gpkg')
     if not os.path.exists(gpkg_dir):
         os.mkdir(gpkg_dir)
 
-    merged_layer_file_path = os.path.join(output_mapping_dir, f'catfim_library.gpkg')
+    merged_layer_file_path = os.path.join(output_mapping_dir, 'catfim_library.gpkg')
 
     if os.path.exists(merged_layer_file_path) is False:  # prevents appending to existing output
         # huc_ahps_dir_list = os.listdir(output_mapping_dir)
@@ -378,8 +660,11 @@ def post_process_cat_fim_for_viz(
 
         # skip_list = ['errors', 'logs', 'gpkg', 'missing_files.txt', 'messages', merged_layer]
 
-        # Loop through all categories
-        child_log_file_prefix = "MP_post_process"
+        num_hucs = len(huc_ahps_dir_list)
+        huc_index = 0
+        FLOG.lprint(f"Number of hucs to post process is {num_hucs}")
+
+        child_log_file_prefix = MP_LOG.MP_calc_prefix_name(log_output_file, "MP_post_process")
         with ProcessPoolExecutor(max_workers=job_number_huc) as huc_exector:
             for huc in huc_ahps_dir_list:
                 FLOG.lprint(f"TIF post processing for {huc}")
@@ -387,6 +672,7 @@ def post_process_cat_fim_for_viz(
                 #    continue
 
                 huc_dir = os.path.join(output_mapping_dir, huc)
+                progress_stmt = f"index {huc_index + 1} of {num_hucs}"
 
                 try:
                     ahps_dir_list = [
@@ -416,29 +702,30 @@ def post_process_cat_fim_for_viz(
                     huc,
                     log_output_file,
                     child_log_file_prefix,
+                    progress_stmt,
                 )
                 FLOG.trace("Just after post process huc level")
 
         # end of ProcessPoolExecutor
 
         # rolls up logs from child MP processes into this parent_log_output_file
-        MP_LOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix)
+        MP_LOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
 
         # Merge all layers
         gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
         FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
-        
+
         # TODO: put a tqdm in here for visual only.
-        
-        merged_layers_gdf = None        
+
+        merged_layers_gdf = None
         for ctr, layer in enumerate(gpkg_files):
             FLOG.lprint(f"Merging number {ctr+1} of {len(gpkg_files)}")
-            
+
             # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gkpg
             diss_extent_filename = os.path.join(gpkg_dir, layer)
             diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
             diss_extent_gdf['viz'] = 'yes'
-            
+
             if ctr == 0:
                 merged_layers_gdf = diss_extent_gdf
             else:
@@ -446,17 +733,19 @@ def post_process_cat_fim_for_viz(
 
             # Write/append aggregate diss_extent
             # FLOG.lprint(f"Merging layer: {layer}")
-            #if os.path.isfile(merged_layer):
+            # if os.path.isfile(merged_layer):
             #    diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False, mode='a')
-            #else:
+            # else:
             del diss_extent_gdf
-
-            #shutil.rmtree(gpkg_dir)
 
         if merged_layers_gdf is None:
             raise Exception(f"No ahps - magnitude gpkgs found in {gpkg_dir}")
 
         merged_layers_gdf.to_file(merged_layer_file_path, driver='GPKG', index=False)
+
+        # TODO: July 9, 2024: Consider deleting all of the interium .gkpg files in the gkpg folder.
+        # It will get very big quick.
+        # shutil.rmtree(gpkg_dir)
 
     else:
         FLOG.warning(f"{merged_layer_file_path} already exists.")
@@ -477,20 +766,20 @@ def reformat_inundation_maps(
     nws_lid_attributes_filename,
     interval_stage,
     parent_log_output_file,
-    parent_log_file_prefix,
+    child_log_file_prefix,
 ):
     """_summary_
-        Turns inundated tifs into dissolved polys gpkg with more attributes
+    Turns inundated tifs into dissolved polys gpkg with more attributes
 
     """
     # interval stage might come in as null and that is ok
 
-    # Note: parent_log_file_prefix is "MP_reformat_tifs_{huc}", meaning all logs created by this
+    # Note: child_log_file_prefix is "MP_reformat_tifs_{huc}", meaning all logs created by this
     # function start with the phrase "MP_reformat_tifs_{huc}". This will rollup to the master
     # catfim logs
 
     # This is setting up logging for this function to go up to the parent
-    MP_LOG.MP_Log_setup(parent_log_output_file, parent_log_file_prefix)
+    MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
 
     try:
         MP_LOG.trace(
@@ -509,8 +798,8 @@ def reformat_inundation_maps(
         )
 
         # Convert list of shapes to polygon
-        # lots of polys 
-        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION) # Previous code
+        # lots of polys
+        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
@@ -582,7 +871,7 @@ def manage_catfim_mapping(
     job_number_inundate,
     depthtif,
     log_output_file,
-    step_number = 1,
+    step_number=1,
 ):
 
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
@@ -602,7 +891,6 @@ def manage_catfim_mapping(
             output_mapping_dir,
             job_number_huc,
             job_number_inundate,
-            depthtif,
             FLOG.LOG_FILE_PATH,
         )
     else:
@@ -610,12 +898,8 @@ def manage_catfim_mapping(
 
     # FLOG.lprint("Aggregating Categorical FIM")
     # Get fim_version.
-    fim_version = (
-        os.path.basename(os.path.normpath(fim_run_dir))
-        .replace('fim_', '')
-        .replace('_', '.')
-    )
-    
+    fim_version = os.path.basename(os.path.normpath(fim_run_dir)).replace('fim_', '').replace('_', '.')
+
     # Step 2
     post_process_cat_fim_for_viz(
         output_catfim_dir, job_number_huc, job_number_inundate, fim_version, str(FLOG.LOG_FILE_PATH)
@@ -675,13 +959,13 @@ if __name__ == '__main__':
         default=1,
         type=int,
     )
-    parser.add_argument(
-        '-depthtif',
-        '--write-depth-tiff',
-        help='Using this option will write depth TIFFs.',
-        required=False,
-        action='store_true',
-    )
+    # parser.add_argument(
+    #     '-depthtif',
+    #     '--write-depth-tiff',
+    #     help='Using this option will write depth TIFFs.',
+    #     required=False,
+    #     action='store_true',
+    # )
 
     parser.add_argument(
         '-step',
@@ -698,20 +982,13 @@ if __name__ == '__main__':
     source_flow_dir = args['source_flow_dir']
     output_catfim_dir = args['output_catfim_dir']
     job_number_huc = int(args['job_number_huc'])
-    job_number_inundate = int(args['job_number_inundate'])    
-    depthtif = args['write_depth_tiff']
+    job_number_inundate = int(args['job_number_inundate'])
+    # depthtif = args['write_depth_tiff']
     step_num = args['step_number']
-    
+
     log_dir = os.path.join(output_catfim_dir, "logs")
     log_output_file = FLOG.calc_log_name_and_path(log_dir, "gen_cat_mapping")
 
     manage_catfim_mapping(
-        fim_run_dir,
-        source_flow_dir,
-        output_catfim_dir,
-        job_number_huc,
-        job_number_inundate,
-        depthtif,
-        log_output_file,
-        step_num
+        source_flow_dir, output_catfim_dir, job_number_huc, job_number_inundate, log_output_file, step_num
     )

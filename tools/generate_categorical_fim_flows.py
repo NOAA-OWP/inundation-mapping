@@ -59,14 +59,14 @@ def generate_flows_for_huc(
     huc_messages_dir,
     nwm_flows_df,
     parent_log_output_file,
-    log_file_prefix,
+    child_log_file_prefix,
 ):
 
     try:
-        # Note: parent_log_file_prefix is "MP_process_gen_flows", meaning all logs created by this function start
+        # Note: child_log_file_prefix is "MP_process_gen_flows", meaning all logs created by this function start
         #  with the phrase "MP_process_gen_flows". This will roll up to the master catfim log.
         # This is setting up logging for this function to go up to the parent
-        MP_LOG.MP_Log_setup(parent_log_output_file, log_file_prefix)
+        MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
 
         # Process each huc unit, first define message variable and flood categories.
         all_messages = []
@@ -87,13 +87,13 @@ def generate_flows_for_huc(
 
             # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated
             # flows.
-            
+
             # TODO:  Jun 17, 2024 - This gets recalled for every huc but only uses the nws_list.
             # Move this somewhere outside the huc list so it doesn't need to be called over and over again
-            
+
             # Careful, for "all_message.append" the syntax into it must be f'{lid}:(whever messages)
             # this is gets parsed and logic used against it. (no space after :)
-            
+
             MP_LOG.trace(f'Getting thresholds for {lid}')
             stages, flows = get_thresholds(
                 threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
@@ -109,7 +109,7 @@ def generate_flows_for_huc(
             if all(stages.get(category, None) is None for category in flood_categories):
                 message = f'{lid}: missing threshold stages'
                 all_messages.append(message)
-                MP_LOG.warning(f"{huc} - {message}")                
+                MP_LOG.warning(f"{huc} - {message}")
                 continue
 
             # Check if calculated flows are supplied, if not write message and exit.
@@ -156,7 +156,9 @@ def generate_flows_for_huc(
                     # Define destination path and create folders
                     csv_output_folder = os.path.join(output_flows_dir, huc, lid, category)
                     os.makedirs(csv_output_folder, exist_ok=True)
-                    output_file = os.path.join(csv_output_folder, f'ahps_{lid}_huc_{huc}_flows_{category}.csv')
+                    output_file = os.path.join(
+                        csv_output_folder, f'ahps_{lid}_huc_{huc}_flows_{category}.csv'
+                    )
 
                     # Write flow file to file
                     flow_info.to_csv(output_file, index=False)
@@ -282,9 +284,9 @@ def generate_flows(
     '''
 
     FLOG.setup(log_output_file)  # reusing the parent logs
-    
-    #FLOG.trace("args coming into generate flows")
-    #FLOG.trace(locals()) # see all args coming in to the function
+
+    # FLOG.trace("args coming into generate flows")
+    # FLOG.trace(locals()) # see all args coming in to the function
 
     output_flows_dir = os.path.join(output_catfim_dir, "flows")
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
@@ -336,30 +338,28 @@ def generate_flows(
 
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
 
+    # Drop list fields if invalid
+    out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
+    out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+    out_gdf = out_gdf.astype({'metadata_sources': str})
+
     end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt
     FLOG.lprint(f"End aggregate_wbd_hucs - Duration: {str(time_duration).split('.')[0]}")
 
-    FLOG.lprint("\nStart Flow Generation")
+    FLOG.lprint("Start Flow Generation")
 
+    # It this is stage-based, it returns all of these objects here, but if it continues
+    # (aka. Flow based), then it returns only nws_lid_layer (created later in this function)
     if is_stage_based:  # If it's stage-based, the function stops running here
-        return (
-            huc_dictionary,
-            out_gdf,
-            metadata_url,
-            threshold_url,
-            all_meta_lists,
-            nwm_flows_df,
-        )
+        return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, nwm_flows_df)
 
     start_dt = datetime.now(timezone.utc)
 
     # pulls out the parent log file and replaces it with the child prefix
     # catfim if coming from generate_categorical_fim.py
 
-
-    child_log_file_prefix = FLOG.MP_calc_prefix_name(log_output_file,
-                                                     "MP_process_gen_flows")
+    child_log_file_prefix = FLOG.MP_calc_prefix_name(log_output_file, "MP_process_gen_flows")
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
@@ -461,22 +461,21 @@ def generate_flows(
         messages_df.drop_duplicates(subset="status", keep="first", inplace=True)
 
         # We want one viz_out_gdf record per ahps and if there are more than one, contact the messages
-       
-        #status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
-        #df1 = df.groupby(['ID1','ID2'])['Status'].agg(lambda x: ','.join(x.dropna())).reset_index()
+
+        # status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
+        # df1 = df.groupby(['ID1','ID2'])['Status'].agg(lambda x: ','.join(x.dropna())).reset_index()
         status_df = messages_df.groupby(['nws_lid'])['status'].agg(lambda x: ', '.join(x)).reset_index()
-        
-         # some messages status values start with a space as the first character. Remove it
-         
+
+        # some messages status values start with a space as the first character. Remove it
+
         # TODO: This did not work ???
         status_df["status"] = status_df["status"].apply(lambda x: x.lstrip())
-        
+
         # Join messages to populate status field to candidate sites. Assign
         # status for null fields.
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
-        
+
         viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
-        
 
     # Filter out columns and write out to file
     # viz_out_gdf = viz_out_gdf.filter(
@@ -544,10 +543,10 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
 if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Create forecast files for all nws_lid sites')
-    parser.add_argument('-w', '--output_catfim_dir',
-                        help='Workspace where all data will be stored.',
-                        required=True)
-    
+    parser.add_argument(
+        '-w', '--output_catfim_dir', help='Workspace where all data will be stored.', required=True
+    )
+
     parser.add_argument(
         '-log',
         '--log_output_file',
@@ -555,8 +554,8 @@ if __name__ == '__main__':
         r'ie) /data/catfim/rob_test/logs/catfim_2024_07_07-22_26_18.log',
         required=True,
         type=str,
-    )    
-    
+    )
+
     parser.add_argument(
         '-e',
         '--env_file',
@@ -572,21 +571,23 @@ if __name__ == '__main__':
         type=str,
         nargs='+',
     )
-    
+
     parser.add_argument(
-        '-u', '--nwm_us_search',
+        '-u',
+        '--nwm_us_search',
         help='Walk upstream on NWM network this many miles',
         required=False,
         default=5,
     )
-    
+
     parser.add_argument(
-        '-d', '--nwm_ds_search',
+        '-d',
+        '--nwm_ds_search',
         help='Walk downstream on NWM network this many miles',
         required=False,
         default=5,
     )
-       
+
     parser.add_argument(
         '-jh',
         '--job_number_huc',
@@ -597,8 +598,8 @@ if __name__ == '__main__':
         required=False,
         default=1,
         type=int,
-    )        
-        
+    )
+
     parser.add_argument(
         '-a',
         '--is_stage_based',
@@ -607,7 +608,7 @@ if __name__ == '__main__':
         default=False,
         action='store_true',
     )
-    
+
     parser.add_argument(
         '-n',
         '--nwm_metafile',
@@ -615,11 +616,9 @@ if __name__ == '__main__':
         required=False,
         type=str,
         default="",
-    )    
-    
+    )
+
     args = vars(parser.parse_args())
 
     # Run get_env_paths and static_flow_lids
     generate_flows(**args)
-
-

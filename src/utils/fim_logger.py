@@ -6,6 +6,7 @@ import random
 import traceback
 from pathlib import Path
 
+
 # Careful... You might not put shared_functions here as it can create circular references,
 #  so shared_functions is put inside functions only/as is need
 
@@ -59,7 +60,7 @@ class FIM_logger:
         cur_dt = dt.datetime.now()
         ret_dt = f"{cur_dt.strftime('%Y-%m-%d')} {cur_dt.strftime('%H:%M:%S')}"
         return ret_dt
-    
+
     # -------------------------------------------------
     def calc_log_name_and_path(self, output_log_dir, file_prefix):
         # setup general logger
@@ -70,7 +71,6 @@ class FIM_logger:
         log_output_file = os.path.join(output_log_dir, log_file_name)
 
         return log_output_file
-
 
     # -------------------------------------------------
     def setup(self, log_file_path: str):
@@ -121,17 +121,20 @@ class FIM_logger:
         return
 
     # -------------------------------------------------
-    def MP_calc_prefix_name(self, parent_log_output_file, file_prefix):
+    def MP_calc_prefix_name(self, parent_log_output_file, file_prefix, huc: str = ""):
         """_summary_
-            Uses the file name of the parent log to create the new prefix name (without MP date)
-            
-            You don't need to use this method if you don't want to prepend the parent file name prefix
+        Uses the file name of the parent log to create the new prefix name (without MP date)
+
+        You don't need to use this method if you don't want to prepend the parent file name prefix
         """
 
         parent_log_file_name = os.path.basename(parent_log_output_file).replace(".log", "")
-        prefix = f"{parent_log_file_name}--{file_prefix}"
-        return prefix
 
+        if huc != "":
+            prefix = f"{parent_log_file_name}--{huc}--{file_prefix}"
+        else:
+            prefix = f"{parent_log_file_name}--{file_prefix}"
+        return prefix
 
     # -------------------------------------------------
     def MP_Log_setup(self, parent_log_output_file, file_prefix):
@@ -142,8 +145,10 @@ class FIM_logger:
 
             This method is sort of a wrapper in that it just manually creates a file name
             using a defined file path.
-            The file name is calculated as such {file_prefix}-{date_with_milliseconds and random key}.log()
-            ie) produce_geocurves-231122_1407441234_12345.log
+
+            As this is an MP file, the parent_log_output_file may have a date in it
+            The file name is calculated as such {file_prefix}-{random 12 digit key}.log()
+            ie) catfim_2024_07_09-16_30_02__012345678901.log
 
             The extra file portion is added as in MultiProc, you can have dozens of processes
             and each are loggign to their own file. At then end of an MP, you call a function called merge_log_files
@@ -159,8 +164,8 @@ class FIM_logger:
         """
         # -----------------
         log_folder = os.path.dirname(parent_log_output_file)
-        
-        random_id = random.randrange(10000000, 999999999)
+
+        random_id = random.randrange(1000000000, 99999999999)
         log_file_name = f"{file_prefix}___{random_id}.log"
         log_file_path = os.path.join(log_folder, log_file_name)
 
@@ -200,7 +205,7 @@ class FIM_logger:
         return
 
     # -------------------------------------------------
-    def merge_log_files(self, parent_log_output_file, file_prefix):
+    def merge_log_files(self, parent_log_output_file, file_prefix, remove_old_files=False):
         """
         Overview:
             This tool is mostly for merging log files during multi processing which each had their own file.
@@ -228,8 +233,8 @@ class FIM_logger:
         os.makedirs(folder_path, exist_ok=True)
 
         log_file_list_paths = list(Path(folder_path).rglob(f"{file_prefix}*"))
-        log_file_list = [str(x) for x in log_file_list_paths] 
-        
+        log_file_list = [str(x) for x in log_file_list_paths]
+
         if len(log_file_list) > 0:
             log_file_list.sort()
 
@@ -244,7 +249,8 @@ class FIM_logger:
                     with open(temp_log_file) as infile:
                         main_log.write(infile.read())
                     if "warning" not in temp_log_file and "error" not in temp_log_file:
-                        os.remove(temp_log_file)
+                        if remove_old_files:
+                            os.remove(temp_log_file)
 
             # now the warning files if there are any
             log_warning_file_list = list(Path(folder_path).rglob(f"{file_prefix}*_warnings*"))
@@ -257,7 +263,9 @@ class FIM_logger:
                         # Open each file in read mode
                         with open(temp_log_file) as infile:
                             warning_log.write(infile.read())
-                        os.remove(temp_log_file)
+
+                        if remove_old_files:
+                            os.remove(temp_log_file)
 
             # now the warning files if there are any
             log_error_file_list = list(Path(folder_path).rglob(f"{file_prefix}*_errors*"))
@@ -271,7 +279,9 @@ class FIM_logger:
                         # Open each file in read mode
                         with open(temp_log_file) as infile:
                             error_log.write(infile.read())
-                        os.remove(temp_log_file)
+
+                        if remove_old_files:
+                            os.remove(temp_log_file)
 
         return
 
@@ -285,7 +295,7 @@ class FIM_logger:
 
         with open(self.LOG_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
-            
+
         return
 
     # -------------------------------------------------
@@ -300,7 +310,7 @@ class FIM_logger:
 
         with open(self.LOG_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
-            
+
         return
 
     # -------------------------------------------------
@@ -316,7 +326,7 @@ class FIM_logger:
 
         with open(self.LOG_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
-            
+
         return
 
     # -------------------------------------------------
@@ -334,7 +344,7 @@ class FIM_logger:
 
         with open(self.LOG_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
-            
+
         return
 
     # -------------------------------------------------
@@ -356,8 +366,8 @@ class FIM_logger:
         # and also write to warning logs
         with open(self.LOG_WARNING_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
-            
-        return            
+
+        return
 
     # -------------------------------------------------
     def error(self, msg):
@@ -378,9 +388,8 @@ class FIM_logger:
         # and also write to error logs
         with open(self.LOG_ERROR_FILE_PATH, "a") as f_log:
             f_log.write(f"{self.__get_dt()} | {level} || {msg}\n")
-        
-        return
 
+        return
 
     # -------------------------------------------------
     def critical(self, msg):
