@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-07-10 - [PR#1211](https://github.com/NOAA-OWP/inundation-mapping/pull/1211)
+
+Upgrades JDK in docker image to v21.0.3. Whether or not this resolves #1208 depends on if this passes ITSG's security vulnerability scan. A docker system prune (e.g., `docker system prune -a --volumes`) should be done on all environments prior to the scan.
+
+### Changes
+
+- `Dockerfile`: Changes JDK version from 19 to 21.
+
+<br/><br/>
+
 ## v4.5.2.5 - 2024-07-08 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
 
 Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on NWM streams within a threshold of 100 meters. DEM-derived streams that do not locate any NWM streams within 100 meters of their midpoints are removed from the FIM hydrofabric and their catchments are not inundated.
@@ -10,7 +20,6 @@ Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on
 - `src/add_crosswalk.py`: Locates nearest NWM stream to midpoint of DEM-derived reaches if within 100 meters. Also fixes a couple of minor bugs. 
 
 <br/><br/>
-
 
 ## v4.5.2.4 - 2024-07-08 - [PR#1204](https://github.com/NOAA-OWP/inundation-mapping/pull/1204)
 
