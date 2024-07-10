@@ -54,7 +54,6 @@ zarr = "==2.18.0"
 requests = "==2.32.3"
 aiohttp = "==3.9.5"
 monaco = "==0.13.1"
-"inundation mapping" = {file = "."}
 
 [requires]
 python_version = "3.10"
