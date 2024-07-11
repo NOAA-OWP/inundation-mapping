@@ -10,7 +10,9 @@ import geopandas as gpd
 import pandas as pd
 
 
-def bridge_risk_status(hydrofabric_dir: str, flow_file: str, output_dir: str) -> gpd.GeoDataFrame:
+def bridge_risk_status(
+    hydrofabric_dir: str, flow_file: str, output_dir: str, limit_hucs: list = []
+) -> gpd.GeoDataFrame:
     """
     This function detect which bridge points are affected by a specified flow file. The function requires a flow file (expected to follow
     the schema used by 'inundation_mosaic_wrapper') with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
@@ -23,6 +25,14 @@ def bridge_risk_status(hydrofabric_dir: str, flow_file: str, output_dir: str) ->
         flow_file (str):      Path to flow file to be used for inundation.
                                     feature_ids in flow_file should be present in supplied HUC.
         output (str):             Path to output geopackage.
+        limit_hucs (list):    Optional. If specified, only the bridges in these HUCs will be processed.
+
+    Example usage:
+    python /foss_fim/tools/bridge_inundation.py \
+        -y /data/previous_fim/fim_4_5_2_0 \
+        -f /data/ble_huc_12090301_flows_100yr.csv \
+        -o /home/user/Documents/bridges/inundated_bridge_pnts.gpkg \
+        -u 12090301 02020005
     """
 
     dir_path = hydrofabric_dir
@@ -50,6 +60,11 @@ def bridge_risk_status(hydrofabric_dir: str, flow_file: str, output_dir: str) ->
 
     # Initialize an empty list to hold GeoDataFrames
     gdfs = []
+
+    # Filter HUCs if specified
+    if limit_hucs:
+        hucs = [h for h in limit_hucs if h in hucs]
+
     # Iterate through hucs
     for huc in hucs:
         print(f'Processing HUC: {huc}')
@@ -121,6 +136,14 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument("-o", "--output_dir", help="Path to geopackage output.", required=True, type=str)
+    parser.add_argument(
+        "-u",
+        "--limit_hucs",
+        help="Optional. If specified, only the bridges in these HUCs will be processed.",
+        required=False,
+        type=str,
+        nargs="+",
+    )
 
     start = timer()
 
