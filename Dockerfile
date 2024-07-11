@@ -72,7 +72,8 @@ COPY --from=builder $depDir $depDir
 # remove reference to missing repo
 RUN rm /etc/apt/sources.list.d/apache-arrow.sources
 
-RUN apt-get update --fix-missing && apt-get install -y openjdk-19-jdk && rm -rf /var/lib/apt/lists/*
+# RUN apt-get update --fix-missing && apt-get install -y openjdk-19-jdk && rm -rf /var/lib/apt/lists/*
+RUN apt-get update --fix-missing && apt-get install -y openjdk-21-jdk && rm -rf /var/lib/apt/lists/*
 
 RUN apt update --fix-missing
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata
@@ -116,6 +117,7 @@ RUN pip3 install pipenv==2023.12.1 && PIP_NO_CACHE_DIR=off pipenv install --syst
 #     cp $wbox_path/whitebox_tools $wbox_path && \
 #     mkdir $wbox_path/testdata
 # ----------------------------------
+
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /
