@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2024-06-28 - [PR#1184](https://github.com/NOAA-OWP/inundation-mapping/pull/1184)
+## v4.5.2.6 - 2024-07-12 - [PR#1184](https://github.com/NOAA-OWP/inundation-mapping/pull/1184)
 
 This PR adds a new script to determine which bridges are inundated by a specific flow. It will assign a risk status to each bridge point based on a specific threshold.
 
@@ -10,6 +10,7 @@ This PR adds a new script to determine which bridges are inundated by a specific
 - `tools/bridge_inundation.py`
 
 <br/><br/>
+
 
 ## v4.5.2.5 - 2024-07-08 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
 
