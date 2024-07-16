@@ -3,9 +3,9 @@
 import geopandas as gpd
 import argparse
 
-def analyze_flood_impact(inundation_gpkg, structures_gpkg, roads_gpkg, output_gpkg):
+def analyze_flood_impact(inundation_tif, structures_gpkg, roads_gpkg, output_gpkg):
     # Load vector files
-    flood_extent = gpd.read_file(inundation_gpkg)
+    flood_extent = vectorize(inundation_tif)
     structures = gpd.read_file(structures_gpkg)
     roads = gpd.read_file(roads_gpkg)
     
@@ -75,7 +75,7 @@ def vectorize(inundation_tif, output_gpkg):
 if __name__ == '__main__':
 # parse arguments
     parser = argparse.ArgumentParser(description="Analyze flood impact on structures and roads.")
-    parser.add_argument('-i', '--inundation', required=True, help="Path to the inundation vector file.")
+    parser.add_argument('-i', '--inundation', required=True, help="Path to the inundation TIF file.")
     parser.add_argument('-s', '--structures', required=True, help="Path to the structures vector file.")
     parser.add_argument('-rd', '--roads', required=True, help="Path to the roads vector file.")
     parser.add_argument('-o', '--output', required=True, help="Path to the output vector file (GeoPackage).")
