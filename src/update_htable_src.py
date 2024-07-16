@@ -69,6 +69,11 @@ def reset_hydro_and_src(fim_dir):
 # Example usage:
 # reset_hydro_and_src('/path/to/fim_dir')
 if __name__ == '__main__':
+    '''
+    Sample usage (min params):
+        python3 src/update_htable_src.py
+            -d /data/previous_fim/fim_4_5_2_0
+    '''
     parser = argparse.ArgumentParser(description='Update hydrotable and src files.')
     parser.add_argument('-d', '--fim_dir', help='Directory path for fim_pipeline output.', required=True)
 
