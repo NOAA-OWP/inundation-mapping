@@ -71,3 +71,15 @@ def vectorize(inundation_tif, output_gpkg):
     extent_poly_diss = extent_poly.dissolve()
     
     return extent_poly_diss
+
+if __name__ == '__main__':
+# parse arguments
+    parser = argparse.ArgumentParser(description="Analyze flood impact on structures and roads.")
+    parser.add_argument('-i', '--inundation', required=True, help="Path to the inundation vector file.")
+    parser.add_argument('-s', '--structures', required=True, help="Path to the structures vector file.")
+    parser.add_argument('-rd', '--roads', required=True, help="Path to the roads vector file.")
+    parser.add_argument('-o', '--output', required=True, help="Path to the output vector file (GeoPackage).")
+
+    args = parser.parse_args()
+    
+    analyze_flood_impact(args.inundation, args.structures, args.roads, args.output)
