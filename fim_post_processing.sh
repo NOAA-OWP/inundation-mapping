@@ -90,6 +90,9 @@ echo "---- Started: `date -u`"
 T_total_start
 post_proc_start_time=`date +%s`
 
+## RUN UPDATE HYDROTABLE AND SRC ##
+echo "Updating hydroTable & scr_full_crosswalked for branches"
+python3 $srcDir/update_htable_src.py -d $outputDestDir
 
 ## AGGREGATE BRANCH LISTS INTO ONE ##
 echo -e $startDiv"Start branch aggregation"
