@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-07-17 - [PR#1216](https://github.com/NOAA-OWP/inundation-mapping/pull/1216)
+
+Adds `NO_VALID_CROSSWALKS` to `FIM_exit_codes` which is used when the crosswalk table or output_catchments DataFrame is empty. Removes branches that fail with `NO_VALID_CROSSWALKS`.
+
+### Changes
+
+- `src/`
+    - `add_crosswalk.py`: Added `NO_VALID_CROSSWALKS` as exit status when crosswalk or output_catchments is empty
+    - `process_branch.sh`: Removed branches that fail with `NO_VALID_CROSSWALKS`
+    - `utils/fim_enums.py`: Added `NO_VALID_CROSSWALKS` to `FIM_exit_codes`
+
+<br/><br/>
+
 ## v4.5.2.5 - 2024-07-08 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
 
 Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on NWM streams within a threshold of 100 meters. DEM-derived streams that do not locate any NWM streams within 100 meters of their midpoints are removed from the FIM hydrofabric and their catchments are not inundated.
@@ -10,7 +23,6 @@ Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on
 - `src/add_crosswalk.py`: Locates nearest NWM stream to midpoint of DEM-derived reaches if within 100 meters. Also fixes a couple of minor bugs. 
 
 <br/><br/>
-
 
 ## v4.5.2.4 - 2024-07-08 - [PR#1204](https://github.com/NOAA-OWP/inundation-mapping/pull/1204)
 
