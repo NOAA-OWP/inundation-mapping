@@ -13,6 +13,17 @@ Changes non-fatal `ERROR` messages to `WARNINGS` to avoid triggering being logge
 
 <br/><br/>
 
+## v4.5.2.6 - 2024-07-12 - [PR#1184](https://github.com/NOAA-OWP/inundation-mapping/pull/1184)
+
+This PR adds a new script to determine which bridges are inundated by a specific flow. It will assign a risk status to each bridge point based on a specific threshold.
+
+### Additions
+
+- `tools/bridge_inundation.py`
+
+<br/><br/>
+
+
 ## v4.5.2.5 - 2024-07-08 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
 
 Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on NWM streams within a threshold of 100 meters. DEM-derived streams that do not locate any NWM streams within 100 meters of their midpoints are removed from the FIM hydrofabric and their catchments are not inundated.
