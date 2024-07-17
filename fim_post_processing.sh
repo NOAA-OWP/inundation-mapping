@@ -93,7 +93,7 @@ post_proc_start_time=`date +%s`
 ## RUN UPDATE HYDROTABLE AND SRC ##
 # Define the counter file
 
-COUNTER_FILE="${outputDestDir}/counter.txt"
+COUNTER_FILE="${outputDestDir}/post_processing_attempt.txt"
 # Function to clean up
 cleanup() {
     if [ "$SUCCESS" = true ]; then
