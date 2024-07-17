@@ -88,13 +88,17 @@ def add_crosswalk(
     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id', 'distance'])
     crosswalk = crosswalk.merge(input_nwmflows[['order_']], on='feature_id')
 
-    if len(crosswalk) < 1:
+    if crosswalk.empty:
         print("No relevant streams within HUC boundaries.")
         sys.exit(FIM_exit_codes.NO_VALID_CROSSWALKS.value)
 
     if input_catchments.HydroID.dtype != 'int':
         input_catchments.HydroID = input_catchments.HydroID.astype(int)
     output_catchments = input_catchments.merge(crosswalk, on='HydroID')
+
+    if output_catchments.empty:
+        print("No relevant streams within HUC boundaries.")
+        sys.exit(FIM_exit_codes.NO_VALID_CROSSWALKS.value)
 
     if input_flows.HydroID.dtype != 'int':
         input_flows.HydroID = input_flows.HydroID.astype(int)
