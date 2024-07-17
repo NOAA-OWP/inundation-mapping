@@ -97,7 +97,7 @@ def add_crosswalk(
     output_catchments = input_catchments.merge(crosswalk, on='HydroID')
 
     if output_catchments.empty:
-        print("No relevant streams within HUC boundaries.")
+        print("No valid catchments remain.")
         sys.exit(FIM_exit_codes.NO_VALID_CROSSWALKS.value)
 
     if input_flows.HydroID.dtype != 'int':
