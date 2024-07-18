@@ -226,13 +226,12 @@ Tcount
 date -u
 
 echo
-echo -e $startDiv"Scanning logs for errors. Results be saved in root run folder and not inside the log folder."
+echo -e $startDiv"Scanning logs for errors. Results be saved in root not inside the log folder."
 Tstart
     # grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
     find $outputDestDir -type f | grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
 Tcount
 date -u
-
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo "---- End of fim_post_processing"

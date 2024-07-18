@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "10cf708b88ad6a835dd5bf8942bc8cdb165214fb7a0bc47a8478765ca7d400c1"
+            "sha256": "75c63212784d57d42fc7b5536a4634408876142a2abc57317537c8e7ef4abab5"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -853,21 +853,15 @@
         },
         "dask": {
             "extras": [
-                "dataframe"
+                "array"
             ],
             "hashes": [
                 "sha256:81b80ee015b2e057b93bb2d1bf13a866136e762e2b24bf54b6b621e8b86b7708",
                 "sha256:d429d6b19e85fd1306ac37c188aaf99d03bbe69a6fe59d2b42882b2ac188686f"
             ],
+            "index": "pypi",
             "markers": "python_version >= '3.9'",
             "version": "==2024.6.2"
-        },
-        "dask-expr": {
-            "hashes": [
-                "sha256:04e31cb941b7cbdce7b1384f2bcf17fd17e828e45e9c74491e28473095ee6891",
-                "sha256:ace366c6d9c248a7fa7b48f7a34140afae3b6a0ea14ee57743babe5a9d1ef43f"
-            ],
-            "version": "==1.1.6"
         },
         "debugpy": {
             "hashes": [
@@ -1526,11 +1520,11 @@
         },
         "jupyterlab-server": {
             "hashes": [
-                "sha256:15cbb349dc45e954e09bacf81b9f9bcb10815ff660fb2034ecd7417db3a7ea27",
-                "sha256:54aa2d64fd86383b5438d9f0c032f043c4d8c0264b8af9f60bd061157466ea43"
+                "sha256:e697488f66c3db49df675158a77b3b017520d772c6e1548c7d9bcc5df7944ee4",
+                "sha256:eb36caca59e74471988f0ae25c77945610b887f777255aa21f8065def9e51ed4"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==2.27.2"
+            "version": "==2.27.3"
         },
         "jupyterlab-widgets": {
             "hashes": [
@@ -4109,11 +4103,11 @@
         },
         "whitebox": {
             "hashes": [
-                "sha256:4a9fb6da799dc0f99daf139d6dbe573ca12af3785c48708e56728b8372c6a2a7",
-                "sha256:dd9db85bbb687356741afe935dd25286a2b31e7bf87b74c60b655cdf84a9d922"
+                "sha256:3479c8127b1928dd0457b6680b9ee4469d0735b2bb220178c678af303d868ef0",
+                "sha256:4322c5a3b42f1f04a3c80640253b672242e0aefb6b6dea70752f00a220f6d7ed"
             ],
             "index": "pypi",
-            "version": "==2.3.5"
+            "version": "==2.3.4"
         },
         "widgetsnbextension": {
             "hashes": [

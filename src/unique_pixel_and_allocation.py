@@ -33,7 +33,6 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels):
     '''
     # Set wbt envs
     wbt = whitebox.WhiteboxTools()
-    wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
     wbt.set_verbose_mode(False)
 
     workspace = os.path.dirname(unique_stream_pixels)

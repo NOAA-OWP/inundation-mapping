@@ -195,9 +195,6 @@ source $srcDir/bash_functions.env
 export runName=$runName
 export jobHucLimit=$jobHucLimit
 
-# Note: This name of WBT_PATH has to the name as the whitebox engine is looking for it.
-# export WBT_PATH=$outputDestDir/whitebox_temp
-
 num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList -i $inputsDir)
 echo
 echo "--- Number of HUCs to process is $num_hucs"
@@ -216,7 +213,6 @@ else
     rm -f $outputDestDir/crosswalk_table.csv
     rm -f $outputDestDir/fim_inputs*
     rm -f $outputDestDir/*.env
-    # rm -f $WBT_PATH
 fi
 
 
@@ -224,10 +220,6 @@ mkdir -p $outputDestDir/logs/unit
 mkdir -p $outputDestDir/logs/branch
 mkdir -p $outputDestDir/unit_errors
 mkdir -p $outputDestDir/branch_errors
-# mkdir -p $WBT_PATH
-
-# echo "wbt path is $WBT_PATH"
-
 
 # copy over config file and rename it (note.. yes, the envFile file can still be
 # loaded from command line and have its own values, it simply gets renamed and saved)

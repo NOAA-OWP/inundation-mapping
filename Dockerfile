@@ -72,8 +72,20 @@ COPY --from=builder $depDir $depDir
 # remove reference to missing repo
 RUN rm /etc/apt/sources.list.d/apache-arrow.sources
 
+# Remove the older jdk that came in the ghcr.io/osgeo/gdal:ubuntu-full-3.8.0 with one of the
+# two base images we use.  Our images have OpenJdk versions 8, 11, 12, 17, 18 and 19.
+# It is likely fine to keep the old ones, but lets delete jsut 17, 18 and 19 and put 21 one
+
+#RUN apt-get remove -y openjdk-17-jdk \
+#   openjdk-18-jdk \
+#   openjdk-19-jdk
+
 # RUN apt-get update --fix-missing && apt-get install -y openjdk-19-jdk && rm -rf /var/lib/apt/lists/*
 RUN apt-get update --fix-missing && apt-get install -y openjdk-21-jdk && rm -rf /var/lib/apt/lists/*
+# Nikki at ITSG says the old one is still showing to uninstall before install.
+RUN apt-get update
+
+
 
 RUN apt update --fix-missing
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata
@@ -120,9 +132,6 @@ RUN pip3 install pipenv==2023.12.1 && PIP_NO_CACHE_DIR=off pipenv install --syst
 #     cp $wbox_path/whitebox_tools $wbox_path && \
 #     mkdir $wbox_path/testdata
 # ----------------------------------
-
-# we need this env variable and must be named as WBT_PATH (WB anomoly)
-ENV WBT_PATH="value not relavent and doesn't work, just needs the var to exist"
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /
