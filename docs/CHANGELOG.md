@@ -11,6 +11,42 @@ This PR updates scripts that use the recurrence flow files. The new flow files (
 - `src/src_adjust_ras2fim_rating.py`: 100 year recurrence was removed since it is not included in the new AEP.
 - `src/src_adjust_usgs_rating_trace.py`: 100 year recurrence was removed since it is not included in the new AEP.
 - `tools/rating_curve_comparison.py`: 100 year recurrence was removed since it is not included in the new AEP. Also, the name of recurrence flow CSV file was updated.
+## v4.5.2.6 - 2024-07-12 - [PR#1184](https://github.com/NOAA-OWP/inundation-mapping/pull/1184)
+
+This PR adds a new script to determine which bridges are inundated by a specific flow. It will assign a risk status to each bridge point based on a specific threshold.
+
+### Additions
+
+- `tools/bridge_inundation.py`
+
+<br/><br/>
+
+
+## v4.5.2.5 - 2024-07-08 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
+
+Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on NWM streams within a threshold of 100 meters. DEM-derived streams that do not locate any NWM streams within 100 meters of their midpoints are removed from the FIM hydrofabric and their catchments are not inundated.
+
+### Changes
+
+- `src/add_crosswalk.py`: Locates nearest NWM stream to midpoint of DEM-derived reaches if within 100 meters. Also fixes a couple of minor bugs. 
+
+<br/><br/>
+
+
+## v4.5.2.4 - 2024-07-08 - [PR#1204](https://github.com/NOAA-OWP/inundation-mapping/pull/1204)
+
+Bug fix for extending outlets in order to ensure proper flow direction in depression filling algorithm. This PR adds a distance criteria that in order for the end of an outlet stream to be snapped to the wbd_buffered boundary, the end point must be less than 100 meters from the WBD boundary.
+
+Also adds missing argparse arguments so that the script can be run from the command line.
+
+### Changes
+
+- `data`
+     - `wbd`
+          - `clip_vectors_to_wbd.py`: Adds a 100 meter distance threshold to WBD to snap outlets to buffered WBD.
+          - `generate_pre_clip_fim_huc8.py`: Upgrading logging system.
+- `src`
+     - `bash_variables.env`: Updated pre-clip input path to new pre-clip files.
 
 <br/><br/>
 
@@ -24,7 +60,6 @@ This tool scans all log directory looking for the word "error" (not case-sensiti
 - `src\mitigate_branch_outlet_backpool.py`: Has the word error in text which fills up the error scan logs.
 
 <br/><br/>
-
 
 ## v4.5.2.2 - 2024-06-14 - [PR#1183](https://github.com/NOAA-OWP/inundation-mapping/pull/1183)
 
@@ -185,6 +220,10 @@ Some NWM streams, particularly in coastal areas, fail to reach the edge of the D
 ### Changes
 
 - `data/wbd/clip_vectors_to_wbd.py`: Clips `landsea` ocean mask from the buffered WBD and adds a function to extend outlet streams to the buffered WBD
+
+<br/><br/>
+
+
 - `data/wbd/clip_vectors_to_wbd.py`: Updated multi-processing and added more logging.
 
 <br/><br/>
@@ -325,6 +364,7 @@ The "black" packages is also be upgraded from 23.7.0 to 24.3.
      - 19 files have had minor formatting changes related to the upgrade in the "black" package.
 
 <br/><br/>
+
 
 ## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
