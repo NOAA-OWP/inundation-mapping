@@ -151,3 +151,4 @@ if __name__ == "__main__":
     bridge_risk_status(**vars(parser.parse_args()))
 
     print(f"Completed in {round((timer() - start)/60, 2)} minutes.")
+    
