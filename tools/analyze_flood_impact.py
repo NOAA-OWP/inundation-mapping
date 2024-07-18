@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-
+import pandas as pd
 import geopandas as gpd
 import numpy as np
 import rasterio
@@ -23,22 +23,26 @@ def analyze_flood_impact(inundation_tif, structures_gpkg, roads_gpkg, output_gpk
     impacted_structures['isImpacted'] = True
 
     # Find non-intersecting structures
-    non_impacted_structures = structures[~structures.index.isin(impacted_structures.index)]
-    non_impacted_structures['isImpacted'] = False
+    non_impacted_structures = structures[~structures.index.isin(impacted_structures.index)].copy()
+    non_impacted_structures.loc[:,'isImpacted'] = False
 
     # Combine impacted and non-impacted structures
-    all_structures = impacted_structures.append(non_impacted_structures)
+    all_structures = gpd.GeoDataFrame(pd.concat([impacted_structures,non_impacted_structures]), crs = flood_extent.crs)
 
     # Find intersecting roads
     impacted_roads = gpd.sjoin(roads, flood_extent, how='inner', predicate='intersects')
     impacted_roads['isImpacted'] = True
 
     # Find non-intersecting roads
-    non_impacted_roads = roads[~roads.index.isin(impacted_roads.index)]
-    non_impacted_roads['isImpacted'] = False
+    non_impacted_roads = roads[~roads.index.isin(impacted_roads.index)].copy()
+    non_impacted_roads.loc[:,'isImpacted'] = False
 
     # Combine impacted and non-impacted roads
-    all_roads = impacted_roads.append(non_impacted_roads)
+    all_roads = gpd.GeoDataFrame(pd.concat([impacted_roads, non_impacted_roads]), crs = flood_extent.crs)
+
+    # FID column 
+    all_structures['fid'] = all_structures['fid'].astype('int64')
+    all_roads['fid'] = all_roads['fid'].astype('int64')
 
     # Save the combined data to new layers in a GeoPackage file
     all_structures.to_file(output_gpkg, layer='structures', driver="GPKG")
@@ -47,7 +51,7 @@ def analyze_flood_impact(inundation_tif, structures_gpkg, roads_gpkg, output_gpk
     print(f"Structures and roads with impact attribute saved to {output_gpkg}")
 
 
-def vectorize(inundation_tif, output_gpkg):
+def vectorize(inundation_tif):
     with rasterio.open(inundation_tif) as fim_rast:
         fim_nodata = fim_rast.profile['nodata']
         fim_transform = fim_rast.transform
