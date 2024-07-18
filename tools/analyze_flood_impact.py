@@ -32,6 +32,7 @@ def analyze_flood_impact(inundation_tif, structures_gpkg, roads_gpkg, output_gpk
     # Save the combined data to new layers in a GeoPackage file
     impacted_structures.to_file(output_gpkg, layer='structures', driver="GPKG")
     impacted_roads.to_file(output_gpkg, layer='roads', driver="GPKG")
+    flood_extent.to_file(output_gpkg, layer='inundation', index= False)
 
     print(f"Structures and roads with impact attribute saved to {output_gpkg}.")
 
