@@ -18,37 +18,28 @@ def analyze_flood_impact(inundation_tif, structures_gpkg, roads_gpkg, output_gpk
     structures = structures.to_crs(flood_extent.crs)
     roads = roads.to_crs(flood_extent.crs)
 
-    # Find intersecting structures
-    impacted_structures = gpd.sjoin(structures, flood_extent, how='inner', predicate='intersects')
+    # Find intersecting structures and create gdf
+    impacted_structures = gpd.GeoDataFrame(gpd.sjoin(structures, flood_extent, how='inner', predicate='intersects'), crs = flood_extent.crs)
     impacted_structures['isImpacted'] = True
+    impacted_structures['fid'] = impacted_structures['fid'].astype('int64')
 
-    # Find non-intersecting structures
-    non_impacted_structures = structures[~structures.index.isin(impacted_structures.index)].copy()
-    non_impacted_structures.loc[:,'isImpacted'] = False
-
-    # Combine impacted and non-impacted structures
-    all_structures = gpd.GeoDataFrame(pd.concat([impacted_structures,non_impacted_structures]), crs = flood_extent.crs)
-
-    # Find intersecting roads
-    impacted_roads = gpd.sjoin(roads, flood_extent, how='inner', predicate='intersects')
+    # Find intersecting roads and create gdf
+    impacted_roads = gpd.GeoDataFrame(gpd.sjoin(roads, flood_extent, how='inner', predicate='intersects'), crs = flood_extent.crs)
     impacted_roads['isImpacted'] = True
+    impacted_roads['fid'] = impacted_roads['fid'].astype('int64')
 
-    # Find non-intersecting roads
-    non_impacted_roads = roads[~roads.index.isin(impacted_roads.index)].copy()
-    non_impacted_roads.loc[:,'isImpacted'] = False
-
-    # Combine impacted and non-impacted roads
-    all_roads = gpd.GeoDataFrame(pd.concat([impacted_roads, non_impacted_roads]), crs = flood_extent.crs)
-
-    # FID column 
-    all_structures['fid'] = all_structures['fid'].astype('int64')
-    all_roads['fid'] = all_roads['fid'].astype('int64')
 
     # Save the combined data to new layers in a GeoPackage file
-    all_structures.to_file(output_gpkg, layer='structures', driver="GPKG")
-    all_roads.to_file(output_gpkg, layer='roads', driver="GPKG")
+    impacted_structures.to_file(output_gpkg, layer='structures', driver="GPKG")
+    impacted_roads.to_file(output_gpkg, layer='roads', driver="GPKG")
 
-    print(f"Structures and roads with impact attribute saved to {output_gpkg}")
+    print(f"Structures and roads with impact attribute saved to {output_gpkg}.")
+
+    # Total impacted infrastructure
+    total_structures_impact= len(impacted_structures)
+    total_road_impact = len(impacted_roads)
+    
+    print(f" There are {total_structures_impact} structures impacted by this flood and {total_road_impact} roads impacted by this flood.")
 
 
 def vectorize(inundation_tif):
