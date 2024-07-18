@@ -86,6 +86,6 @@ if __name__ == '__main__':
     parser.add_argument('-rd', '--roads', required=True, help="Path to the roads vector file.")
     parser.add_argument('-o', '--output', required=True, help="Path to the output vector file (GeoPackage).")
 
-    args = parser.parse_args()
+    args = vars(parser.parse_args())
 
-    analyze_flood_impact(args.inundation, args.structures, args.roads, args.output)
+    analyze_flood_impact(args['inundation'], args['structures'], args['roads'], args['output'])
