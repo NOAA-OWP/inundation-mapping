@@ -144,6 +144,17 @@ if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; the
     Tcount
 fi
 
+## RUN MANNING N OPTIMIZATION ROUTINE AND ADJUST SRCS  ##
+if [ "$src_optz_manningN_toggle" = "True" ]; then
+    echo -e $startDiv"Optimizing manningN for SRCs"
+    # Run manningN optimization routine
+    Tstart
+    python3 $srcDir/manningN_optimization.py \
+        -fim_dir $outputDestDir \
+        -mannN_aibased $mannN_file_aibased
+    Tcount
+fi
+
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
 if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
     Tstart
@@ -220,13 +231,20 @@ Tcount
 date -u
 
 echo -e $startDiv"Resetting Permissions"
-find $outputDestDir -type d -exec chmod -R 777 {} +
-find $outputDestDir -type f -exec chmod 777 {} +  # just root level files
+Tstart
+    find $outputDestDir -type d -exec chmod -R 777 {} +
+    find $outputDestDir -type f -exec chmod 777 {} +  # just root level files
+Tcount
+date -u
 
 echo
 echo -e $startDiv"Scanning logs for errors. Results be saved in root not inside the log folder."
-# grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
-find $outputDestDir -type f | grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log &
+Tstart
+    # grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
+    find $outputDestDir -type f | grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
+Tcount
+date -u
+
 
 echo
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"

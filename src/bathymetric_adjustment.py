@@ -12,6 +12,39 @@ from os.path import join
 import geopandas as gpd
 import pandas as pd
 
+# -------------------------------------------------------
+# data = '/efs-drives/fim-dev-efs/fim_data'
+# ai_mannN_parquet_path = "/data/inputs/rating_curve/variable_roughness/ml_outputs_v1.01.parquet"
+# original_mannN_csv_path = "/data/inputs/rating_curve/variable_roughness/mannings_global_06_12.csv"
+# path_to_save = "/data/inputs/rating_curve/variable_roughness/mannings_ai.csv"
+
+# Replacing manning numbers with AI-Driven ones
+def Replacing_mannN_AI_coefs(original_mannN_csv_path, ai_mannN_parquet_path, path_to_save):
+
+    org_mannN_data = pd.read_csv(original_mannN_csv_path)
+    org_mannN_data_df = org_mannN_data[['feature_id', 'channel_n', 'overbank_n']]
+    org_mannN_data_df = org_mannN_data_df.rename(columns={'channel_n': 'channel_n_06'})
+    org_mannN_data_df = org_mannN_data_df.rename(columns={'overbank_n': 'overbank_n_12'})
+    
+    ai_mannN_data = pd.read_parquet(ai_mannN_parquet_path, engine='pyarrow')
+    ai_mannN_data_df = ai_mannN_data[['COMID', 'owp_roughness']]
+    ai_mannN_data_df = ai_mannN_data_df.rename(columns={'COMID': 'feature_id'})
+    ai_mannN_data_df = ai_mannN_data_df.rename(columns={'owp_roughness': 'channel_n'})
+    ai_mannN_data_df['overbank_n'] = ai_mannN_data_df['channel_n']
+
+    ai_mannN_data_df_F = ai_mannN_data_df.merge(org_mannN_data_df[['feature_id', 'channel_n_06', 'overbank_n_12']],
+                                                on='feature_id',
+                                                how='left',
+                                                validate='many_to_one')
+    
+    ai_mannN_data_df_F = ai_mannN_data_df_F.fillna({'channel_n': 0.06, 'overbank_n': 0.12})
+    ai_mannN_data_df_F.drop(columns=['channel_n_06', 'overbank_n_12'], inplace=True)
+    ai_mannN_data_df_F = ai_mannN_data_df_F.drop_duplicates(subset=['feature_id'], keep='first')
+    # test = ai_mannN_data_df_F[ai_mannN_data_df_F.duplicated(subset='feature_id', keep=False)]
+    ai_mannN_data_df_F.sort_values('feature_id', inplace=True)
+
+    ai_mannN_data_df_F.to_csv(path_to_save, index=False)
+
 
 # -------------------------------------------------------
 # Adjusting synthetic rating curves using 'USACE eHydro' bathymetry data
