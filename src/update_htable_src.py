@@ -46,6 +46,7 @@ def process_branch(sub_branch_path, branch):
 
     # Update hydroTable
     input_hydro_table['subdiv_discharge_cms'] = pd.NA
+    input_hydro_table['discharge_cms'] = input_hydro_table['default_discharge_cms']
 
     # Save updated files
     input_src_full.to_csv(src_full_file, index=False)
