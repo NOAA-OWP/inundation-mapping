@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2024-07-18 - [PR#1224](https://github.com/NOAA-OWP/inundation-mapping/pull/1224)
+## v4.5.2.10 - 2024-07-19 - [PR#1224](https://github.com/NOAA-OWP/inundation-mapping/pull/1224)
 
 Addresses warnings to reduce output messages.
 
@@ -11,6 +11,10 @@ Addresses warnings to reduce output messages.
     - `adjust_thalweg_lateral.py`: fixes number type
     - `src/delineate_hydros_and_produce_HAND.sh`: removes division by zero warning
     - `getRasterInfoNative.py`: adds `gdal.UseExceptions()`
+
+<br/><br/>
+
+
 ## v4.5.2.9 - 2024-07-19 - [PR#1216](https://github.com/NOAA-OWP/inundation-mapping/pull/1216)
 
 Adds `NO_VALID_CROSSWALKS` to `FIM_exit_codes` which is used when the crosswalk table or output_catchments DataFrame is empty. Removes branches that fail with `NO_VALID_CROSSWALKS`.
