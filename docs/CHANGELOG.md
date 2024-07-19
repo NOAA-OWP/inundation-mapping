@@ -10,6 +10,19 @@ Changes non-fatal `ERROR` messages to `WARNINGS` to avoid triggering being logge
 - `src/`
     - `bathymetric_adjustment.py`: Changes `WARNING` to `ERROR` in Exception
     - `src_roughness_optimization.py`: Changes `ERROR` messages to `WARNING`
+## v4.5.2.7 - 2024-07-19 - [PR#1220](https://github.com/NOAA-OWP/inundation-mapping/pull/1220)
+
+With this PR we can run post_processing.sh multiple times on a processed batch without any concerns that it may change the hydroTable or src_full_crosswalked files.
+
+### Additions
+
+- `src/update_htable_src.py`
+
+### Changes
+
+-  `config/deny_branch_zero.lst`
+-  `config/deny_branches.lst`
+-  `fim_post_processing.sh`
 
 <br/><br/>
 
