@@ -140,8 +140,8 @@ def produce_stage_based_catfim_tifs(
             try:
                 # print("Generating stage-based FIM for " + huc + " and branch " + branch)
                 #
-                # # TODO TEMP DEBUG UNCOMMENT THIS MAYBE AFTER DEBUGGING
                 # MP_LOG.lprint(f"{huc_lid_cat_id} : Generating stage-based FIM")
+                
                 executor.submit(
                     produce_tif_per_huc_per_mag_for_stage,
                     rem_path,
@@ -278,10 +278,10 @@ def produce_tif_per_huc_per_mag_for_stage(
         )
         hydroid_mask = np.isin(catchments_array, hydroid_list)
         target_catchments_array = np.where(
-            (hydroid_mask is True) & (catchments_array != catchments_src.nodata), 1, 0
+            ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
         ).astype('uint8')
         masked_reclass_rem_array = np.where(
-            (reclass_rem_array == 1) & (target_catchments_array == 1), 1, 0
+            ((reclass_rem_array == 1) & (target_catchments_array == 1)), 1, 0
         ).astype('uint8')
 
         # TODO: Our problem seems to be here. Let's see what lead up to it.
@@ -293,7 +293,8 @@ def produce_tif_per_huc_per_mag_for_stage(
         MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
 
         # if not is_all_zero:
-        if is_all_zero is False:
+        # if is_all_zero is False: # this logic didn't let ANY files get saved
+        if is_all_zero == False: # corrected logic
             output_tif = os.path.join(
                 lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif'
             )
@@ -546,7 +547,9 @@ def post_process_huc(
             MP_LOG.trace(f"mapping_huc_lid_dir is {mapping_huc_lid_dir}")
 
             # Append desired filenames to list. (notice.. no value after the word extent)
-            tif_list = [x for x in os.listdir(mapping_huc_lid_dir) if x.endswith("extent.tif")]
+            # tif_list = [x for x in os.listdir(mapping_huc_lid_dir) if x.endswith("extent.tif")] # doesn't match the old filenames
+            tif_list = [x for x in os.listdir(mapping_huc_lid_dir) if ('extent' and '.tif') in x] # new logic actually finds the extent tifs
+
 
             if len(tif_list) == 0:
                 MP_LOG.warning(f">> no tifs found for {huc} {ahps_lid} at {mapping_huc_lid_dir}")
@@ -562,7 +565,7 @@ def post_process_huc(
                     tifs_to_reformat_list.append(os.path.join(mapping_huc_lid_dir, tif))
 
             # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
-            # TODO: huh?  to the line above
+            # TODO: huh?  to the line above -> where is the lid_attributes.csv supposed to be coming from and is there a replacement DEBUG
             nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
 
             # We are going to do an MP in MP.
@@ -650,7 +653,8 @@ def post_process_cat_fim_for_viz(
 
     merged_layer_file_path = os.path.join(output_mapping_dir, 'catfim_library.gpkg')
 
-    if os.path.exists(merged_layer_file_path) is False:  # prevents appending to existing output
+    # if os.path.exists(merged_layer_file_path) is False:  # prevents appending to existing output
+    if os.path.exists(merged_layer_file_path) == False:  # DEBUG testing this new logic
         # huc_ahps_dir_list = os.listdir(output_mapping_dir)
         huc_ahps_dir_list = [
             x
@@ -685,7 +689,6 @@ def post_process_cat_fim_for_viz(
 
                 # If there's no mapping for a HUC, delete the HUC directory.
                 if len(ahps_dir_list) == 0:
-                    # Temp DEBUG
                     # os.rmdir(huc_dir)
                     FLOG.warning(f"no mapping for {huc}")
                     continue

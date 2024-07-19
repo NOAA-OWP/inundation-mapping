@@ -473,6 +473,8 @@ def iterate_through_huc_stage_based(
 
         # Loop through each lid in nws_lids list
         nws_lids = huc_dictionary[huc]
+
+
         for lid in nws_lids:
             MP_LOG.lprint("-----------------------------------")
             huc_lid_id = f"{huc} : {lid}"
@@ -765,10 +767,13 @@ def iterate_through_huc_stage_based(
 
             # Round flow and stage columns to 2 decimal places.
             csv_df = csv_df.round({'q': 2, 'stage': 2})
+            
             # If a site folder exists (ie a flow file was written) save files containing site attributes.
             if os.path.exists(mapping_lid_directory):
                 # Export DataFrame to csv containing attributes
-                csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
+                attributes_filepath = os.path.join(attributes_dir, f'{lid}_attributes.csv')
+
+                csv_df.to_csv(attributes_filepath, index=False)
             else:
                 msg = ': missing all calculated flows'
                 all_messages.append(lid + msg)
@@ -785,8 +790,7 @@ def iterate_through_huc_stage_based(
             with open(huc_messages_csv, 'w') as output_csv:
                 writer = csv.writer(output_csv)
                 for msg in all_messages:
-                    writer.writerows(msg)
-
+                    writer.writerow([msg]) # added [] to make it run properly
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error iterating through huc stage based")
         MP_LOG.error(traceback.format_exc())
@@ -1121,14 +1125,14 @@ def generate_stage_based_categorical_fim(
                 # all_messages.append(row.strip())
                 all_messages.append(row)
 
-    # Filter out columns and write out to file
+    # Filter out columns and write out to file 
     nws_sites_layer = os.path.join(output_mapping_dir, 'nws_lid_sites.gpkg')
 
     # Only write to sites geopackage if it didn't exist yet
     # (and this line shouldn't have been reached if we had an interrupted
     # run previously and are picking back up with a restart)
-    if not os.path.exists(nws_sites_layer):
-        FLOG.lprint("nws_sites_layer does not exist")
+    if os.path.exists(nws_sites_layer):
+        FLOG.warning("nws_sites_layer already exists and will not be updated")
 
     else:
         # Write messages to DataFrame, split into columns, aggregate messages.
@@ -1139,10 +1143,10 @@ def generate_stage_based_categorical_fim(
 
             messages_df = (
                 messages_df['message']
-                .str.split(':', n=1, expand=True)
+                .str.split(':', n=1, expand=True) 
                 .rename(columns={0: 'nws_lid', 1: 'status'})
             )
-            status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
+            status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index() 
 
             # Join messages to populate status field to candidate sites. Assign
             # status for null fields.
