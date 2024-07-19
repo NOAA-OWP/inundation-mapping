@@ -281,7 +281,7 @@ class Inundation(object):
                 composite_inundation = branch_inundation
             else:
                 # All other branches get aligned and then composited by taking the max
-                composite_inundation = xr.ufuncs.fmax(
+                composite_inundation = np.fmax(
                     *xr.align(composite_inundation, branch_inundation, join='outer')
                 )
             del branch_inundation
@@ -308,7 +308,7 @@ class Inundation(object):
         futures = []
 
         with dask.distributed.Client(
-            processes=False, threads_per_worker=3, n_workers=job_number, memory_limit='5GB'
+            processes=True, threads_per_worker=10, n_workers=job_number, memory_limit='5GB'
         ) as client:
             print(client)
 
@@ -340,7 +340,7 @@ class Inundation(object):
                     composite_inundation = branch_inundation
                 else:
                     # All other branches get aligned and then composited by taking the max
-                    composite_inundation = xr.ufuncs.fmax(
+                    composite_inundation = np.fmax(
                         *xr.align(composite_inundation, branch_inundation, join='outer')
                     )
                 del branch_inundation
