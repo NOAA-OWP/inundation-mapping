@@ -8,39 +8,66 @@ import rasterio
 from rasterio import features as riofeatures
 
 
-def analyze_flood_impact(inundation_tif, structures_gpkg, roads_gpkg, output_gpkg):
+def analyze_flood_impact(benchmark_inundation_tif, test_inundation_tif, model_domain_shp, structures_gpkg, roads_gpkg, output_gpkg):
     # Load vector files
-    flood_extent = vectorize(inundation_tif)
+    flood_extent_bench = vectorize(benchmark_inundation_tif)
+    flood_extent_test_whole = vectorize(test_inundation_tif)
+    domain = gpd.read_file(model_domain_shp)
     structures = gpd.read_file(structures_gpkg)
     roads = gpd.read_file(roads_gpkg)
 
+    # Clip the test extent to the model domain
+    flood_extent_test = gpd.clip(flood_extent_test_whole, domain)
+
     # Ensure all data are in the same CRS
-    structures = structures.to_crs(flood_extent.crs)
-    roads = roads.to_crs(flood_extent.crs)
+    structures = structures.to_crs(flood_extent_bench.crs)
+    roads = roads.to_crs(flood_extent_bench.crs)
 
-    # Find intersecting structures and create gdf
-    impacted_structures = gpd.GeoDataFrame(gpd.sjoin(structures, flood_extent, how='inner', predicate='intersects'), crs = flood_extent.crs)
-    impacted_structures['isImpacted'] = True
-    impacted_structures['fid'] = impacted_structures['fid'].astype('int64')
+    # Find intersecting structures/roads and create gdf for benchmark and test
+    impacted_structures_bench = impacted(structures, flood_extent_bench)
+    impacted_structures_test = impacted(structures, flood_extent_test)
+    impacted_roads_bench = impacted(roads, flood_extent_bench)
+    impacted_roads_test = impacted(roads, flood_extent_test)
 
-    # Find intersecting roads and create gdf
-    impacted_roads = gpd.GeoDataFrame(gpd.sjoin(roads, flood_extent, how='inner', predicate='intersects'), crs = flood_extent.crs)
-    impacted_roads['isImpacted'] = True
-    impacted_roads['fid'] = impacted_roads['fid'].astype('int64')
+    # Calculate CSI
 
+    # TP: features in both benchmark and test
+    true_positives_structures = impacted_structures_bench.merge(impacted_structures_test, how='left', on='OBJECTID', suffixes=('_benchmark', '_test'))
+    true_positives_roads = impacted_roads_bench.merge(impacted_roads_test, how='left', on='OBJECTID', suffixes=('_benchmark', '_test'))
+    
+    # FN: features in benchmark but not in test
+    false_neg_structures = impacted_structures_bench[~impacted_structures_bench['OBJECTID'].isin(impacted_structures_test['OBJECTID'])]
+    false_neg_roads = impacted_roads_bench[~impacted_roads_bench['OBJECTID'].isin(impacted_roads_test['OBJECTID'])]
+    
+    # FP: features in test but not in benchmark
+    false_pos_structures = impacted_structures_test[~impacted_structures_test['OBJECTID'].isin(impacted_structures_bench['OBJECTID'])]
+    false_pos_roads = impacted_roads_test[~impacted_roads_test['OBJECTID'].isin(impacted_roads_bench['OBJECTID'])]
+    
+    # Calculation
+    TP = len(true_positives_structures) + len(true_positives_roads)
+    FN = len(false_neg_structures) + len(false_neg_roads)
+    FP = len(false_pos_structures) + len(false_pos_roads)
+    CSI = TP/(TP+FN+FP)
 
     # Save the combined data to new layers in a GeoPackage file
-    impacted_structures.to_file(output_gpkg, layer='structures', driver="GPKG")
-    impacted_roads.to_file(output_gpkg, layer='roads', driver="GPKG")
-    flood_extent.to_file(output_gpkg, layer='inundation', index= False)
-
-    print(f"Structures and roads with impact attribute saved to {output_gpkg}.")
+    impacted_structures_bench.to_file(output_gpkg, layer='benchmark impacted structures', driver="GPKG")
+    impacted_roads_bench.to_file(output_gpkg, layer='benchmark impacted roads', driver="GPKG")
+    impacted_structures_test.to_file(output_gpkg, layer='test impacted structures', driver="GPKG")
+    impacted_roads_test.to_file(output_gpkg, layer='test impacted roads', driver="GPKG")
+    flood_extent_bench.to_file(output_gpkg, layer='benchmark inundation', index= False)
+    flood_extent_test.to_file(output_gpkg, layer='test inundation', index= False)
+    
+    print(f"Structures and roads with impact attribute for benchmark and test data saved to {output_gpkg}.")
 
     # Total impacted infrastructure
-    total_structures_impact= len(impacted_structures)
-    total_road_impact = len(impacted_roads)
-    
-    print(f" There are {total_structures_impact} structures impacted by this flood and {total_road_impact} roads impacted by this flood.")
+    total_structures_test_impact= len(impacted_structures_test)
+    total_road_test_impact = len(impacted_roads_test)
+    total_structures_bench_impact= len(impacted_structures_bench)
+    total_road_bench_impact = len(impacted_roads_bench)
+
+    print(f" Benchmark: {total_structures_bench_impact} structures impacted by this flood and {total_road_bench_impact} roads impacted by this flood.")
+    print(f" Test: {total_structures_test_impact} structures impacted by this flood and {total_road_test_impact} roads impacted by this flood.")
+    print(f'Critical Success Index: {CSI}')
 
 
 def vectorize(inundation_tif):
@@ -70,14 +97,29 @@ def vectorize(inundation_tif):
     return extent_poly_diss
 
 
+def impacted(features_gpkg, inundation_tif):
+    
+    # Find intersecting features with inundation
+    impacted_features = gpd.GeoDataFrame(
+        gpd.sjoin(features_gpkg, inundation_tif, how='inner', predicate='intersects'),
+        crs=inundation_tif.crs
+    )
+
+    impacted_features['isImpacted'] = True
+    impacted_features['fid'] = impacted_features['fid'].astype('int64')
+    return impacted_features
+
+
 if __name__ == '__main__':
-    # parse arguments
+    # Parse arguments
     parser = argparse.ArgumentParser(description="Analyze flood impact on structures and roads.")
-    parser.add_argument('-i', '--inundation', required=True, help="Path to the inundation TIF file.")
+    parser.add_argument('-b', '--benchmark_inundation', required=True, help="Path to the benchmark inundation TIF file.")
+    parser.add_argument('-t', '--test_inundation', required=True, help="Path to the test inundation TIF file.")
+    parser.add_argument('-d', '--domain', required=True, help="Path to the model domain vector file.")
     parser.add_argument('-s', '--structures', required=True, help="Path to the structures vector file.")
     parser.add_argument('-rd', '--roads', required=True, help="Path to the roads vector file.")
     parser.add_argument('-o', '--output', required=True, help="Path to the output vector file (GeoPackage).")
-
+    
     args = vars(parser.parse_args())
-
-    analyze_flood_impact(args['inundation'], args['structures'], args['roads'], args['output'])
+    
+    analyze_flood_impact(args['benchmark_inundation'],  args['test_inundation'], args['domain'], args['structures'], args['roads'], args['output'])
