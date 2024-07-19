@@ -37,7 +37,7 @@ def process_bridges_in_huc(
 
         # Get max hand values for each bridge
         osm_gdf['max_hand'] = zonal_stats(
-            osm_gdf['geometry'], hand_grid_array, affine=hand_grid.transform, stats="max", nodata = -999
+            osm_gdf['geometry'], hand_grid_array, affine=hand_grid.transform, stats="max", nodata=-999
         )
         # pull the values out of the geopandas columns so we can use them as floats
         osm_gdf['max_hand'] = [x.get('max') for x in osm_gdf.max_hand]
