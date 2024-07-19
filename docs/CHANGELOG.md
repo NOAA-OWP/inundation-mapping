@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2024-07-16 - [PR#1219](https://github.com/NOAA-OWP/inundation-mapping/pull/1219)
+## v4.5.2.8 - 2024-07-19 - [PR#1219](https://github.com/NOAA-OWP/inundation-mapping/pull/1219)
 
 Changes non-fatal `ERROR` messages to `WARNINGS` to avoid triggering being logged as errors.
 
@@ -10,6 +10,9 @@ Changes non-fatal `ERROR` messages to `WARNINGS` to avoid triggering being logge
 - `src/`
     - `bathymetric_adjustment.py`: Changes `WARNING` to `ERROR` in Exception
     - `src_roughness_optimization.py`: Changes `ERROR` messages to `WARNING`
+
+<br/><br/>
+
 ## v4.5.2.7 - 2024-07-19 - [PR#1220](https://github.com/NOAA-OWP/inundation-mapping/pull/1220)
 
 With this PR we can run post_processing.sh multiple times on a processed batch without any concerns that it may change the hydroTable or src_full_crosswalked files.
