@@ -1,4 +1,0 @@
-flask==2.1.2
-werkzeug==2.0.0
-flask-socketio==5.0.0
-eventlet==0.31.0
