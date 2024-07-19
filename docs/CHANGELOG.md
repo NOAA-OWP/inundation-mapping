@@ -8,6 +8,10 @@ This script produces inundation depths and attempts to overcome the catchment bo
 ### Additions
 
 - `tools/interpolate_water_surface.py`: New post-inundation processing tool for extending depths beyond catchment limits. The `interpolate_wse()` contains the logic for computing the updated depth raster, but users can also call this module directly to perform inundation, similar to how `inundate_mosaic_wrapper.py` works, but with the new post-processing enhancement.
+
+<br/><br/>
+
+
 ## v4.5.2.6 - 2024-07-12 - [PR#1184](https://github.com/NOAA-OWP/inundation-mapping/pull/1184)
 
 This PR adds a new script to determine which bridges are inundated by a specific flow. It will assign a risk status to each bridge point based on a specific threshold.
