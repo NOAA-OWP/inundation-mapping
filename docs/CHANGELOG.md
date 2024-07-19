@@ -3,11 +3,14 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.x.x.x - 2024-07-18 - [PR#1224](https://github.com/NOAA-OWP/inundation-mapping/pull/1224)
 
-Adds `gdal.UseExceptions()` to prevent FutureWarning that `gdal.UseExceptions()` will be enabled by default in GDAL v4.0.
+Addresses warnings to reduce output messages.
 
 ### Changes
 
-- `src/getRasterInfoNative.py`: adds `gdal.UseExceptions()`
+- `src/'
+    - `adjust_thalweg_lateral.py`: fixes number type
+    - `src/delineate_hydros_and_produce_HAND.sh`: removes division by zero warning
+    - `getRasterInfoNative.py`: adds `gdal.UseExceptions()`
 
 <br/><br/>
 
