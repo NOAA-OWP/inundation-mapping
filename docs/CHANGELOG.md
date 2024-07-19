@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.2.11 - 2024-07-19 - [PR#1222](https://github.com/NOAA-OWP/inundation-mapping/pull/1222)
+
+We are having problems with post processing overall duration taking a long time. This new system captures duration times for each module/section inside fim_post_processing.sh and records it to a file on the output directory. It records it as it progress and will also help us learn if fim_post_processing.sh stopped along the way.
+
+Note: When used in code, we call `Set_log_file_path` shell variable with a file name and path (no validation done at this time).  The each time a person wants to print to screen and console, use the `l_echo` command instead of the native `echo` command. If the log file has not been set, the output will continue to go to screen, just not the log file.
+
+### Changes
+- `fim_pipeline.sh`: A couple of minor text output changes.
+- `fim_post_processing.sh`:  As described above.
+- `src\bash_functions.env`:  New functions and adjustments to support the new log system.
+
+<br/><br/>
+
+
 ## v4.5.2.10 - 2024-07-19 - [PR#1224](https://github.com/NOAA-OWP/inundation-mapping/pull/1224)
 
 Addresses warnings to reduce output messages.
