@@ -177,11 +177,11 @@ class Inundation(object):
             Dictionary with HydroIDs as keys and stages as values.
             This dict can be fed directly into the hydroid2stage() method.
         """
-        rem = cls(rem_path, catch_path, hydroTable_path, nodata)
+        hand = cls(rem_path, catch_path, hydroTable_path, nodata)
 
         # Load HAND datasets
-        if not rem.loaded:
-            rem.load()
+        if not hand.loaded:
+            hand.load()
 
         # Load in flow file to a dataframe
         if not isinstance(flow_file, pd.DataFrame):
@@ -190,17 +190,17 @@ class Inundation(object):
             flow_df = flow_file
 
         # Use synthetic rating curve to lookup stage values
-        stage_dict = rem.SRC_lookup(flow_df, units)
+        stage_dict = hand.SRC_lookup(flow_df, units)
 
         # Convert catchments to stage
-        rem.hydroid2stage(stage_dict)
+        hand.hydroid2stage(stage_dict)
 
-        rem.ds = rem.ds.drop_vars('catch')
-        rem.ds = rem.ds.assign(
+        hand.ds = hand.ds.drop_vars('catch')
+        hand.ds = hand.ds.assign(
             rem=rioxarray.open_rasterio(
-                rem.rem_path,
-                chunks=rem.chunks,
-                nodata=rem.NODATA,
+                hand.rem_path,
+                chunks=hand.chunks,
+                nodata=hand.NODATA,
                 masked=True,
                 lock=False,
                 dtype=rasterio.float32,
@@ -210,9 +210,9 @@ class Inundation(object):
         )
 
         # Calc Depth
-        inundate_var = rem.inundate(depth=depth)
+        inundate_var = hand.inundate(depth=depth)
 
-        return rem.ds[inundate_var]
+        return hand.ds[inundate_var]
 
     def composite_with_flows(hydrofabric_dir, flow_file, hucs=None, nodata=-9999.0, units='cms', depth=False):
         """
