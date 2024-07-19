@@ -565,7 +565,6 @@ def post_process_huc(
                     tifs_to_reformat_list.append(os.path.join(mapping_huc_lid_dir, tif))
 
             # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
-            # TODO: huh?  to the line above -> where is the lid_attributes.csv supposed to be coming from and is there a replacement DEBUG
             nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
 
             # We are going to do an MP in MP.
@@ -653,8 +652,7 @@ def post_process_cat_fim_for_viz(
 
     merged_layer_file_path = os.path.join(output_mapping_dir, 'catfim_library.gpkg')
 
-    # if os.path.exists(merged_layer_file_path) is False:  # prevents appending to existing output
-    if os.path.exists(merged_layer_file_path) == False:  # DEBUG testing this new logic
+    if os.path.exists(merged_layer_file_path) == False:
         # huc_ahps_dir_list = os.listdir(output_mapping_dir)
         huc_ahps_dir_list = [
             x
