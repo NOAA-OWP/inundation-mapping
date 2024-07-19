@@ -4,6 +4,9 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v4.5.x.x - 2024-07-17 - [PR#1216](https://github.com/NOAA-OWP/inundation-mapping/pull/1216)
 
 Adds `NO_VALID_CROSSWALKS` to `FIM_exit_codes` which is used when the crosswalk table or output_catchments DataFrame is empty. Removes branches that fail with `NO_VALID_CROSSWALKS`.
+## v4.5.2.8 - 2024-07-19 - [PR#1219](https://github.com/NOAA-OWP/inundation-mapping/pull/1219)
+
+Changes non-fatal `ERROR` messages to `WARNINGS` to avoid triggering being logged as errors.
 
 ### Changes
 
@@ -11,6 +14,24 @@ Adds `NO_VALID_CROSSWALKS` to `FIM_exit_codes` which is used when the crosswalk 
     - `add_crosswalk.py`: Added `NO_VALID_CROSSWALKS` as exit status when crosswalk or output_catchments is empty
     - `process_branch.sh`: Removed branches that fail with `NO_VALID_CROSSWALKS`
     - `utils/fim_enums.py`: Added `NO_VALID_CROSSWALKS` to `FIM_exit_codes`
+    - `bathymetric_adjustment.py`: Changes `WARNING` to `ERROR` in Exception
+    - `src_roughness_optimization.py`: Changes `ERROR` messages to `WARNING`
+
+<br/><br/>
+
+## v4.5.2.7 - 2024-07-19 - [PR#1220](https://github.com/NOAA-OWP/inundation-mapping/pull/1220)
+
+With this PR we can run post_processing.sh multiple times on a processed batch without any concerns that it may change the hydroTable or src_full_crosswalked files.
+
+### Additions
+
+- `src/update_htable_src.py`
+
+### Changes
+
+-  `config/deny_branch_zero.lst`
+-  `config/deny_branches.lst`
+-  `fim_post_processing.sh`
 
 <br/><br/>
 
