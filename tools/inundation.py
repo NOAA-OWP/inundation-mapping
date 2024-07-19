@@ -92,7 +92,8 @@ class Inundation(object):
         Returns
         -------
         hydroid_stage_dict : dict
-            Dictionary with HydroIDs as keys and stages as values. This dict can be fed directly into the hydroid2stage() method.
+            Dictionary with HydroIDs as keys and stages as values.
+            This dict can be fed directly into the hydroid2stage() method.
         """
         # Merge flows with SRC
         forecast = self.hydroTable.groupby('HydroID')['feature_id'].first()
@@ -113,12 +114,14 @@ class Inundation(object):
 
     def hydroid2stage(self, hydroid_stage_dict: dict):
         """
-        Creates a 'stage' variable in the Dataset that has each HydroID replaced with the corresponding stage value.
+        Creates a 'stage' variable in the Dataset that has each HydroID replaced with the corresponding stage
+        value.
 
         Parameters
         ----------
         hydroid_stage_dict : dict
-            Dictionary with HydroIDs as keys and stages as values. The output of SRC_lookup() can be fed directly into this method.
+            Dictionary with HydroIDs as keys and stages as values.
+            The output of SRC_lookup() can be fed directly into this method.
         """
         # Convert catchments to stage
         self.ds["stage"] = self._assign_stages(self.ds.catch, hydroid_stage_dict)
@@ -171,7 +174,8 @@ class Inundation(object):
         Returns
         -------
         hydroid_stage_dict : dict
-            Dictionary with HydroIDs as keys and stages as values. This dict can be fed directly into the hydroid2stage() method.
+            Dictionary with HydroIDs as keys and stages as values.
+            This dict can be fed directly into the hydroid2stage() method.
         """
         rem = cls(rem_path, catch_path, hydroTable_path, nodata)
 
@@ -210,7 +214,7 @@ class Inundation(object):
 
         return rem.ds[inundate_var]
 
-    def composite_with_flows(hydrofabric_dir, hucs=None, nodata=-9999.0, units='cms', depth=False):
+    def composite_with_flows(hydrofabric_dir, flow_file, hucs=None, nodata=-9999.0, units='cms', depth=False):
         """
         Generate inundation for all branches of a HUC
         """
@@ -219,16 +223,15 @@ class Inundation(object):
         y_dict = {}
 
         # Get branches in HUC
-        gms_inputs = pd.read_csv(
-            os.path.join(hydrofabric_dir, 'gms_inputs.csv'), dtype={0: str, 1: int}, names=['huc8', 'branch']
+        fim_inputs = pd.read_csv(
+            os.path.join(hydrofabric_dir, 'fim_inputs.csv'), dtype={0: str, 1: int}, names=['huc8', 'branch']
         )
         if not hucs:
-            hucs = list(gms_inputs['huc8'].unique())
+            hucs = list(fim_inputs['huc8'].unique())
 
         for huc in hucs:
             inundated_rasters[huc] = []
-            flow_file = f'/data/test_cases/ble_test_cases/validation_data_ble/{huc}/500yr/ble_huc_{huc}_flows_500yr.csv'
-            for branch in list(gms_inputs[gms_inputs['huc8'] == huc]['branch'].unique()):
+            for branch in list(fim_inputs[fim_inputs['huc8'] == huc]['branch'].unique()):
                 rem_path = os.path.join(
                     hydrofabric_dir, f'{huc}/branches/{branch}/rem_zeroed_masked_{branch}.tif'
                 )
