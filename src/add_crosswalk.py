@@ -9,6 +9,7 @@ import pandas as pd
 from numpy import unique
 from rasterstats import zonal_stats
 
+from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
@@ -87,13 +88,17 @@ def add_crosswalk(
     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id', 'distance'])
     crosswalk = crosswalk.merge(input_nwmflows[['order_']], on='feature_id')
 
-    if len(crosswalk) < 1:
+    if crosswalk.empty:
         print("No relevant streams within HUC boundaries.")
-        sys.exit(0)
+        sys.exit(FIM_exit_codes.NO_VALID_CROSSWALKS.value)
 
     if input_catchments.HydroID.dtype != 'int':
         input_catchments.HydroID = input_catchments.HydroID.astype(int)
     output_catchments = input_catchments.merge(crosswalk, on='HydroID')
+
+    if output_catchments.empty:
+        print("No valid catchments remain.")
+        sys.exit(FIM_exit_codes.NO_VALID_CROSSWALKS.value)
 
     if input_flows.HydroID.dtype != 'int':
         input_flows.HydroID = input_flows.HydroID.astype(int)
