@@ -48,9 +48,25 @@ cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 # For buffer_stream_branches.py
 cp $huc_input_DEM_domain $tempHucDataDir
 # For usgs_gage_unit_setup.py
-cp $inputsDir/usgs_gages/usgs_gages.gpkg $tempHucDataDir
-cp $ras_rating_curve_points_gpkg $tempHucDataDir
 cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
+cp $inputsDir/usgs_gages/usgs_gages.gpkg $tempHucDataDir
+# Check if the $hucNumber directory exists in the ras2fim $inputsDir
+if [ -d "$inputsDir/rating_curve/ras2fim_exports/v2_0/$hucNumber" ]; then
+    ras_rating_gpkg="$ras2fim_input_dir/$ras_rating_curve_gpkg_filename"
+    ras_rating_csv="$ras2fim_input_dir/$ras_rating_curve_csv_filename"
+    if [ -f "$ras_rating_gpkg" ]; then
+        cp "$ras_rating_gpkg" $tempHucDataDir
+        echo "Copied $ras_rating_gpkg to $tempHucDataDir"
+    else
+        echo "File $ras_rating_gpkg does not exist. Skipping copy."
+    fi
+    if [ -f "$ras_rating_csv" ]; then
+        cp "$ras_rating_csv" $tempHucDataDir
+        echo "Copied $ras_rating_csv to $tempHucDataDir"
+    else
+        echo "File $ras_rating_csv does not exist. Skipping copy."
+    fi
+fi
 
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths for $hucNumber"
