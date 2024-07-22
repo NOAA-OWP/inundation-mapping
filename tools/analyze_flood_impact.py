@@ -22,7 +22,7 @@ def analyze_flood_impact(benchmark_inundation_tif, test_inundation_tif, model_do
     # Ensure all data are in the same CRS
     structures = structures.to_crs(flood_extent_test.crs)
     roads = roads.to_crs(flood_extent_test.crs)
-    flood_extent_bench = flood_extent_bench(flood_extent_test.crs)
+    flood_extent_bench = flood_extent_bench.to_crs(flood_extent_test.crs)
 
     # Find intersecting structures/roads and create gdf for benchmark and test
     impacted_structures_bench = impacted(structures, flood_extent_bench)
