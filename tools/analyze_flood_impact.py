@@ -20,8 +20,9 @@ def analyze_flood_impact(benchmark_inundation_tif, test_inundation_tif, model_do
     flood_extent_test = gpd.clip(flood_extent_test_whole, domain)
 
     # Ensure all data are in the same CRS
-    structures = structures.to_crs(flood_extent_bench.crs)
-    roads = roads.to_crs(flood_extent_bench.crs)
+    structures = structures.to_crs(flood_extent_test.crs)
+    roads = roads.to_crs(flood_extent_test.crs)
+    flood_extent_bench = flood_extent_bench(flood_extent_test.crs)
 
     # Find intersecting structures/roads and create gdf for benchmark and test
     impacted_structures_bench = impacted(structures, flood_extent_bench)
