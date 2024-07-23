@@ -39,7 +39,7 @@ class Inundation(object):
         Full path to the hydroTable CSV.
     """
 
-    chunks = 3000
+    chunks = 4096
 
     def __init__(self, rem_path: str, catch_path: str, hydroTable_path: str, nodata: float):
         self.rem_path = rem_path
@@ -61,12 +61,7 @@ class Inundation(object):
         self.ds = xr.Dataset(
             data_vars=dict(
                 catch=rioxarray.open_rasterio(
-                    self.catch_path,
-                    chunks=self.chunks,
-                    nodata=0.0,
-                    masked=True,
-                    lock=False,
-                    dtype=rasterio.int32,
+                    self.catch_path, chunks=self.chunks, nodata=0, lock=False, dtype=rasterio.int32
                 )
                 .sel(band=1)
                 .drop('band')
@@ -126,6 +121,12 @@ class Inundation(object):
         # Convert catchments to stage
         self.ds["stage"] = self._assign_stages(self.ds.catch, hydroid_stage_dict)
 
+        # self.ds["stage"] = xr.full_like(self.ds.catch, fill_value=np.nan)
+        # self.ds["stage"] = self.ds.map_blocks(Inundation.loop_translate, kwargs=dict(mapping=hydroid_stage_dict), template=self.ds.catch)
+        # self.ds.persist()
+        # print(type(self.ds.stage))
+        # print(self.ds.stage.compute().max(skipna=True).to_numpy)
+
     def inundate(self, depth=False):
         assert (
             "stage" in self.ds.variables
@@ -144,7 +145,7 @@ class Inundation(object):
             self.ds[inundate_var] if depth else 1,
             xr.where(self.ds[inundate_var].isnull(), np.nan, 0),
         )
-        #        self.ds[inundate_var].persist()
+        # self.ds[inundate_var].persist()
 
         # Encode NODATA value
         self.ds[inundate_var].rio.write_nodata(self.NODATA, encoded=True, inplace=True)
@@ -308,7 +309,7 @@ class Inundation(object):
         futures = []
 
         with dask.distributed.Client(
-            processes=True, threads_per_worker=10, n_workers=job_number, memory_limit='5GB'
+            processes=False, threads_per_worker=3, n_workers=job_number, memory_limit='5GB'
         ) as client:
             print(client)
 
@@ -334,7 +335,8 @@ class Inundation(object):
 
             for future in dask.distributed.as_completed(futures):
                 print(future)
-                branch_inundation = future.result()  # .persist()
+                branch_inundation = future.result()  # .compute()#.persist()
+                future.release()
                 if composite_inundation is None:
                     # First branch
                     composite_inundation = branch_inundation
@@ -344,8 +346,13 @@ class Inundation(object):
                         *xr.align(composite_inundation, branch_inundation, join='outer')
                     )
                 del branch_inundation
-                future.cancel()
-
+        #                future.release()
+        print("compute raster")
+        #        composite_inundation.compute()
+        # print(composite_inundation)
+        print()
+        #        composite_inundation.chunk("auto")
+        print("writing raster")
         composite_inundation.rio.to_raster(
             output_raster, tiled=True, dtype=rasterio.float64 if depth else rasterio.int32, compress="lzw"
         )
@@ -358,7 +365,7 @@ class Inundation(object):
     @staticmethod
     def _assign_stages(catch, map_dict):
         return xr.apply_ufunc(
-            Inundation._translate,
+            Inundation.map_pandas,
             catch,
             kwargs=dict(mapping=map_dict),
             dask="parallelized",
@@ -371,10 +378,46 @@ class Inundation(object):
         a, inv = np.unique(np.nan_to_num(array), return_inverse=True)
         return np.array([mapping[k] for k in a])[inv].reshape(orig_shape)
 
+    # Slower than the above
+    @staticmethod
+    def vec_translate(array, mapping):
+        return np.vectorize(mapping.__getitem__)(np.nan_to_num(array))
+
+    # Fastest!
+    @staticmethod
+    def map_pandas(x, mapping):
+        return pd.Series(x.flatten()).map(mapping).values.reshape(x.shape)
+
+    @staticmethod
+    @njit
+    def loop_translate(a, mapping):
+        '''stages = xr.full_like(a.catch, fill_value=np.nan)
+        for k in mapping:
+            stages = xr.where(a.catch == k, mapping[k], stages)
+        return stages'''
+        newArray = np.copy(a).astype(np.float32)
+        for k, v in mapping.items():
+            newArray[a == k] = v
+        return newArray
+
+    def search_sorted(array, mapping):
+        '''
+        replace = np.array([list(mapping.keys()), list(mapping.values())])
+        mask = np.in1d(array, replace[0, :])
+        array[mask] = replace[1, np.searchsorted(replace[0, :], array[mask])]
+        return array
+        '''
+        sort_idx = np.argsort(mapping.keys())
+        idx = np.searchsorted(mapping.keys(), array, sorter=sort_idx)
+        out = mapping.values()[sort_idx][idx]
+        print(out)
+        return out
+
 
 ##############################################################################
 #         Everything below here is the current inundation process            #
 ##############################################################################
+
 
 gpd.options.io_engine = "pyogrio"
 
