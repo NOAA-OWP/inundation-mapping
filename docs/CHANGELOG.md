@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## vx.x.x.x - 2024-07-23 - [PR#1232](https://github.com/NOAA-OWP/inundation-mapping/pull/1232)
+
+This PR incorporates the Manning numbers for Alaska feature ids, needed for calibration.  The new Manning dataset is available on dev1 here:
+"/dev_fim_share/foss_fim/outputs/ali_alaska_calib/mannings_global_nwm3.csv"
+
+The CSV file should be added into '${inputsDir}/rating_curve/variable_roughness/' directory. 
+
+
+### Changes
+
+- src/bash_variables.env 
+    -  refers to the new Manning file created from the new NWM3 dataset (available on dev1 at "/dev_fim_share/foss_fim/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurrence_flows_cfs.csv") 
+
+<br/><br/>
+
+
 ## v4.5.2.11 - 2024-07-19 - [PR#1222](https://github.com/NOAA-OWP/inundation-mapping/pull/1222)
 
 We are having problems with post processing overall duration taking a long time. This new system captures duration times for each module/section inside fim_post_processing.sh and records it to a file on the output directory. It records it as it progress and will also help us learn if fim_post_processing.sh stopped along the way.
