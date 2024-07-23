@@ -24,7 +24,7 @@ def adjust_thalweg_laterally(
         for i, elev_m in enumerate(zone_window):
             # If the zone really exists in the dictionary, compare elevation values.
             i = int(i)
-            elev_m = int(elev_m)
+            elev_m = types.int32(elev_m)
 
             if cost_window[i] <= cost_tolerance:
                 if elevation_window[i] > 0:  # Don't allow bad elevation values
@@ -47,7 +47,7 @@ def adjust_thalweg_laterally(
 
         for i, elev_m in enumerate(zone_window):
             i = int(i)
-            elev_m = int(elev_m)
+            elev_m = types.int32(elev_m)
             thalweg_cell = thalweg_window[i]  # From flows_grid_boolean.tif (0s and 1s)
             if thalweg_cell == 1:  # Make sure thalweg cells are checked.
                 if elev_m in zone_min_dict:
