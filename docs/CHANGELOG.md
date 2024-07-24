@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.5.x.x - 2024-07-24 - [PR#1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217)
+## v4.5.3.0 - 2024-07-24 - [PR#1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217)
 
 This PR rolls up a bunch of other PR's and python packages requests including:
 - Issue [1208](https://github.com/NOAA-OWP/inundation-mapping/issues/1208)  Bump OpenJDK from 17.0.8 to 17.0.10 (via updating to JDK 21.0.3)
