@@ -19,7 +19,10 @@ from geocube.api.core import make_geocube
 from gval import CatStats
 from rasterio import features
 from rasterio.warp import Resampling, calculate_default_transform, reproject
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from shapely.geometry import MultiPolygon, Polygon, shape
+from urllib3.util.retry import Retry
 
 
 gpd.options.io_engine = "pyogrio"
@@ -619,6 +622,9 @@ def get_metadata(
     params['must_include'] = must_include
     params['upstream_trace_distance'] = upstream_trace_distance
     params['downstream_trace_distance'] = downstream_trace_distance
+    # Suppress Insecure Request Warning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
     # Request data from url
     response = requests.get(url, params=params, verify=False)
     #    print(response)
@@ -753,9 +759,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
         metadata_gdf, huc8, how='inner', predicate='intersects', lsuffix='ahps', rsuffix='wbd'
     )
     joined_gdf = joined_gdf.drop(columns='index_wbd')
-
-    # Remove all Alaska HUCS (Not in NWM v2.0 domain)
-    joined_gdf = joined_gdf[~joined_gdf.states.str.contains('AK')]
 
     # Create a dictionary of huc [key] and nws_lid[value]
     dictionary = joined_gdf.groupby('HUC8')['identifiers_nws_lid'].apply(list).to_dict()
@@ -932,8 +935,18 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
     params = {}
     params['threshold'] = threshold
     url = f'{threshold_url}/{select_by}/{selector}'
-    response = requests.get(url, params=params, verify=False)
-    if response.ok:
+
+    # response = requests.get(url, params=params, verify=False)
+
+    # Call the API
+    session = requests.Session()
+    retry = Retry(connect=3, backoff_factor=0.5)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+
+    response = session.get(url, params=params, verify=False)
+
+    if response.status_code == 200:
         thresholds_json = response.json()
         # Get metadata
         thresholds_info = thresholds_json['value_set']
@@ -1157,11 +1170,19 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
     params['t_v_frame'] = 'NAVD88'  # Target vertical datum
     params['tar_vertical_unit'] = 'm'  # Target vertical height
 
+    # Suppress Insecure Request Warning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
     # Call the API
-    response = requests.get(datum_url, params=params, verify=False)
+    session = requests.Session()
+    retry = Retry(connect=3, backoff_factor=0.5)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+
+    response = session.get(datum_url, params=params, verify=False)
 
     # If successful get the navd adjustment
-    if response:
+    if response.status_code == 200:
         results = response.json()
         # Get adjustment in meters (NGVD29 to NAVD88)
         adjustment = results['t_z']

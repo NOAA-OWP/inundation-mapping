@@ -128,7 +128,7 @@ def update_rating_curve(
     elif source_tag == 'ras2fim_rating':
         calb_type = 'calb_coef_ras2fim'
     else:
-        log_text += "ERROR - unknown calibration data source type: " + str(source_tag) + '\n'
+        log_text += "WARNING - unknown calibration data source type: " + str(source_tag) + '\n'
 
     ## Read in the hydroTable.csv and check wether it has previously been updated
     # (rename default columns if needed)
@@ -202,7 +202,7 @@ def update_rating_curve(
     for index, row in df_nvalues.iterrows():
         if row.hydroid not in df_htable['HydroID'].values:
             print(
-                'ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
+                'WARNING: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
                 + str(huc)
                 + '  branch id: '
                 + str(branch_id)
@@ -210,7 +210,7 @@ def update_rating_curve(
                 + str(row.hydroid)
             )
             log_text += (
-                'ERROR: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
+                'WARNING: HydroID for calb point was not found in the hydrotable (check hydrotable) for HUC: '
                 + str(huc)
                 + '  branch id: '
                 + str(branch_id)
@@ -224,7 +224,7 @@ def update_rating_curve(
             df_htable_hydroid = df_htable[(df_htable.HydroID == row.hydroid) & (df_htable.stage > 0)]
             if df_htable_hydroid.empty:
                 print(
-                    'ERROR: df_htable_hydroid is empty but expected data: '
+                    'WARNING: df_htable_hydroid is empty but expected data: '
                     + str(huc)
                     + '  branch id: '
                     + str(branch_id)
@@ -232,7 +232,7 @@ def update_rating_curve(
                     + str(row.hydroid)
                 )
                 log_text += (
-                    'ERROR: df_htable_hydroid is empty but expected data: '
+                    'WARNING: df_htable_hydroid is empty but expected data: '
                     + str(huc)
                     + '  branch id: '
                     + str(branch_id)
@@ -254,6 +254,22 @@ def update_rating_curve(
             df_nvalues.loc[index, 'channel_n'] = find_src_stage.channel_n
             df_nvalues.loc[index, 'overbank_n'] = find_src_stage.overbank_n
             df_nvalues.loc[index, 'discharge_cms'] = find_src_stage.discharge_cms
+
+    if 'discharge_cms' not in df_nvalues:
+        print(
+            'WARNING: "discharge_cms" column does not exist in df_nvalues df: '
+            + str(huc)
+            + '  branch id: '
+            + str(branch_id)
+        )
+        log_text += (
+            'WARNING: "discharge_cms" column does not exist in df_nvalues df: '
+            + str(huc)
+            + '  branch id: '
+            + str(branch_id)
+            + '\n'
+        )
+        return log_text
 
     ## Calculate calibration coefficient
     df_nvalues = df_nvalues.rename(columns={'hydroid': 'HydroID'})  # rename the previous ManningN column
@@ -430,27 +446,59 @@ def update_rating_curve(
 
                 ## Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
                 if os.path.isfile(catchments_poly_path):
-                    input_catchments = gpd.read_file(catchments_poly_path)
-                    ## Create new "src_calibrated" column for viz query
-                    if (
-                        'src_calibrated' in input_catchments.columns
-                    ):  # check if this attribute already exists and drop if needed
-                        input_catchments = input_catchments.drop(
-                            ['src_calibrated', 'obs_source', 'calb_coef_final'], axis=1, errors='ignore'
+                    try:
+                        input_catchments = gpd.read_file(catchments_poly_path)
+                        ## Create new "src_calibrated" column for viz query
+                        if 'src_calibrated' in input_catchments.columns:
+                            input_catchments = input_catchments.drop(
+                                ['src_calibrated', 'obs_source', 'calb_coef_final'], axis=1, errors='ignore'
+                            )
+                        df_nmerge['src_calibrated'] = np.where(
+                            df_nmerge['calb_coef_final'].notnull(), 'True', 'False'
                         )
-                    df_nmerge['src_calibrated'] = np.where(
-                        df_nmerge['calb_coef_final'].notnull(), 'True', 'False'
-                    )
-                    output_catchments = input_catchments.merge(
-                        df_nmerge[['HydroID', 'src_calibrated', 'obs_source', 'calb_coef_final']],
-                        how='left',
-                        on='HydroID',
-                    )
-                    output_catchments['src_calibrated'].fillna('False', inplace=True)
-                    output_catchments.to_file(
-                        catchments_poly_path, driver="GPKG", index=False
-                    )  # overwrite the previous layer
-                    df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
+                        output_catchments = input_catchments.merge(
+                            df_nmerge[['HydroID', 'src_calibrated', 'obs_source', 'calb_coef_final']],
+                            how='left',
+                            on='HydroID',
+                        )
+                        output_catchments['src_calibrated'].fillna('False', inplace=True)
+
+                        try:
+                            output_catchments.to_file(
+                                catchments_poly_path, driver="GPKG", index=False, overwrite=True
+                            )  # overwrite the previous layer
+
+                        except Exception as e:
+                            error_message = (
+                                "ERROR occurred while writing to catchments gpkg "
+                                f"for huc: {huc} & branch id: {branch_id}"
+                            )
+                            print(error_message)
+                            log_text += f"{error_message}\n"
+                            log_text += f"Error details: {e}\n"
+
+                            # Delete the original GeoPackage file
+                            if os.path.exists(catchments_poly_path):
+                                os.remove(catchments_poly_path)
+                            try:
+                                # Attempt to write to the file again
+                                output_catchments.to_file(
+                                    catchments_poly_path, driver="GPKG", index=False, overwrite=True
+                                )
+                                log_text += 'Successful second attempt to write output_catchments gpkg' + '\n'
+                            except Exception as e:
+                                second_attempt_error_message = "ERROR: Failed to write to catchments gpkg file even after deleting the original"
+                                print(second_attempt_error_message)
+                                log_text += f"{second_attempt_error_message}\n"
+                                log_text += f"Second attempt error details: {e}\n"
+
+                    except Exception as e:
+                        print(f"Error reading GeoPackage file: {e}")
+                        log_text += f"Error reading GeoPackage file: {e}\n"
+                        output_catchments = None
+
+                df_nmerge = df_nmerge.drop(['src_calibrated'], axis=1, errors='ignore')
+
                 ## Optional ouputs:
                 #   1) merge_n_csv csv with all of the calculated n values
                 #   2) a catchments .gpkg with new joined attributes
@@ -468,6 +516,7 @@ def update_rating_curve(
                         )
                         output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
                         output_catchments.to_file(output_catchments_fileName, driver="GPKG", index=False)
+                        output_catchments = None
 
                 ## Merge the final ManningN dataframe to the original hydroTable
                 df_nmerge = df_nmerge.drop(

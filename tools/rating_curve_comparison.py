@@ -1070,7 +1070,7 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     Merges the output dataframe from aggregate_metrics() with the usgs gages GIS data
     '''
     # Load in the usgs_gages geopackage
-    usgs_gages = gpd.read_file(gages_gpkg_filepath)
+    usgs_gages = gpd.read_file(gages_gpkg_filepath, engine='fiona')
     # Merge the stats for all of the recurrance intervals/thresholds
     usgs_gages = usgs_gages.merge(agg_recurr_stats_table, on='location_id')
     # Load in the rating curves file

@@ -62,7 +62,7 @@ echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber $current_branch_id
 gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
     -A $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     -B $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
-    --calc="A/B" \
+    --calc="A*B" \
     --outfile="$tempCurrentBranchDataDir/flowdir_d8_burned_filled_flows_$current_branch_id.tif" \
     --NoDataValue=0
 
@@ -227,6 +227,7 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
     -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
 
+
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"
 python3 $srcDir/add_crosswalk.py \
@@ -248,6 +249,30 @@ python3 $srcDir/add_crosswalk.py \
     -e $min_catchment_area \
     -g $min_stream_length
 
+## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
+if [ "$healed_hand_hydrocondition" = true ]; then
+    echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
+    gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
+        -R $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -D $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+        -T $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+        --calc="R+(D-T)" --NoDataValue=$ndv \
+        --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
+fi
+
+## HEAL HAND BRIDGES ##
+if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
+    echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
+    python3 $srcDir/heal_bridges_osm.py \
+        -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -s $tempHucDataDir/osm_bridges_subset.gpkg \
+        -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg \
+        -b 10 \
+        -r $res
+else
+    echo -e $startDiv"No applicable bridge data for $hucNumber"
+fi
 
 ## EVALUATE CROSSWALK ##
 if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
