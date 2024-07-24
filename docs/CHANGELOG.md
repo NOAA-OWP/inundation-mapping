@@ -8,6 +8,44 @@ Removes warning when running `heal_bridges_osm.py` by not saving the empty DataF
 ### Changes
 
 - `src/heal_bridges_osm.py`
+
+## v4.5.3.1 - 2024-07-24 - [PR#1233](https://github.com/NOAA-OWP/inundation-mapping/pull/1233)
+
+In a PR [1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217), which is about to be merged, it updates a bunch of python packages. One is numpy. This has triggered a very large amount of on-screen output from a new numpy warning while running `synthesize_test_cases.py`.
+
+### Changes
+- `tools\overlapping_inundation.py`: As described
+
+ <br/><br/>
+ 
+
+## v4.5.3.0 - 2024-07-24 - [PR#1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217)
+
+This PR rolls up a bunch of other PR's and python packages requests including:
+- Issue [1208](https://github.com/NOAA-OWP/inundation-mapping/issues/1208)  Bump OpenJDK from 17.0.8 to 17.0.10 (via updating to JDK 21.0.3)
+- PR [1207](https://github.com/NOAA-OWP/inundation-mapping/pull/1207) - Dependabot bump certifi from 2023.7.22 to 2024.7.4
+- PR [1192](https://github.com/NOAA-OWP/inundation-mapping/pull/1192) - Dependabot Bump urllib3 from 1.26.18 to 1.26.19
+- Updates required from ongoing PR [1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) - Probabilistic Flood Inundation Mapping. These updates make it easier for that branch/task to continue forward and staying in sync with dev. This triggered a few other packages that needed to be updated.
+
+Other tasks included are:
+- Removing the now heavily obsolete `unit_test` system, including the package `pytest`. This included some changes to the `CONTRIBUTING.md` document.
+- Clean of a couple of packages no longer in use: `pluggy` and `iniconfig`
+- Removal of a deprecated file named `config/aws_s3_put_fim3_hydrovis_whitelist.lst`
+- Removed duration stamps around a few parts in `fim_post_processing.sh`
+- Fixes and updates to linting files. e.g. `pyproject.toml`. (line length was not working correctly)
+
+### Changes
+- `Dockerfile`, `Pipfile`, `Pipfile.lock`: as describe above for python package changes
+- `.gitignore`, `CONTRIBUTING.md`: File changes related to removing the `unit_test` system.
+- `fim_post_processing.sh`: noted above.
+- `pyproject.toml`: fixes and updates for linting
+
+### Removals
+- `unit_tests` folder and all related files under it. Appx 25 to 30 files removed.
+
+<br/><br/>
+
+
 ## v4.5.2.11 - 2024-07-19 - [PR#1222](https://github.com/NOAA-OWP/inundation-mapping/pull/1222)
 
 We are having problems with post processing overall duration taking a long time. This new system captures duration times for each module/section inside fim_post_processing.sh and records it to a file on the output directory. It records it as it progress and will also help us learn if fim_post_processing.sh stopped along the way.
