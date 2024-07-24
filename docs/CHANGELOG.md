@@ -3,14 +3,17 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.x.x.x - 2024-06-28 - [PR#1198](https://github.com/NOAA-OWP/inundation-mapping/pull/1198)
 
-This PR updates scripts that use the recurrence flow files. The new flow files (NWM V3) are in `/inputs/rating_curve/nwm_recur_flows/`.
-
 ### Changes
-
 - `src/bash_variables.env`: high water threshold and recurrence flows CSV files were updated into new NWM v3 flow files.
-- `src/src_adjust_ras2fim_rating.py`: 100 year recurrence was removed since it is not included in the new AEP.
-- `src/src_adjust_usgs_rating_trace.py`: 100 year recurrence was removed since it is not included in the new AEP.
-- `tools/rating_curve_comparison.py`: 100 year recurrence was removed since it is not included in the new AEP. Also, the name of recurrence flow CSV file was updated.
+-  `src/src_adjust_ras2fim_rating.py`: 100 year recurrence was removed since it is not included in the new AEP.
+-  `src/src_adjust_usgs_rating_trace.py`: 100 year recurrence was removed since it is not included in the new AEP.
+-  `tools/rating_curve_comparison.py`: 100 year recurrence was removed since it is not included in the new AEP. Also, the name of recurrence flow CSV file was updated.
+-  `tools/composite_inundation.py`
+-  `tools/inundate_nation.py`
+
+<br/><br/>
+
+
 ## v4.5.2.11 - 2024-07-19 - [PR#1222](https://github.com/NOAA-OWP/inundation-mapping/pull/1222)
 
 We are having problems with post processing overall duration taking a long time. This new system captures duration times for each module/section inside fim_post_processing.sh and records it to a file on the output directory. It records it as it progress and will also help us learn if fim_post_processing.sh stopped along the way.
