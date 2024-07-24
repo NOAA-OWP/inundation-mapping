@@ -396,7 +396,7 @@ def merge_data(
     :param rst_dims: dimensions of overlapping rasters
     """
 
-    nan_tile = np.array([np.nan]).astype(dtype)[0]
+    nan_tile = np.array([np.nan])
     window_data = np.tile(float(nan_tile), [int(final_window.height), int(final_window.width)])
 
     for data, bnds, idx in zip(rst_data, window_bnds, datasets):
