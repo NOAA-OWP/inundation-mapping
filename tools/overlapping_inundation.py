@@ -141,10 +141,10 @@ class OverlapWindowMerge:
         # Get window sizes (both normal and edge windows)
         window_bounds1 = np.flip(
             np.array(np.meshgrid(window_width1, window_height1)).T.reshape(-1, 2), axis=1
-        ).astype(np.int)
+        ).astype(np.int64)
         window_bounds2 = np.flip(
             np.array(np.meshgrid(window_width2, window_height2)).T.reshape(-1, 2), axis=1
-        ).astype(np.int)
+        ).astype(np.int64)
 
         window_idx = np.array(np.unravel_index(np.arange(y_res * x_res), (y_res, x_res), order="F"))
 
@@ -224,7 +224,7 @@ class OverlapWindowMerge:
         window = path_points[win_idx]
         window_height, window_width = np.array(
             [np.abs(bbox[win_idx][2] - bbox[win_idx][0]), np.abs(bbox[win_idx][3] - bbox[win_idx][1])]
-        ).astype(np.int)
+        ).astype(np.int64)
 
         bnds = []
         data = []
