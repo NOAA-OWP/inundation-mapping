@@ -62,7 +62,7 @@ echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber $current_branch_id
 gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
     -A $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     -B $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
-    --calc="A/B" \
+    --calc="A*B" \
     --outfile="$tempCurrentBranchDataDir/flowdir_d8_burned_filled_flows_$current_branch_id.tif" \
     --NoDataValue=0
 
