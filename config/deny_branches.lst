@@ -58,7 +58,7 @@ slopes_d8_dem_meters_{}.tif
 slopes_d8_dem_meters_masked_{}.tif
 sn_catchments_reaches_{}.tif
 src_{}.json
-src_base_{}.csv
+# src_base_{}.csv
 # src_full_crosswalked_{}.csv
 stage_{}.txt
 streamOrder_{}.tif
