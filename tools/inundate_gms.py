@@ -248,6 +248,7 @@ def __inundate_gms_generator(
             "inundation_raster": inundation_branch_raster,
             "inundation_polygon": inundation_branch_polygon,
             "depths": depths_branch_raster,
+            "src_table": depths_branch_raster.replace('.tif', '.csv'),
             "out_raster_profile": None,
             "out_vector_profile": None,
             "quiet": not verbose,

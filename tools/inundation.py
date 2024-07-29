@@ -717,18 +717,23 @@ def create_src_subset_csv(hydro_table, catchmentStagesDict, src_table):
     src_df = src_df.reset_index()
     src_df.columns = ['HydroID', 'stage_inund']
     htable_req_cols = ['HUC', 'feature_id', 'HydroID', 'stage', 'discharge_cms', 'LakeID']
-    df_htable = pd.read_csv(
-        hydro_table,
-        dtype={
-            'HydroID': int,
-            'HUC': object,
-            'branch_id': int,
-            'last_updated': object,
-            'submitter': object,
-            'obs_source': object,
-        },
-        usecols=htable_req_cols,
-    )
+    if isinstance(hydro_table, str):
+        df_htable = pd.read_csv(
+            hydro_table,
+            dtype={
+                'HydroID': int,
+                'HUC': object,
+                'branch_id': int,
+                'last_updated': object,
+                'submitter': object,
+                'obs_source': object,
+            },
+            usecols=htable_req_cols,
+        )
+    else:
+        df_htable = hydro_table.reset_index()
+        df_htable['HydroID'] = df_htable['HydroID'].astype('int64')
+
     df_htable = df_htable.merge(src_df, how='left', on='HydroID')
     df_htable['find_match'] = (df_htable['stage'] - df_htable['stage_inund']).abs()
     df_htable = df_htable.loc[df_htable.groupby('HydroID')['find_match'].idxmin()].reset_index(drop=True)
