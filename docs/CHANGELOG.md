@@ -2,6 +2,170 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.5.3.1 - 2024-07-24 - [PR#1233](https://github.com/NOAA-OWP/inundation-mapping/pull/1233)
+
+In a PR [1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217), which is about to be merged, it updates a bunch of python packages. One is numpy. This has triggered a very large amount of on-screen output from a new numpy warning while running `synthesize_test_cases.py`.
+
+### Changes
+- `tools\overlapping_inundation.py`: As described
+
+ <br/><br/>
+ 
+
+## v4.5.3.0 - 2024-07-24 - [PR#1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217)
+
+This PR rolls up a bunch of other PR's and python packages requests including:
+- Issue [1208](https://github.com/NOAA-OWP/inundation-mapping/issues/1208)  Bump OpenJDK from 17.0.8 to 17.0.10 (via updating to JDK 21.0.3)
+- PR [1207](https://github.com/NOAA-OWP/inundation-mapping/pull/1207) - Dependabot bump certifi from 2023.7.22 to 2024.7.4
+- PR [1192](https://github.com/NOAA-OWP/inundation-mapping/pull/1192) - Dependabot Bump urllib3 from 1.26.18 to 1.26.19
+- Updates required from ongoing PR [1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) - Probabilistic Flood Inundation Mapping. These updates make it easier for that branch/task to continue forward and staying in sync with dev. This triggered a few other packages that needed to be updated.
+
+Other tasks included are:
+- Removing the now heavily obsolete `unit_test` system, including the package `pytest`. This included some changes to the `CONTRIBUTING.md` document.
+- Clean of a couple of packages no longer in use: `pluggy` and `iniconfig`
+- Removal of a deprecated file named `config/aws_s3_put_fim3_hydrovis_whitelist.lst`
+- Removed duration stamps around a few parts in `fim_post_processing.sh`
+- Fixes and updates to linting files. e.g. `pyproject.toml`. (line length was not working correctly)
+
+### Changes
+- `Dockerfile`, `Pipfile`, `Pipfile.lock`: as describe above for python package changes
+- `.gitignore`, `CONTRIBUTING.md`: File changes related to removing the `unit_test` system.
+- `fim_post_processing.sh`: noted above.
+- `pyproject.toml`: fixes and updates for linting
+
+### Removals
+- `unit_tests` folder and all related files under it. Appx 25 to 30 files removed.
+
+<br/><br/>
+
+
+## v4.5.2.11 - 2024-07-19 - [PR#1222](https://github.com/NOAA-OWP/inundation-mapping/pull/1222)
+
+We are having problems with post processing overall duration taking a long time. This new system captures duration times for each module/section inside fim_post_processing.sh and records it to a file on the output directory. It records it as it progress and will also help us learn if fim_post_processing.sh stopped along the way.
+
+Note: When used in code, we call `Set_log_file_path` shell variable with a file name and path (no validation done at this time).  The each time a person wants to print to screen and console, use the `l_echo` command instead of the native `echo` command. If the log file has not been set, the output will continue to go to screen, just not the log file.
+
+### Changes
+- `fim_pipeline.sh`: A couple of minor text output changes.
+- `fim_post_processing.sh`:  As described above.
+- `src\bash_functions.env`:  New functions and adjustments to support the new log system.
+
+<br/><br/>
+
+
+## v4.5.2.10 - 2024-07-19 - [PR#1224](https://github.com/NOAA-OWP/inundation-mapping/pull/1224)
+
+Addresses warnings to reduce output messages.
+
+### Changes
+
+- `src/'
+    - `adjust_thalweg_lateral.py`: fixes number type
+    - `src/delineate_hydros_and_produce_HAND.sh`: removes division by zero warning
+    - `getRasterInfoNative.py`: adds `gdal.UseExceptions()`
+
+<br/><br/>
+
+
+## v4.5.2.9 - 2024-07-19 - [PR#1216](https://github.com/NOAA-OWP/inundation-mapping/pull/1216)
+
+Adds `NO_VALID_CROSSWALKS` to `FIM_exit_codes` which is used when the crosswalk table or output_catchments DataFrame is empty. Removes branches that fail with `NO_VALID_CROSSWALKS`.
+
+### Changes
+    - `add_crosswalk.py`: Added `NO_VALID_CROSSWALKS` as exit status when crosswalk or output_catchments is empty
+    - `process_branch.sh`: Removed branches that fail with `NO_VALID_CROSSWALKS`
+    - `utils/fim_enums.py`: Added `NO_VALID_CROSSWALKS` to `FIM_exit_codes`
+
+<br/><br/>
+
+
+## v4.5.2.8 - 2024-07-19 - [PR#1219](https://github.com/NOAA-OWP/inundation-mapping/pull/1219)
+
+Changes non-fatal `ERROR` messages to `WARNINGS` to avoid triggering being logged as errors.
+
+### Changes
+
+- `src/`
+    - `bathymetric_adjustment.py`: Changes `WARNING` to `ERROR` in Exception
+    - `src_roughness_optimization.py`: Changes `ERROR` messages to `WARNING`
+
+<br/><br/>
+
+## v4.5.2.7 - 2024-07-19 - [PR#1220](https://github.com/NOAA-OWP/inundation-mapping/pull/1220)
+
+With this PR we can run post_processing.sh multiple times on a processed batch without any concerns that it may change the hydroTable or src_full_crosswalked files.
+
+### Additions
+
+- `src/update_htable_src.py`
+
+### Changes
+
+-  `config/deny_branch_zero.lst`
+-  `config/deny_branches.lst`
+-  `fim_post_processing.sh`
+
+<br/><br/>
+
+## v4.5.2.6 - 2024-07-12 - [PR#1184](https://github.com/NOAA-OWP/inundation-mapping/pull/1184)
+
+This PR adds a new script to determine which bridges are inundated by a specific flow. It will assign a risk status to each bridge point based on a specific threshold.
+
+### Additions
+
+- `tools/bridge_inundation.py`
+
+<br/><br/>
+
+## v4.5.2.5 - 2024-07-08 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
+
+Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on NWM streams within a threshold of 100 meters. DEM-derived streams that do not locate any NWM streams within 100 meters of their midpoints are removed from the FIM hydrofabric and their catchments are not inundated.
+
+### Changes
+
+- `src/add_crosswalk.py`: Locates nearest NWM stream to midpoint of DEM-derived reaches if within 100 meters. Also fixes a couple of minor bugs. 
+
+<br/><br/>
+
+## v4.5.2.4 - 2024-07-08 - [PR#1204](https://github.com/NOAA-OWP/inundation-mapping/pull/1204)
+
+Bug fix for extending outlets in order to ensure proper flow direction in depression filling algorithm. This PR adds a distance criteria that in order for the end of an outlet stream to be snapped to the wbd_buffered boundary, the end point must be less than 100 meters from the WBD boundary.
+
+Also adds missing argparse arguments so that the script can be run from the command line.
+
+### Changes
+
+- `data`
+     - `wbd`
+          - `clip_vectors_to_wbd.py`: Adds a 100 meter distance threshold to WBD to snap outlets to buffered WBD.
+          - `generate_pre_clip_fim_huc8.py`: Upgrading logging system.
+- `src`
+     - `bash_variables.env`: Updated pre-clip input path to new pre-clip files.
+
+<br/><br/>
+
+## v4.5.2.3 - 2024-06-14 - [PR#1169](https://github.com/NOAA-OWP/inundation-mapping/pull/1169)
+
+This tool scans all log directory looking for the word "error" (not case-sensitive). This is primary added to help find errors in the post processing logs such as src_optimization folder (and others).
+
+### Changes
+
+- `fim_post_processing.sh`: as described
+- `src\mitigate_branch_outlet_backpool.py`: Has the word error in text which fills up the error scan logs.
+
+<br/><br/>
+
+## v4.5.2.2 - 2024-06-14 - [PR#1183](https://github.com/NOAA-OWP/inundation-mapping/pull/1183)
+
+Upgrades whitebox from v2.3.1 to 2.3.4. Whitebox was upgraded by `pip install -U whitebox` and then `pipenv lock` to update the `Pipfile`.
+
+### Changes
+
+- `Dockerfile`: Removed whitebox hack
+- `Pipfile` and `Pipfile.lock`: Upgraded whitebox to v2.3.4.
+
+<br/><br/>
+
 ## v4.5.2.1 - 2024-05-21 - [PR#1172](https://github.com/NOAA-OWP/inundation-mapping/pull/1172)
 
 Removes loading of `apache-arrow` repository from the Dockerfile where it was causing a GPG key error during `docker build`.
@@ -150,6 +314,10 @@ Some NWM streams, particularly in coastal areas, fail to reach the edge of the D
 ### Changes
 
 - `data/wbd/clip_vectors_to_wbd.py`: Clips `landsea` ocean mask from the buffered WBD and adds a function to extend outlet streams to the buffered WBD
+
+<br/><br/>
+
+
 - `data/wbd/clip_vectors_to_wbd.py`: Updated multi-processing and added more logging.
 
 <br/><br/>
@@ -290,6 +458,7 @@ The "black" packages is also be upgraded from 23.7.0 to 24.3.
      - 19 files have had minor formatting changes related to the upgrade in the "black" package.
 
 <br/><br/>
+
 
 ## v4.4.13.1 - 2024-03-11 - [PR#1086](https://github.com/NOAA-OWP/inundation-mapping/pull/1086)
 
