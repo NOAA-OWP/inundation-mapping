@@ -51,9 +51,9 @@ cp $huc_input_DEM_domain $tempHucDataDir
 cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
 cp $inputsDir/usgs_gages/usgs_gages.gpkg $tempHucDataDir
 # Check if the $hucNumber directory exists in the ras2fim $inputsDir
-if [ -d "$inputsDir/rating_curve/ras2fim_exports/v2_0/$hucNumber" ]; then
-    ras_rating_gpkg="$ras2fim_input_dir/$ras_rating_curve_gpkg_filename"
-    ras_rating_csv="$ras2fim_input_dir/$ras_rating_curve_csv_filename"
+if [ -d "$ras2fim_input_dir/$hucNumber" ]; then
+    ras_rating_gpkg="$ras2fim_input_dir/$hucNumber/$ras_rating_curve_gpkg_filename"
+    ras_rating_csv="$ras2fim_input_dir/$hucNumber/$ras_rating_curve_csv_filename"
     if [ -f "$ras_rating_gpkg" ]; then
         cp "$ras_rating_gpkg" $tempHucDataDir
         echo "Copied $ras_rating_gpkg to $tempHucDataDir"
