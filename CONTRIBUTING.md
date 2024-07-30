@@ -25,8 +25,7 @@ guidance below.
 ## Changing the code-base
 
 Generally speaking, you should fork this repository, make changes in your
-own fork, and then submit a pull request. All new code should have associated
-unit tests (added to `/unit_tests`) that validate implemented features and the presence or lack of defects.
+own fork, and then submit a pull request. 
 Additionally, the code should follow any stylistic and architectural guidelines
 prescribed by the project. In the absence of such guidelines, mimic the styles
 and patterns in the existing code-base.
@@ -45,7 +44,13 @@ If you would like to contribute, please follow these steps:
     ```
     git checkout -b <dev-your-bugfix-or-feature>
     ```
-4. Pre-commit installation:
+
+4. Build the Docker container (if not already done in the [README.md](./README.md) page.):
+    ```
+    Docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>
+    ```
+
+5. Pre-commit installation:
 
    [pre-commit](https://pre-commit.com/) is used to run auto-formatting and enforce styling rules.
    It is a critical part of development and is enforced at the 'git commit' step. Key tools are included **inside the docker container** if you want to execute the correctly configured linting and formatting command line executables there. If you intend to execute `flake8`, `black` or `isort` from the command line **outside of the docker container**, additional configuration and installation is required, which will not be described here.
@@ -75,7 +80,7 @@ If you would like to contribute, please follow these steps:
    It should respond with the phrase *pre-commit 3.6.0* (version may not be exact).
 
 
-5. pre-commit configuration:
+6. pre-commit configuration:
    
    Now, you need to configure your local clone of the repo to honor the pre-commit hooks.
    The `pre-commit` package is used to pick up the pre-commit hooks which verify your staged changes adhere to the project's style and format requirements (configuration defined in [pyproject.toml](/pyproject.toml)).
@@ -85,37 +90,41 @@ If you would like to contribute, please follow these steps:
     $ pre-commit install
     ```
     
-6. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables **within the Docker container***, however, it is recommended to run them through `pre-commit` **outside of the container**, as it picks up the correct configuration.
+7. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables **within the Docker container***, however, it is recommended to run them through `pre-commit` **outside of the container**, as it picks up the correct configuration.
 
    ```
+   There are multiple ways to run pre-commit tests. Here are three:
+   
    # Check only the staged changes
    pre-commit run
 
    # Check all files in the repo
    pre-commit run -a
 
-   # Run only the flake8, isort, or black.
-   pre-commit run -a flake8
+   # Run only the isort, black, flake8 (in order).
    pre-commit run -a isort
-   pre-commit run -a black
+   pre-commit run -a black  (If it fails the first time, run it again and now apply a fix if required)
+   pre-commit run -a flake8
    ```
-7. Build the Docker container:
-    ```
-    Docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>
-    ```
- 
-8.  [Within the container](README.md#startrun-the-docker-container), ensure sure unit tests pass ([instructions here](/unit_tests/README.md)).
-    ```
-    pytest unit_tests/
-    ```
+    **Note: The pre-commit system can be a bit tricky. If you have trouble with pre-commit steps above, you have another option.** Some environments may require add the word **sudo** in front commands .
+   ```
+   # Open up a docker container
+   cd /foss_fim
+   isort .
+   black .
+   flake8 .
 
-9. Outside of the Docker container, commit your changes:
+   # optionally close the container
+   # Back on your terminal console (outside the container), use the typical git add, git commit, git push
+
+
+8. Outside of the Docker container, commit your changes:
     ```
     git commit -m "<descriptive sentence or two of changes>"
     ```
     This will invoke pre-commit hooks mentioned in step 6 that will lint & format the code (some others as well). In many cases non-compliant code will be rectified automatically, but in some cases manual changes will be necessary. Make sure all of these checks pass. If not, make necessary changes (`git add <...>`), and re-issue `git commit -m "<...>"`.
    
-10. Push to your forked branch:
+9.  Push to your forked branch:
     ```
     git push -u origin
     ```

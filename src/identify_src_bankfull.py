@@ -334,7 +334,7 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     ]
 
     df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
-    huc_list = os.listdir(fim_dir)
+    huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
     huc_list.sort()  # sort huc_list for helping track progress in future print statments
     huc_pass_list = []
     for huc in huc_list:
