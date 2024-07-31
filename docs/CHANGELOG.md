@@ -2,6 +2,20 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.5.x.x - 2024-07-31 - [PR#1238](https://github.com/NOAA-OWP/inundation-mapping/pull/1238)
+
+Prior to this fix, fim_post_processing.sh took just under 4 hours to reset permissions on all files and folder under the entire run. On closer inspection, it was updating permissions for all HUC folders where were already correct. A few other folders needed to have permission updates added. This will speed that up significantly.
+
+Also, use this opportunity to added a new note to hash_compare.py and fix an annoying duration time showing milliseconds.
+
+### Changes
+- `fim_post_processing.sh`:  permissions reset fix
+- `src\src_adjust_ras2fim_rating.py`: minor duration display msg change.
+- `tools\hash_compare.py`: Added note
+
+ <br/><br/>
+
+
 ## v4.5.3.1 - 2024-07-24 - [PR#1233](https://github.com/NOAA-OWP/inundation-mapping/pull/1233)
 
 In a PR [1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217), which is about to be merged, it updates a bunch of python packages. One is numpy. This has triggered a very large amount of on-screen output from a new numpy warning while running `synthesize_test_cases.py`.
