@@ -48,7 +48,7 @@ Outputs
 
 
 def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_filepath, log_dir):
-    start_time = dt.datetime.now()
+    start_time = dt.datetime.now(dt.timezone.utc)
     print('Reading RAS2FIM rating curves from csv...')
     log_text = 'Processing database for RAS2FIM flow/WSE at NWM flow recur intervals...\n'
     col_filter = ["fid_xs", "flow", "wse"]
@@ -57,7 +57,8 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
     )  # , nrows=30000)
     ras_rc_df.rename(columns={'fid_xs': 'location_id'}, inplace=True)
     # ras_rc_df['location_id'] = ras_rc_df['feature_id'].astype(object)
-    print('Duration (read ras_rc_csv): {}'.format(dt.datetime.now() - start_time))
+    run_time = dt.datetime.now(dt.timezone.utc) - start_time
+    print(f"Duration (read ras_rc_csv): {str(run_time).split('.')[0]}")
 
     # convert WSE navd88 values to meters
     ras_rc_df.rename(

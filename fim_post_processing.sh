@@ -268,7 +268,9 @@ date -u
 
 l_echo $startDiv"Resetting Permissions"
 Tstart
-    find $outputDestDir -type d -exec chmod -R 777 {} +
+    find $outputDestDir/logs/ -type d -exec chmod -R 777 {} +
+    find $outputDestDir/branch_errors/ -type d -exec chmod -R 777 {} +
+    find $outputDestDir/unit_errors/ -type d -exec chmod -R 777 {} +
     find $outputDestDir -type f -exec chmod 777 {} +  # just root level files
 Tcount
 
