@@ -9,10 +9,14 @@ Prior to this fix, fim_post_processing.sh took just under 4 hours to reset permi
 Also, use this opportunity to added a new note to hash_compare.py and fix an annoying duration time showing milliseconds.
 
 ### Changes
-- `fim_post_processing.sh`:  permissions reset fix
-- `src\src_adjust_ras2fim_rating.py`: minor duration display msg change.
+- `fim_pipeline.sh`: fix duration msgs.
+- `fim_post_processing.sh`:  permissions reset fix, a bit of output cleanup and fix duration msgs.
+- `src`
+    - `bash_functions.env`: update the Calc duration to allow for a msg prefix to be added to the duration calcs. Also adjusted the duration message to show hours as well, previously only min and seconds.
+    - `run_by_branch.sh`: fix duration msgs.
+    - `run_unit_wb.sh`: fix duration msgs.
+    - `src\src_adjust_ras2fim_rating.py`: minor duration display msg change.
 - `tools\hash_compare.py`: Added note
-
  <br/><br/>
 
 
