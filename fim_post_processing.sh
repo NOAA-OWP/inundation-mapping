@@ -92,6 +92,7 @@ l_echo ""
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 l_echo "---- Start of fim_post_processing"
 l_echo "---- Started: `date -u`"
+echo ""
 T_total_start
 post_proc_start_time=`date +%s`
 
@@ -134,10 +135,10 @@ if [ "$COUNTER" -gt 1 ]; then
     # Execute the Python file
     l_echo "Updating hydroTable & scr_full_crosswalked for branches"
     python3 $srcDir/update_htable_src.py -d $outputDestDir
+    Tcount
 else
     l_echo "Execution count is $COUNTER, not executing the update_htable_src.py file."
 fi
-Tcount
 
 
 ## AGGREGATE BRANCH LISTS INTO ONE ##
@@ -207,7 +208,6 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
         -nwm_recur $nwm_recur_file \
         -j $jobLimit
     Tcount
-    date -u
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ RAS2FIM CROSS SECTION RATING CURVES ##
@@ -221,7 +221,6 @@ if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ 
         -nwm_recur $nwm_recur_file \
         -j $jobLimit
     Tcount
-    date -u
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINTS (.parquet files) ##
@@ -230,11 +229,11 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
     l_echo $startDiv"Performing SRC adjustments using benchmark point .parquet files"
     python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputDestDir -j $jobLimit
     Tcount
-    date -u
 fi
 
 ## AGGREGATE BRANCH TABLES ##
 l_echo $startDiv"Aggregating branch hydrotables"
+
 Tstart
 python3 $srcDir/aggregate_by_huc.py \
     -fim $outputDestDir \
@@ -243,7 +242,7 @@ python3 $srcDir/aggregate_by_huc.py \
     -bridge \
     -j $jobLimit
 Tcount
-date -u
+
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
@@ -253,7 +252,6 @@ if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
         -fim_dir $outputDestDir \
         -calb_file $man_calb_file
     Tcount
-    date -u
 fi
 
 
@@ -263,7 +261,6 @@ python3 $toolsDir/combine_crosswalk_tables.py \
     -d $outputDestDir \
     -o $outputDestDir/crosswalk_table.csv
 Tcount
-date -u
 
 
 l_echo $startDiv"Resetting Permissions"
@@ -292,5 +289,5 @@ echo
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 l_echo "---- End of fim_post_processing"
 l_echo "---- Ended: `date -u`"
-Calc_Duration $post_proc_start_time
+Calc_Duration "Post Processing Duration:" $post_proc_start_time
 echo

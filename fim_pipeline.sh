@@ -115,7 +115,7 @@ fi
 echo
 echo "---- Unit (HUC) processing is complete"
 date -u
-Calc_Duration $pipeline_start_time
+Calc_Duration "Duration : " $pipeline_start_time
 echo "---------------------------------------------------"
 
 ## POST PROCESSING
@@ -130,8 +130,7 @@ echo
 
 echo "======================== End of fim_pipeline for $runName =========="
 date -u
-echo "Total Duration is ..."
-Calc_Duration $pipeline_start_time
+Calc_Duration "Total Duration is ... " $pipeline_start_time
 echo
 
 # Exit the script

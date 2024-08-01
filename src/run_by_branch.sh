@@ -128,5 +128,5 @@ fi
 
 echo -e $startDiv"End Branch Processing $hucNumber $current_branch_id ..."
 date -u
-Calc_Duration $branch_start_time
+Calc_Duration "Duration : " $branch_start_time
 echo
