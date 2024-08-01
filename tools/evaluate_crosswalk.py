@@ -7,16 +7,16 @@ import numpy as np
 import pandas as pd
 
 
-gpd.options.io_engine = "pyogrio"
+# gpd.options.io_engine = "pyogrio"
 
 
 def evaluate_crosswalk(
     input_flows_fileName: str,
     input_nwmflows_fileName: str,
     input_nwm_headwaters_fileName: str,
-    output_table_fileName: str,
     huc: str,
     branch: str,
+    output_table_fileName: str = None,
 ):
     """
     Tool to check the accuracy of crosswalked attributes using two methods: counting the number of intersections between two stream representations and network, which checks the upstream and downstream connectivity of each stream segment.
@@ -71,7 +71,8 @@ def evaluate_crosswalk(
         }
     )
 
-    results.to_csv(output_table_fileName, index=False)
+    if output_table_fileName:
+        results.to_csv(output_table_fileName, index=False)
 
     return results
 
@@ -98,12 +99,15 @@ def _evaluate_crosswalk_intersections(input_flows_fileName: str, input_nwmflows_
     flows = gpd.read_file(input_flows_fileName)
     nwm_streams = gpd.read_file(input_nwmflows_fileName)
 
+    flows['feature_id'] = flows['feature_id'].astype(int)
+
+
     # Compute the number of intersections between the NWM and DEM-derived flowlines
     streams = nwm_streams
-    xwalks = []
+    xwalks = pd.DataFrame()
     intersects = flows.sjoin(streams)
 
-    for idx in intersects.index:
+    for idx in intersects.index.unique():
         flows_idx = intersects.loc[intersects.index == idx, 'HydroID'].unique()
 
         if isinstance(intersects.loc[idx, 'ID'], np.int64):
@@ -112,6 +116,8 @@ def _evaluate_crosswalk_intersections(input_flows_fileName: str, input_nwmflows_
             streams_idxs = intersects.loc[idx, 'ID'].unique()
 
         for flows_id in flows_idx:
+            feature_id = int(flows.loc[flows['HydroID'] == flows_id, 'feature_id'].iloc[0])
+
             for streams_idx in streams_idxs:
                 intersect = gpd.overlay(
                     flows[flows['HydroID'] == flows_id],
@@ -121,19 +127,24 @@ def _evaluate_crosswalk_intersections(input_flows_fileName: str, input_nwmflows_
 
                 if len(intersect) == 0:
                     intersect_points = 0
-                    feature_id = flows.loc[flows['HydroID'] == flows_id, 'feature_id']
                 elif intersect.geometry[0].geom_type == 'Point':
                     intersect_points = 1
-                    feature_id = flows.loc[flows['HydroID'] == flows_id, 'feature_id']
                 else:
                     intersect_points = len(intersect.geometry[0].geoms)
-                    feature_id = int(flows.loc[flows['HydroID'] == flows_id, 'feature_id'].iloc[0])
 
-                xwalks.append([flows_id, feature_id, streams_idx, intersect_points])
+                xwalks = pd.concat([xwalks, pd.DataFrame(data={'HydroID': flows_id, 'feature_id': feature_id, 'ID': streams_idx, 'intersect_points': intersect_points}, index=[0])])
 
     # Get the maximum number of intersections for each flowline
-    xwalks = pd.DataFrame(xwalks, columns=['HydroID', 'feature_id', 'ID', 'intersect_points'])
-    xwalks['feature_id'] = xwalks['feature_id'].astype(int)
+    if xwalks.empty:
+        return
+
+    xwalks = xwalks.reset_index(drop=True)
+    xwalks = xwalks[['HydroID', 'feature_id', 'ID', 'intersect_points']]
+
+    if len(xwalks) == 1:
+        xwalks['feature_id'] = int(xwalks['feature_id'].iloc[0])
+    else:
+        xwalks['feature_id'] = xwalks['feature_id'].astype(int)
 
     xwalks['match'] = xwalks['feature_id'] == xwalks['ID']
 
@@ -284,7 +295,7 @@ if __name__ == '__main__':
         '-d', '--input-nwm-headwaters-fileName', help='Subset NWM headwaters', type=str, required=True
     )
     parser.add_argument(
-        '-c', '--output-table-fileName', help='Output table filename', type=str, required=True
+        '-c', '--output-table-fileName', help='Output table filename', type=str, required=False, default=None
     )
     parser.add_argument('-u', '--huc', help='HUC ID', type=str, required=True)
     parser.add_argument('-z', '--branch', help='Branch ID', type=str, required=True)
