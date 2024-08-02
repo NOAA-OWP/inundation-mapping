@@ -20,6 +20,63 @@ Also, use this opportunity to added a new note to hash_compare.py and fix an ann
  <br/><br/>
 
 
+## v4.5.4.3 - 2024-08-02 - [PR#1136](https://github.com/NOAA-OWP/inundation-mapping/pull/1136)
+
+Levee-protected areas are associated with levelpaths based on a 1000 m buffer on each side of the levee line. However, not all levees are designed to protect against all associated levelpaths, especially where the levelpath flows through the levee-protected area. Levee-protected areas are unmasked by removing levelpaths from association that don't intersect levees but instead flow around them which allows inundation by these branches.
+
+### Changes
+
+- `src/associate_levelpaths_with_levees.py`: Finds levelpaths that don't intersect levees and removes them from their association with their levee-protected area.
+
+<br/><br/>
+
+
+## v4.5.4.2 - 2024-08-02 - [PR#1125](https://github.com/NOAA-OWP/inundation-mapping/pull/1125)
+
+This PR focuses on updating the preprocess_bathymetry.py for 3 issues: 1) the capability of preprocessing SurveyJobs that have negative depth values, 2) changing the SurveyDateStamp format, and 3) the capability of including multiple SurveyJobs for one NWM feature-id if needed.
+
+### Changes
+`data/bathymetry/preprocess_bathymetry.py`: Addressing 3 issues including, the capability of preprocessing SurveyJobs that have negative depth values, changing the SurveyDateStamp format, and the capability of including multiple SurveyJobs for one NWM feature-id.
+
+
+<br/><br/>
+
+## v4.5.4.1 - 2024-08-02 - [PR#1185](https://github.com/NOAA-OWP/inundation-mapping/pull/1185)
+
+This PR brings back the `preprocess_ahps_nws.py` code to FIM4 and generates new AHPS benchmark datasets for sites SXRA2 and SKLA2 in Alaska.  The new AHPS benchmark datasets are available on dev1 here: "/dev_fim_share/foss_fim/outputs/ali_ahps_alaska/AHPS_Results_Alaska/19020302/"
+
+
+To process a new station, follow these steps:
+
+1. Add the name of the new site (s) to the`/data/inputs/ahps_sites/evaluated_ahps_sites.csv` file. 
+2. Collect/Download the grid depth dataset, typically available as ESRI gdb.
+3. Use arcpy (or ArcGIS pro ) to convert the grid depths (in ESRI gdb) into TIFF files
+    - Make sure the TIFF files have crs
+    - Store all the TIFF files in a directory called "depth_grid," which should be a sub-folder inside a folder named after the gage code (must be a 5-character code)
+4. Run the script as described below. **Note that sites in CONUS and Alaska cannot be mixed in a single run. Separate runs should be done for Alaska sites and CONUS sites.**
+
+Note that for the "SKLA2" site, the downloaded ESRI-GDB grid files had a datum issue. This issue was manually corrected during the conversion of GDB files into TIFF files.
+
+### Additions
+- `data/nws/preprocess_ahps_nws.py`  ... retrieved from previous versions of FIM and updated for shapely v2
+
+### Changes
+- `tools/tools_shared_functions.py`  ... updated for shapely v2
+
+<br/><br/>
+
+## v4.5.4.0 - 2024-08-02 - [PR#1198](https://github.com/NOAA-OWP/inundation-mapping/pull/1198)
+
+### Changes
+- `src/bash_variables.env`: high water threshold and recurrence flows CSV files were updated into new NWM v3 flow files. Also, a new Manning numbers file created from the new NWM v3 dataset was used.
+-  `src/src_adjust_ras2fim_rating.py`: 100 year recurrence was removed since it is not included in the new AEP.
+-  `src/src_adjust_usgs_rating_trace.py`: 100 year recurrence was removed since it is not included in the new AEP.
+-  `tools/rating_curve_comparison.py`: 100 year recurrence was removed since it is not included in the new AEP. Also, the name of recurrence flow CSV file was updated.
+-  `tools/composite_inundation.py`
+-  `tools/inundate_nation.py`
+
+<br/><br/>
+
 ## v4.5.3.1 - 2024-07-24 - [PR#1233](https://github.com/NOAA-OWP/inundation-mapping/pull/1233)
 
 In a PR [1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217), which is about to be merged, it updates a bunch of python packages. One is numpy. This has triggered a very large amount of on-screen output from a new numpy warning while running `synthesize_test_cases.py`.

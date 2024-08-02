@@ -90,7 +90,8 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
 
     # read in the NWM recurr csv file
     nwm_recur_df = pd.read_csv(nwm_recurr_filepath, dtype={'feature_id': int})
-    nwm_recur_df = nwm_recur_df.drop(columns=["Unnamed: 0"])
+    if "Unnamed: 0" in nwm_recur_df.columns:
+        nwm_recur_df = nwm_recur_df.drop(columns=["Unnamed: 0"])
     nwm_recur_df.rename(
         columns={
             '2_0_year_recurrence_flow_17C': '2_0_year',
@@ -98,21 +99,18 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
             '10_0_year_recurrence_flow_17C': '10_0_year',
             '25_0_year_recurrence_flow_17C': '25_0_year',
             '50_0_year_recurrence_flow_17C': '50_0_year',
-            '100_0_year_recurrence_flow_17C': '100_0_year',
         },
         inplace=True,
     )
 
     # convert cfs to cms (x 0.028317)
-    nwm_recur_df.loc[
-        :, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year', '100_0_year']
-    ] *= 0.028317
+    nwm_recur_df.loc[:, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year']] *= 0.028317
 
     # merge nwm recurr with ras_rc_df
     merge_df = ras_rc_df.merge(nwm_recur_df, how='left', on='feature_id')
 
     # NWM recurr intervals
-    recurr_intervals = ["2", "5", "10", "25", "50", "100"]  # "2","5","10","25","50","100"
+    recurr_intervals = ["2", "5", "10", "25", "50"]  # "2","5","10","25","50","100"
     final_df = pd.DataFrame()  # create empty dataframe to append flow interval dataframes
     for interval in recurr_intervals:
         log_text += '\n\nProcessing: ' + str(interval) + '-year NWM recurr intervals\n'
