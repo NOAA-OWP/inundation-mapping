@@ -8,8 +8,6 @@ This PR focuses on updating the preprocess_bathymetry.py for 3 issues: 1) the ca
 ### Changes
 `data/bathymetry/preprocess_bathymetry.py`: Addressing 3 issues including, the capability of preprocessing SurveyJobs that have negative depth values, changing the SurveyDateStamp format, and the capability of including multiple SurveyJobs for one NWM feature-id.
 
-### Testing
-This PR has been tested on 25 SurveyJobs over the Illinois River.
 
 <br/><br/>
 
@@ -17,7 +15,6 @@ This PR has been tested on 25 SurveyJobs over the Illinois River.
 
 This PR brings back the `preprocess_ahps_nws.py` code to FIM4 and generates new AHPS benchmark datasets for sites SXRA2 and SKLA2 in Alaska.  The new AHPS benchmark datasets are available on dev1 here: "/dev_fim_share/foss_fim/outputs/ali_ahps_alaska/AHPS_Results_Alaska/19020302/"
 
-This PR closes issue #1130. 
 
 To process a new station, follow these steps:
 
