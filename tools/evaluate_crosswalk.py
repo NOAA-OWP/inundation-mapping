@@ -107,13 +107,15 @@ def _evaluate_crosswalk_intersections(input_flows_fileName: str, input_nwmflows_
     xwalks = pd.DataFrame()
     intersects = flows.sjoin(streams)
 
+    intersects['ID'] = intersects['ID'].astype(int)
+
     for idx in intersects.index.unique():
         flows_idx = intersects.loc[intersects.index == idx, 'HydroID'].unique()
 
-        if isinstance(intersects.loc[idx, 'ID'], np.int64):
-            streams_idxs = [intersects.loc[idx, 'ID']]
-        else:
-            streams_idxs = intersects.loc[idx, 'ID'].unique()
+        # if isinstance(intersects.loc[idx, 'ID'], np.float64) or isinstance(intersects.loc[idx, 'ID'], np.int64):
+        #     streams_idxs = [intersects.loc[idx, 'ID']]
+        # else:
+        streams_idxs = intersects.loc[idx, 'ID'].unique()
 
         for flows_id in flows_idx:
             feature_id = int(flows.loc[flows['HydroID'] == flows_id, 'feature_id'].iloc[0])
