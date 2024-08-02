@@ -2,6 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## vx.x.x.x - 2024-06-05 - [PR#1185](https://github.com/NOAA-OWP/inundation-mapping/pull/1185)
+
 This PR brings back the `preprocess_ahps_nws.py` code to FIM4 and generates new AHPS benchmark datasets for sites SXRA2 and SKLA2 in Alaska.  The new AHPS benchmark datasets are available on dev1 here: "/dev_fim_share/foss_fim/outputs/ali_ahps_alaska/AHPS_Results_Alaska/19020302/"
 
 This PR closes issue #1130. 
@@ -22,6 +23,9 @@ Note that for the "SKLA2" site, the downloaded ESRI-GDB grid files had a datum i
 
 ### Changes
 - `tools/tools_shared_functions.py`  ... updated for shapely v2
+
+<br/><br/>
+
 
 ## v4.5.3.1 - 2024-07-24 - [PR#1233](https://github.com/NOAA-OWP/inundation-mapping/pull/1233)
 
