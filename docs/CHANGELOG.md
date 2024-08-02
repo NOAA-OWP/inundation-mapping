@@ -1,11 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.4.2 - 2024-08-02 - [PR#1125](https://github.com/NOAA-OWP/inundation-mapping/pull/1125)
+
+This PR focuses on updating the preprocess_bathymetry.py for 3 issues: 1) the capability of preprocessing SurveyJobs that have negative depth values, 2) changing the SurveyDateStamp format, and 3) the capability of including multiple SurveyJobs for one NWM feature-id if needed.
+
+### Changes
+`data/bathymetry/preprocess_bathymetry.py`: Addressing 3 issues including, the capability of preprocessing SurveyJobs that have negative depth values, changing the SurveyDateStamp format, and the capability of including multiple SurveyJobs for one NWM feature-id.
+
+
+<br/><br/>
+
 ## v4.5.4.1 - 2024-08-02 - [PR#1185](https://github.com/NOAA-OWP/inundation-mapping/pull/1185)
 
 This PR brings back the `preprocess_ahps_nws.py` code to FIM4 and generates new AHPS benchmark datasets for sites SXRA2 and SKLA2 in Alaska.  The new AHPS benchmark datasets are available on dev1 here: "/dev_fim_share/foss_fim/outputs/ali_ahps_alaska/AHPS_Results_Alaska/19020302/"
 
-This PR closes issue #1130. 
 
 To process a new station, follow these steps:
 
