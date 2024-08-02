@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2024-06-28 - [PR#1198](https://github.com/NOAA-OWP/inundation-mapping/pull/1198)
+## v4.5.4.0 - 2024-08-02 - [PR#1198](https://github.com/NOAA-OWP/inundation-mapping/pull/1198)
 
 ### Changes
 - `src/bash_variables.env`: high water threshold and recurrence flows CSV files were updated into new NWM v3 flow files. Also, a new Manning numbers file created from the new NWM v3 dataset was used.
@@ -10,6 +10,8 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 -  `tools/rating_curve_comparison.py`: 100 year recurrence was removed since it is not included in the new AEP. Also, the name of recurrence flow CSV file was updated.
 -  `tools/composite_inundation.py`
 -  `tools/inundate_nation.py`
+
+<br/><br/>
 
 ## v4.5.3.1 - 2024-07-24 - [PR#1233](https://github.com/NOAA-OWP/inundation-mapping/pull/1233)
 
