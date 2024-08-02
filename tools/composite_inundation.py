@@ -433,7 +433,7 @@ if __name__ == "__main__":
     python3 /foss_fim/tools/composite_inundation.py
         -fr /outputs/inundation_test_1_FIM3_fr
         -gms /outputs/inundation_test_1_gms
-        -u 13090001 -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_25_0_cms.csv
+        -u 13090001 -f /data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_25_0_cms.csv
         -o /outputs/inundation_test_1_comp/
         -n test_inundation.tif
     """
