@@ -9,6 +9,39 @@ from rasterio import features as riofeatures
 
 
 def analyze_flood_impact(benchmark_inundation_tif, test_inundation_tif, model_domain_shp, structures_gpkg, roads_gpkg, output_gpkg):
+    """
+    Assesses the impact of a flood on road and building vector files. Counts how many roads and structures a benchmark and test 
+    flood extent intersect and calculates CSI.
+
+    
+    Parameters
+    ----------
+    benchmark_inundation_tif : str
+        Input path for benchmark inundation raster.
+    test_inundation_tif : str
+        Input path for test inundation raster. 
+    model_domain_shp : str
+        Input path for the model domain vector file.
+    structures_gpkg : str
+        Input path for the structures vector file.
+    roads_gpkg : str
+        Input path for the roads vector file.
+
+    parser.add_argument('-o', '--output', required=True, help="Path to the output vector file (GeoPackage).")
+
+    Outputs
+    ------- 
+    output_gpkg: str
+        Output path for the geopackage vector file that contains the following:
+            - test inundation: test inundation extent vector file, clipped to the model domain.
+            - test impacted structures: structures that intersect the test inundation extent.
+            - test impacted roads: roads that intersect the test inundation extent.
+            - benchmark inundation: benchmark inundation extent.
+            - benchmark impacted structures: structures that intersect the benchmark inundation extent. 
+            - benchmark impacted roads: roads that intersect the test inundation extent. 
+
+    This function will also print CSI and print the number of impacted roads and structures for each inundation extent. 
+    """
     # Load vector files
     flood_extent_bench = vectorize(benchmark_inundation_tif)
     flood_extent_test_whole = vectorize(test_inundation_tif)
@@ -72,6 +105,19 @@ def analyze_flood_impact(benchmark_inundation_tif, test_inundation_tif, model_do
 
 
 def vectorize(inundation_tif):
+    """
+    Converts inundation raster into a vector file and returns it. 
+
+    Parameters
+    ----------
+    inundation_tif : str
+        Input path for inundation raster.
+
+    Returns
+    ----------
+    extent_poly_diss : 
+        Inundation vector
+    """
     with rasterio.open(inundation_tif) as fim_rast:
         fim_nodata = fim_rast.profile['nodata']
         fim_transform = fim_rast.transform
@@ -99,7 +145,21 @@ def vectorize(inundation_tif):
 
 
 def impacted(features_gpkg, inundation_tif):
+    """
+    Finds features that intersect with an inundation raster (impacted features) and returns the impacted features.
     
+    Parameters
+    ----------
+    features_gpkg : str
+        Input path for feature vector (ex. roads or structures).
+    inundation_tif : str
+        Input path for inundation raster.
+
+    Returns
+    --------
+    impacted_features : 
+        Vector features that intersect with the inundation extent.
+    """
     # Find intersecting features with inundation
     impacted_features = gpd.GeoDataFrame(
         gpd.sjoin(features_gpkg, inundation_tif, how='inner', predicate='intersects'),
@@ -112,8 +172,18 @@ def impacted(features_gpkg, inundation_tif):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description=
+"""Assesses the impact of a flood on road and building vector files. Counts how many roads and structures a 
+benchmark and test flood extent intersect and calculates CSI.
+
+Sample usage: 
+python3  analyze_flood_impact.py -b home/user/benchmark_inundation.tif -t home/user/test_inundation.tif \
+    -d home/user/model_domain.tif -s home/user/structures_vector.gpkg -rd home/user/roads_vector.gpkg \
+    -o home/user/impacted_roads_and_structures_output.gpkg   
+"""
+    )
     # Parse arguments
-    parser = argparse.ArgumentParser(description="Analyze flood impact on structures and roads.")
     parser.add_argument('-b', '--benchmark_inundation', required=True, help="Path to the benchmark inundation TIF file.")
     parser.add_argument('-t', '--test_inundation', required=True, help="Path to the test inundation TIF file.")
     parser.add_argument('-d', '--domain', required=True, help="Path to the model domain vector file.")
