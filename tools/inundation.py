@@ -729,7 +729,6 @@ def create_src_subset_csv(hydro_table, catchmentStagesDict, src_table):
         },
         usecols=htable_req_cols,
     )
-
     df_htable = df_htable.merge(src_df, how='left', on='HydroID')
     df_htable['find_match'] = (df_htable['stage'] - df_htable['stage_inund']).abs()
     df_htable = df_htable.loc[df_htable.groupby('HydroID')['find_match'].idxmin()].reset_index(drop=True)
