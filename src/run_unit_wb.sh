@@ -321,8 +321,8 @@ if [ -f $deny_unit_list ]; then
 fi
 
 echo "---- HUC $hucNumber - branches have now been processed"
-Calc_Duration $branch_processing_start_time
-echo
+Calc_Duration "Duration for processing branches : " $branch_processing_start_time
+#echo
 
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time)"
@@ -330,5 +330,5 @@ echo "$total_duration_display" >> "$outputDestDir/logs/unit/total_duration_run_b
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"
-Calc_Duration $huc_start_time
+Calc_Duration "Duration for huc processing: " $huc_start_time
 echo
