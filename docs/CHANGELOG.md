@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.5.x.x - 2024-08-09 - [PR#1244](https://github.com/NOAA-OWP/inundation-mapping/pull/1244)
+
+New tool that can assess the impact of a flood on road and/or building vector files. Closes #1226.
+
+### Additions
+- `tools/analyze_flood_impact.py` : added a tool that assesses the impact of a flood on roads and buildings by calculating how many roads and structures the test flood extent intersects, comparing the test impacted roads and structures to a benchmark, and calculating CSI.
+
+ <br/><br/>
+
+
 ## v4.5.4.4 - 2024-08-02 - [PR#1238](https://github.com/NOAA-OWP/inundation-mapping/pull/1238)
 
 Prior to this fix, fim_post_processing.sh took just under 4 hours to reset permissions on all files and folder under the entire run. On closer inspection, it was updating permissions for all HUC folders where were already correct. A few other folders needed to have permission updates added. This will speed that up significantly.
