@@ -51,7 +51,7 @@ def create_ras2fim_rating_database(huc_ras_input_file, ras_elev_df, nwm_recurr_f
     start_time = dt.datetime.now()
     print('Reading RAS2FIM rating curves from csv...')
     log_text = 'Processing database for RAS2FIM flow/WSE at NWM flow recur intervals...\n'
-    col_filter = ["fid_xs", "flow_cms", "wse_m"]
+    col_filter = ["fid_xs", "flow_cfs", "wse_m"]
     # ras_rc_df = ras_rating_df[["fid_xs", "flow_cms", "wse_m"]]
     ras_rc_df = pd.read_csv(
         huc_ras_input_file, dtype={'fid_xs': object}, usecols=col_filter, encoding="unicode_escape"
@@ -61,10 +61,11 @@ def create_ras2fim_rating_database(huc_ras_input_file, ras_elev_df, nwm_recurr_f
     run_time = dt.datetime.now() - start_time
     print(f"Duration (read ras_rc_csv): {str(run_time).split('.')[0]}")
 
-    # convert WSE navd88 values to meters
-    ras_rc_df.rename(
-        columns={'wse_m': 'wse_navd88_m', 'flow_cms': 'discharge_cms'}, inplace=True
-    )  # assume ras2fim elevation data in feet
+    # convert flow and elevation units to metric
+    ras_rc_df.rename(columns={'wse_m': 'wse_navd88_m', 'flow_cms': 'discharge_cms'}, inplace=True)
+    # Need to use the flow_cfs because there is an error in the raw flow_cms
+    ras_rc_df['discharge_cms'] = ras_rc_df['flow_cfs'] * 0.0283168
+    ras_rc_df = ras_rc_df.drop(columns=["flow_cfs"])
 
     # read in the aggregate RAS elev table csv
     start_time = dt.datetime.now()
