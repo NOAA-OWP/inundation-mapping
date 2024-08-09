@@ -118,11 +118,9 @@ def produce_mosaicked_inundation(
         if mosaic_attribute == "inundation_rasters":
             if inundation_raster is not None:
                 mosaic_output = inundation_raster
-                break
         elif mosaic_attribute == "depths_rasters":
             if depths_raster is not None:
                 mosaic_output = depths_raster
-                break
 
     if mosaic_output is not None:
         # Call Mosaic_inundation
