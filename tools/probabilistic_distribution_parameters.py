@@ -19,9 +19,8 @@ from dask.distributed import Client, Lock, as_completed
 from lmoments3 import distr
 from numba import njit
 from scipy import stats
+from shared_functions import FIM_Helpers as fh
 from tqdm import tqdm
-
-from utils.shared_functions import FIM_Helpers as fh
 
 
 NWM_V3_ZARR_URL = 'https://noaa-nwm-retrospective-3-0-pds.s3.amazonaws.com/CONUS/zarr/chrtout.zarr'
@@ -266,7 +265,7 @@ def fit_distributions(
                     # Get daily mean flows
                     if recurrence is not None:
                         fls = st[:, i].resample({'time': "1D"}).mean(skipna=True)
-                        rec_fls = recurrence.sel({'feature_id': feat}).to_array()[[-7, -6, -5, -4, -3, -1]]
+                        rec_fls = recurrence.sel({'feature_id': feat}).to_array()[:-3]
                         flows = np.sort(np.hstack([fls, rec_fls[rec_fls > np.max(fls)]]))
                     else:
                         flows = np.sort(st[:, i].resample({'time': "1D"}).mean(skipna=True).dropna('time'))
@@ -392,7 +391,7 @@ def run_linear_moment_fit(
             results.append(res)
 
         batch_end_time = datetime.now()
-        logging.info(f'Completed Batch {batch_idx}: {batch_end_time.strftime("%m/%d/%Y %H:%M:%S")}')
+        logging.info(f'Completed Batch {batch_idx + 1}: {batch_end_time.strftime("%m/%d/%Y %H:%M:%S")}')
         logging.info(f"Batch Run {fh.print_date_time_duration(batch_start_time, batch_end_time)}")
         logging.info(f"Current Processing {fh.print_date_time_duration(start_time, batch_end_time)} \n")
 

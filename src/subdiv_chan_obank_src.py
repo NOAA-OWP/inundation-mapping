@@ -373,7 +373,9 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
     log_file.writelines(["%s\n" % item for item in map_output])
 
 
-def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option):
+def run_prep(
+    fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option, process_huc=None
+):
     procs_list = []
 
     print(f"Writing progress to log file here: {fim_dir}/logs/subdiv_src_{output_suffix}.log")
@@ -407,9 +409,12 @@ def run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_
     else:
         print('Running the variable_mannings_calc function...')
 
-        ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-        huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
-        huc_list.sort()  # sort huc_list for helping track progress in future print statments
+        if process_huc is None:
+            ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
+            huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
+            huc_list.sort()  # sort huc_list for helping track progress in future print statments
+        else:
+            huc_list = [process_huc]
         for huc in huc_list:
             # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
             if re.match(r'\d{8}', huc):
