@@ -35,7 +35,7 @@ pyarrow = "==14.0.1"
 rtree = "==1.0.1"
 py7zr = "==0.20.4"
 scipy = "==1.14.0"
-gval = "==0.2.7"
+gval = "==0.2.7.post1"
 flake8 = "==6.0.0"
 black = "==24.3.0"
 flake8-pyproject = "==1.2.3"
@@ -54,6 +54,8 @@ aiohttp = "==3.9.5"
 distributed = "==2024.6.2"
 monaco = "==0.13.1"
 dask = "==2024.6.2"
+dask-expr = "==1.1.6"
+
 
 [requires]
 python_version = "3.10"
