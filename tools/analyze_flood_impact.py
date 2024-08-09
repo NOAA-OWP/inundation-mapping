@@ -179,7 +179,7 @@ benchmark and test flood extent intersect and calculates CSI.
 
 Sample usage: 
 python3  analyze_flood_impact.py -b home/user/benchmark_inundation.tif -t home/user/test_inundation.tif \
-    -d home/user/model_domain.tif -s home/user/structures_vector.gpkg -rd home/user/roads_vector.gpkg \
+    -d home/user/model_domain.shp -s home/user/structures_vector.gpkg -rd home/user/roads_vector.gpkg \
     -o home/user/impacted_roads_and_structures_output.gpkg   
 """
     )
