@@ -551,15 +551,16 @@ def iterate_through_huc_stage_based(
 
             # Filter out sites that don't have "good" data
             try:
-                if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list:
-                    MP_LOG.warning(
-                        f"\t{huc_lid_id}: {metadata['usgs_data']['coord_accuracy_code']} "
-                        "Not in acceptable coord acc codes"
-                    )
-                    continue
-                if not metadata['usgs_data']['coord_method_code'] in acceptable_coord_method_code_list:
-                    MP_LOG.warning(f"\t{huc_lid_id}: Not in acceptable coord method codes")
-                    continue
+                ## TEMP DEBUG Removing this part to relax coordinate accuracy requirements?
+                # if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list: 
+                #     MP_LOG.warning(
+                #         f"\t{huc_lid_id}: {metadata['usgs_data']['coord_accuracy_code']} "
+                #         "Not in acceptable coord acc codes"
+                #     )
+                #     continue 
+                # if not metadata['usgs_data']['coord_method_code'] in acceptable_coord_method_code_list:
+                #     MP_LOG.warning(f"\t{huc_lid_id}: Not in acceptable coord method codes")
+                #     continue
                 if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
                     MP_LOG.warning(f"\t{huc_lid_id}: Not in acceptable alt method codes")
                     continue
@@ -923,9 +924,9 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
     try:
         # Drop columns that offend acceptance criteria
         usgs_elev_df['acceptable_codes'] = (
-            usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-            & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
-            & usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+            # usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list) 
+            # & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list) 
+            usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
             & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list)
         )
 
@@ -937,6 +938,13 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
         acceptable_usgs_elev_df = usgs_elev_df[
             (usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)
         ]
+
+        # # TEMP DEBUG Record row difference and write it to a CSV or something
+        # label = 'Old code' ## TEMP DEBUG
+        # num_potential_rows = usgs_elev_df.shape[0] ## TEMP DEBUG ## TEMP DEBUG
+        # num_acceptable_rows = acceptable_usgs_elev_df.shape[0] ## TEMP DEBUG ## TEMP DEBUG
+        # out_message = f'{label}: kept {num_acceptable_rows} rows out of {num_potential_rows} available rows.' ## TEMP DEBUG
+
     except Exception:
         # Not sure any of the sites actually have those USGS-related
         # columns in this particular file, so just assume it's fine to use
@@ -1006,7 +1014,7 @@ def generate_stage_based_categorical_fim(
 
     FLOG.lprint("Starting generate_flows (Stage Based)")
 
-    # TODO: Add back in when we add AK back in
+    # TODO: Add back in when we add AK back in TEMP DEBUG -> add back in now? (8/7/24)
     # (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = (
     # If it is stage based, generate flows returns all of these objects.
     # If flow based, generate flows returns only
