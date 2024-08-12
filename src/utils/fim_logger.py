@@ -205,7 +205,7 @@ class FIM_logger:
         return
 
     # -------------------------------------------------
-    def merge_log_files(self, parent_log_output_file, file_prefix, remove_old_files=False):
+    def merge_log_files(self, parent_log_output_file, file_prefix, remove_old_files=True):
         """
         Overview:
             This tool is mostly for merging log files during multi processing which each had their own file.

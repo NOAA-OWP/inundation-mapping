@@ -474,7 +474,6 @@ def iterate_through_huc_stage_based(
         # Loop through each lid in nws_lids list
         nws_lids = huc_dictionary[huc]
 
-
         for lid in nws_lids:
             MP_LOG.lprint("-----------------------------------")
             huc_lid_id = f"{huc} : {lid}"
@@ -791,7 +790,7 @@ def iterate_through_huc_stage_based(
             with open(huc_messages_csv, 'w') as output_csv:
                 writer = csv.writer(output_csv)
                 for msg in all_messages:
-                    writer.writerow([msg]) # added [] to make it run properly
+                    writer.writerow([msg])  # added [] to make it run properly
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error iterating through huc stage based")
         MP_LOG.error(traceback.format_exc())
