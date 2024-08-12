@@ -26,7 +26,6 @@ def produce_mosaicked_inundation(
     remove_intermediate=True,
     verbose=False,
     is_mosaic_for_branches=False,
-
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
@@ -34,16 +33,17 @@ def produce_mosaicked_inundation(
     HydroID for wet), polygons depicting extent, and depth rasters. The function requires a flow file
     organized by NWM feature_id and discharge in cms. "feature_id" and "discharge" columns MUST be present
     in the flow file. This function also calls the catchment_boundary_errors function from
-    identify_catchment_boundary.py to output a geopackage linefile of the areas of the produced final 
-    inundation that are impacted by catchment boundary errors.
+    identify_catchment_boundary.py to identify where in the produced final inundation map is impacted by
+    catchment boundary issues and to output a geopackage of linefiles identifying these locations.
 
     Args:
         hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
                                     fim_pipeline.
-        huc (str):                The HUC for which to produce mosaicked inundation files.
+        hucs (str):                The HUC for which to produce mosaicked inundation files.
         flow_file (str):          Path to flow file to be used for inundation.
                                     feature_ids in flow_file should be present in supplied HUC.
-        inundation_raster (str):  Full path to output inundation raster
+        boundary_output (str):    Full path to output catchment boundary line geopackage.
+        inundation_raster (str):  Full path to output inundation raster.
                                     (encoded by positive and negative HydroIDs).
         inuntation_polygon (str): Full path to output inundation polygon. Optional.
         depths_raster (str):      Full path to output depths_raster. Pixel values will be in meters. Optional.
@@ -146,11 +146,11 @@ def produce_mosaicked_inundation(
 
     ## call identify_catchment_boundary
     catchment_boundary_errors(
-        hydrofabric_dir= hydrofabric_dir,
-        hucs = hucs,
-        inundation_raster = mosaic_file_path,
-        output = boundary_output,
-        number_of_jobs = 4
+        hydrofabric_dir=hydrofabric_dir,
+        hucs=hucs,
+        inundation_raster=mosaic_file_path,
+        output=boundary_output,
+        number_of_jobs=4,
     )
     fh.vprint("Catchment boundary identification complete.", verbose)
 
@@ -179,7 +179,14 @@ if __name__ == "__main__":
         required=True,
         type=str,
     )
-    parser.add_argument("-o", "--boundary_output", help="Location of catchment boundary linefile output.", required=True, default=1, type=str)
+    parser.add_argument(
+        "-o",
+        "--boundary_output",
+        help="Location of catchment boundary linefile output.",
+        required=True,
+        default=1,
+        type=str,
+    )
 
     parser.add_argument(
         "-i", "--inundation-raster", help="Inundation raster output.", required=False, default=None, type=str
@@ -234,12 +241,10 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
     )
-    
 
     start = timer()
 
     # Extract to dictionary and run
     produce_mosaicked_inundation(**vars(parser.parse_args()))
-
 
     print(f"Completed in {round((timer() - start)/60, 2)} minutes.")

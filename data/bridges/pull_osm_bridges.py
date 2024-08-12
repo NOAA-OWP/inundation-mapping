@@ -86,7 +86,6 @@ def combine_huc_features(output_dir):
     bridge_file_names = Path(output_dir).glob("huc_*_osm_bridges.gpkg")
 
     osm_bridge_file = os.path.join(output_dir, "osm_all_bridges.gpkg")
-    osm_bridge_midpoints_file = os.path.join(output_dir, "osm_all_bridges_midpoints.gpkg")
 
     all_bridges_gdf_raw = pd.concat([gpd.read_file(gpkg) for gpkg in bridge_file_names], ignore_index=True)
 
@@ -98,13 +97,6 @@ def combine_huc_features(output_dir):
 
     all_bridges_gdf = all_bridges_gdf_raw[['osmid', 'name', 'geometry']]
     all_bridges_gdf.to_file(osm_bridge_file, driver="GPKG")
-
-    # save out midpoints (centroids) of bridge lines
-    logging.info(f"Writing centroids {osm_bridge_file}")
-    section_time = dt.datetime.now(dt.timezone.utc)
-    logging.info(f"  .. started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    all_bridges_gdf['geometry'] = all_bridges_gdf.centroid
-    all_bridges_gdf.to_file(osm_bridge_midpoints_file, driver="GPKG")
 
     return
 
