@@ -1,17 +1,18 @@
 import argparse
-import geopandas as gpd
 import os
+import sys
+import traceback
+from concurrent import futures
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+from timeit import default_timer as timer
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import sys
-import traceback
-
-from timeit import default_timer as timer
-from concurrent import futures
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from rasterio import features
 from shapely.geometry import shape
+
 
 def catchment_boundary_errors(    
     hydrofabric_dir,
@@ -22,7 +23,7 @@ def catchment_boundary_errors(
 ):
     """
     This function compares output inundation raster extent to catchment extents to identify catchment boundary
-    issues. The output of this function is a shapefile of lines that identify areas of inundation with catchment 
+    issues. The output of this function is a geopackage linefile that identifys areas of inundation with catchment 
     boundary issues present.
 
     Args:

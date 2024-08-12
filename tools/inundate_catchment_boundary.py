@@ -3,9 +3,9 @@ import errno
 import os
 from timeit import default_timer as timer
 
+from identify_catchment_boundary import catchment_boundary_errors
 from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
-from identify_catchment_boundary import catchment_boundary_errors
 
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
@@ -33,7 +33,9 @@ def produce_mosaicked_inundation(
     Possible outputs include inundation rasters encoded by HydroID (negative HydroID for dry and positive
     HydroID for wet), polygons depicting extent, and depth rasters. The function requires a flow file
     organized by NWM feature_id and discharge in cms. "feature_id" and "discharge" columns MUST be present
-    in the flow file.
+    in the flow file. This function also calls the catchment_boundary_errors function from
+    identify_catchment_boundary.py to output a geopackage linefile of the areas of the produced final 
+    inundation that are impacted by catchment boundary errors.
 
     Args:
         hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
