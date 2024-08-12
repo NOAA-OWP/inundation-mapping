@@ -48,7 +48,6 @@ skip-magic-trailing-comma = true
 profile = 'black'
 line_length = 110
 multi_line_output = 3
-line_length = 110
 lines_after_imports = 2
 
 [tool.flake8]
