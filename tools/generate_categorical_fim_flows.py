@@ -380,7 +380,7 @@ def generate_flows(
     # end ProcessPoolExecutor
 
     # rolls up logs from child MP processes into this parent_log_output_file
-    FLOG.merge_log_files(log_output_file, child_log_file_prefix, True)
+    FLOG.merge_log_files(log_output_file, child_log_file_prefix)
 
     end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt
