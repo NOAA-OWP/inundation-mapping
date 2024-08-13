@@ -6,7 +6,6 @@ import glob
 
 # import logging
 import os
-import random
 import shutil
 import sys
 import time
@@ -81,6 +80,7 @@ def process_generate_categorical_fim(
     output_folder,
     overwrite,
     search,
+    lid_to_run,
     job_number_intervals,
     past_major_interval_cap,
     nwm_metafile,
@@ -136,6 +136,8 @@ def process_generate_categorical_fim(
     # Define default arguments. Modify these if necessary
     fim_version = os.path.split(fim_run_dir)[1]
 
+    # TODO: Aug 2024: Job values are not well used. There are some times where not
+    # all three job values are not being used. This needs to be cleaned up.
     # Check job numbers and raise error if necessary
     total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
     total_cpus_available = os.cpu_count() - 2
@@ -153,7 +155,6 @@ def process_generate_categorical_fim(
     # looking for folders only starting with 0, 1, or 2
 
     # for now, we are dropping all Alaska HUCS
-
     valid_ahps_hucs = [
         x
         for x in os.listdir(fim_run_dir)
@@ -222,12 +223,13 @@ def process_generate_categorical_fim(
 
     # STAGE-BASED
     if is_stage_based:
-        # Generate Stage-Based CatFIM mapping3
+        # Generate Stage-Based CatFIM mapping
         nws_sites_layer = generate_stage_based_categorical_fim(
             output_catfim_dir,
             fim_run_dir,
             nwm_us_search,
             nwm_ds_search,
+            lid_to_run,
             env_file,
             job_number_inundate,
             job_number_huc,
@@ -250,12 +252,17 @@ def process_generate_categorical_fim(
     else:
         FLOG.lprint('Creating flow files using the ' + catfim_method + ' technique...')
         start = time.time()
+        
+        # generate flows is only using one of the incoming job number params
+        # so let's multiply -jh (huc) and -jn (inundate)
+        job_flows = job_number_huc * job_number_inundate
         nws_sites_layer = generate_flows(
             output_catfim_dir,
             nwm_us_search,
             nwm_ds_search,
+            lid_to_run,
             env_file,
-            job_number_huc,
+            job_flows,
             is_stage_based,
             valid_ahps_hucs,
             nwm_metafile,
@@ -993,6 +1000,7 @@ def generate_stage_based_categorical_fim(
     fim_run_dir,
     nwm_us_search,
     nwm_ds_search,
+    lid_to_run,
     env_file,
     job_number_inundate,
     job_number_huc,
@@ -1013,16 +1021,19 @@ def generate_stage_based_categorical_fim(
 
     FLOG.lprint("Starting generate_flows (Stage Based)")
 
-    # TODO: Add back in when we add AK back in TEMP DEBUG -> add back in now? (8/7/24)
-    # (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = (
     # If it is stage based, generate flows returns all of these objects.
     # If flow based, generate flows returns only
-    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df) = generate_flows(
+    
+    # Generate flows is only using one of the incoming job number params
+    # so let's multiply -jh (huc) and -jn (inundate)
+    job_flows = job_number_huc * job_number_inundate
+    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, all_nwm_flows_df) = generate_flows(
         output_catfim_dir,
         nwm_us_search,
         nwm_ds_search,
+        lid_to_run,
         env_file,
-        job_number_huc,
+        job_flows,
         True,
         lst_hucs,
         nwm_metafile,
@@ -1043,11 +1054,7 @@ def generate_stage_based_categorical_fim(
             if huc in lst_hucs:
                 # FLOG.lprint(f'Generating stage based catfim for : {huc}')
 
-                # put back in when we put alaska back in.
-                # flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
-
                 progress_stmt = f"index {huc_index + 1} of {num_hucs}"
-                flows_df = nwm_flows_df
                 executor.submit(
                     iterate_through_huc_stage_based,
                     output_catfim_dir,
@@ -1060,7 +1067,7 @@ def generate_stage_based_categorical_fim(
                     past_major_interval_cap,
                     job_number_inundate,
                     number_of_interval_jobs,
-                    flows_df,
+                    all_nwm_flows_df,
                     str(FLOG.LOG_FILE_PATH),
                     child_log_file_prefix,
                     progress_stmt,
@@ -1250,14 +1257,13 @@ if __name__ == '__main__':
         default='5',
     )
 
-    # lid_to_run temp disabled
-    # parser.add_argument(
-    #     '-l',
-    #     '--lid_to_run',
-    #     help='OPTIONAL: NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Defaults to all sites',
-    #     required=False,
-    #     default='all',
-    # )
+    parser.add_argument(
+        '-l',
+        '--lid_to_run',
+        help='OPTIONAL: NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Defaults to all sites',
+        required=False,
+        default='all',
+    )
 
     # lst_hucs temp disabled. All hucs in fim outputs in a directory will used
     # parser.add_argument(
