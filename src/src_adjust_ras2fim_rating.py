@@ -332,16 +332,17 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
     log_file.write('#########################################################\n\n')
 
     hucs_with_data = find_matching_subdirectories(run_dir, ras_input_dir)
-    print('Found huc folders in both run_dir and ras_input dir:')
-    print(hucs_with_data)
     if len(hucs_with_data) == 0:
         print('ALERT: Did not find any HUCs with ras2fim data to perform adjustments')
-        log_file.write('ALERT: Did not find any HUCs with ras2fim data to perform adjustments')
+        log_file.write('ALERT: Did not find any HUCs with ras2fim data to perform adjustments\n')
         return
 
+    log_file.write('RAS2FIM data available and will perform SRC adjustments for hucs:\n')
+    log_file.write(hucs_with_data)
+    log_file.write('\n#########################################################\n\n')
     for huc in hucs_with_data:
         huc_run_dir = os.path.join(run_dir, huc)
-        huc_ras_input_file = os.path.join(ras_input_dir, huc, ras_rc_filepath)
+        huc_ras_input_file = os.path.join(huc_run_dir, ras_rc_filepath)
         ## Create an aggregate dataframe with all ras_elev_table.csv entries for hucs in fim_dir
         print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv files...')
         csv_elev = 'ras_elev_table.csv'  # file name to search for ras location data (in the huc/branch dirs)
@@ -350,7 +351,6 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
             os.path.join(huc_run_dir, 'ras_elev_table.csv'),
             dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
         )
-        print(ras_elev_df.head())
 
         ## Create an aggregate dataframe with all ras2fim rating curve csv files
         # print('Reading RAS2FIM rating curves csv files from the input directory...')
