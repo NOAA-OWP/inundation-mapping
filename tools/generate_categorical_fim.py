@@ -154,13 +154,19 @@ def process_generate_categorical_fim(
     # output_flow_dir_list = os.listdir(fim_run_dir)
     # looking for folders only starting with 0, 1, or 2
 
-    # for now, we are dropping all Alaska HUCS
+    # Code variation for dropping all Alaska HUCS:
     valid_ahps_hucs = [
         x
         for x in os.listdir(fim_run_dir)
         if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2'] and x[:2] != "19"
     ]
-    # print(valid_ahps_hucs)
+
+    # # Code variation for KEEPING Alaska HUCS:
+    # valid_ahps_hucs = [
+    #     x
+    #     for x in os.listdir(fim_run_dir)
+    #     if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2'] 
+    # ]
 
     valid_ahps_hucs.sort()
 
@@ -169,7 +175,6 @@ def process_generate_categorical_fim(
         raise ValueError(
             f'Output directory {fim_run_dir} is empty. Verify that you have the correct input folder.'
         )
-
     # End of Validation and setup
     # ================================
 
@@ -188,7 +193,10 @@ def process_generate_categorical_fim(
     FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
     FLOG.lprint("")
 
-    FLOG.lprint(f"Processing {num_hucs} huc(s) with Alaska temporarily removed")
+    FLOG.lprint(f"Processing {num_hucs} huc(s) with Alaska temporarily removed") # Code variation for DROPPING Alaska HUCs
+    # FLOG.lprint(f"Processing {num_hucs} huc(s)") # Code variation for KEEPING Alaska HUCs
+
+
 
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
@@ -442,7 +450,7 @@ def iterate_through_huc_stage_based(
     past_major_interval_cap,
     job_number_inundate,
     number_of_interval_jobs,
-    nwm_flows_df,
+    nwm_flows_region_df,
     parent_log_output_file,
     child_log_file_prefix,
     progress_stmt,
@@ -593,7 +601,7 @@ def iterate_through_huc_stage_based(
 
             # Filter segments to be of like stream order.
             desired_order = metadata['nwm_feature_data']['stream_order']
-            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
+            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_region_df)
             action_stage = stages['action']
             minor_stage = stages['minor']
             moderate_stage = stages['moderate']
@@ -1023,11 +1031,12 @@ def generate_stage_based_categorical_fim(
 
     # If it is stage based, generate flows returns all of these objects.
     # If flow based, generate flows returns only
+    # (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = generate_flows( # With Alaska
     
     # Generate flows is only using one of the incoming job number params
     # so let's multiply -jh (huc) and -jn (inundate)
     job_flows = job_number_huc * job_number_inundate
-    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, all_nwm_flows_df) = generate_flows(
+    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, all_nwm_flows_df) = generate_flows( # No Alaska
         output_catfim_dir,
         nwm_us_search,
         nwm_ds_search,
@@ -1054,6 +1063,12 @@ def generate_stage_based_categorical_fim(
             if huc in lst_hucs:
                 # FLOG.lprint(f'Generating stage based catfim for : {huc}')
 
+                # Code variation for DROPPING Alaska HUCs 
+                nwm_flows_region_df = nwm_flows_df
+
+                # # Code variation for keeping alaska HUCs 
+                # nwm_flows_region_df = nwm_flows_alaska_df if str(huc[:2]) == '19' else nwm_flows_df
+
                 progress_stmt = f"index {huc_index + 1} of {num_hucs}"
                 executor.submit(
                     iterate_through_huc_stage_based,
@@ -1067,7 +1082,7 @@ def generate_stage_based_categorical_fim(
                     past_major_interval_cap,
                     job_number_inundate,
                     number_of_interval_jobs,
-                    all_nwm_flows_df,
+                    nwm_flows_region_df,
                     str(FLOG.LOG_FILE_PATH),
                     child_log_file_prefix,
                     progress_stmt,
@@ -1103,7 +1118,7 @@ def generate_stage_based_categorical_fim(
     # whether it was mapped or not (mapped field) and if not, why (status field).
 
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)  # TODO: Accomodate AK projection?
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)  # TODO: Accomodate AK projection? 
     viz_out_gdf.rename(
         columns={
             'identifiers_nwm_feature_id': 'nwm_seg',

@@ -803,7 +803,7 @@ def reformat_inundation_maps(
         # lots of polys
         extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code
         # extent_poly = gpd.GeoDataFrame.from_features(list(results))  # Updated to accomodate AK projection
-        # extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection        
+        # extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
