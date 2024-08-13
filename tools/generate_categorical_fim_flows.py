@@ -313,9 +313,8 @@ def generate_flows(
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
 
-    # Jul 3, 2024 - we are skipping Alaska for now.
-    # nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
-    # nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
+    # nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg' # Uncomment to include Alaska
+    # nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg) # Uncomment to include Alaska
 
     # nwm_metafile might be an empty string
     all_meta_lists = __load_nwm_metadata(
@@ -352,7 +351,9 @@ def generate_flows(
     # It this is stage-based, it returns all of these objects here, but if it continues
     # (aka. Flow based), then it returns only nws_lid_layer (created later in this function)
     if is_stage_based:  # If it's stage-based, the function stops running here
-        return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, nwm_flows_df)
+        return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, nwm_flows_df) # No Alaska
+        # return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, nwm_flows_df, nwm_flows_alaska_df) # Alaska
+
 
     start_dt = datetime.now(timezone.utc)
 
@@ -363,7 +364,9 @@ def generate_flows(
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
-            # flows_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
+            nwm_flows_region_df = nwm_flows_df # To exclude Alaska 
+            # nwm_flows_region_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df # To include Alaska
+
             executor.submit(
                 generate_flows_for_huc,
                 huc,
@@ -373,7 +376,7 @@ def generate_flows(
                 output_flows_dir,
                 attributes_dir,
                 huc_messages_dir,
-                nwm_flows_df,
+                nwm_flows_region_df,
                 log_output_file,
                 child_log_file_prefix,
             )
