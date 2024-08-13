@@ -3,8 +3,10 @@
 # import csv
 
 import argparse
+import copy
 import os
 import pickle
+import random
 import sys
 import time
 import traceback
@@ -67,12 +69,20 @@ def generate_flows_for_huc(
         #  with the phrase "MP_process_gen_flows". This will roll up to the master catfim log.
         # This is setting up logging for this function to go up to the parent
         MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
+       
+        start_time = datetime.now(timezone.utc)
+        dt_string = start_time.strftime("%m/%d/%Y %H:%M:%S")
+
+        # A bit of start staggering to help not overload the MP (20 sec)
+        time_delay = random.randrange(0, 20)
+        #MP_LOG.lprint(f" ... {huc} start time is {dt_string} and delay is {time_delay}")
+        MP_LOG.lprint(f" ... {huc} flow generation start time is {dt_string}")
+
+        time.sleep(time_delay)
 
         # Process each huc unit, first define message variable and flood categories.
         all_messages = []
         flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
-
-        MP_LOG.lprint(f'Start generating flows for {huc}')
 
         nws_lids = huc_dictionary[huc]
 
@@ -84,9 +94,6 @@ def generate_flows_for_huc(
         for lid in nws_lids:
             # Convert lid to lower case
             lid = lid.lower()
-
-            # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated
-            # flows.
 
             # TODO:  Jun 17, 2024 - This gets recalled for every huc but only uses the nws_list.
             # Move this somewhere outside the huc list so it doesn't need to be called over and over again
@@ -142,8 +149,9 @@ def generate_flows_for_huc(
             for category in flood_categories:
                 # Get the flow
                 flow = flows[category]
-                if flow:
-                    MP_LOG.trace(f"{category} flow is none")
+                
+                if flow is not None:
+                    # MP_LOG.trace(f"{category} flow is none")
 
                     # If there is a valid flow value, write a flow file.
                     # if flow:
@@ -220,6 +228,7 @@ def generate_flows_for_huc(
                 # Export DataFrame to csv containing attributes
                 csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
                 message = f'{lid}: flows available'
+                all_messages.append(message)
             else:
                 message = f'{lid}: missing all calculated flows'
                 all_messages.append(message)
@@ -231,8 +240,15 @@ def generate_flows_for_huc(
         with open(huc_messages_txt_file, 'w') as f:
             for item in all_messages:
                 item = item.strip()
-                f.write("%s\n" % item)
-        MP_LOG.lprint(f'--- generate_flow_for_huc done for {huc}')
+                # f.write("%s\n" % item)
+                f.write(f"{item}\n")
+        # MP_LOG.lprint(f'--- generate_flow_for_huc done for {huc}')
+
+        end_time = datetime.now(timezone.utc)
+        dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
+        time_duration = end_time - start_time
+        MP_LOG.lprint(f" ... {huc} end time is {dt_string} :  Duration: {str(time_duration).split('.')[0]}")
+        print("")
 
     except Exception as ex:
         MP_LOG.error(f"An error occured while generating flows for huc {huc}")
@@ -249,6 +265,7 @@ def generate_flows(
     output_catfim_dir,
     nwm_us_search,
     nwm_ds_search,
+    lid_to_run,
     env_file,
     job_number_huc,
     is_stage_based,
@@ -318,9 +335,8 @@ def generate_flows(
 
     # nwm_metafile might be an empty string
     all_meta_lists = __load_nwm_metadata(
-        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile
+        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, lid_to_run, nwm_metafile
     )
-    FLOG.trace(f"Len of all_meta_lists is {len(all_meta_lists)}")
 
     end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt
@@ -367,12 +383,16 @@ def generate_flows(
             nwm_flows_region_df = nwm_flows_df # To exclude Alaska 
             # nwm_flows_region_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df # To include Alaska
 
+            # Deep copy that speed up Multi-Proc a little as all_meta_lists
+            # is a huge object. Need to figure out how to filter that down somehow
+            # later. Can not just filter by huc per loop, tried it and there are other factors
+            copy_all_meta_lists = copy.copy(all_meta_lists)
             executor.submit(
                 generate_flows_for_huc,
                 huc,
                 huc_dictionary,
                 threshold_url,
-                all_meta_lists,
+                copy_all_meta_lists,
                 output_flows_dir,
                 attributes_dir,
                 huc_messages_dir,
@@ -390,7 +410,7 @@ def generate_flows(
     FLOG.lprint(f"End flow generation - Duration: {str(time_duration).split('.')[0]}")
     print()
 
-    FLOG.lprint('Start wrapping up flows generation...')
+    FLOG.lprint('Start merging and finalizing flows generation data')
     # Recursively find all *_attributes csv files and append
     # csv_files = os.listdir(attributes_dir)
     csv_files = [x for x in os.listdir(attributes_dir) if x.endswith('_attributes.csv')]
@@ -457,7 +477,7 @@ def generate_flows(
         messages_df = pd.DataFrame(huc_message_list, columns=['message'])
         messages_df = (
             messages_df['message']
-            .str.split(':', n=1, expand=True)
+            .str.split(': ', n=1, expand=True)
             .rename(columns={0: 'nws_lid', 1: 'status'})
         )
         # There could be duplicate message for one ahps (ie. missing nwm segments), so drop dups
@@ -472,7 +492,7 @@ def generate_flows(
         # some messages status values start with a space as the first character. Remove it
 
         # TODO: This did not work ???
-        status_df["status"] = status_df["status"].apply(lambda x: x.lstrip())
+        status_df["status"] = status_df["status"].apply(lambda x: x.strip())
 
         # Join messages to populate status field to candidate sites. Assign
         # status for null fields.
@@ -497,7 +517,12 @@ def generate_flows(
 
 
 # local script calls __load_nwm_metadata so FLOG is already setup
-def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile):
+def __load_nwm_metadata(output_catfim_dir,
+                        metadata_url,
+                        nwm_us_search,
+                        nwm_ds_search,
+                        lid_to_run,
+                        nwm_metafile,):
     FLOG.trace(metadata_url)
 
     all_meta_lists = []
@@ -516,26 +541,37 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
 
         FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
 
-        conus_list, ___ = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=['all'],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
+        # lid_to_run coudl be a single lid or the word "all"
 
-        # Get metadata for Islands and Alaska
-        islands_list, ___ = get_metadata(
-            metadata_url,
-            select_by='state',
-            selector=['HI', 'PR', 'AK'],
-            must_include=None,
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
-        # Append the lists
-        all_meta_lists = conus_list + islands_list
+        if lid_to_run != "all":
+            all_meta_lists, ___ = get_metadata(
+                metadata_url,
+                select_by='nws_lid',
+                selector=[lid_to_run],
+                must_include='nws_data.rfc_forecast_point',
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+        else:
+            conus_list, ___ = get_metadata(
+                metadata_url,
+                select_by='nws_lid',
+                selector=['all'],
+                must_include='nws_data.rfc_forecast_point',
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+            # Get metadata for Islands and Alaska
+            islands_list, ___ = get_metadata(
+                metadata_url,
+                select_by='state',
+                selector=['HI', 'PR', 'AK'],
+                must_include=None,
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+            # Append the lists
+            all_meta_lists = conus_list + islands_list
 
         with open(meta_file, "wb") as p_handle:
             pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
