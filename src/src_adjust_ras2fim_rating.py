@@ -338,7 +338,7 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
         return
 
     log_file.write('RAS2FIM data available and will perform SRC adjustments for hucs:\n')
-    log_file.write(hucs_with_data)
+    log_file.write(str(hucs_with_data))
     log_file.write('\n#########################################################\n\n')
     for huc in hucs_with_data:
         huc_run_dir = os.path.join(run_dir, huc)

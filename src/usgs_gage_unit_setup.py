@@ -36,8 +36,9 @@ class Gage2Branch(object):
         # !!! Geopandas is not honoring the dtype arg with this read_file below (huc8 being read as int64).
         # Need the raw data to store the 'huc8' attribute as an object to avoid issues with integers truncating the leading zero from some hucs
         if os.path.exists(self.ras_locs_filename):
-            ras_locs = gpd.read_file(self.ras_locs_filename, dtype={'huc8': 'object'})
-            ras_locs = ras_locs[['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'geometry']]
+            ras_columns = ['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'geometry']
+            ras_locs = gpd.read_file(self.ras_locs_filename, dtype={'huc8': 'object'}, usecols=ras_columns)
+            ras_locs = ras_locs[ras_columns]
             ras_locs['location_id'] = ras_locs['fid_xs']
 
             # Convert ras locs crs to match usgs gage crs
@@ -53,15 +54,14 @@ class Gage2Branch(object):
             #     ras_locs = ras_locs.drop('huc8', axis=1)
             # elif ras_locs.huc8.dtype == 'int64':
             #     ras_locs = ras_locs.rename(columns={'huc8':'HUC8'})
-
-            # Concat USGS points and RAS2FIM points
-            gages_locs = pd.concat([usgs_gages, ras_locs], axis=0, ignore_index=True)
-            # gages_locs.to_crs(PREP_CRS, inplace=True)
-
-            # Filter USGS gages and RAS locations to huc
-            self.gages = gages_locs[(gages_locs.HUC8 == self.huc8)]
         else:
-            self.gages = usgs_gages[(usgs_gages.HUC8 == self.huc8)]
+            ras_locs = pd.DataFrame(columns=['feature_id', 'stream_stn', 'fid_xs', 'source', 'geometry'])
+        # Concat USGS points and RAS2FIM points
+        gages_locs = pd.concat([usgs_gages, ras_locs], axis=0, ignore_index=True)
+        # gages_locs.to_crs(PREP_CRS, inplace=True)
+
+        # Filter USGS gages and RAS locations to huc
+        self.gages = gages_locs[(gages_locs.HUC8 == self.huc8)]
 
         # Get AHPS sites within the HUC and add them to the USGS dataset
         if self.ahps_filename:
