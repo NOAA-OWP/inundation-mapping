@@ -98,8 +98,8 @@ def generate_flows_for_huc(
             # TODO:  Jun 17, 2024 - This gets recalled for every huc but only uses the nws_list.
             # Move this somewhere outside the huc list so it doesn't need to be called over and over again
 
-            # Careful, for "all_message.append" the syntax into it must be f'{lid}:(whever messages)
-            # this is gets parsed and logic used against it. (no space after :)
+            # Careful, for "all_message.append" the syntax into it must be f'{lid}: (whever messages)
+            # this is gets parsed and logic used against it.
 
             MP_LOG.trace(f'Getting thresholds for {lid}')
             stages, flows = get_thresholds(
@@ -150,8 +150,7 @@ def generate_flows_for_huc(
                 # Get the flow
                 flow = flows[category]
                 
-                if flow is not None:
-                    # MP_LOG.trace(f"{category} flow is none")
+                if flow is not None and flow != 0:
 
                     # If there is a valid flow value, write a flow file.
                     # if flow:
@@ -483,7 +482,7 @@ def generate_flows(
 
         # status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
         # df1 = df.groupby(['ID1','ID2'])['Status'].agg(lambda x: ','.join(x.dropna())).reset_index()
-        status_df = messages_df.groupby(['nws_lid'])['status'].agg(lambda x: ', '.join(x)).reset_index()
+        status_df = messages_df.groupby(['nws_lid'])['status'].agg(lambda x: ',\n'.join(x)).reset_index()
 
         # some messages status values start with a space as the first character. Remove it
 
