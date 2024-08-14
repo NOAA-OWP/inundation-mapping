@@ -72,7 +72,7 @@ def process_bridges_in_huc(
     osm_gdf['mainstem'] = 0 if branch_id == '0' else 1
 
     # Write the bridge points to a geopackage
-    osm_gdf.to_file(bridge_centroids, index=False)
+    osm_gdf.to_file(bridge_centroids, index=False, engine='fiona')
 
     return
 

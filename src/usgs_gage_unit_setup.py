@@ -91,7 +91,7 @@ class Gage2Branch(object):
 
         if not self.gages[self.gages.feature_id.isnull()].empty:
             missing_feature_id = self.gages.loc[self.gages.feature_id.isnull()].copy()
-            nwm_reaches_union = nwm_reaches.geometry.unary_union
+            nwm_reaches_union = nwm_reaches.geometry.union_all()
             missing_feature_id['feature_id'] = missing_feature_id.apply(
                 lambda row: self.sjoin_nearest_to_nwm(row.geometry, nwm_reaches, nwm_reaches_union), axis=1
             )
@@ -115,7 +115,7 @@ class Gage2Branch(object):
         return self.gages
 
     def write(self, out_name):
-        self.gages.to_file(out_name, driver='GPKG', index=False)
+        self.gages.to_file(out_name, driver='GPKG', index=False, engine='fiona')
 
     @staticmethod
     def sjoin_nearest_to_nwm(pnt, lines, union):
