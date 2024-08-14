@@ -498,7 +498,6 @@ def generate_flows(
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
         viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
-        viz_out_gdf.to_file(os.path.join(mapping_dir, 'nws_lid_sites_7.gpkg'), driver='GPKG')                
 
     # Filter out columns and write out to file
     # viz_out_gdf = viz_out_gdf.filter(

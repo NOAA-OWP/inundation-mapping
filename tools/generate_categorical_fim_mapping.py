@@ -388,10 +388,9 @@ def run_catfim_inundation(
                     )
                     # print(f"magnitude_flows_csv is {magnitude_flows_csv}")
                     if os.path.exists(magnitude_flows_csv):
-                        output_extent_tif = os.path.join(
-                            huc_site_mapping_dir, ahps_site + '_' + magnitude + '_extent.tif'
-                        )
-                        FLOG.trace(f"Begin inundation against {magnitude_flows_csv}")
+                        tif_name = ahps_site + '_' + magnitude + '_extent.tif'
+                        output_extent_tif = os.path.join(huc_site_mapping_dir, tif_name)
+                        FLOG.trace(f"Begin inundation for {tif_name}")
                         try:
                             executor.submit(
                                 run_inundation,
@@ -676,6 +675,7 @@ def post_process_cat_fim_for_viz(
 
                 huc_dir = os.path.join(output_mapping_dir, huc)
                 progress_stmt = f"index {huc_index + 1} of {num_hucs}"
+                huc_index += 1
 
                 try:
                     ahps_dir_list = [
@@ -721,7 +721,7 @@ def post_process_cat_fim_for_viz(
 
         merged_layers_gdf = None
         for ctr, layer in enumerate(gpkg_files):
-            FLOG.lprint(f"Merging number {ctr+1} of {len(gpkg_files)}")
+            FLOG.lprint(f"Merging gkpg file number {ctr+1} of {len(gpkg_files)}")
 
             # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gkpg
             diss_extent_filename = os.path.join(gpkg_dir, layer)
@@ -743,11 +743,18 @@ def post_process_cat_fim_for_viz(
         if merged_layers_gdf is None:
             raise Exception(f"No ahps - magnitude gpkgs found in {gpkg_dir}")
 
+        MP_LOG.lprint("Saving catfim library")
         merged_layers_gdf.to_file(merged_layer_file_path, driver='GPKG', index=False)
 
         # TODO: July 9, 2024: Consider deleting all of the interium .gkpg files in the gkpg folder.
         # It will get very big quick.
         # shutil.rmtree(gpkg_dir)
+        
+        # Now dissolve based on ahps and magnitude
+        MP_LOG.lprint("Dissolving catfim_libary by ahps and magnitudes")
+        ahps_mag_dissolved_file_path = os.path.join(output_mapping_dir, 'catfim_library_dissolved.gpkg')
+        ahps_mag_dissolved_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
+        ahps_mag_dissolved_gdf.to_file(ahps_mag_dissolved_file_path, driver='GPKG', index=False)
 
     else:
         FLOG.warning(f"{merged_layer_file_path} already exists.")
@@ -787,7 +794,6 @@ def reformat_inundation_maps(
         MP_LOG.trace(
             f"{huc} : {ahps_lid} : {magnitude} -- Start reformat_inundation_maps" " (tif extent to gpkg poly)"
         )
-        MP_LOG.trace(f"tif_to_process is {tif_to_process}")
         # Convert raster to shapes
         with rasterio.open(tif_to_process) as src:
             image = src.read(1)
@@ -843,10 +849,10 @@ def reformat_inundation_maps(
             extent_poly_diss.to_file(
                 diss_extent_filename, driver=getDriver(diss_extent_filename), index=False
             )
-            MP_LOG.trace(
-                f"{huc} : {ahps_lid} : {magnitude} - Reformatted inundation map saved"
-                f" as {diss_extent_filename}"
-            )
+            #MP_LOG.trace(
+            #    f"{huc} : {ahps_lid} : {magnitude} - Reformatted inundation map saved"
+            #    f" as {diss_extent_filename}"
+            #)
         else:
             MP_LOG.error(f"{huc} : {ahps_lid} : {magnitude} tif to gpkg, geodataframe is empty")
 

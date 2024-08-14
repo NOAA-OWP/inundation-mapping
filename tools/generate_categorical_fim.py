@@ -338,16 +338,23 @@ def create_csvs(output_mapping_dir, is_stage_based):
     # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
     gpkg_list = glob.glob(os.path.join(output_mapping_dir, '*.gpkg'))
 
-    # catfim_library.gpkg is saved as (flow_based or stage_based)_catfim.csv
+
+    # TODO: Aug 2024: when we get more confident with the library, we can skip making the non
+    # dissolved version someday
+
+    # catfim_library_dissolved.gpkg is saved as (flow_based or stage_based)_catfim_library_dissolved.csv
+    # catfim_library.gpkg is saved as (flow_based or stage_based)_catfim_library.csv
     # nws_lid_sites.gpkg is saved as (flow_based or stage_based)_catfim_sites.csv
 
     for gpkg in gpkg_list:
         FLOG.lprint(f"Creating CSV for {gpkg}")
         gdf = gpd.read_file(gpkg, engine='fiona')
         parent_directory = os.path.split(gpkg)[0]
-        if 'catfim_library' in gpkg:
-            file_name = f"{catfim_method}_catfim.csv"
-        if 'nws_lid_sites' in gpkg:
+        if 'catfim_library_dissolved' in gpkg:
+            file_name = f"{catfim_method}_catfim_library_dissolved.csv"
+        elif 'catfim_library' in gpkg:
+            file_name = f"{catfim_method}_catfim_library.csv"
+        elif 'nws_lid_sites' in gpkg:
             file_name = f"{catfim_method}_catfim_sites.csv"
 
         csv_output_path = os.path.join(parent_directory, file_name)
