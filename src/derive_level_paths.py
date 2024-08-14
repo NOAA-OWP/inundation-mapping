@@ -61,7 +61,7 @@ def Derive_level_paths(
     if huc_id in HIGH_STREAM_DENSITY_HUCS:
         print('HUC is in high density HUC list... removing additional stream segments.')
         stream_network = stream_network.exclude_attribute_values(
-            branch_id_attribute="order_", values_excluded=[1, 2, 3, 4]
+            branch_id_attribute="order_", values_excluded=[1, 2, 3, 4, 5]
         )
     elif huc_id in MEDIUM_HIGH_STREAM_DENSITY_HUCS:
         print('HUC is in medium-high density HUC list... removing additional stream segments.')
