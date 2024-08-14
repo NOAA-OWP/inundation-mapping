@@ -107,21 +107,21 @@ def generate_flows_for_huc(
             )
 
             if len(stages) == 0 or len(flows) == 0:
-                message = f'{lid}: no stages or flows exist, likely WRDS error'
+                message = f'{lid}:no stages or flows exist, likely WRDS error'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
 
             # Check if stages are supplied, if not write message and exit.
             if all(stages.get(category, None) is None for category in flood_categories):
-                message = f'{lid}: missing threshold stages'
+                message = f'{lid}:missing threshold stages'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
 
             # Check if calculated flows are supplied, if not write message and exit.
             if all(flows.get(category, None) is None for category in flood_categories):
-                message = f'{lid}: missing calculated flows'
+                message = f'{lid}:missing calculated flows'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
@@ -140,7 +140,7 @@ def generate_flows_for_huc(
 
             # If there are no segments, write message and exit out
             if not segments or len(segments) == 0:
-                message = f'{lid}: missing nwm segments'
+                message = f'{lid}:missing nwm segments'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
@@ -171,7 +171,7 @@ def generate_flows_for_huc(
                     flow_info.to_csv(output_file, index=False)
 
                 else:
-                    message = f'{lid}: {category} is missing calculated flow'
+                    message = f'{lid}:{category} is missing calculated flow'
                     all_messages.append(message)
                     MP_LOG.warning(f"{huc} - {message}")
 
@@ -229,7 +229,7 @@ def generate_flows_for_huc(
                 message = f'{lid}: flows available'
                 all_messages.append(message)
             else:
-                message = f'{lid}: missing all calculated flows'
+                message = f'{lid}:missing all calculated flows'
                 all_messages.append(message)
                 MP_LOG.warning(f"Missing all calculated flows for {huc} - {lid}")
 
@@ -473,14 +473,16 @@ def generate_flows(
 
     # Write messages to DataFrame, split into columns, aggregate messages.
     if len(huc_message_list) > 0:
+        
         messages_df = pd.DataFrame(huc_message_list, columns=['message'])
         messages_df = (
             messages_df['message']
-            .str.split(': ', n=1, expand=True)
+            .str.split(':', n=1, expand=True)
             .rename(columns={0: 'nws_lid', 1: 'status'})
         )
+       
         # There could be duplicate message for one ahps (ie. missing nwm segments), so drop dups
-        messages_df.drop_duplicates(subset="status", keep="first", inplace=True)
+        messages_df.drop_duplicates(subset=["nws_lid","status"], keep="first", inplace=True)
 
         # We want one viz_out_gdf record per ahps and if there are more than one, contact the messages
 
@@ -489,8 +491,6 @@ def generate_flows(
         status_df = messages_df.groupby(['nws_lid'])['status'].agg(lambda x: ',\n'.join(x)).reset_index()
 
         # some messages status values start with a space as the first character. Remove it
-
-        # TODO: This did not work ???
         status_df["status"] = status_df["status"].apply(lambda x: x.strip())
 
         # Join messages to populate status field to candidate sites. Assign
@@ -498,6 +498,7 @@ def generate_flows(
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
         viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
+        viz_out_gdf.to_file(os.path.join(mapping_dir, 'nws_lid_sites_7.gpkg'), driver='GPKG')                
 
     # Filter out columns and write out to file
     # viz_out_gdf = viz_out_gdf.filter(
