@@ -51,7 +51,7 @@ shapely = "*"
 tables = "*"
 tqdm = "*"
 urllib3 = "*"
-whitebox = "*"
+whitebox = "==2.3.4"
 xarray = "*"
 zarr = "*"
 
