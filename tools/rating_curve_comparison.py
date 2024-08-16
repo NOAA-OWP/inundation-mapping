@@ -200,10 +200,10 @@ def generate_rating_curve_metrics(args):
             rating_curves['order_'] = rating_curves['order_'].astype('int')
 
             # NWM recurr intervals
-            recurr_intervals = ("2", "5", "10", "25", "50", "100")
+            recurr_intervals = ("2", "5", "10", "25", "50")
             recurr_dfs = []
             for interval in recurr_intervals:
-                recurr_file = join(nwm_flow_dir, 'nwm21_17C_recurr_{}_0_cms.csv'.format(interval))
+                recurr_file = join(nwm_flow_dir, 'nwm3_17C_recurr_{}_0_cms.csv'.format(interval))
                 df = pd.read_csv(recurr_file, dtype={'feature_id': str})
                 # Update column names
                 df = df.rename(columns={"discharge": interval})
