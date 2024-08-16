@@ -35,24 +35,27 @@ class Gage2Branch(object):
         # Read RAS2FIM point locations file
         # !!! Geopandas is not honoring the dtype arg with this read_file below (huc8 being read as int64).
         # Need the raw data to store the 'huc8' attribute as an object to avoid issues with integers truncating the leading zero from some hucs
-        ras_locs = gpd.read_file(self.ras_locs_filename, dtype={'huc8': 'object'})
-        ras_locs = ras_locs[['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'geometry']]
-        ras_locs['location_id'] = ras_locs['fid_xs']
+        if os.path.exists(self.ras_locs_filename):
+            ras_columns = ['feature_id', 'huc8', 'stream_stn', 'fid_xs', 'source', 'geometry']
+            ras_locs = gpd.read_file(self.ras_locs_filename, dtype={'huc8': 'object'}, usecols=ras_columns)
+            ras_locs = ras_locs[ras_columns]
+            ras_locs['location_id'] = ras_locs['fid_xs']
 
-        # Convert ras locs crs to match usgs gage crs
-        ras_locs.to_crs(huc_CRS, inplace=True)
-        ras_locs = ras_locs.rename(columns={'huc8': 'HUC8'})
+            # Convert ras locs crs to match usgs gage crs
+            ras_locs.to_crs(huc_CRS, inplace=True)
+            ras_locs = ras_locs.rename(columns={'huc8': 'HUC8'})
 
-        # Convert Multipoint geometry to Point geometry
-        ras_locs['geometry'] = ras_locs.representative_point()
+            # Convert Multipoint geometry to Point geometry
+            ras_locs['geometry'] = ras_locs.representative_point()
 
-        # if ras_locs.huc8.dtype == 'int64':
-        #     ras_locs = ras_locs[ras_locs.huc8 == int(self.huc8)]
-        #     ras_locs['HUC8'] = str(self.huc8)
-        #     ras_locs = ras_locs.drop('huc8', axis=1)
-        # elif ras_locs.huc8.dtype == 'int64':
-        #     ras_locs = ras_locs.rename(columns={'huc8':'HUC8'})
-
+            # if ras_locs.huc8.dtype == 'int64':
+            #     ras_locs = ras_locs[ras_locs.huc8 == int(self.huc8)]
+            #     ras_locs['HUC8'] = str(self.huc8)
+            #     ras_locs = ras_locs.drop('huc8', axis=1)
+            # elif ras_locs.huc8.dtype == 'int64':
+            #     ras_locs = ras_locs.rename(columns={'huc8':'HUC8'})
+        else:
+            ras_locs = pd.DataFrame(columns=['feature_id', 'stream_stn', 'fid_xs', 'source', 'geometry'])
         # Concat USGS points and RAS2FIM points
         gages_locs = pd.concat([usgs_gages, ras_locs], axis=0, ignore_index=True)
         # gages_locs.to_crs(PREP_CRS, inplace=True)
