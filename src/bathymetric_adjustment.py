@@ -11,7 +11,8 @@ from os.path import join
 
 import geopandas as gpd
 import pandas as pd
-from synthesize_test_cases import progress_bar_handler
+
+from utils.shared_functions import progress_bar_handler
 
 
 def correct_rating_for_bathymetry(fim_dir, huc, bathy_file, verbose):
@@ -191,13 +192,13 @@ def multi_process_hucs(fim_dir, bathy_file, wbd_buffer, wbd, output_suffix, numb
             executor_dict[future] = huc
 
         # Send the executor to the progress bar and wait for all tasks to finish
-        progress_bar_handler(executor_dict, True, f"Running BARC on {len(hucs)} HUCs")
+        progress_bar_handler(executor_dict, f"Running BARC on {len(hucs)} HUCs")
         # Get the returned logs and write to the log file
         for future in executor_dict.keys():
             try:
                 log_file.write(future.result())
             except Exception as ex:
-                print(f"WARNING: {executor_dict[future]} BARC failed for some reason")
+                print(f"ERROR: {executor_dict[future]} BARC failed for some reason")
                 log_file.write(f"ERROR --> {executor_dict[future]} BARC failed (details: *** {ex} )\n")
                 traceback.print_exc(file=log_file)
 

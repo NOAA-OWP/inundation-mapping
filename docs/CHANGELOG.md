@@ -9,6 +9,208 @@ This PR adds scripts that can identify areas within produced inundation rasters 
 - `tools/identify_catchment_boundary.py`: Identifies where catchment boundaries are glasswalling inundation extent.
 
 - `tools/inundate_catchment_boundary.py`: Produces inundation for given HUC and identifies catchment boundary issues in produced FIM. 
+## v4.5.5.1 - 2024-08-16 - [PR#1225](https://github.com/NOAA-OWP/inundation-mapping/pull/1225)
+
+Removes warning when running `heal_bridges_osm.py` by not saving the empty DataFrame.
+
+### Changes
+
+- `src/heal_bridges_osm.py`
+
+<br/><br/>
+
+
+## v4.5.5.0 - 2024-08-16 - [PR#1247](https://github.com/NOAA-OWP/inundation-mapping/pull/1247)
+
+Updated the gauge crosswalk and SRC adjustment routine to use the ras2fim v2 files. The v2 ras2fim file structure was changed to organize the data by huc8 - one gpkg and csv per huc8. Addresses #1091 
+
+### Changes
+- `fim_post_processing.sh`: added new input variables for running the `src_adjust_ras2fim_rating.py`
+- `src/bash_variables.env`: renamed and reassigned the ras2fim input variables: `ras2fim_input_dir`, `ras_rating_curve_csv_filename`, `ras_rating_curve_gpkg_filename`
+- `src/run_unit_wb.sh`: Added logic to check if huc in process has ras2fim input data to process. If yes - copy the ras2fim cross section point gpkg to the huc run directory.
+- `src/src_adjust_ras2fim_rating.py`: Updated code logic to use the huc-specific input files containing the ras2fim rating curve data (previous ras2fim input file contained all hucs in one csv)
+- `src/utils/shared_functions.py`: Added function to find huc subdirectories with the same name btw two parent folders
+
+ <br/><br/>
+
+## v4.5.4.4 - 2024-08-02 - [PR#1238](https://github.com/NOAA-OWP/inundation-mapping/pull/1238)
+
+Prior to this fix, fim_post_processing.sh took just under 4 hours to reset permissions on all files and folder under the entire run. On closer inspection, it was updating permissions for all HUC folders where were already correct. A few other folders needed to have permission updates added. This will speed that up significantly.
+
+Also, use this opportunity to added a new note to hash_compare.py and fix an annoying duration time showing milliseconds.
+
+### Changes
+- `fim_pipeline.sh`: fix duration msgs.
+- `fim_post_processing.sh`:  permissions reset fix, a bit of output cleanup and fix duration msgs.
+- `src`
+    - `bash_functions.env`: update the Calc duration to allow for a msg prefix to be added to the duration calcs. Also adjusted the duration message to show hours as well, previously only min and seconds.
+    - `run_by_branch.sh`: fix duration msgs.
+    - `run_unit_wb.sh`: fix duration msgs.
+    - `src\src_adjust_ras2fim_rating.py`: minor duration display msg change.
+- `tools\hash_compare.py`: Added note
+
+ <br/><br/>
+
+
+## v4.5.4.3 - 2024-08-02 - [PR#1136](https://github.com/NOAA-OWP/inundation-mapping/pull/1136)
+
+Levee-protected areas are associated with levelpaths based on a 1000 m buffer on each side of the levee line. However, not all levees are designed to protect against all associated levelpaths, especially where the levelpath flows through the levee-protected area. Levee-protected areas are unmasked by removing levelpaths from association that don't intersect levees but instead flow around them which allows inundation by these branches.
+
+### Changes
+
+- `src/associate_levelpaths_with_levees.py`: Finds levelpaths that don't intersect levees and removes them from their association with their levee-protected area.
+
+<br/><br/>
+
+
+## v4.5.4.2 - 2024-08-02 - [PR#1125](https://github.com/NOAA-OWP/inundation-mapping/pull/1125)
+
+This PR focuses on updating the preprocess_bathymetry.py for 3 issues: 1) the capability of preprocessing SurveyJobs that have negative depth values, 2) changing the SurveyDateStamp format, and 3) the capability of including multiple SurveyJobs for one NWM feature-id if needed.
+
+### Changes
+`data/bathymetry/preprocess_bathymetry.py`: Addressing 3 issues including, the capability of preprocessing SurveyJobs that have negative depth values, changing the SurveyDateStamp format, and the capability of including multiple SurveyJobs for one NWM feature-id.
+
+
+<br/><br/>
+
+## v4.5.4.1 - 2024-08-02 - [PR#1185](https://github.com/NOAA-OWP/inundation-mapping/pull/1185)
+
+This PR brings back the `preprocess_ahps_nws.py` code to FIM4 and generates new AHPS benchmark datasets for sites SXRA2 and SKLA2 in Alaska.  The new AHPS benchmark datasets are available on dev1 here: "/dev_fim_share/foss_fim/outputs/ali_ahps_alaska/AHPS_Results_Alaska/19020302/"
+
+
+To process a new station, follow these steps:
+
+1. Add the name of the new site (s) to the`/data/inputs/ahps_sites/evaluated_ahps_sites.csv` file. 
+2. Collect/Download the grid depth dataset, typically available as ESRI gdb.
+3. Use arcpy (or ArcGIS pro ) to convert the grid depths (in ESRI gdb) into TIFF files
+    - Make sure the TIFF files have crs
+    - Store all the TIFF files in a directory called "depth_grid," which should be a sub-folder inside a folder named after the gage code (must be a 5-character code)
+4. Run the script as described below. **Note that sites in CONUS and Alaska cannot be mixed in a single run. Separate runs should be done for Alaska sites and CONUS sites.**
+
+Note that for the "SKLA2" site, the downloaded ESRI-GDB grid files had a datum issue. This issue was manually corrected during the conversion of GDB files into TIFF files.
+
+### Additions
+- `data/nws/preprocess_ahps_nws.py`  ... retrieved from previous versions of FIM and updated for shapely v2
+
+### Changes
+- `tools/tools_shared_functions.py`  ... updated for shapely v2
+
+<br/><br/>
+
+## v4.5.4.0 - 2024-08-02 - [PR#1198](https://github.com/NOAA-OWP/inundation-mapping/pull/1198)
+
+### Changes
+- `src/bash_variables.env`: high water threshold and recurrence flows CSV files were updated into new NWM v3 flow files. Also, a new Manning numbers file created from the new NWM v3 dataset was used.
+-  `src/src_adjust_ras2fim_rating.py`: 100 year recurrence was removed since it is not included in the new AEP.
+-  `src/src_adjust_usgs_rating_trace.py`: 100 year recurrence was removed since it is not included in the new AEP.
+-  `tools/rating_curve_comparison.py`: 100 year recurrence was removed since it is not included in the new AEP. Also, the name of recurrence flow CSV file was updated.
+-  `tools/composite_inundation.py`
+-  `tools/inundate_nation.py`
+
+<br/><br/>
+
+## v4.5.3.1 - 2024-07-24 - [PR#1233](https://github.com/NOAA-OWP/inundation-mapping/pull/1233)
+
+In a PR [1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217), which is about to be merged, it updates a bunch of python packages. One is numpy. This has triggered a very large amount of on-screen output from a new numpy warning while running `synthesize_test_cases.py`.
+
+### Changes
+- `tools\overlapping_inundation.py`: As described
+
+ <br/><br/>
+ 
+
+## v4.5.3.0 - 2024-07-24 - [PR#1217](https://github.com/NOAA-OWP/inundation-mapping/pull/1217)
+
+This PR rolls up a bunch of other PR's and python packages requests including:
+- Issue [1208](https://github.com/NOAA-OWP/inundation-mapping/issues/1208)  Bump OpenJDK from 17.0.8 to 17.0.10 (via updating to JDK 21.0.3)
+- PR [1207](https://github.com/NOAA-OWP/inundation-mapping/pull/1207) - Dependabot bump certifi from 2023.7.22 to 2024.7.4
+- PR [1192](https://github.com/NOAA-OWP/inundation-mapping/pull/1192) - Dependabot Bump urllib3 from 1.26.18 to 1.26.19
+- Updates required from ongoing PR [1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) - Probabilistic Flood Inundation Mapping. These updates make it easier for that branch/task to continue forward and staying in sync with dev. This triggered a few other packages that needed to be updated.
+
+Other tasks included are:
+- Removing the now heavily obsolete `unit_test` system, including the package `pytest`. This included some changes to the `CONTRIBUTING.md` document.
+- Clean of a couple of packages no longer in use: `pluggy` and `iniconfig`
+- Removal of a deprecated file named `config/aws_s3_put_fim3_hydrovis_whitelist.lst`
+- Removed duration stamps around a few parts in `fim_post_processing.sh`
+- Fixes and updates to linting files. e.g. `pyproject.toml`. (line length was not working correctly)
+
+### Changes
+- `Dockerfile`, `Pipfile`, `Pipfile.lock`: as describe above for python package changes
+- `.gitignore`, `CONTRIBUTING.md`: File changes related to removing the `unit_test` system.
+- `fim_post_processing.sh`: noted above.
+- `pyproject.toml`: fixes and updates for linting
+
+### Removals
+- `unit_tests` folder and all related files under it. Appx 25 to 30 files removed.
+
+<br/><br/>
+
+
+## v4.5.2.11 - 2024-07-19 - [PR#1222](https://github.com/NOAA-OWP/inundation-mapping/pull/1222)
+
+We are having problems with post processing overall duration taking a long time. This new system captures duration times for each module/section inside fim_post_processing.sh and records it to a file on the output directory. It records it as it progress and will also help us learn if fim_post_processing.sh stopped along the way.
+
+Note: When used in code, we call `Set_log_file_path` shell variable with a file name and path (no validation done at this time).  The each time a person wants to print to screen and console, use the `l_echo` command instead of the native `echo` command. If the log file has not been set, the output will continue to go to screen, just not the log file.
+
+### Changes
+- `fim_pipeline.sh`: A couple of minor text output changes.
+- `fim_post_processing.sh`:  As described above.
+- `src\bash_functions.env`:  New functions and adjustments to support the new log system.
+
+<br/><br/>
+
+
+## v4.5.2.10 - 2024-07-19 - [PR#1224](https://github.com/NOAA-OWP/inundation-mapping/pull/1224)
+
+Addresses warnings to reduce output messages.
+
+### Changes
+
+- `src/'
+    - `adjust_thalweg_lateral.py`: fixes number type
+    - `src/delineate_hydros_and_produce_HAND.sh`: removes division by zero warning
+    - `getRasterInfoNative.py`: adds `gdal.UseExceptions()`
+
+<br/><br/>
+
+
+## v4.5.2.9 - 2024-07-19 - [PR#1216](https://github.com/NOAA-OWP/inundation-mapping/pull/1216)
+
+Adds `NO_VALID_CROSSWALKS` to `FIM_exit_codes` which is used when the crosswalk table or output_catchments DataFrame is empty. Removes branches that fail with `NO_VALID_CROSSWALKS`.
+
+### Changes
+    - `add_crosswalk.py`: Added `NO_VALID_CROSSWALKS` as exit status when crosswalk or output_catchments is empty
+    - `process_branch.sh`: Removed branches that fail with `NO_VALID_CROSSWALKS`
+    - `utils/fim_enums.py`: Added `NO_VALID_CROSSWALKS` to `FIM_exit_codes`
+
+<br/><br/>
+
+
+## v4.5.2.8 - 2024-07-19 - [PR#1219](https://github.com/NOAA-OWP/inundation-mapping/pull/1219)
+
+Changes non-fatal `ERROR` messages to `WARNINGS` to avoid triggering being logged as errors.
+
+### Changes
+
+- `src/`
+    - `bathymetric_adjustment.py`: Changes `WARNING` to `ERROR` in Exception
+    - `src_roughness_optimization.py`: Changes `ERROR` messages to `WARNING`
+
+<br/><br/>
+
+## v4.5.2.7 - 2024-07-19 - [PR#1220](https://github.com/NOAA-OWP/inundation-mapping/pull/1220)
+
+With this PR we can run post_processing.sh multiple times on a processed batch without any concerns that it may change the hydroTable or src_full_crosswalked files.
+
+### Additions
+
+- `src/update_htable_src.py`
+
+### Changes
+
+-  `config/deny_branch_zero.lst`
+-  `config/deny_branches.lst`
+-  `fim_post_processing.sh`
 
 <br/><br/>
 
@@ -22,7 +224,6 @@ This PR adds a new script to determine which bridges are inundated by a specific
 
 <br/><br/>
 
-
 ## v4.5.2.5 - 2024-07-08 - [PR#1205](https://github.com/NOAA-OWP/inundation-mapping/pull/1205)
 
 Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on NWM streams within a threshold of 100 meters. DEM-derived streams that do not locate any NWM streams within 100 meters of their midpoints are removed from the FIM hydrofabric and their catchments are not inundated.
@@ -32,7 +233,6 @@ Snaps crosswalk from the midpoint of DEM-derived reaches to the nearest point on
 - `src/add_crosswalk.py`: Locates nearest NWM stream to midpoint of DEM-derived reaches if within 100 meters. Also fixes a couple of minor bugs. 
 
 <br/><br/>
-
 
 ## v4.5.2.4 - 2024-07-08 - [PR#1204](https://github.com/NOAA-OWP/inundation-mapping/pull/1204)
 
