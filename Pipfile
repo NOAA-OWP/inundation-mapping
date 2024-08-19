@@ -7,7 +7,6 @@ verify_ssl = true
 ipython = "==8.24.0"
 
 [packages]
-aiohttp = "==3.9.5"
 black = "==24.3.0"
 boto3 = "==1.26.109"
 certifi = "==2024.7.4"
