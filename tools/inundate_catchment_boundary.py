@@ -149,8 +149,7 @@ def produce_mosaicked_inundation(
         hydrofabric_dir=hydrofabric_dir,
         hucs=hucs,
         inundation_raster=mosaic_file_path,
-        output=boundary_output,
-        number_of_jobs=4,
+        output=boundary_output
     )
     fh.vprint("Catchment boundary identification complete.", verbose)
 
