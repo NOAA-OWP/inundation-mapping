@@ -24,6 +24,9 @@ import utils.fim_logger as fl
 from utils.shared_functions import getDriver
 from utils.shared_variables import ALASKA_CRS, PREP_PROJECTION, VIZ_PROJECTION
 
+# TODO: Aug 2024: This script was upgraded significantly with lots of misc TODO's embedded.
+# Lots of inline documenation needs updating as well
+
 
 # will become global once initiallized
 FLOG = fl.FIM_logger()
@@ -432,7 +435,7 @@ def run_catfim_inundation(
 def run_inundation(
     magnitude_flows_csv,
     huc,
-    output_tif_directory,
+    output_huc_site_mapping_dir,
     output_extent_tif,
     ahps_site,
     magnitude,
@@ -505,17 +508,20 @@ def run_inundation(
     #    Flows: allm1_action_12p0ft_extent_01010002_0.tif, allm1_action_12p0ft_extent_01010002_7170000001.tif
     #       your give away is to just delete any file that has the HUC number in teh file name
     # The intermediatary are all inundated branch tifs.
-    # branch_tifs = glob.glob(os.path.join(output_tif_directory, '*_extent_*.tif'))
-    # for tif_file in branch_tifs:
+    
+    # DEBUG
+    #branch_tifs = glob.glob(os.path.join(output_huc_site_mapping_dir, '*_extent_*.tif'))
+    #for tif_file in branch_tifs:
     #     os.remove(tif_file)
 
     return
 
 
 # This is part of an MP Pool
+# TODO: Aug 2024: job_number_inundate is not used well at all and is partially
+# with more cleanup to do later. Partially removed now.
 def post_process_huc(
     output_catfim_dir,
-    job_number_inundate,
     ahps_dir_list,
     huc_dir,
     gpkg_dir,
@@ -548,29 +554,37 @@ def post_process_huc(
             # Append desired filenames to list. (notice.. no value after the word extent)
             # tif_list = [x for x in os.listdir(mapping_huc_lid_dir) if x.endswith("extent.tif")]  # doesn't match the old filenames
             
-            # new logic actually finds the extent tifs            
-            tif_list = [x for x in os.listdir(mapping_huc_lid_dir) if ('extent' and '.tif') in x]
+            # new logic actually finds the extent tifs
+            # It will find only the mag rollups and not its branches
+
+            # if stage based, the file names looks like this: masm1_major_20p0ft_extent.tif
+            #    but there also is masm1_major_extent.tif, so we want both
+            # if flow based, the file name looks like this: masm1_action_extent.tif
+
+            tif_list = [x for x in os.listdir(mapping_huc_lid_dir) if ('extent.tif') in x]
 
             if len(tif_list) == 0:
                 MP_LOG.warning(f">> no tifs found for {huc} {ahps_lid} at {mapping_huc_lid_dir}")
                 continue
 
-            # Filter that to the right extent file(s)
-
-            # if stage based, the file names looks like this: masm1_major_20p0ft_extent.tif
-            #    but there also is masm1_major_extent.tif, so we want both
-            # if flow based, the file name looks like this: masm1_action_extent.tif
             for tif in tif_list:
-                if ahps_lid in tif:
-                    tifs_to_reformat_list.append(os.path.join(mapping_huc_lid_dir, tif))
+                if 'extent.tif' in tif:
+                    # as we processing tifs for just one ahps at a time, we can further files that have that
+                    # ahps_lid in it.
+                    if ahps_lid in tif:
+                        tifs_to_reformat_list.append(os.path.join(mapping_huc_lid_dir, tif))
+
+            if len(tifs_to_reformat_list) == 0:
+                MP_LOG.warning(f">> no tifs found for {huc} {ahps_lid} at {mapping_huc_lid_dir}")
+                continue
 
             # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
             nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
 
             # We are going to do an MP in MP.
-            child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
-                parent_log_output_file, "MP_reformat_tifs", huc
-            )
+            #child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
+            #    parent_log_output_file, "MP_reformat_tifs", huc
+            #)
             # Weird case, we ahve to delete any of these files that might already exist (MP in MP)
             # Get parent log dir
             # log_dir = os.path.dirname(parent_log_output_file)
@@ -578,55 +592,58 @@ def post_process_huc(
             # for log_file in old_refomat_log_files:
             #     os.remove(log_file)
 
-            with ProcessPoolExecutor(max_workers=job_number_inundate) as executor:
-                for tif_to_process in tifs_to_reformat_list:
-                    # If not os.path.exists(tif_to_process):
-                    #    continue
+            # with ProcessPoolExecutor(max_workers=job_number_inundate) as executor: 
+            # TODO:
+            # Aug 2024, Using MP (job number inundate has very little value, drop it)
+            # Clean up that ji MP
+#            with ProcessPoolExecutor(max_workers=job_number_inundate) as executor:
+            for tif_to_process in tifs_to_reformat_list:
+                # If not os.path.exists(tif_to_process):
+                #    continue
 
-                    # If stage based, the file names looks like this: masm1_major_20p0ft_extent.tif
-                    #    but there also is masm1_major_extent.tif, so we want both
-                    # If flow based, the file name looks like this: masm1_action_extent.tif
-                    try:
+                # If stage based, the file names looks like this: masm1_major_20p0ft_extent.tif
+                #    but there also is masm1_major_extent.tif, so we want both
+                # If flow based, the file name looks like this: masm1_action_extent.tif
+                MP_LOG.trace(f".. Tif to Process = {tif_to_process}")
+                try:
 
-                        tif_file_name = os.path.basename(tif_to_process)
-                        file_name_parts = tif_file_name.split("_")
-                        magnitude = file_name_parts[1]
+                    tif_file_name = os.path.basename(tif_to_process)
+                    file_name_parts = tif_file_name.split("_")
+                    magnitude = file_name_parts[1]
 
-                        if "ft" in tif_file_name:  # stage based, ie grnm1_action_11p0ft_extent.tif
-                            try:
-                                interval_stage = float(file_name_parts[2].replace('p', '.').replace("ft", ""))
-                            except ValueError:
-                                interval_stage = None
-                                MP_LOG.error(
-                                    f"Value Error for {huc} - {ahps_lid} - magnitude {magnitude}"
-                                    " at {mapping_huc_lid_dir}"
-                                )
-                                MP_LOG.error(traceback.format_exc())
-                        else:  # flow based. ie) cfkt2_action_extent.tif
+                    if "ft" in tif_file_name:  # stage based, ie grnm1_action_11p0ft_extent.tif
+                        try:
+                            interval_stage = float(file_name_parts[2].replace('p', '.').replace("ft", ""))
+                        except ValueError:
                             interval_stage = None
+                            MP_LOG.error(
+                                f"Value Error for {huc} - {ahps_lid} - magnitude {magnitude}"
+                                " at {mapping_huc_lid_dir}"
+                            )
+                            MP_LOG.error(traceback.format_exc())
+                    else:  # flow based. ie) cfkt2_action_extent.tif
+                        interval_stage = None
 
-                        executor.submit(
-                            reformat_inundation_maps,
-                            ahps_lid,
-                            tif_to_process,
-                            gpkg_dir,
-                            fim_version,
-                            huc,
-                            magnitude,
-                            nws_lid_attributes_filename,
-                            interval_stage,
-                            parent_log_output_file,
-                            child_log_file_prefix,
-                        )
-                    except Exception:
-                        MP_LOG.error(
-                            f"An ind reformat map error occured for {huc} - {ahps_lid} - magnitude {magnitude}"
-                        )
-                        MP_LOG.error(traceback.format_exc())
-            # end of ProcessPoolExecutor
+                    reformat_inundation_maps(
+                        ahps_lid,
+                        tif_to_process,
+                        gpkg_dir,
+                        fim_version,
+                        huc,
+                        magnitude,
+                        nws_lid_attributes_filename,
+                        interval_stage,
+                        parent_log_output_file,
+                        child_log_file_prefix,
+                    )
+                except Exception:
+                    MP_LOG.error(
+                        f"An ind reformat map error occured for {huc} - {ahps_lid} - magnitude {magnitude}"
+                    )
+                    MP_LOG.error(traceback.format_exc())
 
             # rolls up logs from child MP processes into this parent_log_output_file
-            MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
+            # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
 
     except Exception:
         MP_LOG.error(f"An error has occurred in post processing for {huc}")
@@ -637,9 +654,9 @@ def post_process_huc(
 
 # This is not part of an MP process, but does need FLOG carried into it so it can use FLOG directly
 def post_process_cat_fim_for_viz(
-    output_catfim_dir, job_number_huc, job_number_inundate, fim_version, log_output_file
+    catfim_method, output_catfim_dir, job_huc_ahps, fim_version, log_output_file
 ):
-
+    
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
 
@@ -647,117 +664,116 @@ def post_process_cat_fim_for_viz(
     FLOG.lprint("Start post processing TIFs (TIF extents into poly into gpkg)...")
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     gpkg_dir = os.path.join(output_mapping_dir, 'gpkg')
-    if not os.path.exists(gpkg_dir):
-        os.mkdir(gpkg_dir)
+    if os.path.exists(gpkg_dir):
+        shutil.rmtree(gpkg_dir, ignore_errors=True)    
+    os.mkdir(gpkg_dir)
 
-    merged_layer_file_path = os.path.join(output_mapping_dir, 'catfim_library.gpkg')
+    # merged_layer_file_path = os.path.join(output_mapping_dir, 'catfim_library.gpkg')
 
-    if os.path.exists(merged_layer_file_path) == False:
-        # huc_ahps_dir_list = os.listdir(output_mapping_dir)
-        huc_ahps_dir_list = [
-            x
-            for x in os.listdir(output_mapping_dir)
-            if os.path.isdir(os.path.join(output_mapping_dir, x)) and x[0] in ['0', '1', '2']
-        ]
+    huc_ahps_dir_list = [
+        x
+        for x in os.listdir(output_mapping_dir)
+        if os.path.isdir(os.path.join(output_mapping_dir, x)) and x[0] in ['0', '1', '2']
+    ]
 
-        # skip_list = ['errors', 'logs', 'gpkg', 'missing_files.txt', 'messages', merged_layer]
+    skip_list = ['errors', 'logs', 'gpkg', 'missing_files.txt', 'messages']
 
-        num_hucs = len(huc_ahps_dir_list)
-        huc_index = 0
-        FLOG.lprint(f"Number of hucs to post process is {num_hucs}")
+    num_hucs = len(huc_ahps_dir_list)
+    huc_index = 0
+    FLOG.lprint(f"Number of hucs to post process is {num_hucs}")
 
-        child_log_file_prefix = MP_LOG.MP_calc_prefix_name(log_output_file, "MP_post_process")
-        with ProcessPoolExecutor(max_workers=job_number_huc) as huc_exector:
-            for huc in huc_ahps_dir_list:
-                FLOG.lprint(f"TIF post processing for {huc}")
-                # if huc in skip_list:
-                #    continue
+    child_log_file_prefix = MP_LOG.MP_calc_prefix_name(log_output_file, "MP_post_process")
+    with ProcessPoolExecutor(max_workers=job_huc_ahps) as huc_exector:
+        for huc in huc_ahps_dir_list:
+            FLOG.lprint(f"TIF post processing for {huc}")
+            if huc in skip_list:
+                continue
 
-                huc_dir = os.path.join(output_mapping_dir, huc)
-                progress_stmt = f"index {huc_index + 1} of {num_hucs}"
-                huc_index += 1
+            huc_dir = os.path.join(output_mapping_dir, huc)
+            progress_stmt = f"index {huc_index + 1} of {num_hucs}"
+            huc_index += 1
 
-                try:
-                    ahps_dir_list = [
-                        x for x in os.listdir(huc_dir) if os.path.isdir(os.path.join(huc_dir, x))
-                    ]
-                    # ahps_dir_list = os.listdir(huc_dir)
-                except NotADirectoryError:
-                    FLOG.warning(f"{huc_dir} directory missing. Continuing on")
-                    continue
+            try:
+                ahps_dir_list = [
+                    x for x in os.listdir(huc_dir) if os.path.isdir(os.path.join(huc_dir, x))
+                ]
+                # ahps_dir_list = os.listdir(huc_dir)
+            except NotADirectoryError:
+                FLOG.warning(f"{huc_dir} directory missing. Continuing on")
+                continue
 
-                # If there's no mapping for a HUC, delete the HUC directory.
-                if len(ahps_dir_list) == 0:
-                    # os.rmdir(huc_dir)
-                    FLOG.warning(f"no mapping for {huc}")
-                    continue
+            # If there's no mapping for a HUC, delete the HUC directory.
+            if len(ahps_dir_list) == 0:
+                os.rmdir(huc_dir)
+                FLOG.warning(f"no mapping for {huc}")
+                continue
 
-                FLOG.trace("Just before post process huc level")
-                huc_exector.submit(
-                    post_process_huc,
-                    output_catfim_dir,
-                    job_number_inundate,
-                    ahps_dir_list,
-                    huc_dir,
-                    gpkg_dir,
-                    fim_version,
-                    huc,
-                    log_output_file,
-                    child_log_file_prefix,
-                    progress_stmt,
-                )
-                FLOG.trace("Just after post process huc level")
+            huc_exector.submit(
+                post_process_huc,
+                output_catfim_dir,
+                ahps_dir_list,
+                huc_dir,
+                gpkg_dir,
+                fim_version,
+                huc,
+                log_output_file,
+                child_log_file_prefix,
+                progress_stmt,
+            )
 
-        # end of ProcessPoolExecutor
+    # end of ProcessPoolExecutor
 
-        # rolls up logs from child MP processes into this parent_log_output_file
-        MP_LOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
+    # rolls up logs from child MP processes into this parent_log_output_file
+    FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
 
-        # Merge all layers
-        gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
-        FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
+    # Merge all layers
+    gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
+    FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
 
-        # TODO: put a tqdm in here for visual only.
+    # TODO: put a tqdm in here for visual only.
 
-        merged_layers_gdf = None
-        for ctr, layer in enumerate(gpkg_files):
-            FLOG.lprint(f"Merging gkpg file number {ctr+1} of {len(gpkg_files)}")
-
-            # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gkpg
-            diss_extent_filename = os.path.join(gpkg_dir, layer)
-            diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
-            diss_extent_gdf['viz'] = 'yes'
-
-            if ctr == 0:
-                merged_layers_gdf = diss_extent_gdf
-            else:
-                merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
-
-            # Write/append aggregate diss_extent
-            # FLOG.lprint(f"Merging layer: {layer}")
-            # if os.path.isfile(merged_layer):
-            #    diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False, mode='a')
-            # else:
-            del diss_extent_gdf
-
-        if merged_layers_gdf is None:
-            raise Exception(f"No ahps - magnitude gpkgs found in {gpkg_dir}")
-
-        MP_LOG.lprint("Saving catfim library")
-        merged_layers_gdf.to_file(merged_layer_file_path, driver='GPKG', index=False)
-
-        # TODO: July 9, 2024: Consider deleting all of the interium .gkpg files in the gkpg folder.
-        # It will get very big quick.
-        # shutil.rmtree(gpkg_dir)
+    merged_layers_gdf = None
+    for ctr, layer in enumerate(gpkg_files):
+        # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
+        FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} : {layer}")        
         
-        # Now dissolve based on ahps and magnitude
-        MP_LOG.lprint("Dissolving catfim_libary by ahps and magnitudes")
-        ahps_mag_dissolved_file_path = os.path.join(output_mapping_dir, 'catfim_library_dissolved.gpkg')
-        ahps_mag_dissolved_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
-        ahps_mag_dissolved_gdf.to_file(ahps_mag_dissolved_file_path, driver='GPKG', index=False)
+        # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gkpg
+        diss_extent_filename = os.path.join(gpkg_dir, layer)
+        diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
+        diss_extent_gdf['viz'] = 'yes'
 
-    else:
-        FLOG.warning(f"{merged_layer_file_path} already exists.")
+        if ctr == 0:
+            merged_layers_gdf = diss_extent_gdf
+        else:
+            merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
+
+        # Write/append aggregate diss_extent
+        # FLOG.lprint(f"Merging layer: {layer}")
+        # if os.path.isfile(merged_layer):
+        #    diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False, mode='a')
+        # else:
+        del diss_extent_gdf
+
+    if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
+        raise Exception(f"No gpkgs found in {gpkg_dir}")
+
+    # TODO: July 9, 2024: Consider deleting all of the interium .gkpg files in the gkpg folder.
+    # It will get very big quick. But not yet.
+    # shutil.rmtree(gpkg_dir)
+    
+    # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
+    FLOG.lprint("Dissolving catfim_libary by ahps and magnitudes")
+    ahps_mag_dissolved_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
+    
+    output_file_name = f"{catfim_method}_catfim_library"
+    gkpg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
+    csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
+    
+    FLOG.lprint(f"Saving catfim library gpkg version to {gkpg_file_path}")
+    ahps_mag_dissolved_gdf.to_file(gkpg_file_path, driver='GPKG', index=False)
+    
+    FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
+    ahps_mag_dissolved_gdf.to_csv(csv_file_path)
 
     FLOG.lprint("End post processing TIFs...")
 
@@ -794,6 +810,8 @@ def reformat_inundation_maps(
         MP_LOG.trace(
             f"{huc} : {ahps_lid} : {magnitude} -- Start reformat_inundation_maps" " (tif extent to gpkg poly)"
         )
+        MP_LOG.trace(F"Tif to process is {tif_to_process}")
+        
         # Convert raster to shapes
         with rasterio.open(tif_to_process) as src:
             image = src.read(1)
@@ -839,7 +857,7 @@ def reformat_inundation_maps(
 
         # Save dissolved multipolygon
         handle = os.path.split(tif_to_process)[1].replace('.tif', '')
-        diss_extent_filename = os.path.join(gpkg_dir, f"{handle}_{huc}_dissolved.gpkg")
+        diss_extent_filename = os.path.join(gpkg_dir, f"{huc}_{handle}_dissolved.gpkg")
         extent_poly_diss["geometry"] = [
             MultiPolygon([feature]) if type(feature) is Polygon else feature
             for feature in extent_poly_diss["geometry"]
@@ -873,10 +891,14 @@ def reformat_inundation_maps(
 
 # This is not part of an MP progress and simply needs the
 # pointer of FLOG carried over here so it can use it directly.
+
+# TODO: Aug, 2024. We need re-evaluate job numbers, see usage of job numbers below
+# Used for Flow only
 def manage_catfim_mapping(
     fim_run_dir,
     output_flows_dir,
     output_catfim_dir,
+    catfim_method,
     job_number_huc,
     job_number_inundate,
     depthtif,
@@ -911,8 +933,13 @@ def manage_catfim_mapping(
     fim_version = os.path.basename(os.path.normpath(fim_run_dir)).replace('fim_', '').replace('_', '.')
 
     # Step 2
+    # TODO: Aug 2024, so we need to clean it up
+    # This step does not need a job_number_inundate as it can't relally use use it.
+    # It processes primarily hucs and ahps in multiproc
+    # for now, we will manuall multiple the huc * 5 (max number of ahps types)
+    ahps_jobs = job_number_huc * 5
     post_process_cat_fim_for_viz(
-        output_catfim_dir, job_number_huc, job_number_inundate, fim_version, str(FLOG.LOG_FILE_PATH)
+        catfim_method, output_catfim_dir, ahps_jobs, fim_version, str(FLOG.LOG_FILE_PATH)
     )
 
     end = time.time()

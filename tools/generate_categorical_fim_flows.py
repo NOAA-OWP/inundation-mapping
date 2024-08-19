@@ -30,6 +30,9 @@ from tools_shared_functions import (
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
+# TODO: Aug 2024: This script was upgraded significantly with lots of misc TODO's embedded.
+# Lots of inline documenation needs updating as well
+
 
 # will become global once initiallized
 FLOG = fl.FIM_logger()
@@ -226,7 +229,7 @@ def generate_flows_for_huc(
             if os.path.exists(huc_lid_flow_dir):
                 # Export DataFrame to csv containing attributes
                 csv_df.to_csv(os.path.join(attributes_dir, f'{lid}_attributes.csv'), index=False)
-                message = f'{lid}: flows available'
+                message = f'{lid}:flows available'
                 all_messages.append(message)
             else:
                 message = f'{lid}:missing all calculated flows'
@@ -296,7 +299,7 @@ def generate_flows(
 
     Returns
     -------
-    None.
+    nws_lid_gpkg_file_path. - Name and path of the nws_lid file
     '''
 
     FLOG.setup(log_output_file)  # reusing the parent logs
@@ -491,7 +494,7 @@ def generate_flows(
         status_df = messages_df.groupby(['nws_lid'])['status'].agg(lambda x: ',\n'.join(x)).reset_index()
 
         # some messages status values start with a space as the first character. Remove it
-        status_df["status"] = status_df["status"].apply(lambda x: x.strip())
+        # status_df["status"] = status_df["status"].apply(lambda x: x.strip())
 
         # Join messages to populate status field to candidate sites. Assign
         # status for null fields.
@@ -503,8 +506,12 @@ def generate_flows(
     # viz_out_gdf = viz_out_gdf.filter(
     #     ['nws_lid', 'usgs_gage', 'nwm_seg', 'HUC8', 'mapped', 'status', 'geometry']
     # )
-    nws_lid_layer = os.path.join(mapping_dir, 'nws_lid_sites.gpkg')
-    viz_out_gdf.to_file(nws_lid_layer, driver='GPKG')
+    
+    # stage based doesn't get here
+    nws_lid_gpkg_file_path = os.path.join(mapping_dir, 'flow_based_nws_lid_sites.gpkg')
+    viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG')
+    
+    # we don't create a csv as the gpkg will be updated later and csv created then.
 
     # time operation
     all_end = datetime.now(timezone.utc)
@@ -512,7 +519,7 @@ def generate_flows(
     FLOG.lprint(f"End Wrapping up flows generation Duration: {str(all_time_duration).split('.')[0]}")
     print()
 
-    return nws_lid_layer
+    return nws_lid_gpkg_file_path
 
 
 # local script calls __load_nwm_metadata so FLOG is already setup

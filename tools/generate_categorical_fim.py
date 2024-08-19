@@ -54,6 +54,10 @@ MP_LOG = fl.FIM_logger()  # the Multi Proc version
 gpd.options.io_engine = "pyogrio"
 
 
+# TODO: Aug 2024: This script was upgraded significantly with lots of misc TODO's embedded.
+# Lots of inline documenation needs updating as well
+
+
 """
 Jun 17, 2024
 This system is continuing to mature over time. It has a number of optimizations that can still
@@ -196,8 +200,6 @@ def process_generate_categorical_fim(
     FLOG.lprint(f"Processing {num_hucs} huc(s) with Alaska temporarily removed") # Code variation for DROPPING Alaska HUCs
     # FLOG.lprint(f"Processing {num_hucs} huc(s)") # Code variation for KEEPING Alaska HUCs
 
-
-
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
     if API_BASE_URL is None:
@@ -228,11 +230,13 @@ def process_generate_categorical_fim(
 
     # Define upstream and downstream search in miles
     nwm_us_search, nwm_ds_search = search, search
-
+    nws_lid_gpkg_file_path = ""
+    
     # STAGE-BASED
     if is_stage_based:
         # Generate Stage-Based CatFIM mapping
-        nws_sites_layer = generate_stage_based_categorical_fim(
+        # does flows and inundation  (mapping)
+        nws_lid_gpkg_file_path = generate_stage_based_categorical_fim(
             output_catfim_dir,
             fim_run_dir,
             nwm_us_search,
@@ -246,15 +250,16 @@ def process_generate_categorical_fim(
             past_major_interval_cap,
             nwm_metafile,
         )
-
-        # job_number_tif = job_number_inundate * job_number_intervals
+        
+        # creates the gkpgs (tif's created above)
+        # TODO: Aug 2024, so we need to clean it up
+        # This step does not need a job_number_inundate as it can't really use use it.
+        # It processes primarily hucs and ahps in multiproc
+        # for now, we will manuall multiple the huc * 5 (max number of ahps types)
+        ahps_jobs = job_number_huc * 5
         post_process_cat_fim_for_viz(
-            output_catfim_dir, job_number_huc, job_number_inundate, fim_version, log_output_file
+            catfim_method, output_catfim_dir, ahps_jobs, fim_version, log_output_file
         )
-
-        # Updating mapping status
-        FLOG.lprint('Updating mapping status...')
-        update_mapping_status(output_mapping_dir, nws_sites_layer)
 
     # FLOW-BASED
     else:
@@ -264,7 +269,7 @@ def process_generate_categorical_fim(
         # generate flows is only using one of the incoming job number params
         # so let's multiply -jh (huc) and -jn (inundate)
         job_flows = job_number_huc * job_number_inundate
-        nws_sites_layer = generate_flows(
+        nws_lid_gpkg_file_path = generate_flows(
             output_catfim_dir,
             nwm_us_search,
             nwm_ds_search,
@@ -279,25 +284,28 @@ def process_generate_categorical_fim(
         end = time.time()
         elapsed_time = (end - start) / 60
         FLOG.lprint(f"Finished creating flow files in {str(elapsed_time).split('.')[0]} minutes")
-
-        # Generate CatFIM mapping
+        
+        # Generate CatFIM mapping (both flow and stage based need it, but if different orders
         manage_catfim_mapping(
             fim_run_dir,
             output_flows_dir,
             output_catfim_dir,
+            catfim_method,
             job_number_huc,
             job_number_inundate,
             False,
             log_output_file,
         )
+        
+    # end if else
 
-        # Updating mapping status
-        FLOG.lprint('Updating mapping status')
-        update_mapping_status(output_mapping_dir, nws_sites_layer)
+    # Updating mapping status
+    FLOG.lprint('Updating mapping status...')
+    update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path)
 
     # Create CSV versions of the final geopackages.
-    FLOG.lprint('Creating CSVs. This may take several minutes.')
-    create_csvs(output_mapping_dir, is_stage_based)
+    #FLOG.lprint('Creating CSVs. This may take several minutes.')
+    #create_csvs(output_mapping_dir, is_stage_based)
 
     FLOG.lprint("================================")
     FLOG.lprint("End generate categorical fim")
@@ -313,7 +321,7 @@ def process_generate_categorical_fim(
     return
 
 
-def create_csvs(output_mapping_dir, is_stage_based):
+#def create_csvs(output_mapping_dir, is_stage_based)
     '''
     Produces CSV versions of desired geopackage in the output_mapping_dir.
 
@@ -330,39 +338,39 @@ def create_csvs(output_mapping_dir, is_stage_based):
 
     '''
 
-    if is_stage_based is True:
-        catfim_method = "stage_based"
-    else:
-        catfim_method = "flow_based"
+    # if is_stage_based is True:
+    #     catfim_method = "stage_based"
+    # else:
+    #     catfim_method = "flow_based"
 
-    # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
-    gpkg_list = glob.glob(os.path.join(output_mapping_dir, '*.gpkg'))
-
-
-    # TODO: Aug 2024: when we get more confident with the library, we can skip making the non
-    # dissolved version someday
-
-    # catfim_library_dissolved.gpkg is saved as (flow_based or stage_based)_catfim_library_dissolved.csv
-    # catfim_library.gpkg is saved as (flow_based or stage_based)_catfim_library.csv
-    # nws_lid_sites.gpkg is saved as (flow_based or stage_based)_catfim_sites.csv
-
-    for gpkg in gpkg_list:
-        FLOG.lprint(f"Creating CSV for {gpkg}")
-        gdf = gpd.read_file(gpkg, engine='fiona')
-        parent_directory = os.path.split(gpkg)[0]
-        if 'catfim_library_dissolved' in gpkg:
-            file_name = f"{catfim_method}_catfim_library_dissolved.csv"
-        elif 'catfim_library' in gpkg:
-            file_name = f"{catfim_method}_catfim_library.csv"
-        elif 'nws_lid_sites' in gpkg:
-            file_name = f"{catfim_method}_catfim_sites.csv"
-
-        csv_output_path = os.path.join(parent_directory, file_name)
-        gdf.to_csv(csv_output_path)
-    return
+    # # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
+    # gpkg_list = glob.glob(os.path.join(output_mapping_dir, '*.gpkg'))
 
 
-def update_mapping_status(output_mapping_dir, nws_sites_layer):
+    # # TODO: Aug 2024: when we get more confident with the library, we can skip making the non
+    # # dissolved version someday
+
+    # # catfim_library_dissolved.gpkg is saved as (flow_based or stage_based)_catfim_library_dissolved.csv
+    # # catfim_library.gpkg is saved as (flow_based or stage_based)_catfim_library.csv
+    # # nws_lid_sites.gpkg is saved as (flow_based or stage_based)_catfim_sites.csv
+
+    # for gpkg in gpkg_list:
+    #     FLOG.lprint(f"Creating CSV for {gpkg}")
+    #     gdf = gpd.read_file(gpkg, engine='fiona')
+    #     parent_directory = os.path.split(gpkg)[0]
+    #     if 'catfim_library_dissolved' in gpkg:
+    #         file_name = f"{catfim_method}_catfim_library_dissolved.csv"
+    #     elif 'catfim_library' in gpkg:
+    #         file_name = f"{catfim_method}_catfim_library.csv"
+    #     elif 'nws_lid_sites' in gpkg:
+    #         file_name = f"{catfim_method}_catfim_sites.csv"
+
+    #     csv_output_path = os.path.join(parent_directory, file_name)
+    #     gdf.to_csv(csv_output_path)
+    # return
+
+
+def update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path):
     '''
     Updates the status for nws_lids from the flows subdirectory. Status
     is updated for sites where the inundation.py routine was not able to
@@ -370,11 +378,13 @@ def update_mapping_status(output_mapping_dir, nws_sites_layer):
     an error occured in inundation.py that all flow files for a given site
     experienced the error as they all would have the same nwm segments.
 
+    If there is no valid mapping files, update the nws_lids record
+
     Parameters
     ----------
     output_mapping_dir : STR
         Path to the output directory of all inundation maps.
-    nws_sites_layer : STR
+    nws_lid_gpkg_file_path : STR
 
 
     Returns
@@ -398,19 +408,19 @@ def update_mapping_status(output_mapping_dir, nws_sites_layer):
     mapping_df['map_status'] = ' and all categories failed to map'
 
     # Import geopackage output from flows creation
-    flows_df = gpd.read_file(nws_sites_layer, engine='fiona')
+    flows_gdf = gpd.read_file(nws_lid_gpkg_file_path, engine='fiona')
 
-    if len(flows_df) == 0:
-        FLOG.critical(f"flows_df is empty. Path is {nws_sites_layer}. Program aborted.")
+    if len(flows_gdf) == 0:
+        FLOG.critical(f"flows_gdf is empty. Path is {nws_lid_gpkg_file_path}. Program aborted.")
         sys.exit(1)
 
     try:
         # Join failed sites to flows df
-        flows_df = flows_df.merge(mapping_df, how='left', on='nws_lid')
+        flows_gdf = flows_gdf.merge(mapping_df, how='left', on='nws_lid')
 
         # Switch mapped column to no for failed sites and update status
-        flows_df.loc[flows_df['did_it_map'] == 'no', 'mapped'] = 'no'
-        flows_df.loc[flows_df['did_it_map'] == 'no', 'status'] = flows_df['status'] + flows_df['map_status']
+        flows_gdf.loc[flows_gdf['did_it_map'] == 'no', 'mapped'] = 'no'
+        flows_gdf.loc[flows_gdf['did_it_map'] == 'no', 'status'] = flows_gdf['status'] + flows_gdf['map_status']
 
         #    # Perform pass for HUCs where mapping was skipped due to missing data  #TODO check with Brian
         #    if stage_based:
@@ -426,11 +436,18 @@ def update_mapping_status(output_mapping_dir, nws_sites_layer):
         #    flows_df.loc[flows_df.eval('HUC8 in @missing_mapping_hucs & mapped == "yes"'), 'mapped'] = 'no'
 
         # Clean up GeoDataFrame and rename columns for consistency
-        flows_df = flows_df.drop(columns=['did_it_map', 'map_status'])
-        flows_df = flows_df.rename(columns={'nws_lid': 'ahps_lid'})
+        flows_gdf = flows_gdf.drop(columns=['did_it_map', 'map_status'])
+        flows_gdf = flows_gdf.rename(columns={'nws_lid': 'ahps_lid'})
 
         # Write out to file
-        flows_df.to_file(nws_sites_layer)
+        flows_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG')
+        
+        # csv flow file name
+        nws_lid_csv_file_path = nws_lid_gpkg_file_path.replace(".gkpg", ".csv")
+        
+        # and we write a csv version at this time as well.
+        flows_gdf.to_csv(nws_lid_csv_file_path)
+        
     except Exception as e:
         FLOG.critical(f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
         FLOG.critical(traceback.format_exc())
@@ -1071,7 +1088,7 @@ def generate_stage_based_categorical_fim(
                 # FLOG.lprint(f'Generating stage based catfim for : {huc}')
 
                 # Code variation for DROPPING Alaska HUCs 
-                nwm_flows_region_df = nwm_flows_df
+                nwm_flows_region_df = all_nwm_flows_df
 
                 # # Code variation for keeping alaska HUCs 
                 # nwm_flows_region_df = nwm_flows_alaska_df if str(huc[:2]) == '19' else nwm_flows_df
@@ -1162,46 +1179,40 @@ def generate_stage_based_categorical_fim(
                 all_messages.append(row)
 
     # Filter out columns and write out to file 
-    nws_sites_layer = os.path.join(output_mapping_dir, 'nws_lid_sites.gpkg')
+    # flow based doesn't make it here
+    nws_lid_gpkg_file_path = os.path.join(output_mapping_dir, 'stage_based_nws_lid_sites.gpkg')
 
-    # Only write to sites geopackage if it didn't exist yet
-    # (and this line shouldn't have been reached if we had an interrupted
-    # run previously and are picking back up with a restart)
-    if os.path.exists(nws_sites_layer):
-        FLOG.warning("nws_sites_layer already exists and will not be updated")
+    # Write messages to DataFrame, split into columns, aggregate messages.
+    if len(all_messages) > 0:
 
+        FLOG.lprint(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : adding messages")
+        messages_df = pd.DataFrame(all_messages, columns=['message'])
+
+        messages_df = (
+            messages_df['message']
+            .str.split(':', n=1, expand=True) 
+            .rename(columns={0: 'nws_lid', 1: 'status'})
+        )
+        status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index() 
+
+        # Join messages to populate status field to candidate sites. Assign
+        # status for null fields.
+        viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
+
+        #    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
+
+        # Add acceptance criteria to viz_out_gdf before writing
+        viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
+        viz_out_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)
+        viz_out_gdf['acceptable_alt_acc_thresh'] = float(acceptable_alt_acc_thresh)
+        viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
+        viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
+
+        viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG')
     else:
-        # Write messages to DataFrame, split into columns, aggregate messages.
-        if len(all_messages) > 0:
+        FLOG.lprint(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : has no messages")
 
-            FLOG.lprint(f"nws_sites_layer ({nws_sites_layer}) : adding messages")
-            messages_df = pd.DataFrame(all_messages, columns=['message'])
-
-            messages_df = (
-                messages_df['message']
-                .str.split(':', n=1, expand=True) 
-                .rename(columns={0: 'nws_lid', 1: 'status'})
-            )
-            status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index() 
-
-            # Join messages to populate status field to candidate sites. Assign
-            # status for null fields.
-            viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
-
-            #    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
-
-            # Add acceptance criteria to viz_out_gdf before writing
-            viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
-            viz_out_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)
-            viz_out_gdf['acceptable_alt_acc_thresh'] = float(acceptable_alt_acc_thresh)
-            viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
-            viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
-
-            viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
-        else:
-            FLOG.lprint(f"nws_sites_layer ({nws_sites_layer}) : has no messages")
-
-    return nws_sites_layer
+    return nws_lid_gpkg_file_path
 
 
 if __name__ == '__main__':
