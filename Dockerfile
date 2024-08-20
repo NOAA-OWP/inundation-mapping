@@ -107,7 +107,7 @@ ENV PYTHONPATH=${PATH}:$srcDir:$projectDir/tools
 
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pip3 install pipenv && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
+RUN pip3 install pipenv==2024.0.1 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
 
 # ----------------------------------
 # Mar 2023
