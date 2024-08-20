@@ -4,9 +4,8 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v4.5.x.x - 2024-08-19 - [PR#1253](https://github.com/NOAA-OWP/inundation-mapping/pull/1253)
 
 Upgrades Python packages and dependencies and fixes backwards incompatibilities with new version of `geopandas`. Major changes include:
-- Removing `aiohttp`
-- Upgrading `gval`
-- Upgrading `geopandas`
+- Upgrading `boto3`, `fiona`, `geopandas`, `gval`, `pyarrow`, `pyogrio`, `pyproj`, and `rasterio`
+- Removing `aiobotocore` and `aiohttp`
 
 ### Changes
 
