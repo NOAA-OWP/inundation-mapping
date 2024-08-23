@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.6.0 - 2024-08-23 - [PR#1253](https://github.com/NOAA-OWP/inundation-mapping/pull/1253)
+
+Upgrades Python packages and dependencies and fixes backwards incompatibilities with new version of `geopandas`. Major changes include:
+- Upgrading `boto3`, `fiona`, `geopandas`, `gval`, `pyarrow`, `pyogrio`, `pyproj`, and `rasterio`
+- Removing `aiobotocore` and `aiohttp`
+
+### Changes
+
+- `Dockerfile`: Upgrade GDAL (v3.8.3) and pipenv
+- `Pipfile` and `Pipfile.lock`: Upgrade Python packages, add dask-expr, and remove aiohttp
+- `src/`
+    - `build_stream_traversal.py`, `derive_level_paths.py`, `heal_bridges_osm.py`, `mitigate_branch_outlet_backpool.py`, `split_flows.py`, `stream_branches.py`, `usgs_gage_unit_setup.py`: Fix backwards incompatibilities with new version of `geopandas`.
+
+<br/><br/>
+
 ## v4.5.5.1 - 2024-08-16 - [PR#1225](https://github.com/NOAA-OWP/inundation-mapping/pull/1225)
 
 Removes warning when running `heal_bridges_osm.py` by not saving the empty DataFrame.
