@@ -97,7 +97,12 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
 
         # Find missing bed area from slope tif
         zs_slope = zonal_stats(
-            nwm_catchments, missing_bed_area, stats=["sum"], affine=bathy_affine, geojson_out=True, nodata=np.nan
+            nwm_catchments,
+            missing_bed_area,
+            stats=["sum"],
+            affine=bathy_affine,
+            geojson_out=True,
+            nodata=np.nan,
         )
         zs_slope = gpd.GeoDataFrame.from_features(zs_slope)
         zs_slope = zs_slope.rename(columns={"sum": "missing_bed_area_m2"})
@@ -146,6 +151,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     except AssertionError as e:
         print(f"Error processing {tif}: {e}")
 
+
 def process_directory(input_dir, output_dir, min_depth_threshold, bathy_bounds_layer='SurveyJob'):
 
     tif_files = [f for f in os.listdir(input_dir) if f.endswith('.tif')]
@@ -158,18 +164,14 @@ def process_directory(input_dir, output_dir, min_depth_threshold, bathy_bounds_l
         if not os.path.isdir(gdb_path):
             print(f"Matching GDB not found for {tif}. Skipping...")
             continue
-    
+
         preprocessing_ehydro(tif_path, bathy_bounds_layer, gdb_path, output_dir, min_depth_threshold)
 
 
 if __name__ == '__main__':
     parser = ArgumentParser(description="Preprocessed Bathymetry")
     parser.add_argument(
-        '-input_dir',
-        '--input_dir',
-        help='Directory containing TIFF and GDB files',
-        required=True,
-        type=str,
+        '-input_dir', '--input_dir', help='Directory containing TIFF and GDB files', required=True, type=str
     )
     parser.add_argument(
         '-output_dir',
@@ -199,9 +201,8 @@ if __name__ == '__main__':
 
     input_dir = args['input_dir']
     output_dir = args['output_dir']
-    min_depth_threshold = args['min_depth_threshold']  
+    min_depth_threshold = args['min_depth_threshold']
     bathy_bounds = args['bathy_bounds']
 
     process_directory(input_dir, output_dir, min_depth_threshold, bathy_bounds)
     print("Batch processing complete :)")
-
