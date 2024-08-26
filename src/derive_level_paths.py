@@ -209,9 +209,14 @@ def Derive_level_paths(
             feature_attribute=branch_id_attribute, outlet_linestring_index=outlet_linestring_index
         )
 
-        branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG", engine='fiona')
+        if not branch_inlets.empty:
+            branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG", engine='fiona')
 
-    return stream_network
+    if stream_network.empty:
+        print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
+        sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+    else:
+        return stream_network
 
 
 if __name__ == "__main__":
