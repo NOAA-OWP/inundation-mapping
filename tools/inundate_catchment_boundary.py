@@ -34,7 +34,7 @@ def produce_mosaicked_inundation(
     organized by NWM feature_id and discharge in cms. "feature_id" and "discharge" columns MUST be present
     in the flow file. This function also calls the catchment_boundary_errors function from
     identify_catchment_boundary.py to identify where in the produced final inundation map is impacted by
-    catchment boundary issues and to output a geopackage of linefiles identifying these locations.
+    catchment boundary issues and to output a geopackage of lines identifying these locations.
 
     Args:
         hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
@@ -45,7 +45,7 @@ def produce_mosaicked_inundation(
         boundary_output (str):    Full path to output catchment boundary line geopackage.
         inundation_raster (str):  Full path to output inundation raster.
                                     (encoded by positive and negative HydroIDs).
-        inuntation_polygon (str): Full path to output inundation polygon. Optional.
+        inundation_polygon (str): Full path to output inundation polygon. Optional.
         depths_raster (str):      Full path to output depths_raster. Pixel values will be in meters. Optional.
         num_workers (int):        Number of parallel jobs to run.
         keep_intermediate (bool): Option to keep intermediate files.
@@ -144,14 +144,15 @@ def produce_mosaicked_inundation(
 
     fh.vprint("Mosaicking complete.", verbose)
 
+    fh.vprint("Identifying catchment boundary errors now.", verbose)
     ## call identify_catchment_boundary
     catchment_boundary_errors(
         hydrofabric_dir=hydrofabric_dir,
-        hucs=hucs,
+        huc=hucs,
         inundation_raster=mosaic_file_path,
         output=boundary_output
     )
-    fh.vprint("Catchment boundary identification complete.", verbose)
+    fh.vprint("Catchment boundary error identification complete.", verbose)
 
     return mosaic_file_path
 
@@ -159,7 +160,7 @@ def produce_mosaicked_inundation(
 if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser(
-        description="Helpful utility to produce mosaicked inundation extents (raster and poly) and depths."
+        description="Helpful utility to produce mosaicked inundation extents (raster and poly), depths, and identify catchment boundary errors."
     )
     parser.add_argument(
         "-y",
