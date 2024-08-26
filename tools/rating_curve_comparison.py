@@ -1082,7 +1082,7 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     usgs_gages = usgs_gages.round(decimals=2)
 
     # Write to file
-    usgs_gages.to_file(join(output_dir, output_gpkg), driver='GPKG', index=False)
+    usgs_gages.to_file(join(output_dir, output_gpkg), driver='GPKG', index=False, engine='fiona')
 
     # Create figure
     usgs_gages.replace(np.inf, np.nan, inplace=True)  # replace inf with nan for plotting

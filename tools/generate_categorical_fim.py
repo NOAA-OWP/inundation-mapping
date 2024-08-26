@@ -282,7 +282,7 @@ def update_mapping_status(output_mapping_dir, output_flows_dir, nws_sites_layer,
         flows_df = flows_df.rename(columns={'nws_lid': 'ahps_lid'})
 
         # Write out to file
-        flows_df.to_file(nws_sites_layer)
+        flows_df.to_file(nws_sites_layer, engine='fiona')
     except Exception as e:
         print(f"No LIDs, \n Exception: \n {repr(e)} \n")
 
@@ -860,7 +860,7 @@ def generate_stage_based_categorical_fim(
         viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
         viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
 
-        viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
+        viz_out_gdf.to_file(nws_sites_layer, driver='GPKG', engine='fiona')
 
     return nws_sites_layer
 

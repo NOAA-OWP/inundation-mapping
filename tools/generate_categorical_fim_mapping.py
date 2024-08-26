@@ -252,9 +252,11 @@ def post_process_cat_fim_for_viz(
             # Write/append aggregate diss_extent
             print(f"Merging layer: {layer}")
             if os.path.isfile(merged_layer):
-                diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False, mode='a')
+                diss_extent.to_file(
+                    merged_layer, driver=getDriver(merged_layer), index=False, mode='a', engine='fiona'
+                )
             else:
-                diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False)
+                diss_extent.to_file(merged_layer, driver=getDriver(merged_layer), index=False, engine='fiona')
             del diss_extent
 
             # shutil.rmtree(gpkg_dir)  # TODO
@@ -321,7 +323,7 @@ def reformat_inundation_maps(
 
         if not extent_poly_diss.empty:
             extent_poly_diss.to_file(
-                diss_extent_filename, driver=getDriver(diss_extent_filename), index=False
+                diss_extent_filename, driver=getDriver(diss_extent_filename), index=False, engine='fiona'
             )
 
     except Exception:

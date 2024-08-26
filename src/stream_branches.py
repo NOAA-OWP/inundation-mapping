@@ -134,7 +134,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
         driver = driverDictionary[splitext(fileName)[1]]
 
-        self.to_file(fileName, driver=driver, layer=layer, index=index)
+        self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
 
     def set_index(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute

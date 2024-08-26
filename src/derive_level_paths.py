@@ -162,7 +162,7 @@ def Derive_level_paths(
 
         catchments = catchments.reset_index(drop=True)
 
-        catchments.to_file(catchments_outfile, index=False, driver="GPKG")
+        catchments.to_file(catchments_outfile, index=False, driver="GPKG", engine='fiona')
 
     # derive headwaters
     if headwaters_outfile is not None:
@@ -170,7 +170,7 @@ def Derive_level_paths(
             inlets_attribute=inlets_attribute, outlet_linestring_index=outlet_linestring_index
         )
         # headwaters write
-        headwaters.to_file(headwaters_outfile, index=False, driver="GPKG")
+        headwaters.to_file(headwaters_outfile, index=False, driver="GPKG", engine='fiona')
 
     if out_stream_network is not None:
         if verbose:
@@ -209,7 +209,7 @@ def Derive_level_paths(
             feature_attribute=branch_id_attribute, outlet_linestring_index=outlet_linestring_index
         )
 
-        branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG")
+        branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG", engine='fiona')
 
     return stream_network
 

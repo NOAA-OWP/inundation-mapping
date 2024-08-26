@@ -307,7 +307,7 @@ if __name__ == "__main__":
     csv_path_dot = csv_path + ".csv"
 
     print('writing_to_gpkg')
-    csv_output.to_file(csv, driver="GPKG")
+    csv_output.to_file(csv, driver="GPKG", engine='fiona')
 
     # Add version information to csv_output dataframe
     csv_output['version'] = version
