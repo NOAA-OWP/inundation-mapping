@@ -64,9 +64,7 @@ class build_stream_traversal_columns(object):
                     {'geometry': stream_midpoint}, crs=streams.crs, geometry='geometry'
                 )
                 stream_wbdjoin = gpd.sjoin(stream_md_gpd, wbd8, how='left', predicate='within')
-                stream_wbdjoin = stream_wbdjoin.rename(
-                    columns={"geometry": "midpoint", "index_right": "HUC8id"}
-                )
+                stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "midpoint", "fimid": "HUC8id"})
                 streams = streams.join(stream_wbdjoin).drop(columns=['midpoint'])
 
                 streams['seqID'] = (

@@ -188,6 +188,22 @@ class StreamNetwork(gpd.GeoDataFrame):
         )
         return self
 
+    def rename(self, columns):
+        branch_id_attribute = self.branch_id_attribute
+        attribute_excluded = self.attribute_excluded
+        values_excluded = self.values_excluded
+
+        self = super(gpd.GeoDataFrame, self)
+        self = self.rename(columns=columns)
+
+        self = StreamNetwork(
+            self,
+            branch_id_attribute=branch_id_attribute,
+            attribute_excluded=attribute_excluded,
+            values_excluded=values_excluded,
+        )
+        return self
+
     def dissolve(self, by=None):
         branch_id_attribute = self.branch_id_attribute
         attribute_excluded = self.attribute_excluded
@@ -645,7 +661,9 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return self
 
-    def remove_branches_in_waterbodies(self, waterbodies, out_vector_files=None, verbose=False):
+    def remove_branches_in_waterbodies(
+        self, waterbodies, branch_id_attribute, out_vector_files=None, verbose=False
+    ):
         """
         Removes branches completely in waterbodies
         """
@@ -658,9 +676,13 @@ class StreamNetwork(gpd.GeoDataFrame):
             waterbodies = gpd.read_file(waterbodies)
 
         if isinstance(waterbodies, gpd.GeoDataFrame):
+            waterbodies = waterbodies.drop('OBJECTID', axis=1)
+
             # Find branches in waterbodies
+            self = self.rename(columns={branch_id_attribute: "bids"})
             sjoined = gpd.sjoin(self, waterbodies, predicate="within")
             self = self.drop(sjoined.index)
+            self = self.rename(columns={"bids": branch_id_attribute})
 
             if out_vector_files is not None:
                 if verbose:
@@ -693,7 +715,9 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         if isinstance(wbd, gpd.GeoDataFrame):
             # Find branches intersecting HUC
+            self = self.rename(columns={branch_id_attribute: "bids"})
             sjoined = gpd.sjoin(self, wbd, predicate="intersects")
+            self = self.rename(columns={"bids": branch_id_attribute})
 
             self = self[self.index.isin(sjoined.index.values)]
 
