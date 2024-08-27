@@ -383,7 +383,7 @@ def generate_catfim_flows(
     # )
     nws_lid_layer = os.path.join(workspace, 'nws_lid_sites.gpkg').replace('flows', 'mapping')
 
-    viz_out_gdf.to_file(nws_lid_layer, driver='GPKG', engine='fiona')
+    viz_out_gdf.to_file(nws_lid_layer, driver='GPKG')
 
     # time operation
     all_end = datetime.now()
