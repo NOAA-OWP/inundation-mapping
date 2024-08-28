@@ -93,7 +93,7 @@ def produce_stage_based_catfim_tifs(
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         for branch in branches:
             msg_id_w_branch = f"{huc} - {branch} - {lid} - {category}"
-            MP_LOG.trace(f"{huc_lid_cat_id} : Determining HydroID")
+            # MP_LOG.trace(f"{huc_lid_cat_id} : Determining HydroID")
             # Define paths to necessary files to produce inundation grids.
             full_branch_path = os.path.join(branch_dir, branch)
             rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
@@ -230,7 +230,7 @@ def produce_stage_based_catfim_tifs(
         summed_array = summed_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
             dst.write(summed_array, 1)
-            MP_LOG.lprint(f"output_tif of {output_tif} : saved ??")
+            MP_LOG.lprint(f"output_tif of {output_tif}")
         del summed_array
 
     return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
@@ -259,10 +259,10 @@ def produce_tif_per_huc_per_mag_for_stage(
         # This is setting up logging for this function to go up to the parent
         MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
 
-        MP_LOG.lprint("+++++++++++++++++++++++")
-        MP_LOG.lprint(f"At the start of producing a tif for {huc}")
-        MP_LOG.trace(locals())
-        MP_LOG.trace("+++++++++++++++++++++++")
+        # MP_LOG.lprint("+++++++++++++++++++++++")
+        # MP_LOG.lprint(f"At the start of producing a tif for {huc}")
+        # MP_LOG.trace(locals())
+        # MP_LOG.trace("+++++++++++++++++++++++")
 
         rem_src = rasterio.open(rem_path)
         catchments_src = rasterio.open(catchments_path)
@@ -287,13 +287,11 @@ def produce_tif_per_huc_per_mag_for_stage(
             ((reclass_rem_array == 1) & (target_catchments_array == 1)), 1, 0
         ).astype('uint8')
 
-        # TODO: Our problem seems to be here. Let's see what lead up to it.
-
-        # Save resulting array to new tif with appropriate name. brdc1_record_extent_18060005.tif
+        # Save resulting array to new tif with appropriate name. ie) brdc1_record_extent_18060005.tif
         # to our mapping/huc/lid site
         is_all_zero = np.all((masked_reclass_rem_array == 0))
 
-        MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
+        # MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
 
         # if not is_all_zero:
         # if is_all_zero is False: # this logic didn't let ANY files get saved
@@ -509,10 +507,10 @@ def run_inundation(
     #       your give away is to just delete any file that has the HUC number in teh file name
     # The intermediatary are all inundated branch tifs.
     
-    # DEBUG
-    #branch_tifs = glob.glob(os.path.join(output_huc_site_mapping_dir, '*_extent_*.tif'))
-    #for tif_file in branch_tifs:
-    #     os.remove(tif_file)
+    # The ones we want to keep stop at _extent.tif
+    branch_tifs = glob.glob(os.path.join(output_huc_site_mapping_dir, '*_extent_*.tif'))
+    for tif_file in branch_tifs:
+         os.remove(tif_file)
 
     return
 
@@ -762,18 +760,26 @@ def post_process_cat_fim_for_viz(
     # shutil.rmtree(gpkg_dir)
     
     # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
-    FLOG.lprint("Dissolving catfim_libary by ahps and magnitudes")
-    ahps_mag_dissolved_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
+    # Aug 2024: We guessed on what might need to be dissolved from 4.4.0.0. In 4.4.0.0 there
+    # are "_dissolved" versions of catfim files but no notes on why or how, but this script
+    # did not do it. We are going to guess on what the dissolving rules are.
+    if catfim_method == "flow_based":
+        FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
+        merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
+        
+    else:  # Maybe no dissolving now that I look at the files?  (still testing if dissolved is needed)
+        FLOG.lprint("Dissolving stage based catfim_libary by ahps, magnitude and stage")
+        merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude', 'stage'], as_index=False)
     
     output_file_name = f"{catfim_method}_catfim_library"
     gkpg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
     csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
     
     FLOG.lprint(f"Saving catfim library gpkg version to {gkpg_file_path}")
-    ahps_mag_dissolved_gdf.to_file(gkpg_file_path, driver='GPKG', index=False)
+    merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=False, engine="fiona", crs=PREP_PROJECTION)
     
     FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
-    ahps_mag_dissolved_gdf.to_csv(csv_file_path)
+    merged_layers_gdf.to_csv(csv_file_path)
 
     FLOG.lprint("End post processing TIFs...")
 
@@ -934,9 +940,9 @@ def manage_catfim_mapping(
 
     # Step 2
     # TODO: Aug 2024, so we need to clean it up
-    # This step does not need a job_number_inundate as it can't relally use use it.
+    # This step does not need a job_number_inundate as it can't really use it.
     # It processes primarily hucs and ahps in multiproc
-    # for now, we will manuall multiple the huc * 5 (max number of ahps types)
+    # for now, we will manually multiple the huc * 5 (max number of ahps types)
     ahps_jobs = job_number_huc * 5
     post_process_cat_fim_for_viz(
         catfim_method, output_catfim_dir, ahps_jobs, fim_version, str(FLOG.LOG_FILE_PATH)

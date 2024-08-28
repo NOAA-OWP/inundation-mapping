@@ -100,6 +100,8 @@ def process_generate_categorical_fim(
         catfim_method = "flow_based"
 
     # Define output directories
+    if output_folder.endswith("/"):
+        output_folder = output_folder[:-1]
     output_catfim_dir = output_folder + "_" + catfim_method
 
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
@@ -321,55 +323,6 @@ def process_generate_categorical_fim(
     return
 
 
-#def create_csvs(output_mapping_dir, is_stage_based)
-    '''
-    Produces CSV versions of desired geopackage in the output_mapping_dir.
-
-    Parameters
-    ----------
-    output_mapping_dir : STR
-        Path to the output directory of all inundation maps.
-    reformatted_catfim_method : STR
-        Text to append to CSV to communicate the type of CatFIM.
-
-    Returns
-    -------
-    None.
-
-    '''
-
-    # if is_stage_based is True:
-    #     catfim_method = "stage_based"
-    # else:
-    #     catfim_method = "flow_based"
-
-    # # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
-    # gpkg_list = glob.glob(os.path.join(output_mapping_dir, '*.gpkg'))
-
-
-    # # TODO: Aug 2024: when we get more confident with the library, we can skip making the non
-    # # dissolved version someday
-
-    # # catfim_library_dissolved.gpkg is saved as (flow_based or stage_based)_catfim_library_dissolved.csv
-    # # catfim_library.gpkg is saved as (flow_based or stage_based)_catfim_library.csv
-    # # nws_lid_sites.gpkg is saved as (flow_based or stage_based)_catfim_sites.csv
-
-    # for gpkg in gpkg_list:
-    #     FLOG.lprint(f"Creating CSV for {gpkg}")
-    #     gdf = gpd.read_file(gpkg, engine='fiona')
-    #     parent_directory = os.path.split(gpkg)[0]
-    #     if 'catfim_library_dissolved' in gpkg:
-    #         file_name = f"{catfim_method}_catfim_library_dissolved.csv"
-    #     elif 'catfim_library' in gpkg:
-    #         file_name = f"{catfim_method}_catfim_library.csv"
-    #     elif 'nws_lid_sites' in gpkg:
-    #         file_name = f"{catfim_method}_catfim_sites.csv"
-
-    #     csv_output_path = os.path.join(parent_directory, file_name)
-    #     gdf.to_csv(csv_output_path)
-    # return
-
-
 def update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path):
     '''
     Updates the status for nws_lids from the flows subdirectory. Status
@@ -440,7 +393,7 @@ def update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path):
         flows_gdf = flows_gdf.rename(columns={'nws_lid': 'ahps_lid'})
 
         # Write out to file
-        flows_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG')
+        flows_gdf.to_file(nws_lid_gpkg_file_path, index=False, driver='GPKG', engine="fiona")
         
         # csv flow file name
         nws_lid_csv_file_path = nws_lid_gpkg_file_path.replace(".gkpg", ".csv")
@@ -820,7 +773,7 @@ def iterate_through_huc_stage_based(
 
             # If it made it to this point (i.e. no continues), there were no major preventers of mapping
             all_messages.append(lid + ': OK')
-            MP_LOG.success(f'{huc_lid_id}: procesing the huc via iterate_through... ??')
+            MP_LOG.success(f'{huc_lid_id}: Complete')
             mark_complete(mapping_lid_directory)
 
         # Write all_messages by HUC to be scraped later.
@@ -1082,6 +1035,7 @@ def generate_stage_based_categorical_fim(
     huc_index = 0
     FLOG.lprint(f"Number of hucs to process is {num_hucs}")
 
+
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
             if huc in lst_hucs:
@@ -1142,6 +1096,9 @@ def generate_stage_based_categorical_fim(
     # whether it was mapped or not (mapped field) and if not, why (status field).
 
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
+    
+    # TODO: Accomodate AK projection?   Yes.. and Alaska and CONUS should all end up as the same projection output
+    # epsg:5070
     viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)  # TODO: Accomodate AK projection? 
     viz_out_gdf.rename(
         columns={
@@ -1180,7 +1137,7 @@ def generate_stage_based_categorical_fim(
 
     # Filter out columns and write out to file 
     # flow based doesn't make it here
-    nws_lid_gpkg_file_path = os.path.join(output_mapping_dir, 'stage_based_nws_lid_sites.gpkg')
+    nws_lid_gpkg_file_path = os.path.join(output_mapping_dir, 'stage_based_catfim_sites.gpkg')
 
     # Write messages to DataFrame, split into columns, aggregate messages.
     if len(all_messages) > 0:
@@ -1208,7 +1165,10 @@ def generate_stage_based_categorical_fim(
         viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
         viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
 
-        viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG')
+        viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG', index=False, engine='fiona')
+        
+        csv_file_path = nws_lid_gpkg_file_path.replace(".gpkg",".csv")
+        viz_out_gdf.to_csv(csv_file_path)
     else:
         FLOG.lprint(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : has no messages")
 

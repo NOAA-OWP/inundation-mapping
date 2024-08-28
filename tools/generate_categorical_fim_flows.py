@@ -336,6 +336,7 @@ def generate_flows(
     # nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg) # Uncomment to include Alaska
 
     # nwm_metafile might be an empty string
+    # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
     all_meta_lists = __load_nwm_metadata(
         output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, lid_to_run, nwm_metafile
     )
@@ -506,12 +507,14 @@ def generate_flows(
     # viz_out_gdf = viz_out_gdf.filter(
     #     ['nws_lid', 'usgs_gage', 'nwm_seg', 'HUC8', 'mapped', 'status', 'geometry']
     # )
-    
+
     # stage based doesn't get here
-    nws_lid_gpkg_file_path = os.path.join(mapping_dir, 'flow_based_nws_lid_sites.gpkg')
-    viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG')
-    
-    # we don't create a csv as the gpkg will be updated later and csv created then.
+    # crs is 3857 - web mercator at this point
+    nws_lid_csv_file_path = os.path.join(mapping_dir, 'flow_based_catfim_sites.csv')
+    viz_out_gdf.to_csv(nws_lid_csv_file_path)
+
+    nws_lid_gpkg_file_path = os.path.join(mapping_dir, 'flow_based_catfim_sites.gpkg')
+    viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG', index=False, engine='fiona')
 
     # time operation
     all_end = datetime.now(timezone.utc)
