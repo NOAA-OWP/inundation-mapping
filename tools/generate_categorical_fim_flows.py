@@ -322,7 +322,7 @@ def generate_flows(
     ###################################################################
 
     # Create HUC message directory to store messages that will be read and joined after multiprocessing
-    huc_messages_dir = os.path.join(output_flows_dir, 'huc_messages')
+    huc_messages_dir = os.path.join(mapping_dir, 'huc_messages')
     os.makedirs(huc_messages_dir, exist_ok=True)
 
     FLOG.lprint("Loading nwm flow metadata")
@@ -337,6 +337,9 @@ def generate_flows(
 
     # nwm_metafile might be an empty string
     # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
+
+    # TODO: Aug 2024:
+    # Filter the meta list to just HUCs in the fim run output or huc if sent in as a param
     all_meta_lists = __load_nwm_metadata(
         output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, lid_to_run, nwm_metafile
     )
@@ -373,6 +376,8 @@ def generate_flows(
         return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, nwm_flows_df) # No Alaska
         # return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, nwm_flows_df, nwm_flows_alaska_df) # Alaska
 
+
+    # NOTE::: Only flow based continues from here on (now sure what)
 
     start_dt = datetime.now(timezone.utc)
 
@@ -429,7 +434,7 @@ def generate_flows(
         temp_df = pd.read_csv(full_csv_path, dtype={'huc': str})
         all_csv_df = pd.concat([all_csv_df, temp_df], ignore_index=True)
     # Write to file
-    all_csv_df.to_csv(os.path.join(output_flows_dir, 'nws_lid_attributes.csv'), index=False)
+    all_csv_df.to_csv(os.path.join(attributes_dir, 'nws_lid_attributes.csv'), index=False)
 
     # This section populates a shapefile of all potential sites and details
     # whether it was mapped or not (mapped field) and if not, why (status field).

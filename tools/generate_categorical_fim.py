@@ -3,8 +3,6 @@
 import argparse
 import csv
 import glob
-
-# import logging
 import os
 import shutil
 import sys
@@ -98,7 +96,7 @@ def process_generate_categorical_fim(
         catfim_method = "stage_based"
     else:
         catfim_method = "flow_based"
-
+    
     # Define output directories
     if output_folder.endswith("/"):
         output_folder = output_folder[:-1]
@@ -145,21 +143,25 @@ def process_generate_categorical_fim(
     # TODO: Aug 2024: Job values are not well used. There are some times where not
     # all three job values are not being used. This needs to be cleaned up.
     # Check job numbers and raise error if necessary
-    total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
-    total_cpus_available = os.cpu_count() - 2
-    if total_cpus_requested > total_cpus_available:
-        raise ValueError(
-            f"The HUC job number (jh) [{job_number_huc}]"
-            f" multiplied by the inundate job number (jn) [{job_number_inundate}]"
-            f" multiplied by the job number intervals (ji) [{job_number_intervals}]"
-            " exceeds your machine\'s available CPU count minus one."
-            " Please lower one or more of those values accordingly."
-        )
+    # Considering how we are using each CPU very well at all, we could experiment
+    # with either overclocking or chagnign to threading. Of course, if we change
+    # to threading we ahve to be super careful about file and thread collisions (locking)
+
+    # commented out for now for some small overclocking tests (carefully of course)   
+    # total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
+    # total_cpus_available = os.cpu_count() - 2
+    # if total_cpus_requested > total_cpus_available:
+    #     raise ValueError(
+    #         f"The HUC job number (jh) [{job_number_huc}]"
+    #         f" multiplied by the inundate job number (jn) [{job_number_inundate}]"
+    #         f" multiplied by the job number intervals (ji) [{job_number_intervals}]"
+    #         " exceeds your machine\'s available CPU count minus one."
+    #         " Please lower one or more of those values accordingly."
+    #     )
 
     # we are getting too many folders and files. We want just huc folders.
     # output_flow_dir_list = os.listdir(fim_run_dir)
     # looking for folders only starting with 0, 1, or 2
-
     # Code variation for dropping all Alaska HUCS:
     valid_ahps_hucs = [
         x
@@ -393,12 +395,14 @@ def update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path):
         flows_gdf = flows_gdf.rename(columns={'nws_lid': 'ahps_lid'})
 
         # Write out to file
+        # TODO: Aug 29, 204: Not 100% sure why, but the gpkg errors out... likely missing a projection
         flows_gdf.to_file(nws_lid_gpkg_file_path, index=False, driver='GPKG', engine="fiona")
         
         # csv flow file name
         nws_lid_csv_file_path = nws_lid_gpkg_file_path.replace(".gkpg", ".csv")
         
         # and we write a csv version at this time as well.
+        # and this csv is good
         flows_gdf.to_csv(nws_lid_csv_file_path)
         
     except Exception as e:
@@ -407,10 +411,10 @@ def update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path):
     return
 
 
-def mark_complete(site_directory):
-    marker_file = Path(site_directory) / 'complete.txt'
-    marker_file.touch()
-    return
+# def mark_complete(site_directory):
+#     marker_file = Path(site_directory) / 'complete.txt'
+#     marker_file.touch()
+#     return
 
 
 # This is always called as part of Multi-processing so uses MP_LOG variable and
@@ -451,8 +455,8 @@ def iterate_through_huc_stage_based(
 
         mapping_dir = os.path.join(output_catfim_dir, "mapping")
         attributes_dir = os.path.join(output_catfim_dir, 'attributes')
-        output_flows_dir = os.path.join(output_catfim_dir, "flows")
-        huc_messages_dir = os.path.join(output_flows_dir, 'huc_messages')
+        # output_flows_dir = os.path.join(output_catfim_dir, "flows")
+        huc_messages_dir = os.path.join(mapping_dir, 'huc_messages')
 
         # Make output directory for the particular huc in the mapping folder
         mapping_huc_directory = os.path.join(mapping_dir, huc)
@@ -466,6 +470,8 @@ def iterate_through_huc_stage_based(
         # Loop through each lid in nws_lids list
         nws_lids = huc_dictionary[huc]
 
+        MP_LOG.lprint(f"Lids to process for {huc} are {nws_lids}")
+
         for lid in nws_lids:
             MP_LOG.lprint("-----------------------------------")
             huc_lid_id = f"{huc} : {lid}"
@@ -476,14 +482,14 @@ def iterate_through_huc_stage_based(
             # Yes, each lid gets a record no matter what, so we need some of these messages duplicated
             # per lid record
             if not os.path.exists(usgs_elev_table):
-                msg = ": usgs_elev_table missing, likely unacceptable gage datum error -- more details to come in future release"
+                msg = ":usgs_elev_table missing, likely unacceptable gage datum error -- more details to come in future release"
                 all_messages.append(lid + msg)
-                MP_LOG.error(huc_lid_id + msg)
+                MP_LOG.warning(huc_lid_id + msg)
                 continue
             if not os.path.exists(branch_dir):
-                msg = ": branch directory missing"
+                msg = ":branch directory missing"
                 all_messages.append(lid + msg)
-                MP_LOG.error(huc_lid_id + msg)
+                MP_LOG.warning(huc_lid_id + msg)
                 continue
             usgs_elev_df = pd.read_csv(usgs_elev_table)
 
@@ -491,29 +497,29 @@ def iterate_through_huc_stage_based(
             mapping_lid_directory = os.path.join(mapping_huc_directory, lid)
             if not os.path.exists(mapping_lid_directory):
                 os.mkdir(mapping_lid_directory)
-            else:
-                complete_marker = os.path.join(mapping_lid_directory, 'complete.txt')
-                if os.path.exists(complete_marker):
-                    msg = ": already completed in previous run."
-                    all_messages.append(lid + msg)
-                    MP_LOG.error(huc_lid_id + msg)
-                    continue
+            # else:
+            #     complete_marker = os.path.join(mapping_lid_directory, 'complete.txt')
+            #     if os.path.exists(complete_marker):
+            #         msg = ": already completed in previous run."
+            #         all_messages.append(lid + msg)
+            #         MP_LOG.error(huc_lid_id + msg)
+            #         continue
             # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
             stages, flows = get_thresholds(
                 threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
             )
 
             if stages is None:
-                msg = ': error getting thresholds from WRDS API'
+                msg = ':error getting thresholds from WRDS API'
                 all_messages.append(lid + msg)
-                MP_LOG.error(huc_lid_id + msg)
+                MP_LOG.warning(huc_lid_id + msg)
                 continue
 
             # Check if stages are supplied, if not write message and exit.
             if all(stages.get(category, None) is None for category in magnitudes):
-                msg = ': missing threshold stages'
+                msg = ':missing threshold stages'
                 all_messages.append(lid + msg)
-                MP_LOG.error(huc_lid_id + msg)
+                MP_LOG.warning(huc_lid_id + msg)
                 continue
 
             acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
@@ -553,16 +559,16 @@ def iterate_through_huc_stage_based(
                 #     MP_LOG.warning(f"\t{huc_lid_id}: Not in acceptable coord method codes")
                 #     continue
                 if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
-                    MP_LOG.warning(f"\t{huc_lid_id}: Not in acceptable alt method codes")
+                    MP_LOG.warning(f"{huc_lid_id}: Not in acceptable alt method codes")
                     continue
                 if not metadata['usgs_data']['site_type'] in acceptable_site_type_list:
-                    MP_LOG.warning(f"\t{huc_lid_id}: Not in acceptable site type codes")
+                    MP_LOG.warning(f"{huc_lid_id}: Not in acceptable site type codes")
                     continue
                 if not float(metadata['usgs_data']['alt_accuracy_code']) <= acceptable_alt_acc_thresh:
-                    MP_LOG.warning(f"\t{huc_lid_id}: Not in acceptable threshold range")
+                    MP_LOG.warning(f"{huc_lid_id}: Not in acceptable threshold range")
                     continue
             except Exception:
-                MP_LOG.error(f"{huc_lid_id}:  filtering out 'bad' data in the usgs_data")
+                MP_LOG.error(f"{huc_lid_id}: filtering out 'bad' data in the usgs_data")
                 MP_LOG.error(traceback.format_exc())
                 continue
 
@@ -583,14 +589,32 @@ def iterate_through_huc_stage_based(
             minor_stage = stages['minor']
             moderate_stage = stages['moderate']
             major_stage = stages['major']
+                    
             stage_list = [
                 i for i in [action_stage, minor_stage, moderate_stage, major_stage] if i is not None
             ]
-            # Create a list of stages, incrementing by 1 ft.
+
             if stage_list == []:
-                msg = ': WARNING: no stage values available'
+                msg = ':no stage values available'
                 all_messages.append(lid + msg)
-                MP_LOG.error(huc_lid_id + msg)
+                MP_LOG.warning(huc_lid_id + msg)
+                continue
+
+            # TODO: Aug 2024, Is it really ok that record is missing?
+            # Earlier code lower was doing comparisons to see if the interval
+            # value was been each of these 4 but sometimes one or more was None
+            missing_stages = ""
+            for stage_type in ["action", "minor", "moderate", "major"]:
+                stage_val = stages[stage_type]
+                if stage_val is None:
+                    if missing_stages != "":
+                        missing_stages += ", "
+                    missing_stages += stage_type
+            
+            if missing_stages != "":
+                msg = f':Missing Stages of {missing_stages}'
+                all_messages.append(lid + msg)
+                MP_LOG.warning(huc_lid_id + msg)
                 continue
 
             interval_list = np.arange(
@@ -601,13 +625,10 @@ def iterate_through_huc_stage_based(
             #   Otherwise this causes bad mapping.
             elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
             if abs(elevation_diff) > 10:
-                msg = ': large discrepancy in elevation estimates from gage and HAND'
+                msg = ':large discrepancy in elevation estimates from gage and HAND'
                 all_messages.append(lid + msg)
-                MP_LOG.error(huc_lid_id + msg)
+                MP_LOG.warning(huc_lid_id + msg)
                 continue
-
-            # For each flood category / magnitude
-            MP_LOG.lprint(f"{huc_lid_id}: About to process flood categories")
 
             # This function sometimes is called within a MP but sometimes not.
             # So, we might have an MP inside an MP
@@ -616,16 +637,22 @@ def iterate_through_huc_stage_based(
             # Becuase we already are in an MP, lets merge up what we have at this point
             # Before creating child MP files
             MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
+            
+            # For each flood category / magnitude
+            MP_LOG.lprint(f"{huc_lid_id}: About to process flood categories")
             child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
                 parent_log_output_file, "MP_produce_catfim_tifs"
             )
+            # print(f"child log name is {child_log_file_prefix}")
             for category in magnitudes:
-                MP_LOG.lprint(f"{huc_lid_id}: Magnitude is {category}")
+                # MP_LOG.lprint(f"{huc_lid_id}: Magnitude is {category}")
                 # Pull stage value and confirm it's valid, then process
                 stage = stages[category]
 
                 if stage is not None and datum_adj_ft is not None and lid_altitude is not None:
                     # Call function to execute mapping of the TIFs.
+                    
+                    # These are the 5 magnitudes being inundated at their stage value
                     (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_catfim_tifs(
                         stage,
                         datum_adj_ft,
@@ -661,7 +688,7 @@ def iterate_through_huc_stage_based(
 
                 # If missing HUC file data, write message
                 if huc in missing_huc_files:
-                    msg = ': missing some HUC data'
+                    msg = ':missing some HUC data'
                     all_messages.append(lid + msg)
                     MP_LOG.error(huc_lid_id + msg)
 
@@ -669,13 +696,21 @@ def iterate_through_huc_stage_based(
             # let's merge what we have at this point, before we go into another MP
             MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
 
-            # and we will need a new prefix for it.
+
+            # Now we will do another set of inundations, but this one is based on 
+            # not the stage flow but flow based on each interval
             tif_child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
-                parent_log_output_file, "MP_prod_sb_tifs", huc
-            )
+                parent_log_output_file, "MP_prod_sb_tifs")            
             with ProcessPoolExecutor(max_workers=number_of_interval_jobs) as executor:
                 try:
+                    # MP_LOG.lprint(f"{huc_lid_id} : action_stage is {action_stage}")
+                    # MP_LOG.lprint(f"{huc_lid_id} : minor_stage is {minor_stage}")
+                    # MP_LOG.lprint(f"{huc_lid_id} : moderate_stage is {moderate_stage}")
+                    # MP_LOG.lprint(f"{huc_lid_id} : major_stage is {major_stage}")
+                    
                     for interval_stage in interval_list:
+                        # MP_LOG.lprint(f"{huc_lid_id} : interval_stage is {interval_stage}")
+                        
                         # Determine category the stage value belongs with.
                         if action_stage <= interval_stage < minor_stage:
                             category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
@@ -703,14 +738,15 @@ def iterate_through_huc_stage_based(
                             tif_child_log_file_prefix,
                         )
                 except TypeError:  # sometimes the thresholds are Nonetypes
-                    MP_LOG.error("ERROR: type error in ProcessPool somewhere")
+                    MP_LOG.error("ERROR: type error in ProcessPool, likely in the interval tests")
                     MP_LOG.error(traceback.format_exc())
-                    pass
+                    continue
+                
                 except Exception:
                     MP_LOG.critical("ERROR: ProcessPool has an error")
                     MP_LOG.critical(traceback.format_exc())
                     # merge MP Logs (Yes)
-                    MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix)
+                    MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix, True)
                     sys.exit(1)
 
             # merge MP Logs (merging MP into an MP (proc_pool in a proc_pool))
@@ -767,22 +803,40 @@ def iterate_through_huc_stage_based(
 
                 csv_df.to_csv(attributes_filepath, index=False)
             else:
-                msg = ': missing all calculated flows'
+                msg = ':missing all calculated flows'
                 all_messages.append(lid + msg)
                 MP_LOG.error(huc_lid_id + msg)
 
             # If it made it to this point (i.e. no continues), there were no major preventers of mapping
-            all_messages.append(lid + ': OK')
+            all_messages.append(lid + ':OK')
             MP_LOG.success(f'{huc_lid_id}: Complete')
-            mark_complete(mapping_lid_directory)
+            # mark_complete(mapping_lid_directory)
 
         # Write all_messages by HUC to be scraped later.
+        print("Did I get here ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+        MP_LOG.lprint("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+        MP_LOG.lprint(f"all messsage for {huc} is {all_messages}")
         if len(all_messages) > 0:
-            huc_messages_csv = os.path.join(huc_messages_dir, huc + '_messages.csv')
-            with open(huc_messages_csv, 'w') as output_csv:
-                writer = csv.writer(output_csv)
-                for msg in all_messages:
-                    writer.writerow([msg])  # added [] to make it run properly
+        #     huc_messages_csv = os.path.join(huc_messages_dir, huc + '_messages.csv')
+        #     MP_LOG.lprint(f"huc_messages_csv is {huc_messages_csv}")
+        #     with open(huc_messages_csv, 'w') as output_csv:
+        #         writer = csv.writer(output_csv)
+        #         for msg in all_messages:
+        #             # writer.writerow([msg])  # added [] to make it run properly
+        #             MP_LOG.lprint(f"msg is {msg}")
+        #             writer.writerow(msg)  # added [] to make it run properly
+        
+            huc_messages_txt_file = os.path.join(huc_messages_dir, str(huc) + '_messages.txt')
+            with open(huc_messages_txt_file, 'w') as f:
+                for item in all_messages:
+                    item = item.strip()
+                    # f.write("%s\n" % item)
+                    f.write(f"{item}\n")
+        else:
+            # something has likely gone very poorly.
+            MP_LOG.error(f"No messages found for {huc}")
+            sys.exit(1)
+              
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error iterating through huc stage based")
         MP_LOG.error(traceback.format_exc())
@@ -801,7 +855,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     # determine source of interpolated threshold flows, this will be the rating curve that will be used.
     rating_curve_source = flows.get('source')
     if rating_curve_source is None:
-        msg = f'{huc_lid_id}: No source for rating curve'
+        msg = f'{huc_lid_id}:No source for rating curve'
         all_messages.append(msg)
         MP_LOG.warning(msg)
         return None, all_messages
@@ -816,7 +870,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     # If datum not supplied, skip to new site
     datum = datum_data.get('datum', None)
     if datum is None:
-        msg = f'{huc_lid_id}: datum info unavailable'
+        msg = f'{huc_lid_id}:datum info unavailable'
         all_messages.append(msg)
         MP_LOG.warning(msg)
         return None, all_messages
@@ -890,7 +944,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
             MP_LOG.error(traceback.format_exc())
             ex = str(ex)
             if crs is None:
-                msg = f'{huc_lid_id}: NOAA VDatum adjustment error, CRS is missing'
+                msg = f'{huc_lid_id}:NOAA VDatum adjustment error, CRS is missing'
                 all_messages.append(msg)
                 MP_LOG.error(msg)
             if 'HTTPSConnectionPool' in ex:
@@ -898,11 +952,11 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
                 try:
                     datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
                 except Exception:
-                    msg = f'{huc_lid_id}: NOAA VDatum adjustment error, possible API issue'
+                    msg = f'{huc_lid_id}:NOAA VDatum adjustment error, possible API issue'
                     all_messages.append(msg)
                     MP_LOG.error(msg)
             if 'Invalid projection' in ex:
-                msg = f'{huc_lid_id}: :NOAA VDatum adjustment error, invalid projection: crs={crs}'
+                msg = f'{huc_lid_id}:NOAA VDatum adjustment error, invalid projection: crs={crs}'
                 all_messages.append(msg)
                 MP_LOG.error(msg)
             return None, all_messages
@@ -970,9 +1024,9 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
             ].values[0]
 
     except IndexError:  # Occurs when LID is missing from table (yes. warning)
-        MP_LOG.warning(f"{huc_lid_id}:  adjusting dem_adj_elevation")
+        MP_LOG.warning(f"{huc_lid_id}: adjusting dem_adj_elevation")
         MP_LOG.warning(traceback.format_exc())
-        msg = ': likely unacceptable gage datum error or accuracy code(s); please see acceptance criteria'
+        msg = ':likely unacceptable gage datum error or accuracy code(s); please see acceptance criteria'
         all_messages.append(lid + msg)
         MP_LOG.warning(huc_lid_id + msg)
 
@@ -996,16 +1050,16 @@ def generate_stage_based_categorical_fim(
 ):
     magnitudes = ['action', 'minor', 'moderate', 'major', 'record']
 
-    output_flows_dir = os.path.join(output_catfim_dir, 'flows')
+    # output_flows_dir = os.path.join(output_catfim_dir, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
     # Create HUC message directory to store messages that will be read and joined after multiprocessing
-    huc_messages_dir = os.path.join(output_flows_dir, 'huc_messages')
+    huc_messages_dir = os.path.join(output_mapping_dir, 'huc_messages')
     os.makedirs(huc_messages_dir, exist_ok=True)
 
     FLOG.lprint("Starting generate_flows (Stage Based)")
-
+    
     # If it is stage based, generate flows returns all of these objects.
     # If flow based, generate flows returns only
     # (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = generate_flows( # With Alaska
@@ -1029,12 +1083,11 @@ def generate_stage_based_categorical_fim(
 
     child_log_file_prefix = FLOG.MP_calc_prefix_name(FLOG.LOG_FILE_PATH, "MP_iter_hucs")
 
-    FLOG.lprint("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+    FLOG.lprint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>")
     FLOG.lprint("Start processing HUCs for Stage-Based CatFIM")
     num_hucs = len(lst_hucs)
     huc_index = 0
     FLOG.lprint(f"Number of hucs to process is {num_hucs}")
-
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
@@ -1067,9 +1120,10 @@ def generate_stage_based_categorical_fim(
                 )
                 huc_index += 1
     # Need to merge MP logs here, merged into the "master log file"
+    
     FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
 
-    FLOG.lprint('\nWrapping up processing HUCs for Stage-Based CatFIM...')
+    FLOG.lprint('Wrapping up processing HUCs for Stage-Based CatFIM...')
     FLOG.lprint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
     # csv_files = os.listdir(attributes_dir)
 
@@ -1078,6 +1132,7 @@ def generate_stage_based_categorical_fim(
     all_csv_df = pd.DataFrame()
     refined_csv_files_list = []
     for csv_file in csv_files:
+       
         full_csv_path = os.path.join(attributes_dir, csv_file)
         # HUC has to be read in as string to preserve leading zeros.
         try:
@@ -1085,12 +1140,12 @@ def generate_stage_based_categorical_fim(
             all_csv_df = pd.concat([all_csv_df, temp_df], ignore_index=True)
             refined_csv_files_list.append(csv_file)
         except Exception:  # Happens if a file is empty (i.e. no mapping)
-            FLOG.error("ERROR: loading csv {full_csv_path}")
+            FLOG.error(f"ERROR: loading csv {full_csv_path}")
             FLOG.error(traceback.format_exc())
             pass
 
     # Write to file
-    all_csv_df.to_csv(os.path.join(output_flows_dir, 'nws_lid_attributes.csv'), index=False)
+    all_csv_df.to_csv(os.path.join(attributes_dir, 'nws_lid_attributes.csv'), index=False)
 
     # This section populates a geopackage of all potential sites and details
     # whether it was mapped or not (mapped field) and if not, why (status field).
@@ -1125,38 +1180,61 @@ def generate_stage_based_categorical_fim(
 
     # Create list from all messages in messages dir.
     # messages_dir = os.path.join(output_flows_dir, 'messages')
-    all_messages = []
-    all_message_csvs = os.listdir(huc_messages_dir)
-    for message_csv in all_message_csvs:
-        full_message_csv_path = os.path.join(huc_messages_dir, message_csv)
-        with open(full_message_csv_path, newline='') as message_file:
-            reader = csv.reader(message_file)
-            for row in reader:
-                # all_messages.append(row.strip())
-                all_messages.append(row)
+    #all_messages = []
+    # print(f"huc_messages_dir is {huc_messages_dir}")
+    #all_message_csvs = os.listdir(huc_messages_dir)
+    
+    # all_message_csvs = [x for x in os.listdir(huc_messages_dir) if x.endswith('.csv')]
+        
+    # print(f"all messages csv count is {len(all_message_csvs)}")
+    # for message_csv in all_message_csvs:
+    #     print(f"message_csv is {message_csv}")
+    #     full_message_csv_path = os.path.join(huc_messages_dir, message_csv)
+    #     print(f"full_message_csv_path is {full_message_csv_path}")        
+    #     with open(full_message_csv_path, newline='') as message_file:
+    #         reader = csv.reader(message_file)
+    #         for row in reader:
+    #             # all_messages.append(row.strip())
+    #             all_messages.append(row)
+
+    # Read all messages for all HUCs
+    huc_message_list = []
+    huc_messages_dir_list = os.listdir(huc_messages_dir)
+    for huc_message_file in huc_messages_dir_list:
+        full_path_file = os.path.join(huc_messages_dir, huc_message_file)
+        with open(full_path_file, 'r') as f:
+            if full_path_file.endswith('.txt'):
+                lines = f.readlines()
+                for line in lines:
+                    line = line.strip()
+                    huc_message_list.append(line)
 
     # Filter out columns and write out to file 
-    # flow based doesn't make it here
+    # flow based doesn't make it here only stage
     nws_lid_gpkg_file_path = os.path.join(output_mapping_dir, 'stage_based_catfim_sites.gpkg')
 
     # Write messages to DataFrame, split into columns, aggregate messages.
-    if len(all_messages) > 0:
+    #if len(all_messages) > 0:
+    if len(huc_message_list) > 0:
 
         FLOG.lprint(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : adding messages")
-        messages_df = pd.DataFrame(all_messages, columns=['message'])
+        messages_df = pd.DataFrame(huc_message_list, columns=['message'])
 
         messages_df = (
             messages_df['message']
             .str.split(':', n=1, expand=True) 
             .rename(columns={0: 'nws_lid', 1: 'status'})
         )
-        status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index() 
+        
+        # We want one viz_out_gdf record per ahps and if there are more than one, contact the messages        
+        #status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index() 
+        status_df = messages_df.groupby(['nws_lid'])['status'].agg(lambda x: ',\n'.join(x)).reset_index()
 
         # Join messages to populate status field to candidate sites. Assign
         # status for null fields.
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
-        #    viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
+        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
 
         # Add acceptance criteria to viz_out_gdf before writing
         viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)

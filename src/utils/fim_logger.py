@@ -318,7 +318,7 @@ class FIM_logger:
         # goes to console and log file
         level = "NOTICE  "  # keeps spacing the same
         # print(f"{cl.fore.TURQUOISE_2}{msg}{cl.style.RESET}")
-        print(f"{level}{msg}")
+        print(f"{level}: {msg}")
 
         if self.LOG_FILE_PATH == "":
             print(self.LOG_SYS_NOT_SETUP_MSG)
@@ -336,7 +336,7 @@ class FIM_logger:
 
         # c_msg_type = f"{cl.fore.SPRING_GREEN_2B}<{level}>{cl.style.RESET}"
         # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
-        print(f"{level}{msg}")
+        print(f"{level}: {msg}")
 
         if self.LOG_FILE_PATH == "":
             print(self.LOG_SYS_NOT_SETUP_MSG)
@@ -354,7 +354,7 @@ class FIM_logger:
 
         # c_msg_type = f"{cl.fore.LIGHT_YELLOW}<{level}>{cl.style.RESET}"
         # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
-        print(f"{level}{msg}")
+        print(f"{level}: {msg}")
 
         if self.LOG_FILE_PATH == "":
             print(self.LOG_SYS_NOT_SETUP_MSG)

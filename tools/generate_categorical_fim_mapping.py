@@ -89,7 +89,8 @@ def produce_stage_based_catfim_tifs(
 
     # We need to merge what we have up to this point.
     MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
-    child_log_file_prefix = MP_LOG.MP_calc_prefix_name(parent_log_output_file, "MP_prod_huc_mag_stage", huc)
+    # child_log_file_prefix = MP_LOG.MP_calc_prefix_name(parent_log_output_file, "MP_prod_huc_mag_stage", huc)
+    child_log_file_prefix = MP_LOG.MP_calc_prefix_name(parent_log_output_file, "MP_prod_huc_mag_stage")    
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         for branch in branches:
             msg_id_w_branch = f"{huc} - {branch} - {lid} - {category}"
@@ -191,7 +192,7 @@ def produce_stage_based_catfim_tifs(
 
     path_list.sort()  # To force branch 0 first in list, sort
 
-    MP_LOG.trace(f"len of path_list is {len(path_list)}")
+    # MP_LOG.trace(f"len of path_list is {len(path_list)}")
 
     if len(path_list) > 0:
         zero_branch_grid = path_list[0]
@@ -202,7 +203,6 @@ def produce_stage_based_catfim_tifs(
         # Loop through remaining items in list and sum them with summed_array
         for remaining_raster in path_list[1:]:
             remaining_raster_src = rasterio.open(remaining_raster)
-            MP_LOG.lprint(f"{huc}: {category}: Reading raster, path is {remaining_raster}")
             remaining_raster_array_original = remaining_raster_src.read(1)
 
             # Reproject non-branch-zero grids so I can sum them with the branch zero grid
@@ -230,7 +230,7 @@ def produce_stage_based_catfim_tifs(
         summed_array = summed_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
             dst.write(summed_array, 1)
-            MP_LOG.lprint(f"output_tif of {output_tif}")
+            MP_LOG.lprint(f"output_tif is {output_tif}")
         del summed_array
 
     return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
@@ -295,11 +295,12 @@ def produce_tif_per_huc_per_mag_for_stage(
 
         # if not is_all_zero:
         # if is_all_zero is False: # this logic didn't let ANY files get saved
+        #    'is False' means that the object does not exist and not that it really equals the value of False
         if is_all_zero == False:  # corrected logic
             output_tif = os.path.join(
                 lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif'
             )
-            MP_LOG.lprint(f" +++ Output_Tif is {output_tif}")
+            # MP_LOG.lprint(f" +++ Output_Tif is {output_tif}")
             with rasterio.Env():
                 profile = rem_src.profile
                 profile.update(dtype=rasterio.uint8)
@@ -578,6 +579,12 @@ def post_process_huc(
 
             # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
             nws_lid_attributes_filename = os.path.join(attributes_dir, ahps_lid + '_attributes.csv')
+            
+            # There may not necessarily be an attributes.csv for this lid, depending on how flow processing went
+            # lots of lids fall out in the attributes or flow steps.
+            if os.path.exists(nws_lid_attributes_filename) is False:
+                MP_LOG.warning(f"{ahps_lid} has no attributes file which may perfectly fine.")
+                continue
 
             # We are going to do an MP in MP.
             #child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
@@ -766,10 +773,6 @@ def post_process_cat_fim_for_viz(
     if catfim_method == "flow_based":
         FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
         merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
-        
-    else:  # Maybe no dissolving now that I look at the files?  (still testing if dissolved is needed)
-        FLOG.lprint("Dissolving stage based catfim_libary by ahps, magnitude and stage")
-        merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude', 'stage'], as_index=False)
     
     output_file_name = f"{catfim_method}_catfim_library"
     gkpg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
