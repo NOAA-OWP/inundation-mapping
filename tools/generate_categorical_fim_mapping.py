@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+
 # import glob
 import os
+
 # import shutil
 import sys
 import time
@@ -83,7 +85,7 @@ def produce_stage_based_catfim_tifs(
     # Produce extent tif hand_stage. Multiprocess across branches.
     # branches = os.listdir(branch_dir)
     MP_LOG.lprint(f"{huc_lid_cat_id} branch_dir is {branch_dir}")
-    
+
     branches = [x for x in os.listdir(branch_dir) if os.path.isdir(os.path.join(branch_dir, x))]
     branches.sort()
 
@@ -509,8 +511,8 @@ def run_inundation(
     # The intermediatary are all inundated branch tifs.
 
     # The ones we want to keep stop at _extent.tif
-    #branch_tifs = glob.glob(os.path.join(output_huc_site_mapping_dir, '*_extent_*.tif'))
-    #for tif_file in branch_tifs:
+    # branch_tifs = glob.glob(os.path.join(output_huc_site_mapping_dir, '*_extent_*.tif'))
+    # for tif_file in branch_tifs:
     #    os.remove(tif_file)
 
     return
@@ -731,14 +733,16 @@ def post_process_cat_fim_for_viz(
     gpkg_files.sort()
 
     merged_layers_gdf = None
-    ctr=0
-    for layer in tqdm(gpkg_files,
-                      total=len(gpkg_files),
-                      desc="Merging gpkg layers",
-                      bar_format="{desc}:({n_fmt}/{total_fmt})|{bar}| {percentage:.1f}% ",
-                      ncols=80):
+    ctr = 0
+    for layer in tqdm(
+        gpkg_files,
+        total=len(gpkg_files),
+        desc="Merging gpkg layers",
+        bar_format="{desc}:({n_fmt}/{total_fmt})|{bar}| {percentage:.1f}% ",
+        ncols=80,
+    ):
 
-    # for ctr, layer in enumerate(gpkg_files):
+        # for ctr, layer in enumerate(gpkg_files):
         # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
         FLOG.trace(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} : {layer}")
 
@@ -769,13 +773,13 @@ def post_process_cat_fim_for_viz(
     if catfim_method == "flow_based":
         FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
         merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
-    
+
     merged_layers_gdf.reset_index(inplace=True)
 
     output_file_name = f"{catfim_method}_catfim_library"
 
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
-    # gkpg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')    
+    # gkpg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
     # FLOG.lprint(f"Saving catfim library gpkg version to {gkpg_file_path}")
     # merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION)
 

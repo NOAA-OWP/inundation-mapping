@@ -276,7 +276,7 @@ def generate_flows(
     nwm_metafile,
     log_output_file,
 ):
-    
+
     # TODO; Most docstrings like this are now very outdated and need updating
     '''
     This will create static flow files for all nws_lids and save to the
@@ -310,7 +310,7 @@ def generate_flows(
     # FLOG.trace("args coming into generate flows")
     # FLOG.trace(locals()) # see all args coming in to the function
 
-    attributes_dir = os.path.join(output_catfim_dir, 'attributes')        
+    attributes_dir = os.path.join(output_catfim_dir, 'attributes')
     mapping_dir = os.path.join(output_catfim_dir, "mapping")  # create var but don't make folder yet
 
     all_start = datetime.now(timezone.utc)
@@ -385,7 +385,7 @@ def generate_flows(
 
     # only flow based needs the "flow" dir
     output_flows_dir = os.path.join(output_catfim_dir, "flows")
-    if os.path.exists(output_flows_dir) == False:
+    if not os.path.exists(output_flows_dir):
         os.mkdir(output_flows_dir)
 
     start_dt = datetime.now(timezone.utc)

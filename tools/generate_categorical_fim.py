@@ -817,7 +817,6 @@ def iterate_through_huc_stage_based(
 
 def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 
-
     # TODO: Aug 2024: This whole parts needs revisiting. Lots of lid data has changed and this
     # is all likely very old.
 
@@ -960,8 +959,8 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
 
         # # TEMP DEBUG Record row difference and write it to a CSV or something
         # label = 'Old code' ## TEMP DEBUG
-        # num_potential_rows = usgs_elev_df.shape[0] 
-        # num_acceptable_rows = acceptable_usgs_elev_df.shape[0] 
+        # num_potential_rows = usgs_elev_df.shape[0]
+        # num_acceptable_rows = acceptable_usgs_elev_df.shape[0]
         # out_message = f'{label}: kept {num_acceptable_rows} rows out of {num_potential_rows} available rows.'
 
     except Exception:
@@ -1188,7 +1187,7 @@ def generate_stage_based_categorical_fim(
         # Join messages to populate status field to candidate sites. Assign
         # status for null fields.
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
-        
+
         # viz_out_gdf.reset_index(inplace=True)
 
         viz_out_gdf['status'] = viz_out_gdf['status'].fillna('undetermined')
