@@ -1,5 +1,5 @@
 ## Temporary image to build the libraries and only save the needed artifacts
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.0 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.3 AS builder
 WORKDIR /opt/builder
 ARG dataDir=/data
 ARG projectDir=/foss_fim
@@ -45,7 +45,7 @@ RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d
 
 ###############################################################################################
 # Base Image that has GDAL, PROJ, etc
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.0
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.3
 ARG dataDir=/data
 ENV projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -107,7 +107,7 @@ ENV PYTHONPATH=${PATH}:$srcDir:$projectDir/tools
 
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pip3 install pipenv==2023.12.1 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
+RUN pip3 install pipenv==2024.0.1 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
 
 # ----------------------------------
 # Mar 2023
