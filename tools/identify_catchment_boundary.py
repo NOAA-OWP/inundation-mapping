@@ -106,7 +106,7 @@ def catchment_boundary_errors(hydrofabric_dir, huc, inundation_raster, output, m
 
     # Filter remaining lines by length
     hydroid_join_len = hydroid_join.assign(Length = hydroid_join.length)
-    error_lines_final = hydroid_join_len.loc[hydroid_join_len['Length'] >= min_error_length]        
+    error_lines_final = hydroid_join_len.loc[hydroid_join_len['Length'] >= min_error_length].copy()      
     num_catchment_boundary_lines = len(error_lines_final)
 
     if os.path.exists(output):

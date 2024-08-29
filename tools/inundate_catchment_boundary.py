@@ -26,6 +26,7 @@ def produce_mosaicked_inundation(
     remove_intermediate=True,
     verbose=False,
     is_mosaic_for_branches=False,
+    min_error_length = 100
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
@@ -43,6 +44,7 @@ def produce_mosaicked_inundation(
         flow_file (str):          Path to flow file to be used for inundation.
                                     feature_ids in flow_file should be present in supplied HUC.
         boundary_output (str):    Full path to output catchment boundary line geopackage.
+        min_error_length (int):   Minimum length for output error lines. Default 100 meters.
         inundation_raster (str):  Full path to output inundation raster.
                                     (encoded by positive and negative HydroIDs).
         inundation_polygon (str): Full path to output inundation polygon. Optional.
@@ -150,7 +152,8 @@ def produce_mosaicked_inundation(
         hydrofabric_dir=hydrofabric_dir,
         huc=hucs,
         inundation_raster=mosaic_file_path,
-        output=boundary_output
+        output=boundary_output,
+        min_error_length = min_error_length
     )
     fh.vprint("Catchment boundary error identification complete.", verbose)
 
@@ -187,7 +190,6 @@ if __name__ == "__main__":
         default=1,
         type=str,
     )
-
     parser.add_argument(
         "-i", "--inundation-raster", help="Inundation raster output.", required=False, default=None, type=str
     )
@@ -241,7 +243,14 @@ if __name__ == "__main__":
         default=False,
         action="store_true",
     )
-
+    parser.add_argument(
+        '-min',
+        '--min_error_length', 
+        help='Minimum length for output error lines. Default is 100 meters.', 
+        required=False, 
+        type=int, 
+        default=100,
+    )
     start = timer()
 
     # Extract to dictionary and run
