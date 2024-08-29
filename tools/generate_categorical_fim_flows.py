@@ -30,6 +30,7 @@ from tools_shared_functions import (
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
+
 # TODO: Aug 2024: This script was upgraded significantly with lots of misc TODO's embedded.
 # Lots of inline documenation needs updating as well
 
@@ -72,13 +73,13 @@ def generate_flows_for_huc(
         #  with the phrase "MP_process_gen_flows". This will roll up to the master catfim log.
         # This is setting up logging for this function to go up to the parent
         MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
-       
+
         start_time = datetime.now(timezone.utc)
         dt_string = start_time.strftime("%m/%d/%Y %H:%M:%S")
 
         # A bit of start staggering to help not overload the MP (20 sec)
         time_delay = random.randrange(0, 20)
-        #MP_LOG.lprint(f" ... {huc} start time is {dt_string} and delay is {time_delay}")
+        # MP_LOG.lprint(f" ... {huc} start time is {dt_string} and delay is {time_delay}")
         MP_LOG.lprint(f" ... {huc} flow generation start time is {dt_string}")
 
         time.sleep(time_delay)
@@ -152,7 +153,7 @@ def generate_flows_for_huc(
             for category in flood_categories:
                 # Get the flow
                 flow = flows[category]
-                
+
                 if flow is not None and flow != 0:
 
                     # If there is a valid flow value, write a flow file.
@@ -275,6 +276,8 @@ def generate_flows(
     nwm_metafile,
     log_output_file,
 ):
+    
+    # TODO; Most docstrings like this are now very outdated and need updating
     '''
     This will create static flow files for all nws_lids and save to the
     workspace directory with the following format:
@@ -307,10 +310,7 @@ def generate_flows(
     # FLOG.trace("args coming into generate flows")
     # FLOG.trace(locals()) # see all args coming in to the function
 
-    output_flows_dir = os.path.join(output_catfim_dir, "flows")
-    attributes_dir = os.path.join(output_catfim_dir, 'attributes')
-    if os.path.exists(attributes_dir) is False:
-        os.mkdir(attributes_dir)
+    attributes_dir = os.path.join(output_catfim_dir, 'attributes')        
     mapping_dir = os.path.join(output_catfim_dir, "mapping")  # create var but don't make folder yet
 
     all_start = datetime.now(timezone.utc)
@@ -373,11 +373,20 @@ def generate_flows(
     # It this is stage-based, it returns all of these objects here, but if it continues
     # (aka. Flow based), then it returns only nws_lid_layer (created later in this function)
     if is_stage_based:  # If it's stage-based, the function stops running here
-        return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, nwm_flows_df) # No Alaska
+        return (
+            huc_dictionary,
+            out_gdf,
+            metadata_url,
+            threshold_url,
+            all_meta_lists,
+            nwm_flows_df,
+        )  # No Alaska
         # return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, nwm_flows_df, nwm_flows_alaska_df) # Alaska
 
-
-    # NOTE::: Only flow based continues from here on (now sure what)
+    # only flow based needs the "flow" dir
+    output_flows_dir = os.path.join(output_catfim_dir, "flows")
+    if os.path.exists(output_flows_dir) == False:
+        os.mkdir(output_flows_dir)
 
     start_dt = datetime.now(timezone.utc)
 
@@ -388,7 +397,7 @@ def generate_flows(
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
-            nwm_flows_region_df = nwm_flows_df # To exclude Alaska 
+            nwm_flows_region_df = nwm_flows_df  # To exclude Alaska
             # nwm_flows_region_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df # To include Alaska
 
             # Deep copy that speed up Multi-Proc a little as all_meta_lists
@@ -420,7 +429,6 @@ def generate_flows(
 
     FLOG.lprint('Start merging and finalizing flows generation data')
     # Recursively find all *_attributes csv files and append
-    # csv_files = os.listdir(attributes_dir)
     csv_files = [x for x in os.listdir(attributes_dir) if x.endswith('_attributes.csv')]
 
     if len(csv_files) == 0:
@@ -438,10 +446,6 @@ def generate_flows(
 
     # This section populates a shapefile of all potential sites and details
     # whether it was mapped or not (mapped field) and if not, why (status field).
-
-    if not os.path.exists(mapping_dir):
-        os.mkdir(mapping_dir)
-
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
 
     viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
@@ -469,6 +473,7 @@ def generate_flows(
     viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
 
     # Read all messages for all HUCs
+    # this is basically identical to a stage based set. Seach for huc_message_list and see my notes
     huc_message_list = []
     huc_messages_dir_list = os.listdir(huc_messages_dir)
     for huc_message_file in huc_messages_dir_list:
@@ -482,16 +487,16 @@ def generate_flows(
 
     # Write messages to DataFrame, split into columns, aggregate messages.
     if len(huc_message_list) > 0:
-        
+
         messages_df = pd.DataFrame(huc_message_list, columns=['message'])
         messages_df = (
             messages_df['message']
             .str.split(':', n=1, expand=True)
             .rename(columns={0: 'nws_lid', 1: 'status'})
         )
-       
+
         # There could be duplicate message for one ahps (ie. missing nwm segments), so drop dups
-        messages_df.drop_duplicates(subset=["nws_lid","status"], keep="first", inplace=True)
+        messages_df.drop_duplicates(subset=["nws_lid", "status"], keep="first", inplace=True)
 
         # We want one viz_out_gdf record per ahps and if there are more than one, contact the messages
 
@@ -531,12 +536,9 @@ def generate_flows(
 
 
 # local script calls __load_nwm_metadata so FLOG is already setup
-def __load_nwm_metadata(output_catfim_dir,
-                        metadata_url,
-                        nwm_us_search,
-                        nwm_ds_search,
-                        lid_to_run,
-                        nwm_metafile,):
+def __load_nwm_metadata(
+    output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, lid_to_run, nwm_metafile
+):
     FLOG.trace(metadata_url)
 
     all_meta_lists = []
