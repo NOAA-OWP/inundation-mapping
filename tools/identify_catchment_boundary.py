@@ -1,14 +1,14 @@
 import argparse
+import os
+from timeit import default_timer as timer
+
 import geopandas as gpd
 import numpy as np
-import os
 import pandas as pd
 import rasterio
-
-from timeit import default_timer as timer
 from rasterio import features
-from shapely.geometry import shape
 from shapely import geometry, ops
+from shapely.geometry import shape
 
 
 def catchment_boundary_errors(hydrofabric_dir, huc, inundation_raster, output, min_error_length):
@@ -38,7 +38,7 @@ def catchment_boundary_errors(hydrofabric_dir, huc, inundation_raster, output, m
         catch = gpd.read_file(
             f"{hydrofabric_dir}/{huc}/branches/{d}/gw_catchments_reaches_filtered_addedAttributes_crosswalked_{d}.gpkg"
         )
-        catch = catch.assign(branch_id = d)
+        catch = catch.assign(branch_id=d)
         catchments = pd.concat([catchments, catch], ignore_index=True)
 
     # Vectorize inundation
@@ -63,57 +63,61 @@ def catchment_boundary_errors(hydrofabric_dir, huc, inundation_raster, output, m
 
     # Save boundary lines to geodataframe
     inundation_boundary_df = gpd.GeoDataFrame(geometry=inundation_boundary)
-    catchment_boundary_df = catchments.assign(geometry = catchments.boundary)
+    catchment_boundary_df = catchments.assign(geometry=catchments.boundary)
 
     # Explode geomtries into many individual linestrings
-    catchment_boundary_explode = catchment_boundary_df.explode(ignore_index = True)
-    inundation_boundary_explode = inundation_boundary_df.explode(ignore_index = True)
+    catchment_boundary_explode = catchment_boundary_df.explode(ignore_index=True)
+    inundation_boundary_explode = inundation_boundary_df.explode(ignore_index=True)
 
     # Find where catchment boundary and inundation boundary intersect (catchment boundary errors)
-    intersect = inundation_boundary_explode.overlay(catchment_boundary_explode, how = 'intersection', keep_geom_type = True)
+    intersect = inundation_boundary_explode.overlay(
+        catchment_boundary_explode, how='intersection', keep_geom_type=True
+    )
     error_lines = gpd.GeoDataFrame()
     for i in intersect['branch_id'].unique():
         branch_df = intersect.loc[intersect['branch_id'] == f'{i}']
         branch_df = branch_df.explode(index_parts=True)
-        branch_df = branch_df.dissolve(by = ['HydroID','feature_id'], as_index = False)
-        
+        branch_df = branch_df.dissolve(by=['HydroID', 'feature_id'], as_index=False)
+
         for index, row in branch_df.iterrows():
             dissolved_lines = branch_df.iloc[index, 2]
             if isinstance(dissolved_lines, geometry.multilinestring.MultiLineString):
                 merged_lines = ops.linemerge(dissolved_lines)
                 branch_df.loc[branch_df['geometry'] == dissolved_lines, 'geometry'] = merged_lines
         error_lines = pd.concat([error_lines, branch_df])
-    error_lines_explode = error_lines.explode(index_parts = False)
+    error_lines_explode = error_lines.explode(index_parts=False)
 
     # Link HydroID and feature_id to error lines
     hydroid_join = gpd.GeoDataFrame()
     for i in catchments['branch_id'].unique():
         catchments1 = catchments.loc[catchments['branch_id'] == f'{i}']
         ip = inund_poly.set_crs(catchments1.crs)
-        poly_intersect = ip.overlay(catchments1, how = 'intersection', keep_geom_type = True)
-        
+        poly_intersect = ip.overlay(catchments1, how='intersection', keep_geom_type=True)
+
         branch_explode = error_lines_explode.loc[error_lines_explode['branch_id'] == f'{i}']
-        
+
         poly_join = poly_intersect[['HydroID', 'feature_id', 'branch_id', 'geometry']]
-        branch_join = branch_explode[['HydroID', 'feature_id','branch_id', 'geometry']]
-        
-        feature_join = branch_join.overlay(poly_join, how = 'intersection', keep_geom_type = False)
-        lines_joined = feature_join.loc[feature_join.geom_type.isin(['LineString','MultiLineString'])]
-        
-        lines_drop = lines_joined.drop(columns = ['HydroID_1', 'feature_id_1','branch_id_1'])
-        rename_attributes = lines_drop.drop_duplicates().rename(columns={'HydroID_2': 'HydroID', 'feature_id_2': 'feature_id','branch_id_2': 'branch_id'})
+        branch_join = branch_explode[['HydroID', 'feature_id', 'branch_id', 'geometry']]
+
+        feature_join = branch_join.overlay(poly_join, how='intersection', keep_geom_type=False)
+        lines_joined = feature_join.loc[feature_join.geom_type.isin(['LineString', 'MultiLineString'])]
+
+        lines_drop = lines_joined.drop(columns=['HydroID_1', 'feature_id_1', 'branch_id_1'])
+        rename_attributes = lines_drop.drop_duplicates().rename(
+            columns={'HydroID_2': 'HydroID', 'feature_id_2': 'feature_id', 'branch_id_2': 'branch_id'}
+        )
         hydroid_join = pd.concat([hydroid_join, rename_attributes])
 
     # Filter remaining lines by length
-    hydroid_join_len = hydroid_join.assign(Length = hydroid_join.length)
-    error_lines_final = hydroid_join_len.loc[hydroid_join_len['Length'] >= min_error_length].copy()      
+    hydroid_join_len = hydroid_join.assign(Length=hydroid_join.length)
+    error_lines_final = hydroid_join_len.loc[hydroid_join_len['Length'] >= min_error_length].copy()
     num_catchment_boundary_lines = len(error_lines_final)
 
     if os.path.exists(output):
         print(f"{output} already exists. Concatinating now...")
         existing_error_lines = gpd.read_file(output, engine="pyogrio", use_arrow=True)
         error_lines_final = pd.concat([existing_error_lines, error_lines_final])
-    error_lines_final.to_file(output,  driver="GPKG", index = False)
+    error_lines_final.to_file(output, driver="GPKG", index=False)
 
     print(
         f'Finished processing huc: {huc}. Number of boundary line issues identified: {num_catchment_boundary_lines}.'
@@ -122,9 +126,7 @@ def catchment_boundary_errors(hydrofabric_dir, huc, inundation_raster, output, m
 
 if __name__ == "__main__":
     # Parse arguments
-    parser = argparse.ArgumentParser(
-        description="Helpful utility to identify catchment boundary errors."
-    )
+    parser = argparse.ArgumentParser(description="Helpful utility to identify catchment boundary errors.")
     parser.add_argument(
         "-y",
         "--hydrofabric_dir",
@@ -132,9 +134,7 @@ if __name__ == "__main__":
         required=True,
         type=str,
     )
-    parser.add_argument(
-        "-u", "--huc", help="HUC to run", required=True, default="", type=str, nargs="+"
-    )
+    parser.add_argument("-u", "--huc", help="HUC to run", required=True, default="", type=str, nargs="+")
     parser.add_argument(
         "-i", "--inundation-raster", help="Inundation raster output.", required=True, default=None, type=str
     )
@@ -143,10 +143,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '-min',
-        '--min_error_length', 
-        help='Minimum length for output error lines. Default is 100 meters.', 
-        required=False, 
-        type=int, 
+        '--min_error_length',
+        help='Minimum length for output error lines. Default is 100 meters.',
+        required=False,
+        type=int,
         default=100,
     )
 
