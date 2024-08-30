@@ -16,6 +16,19 @@ from tools_shared_functions import compute_stats_from_contingency_table
 
 gpd.options.io_engine = "pyogrio"
 
+"""
+This module uses zonal stats to subdivide alpha metrics by each HAND catchment.
+The output is a vector geopackage and is also known as the "FIM Performance" layer
+when loaded into HydroVIS. At the time of this commit, it takes approximately
+32 hours to complete.
+
+Example usage:
+python /foss_fim/tools/test_case_by_hydro_id.py \
+    -b all \
+    -v fim_4_5_2_11 \
+    -g /outputs/fim_performance_v4_5_2_11.gpkg \
+    -l
+"""
 
 #####################################################
 # Perform zonal stats is a funtion stored in pixel_counter.py.
@@ -209,14 +222,14 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
     ).set_crs('EPSG:3857')
 
     # This funtion, relies on the Test_Case class defined in run_test_case.py to list all available test cases
-    print('listing_test_cases_with_updates')
     all_test_cases = Test_Case.list_all_test_cases(
         version=version,
         archive=True,
         benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
     )
-    missing_hucs = []
+    print(f'Found {len(all_test_cases)} test cases')
     if log: log.write(f'Found {len(all_test_cases)} test cases...\n')
+    missing_hucs = []
 
     for test_case_class in tqdm(all_test_cases, desc=f'Running {len(all_test_cases)} test cases'):
         if not os.path.exists(test_case_class.fim_dir):
@@ -230,45 +243,38 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
         agreement_dict = test_case_class.get_current_agreements()
 
         for agree_rast in agreement_dict:
-#            print(f'performing_zonal_stats for {agree_rast}')
 
-            branches_dir = os.path.join(test_case_class.fim_dir, 'branches')
-            for branches in os.listdir(branches_dir):
-                if branches != "0":
-                    continue
-                huc_gpkg = os.path.join(branches_dir, branches)
-
-                string_manip = (
-                    "gw_catchments_reaches_filtered_addedAttributes_crosswalked_" + branches + ".gpkg"
+            # We are only using branch 0 catchments to define boundaries for zonal stats
+            catchment_gpkg = os.path.join(test_case_class.fim_dir, 
+                'branches', 
+                "gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg",
                 )
 
-                huc_gpkg = os.path.join(huc_gpkg, string_manip)
-                define_mag = agree_rast.split(version)
-                define_mag_1 = define_mag[1].split('/')
-                mag = define_mag_1[1]
+            define_mag = agree_rast.split(version)
+            define_mag_1 = define_mag[1].split('/')
+            mag = define_mag_1[1]
 
-                if log: log.write(f'  {define_mag[1]}\n')
+            if log: log.write(f'  {define_mag[1]}\n')
 
-                stats = perform_zonal_stats(huc_gpkg, agree_rast)
-                if stats == []:
-                    continue
+            stats = perform_zonal_stats(catchment_gpkg, agree_rast)
+            if stats == []:
+                continue
 
-#                print('assembling_hydroalpha_for_single_huc')
-                get_geom = gpd.read_file(huc_gpkg)
+            get_geom = gpd.read_file(catchment_gpkg)
 
-                get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
+            get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
 
-                in_mem_df = assemble_hydro_alpha_for_single_huc(
-                    stats, test_case_class.huc, mag, test_case_class.benchmark_cat
-                )
+            in_mem_df = assemble_hydro_alpha_for_single_huc(
+                stats, test_case_class.huc, mag, test_case_class.benchmark_cat
+            )
 
-                hydro_geom_df = get_geom[["HydroID", "geometry"]]
+            hydro_geom_df = get_geom[["HydroID", "geometry"]]
 
-                geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how='inner').to_crs('EPSG:3857')
+            geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how='inner').to_crs('EPSG:3857')
 
-                concat_df_list = [geom_output, csv_output]
+            concat_df_list = [geom_output, csv_output]
 
-                csv_output = pd.concat(concat_df_list, sort=False)
+            csv_output = pd.concat(concat_df_list, sort=False)
 
     
     if missing_hucs:
@@ -282,24 +288,17 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
     csv_output.groupby('BENCH').size().to_string(log)
     log.write(f'\ntotal     {len(csv_output)}\n')
     
-#    print('projecting to 3857')
-#    csv_output = csv_output.to_crs('EPSG:3857')
-
-    print('manipulating the input string to exclude gpkg and include csv')
-    csv_path_list = csv.split(".")
-    csv_path = csv_path_list[0]
-    csv_path_dot = csv_path + ".csv"
-
-    print('writing_to_gpkg')
+    print('Writing to GPKG')
     log.write(f'Writing geopackage {csv}\n')
     csv_output.to_file(csv, driver="GPKG")
 
     # Add version information to csv_output dataframe
     csv_output['version'] = version
 
-    print('writing_to_csv')
-    log.write(f'Writing CSV {csv_path_dot}\n')
-    csv_output.to_csv(csv_path_dot)  # Save to CSV
+    print('Writing to CSV')
+    csv_path = csv.replace(".gpkg", ".csv")
+    log.write(f'Writing CSV {csv_path}\n')
+    csv_output.to_csv(csv_path)  # Save to CSV
 
 
 
@@ -318,12 +317,16 @@ if __name__ == "__main__":
     parser.add_argument(
         '-g',
         '--gpkg',
-        help='filepath and filename to hold exported gpkg (and csv) file. '
-        'Similar to /data/path/fim_performance_catchments.gpkg Need to use gpkg as output.',
+        help='Filepath and filename to hold exported gpkg file. '
+        'Similar to /data/path/fim_performance_catchments.gpkg. A CSV with the same name will also be written.',
         required=True,
     )
     parser.add_argument(
-        '-l', '--log', help='Whether to write a log file', required=False, default=None, action='store_true',
+        '-l', '--log', 
+        help='Optional flag to write a log file with the same name as the --GPKG.', 
+        required=False, 
+        default=None, 
+        action='store_true',
     )
 
     # Assign variables from arguments.
