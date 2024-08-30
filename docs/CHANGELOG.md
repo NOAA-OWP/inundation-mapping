@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-xx-xx - [PR#1169](https://github.com/NOAA-OWP/inundation-mapping/pull/1169)
+## v4.5.x.x - 2024-xx-xx - [PR#1271](https://github.com/NOAA-OWP/inundation-mapping/pull/1271)
 
 Upgrade for `test_case_by_hydro_id.py` that enables the ability to run on HUCs with differing projections (e.g. Alaska) and adds a logging system.
 
