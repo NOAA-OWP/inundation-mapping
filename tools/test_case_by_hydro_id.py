@@ -2,9 +2,8 @@
 
 import argparse
 import os
-from datetime import datetime
 import traceback
-from tqdm import tqdm
+from datetime import datetime
 
 import geopandas as gpd
 import pandas as pd
@@ -12,6 +11,7 @@ from pixel_counter import zonal_stats
 from run_test_case import Test_Case
 from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
+from tqdm import tqdm
 
 
 gpd.options.io_engine = "pyogrio"
@@ -29,6 +29,7 @@ python /foss_fim/tools/test_case_by_hydro_id.py \
     -g /outputs/fim_performance_v4_5_2_11.gpkg \
     -l
 """
+
 
 #####################################################
 # Perform zonal stats is a funtion stored in pixel_counter.py.
@@ -194,6 +195,7 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
 
     return in_mem_df
 
+
 def catchment_zonal_stats(benchmark_category, version, csv, log):
     # Execution code
     csv_output = gpd.GeoDataFrame(
@@ -228,33 +230,38 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
         benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
     )
     print(f'Found {len(all_test_cases)} test cases')
-    if log: log.write(f'Found {len(all_test_cases)} test cases...\n')
+    if log:
+        log.write(f'Found {len(all_test_cases)} test cases...\n')
     missing_hucs = []
 
     for test_case_class in tqdm(all_test_cases, desc=f'Running {len(all_test_cases)} test cases'):
         if not os.path.exists(test_case_class.fim_dir):
             print(f'{test_case_class.fim_dir} does not exist')
             missing_hucs.append(test_case_class)
-            if log: log.write(f'{test_case_class.fim_dir} does not exist\n')
+            if log:
+                log.write(f'{test_case_class.fim_dir} does not exist\n')
             continue
 
-        if log: log.write(test_case_class.test_id + '\n')
+        if log:
+            log.write(test_case_class.test_id + '\n')
 
         agreement_dict = test_case_class.get_current_agreements()
 
         for agree_rast in agreement_dict:
 
             # We are only using branch 0 catchments to define boundaries for zonal stats
-            catchment_gpkg = os.path.join(test_case_class.fim_dir, 
-                'branches', 
+            catchment_gpkg = os.path.join(
+                test_case_class.fim_dir,
+                'branches',
                 "gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg",
-                )
+            )
 
             define_mag = agree_rast.split(version)
             define_mag_1 = define_mag[1].split('/')
             mag = define_mag_1[1]
 
-            if log: log.write(f'  {define_mag[1]}\n')
+            if log:
+                log.write(f'  {define_mag[1]}\n')
 
             stats = perform_zonal_stats(catchment_gpkg, agree_rast)
             if stats == []:
@@ -276,18 +283,19 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
 
             csv_output = pd.concat(concat_df_list, sort=False)
 
-    
     if missing_hucs:
-        log.write(f"There were {len(missing_hucs)} HUCs missing from the input FIM version:\n" +\
-                  "\n".join([h.fim_dir for h in missing_hucs]))
-    
+        log.write(
+            f"There were {len(missing_hucs)} HUCs missing from the input FIM version:\n"
+            + "\n".join([h.fim_dir for h in missing_hucs])
+        )
+
     print()
     print(csv_output.groupby('BENCH').size())
     print(f'total     {len(csv_output)}')
     log.write("\n------------------------------------\n")
     csv_output.groupby('BENCH').size().to_string(log)
     log.write(f'\ntotal     {len(csv_output)}\n')
-    
+
     print('Writing to GPKG')
     log.write(f'Writing geopackage {csv}\n')
     csv_output.to_file(csv, driver="GPKG")
@@ -299,7 +307,6 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
     csv_path = csv.replace(".gpkg", ".csv")
     log.write(f'Writing CSV {csv_path}\n')
     csv_output.to_csv(csv_path)  # Save to CSV
-
 
 
 if __name__ == "__main__":
@@ -322,10 +329,11 @@ if __name__ == "__main__":
         required=True,
     )
     parser.add_argument(
-        '-l', '--log', 
-        help='Optional flag to write a log file with the same name as the --GPKG.', 
-        required=False, 
-        default=None, 
+        '-l',
+        '--log',
+        help='Optional flag to write a log file with the same name as the --GPKG.',
+        required=False,
+        default=None,
         action='store_true',
     )
 
@@ -356,9 +364,11 @@ if __name__ == "__main__":
         catchment_zonal_stats(benchmark_category, version, csv, log)
     except Exception as ex:
         print(f"ERROR: Execution failed. Please check the log file for details. \n {log.name if log else ''}")
-        if log: log.write(f"ERROR -->\n{ex}")
+        if log:
+            log.write(f"ERROR -->\n{ex}")
         traceback.print_exc(file=log)
-        if log: log.write(f'Errored at: {str(datetime.now().strftime("%m/%d/%Y %H:%M:%S"))} \n')
+        if log:
+            log.write(f'Errored at: {str(datetime.now().strftime("%m/%d/%Y %H:%M:%S"))} \n')
 
     end_time = datetime.now()
     dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
