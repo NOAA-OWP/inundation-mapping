@@ -192,7 +192,10 @@ def Derive_level_paths(
         )
 
         stream_network = stream_network.remove_branches_in_waterbodies(
-            waterbodies=waterbodies, out_vector_files=out_stream_network_dissolved, verbose=False
+            waterbodies=waterbodies,
+            out_vector_files=out_stream_network_dissolved,
+            branch_id_attribute=branch_id_attribute,
+            verbose=False,
         )
         stream_network = stream_network.select_branches_intersecting_huc(
             wbd=wbd,
