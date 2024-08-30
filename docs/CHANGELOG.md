@@ -13,6 +13,8 @@ CatFIM is still considered a WIP but it is fully functional again and more adjus
 
 Also added a system where a config file can be passed into the CatFIM tools instead of assuming a file name and path of simply ".env" in the tools directory. 
 
+This update also relaxes the coordinate accuracy requirements for stage-based CatFIM, which will result in stage-based CatFIM being generated for more sites. 
+
 ### Additions
 - `config/catfim_template.env`:  Template version of the required catfim env file. The template keeps all values that are non sensitive but removes one that is. The true catfim.env for OWP can be found in our .. data/config/catfim.env. Example pathing here based on docker mounts.
 
