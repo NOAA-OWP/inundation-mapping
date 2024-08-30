@@ -527,7 +527,7 @@ def iterate_through_huc_stage_based(
 
             # Filter out sites that don't have "good" data
             try:
-                ## TEMP DEBUG Removing this part to relax coordinate accuracy requirements?
+                ## Removed this part to relax coordinate accuracy requirements
                 # if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list:
                 #     MP_LOG.warning(
                 #         f"\t{huc_lid_id}: {metadata['usgs_data']['coord_accuracy_code']} "
