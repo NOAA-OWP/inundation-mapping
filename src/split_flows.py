@@ -370,7 +370,7 @@ def split_flows(
         split_flows_gdf = gpd.sjoin(
             split_flows_gdf, lakes_buffer, how='left', predicate='within'
         )  # Note: Options include intersects, within, contains, crosses
-        split_flows_gdf = split_flows_gdf.rename(columns={"index_right": "LakeID"}).fillna(-999)
+        split_flows_gdf = split_flows_gdf.rename(columns={"newID": "LakeID"}).fillna(-999)
     else:
         split_flows_gdf['LakeID'] = -999
 

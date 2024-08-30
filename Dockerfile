@@ -1,5 +1,5 @@
 ## Temporary image to build the libraries and only save the needed artifacts
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.0 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.3 AS builder
 WORKDIR /opt/builder
 ARG dataDir=/data
 ARG projectDir=/foss_fim
@@ -45,7 +45,7 @@ RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d
 
 ###############################################################################################
 # Base Image that has GDAL, PROJ, etc
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.0
+FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.3
 ARG dataDir=/data
 ENV projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -72,9 +72,17 @@ COPY --from=builder $depDir $depDir
 # remove reference to missing repo
 RUN rm /etc/apt/sources.list.d/apache-arrow.sources
 
-RUN apt-get update --fix-missing && apt-get install -y openjdk-19-jdk && rm -rf /var/lib/apt/lists/*
-
+RUN apt-get update --fix-missing && apt-get install -y openjdk-21-jdk && rm -rf /var/lib/apt/lists/*
 RUN apt update --fix-missing
+
+# An older version of openjdk still exists on the file system but was never cleaned up
+# After research, we realized, it just needs file cleanup. Leaving it there is triggering security warnings
+# RUN apt-get remove -y openjdk-17-jdk  (not installed, just residue left)
+RUN rm -rf ./usr/lib/jvm/*java-1.17* && \
+    rm -rf ./usr/lib/jvm/.java-1.17* && \
+    rm -rdf ./usr/lib/jvm/java-17*
+
+
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata
 
 RUN apt auto-remove
@@ -91,13 +99,15 @@ ENV PYTHONUNBUFFERED=TRUE
 
 ## ADD TO PATHS ##
 ENV PATH="$projectDir:${PATH}"
-ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/unit_tests:$projectDir/tools
+#ENV PATH=${PATH}:$projectDir:$projectDir/$srcDir:$projectDir/tools
+# Jul 17, 2024: Even though PYTHONPATH isn't used, it still seems to want it.
+ENV PYTHONPATH=${PATH}:$srcDir:$projectDir/tools
 
 ## install python 3 modules ##
 
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pip3 install pipenv==2023.12.1 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
+RUN pip3 install pipenv==2024.0.1 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
 
 # ----------------------------------
 # Mar 2023
@@ -110,6 +120,7 @@ RUN pip3 install pipenv==2023.12.1 && PIP_NO_CACHE_DIR=off pipenv install --syst
 # We download and unzip it to the same file folder that pip deployed the whitebox library.
 # Whitebox also attempts to always download a folder called testdata regardless of use.
 # We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
+
 # RUN wbox_path=/usr/local/lib/python3.10/dist-packages/whitebox/WBT && \
 #     wget -P $wbox_path https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
 #     unzip -o $wbox_path/WhiteboxTools_linux_musl.zip -d $wbox_path && \
