@@ -80,8 +80,9 @@ RUN apt update --fix-missing
 # RUN apt-get remove -y openjdk-17-jdk  (not installed, just residue left)
 RUN rm -rf ./usr/lib/jvm/*java-1.17* && \
     rm -rf ./usr/lib/jvm/.java-1.17* && \
-    rm -rdf ./usr/lib/jvm/java-17*
-
+    rm -rdf ./usr/lib/jvm/java-17* && \
+    rm -rf /usr/lib/debug/usr/lib/jvm/java-17-openjdk-amd64 && \
+    rm -rf /usr/share/gdb/auto-load/usr/lib/jvm/java-17-openjdk-amd64
 
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata
 
