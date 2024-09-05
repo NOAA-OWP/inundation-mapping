@@ -5,7 +5,8 @@ import re
 import pandas as pd
 from dotenv import load_dotenv
 
-from qa.qa_test import QATest
+
+# from qa.qa_test import QATest
 
 
 def run_hydrotable_test(fim_version: str, huc: str = None) -> dict:
@@ -51,7 +52,7 @@ def run_hydrotable_test(fim_version: str, huc: str = None) -> dict:
     return results
 
 
-def hydrotable_test(fim_version: str, huc: str = None, results: dict = None) -> dict:
+def hydrotable_test(fim_version: str, huc: str, results: dict = None) -> dict:
     """
     This function will test the hydrotable for the required columns and positive values.
     If the hydrotable is a string, it will read the csv file.
@@ -64,6 +65,8 @@ def hydrotable_test(fim_version: str, huc: str = None, results: dict = None) -> 
         Path to the FIM folder (e.g. "/outputs/fim_4_4_0_0").
     huc : str (optional)
         HUC8.
+    results : dict (optional)
+        Dictionary of test results.
 
     Returns
     -------
@@ -71,16 +74,28 @@ def hydrotable_test(fim_version: str, huc: str = None, results: dict = None) -> 
         Dictionary of test results.
     """
 
-    def check_positive_values(df: pd.DataFrame, parameter: str, dtype):
-        # Check if parameter column exists and all values are floats >= 0
+    def check_values(df: pd.DataFrame, parameter: str, dtype, op: str = None) -> bool:
+        # Check if parameter column exists and all values are >= 0
         if parameter in df.columns:
-            if df[parameter].dtype == dtype:
-                if (df[parameter] >= 0).all():
-                    return True
+            if dtype == bool:
+                if df[parameter].dtype == bool:
+                    if df[parameter].all():
+                        return True
+                    else:
+                        return f"Some values in {parameter} are False"
                 else:
-                    return f"Some values in {parameter} are < 0"
-            else:
-                return f"{parameter} column is not of type {dtype}"
+                    return f"{parameter} column is not of type {dtype}"
+            elif dtype == int or dtype == float:
+                if op is None:
+                    return f"Missing operator for {parameter}"
+                else:
+                    if df[parameter].dtype == dtype:
+                        if (eval(f'df["{parameter}"] {op}')).all():
+                            return True
+                        else:
+                            return f"Some values in {parameter} are not {op}"
+                    else:
+                        return f"{parameter} column is not of type {dtype}"
         else:
             return f"{parameter} column is missing"
 
@@ -95,28 +110,40 @@ def hydrotable_test(fim_version: str, huc: str = None, results: dict = None) -> 
         results[huc]['error'] = f"{hydrotable} is not a pandas DataFrame"
         return results
 
-    # Check if required columns exist
-    results[huc]['HUC'] = check_positive_values(hydrotable, 'HUC', int)
-    results[huc]['HydroID'] = check_positive_values(hydrotable, 'HydroID', int)
-    results[huc]['branch_id'] = check_positive_values(hydrotable, 'branch_id', int)
-    results[huc]['feature_id'] = check_positive_values(hydrotable, 'feature_id', int)
-    results[huc]['stage'] = check_positive_values(hydrotable, 'stage', float)
-    results[huc]['discharge_cms'] = check_positive_values(hydrotable, 'discharge_cms', float)
+    # Check column values
+    results[huc]['HUC'] = check_values(hydrotable, 'HUC', int, '> 0')
+    results[huc]['HydroID'] = check_values(hydrotable, 'HydroID', int, '> 0')
+    results[huc]['branch_id'] = check_values(hydrotable, 'branch_id', int, '>= 0')
+    results[huc]['feature_id'] = check_values(hydrotable, 'feature_id', int, '> 0')
+    results[huc]['Volume (m3)'] = check_values(hydrotable, 'Volume (m3)', float, '>= 0')
+    results[huc]['stage'] = check_values(hydrotable, 'stage', float, '>= 0')
+    results[huc]['discharge_cms'] = check_values(hydrotable, 'discharge_cms', float, '>= 0')
 
-    if os.getenv('skipcal') == '0':
-        if os.getenv('src_bankfull_toggle') == 'True':
-            # Check bankfull
+    if os.getenv('bathymetry_adjust') == 'True':
+        pass
+
+    if os.getenv('src_bankfull_toggle') == 'True':
+        # Check bankfull
+        pass
+        if os.getenv('src_subdiv_toggle') == 'True':
+            # Check subdivision
+            results[huc]['subdiv_applied'] = check_values(hydrotable, 'subdiv_applied', bool)
+            results[huc]['channel_n'] = check_values(hydrotable, 'channel_n', float, '>= 0')
+            results[huc]['overbank_n'] = check_values(hydrotable, 'overbank_n', float, '>= 0')
+            results[huc]['subdiv_discharge_cms'] = check_values(
+                hydrotable, 'subdiv_discharge_cms', float, '>= 0'
+            )
+
+    # TODO: Test if 'calb_applied' is True, 'calb_coef_final' > 0
+    # results[huc]['calb_applied'] = hydrotable['calb_applied'] and hydrotable['calb_coef_final'] > 0
+
+    if os.getenv('skipcal') == '0' and os.getenv('src_bankfull_toggle') == 'True':
+        if os.getenv('src_adjust_usgs') == 'True':
             pass
-            if os.getenv('src_subdiv_toggle') == 'True':
-                # Check subdivision
-                results[huc]['subdiv_applied'] = (
-                    True if hydrotable['subdiv_applied'].all() else "'subdiv_applied' column is not all True"
-                )
-                results[huc]['channel_n'] = check_positive_values(hydrotable, 'channel_n', float)
-                results[huc]['overbank_n'] = check_positive_values(hydrotable, 'overbank_n', float)
-                results[huc]['subdiv_discharge_cms'] = check_positive_values(
-                    hydrotable, 'subdiv_discharge_cms', float
-                )
+        if os.getenv('src_adjust_ras2fim') == 'True':
+            pass
+        if os.getenv('src_adjust_spatial') == 'True':
+            pass
 
     return results
 
