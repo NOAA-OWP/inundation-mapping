@@ -62,7 +62,6 @@ def produce_stage_based_catfim_tifs(
 
     messages = []
 
-    MP_LOG.lprint("-----------------")
     huc_lid_cat_id = f"{huc} : {lid} : {category}"
     MP_LOG.lprint(f"{huc_lid_cat_id}: Starting to create tifs")
 
@@ -865,6 +864,7 @@ def reformat_inundation_maps(
             left_on=['ahps_lid', 'magnitude', 'huc'],
             right_on=['nws_lid', 'magnitude', 'huc'],
         )
+        # already has an ahps_lid column which we want and not the nws_lid column
         extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
 
         # Save dissolved multipolygon
@@ -877,7 +877,7 @@ def reformat_inundation_maps(
 
         if not extent_poly_diss.empty:
             extent_poly_diss.to_file(
-                diss_extent_filename, driver=getDriver(diss_extent_filename), index=False
+                diss_extent_filename, driver=getDriver(diss_extent_filename), index=False, engine='fiona'
             )
             # MP_LOG.trace(
             #    f"{huc} : {ahps_lid} : {magnitude} - Reformatted inundation map saved"

@@ -236,13 +236,13 @@ def process_generate_categorical_fim(
 
     # Define upstream and downstream search in miles
     nwm_us_search, nwm_ds_search = search, search
-    nws_lid_gpkg_file_path = ""
+    catfim_sites_gpkg_file_path = ""
 
     # STAGE-BASED
     if is_stage_based:
         # Generate Stage-Based CatFIM mapping
         # does flows and inundation  (mapping)
-        nws_lid_gpkg_file_path = generate_stage_based_categorical_fim(
+        catfim_sites_gpkg_file_path = generate_stage_based_categorical_fim(
             output_catfim_dir,
             fim_run_dir,
             nwm_us_search,
@@ -275,7 +275,7 @@ def process_generate_categorical_fim(
         # generate flows is only using one of the incoming job number params
         # so let's multiply -jh (huc) and -jn (inundate)
         job_flows = job_number_huc * job_number_inundate
-        nws_lid_gpkg_file_path = generate_flows(
+        catfim_sites_gpkg_file_path = generate_flows(
             output_catfim_dir,
             nwm_us_search,
             nwm_ds_search,
@@ -307,7 +307,7 @@ def process_generate_categorical_fim(
 
     # Updating mapping status
     FLOG.lprint('Updating mapping status...')
-    update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path)
+    update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path)
 
     # Create CSV versions of the final geopackages.
     # FLOG.lprint('Creating CSVs. This may take several minutes.')
@@ -327,28 +327,8 @@ def process_generate_categorical_fim(
     return
 
 
-def update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path):
-    '''
-    Updates the status for nws_lids from the flows subdirectory. Status
-    is updated for sites where the inundation.py routine was not able to
-    produce inundation for the supplied flow files. It is assumed that if
-    an error occured in inundation.py that all flow files for a given site
-    experienced the error as they all would have the same nwm segments.
-
-    If there is no valid mapping files, update the nws_lids record
-
-    Parameters
-    ----------
-    output_mapping_dir : STR
-        Path to the output directory of all inundation maps.
-    nws_lid_gpkg_file_path : STR
-
-
-    Returns
-    -------
-    None.
-
-    '''
+def update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path):
+  
     # Find all LIDs with empty mapping output folders
     subdirs = [str(i) for i in Path(output_mapping_dir).rglob('**/*') if i.is_dir()]
 
@@ -359,21 +339,27 @@ def update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path):
         FLOG.warning(f"Empty_nws_lids are.. {empty_nws_lids}")
 
     # Write list of empty nws_lids to DataFrame, these are sites that failed in inundation.py
-    mapping_df = pd.DataFrame({'nws_lid': empty_nws_lids})
+    mapping_df = pd.DataFrame({'ahps_lid': empty_nws_lids})
 
     mapping_df['did_it_map'] = 'no'
     mapping_df['map_status'] = ' and all categories failed to map'
 
     # Import geopackage output from flows creation
-    flows_gdf = gpd.read_file(nws_lid_gpkg_file_path, engine='fiona')
+    
+    if not os.path.exists(catfim_sites_gpkg_file_path):
+        FLOG.critical(f"Primary library gpkg of {catfim_sites_gpkg_file_path} does not exist."
+                      " Check logs for possible errors. Program aborted.")
+        sys.exit(1)
+    
+    flows_gdf = gpd.read_file(catfim_sites_gpkg_file_path, engine='fiona')
 
     if len(flows_gdf) == 0:
-        FLOG.critical(f"flows_gdf is empty. Path is {nws_lid_gpkg_file_path}. Program aborted.")
+        FLOG.critical(f"flows_gdf is empty. Path is {catfim_sites_gpkg_file_path}. Program aborted.")
         sys.exit(1)
 
     try:
         # Join failed sites to flows df
-        flows_gdf = flows_gdf.merge(mapping_df, how='left', on='nws_lid')
+        flows_gdf = flows_gdf.merge(mapping_df, how='left', on='ahps_lid')
 
         # Switch mapped column to no for failed sites and update status
         flows_gdf.loc[flows_gdf['did_it_map'] == 'no', 'mapped'] = 'no'
@@ -383,14 +369,13 @@ def update_flow_mapping_status(output_mapping_dir, nws_lid_gpkg_file_path):
 
         # Clean up GeoDataFrame and rename columns for consistency
         flows_gdf = flows_gdf.drop(columns=['did_it_map', 'map_status'])
-        flows_gdf = flows_gdf.rename(columns={'nws_lid': 'ahps_lid'})
 
         # Write out to file
         # TODO: Aug 29, 204: Not 100% sure why, but the gpkg errors out... likely missing a projection
-        flows_gdf.to_file(nws_lid_gpkg_file_path, index=False, driver='GPKG', engine="fiona")
+        flows_gdf.to_file(catfim_sites_gpkg_file_path, index=False, driver='GPKG', engine="fiona")
 
         # csv flow file name
-        nws_lid_csv_file_path = nws_lid_gpkg_file_path.replace(".gkpg", ".csv")
+        nws_lid_csv_file_path = catfim_sites_gpkg_file_path.replace(".gkpg", ".csv")
 
         # and we write a csv version at this time as well.
         # and this csv is good
@@ -1051,7 +1036,6 @@ def generate_stage_based_categorical_fim(
         nwm_metafile,
         str(FLOG.LOG_FILE_PATH),
     )
-    FLOG.lprint("End generate_flows (Stage Based)")
 
     child_log_file_prefix = FLOG.MP_calc_prefix_name(FLOG.LOG_FILE_PATH, "MP_iter_hucs")
 
@@ -1125,7 +1109,7 @@ def generate_stage_based_categorical_fim(
 
     # TODO: Accomodate AK projection?   Yes.. and Alaska and CONUS should all end up as the same projection output
     # epsg:5070, we really want 3857 out for all outputs
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)  # TODO: Accomodate AK projection?
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)  
     viz_out_gdf.rename(
         columns={
             'identifiers_nwm_feature_id': 'nwm_seg',
@@ -1199,6 +1183,10 @@ def generate_stage_based_categorical_fim(
         viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
         viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
 
+        # Rename the stage_based_catfim db column from nws_lid to ahps_lid to be
+        # consistant with all other CatFIM outputs
+        viz_out_gdf.rename(columns = {"nws_lid": "ahps_lid"}, inplace = True)
+
         viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG', index=True, engine='fiona')
 
         csv_file_path = nws_lid_gpkg_file_path.replace(".gpkg", ".csv")
@@ -1210,12 +1198,20 @@ def generate_stage_based_categorical_fim(
 
 
 if __name__ == '__main__':
+    
+    '''
+    Sample
+    python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8 
+    -e /data/config/catfim.env -t /data/catfim/rob_test/docker_test_1
+    -me '/data/catfim/rob_test/nwm_metafile.pkl' -sb
+    '''
+    
     # Parse arguments
     parser = argparse.ArgumentParser(description='Run Categorical FIM')
     parser.add_argument(
         '-f',
         '--fim_run_dir',
-        help='Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_0_9_2',
+        help='Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11',
         required=True,
     )
     parser.add_argument(
@@ -1258,9 +1254,9 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-a',
+        '-sb',
         '--is_stage_based',
-        help='Run stage-based CatFIM instead of flow-based? Add this -a param to make it stage based,'
+        help='Run stage-based CatFIM instead of flow-based? Add this -sb param to make it stage based,'
         ' leave it off for flow based',
         required=False,
         default=False,
@@ -1293,6 +1289,7 @@ if __name__ == '__main__':
     )
 
     # lst_hucs temp disabled. All hucs in fim outputs in a directory will used
+    # NOTE: The HUCs you put in this, MUST be a HUC that is valid in your -f/ --fim_run_dir (HAND output folder)
     # parser.add_argument(
     #     '-lh',
     #     '--lst_hucs',

@@ -302,7 +302,7 @@ def generate_flows(
 
     Returns
     -------
-    nws_lid_gpkg_file_path. - Name and path of the nws_lid file
+    catfim_sites_gpkg_file_path
     '''
 
     FLOG.setup(log_output_file)  # reusing the parent logs
@@ -518,13 +518,16 @@ def generate_flows(
     #     ['nws_lid', 'usgs_gage', 'nwm_seg', 'HUC8', 'mapped', 'status', 'geometry']
     # )
 
+    # rename the column from nws_lid to ahps_lid
+    viz_out_gdf.rename(columns = {'nws_lid': 'ahps_lid'}, inplace = True)
+    
     # stage based doesn't get here
     # crs is 3857 - web mercator at this point
     nws_lid_csv_file_path = os.path.join(mapping_dir, 'flow_based_catfim_sites.csv')
     viz_out_gdf.to_csv(nws_lid_csv_file_path)
 
-    nws_lid_gpkg_file_path = os.path.join(mapping_dir, 'flow_based_catfim_sites.gpkg')
-    viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG', index=False, engine='fiona')
+    catfim_sites_gpkg_file_path = os.path.join(mapping_dir, 'flow_based_catfim_sites.gpkg')
+    viz_out_gdf.to_file(catfim_sites_gpkg_file_path, driver='GPKG', index=False, engine='fiona')
 
     # time operation
     all_end = datetime.now(timezone.utc)
@@ -532,7 +535,7 @@ def generate_flows(
     FLOG.lprint(f"End Wrapping up flows generation Duration: {str(all_time_duration).split('.')[0]}")
     print()
 
-    return nws_lid_gpkg_file_path
+    return catfim_sites_gpkg_file_path
 
 
 # local script calls __load_nwm_metadata so FLOG is already setup
