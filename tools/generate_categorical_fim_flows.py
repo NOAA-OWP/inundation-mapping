@@ -332,8 +332,8 @@ def generate_flows(
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
 
-    # nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg' # Uncomment to include Alaska
-    # nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg) # Uncomment to include Alaska
+    nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg' # Uncomment to include Alaska
+    nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg) # Uncomment to include Alaska
 
     # nwm_metafile might be an empty string
     # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
@@ -374,14 +374,23 @@ def generate_flows(
     # (aka. Flow based), then it returns only nws_lid_layer (created later in this function)
     if is_stage_based:  # If it's stage-based, the function stops running here
         return (
-            huc_dictionary,
-            out_gdf,
-            metadata_url,
-            threshold_url,
-            all_meta_lists,
-            nwm_flows_df,
-        )  # No Alaska
-        # return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, nwm_flows_df, nwm_flows_alaska_df) # Alaska
+            huc_dictionary, 
+            out_gdf, 
+            metadata_url, 
+            threshold_url, 
+            all_meta_lists, 
+            nwm_flows_df, 
+            nwm_flows_alaska_df
+            ) # Alaska
+
+        # return (
+        #     huc_dictionary,
+        #     out_gdf,
+        #     metadata_url,
+        #     threshold_url,
+        #     all_meta_lists,
+        #     nwm_flows_df,
+        # )  # No Alaska
 
     # only flow based needs the "flow" dir
     output_flows_dir = os.path.join(output_catfim_dir, "flows")
@@ -397,8 +406,8 @@ def generate_flows(
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
-            nwm_flows_region_df = nwm_flows_df  # To exclude Alaska
-            # nwm_flows_region_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df # To include Alaska
+            # nwm_flows_region_df = nwm_flows_df  # To exclude Alaska
+            nwm_flows_region_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df # To include Alaska
 
             # Deep copy that speed up Multi-Proc a little as all_meta_lists
             # is a huge object. Need to figure out how to filter that down somehow
