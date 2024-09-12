@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-09-12 - [PR#1284](https://github.com/NOAA-OWP/inundation-mapping/pull/1284)
+
+Segments of levelpaths that terminate in waterbodies are removed from the levelpath. If there is a waterbody downstream of the HUC then the outlet reaches may be trimmed such that the outlet no longer reaches the edge of the DEM, which causes a number of cascading issues originating in the pit-filling such that reverse flow in the DEM-derived reaches can result in erroneous flowlines and inundation. This PR stops trimming levelpaths outside of the HUC.
+
+### Changes
+
+- `src/`
+    - `derive_level_paths.py`: Adds WBD as an input to `stream_network.trim_branches_in_waterbodies()`
+    - `stream_network.py`: Selects only segments intersecting the WBD as candidates for removal if they end in waterbodies
+
+<br/><br/>
+
 ## v4.5.6.0 - 2024-08-23 - [PR#1253](https://github.com/NOAA-OWP/inundation-mapping/pull/1253)
 
 Upgrades Python packages and dependencies and fixes backwards incompatibilities with new version of `geopandas`. Major changes include:
