@@ -179,7 +179,7 @@ def Derive_level_paths(
 
     if out_stream_network_dissolved is not None:
         stream_network = stream_network.trim_branches_in_waterbodies(
-            branch_id_attribute=branch_id_attribute, verbose=verbose
+            wbd=wbd, branch_id_attribute=branch_id_attribute, verbose=verbose
         )
 
         # dissolve by levelpath
