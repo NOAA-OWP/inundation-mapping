@@ -430,11 +430,15 @@ def split_flows(
         print("There are no flowlines after stream order filtering.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # Note: Will send a 61 back
 
-    split_flows_gdf.to_file(split_flows_filename, driver=getDriver(split_flows_filename), index=False)
+    split_flows_gdf.to_file(
+        split_flows_filename, driver=getDriver(split_flows_filename), index=False, engine='fiona'
+    )
 
     if len(split_points_gdf) == 0:
         raise Exception("No points exist.")
-    split_points_gdf.to_file(split_points_filename, driver=getDriver(split_points_filename), index=False)
+    split_points_gdf.to_file(
+        split_points_filename, driver=getDriver(split_points_filename), index=False, engine='fiona'
+    )
 
 
 if __name__ == '__main__':

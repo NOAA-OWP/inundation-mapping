@@ -11,6 +11,38 @@ This PR adds scripts that can identify areas within produced inundation rasters 
 - `tools/inundate_catchment_boundary.py`: Produces inundation for given HUC and identifies catchment boundary issues in produced FIM. 
 
 
+## v4.5.7.1 - 2024-09-13 - [PR#1246](https://github.com/NOAA-OWP/inundation-mapping/pull/1246)
+
+Indents the mosaicking block so that `inundate_mosaic_wrapper.py` mosaics both inundation extents and depths.
+
+### Changes
+
+- `tools/inundate_mosaic_wrapper.py`: Moves mosaicking inside `for` loop.
+
+ <br/><br/>
+
+ 
+## v4.5.7.0 - 2024-09-13 - [PR#1267](https://github.com/NOAA-OWP/inundation-mapping/pull/1267)
+
+`pyogrio` seems to have a difficulty writing files when all values in a column are null (None or nan). The workaround here is to use `fiona` for writing files where `pyogrio` is explicitly set in geopandas (gpd) by `gpd.options.io_engine = "pyogrio"`.
+
+### Changes
+Adds `engine='fiona'` to `.to_file()` in all of the following files
+- `data/`: `esri.py`, `nld/levee_download.py`, `usgs/acquire_and_preprocess_3dep_dems.py`, `usgs/rating_curve_get_usgs_curves.py`, `wbd/preprocess_wbd.py`
+- `src/`: `derive_headwaters.py`, `derive_level_paths.py`, `edit_points.py`, `filter_catchments_and_add_attributes.py`, `reachID_grid_to_vector_points.py`, `reachID_grid_to_vector_points.py`, `split_flows.py`, `src_adjust_spatial_obs.py`, `src_roughness_optimization.py`, `stream_branches.py`
+- `tools/`: `eval_plots.py`, `evaluate_continuity.py`, `generate_nws_lid.py`, `make_boxes_from_bounds.py`, `mosaic_inundation.py`, `rating_curve_comparison.py`, `test_case_by_hydro_id.py`
+
+<br/><br/>
+
+
+## v4.5.6.1 - 2024-09-13 - [PR#1271](https://github.com/NOAA-OWP/inundation-mapping/pull/1271)
+
+Upgrade for `test_case_by_hydro_id.py` that enables the ability to run on HUCs with differing projections (e.g. Alaska) and adds a logging system.
+
+### Changes
+
+- `tools/test_case_by_hydro_id.py`: Moved the reprojection step to accommodate  multiple input projections and fixed a lot of unnecessary logic. Also added an optional logging system that is activated by the new `-l` flag.
+
 <br/><br/>
 
 
@@ -51,7 +83,7 @@ Updated the gauge crosswalk and SRC adjustment routine to use the ras2fim v2 fil
 - `src/src_adjust_ras2fim_rating.py`: Updated code logic to use the huc-specific input files containing the ras2fim rating curve data (previous ras2fim input file contained all hucs in one csv)
 - `src/utils/shared_functions.py`: Added function to find huc subdirectories with the same name btw two parent folders
 
- <br/><br/>
+<br/><br/>
 
 ## v4.5.4.4 - 2024-08-02 - [PR#1238](https://github.com/NOAA-OWP/inundation-mapping/pull/1238)
 
