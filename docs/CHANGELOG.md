@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-08-27 - [PR#1267](https://github.com/NOAA-OWP/inundation-mapping/pull/1267)
+## v4.5.7.0 - 2024-09-13 - [PR#1267](https://github.com/NOAA-OWP/inundation-mapping/pull/1267)
 
 `pyogrio` seems to have a difficulty writing files when all values in a column are null (None or nan). The workaround here is to use `fiona` for writing files where `pyogrio` is explicitly set in geopandas (gpd) by `gpd.options.io_engine = "pyogrio"`.
 
@@ -12,6 +12,7 @@ Adds `engine='fiona'` to `.to_file()` in all of the following files
 - `tools/`: `eval_plots.py`, `evaluate_continuity.py`, `generate_nws_lid.py`, `make_boxes_from_bounds.py`, `mosaic_inundation.py`, `rating_curve_comparison.py`, `test_case_by_hydro_id.py`
 
 <br/><br/>
+
 
 ## v4.5.6.1 - 2024-09-13 - [PR#1271](https://github.com/NOAA-OWP/inundation-mapping/pull/1271)
 
