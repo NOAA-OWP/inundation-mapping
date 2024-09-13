@@ -9,6 +9,11 @@ This PR adds scripts that can identify areas within produced inundation rasters 
 - `tools/identify_catchment_boundary.py`: Identifies where catchment boundaries are glasswalling inundation extent.
 
 - `tools/inundate_catchment_boundary.py`: Produces inundation for given HUC and identifies catchment boundary issues in produced FIM. 
+
+
+<br/><br/>
+
+
 ## v4.5.6.0 - 2024-08-23 - [PR#1253](https://github.com/NOAA-OWP/inundation-mapping/pull/1253)
 
 Upgrades Python packages and dependencies and fixes backwards incompatibilities with new version of `geopandas`. Major changes include:
