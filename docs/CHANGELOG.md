@@ -11,6 +11,8 @@ Indents the mosaicking block so that `inundate_mosaic_wrapper.py` mosaics both i
 - `tools/inundate_mosaic_wrapper.py`: Moves mosaicking inside `for` loop.
 
  <br/><br/>
+
+ 
 ## v4.5.7.0 - 2024-09-13 - [PR#1267](https://github.com/NOAA-OWP/inundation-mapping/pull/1267)
 
 `pyogrio` seems to have a difficulty writing files when all values in a column are null (None or nan). The workaround here is to use `fiona` for writing files where `pyogrio` is explicitly set in geopandas (gpd) by `gpd.options.io_engine = "pyogrio"`.
