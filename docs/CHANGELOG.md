@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.5.7.1 - 2024-09-13 - [PR#1246](https://github.com/NOAA-OWP/inundation-mapping/pull/1246)
+
+Indents the mosaicking block so that `inundate_mosaic_wrapper.py` mosaics both inundation extents and depths.
+
+### Changes
+
+- `tools/inundate_mosaic_wrapper.py`: Moves mosaicking inside `for` loop.
+
+ <br/><br/>
+
+ 
 ## v4.5.7.0 - 2024-09-13 - [PR#1267](https://github.com/NOAA-OWP/inundation-mapping/pull/1267)
 
 `pyogrio` seems to have a difficulty writing files when all values in a column are null (None or nan). The workaround here is to use `fiona` for writing files where `pyogrio` is explicitly set in geopandas (gpd) by `gpd.options.io_engine = "pyogrio"`.
