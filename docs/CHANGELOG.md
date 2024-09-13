@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.5.7.1- 2024-09-13 - [PR#1246](https://github.com/NOAA-OWP/inundation-mapping/pull/1246)
+## v4.5.7.1 - 2024-09-13 - [PR#1246](https://github.com/NOAA-OWP/inundation-mapping/pull/1246)
 
 Indents the mosaicking block so that `inundate_mosaic_wrapper.py` mosaics both inundation extents and depths.
 
