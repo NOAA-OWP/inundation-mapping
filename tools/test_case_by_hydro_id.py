@@ -298,7 +298,7 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
 
     print('Writing to GPKG')
     log.write(f'Writing geopackage {csv}\n')
-    csv_output.to_file(csv, driver="GPKG")
+    csv_output.to_file(csv, driver="GPKG", engine='fiona')
 
     # Add version information to csv_output dataframe
     csv_output['version'] = version
