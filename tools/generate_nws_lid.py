@@ -122,7 +122,7 @@ def generate_nws_lid(workspace):
     nws_lid_gdf.reset_index(drop=True)
     Path(workspace).mkdir(parents=True, exist_ok=True)
     nws_lid_gdf.dropna(subset=['nwm_feature_id'], inplace=True)
-    nws_lid_gdf.to_file(Path(workspace) / 'nws_lid.gpkg', driver='GPKG')
+    nws_lid_gdf.to_file(Path(workspace) / 'nws_lid.gpkg', driver='GPKG', engine='fiona')
 
 
 if __name__ == '__main__':
