@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.5.7.1- 2024-09-13 - [PR#1246](https://github.com/NOAA-OWP/inundation-mapping/pull/1246)
+
+Indents the mosaicking block so that `inundate_mosaic_wrapper.py` mosaics both inundation extents and depths.
+
+### Changes
+
+- `tools/inundate_mosaic_wrapper.py`: Moves mosaicking inside `for` loop.
+
+ <br/><br/>
+
+
 ## v4.5.6.0 - 2024-08-23 - [PR#1253](https://github.com/NOAA-OWP/inundation-mapping/pull/1253)
 
 Upgrades Python packages and dependencies and fixes backwards incompatibilities with new version of `geopandas`. Major changes include:
@@ -37,16 +49,6 @@ Updated the gauge crosswalk and SRC adjustment routine to use the ras2fim v2 fil
 - `src/run_unit_wb.sh`: Added logic to check if huc in process has ras2fim input data to process. If yes - copy the ras2fim cross section point gpkg to the huc run directory.
 - `src/src_adjust_ras2fim_rating.py`: Updated code logic to use the huc-specific input files containing the ras2fim rating curve data (previous ras2fim input file contained all hucs in one csv)
 - `src/utils/shared_functions.py`: Added function to find huc subdirectories with the same name btw two parent folders
-
- <br/><br/>
-
-## v4.5.x.x - 2024-08-09 - [PR#1246](https://github.com/NOAA-OWP/inundation-mapping/pull/1246)
-
-Indents the mosaicking block so that `inundate_mosaic_wrapper.py` mosaics both inundation extents and depths.
-
-### Changes
-
-- `tools/inundate_mosaic_wrapper.py`: Moves mosaicking inside `for` loop.
 
  <br/><br/>
 
