@@ -1,5 +1,5 @@
 ## Temporary image to build the libraries and only save the needed artifacts
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.3 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4 AS builder
 WORKDIR /opt/builder
 ARG dataDir=/data
 ARG projectDir=/foss_fim
@@ -10,7 +10,7 @@ ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
 # remove reference to missing repo
-RUN rm /etc/apt/sources.list.d/apache-arrow.sources
+# RUN rm /etc/apt/sources.list.d/apache-arrow.sources
 
 RUN apt-get update && apt-get install -y git  && rm -rf /var/lib/apt/lists/*
 
@@ -45,7 +45,7 @@ RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d
 
 ###############################################################################################
 # Base Image that has GDAL, PROJ, etc
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.3
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4
 ARG dataDir=/data
 ENV projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -70,18 +70,10 @@ RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 
 # remove reference to missing repo
-RUN rm /etc/apt/sources.list.d/apache-arrow.sources
+# RUN rm /etc/apt/sources.list.d/apache-arrow.sources
 
-RUN apt-get update --fix-missing && apt-get install -y openjdk-21-jdk && rm -rf /var/lib/apt/lists/*
+RUN apt-get update --fix-missing && rm -rf /var/lib/apt/lists/*
 RUN apt update --fix-missing
-
-# An older version of openjdk still exists on the file system but was never cleaned up
-# After research, we realized, it just needs file cleanup. Leaving it there is triggering security warnings
-# RUN apt-get remove -y openjdk-17-jdk  (not installed, just residue left)
-RUN rm -rf ./usr/lib/jvm/*java-1.17* && \
-    rm -rf ./usr/lib/jvm/.java-1.17* && \
-    rm -rdf ./usr/lib/jvm/java-17*
-
 
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata
 
