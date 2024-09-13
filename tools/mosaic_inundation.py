@@ -55,7 +55,7 @@ def Mosaic_inundation(
 
     inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
 
-    # decide upon whether to display
+    # decide upon whether to display the progress bar
     if verbose & len(aggregation_units) == 1:
         tqdm_disable = False
     elif verbose:

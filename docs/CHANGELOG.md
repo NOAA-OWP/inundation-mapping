@@ -1,6 +1,44 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.8.0 - 2024-09-13 - [PR#1165](https://github.com/NOAA-OWP/inundation-mapping/pull/1165)
+
+This PR was originally intended to get Alaska HUCs incorporated into CatFIM, but there were a very, very large array of problems and the tool was unable to run. We have made some major modifications and many more will come in the near future. There are partial hooks and commented code for Alaska integration, but temporarily disabled are included and will be handled by a separate branch / PR.
+
+One of the biggest improvement was to add a logging system to track what is breaking and where.  Earlier, there were a very large number of places were errors occurred but they were suppressed and never recorded anywhere. A few put the errors on screen but this is a very long running process tool, which can take 2 days, and any messages to the screen are lost. Now all  errors and warning are caught and at least logged in the master log but also the "warning" or "error" log to help them stand out better. Many of the warnings are truly and fairly rejected but at least we know when and why. When we started working with CatFIM again a few months back, there were show stopping errors and we did not know where or why but now we can find and diagnose them.
+
+All three of the core "generate_catfim...py" files include major amounts of changes to improve variable and function names, improve flow and readability, move functions for better understanding of the product, lots of new inline commenting. However, there is a lot to do but it is on a better footing, is pretty stable and hopefully easier to continue upgrades in the near future.
+
+CatFIM is still considered a WIP but it is fully functional again and more adjustments hopefully will go much quicker and smoother.
+
+Also added a system where a config file can be passed into the CatFIM tools instead of assuming a file name and path of simply ".env" in the tools directory. 
+
+This update also relaxes the coordinate accuracy requirements for stage-based CatFIM, which will result in stage-based CatFIM being generated for more sites. 
+
+#### Informally, this is now known as CatFIM 2.0
+
+
+### Additions
+- `config/catfim_template.env`:  Template version of the required catfim env file. The template keeps all values that are non sensitive but removes one that is. The true catfim.env for OWP can be found in our .. data/config/catfim.env. Example pathing here based on docker mounts.
+
+- `src/utils/fim_logger.py`:  A new multi proc custom logging system, modelled directly off of the proven ras2fim logging system. The reason for this custom system is that the native Python logging is not stable in multi-proc environments and tends to loose data. This new logger can relatively easily be bolted into almost any of our py scripts if required.
+
+### Changes
+- `.pre-commit-config.yaml`: A linting config adjustment.
+- `pyproject.toml`: linting config adjustments
+- `src/utils/shared_variables.py`:  Added a comment
+- `tools`
+    - `generate_categorical_fim.py`: As mentioned above
+    - `generate_categorical_fim_flows.py`: As mentioned above
+    - `generate_categorical_fim_mapping.py`: As mentioned above
+    - `generate_nws_lid.py`:  No real changes but Git thinks something did. It is the same as in current Dev.
+    - `mosaic_inundation.py`: Added a comment
+    - `tools_shared_functions.py`
+         - added some better error handing in a few places, plus some commenting and cleanup.
+         - Added a feature to the `aggregate_wbd_hucs` function to optionally submit a list of HUCs for filtering results.
+
+<br/><br/>
+
 ## v4.5.7.2 - 2024-09-13 - [PR#1149](https://github.com/NOAA-OWP/inundation-mapping/pull/1149)
 
 This PR adds scripts that can identify areas within produced inundation rasters where glasswalling of inundation occurs due to catchment boundaries, know as catchment boundary issues.
