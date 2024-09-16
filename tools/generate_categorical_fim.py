@@ -316,12 +316,14 @@ def process_generate_categorical_fim(
     FLOG.lprint("================================")
     FLOG.lprint("End generate categorical fim")
 
-
-
-    # calculate duration
     overall_end_time = datetime.now(timezone.utc)
     dt_string = overall_end_time.strftime("%m/%d/%Y %H:%M:%S")
     FLOG.lprint(f"Ended (UTC): {dt_string}")
+
+    # calculate duration
+    time_duration = overall_end_time - overall_start_time
+    FLOG.lprint(f"Duration: {str(time_duration).split('.')[0]}")
+
     return
 
 
@@ -366,8 +368,7 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path):
         )
 
         # Clean up GeoDataFrame and rename columns for consistency
-        flows_df = flows_df.drop(columns=['did_it_map', 'map_status'])
-        flows_df = flows_df.rename(columns={'nws_lid': 'ahps_lid'})
+        flows_gdf = flows_gdf.drop(columns=['did_it_map', 'map_status'])
 
         # Write out to file
         # TODO: Aug 29, 204: Not 100% sure why, but the gpkg errors out... likely missing a projection
@@ -769,229 +770,7 @@ def iterate_through_huc_stage_based(
                 msg = ':missing all calculated flows'
                 all_messages.append(lid + msg)
                 MP_LOG.error(huc_lid_id + msg)
-            # Round flow and stage columns to 2 decimal places.
-            
-            # If it made it to this point (i.e. no continues), there were no major preventers of mapping
-            all_messages.append(lid + ':OK')
-            MP_LOG.success(f'{huc_lid_id}: Complete')
-            # mark_complete(mapping_lid_directory)
 
-        # Write all_messages by HUC to be scraped later.
-        if len(all_messages) > 0:
-
-            # TODO: Aug 2024: This is now identical to the way flow handles messages
-            # but the system should probably be changed to somethign more elegant but good enough
-            # for now. At least is is MP safe.
-            huc_messages_txt_file = os.path.join(huc_messages_dir, str(huc) + '_messages.txt')
-            with open(huc_messages_txt_file, 'w') as f:
-                for item in all_messages:
-                    item = item.strip()
-                    # f.write("%s\n" % item)
-                    f.write(f"{item}\n")
-        else:
-            # something has likely gone very poorly.
-            MP_LOG.error(f"No messages found for {huc}")
-            sys.exit(1)
-
-    except Exception:
-        MP_LOG.error(f"{huc} : {lid} Error iterating through huc stage based")
-        MP_LOG.error(traceback.format_exc())
-
-    return
-
-
-def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
-
-    # TODO: Aug 2024: This whole parts needs revisiting. Lots of lid data has changed and this
-    # is all likely very old.
-
-    # Jul 2024: For now, we will duplicate messages via all_messsages and via the logging system.
-    all_messages = []
-
-    datum_adj_ft = None
-    ### --- Do Datum Offset --- ###
-    # determine source of interpolated threshold flows, this will be the rating curve that will be used.
-    rating_curve_source = flows.get('source')
-    if rating_curve_source is None:
-        msg = f'{huc_lid_id}:No source for rating curve'
-        all_messages.append(msg)
-        MP_LOG.warning(msg)
-        return None, all_messages
-
-    # Get the datum and adjust to NAVD if necessary.
-    nws_datum_info, usgs_datum_info = get_datum(metadata)
-    if rating_curve_source == 'USGS Rating Depot':
-        datum_data = usgs_datum_info
-    elif rating_curve_source == 'NRLDB':
-        datum_data = nws_datum_info
-
-    # If datum not supplied, skip to new site
-    datum = datum_data.get('datum', None)
-    if datum is None:
-        msg = f'{huc_lid_id}:datum info unavailable'
-        all_messages.append(msg)
-        MP_LOG.warning(msg)
-        return None, all_messages
-
-    # ___________________________________________________________________________________________________#
-    # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null).
-    # Modifying rating curve source will influence the rating curve and
-    #   datum retrieved for benchmark determinations.
-    if lid == 'bmbp1':
-        rating_curve_source = 'NRLDB'
-    # ___________________________________________________________________________________________________#
-
-    # SPECIAL CASE: Custom workaround these sites have faulty crs from WRDS. CRS needed for NGVD29
-    #   conversion to NAVD88
-    # USGS info indicates NAD83 for site: bgwn7, fatw3, mnvn4, nhpp1, pinn4, rgln4, rssk1, sign4, smfn7,
-    #   stkn4, wlln7
-    # Assumed to be NAD83 (no info from USGS or NWS data): dlrt2, eagi1, eppt2, jffw3, ldot2, rgdt2
-    if lid in [
-        'bgwn7',
-        'dlrt2',
-        'eagi1',
-        'eppt2',
-        'fatw3',
-        'jffw3',
-        'ldot2',
-        'mnvn4',
-        'nhpp1',
-        'pinn4',
-        'rgdt2',
-        'rgln4',
-        'rssk1',
-        'sign4',
-        'smfn7',
-        'stkn4',
-        'wlln7',
-    ]:
-        datum_data.update(crs='NAD83')
-    # ___________________________________________________________________________________________________#
-
-    # SPECIAL CASE: Workaround for bmbp1; CRS supplied by NRLDB is mis-assigned (NAD29) and
-    #   is actually NAD27.
-    # This was verified by converting USGS coordinates (in NAD83) for bmbp1 to NAD27 and
-    #   it matches NRLDB coordinates.
-    if lid == 'bmbp1':
-        datum_data.update(crs='NAD27')
-    # ___________________________________________________________________________________________________#
-
-    # SPECIAL CASE: Custom workaround these sites have poorly defined vcs from WRDS. VCS needed to ensure
-    #   datum reported in NAVD88.
-    # If NGVD29 it is converted to NAVD88.
-    # bgwn7, eagi1 vertical datum unknown, assume navd88
-    # fatw3 USGS data indicates vcs is NAVD88 (USGS and NWS info agree on datum value).
-    # wlln7 USGS data indicates vcs is NGVD29 (USGS and NWS info agree on datum value).
-    if lid in ['bgwn7', 'eagi1', 'fatw3']:
-        datum_data.update(vcs='NAVD88')
-    elif lid == 'wlln7':
-        datum_data.update(vcs='NGVD29')
-    # ___________________________________________________________________________________________________#
-
-    # Adjust datum to NAVD88 if needed
-    # Default datum_adj_ft to 0.0
-    datum_adj_ft = 0.0
-    crs = datum_data.get('crs')
-    if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
-        # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously
-        #   removed otherwise the region needs changed.
-        try:
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
-        except Exception as ex:
-            MP_LOG.error(f"ERROR: {huc_lid_id}: ngvd_to_navd_ft")
-            MP_LOG.error(traceback.format_exc())
-            ex = str(ex)
-            if crs is None:
-                msg = f'{huc_lid_id}:NOAA VDatum adjustment error, CRS is missing'
-                all_messages.append(msg)
-                MP_LOG.error(msg)
-            if 'HTTPSConnectionPool' in ex:
-                time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
-                try:
-                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
-                except Exception:
-                    msg = f'{huc_lid_id}:NOAA VDatum adjustment error, possible API issue'
-                    all_messages.append(msg)
-                    MP_LOG.error(msg)
-            if 'Invalid projection' in ex:
-                msg = f'{huc_lid_id}:NOAA VDatum adjustment error, invalid projection: crs={crs}'
-                all_messages.append(msg)
-                MP_LOG.error(msg)
-            return None, all_messages
-
-    return datum_adj_ft, all_messages
-
-
-def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
-    acceptable_usgs_elev_df = None
-    try:
-        # Drop columns that offend acceptance criteria
-        usgs_elev_df['acceptable_codes'] = (
-            # usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-            # & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
-            usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
-            & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list)
-        )
-
-        usgs_elev_df = usgs_elev_df.astype({'usgs_data_alt_accuracy_code': float})
-        usgs_elev_df['acceptable_alt_error'] = np.where(
-            usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
-        )
-
-        acceptable_usgs_elev_df = usgs_elev_df[
-            (usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)
-        ]
-
-        # # TEMP DEBUG Record row difference and write it to a CSV or something
-        # label = 'Old code' ## TEMP DEBUG
-        # num_potential_rows = usgs_elev_df.shape[0]
-        # num_acceptable_rows = acceptable_usgs_elev_df.shape[0]
-        # out_message = f'{label}: kept {num_acceptable_rows} rows out of {num_potential_rows} available rows.'
-
-    except Exception:
-        # Not sure any of the sites actually have those USGS-related
-        # columns in this particular file, so just assume it's fine to use
-
-        # print("(Various columns related to USGS probably not in this csv)")
-        # print(f"Exception: \n {repr(e)} \n")
-        MP_LOG.error(f"{huc_lid_id}: An error has occurred while working with the usgs_elev table")
-        MP_LOG.error(traceback.format_exc())
-        acceptable_usgs_elev_df = usgs_elev_df
-
-    return acceptable_usgs_elev_df
-
-
-def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
-
-    lid_usgs_elev = None
-    all_messages = []
-    try:
-        matching_rows = acceptable_usgs_elev_df.loc[
-            acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
-        ]
-
-        if len(matching_rows) == 2:  # It means there are two level paths, use the one that is not 0
-            lid_usgs_elev = acceptable_usgs_elev_df.loc[
-                (acceptable_usgs_elev_df['nws_lid'] == lid.upper())
-                & (acceptable_usgs_elev_df['levpa_id'] != 0),
-                'dem_adj_elevation',
-            ].values[0]
-        else:
-            lid_usgs_elev = acceptable_usgs_elev_df.loc[
-                acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
-            ].values[0]
-
-    except IndexError:  # Occurs when LID is missing from table (yes. warning)
-        MP_LOG.warning(f"{huc_lid_id}: adjusting dem_adj_elevation")
-        MP_LOG.warning(traceback.format_exc())
-        msg = ':likely unacceptable gage datum error or accuracy code(s); please see acceptance criteria'
-        all_messages.append(lid + msg)
-        MP_LOG.warning(huc_lid_id + msg)
-
-    return lid_usgs_elev, all_messages
-
-
-# This creates a HUC iterator with each HUC creating its flow files and tifs
             # If it made it to this point (i.e. no continues), there were no major preventers of mapping
             all_messages.append(lid + ':OK')
             MP_LOG.success(f'{huc_lid_id}: Complete')
@@ -1229,9 +1008,42 @@ def generate_stage_based_categorical_fim(
 ):
     magnitudes = ['action', 'minor', 'moderate', 'major', 'record']
 
-    (huc_dictionary, out_gdf, metadata_url, threshold_url, all_lists, nwm_flows_df) = generate_catfim_flows(
-        workspace, nwm_us_search, nwm_ds_search, stage_based=True, fim_dir=fim_dir, lid_to_run=lid_to_run
+    output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
+    attributes_dir = os.path.join(output_catfim_dir, 'attributes')
+
+    # Create HUC message directory to store messages that will be read and joined after multiprocessing
+    huc_messages_dir = os.path.join(output_mapping_dir, 'huc_messages')
+    os.makedirs(huc_messages_dir, exist_ok=True)
+
+    FLOG.lprint("Starting generate_flows (Stage Based)")
+
+    # If it is stage based, generate flows returns all of these objects.
+    # If flow based, generate flows returns only
+    # (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = generate_flows( # With Alaska
+
+    # Generate flows is only using one of the incoming job number params
+    # so let's multiply -jh (huc) and -jn (inundate)
+    job_flows = job_number_huc * job_number_inundate
+    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, all_nwm_flows_df) = generate_flows(  # No Alaska
+        output_catfim_dir,
+        nwm_us_search,
+        nwm_ds_search,
+        lid_to_run,
+        env_file,
+        job_flows,
+        True,
+        lst_hucs,
+        nwm_metafile,
+        str(FLOG.LOG_FILE_PATH),
     )
+
+    child_log_file_prefix = FLOG.MP_calc_prefix_name(FLOG.LOG_FILE_PATH, "MP_iter_hucs")
+
+    FLOG.lprint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+    FLOG.lprint("Start processing HUCs for Stage-Based CatFIM")
+    num_hucs = len(lst_hucs)
+    huc_index = 0
+    FLOG.lprint(f"Number of hucs to process is {num_hucs}")
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
@@ -1294,7 +1106,10 @@ def generate_stage_based_categorical_fim(
     # whether it was mapped or not (mapped field) and if not, why (status field).
 
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
-    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)
+
+    # TODO: Accomodate AK projection?   Yes.. and Alaska and CONUS should all end up as the same projection output
+    # epsg:5070, we really want 3857 out for all outputs
+    viz_out_gdf = out_gdf.to_crs(VIZ_PROJECTION)  
     viz_out_gdf.rename(
         columns={
             'identifiers_nwm_feature_id': 'nwm_seg',
@@ -1368,163 +1183,35 @@ def generate_stage_based_categorical_fim(
         viz_out_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
         viz_out_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
 
-        viz_out_gdf.to_file(nws_sites_layer, driver='GPKG')
+        # Rename the stage_based_catfim db column from nws_lid to ahps_lid to be
+        # consistant with all other CatFIM outputs
+        viz_out_gdf.rename(columns = {"nws_lid": "ahps_lid"}, inplace = True)
 
-    return nws_sites_layer
+        viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG', index=True, engine='fiona')
 
+        csv_file_path = nws_lid_gpkg_file_path.replace(".gpkg", ".csv")
+        viz_out_gdf.to_csv(csv_file_path)
+    else:
+        FLOG.lprint(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : has no messages")
 
-def produce_stage_based_catfim_tifs(
-    stage,
-    datum_adj_ft,
-    branch_dir,
-    lid_usgs_elev,
-    lid_altitude,
-    fim_dir,
-    segments,
-    lid,
-    huc,
-    lid_directory,
-    category,
-    number_of_jobs,
-):
-    messages = []
-
-    # Determine datum-offset water surface elevation (from above).
-    datum_adj_wse = stage + datum_adj_ft + lid_altitude
-    datum_adj_wse_m = datum_adj_wse * 0.3048  # Convert ft to m
-
-    # Subtract HAND gage elevation from HAND WSE to get HAND stage.
-    hand_stage = datum_adj_wse_m - lid_usgs_elev
-
-    # Produce extent tif hand_stage. Multiprocess across branches.
-    branches = os.listdir(branch_dir)
-    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-        for branch in branches:
-            # Define paths to necessary files to produce inundation grids.
-            full_branch_path = os.path.join(branch_dir, branch)
-            rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
-            catchments_path = os.path.join(
-                fim_dir,
-                huc,
-                full_branch_path,
-                'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif',
-            )
-            hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
-
-            if not os.path.exists(rem_path):
-                messages.append([f"{lid}:rem doesn't exist"])
-                continue
-            if not os.path.exists(catchments_path):
-                messages.append([f"{lid}:catchments files don't exist"])
-                continue
-            if not os.path.exists(hydrotable_path):
-                messages.append([f"{lid}:hydrotable doesn't exist"])
-                continue
-
-            # Use hydroTable to determine hydroid_list from site_ms_segments.
-            hydrotable_df = pd.read_csv(hydrotable_path)
-            hydroid_list = []
-
-            # Determine hydroids at which to perform inundation
-            for feature_id in segments:
-                try:
-                    subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
-                    hydroid_list += list(subset_hydrotable_df.HydroID.unique())
-                except IndexError:
-                    pass
-
-            # Some branches don't have matching hydroids
-            # if len(hydroid_list) == 0:
-            #     messages.append(f"{lid}:no matching hydroids")
-            #     continue
-
-            # If no segments, write message and exit out
-            if not segments:
-                messages.append([f'{lid}:missing nwm segments'])
-                continue
-
-            # Create inundation maps with branch and stage data
-            try:
-                print("Generating stage-based FIM for " + huc + " and branch " + branch)
-                executor.submit(
-                    produce_inundation_map_with_stage_and_feature_ids,
-                    rem_path,
-                    catchments_path,
-                    hydroid_list,
-                    hand_stage,
-                    lid_directory,
-                    category,
-                    huc,
-                    lid,
-                    branch,
-                )
-            except Exception:
-                messages.append([f'{lid}:inundation failed at {category}'])
-
-    # -- MOSAIC -- #
-    # Merge all rasters in lid_directory that have the same magnitude/category.
-    path_list = []
-    lid_dir_list = os.listdir(lid_directory)
-    print("Merging " + category)
-    for f in lid_dir_list:
-        if category in f:
-            path_list.append(os.path.join(lid_directory, f))
-    path_list.sort()  # To force branch 0 first in list, sort
-
-    if len(path_list) > 0:
-        zero_branch_grid = path_list[0]
-        zero_branch_src = rasterio.open(zero_branch_grid)
-        zero_branch_array = zero_branch_src.read(1)
-        summed_array = zero_branch_array  # Initialize it as the branch zero array
-
-        # Loop through remaining items in list and sum them with summed_array
-        for remaining_raster in path_list[1:]:
-            remaining_raster_src = rasterio.open(remaining_raster)
-            remaining_raster_array_original = remaining_raster_src.read(1)
-
-            # Reproject non-branch-zero grids so I can sum them with the branch zero grid
-            remaining_raster_array = np.empty(zero_branch_array.shape, dtype=np.int8)
-            reproject(
-                remaining_raster_array_original,
-                destination=remaining_raster_array,
-                src_transform=remaining_raster_src.transform,
-                src_crs=remaining_raster_src.crs,
-                src_nodata=remaining_raster_src.nodata,
-                dst_transform=zero_branch_src.transform,
-                dst_crs=zero_branch_src.crs,
-                dst_nodata=-1,
-                dst_resolution=zero_branch_src.res,
-                resampling=Resampling.nearest,
-            )
-            # Sum rasters
-            summed_array = summed_array + remaining_raster_array
-
-        del zero_branch_array  # Clean up
-
-        # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
-        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')
-        profile = zero_branch_src.profile
-        summed_array = summed_array.astype('uint8')
-        with rasterio.open(output_tif, 'w', **profile) as dst:
-            dst.write(summed_array, 1)
-        del summed_array
-
-    return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+    return nws_lid_gpkg_file_path
 
 
 if __name__ == '__main__':
+    
+    '''
+    Sample
+    python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8 
+    -e /data/config/catfim.env -t /data/catfim/rob_test/docker_test_1
+    -me '/data/catfim/rob_test/nwm_metafile.pkl' -sb
+    '''
+    
     # Parse arguments
     parser = argparse.ArgumentParser(description='Run Categorical FIM')
     parser.add_argument(
         '-f',
         '--fim_run_dir',
         help='Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11',
-        required=True,
-    )
-    parser.add_argument(
-        '-e',
-        '--env_file',
-        help='Docker mount path to the catfim environment file. ie) data/config/catfim.env',
         required=True,
     )
     parser.add_argument(
@@ -1554,10 +1241,23 @@ if __name__ == '__main__':
         default=1,
         type=int,
     )
+
     parser.add_argument(
-        '-a',
-        '--stage_based',
-        help='Run stage-based CatFIM instead of flow-based?' ' NOTE: flow-based CatFIM is the default.',
+        '-ji',
+        '--job_number_intervals',
+        help='OPTIONAL: Number of processes to use for inundating multiple intervals in stage-based'
+        ' inundation and interval job numbers should multiply to no more than one less than the CPU count '
+        'of the machine. Defaults to 1.',
+        required=False,
+        default=1,
+        type=int,
+    )
+
+    parser.add_argument(
+        '-sb',
+        '--is_stage_based',
+        help='Run stage-based CatFIM instead of flow-based? Add this -sb param to make it stage based,'
+        ' leave it off for flow based',
         required=False,
         default=False,
         action='store_true',
@@ -1587,16 +1287,17 @@ if __name__ == '__main__':
         required=False,
         default='all',
     )
-    parser.add_argument(
-        '-ji',
-        '--job_number_intervals',
-        help='Number of processes to use for inundating multiple intervals in stage-based'
-        ' inundation and interval job numbers should multiply to no more than one less than the CPU count '
-        'of the machine.',
-        required=False,
-        default=1,
-        type=int,
-    )
+
+    # lst_hucs temp disabled. All hucs in fim outputs in a directory will used
+    # NOTE: The HUCs you put in this, MUST be a HUC that is valid in your -f/ --fim_run_dir (HAND output folder)
+    # parser.add_argument(
+    #     '-lh',
+    #     '--lst_hucs',
+    #     help='OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs',
+    #     required=False,
+    #     default='all',
+    # )
+
     parser.add_argument(
         '-mc',
         '--past_major_interval_cap',
