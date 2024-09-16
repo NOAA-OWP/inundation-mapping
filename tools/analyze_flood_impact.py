@@ -6,6 +6,7 @@ import geopandas as gpd
 import numpy as np
 import rasterio
 from rasterio import features as riofeatures
+from timeit import default_timer as timer
 
 
 def analyze_flood_impact(benchmark_inundation_tif, test_inundation_tif, model_domain_shp, structures_gpkg, roads_gpkg, output_gpkg):
@@ -21,13 +22,12 @@ def analyze_flood_impact(benchmark_inundation_tif, test_inundation_tif, model_do
     test_inundation_tif : str
         Input path for test inundation raster. 
     model_domain_shp : str
-        Input path for the model domain vector file.
+        Input path for the model domain vector file. Domain file should match the extent and CRS of the benchmark inundation file.
     structures_gpkg : str
-        Input path for the structures vector file.
+        Input path for the structures vector file. File must have an OBJECTID field identifying individual structures.
     roads_gpkg : str
-        Input path for the roads vector file.
+        Input path for the roads vector file. File must have an OBJECTID field identifying individual roads.
 
-    parser.add_argument('-o', '--output', required=True, help="Path to the output vector file (GeoPackage).")
 
     Outputs
     ------- 
@@ -167,7 +167,6 @@ def impacted(features_gpkg, inundation_tif):
     )
 
     impacted_features['isImpacted'] = True
-    impacted_features['fid'] = impacted_features['fid'].astype('int64')
     return impacted_features
 
 
@@ -186,11 +185,15 @@ python3  analyze_flood_impact.py -b home/user/benchmark_inundation.tif -t home/u
     # Parse arguments
     parser.add_argument('-b', '--benchmark_inundation', required=True, help="Path to the benchmark inundation TIF file.")
     parser.add_argument('-t', '--test_inundation', required=True, help="Path to the test inundation TIF file.")
-    parser.add_argument('-d', '--domain', required=True, help="Path to the model domain vector file.")
-    parser.add_argument('-s', '--structures', required=True, help="Path to the structures vector file.")
-    parser.add_argument('-rd', '--roads', required=True, help="Path to the roads vector file.")
+    parser.add_argument('-d', '--domain', required=True, help="Path to the model domain vector file. Domain file should match the extent and CRS of the benchmark inundation file.")
+    parser.add_argument('-s', '--structures', required=True, help="Path to the structures vector file. File must have an OBJECTID field identifying individual structures.")
+    parser.add_argument('-rd', '--roads', required=True, help="Path to the roads vector file. File must have an OBJECTID field identifying individual roads.")
     parser.add_argument('-o', '--output', required=True, help="Path to the output vector file (GeoPackage).")
     
     args = vars(parser.parse_args())
     
+    start = timer()
+
     analyze_flood_impact(args['benchmark_inundation'],  args['test_inundation'], args['domain'], args['structures'], args['roads'], args['output'])
+
+    print(f"Completed in {round((timer() - start)/60, 2)} minutes.")
