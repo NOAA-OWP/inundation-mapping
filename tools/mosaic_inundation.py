@@ -185,7 +185,7 @@ def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon
         ]
 
         # Write polygon
-        extent_poly_diss.to_file(inundation_polygon, driver=driver)
+        extent_poly_diss.to_file(inundation_polygon, driver=driver, engine='fiona')
 
 
 if __name__ == "__main__":
