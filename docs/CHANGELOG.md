@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-09-17 - [PR#1293](https://github.com/NOAA-OWP/inundation-mapping/pull/1293)
+
+Stops Whitebox from downloading during runtime. Not only does this slow down the `fim_pipeline` runtime, but it leaves a vulnerability to changes in the file being downloaded from Whitebox and/or errors if the Whitebox server is down.
+
+### Changes
+
+- `Dockerfile`: sets `WBT_PATH` environment variable which stops the Whitebox download (Whitebox is manually downloaded during `docker build`).
+- `Pipfile` and `Pipfile.lock`: Upgrades Whitebox to v2.3.5.
+- `fim_pre_processing.sh`: Removes unnecessary `WBT_PATH` assignment.
+- `src/`
+    `agreedem.py` and `unique_pixel_and_allocation.py`: Sets `whitebox_dir` to `WBT_PATH`.
+
+<br/><br/>
+
 ## v4.5.8.0 - 2024-09-13 - [PR#1165](https://github.com/NOAA-OWP/inundation-mapping/pull/1165)
 
 This PR was originally intended to get Alaska HUCs incorporated into CatFIM, but there were a very, very large array of problems and the tool was unable to run. We have made some major modifications and many more will come in the near future. There are partial hooks and commented code for Alaska integration, but temporarily disabled are included and will be handled by a separate branch / PR.
