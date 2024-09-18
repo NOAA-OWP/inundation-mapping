@@ -774,13 +774,14 @@ def post_process_cat_fim_for_viz(
         merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
 
     merged_layers_gdf.reset_index(inplace=True)
-
     output_file_name = f"{catfim_method}_catfim_library"
 
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
-    # gkpg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
-    # FLOG.lprint(f"Saving catfim library gpkg version to {gkpg_file_path}")
-    # merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION)
+    gkpg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
+    FLOG.lprint(f"Saving catfim library gpkg version to {gkpg_file_path}")
+    # merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION) # CRS is wrong here, itputs this in the middle of the ocean
+    merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona") #, crs=PREP_PROJECTION)
+
 
     csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
     FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
@@ -836,7 +837,9 @@ def reformat_inundation_maps(
 
         # Convert list of shapes to polygon
         # lots of polys
-        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code
+        # extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code
+        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)  # Updating to fix AK proj issue, worked for CONUS and for AK!
+
         # extent_poly = gpd.GeoDataFrame.from_features(list(results))  # Updated to accomodate AK projection
         # extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
 
