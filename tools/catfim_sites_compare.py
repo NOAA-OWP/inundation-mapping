@@ -74,6 +74,8 @@ def compare_sites(prev_file, new_file, output_file):
     print("loading previous file")
     # If not, load the columns, the rename to match
     prev_df = pd.read_csv(prev_file, usecols=col_names)
+    if "nws_lid" in prev_df.columns: 
+        prev_df.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)   
     # change huc8 to string and order
     prev_df.HUC8.astype(str)
     prev_df.HUC8 = prev_df.HUC8.astype('str').str.zfill(8)
@@ -82,10 +84,17 @@ def compare_sites(prev_file, new_file, output_file):
     # prev_df.to_csv(output_file)
     
     print("loading new file")
-    new_col_names = ["nws_lid", "nws_data_name", "HUC8", "mapped", "status"]
+    # This has a bug. in 4.5.2.11 stage the column was named 'nws_lid'
+    # but for future versions, it will be named "ahps_lid"
+    # 4.5.2.11 stage
+    # new_col_names = ["nws_lid", "nws_data_name", "HUC8", "mapped", "status"]
+    
+    # 4.5.2.11 flow
+    new_col_names = ["ahps_lid", "nws_data_name", "HUC8", "mapped", "status"]
     new_df = pd.read_csv(new_file, usecols=new_col_names)
     # to get it in sync with the prev column names
-    new_df.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+    if "nws_lid" in new_df.columns:
+        new_df.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
     new_df.HUC8.astype(str)
     new_df.HUC8 = new_df.HUC8.astype('str').str.zfill(8)
     new_df = new_df.sort_values(by=['ahps_lid'])
@@ -107,7 +116,6 @@ def compare_sites(prev_file, new_file, output_file):
     dt_string = overall_end_time.strftime("%m/%d/%Y %H:%M:%S")    
     FLOG.lprint(f"End sites compare - (UTC): {dt_string}")
 
-    overall_end_time = datetime.now(timezone.utc)
     # calculate duration
     time_duration = overall_end_time - overall_start_time
     FLOG.lprint(f"Duration: {str(time_duration).split('.')[0]}")
