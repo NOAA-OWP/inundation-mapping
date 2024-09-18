@@ -11,7 +11,7 @@ Stops Whitebox from downloading during runtime. Not only does this slow down the
 - `Pipfile` and `Pipfile.lock`: Upgrades Whitebox to v2.3.5.
 - `fim_pre_processing.sh`: Removes unnecessary `WBT_PATH` assignment.
 - `src/`
-    `agreedem.py` and `unique_pixel_and_allocation.py`: Sets `whitebox_dir` to `WBT_PATH`.
+    - `agreedem.py` and `unique_pixel_and_allocation.py`: Sets `whitebox_dir` to `WBT_PATH`.
 
 <br/><br/>
 
