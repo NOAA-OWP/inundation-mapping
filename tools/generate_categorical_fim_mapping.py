@@ -656,7 +656,7 @@ def post_process_huc(
 
 
 # This is not part of an MP process, but does need FLOG carried into it so it can use FLOG directly
-def .(
+def post_process_cat_fim_for_viz(
     catfim_method, output_catfim_dir, job_huc_ahps, fim_version, log_output_file
 ):
 
