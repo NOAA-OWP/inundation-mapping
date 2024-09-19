@@ -28,6 +28,7 @@ from tools_shared_functions import (
     select_grids,
 )
 
+sys.path.append(os.getenv('srcDir'))
 from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 

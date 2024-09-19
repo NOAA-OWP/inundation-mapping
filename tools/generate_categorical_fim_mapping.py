@@ -23,6 +23,7 @@ from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
+sys.path.append(os.getenv('srcDir'))
 import utils.fim_logger as fl
 from utils.shared_functions import getDriver
 from utils.shared_variables import ALASKA_CRS, PREP_PROJECTION, VIZ_PROJECTION

@@ -6,6 +6,7 @@ import sys
 
 from dotenv import load_dotenv
 
+sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import FIM_Helpers as fh
 
 

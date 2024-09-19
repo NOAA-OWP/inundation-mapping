@@ -1,11 +1,14 @@
 import argparse
 import errno
 import os
+import sys
 from timeit import default_timer as timer
 
 from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
 
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
 

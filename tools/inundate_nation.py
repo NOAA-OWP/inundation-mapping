@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import re
 import shutil
+import sys
 from datetime import datetime
 from multiprocessing import Pool
 
@@ -13,6 +14,7 @@ import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from osgeo import gdal
 
+sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import FIM_Helpers as fh
 
 

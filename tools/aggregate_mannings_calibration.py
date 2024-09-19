@@ -4,9 +4,13 @@ import argparse
 import csv
 import json
 import os
+import sys
 
 import pandas as pd
 
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+sys.path.append(os.getenv('srcDir'))
+from utils.shared_functions import compute_stats_from_contingency_table
 
 def aggregate_parameter_sets(huc_list_path, calibration_stat_folder, summary_file, mannings_json):
     outfolder = os.path.dirname(summary_file)
@@ -70,8 +74,7 @@ def aggregate_parameter_sets(huc_list_path, calibration_stat_folder, summary_fil
     mannings_summary_table.to_csv(summary_file, index=False)
 
     ## calculate optimal parameter set
-    from utils.shared_functions import compute_stats_from_contingency_table
-
+    
     true_positives, true_negatives, false_positives, false_negatives, cell_area, masked_count = (
         0,
         0,

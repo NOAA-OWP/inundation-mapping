@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
-
+import os
+import sys
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import box
 
+sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import getDriver
 
 

@@ -17,6 +17,8 @@ from natsort import natsorted
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
 
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+sys.path.append(os.getenv('srcDir'))
 from utils.shared_variables import VIZ_PROJECTION
 
 

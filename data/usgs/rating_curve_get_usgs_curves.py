@@ -26,6 +26,7 @@ from tools_shared_variables import (
     acceptable_site_type_list,
 )
 
+sys.path.append(os.getenv('srcDir'))
 from utils.shared_variables import PREP_PROJECTION
 
 

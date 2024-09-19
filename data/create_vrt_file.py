@@ -8,6 +8,7 @@ from datetime import datetime
 
 from osgeo import gdal
 
+sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import FIM_Helpers as fh
 
 
