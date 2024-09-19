@@ -5,23 +5,37 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 Changes Docker base image to `gdal:ubuntu-small` in order to avoid JDK from being carried over in the base image and triggering security vulnerabilities.
 
+This PR incorporates a number of changes to the Docker environment:
+- Changes Docker base image to `gdal:ubuntu-small` in order to avoid JDK from being carried over in the base image and triggering security vulnerabilities. Resolves #1278.
+- Upgrades `fiona` and `jupterlab`. Closes #1270 and closes #1290.
+- Eliminates `whitebox` downloading during `fim_pipeline`. Resolves #1209 and closes #1293.
+
+During testing, it was discovered that many files which are not in the `src` directory, can no longer see the `src\utils` files. Previous research with other products showed us that adding a `sys.path.append` to the imports section of files fixed this.  I only made this change to files outside the `src` directory that had the phrase `utils` in it.
+
+Note: This triggers new docker images to be made.
+
 ### Changes
 
-- `Dockerfile`: Changes base image to `gdal:ubuntu-small`
-
-<br/><br/>
-
-## v4.5.x.x - 2024-09-17 - [PR#1293](https://github.com/NOAA-OWP/inundation-mapping/pull/1293)
-
-Stops Whitebox from downloading during runtime. Not only does this slow down the `fim_pipeline` runtime, but it leaves a vulnerability to changes in the file being downloaded from Whitebox and/or errors if the Whitebox server is down.
-
-### Changes
-
-- `Dockerfile`: sets `WBT_PATH` environment variable which stops the Whitebox download (Whitebox is manually downloaded during `docker build`).
-- `Pipfile` and `Pipfile.lock`: Upgrades Whitebox to v2.3.5.
-- `fim_pre_processing.sh`: Removes unnecessary `WBT_PATH` assignment.
+- `Dockerfile`: Changes base image to `gdal:ubuntu-small-3.8.4` and removes code related to JDK
+- `Pipfile` and `Pipfile.lock`: Upgrades `fiona`, `jupyterlab`, and `whitebox`
+- `fim_pre_processing`: Removes `WBT_PATH` assignment
 - `src/`
-    - `agreedem.py` and `unique_pixel_and_allocation.py`: Sets `whitebox_dir` to `WBT_PATH`.
+    - `agreedem.py` and `unique_pixel_and_allocation.py`: sets `whitebox_dir` to `WBT_PATH`
+
+### Files changed by only the `sys.path.append` fix above are:
+- `data`
+    - `create_vrt_file.py`
+    - `aws`
+        - `aws_base.py`, and `s3.py`
+    - `nld\levee_download.py`
+    - `nws\preprocess_ahps_nws.py`
+    - `usgs`
+        - `acquire_and_preprocess_3dep_dems.py` and `rating_curve_get_usgs_curves.py`
+    - `wbd`
+        - `clip_vectors_to_wbd.py`,  ` generate_pre_clip_fim_huc8.py`, and `preprocess_wbd.py`
+ - `tools`
+     - `aggregate_mannings_calibration.py`, `tools/composite_inundation.py`, `tools/eval_plots.py`, `tools/generate_categorical_fim.py`, `tools/generate_categorical_fim_flows.py`, `tools/generate_categorical_fim_mapping.py`, `tools/generate_nws_lid.py`,  `tools/inundate_gms.py`, `tools/inundate_mosaic_wrapper.py`, `tools/inundate_nation.py`, `tools/make_boxes_from_bounds.py`, `tools/mosaic_inundation.py`, `tools/run_test_case.py`,  and `tools/synthesize_test_cases.py`
+
 
 <br/><br/>
 
