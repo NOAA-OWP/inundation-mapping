@@ -11,6 +11,8 @@ import osmnx as ox
 import pandas as pd
 import pyproj
 from shapely.geometry import shape
+from networkx import Graph, connected_components
+import warnings
 
 
 CRS = "epsg:5070"
@@ -39,6 +41,21 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         if gdf is None or len(gdf) == 0:
             logging.info(f"osmnx pull for {huc_num} came back with no records")
             return huc_num
+        
+        # Create bridge_type column
+        # Check if 'highway' column exists
+        if 'highway' not in gdf.columns:
+            gdf['highway'] = None
+        
+        # Check if 'railway' column exists
+        if 'railway' not in gdf.columns:
+            gdf['railway'] = None
+        
+        # Create the bridge_type column by combining above information
+        gdf['bridge_type'] = gdf.apply(
+            lambda row: f"highway-{row['highway']}" if pd.notna(row['highway']) else f"railway-{row['railway']}", axis=1
+        )
+        gdf.reset_index(inplace=True)
 
         cols_to_drop = []
         for col in gdf.columns:
@@ -57,7 +74,58 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         gdf1 = gdf[gdf.geometry.apply(lambda x: x.geom_type == 'LineString')]
 
         gdf1 = gdf1.to_crs(CRS)
-        gdf1.to_file(huc_bridge_file, driver="GPKG")
+
+        # Dissolve touching lines
+        buffered = gdf1.copy()
+        buffered['geometry'] = buffered['geometry'].buffer(0.0001)
+
+        def find_touching_groups(gdf):
+            # Create a graph
+            graph = Graph()
+
+            # Add nodes for each geometry
+            graph.add_nodes_from(gdf.index)
+            
+            # Create spatial index for efficient querying
+            spatial_index = gdf.sindex
+
+            # For each geometry, find touching geometries and add edges to the graph
+            for idx, geometry in gdf.iterrows():
+                possible_matches_index = list(spatial_index.intersection(geometry['geometry'].bounds))
+                possible_matches = gdf.iloc[possible_matches_index]
+                precise_matches = possible_matches[possible_matches.intersects(geometry['geometry'])]
+                
+                for match_idx in precise_matches.index:
+                    if match_idx != idx:
+                        graph.add_edge(idx, match_idx)
+
+            # Find connected components
+            groups = list(connected_components(graph))
+            return groups
+
+        # Find groups of touching geometries
+        touching_groups = find_touching_groups(buffered)
+
+        # Dissolve each group separately
+        warnings.filterwarnings('ignore')
+        dissolved_groups = []
+        for group in touching_groups:
+            group_gdf = buffered.loc[list(group)]
+            if not group_gdf.empty:
+                dissolved_group = group_gdf.dissolve()
+                single_part_group = dissolved_group.explode(index_parts=False)
+                dissolved_groups.append(single_part_group)
+
+        # Combine dissolved groups and reconstruct GeoDataFrame
+        if dissolved_groups:
+            dissolved_gdf = pd.concat(dissolved_groups, ignore_index=True)
+            final_gdf = gpd.GeoDataFrame(dissolved_gdf, crs=buffered.crs)
+        else:
+            final_gdf = buffered.copy()
+
+        # Reconstruct the GeoDataFrame to remove fragmentation
+        final_gdf = final_gdf.copy()
+        final_gdf.to_file(huc_bridge_file, driver="GPKG")
 
         # returns the HUC but only if it failed so we can keep a list of failed HUCs
         return ""
@@ -95,7 +163,7 @@ def combine_huc_features(output_dir):
     section_time = dt.datetime.now(dt.timezone.utc)
     logging.info(f"  .. started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
-    all_bridges_gdf = all_bridges_gdf_raw[['osmid', 'name', 'geometry']]
+    all_bridges_gdf = all_bridges_gdf_raw[['osmid', 'name', 'bridge_type', 'geometry']]
     all_bridges_gdf.to_file(osm_bridge_file, driver="GPKG")
 
     return
@@ -236,6 +304,7 @@ def __setup_logger(outputs_dir):
     logging.basicConfig(
         filename=log_file_path, level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S'
     )
+    logging.captureWarnings(True)
 
     # set up logging to console
     console = logging.StreamHandler()
