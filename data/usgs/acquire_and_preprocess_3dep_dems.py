@@ -413,7 +413,7 @@ def polygonize(target_output_folder_path):
 
     dem_gpkgs['DN'] = 1
     dem_dissolved = dem_gpkgs.dissolve(by='DN')
-    dem_dissolved.to_file(dem_domain_file, driver='GPKG')
+    dem_dissolved.to_file(dem_domain_file, driver='GPKG', engine='fiona')
 
     if not os.path.exists(dem_domain_file):
         msg = f" - Polygonizing -- {dem_domain_file} - Failed"

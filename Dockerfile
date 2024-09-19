@@ -75,7 +75,7 @@ COPY --from=builder $depDir $depDir
 RUN apt-get update --fix-missing && rm -rf /var/lib/apt/lists/*
 RUN apt update --fix-missing
 
-RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata wget
 
 RUN apt auto-remove
 
@@ -91,9 +91,7 @@ ENV PYTHONUNBUFFERED=TRUE
 
 ## ADD TO PATHS ##
 ENV PATH="$projectDir:${PATH}"
-#ENV PATH=${PATH}:$projectDir:$projectDir/$srcDir:$projectDir/tools
-# Jul 17, 2024: Even though PYTHONPATH isn't used, it still seems to want it.
-ENV PYTHONPATH=${PATH}:$srcDir:$projectDir/tools
+ENV PYTHONPATH=${PYTHONPATH}:$srcDir:$projectDir/unit_tests:$projectDir/tools
 
 ## install python 3 modules ##
 
@@ -112,12 +110,10 @@ RUN pip3 install pipenv==2024.0.1 && PIP_NO_CACHE_DIR=off pipenv install --syste
 # We download and unzip it to the same file folder that pip deployed the whitebox library.
 # Whitebox also attempts to always download a folder called testdata regardless of use.
 # We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
-
-# RUN wbox_path=/usr/local/lib/python3.10/dist-packages/whitebox/WBT && \
-#     wget -P $wbox_path https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
-#     unzip -o $wbox_path/WhiteboxTools_linux_musl.zip -d $wbox_path && \
-#     cp $wbox_path/whitebox_tools $wbox_path && \
-#     mkdir $wbox_path/testdata
+ENV WBT_PATH=/usr/local/lib/python3.10/dist-packages/whitebox/WBT
+RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+    unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
+    cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
 # ----------------------------------
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
