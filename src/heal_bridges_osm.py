@@ -94,7 +94,7 @@ def flows_from_hydrotable(bridge_pnts, hydroTable):
         axis=1,
         result_type='expand',
     )
-    # Convert stages and dischrages to ft and cfs respectively 
+    # Convert stages and dischrages to ft and cfs respectively
     bridge_pnts['max_hand_ft'] = bridge_pnts['max_hand'] * 3.28084
     bridge_pnts['max_hand_75_ft'] = bridge_pnts['max_hand_75'] * 3.28084
     bridge_pnts['max_discharge_cfs'] = bridge_pnts['max_discharge'] * 35.3147

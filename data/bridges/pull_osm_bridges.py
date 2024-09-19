@@ -3,6 +3,7 @@ import datetime as dt
 import logging
 import os
 import traceback
+import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -10,9 +11,8 @@ import geopandas as gpd
 import osmnx as ox
 import pandas as pd
 import pyproj
-from shapely.geometry import shape
 from networkx import Graph, connected_components
-import warnings
+from shapely.geometry import shape
 
 
 CRS = "epsg:5070"
@@ -41,19 +41,22 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         if gdf is None or len(gdf) == 0:
             logging.info(f"osmnx pull for {huc_num} came back with no records")
             return huc_num
-        
+
         # Create bridge_type column
         # Check if 'highway' column exists
         if 'highway' not in gdf.columns:
             gdf['highway'] = None
-        
+
         # Check if 'railway' column exists
         if 'railway' not in gdf.columns:
             gdf['railway'] = None
-        
+
         # Create the bridge_type column by combining above information
         gdf['bridge_type'] = gdf.apply(
-            lambda row: f"highway-{row['highway']}" if pd.notna(row['highway']) else f"railway-{row['railway']}", axis=1
+            lambda row: (
+                f"highway-{row['highway']}" if pd.notna(row['highway']) else f"railway-{row['railway']}"
+            ),
+            axis=1,
         )
         gdf.reset_index(inplace=True)
 
@@ -85,7 +88,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 
             # Add nodes for each geometry
             graph.add_nodes_from(gdf.index)
-            
+
             # Create spatial index for efficient querying
             spatial_index = gdf.sindex
 
@@ -94,7 +97,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
                 possible_matches_index = list(spatial_index.intersection(geometry['geometry'].bounds))
                 possible_matches = gdf.iloc[possible_matches_index]
                 precise_matches = possible_matches[possible_matches.intersects(geometry['geometry'])]
-                
+
                 for match_idx in precise_matches.index:
                     if match_idx != idx:
                         graph.add_edge(idx, match_idx)
