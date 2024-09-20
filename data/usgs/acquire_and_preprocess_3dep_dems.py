@@ -120,7 +120,6 @@ def acquire_and_preprocess_3dep_dems(
             ' value accordingly.'
         )
 
-    # TODO: Sep 2024: This is untested yet
     if number_of_jobs > 15:
         print("")
         print(f"You have asked for {number_of_jobs} jobs\n")
