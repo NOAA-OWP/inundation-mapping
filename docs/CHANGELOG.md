@@ -10,7 +10,7 @@ This PR incorporates a number of changes to the Docker environment:
 - Upgrades `fiona` and `jupterlab`. Closes #1270 and closes #1290.
 - Eliminates `whitebox` downloading during `fim_pipeline`. Resolves #1209 and closes #1293.
 
-During testing, it was discovered that many files which are not in the `src` directory, can no longer see the `src\utils` files. Previous research with other products showed us that adding a `sys.path.append` to the imports section of files fixed this.  I only made this change to files outside the `src` directory that had the phrase `utils` in it.
+During testing, it was discovered that many files which are not in the `src` directory, can no longer see the `src\utils` files. Adjusting the dockerfile to add extra values to the PYTHONPATH variable fixed it.
 
 Note: This triggers new docker images to be made.
 
@@ -21,21 +21,6 @@ Note: This triggers new docker images to be made.
 - `fim_pre_processing`: Removes `WBT_PATH` assignment
 - `src/`
     - `agreedem.py` and `unique_pixel_and_allocation.py`: sets `whitebox_dir` to `WBT_PATH`
-
-### Files changed by only the `sys.path.append` fix above are:
-- `data`
-    - `create_vrt_file.py`
-    - `aws`
-        - `aws_base.py`, and `s3.py`
-    - `nld\levee_download.py`
-    - `nws\preprocess_ahps_nws.py`
-    - `usgs`
-        - `acquire_and_preprocess_3dep_dems.py` and `rating_curve_get_usgs_curves.py`
-    - `wbd`
-        - `clip_vectors_to_wbd.py`,  ` generate_pre_clip_fim_huc8.py`, and `preprocess_wbd.py`
- - `tools`
-     - `aggregate_mannings_calibration.py`, `tools/composite_inundation.py`, `tools/eval_plots.py`, `tools/generate_categorical_fim.py`, `tools/generate_categorical_fim_flows.py`, `tools/generate_categorical_fim_mapping.py`, `tools/generate_nws_lid.py`,  `tools/inundate_gms.py`, `tools/inundate_mosaic_wrapper.py`, `tools/inundate_nation.py`, `tools/make_boxes_from_bounds.py`, `tools/mosaic_inundation.py`, `tools/run_test_case.py`,  and `tools/synthesize_test_cases.py`
-
 
 <br/><br/>
 
