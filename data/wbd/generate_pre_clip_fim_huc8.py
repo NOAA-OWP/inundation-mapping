@@ -6,7 +6,6 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -14,7 +13,6 @@ from pathlib import Path
 from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
 
-sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import FIM_Helpers as fh
 
 

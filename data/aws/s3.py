@@ -9,7 +9,6 @@ from datetime import datetime
 
 from aws_base import AWS_Base
 
-sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import FIM_Helpers as fh
 
 

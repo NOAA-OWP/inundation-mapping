@@ -11,7 +11,6 @@ from shapely.geometry import LineString, MultiLineString
 from tools_shared_variables import INPUTS_DIR
 from tqdm import tqdm
 
-sys.path.append(os.getenv('srcDir'))
 from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 

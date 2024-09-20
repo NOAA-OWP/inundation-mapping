@@ -11,7 +11,6 @@ import rasterio as rio
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import nearest_points
 
-sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import getDriver
 
 

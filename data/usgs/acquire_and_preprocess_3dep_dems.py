@@ -14,7 +14,6 @@ from datetime import datetime
 import geopandas as gpd
 import pandas as pd
 
-sys.path.append(os.getenv('srcDir'))
 import utils.shared_functions as sf
 import utils.shared_validators as val
 from utils.shared_functions import FIM_Helpers as fh

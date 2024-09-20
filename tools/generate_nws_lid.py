@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -11,7 +10,6 @@ import pandas as pd
 from dotenv import load_dotenv
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 
-sys.path.append(os.getenv('srcDir'))
 from utils.shared_variables import PREP_PROJECTION
 
 

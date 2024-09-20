@@ -91,15 +91,17 @@ ENV PYTHONUNBUFFERED=TRUE
 
 ## ADD TO PATHS ##
 ENV PATH="$projectDir:${PATH}"
+#ENV PATH="$projectDir:${PATH}:$srcDir/utils:$toolsDir:$projectDir/data"
+
+ENV PYTHONPATH="${PYTHONPATH}:${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
 
 ## install python 3 modules ##
-
 COPY Pipfile .
 COPY Pipfile.lock .
 RUN pip3 install pipenv==2024.0.1 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
 
 # ----------------------------------
-# Mar 2023
+# Mar 2023 / Sep 2024
 # There are some nuances in the whitebox python downloads in that the first time it loads
 # it goes to the internet and downloads the latest/greatest WBT (whiteboxtools) engine which is
 # required for the whitebox python library to work. We don't want to have FIM attempting a download

@@ -6,7 +6,6 @@ import concurrent.futures as cf
 import copy
 import json
 import os
-import sys
 from datetime import datetime
 from multiprocessing import Pool
 
@@ -18,7 +17,6 @@ from inundation import inundate
 from mosaic_inundation import Mosaic_inundation
 from tqdm import tqdm
 
-sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
 

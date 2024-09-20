@@ -3,14 +3,11 @@
 
 import argparse
 import os
-import sys
 
 import pandas as pd
 from overlapping_inundation import OverlapWindowMerge
 from tqdm import tqdm
 
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
-sys.path.append(os.getenv('srcDir'))
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
 
