@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 from collections import deque
 from os.path import isfile, splitext
 from random import sample
@@ -19,6 +20,7 @@ from shapely.ops import linemerge
 from shapely.strtree import STRtree
 from tqdm import tqdm
 
+from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import PREP_CRS
 
 
@@ -134,7 +136,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
         driver = driverDictionary[splitext(fileName)[1]]
 
-        self.to_file(fileName, driver=driver, layer=layer, index=index)
+        self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
 
     def set_index(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute
@@ -731,6 +733,12 @@ class StreamNetwork(gpd.GeoDataFrame):
             if out_vector_files is not None:
                 if verbose:
                     print("Writing selected branches ...")
+
+                if self.empty:
+                    print(
+                        "Sorry, no streams exist and processing can not continue. This could be an empty file."
+                    )
+                    sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
                 self.write(out_vector_files, index=False)
 
