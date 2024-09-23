@@ -184,6 +184,7 @@ def Derive_level_paths(
 
         # dissolve by levelpath
         stream_network = stream_network.dissolve_by_branch(
+            wbd=wbd,
             branch_id_attribute=branch_id_attribute,
             attribute_excluded=None,  # 'order_',
             values_excluded=None,  # [1,2],

@@ -980,12 +980,38 @@ class StreamNetwork(gpd.GeoDataFrame):
 
     def dissolve_by_branch(
         self,
+        wbd,
         branch_id_attribute="LevelPathI",
         attribute_excluded="StreamOrde",
         values_excluded=[1, 2],
         out_vector_files=None,
         verbose=False,
     ):
+        def add_outlet_segments(self, outlet):
+            """
+            Recursively adds outlet segments to the stream network
+
+            Parameters
+            ----------
+            self : GeoDataFrame
+                Stream network GeoDataFrame
+            s : GeoDataFrame
+                Outlet segment GeoDataFrame
+
+            Returns
+            -------
+            GeoDataFrame
+                Stream network with outlet segments
+            """
+
+            # add outlet segment to stream network
+            self[self['levpa_id'] == outlet.levpa_id, 'geometry'] = self.geometry.union(outlet.geometry)
+
+            if s.to not in self.ID.values:
+                return self
+
+            return self
+
         if verbose:
             print("Dissolving by branch ...")
 
@@ -1003,6 +1029,28 @@ class StreamNetwork(gpd.GeoDataFrame):
             self[[branch_id_attribute, "order_"]].groupby(branch_id_attribute).max()["order_"].copy()
         )
 
+        # Extend outlet levelpath
+        # Make copy of self (need a duplicate flowline for each outlet branch)
+
+        # Find the outlet levelpath(s)
+        wbd = gpd.read_file(wbd)
+
+        # Find the outlet levelpath(s)
+        downstream_segments = []
+        for levpa_id in self['levpa_id'].unique():
+            # find the to that is not in ID
+            levpa_df = self[self['levpa_id'] == levpa_id]
+            downstream_segments.append(levpa_df[~levpa_df['to'].isin(levpa_df['ID'])]['ID'].values[0])
+
+        sjoin = gpd.sjoin(self[self['ID'].isin(downstream_segments)], wbd, predicate='crosses')
+
+        # Get ID of downstream segment
+        s = self[self['ID'].isin(sjoin['to'])]
+
+        # Check if downstream segment is in WBD
+        s_in_wbd = gpd.sjoin(s, wbd)
+        s_not_in_wbd = s[~s['ID'].isin(s_in_wbd['ID'])]
+
         self = self.dissolve(by=branch_id_attribute)
         self = self.rename(columns={"bids_temp": branch_id_attribute})
 
@@ -1014,6 +1062,13 @@ class StreamNetwork(gpd.GeoDataFrame):
         ):
             if isinstance(row.geometry, MultiLineString):
                 merged_line = linemerge(row.geometry)
+
+                if not s_not_in_wbd.empty:
+                    # For each outlet
+                    for outlet in s_not_in_wbd.itertuples():
+                        # TODO: Make a copy and append to levelpath
+                        self = add_outlet_segments(self, outlet)
+
                 # self.loc[lpid,'geometry'] = merged_line
                 try:
                     self.loc[lpid, "geometry"] = merged_line
