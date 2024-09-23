@@ -162,7 +162,7 @@ def Derive_level_paths(
 
         catchments = catchments.reset_index(drop=True)
 
-        catchments.to_file(catchments_outfile, index=False, driver="GPKG")
+        catchments.to_file(catchments_outfile, index=False, driver="GPKG", engine='fiona')
 
     # derive headwaters
     if headwaters_outfile is not None:
@@ -170,7 +170,7 @@ def Derive_level_paths(
             inlets_attribute=inlets_attribute, outlet_linestring_index=outlet_linestring_index
         )
         # headwaters write
-        headwaters.to_file(headwaters_outfile, index=False, driver="GPKG")
+        headwaters.to_file(headwaters_outfile, index=False, driver="GPKG", engine='fiona')
 
     if out_stream_network is not None:
         if verbose:
@@ -192,7 +192,10 @@ def Derive_level_paths(
         )
 
         stream_network = stream_network.remove_branches_in_waterbodies(
-            waterbodies=waterbodies, out_vector_files=out_stream_network_dissolved, verbose=False
+            waterbodies=waterbodies,
+            out_vector_files=out_stream_network_dissolved,
+            branch_id_attribute=branch_id_attribute,
+            verbose=False,
         )
         stream_network = stream_network.select_branches_intersecting_huc(
             wbd=wbd,
@@ -206,9 +209,14 @@ def Derive_level_paths(
             feature_attribute=branch_id_attribute, outlet_linestring_index=outlet_linestring_index
         )
 
-        branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG")
+        if not branch_inlets.empty:
+            branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG", engine='fiona')
 
-    return stream_network
+    if stream_network.empty:
+        print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
+        sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+    else:
+        return stream_network
 
 
 if __name__ == "__main__":

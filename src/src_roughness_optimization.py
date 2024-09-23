@@ -465,7 +465,11 @@ def update_rating_curve(
 
                         try:
                             output_catchments.to_file(
-                                catchments_poly_path, driver="GPKG", index=False, overwrite=True
+                                catchments_poly_path,
+                                driver="GPKG",
+                                index=False,
+                                overwrite=True,
+                                engine='fiona',
                             )  # overwrite the previous layer
 
                         except Exception as e:
@@ -483,7 +487,11 @@ def update_rating_curve(
                             try:
                                 # Attempt to write to the file again
                                 output_catchments.to_file(
-                                    catchments_poly_path, driver="GPKG", index=False, overwrite=True
+                                    catchments_poly_path,
+                                    driver="GPKG",
+                                    index=False,
+                                    overwrite=True,
+                                    engine='fiona',
                                 )
                                 log_text += 'Successful second attempt to write output_catchments gpkg' + '\n'
                             except Exception as e:
@@ -515,7 +523,9 @@ def update_rating_curve(
                             "gw_catchments_src_adjust_" + str(branch_id) + ".gpkg",
                         )
                         output_catchments = input_catchments.merge(df_nmerge, how='left', on='HydroID')
-                        output_catchments.to_file(output_catchments_fileName, driver="GPKG", index=False)
+                        output_catchments.to_file(
+                            output_catchments_fileName, driver="GPKG", index=False, engine='fiona'
+                        )
                         output_catchments = None
 
                 ## Merge the final ManningN dataframe to the original hydroTable

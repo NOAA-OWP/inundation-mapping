@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 from collections import deque
 from os.path import isfile, splitext
 from random import sample
@@ -19,6 +20,7 @@ from shapely.ops import linemerge
 from shapely.strtree import STRtree
 from tqdm import tqdm
 
+from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import PREP_CRS
 
 
@@ -134,7 +136,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
         driver = driverDictionary[splitext(fileName)[1]]
 
-        self.to_file(fileName, driver=driver, layer=layer, index=index)
+        self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
 
     def set_index(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute
@@ -179,6 +181,22 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         self = super(gpd.GeoDataFrame, self)
         self = self.drop(labels=labels, axis=axis)
+
+        self = StreamNetwork(
+            self,
+            branch_id_attribute=branch_id_attribute,
+            attribute_excluded=attribute_excluded,
+            values_excluded=values_excluded,
+        )
+        return self
+
+    def rename(self, columns):
+        branch_id_attribute = self.branch_id_attribute
+        attribute_excluded = self.attribute_excluded
+        values_excluded = self.values_excluded
+
+        self = super(gpd.GeoDataFrame, self)
+        self = self.rename(columns=columns)
 
         self = StreamNetwork(
             self,
@@ -645,7 +663,9 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return self
 
-    def remove_branches_in_waterbodies(self, waterbodies, out_vector_files=None, verbose=False):
+    def remove_branches_in_waterbodies(
+        self, waterbodies, branch_id_attribute, out_vector_files=None, verbose=False
+    ):
         """
         Removes branches completely in waterbodies
         """
@@ -658,9 +678,13 @@ class StreamNetwork(gpd.GeoDataFrame):
             waterbodies = gpd.read_file(waterbodies)
 
         if isinstance(waterbodies, gpd.GeoDataFrame):
+            waterbodies = waterbodies.drop('OBJECTID', axis=1)
+
             # Find branches in waterbodies
+            self = self.rename(columns={branch_id_attribute: "bids"})
             sjoined = gpd.sjoin(self, waterbodies, predicate="within")
             self = self.drop(sjoined.index)
+            self = self.rename(columns={"bids": branch_id_attribute})
 
             if out_vector_files is not None:
                 if verbose:
@@ -693,7 +717,9 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         if isinstance(wbd, gpd.GeoDataFrame):
             # Find branches intersecting HUC
+            self = self.rename(columns={branch_id_attribute: "bids"})
             sjoined = gpd.sjoin(self, wbd, predicate="intersects")
+            self = self.rename(columns={"bids": branch_id_attribute})
 
             self = self[self.index.isin(sjoined.index.values)]
 
@@ -707,6 +733,12 @@ class StreamNetwork(gpd.GeoDataFrame):
             if out_vector_files is not None:
                 if verbose:
                     print("Writing selected branches ...")
+
+                if self.empty:
+                    print(
+                        "Sorry, no streams exist and processing can not continue. This could be an empty file."
+                    )
+                    sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
 
                 self.write(out_vector_files, index=False)
 
