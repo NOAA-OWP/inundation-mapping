@@ -12,9 +12,14 @@ from timeit import default_timer as timer
 def analyze_flood_impact(benchmark_inundation_tif, test_inundation_tif, model_domain_shp, structures_gpkg, roads_gpkg, output_gpkg):
     """
     Assesses the impact of a flood on road and building vector files. Counts how many roads and structures a benchmark and test 
-    flood extent intersect and calculates CSI.
+    flood extent intersect and calculates CSI. 
 
-    
+    Data information:
+    - Building vector files can be accessed from the FEMA Geospatial Rescource Center USA Structures webpage here: 
+        https://gis-fema.hub.arcgis.com/pages/usa-structures. 
+    - Road vector files are provided by state DOT GIS services. Ex. Texas DOT data can be found here: 
+        https://gis-txdot.opendata.arcgis.com/
+
     Parameters
     ----------
     benchmark_inundation_tif : str
