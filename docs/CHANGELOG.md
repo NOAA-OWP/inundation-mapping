@@ -1,6 +1,46 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.10.0 - 2024-09-25 - [PR#1301](https://github.com/NOAA-OWP/inundation-mapping/pull/1301)
+
+A reload of all 3Dep DEMs from USGS was performed to refresh our data.
+
+`acquire_and_preprocess_3dep_dems.py` had to be run twice, one for Alaska and once for the rest to two different folder. This is due to different CRS's. Eventually, we could merge these into one run. This also meant two separate vrt runs / files. 
+
+This also triggered a new set of pre-clips for both AK and CONUS+ but the outputs can/were put into the same folder, so fim_pipeline looks in one common pre-clip folder.
+
+Other minor adjustment include:
+- A change to chmod (permissions) files / folder for the logging folders. After careful re-analysis, it was discovered there was some duplication. 
+- Added a simple duration system to the sierra test system, `rating_curve_comparions.py`. This was added as it is expected to be used soon for a  full BED/Production.  The fix focuses purely on duration, but a test did detect a possible pre-existing logic problem. A separate card will be created for that.
+
+Note:
+The root folder for DEM is being changed from:
+    /inputs/3dep_dems/....   to  
+    /inputs/dems/3dep_dems/....
+    This recognizes other DEMs that may be coming in the near future.
+    The same sub-folder patterns have not be changed.
+    No attempts will be made at this time to move older files, only new incoming from this PR.
+
+### Changes
+- `CITATION.cff`: has not be updated for a very long time.
+- `fim_post_processing.sh`: Update to file/folder permissions.
+- `data`
+    - `usgs\acquire_and_preprocesss_3dep_dem.pys
+        - Minor text updates and updated datatime.now patterns as the old ones are not deprecated
+        - An adjustment to how number of jobs are handled. The system dis-likes too many multi-procs due to open network connections to the source.
+        - Change the target output folder from optional to required.
+    - `wbd`
+        - `generate_pre_clip_from_huc8.py`: 
+            - Minor text updates
+        - `preprocess_wbd.py`
+            - Minor text updates
+- `src\base_variables.env`: Changes to variables to reflect new dems and pre-clip paths.
+- `tools\rating_curve_comparisons.py`
+    - Added duration system as mentioned above.
+
+<br/><br/>
+
+
 ## v4.5.9.0 - 2024-09-25 - [PR#1291](https://github.com/NOAA-OWP/inundation-mapping/pull/1291)
 
 Changes Docker base image to `gdal:ubuntu-small` in order to avoid JDK from being carried over in the base image and triggering security vulnerabilities.
