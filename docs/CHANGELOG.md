@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-09-16 - [PR#1291](https://github.com/NOAA-OWP/inundation-mapping/pull/1291)
+## v4.5.9.0 - 2024-09-25 - [PR#1291](https://github.com/NOAA-OWP/inundation-mapping/pull/1291)
 
 Changes Docker base image to `gdal:ubuntu-small` in order to avoid JDK from being carried over in the base image and triggering security vulnerabilities.
 
