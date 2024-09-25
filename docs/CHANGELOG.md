@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.9.0 - 2024-09-25 - [PR#1291](https://github.com/NOAA-OWP/inundation-mapping/pull/1291)
+
+Changes Docker base image to `gdal:ubuntu-small` in order to avoid JDK from being carried over in the base image and triggering security vulnerabilities.
+
+This PR incorporates a number of changes to the Docker environment:
+- Changes Docker base image to `gdal:ubuntu-small` in order to avoid JDK from being carried over in the base image and triggering security vulnerabilities. Resolves #1278.
+- Upgrades `fiona` and `jupterlab`. Closes #1270 and closes #1290.
+- Eliminates `whitebox` downloading during `fim_pipeline`. Resolves #1209 and closes #1293.
+
+During testing, it was discovered that many files which are not in the `src` directory, can no longer see the `src\utils` files. Adjusting the dockerfile to add extra values to the PYTHONPATH variable fixed it.
+
+Note: This triggers new docker images to be made.
+
+### Changes
+
+- `Dockerfile`: Changes base image to `gdal:ubuntu-small-3.8.4` and removes code related to JDK
+- `Pipfile` and `Pipfile.lock`: Upgrades `fiona`, `jupyterlab`, and `whitebox`
+- `fim_pre_processing`: Removes `WBT_PATH` assignment
+- `src/`
+    - `agreedem.py` and `unique_pixel_and_allocation.py`: sets `whitebox_dir` to `WBT_PATH`
+
+<br/><br/>
+
 ## v4.5.8.0 - 2024-09-13 - [PR#1165](https://github.com/NOAA-OWP/inundation-mapping/pull/1165)
 
 This PR was originally intended to get Alaska HUCs incorporated into CatFIM, but there were a very, very large array of problems and the tool was unable to run. We have made some major modifications and many more will come in the near future. There are partial hooks and commented code for Alaska integration, but temporarily disabled are included and will be handled by a separate branch / PR.
