@@ -76,6 +76,7 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
     -r "ID" \
     -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
     -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
+    -de $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_extended.gpkg \
     -e $tempHucDataDir/nwm_headwaters.gpkg \
     -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
     -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg \

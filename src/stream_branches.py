@@ -1050,6 +1050,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # Filter segments that are in the HUC
         self_in_wbd = gpd.sjoin(self, wbd)
+        self_in_wbd = self_in_wbd.drop('index_right', axis=1)
 
         # ensure the new stream order has the order from it's highest child
         max_stream_order = (
@@ -1142,7 +1143,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             self.write(out_vector_files, index=False)
 
         if out_extended_vector_files is not None:
-            outlets_extended = outlets_extended.rename(columns={'bids_temp', branch_id_attribute})
+            outlets_extended = outlets_extended.rename(columns={'bids_temp': branch_id_attribute})
             outlets_extended.write(out_extended_vector_files, index=False)
 
         return self
