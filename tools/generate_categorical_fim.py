@@ -165,16 +165,16 @@ def process_generate_categorical_fim(
     # Code variation for dropping all Alaska HUCS:
 
 
+    
+    valid_ahps_hucs = [
+        x
+        for x in os.listdir(fim_run_dir)
+        if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2'] and x[:2] != "19"
+    ]
+    
+    
     # Temp debug to drop it to one HUC only
-    # valid_ahps_hucs = [
-    #     x
-    #     for x in os.listdir(fim_run_dir)
-    #     if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2'] and x[:2] != "19"
-    # ]
-    
-    
     # valid_ahps_hucs = ["04130003"]
-    
     
 
     # # Code variation for KEEPING Alaska HUCS:
@@ -184,13 +184,13 @@ def process_generate_categorical_fim(
     #     if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
     # ]
 
-    # valid_ahps_hucs.sort()
+    valid_ahps_hucs.sort()
 
-    # num_hucs = len(valid_ahps_hucs)
-    # if num_hucs == 0:
-    #     raise ValueError(
-    #         f'Output directory {fim_run_dir} is empty. Verify that you have the correct input folder.'
-    #     )
+    num_hucs = len(valid_ahps_hucs)
+    if num_hucs == 0:
+        raise ValueError(
+            f'Output directory {fim_run_dir} is empty. Verify that you have the correct input folder.'
+        )
     # End of Validation and setup
     # ================================
 
