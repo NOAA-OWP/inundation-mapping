@@ -68,7 +68,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
                 cols_to_drop.append(col)
 
         # This a common and know duplicate column name (and others)
-        bad_column_names = ["atv", "fixme", "FIXME"]
+        bad_column_names = ["atv", "fixme", "FIXME", "NYSDOT_ref"]
         for bad_cn in bad_column_names:
             if bad_cn in gdf.columns:
                 cols_to_drop.append(bad_cn)
