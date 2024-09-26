@@ -59,6 +59,8 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             axis=1,
         )
         gdf.reset_index(inplace=True)
+        # Remove abandoned bridges
+        gdf = gdf[gdf['bridge'] != 'abandoned']
 
         cols_to_drop = []
         for col in gdf.columns:
