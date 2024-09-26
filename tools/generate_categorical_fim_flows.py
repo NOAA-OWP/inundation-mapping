@@ -94,6 +94,35 @@ def generate_flows_for_huc(
             MP_LOG.lprint(f"huc {huc} has no applicable nws_lids")
             return
 
+        df_cols = {"nws_lid": pd.Series(dtype='str'),
+                "name": pd.Series(dtype='str'),
+                "WFO": pd.Series(dtype='str'),
+                "rfc": pd.Series(dtype='str'),
+                "huc": pd.Series(dtype='str'),
+                "state": pd.Series(dtype='str'),
+                "county": pd.Series(dtype='str'),
+                "magnitude": pd.Series(dtype='str'),
+                "q": pd.Series(dtype='str'),
+                "q_uni": pd.Series(dtype='str'),
+                "q_src": pd.Series(dtype='str'),
+                "stage": pd.Series(dtype='float'),
+                "stage_uni": pd.Series(dtype='str'),
+                "s_src": pd.Series(dtype='str'),
+                "wrds_time": pd.Series(dtype='str'),
+                "nrldb_time": pd.Series(dtype='str'),
+                "nwis_time": pd.Series(dtype='str'),
+                "lat": pd.Series(dtype='float'),
+                "lon": pd.Series(dtype='float'),
+                "dtm_adj_ft": pd.Series(dtype='str'),
+                "dadj_w_ft": pd.Series(dtype='float'),
+                "dadj_w_m": pd.Series(dtype='float'),
+                "lid_alt_ft": pd.Series(dtype='float'), 
+                "lid_alt_m": pd.Series(dtype='float'),
+                "mapped": pd.Series(dtype='str'),
+                "status": pd.Series(dtype='str'),
+            }
+           
+
         # Loop through each lid in list to create flow file
         for lid in nws_lids:
             # Convert lid to lower case

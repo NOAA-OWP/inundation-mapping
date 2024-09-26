@@ -172,7 +172,9 @@ def process_generate_categorical_fim(
     #     if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2'] and x[:2] != "19"
     # ]
     
-    valid_ahps_hucs = ["04130003"]
+    
+    # valid_ahps_hucs = ["04130003"]
+    
     
 
     # # Code variation for KEEPING Alaska HUCS:
@@ -509,6 +511,7 @@ def iterate_through_huc_stage_based(
                     "lid_alt_m": pd.Series(dtype='float'),
                     "mapped": pd.Series(dtype='str'),
                     "status": pd.Series(dtype='str'),
+                    "missing_stages_msg": pd.Series(dtype='str'),
                     }
            
 
