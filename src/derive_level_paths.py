@@ -22,6 +22,7 @@ def Derive_level_paths(
     branch_id_attribute,
     huc_id,
     out_stream_network_dissolved=None,
+    out_stream_network_dissolved_extended=None,
     headwaters_outfile=None,
     catchments=None,
     waterbodies=None,
@@ -189,6 +190,7 @@ def Derive_level_paths(
             attribute_excluded=None,  # 'order_',
             values_excluded=None,  # [1,2],
             out_vector_files=out_stream_network_dissolved,
+            out_extended_vector_files=out_stream_network_dissolved_extended,
             verbose=verbose,
         )
 
@@ -207,7 +209,7 @@ def Derive_level_paths(
 
     if branch_inlets_outfile is not None:
         branch_inlets = stream_network.derive_inlet_points_by_feature(
-            feature_attribute=branch_id_attribute, outlet_linestring_index=outlet_linestring_index
+            branch_id_attribute=branch_id_attribute, outlet_linestring_index=outlet_linestring_index
         )
 
         if not branch_inlets.empty:
@@ -270,6 +272,13 @@ if __name__ == "__main__":
         "-d",
         "--out-stream-network-dissolved",
         help="Dissolved output stream network",
+        required=False,
+        default=None,
+    )
+    parser.add_argument(
+        "-de",
+        "--out-stream-network-dissolved-extended",
+        help="Dissolved output stream network extended",
         required=False,
         default=None,
     )
