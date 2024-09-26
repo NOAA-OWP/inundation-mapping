@@ -84,9 +84,9 @@ def generate_flows_for_huc(
 
         time.sleep(time_delay)
 
-        # Process each huc unit, first define message variable and flood categories.
+        # Process each huc unit, first define message variable and categories.
         all_messages = []
-        flood_categories = ['action', 'minor', 'moderate', 'major', 'record']
+        categories = ['action', 'minor', 'moderate', 'major', 'record']
 
         nws_lids = huc_dictionary[huc]
 
@@ -117,14 +117,14 @@ def generate_flows_for_huc(
                 continue
 
             # Check if stages are supplied, if not write message and exit.
-            if all(stages.get(category, None) is None for category in flood_categories):
+            if all(stages.get(category, None) is None for category in categories):
                 message = f'{lid}:missing threshold stages'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
 
             # Check if calculated flows are supplied, if not write message and exit.
-            if all(flows.get(category, None) is None for category in flood_categories):
+            if all(flows.get(category, None) is None for category in categories):
                 message = f'{lid}:missing calculated flows'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
@@ -150,7 +150,7 @@ def generate_flows_for_huc(
                 continue
 
             # For each flood category
-            for category in flood_categories:
+            for category in categories:
                 # Get the flow
                 flow = flows[category]
 
@@ -195,7 +195,7 @@ def generate_flows_for_huc(
 
             # Create a csv with same information as shapefile but with each threshold as new record.
             csv_df = pd.DataFrame()
-            for threshold in flood_categories:
+            for threshold in categories:
                 line_df = pd.DataFrame(
                     {
                         'nws_lid': [lid],
@@ -511,7 +511,7 @@ def generate_flows(
         # status for null fields.
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
-        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows available')
+        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows present')
 
     # Filter out columns and write out to file
     # viz_out_gdf = viz_out_gdf.filter(

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-
-# import glob
+import glob
 import os
 
 # import shutil
@@ -63,7 +62,7 @@ def produce_stage_based_catfim_tifs(
     messages = []
 
     huc_lid_cat_id = f"{huc} : {lid} : {category}"
-    MP_LOG.lprint(f"{huc_lid_cat_id}: Starting to create tifs")
+    MP_LOG.trace(f"{huc_lid_cat_id}: Starting to create tifs")
 
     # Determine datum-offset water surface elevation (from above).
     datum_adj_wse = stage + datum_adj_ft + lid_altitude
@@ -83,7 +82,7 @@ def produce_stage_based_catfim_tifs(
 
     # Produce extent tif hand_stage. Multiprocess across branches.
     # branches = os.listdir(branch_dir)
-    MP_LOG.lprint(f"{huc_lid_cat_id} branch_dir is {branch_dir}")
+    # MP_LOG.lprint(f"{huc_lid_cat_id} branch_dir is {branch_dir}")
 
     branches = [x for x in os.listdir(branch_dir) if os.path.isdir(os.path.join(branch_dir, x))]
     branches.sort()
@@ -95,7 +94,7 @@ def produce_stage_based_catfim_tifs(
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         for branch in branches:
             msg_id_w_branch = f"{huc} - {branch} - {lid} - {category}"
-            MP_LOG.trace(f"{msg_id_w_branch} : inundating branches")
+            # MP_LOG.trace(f"{msg_id_w_branch} : inundating branches")
             # Define paths to necessary files to produce inundation grids.
             full_branch_path = os.path.join(branch_dir, branch)
             rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
@@ -509,10 +508,10 @@ def run_inundation(
     #       your give away is to just delete any file that has the HUC number in teh file name
     # The intermediatary are all inundated branch tifs.
 
-    # The ones we want to keep stop at _extent.tif
-    # branch_tifs = glob.glob(os.path.join(output_huc_site_mapping_dir, '*_extent_*.tif'))
-    # for tif_file in branch_tifs:
-    #    os.remove(tif_file)
+    # The ones we want to keep end at _extent.tif
+    branch_tifs = glob.glob(f"{output_huc_site_mapping_dir}/*_extent_*.tif")
+    for tif_file in branch_tifs:
+       os.remove(tif_file)
 
     return
 
@@ -561,7 +560,8 @@ def post_process_huc(
             tif_list = [x for x in os.listdir(mapping_huc_lid_dir) if ('extent.tif') in x]
 
             if len(tif_list) == 0:
-                MP_LOG.warning(f">> no tifs found for {huc} {ahps_lid} at {mapping_huc_lid_dir}")
+                # This is perfectly fine for there to be none
+                # MP_LOG.warning(f">> no tifs found for {huc} {ahps_lid} at {mapping_huc_lid_dir}")
                 continue
 
             for tif in tif_list:
@@ -572,7 +572,7 @@ def post_process_huc(
                         tifs_to_reformat_list.append(os.path.join(mapping_huc_lid_dir, tif))
 
             if len(tifs_to_reformat_list) == 0:
-                MP_LOG.warning(f">> no tifs found for {huc} {ahps_lid} at {mapping_huc_lid_dir}")
+                # MP_LOG.warning(f">> no tifs found for {huc} {ahps_lid} at {mapping_huc_lid_dir}")
                 continue
 
             # Stage-Based CatFIM uses attributes from individual CSVs instead of the master CSV.
@@ -621,7 +621,7 @@ def post_process_huc(
                             interval_stage = None
                             MP_LOG.error(
                                 f"Value Error for {huc} - {ahps_lid} - magnitude {magnitude}"
-                                " at {mapping_huc_lid_dir}"
+                                f" at {mapping_huc_lid_dir}"
                             )
                             MP_LOG.error(traceback.format_exc())
                     else:  # flow based. ie) cfkt2_action_extent.tif
@@ -675,7 +675,9 @@ def post_process_cat_fim_for_viz(
         if os.path.isdir(os.path.join(output_mapping_dir, x)) and x[0] in ['0', '1', '2']
     ]
 
-    skip_list = ['errors', 'logs', 'gpkg', 'missing_files.txt', 'messages']
+    # if we don't have a huc_ahps_dir_list, something went catestrophically bad
+    if len(huc_ahps_dir_list) == 0:
+        raise Exception("Critical Error: Not possible to be here with no huc/ahps list")
 
     num_hucs = len(huc_ahps_dir_list)
     huc_index = 0
@@ -685,8 +687,6 @@ def post_process_cat_fim_for_viz(
     with ProcessPoolExecutor(max_workers=job_huc_ahps) as huc_exector:
         for huc in huc_ahps_dir_list:
             FLOG.lprint(f"TIF post processing for {huc}")
-            if huc in skip_list:
-                continue
 
             huc_dir = os.path.join(output_mapping_dir, huc)
             progress_stmt = f"index {huc_index + 1} of {num_hucs}"
@@ -727,26 +727,19 @@ def post_process_cat_fim_for_viz(
     gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
     FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
 
-    # TODO: put a tqdm in here for visual only.
-
     gpkg_files.sort()
 
     merged_layers_gdf = None
     ctr = 0
-    for layer in tqdm(
-        gpkg_files,
-        total=len(gpkg_files),
-        desc="Merging gpkg layers",
-        bar_format="{desc}:({n_fmt}/{total_fmt})|{bar}| {percentage:.1f}% ",
-        ncols=80,
-    ):
+    num_gpkg_files = len(gpkg_files)
+    for gpkg_file in gpkg_files:
 
         # for ctr, layer in enumerate(gpkg_files):
         # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
-        FLOG.trace(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} : {layer}")
+        FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
 
         # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gkpg
-        diss_extent_filename = os.path.join(gpkg_dir, layer)
+        diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
         diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
         diss_extent_gdf['viz'] = 'yes'
 
