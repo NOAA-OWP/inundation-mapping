@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import copy
 import csv
 import glob
 import os
@@ -164,20 +165,17 @@ def process_generate_categorical_fim(
     # looking for folders only starting with 0, 1, or 2
     # Code variation for dropping all Alaska HUCS:
 
-
-    
     valid_ahps_hucs = [
         x
         for x in os.listdir(fim_run_dir)
         if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2'] and x[:2] != "19"
     ]
-    
-    
-    # Temp debug to drop it to one HUC only
-    # valid_ahps_hucs = ["04130003"]
-    
 
-    # # Code variation for KEEPING Alaska HUCS:
+    # Temp debug to drop it to one HUC or more only, not the full output dir
+    valid_ahps_hucs = ["10260008"]
+    # valid_ahps_hucs = ["05060001"]
+
+    # Code variation for KEEPING Alaska HUCS:
     # valid_ahps_hucs = [
     #     x
     #     for x in os.listdir(fim_run_dir)
@@ -246,6 +244,11 @@ def process_generate_categorical_fim(
     nwm_us_search, nwm_ds_search = search, search
     catfim_sites_gpkg_file_path = ""
 
+    """
+    Sept 2024: There is a very large amount of duplication to stage versus flow based but
+    we can continue to optimize it over time
+    """
+
     # STAGE-BASED
     if is_stage_based:
         # Generate Stage-Based CatFIM mapping
@@ -277,7 +280,9 @@ def process_generate_categorical_fim(
 
     # FLOW-BASED
     else:
-        FLOG.lprint('Creating flow files using the ' + catfim_method + ' technique...')
+        FLOG.lprint("")
+        FLOG.lprint('Start creating flow files using the ' + catfim_method + ' technique...')
+        FLOG.lprint("")
         start = time.time()
 
         # generate flows is only using one of the incoming job number params
@@ -297,9 +302,10 @@ def process_generate_categorical_fim(
         )
         end = time.time()
         elapsed_time = (end - start) / 60
-        FLOG.lprint(f"Finished creating flow files in {str(elapsed_time).split('.')[0]} minutes")
+        FLOG.lprint("")
+        FLOG.lprint(f"Finished creating flow files in {str(elapsed_time).split('.')[0]} minutes \n")
 
-        # Generate CatFIM mapping (both flow and stage based need it, but if different orders
+        # Generate CatFIM mapping (not used by stage)
         manage_catfim_mapping(
             fim_run_dir,
             output_flows_dir,
@@ -307,13 +313,13 @@ def process_generate_categorical_fim(
             catfim_method,
             job_number_huc,
             job_number_inundate,
-            False,
             log_output_file,
         )
 
     # end if else
 
     # Updating mapping status
+    FLOG.lprint("")
     FLOG.lprint('Updating mapping status...')
     update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path)
 
@@ -347,13 +353,11 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path):
     #     FLOG.warning(f"Empty_nws_lids are.. {empty_nws_lids}")
 
     # Write list of empty nws_lids to DataFrame, these are sites that failed in inundation.py
-    mapping_df = pd.DataFrame({'ahps_lid': empty_nws_lids})
+    missing_lids_df = pd.DataFrame({'ahps_lid': empty_nws_lids})
 
-    mapping_df['did_it_map'] = 'no'
-    # mapping_df['map_status'] = ' and all categories failed to map'
+    missing_lids_df['did_it_map'] = 'no'
 
     # Import geopackage output from flows creation
-    
     if not os.path.exists(catfim_sites_gpkg_file_path):
         FLOG.critical(f"Primary library gpkg of {catfim_sites_gpkg_file_path} does not exist."
                       " Check logs for possible errors. Program aborted.")
@@ -367,28 +371,19 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path):
 
     try:
         # Join failed sites to flows df
-        flows_gdf = flows_gdf.merge(mapping_df, how='left', on='ahps_lid')
-
-        # missing_stages_msg
+        flows_gdf = flows_gdf.merge(missing_lids_df, how='left', on='ahps_lid')
 
         # Switch mapped column to no for failed sites and update status
         flows_gdf.loc[flows_gdf['did_it_map'] == 'no', 'mapped'] = 'no'
-        # flows_gdf.loc[flows_gdf['did_it_map'] == 'no', 'status'] = (
-        #     flows_gdf['status'] + flows_gdf['map_status']
-        # )
-        # flows_gdf.loc[flows_gdf['map_status'] == 'no']
-
-        # Clean up GeoDataFrame and rename columns for consistency
-        # flows_gdf = flows_gdf.drop(columns=['did_it_map', 'map_status'])
         
         # if there is a status, then mapped is no
-        flows_gdf.loc[flows_gdf['status'] != '', 'mapped'] = 'no'
-        
+        flows_gdf.loc[flows_gdf['status'].str == ''] = 'OK'
+        flows_gdf.loc[flows_gdf['status'].str.upper() == 'OK', 'mapped'] = 'yes'
+                
+        flows_gdf.loc[flows_gdf['status'].str != ''] = 'no'
         # but if there is a status value starting with ---, it means it has some, but
-        # not all missing stages/thresholds and there for shoul be mapped.
-        
-        # flows_gdf.loc[str(flows_gdf.status.astype(str)).startswith("---") == True, 'mapped'] = 'yes'
-        flows_gdf.loc[flows_gdf.status.str.startswith('---') == True, 'mapped'] = 'yes'
+        # not all missing stages/thresholds and there for should be mapped.
+        flows_gdf.loc[flows_gdf['status'].str.startswith('---') == True, 'mapped'] = 'yes'
         
         flows_gdf = flows_gdf.drop(columns=['did_it_map'])
 
@@ -470,18 +465,18 @@ def iterate_through_huc_stage_based(
         # per lid record
         if not os.path.exists(usgs_elev_table):
             msg = ":Internal Error: Missing key data from HUC record (usgs_elev_table missing)"
-            all_messages.append(lid + msg)
+            all_messages.append(huc_lid_id + msg)
             MP_LOG.warning(huc_lid_id + msg)
             skip_lid_process = True
 
         if not os.path.exists(branch_dir):
             msg = ":branch directory missing"
-            all_messages.append(lid + msg)
+            all_messages.append(huc_lid_id + msg)
             MP_LOG.warning(huc_lid_id + msg)
             skip_lid_process = True            
-        
+
         categories = ['action', 'minor', 'moderate', 'major', 'record']
-        
+
         if skip_lid_process ==  False: # else skip to message processing
             usgs_elev_df = pd.read_csv(usgs_elev_table)
 
@@ -511,9 +506,7 @@ def iterate_through_huc_stage_based(
                     "lid_alt_m": pd.Series(dtype='float'),
                     "mapped": pd.Series(dtype='str'),
                     "status": pd.Series(dtype='str'),
-                    "missing_stages_msg": pd.Series(dtype='str'),
                     }
-           
 
             for lid in nws_lids:
                 MP_LOG.lprint("-----------------------------------")
@@ -531,14 +524,15 @@ def iterate_through_huc_stage_based(
                 thresholds, flows = get_thresholds(
                     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
                 )
-
+                
+                # MP_LOG.lprint(f"thresholds are {thresholds}")
+                #MP_LOG.lprint(f"flows are {flows}")
+                
                 if thresholds is None or len(thresholds) == 0:
                     msg = ':error getting thresholds from WRDS API'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
-
-                # MP_LOG.lprint(f"Thresholds for {huc_lid_id} are : {thresholds}")
 
                 # Check if stages are supplied, if not write message and exit.
                 if all(thresholds.get(category, None) is None for category in categories):
@@ -548,40 +542,42 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Read stage values and calculate thresholds
-                
+
                 # TODO: Aug 2024, Is it really ok that record is missing? hummm
                 # Earlier code lower was doing comparisons to see if the interval
                 # value was been each of these 4 but sometimes one or more was None
-                # Sep 24, 2024: We will add record to the list even though not there in 4.4.0.0
-               
+                # Sep 24, 2024: We will add record to the list even though not there in 4.4.0.0 (sort of)
+
                 # Yes.. this is goofy but we can fix it later
-                action_stage = 0
-                minor_stage = 0
-                moderate_stage = 0
-                major_stage = 0
-                record_stage = 0
-                
+                action_stage = -1
+                minor_stage = -1
+                moderate_stage = -1
+                major_stage = -1
+                record_stage = -1
+
                  # An un-order list of just the stage value, stage not needed
                  # It is used to calculate intervals
-                stage_value_list = []
+                valid_stage_value_list = []
                 valid_stages = []
                 invalid_stages = []
-                
+
                 for stage in categories: # yes.. same as a stage list
                     if stage in thresholds:
                         stage_val = thresholds[stage]
+                        if stage_val is None or stage_val == "":
+                            stage_val = -1
+                        else: 
+                            valid_stage_value_list.append(stage_val)
                     else:
-                        stage_val = 0
-                        
-                    stage_value_list.append(stage_val)
+                        stage_val = -1  # temp value to help it fall out as being invalid
 
-                    is_valid_stage = (stage_val != 0)
+                    is_valid_stage = (stage_val != -1)
 
                     if is_valid_stage == True:
                         valid_stages.append(stage)
                     else:
                         invalid_stages.append(stage)
-                        
+
                     # Yes.. this is goofy but we can fix it later
                     if stage == "action" and is_valid_stage:
                         action_stage = stage_val
@@ -594,6 +590,12 @@ def iterate_through_huc_stage_based(
                     elif stage == "record" and is_valid_stage:
                         record_stage = stage_val
                         
+                    # TODO: Sept 2024: What if WRDS gave us stage values that was inconsistantly ordered?
+                    # ie) action higher than major.
+                    # Look into it later
+                
+                MP_LOG.trace(f"stage values in order are {action_stage}, {minor_stage}, {moderate_stage}, {major_stage}, {record_stage} ")
+
                 if len(invalid_stages) == 5:
                     msg = ':no valid threshold values are available'
                     all_messages.append(lid + msg)
@@ -605,16 +607,19 @@ def iterate_through_huc_stage_based(
                 # to help show it is valid even with a missing stage msg
                 for ind, stage in enumerate(invalid_stages):
                     if ind == 0:
-                        missing_stages_msg = f":---Missing threshold data for {stage}"
+                        missing_stages_msg = f":---Missing stage data for {stage}"
                     else:
                         missing_stages_msg += f"; {stage}"
-                
+
                 if missing_stages_msg != "":
                     all_messages.append(lid + missing_stages_msg)
+                    MP_LOG.warning(huc_lid_id + missing_stages_msg)
 
                 interval_list = np.arange(
-                    min(stage_value_list), max(stage_value_list) + past_major_interval_cap, 1.0
-                )  # Go an extra 10 ft beyond the max stage, arbitrary
+                    min(valid_stage_value_list), max(valid_stage_value_list) + past_major_interval_cap, 1.0
+                )  # Go an extra 5 ft beyond the max stage, arbitrary
+
+                MP_LOG.trace(f"interval list is {interval_list}")
 
                 # Look for acceptable elevs
                 acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
@@ -714,7 +719,7 @@ def iterate_through_huc_stage_based(
                 
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
-                for category in valid_stages: # a category is the same thing as a stage at this point.
+                for category in valid_stages:  # a category is the same thing as a stage at this point.
                     # MP_LOG.lprint(f"{huc_lid_id}: Magnitude is {category}")
                     # Pull stage value and confirm it's valid, then process
                     stage = thresholds[category]
@@ -759,31 +764,44 @@ def iterate_through_huc_stage_based(
                 # let's merge what we have at this point, before we go into another MP
                 MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
 
+                MP_LOG.lprint(f"all interval stages are {interval_list}")
+
+                # In order not to create duplicate features with the same stage value, 
+                # we keep track of the stage values that have been inundated and skip them
+                # if a dup is found. Start with a copy of the list that was created above
+                # which will always have at least one record
+                inudated_stages = copy.copy(valid_stage_value_list)
+
                 # Now we will do another set of inundations, but this one is based on
                 # not the stage flow but flow based on each interval
                 tif_child_log_file_prefix = MP_LOG.MP_calc_prefix_name(parent_log_output_file, "MP_prod_sb_tifs")
                 with ProcessPoolExecutor(max_workers=job_number_intervals) as executor:
                     try:
                         # There will always be at least one
+                        # we need to skip the stages where their value is -1 as they 
+                        # did not have a stage value from nwps and need to be discluded.
                         for interval_stage in interval_list:
-                            # MP_LOG.lprint(f"{huc_lid_id} : interval_stage is {interval_stage}")
-
+                            
+                            # That value has already been inundated, likely but the original stage record
+                            if interval_stage in inudated_stages:
+                                continue
+                            else:
+                                inudated_stages.append(interval_stage)
+                            
                             # Determine category the stage value belongs with.
-                            if action_stage <= interval_stage < minor_stage:
+                            if action_stage != -1 and action_stage <= interval_stage < minor_stage:
                                 category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
-                            if minor_stage <= interval_stage < moderate_stage:
+                            elif minor_stage != -1 and minor_stage <= interval_stage < moderate_stage:
                                 category = 'minor_' + str(interval_stage).replace('.', 'p') + 'ft'
-                            if moderate_stage <= interval_stage < major_stage:
+                            elif moderate_stage != -1 and moderate_stage <= interval_stage < major_stage:
                                 category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
-
-                            # if interval_stage >= major_stage:
-                            #     category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
-                            if interval_stage <= interval_stage < record_stage:
+                            elif major_stage != -1 and interval_stage <= interval_stage < record_stage:
                                 category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
-                            if interval_stage >= record_stage:
+                            elif record_stage != -1:  # interval_stage >= record_stage
                                 category = 'record_' + str(interval_stage).replace('.', 'p') + 'ft'
-                                
-                            #if interval_stage > 0:
+                            else:
+                                continue
+
                             executor.submit(
                                 produce_stage_based_catfim_tifs,
                                 interval_stage,
@@ -818,14 +836,14 @@ def iterate_through_huc_stage_based(
 
                 # Create a csv with same information as geopackage but with each threshold as new record.
                 # Probably a less verbose way.
-                csv_df = pd.DataFrame(df_cols)
+                csv_df = pd.DataFrame(df_cols)  # for first appending
                 #for threshold in magnitudes:
                 # TODO: Sept 2024: Should this be categories or valid_stage_list. Likely categories
                 # as we want all five stages.
                 # stage = category = threshold (renaming will be looked at later)
                 # Missing_stages_msg might be empty but we still want the record to continue
                 # even if there are one or more missing_stages
-                
+
                 for threshold in valid_stages: 
                 #  for threshold in categories:
                     try:
@@ -856,8 +874,8 @@ def iterate_through_huc_stage_based(
                                 'lid_alt_ft': stage_based_att_dict[lid][threshold]['lid_alt_ft'],
                                 'lid_alt_m': stage_based_att_dict[lid][threshold]['lid_alt_m'],
                                 'mapped': 'yes',
-                                'missing_stages_msg': missing_stages_msg,
-                            }
+                                'status': '',
+                            }  # yes.. status is empty at this time, we update it later
                         )
                         csv_df = pd.concat([csv_df, line_df], ignore_index=True)
 
@@ -873,24 +891,22 @@ def iterate_through_huc_stage_based(
                 # might be that none of the lids for this HUC passed
                 # If a site folder exists (ie a flow file was written) save files containing site attributes.
                 # if os.path.exists(mapping_lid_directory):
-                MP_LOG.trace(f"len(csv_df) is {len(csv_df)}")
                 if len(csv_df) > 0:
                     # Round flow and stage columns to 2 decimal places.
                     csv_df = csv_df.round({'q': 2, 'stage': 2})
-                    
+
                     # Export DataFrame to csv containing attributes
                     attributes_filepath = os.path.join(attributes_dir, f'{lid}_attributes.csv')
-                    print(attributes_filepath)
                     csv_df.to_csv(attributes_filepath, index=False)
+                    
+                    # If it made it to this point (i.e. no continues), there were no major preventers of mapping
+                    if (missing_stages_msg == ""):
+                        all_messages.append(lid + ':OK')
                 else:
                     msg = ':missing all calculated flows'
                     all_messages.append(lid + msg)
                     MP_LOG.error(huc_lid_id + msg)
 
-                # If it made it to this point (i.e. no continues), there were no major preventers of mapping
-                if (missing_stages_msg == ""):
-                    all_messages.append(lid + ':OK')
-                    
                 MP_LOG.success(f'{huc_lid_id}: Complete')
                 # mark_complete(mapping_lid_directory)
             # end of for loop
@@ -908,11 +924,6 @@ def iterate_through_huc_stage_based(
                     item = item.strip()
                     # f.write("%s\n" % item)
                     f.write(f"{item}\n")
-        else:
-            # something has likely gone very poorly.
-            # we should have at least one "OK" for a lid
-            MP_LOG.error(f"No messages found for {huc}")
-            sys.exit(1)
 
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error iterating through huc stage based")
@@ -1146,7 +1157,6 @@ def generate_stage_based_categorical_fim(
     nwm_metafile,
 ):
 
-
     '''
     Sep 2024,
     I believe this can be radically simplied, but just startign with a dataframe for each ahps and populate what we
@@ -1192,7 +1202,7 @@ def generate_stage_based_categorical_fim(
     num_hucs = len(lst_hucs)
     huc_index = 0
     FLOG.lprint(f"Number of hucs to process is {num_hucs}")
-
+   
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
             if huc in lst_hucs:
@@ -1320,7 +1330,7 @@ def generate_stage_based_categorical_fim(
         # We want one viz_out_gdf record per ahps and if there are more than one, contact the messages
         # status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
         status_df = messages_df.groupby(['nws_lid'])['status'].agg(lambda x: ',\n'.join(x)).reset_index()
-        
+
         # Join messages to populate status field to candidate sites. Assign
         # status for null fields.
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
