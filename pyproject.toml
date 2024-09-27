@@ -46,8 +46,8 @@ skip-magic-trailing-comma = true
 
 [tool.isort]
 profile = 'black'
-multi_line_output = 3
 line_length = 110
+multi_line_output = 3
 lines_after_imports = 2
 
 [tool.flake8]
@@ -69,12 +69,16 @@ per-file-ignores = """
     src/src_roughness_optimization.py: E712, F841
     src/agreedem.py: E712
     src/build_stream_traversal.py: E722
-    tools/vary_mannings_n_composite.py: E712
-    tools/tools_shared_functions.py: F821, F841, E711
+
+    tools/check_deep_flooding.py: E712
+    tools/eval_alt_catfim.py: F841
+    tools/generate_categorical_fim.py: C901, E712
+    tools/generate_categorical_fim_mapping.py: E712
+    tools/inundation.py: F821
     tools/rating_curve_comparison.py: F821, F841
     tools/run_test_case.py: E711
-    tools/inundation.py: F821
-    tools/eval_alt_catfim.py: F841
-    tools/check_deep_flooding.py: E712
+    tools/tools_shared_functions.py: F821, F841, E711
+    tools/vary_mannings_n_composite.py: E712
+
     data/usgs/rating_curve_get_usgs_curves.py: F841
     """
