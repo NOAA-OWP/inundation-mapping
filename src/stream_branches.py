@@ -586,7 +586,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return self
 
-    def trim_branches_in_waterbodies(self, branch_id_attribute, verbose=False):
+    def trim_branches_in_waterbodies(self, wbd, branch_id_attribute, verbose=False):
         """
         Recursively trims the reaches from the ends of the branches if they are in a
         waterbody (determined by the Lake attribute).
@@ -646,6 +646,14 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         for branch in self[branch_id_attribute].astype(int).unique():
             tmp_self = self[self[branch_id_attribute].astype(int) == branch]
+
+            # load waterbodies
+            if isinstance(wbd, str):
+                wbd = gpd.read_file(wbd)
+
+            # trim only branches in WBD (to prevent outlet from being trimmed)
+            if isinstance(wbd, gpd.GeoDataFrame):
+                tmp_self = gpd.sjoin(tmp_self, wbd)
 
             # If entire branch is in waterbody
             if all(tmp_self.Lake.values != -9999):
