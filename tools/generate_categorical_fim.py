@@ -172,8 +172,9 @@ def process_generate_categorical_fim(
     ]
 
     # Temp debug to drop it to one HUC or more only, not the full output dir
-    valid_ahps_hucs = ["10260008"]
+    valid_ahps_hucs = ["10200203"] # has dropped records
     # valid_ahps_hucs = ["05060001"]
+    # valid_ahps_hucs = ["10260008"]
 
     # Code variation for KEEPING Alaska HUCS:
     # valid_ahps_hucs = [
@@ -376,11 +377,12 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path):
         # Switch mapped column to no for failed sites and update status
         flows_gdf.loc[flows_gdf['did_it_map'] == 'no', 'mapped'] = 'no'
         
-        # if there is a status, then mapped is no
-        flows_gdf.loc[flows_gdf['status'].str == ''] = 'OK'
-        flows_gdf.loc[flows_gdf['status'].str.upper() == 'OK', 'mapped'] = 'yes'
-                
-        flows_gdf.loc[flows_gdf['status'].str != ''] = 'no'
+        # in theory this should not happen as if it failed a status message should exist
+        flows_gdf.loc[(flows_gdf['mapped'] == 'no') & 
+                      (flows_gdf['status'] == ''), 'status'] = 'ahps record in error'
+
+        flows_gdf.loc[flows_gdf['status'] == 'OK', 'mapped'] = 'yes'
+
         # but if there is a status value starting with ---, it means it has some, but
         # not all missing stages/thresholds and there for should be mapped.
         flows_gdf.loc[flows_gdf['status'].str.startswith('---') == True, 'mapped'] = 'yes'
@@ -1182,6 +1184,8 @@ def generate_stage_based_categorical_fim(
     # Generate flows is only using one of the incoming job number params
     # so let's multiply -jh (huc) and -jn (inundate)
     job_flows = job_number_huc * job_number_inundate
+    if job_flows > 90:
+        job_flows == 90
     (huc_dictionary, out_gdf, ___, threshold_url, all_lists, all_nwm_flows_df) = generate_flows(  # No Alaska
         output_catfim_dir,
         nwm_us_search,
