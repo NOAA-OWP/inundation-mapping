@@ -257,6 +257,15 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs):
 
     # all huc8 processing must be completed before this function call
     combine_huc_features(output_folder)
+ 
+    # Clean up individual HUC8 files
+    logging.info('Deleting individual HUC8 files as a final cleanup step')
+    huc_files = Path(output_folder).glob('huc_*_osm_bridges.gpkg')
+    for huc_file in huc_files:
+        try:
+            os.remove(huc_file)
+        except Exception as e:
+            logging.info(f"Error deleting {huc_file}: {str(e)}")
 
     if len(failed_HUCs_list) > 0:
         logging.info("\n+++++++++++++++++++")
