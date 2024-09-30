@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-09-30 - [PR#1298](https://github.com/NOAA-OWP/inundation-mapping/pull/1298)
+
+This PR addresses four issues regarding OSM bridges. It dissolves touching bridge lines so each bridge has a single linestring. It also removes abandoned bridge from the dataset and it adds bridge type field to bridge centroids. As part of this PR, `max_hand_ft` and `max_discharge_cfs` columns are added to `osm_bridge_centroids.gkpg`.
+
+### Changes
+
+- `data/bridges/pull_osm_bridges.py`
+- `src/heal_bridges_osm.py`
+
+<br/><br/>
+
+
 ## v4.5.10.0 - 2024-09-25 - [PR#1301](https://github.com/NOAA-OWP/inundation-mapping/pull/1301)
 
 A reload of all 3Dep DEMs from USGS was performed to refresh our data.
