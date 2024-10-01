@@ -1095,22 +1095,32 @@ class StreamNetwork(gpd.GeoDataFrame):
                 outlet_id = self_in_wbd.loc[self_in_wbd['to'] == outlet.ID, 'ID'].values[0]
                 outlets_extended = add_outlet_segments(outlets_extended, self_copy, outlet_id, outlet)
 
-        # merges each multi-line string to a singular linestring
-        for lpid, row in tqdm(
-            outlets_extended.iterrows(),
-            total=len(outlets_extended),
-            disable=(not verbose),
-            desc="Merging mult-part geoms",
-        ):
-            if isinstance(row.geometry, MultiLineString):
-                merged_line = linemerge(row.geometry)
+            # merges each multi-line string to a singular linestring
+            for lpid, row in tqdm(
+                outlets_extended.iterrows(),
+                total=len(outlets_extended),
+                disable=(not verbose),
+                desc="Merging mult-part geoms",
+            ):
+                if isinstance(row.geometry, MultiLineString):
+                    merged_line = linemerge(row.geometry)
 
-                # outlets_extended.loc[lpid,'geometry'] = merged_line
-                try:
-                    outlets_extended.loc[lpid, "geometry"] = merged_line
-                except ValueError:
-                    merged_line = list(merged_line.geoms)[0]
-                    outlets_extended.loc[lpid, "geometry"] = merged_line
+                    # outlets_extended.loc[lpid,'geometry'] = merged_line
+                    try:
+                        outlets_extended.loc[lpid, "geometry"] = merged_line
+                    except ValueError:
+                        merged_line = list(merged_line.geoms)[0]
+                        outlets_extended.loc[lpid, "geometry"] = merged_line
+
+            # self[branch_id_attribute] = bids
+            outlets_extended = StreamNetwork(
+                outlets_extended,
+                branch_id_attribute=branch_id_attribute,
+                attribute_excluded=attribute_excluded,
+                values_excluded=values_excluded,
+            )
+
+            outlets_extended = outlets_extended.rename(columns={'bids_temp': branch_id_attribute})
 
         # merges each multi-line string to a singular linestring
         for lpid, row in tqdm(
@@ -1125,14 +1135,6 @@ class StreamNetwork(gpd.GeoDataFrame):
                 except ValueError:
                     merged_line = list(merged_line.geoms)[0]
                     self.loc[lpid, "geometry"] = merged_line
-
-        # self[branch_id_attribute] = bids
-        outlets_extended = StreamNetwork(
-            outlets_extended,
-            branch_id_attribute=branch_id_attribute,
-            attribute_excluded=attribute_excluded,
-            values_excluded=values_excluded,
-        )
 
         # self[branch_id_attribute] = bids
         self = StreamNetwork(
@@ -1150,9 +1152,10 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             self.write(out_vector_files, index=False)
 
-        if out_extended_vector_files is not None:
-            outlets_extended = outlets_extended.rename(columns={'bids_temp': branch_id_attribute})
+        if out_extended_vector_files is not None and not s_not_in_wbd.empty:
             outlets_extended.write(out_extended_vector_files, index=False)
+        else:
+            self.write(out_extended_vector_files, index=False)
 
         return self
 
