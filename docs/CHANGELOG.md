@@ -1,19 +1,13 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-09-12 - [PR#1284](https://github.com/NOAA-OWP/inundation-mapping/pull/1284)
-
-Segments of levelpaths that terminate in waterbodies are removed from the levelpath. If there is a waterbody downstream of the HUC then the outlet reaches may be trimmed such that the outlet no longer reaches the edge of the DEM, which causes a number of cascading issues originating in the pit-filling such that reverse flow in the DEM-derived reaches can result in erroneous flowlines and inundation. This PR stops trimming levelpaths outside of the HUC.
-
-### Changes
-
-- `src/`
-    - `derive_level_paths.py`: Adds WBD as an input to `stream_network.trim_branches_in_waterbodies()`
-    - `stream_network.py`: Selects only segments intersecting the WBD as candidates for removal if they end in waterbodies
-
 ## v4.5.x.x - 2024-10-01 - [PR#1306](https://github.com/NOAA-OWP/inundation-mapping/pull/1306)
 
-Extends outlet levelpath(s) outside HUC. Previously, levelpaths at the outlet of a HUC may not extend to the buffered WBD that is used to clip the DEM, and during pit-filling this results in reverse flow which can cause DEM-derived reaches to deviate from the channel in the DEM and may result in dropped catchments where the midpoint of the reaches exceeds the snap distance from the NWM stream lines. This PR extends outlet levelpaths in two ways:
+Extends outlet levelpath(s) outside HUC.
+
+Previously, levelpaths at the outlet of a HUC may not extend to the buffered WBD that is used to clip the DEM, and during pit-filling this results in reverse flow which can cause DEM-derived reaches to deviate from the channel in the DEM and may result in dropped catchments where the midpoint of the reaches exceeds the snap distance from the NWM stream lines.
+
+This PR extends outlet levelpaths in two ways:
 - Segments of levelpaths that terminate in waterbodies are removed from the levelpath. If there is a waterbody downstream of the HUC then the outlet reaches may be trimmed such that the outlet no longer reaches the edge of the DEM, which causes a number of cascading issues originating in the pit-filling such that reverse flow in the DEM-derived reaches can result in erroneous flowlines and inundation. This PR stops trimming levelpaths outside of the HUC.
 - Dissolved outlet levelpaths may terminate downstream outside of the HUC (e.g., at a confluence with a larger river) at a point that is within the buffered WBD. These levelpaths are extended by adding on the downstream segment(s) of the HUC's `nwm_subset_streams` layer.
 
