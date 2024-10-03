@@ -1001,13 +1001,14 @@ class StreamNetwork(gpd.GeoDataFrame):
             self_copy: gpd.GeoDataFrame,
             outlet_id: int,
             ds_outlet_tuple: tuple,
+            extended_id: int = None,
         ) -> gpd.GeoDataFrame:
             """
             Recursively adds outlet segments to the stream network
 
             Parameters
             ----------
-            self : GeoDataFrame
+            self_ : GeoDataFrame
                 Dissolved tream network GeoDataFrame
             self_copy : GeoDataFrame
                 Stream network GeoDataFrame
@@ -1022,24 +1023,29 @@ class StreamNetwork(gpd.GeoDataFrame):
                 Stream network with outlet segments
             """
 
+            if not extended_id:
+                extended_id = outlet_id
+
             # add outlet segment to stream network
             extended_gs = gpd.GeoSeries(
-                [self_extended.loc[self['ID'] == outlet_id, 'geometry'].item(), ds_outlet_tuple.geometry]
+                [self_extended.loc[self['ID'] == extended_id, 'geometry'].item(), ds_outlet_tuple.geometry]
             ).line_merge()
 
-            self_extended.loc[self['ID'] == outlet_id, 'geometry'] = MultiLineString(
+            self_extended.loc[self['ID'] == extended_id, 'geometry'] = MultiLineString(
                 [extended_gs[0].coords, extended_gs[1].coords]
             )
 
-            if ds_outlet_tuple.to not in self_copy.ID.values:
-                return self_extended
-            else:
-                # find the next downstream segment ## UNTESTED ##
+            if ds_outlet_tuple.to in self_copy.ID.values:
+                # find the next downstream segment
                 outlet_id = ds_outlet_tuple.to
                 for ds_outlet_tuple in self_copy[self_copy.ID == ds_outlet_tuple.to].itertuples():
 
                     # recursively add outlet segments
-                    return add_outlet_segments(self_extended, self_copy, outlet_id, ds_outlet_tuple)
+                    self_extended = add_outlet_segments(
+                        self_extended, self_copy, outlet_id, ds_outlet_tuple, extended_id
+                    )
+
+            return self_extended
 
         if verbose:
             print("Dissolving by branch ...")
