@@ -4,7 +4,6 @@ import logging
 import os
 import traceback
 import warnings
-from shapely.geometry import LineString
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -13,7 +12,7 @@ import osmnx as ox
 import pandas as pd
 import pyproj
 from networkx import Graph, connected_components
-from shapely.geometry import shape
+from shapely.geometry import LineString, shape
 
 
 CRS = "epsg:5070"
@@ -24,28 +23,29 @@ CRS = "epsg:5070"
 #
 # Dissolve touching lines
 def find_touching_groups(gdf):
-            # Create a graph
-            graph = Graph()
+    # Create a graph
+    graph = Graph()
 
-            # Add nodes for each geometry
-            graph.add_nodes_from(gdf.index)
+    # Add nodes for each geometry
+    graph.add_nodes_from(gdf.index)
 
-            # Create spatial index for efficient querying
-            spatial_index = gdf.sindex
+    # Create spatial index for efficient querying
+    spatial_index = gdf.sindex
 
-            # For each geometry, find touching geometries and add edges to the graph
-            for idx, geometry in gdf.iterrows():
-                possible_matches_index = list(spatial_index.intersection(geometry['geometry'].bounds))
-                possible_matches = gdf.iloc[possible_matches_index]
-                precise_matches = possible_matches[possible_matches.intersects(geometry['geometry'])]
+    # For each geometry, find touching geometries and add edges to the graph
+    for idx, geometry in gdf.iterrows():
+        possible_matches_index = list(spatial_index.intersection(geometry['geometry'].bounds))
+        possible_matches = gdf.iloc[possible_matches_index]
+        precise_matches = possible_matches[possible_matches.intersects(geometry['geometry'])]
 
-                for match_idx in precise_matches.index:
-                    if match_idx != idx:
-                        graph.add_edge(idx, match_idx)
+        for match_idx in precise_matches.index:
+            if match_idx != idx:
+                graph.add_edge(idx, match_idx)
 
-            # Find connected components
-            groups = list(connected_components(graph))
-            return groups
+    # Find connected components
+    groups = list(connected_components(graph))
+    return groups
+
 
 def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
     """
@@ -94,8 +94,21 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
                 cols_to_drop.append(col)
 
         # This a common and know duplicate column name (and others)
-        bad_column_names = ["atv", "fixme", "FIXME", "NYSDOT_ref", "REF", "fid", "fixme:maxspeed", "LAYER", "unsigned_ref",
-                             "Fut_Ref", "Ref", "FIXME:ref", "id"]
+        bad_column_names = [
+            "atv",
+            "fixme",
+            "FIXME",
+            "NYSDOT_ref",
+            "REF",
+            "fid",
+            "fixme:maxspeed",
+            "LAYER",
+            "unsigned_ref",
+            "Fut_Ref",
+            "Ref",
+            "FIXME:ref",
+            "id",
+        ]
         for bad_cn in bad_column_names:
             if bad_cn in gdf.columns:
                 cols_to_drop.append(bad_cn)
@@ -131,7 +144,9 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             final_gdf = buffered.copy()
 
         # Polygon to linestring
-        final_gdf['geometry'] = final_gdf['geometry'].apply(lambda geom: LineString(geom.exterior.coords) if geom.geom_type == 'Polygon' else geom)
+        final_gdf['geometry'] = final_gdf['geometry'].apply(
+            lambda geom: LineString(geom.exterior.coords) if geom.geom_type == 'Polygon' else geom
+        )
         # Reconstruct the GeoDataFrame to remove fragmentation
         final_gdf = final_gdf.copy()
         final_gdf.to_file(huc_bridge_file, driver="GPKG")
