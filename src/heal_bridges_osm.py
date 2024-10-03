@@ -98,7 +98,7 @@ def flows_from_hydrotable(bridge_pnts, hydroTable):
     bridge_pnts['max_hand_ft'] = bridge_pnts['max_hand'] * 3.28084
     bridge_pnts['max_hand_75_ft'] = bridge_pnts['max_hand_75'] * 3.28084
     bridge_pnts['max_discharge_cfs'] = bridge_pnts['max_discharge'] * 35.3147
-    bridge_pnts['max_discharge_75_cfs'] = bridge_pnts['max_discharge_75'] * 35.3147
+    bridge_pnts['max_discharge_75_cfs'] = bridge_pnts['max_discharge75'] * 35.3147
 
     return bridge_pnts
 

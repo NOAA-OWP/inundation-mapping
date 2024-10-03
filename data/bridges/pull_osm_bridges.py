@@ -22,6 +22,31 @@ CRS = "epsg:5070"
 # Save all OSM bridge features by HUC8 to a specified folder location.
 # Bridges will have point geometry converted to linestrings if needed
 #
+# Dissolve touching lines
+def find_touching_groups(gdf):
+            # Create a graph
+            graph = Graph()
+
+            # Add nodes for each geometry
+            graph.add_nodes_from(gdf.index)
+
+            # Create spatial index for efficient querying
+            spatial_index = gdf.sindex
+
+            # For each geometry, find touching geometries and add edges to the graph
+            for idx, geometry in gdf.iterrows():
+                possible_matches_index = list(spatial_index.intersection(geometry['geometry'].bounds))
+                possible_matches = gdf.iloc[possible_matches_index]
+                precise_matches = possible_matches[possible_matches.intersects(geometry['geometry'])]
+
+                for match_idx in precise_matches.index:
+                    if match_idx != idx:
+                        graph.add_edge(idx, match_idx)
+
+            # Find connected components
+            groups = list(connected_components(graph))
+            return groups
+
 def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
     """
     Returns: The huc number but only if it failed, so we can make a master list of failed HUCs.
@@ -82,34 +107,9 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 
         gdf1 = gdf1.to_crs(CRS)
 
-        # Dissolve touching lines
+        # Perform dissolve touching lines
         buffered = gdf1.copy()
         buffered['geometry'] = buffered['geometry'].buffer(0.0001)
-
-        def find_touching_groups(gdf):
-            # Create a graph
-            graph = Graph()
-
-            # Add nodes for each geometry
-            graph.add_nodes_from(gdf.index)
-
-            # Create spatial index for efficient querying
-            spatial_index = gdf.sindex
-
-            # For each geometry, find touching geometries and add edges to the graph
-            for idx, geometry in gdf.iterrows():
-                possible_matches_index = list(spatial_index.intersection(geometry['geometry'].bounds))
-                possible_matches = gdf.iloc[possible_matches_index]
-                precise_matches = possible_matches[possible_matches.intersects(geometry['geometry'])]
-
-                for match_idx in precise_matches.index:
-                    if match_idx != idx:
-                        graph.add_edge(idx, match_idx)
-
-            # Find connected components
-            groups = list(connected_components(graph))
-            return groups
-
         # Find groups of touching geometries
         touching_groups = find_touching_groups(buffered)
 
@@ -347,7 +347,7 @@ if __name__ == "__main__":
         It should be run only as often as the user thinks OSM has had any important updates.
         - As written, the code will skip any HUC that there's already a file for.
         - Each HUC8's worth of OSM bridge features is saved out individually, then merged together
-        into one. The HUC8 files can be deleted if desired, as an added final cleanup step.
+        into one.
     '''
 
     parser = argparse.ArgumentParser(description='Acquires and saves Open Street Map bridge features')
