@@ -996,6 +996,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         out_extended_vector_files=None,
         verbose=False,
     ):
+
         def add_outlet_segments(
             self_extended: gpd.GeoDataFrame,
             self_copy: gpd.GeoDataFrame,
@@ -1071,14 +1072,8 @@ class StreamNetwork(gpd.GeoDataFrame):
             self_in_wbd[[branch_id_attribute, "order_"]].groupby(branch_id_attribute).max()["order_"].copy()
         )
 
-        # Find the outlet of each levelpath(s)
-        downstream_segment_ids = []
-        for levpa_id in self[branch_id_attribute].unique():
-            levpa_df = self[self[branch_id_attribute] == levpa_id]
-            downstream_segment_ids.append(levpa_df[~levpa_df['to'].isin(levpa_df['ID'])]['ID'].values[0])
-
-        # Find the downstream segments that intersect WBD boundary
-        sjoin = gpd.sjoin(self[self['ID'].isin(downstream_segment_ids)], wbd, predicate='crosses')
+        # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
+        sjoin = gpd.sjoin(self, wbd, predicate='crosses')
 
         # Get ID of segments downstream of WBD boundary
         s = self[self['ID'].isin(sjoin['to'])]
