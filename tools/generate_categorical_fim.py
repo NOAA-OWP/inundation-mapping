@@ -165,23 +165,18 @@ def process_generate_categorical_fim(
     # looking for folders only starting with 0, 1, or 2
     # Code variation for dropping all Alaska HUCS:
 
+    # Code variation for KEEPING Alaska HUCS:
     valid_ahps_hucs = [
         x
         for x in os.listdir(fim_run_dir)
         if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2'] and x[:2] != "19"
     ]
-
+    
     # Temp debug to drop it to one HUC or more only, not the full output dir
-    valid_ahps_hucs = ["10200203"] # has dropped records
+    # valid_ahps_hucs = ["10200203"] # has dropped records
     # valid_ahps_hucs = ["05060001"]
     # valid_ahps_hucs = ["10260008"]
 
-    # Code variation for KEEPING Alaska HUCS:
-    # valid_ahps_hucs = [
-    #     x
-    #     for x in os.listdir(fim_run_dir)
-    #     if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
-    # ]
 
     valid_ahps_hucs.sort()
 
@@ -208,10 +203,12 @@ def process_generate_categorical_fim(
     FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
     FLOG.lprint("")
 
+    # FLOG.lprint(
+    #     f"Processing {num_hucs} huc(s) with Alaska temporarily removed"
+    # ) # Code variation for DROPPING Alaska HUCs
     FLOG.lprint(
-        f"Processing {num_hucs} huc(s) with Alaska temporarily removed"
-    )  # Code variation for DROPPING Alaska HUCs
-    # FLOG.lprint(f"Processing {num_hucs} huc(s)") # Code variation for KEEPING Alaska HUCs
+        f"Processing {num_hucs} huc(s)"
+    ) # Code variation for KEEPING Alaska HUCs
 
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
@@ -1179,14 +1176,15 @@ def generate_stage_based_categorical_fim(
 
     # If it is stage based, generate flows returns all of these objects.
     # If flow based, generate flows returns only
-    # (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = generate_flows( # With Alaska
 
     # Generate flows is only using one of the incoming job number params
     # so let's multiply -jh (huc) and -jn (inundate)
     job_flows = job_number_huc * job_number_inundate
     if job_flows > 90:
         job_flows == 90
-    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, all_nwm_flows_df) = generate_flows(  # No Alaska
+
+    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = generate_flows( # With Alaska
+
         output_catfim_dir,
         nwm_us_search,
         nwm_ds_search,
@@ -1212,11 +1210,11 @@ def generate_stage_based_categorical_fim(
             if huc in lst_hucs:
                 # FLOG.lprint(f'Generating stage based catfim for : {huc}')
 
-                # Code variation for DROPPING Alaska HUCs
-                nwm_flows_region_df = all_nwm_flows_df
+                # # Code variation for DROPPING Alaska HUCs
+                # nwm_flows_region_df = all_nwm_flows_df
 
-                # # Code variation for keeping alaska HUCs
-                # nwm_flows_region_df = nwm_flows_alaska_df if str(huc[:2]) == '19' else nwm_flows_df
+                # Code variation for keeping alaska HUCs
+                nwm_flows_region_df = nwm_flows_alaska_df if str(huc[:2]) == '19' else nwm_flows_df
 
                 progress_stmt = f"index {huc_index + 1} of {num_hucs}"
                 executor.submit(
