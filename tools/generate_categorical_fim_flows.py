@@ -358,7 +358,7 @@ def generate_flows(
     start_dt = datetime.now(timezone.utc)
 
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
-
+    FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}") # TEMP DEBUG
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')

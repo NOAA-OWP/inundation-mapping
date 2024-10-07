@@ -145,7 +145,7 @@ def produce_stage_based_catfim_tifs(
             try:
                 # print("Generating stage-based FIM for " + huc + " and branch " + branch)
                 #
-                # MP_LOG.lprint(f"{huc_lid_cat_id} : Generating stage-based FIM")
+                MP_LOG.lprint(f"{huc_lid_cat_id} : Generating stage-based FIM")
 
                 executor.submit(
                     produce_tif_per_huc_per_mag_for_stage,
@@ -293,6 +293,58 @@ def produce_tif_per_huc_per_mag_for_stage(
         is_all_zero = np.all((masked_reclass_rem_array == 0))
 
         # MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
+
+        # ## TEMP DEBUG: Save intermediates
+        # intermediate_directory = 'intermediates'
+        # # reclass_rem_array
+        # int_output_tif = os.path.join(
+        #         intermediate_directory, lid + '_' + category + '_reclass_rem_array_' + huc + '_' + branch + '.tif'
+        #     )   
+        # with rasterio.Env():
+        #     profile = rem_src.profile
+        #     profile.update(dtype=rasterio.uint8)
+        #     profile.update(nodata=10)
+
+        #     with rasterio.open(int_output_tif, 'w', **profile) as dst:
+        #         dst.write(reclass_rem_array, 1) # update
+
+        # # hydroid_mask
+        # int_output_tif = os.path.join(
+        #         intermediate_directory, lid + '_' + category + '_hydroid_mask_' + huc + '_' + branch + '.tif'
+        #     )   
+        # with rasterio.Env():
+        #     profile = rem_src.profile
+        #     profile.update(dtype=rasterio.uint8)
+        #     profile.update(nodata=10)
+
+        #     with rasterio.open(int_output_tif, 'w', **profile) as dst:
+        #         dst.write(hydroid_mask, 1) # update
+
+        # # target_catchments_array
+        # int_output_tif = os.path.join(
+        #         intermediate_directory, lid + '_' + category + '_target_catchments_array_' + huc + '_' + branch + '.tif'
+        #     )        
+        # with rasterio.Env():
+        #     profile = rem_src.profile
+        #     profile.update(dtype=rasterio.uint8)
+        #     profile.update(nodata=10)
+
+        #     with rasterio.open(int_output_tif, 'w', **profile) as dst:
+        #         dst.write(target_catchments_array, 1) # update
+
+        # # masked_reclass_rem_array
+        # int_output_tif = os.path.join(
+        #         intermediate_directory, lid + '_' + category + '_masked_reclass_rem_array_' + huc + '_' + branch + '.tif'
+        #     )
+        # with rasterio.Env():
+        #     profile = rem_src.profile
+        #     profile.update(dtype=rasterio.uint8)
+        #     profile.update(nodata=10)
+
+        #     with rasterio.open(int_output_tif, 'w', **profile) as dst:
+        #         dst.write(masked_reclass_rem_array, 1) # update
+
+        # ## END TEMP DEBUG: Save intermediates
 
         # if not is_all_zero:
         # if is_all_zero is False: # this logic didn't let ANY files get saved
@@ -837,7 +889,7 @@ def reformat_inundation_maps(
 
         # Convert list of shapes to polygon
         # lots of polys
-        # extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code
+        # extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code 
         extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)  # Updating to fix AK proj issue, worked for CONUS and for AK!
 
         # extent_poly = gpd.GeoDataFrame.from_features(list(results))  # Updated to accomodate AK projection
