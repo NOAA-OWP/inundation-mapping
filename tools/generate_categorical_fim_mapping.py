@@ -298,7 +298,7 @@ def produce_tif_per_huc_per_mag_for_stage(
         # # reclass_rem_array
         # int_output_tif = os.path.join(
         #         intermediate_directory, lid + '_' + category + '_reclass_rem_array_' + huc + '_' + branch + '.tif'
-        #     )   
+        #     )
         # with rasterio.Env():
         #     profile = rem_src.profile
         #     profile.update(dtype=rasterio.uint8)
@@ -310,7 +310,7 @@ def produce_tif_per_huc_per_mag_for_stage(
         # # hydroid_mask
         # int_output_tif = os.path.join(
         #         intermediate_directory, lid + '_' + category + '_hydroid_mask_' + huc + '_' + branch + '.tif'
-        #     )   
+        #     )
         # with rasterio.Env():
         #     profile = rem_src.profile
         #     profile.update(dtype=rasterio.uint8)
@@ -322,7 +322,7 @@ def produce_tif_per_huc_per_mag_for_stage(
         # # target_catchments_array
         # int_output_tif = os.path.join(
         #         intermediate_directory, lid + '_' + category + '_target_catchments_array_' + huc + '_' + branch + '.tif'
-        #     )        
+        #     )
         # with rasterio.Env():
         #     profile = rem_src.profile
         #     profile.update(dtype=rasterio.uint8)
@@ -370,12 +370,7 @@ def produce_tif_per_huc_per_mag_for_stage(
 
 # This is not part of an MP process, but needs to have FLOG carried over so this file can see it
 def run_catfim_inundation(
-    fim_run_dir, 
-    output_flows_dir,
-    output_mapping_dir,
-    job_number_huc,
-    job_number_inundate, 
-    log_output_file
+    fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
 ):
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
@@ -399,7 +394,7 @@ def run_catfim_inundation(
     # Depending on filtering, errors, and the valid_ahps_huc list at the start of the program
     # this list could have only a few matches
     missing_hucs = list(set(source_flow_huc_dir_list) - set(fim_source_huc_dir_list))
-    
+
     missing_hucs = [huc for huc in missing_hucs if "." not in huc]
     # Loop through matching huc directories in the source_flow directory
     matching_hucs = list(set(fim_source_huc_dir_list) & set(source_flow_huc_dir_list))
@@ -426,7 +421,7 @@ def run_catfim_inundation(
                 ]  # ahps folder names under the huc folder
 
                 FLOG.trace(f"{huc} : ahps_site_dir_list is {ahps_site_dir_list}")
-                
+
                 # Loop through AHPS sites
                 for ahps_id in ahps_site_dir_list:
                     # map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj)
@@ -448,21 +443,22 @@ def run_catfim_inundation(
                         os.mkdir(huc_site_mapping_dir)
 
                     # Loop through thresholds/magnitudes and define inundation output files paths
-                    
+
                     FLOG.trace(f"{huc}: {ahps_id} threshold dir list is {thresholds_dir_list}")
-                    
+
                     for magnitude in thresholds_dir_list:
                         if "." in magnitude:
                             continue
 
                         magnitude_flows_csv = os.path.join(
-                            ahps_site_parent, magnitude,
+                            ahps_site_parent,
+                            magnitude,
                             ahps_id + '_huc_' + huc + '_flows_' + magnitude + '.csv',
                         )
                         # print(f"magnitude_flows_csv is {magnitude_flows_csv}")
                         tif_name = ahps_id + '_' + magnitude + '_extent.tif'
                         output_extent_tif = os.path.join(huc_site_mapping_dir, tif_name)
-                        
+
                         FLOG.trace(f"Begin inundation for {tif_name}")
                         try:
                             executor.submit(
@@ -487,7 +483,7 @@ def run_catfim_inundation(
                             FLOG.critical(traceback.format_exc())
                             FLOG.merge_log_files(log_output_file, child_log_file_prefix)
                             sys.exit(1)
-                            
+
         except Exception:
             FLOG.critical("A critical error occured while attempting all hucs inundation")
             FLOG.critical(traceback.format_exc())
@@ -509,7 +505,7 @@ def run_catfim_inundation(
 
 # This is part of an MP Pool
 # It use used for flow-based
-# It inundate each set based on the ahps/mangnitude list and for each segment in the 
+# It inundate each set based on the ahps/mangnitude list and for each segment in the
 # the branch hydrotable
 # Then each is inundated per branch and mosiaked for the ahps
 def run_inundation(
@@ -765,7 +761,7 @@ def post_process_cat_fim_for_viz(
     FLOG.lprint(f"Number of hucs to post process is {num_hucs}")
 
     # TODO: Sep 2024: we need to remove the process pool here and put it post_process_huc (for tif inundation)
-    
+
     child_log_file_prefix = MP_LOG.MP_calc_prefix_name(log_output_file, "MP_post_process")
     with ProcessPoolExecutor(max_workers=job_huc_ahps) as huc_exector:
         for huc in huc_ahps_dir_list:
@@ -857,7 +853,9 @@ def post_process_cat_fim_for_viz(
     FLOG.lprint(f"Saving catfim library gpkg version to {gkpg_file_path}")
     # merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION)
     # CRS is wrong here, itputs this in the middle of the ocean
-    merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona")  #, crs=PREP_PROJECTION)
+    merged_layers_gdf.to_file(
+        gkpg_file_path, driver='GPKG', index=True, engine="fiona"
+    )  # crs=PREP_PROJECTION)
 
     csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
     FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
@@ -913,8 +911,10 @@ def reformat_inundation_maps(
 
         # Convert list of shapes to polygon
         # lots of polys
-        # extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code 
-        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)  # Updating to fix AK proj issue, worked for CONUS and for AK!
+        # extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code
+        extent_poly = gpd.GeoDataFrame.from_features(
+            list(results), crs=src.crs
+        )  # Updating to fix AK proj issue, worked for CONUS and for AK!
 
         # extent_poly = gpd.GeoDataFrame.from_features(list(results))  # Updated to accomodate AK projection
         # extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
@@ -1021,14 +1021,16 @@ def manage_catfim_mapping(
 
     # FLOG.lprint("Aggregating Categorical FIM")
     # Get fim_version.
-    
+
     run_dir_prefix = ""
     if fim_run_dir.startswith("fim_"):
         run_dir_prefix = "fim_"
     else:
         run_dir_prefix = "hand_"
-        
-    fim_version = os.path.basename(os.path.normpath(fim_run_dir)).replace(run_dir_prefix, '').replace('_', '.')
+
+    fim_version = (
+        os.path.basename(os.path.normpath(fim_run_dir)).replace(run_dir_prefix, '').replace('_', '.')
+    )
 
     # Step 2
     # TODO: Aug 2024, so we need to clean it up

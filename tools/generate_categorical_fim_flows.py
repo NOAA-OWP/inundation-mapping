@@ -93,30 +93,31 @@ def generate_flows_for_huc(
         if len(nws_lids) == 0:
             MP_LOG.lprint(f"huc {huc} has no applicable nws_lids")
             return
-        
+
         # less columns then stage cols
-        df_cols = {"nws_lid": pd.Series(dtype='str'),
-                   "name": pd.Series(dtype='str'),
-                   "WFO": pd.Series(dtype='str'),
-                   "rfc": pd.Series(dtype='str'),
-                   "huc": pd.Series(dtype='str'),
-                   "state": pd.Series(dtype='str'),
-                   "county": pd.Series(dtype='str'),
-                   "magnitude": pd.Series(dtype='str'),
-                   "q": pd.Series(dtype='str'),
-                   "q_uni": pd.Series(dtype='str'),
-                   "q_src": pd.Series(dtype='str'),
-                   "stage": pd.Series(dtype='float'),
-                   "stage_uni": pd.Series(dtype='str'),
-                   "s_src": pd.Series(dtype='str'),
-                   "wrds_time": pd.Series(dtype='str'),
-                   "nrldb_time": pd.Series(dtype='str'),
-                   "nwis_time": pd.Series(dtype='str'),
-                   "lat": pd.Series(dtype='float'),
-                   "lon": pd.Series(dtype='float'),
-                   "mapped": pd.Series(dtype='str'),
-                   "status": pd.Series(dtype='str'),
-                  }
+        df_cols = {
+            "nws_lid": pd.Series(dtype='str'),
+            "name": pd.Series(dtype='str'),
+            "WFO": pd.Series(dtype='str'),
+            "rfc": pd.Series(dtype='str'),
+            "huc": pd.Series(dtype='str'),
+            "state": pd.Series(dtype='str'),
+            "county": pd.Series(dtype='str'),
+            "magnitude": pd.Series(dtype='str'),
+            "q": pd.Series(dtype='str'),
+            "q_uni": pd.Series(dtype='str'),
+            "q_src": pd.Series(dtype='str'),
+            "stage": pd.Series(dtype='float'),
+            "stage_uni": pd.Series(dtype='str'),
+            "s_src": pd.Series(dtype='str'),
+            "wrds_time": pd.Series(dtype='str'),
+            "nrldb_time": pd.Series(dtype='str'),
+            "nwis_time": pd.Series(dtype='str'),
+            "lat": pd.Series(dtype='float'),
+            "lon": pd.Series(dtype='float'),
+            "mapped": pd.Series(dtype='str'),
+            "status": pd.Series(dtype='str'),
+        }
 
         # Loop through each lid in list to create flow file
         for lid in nws_lids:
@@ -135,8 +136,9 @@ def generate_flows_for_huc(
 
             # for Stage based, is uses stage values from threshold data supplied by WRDS
             # but here (for flow), it uses the values from the flows data from WRDS
-            stages, flows = get_thresholds(threshold_url=threshold_url,
-                                           select_by='nws_lid', selector=lid, threshold='all')
+            stages, flows = get_thresholds(
+                threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+            )
 
             # Yes.. stages, we will handle missing flows later even though we don't use the stage here
             if stages is None or len(stages) == 0:
@@ -160,13 +162,14 @@ def generate_flows_for_huc(
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
-            
+
             # Sept 2024: Can flows be missing a category, yes, but we jsut filter them later
-          
+
             # Find lid metadata from master list of metadata dictionaries (line 66).
-            metadata = next((item for item in all_meta_lists
-                             if item['identifiers']['nws_lid'] == lid.upper()), False)
-            
+            metadata = next(
+                (item for item in all_meta_lists if item['identifiers']['nws_lid'] == lid.upper()), False
+            )
+
             # Sept 2024: Should we skip these functions that are seen in stage based? Yes
             #    Flow doesn't need all of the evalation stuff
             #     acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
@@ -203,7 +206,7 @@ def generate_flows_for_huc(
                     # if flow:
                     # round flow to nearest hundredth
                     flow = round(flow, 2)
-                    
+
                     # value of flow shows up in the {lid}_attributes.csv file as the "q" column
 
                     # Create the guts of the flow file.
@@ -212,19 +215,17 @@ def generate_flows_for_huc(
                     # Define destination path and create folders
                     csv_output_folder = os.path.join(output_flows_dir, huc, lid, category)
                     os.makedirs(csv_output_folder, exist_ok=True)
-                    output_file = os.path.join(
-                        csv_output_folder, f'{lid}_huc_{huc}_flows_{category}.csv'
-                    )
+                    output_file = os.path.join(csv_output_folder, f'{lid}_huc_{huc}_flows_{category}.csv')
 
                     # Write flow file to file
                     flow_info.to_csv(output_file, index=False)
 
                 else:
-                    if missing_wrds_data_msg == "":                    
+                    if missing_wrds_data_msg == "":
                         f":---Missing flow data for {category}"
                     else:
                         f"; Missing flow data for {category}"
-                
+
                     invalid_flows.append(category)
 
             if len(invalid_flows) == 5:
@@ -232,7 +233,7 @@ def generate_flows_for_huc(
                 all_messages.append(lid + msg)
                 MP_LOG.warning(huc_lid_id + msg)
                 continue
-            
+
             if missing_wrds_data_msg != "":
                 all_messages.append(lid + missing_wrds_data_msg)
                 MP_LOG.warning(huc_lid_id + missing_wrds_data_msg)
@@ -246,16 +247,16 @@ def generate_flows_for_huc(
             county = metadata['nws_data']['county']
             name = metadata['nws_data']['name']
             flow_source = flows['source']
-            stage_source = stages['source'] 
+            stage_source = stages['source']
             wrds_timestamp = stages['wrds_timestamp']
             nrldb_timestamp = metadata['nrldb_timestamp']
             nwis_timestamp = metadata['nwis_timestamp']
-            
+
             # Create a csv with same information as shapefile but with each threshold as new record.
             # if we got here, mapped is fine.
-            csv_df = pd.DataFrame(df_cols)  # for first appending            
+            csv_df = pd.DataFrame(df_cols)  # for first appending
             for threshold in categories:
-                try:                
+                try:
                     line_df = pd.DataFrame(
                         {
                             'nws_lid': [lid],
@@ -282,12 +283,12 @@ def generate_flows_for_huc(
                         }  # yes.. status is empty at this time, we update it later
                     )
                     csv_df = pd.concat([csv_df, line_df], ignore_index=True)
-                    
+
                 except Exception:
                     # is this the text we want users to see
                     msg = f':Error with flow/threshold processing {threshold}'
                     all_messages.append(huc_lid_id + msg)
-                    MP_LOG.error(huc_lid_id + msg)                        
+                    MP_LOG.error(huc_lid_id + msg)
                     MP_LOG.error(traceback.format_exc())
                     continue
                 # sys.exit(1)
@@ -297,19 +298,19 @@ def generate_flows_for_huc(
             if len(csv_df) > 0:
                 # Round flow and stage columns to 2 decimal places.
                 csv_df = csv_df.round({'q': 2, 'stage': 2})
-                
+
                 # Export DataFrame to csv containing attributes
-                file_name = os.path.join(attributes_dir, f'{lid}_attributes.csv' )
+                file_name = os.path.join(attributes_dir, f'{lid}_attributes.csv')
                 csv_df.to_csv(file_name, index=False)
-                
-                if (missing_wrds_data_msg == ""):
+
+                if missing_wrds_data_msg == "":
                     all_messages.append(lid + ':OK')
             else:
                 msg = ':missing all calculated flows'
                 all_messages.append(lid + msg)
                 MP_LOG.error(huc_lid_id + msg)
 
-            MP_LOG.success(f'{huc_lid_id}: Complete')                
+            MP_LOG.success(f'{huc_lid_id}: Complete')
 
         # Write all_messages by HUC to be scraped later.
         if len(all_messages) > 0:
@@ -340,6 +341,7 @@ def generate_flows_for_huc(
 
     print("")
     return
+
 
 # This is called from within this script and is not MP, so it can use FLOG directly
 # lid_to_run is temp disabled
@@ -454,14 +456,14 @@ def generate_flows(
     # (aka. Flow based), then it returns only nws_lid_layer (created later in this function)
     if is_stage_based:  # If it's stage-based, the function stops running here
         return (
-            huc_dictionary, 
-            out_gdf, 
-            metadata_url, 
-            threshold_url, 
-            all_meta_lists, 
-            nwm_flows_df, 
-            nwm_flows_alaska_df
-            ) # Alaska
+            huc_dictionary,
+            out_gdf,
+            metadata_url,
+            threshold_url,
+            all_meta_lists,
+            nwm_flows_df,
+            nwm_flows_alaska_df,
+        )  # Alaska
 
         # return (
         #     huc_dictionary,
@@ -487,7 +489,9 @@ def generate_flows(
         for huc in huc_dictionary:
 
             # nwm_flows_region_df = nwm_flows_df  # To exclude Alaska
-            nwm_flows_region_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df  # To include Alaska
+            nwm_flows_region_df = (
+                nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
+            )  # To include Alaska
 
             # Deep copy that speed up Multi-Proc a little as all_meta_lists
             # is a huge object. Need to figure out how to filter that down somehow
@@ -520,7 +524,7 @@ def generate_flows(
     # Recursively find all *_attributes csv files and append
     # attrib_csv_files = [x for x in os.listdir(attributes_dir) if x.endswith('_attributes.csv')]
     attrib_csv_files = glob.glob(f"{attributes_dir}/*_attributes.csv")
-    
+
     if len(attrib_csv_files) == 0:
         FLOG.critical(f"No new flow files exist in the {attributes_dir} folder (errors in creating them?)")
         sys.exit(1)
@@ -609,8 +613,8 @@ def generate_flows(
     # )
 
     # rename the column from nws_lid to ahps_lid
-    viz_out_gdf.rename(columns = {'nws_lid': 'ahps_lid'}, inplace = True)
-    
+    viz_out_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+
     # stage based doesn't get here
     # crs is 3857 - web mercator at this point
     nws_lid_csv_file_path = os.path.join(mapping_dir, 'flow_based_catfim_sites.csv')
@@ -627,11 +631,12 @@ def generate_flows(
 
     return catfim_sites_gpkg_file_path
 
+
 # local script calls __load_nwm_metadata so FLOG is already setup
 def __load_nwm_metadata(
     output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, lid_to_run, nwm_metafile
 ):
-    
+
     FLOG.trace(metadata_url)
 
     all_meta_lists = []
