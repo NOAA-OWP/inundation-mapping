@@ -36,6 +36,7 @@ Rules:
 
 """
 
+
 def compare_sites(prev_file, new_file, output_file):
     
     # Validation
@@ -49,7 +50,7 @@ def compare_sites(prev_file, new_file, output_file):
 
     output_folder = os.path.dirname(output_file)
     if not os.path.exists(output_folder):
-        print(f"While the output file does not need to exist, the output folder does.")
+        print("While the output file does not need to exist, the output folder does.")
         sys.exit(1)
 
     # Setup variables
@@ -80,7 +81,7 @@ def compare_sites(prev_file, new_file, output_file):
     prev_df.HUC8.astype(str)
     prev_df.HUC8 = prev_df.HUC8.astype('str').str.zfill(8)
     prev_df = prev_df.sort_values(by=['ahps_lid'])
-    prev_df = prev_df.add_prefix("prev_") # rename all columns to add the suffix of "prev_"
+    prev_df = prev_df.add_prefix("prev_")  # rename all columns to add the suffix of "prev_"
     # prev_df.to_csv(output_file)
     
     print("loading new file")
@@ -98,7 +99,7 @@ def compare_sites(prev_file, new_file, output_file):
     new_df.HUC8.astype(str)
     new_df.HUC8 = new_df.HUC8.astype('str').str.zfill(8)
     new_df = new_df.sort_values(by=['ahps_lid'])
-    new_df = new_df.add_prefix("new_") # rename all columns to add the suffix of "new_"
+    new_df = new_df.add_prefix("new_")  # rename all columns to add the suffix of "new_"
     
     # print("Prev")
     # print(prev_df) # prev_df.loc[0]
@@ -108,7 +109,7 @@ def compare_sites(prev_file, new_file, output_file):
     # print(new_df)
     # print()    
     
-    compare_data(prev_df, new_df, output_file, col_names )
+    compare_data(prev_df, new_df, output_file, col_names)
 
     # Wrap up
     overall_end_time = datetime.now(timezone.utc)    
@@ -129,26 +130,25 @@ def compare_data(prev_df, new_df, output_file, col_names):
     results_df = prev_df.merge(new_df, left_on='prev_ahps_lid', right_on='new_ahps_lid', how='outer')
     
     # strip out line breaks from the two status columns
-    results_df[f"prev_status"] = results_df[f"prev_status"].replace("\n", "")
-    results_df[f"new_status"] = results_df[f"new_status"].replace("\n", "")
+    results_df["prev_status"] = results_df["prev_status"].replace("\n", "")
+    results_df["new_status"] = results_df["new_status"].replace("\n", "")
     
     for col in col_names:
         # add compare columns and sets defaults
         results_df[f"is_match_{col}"] = results_df[f"prev_{col}"] == results_df[f"new_{col}"]
     
-
     # for 4.4.0.0, almost all stage status columns have the phrase "usgs_elev_table missing, "
     # remove that from the front of prev_if applicable (the space on the end is critical)
-    results_df[f"prev_adj_status"] = results_df[f"prev_status"].str.replace(
+    results_df["prev_adj_status"] = results_df["prev_status"].str.replace(
                                          "usgs_elev_table missing, ", "")
-    results_df[f"is_match_adj_status"] = results_df[f"prev_adj_status"] == results_df[f"new_status"]
+    results_df["is_match_adj_status"] = results_df["prev_adj_status"] == results_df["new_status"]
     
     # for col in col_names:
     #     results_df[f"has_{col}"] = False
     
     results_df.to_csv(output_file)
     
-    return # helps show the end of the def
+    return  # helps show the end of the def
     
 
 if __name__ == "__main__":

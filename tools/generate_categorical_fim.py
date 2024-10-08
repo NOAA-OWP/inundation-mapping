@@ -2,8 +2,6 @@
 
 import argparse
 import copy
-import csv
-import glob
 import os
 import shutil
 import sys
@@ -19,7 +17,6 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import rasterio
 from dotenv import load_dotenv
 from generate_categorical_fim_flows import generate_flows
 from generate_categorical_fim_mapping import (
@@ -162,21 +159,19 @@ def process_generate_categorical_fim(
 
     # we are getting too many folders and files. We want just huc folders.
     # output_flow_dir_list = os.listdir(fim_run_dir)
-    # looking for folders only starting with 0, 1, or 2
-    # Code variation for dropping all Alaska HUCS:
 
     # Code variation for KEEPING Alaska HUCS:
     valid_ahps_hucs = [
         x
         for x in os.listdir(fim_run_dir)
-        if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2'] and x[:2] != "19"
+        if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
     ]
     
     # Temp debug to drop it to one HUC or more only, not the full output dir
-    # valid_ahps_hucs = ["10200203"] # has dropped records
+    # valid_ahps_hucs = ["10200203"]  # has dropped records
     # valid_ahps_hucs = ["05060001"]
     # valid_ahps_hucs = ["10260008"]
-
+    valid_ahps_hucs = ["19020302"]
 
     valid_ahps_hucs.sort()
 
@@ -383,6 +378,7 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path):
         # but if there is a status value starting with ---, it means it has some, but
         # not all missing stages/thresholds and there for should be mapped.
         flows_gdf.loc[flows_gdf['status'].str.startswith('---') == True, 'mapped'] = 'yes'
+        flows_gdf['status'] = flows_gdf['status'].apply(lambda x : x[3:] if x.startswith("---") else x)
         
         flows_gdf = flows_gdf.drop(columns=['did_it_map'])
 
@@ -464,48 +460,48 @@ def iterate_through_huc_stage_based(
         # per lid record
         if not os.path.exists(usgs_elev_table):
             msg = ":Internal Error: Missing key data from HUC record (usgs_elev_table missing)"
-            all_messages.append(huc_lid_id + msg)
-            MP_LOG.warning(huc_lid_id + msg)
+            # all_messages.append(huc + msg)
+            MP_LOG.warning(huc + msg)
             skip_lid_process = True
 
         if not os.path.exists(branch_dir):
             msg = ":branch directory missing"
-            all_messages.append(huc_lid_id + msg)
-            MP_LOG.warning(huc_lid_id + msg)
+            # all_messages.append(huc + msg)
+            MP_LOG.warning(huc + msg)
             skip_lid_process = True            
 
         categories = ['action', 'minor', 'moderate', 'major', 'record']
 
-        if skip_lid_process ==  False: # else skip to message processing
+        if skip_lid_process == False:  # else skip to message processing
             usgs_elev_df = pd.read_csv(usgs_elev_table)
 
             df_cols = {"nws_lid": pd.Series(dtype='str'),
-                    "name": pd.Series(dtype='str'),
-                    "WFO": pd.Series(dtype='str'),
-                    "rfc": pd.Series(dtype='str'),
-                    "huc": pd.Series(dtype='str'),
-                    "state": pd.Series(dtype='str'),
-                    "county": pd.Series(dtype='str'),
-                    "magnitude": pd.Series(dtype='str'),
-                    "q": pd.Series(dtype='str'),
-                    "q_uni": pd.Series(dtype='str'),
-                    "q_src": pd.Series(dtype='str'),
-                    "stage": pd.Series(dtype='float'),
-                    "stage_uni": pd.Series(dtype='str'),
-                    "s_src": pd.Series(dtype='str'),
-                    "wrds_time": pd.Series(dtype='str'),
-                    "nrldb_time": pd.Series(dtype='str'),
-                    "nwis_time": pd.Series(dtype='str'),
-                    "lat": pd.Series(dtype='float'),
-                    "lon": pd.Series(dtype='float'),
-                    "dtm_adj_ft": pd.Series(dtype='str'),
-                    "dadj_w_ft": pd.Series(dtype='float'),
-                    "dadj_w_m": pd.Series(dtype='float'),
-                    "lid_alt_ft": pd.Series(dtype='float'), 
-                    "lid_alt_m": pd.Series(dtype='float'),
-                    "mapped": pd.Series(dtype='str'),
-                    "status": pd.Series(dtype='str'),
-                    }
+                       "name": pd.Series(dtype='str'),
+                       "WFO": pd.Series(dtype='str'),
+                       "rfc": pd.Series(dtype='str'),
+                       "huc": pd.Series(dtype='str'),
+                       "state": pd.Series(dtype='str'),
+                       "county": pd.Series(dtype='str'),
+                       "magnitude": pd.Series(dtype='str'),
+                       "q": pd.Series(dtype='str'),
+                       "q_uni": pd.Series(dtype='str'),
+                       "q_src": pd.Series(dtype='str'),
+                       "stage": pd.Series(dtype='float'),
+                       "stage_uni": pd.Series(dtype='str'),
+                       "s_src": pd.Series(dtype='str'),
+                       "wrds_time": pd.Series(dtype='str'),
+                       "nrldb_time": pd.Series(dtype='str'),
+                       "nwis_time": pd.Series(dtype='str'),
+                       "lat": pd.Series(dtype='float'),
+                       "lon": pd.Series(dtype='float'),
+                       "dtm_adj_ft": pd.Series(dtype='str'),
+                       "dadj_w_ft": pd.Series(dtype='float'),
+                       "dadj_w_m": pd.Series(dtype='float'),
+                       "lid_alt_ft": pd.Series(dtype='float'), 
+                       "lid_alt_m": pd.Series(dtype='float'),
+                       "mapped": pd.Series(dtype='str'),
+                       "status": pd.Series(dtype='str'),
+                      }
 
             for lid in nws_lids:
                 MP_LOG.lprint("-----------------------------------")
@@ -525,7 +521,7 @@ def iterate_through_huc_stage_based(
                 )
                 
                 # MP_LOG.lprint(f"thresholds are {thresholds}")
-                #MP_LOG.lprint(f"flows are {flows}")
+                # MP_LOG.lprint(f"flows are {flows}")
                 
                 if thresholds is None or len(thresholds) == 0:
                     msg = ':error getting thresholds from WRDS API'
@@ -560,7 +556,7 @@ def iterate_through_huc_stage_based(
                 valid_stages = []
                 invalid_stages = []
 
-                for stage in categories: # yes.. same as a stage list
+                for stage in categories:  # yes.. same as a stage list
                     if stage in thresholds:
                         stage_val = thresholds[stage]
                         if stage_val is None or stage_val == "":
@@ -1183,19 +1179,23 @@ def generate_stage_based_categorical_fim(
     if job_flows > 90:
         job_flows == 90
 
-    (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = generate_flows( # With Alaska
-
-        output_catfim_dir,
-        nwm_us_search,
-        nwm_ds_search,
-        lid_to_run,
-        env_file,
-        job_flows,
-        True,
-        lst_hucs,
-        nwm_metafile,
-        str(FLOG.LOG_FILE_PATH),
-    )
+    (huc_dictionary, 
+     out_gdf,
+     ___,
+     threshold_url,
+     all_lists,
+     nwm_flows_df,
+     nwm_flows_alaska_df) = generate_flows(output_catfim_dir,
+                                           nwm_us_search,
+                                           nwm_ds_search,
+                                           lid_to_run,
+                                           env_file,
+                                           job_flows,
+                                           True,
+                                           lst_hucs,
+                                           nwm_metafile,
+                                           str(FLOG.LOG_FILE_PATH),
+                                        )
 
     child_log_file_prefix = FLOG.MP_calc_prefix_name(FLOG.LOG_FILE_PATH, "MP_iter_hucs")
 

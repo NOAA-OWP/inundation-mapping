@@ -144,7 +144,7 @@ def produce_stage_based_catfim_tifs(
             try:
                 # print("Generating stage-based FIM for " + huc + " and branch " + branch)
                 #
-                MP_LOG.lprint(f"{huc_lid_cat_id} : Generating stage-based FIM")
+                MP_LOG.lprint(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM")
 
                 executor.submit(
                     produce_tif_per_huc_per_mag_for_stage,
@@ -493,7 +493,6 @@ def run_catfim_inundation(
             FLOG.critical(traceback.format_exc())
             FLOG.merge_log_files(log_output_file, child_log_file_prefix)
             sys.exit(1)
-
 
     # end of ProcessPoolExecutor
 
@@ -856,9 +855,9 @@ def post_process_cat_fim_for_viz(
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
     gkpg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
     FLOG.lprint(f"Saving catfim library gpkg version to {gkpg_file_path}")
-    # merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION) # CRS is wrong here, itputs this in the middle of the ocean
-    merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona") #, crs=PREP_PROJECTION)
-
+    # merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION)
+    # CRS is wrong here, itputs this in the middle of the ocean
+    merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona")  #, crs=PREP_PROJECTION)
 
     csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
     FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")

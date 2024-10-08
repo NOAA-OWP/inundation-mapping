@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-# import csv
-
 import argparse
 import copy
 import glob
@@ -98,27 +96,27 @@ def generate_flows_for_huc(
         
         # less columns then stage cols
         df_cols = {"nws_lid": pd.Series(dtype='str'),
-                "name": pd.Series(dtype='str'),
-                "WFO": pd.Series(dtype='str'),
-                "rfc": pd.Series(dtype='str'),
-                "huc": pd.Series(dtype='str'),
-                "state": pd.Series(dtype='str'),
-                "county": pd.Series(dtype='str'),
-                "magnitude": pd.Series(dtype='str'),
-                "q": pd.Series(dtype='str'),
-                "q_uni": pd.Series(dtype='str'),
-                "q_src": pd.Series(dtype='str'),
-                "stage": pd.Series(dtype='float'),
-                "stage_uni": pd.Series(dtype='str'),
-                "s_src": pd.Series(dtype='str'),
-                "wrds_time": pd.Series(dtype='str'),
-                "nrldb_time": pd.Series(dtype='str'),
-                "nwis_time": pd.Series(dtype='str'),
-                "lat": pd.Series(dtype='float'),
-                "lon": pd.Series(dtype='float'),
-                "mapped": pd.Series(dtype='str'),
-                "status": pd.Series(dtype='str'),
-            }
+                   "name": pd.Series(dtype='str'),
+                   "WFO": pd.Series(dtype='str'),
+                   "rfc": pd.Series(dtype='str'),
+                   "huc": pd.Series(dtype='str'),
+                   "state": pd.Series(dtype='str'),
+                   "county": pd.Series(dtype='str'),
+                   "magnitude": pd.Series(dtype='str'),
+                   "q": pd.Series(dtype='str'),
+                   "q_uni": pd.Series(dtype='str'),
+                   "q_src": pd.Series(dtype='str'),
+                   "stage": pd.Series(dtype='float'),
+                   "stage_uni": pd.Series(dtype='str'),
+                   "s_src": pd.Series(dtype='str'),
+                   "wrds_time": pd.Series(dtype='str'),
+                   "nrldb_time": pd.Series(dtype='str'),
+                   "nwis_time": pd.Series(dtype='str'),
+                   "lat": pd.Series(dtype='float'),
+                   "lon": pd.Series(dtype='float'),
+                   "mapped": pd.Series(dtype='str'),
+                   "status": pd.Series(dtype='str'),
+                  }
 
         # Loop through each lid in list to create flow file
         for lid in nws_lids:
@@ -166,8 +164,8 @@ def generate_flows_for_huc(
             # Sept 2024: Can flows be missing a category, yes, but we jsut filter them later
           
             # Find lid metadata from master list of metadata dictionaries (line 66).
-            metadata = next( (item for item in all_meta_lists
-                              if item['identifiers']['nws_lid'] == lid.upper()), False)
+            metadata = next((item for item in all_meta_lists
+                             if item['identifiers']['nws_lid'] == lid.upper()), False)
             
             # Sept 2024: Should we skip these functions that are seen in stage based? Yes
             #    Flow doesn't need all of the evalation stuff
@@ -413,8 +411,8 @@ def generate_flows(
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
 
-    nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg' # Uncomment to include Alaska
-    nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg) # Uncomment to include Alaska
+    nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
+    nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
 
     # nwm_metafile might be an empty string
     # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
@@ -439,7 +437,7 @@ def generate_flows(
     start_dt = datetime.now(timezone.utc)
 
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
-    FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}") # TEMP DEBUG
+    FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}")  # TEMP DEBUG
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
@@ -489,7 +487,7 @@ def generate_flows(
         for huc in huc_dictionary:
 
             # nwm_flows_region_df = nwm_flows_df  # To exclude Alaska
-            nwm_flows_region_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df # To include Alaska
+            nwm_flows_region_df = nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df  # To include Alaska
 
             # Deep copy that speed up Multi-Proc a little as all_meta_lists
             # is a huge object. Need to figure out how to filter that down somehow
@@ -633,6 +631,7 @@ def generate_flows(
 def __load_nwm_metadata(
     output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, lid_to_run, nwm_metafile
 ):
+    
     FLOG.trace(metadata_url)
 
     all_meta_lists = []
