@@ -738,7 +738,8 @@ class StreamNetwork(gpd.GeoDataFrame):
                     print(
                         "Sorry, no streams exist and processing can not continue. This could be an empty file."
                     )
-                    sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+                    # sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+                    return self
 
                 self.write(out_vector_files, index=False)
 

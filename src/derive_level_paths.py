@@ -214,7 +214,8 @@ def Derive_level_paths(
 
     if stream_network.empty:
         print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
-        sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+        # sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+        return
     else:
         return stream_network
 
