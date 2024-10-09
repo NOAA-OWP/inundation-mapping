@@ -1028,13 +1028,22 @@ class StreamNetwork(gpd.GeoDataFrame):
                 extended_id = outlet_id
 
             # add outlet segment to stream network
+            idx = self_extended['bids_temp'] == outlet.levpa_id
+            if self_extended.loc[idx].empty:
+                idx = self_extended['ID'] == extended_id
+
             extended_gs = gpd.GeoSeries(
-                [self_extended.loc[self['ID'] == extended_id, 'geometry'].item(), ds_outlet_tuple.geometry]
+                [self_extended.loc[idx, 'geometry'].item(), ds_outlet_tuple.geometry]
             ).line_merge()
 
-            self_extended.loc[self['ID'] == extended_id, 'geometry'] = MultiLineString(
-                [extended_gs[0].coords, extended_gs[1].coords]
-            )
+            if isinstance(extended_gs[0], MultiLineString):
+                self_extended.loc[idx, 'geometry'] = MultiLineString(
+                    [linestring for linestring in extended_gs[0].geoms] + [extended_gs[1]]
+                )
+            else:
+                self_extended.loc[idx, 'geometry'] = MultiLineString(
+                    [extended_gs[0].coords, extended_gs[1].coords]
+                )
 
             if ds_outlet_tuple.to in self_copy.ID.values:
                 # find the next downstream segment
@@ -1097,7 +1106,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                 temp_df = self_copy[self_copy[branch_id_attribute] == outlet.bids_temp]
 
                 # Check if the levelpath outlet is external
-                if not len(temp_df.merge(self_copy, left_on='to', right_on='ID')) == len(temp_df):
+                if not len(temp_df.merge(self_in_wbd, left_on='to', right_on='ID')) == len(temp_df):
                     outlet_id = self_in_wbd.loc[self_in_wbd['to'] == outlet.ID, 'ID'].values[0]
                     outlets_extended = add_outlet_segments(outlets_extended, self_copy, outlet_id, outlet)
 
