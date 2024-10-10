@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-10-09 - [PR#1314](https://github.com/NOAA-OWP/inundation-mapping/pull/1314)
+
+This PR fixes bugs from hand_4_5_10_0, which failed to run for Alaska HUCs and HUC 02030201. It modifies scripts to use two different DEM paths: one for Alaska and one for the CONUS.
+
+### Changes
+
+- `src/derive_level_paths.py`
+- `src/stream_branches.py`
+- `src/run_unit_wb.sh`
+
+<br/><br/>
+
+
 ## v4.5.10.0 - 2024-09-25 - [PR#1301](https://github.com/NOAA-OWP/inundation-mapping/pull/1301)
 
 A reload of all 3Dep DEMs from USGS was performed to refresh our data.
