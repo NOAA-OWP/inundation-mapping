@@ -122,9 +122,14 @@ def subset_vector_layers(
     huc_CRS,
 ):
 
+    huc_data = {'hucCode': hucCode, 'is_alaska': is_alaska, 'huc_CRS': huc_CRS}
+
     # print(f"Getting Cell Size for {hucCode}", flush=True)
     with rio.open(dem_filename) as dem_raster:
         dem_cellsize = max(dem_raster.res)
+        huc_data['DEM']['cellsize'] = dem_cellsize
+        huc_data['DEM']['rows'] = dem_raster.height
+        huc_data['DEM']['cols'] = dem_raster.width
 
     wbd = gpd.read_file(wbd_filename, engine="pyogrio", use_arrow=True)
     dem_domain = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
@@ -141,12 +146,14 @@ def subset_vector_layers(
     if not landsea.empty:
         os.makedirs(os.path.dirname(subset_landsea), exist_ok=True)
         # print(f"Create landsea gpkg for {hucCode}", flush=True)
+        huc_data['LandSea']['area'] = landsea.area
         landsea.to_file(
             subset_landsea, driver=getDriver(subset_landsea), index=False, crs=huc_CRS, engine="fiona"
         )
 
         # Exclude landsea area from WBD and wbd_buffer
         wbd = wbd.overlay(landsea, how='difference')
+        huc_data['WBD']['area'] = wbd.area
         wbd.to_file(
             wbd_filename,
             layer='WBDHU8',
@@ -167,6 +174,9 @@ def subset_vector_layers(
 
     wbd_buffer = wbd_buffer[['geometry']]
     wbd_streams_buffer = wbd_streams_buffer[['geometry']]
+
+    huc_data['WBD_buffer']['area'] = wbd_buffer.area
+
     wbd_buffer.to_file(
         wbd_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False, crs=huc_CRS, engine="fiona"
     )
@@ -183,6 +193,8 @@ def subset_vector_layers(
     logging.info(f"Clip levee-protected areas for {hucCode}")
     levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
     if not levee_protected_areas.empty:
+        huc_data['LeveeProtectedAreas']['area'] = levee_protected_areas.area
+
         levee_protected_areas.to_file(
             subset_levee_protected_areas,
             driver=getDriver(subset_levee_protected_areas),
@@ -190,6 +202,8 @@ def subset_vector_layers(
             crs=huc_CRS,
             engine="fiona",
         )
+    else:
+        huc_data['LeveeProtectedAreas']['area'] = 0
     del levee_protected_areas
 
     # Find intersecting lakes and writeout
@@ -207,6 +221,10 @@ def subset_vector_layers(
         # Loop through the filled polygons and insert the new geometry
         for i in range(len(nwm_lakes_fill_holes.geoms)):
             nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
+
+        huc_data['NWM_Lakes']['count'] = nwm_lakes.shape[0]
+        huc_data['NWM_Lakes']['area'] = nwm_lakes.area
+
         nwm_lakes.to_file(
             subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=huc_CRS, engine="fiona"
         )
@@ -216,6 +234,9 @@ def subset_vector_layers(
     logging.info(f"Subsetting NLD levee lines for {hucCode}")
     nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
     if not nld_lines.empty:
+        huc_data['NLD_Lines']['count'] = nld_lines.shape[0]
+        huc_data['NLD_Lines']['length'] = nld_lines.length
+
         nld_lines.to_file(
             subset_nld_lines, driver=getDriver(subset_nld_lines), index=False, crs=huc_CRS, engine="fiona"
         )
@@ -256,6 +277,9 @@ def subset_vector_layers(
     # print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
     nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
 
+    huc_data['NWM_Catchments']['count'] = nwm_catchments.shape[0]
+    huc_data['NWM_Catchments']['area'] = nwm_catchments.area
+
     if len(nwm_catchments) > 0:
         nwm_catchments.to_file(
             subset_nwm_catchments,
@@ -283,6 +307,9 @@ def subset_vector_layers(
             if is_alaska is True:
                 # we need to reproject
                 subset_osm_bridges_gdb = subset_osm_bridges_gdb.to_crs(huc_CRS)
+
+            huc_data['OSM_Bridges']['count'] = subset_osm_bridges_gdb.shape[0]
+            huc_data['OSM_Bridges']['area'] = subset_osm_bridges_gdb.area
 
             subset_osm_bridges_gdb.to_file(
                 subset_osm_bridges,
@@ -324,6 +351,17 @@ def subset_vector_layers(
         nwm_streams_nonoutlets = nwm_streams_nonoutlets.drop(columns=['level_1_max'])
 
         nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
+
+        huc_data['NWM_Streams']['count'] = nwm_streams.shape[0]
+        huc_data['NWM_Streams']['length'] = nwm_streams.length
+        huc_data['NWM_Streams']['maxOrder'] = nwm_streams['order'].max()
+        for i in range(1, huc_data['NWM_Streams']['maxOrder'] + 1):
+            huc_data['NWM_Streams']['order_' + str(i)]['Count'] = nwm_streams[
+                nwm_streams['order'] == i
+            ].shape[0]
+            huc_data['NWM_Streams']['order_' + str(i)]['Length'] = nwm_streams[
+                nwm_streams['order'] == i
+            ].length
 
         nwm_streams.to_file(
             subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False, crs=huc_CRS, engine="fiona"
