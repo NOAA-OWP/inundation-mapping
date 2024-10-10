@@ -266,10 +266,8 @@ Tcount
 
 l_echo $startDiv"Resetting Permissions"
 Tstart
-    find $outputDestDir/logs/ -type d -exec chmod -R 777 {} +
-    find $outputDestDir/branch_errors/ -type d -exec chmod -R 777 {} +
-    find $outputDestDir/unit_errors/ -type d -exec chmod -R 777 {} +
-    find $outputDestDir -type f -exec chmod 777 {} +  # just root level files
+    # super slow to change chmod on the log folder. Not really manditory anyways
+    find $outputDestDir -maxdepth 1 -type f -exec chmod 666 {} +  # just root level files
 Tcount
 
 
