@@ -41,7 +41,7 @@ gpd.options.io_engine = "pyogrio"
 # Technically, this is once called as a non MP, but also called in an MP pool
 # we will use an MP object either way
 def produce_stage_based_catfim_tifs(
-    stage,
+    stage_val,
     datum_adj_ft,
     branch_dir,
     lid_usgs_elev,
@@ -65,7 +65,7 @@ def produce_stage_based_catfim_tifs(
     MP_LOG.trace(f"{huc_lid_cat_id}: Starting to create tifs")
 
     # Determine datum-offset water surface elevation (from above).
-    datum_adj_wse = stage + datum_adj_ft + lid_altitude
+    datum_adj_wse = stage_val + datum_adj_ft + lid_altitude
     datum_adj_wse_m = datum_adj_wse * 0.3048  # Convert ft to m
 
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
@@ -107,17 +107,17 @@ def produce_stage_based_catfim_tifs(
             hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
 
             if not os.path.exists(rem_path):
-                msg = ": rem doesn't exist"
+                msg = ":rem doesn't exist"
                 messages.append(lid + msg)
                 MP_LOG.warning(msg_id_w_branch + msg)
                 continue
             if not os.path.exists(catchments_path):
-                msg = ": catchments files don't exist"
+                msg = ":catchments files don't exist"
                 messages.append(lid + msg)
                 MP_LOG.warning(msg_id_w_branch + msg)
                 continue
             if not os.path.exists(hydrotable_path):
-                msg = ": hydrotable doesn't exist"
+                msg = ":hydrotable doesn't exist"
                 messages.append(lid + msg)
                 MP_LOG.warning(msg_id_w_branch + msg)
                 continue
@@ -184,12 +184,7 @@ def produce_stage_based_catfim_tifs(
     for f in lid_dir_list:
         if category in f:
             path_list.append(os.path.join(lid_directory, f))
-
-    # MP_LOG.error("???")
-    # MP_LOG.trace(f"path_list is (pre sort) is {path_list}")
-    # path_list.sort()  # To force branch 0 first in list, sort  it isn't branchs and we don't care the order for mosaiking
-    # MP_LOG.trace(f"path_list is (post sort) is {path_list}")
-
+    
     path_list.sort()  # To force branch 0 first in list, sort
 
     # MP_LOG.trace(f"len of path_list is {len(path_list)}")
@@ -200,8 +195,12 @@ def produce_stage_based_catfim_tifs(
         zero_branch_array = zero_branch_src.read(1)
         summed_array = zero_branch_array  # Initialize it as the branch zero array
 
+        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')
+        MP_LOG.trace(f"Output file to be saved is {output_tif}")
+        
         # Loop through remaining items in list and sum them with summed_array
         for remaining_raster in path_list[1:]:
+            
             remaining_raster_src = rasterio.open(remaining_raster)
             remaining_raster_array_original = remaining_raster_src.read(1)
 
@@ -225,12 +224,12 @@ def produce_stage_based_catfim_tifs(
         del zero_branch_array  # Clean up
 
         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
-        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')
+        
         profile = zero_branch_src.profile
         summed_array = summed_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
             dst.write(summed_array, 1)
-            MP_LOG.lprint(f"output_tif is {output_tif}")
+            MP_LOG.lprint(f"{output_tif} - saved")
         del summed_array
 
     return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
@@ -253,6 +252,9 @@ def produce_tif_per_huc_per_mag_for_stage(
 ):
     """
     # Open rem_path and catchment_path using rasterio.
+    
+    Note: category is not always just things like "action", "moderate", etc
+       When using this intervals, it can look like action_24ft, moderate_26ft
     """
 
     try:
@@ -413,7 +415,7 @@ def run_catfim_inundation(
                 # Map path to huc directory inside the mapping directory
                 huc_mapping_dir = os.path.join(output_mapping_dir, huc)
                 if not os.path.exists(huc_mapping_dir):
-                    os.mkdir(huc_mapping_dir)
+                    os.makedirs(huc_mapping_dir, exist_ok=True)
 
                 # ahps_site_dir_list = os.listdir(ahps_site_dir)
                 ahps_site_dir_list = [
@@ -440,7 +442,7 @@ def run_catfim_inundation(
                     # Map parent directory for all inundation output files output files.
                     huc_site_mapping_dir = os.path.join(huc_mapping_dir, ahps_id)
                     if not os.path.exists(huc_site_mapping_dir):
-                        os.mkdir(huc_site_mapping_dir)
+                        os.makedirs(huc_site_mapping_dir, exist_ok=True)
 
                     # Loop through thresholds/magnitudes and define inundation output files paths
 
@@ -725,6 +727,9 @@ def post_process_huc(
             # rolls up logs from child MP processes into this parent_log_output_file
             # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
 
+        # TODO:  Roll up the independent related ahps gpkgs into a huc level gkpg, still in the gpkg dir
+        # all of the gkpgs we want will have the huc number in front of it
+
     except Exception:
         MP_LOG.error(f"An error has occurred in post processing for {huc}")
         MP_LOG.error(traceback.format_exc())
@@ -744,7 +749,7 @@ def post_process_cat_fim_for_viz(
     FLOG.lprint("Start post processing TIFs (TIF extents into poly into gpkg)...")
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     gpkg_dir = os.path.join(output_mapping_dir, 'gpkg')
-    os.mkdir(gpkg_dir)
+    os.makedirs(gpkg_dir, exist_ok=True)
 
     huc_ahps_dir_list = [
         x
@@ -817,10 +822,16 @@ def post_process_cat_fim_for_viz(
         # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
         FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
 
-        # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gkpg
+        # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gpkg
         diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
         diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
         diss_extent_gdf['viz'] = 'yes'
+        
+        if 'interval_stage' in diss_extent_gdf.columns:
+            # Update the stage column value to be the interval value if an interval values exists
+            
+            diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0,
+                                "stage"] = diss_extent_gdf["interval_stage"]
 
         if ctr == 0:
             merged_layers_gdf = diss_extent_gdf
@@ -833,7 +844,7 @@ def post_process_cat_fim_for_viz(
     if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
         raise Exception(f"No gpkgs found in {gpkg_dir}")
 
-    # TODO: July 9, 2024: Consider deleting all of the interium .gkpg files in the gkpg folder.
+    # TODO: July 9, 2024: Consider deleting all of the interium .gpkg files in the gpkg folder.
     # It will get very big quick. But not yet.
     # shutil.rmtree(gpkg_dir)
 
@@ -844,18 +855,24 @@ def post_process_cat_fim_for_viz(
     if catfim_method == "flow_based":
         FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
         merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
+    # else:
+    #     FLOG.lprint("Dissolving stage based catfim_libary by ahps and magnitudes and interval value")
+    #     merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid',
+    #                                                        'magnitude',
+    #                                                        'interval_stage'], as_index=False)
 
-    merged_layers_gdf.reset_index(inplace=True)
+    if 'level_0' in merged_layers_gdf:
+        merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
+    
     output_file_name = f"{catfim_method}_catfim_library"
 
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
-    gkpg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
-    FLOG.lprint(f"Saving catfim library gpkg version to {gkpg_file_path}")
-    # merged_layers_gdf.to_file(gkpg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION)
+    gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
+    FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
+    # merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION)
     # CRS is wrong here, itputs this in the middle of the ocean
     merged_layers_gdf.to_file(
-        gkpg_file_path, driver='GPKG', index=True, engine="fiona"
-    )  # crs=PREP_PROJECTION)
+        gpkg_file_path, driver='GPKG', engine="fiona")  # crs=PREP_PROJECTION)
 
     csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
     FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
@@ -899,15 +916,27 @@ def reformat_inundation_maps(
         MP_LOG.trace(F"Tif to process is {tif_to_process}")
 
         # Convert raster to shapes
-        with rasterio.open(tif_to_process) as src:
-            image = src.read(1)
-            mask = image > 0
+        # with rasterio.open(tif_to_process) as src:
+        #     image = src.read(1)
+        #     mask = image > 0
 
-        # Aggregate shapes
-        results = (
-            {'properties': {'extent': 1}, 'geometry': s}
-            for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
-        )
+        # # Aggregate shapes
+        # results = (
+        #     {'properties': {'extent': 1}, 'geometry': s}
+        #     for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
+        # )
+        
+        # trying a similar process from 'identify_catchment_boundary.py
+        with rasterio.open(tif_to_process) as src:
+            affine = src.transform
+            band = src.read(1)
+            band[np.where(band <= 0)] = 0
+            band[np.where(band > 0)] = 1
+            inundated = band > 0
+            results = (
+                {'properties': {'extent': v}, 'geometry': s}
+                for i, (s, v) in enumerate(shapes(band, mask=inundated, transform=affine))
+            )        
 
         # Convert list of shapes to polygon
         # lots of polys
@@ -917,7 +946,7 @@ def reformat_inundation_maps(
         )  # Updating to fix AK proj issue, worked for CONUS and for AK!
 
         # extent_poly = gpd.GeoDataFrame.from_features(list(results))  # Updated to accomodate AK projection
-        # extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
+        #extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
@@ -983,7 +1012,6 @@ def reformat_inundation_maps(
 # This is not part of an MP progress and simply needs the
 # pointer of FLOG carried over here so it can use it directly.
 
-
 # TODO: Aug, 2024. We need re-evaluate job numbers, see usage of job numbers below
 # Used for Flow only
 def manage_catfim_mapping(
@@ -1022,14 +1050,14 @@ def manage_catfim_mapping(
     # FLOG.lprint("Aggregating Categorical FIM")
     # Get fim_version.
 
-    run_dir_prefix = ""
-    if fim_run_dir.startswith("fim_"):
-        run_dir_prefix = "fim_"
-    else:
-        run_dir_prefix = "hand_"
+    # run_dir_prefix = ""
+    # if fim_run_dir.startswith("fim_"):
+    #     run_dir_prefix = "fim_"
+    # else:
+    #     run_dir_prefix = "hand_"
 
     fim_version = (
-        os.path.basename(os.path.normpath(fim_run_dir)).replace(run_dir_prefix, '').replace('_', '.')
+        os.path.basename(os.path.normpath(fim_run_dir))
     )
 
     # Step 2

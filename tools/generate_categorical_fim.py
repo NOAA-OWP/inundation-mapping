@@ -2,6 +2,8 @@
 
 import argparse
 import copy
+import glob
+import math
 import os
 import shutil
 import sys
@@ -9,10 +11,9 @@ import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 
-# from logging.handlers import QueueHandler, QueueListener
 from datetime import datetime, timezone
-from itertools import repeat
-from pathlib import Path
+# from itertools import repeat
+# from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
@@ -83,8 +84,29 @@ def process_generate_categorical_fim(
     lid_to_run,
     job_number_intervals,
     past_major_interval_cap,
+    step_num,
     nwm_metafile,
 ):
+
+    # ================================
+    # Step System
+    # This system allows us to to skip steps.
+    # Steps that are skipped are assumed to have the valid files that are needed
+    # When a number is submitted, ie) 2, it means skip steps 1 and start at 2
+    '''
+        Step number usage:
+            0 = cover all (it is changed to 999 so all steps are covered)
+        flow:
+            1 = start at generate_flows
+            2 = start at manage_catfim_mapping
+            3 = start at update mapping status
+        stage:
+            1 = start at generate_flows and tifs
+            2 = start at creation of gpkgs
+            3 = start at update mapping status
+    '''
+
+    print(f"Step number is {step_num}")
 
     # ================================
     # Validation and setup
@@ -104,28 +126,15 @@ def process_generate_categorical_fim(
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
-    # The override is not for the parent folder as we want to keep logs around with or without override
-    if os.path.exists(output_catfim_dir) is False:
-        os.mkdir(output_catfim_dir)
+    # ================================
+    set_start_files_folders(step_num,
+                            output_catfim_dir,
+                            output_mapping_dir,
+                            output_flows_dir,
+                            attributes_dir,
+                            overwrite)
 
-    # Create output directories (check against maping only as a proxy for all three)
-    if os.path.exists(output_mapping_dir) is True:
-        if overwrite is False:
-            raise Exception(
-                f"The output mapping folder of {output_catfim_dir} already exists."
-                " If you want to overwrite it, please add the -o flag. Note: When overwritten, "
-                " the three folders of mapping, flows and attributes wil be deleted and rebuilt"
-            )
-
-        gpkg_dir = os.path.join(output_mapping_dir, 'gpkg')
-        shutil.rmtree(gpkg_dir, ignore_errors=True)
-
-        shutil.rmtree(output_mapping_dir, ignore_errors=True)
-        shutil.rmtree(output_flows_dir, ignore_errors=True)
-        shutil.rmtree(attributes_dir, ignore_errors=True)
-
-        # Keeps the logs folder
-
+    # ================================
     if nwm_metafile != "":
         if os.path.exists(nwm_metafile) is False:
             raise Exception("The nwm_metadata (-me) file can not be found. Please remove or fix pathing.")
@@ -135,9 +144,11 @@ def process_generate_categorical_fim(
         if file_ext[1].lower() != ".pkl":
             raise Exception("The nwm_metadata (-me) file appears to be invalid. The extention is not pkl.")
 
+    # ================================
     # Define default arguments. Modify these if necessary
     fim_version = os.path.split(fim_run_dir)[1]
 
+    # ================================
     # TODO: Aug 2024: Job values are not well used. There are some times where not
     # all three job values are not being used. This needs to be cleaned up.
     # Check job numbers and raise error if necessary
@@ -160,6 +171,7 @@ def process_generate_categorical_fim(
     # we are getting too many folders and files. We want just huc folders.
     # output_flow_dir_list = os.listdir(fim_run_dir)
 
+    # ================================
     # Code variation for KEEPING Alaska HUCS:
     valid_ahps_hucs = [
         x
@@ -168,10 +180,10 @@ def process_generate_categorical_fim(
     ]
 
     # Temp debug to drop it to one HUC or more only, not the full output dir
-    # valid_ahps_hucs = ["10200203"]  # has dropped records
+    valid_ahps_hucs = ["10200203"]  # has dropped records
     # valid_ahps_hucs = ["05060001"]
     # valid_ahps_hucs = ["10260008"]
-    valid_ahps_hucs = ["19020302"]
+    # valid_ahps_hucs = ["19020302"]
 
     valid_ahps_hucs.sort()
 
@@ -183,16 +195,8 @@ def process_generate_categorical_fim(
     # End of Validation and setup
     # ================================
 
-    log_dir = os.path.join(output_catfim_dir, "logs")
-    log_output_file = FLOG.calc_log_name_and_path(log_dir, "catfim")
-    FLOG.setup(log_output_file)
-
     overall_start_time = datetime.now(timezone.utc)
     dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
-
-    # os.makedirs(output_flows_dir, exist_ok=True) # Stage doesn't use it
-    os.makedirs(output_mapping_dir, exist_ok=True)
-    os.makedirs(attributes_dir, exist_ok=True)
 
     FLOG.lprint("================================")
     FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
@@ -233,41 +237,50 @@ def process_generate_categorical_fim(
 
     # Define upstream and downstream search in miles
     nwm_us_search, nwm_ds_search = search, search
-    catfim_sites_gpkg_file_path = ""
+    catfim_sites_file_path = ""
 
-    """
-    Sept 2024: There is a very large amount of duplication to stage versus flow based but
-    we can continue to optimize it over time
-    """
+    # TODO: Sept 2024: There is a very large amount of duplication to stage versus flow based but
+    # we can continue to optimize it over time
 
     # STAGE-BASED
     if is_stage_based:
         # Generate Stage-Based CatFIM mapping
         # does flows and inundation  (mapping)
-        catfim_sites_gpkg_file_path = generate_stage_based_categorical_fim(
-            output_catfim_dir,
-            fim_run_dir,
-            nwm_us_search,
-            nwm_ds_search,
-            lid_to_run,
-            env_file,
-            job_number_inundate,
-            job_number_huc,
-            valid_ahps_hucs,
-            job_number_intervals,
-            past_major_interval_cap,
-            nwm_metafile,
-        )
+        
+        catfim_sites_file_path = os.path.join(output_mapping_dir, 'stage_based_catfim_sites.gpkg')        
+        
+        if step_num <= 1:
+            generate_stage_based_categorical_fim(
+                output_catfim_dir,
+                fim_run_dir,
+                nwm_us_search,
+                nwm_ds_search,
+                lid_to_run,
+                env_file,
+                job_number_inundate,
+                job_number_huc,
+                valid_ahps_hucs,
+                job_number_intervals,
+                past_major_interval_cap,
+                nwm_metafile,
+            )
+        else:
+            FLOG.lprint("generate_stage_based_categorical_fim step skipped")
 
-        # creates the gkpgs (tif's created above)
-        # TODO: Aug 2024, so we need to clean it up
-        # This step does not need a job_number_inundate as it can't really use use it.
-        # It processes primarily hucs and ahps in multiproc
-        # for now, we will manuall multiple the huc * 5 (max number of ahps types)
-        ahps_jobs = job_number_huc * 5
-        post_process_cat_fim_for_viz(
-            catfim_method, output_catfim_dir, ahps_jobs, fim_version, log_output_file
-        )
+        FLOG.lprint("")            
+        if step_num <= 2:
+            # creates the gpkgs (tif's created above)
+            # TODO: Aug 2024, so we need to clean it up
+            # This step does not need a job_number_inundate as it can't really use use it.
+            # It processes primarily hucs and ahps in multiproc
+            # for now, we will manuall multiple the huc * 5 (max number of ahps types)
+
+            ahps_jobs = job_number_huc * 5
+            post_process_cat_fim_for_viz(
+                catfim_method, output_catfim_dir, ahps_jobs, fim_version, FLOG.LOG_FILE_PATH
+            )
+        else:
+            FLOG.lprint("post_process_cat_fim_for_viz step skipped")
 
     # FLOW-BASED
     else:
@@ -276,47 +289,55 @@ def process_generate_categorical_fim(
         FLOG.lprint("")
         start = time.time()
 
+        catfim_sites_file_path = os.path.join(output_mapping_dir, 'flow_based_catfim_sites.gpkg')
         # generate flows is only using one of the incoming job number params
         # so let's multiply -jh (huc) and -jn (inundate)
         job_flows = job_number_huc * job_number_inundate
-        catfim_sites_gpkg_file_path = generate_flows(
-            output_catfim_dir,
-            nwm_us_search,
-            nwm_ds_search,
-            lid_to_run,
-            env_file,
-            job_flows,
-            is_stage_based,
-            valid_ahps_hucs,
-            nwm_metafile,
-            log_output_file,
-        )
-        end = time.time()
-        elapsed_time = (end - start) / 60
+        
+        if step_num <= 1:
+            generate_flows(
+                output_catfim_dir,
+                nwm_us_search,
+                nwm_ds_search,
+                lid_to_run,
+                env_file,
+                job_flows,
+                is_stage_based,
+                valid_ahps_hucs,
+                nwm_metafile,
+                FLOG.LOG_FILE_PATH,
+            )
+            end = time.time()
+            elapsed_time = (end - start) / 60
+            FLOG.lprint(f"Finished creating flow files in {str(elapsed_time).split('.')[0]} minutes \n")
+        else:
+            FLOG.lprint("Generate Flow step skipped")
+            
         FLOG.lprint("")
-        FLOG.lprint(f"Finished creating flow files in {str(elapsed_time).split('.')[0]} minutes \n")
-
-        # Generate CatFIM mapping (not used by stage)
-        manage_catfim_mapping(
-            fim_run_dir,
-            output_flows_dir,
-            output_catfim_dir,
-            catfim_method,
-            job_number_huc,
-            job_number_inundate,
-            log_output_file,
-        )
-
+        if step_num <= 2:
+            # Generate CatFIM mapping (not used by stage)
+            manage_catfim_mapping(
+                fim_run_dir,
+                output_flows_dir,
+                output_catfim_dir,
+                catfim_method,
+                job_number_huc,
+                job_number_inundate,
+                FLOG.LOG_FILE_PATH,
+            )
+        else:
+            FLOG.lprint("manage_catfim_mapping step skipped")
     # end if else
 
-    # Updating mapping status
     FLOG.lprint("")
-    FLOG.lprint('Updating mapping status...')
-    update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path)
-
-    # Create CSV versions of the final geopackages.
-    # FLOG.lprint('Creating CSVs. This may take several minutes.')
-    # create_csvs(output_mapping_dir, is_stage_based)
+    if step_num <= 3:  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
+        # Updating mapping status
+        FLOG.lprint('Updating mapping status...')
+        update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path)
+        FLOG.lprint('Updating mapping status complete')
+    else:
+        FLOG.lprint("Updating mapping status step skipped")
+       
 
     FLOG.lprint("================================")
     FLOG.lprint("End generate categorical fim")
@@ -332,69 +353,90 @@ def process_generate_categorical_fim(
     return
 
 
-def update_flow_mapping_status(output_mapping_dir, catfim_sites_gpkg_file_path):
+def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
 
-    # Find all LIDs with empty mapping output folders
-    subdirs = [str(i) for i in Path(output_mapping_dir).rglob('**/*') if i.is_dir()]
-
-    print("")
-
-    empty_nws_lids = [Path(directory).name for directory in subdirs if not list(Path(directory).iterdir())]
-    # if len(empty_nws_lids) > 0:
-    #     FLOG.warning(f"Empty_nws_lids are.. {empty_nws_lids}")
-
-    # Write list of empty nws_lids to DataFrame, these are sites that failed in inundation.py
-    missing_lids_df = pd.DataFrame({'ahps_lid': empty_nws_lids})
-
-    missing_lids_df['did_it_map'] = 'no'
+    '''
+    Overview:
+        - Gets a list of valid ahps that have at least one gkpg file. If we have at least one, then the site mapped something
+        - We use that list compared to the original sites gpkg (or csv) file name to update the rows for the mapped column
+          By this point, most shoudl have had status messages until something failed in inundation or creating the gpkg.
+        - We also use a convention where if a status messsage starts with ---, then remove the ---. It is reserved for showing
+          that some magnitudes exists and some failed.
+    '''
 
     # Import geopackage output from flows creation
-    if not os.path.exists(catfim_sites_gpkg_file_path):
+    if not os.path.exists(catfim_sites_file_path):
         FLOG.critical(
-            f"Primary library gpkg of {catfim_sites_gpkg_file_path} does not exist."
+            f"Primary library gpkg of {catfim_sites_file_path} does not exist."
             " Check logs for possible errors. Program aborted."
         )
         sys.exit(1)
 
-    flows_gdf = gpd.read_file(catfim_sites_gpkg_file_path, engine='fiona')
+    sites_gdf = gpd.read_file(catfim_sites_file_path, engine='fiona')
 
-    if len(flows_gdf) == 0:
-        FLOG.critical(f"flows_gdf is empty. Path is {catfim_sites_gpkg_file_path}. Program aborted.")
+    if len(sites_gdf) == 0:
+        FLOG.critical(f"flows_gdf is empty. Path is {catfim_sites_file_path}. Program aborted.")
         sys.exit(1)
 
+    # Yes.. embedded def
+    def get_list_ahps_with_library_gpkgs():
+        
+        # as it is a set it will dig out unique files
+        ahps_ids_with_gpkgs = []
+        # gpkg_file_names = 
+        file_pattern = os.path.join(output_mapping_dir, "gpkg") + '/*_dissolved.gpkg'
+        # print(file_pattern)
+        for file_path in glob.glob(file_pattern):
+            file_name = os.path.basename(file_path)
+            file_name_segs = file_name.split("_")
+            if len(file_name_segs) <= 1:
+                continue
+            ahps_id = file_name_segs[1]
+            if len(ahps_id) == 5:  # yes, we assume the ahps in the second arg
+                if ahps_id not in ahps_ids_with_gpkgs:
+                    ahps_ids_with_gpkgs.append(ahps_id)
+                
+        return ahps_ids_with_gpkgs
+
+
     try:
-        # Join failed sites to flows df
-        flows_gdf = flows_gdf.merge(missing_lids_df, how='left', on='ahps_lid')
+        
+        valid_ahps_ids = get_list_ahps_with_library_gpkgs()
+        
+        if len(valid_ahps_ids) == 0:
+            FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
+            sys.exit(1)
+               
+        # we could have used lambda but the if/else logic got messy and unstable
+        for ind, row in sites_gdf.iterrows():
+            ahps_id = row['ahps_lid']
+            status_val = row['status']
+            if status_val == 'OK' or status_val.startswith("---") is True:
+                sites_gdf.at[ind, 'mapped'] = 'yes'
+                
+                if status_val.startswith("---"):
+                    sites_gdf.at[ind, 'status'] = status_val[3:]
+            else:
+                sites_gdf.at[ind, 'mapped'] = 'no'
 
-        # Switch mapped column to no for failed sites and update status
-        flows_gdf.loc[flows_gdf['did_it_map'] == 'no', 'mapped'] = 'no'
+            # overrides the mapped flag (can't use the row object)
+            if ahps_id not in valid_ahps_ids and sites_gdf.at[ind, 'mapped'] == "yes":
+                sites_gdf.at[ind, 'mapped'] = 'no'
 
-        # in theory this should not happen as if it failed a status message should exist
-        flows_gdf.loc[(flows_gdf['mapped'] == 'no') & (flows_gdf['status'] == ''), 'status'] = (
-            'ahps record in error'
-        )
+                # override any previous status message
+                sites_gdf.at[ind, 'status'] = "An internal error has occurred while creating features for this site."
+                FLOG.warning(f"mapped status was changed to no for {ahps_id}. Check error logs for it")
+    
+        # sites_gdf.reset_index(inplace=True, drop=True)
 
-        flows_gdf.loc[flows_gdf['status'] == 'OK', 'mapped'] = 'yes'
-
-        # but if there is a status value starting with ---, it means it has some, but
-        # not all missing stages/thresholds and there for should be mapped.
-        flows_gdf.loc[flows_gdf['status'].str.startswith('---') == True, 'mapped'] = 'yes'
-        flows_gdf['status'] = flows_gdf['status'].apply(lambda x: x[3:] if x.startswith("---") else x)
-
-        flows_gdf = flows_gdf.drop(columns=['did_it_map'])
-
-        # Write out to file
-        # TODO: Aug 29, 204: Not 100% sure why, but the gpkg errors out... likely missing a projection
-        #   Sep 25/24, we need to set which is the gdf geometry column
-
-        flows_gdf.to_file(catfim_sites_gpkg_file_path, index=False, driver='GPKG', engine="fiona")
+        sites_gdf.to_file(catfim_sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona")
 
         # csv flow file name
-        nws_lid_csv_file_path = catfim_sites_gpkg_file_path.replace(".gkpg", ".csv")
+        nws_lid_csv_file_path = catfim_sites_file_path.replace(".gpkg", ".csv")
 
         # and we write a csv version at this time as well.
         # and this csv is good
-        flows_gdf.to_csv(nws_lid_csv_file_path)
+        sites_gdf.to_csv(nws_lid_csv_file_path)
 
     except Exception as e:
         FLOG.critical(f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
@@ -438,7 +480,6 @@ def iterate_through_huc_stage_based(
 
         mapping_dir = os.path.join(output_catfim_dir, "mapping")
         attributes_dir = os.path.join(output_catfim_dir, 'attributes')
-        # output_flows_dir = os.path.join(output_catfim_dir, "flows")
         huc_messages_dir = os.path.join(mapping_dir, 'huc_messages')
 
         # Make output directory for the particular huc in the mapping folder
@@ -506,6 +547,10 @@ def iterate_through_huc_stage_based(
             }
 
             for lid in nws_lids:
+                
+                # if lid.upper() != 'GRNN1':
+                #     continue
+                
                 MP_LOG.lprint("-----------------------------------")
                 huc_lid_id = f"{huc} : {lid}"
                 MP_LOG.lprint(f"processing {huc_lid_id}")
@@ -554,7 +599,8 @@ def iterate_through_huc_stage_based(
 
                 # An un-order list of just the stage value, stage not needed
                 # It is used to calculate intervals
-                valid_stage_value_list = []
+                # valid_stage_value_list = []
+                magnitude_stage_values_list = []
                 valid_stages = []
                 invalid_stages = []
 
@@ -563,8 +609,6 @@ def iterate_through_huc_stage_based(
                         stage_val = thresholds[stage]
                         if stage_val is None or stage_val == "":
                             stage_val = -1
-                        else:
-                            valid_stage_value_list.append(stage_val)
                     else:
                         stage_val = -1  # temp value to help it fall out as being invalid
 
@@ -572,6 +616,7 @@ def iterate_through_huc_stage_based(
 
                     if is_valid_stage == True:
                         valid_stages.append(stage)
+                        magnitude_stage_values_list.append(stage_val)
                     else:
                         invalid_stages.append(stage)
 
@@ -592,7 +637,8 @@ def iterate_through_huc_stage_based(
                     # Look into it later
 
                 MP_LOG.trace(
-                    f"stage values in order are {action_stage}, {minor_stage}, {moderate_stage}, {major_stage}, {record_stage} "
+                    f"stage values (pre-processed) in order are {action_stage}, {minor_stage}, {moderate_stage},"
+                    f" {major_stage}, {record_stage} "
                 )
 
                 if len(invalid_stages) == 5:
@@ -613,12 +659,6 @@ def iterate_through_huc_stage_based(
                 if missing_stages_msg != "":
                     all_messages.append(lid + missing_stages_msg)
                     MP_LOG.warning(huc_lid_id + missing_stages_msg)
-
-                interval_list = np.arange(
-                    min(valid_stage_value_list), max(valid_stage_value_list) + past_major_interval_cap, 1.0
-                )  # Go an extra 5 ft beyond the max stage, arbitrary
-
-                MP_LOG.trace(f"interval list is {interval_list}")
 
                 # Look for acceptable elevs
                 acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
@@ -714,14 +754,13 @@ def iterate_through_huc_stage_based(
                     parent_log_output_file, "MP_produce_catfim_tifs"
                 )
 
-                # print(f"valid_stages are {valid_stages}")
-
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
                 for category in valid_stages:  # a category is the same thing as a stage at this point.
                     # MP_LOG.lprint(f"{huc_lid_id}: Magnitude is {category}")
                     # Pull stage value and confirm it's valid, then process
                     stage = thresholds[category]
+                    MP_LOG.trace(f"About to create tifs for {huc_lid_id} : {category} : {stage}")
 
                     # datum_adj_ft should not be None at this point
                     # Call function to execute mapping of the TIFs.
@@ -744,7 +783,7 @@ def iterate_through_huc_stage_based(
                         child_log_file_prefix,
                     )
                     all_messages += messages
-
+                    
                     # Extra metadata for alternative CatFIM technique.
                     # TODO Revisit because branches complicate things
                     stage_based_att_dict[lid].update(
@@ -759,83 +798,131 @@ def iterate_through_huc_stage_based(
                             }
                         }
                     )
-
+                    
                 # So, we might have an MP inside an MP
                 # let's merge what we have at this point, before we go into another MP
                 MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
+                    
+                # If we only have a record stage value and none of the other 4, then there are no 
+                # intervals as we never add 5 intervals to record.
+                skip_add_intervals = False
+                if action_stage == -1 and minor_stage == -1 and moderate_stage == -1 and major_stage == -1:
+                    skip_add_intervals = True
+                    MP_LOG.lprint(f"{huc_lid_id}: Skipping intervals as it only has just a record stage")
+                    
+                if skip_add_intervals is False:
+                    # we do not want to include the record stage value for intervals
+                    
+                    MP_LOG.trace(f"magnitude_stage_values_list is {magnitude_stage_values_list}")
+                    
+                    # Max can go past the record stage value if it exists (for now)
+                    max_interval_val = max(magnitude_stage_values_list) + past_major_interval_cap
+                    
+                    # round up
+                    max_interval_val = math.ceil(max_interval_val)                    
+                    min_interval_val = math.ceil(min(magnitude_stage_values_list))
 
-                MP_LOG.lprint(f"all interval stages are {interval_list}")
+                    # these are now whole numbers
+                    interval_list = np.arange(min_interval_val, max_interval_val, 1.0)
+                    # Go an extra 5 ft beyond the max stage, arbitrary (but not past the record stage)
 
-                # In order not to create duplicate features with the same stage value,
-                # we keep track of the stage values that have been inundated and skip them
-                # if a dup is found. Start with a copy of the list that was created above
-                # which will always have at least one record
-                inudated_stages = copy.copy(valid_stage_value_list)
+                    MP_LOG.trace(f"{huc_lid_id}:Potential interval list is {interval_list}")
 
-                # Now we will do another set of inundations, but this one is based on
-                # not the stage flow but flow based on each interval
-                tif_child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
-                    parent_log_output_file, "MP_prod_sb_tifs"
-                )
-                with ProcessPoolExecutor(max_workers=job_number_intervals) as executor:
-                    try:
-                        # There will always be at least one
-                        # we need to skip the stages where their value is -1 as they
-                        # did not have a stage value from nwps and need to be discluded.
-                        for interval_stage in interval_list:
+                    # In order not to create duplicate features with the same stage value,
+                    # we keep track of the stage values that have been inundated and skip them
+                    # if a dup is found. Start with a copy of the list that was created above
+                    # which will always have at least one record
+                    claimed_interval_stages = copy.copy(magnitude_stage_values_list)
 
-                            # That value has already been inundated, likely but the original stage record
-                            if interval_stage in inudated_stages:
-                                continue
-                            else:
-                                inudated_stages.append(interval_stage)
+                    # Now we will do another set of inundations, but this one is based on
+                    # not the stage flow but flow based on each interval
+                    tif_child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
+                        parent_log_output_file, "MP_prod_sb_tifs"
+                    )
+                    
+                    MP_LOG.trace(
+                        f"stage values (pre-interval processing) in order are {action_stage}, {minor_stage}, {moderate_stage},"
+                        f" {major_stage}, {record_stage}"
+                    )
+                    
+                    # Now we add the interval tifs but no interval tifs for the "record" stage if there is one.
+                    with ProcessPoolExecutor(max_workers=job_number_intervals) as executor:
+                        try:
+                            # In theory, there will always be at least one interval
+                            # we need to skip the stages where their value is -1 as they
+                            # did not have a stage value from nwps and need to be discluded.
+                        
+                            for interval_stage in interval_list:
 
-                            # Determine category the stage value belongs with.
-                            if action_stage != -1 and action_stage <= interval_stage < minor_stage:
-                                category = 'action_' + str(interval_stage).replace('.', 'p') + 'ft'
-                            elif minor_stage != -1 and minor_stage <= interval_stage < moderate_stage:
-                                category = 'minor_' + str(interval_stage).replace('.', 'p') + 'ft'
-                            elif moderate_stage != -1 and moderate_stage <= interval_stage < major_stage:
-                                category = 'moderate_' + str(interval_stage).replace('.', 'p') + 'ft'
-                            elif major_stage != -1 and interval_stage <= interval_stage < record_stage:
-                                category = 'major_' + str(interval_stage).replace('.', 'p') + 'ft'
-                            elif record_stage != -1:  # interval_stage >= record_stage
-                                category = 'record_' + str(interval_stage).replace('.', 'p') + 'ft'
-                            else:
-                                continue
+                                # That value has already been inundated, likely but the original stage record
+                                if interval_stage in claimed_interval_stages:
+                                    continue
+                                else:
+                                    claimed_interval_stages.append(interval_stage)
+                                    
+                                # MP_LOG.trace(f"interval_stage value is {lid} - {interval_stage}")
 
-                            executor.submit(
-                                produce_stage_based_catfim_tifs,
-                                interval_stage,
-                                datum_adj_ft,
-                                branch_dir,
-                                lid_usgs_elev,
-                                lid_altitude,
-                                fim_dir,
-                                segments,
-                                lid,
-                                huc,
-                                mapping_lid_directory,
-                                category,
-                                job_number_inundate,
-                                parent_log_output_file,
-                                tif_child_log_file_prefix,
-                            )
-                    except TypeError:  # sometimes the thresholds are Nonetypes
-                        MP_LOG.error("ERROR: type error in ProcessPool, likely in the interval tests")
-                        MP_LOG.error(traceback.format_exc())
-                        continue
+                                # Determine category the stage value belongs with.
+                                # we are filling wholes at 1 ft intervals between the 4 magnitudes
+                                # ie) action at 5.2 ft, action interval at 6 ft nad 7 ft
+                                # moderate at 7.4, moderate interval at 8, 9, 10 ft
+                                # major at 10.7, then always 5 intervals past major
+                                #   if major exists, if not... them 5 past moderate, etc.
+                                # In theory, we can have no intervals if we only have just a record value
+                                if action_stage != -1 and action_stage <= interval_stage and interval_stage < minor_stage:
+                                    adj_category_name = 'action_' + str(interval_stage) + 'ft'
+                                elif minor_stage != -1 and minor_stage <= interval_stage and interval_stage < moderate_stage:
+                                    adj_category_name = 'minor_' + str(interval_stage) + 'ft'
+                                elif moderate_stage != -1 and moderate_stage <= interval_stage and interval_stage < major_stage:
+                                    adj_category_name = 'moderate_' + str(interval_stage) + 'ft'
+                                elif major_stage != -1 and interval_stage >= major_stage:
+                                    adj_category_name = 'major_' + str(interval_stage) + 'ft'
+                                    
+                                # We don't add intervals to "record", but major intervals (up to 5 of them).
+                                # If no major.. then up to 5 intervals past moderate and so forth down
+                                # Note: Interval can exceed the record value.
+                                # all 1 ft intervals are fill in between each stage to max plus 5 more.
+                                else:
+                                    continue
 
-                    except Exception:
-                        MP_LOG.critical("ERROR: ProcessPool has an error")
-                        MP_LOG.critical(traceback.format_exc())
-                        # merge MP Logs (Yes)
-                        MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix, True)
-                        sys.exit(1)
+                                MP_LOG.trace(f"adj_category_name is {adj_category_name}")
 
-                # merge MP Logs (merging MP into an MP (proc_pool in a proc_pool))
-                MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix, True)
 
+                                executor.submit(
+                                    produce_stage_based_catfim_tifs,
+                                    interval_stage,
+                                    datum_adj_ft,
+                                    branch_dir,
+                                    lid_usgs_elev,
+                                    lid_altitude,
+                                    fim_dir,
+                                    segments,
+                                    lid,
+                                    huc,
+                                    mapping_lid_directory,
+                                    adj_category_name,
+                                    job_number_inundate,
+                                    parent_log_output_file,
+                                    tif_child_log_file_prefix,
+                                )
+                        except TypeError:  # sometimes the thresholds are Nonetypes
+                            MP_LOG.error(f"{huc_lid_id}: ERROR: type error in ProcessPool,"
+                                          " likely in the interval code")
+                            MP_LOG.error(traceback.format_exc())
+                            continue
+
+                        except Exception:
+                            MP_LOG.critical(f"{huc_lid_id}: ERROR: ProcessPool has an error")
+                            MP_LOG.critical(traceback.format_exc())
+                            # merge MP Logs (Yes)
+                            MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix, True)
+                            sys.exit(1)
+
+                    # merge MP Logs (merging MP into an MP (proc_pool in a proc_pool))
+                    MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix, True)
+
+                # end of skip_add_intervals is False
+                
                 # Create a csv with same information as geopackage but with each threshold as new record.
                 # Probably a less verbose way.
                 csv_df = pd.DataFrame(df_cols)  # for first appending
@@ -876,8 +963,8 @@ def iterate_through_huc_stage_based(
                                 'lid_alt_ft': stage_based_att_dict[lid][threshold]['lid_alt_ft'],
                                 'lid_alt_m': stage_based_att_dict[lid][threshold]['lid_alt_m'],
                                 'mapped': 'yes',
-                                'status': '',
-                            }  # yes.. status is empty at this time, we update it later
+                                'status': 'OK',
+                            }
                         )
                         csv_df = pd.concat([csv_df, line_df], ignore_index=True)
 
@@ -946,10 +1033,13 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     ### --- Do Datum Offset --- ###
     # determine source of interpolated threshold flows, this will be the rating curve that will be used.
     rating_curve_source = flows.get('source')
+    
+    MP_LOG.trace(f"{huc_lid_id} : rating_curve_source is {rating_curve_source}")
+    
     if rating_curve_source is None:
-        msg = f'{huc_lid_id}:No source for rating curve'
-        all_messages.append(msg)
-        MP_LOG.warning(msg)
+        msg = f':No source for rating curve'
+        all_messages.append(lid + msg)
+        MP_LOG.warning(huc_lid_id + msg)
         return None, all_messages
 
     # Get the datum and adjust to NAVD if necessary.
@@ -962,9 +1052,9 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     # If datum not supplied, skip to new site
     datum = datum_data.get('datum', None)
     if datum is None:
-        msg = f'{huc_lid_id}:datum info unavailable'
-        all_messages.append(msg)
-        MP_LOG.warning(msg)
+        msg = ':datum info unavailable'
+        all_messages.append(lid + msg)
+        MP_LOG.warning(huc_lid_id + msg)
         return None, all_messages
 
     # ___________________________________________________________________________________________________#
@@ -1036,21 +1126,21 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
             MP_LOG.error(traceback.format_exc())
             ex = str(ex)
             if crs is None:
-                msg = f'{huc_lid_id}:NOAA VDatum adjustment error, CRS is missing'
-                all_messages.append(msg)
-                MP_LOG.error(msg)
+                msg = ':NOAA VDatum adjustment error, CRS is missing'
+                all_messages.append(lid + msg)
+                MP_LOG.error(huc_lid_id + msg)
             if 'HTTPSConnectionPool' in ex:
                 time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                 try:
                     datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
                 except Exception:
-                    msg = f'{huc_lid_id}:NOAA VDatum adjustment error, possible API issue'
-                    all_messages.append(msg)
-                    MP_LOG.error(msg)
+                    msg = ':NOAA VDatum adjustment error, possible API issue'
+                    all_messages.append(lid + msg)
+                    MP_LOG.error(huc_lid_id + msg)
             if 'Invalid projection' in ex:
-                msg = f'{huc_lid_id}:NOAA VDatum adjustment error, invalid projection: crs={crs}'
-                all_messages.append(msg)
-                MP_LOG.error(msg)
+                msg = f':NOAA VDatum adjustment error, invalid projection: crs={crs}'
+                all_messages.append(lid + msg)
+                MP_LOG.error(huc_lid_id+ msg)
             return None, all_messages
 
     return datum_adj_ft, all_messages
@@ -1208,37 +1298,45 @@ def generate_stage_based_categorical_fim(
     huc_index = 0
     FLOG.lprint(f"Number of hucs to process is {num_hucs}")
 
+    print(f"job_number_huc is {job_number_huc}")
+
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-        for huc in huc_dictionary:
-            if huc in lst_hucs:
-                # FLOG.lprint(f'Generating stage based catfim for : {huc}')
+        try:        
+            for huc in huc_dictionary:
+                if huc in lst_hucs:
+                    # FLOG.lprint(f'Generating stage based catfim for : {huc}')
 
-                # # Code variation for DROPPING Alaska HUCs
-                # nwm_flows_region_df = all_nwm_flows_df
+                    # # Code variation for DROPPING Alaska HUCs
+                    # nwm_flows_region_df = all_nwm_flows_df
 
-                # Code variation for keeping alaska HUCs
-                nwm_flows_region_df = nwm_flows_alaska_df if str(huc[:2]) == '19' else nwm_flows_df
+                    # Code variation for keeping alaska HUCs
+                    nwm_flows_region_df = nwm_flows_alaska_df if str(huc[:2]) == '19' else nwm_flows_df
 
-                progress_stmt = f"index {huc_index + 1} of {num_hucs}"
-                executor.submit(
-                    iterate_through_huc_stage_based,
-                    output_catfim_dir,
-                    huc,
-                    fim_run_dir,
-                    huc_dictionary,
-                    threshold_url,
-                    all_lists,
-                    past_major_interval_cap,
-                    job_number_inundate,
-                    job_number_intervals,
-                    nwm_flows_region_df,
-                    str(FLOG.LOG_FILE_PATH),
-                    child_log_file_prefix,
-                    progress_stmt,
-                )
-                huc_index += 1
+                    progress_stmt = f"index {huc_index + 1} of {num_hucs}"
+                    executor.submit(
+                        iterate_through_huc_stage_based,
+                        output_catfim_dir,
+                        huc,
+                        fim_run_dir,
+                        huc_dictionary,
+                        threshold_url,
+                        all_lists,
+                        past_major_interval_cap,
+                        job_number_inundate,
+                        job_number_intervals,
+                        nwm_flows_region_df,
+                        str(FLOG.LOG_FILE_PATH),
+                        child_log_file_prefix,
+                        progress_stmt,
+                    )
+                    huc_index += 1
+                
+        except Exception:
+            FLOG.critical("ERROR: ProcessPool has an error")
+            FLOG.critical(traceback.format_exc())
+            sys.exit(1)
+
     # Need to merge MP logs here, merged into the "master log file"
-
     FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
 
     FLOG.lprint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>")
@@ -1294,7 +1392,7 @@ def generate_stage_based_categorical_fim(
     for csv_file in attrib_csv_files:
         nws_lids.append(csv_file.split('_attributes')[0])
     lids_df = pd.DataFrame(nws_lids, columns=['nws_lid'])
-    lids_df['mapped'] = 'yes'
+    lids_df['mapped'] = 'no'  # will be adjsuted later
 
     # Identify what lids were mapped by merging with lids_df. Populate
     # 'mapped' column with 'No' if sites did not map.
@@ -1343,7 +1441,7 @@ def generate_stage_based_categorical_fim(
         # viz_out_gdf.reset_index(inplace=True)
 
         #  (msg in flows)
-        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('All calculated threshold values present')
+        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
 
         # Add acceptance criteria to viz_out_gdf before writing
         viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
@@ -1363,8 +1461,42 @@ def generate_stage_based_categorical_fim(
     else:
         FLOG.lprint(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : has no messages")
 
-    return nws_lid_gpkg_file_path
 
+def set_start_files_folders(step_num,
+                            output_catfim_dir,
+                            output_mapping_dir,
+                            output_flows_dir,
+                            attributes_dir,
+                            overwrite):
+   
+    # ================================
+    # Folder cleaning based on step system
+    if step_num == 0:
+        # The override is not for the parent folder as we want to keep logs around with or without override
+        if os.path.exists(output_catfim_dir) is False:
+            os.mkdir(output_catfim_dir)
+
+        # Create output directories (check against maping only as a proxy for all three)
+        if os.path.exists(output_mapping_dir) is True:
+            if overwrite is False:
+                raise Exception(
+                    f"The output mapping folder of {output_catfim_dir} already exists."
+                    " If you want to overwrite it, please add the -o flag. Note: When overwritten, "
+                    " the three folders of mapping, flows and attributes wil be deleted and rebuilt"
+                )
+            shutil.rmtree(output_flows_dir, ignore_errors=True)
+            shutil.rmtree(attributes_dir, ignore_errors=True)
+            shutil.rmtree(output_mapping_dir, ignore_errors=True)
+
+    os.makedirs(output_flows_dir, exist_ok=True)  
+    os.makedirs(output_mapping_dir, exist_ok=True)
+    os.makedirs(attributes_dir, exist_ok=True)
+
+    # Always keeps the logs folder
+    log_dir = os.path.join(output_catfim_dir, "logs")
+    log_output_file = FLOG.calc_log_name_and_path(log_dir, "catfim")
+    FLOG.setup(log_output_file)
+   
 
 if __name__ == '__main__':
 
@@ -1372,7 +1504,7 @@ if __name__ == '__main__':
     Sample
     python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8
     -e /data/config/catfim.env -t /data/catfim/rob_test/docker_test_1
-    -me '/data/catfim/rob_test/nwm_metafile.pkl' -sb
+    -me '/data/catfim/rob_test/nwm_metafile.pkl' -sb -step 2
     '''
 
     # Parse arguments
@@ -1439,9 +1571,6 @@ if __name__ == '__main__':
         default='/data/catfim/',
     )
     parser.add_argument(
-        '-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true"
-    )
-    parser.add_argument(
         '-s',
         '--search',
         help='OPTIONAL: Upstream and downstream search in miles. How far up and downstream do you want to go? Defaults to 5.',
@@ -1477,6 +1606,19 @@ if __name__ == '__main__':
         type=float,
     )
 
+    parser.add_argument(
+        '-step',
+        '--step-num',
+        help='OPTIONAL: By adding a number here, you may be able to skip levels of processing. The number'
+        ' you submit means it will start at that step. e.g. step of 2 means start at step 2 which for flow'
+        ' based is the creating of tifs and gpkgs. Note: This assumes'
+        ' those previous steps have already been processed and the files are present.'
+        ' Defaults to 0 which means all steps processed.',
+        required=False,
+        default=0,
+        type=int,
+    )
+
     # NOTE: This params is for quick debugging only and should not be used in a production mode
     parser.add_argument(
         '-me',
@@ -1485,6 +1627,10 @@ if __name__ == '__main__':
         ' e.g.: /data/catfim/nwm_metafile.pkl',
         required=False,
         default="",
+    )
+
+    parser.add_argument(
+        '-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true"
     )
 
     args = vars(parser.parse_args())

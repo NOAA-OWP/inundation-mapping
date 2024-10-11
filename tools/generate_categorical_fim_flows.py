@@ -6,6 +6,7 @@ import glob
 import os
 import pickle
 import random
+import shutil
 import sys
 import time
 import traceback
@@ -187,7 +188,7 @@ def generate_flows_for_huc(
 
             # If there are no segments, write message and exit out
             if not segments or len(segments) == 0:
-                message = f'{lid}:missing nwm segments'
+                message = f'{lid}:missing nwm stream segments'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
@@ -199,8 +200,10 @@ def generate_flows_for_huc(
             for category in categories:
                 # In stage we use the threshold data here from WRDS, but here it is flows
                 flow = flows[category]
+                
+                MP_LOG.trace(f"{huc} : {lid} : {category} : flow value is {flow}")
 
-                if flow is not None and flow != 0:
+                if flow is not None and flow != 0 and flow != "":
 
                     # If there is a valid flow value, write a flow file.
                     # if flow:
@@ -222,9 +225,9 @@ def generate_flows_for_huc(
 
                 else:
                     if missing_wrds_data_msg == "":
-                        f":---Missing flow data for {category}"
+                        missing_wrds_data_msg = f":---Missing flow data for {category}"
                     else:
-                        f"; Missing flow data for {category}"
+                        missing_wrds_data_msg += f"; {category}"
 
                     invalid_flows.append(category)
 
@@ -279,8 +282,8 @@ def generate_flows_for_huc(
                             'lat': [lat],
                             'lon': [lon],
                             'mapped': 'yes',
-                            'status': '',
-                        }  # yes.. status is empty at this time, we update it later
+                            'status': 'OK',
+                        }
                     )
                     csv_df = pd.concat([csv_df, line_df], ignore_index=True)
 
@@ -381,9 +384,6 @@ def generate_flows(
     wbd_path : STR
         Location of HUC geospatial data (geopackage).
 
-    Returns
-    -------
-    catfim_sites_gpkg_file_path
     '''
 
     FLOG.setup(log_output_file)  # reusing the parent logs
@@ -392,6 +392,8 @@ def generate_flows(
     # FLOG.trace(locals()) # see all args coming in to the function
 
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
+    os.makedirs(attributes_dir, exist_ok=True)
+        
     mapping_dir = os.path.join(output_catfim_dir, "mapping")  # create var but don't make folder yet
 
     all_start = datetime.now(timezone.utc)
@@ -404,7 +406,8 @@ def generate_flows(
 
     # Create HUC message directory to store messages that will be read and joined after multiprocessing
     huc_messages_dir = os.path.join(mapping_dir, 'huc_messages')
-    os.makedirs(huc_messages_dir, exist_ok=True)
+    if not os.path.exists(huc_messages_dir):
+        os.mkdir(huc_messages_dir)
 
     FLOG.lprint("Loading nwm flow metadata")
     start_dt = datetime.now(timezone.utc)
@@ -559,12 +562,16 @@ def generate_flows(
     for csv_file in attrib_csv_files:
         nws_lids.append(csv_file.split('_attributes')[0])
     lids_df = pd.DataFrame(nws_lids, columns=['nws_lid'])
-    lids_df['mapped'] = 'yes'
+    # lids_df['mapped'] = 'yes'
 
     # Identify what lids were mapped by merging with lids_df. Populate
     # 'mapped' column with 'No' if sites did not map.
     viz_out_gdf = viz_out_gdf.merge(lids_df, how='left', on='nws_lid')
-    viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
+    viz_out_gdf.reset_index(inplace=True, drop=True)
+    if 'mapped' not in viz_out_gdf.columns:
+        viz_out_gdf['mapped'] = 'no'
+    else:
+        viz_out_gdf['mapped'] = viz_out_gdf['mapped'].fillna('no')
 
     # Read all messages for all HUCs
     # this is basically identical to a stage based set. Seach for huc_message_list and see my notes
@@ -605,7 +612,8 @@ def generate_flows(
         # status for null fields.
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
-        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('all calculated flows present')
+        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
+        # viz_out_gdf['status'] = viz_out_gdf['status'].apply(lambda x: x[3:] if x.startswith("---") else x)        
 
     # Filter out columns and write out to file
     # viz_out_gdf = viz_out_gdf.filter(
@@ -621,15 +629,13 @@ def generate_flows(
     viz_out_gdf.to_csv(nws_lid_csv_file_path)
 
     catfim_sites_gpkg_file_path = os.path.join(mapping_dir, 'flow_based_catfim_sites.gpkg')
-    viz_out_gdf.to_file(catfim_sites_gpkg_file_path, driver='GPKG', index=False, engine='fiona')
+    viz_out_gdf.to_file(catfim_sites_gpkg_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine='fiona')
 
     # time operation
     all_end = datetime.now(timezone.utc)
     all_time_duration = all_end - all_start
     FLOG.lprint(f"End Wrapping up flows generation Duration: {str(all_time_duration).split('.')[0]}")
     print()
-
-    return catfim_sites_gpkg_file_path
 
 
 # local script calls __load_nwm_metadata so FLOG is already setup
