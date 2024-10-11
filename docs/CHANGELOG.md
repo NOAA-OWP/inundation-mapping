@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.5.x.x - 2024-08-09 - [PR#1244](https://github.com/NOAA-OWP/inundation-mapping/pull/1244)
+
+New tool that can assess the impact of a flood on road and/or building vector files. Closes #1226.
+
+### Additions
+- `tools/analyze_flood_impact.py` : added a tool that assesses the impact of a flood on roads and buildings by calculating how many roads and structures the test flood extent intersects, comparing the test impacted roads and structures to a benchmark, and calculating CSI.
+
+ <br/><br/>
+
+
 ## v4.5.10.0 - 2024-09-25 - [PR#1301](https://github.com/NOAA-OWP/inundation-mapping/pull/1301)
 
 A reload of all 3Dep DEMs from USGS was performed to refresh our data.
@@ -187,14 +198,6 @@ Updated the gauge crosswalk and SRC adjustment routine to use the ras2fim v2 fil
 
 <br/><br/>
 
-## v4.5.x.x - 2024-08-09 - [PR#1244](https://github.com/NOAA-OWP/inundation-mapping/pull/1244)
-
-New tool that can assess the impact of a flood on road and/or building vector files. Closes #1226.
-
-### Additions
-- `tools/analyze_flood_impact.py` : added a tool that assesses the impact of a flood on roads and buildings by calculating how many roads and structures the test flood extent intersects, comparing the test impacted roads and structures to a benchmark, and calculating CSI.
-
- <br/><br/>
 
 
 ## v4.5.4.4 - 2024-08-02 - [PR#1238](https://github.com/NOAA-OWP/inundation-mapping/pull/1238)
