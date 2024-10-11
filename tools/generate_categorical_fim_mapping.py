@@ -193,6 +193,7 @@ def produce_stage_based_catfim_tifs(
         zero_branch_grid = path_list[0]
         zero_branch_src = rasterio.open(zero_branch_grid)
         zero_branch_array = zero_branch_src.read(1)
+        # zero_branch_array.nodata = 0
         summed_array = zero_branch_array  # Initialize it as the branch zero array
 
         output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')
@@ -214,7 +215,8 @@ def produce_stage_based_catfim_tifs(
                 src_nodata=remaining_raster_src.nodata,
                 dst_transform=zero_branch_src.transform,
                 dst_crs=zero_branch_src.crs,  # TODO: Accomodate AK projection?
-                dst_nodata=-1,
+                # dst_nodata=-1,
+                dst_nodata=0,
                 dst_resolution=zero_branch_src.res,
                 resampling=Resampling.nearest,
             )
@@ -236,7 +238,10 @@ def produce_stage_based_catfim_tifs(
 
 
 # This is part of an MP call and needs MP_LOG
-# This does not actually inundate, it just uses the stage and the catchment to create a tif
+
+# This is a form of inundation which we are doing ourselves
+# as we only have one flow value and our normal inundation tools
+# are looking for files not single values
 def produce_tif_per_huc_per_mag_for_stage(
     rem_path,
     catchments_path,
@@ -266,6 +271,13 @@ def produce_tif_per_huc_per_mag_for_stage(
         # MP_LOG.trace(locals())
         # MP_LOG.trace("+++++++++++++++++++++++")
 
+
+        output_tif = os.path.join(
+            lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif'
+        )
+
+
+        # both of these have a nodata value of 0 (well.. not by the image but by cell values)
         rem_src = rasterio.open(rem_path)
         catchments_src = rasterio.open(catchments_path)
         rem_array = rem_src.read(1)
@@ -278,20 +290,58 @@ def produce_tif_per_huc_per_mag_for_stage(
 
         # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
         #   are <= to hand_stage and the catchments value is in the hydroid_list.
+        
         reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
             'uint8'
         )
+        
+        # with rasterio.Env():
+        #     profile = rem_src.profile
+        #     profile.update(dtype=rasterio.uint8)
+        #     profile.update(nodata=10)
+
+        #     with rasterio.open(output_tif.replace(".tif", "rra.tif"), 'w', **profile) as dst:
+        #         dst.write(reclass_rem_array, 1)
+        
+        # reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != 0), 1, 0).astype(
+        #     'uint8'
+        # )
+         
+        # print(f"Hydroid_list is {hydroid_list} for {hand_stage}")
+                
         hydroid_mask = np.isin(catchments_array, hydroid_list)
+        
         target_catchments_array = np.where(
             ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
         ).astype('uint8')
+        
+        # target_catchments_array = np.where(
+        #     ((hydroid_mask == True) & (catchments_array != 0)), 1, 0
+        # ).astype('uint8')        
+        
+
+        # with rasterio.Env():
+        #     profile = rem_src.profile
+        #     profile.update(dtype=rasterio.uint8)
+        #     profile.update(nodata=10)
+
+        #     with rasterio.open(output_tif.replace(".tif", "tc.tif"), 'w', **profile) as dst:
+        #         dst.write(target_catchments_array, 1)
+        
+
         masked_reclass_rem_array = np.where(
-            ((reclass_rem_array == 1) & (target_catchments_array == 1)), 1, 0
+            ((reclass_rem_array >= 1) & (target_catchments_array >= 1)), 1, 0
         ).astype('uint8')
+
+
+
+        # change it all to either 1 or 0 (one being inundated)
+        # masked_reclass_rem_array[np.where(masked_reclass_rem_array <= 0)] = 0
+        # masked_reclass_rem_array[np.where(masked_reclass_rem_array > 0)] = 1
 
         # Save resulting array to new tif with appropriate name. ie) brdc1_record_extent_18060005.tif
         # to our mapping/huc/lid site
-        is_all_zero = np.all((masked_reclass_rem_array == 0))
+        is_all_zero = np.all(masked_reclass_rem_array == 0)
 
         # MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
 
@@ -358,9 +408,13 @@ def produce_tif_per_huc_per_mag_for_stage(
             with rasterio.Env():
                 profile = rem_src.profile
                 profile.update(dtype=rasterio.uint8)
-                profile.update(nodata=10)
+                profile.update(nodata=0)
+
+                # Replace any existing nodata values with the new one
+                # masked_reclass_rem_array[masked_reclass_rem_array == profile["nodata"]] = 0
 
                 with rasterio.open(output_tif, 'w', **profile) as dst:
+                    # dst.nodata = 0
                     dst.write(masked_reclass_rem_array, 1)
 
     except Exception:

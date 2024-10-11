@@ -106,8 +106,6 @@ def process_generate_categorical_fim(
             3 = start at update mapping status
     '''
 
-    print(f"Step number is {step_num}")
-
     # ================================
     # Validation and setup
 
@@ -1462,12 +1460,8 @@ def generate_stage_based_categorical_fim(
         FLOG.lprint(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : has no messages")
 
 
-def set_start_files_folders(step_num,
-                            output_catfim_dir,
-                            output_mapping_dir,
-                            output_flows_dir,
-                            attributes_dir,
-                            overwrite):
+def set_start_files_folders(
+    step_num, output_catfim_dir, output_mapping_dir, output_flows_dir, attributes_dir, overwrite):
    
     # ================================
     # Folder cleaning based on step system
