@@ -690,7 +690,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             #     if verbose:
             #         print("Writing pruned branches ...")
 
-                # self.write(out_vector_files, index=False)
+            # self.write(out_vector_files, index=False)
 
         return self
 
@@ -1037,14 +1037,14 @@ class StreamNetwork(gpd.GeoDataFrame):
         #     if verbose:
         #         print("Writing dissolved branches ...")
 
-            # for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
-            # out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
+        # for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
+        # out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
 
-            # bid_indices = self.loc[:,branch_id_attribute] == bid
-            # current_stream_network = StreamNetwork(self.loc[bid_indices,:])
+        # bid_indices = self.loc[:,branch_id_attribute] == bid
+        # current_stream_network = StreamNetwork(self.loc[bid_indices,:])
 
-            # current_stream_network.write(out_vector_file,index=False)
-            # self.write(out_vector_files, index=False)
+        # current_stream_network.write(out_vector_file,index=False)
+        # self.write(out_vector_files, index=False)
 
         return self
 

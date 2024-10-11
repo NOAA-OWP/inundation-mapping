@@ -218,8 +218,6 @@ def Derive_level_paths(
         if not branch_inlets.empty:
             branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG", engine='fiona')
 
-    
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create stream network level paths")
