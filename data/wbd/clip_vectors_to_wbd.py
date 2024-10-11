@@ -258,18 +258,18 @@ def subset_vector_layers(
     logging.info(f"Subsetting NWM Headwater Points for {hucCode}")
     nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
 
-    if len(nwm_headwaters) > 0:
-        nwm_headwaters.to_file(
-            subset_nwm_headwaters,
-            driver=getDriver(subset_nwm_headwaters),
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
-    else:
+    if len(nwm_headwaters) == 0:
         print("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
         logging.info("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
+
+    nwm_headwaters.to_file(
+        subset_nwm_headwaters,
+        driver=getDriver(subset_nwm_headwaters),
+        index=False,
+        crs=huc_CRS,
+        engine="fiona",
+    )
 
     del nwm_headwaters
 
@@ -280,17 +280,17 @@ def subset_vector_layers(
     huc_data['NWM_Catchments']['count'] = nwm_catchments.shape[0]
     huc_data['NWM_Catchments']['area'] = nwm_catchments.area
 
-    if len(nwm_catchments) > 0:
-        nwm_catchments.to_file(
-            subset_nwm_catchments,
-            driver=getDriver(subset_nwm_catchments),
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
-    else:
+    if len(nwm_catchments) == 0:
         logging.info("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
+
+    nwm_catchments.to_file(
+        subset_nwm_catchments,
+        driver=getDriver(subset_nwm_catchments),
+        index=False,
+        crs=huc_CRS,
+        engine="fiona",
+    )
 
     del nwm_catchments
 
@@ -333,44 +333,41 @@ def subset_vector_layers(
     nwm_streams_outlets = nwm_streams[~nwm_streams['to'].isin(nwm_streams['ID'])]
     nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
 
-    if len(nwm_streams) > 0:
-        # Address issue where NWM streams exit the HUC boundary and then re-enter, creating a MultiLineString
-        nwm_streams_nonoutlets = (
-            gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer).explode(index_parts=True).reset_index()
-        )
-
-        # Find and keep the downstream segment of the NWM stream
-        max_parts = nwm_streams_nonoutlets[['level_0', 'level_1']].groupby('level_0').max()
-
-        nwm_streams_nonoutlets = nwm_streams_nonoutlets.merge(max_parts, on='level_0', suffixes=('', '_max'))
-
-        nwm_streams_nonoutlets = nwm_streams_nonoutlets[
-            nwm_streams_nonoutlets['level_1'] == nwm_streams_nonoutlets['level_1_max']
-        ]
-
-        nwm_streams_nonoutlets = nwm_streams_nonoutlets.drop(columns=['level_1_max'])
-
-        nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
-
-        huc_data['NWM_Streams']['count'] = nwm_streams.shape[0]
-        huc_data['NWM_Streams']['length'] = nwm_streams.length
-        huc_data['NWM_Streams']['maxOrder'] = nwm_streams['order'].max()
-        for i in range(1, huc_data['NWM_Streams']['maxOrder'] + 1):
-            huc_data['NWM_Streams']['order_' + str(i)]['Count'] = nwm_streams[
-                nwm_streams['order'] == i
-            ].shape[0]
-            huc_data['NWM_Streams']['order_' + str(i)]['Length'] = nwm_streams[
-                nwm_streams['order'] == i
-            ].length
-
-        nwm_streams.to_file(
-            subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False, crs=huc_CRS, engine="fiona"
-        )
-    else:
+    if len(nwm_streams) == 0:
         print("No NWM stream segments within HUC " + str(hucCode) + " boundaries.")
         logging.info("No NWM stream segments within HUC " + str(hucCode) + " boundaries.")
         sys.exit(0)
-    del nwm_streams
+
+    # Address issue where NWM streams exit the HUC boundary and then re-enter, creating a MultiLineString
+    nwm_streams_nonoutlets = (
+        gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer).explode(index_parts=True).reset_index()
+    )
+
+    # Find and keep the downstream segment of the NWM stream
+    max_parts = nwm_streams_nonoutlets[['level_0', 'level_1']].groupby('level_0').max()
+
+    nwm_streams_nonoutlets = nwm_streams_nonoutlets.merge(max_parts, on='level_0', suffixes=('', '_max'))
+
+    nwm_streams_nonoutlets = nwm_streams_nonoutlets[
+        nwm_streams_nonoutlets['level_1'] == nwm_streams_nonoutlets['level_1_max']
+    ]
+
+    nwm_streams_nonoutlets = nwm_streams_nonoutlets.drop(columns=['level_1_max'])
+
+    nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
+
+    huc_data['NWM_Streams']['count'] = nwm_streams.shape[0]
+    huc_data['NWM_Streams']['length'] = nwm_streams.length
+    huc_data['NWM_Streams']['maxOrder'] = nwm_streams['order'].max()
+    for i in range(1, huc_data['NWM_Streams']['maxOrder'] + 1):
+        huc_data['NWM_Streams']['order_' + str(i)]['Count'] = nwm_streams[nwm_streams['order'] == i].shape[0]
+        huc_data['NWM_Streams']['order_' + str(i)]['Length'] = nwm_streams[nwm_streams['order'] == i].length
+
+    nwm_streams.to_file(
+        subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False, crs=huc_CRS, engine="fiona"
+    )
+
+    return pd.DataFrame.from_dict(huc_data)
 
 
 if __name__ == '__main__':
