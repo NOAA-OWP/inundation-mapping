@@ -49,6 +49,7 @@ levee_levelpaths.csv
 nld_rasterized_elev_{}.tif
 nwm_catchments_proj_subset_levelPaths_{}.gpkg
 nwm_subset_streams_levelPaths_{}.gpkg
+nwm_subset_streams_levelPaths_dissolved_extended_{}.gpkg
 nwm_subset_streams_levelPaths_dissolved_headwaters_{}.gpkg
 #osm_bridge_centroids_{}.gpkg
 #ras_elev_table.csv
