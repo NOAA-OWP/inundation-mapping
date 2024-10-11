@@ -10,6 +10,17 @@ New tool that can assess the impact of a flood on road and/or building vector fi
 - `tools/analyze_flood_impact.py` : added a tool that assesses the impact of a flood on roads and buildings by calculating how many roads and structures the test flood extent intersects, comparing the test impacted roads and structures to a benchmark, and calculating CSI.
 
  <br/><br/>
+## v4.5.10.1 - 2024-10-11 - [PR#1314](https://github.com/NOAA-OWP/inundation-mapping/pull/1314)
+
+This PR fixes bugs from hand_4_5_10_0, which failed to run for Alaska HUCs and HUC 02030201. It modifies scripts to use two different DEM paths: one for Alaska and one for the CONUS.
+
+### Changes
+
+- `src/derive_level_paths.py`
+- `src/stream_branches.py`
+- `src/run_unit_wb.sh`
+
+<br/><br/>
 
 
 ## v4.5.10.0 - 2024-09-25 - [PR#1301](https://github.com/NOAA-OWP/inundation-mapping/pull/1301)

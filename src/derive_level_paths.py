@@ -203,6 +203,12 @@ def Derive_level_paths(
             out_vector_files=out_stream_network_dissolved,
             verbose=False,
         )
+    if stream_network.empty:
+        print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
+        # sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+        return
+    # else:
+    #     return stream_network
 
     if branch_inlets_outfile is not None:
         branch_inlets = stream_network.derive_inlet_points_by_feature(
@@ -211,12 +217,6 @@ def Derive_level_paths(
 
         if not branch_inlets.empty:
             branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG", engine='fiona')
-
-    if stream_network.empty:
-        print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
-        sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
-    else:
-        return stream_network
 
 
 if __name__ == "__main__":
