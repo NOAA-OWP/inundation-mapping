@@ -694,11 +694,11 @@ class StreamNetwork(gpd.GeoDataFrame):
             self = self.drop(sjoined.index)
             self = self.rename(columns={"bids": branch_id_attribute})
 
-            if out_vector_files is not None:
-                if verbose:
-                    print("Writing pruned branches ...")
+            # if out_vector_files is not None:
+            #     if verbose:
+            #         print("Writing pruned branches ...")
 
-                self.write(out_vector_files, index=False)
+            # self.write(out_vector_files, index=False)
 
         return self
 
@@ -746,7 +746,9 @@ class StreamNetwork(gpd.GeoDataFrame):
                     print(
                         "Sorry, no streams exist and processing can not continue. This could be an empty file."
                     )
-                    sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+                    # sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+                    return self
+                    # sys.exit(FIM_exit_codes.NO_BRANCH_LEVELPATHS_EXIST.value)  # will send a 63 back
 
                 self.write(out_vector_files, index=False)
 
@@ -1163,8 +1165,19 @@ class StreamNetwork(gpd.GeoDataFrame):
             if verbose:
                 print("Writing dissolved branches ...")
 
-            self = self.rename(columns={"bids_temp": branch_id_attribute})
+        # if out_vector_files is not None:
+        #     # base_file_path,extension = splitext(out_vector_files)
 
+        #     if verbose:
+        #         print("Writing dissolved branches ...")
+
+            # for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
+            # out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
+
+            # bid_indices = self.loc[:,branch_id_attribute] == bid
+            # current_stream_network = StreamNetwork(self.loc[bid_indices,:])
+
+            # current_stream_network.write(out_vector_file,index=False)
             self.write(out_vector_files, index=False)
 
         if out_extended_vector_files is not None and not s_not_in_wbd.empty:

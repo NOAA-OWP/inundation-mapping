@@ -24,11 +24,13 @@ huc2Identifier=${hucNumber:0:2}
 if [ $huc2Identifier -eq 19 ]; then
     huc_CRS=$ALASKA_CRS
     huc_input_DEM_domain=$input_DEM_domain_Alaska
+    input_DEM=$input_DEM_Alaska
     dem_domain_filename=DEM_Domain.gpkg
 
 else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain
+    input_DEM=$input_DEM
     dem_domain_filename=HUC6_dem_domain.gpkg
 
 fi
