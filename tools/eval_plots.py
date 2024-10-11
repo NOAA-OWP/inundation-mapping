@@ -4,7 +4,6 @@ import argparse
 import glob
 import os
 import re
-import sys
 from pathlib import Path
 
 import geopandas as gpd
