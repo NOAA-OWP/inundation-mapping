@@ -1165,11 +1165,11 @@ class StreamNetwork(gpd.GeoDataFrame):
             if verbose:
                 print("Writing dissolved branches ...")
 
-        # if out_vector_files is not None:
-        #     # base_file_path,extension = splitext(out_vector_files)
+            # if out_vector_files is not None:
+            #     # base_file_path,extension = splitext(out_vector_files)
 
-        #     if verbose:
-        #         print("Writing dissolved branches ...")
+            #     if verbose:
+            #         print("Writing dissolved branches ...")
 
             # for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
             # out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
