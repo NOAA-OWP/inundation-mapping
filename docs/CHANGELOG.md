@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-10-01 - [PR#1306](https://github.com/NOAA-OWP/inundation-mapping/pull/1306)
+## v4.5.10.3 - 2024-10-11 - [PR#1306](https://github.com/NOAA-OWP/inundation-mapping/pull/1306)
 
 Extends outlet levelpath(s) outside HUC.
 
