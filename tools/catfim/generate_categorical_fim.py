@@ -177,7 +177,7 @@ def process_generate_categorical_fim(
 
     # Temp debug to drop it to one HUC or more only, not the full output dir
     # valid_ahps_hucs = ["10200203"]  # has dropped records
-    # valid_ahps_hucs = ["05060001"]
+    valid_ahps_hucs = ["05060001"]
     # valid_ahps_hucs = ["10260008"]
     # valid_ahps_hucs = ['20010000', '20020000', '20030000', '20040000', '20050000', '20060000', '20070000']
 
@@ -419,9 +419,10 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
                 sites_gdf.at[ind, 'mapped'] = 'no'
 
                 # override any previous status message
-                sites_gdf.at[ind, 'status'] = (
-                    "An internal error has occurred while creating features for this site."
-                )
+                if status_val == "":
+                    sites_gdf.at[ind, 'status'] = (
+                        "An internal error has occurred while creating features for this site."
+                    )
                 FLOG.warning(f"mapped status was changed to no for {ahps_id}. Check error logs for it")
 
         # sites_gdf.reset_index(inplace=True, drop=True)
