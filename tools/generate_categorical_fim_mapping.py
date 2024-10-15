@@ -211,7 +211,7 @@ def produce_stage_based_catfim_tifs(
                 remaining_raster_array_original,
                 destination=remaining_raster_array,
                 src_transform=remaining_raster_src.transform,
-                src_crs=remaining_raster_src.crs,  # TODO: Accomodate AK projection?
+                src_crs=remaining_raster_src.crs,
                 src_nodata=remaining_raster_src.nodata,
                 dst_transform=zero_branch_src.transform,
                 dst_crs=zero_branch_src.crs,  # TODO: Accomodate AK projection?
@@ -339,58 +339,6 @@ def produce_tif_per_huc_per_mag_for_stage(
         is_all_zero = np.all(masked_reclass_rem_array == 0)
 
         # MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
-
-        # ## TEMP DEBUG: Save intermediates
-        # intermediate_directory = 'intermediates'
-        # # reclass_rem_array
-        # int_output_tif = os.path.join(
-        #         intermediate_directory, lid + '_' + category + '_reclass_rem_array_' + huc + '_' + branch + '.tif'
-        #     )
-        # with rasterio.Env():
-        #     profile = rem_src.profile
-        #     profile.update(dtype=rasterio.uint8)
-        #     profile.update(nodata=10)
-
-        #     with rasterio.open(int_output_tif, 'w', **profile) as dst:
-        #         dst.write(reclass_rem_array, 1) # update
-
-        # # hydroid_mask
-        # int_output_tif = os.path.join(
-        #         intermediate_directory, lid + '_' + category + '_hydroid_mask_' + huc + '_' + branch + '.tif'
-        #     )
-        # with rasterio.Env():
-        #     profile = rem_src.profile
-        #     profile.update(dtype=rasterio.uint8)
-        #     profile.update(nodata=10)
-
-        #     with rasterio.open(int_output_tif, 'w', **profile) as dst:
-        #         dst.write(hydroid_mask, 1) # update
-
-        # # target_catchments_array
-        # int_output_tif = os.path.join(
-        #         intermediate_directory, lid + '_' + category + '_target_catchments_array_' + huc + '_' + branch + '.tif'
-        #     )
-        # with rasterio.Env():
-        #     profile = rem_src.profile
-        #     profile.update(dtype=rasterio.uint8)
-        #     profile.update(nodata=10)
-
-        #     with rasterio.open(int_output_tif, 'w', **profile) as dst:
-        #         dst.write(target_catchments_array, 1) # update
-
-        # # masked_reclass_rem_array
-        # int_output_tif = os.path.join(
-        #         intermediate_directory, lid + '_' + category + '_masked_reclass_rem_array_' + huc + '_' + branch + '.tif'
-        #     )
-        # with rasterio.Env():
-        #     profile = rem_src.profile
-        #     profile.update(dtype=rasterio.uint8)
-        #     profile.update(nodata=10)
-
-        #     with rasterio.open(int_output_tif, 'w', **profile) as dst:
-        #         dst.write(masked_reclass_rem_array, 1) # update
-
-        # ## END TEMP DEBUG: Save intermediates
 
         # if not is_all_zero:
         # if is_all_zero is False: # this logic didn't let ANY files get saved
@@ -919,9 +867,7 @@ def post_process_cat_fim_for_viz(
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
     gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
     FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
-    # merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION)
-    # CRS is wrong here, itputs this in the middle of the ocean
-    merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")  # crs=PREP_PROJECTION)
+    merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")
 
     csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
     FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
