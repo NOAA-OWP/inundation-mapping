@@ -200,7 +200,7 @@ def generate_flows_for_huc(
             for category in categories:
                 # In stage we use the threshold data here from WRDS, but here it is flows
                 flow = flows[category]
-                
+
                 MP_LOG.trace(f"{huc} : {lid} : {category} : flow value is {flow}")
 
                 if flow is not None and flow != 0 and flow != "":
@@ -393,7 +393,7 @@ def generate_flows(
 
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
     os.makedirs(attributes_dir, exist_ok=True)
-        
+
     mapping_dir = os.path.join(output_catfim_dir, "mapping")  # create var but don't make folder yet
 
     all_start = datetime.now(timezone.utc)
@@ -613,7 +613,7 @@ def generate_flows(
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
         viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
-        # viz_out_gdf['status'] = viz_out_gdf['status'].apply(lambda x: x[3:] if x.startswith("---") else x)        
+        # viz_out_gdf['status'] = viz_out_gdf['status'].apply(lambda x: x[3:] if x.startswith("---") else x)
 
     # Filter out columns and write out to file
     # viz_out_gdf = viz_out_gdf.filter(

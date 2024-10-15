@@ -184,7 +184,7 @@ def produce_stage_based_catfim_tifs(
     for f in lid_dir_list:
         if category in f:
             path_list.append(os.path.join(lid_directory, f))
-    
+
     path_list.sort()  # To force branch 0 first in list, sort
 
     # MP_LOG.trace(f"len of path_list is {len(path_list)}")
@@ -198,10 +198,10 @@ def produce_stage_based_catfim_tifs(
 
         output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')
         MP_LOG.trace(f"Output file to be saved is {output_tif}")
-        
+
         # Loop through remaining items in list and sum them with summed_array
         for remaining_raster in path_list[1:]:
-            
+
             remaining_raster_src = rasterio.open(remaining_raster)
             remaining_raster_array_original = remaining_raster_src.read(1)
 
@@ -226,7 +226,7 @@ def produce_stage_based_catfim_tifs(
         del zero_branch_array  # Clean up
 
         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
-        
+
         profile = zero_branch_src.profile
         summed_array = summed_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
@@ -238,6 +238,7 @@ def produce_stage_based_catfim_tifs(
 
 
 # This is part of an MP call and needs MP_LOG
+
 
 # This is a form of inundation which we are doing ourselves
 # as we only have one flow value and our normal inundation tools
@@ -257,7 +258,7 @@ def produce_tif_per_huc_per_mag_for_stage(
 ):
     """
     # Open rem_path and catchment_path using rasterio.
-    
+
     Note: category is not always just things like "action", "moderate", etc
        When using this intervals, it can look like action_24ft, moderate_26ft
     """
@@ -271,11 +272,9 @@ def produce_tif_per_huc_per_mag_for_stage(
         # MP_LOG.trace(locals())
         # MP_LOG.trace("+++++++++++++++++++++++")
 
-
         output_tif = os.path.join(
             lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif'
         )
-
 
         # both of these have a nodata value of 0 (well.. not by the image but by cell values)
         rem_src = rasterio.open(rem_path)
@@ -290,11 +289,11 @@ def produce_tif_per_huc_per_mag_for_stage(
 
         # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
         #   are <= to hand_stage and the catchments value is in the hydroid_list.
-        
+
         reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
             'uint8'
         )
-        
+
         # with rasterio.Env():
         #     profile = rem_src.profile
         #     profile.update(dtype=rasterio.uint8)
@@ -302,23 +301,22 @@ def produce_tif_per_huc_per_mag_for_stage(
 
         #     with rasterio.open(output_tif.replace(".tif", "rra.tif"), 'w', **profile) as dst:
         #         dst.write(reclass_rem_array, 1)
-        
+
         # reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != 0), 1, 0).astype(
         #     'uint8'
         # )
-         
+
         # print(f"Hydroid_list is {hydroid_list} for {hand_stage}")
-                
+
         hydroid_mask = np.isin(catchments_array, hydroid_list)
-        
+
         target_catchments_array = np.where(
             ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
         ).astype('uint8')
-        
+
         # target_catchments_array = np.where(
         #     ((hydroid_mask == True) & (catchments_array != 0)), 1, 0
-        # ).astype('uint8')        
-        
+        # ).astype('uint8')
 
         # with rasterio.Env():
         #     profile = rem_src.profile
@@ -327,13 +325,10 @@ def produce_tif_per_huc_per_mag_for_stage(
 
         #     with rasterio.open(output_tif.replace(".tif", "tc.tif"), 'w', **profile) as dst:
         #         dst.write(target_catchments_array, 1)
-        
 
         masked_reclass_rem_array = np.where(
             ((reclass_rem_array >= 1) & (target_catchments_array >= 1)), 1, 0
         ).astype('uint8')
-
-
 
         # change it all to either 1 or 0 (one being inundated)
         # masked_reclass_rem_array[np.where(masked_reclass_rem_array <= 0)] = 0
@@ -880,12 +875,13 @@ def post_process_cat_fim_for_viz(
         diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
         diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
         diss_extent_gdf['viz'] = 'yes'
-        
+
         if 'interval_stage' in diss_extent_gdf.columns:
             # Update the stage column value to be the interval value if an interval values exists
-            
-            diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0,
-                                "stage"] = diss_extent_gdf["interval_stage"]
+
+            diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0, "stage"] = diss_extent_gdf[
+                "interval_stage"
+            ]
 
         if ctr == 0:
             merged_layers_gdf = diss_extent_gdf
@@ -917,7 +913,7 @@ def post_process_cat_fim_for_viz(
 
     if 'level_0' in merged_layers_gdf:
         merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
-    
+
     output_file_name = f"{catfim_method}_catfim_library"
 
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
@@ -925,8 +921,7 @@ def post_process_cat_fim_for_viz(
     FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
     # merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', index=True, engine="fiona", crs=PREP_PROJECTION)
     # CRS is wrong here, itputs this in the middle of the ocean
-    merged_layers_gdf.to_file(
-        gpkg_file_path, driver='GPKG', engine="fiona")  # crs=PREP_PROJECTION)
+    merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")  # crs=PREP_PROJECTION)
 
     csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
     FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
@@ -979,7 +974,7 @@ def reformat_inundation_maps(
         #     {'properties': {'extent': 1}, 'geometry': s}
         #     for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
         # )
-        
+
         # trying a similar process from 'identify_catchment_boundary.py
         with rasterio.open(tif_to_process) as src:
             affine = src.transform
@@ -990,7 +985,7 @@ def reformat_inundation_maps(
             results = (
                 {'properties': {'extent': v}, 'geometry': s}
                 for i, (s, v) in enumerate(shapes(band, mask=inundated, transform=affine))
-            )        
+            )
 
         # Convert list of shapes to polygon
         # lots of polys
@@ -1000,7 +995,7 @@ def reformat_inundation_maps(
         )  # Updating to fix AK proj issue, worked for CONUS and for AK!
 
         # extent_poly = gpd.GeoDataFrame.from_features(list(results))  # Updated to accomodate AK projection
-        #extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
+        # extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
@@ -1066,6 +1061,7 @@ def reformat_inundation_maps(
 # This is not part of an MP progress and simply needs the
 # pointer of FLOG carried over here so it can use it directly.
 
+
 # TODO: Aug, 2024. We need re-evaluate job numbers, see usage of job numbers below
 # Used for Flow only
 def manage_catfim_mapping(
@@ -1110,9 +1106,7 @@ def manage_catfim_mapping(
     # else:
     #     run_dir_prefix = "hand_"
 
-    fim_version = (
-        os.path.basename(os.path.normpath(fim_run_dir))
-    )
+    fim_version = os.path.basename(os.path.normpath(fim_run_dir))
 
     # Step 2
     # TODO: Aug 2024, so we need to clean it up
