@@ -178,10 +178,10 @@ def process_generate_categorical_fim(
     ]
 
     # Temp debug to drop it to one HUC or more only, not the full output dir
-    valid_ahps_hucs = ["10200203"]  # has dropped records
+    # valid_ahps_hucs = ["10200203"]  # has dropped records
     # valid_ahps_hucs = ["05060001"]
     # valid_ahps_hucs = ["10260008"]
-    # valid_ahps_hucs = ["19020302"]
+    # valid_ahps_hucs = ['20010000', '20020000', '20030000', '20040000', '20050000', '20060000', '20070000']
 
     valid_ahps_hucs.sort()
 
