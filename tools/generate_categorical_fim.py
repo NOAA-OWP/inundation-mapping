@@ -505,7 +505,7 @@ def iterate_through_huc_stage_based(
                 "status": pd.Series(dtype='str'),
             }
 
-            for lid in nws_lids:
+        for lid in nws_lids:
                 MP_LOG.lprint("-----------------------------------")
                 huc_lid_id = f"{huc} : {lid}"
                 MP_LOG.lprint(f"processing {huc_lid_id}")
