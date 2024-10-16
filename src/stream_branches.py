@@ -1093,9 +1093,23 @@ class StreamNetwork(gpd.GeoDataFrame):
         s_in_wbd = gpd.sjoin(s, wbd)
         s_not_in_wbd = s[~s['ID'].isin(s_in_wbd['ID'])]
 
+        # Make a copy of the stream network
         self_copy = self.copy(deep=True)
 
+        # Dissolve levelpath(s)
         self = self_in_wbd.dissolve(by=branch_id_attribute, as_index=False)
+
+        # Fix ID and to attributes to downstream segment (these may be incorrect after dissolve)
+        for idx, row in self.iterrows():
+            # Get all segments of the levelpath
+            self_copy_levpa = self_copy.loc[self_copy[branch_id_attribute] == row[branch_id_attribute]]
+
+            # Get downstream segment of self_copy_levpa (self_copy_levpa.to not in self_copy_levpa.ID)
+            ds_outlet = self_copy_levpa.loc[~self_copy_levpa['to'].isin(self_copy_levpa['ID'])]
+
+            # Update self.ID and self.to to the downstream segment
+            self.loc[idx, 'ID'] = ds_outlet['ID'].values[0]
+            self.loc[idx, 'to'] = ds_outlet['to'].values[0]
 
         self["order_"] = max_stream_order.values
 
