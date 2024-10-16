@@ -1068,9 +1068,6 @@ class StreamNetwork(gpd.GeoDataFrame):
             exclude_indices = [False if i in values_excluded else True for i in self[attribute_excluded]]
             self = self.loc[exclude_indices, :]
 
-        # dissolve lines
-        # self["bids_temp"] = self.loc[:, branch_id_attribute].copy()
-
         wbd = gpd.read_file(wbd)
         wbd = wbd.drop('shape_Length', axis=1)
 
