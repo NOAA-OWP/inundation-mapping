@@ -22,6 +22,7 @@ def Derive_level_paths(
     branch_id_attribute,
     huc_id,
     out_stream_network_dissolved=None,
+    out_stream_network_dissolved_extended=None,
     headwaters_outfile=None,
     catchments=None,
     waterbodies=None,
@@ -179,15 +180,17 @@ def Derive_level_paths(
 
     if out_stream_network_dissolved is not None:
         stream_network = stream_network.trim_branches_in_waterbodies(
-            branch_id_attribute=branch_id_attribute, verbose=verbose
+            wbd=wbd, branch_id_attribute=branch_id_attribute, verbose=verbose
         )
 
         # dissolve by levelpath
         stream_network = stream_network.dissolve_by_branch(
+            wbd=wbd,
             branch_id_attribute=branch_id_attribute,
             attribute_excluded=None,  # 'order_',
             values_excluded=None,  # [1,2],
             out_vector_files=out_stream_network_dissolved,
+            out_extended_vector_files=out_stream_network_dissolved_extended,
             verbose=verbose,
         )
 
@@ -203,20 +206,20 @@ def Derive_level_paths(
             out_vector_files=out_stream_network_dissolved,
             verbose=False,
         )
+    if stream_network.empty:
+        print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
+        # sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+        return
+    # else:
+    #     return stream_network
 
     if branch_inlets_outfile is not None:
         branch_inlets = stream_network.derive_inlet_points_by_feature(
-            feature_attribute=branch_id_attribute, outlet_linestring_index=outlet_linestring_index
+            branch_id_attribute=branch_id_attribute, outlet_linestring_index=outlet_linestring_index
         )
 
         if not branch_inlets.empty:
             branch_inlets.to_file(branch_inlets_outfile, index=False, driver="GPKG", engine='fiona')
-
-    if stream_network.empty:
-        print("Sorry, no streams exist and processing can not continue. This could be an empty file.")
-        sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
-    else:
-        return stream_network
 
 
 if __name__ == "__main__":
@@ -269,6 +272,13 @@ if __name__ == "__main__":
         "-d",
         "--out-stream-network-dissolved",
         help="Dissolved output stream network",
+        required=False,
+        default=None,
+    )
+    parser.add_argument(
+        "-de",
+        "--out-stream-network-dissolved-extended",
+        help="Dissolved output stream network extended",
         required=False,
         default=None,
     )
