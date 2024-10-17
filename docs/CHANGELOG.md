@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.5.x.x - 2024-10-17 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
+
+The fix: During the post processing scan for the word "error" or "warning", it was only finding records which had either of those two words as stand alone words and not part of bigger phrases.  ie); "error" was found, but not "fielderror". Added wildcards and it is now fixed.
+
+Note: it is finding a good handful more errors and warnings that were being missed in earlier code versions.
+
+### Changes
+`fim_post_processing.sh`: fix as described.
+
+
+<br/><br/>
+
+
+
 ## v4.5.11.0 - 2024-10-11 - [PR#1298](https://github.com/NOAA-OWP/inundation-mapping/pull/1298)
 
 This PR addresses four issues regarding OSM bridges. It dissolves touching bridge lines so each bridge has a single linestring. It also removes abandoned bridge from the dataset and it adds bridge type field to bridge centroids. As part of this PR, `max_hand_ft` and `max_discharge_cfs` columns are added to `osm_bridge_centroids.gkpg`.
