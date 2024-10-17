@@ -123,6 +123,16 @@ def subset_vector_layers(
 ):
 
     huc_data = {'hucCode': hucCode, 'is_alaska': is_alaska, 'huc_CRS': huc_CRS}
+    huc_data['DEM'] = {}
+    huc_data['WBD'] = {}
+    huc_data['WBD_buffer'] = {}
+    huc_data['LandSea'] = {}
+    huc_data['LeveeProtectedAreas'] = {}
+    huc_data['NWM_Lakes'] = {}
+    huc_data['NWM_Catchments'] = {}
+    huc_data['NWM_Streams'] = {}
+    huc_data['NLD_Lines'] = {}
+    huc_data['OSM_Bridges'] = {}
 
     # print(f"Getting Cell Size for {hucCode}", flush=True)
     with rio.open(dem_filename) as dem_raster:
@@ -130,6 +140,8 @@ def subset_vector_layers(
         huc_data['DEM']['cellsize'] = dem_cellsize
         huc_data['DEM']['rows'] = dem_raster.height
         huc_data['DEM']['cols'] = dem_raster.width
+        huc_data['DEM']['bounds'] = dem_raster.bounds
+        huc_data['DEM']['crs'] = dem_raster.crs
 
     wbd = gpd.read_file(wbd_filename, engine="pyogrio", use_arrow=True)
     dem_domain = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
@@ -358,16 +370,17 @@ def subset_vector_layers(
 
     huc_data['NWM_Streams']['count'] = nwm_streams.shape[0]
     huc_data['NWM_Streams']['length'] = nwm_streams.length
-    huc_data['NWM_Streams']['maxOrder'] = nwm_streams['order'].max()
+    huc_data['NWM_Streams']['maxOrder'] = nwm_streams['order_'].max()
     for i in range(1, huc_data['NWM_Streams']['maxOrder'] + 1):
-        huc_data['NWM_Streams']['order_' + str(i)]['Count'] = nwm_streams[nwm_streams['order'] == i].shape[0]
-        huc_data['NWM_Streams']['order_' + str(i)]['Length'] = nwm_streams[nwm_streams['order'] == i].length
+        huc_data['NWM_Streams']['order_' + str(i)] = {}
+        huc_data['NWM_Streams']['order_' + str(i)]['Count'] = nwm_streams[nwm_streams['order_'] == i].shape[0]
+        huc_data['NWM_Streams']['order_' + str(i)]['Length'] = nwm_streams[nwm_streams['order_'] == i].length
 
     nwm_streams.to_file(
         subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False, crs=huc_CRS, engine="fiona"
     )
 
-    return pd.DataFrame.from_dict(huc_data)
+    pd.DataFrame.from_dict(huc_data).to_csv(f'/outputs/temp/{hucCode}_data.csv', index=False)
 
 
 if __name__ == '__main__':
