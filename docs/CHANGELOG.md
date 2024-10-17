@@ -7,7 +7,9 @@ Bug fixes to address issues during `fim_pipeline.sh`.
 
 ### Changes
 
-- `src/stream_branches.py`: Remove `bids_temp` and fix index.
+- `src/`
+    - `aggregate_by_huc.py`: Fix `pyogrio` field error.
+    - `stream_branches.py`: Remove `bids_temp` and fix index.
 
 <br/><br/>
 
