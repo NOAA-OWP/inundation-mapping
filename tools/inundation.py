@@ -13,6 +13,7 @@ import pandas as pd
 import rasterio
 import xarray as xr
 from numba import njit, typed, types
+from rasterio.features import shapes
 from rasterio.io import DatasetReader, DatasetWriter
 from rasterio.mask import mask
 from shapely.geometry import shape
@@ -221,31 +222,35 @@ def inundate(
         )
 
         # start up thread pool
-        executor = ThreadPoolExecutor(max_workers=num_workers)
+        # executor = ThreadPoolExecutor(max_workers=num_workers)
+
+        # start up thread pool
+        # executor = ThreadPoolExecutor(max_workers=num_workers)
 
         # submit jobs
-        results = {executor.submit(__inundate_in_huc, *wg): wg[6] for wg in window_gen}
+        # results = {executor.submit(__inundate_in_huc, *wg): wg[6] for wg in window_gen}
 
         inundation_rasters = []
         depth_rasters = []
         inundation_polys = []
-        for future in as_completed(results):
-            try:
-                future.result()
-            except Exception as exc:
-                __vprint("Exception {} for {}".format(exc, results[future]), not quiet)
-            else:
-                if results[future] is not None:
-                    __vprint("... {} complete".format(results[future]), not quiet)
-                else:
-                    __vprint("... complete", not quiet)
-
-                inundation_rasters += [future.result()[0]]
-                depth_rasters += [future.result()[1]]
-                inundation_polys += [future.result()[2]]
+        # for future in as_completed(results):
+        #     try:
+        #         future.result()
+        #     except Exception as exc:
+        #         __vprint("Exception {} for {}".format(exc, results[future]), not quiet)
+        #     else:
+        #         if results[future] is not None:
+        #             __vprint("... {} complete".format(results[future]), not quiet)
+        #         else:
+        #             __vprint("... complete", not quiet)
+        for wg in window_gen:
+            future = __inundate_in_huc(*wg)
+            inundation_rasters += [future[0]]
+            depth_rasters += [future[1]]
+            inundation_polys += [future[2]]
 
         # power down pool
-        executor.shutdown(wait=True)
+        # executor.shutdown(wait=True)
 
     # close datasets
     rem.close()
@@ -371,7 +376,7 @@ def __inundate_in_huc(
     # polygonize inundation
     if isinstance(inundation_polygon, fiona.Collection):
         # make generator for inundation polygons
-        # TODO shapes() method below is "undefined".
+
         inundation_polygon_generator = shapes(
             inundation_array, mask=inundation_array > 0, connectivity=8, transform=window_transform
         )

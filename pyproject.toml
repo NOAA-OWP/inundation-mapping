@@ -82,3 +82,10 @@ per-file-ignores = """
     tools/check_deep_flooding.py: E712
     data/usgs/rating_curve_get_usgs_curves.py: F841
     """
+
+
+
+[build-system]
+requires = ["maturin>=1.7", 'setuptools>=42']
+#build-backend = "maturin"
+build-backend = 'setuptools.build_meta'
