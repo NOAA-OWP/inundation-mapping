@@ -82,7 +82,8 @@ def process_generate_categorical_fim(
     output_folder,
     overwrite,
     search,
-    lid_to_run,
+    # lid_to_run,
+    lst_hucs,
     job_number_intervals,
     past_major_interval_cap,
     step_num,
@@ -168,16 +169,22 @@ def process_generate_categorical_fim(
     # output_flow_dir_list = os.listdir(fim_run_dir)
 
     # ================================
-    # Code variation for KEEPING Alaska HUCS:
+    # Get HUCs from FIM run directory
     valid_ahps_hucs = [
         x
         for x in os.listdir(fim_run_dir)
         if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
     ]
 
+    # If a HUC list is specified, only keep the specified HUCs
+    lst_hucs = lst_hucs.split()
+    if 'all' not in lst_hucs:
+        valid_ahps_hucs = [x for x in valid_ahps_hucs if x in lst_hucs]
+        dropped_huc_lst = list((set(lst_hucs).difference(valid_ahps_hucs)))
+
     # Temp debug to drop it to one HUC or more only, not the full output dir
     # valid_ahps_hucs = ["10200203"]  # has dropped records
-    valid_ahps_hucs = ["05060001"]
+    # valid_ahps_hucs = ["05060001"]
     # valid_ahps_hucs = ["10260008"]
     # valid_ahps_hucs = ['20010000', '20020000', '20030000', '20040000', '20050000', '20060000', '20070000']
 
@@ -198,10 +205,15 @@ def process_generate_categorical_fim(
     FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
     FLOG.lprint("")
 
-    # FLOG.lprint(
-    #     f"Processing {num_hucs} huc(s) with Alaska temporarily removed"
-    # ) # Code variation for DROPPING Alaska HUCs
-    FLOG.lprint(f"Processing {num_hucs} huc(s)")  # Code variation for KEEPING Alaska HUCs
+    FLOG.lprint(f"Processing {num_hucs} huc(s)") 
+
+    # If HUCs are given as an input
+    if 'all' not in lst_hucs:
+        print(f'HUCs to use (from input list): {valid_ahps_hucs}')
+
+        if len(dropped_huc_lst) > 0:
+            FLOG.warning('Listed HUCs not available in FIM run directory:')
+            FLOG.warning(dropped_huc_lst) 
 
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
@@ -213,7 +225,8 @@ def process_generate_categorical_fim(
             'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
         )
 
-    # TODO: Add check for if lid_to_run and lst_hucs parameters conflict
+    # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
+    lid_to_run = "all"
 
     # Check that fim_inputs.csv exists and raise error if necessary
     fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
@@ -1586,23 +1599,24 @@ if __name__ == '__main__':
         default='5',
     )
 
-    parser.add_argument(
-        '-l',
-        '--lid_to_run',
-        help='OPTIONAL: NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Defaults to all sites',
-        required=False,
-        default='all',
-    )
-
-    # lst_hucs temp disabled. All hucs in fim outputs in a directory will used
-    # NOTE: The HUCs you put in this, MUST be a HUC that is valid in your -f/ --fim_run_dir (HAND output folder)
+    ## Deprecated, use lst_hucs instead
+    # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
     # parser.add_argument(
-    #     '-lh',
-    #     '--lst_hucs',
-    #     help='OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs',
+    #     '-l',
+    #     '--lid_to_run',
+    #     help='OPTIONAL: NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Defaults to all sites',
     #     required=False,
     #     default='all',
     # )
+
+    # NOTE: The HUCs you put in this, MUST be a HUC that is valid in your -f/ --fim_run_dir (HAND output folder)
+    parser.add_argument(
+        '-lh',
+        '--lst_hucs',
+        help='OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs',
+        required=False,
+        default='all',
+    )
 
     parser.add_argument(
         '-mc',

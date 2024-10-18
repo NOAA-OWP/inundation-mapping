@@ -661,8 +661,8 @@ def __load_nwm_metadata(
 
         FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
 
-        # lid_to_run coudl be a single lid or the word "all"
-
+        # lid_to_run could be a single lid or the word "all"
+        # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
         if lid_to_run != "all":
             all_meta_lists, ___ = get_metadata(
                 metadata_url,
