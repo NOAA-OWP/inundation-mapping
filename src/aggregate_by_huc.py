@@ -288,7 +288,7 @@ class HucDirectory(object):
                         (c > 1) & (bridge_pnts.feature_id != bridge_pnts.crossing_feature_id), 'is_backwater'
                     ] = 1
                     # Write file
-                    bridge_pnts.to_file(bridge_pnts_file, index=False)
+                    bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
 
             # print(f"agg_by_huc for huc id {huc_id} is done")
 
