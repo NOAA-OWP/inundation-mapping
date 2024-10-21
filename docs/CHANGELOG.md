@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.11.2 - 2024-10-22 - [PR#1322](https://github.com/NOAA-OWP/inundation-mapping/pull/1322)
+
+For security reasons, we needed to create a docker image that does not use the root user in anyway. This can only be used on OWP servers at this time.
+
+### Additions
+
+- owp.Dockerfile: as described
+
+<br/><br/>
+
+
 ## v4.5.11.1 - 2024-10-16 - [PR#1318](https://github.com/NOAA-OWP/inundation-mapping/pull/1318)
 
 Bug fixes to address issues during `fim_pipeline.sh`.
