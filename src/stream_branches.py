@@ -482,7 +482,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                 row.loc[row[branch_id_attribute].duplicated(), branch_id_attribute] = np.nan
                 row = row.dropna(subset=[branch_id_attribute])
 
-            feature_inlet_point = Point(row.geometry[0].coords[inlet_linestring_index])
+            feature_inlet_point = Point(row.geometry[idx].coords[inlet_linestring_index])
 
             feature_inlet_points_gdf.loc[idx, "geometry"] = feature_inlet_point
 
@@ -1030,7 +1030,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                 extended_id = outlet_id
 
             # add outlet segment to stream network
-            idx = self_extended['bids_temp'] == outlet.levpa_id
+            idx = self_extended[branch_id_attribute] == outlet.levpa_id
             if self_extended.loc[idx].empty:
                 idx = self_extended['ID'] == extended_id
 
@@ -1068,9 +1068,6 @@ class StreamNetwork(gpd.GeoDataFrame):
             exclude_indices = [False if i in values_excluded else True for i in self[attribute_excluded]]
             self = self.loc[exclude_indices, :]
 
-        # dissolve lines
-        self["bids_temp"] = self.loc[:, branch_id_attribute].copy()
-
         wbd = gpd.read_file(wbd)
         wbd = wbd.drop('shape_Length', axis=1)
 
@@ -1093,9 +1090,23 @@ class StreamNetwork(gpd.GeoDataFrame):
         s_in_wbd = gpd.sjoin(s, wbd)
         s_not_in_wbd = s[~s['ID'].isin(s_in_wbd['ID'])]
 
+        # Make a copy of the stream network
         self_copy = self.copy(deep=True)
 
-        self = self_in_wbd.dissolve(by=branch_id_attribute)
+        # Dissolve levelpath(s)
+        self = self_in_wbd.dissolve(by=branch_id_attribute, as_index=False)
+
+        # Fix ID and to attributes to downstream segment (these may be incorrect after dissolve)
+        for idx, row in self.iterrows():
+            # Get all segments of the levelpath
+            self_copy_levpa = self_copy.loc[self_copy[branch_id_attribute] == row[branch_id_attribute]]
+
+            # Get downstream segment of self_copy_levpa (self_copy_levpa.to not in self_copy_levpa.ID)
+            ds_outlet = self_copy_levpa.loc[~self_copy_levpa['to'].isin(self_copy_levpa['ID'])]
+
+            # Update self.ID and self.to to the downstream segment
+            self.loc[idx, 'ID'] = ds_outlet['ID'].values[0]
+            self.loc[idx, 'to'] = ds_outlet['to'].values[0]
 
         self["order_"] = max_stream_order.values
 
@@ -1105,7 +1116,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             # For each outlet
             for outlet in s_not_in_wbd.itertuples():
                 # Select segments in levelpath
-                temp_df = self_copy[self_copy[branch_id_attribute] == outlet.bids_temp]
+                temp_df = self_copy[self_copy[branch_id_attribute] == outlet.levpa_id]
 
                 # Check if the levelpath outlet is external
                 if not len(temp_df.merge(self_in_wbd, left_on='to', right_on='ID')) == len(temp_df):
@@ -1137,7 +1148,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                 values_excluded=values_excluded,
             )
 
-            outlets_extended = outlets_extended.rename(columns={'bids_temp': branch_id_attribute})
+            # outlets_extended = outlets_extended.rename(columns={'bids_temp': branch_id_attribute})
 
         # merges each multi-line string to a singular linestring
         for lpid, row in tqdm(
@@ -1165,19 +1176,6 @@ class StreamNetwork(gpd.GeoDataFrame):
             if verbose:
                 print("Writing dissolved branches ...")
 
-            # if out_vector_files is not None:
-            #     # base_file_path,extension = splitext(out_vector_files)
-
-            #     if verbose:
-            #         print("Writing dissolved branches ...")
-
-            # for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
-            # out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
-
-            # bid_indices = self.loc[:,branch_id_attribute] == bid
-            # current_stream_network = StreamNetwork(self.loc[bid_indices,:])
-
-            # current_stream_network.write(out_vector_file,index=False)
             self.write(out_vector_files, index=False)
 
         if out_extended_vector_files is not None and not s_not_in_wbd.empty:
