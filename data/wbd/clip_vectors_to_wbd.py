@@ -3,6 +3,7 @@
 import argparse
 import logging
 import os
+import pickle
 import sys
 
 import geopandas as gpd
@@ -122,7 +123,7 @@ def subset_vector_layers(
     huc_CRS,
 ):
 
-    huc_data = {'hucCode': hucCode, 'is_alaska': is_alaska, 'huc_CRS': huc_CRS}
+    huc_data = {'huc8': hucCode, 'is_alaska': is_alaska, 'huc_CRS': huc_CRS}
     huc_data['DEM'] = {}
     huc_data['WBD'] = {}
     huc_data['WBD_buffer'] = {}
@@ -380,7 +381,22 @@ def subset_vector_layers(
         subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False, crs=huc_CRS, engine="fiona"
     )
 
-    pd.DataFrame.from_dict(huc_data).to_csv(f'/outputs/temp/{hucCode}_data.csv', index=False)
+    return huc_data
+
+    fim_version = '/'.join(subset_nwm_streams.split('/')[0:3])
+
+    pickle_path = os.path.join(fim_version, 'huc_data.pkl')
+
+    if os.path.exists(pickle_path):
+        with open(pickle_path, 'rb') as f:
+            data = pickle.load(f)
+    else:
+        data = {}
+
+    data[hucCode] = huc_data
+
+    with open(pickle_path, 'wb') as f:
+        pickle.dump(data, f)
 
 
 if __name__ == '__main__':

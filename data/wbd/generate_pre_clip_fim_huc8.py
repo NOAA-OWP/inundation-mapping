@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import logging
 import os
+import pickle
 import shutil
 import subprocess
 import traceback
@@ -238,6 +239,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     # The log files for each multi proc has tons and tons of duplicate lines crossing mp log
     # processes, but does always log correctly back to the parent log
 
+    data = {}
     failed_HUCs_list = []  # On return from the MP, if it returns a HUC number, that is a failed huc
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         futures = {}
@@ -249,11 +251,18 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
         for future in as_completed(futures):
             if future is not None:
                 if not future.exception():
-                    failed_huc = future.result()
-                    if failed_huc.lower() != "success" and failed_huc.isnumeric():
-                        failed_HUCs_list.append(failed_huc)
+                    result = future.result()
+                    if isinstance(result, dict):
+                        data[result['huc8']] = result
+                    elif not isinstance(result, dict) and result.isnumeric():
+                        failed_HUCs_list.append(result)
                 else:
                     raise future.exception()
+
+    print("Saving data dict")
+    # fh.save_dict_to_json(data, os.path.join(outputs_dir, "data_dict.json"))
+    with open(os.path.join(outputs_dir, 'data_dict.pkl'), 'wb') as f:
+        pickle.dump(data, f)
 
     print("Merging MP log files")
     __merge_mp_logs(outputs_dir, LOG_FILE_PATH)
@@ -390,7 +399,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
         # Subset Vector Layers (after determining whether it's alaska or not)
         if huc2Identifier == '19':
             # Yes Alaska
-            subset_vector_layers(
+            huc_dict = subset_vector_layers(
                 subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
                 subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
                 hucCode=huc,
@@ -422,7 +431,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
 
         else:
             # Not Alaska
-            subset_vector_layers(
+            huc_dict = subset_vector_layers(
                 subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
                 subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
                 hucCode=huc,
@@ -507,7 +516,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
     if in_error is True:
         return huc
     else:
-        return "Success"
+        return huc_dict
 
 
 if __name__ == '__main__':
