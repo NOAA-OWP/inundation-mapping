@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-10-23 - [PR#1327](https://github.com/NOAA-OWP/inundation-mapping/pull/1327)
+
+The initial purpose of this PR was to cut down the runtime for four Alaska HUCs (19020104, 19020503, 19020402, and19020602`). It significantly optimizes runtime by replacing a nested for loop, used for updating rating curve for small segments, with a vectorized process. This can improve runtime for all HUCs with small segments.
+
+### Changes
+
+- `src/add_crosswalk.py`
+- `tools/bridge_inundation.py`
+
+<br/><br/>
+
 ## v4.5.11.1 - 2024-10-16 - [PR#1318](https://github.com/NOAA-OWP/inundation-mapping/pull/1318)
 
 Bug fixes to address issues during `fim_pipeline.sh`.
