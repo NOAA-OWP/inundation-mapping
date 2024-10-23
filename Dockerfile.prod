@@ -79,9 +79,9 @@ RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-
 RUN apt auto-remove
 
 ## adding AWS CLI (for bash) ##
-# RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-#    unzip awscliv2.zip && \
-#    ./aws/install
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+   unzip awscliv2.zip && \
+   ./aws/install
 
 ## adding environment variables for numba and python ##
 ENV LC_ALL=C.UTF-8
@@ -117,8 +117,7 @@ RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_
 # The containiner will auto use this account to run
 ARG RuntimeUser=svc_user
 RUN useradd -u 8877 -g $GroupName -s /bin/bash $RuntimeUser
-RUN usermod -aG sudo $RuntimeUser
-# RUN chmod u=rw,g=rw $workDir
+RUN chmod 777 $workDir
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /
