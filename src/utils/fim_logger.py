@@ -288,7 +288,7 @@ class FIM_logger:
     # -------------------------------------------------
     def trace(self, msg):
         # goes to file only, not console
-        level = "TRACE   "  # keeps spacing the same
+        level = "TRACE    "  # keeps spacing the same  (9 chars wide)
         if self.LOG_FILE_PATH == "":
             print(self.LOG_SYS_NOT_SETUP_MSG)
             return
@@ -301,7 +301,7 @@ class FIM_logger:
     # -------------------------------------------------
     def lprint(self, msg):
         # goes to console and log file
-        level = "LPRINT  "  # keeps spacing the same
+        level = "LPRINT   "  # keeps spacing the same  (9 chars wide)
         print(f"{msg} ")
 
         if self.LOG_FILE_PATH == "":
@@ -316,7 +316,7 @@ class FIM_logger:
     # -------------------------------------------------
     def notice(self, msg):
         # goes to console and log file
-        level = "NOTICE  "  # keeps spacing the same
+        level = "NOTICE   "  # keeps spacing the same  (9 chars wide)
         # print(f"{cl.fore.TURQUOISE_2}{msg}{cl.style.RESET}")
         print(f"{level}: {msg}")
 
@@ -332,7 +332,7 @@ class FIM_logger:
     # -------------------------------------------------
     def success(self, msg):
         # goes to console and log file
-        level = "SUCCESS "  # keeps spacing the same
+        level = "SUCCESS  "  # keeps spacing the same  (9 chars wide)
 
         # c_msg_type = f"{cl.fore.SPRING_GREEN_2B}<{level}>{cl.style.RESET}"
         # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
@@ -350,7 +350,7 @@ class FIM_logger:
     # -------------------------------------------------
     def warning(self, msg):
         # goes to console and log file and warning log file
-        level = "WARNING "  # keeps spacing the same
+        level = "WARNING  "  # keeps spacing the same  (9 chars wide)
 
         # c_msg_type = f"{cl.fore.LIGHT_YELLOW}<{level}>{cl.style.RESET}"
         # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
@@ -372,7 +372,7 @@ class FIM_logger:
     # -------------------------------------------------
     def error(self, msg):
         # goes to console and log file and error log file
-        level = "ERROR   "  # keeps spacing the same
+        level = "ERROR    "  # keeps spacing the same  (9 chars wide)
 
         # c_msg_type = f"{cl.fore.RED_1}<{level}>{cl.style.RESET}"
         # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
@@ -393,7 +393,7 @@ class FIM_logger:
 
     # -------------------------------------------------
     def critical(self, msg):
-        level = "CRITICAL"  # keeps spacing the same
+        level = "CRITICAL "  # keeps spacing the same (9 chars wide)
 
         # c_msg_type = f"{cl.style.BOLD}{cl.fore.RED_3A}{cl.back.WHITE}{self.__get_dt()}"
         # c_msg_type += f" <{level}>"
