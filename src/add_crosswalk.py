@@ -111,7 +111,7 @@ def add_crosswalk(
     output_flows = output_flows.merge(output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID')
 
     output_flows = output_flows.drop_duplicates(subset='HydroID')
-    
+
     output_flows['ManningN'] = mannings_n
 
     if output_flows.NextDownID.dtype != 'int':
@@ -284,20 +284,26 @@ def add_crosswalk(
         print("Update rating curves for short reaches.")
 
         # Create a DataFrame with new values for discharge based on 'update_id'
-        new_values = output_src[output_src['HydroID'].isin(sml_segs['update_id'])][['HydroID', 'Stage', 'Discharge (m3s-1)']]
+        new_values = output_src[output_src['HydroID'].isin(sml_segs['update_id'])][
+            ['HydroID', 'Stage', 'Discharge (m3s-1)']
+        ]
 
         # Merge this new values DataFrame with sml_segs on 'update_id' and 'HydroID'
         sml_segs_with_values = sml_segs.merge(
-            new_values,
-            left_on='update_id',
-            right_on='HydroID',
-            suffixes=('', '_new')
+            new_values, left_on='update_id', right_on='HydroID', suffixes=('', '_new')
         )
         sml_segs_with_values = sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']]
-        merged_output_src = output_src.merge(sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']], left_on=['HydroID', 'Stage'], right_on=['short_id', 'Stage'], suffixes=('', '_df2'))
+        merged_output_src = output_src.merge(
+            sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']],
+            left_on=['HydroID', 'Stage'],
+            right_on=['short_id', 'Stage'],
+            suffixes=('', '_df2'),
+        )
         merged_output_src = merged_output_src[['HydroID', 'Stage', 'Discharge (m3s-1)_df2']]
         output_src = pd.merge(output_src, merged_output_src, on=['HydroID', 'Stage'], how='left')
-        output_src['Discharge (m3s-1)'] = output_src['Discharge (m3s-1)_df2'].fillna(output_src['Discharge (m3s-1)'])
+        output_src['Discharge (m3s-1)'] = output_src['Discharge (m3s-1)_df2'].fillna(
+            output_src['Discharge (m3s-1)']
+        )
         output_src = output_src.drop(columns=['Discharge (m3s-1)_df2'])
 
     output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
