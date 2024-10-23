@@ -150,6 +150,10 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
         if vector_path == "":
             print('No vector path provided. Continuing to next layer.')
             continue
+        if not os.path.exists(vector_path):
+            print(f'{vector_path} does not exist. Continuing to next layer.')
+            continue
+
         # Opens vector file and sets path
 
         try:
