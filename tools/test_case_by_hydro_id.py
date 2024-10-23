@@ -253,6 +253,7 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
             catchment_gpkg = os.path.join(
                 test_case_class.fim_dir,
                 'branches',
+                '0',
                 "gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg",
             )
 
