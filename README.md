@@ -54,7 +54,7 @@ Download a directory of sample outputs for a single HUC8:
 aws s3 sync s3://noaa-nws-owp-fim/hand_fim/outputs/hand_4_5_2_11/12090301 \
     /your_local_folder_name/12090301 --profile esip
 ```
-By adjusting pathing, you can also download entire directories such as the `hand_4_5_2_11` folder. An entire output HAND set is approximately 1.1 TB.
+By adjusting pathing, you can also download entire directories such as the `hand_4_5_2_11` folder. An entire output HAND set is approximately 1.7 TB.
 
 **Note**: There may be newer editions than `hand_4_5_11_1`, and it is recommended to adjust the command above for the latest version.
 
