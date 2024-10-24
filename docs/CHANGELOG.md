@@ -13,7 +13,7 @@ In the Dockerfile.prod, you can not do installs or update using either pipenv or
 
 ### Additions
 
-- owp.Dockerfile: as described
+- Dockerfile.prod: as described
 
 ### Changes
 - `README.md`: change notes from phrase `Dockerfile` to `Dockerfile.dev`. Also added some notes about the new convention of outputs no longer starting with `fim_` but now `hand_`
