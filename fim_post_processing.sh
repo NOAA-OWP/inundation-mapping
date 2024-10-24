@@ -267,7 +267,7 @@ Tcount
 l_echo $startDiv"Resetting Permissions"
 Tstart
     # super slow to change chmod on the log folder. Not really manditory anyways
-    find $outputDestDir -maxdepth 1 -type f -exec chmod 666 {} +  # just root level files
+    find $outputDestDir -maxdepth 1 -type f -exec chmod 777 {} +  # just root level files
 Tcount
 
 

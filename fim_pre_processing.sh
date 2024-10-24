@@ -204,6 +204,7 @@ if [ ! -d $outputDestDir ]; then
     mkdir -p $outputDestDir
     chmod 777 $outputDestDir
     mkdir -p $tempRunDir
+	chmod 777 $tempRunDir
 else
     # remove these directories and files on a new or overwrite run
     rm -rdf $outputDestDir/logs
@@ -230,6 +231,9 @@ cp $envFile $outputDestDir/params.env
 # or via pipeline. There is likely a more elegent way to do this.
 
 args_file=$outputDestDir/runtime_args.env
+
+# reset it again (this time recursive for the new incoming folders
+chmod 777 -R $outputDestDir
 
 # the jobHucLimit is not from the args files, only jobBranchLimit
 echo "export runName=$runName" >> $args_file
