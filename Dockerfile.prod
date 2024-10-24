@@ -118,6 +118,8 @@ RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_
 ARG RuntimeUser=svc_user
 RUN useradd -u 8877 -g $GroupName -s /bin/bash $RuntimeUser
 RUN chmod 777 $workDir
+RUN mkdir -p "/home/${RuntimeUser}"
+RUN chmod 777 /home/$RuntimeUser
 
 ## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
 ADD ./src/entrypoint.sh /
