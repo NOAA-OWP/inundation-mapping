@@ -201,7 +201,7 @@ def process_generate_categorical_fim(
     FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
     FLOG.lprint("")
 
-    FLOG.lprint(f"Processing {num_hucs} huc(s)") 
+    FLOG.lprint(f"Processing {num_hucs} huc(s)")
 
     # If HUCs are given as an input
     if 'all' not in lst_hucs:
@@ -209,7 +209,7 @@ def process_generate_categorical_fim(
 
         if len(dropped_huc_lst) > 0:
             FLOG.warning('Listed HUCs not available in FIM run directory:')
-            FLOG.warning(dropped_huc_lst) 
+            FLOG.warning(dropped_huc_lst)
 
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
@@ -255,9 +255,9 @@ def process_generate_categorical_fim(
         catfim_sites_file_path = os.path.join(output_mapping_dir, 'stage_based_catfim_sites.gpkg')
 
         if step_num <= 1:
-            
+
             df_restricted_sites = load_restricted_sites()
-            
+
             generate_stage_based_categorical_fim(
                 output_catfim_dir,
                 fim_run_dir,
@@ -420,12 +420,12 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
             ahps_id = row['ahps_lid']
             status_val = row['status']
             if status_val == 'OK' or status_val.startswith("---") is True:
-                
+
                 # Note. It is possible for a status to start with --- but fail
                 # later. So we wil temp change it to yes, and it might be changed
                 # back to false.
                 sites_gdf.at[ind, 'mapped'] = 'yes'
-       
+
                 if status_val.startswith("---"):
                     sites_gdf.at[ind, 'status'] = status_val[3:]
             else:
@@ -530,7 +530,7 @@ def iterate_through_huc_stage_based(
 
         categories = ['action', 'minor', 'moderate', 'major', 'record']
 
-        if skip_lid_process == False:  # else skip to message processing
+        if skip_lid_process is False:  # else skip to message processing
             usgs_elev_df = pd.read_csv(usgs_elev_table)
 
             df_cols = {
@@ -566,7 +566,7 @@ def iterate_through_huc_stage_based(
 
                 # if lid.upper() != 'GRNN1': Debug
                 #     continue
-                
+
                 # TODO: Oct 2024, yes. this is goofy but temporary
                 # Some lids will add a status message but are allowed to continue.
                 # When we want to keep a lid processing but have a message, we add :three dashes
@@ -580,26 +580,20 @@ def iterate_through_huc_stage_based(
                 MP_LOG.lprint("-----------------------------------")
                 huc_lid_id = f"{huc} : {lid}"
                 MP_LOG.lprint(f"processing {huc_lid_id}")
-                
+
                 found_restrict_lid = df_restricted_sites.loc[df_restricted_sites['nws_lid'] == lid.upper()]
-                
+
                 # print(found_restrict_lid)
-                
+
                 # Assume only one rec for now, fix later
                 if len(found_restrict_lid) > 0:
-                    skip_mapping = found_restrict_lid.iloc[0, found_restrict_lid.columns.get_loc("skip_mapping")]
-                    reason = found_restrict_lid.iloc[0, found_restrict_lid.columns.get_loc("restricted_reason")]
-                    if skip_mapping == "true":
-                        msg = ':' + reason
-                        all_messages.append(lid + msg)
-                        MP_LOG.warning(huc_lid_id + msg)
-                        continue
-                    else:  # continue processing
-                        if status_msg_allowing_continue == "":
-                            status_msg_allowing_continue = ':---' + reason
-                        else:
-                            status_msg_allowing_continue += "; " + reason
-                        # allowed to continue
+                    reason = found_restrict_lid.iloc[
+                        0, found_restrict_lid.columns.get_loc("restricted_reason")
+                    ]
+                    msg = ':' + reason
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
 
                 lid = lid.lower()  # Convert lid to lower case
 
@@ -660,7 +654,7 @@ def iterate_through_huc_stage_based(
 
                     is_valid_stage = stage_val != -1
 
-                    if is_valid_stage == True:
+                    if is_valid_stage is True:
                         valid_stages.append(stage)
                         magnitude_stage_values_list.append(stage_val)
                     else:
@@ -707,7 +701,7 @@ def iterate_through_huc_stage_based(
                 # might be concat "" to "" but that is ok
                 status_msg_allowing_continue += missing_stages_msg
 
-                if status_msg_allowing_continue != "":  
+                if status_msg_allowing_continue != "":
                     all_messages.append(lid + status_msg_allowing_continue)
                     MP_LOG.warning(huc_lid_id + status_msg_allowing_continue)
                 # Won't be using the status_msg_allowing_continue value past here (for now)
@@ -1088,13 +1082,12 @@ def iterate_through_huc_stage_based(
 
 
 def load_restricted_sites():
-
     """
     At this point, only stage based uses this. But a arg of "catfim_type (stage or flow) or something
     can be added later.
 
     Returns: a dataframe for the restricted lid and the reason why:
-        "nws_lid", "restricted_reason", "skip_mapping", "is_hardcoded"
+        "nws_lid", "restricted_reason"
     """
 
     file_name = "stage_based_ahps_restricted_sites.csv"
@@ -1105,61 +1098,42 @@ def load_restricted_sites():
 
     df_restricted_sites['nws_lid'].fillna("", inplace=True)
     df_restricted_sites['restricted_reason'].fillna("", inplace=True)
-    df_restricted_sites['skip_mapping'].fillna("", inplace=True)
-    # We don't care about the value in the is_hardcoded column as we don't drive logic on it.
-    # It helps the rfc's see what is happening.
-    df_restricted_sites = df_restricted_sites.drop(columns={'is_hardcoded'}, axis=1)
 
     # Need to drop the comment lines before doing any more processing
-    df_restricted_sites.drop(df_restricted_sites[df_restricted_sites.nws_lid.str.startswith("#")].index,
-                             inplace=True)
+    df_restricted_sites.drop(
+        df_restricted_sites[df_restricted_sites.nws_lid.str.startswith("#")].index, inplace=True
+    )
 
-    df_restricted_sites['skip_mapping'] = df_restricted_sites['skip_mapping'].str.lower()
+    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.upper()
 
-    # There are enough conditions and a low number of rows that it is easier to 
+    # There are enough conditions and a low number of rows that it is easier to
     # test / change them via a for loop
     indexs_for_recs_to_be_removed_from_list = []
     for ind, row in df_restricted_sites.iterrows():
         nws_lid = row['nws_lid']
         restricted_reason = row['restricted_reason']
-        skip_mapping = row['skip_mapping']
 
         if len(nws_lid) != 5:  # could be just a blank row in the
-            df_restricted_sites.at[ind, 'skip_mapping'] = "true"
-            FLOG.warning(f"From the ahps_restricted_sites, an invalid nws_lid value of '{nws_lid}'"
-                         " and has dropped from processing")
+            FLOG.warning(
+                f"From the ahps_restricted_sites, an invalid nws_lid value of '{nws_lid}'"
+                " and has dropped from processing"
+            )
             indexs_for_recs_to_be_removed_from_list.append(ind)
             continue
 
-        # if skip_mapping is not defined, the assume to not drop it
-        if skip_mapping == "":
-            skip_mapping = "false"
-            df_restricted_sites.at[ind, 'skip_mapping'] = skip_mapping
-        elif skip_mapping != "false":
-            # any other value then false, is) truuueeee, then assume it to be dropped
-            skip_mapping = "true"
-            df_restricted_sites.at[ind, 'skip_mapping'] = skip_mapping
-
-            if restricted_reason == "":
-                restricted_reason = "From the ahps_restricted_sites,"
-                " has an invalid value in the 'skip_mapping' column. The lid will not be mapped."
-                df_restricted_sites.at[ind, 'restricted_reason'] = restricted_reason
-                FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
-            continue
-
-        if restricted_reason == "" and skip_mapping == "true":
+        if restricted_reason == "":
             restricted_reason = "From the ahps_restricted_sites,"
-            " the site is set to not be mapped, but a reason has not be provided."
+            " the site will not be mapped, but a reason has not be provided."
             df_restricted_sites.at[ind, 'restricted_reason'] = restricted_reason
             FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
+        continue
     # end for
 
     # Invalid records (not dropping, just completely invalid recs from the csv)
     # Could be just blank rows from the csv
     if len(indexs_for_recs_to_be_removed_from_list) > 0:
-        df_restricted_sites = df_restricted_sites.drop(
-            indexs_for_recs_to_be_removed_from_list).reset_index()
-        
+        df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
+
     # print(df_restricted_sites.head(10))
 
     return df_restricted_sites
@@ -1429,7 +1403,7 @@ def generate_stage_based_categorical_fim(
     # If stage based, generate flows, mostly returns values sent in with a few changes
     # stage based doesn't really need generated flow data
     # But for flow based, it really does use it to generate flows.
-    # 
+    #
     (huc_dictionary, out_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = (
         generate_flows(
             output_catfim_dir,

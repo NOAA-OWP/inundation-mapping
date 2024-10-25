@@ -1,98 +1,72 @@
-nws_lid,restricted_reason,skip_mapping,is_hardcoded
-# RULES: Ensure that the top line has no comments above the header line above
-#     -- careful not to add commas other then the one after the lid ID
-#     -- leave at least one site above any comment lines
-#     -- do not leave blank lines.
-#     -- Don't let there be more than one line per lid id.
+nws_lid,restricted_reason
+# RULES: Ensure that the top line has no comments above the header line above:
+#     -- Careful not to add commas other then the one after the lid ID.
+#     -- Don't allow for any duplicate LID values in this list please.
 # 
 # Comment lines can be added as any independent line in this csv.
 #
-# Some lines such as BGWN7 are hard coded in our code to make a change to the record
-#    However, the comment in here will be returned as it's status message
-#    With BGWN7, we are saying in our code, we have this hardcoded and here is why yet it will
-#    will still be mapped unless it fails other conditions or skip_mapping is True
-#
-# IMPORTANT: For sites that have their LID hardcoded in the CatFIM code and you want
-#    and you no longer need it hardcoded, please let us know directly and not through
-#    just updating this "is_hardcoded" from True to False. We need to actually change
-#    our code. 
-#
-AABDB,Test Site,True,False
-ADLG1,Stage thresholds seem to be based on sea level and not channel thalweg,True,False
-AUGG1,Stage thresholds seem to be based on sea level and not channel thalweg,True,False
-BAXG1,Stage thresholds seem to be based on sea level and not channel thalweg,True,False
-BGWN7,datum changed to vcs of NAVD88,False,True
-BMBP1,rating_curve_source changed to NRLDB and crs changed to NAD27,False,True
-BRKTS,Test Site,True,False
-CNNN6,Pool elevation thresholds. Disabled at request of MARFC,True,False
-DLRT2,crs changed to NAD83,False,True
-DMBT2,Test Site,True,False
-DMSF1,Tidal Gauge,True,False
-DVNIA,Test Site,True,False
-EAGI1,crs changed to NAD83,False,True
-EPPT2,crs changed to NAD83,False,True
-FATW3,crs changed to NAD83,False,True
-GVDA1,bad data in API,True,False
-HFMW4,gage relocated. check again later for review,True,False
-HLZU1,bad data in API,True,False
-HNXCA,Test Site,True,False
-HRAG1,Stage thresholds seem to be based on sea level and not channel thalweg,True,False
-HUSKR,Test Site,True,False
-HZT00,Test Site,True,False
-HZT02,Test Site,True,False
-ILMNA,Test Site,True,False
-JFFW3,crs changed to NAD83,False,True
-JTEST,Test Site,True,False
-JYNT2,Test Site,True,False
-KLNQ9,Outside U.S.,True,False
-LAMF1,Stage thresholds seem to be based on sea level and not channel thalweg,True,False
-LDOT2,crs changed to NAD83,False,True
-MCVA3,historical gauge,True,False
-MNVN4,crs changed to NAD83,False,True
-NHPP1,crs changed to NAD83,False,True
-NVRN6,Pool elevation thresholds. Disabled at request of MARFC.,True,False
-PEPN6,Pool elevation thresholds. Disabled at request of MARFC.,True,False
-PINN4,crs changed to NAD83,False,True
-PRXQ9,Outside U.S.,True,False
-QUTG1,Stage thresholds seem to be based on sea level and not channel thalweg,True,False
-RCYF1,Out of Service,True,False
-RGDT2,crs changed to NAD83,False,True
-RGLN4,crs changed to NAD83,False,True
-RSSK1,crs changed to NAD83,False,True
-RWBW3, historical gauge,True,False
-SIGN4,crs changed to NAD83,False,True
-SMFN7,crs changed to NAD83,False,True
-STKN4,crs changed to NAD83,False,True
-SMSV2,point not in AHPS,True,False
-STNG1,Stage thresholds seem to be based on sea level and not channel thalweg,True,False
-TESM8,Test Site,True,False
-TEST,Test Site,True,False
-TEST1,Test Site,True,False
-TEST11,Test Site,True,False
-TEST2,Test Site,True,False
-TEST3,Test Site,True,False
-TEST4,Test Site,True,False
-TEST9,Test Site,True,False
-TESTA,Test Site,True,False
-TESTB,Test Site,True,False
-TESTC,Test Site,True,False
-TESTPT1,Test Site,True,False
-TETM8,Test Site,True,False
-TS2W3,Test Site,True,False
-TS3W3,Test Site,True,False
-TS4W3,Test Site,True,False
-TSTMO,Test Site,True,False
-TSTN6,Test Site,True,False
-TSTSP,Test Site,True,False
-TSTUP,Test Site,True,False
-TTARX,Test Site,True,False
-VEFNV,Test Site,True,False
-WBYA1,Out of Service,True,False
-WLLN7,crs changed to NAD83 and vcs changed to NGVD29,False,True
-WLSA1, bad data in API,True,False
-WUNTS, not a real gauge,True,False
-XXXN3,Test Site,True,False
-YDAQ9,Outside U.S.,True,False
-YLKA2,Discontinued Gage,True,False
-YWRQ9,Outside U.S.,True,False
-ZZZT2,Test Site,True,False
+AABDB,Test Site
+ADLG1,Stage thresholds seem to be based on sea level and not channel thalweg
+AUGG1,Stage thresholds seem to be based on sea level and not channel thalweg
+BAXG1,Stage thresholds seem to be based on sea level and not channel thalweg
+BRKTS,Test Site
+CNNN6,Pool elevation thresholds. Disabled at request of MARFC
+DMBT2,Test Site
+DMSF1,Tidal Gauge
+DVNIA,Test Site
+
+MTRK1, rob test drop
+
+
+GVDA1,bad data in API
+HFMW4,gage relocated. check again later for review
+HLZU1,bad data in API
+HNXCA,Test Site
+HRAG1,Stage thresholds seem to be based on sea level and not channel thalweg
+HUSKR,Test Site
+HZT00,Test Site
+HZT02,Test Site
+ILMNA,Test Site
+JTEST,Test Site
+JYNT2,Test Site
+KLNQ9,Outside U.S.
+LAMF1,Stage thresholds seem to be based on sea level and not channel thalweg
+MCVA3,historical gauge
+NVRN6,Pool elevation thresholds. Disabled at request of MARFC.
+PEPN6,Pool elevation thresholds. Disabled at request of MARFC.
+PRXQ9,Outside U.S.
+QUTG1,Stage thresholds seem to be based on sea level and not channel thalweg
+RCYF1,Out of Service
+RWBW3, historical gauge
+SMSV2,point not in AHPS
+STNG1,Stage thresholds seem to be based on sea level and not channel thalweg
+TESM8,Test Site
+TEST,Test Site
+TEST1,Test Site
+TEST11,Test Site
+TEST2,Test Site
+TEST3,Test Site
+TEST4,Test Site
+TEST9,Test Site
+TESTA,Test Site
+TESTB,Test Site
+TESTC,Test Site
+TESTPT1,Test Site
+TETM8,Test Site
+TS2W3,Test Site
+TS3W3,Test Site
+TS4W3,Test Site
+TSTMO,Test Site
+TSTN6,Test Site
+TSTSP,Test Site
+TSTUP,Test Site
+TTARX,Test Site
+VEFNV,Test Site
+WBYA1,Out of Service
+WLSA1, bad data in API
+WUNTS, not a real gauge
+XXXN3,Test Site
+YDAQ9,Outside U.S.
+YLKA2,Discontinued Gage
+YWRQ9,Outside U.S.
+ZZZT2,Test Site
