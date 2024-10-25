@@ -11,6 +11,26 @@ Note: it is finding a good handful more errors and warnings that were being miss
 ### Changes
 `fim_post_processing.sh`: fix as described.
 
+## v4.5.11.2 - 2024-10-25 - [PR#1322](https://github.com/NOAA-OWP/inundation-mapping/pull/1322)
+
+For security reasons, we needed to create a docker image that does not use the root user in anyway. The new `Dockerfile.prod` file is to be used when we want to use a non-root user. The  original `Dockerfile` has been renamed to `Dockerfile.dev` and will continue to use it's root users which has no problems with interacting with external mounts.
+
+Note: Re: using pip or pipenv installs.
+In the Dockerfile.prod, you can not do installs or update using either pipenv or pip.  Those types of tests and adjustments need to be done in the `Dockerfile.dev`. `Dockerfile.dev` will also allow change to the `Pipfile` and `Pipfile.lock` . Both docker files share the Pipfiles so it should be just fine.
+
+### File Renames
+- Was: `Dockerfile`,  now `Dockerfile.dev`
+
+### Additions
+
+- Dockerfile.prod: as described
+
+### Changes
+- `README.md`: change notes from phrase `Dockerfile` to `Dockerfile.dev`. Also added some notes about the new convention of outputs no longer starting with `fim_` but now `hand_`
+- `fim_pipeline.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_post_processing.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_pre_processing.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_process_unit_wb.sh`: Change for the new `Dockerfile.prod` for permissions.
 
 <br/><br/>
 
