@@ -576,6 +576,8 @@ def iterate_through_huc_stage_based(
                 # analyzing the status message as one factor to decide if the record
                 # is or should be mapped.
                 status_msg_allowing_continue = ""
+                
+                lid = lid.lower()  # Convert lid to lower case
 
                 MP_LOG.lprint("-----------------------------------")
                 huc_lid_id = f"{huc} : {lid}"
@@ -595,12 +597,6 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
-                lid = lid.lower()  # Convert lid to lower case
-
-                # Make mapping lid_directory.
-                mapping_lid_directory = os.path.join(mapping_huc_directory, lid)
-                if not os.path.exists(mapping_lid_directory):
-                    os.mkdir(mapping_lid_directory)
 
                 # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
                 thresholds, flows = get_thresholds(
@@ -799,6 +795,11 @@ def iterate_through_huc_stage_based(
                 child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
                     parent_log_output_file, "MP_produce_catfim_tifs"
                 )
+
+                # Make mapping lid_directory.
+                mapping_lid_directory = os.path.join(mapping_huc_directory, lid)
+                if not os.path.exists(mapping_lid_directory):
+                    os.mkdir(mapping_lid_directory)
 
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
