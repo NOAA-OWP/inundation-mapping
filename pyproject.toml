@@ -71,8 +71,8 @@ per-file-ignores = """
     src/build_stream_traversal.py: E722
     tools/check_deep_flooding.py: E712
     tools/eval_alt_catfim.py: F841
-    tools/generate_categorical_fim.py: C901, E712
-    tools/generate_categorical_fim_mapping.py: E712
+    tools/catfim/generate_categorical_fim.py: C901, E712
+    tools/catfim/generate_categorical_fim_mapping.py: E712
     tools/inundation.py: F821
     tools/rating_curve_comparison.py: F821, F841
     tools/run_test_case.py: E711
