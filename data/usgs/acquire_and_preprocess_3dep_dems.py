@@ -4,12 +4,11 @@ import argparse
 import glob
 import logging
 import os
-import shutil
 import subprocess
 import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
-from datetime import datetime
+from datetime import datetime, timezone
 
 import geopandas as gpd
 import pandas as pd
@@ -26,6 +25,14 @@ gpd.options.io_engine = "pyogrio"
 TODO:
     - Add input args for resolution size, which means URL and block size also hve to be parameterized.
 '''
+
+"""
+*****************************
+
+### IMPORTANT: Sep 13, 2024: FIM uses vrt's primariy for DEMs but this tool only downloads and preps the DEMs but does
+not create the vrt. That is done using the create_vrt_file.py tool.
+
+"""
 
 
 # local constants (until changed to input param)
@@ -59,13 +66,20 @@ def acquire_and_preprocess_3dep_dems(
 
     Notes:
         - It really can be used for any huc size or any extent poly as long as it is 10m.
+
         - As this is a very low use tool, most values such as the USGS vrt path, output
           file names, etc are all hardcoded
+
         - Currently there is no tools to extract the WBD HUC8's that are applicable. You will want
           a gkpg for each download extent (ie. HUC8, HUC6, whatever. Make a folder of each extent
           file you want. ie) a folder of WBD HUC8's. One gkpg per HUC8 (or whatever size you like)
+
         - When we originally used this tool for CONUS+, we loaded them in HUC6's, but now
           with selected HUC8's for South Alaska, we will use input extent files as WBD HUC8.
+
+        - We run conus at HUC6 as there is often a number of download fails requiring our tool to run in -r (repair)
+          mode to fix it. HUC8's are more files and allow for more possible errors. (usually just communication fails)
+
         - We have a separate tool to create a VRT of any folder of rasters.
 
     Parameters
@@ -76,8 +90,7 @@ def acquire_and_preprocess_3dep_dems(
             ie) /data/inputs/wbd/HUC6
 
         - target_output_folder_path (str):
-            The output location of the new 3dep dem files. When the param is not submitted,
-            it will be sent to /data/input/usgs/3dep_dems/10m/.
+            The output location of the new 3dep dem files.
 
         - number_of_jobs (int):
             This program supports multiple procs if multiple procs/cores are available.
@@ -95,8 +108,6 @@ def acquire_and_preprocess_3dep_dems(
 
         - target_projection (String)
             Projection of the output DEMS and polygons (if included)
-
-
     '''
     # -------------------
     # Validation
@@ -109,11 +120,30 @@ def acquire_and_preprocess_3dep_dems(
             ' value accordingly.'
         )
 
+    if number_of_jobs > 15:
+        print("")
+        print(f"You have asked for {number_of_jobs} jobs\n")
+        print("For each core, it opens up another extenal connection.")
+        print(" But if you try to download more files simultaneously, many files an be partially downloaded")
+        print(
+            " with no notification or warning. It is recommended to slow down the job numbers to ensure stability."
+        )
+        print("")
+        print(" Type 'CONTINUE' if you want to keep your original job numbers")
+        print("      'MAX' if you want change your job count to 15")
+        print("      any other value to abort.")
+        resp = input(">> ").lower()
+
+        if resp == "max":
+            number_of_jobs = 15
+        elif resp != "continue":
+            print("Program aborted")
+            sys.exit(1)
+        print(f".. Continuing with {number_of_jobs} jobs")
+    print("")
+
     if not os.path.exists(extent_file_path):
         raise ValueError(f'extent_file_path value of {extent_file_path}' ' not set to a valid path')
-
-    if (target_output_folder_path is None) or (target_output_folder_path == ""):
-        target_output_folder_path = os.environ['usgs_3dep_dems_10m']
 
     if not os.path.exists(target_output_folder_path):
         # It is ok if the child diretory does not exist, but the parent folder must
@@ -125,28 +155,7 @@ def acquire_and_preprocess_3dep_dems(
                 f"For the output path of {target_output_folder_path}, the child directory"
                 " need not exist but the parent folder must."
             )
-        os.makedir(target_output_folder_path)
-
-    else:  # path exists
-        if repair is False:
-            file_list = os.listdir(target_output_folder_path)
-            if len(file_list) > 0:
-                print()
-                msg = (
-                    f"The target output folder of {target_output_folder_path} appears to not be empty.\n\n"
-                    "Do you want to empty the folder first?\n"
-                    "  -- Type 'overwrite' if you want to empty the folder and continue.\n"
-                    "  -- Type any other value to abort and stop the program.\n"
-                )
-                print(msg)
-                resp = input(" ?=").lower()
-                if resp == "overwrite":
-                    shutil.rmtree(target_output_folder_path)
-                    os.mkdir(target_output_folder_path)
-                else:
-                    print("Program stopped\n")
-                    sys.exit(0)
-        # no else:
+        os.makedirs(target_output_folder_path, exist_ok=True)
 
     # I don't need the crs_number for now
     crs_is_valid, err_msg, crs_number = val.is_valid_crs(target_projection)
@@ -155,7 +164,7 @@ def acquire_and_preprocess_3dep_dems(
 
     # -------------------
     # setup logs
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     fh.print_start_header('Loading 3dep dems', start_time)
 
     # print(f"Downloading to {target_output_folder_path}")
@@ -179,7 +188,7 @@ def acquire_and_preprocess_3dep_dems(
     if skip_polygons is False:
         polygonize(target_output_folder_path)
 
-    end_time = datetime.utcnow()
+    end_time = datetime.now(timezone.utc)
     fh.print_end_header('Loading 3dep dems complete', start_time, end_time)
 
     print()
@@ -413,7 +422,7 @@ def polygonize(target_output_folder_path):
 
     dem_gpkgs['DN'] = 1
     dem_dissolved = dem_gpkgs.dissolve(by='DN')
-    dem_dissolved.to_file(dem_domain_file, driver='GPKG')
+    dem_dissolved.to_file(dem_domain_file, driver='GPKG', engine='fiona')
 
     if not os.path.exists(dem_domain_file):
         msg = f" - Polygonizing -- {dem_domain_file} - Failed"
@@ -426,7 +435,7 @@ def polygonize(target_output_folder_path):
 
 
 def __setup_logger(output_folder_path):
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_name = f"3Dep_downloaded-{file_dt_string}.log"
 
@@ -453,16 +462,34 @@ if __name__ == '__main__':
             -t /data/inputs/3dep_dems/10m_South_Alaska/
             -j 20
 
+    or
+        python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
+            -e /data/inputs/wbd/HUC6_ESPG_5070/
+            -t /data/inputs/usgs/3dep_dems/10m_5070/20240916 -r -j 15
+
     Notes:
+      - There is alot to know, so read the notes in the functions above.
+
+      - It is very common for not all DEMs to not all download correctly on each pass.
+        Review the output files and the logs so you know which are missing. Delete the ones in the outputs
+        that are in error. Then run the tool again wihth the -r flag (repair) which will fill in the wholes
+
+        This is also why we run it at HUC6 as it is easier to trace for failed files. We get alot of
+        communication error during downloads.
+
       - This is a very low use tool. So for now, this only can load 10m (1/3 arc second) and is using
         hardcoded paths for the wbd gpkg to be used for clipping (no buffer for now).
         Also hardcoded usgs 3dep urls, etc.  Minor
         upgrades can easily be made for different urls, output folder paths, huc units, etc
         as/if needed (command line params)
+
       - The output path can be adjusted in case of a test reload of newer data for 3dep.
         The default is /data/input/usgs/3dep_dems/10m/
+
       - Each output file will be the name of the input poly plus "_dem.tif". ie) if the wbd gpkg
         is named named "HUC8_12090301", then the output file name will be "HUC8_12090301_dem.tif"
+        Or depends what file name you sent in for the boundary: ie) HUC6_120903
+
       - While you can (and should use more than one job number (if manageable by your server)),
         this tool is memory intensive and needs more RAM then it needs cores / cpus. Go ahead and
         anyways and increase the job number so you are getting the most out of your RAM. Or
@@ -492,6 +519,14 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '-t',
+        '--target_output_folder_path',
+        help='REQUIRED: location of where the 3dep files will be saved.',
+        required=True,
+        default='',
+    )
+
+    parser.add_argument(
         '-j',
         '--number_of_jobs',
         help='OPTIONAL: Number of (jobs) cores/processes to used.',
@@ -504,18 +539,10 @@ if __name__ == '__main__':
         '-rp',
         '--repair',
         help='OPTIONAL: If included, it process only HUCs missing output DEMs or if the output DEM'
-        ' is too small (under 10 MB), which does happen.',
+        ' is too small (under 10 MB), which does happen. Read all inline notes about this feature',
         required=False,
         action='store_true',
         default=False,
-    )
-
-    parser.add_argument(
-        '-t',
-        '--target_output_folder_path',
-        help='OPTIONAL: location of where the 3dep files will be saved.',
-        required=False,
-        default='',
     )
 
     parser.add_argument(

@@ -41,6 +41,8 @@ from utils.shared_functions import FIM_Helpers as fh
       src/bash_variables.env to the corresponding outputs_dir argument after running and testing this script.
       The newly generated data should be created in a new folder using the format <year_month_day>
              (i.e. September 26, 2023 would be 23_09_26)
+
+    Don't worry about error logs saying "Failed to auto identify EPSG: 7"
 '''
 
 srcDir = os.getenv('srcDir')
@@ -89,76 +91,65 @@ input_osm_bridges = os.getenv('osm_bridges')
 wbd_buffer = os.getenv('wbd_buffer')
 wbd_buffer_int = int(wbd_buffer)
 
+LOG_FILE_PATH = ""
 
-def __setup_logger(outputs_dir, huc=None):
+
+def __setup_logger(outputs_dir, huc=None, is_multi_proc=False):
     '''
     Set up logging to file. Since log file includes the date, it will be overwritten if this
     script is run more than once on the same day.
     '''
+    global LOG_FILE_PATH
+
     datetime_now = dt.datetime.now(dt.timezone.utc)
-    curr_date = datetime_now.strftime("%y%my%d")
+    file_dt_string = datetime_now.strftime("%Y_%m_%d-%H_%M_%S")
 
     if huc is None:
-        log_file_name = f"generate_pre_clip_fim_huc8_{curr_date}.log"
+        log_file_name = f"generate_pre_clip_{file_dt_string}.log"
     else:
-        log_file_name = f"mp_{huc}_generate_pre_clip_fim_huc8_{curr_date}.log"
+        log_file_name = f"mp_{huc}_generate_pre_{file_dt_string}.log"
 
-    log_file_path = os.path.join(outputs_dir, log_file_name)
+    LOG_FILE_PATH = os.path.join(outputs_dir, log_file_name)
 
     if not os.path.exists(outputs_dir):
         os.mkdir(outputs_dir)
 
-    if os.path.exists(log_file_path):
-        os.remove(log_file_path)
+    if os.path.exists(LOG_FILE_PATH):
+        os.remove(LOG_FILE_PATH)
 
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(logging.INFO)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    # set up logging to file
+    logging.basicConfig(
+        filename=LOG_FILE_PATH, level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S'
+    )
 
-    logger = logging.getLogger()
-    logger.addHandler(file_handler)
-    logger.setLevel(logging.INFO)
+    # If true, console text will be displayed twice, once from the parent and the other from the MP
+    if is_multi_proc is False:
 
-    # Print start time
-    start_time_string = datetime_now.strftime("%m/%d/%Y %H:%M:%S")
-    logging.info('==========================================================================')
-    logging.info("\n generate_pre_clip_fim_huc8.py")
-    logging.info(f"\n \t Started: {start_time_string} \n")
+        # set up logging to console
+        console = logging.StreamHandler()
+        console.setLevel(logging.DEBUG)
+        # set a format which is simpler for console use
+        # add the handler to the root logger
+        logging.getLogger('').addHandler(console)
 
 
-def __merge_mp_logs(outputs_dir):
-    log_file_list = list(Path(outputs_dir).rglob("mp_*"))
+def __merge_mp_logs(log_dir, parent_log_file):
+    # Locks for all logs starting with the phrase mp*
+    log_file_list = list(Path(log_dir).rglob("mp_*"))
+
     if len(log_file_list) > 0:
         log_file_list.sort()
+    else:
+        print("No multi-proc files to merge")
+        return
 
-    log_mp_rollup_file = os.path.join(outputs_dir, "mp_merged_logs.log")
-
-    error_huc_found = False
-
-    with open(log_mp_rollup_file, 'a') as main_log:
+    with open(parent_log_file, 'a') as main_log:
         # Iterate through list
         for temp_log_file in log_file_list:
             # Open each file in read mode
             with open(temp_log_file) as infile:
-                contents = infile.read()
-                temp_upper_contents = contents.upper()
-                if "ERROR" in temp_upper_contents:
-                    print(
-                        f"\nAn error exist in file {temp_log_file}."
-                        " Check the merge logs for that huc number"
-                    )
-                    error_huc_found = True
-                main_log.write(contents)
+                main_log.write(infile.read())
             os.remove(temp_log_file)
-
-    if error_huc_found:
-        print(
-            "\n\nOften you can just create a new huc list with the fails, re-run to a"
-            " 1temp directory and recheck if errors still exists. Sometimes multi-prod can create"
-            " contention errors.\nFor each HUC that is sucessful, you can just copy it back"
-            " into the original full pre-clip folder.\n"
-        )
 
 
 def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
@@ -187,13 +178,12 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     '''
 
     # Validation
-    total_cpus_available = os.cpu_count()
+    total_cpus_available = os.cpu_count() - 2
     if number_of_jobs > total_cpus_available:
         print(
             f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -2: '
             f'{total_cpus_available - 2} will be used instead.'
         )
-        number_of_jobs = total_cpus_available - 2
 
     # Read in huc_list file and turn into a list data structure
     if os.path.exists(huc_list):
@@ -212,16 +202,17 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     __setup_logger(outputs_dir)
     start_time = dt.datetime.now(dt.timezone.utc)
 
+    logging.info("==================================")
+    logging.info(f"Starting Pre-clip based on huc list of\n    {huc_list}")
+    logging.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    logging.info("")
+
     # Iterate over the huc_list argument and create a directory for each huc.
     for huc in hucs_to_pre_clip_list:
         if os.path.isdir(os.path.join(outputs_dir, huc)):
             shutil.rmtree(os.path.join(outputs_dir, huc))
             os.mkdir(os.path.join(outputs_dir, huc))
             logging.info(
-                f"\n\t Output Directory: {outputs_dir}/{huc} exists.  It will be overwritten, and the "
-                f"newly generated huc level files will be output there. \n"
-            )
-            print(
                 f"\n\t Output Directory: {outputs_dir}/{huc} exists.  It will be overwritten, and the "
                 f"newly generated huc level files will be output there. \n"
             )
@@ -232,14 +223,13 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     # Build arguments (procs_list) for each process to execute (huc_level_clip_vectors_to_wbd)
     procs_list = []
     for huc in hucs_to_pre_clip_list:
-        print(f"Generating vectors for {huc}. ")
+        # logging.info(f"Generating vectors for {huc}. ")
         procs_list.append([huc, outputs_dir])
 
         # procs_list.append([huc, outputs_dir, wbd_alaska_file])
 
     # Parallelize each huc in hucs_to_parquet_list
     logging.info('Parallelizing HUC level wbd pre-clip vector creation. ')
-    print('Parallelizing HUC level wbd pre-clip vector creation. ')
     # with Pool(processes=number_of_jobs) as pool:
     #    pool.map(huc_level_clip_vectors_to_wbd, procs_list)
 
@@ -248,6 +238,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     # The log files for each multi proc has tons and tons of duplicate lines crossing mp log
     # processes, but does always log correctly back to the parent log
 
+    failed_HUCs_list = []  # On return from the MP, if it returns a HUC number, that is a failed huc
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         futures = {}
         for huc in hucs_to_pre_clip_list:
@@ -257,11 +248,32 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
 
         for future in as_completed(futures):
             if future is not None:
-                if future.exception():
+                if not future.exception():
+                    failed_huc = future.result()
+                    if failed_huc.lower() != "success" and failed_huc.isnumeric():
+                        failed_HUCs_list.append(failed_huc)
+                else:
                     raise future.exception()
 
     print("Merging MP log files")
-    __merge_mp_logs(outputs_dir)
+    __merge_mp_logs(outputs_dir, LOG_FILE_PATH)
+
+    if len(failed_HUCs_list) > 0:
+        logging.info("\n+++++++++++++++++++")
+        logging.info("HUCs that failed to proccess are: ")
+        huc_error_msg = "  -- "
+        for huc in failed_HUCs_list:
+            huc_error_msg += f"{huc}, "
+        logging.info(huc_error_msg)
+        print("  See logs for more details on each HUC fail")
+        print(
+            "\n\nOften you can just create a new huc list with the fails, re-run to a"
+            " temp directory and recheck if errors still exists. Sometimes multi-prod can create"
+            " contention errors.\nFor each HUC that is sucessful, you can just copy it back"
+            " into the original full pre-clip folder.\n"
+        )
+
+        logging.info("+++++++++++++++++++")
 
     # Get time metrics
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -276,9 +288,6 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
         f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}"
     )
     logging.info('==========================================================================')
-
-    print("\n\t Completed writing all huc level files \n")
-    print(f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}")
 
 
 def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
@@ -300,13 +309,14 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
         Creation of wbd8_clp.gpkg & wbd_buffered.gpkg using the executable: "ogr2ogr .... -clipsrc ..."
 
     Outputs:
-    - .gpkg files* dependant on HUC's WBD (*differing amount based on individual huc)
+    - .If successful, then it returns the word sudcess. If it fails, return the huc number.
     '''
 
+    in_error = False
     huc_processing_start = dt.datetime.now(dt.timezone.utc)
     # with this in Multi-proc, it needs it's own logger and unique logging file.
-    __setup_logger(outputs_dir, huc)
-    logging.info(f"Processing {huc}")
+    __setup_logger(outputs_dir, huc, True)
+    logging.info(f"Start Processing {huc}")
 
     try:
 
@@ -338,7 +348,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
         else:
             input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
 
-        print(f"\n Get WBD {huc}")
+        logging.info(f"-- {huc} : Get WBD")
 
         # TODO: Use Python API (osgeo.ogr) instead of using ogr2ogr executable
         get_wbd_subprocess = subprocess.run(
@@ -360,24 +370,22 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
             universal_newlines=True,
         )
 
-        logging.info(f"{huc} : {get_wbd_subprocess.stdout}")
-
-        if get_wbd_subprocess.stderr != "":
-            if "ERROR" in get_wbd_subprocess.stderr.upper():
-                msg = (
-                    f" - Creating -- {huc_directory}/wbd.gpkg"
-                    f"  ERROR -- details: ({get_wbd_subprocess.stderr})"
-                )
-                print(msg)
-                logging.info(msg)
+        sub_proc_stdout = get_wbd_subprocess.stdout
+        sub_proc_stderror = get_wbd_subprocess.stderr
+        if sub_proc_stderror.lower().startswith("warning") is True:
+            logging.info(f"Warning from ogr creating wbd file: {sub_proc_stderror}")
+        elif sub_proc_stderror != "":
+            raise Exception(
+                f"*** {huc} : Error creating wbd file from ogr for {huc}:" f" Details: {sub_proc_stderror}\n"
+            )
         else:
-            msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete \n"
-            print(msg)
+            msg = f"-- {huc} : Creating {huc_directory}/wbd.gpkg - Complete"
+            if sub_proc_stdout != "":  # warnings?
+                msg += f": {sub_proc_stdout}"
+
             logging.info(msg)
 
-        msg = f"Get Vector Layers and Subset {huc}"
-        # print(msg)
-        logging.info(msg)
+        logging.info(f"-- {huc} : Get Vector Layers and Subset")
 
         # Subset Vector Layers (after determining whether it's alaska or not)
         if huc2Identifier == '19':
@@ -444,12 +452,10 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 huc_CRS=huc_CRS,  # TODO: simplify
             )
 
-        msg = f" Completing Get Vector Layers and Subset: {huc} \n"
-        print(msg)
-        logging.info(msg)
+        logging.info(f"-- {huc} : Completing Get Vector Layers and Subset:\n")
 
         ## Clip WBD8 ##
-        print(f" Creating WBD buffer and clip version {huc}")
+        logging.info(f"-- {huc} : Creating WBD buffer and clip version")
 
         clip_wbd8_subprocess = subprocess.run(
             [
@@ -470,46 +476,60 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
             universal_newlines=True,
         )
 
-        # msg = clip_wbd8_subprocess.stdout
-        # print(f"{huc} : {msg}")
-        # logging.info(f"{huc} : {msg}")
-
-        if clip_wbd8_subprocess.stderr != "":
-            if "ERROR" in clip_wbd8_subprocess.stderr.upper():
-                msg = (
-                    f" - Creating -- {huc_directory}/wbd.gpkg"
-                    f"  ERROR -- details: ({clip_wbd8_subprocess.stderr})"
-                )
-                print(msg)
-                logging.info(msg)
+        sub_proc_stdout = clip_wbd8_subprocess.stdout
+        sub_proc_stderror = clip_wbd8_subprocess.stderr
+        if sub_proc_stderror.lower().startswith("warning") is True:
+            logging.info(f"Warning from ogr clip: {sub_proc_stderror}")
+        elif sub_proc_stderror != "":
+            raise Exception(
+                f"*** {huc} : Error WBD buffer and clip version from ogr for {huc}:"
+                f" Details: {sub_proc_stderror}\n"
+            )
         else:
-            msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete"
-            print(msg)
+            msg = f"-- {huc} : Creating WBD buffer and clip version - Complete"
+            if sub_proc_stdout != "":  # warnings?
+                msg += f": {sub_proc_stdout}"
+
             logging.info(msg)
 
     except Exception:
-        print(f"*** An error occurred while processing {huc}")
-        print(traceback.format_exc())
         logging.info(f"*** An error occurred while processing {huc}")
         logging.info(traceback.format_exc())
-        print()
+        logging.info("")
+        in_error = True
 
     huc_processing_end = dt.datetime.now(dt.timezone.utc)
     time_duration = huc_processing_end - huc_processing_start
-    duraton_msg = f"\t \t run time for huc {huc}: is {str(time_duration).split('.')[0]}"
-    print(duraton_msg)
+    duraton_msg = f"-- {huc} : run time is {str(time_duration).split('.')[0]}\n"
     logging.info(duraton_msg)
-    return
+
+    # if in error return the failed huc number
+    if in_error is True:
+        return huc
+    else:
+        return "Success"
 
 
 if __name__ == '__main__':
+
+    # NOTE: Super important: Make sure the bash_variables are correct before doing pre-clip.
+    # It pulls a wide number of values from there.
+    # Especially if you can a diretory for a new data load.
+    #     ie) DEMS at data/inputs/3dep_dems/10m_5070/20240916/
+    #
+    # You have to run this twice, once for Alaska and once for CONUS
+    # but make sure put both results the same folder
+    # and you will need to submit the two HUC lists
+    # SouthernAlaska_HUC8.lst
+    # included_huc8.lst
+
     parser = argparse.ArgumentParser(
         description='This script gets WBD layer, calls the clip_vectors_to_wbd.py script, and clips the wbd. '
         'A plethora gpkg files per huc are generated (see args to subset_vector_layers), and placed within '
         'the output directory specified as the <outputs_dir> argument.',
         usage='''
             ./generate_pre_clip_fim_huc8.py
-                -n /data/inputs/pre_clip_huc8/24_3_20
+                -n /data/inputs/pre_clip_huc8/20240927
                 -u /data/inputs/huc_lists/included_huc8_withAlaska.lst
                 -j 6
                 -o
@@ -520,9 +540,10 @@ if __name__ == '__main__':
         '-n',
         '--outputs_dir',
         help='Directory to output all of the HUC level .gpkg files. Use the format: '
-        '<year_month_day> (i.e. September 26, 2023 would be 23_09_26)',
+        '<year_month_day> (i.e. September 26, 2024 would be 20240926)',
     )
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
+
     parser.add_argument(
         '-j',
         '--number_of_jobs',
@@ -542,4 +563,9 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    pre_clip_hucs_from_wbd(**args)
+    try:
+        pre_clip_hucs_from_wbd(**args)
+    except Exception:
+        logging.info(traceback.format_exc())
+        end_time = dt.datetime.now(dt.timezone.utc)
+        logging.info(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")

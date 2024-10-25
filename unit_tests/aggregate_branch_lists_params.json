@@ -1,7 +1,0 @@
-{
-    "valid_data": {
-        "output_dir": "/data/outputs/unit_test_data/",
-        "file_name": "branch_ids.csv",
-        "output_file_name": "/data/outputs/unit_test_data/test.csv"
-    }
-}

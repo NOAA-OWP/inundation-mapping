@@ -55,7 +55,7 @@ def Mosaic_inundation(
 
     inundation_maps_df = inundation_maps_df.set_index(unit_attribute_name, drop=True)
 
-    # decide upon whether to display
+    # decide upon whether to display the progress bar
     if verbose & len(aggregation_units) == 1:
         tqdm_disable = False
     elif verbose:
@@ -185,7 +185,7 @@ def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon
         ]
 
         # Write polygon
-        extent_poly_diss.to_file(inundation_polygon, driver=driver)
+        extent_poly_diss.to_file(inundation_polygon, driver=driver, engine='fiona')
 
 
 if __name__ == "__main__":
