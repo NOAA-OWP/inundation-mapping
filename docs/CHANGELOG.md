@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.5.x.x - 2024-10-17 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
+## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
 
 The fix: During the post processing scan for the word "error" or "warning", it was only finding records which had either of those two words as stand alone words and not part of bigger phrases.  ie); "error" was found, but not "fielderror". Added wildcards and it is now fixed.
 
@@ -10,6 +10,9 @@ Note: it is finding a good handful more errors and warnings that were being miss
 
 ### Changes
 `fim_post_processing.sh`: fix as described.
+
+<br/><br/>
+
 
 ## v4.5.11.2 - 2024-10-25 - [PR#1322](https://github.com/NOAA-OWP/inundation-mapping/pull/1322)
 
@@ -33,7 +36,6 @@ In the Dockerfile.prod, you can not do installs or update using either pipenv or
 - `fim_process_unit_wb.sh`: Change for the new `Dockerfile.prod` for permissions.
 
 <br/><br/>
-
 
 
 ## v4.5.11.1 - 2024-10-16 - [PR#1318](https://github.com/NOAA-OWP/inundation-mapping/pull/1318)
