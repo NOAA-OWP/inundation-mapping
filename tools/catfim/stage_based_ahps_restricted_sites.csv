@@ -15,7 +15,7 @@ nws_lid,restricted_reason,skip_mapping,is_hardcoded
 # IMPORTANT: For sites that have their LID hardcoded in the CatFIM code and you want
 #    and you no longer need it hardcoded, please let us know directly and not through
 #    just updating this "is_hardcoded" from True to False. We need to actually change
-#    our code.
+#    our code. 
 #
 AABDB,Test Site,True,False
 ADLG1,Stage thresholds seem to be based on sea level and not channel thalweg,True,False
