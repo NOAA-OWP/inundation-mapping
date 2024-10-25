@@ -1,6 +1,112 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
+
+The fix: During the post processing scan for the word "error" or "warning", it was only finding records which had either of those two words as stand alone words and not part of bigger phrases.  ie); "error" was found, but not "fielderror". Added wildcards and it is now fixed.
+
+Note: it is finding a good handful more errors and warnings that were being missed in earlier code versions.
+
+### Changes
+`fim_post_processing.sh`: fix as described.
+
+<br/><br/>
+
+
+## v4.5.11.2 - 2024-10-25 - [PR#1322](https://github.com/NOAA-OWP/inundation-mapping/pull/1322)
+
+For security reasons, we needed to create a docker image that does not use the root user in anyway. The new `Dockerfile.prod` file is to be used when we want to use a non-root user. The  original `Dockerfile` has been renamed to `Dockerfile.dev` and will continue to use it's root users which has no problems with interacting with external mounts.
+
+Note: Re: using pip or pipenv installs.
+In the Dockerfile.prod, you can not do installs or update using either pipenv or pip.  Those types of tests and adjustments need to be done in the `Dockerfile.dev`. `Dockerfile.dev` will also allow change to the `Pipfile` and `Pipfile.lock` . Both docker files share the Pipfiles so it should be just fine.
+
+### File Renames
+- Was: `Dockerfile`,  now `Dockerfile.dev`
+
+### Additions
+
+- Dockerfile.prod: as described
+
+### Changes
+- `README.md`: change notes from phrase `Dockerfile` to `Dockerfile.dev`. Also added some notes about the new convention of outputs no longer starting with `fim_` but now `hand_`
+- `fim_pipeline.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_post_processing.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_pre_processing.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_process_unit_wb.sh`: Change for the new `Dockerfile.prod` for permissions.
+
+<br/><br/>
+
+
+## v4.5.11.1 - 2024-10-16 - [PR#1318](https://github.com/NOAA-OWP/inundation-mapping/pull/1318)
+
+Bug fixes to address issues during `fim_pipeline.sh`.
+
+### Changes
+
+- `src/`
+    - `aggregate_by_huc.py`: Fix `pyogrio` field error.
+    - `stream_branches.py`: Remove `bids_temp` and fix index.
+
+<br/><br/>
+
+## v4.5.11.0 - 2024-10-11 - [PR#1298](https://github.com/NOAA-OWP/inundation-mapping/pull/1298)
+
+This PR addresses four issues regarding OSM bridges. It dissolves touching bridge lines so each bridge has a single linestring. It also removes abandoned bridge from the dataset and it adds bridge type field to bridge centroids. As part of this PR, `max_hand_ft` and `max_discharge_cfs` columns are added to `osm_bridge_centroids.gkpg`.
+
+### Changes
+
+- `data/bridges/pull_osm_bridges.py`
+- `src/heal_bridges_osm.py`
+
+<br/><br/>
+
+
+## v4.5.10.3 - 2024-10-11 - [PR#1306](https://github.com/NOAA-OWP/inundation-mapping/pull/1306)
+
+Extends outlet levelpath(s) outside HUC.
+
+Previously, levelpaths at the outlet of a HUC may not extend to the buffered WBD that is used to clip the DEM, and during pit-filling this results in reverse flow which can cause DEM-derived reaches to deviate from the channel in the DEM and may result in dropped catchments where the midpoint of the reaches exceeds the snap distance from the NWM stream lines.
+
+This PR extends outlet levelpaths in two ways:
+- Segments of levelpaths that terminate in waterbodies are removed from the levelpath. If there is a waterbody downstream of the HUC then the outlet reaches may be trimmed such that the outlet no longer reaches the edge of the DEM, which causes a number of cascading issues originating in the pit-filling such that reverse flow in the DEM-derived reaches can result in erroneous flowlines and inundation. This PR stops trimming levelpaths outside of the HUC.
+- Dissolved outlet levelpaths may terminate downstream outside of the HUC (e.g., at a confluence with a larger river) at a point that is within the buffered WBD. These levelpaths are extended by adding on the downstream segment(s) of the HUC's `nwm_subset_streams` layer. The extended levelpath(s) are saved in a new file that is used to create the boolean raster stream network.
+
+### Changes
+
+- `config/`
+    - `deny_unit.lst`, `deny_branch_zero.lst`, and `deny_branches.lst`: Adds new file to deny lists
+- `src/`
+    - `derive_level_paths.py`:  Adds WBD as an input to `stream_network.trim_branches_in_waterbodies()` and adds new argument for new filename.
+    - `run_unit_wb.sh`: Adds new argument for new filename.
+    - `stream_branches.py`: Selects only segments intersecting the WBD as candidates for removal if they end in waterbodies and adds downstream segment(s) to outlet levelpath(s).
+    
+<br/><br/>
+
+
+## v4.5.10.2 - 2024-10-11 - [PR#1244](https://github.com/NOAA-OWP/inundation-mapping/pull/1244)
+
+New tool that can assess the impact of a flood on road and/or building vector files. Closes #1226.
+
+### Additions
+- `tools/analyze_flood_impact.py` : added a tool that assesses the impact of a flood on roads and buildings by calculating how many roads and structures the test flood extent intersects, comparing the test impacted roads and structures to a benchmark, and calculating CSI.
+
+ <br/><br/>
+
+
+## v4.5.10.1 - 2024-10-11 - [PR#1314](https://github.com/NOAA-OWP/inundation-mapping/pull/1314)
+
+This PR fixes bugs from hand_4_5_10_0, which failed to run for Alaska HUCs and HUC 02030201. It modifies scripts to use two different DEM paths: one for Alaska and one for the CONUS.
+
+### Changes
+
+- `src/derive_level_paths.py`
+- `src/stream_branches.py`
+- `src/run_unit_wb.sh`
+
+<br/><br/>
+
+
 ## v4.5.10.0 - 2024-09-25 - [PR#1301](https://github.com/NOAA-OWP/inundation-mapping/pull/1301)
 
 A reload of all 3Dep DEMs from USGS was performed to refresh our data.
@@ -186,6 +292,8 @@ Updated the gauge crosswalk and SRC adjustment routine to use the ras2fim v2 fil
 - `src/utils/shared_functions.py`: Added function to find huc subdirectories with the same name btw two parent folders
 
 <br/><br/>
+
+
 
 ## v4.5.4.4 - 2024-08-02 - [PR#1238](https://github.com/NOAA-OWP/inundation-mapping/pull/1238)
 
