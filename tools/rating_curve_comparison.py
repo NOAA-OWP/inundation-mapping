@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import datetime as dt
 import logging
 import os
 import re
@@ -200,10 +201,10 @@ def generate_rating_curve_metrics(args):
             rating_curves['order_'] = rating_curves['order_'].astype('int')
 
             # NWM recurr intervals
-            recurr_intervals = ("2", "5", "10", "25", "50", "100")
+            recurr_intervals = ("2", "5", "10", "25", "50")
             recurr_dfs = []
             for interval in recurr_intervals:
-                recurr_file = join(nwm_flow_dir, 'nwm21_17C_recurr_{}_0_cms.csv'.format(interval))
+                recurr_file = join(nwm_flow_dir, 'nwm3_17C_recurr_{}_0_cms.csv'.format(interval))
                 df = pd.read_csv(recurr_file, dtype={'feature_id': str})
                 # Update column names
                 df = df.rename(columns={"discharge": interval})
@@ -1082,7 +1083,7 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     usgs_gages = usgs_gages.round(decimals=2)
 
     # Write to file
-    usgs_gages.to_file(join(output_dir, output_gpkg), driver='GPKG', index=False)
+    usgs_gages.to_file(join(output_dir, output_gpkg), driver='GPKG', index=False, engine='fiona')
 
     # Create figure
     usgs_gages.replace(np.inf, np.nan, inplace=True)  # replace inf with nan for plotting
@@ -1205,6 +1206,18 @@ def evaluate_results(sierra_results=[], labels=[], save_location=''):
 
 
 if __name__ == '__main__':
+
+    """
+    Sample Usage:
+    python3 /foss_fim/tools/rating_curve_comparison.py
+        -fim_dir data/previous_fim/hand_4_5_8_0/
+        -output_dir data/fim_performance/hand_4_5_8_0/rating_curve_comparison/
+        -gages /data/inputs/usgs_gages/usgs_rating_curves.csv
+        -flows /data/inputs/rating_curve/nwm_recur_flows/
+        -catfim /data/inputs/usgs_gages/catfim_flows_cms.csv
+        -j 40
+    """
+
     parser = argparse.ArgumentParser(
         description='generate rating curve plots and tables for FIM and USGS gages'
     )
@@ -1214,6 +1227,9 @@ if __name__ == '__main__':
     )
     parser.add_argument('-gages', '--usgs-gages-filename', help='USGS rating curves', required=True, type=str)
     parser.add_argument('-flows', '--nwm-flow-dir', help='NWM recurrence flows dir', required=True, type=str)
+
+    # TODO Sep 2024: catfim_flows_cms.csv should be renamed as it which made no sense.
+    #    It has nothing to do with catfim
     parser.add_argument(
         '-catfim', '--catfim-flows-filename', help='Categorical FIM flows file', required=True, type=str
     )
@@ -1272,104 +1288,127 @@ if __name__ == '__main__':
     else:
         stat_gages = None
 
-    # Make sure that location_id is the only -group when using -pnts
-    assert not stat_gages or (
-        stat_gages and (not stat_groups or stat_groups == ['location_id'])
-    ), "location_id is the only acceptable stat_groups argument when producting an output GPKG"
-    # Make sure that the -pnts flag is used with the -eval flag
-    assert not eval or (eval and stat_gages), "You must use the -pnts flag with the -eval flag"
-    procs_list = []
-
-    plots_dir = join(output_dir, 'plots')
-    os.makedirs(plots_dir, exist_ok=True)
-    tables_dir = join(output_dir, 'tables')
-    os.makedirs(tables_dir, exist_ok=True)
-
-    # Check age of gages csv and recommend updating if older than 30 days.
-    print(check_file_age(usgs_gages_filename))
-
+    start_time = dt.datetime.now()
+    dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    log_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    print("==========================================================================")
     # Open log file
     # Create log output
     level = (
         logging.INFO
     )  # using WARNING level to avoid benign? info messages ("Failed to auto identify EPSG: 7")
     format = '  %(message)s'
+    log_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     handlers = [
-        logging.FileHandler(os.path.join(output_dir, 'rating_curve_comparison.log')),
+        logging.FileHandler(os.path.join(output_dir, f'rating_curve_comparison_{log_dt_string}.log')),
         logging.StreamHandler(),
     ]
     logging.basicConfig(level=level, format=format, handlers=handlers)
 
-    merged_elev_table = []
-    huc_list = [huc for huc in os.listdir(fim_dir) if re.search(r"^\d{6,8}$", huc)]
-    for huc in huc_list:
-        elev_table_filename = join(fim_dir, huc, 'usgs_elev_table.csv')
-        branches_folder = join(fim_dir, huc, 'branches')
-        usgs_recurr_stats_filename = join(tables_dir, f"usgs_interpolated_elevation_stats_{huc}.csv")
-        nwm_recurr_data_filename = join(tables_dir, f"nwm_recurrence_flow_elevations_{huc}.csv")
-        rc_comparison_plot_filename = join(plots_dir, f"FIM-USGS_rating_curve_comparison_{huc}.png")
+    logging.info(".. (Sierra Test) / rating curve comparison")
+    logging.info(f".. Started: {dt_string} \n")
 
-        if isfile(elev_table_filename):
-            procs_list.append(
-                [
+    try:
+        # Make sure that location_id is the only -group when using -pnts
+        assert not stat_gages or (
+            stat_gages and (not stat_groups or stat_groups == ['location_id'])
+        ), "location_id is the only acceptable stat_groups argument when producting an output GPKG"
+        # Make sure that the -pnts flag is used with the -eval flag
+        assert not eval or (eval and stat_gages), "You must use the -pnts flag with the -eval flag"
+        procs_list = []
+
+        plots_dir = join(output_dir, 'plots')
+        os.makedirs(plots_dir, exist_ok=True)
+        tables_dir = join(output_dir, 'tables')
+        os.makedirs(tables_dir, exist_ok=True)
+
+        # Check age of gages csv and recommend updating if older than 30 days.
+        print(check_file_age(usgs_gages_filename))
+
+        merged_elev_table = []
+        huc_list = [huc for huc in os.listdir(fim_dir) if re.search(r"^\d{6,8}$", huc)]
+        for huc in huc_list:
+            elev_table_filename = join(fim_dir, huc, 'usgs_elev_table.csv')
+            branches_folder = join(fim_dir, huc, 'branches')
+            usgs_recurr_stats_filename = join(tables_dir, f"usgs_interpolated_elevation_stats_{huc}.csv")
+            nwm_recurr_data_filename = join(tables_dir, f"nwm_recurrence_flow_elevations_{huc}.csv")
+            rc_comparison_plot_filename = join(plots_dir, f"FIM-USGS_rating_curve_comparison_{huc}.png")
+
+            if isfile(elev_table_filename):
+                procs_list.append(
+                    [
+                        elev_table_filename,
+                        branches_folder,
+                        usgs_gages_filename,
+                        usgs_recurr_stats_filename,
+                        nwm_recurr_data_filename,
+                        rc_comparison_plot_filename,
+                        nwm_flow_dir,
+                        catfim_flows_filename,
+                        huc,
+                        alt_plot,
+                        single_plot,
+                    ]
+                )
+                # Aggregate all of the individual huc elev_tables into one aggregate
+                #      for accessing all data in one csv
+                read_elev_table = pd.read_csv(
                     elev_table_filename,
-                    branches_folder,
-                    usgs_gages_filename,
-                    usgs_recurr_stats_filename,
-                    nwm_recurr_data_filename,
-                    rc_comparison_plot_filename,
-                    nwm_flow_dir,
-                    catfim_flows_filename,
-                    huc,
-                    alt_plot,
-                    single_plot,
-                ]
+                    dtype={'location_id': str, 'HydroID': str, 'huc': str, 'feature_id': int},
+                )
+                read_elev_table['huc'] = huc
+                merged_elev_table.append(read_elev_table)
+
+        # Output a concatenated elev_table to_csv
+        if merged_elev_table:
+            logging.info("Creating aggregate elev table csv")
+            concat_elev_table = pd.concat(merged_elev_table)
+            concat_elev_table['thal_burn_depth_meters'] = (
+                concat_elev_table['dem_elevation'] - concat_elev_table['dem_adj_elevation']
             )
-            # Aggregate all of the individual huc elev_tables into one aggregate
-            #      for accessing all data in one csv
-            read_elev_table = pd.read_csv(
-                elev_table_filename, dtype={'location_id': str, 'HydroID': str, 'huc': str, 'feature_id': int}
+            concat_elev_table.to_csv(join(output_dir, 'agg_usgs_elev_table.csv'), index=False)
+
+        # Initiate multiprocessing
+        logging.info(
+            f"Generating rating curve metrics for {len(procs_list)} hucs using {number_of_jobs} jobs"
+        )
+        with Pool(processes=number_of_jobs) as pool:
+            pool.map(generate_rating_curve_metrics, procs_list)
+
+        # Create point layer of usgs gages with joined stats attributes
+        if stat_gages:
+            logging.info("Creating usgs gages GPKG with joined rating curve summary stats")
+            agg_recurr_stats_table = aggregate_metrics(output_dir, procs_list, ['location_id'])
+            create_static_gpkg(output_dir, stat_gages, agg_recurr_stats_table, gages_gpkg_filepath)
+            del agg_recurr_stats_table  # memory cleanup
+        else:  # if not producing GIS layer, just aggregate metrics
+            logging.info(f"Aggregating rating curve metrics for {len(procs_list)} hucs")
+            aggregate_metrics(output_dir, procs_list, stat_groups)
+
+        logging.info('Delete intermediate tables')
+        shutil.rmtree(tables_dir, ignore_errors=True)
+
+        # Compare current sierra test results to previous tests
+        if eval:
+            # Transpose comparison sierra results
+            sierra_test_paths, sierra_test_labels = np.array(eval).T.tolist()
+            # Add current sierra test to lists
+            sierra_test_paths = sierra_test_paths + [join(output_dir, stat_gages)]
+            sierra_test_labels = sierra_test_labels + [stat_gages.replace('.gpkg', '')]
+            # Read in all sierra test results
+            sierra_test_dfs = [gpd.read_file(i) for i in sierra_test_paths]
+            # Feed results into evaluation function
+            evaluate_results(
+                sierra_test_dfs, sierra_test_labels, join(output_dir, 'Sierra_Test_Eval_boxplot.png')
             )
-            read_elev_table['huc'] = huc
-            merged_elev_table.append(read_elev_table)
+    except Exception:
+        logging.info("-- Exception")
+        print("")
+        logging.info(traceback.format_exc())
 
-    # Output a concatenated elev_table to_csv
-    if merged_elev_table:
-        logging.info("Creating aggregate elev table csv")
-        concat_elev_table = pd.concat(merged_elev_table)
-        concat_elev_table['thal_burn_depth_meters'] = (
-            concat_elev_table['dem_elevation'] - concat_elev_table['dem_adj_elevation']
-        )
-        concat_elev_table.to_csv(join(output_dir, 'agg_usgs_elev_table.csv'), index=False)
-
-    # Initiate multiprocessing
-    logging.info(f"Generating rating curve metrics for {len(procs_list)} hucs using {number_of_jobs} jobs")
-    with Pool(processes=number_of_jobs) as pool:
-        pool.map(generate_rating_curve_metrics, procs_list)
-
-    # Create point layer of usgs gages with joined stats attributes
-    if stat_gages:
-        logging.info("Creating usgs gages GPKG with joined rating curve summary stats")
-        agg_recurr_stats_table = aggregate_metrics(output_dir, procs_list, ['location_id'])
-        create_static_gpkg(output_dir, stat_gages, agg_recurr_stats_table, gages_gpkg_filepath)
-        del agg_recurr_stats_table  # memory cleanup
-    else:  # if not producing GIS layer, just aggregate metrics
-        logging.info(f"Aggregating rating curve metrics for {len(procs_list)} hucs")
-        aggregate_metrics(output_dir, procs_list, stat_groups)
-
-    logging.info('Delete intermediate tables')
-    shutil.rmtree(tables_dir, ignore_errors=True)
-
-    # Compare current sierra test results to previous tests
-    if eval:
-        # Transpose comparison sierra results
-        sierra_test_paths, sierra_test_labels = np.array(eval).T.tolist()
-        # Add current sierra test to lists
-        sierra_test_paths = sierra_test_paths + [join(output_dir, stat_gages)]
-        sierra_test_labels = sierra_test_labels + [stat_gages.replace('.gpkg', '')]
-        # Read in all sierra test results
-        sierra_test_dfs = [gpd.read_file(i) for i in sierra_test_paths]
-        # Feed results into evaluation function
-        evaluate_results(
-            sierra_test_dfs, sierra_test_labels, join(output_dir, 'Sierra_Test_Eval_boxplot.png')
-        )
+    end_time = dt.datetime.now()
+    time_duration = end_time - start_time
+    dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print("==========================================================================")
+    logging.info(f".. Ended: {dt_string} \n")
+    logging.info(f".. Duration: {str(time_duration).split('.')[0]}")

@@ -1,8 +1,8 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "If you use this software, please cite it as below. To ensure you have latest and correct version, please look at the changelog.md at 'https://github.com/NOAA-OWP/inundation-mapping/blob/dev/docs/CHANGELOG.md'"
 authors:
 - family-names: "NOAA Office of Water Prediction"
 title: "Inundation Mapping"
 url: "https://github.com/NOAA-OWP/inundation-mapping"
-version: 4.4.2.1
-date-released: 2023
+version: 4.5.10.0
+date-released: 2024

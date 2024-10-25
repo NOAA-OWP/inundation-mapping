@@ -11,6 +11,9 @@ from utils.shared_variables import DEFAULT_FIM_PROJECTION_CRS
 
 gpd.options.io_engine = "pyogrio"
 
+# NOTE:
+# Sep 2024. This file might be deprecated as no code calls it
+
 
 def clip_wbd_to_dem_domain(dem: str, wbd_in: str, wbd_out: str, huc_level: int):
     """
@@ -39,10 +42,20 @@ def clip_wbd_to_dem_domain(dem: str, wbd_in: str, wbd_out: str, huc_level: int):
         wbd = gpd.clip(wbd, dem_domain)
 
         # Write output file
-        wbd.to_file(wbd_out, layer=layer, crs=DEFAULT_FIM_PROJECTION_CRS, driver='GPKG')
+        wbd.to_file(wbd_out, layer=layer, crs=DEFAULT_FIM_PROJECTION_CRS, driver='GPKG', engine='fiona')
 
 
 if __name__ == '__main__':
+
+    # Example:
+    # preprocess_wbd.py -d /data/inputs/3dep_dems/10m_5070/20240916//HUC6_dem_domain.gpkg
+    #  -w /data/inputs/wbd/WBD_National_EPSG_5070.gpkg
+    #  -o /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
+    #  -l 8
+
+    # WATCH FOR Alaska as well.  During the 3dep download of 20240916, it did not include
+    # Alaska. That one is in data/inputs/3dep_dems/10m_South_Alaska/20240912/
+
     parser = argparse.ArgumentParser(description='Clip WBD to DEM domain')
     parser.add_argument('-d', '--dem', help='Path to DEM', type=str, required=True)
     parser.add_argument('-w', '--wbd-in', help='Input WBD filename', type=str, required=True)
@@ -52,6 +65,3 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     clip_wbd_to_dem_domain(**args)
-
-    # Example:
-    # preprocess_wbd.py -d /data/inputs/3dep_dems/10m_5070/HUC6_dem_domain.gpkg -w /data/inputs/wbd/WBD_National_EPSG_5070.gpkg -o /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -l 8

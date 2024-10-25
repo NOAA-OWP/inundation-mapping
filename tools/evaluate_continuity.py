@@ -113,7 +113,7 @@ def evaluate_continuity(
         fig.savefig(plot_file)
 
     if stream_network_outfile is not None:
-        stream_network.to_file(stream_network_outfile, index=False, driver='GPKG')
+        stream_network.to_file(stream_network_outfile, index=False, driver='GPKG', engine='fiona')
 
     return stream_network
 
