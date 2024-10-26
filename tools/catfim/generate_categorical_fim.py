@@ -227,7 +227,7 @@ def process_generate_categorical_fim(
     # Check that fim_inputs.csv exists and raise error if necessary
     fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
     if not os.path.exists(fim_inputs_csv_path):
-        raise ValueError(f'{fim_inputs_csv_path} not found. Verify that you have the correct input files.')
+        raise ValueError(f"{fim_inputs_csv_path} not found. Verify that you have the correct input files.")
 
     # print()
 
@@ -596,7 +596,6 @@ def iterate_through_huc_stage_based(
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
-
 
                 # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
                 thresholds, flows = get_thresholds(
