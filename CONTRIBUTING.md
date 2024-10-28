@@ -25,8 +25,7 @@ guidance below.
 ## Changing the code-base
 
 Generally speaking, you should fork this repository, make changes in your
-own fork, and then submit a pull request. All new code should have associated
-unit tests (added to `/unit_tests`) that validate implemented features and the presence or lack of defects.
+own fork, and then submit a pull request. 
 Additionally, the code should follow any stylistic and architectural guidelines
 prescribed by the project. In the absence of such guidelines, mimic the styles
 and patterns in the existing code-base.
@@ -118,19 +117,14 @@ If you would like to contribute, please follow these steps:
    # optionally close the container
    # Back on your terminal console (outside the container), use the typical git add, git commit, git push
 
- 
-8.  [Within the container](README.md#startrun-the-docker-container), ensure sure unit tests pass ([instructions here](/unit_tests/README.md)).
-    ```
-    pytest unit_tests/
-    ```
 
-9. Outside of the Docker container, commit your changes:
+8. Outside of the Docker container, commit your changes:
     ```
     git commit -m "<descriptive sentence or two of changes>"
     ```
     This will invoke pre-commit hooks mentioned in step 6 that will lint & format the code (some others as well). In many cases non-compliant code will be rectified automatically, but in some cases manual changes will be necessary. Make sure all of these checks pass. If not, make necessary changes (`git add <...>`), and re-issue `git commit -m "<...>"`.
    
-10. Push to your forked branch:
+9.  Push to your forked branch:
     ```
     git push -u origin
     ```

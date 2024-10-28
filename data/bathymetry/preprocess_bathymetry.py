@@ -52,6 +52,7 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         bathy_affine = bathy_ft.transform
         bathy_ft = bathy_ft.read(1)
         bathy_ft[np.where(bathy_ft == -9999.0)] = np.nan
+        bathy_ft[np.where(bathy_ft <= 0.0)] = 0.000001
     survey_min_depth = np.nanmin(bathy_ft)
 
     assert survey_min_depth < min_depth_threshold, (
@@ -80,6 +81,10 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     zs_area = gpd.GeoDataFrame.from_features(zs_area)
     zs_area = zs_area.set_crs(nwm_streams.crs)
     zs_area = zs_area.rename(columns={"sum": "missing_volume_m3"})
+
+    # print("------------------------------")
+    # print(zs_area.ID)
+    # print("------------------------------")
 
     # Derive slope tif
     output_slope_tif = os.path.join(os.path.dirname(tif), 'bathy_slope.tif')
@@ -115,7 +120,10 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     )
 
     # Add survey meta data
-    bathy_nwm_streams['SurveyDateStamp'] = bathy_bounds.loc[0, 'SurveyDateStamp']
+    time_stamp = bathy_bounds.loc[0, 'SurveyDateStamp']
+    time_stamp_obj = str(time_stamp)
+
+    bathy_nwm_streams['SurveyDateStamp'] = time_stamp_obj  # bathy_bounds.loc[0, 'SurveyDateStamp']
     bathy_nwm_streams['SurveyId'] = bathy_bounds.loc[0, 'SurveyId']
     bathy_nwm_streams['Sheet_Name'] = bathy_bounds.loc[0, 'Sheet_Name']
     bathy_nwm_streams["Bathymetry_source"] = 'USACE eHydro'
@@ -123,6 +131,11 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
     # Export geopackage with bathymetry
     num_streams = len(bathy_nwm_streams)
     bathy_nwm_streams = bathy_nwm_streams.to_crs(epsg=5070)
+
+    # schema = gpd.io.file.infer_schema(bathy_nwm_streams)
+    # print(schema)
+    # print("---------------------------")
+
     if os.path.exists(output):
         print(f"{output} already exists. Concatinating now...")
         existing_bathy_file = gpd.read_file(output, engine="pyogrio", use_arrow=True)

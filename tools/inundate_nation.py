@@ -16,7 +16,7 @@ from osgeo import gdal
 from utils.shared_functions import FIM_Helpers as fh
 
 
-# INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'
+# INUN_REVIEW_DIR = r'/data/inputs/rating_curve/nwm_recur_flows/'
 # INUN_OUTPUT_DIR = r'/data/inundation_review/inundate_nation/'
 # INPUTS_DIR = r'/data/inputs'
 # OUTPUT_BOOL_PARENT_DIR = '/data/inundation_review/inundate_nation/bool_temp/
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     Sample usage:
     python3 /foss_fim/tools/inundate_nation.py
         -r /outputs/fim_4_0_9_2 -m 100_0
-        -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_100_0_cms.csv
+        -f /data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_10_0_cms.csv
         -s
         -j 10
     outputs become /data/inundation_review/inundate_nation/100_0_fim_4_0_9_2_mosiac.tif (.log, etc)
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     python3 /foss_fim/tools/inundate_nation.py
         -r /outputs/fim_4_0_9_2
         -m hw
-        -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm_high_water_threshold_cms.csv
+        -f /data/inputs/rating_curve/bankfull_flows/nwm3_high_water_threshold_cms.csv
         -s
         -j 10
     outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
@@ -329,8 +329,8 @@ if __name__ == "__main__":
         '-f',
         '--flow_file',
         help='the path and flow file to be used. '
-        'ie /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/'
-        'nwm_high_water_threshold_cms.csv',
+        'ie /data/inputs/rating_curve/bankfull_flows/'
+        'nwm3_high_water_threshold_cms.csv',
         required=True,
     )
 

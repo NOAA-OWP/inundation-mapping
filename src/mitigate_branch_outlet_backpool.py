@@ -390,7 +390,7 @@ def mitigate_branch_outlet_backpool(
                     trimmed_flows, inital_length_km = snap_and_trim_splitflow(pt_3tl_geom, split_flows_geom)
 
                     # Create buffer around the updated flows geodataframe (and make sure it's all one shape)
-                    buffer = trimmed_flows.buffer(10).geometry.unary_union
+                    buffer = trimmed_flows.buffer(10).geometry.union_all()
 
                     # Remove flowpoints that don't intersect with the trimmed flow line
                     split_points_filtered_geom = split_points_geom[split_points_geom.geometry.within(buffer)]
@@ -507,10 +507,10 @@ def mitigate_branch_outlet_backpool(
                 print('Incorrectly-large outlet pixel catchment was NOT detected.')
 
         else:
-            print('Will not test for outlet backpool error.')
+            print('Will not test for outlet backpool problem.')
 
     else:
-        print('Will not test for outlet backpool error in branch zero.')
+        print('Will not test for outlet backpool problem in branch zero.')
 
 
 if __name__ == '__main__':

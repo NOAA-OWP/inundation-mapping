@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import traceback
 from datetime import datetime
 
 import geopandas as gpd
@@ -10,9 +11,24 @@ from pixel_counter import zonal_stats
 from run_test_case import Test_Case
 from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
+from tqdm import tqdm
 
 
 gpd.options.io_engine = "pyogrio"
+
+"""
+This module uses zonal stats to subdivide alpha metrics by each HAND catchment.
+The output is a vector geopackage and is also known as the "FIM Performance" layer
+when loaded into HydroVIS. At the time of this commit, it takes approximately
+32 hours to complete.
+
+Example usage:
+python /foss_fim/tools/test_case_by_hydro_id.py \
+    -b all \
+    -v fim_4_5_2_11 \
+    -g /outputs/fim_performance_v4_5_2_11.gpkg \
+    -l
+"""
 
 
 #####################################################
@@ -180,39 +196,7 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
     return in_mem_df
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Produces alpha metrics by hyrdoid.')
-
-    parser.add_argument(
-        '-b',
-        '--benchmark_category',
-        help='Choice of truth data. Options are: all, ble, ifc, nws, usgs, ras2fim',
-        required=True,
-    )
-    parser.add_argument(
-        '-v', '--version', help='The fim version to use. Should be similar to fim_3_0_24_14_ms', required=True
-    )
-    parser.add_argument(
-        '-g',
-        '--gpkg',
-        help='filepath and filename to hold exported gpkg (and csv) file. '
-        'Similar to /data/path/fim_performance_catchments.gpkg Need to use gpkg as output.',
-        required=True,
-    )
-
-    # Assign variables from arguments.
-    args = vars(parser.parse_args())
-    benchmark_category = args['benchmark_category']
-    version = args['version']
-    csv = args['gpkg']
-
-    print("================================")
-    print("Start test_case_by_hydroid.py")
-    start_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print(f"started: {dt_string}")
-    print()
-
+def catchment_zonal_stats(benchmark_category, version, csv, log):
     # Execution code
     csv_output = gpd.GeoDataFrame(
         columns=[
@@ -237,92 +221,167 @@ if __name__ == "__main__":
             'geometry',
         ],
         geometry='geometry',
-    )
+    ).set_crs('EPSG:3857')
 
     # This funtion, relies on the Test_Case class defined in run_test_case.py to list all available test cases
-    print('listing_test_cases_with_updates')
     all_test_cases = Test_Case.list_all_test_cases(
         version=version,
         archive=True,
         benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
     )
+    print(f'Found {len(all_test_cases)} test cases')
+    if log:
+        log.write(f'Found {len(all_test_cases)} test cases...\n')
+    missing_hucs = []
 
-    for test_case_class in all_test_cases:
+    for test_case_class in tqdm(all_test_cases, desc=f'Running {len(all_test_cases)} test cases'):
         if not os.path.exists(test_case_class.fim_dir):
             print(f'{test_case_class.fim_dir} does not exist')
+            missing_hucs.append(test_case_class)
+            if log:
+                log.write(f'{test_case_class.fim_dir} does not exist\n')
             continue
 
-        print(test_case_class.fim_dir, end='\r')
+        if log:
+            log.write(test_case_class.test_id + '\n')
 
         agreement_dict = test_case_class.get_current_agreements()
 
         for agree_rast in agreement_dict:
-            print(f'performing_zonal_stats for {agree_rast}')
 
-            branches_dir = os.path.join(test_case_class.fim_dir, 'branches')
-            for branches in os.listdir(branches_dir):
-                if branches != "0":
-                    continue
-                huc_gpkg = os.path.join(branches_dir, branches)
+            # We are only using branch 0 catchments to define boundaries for zonal stats
+            catchment_gpkg = os.path.join(
+                test_case_class.fim_dir,
+                'branches',
+                "gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg",
+            )
 
-                string_manip = (
-                    "gw_catchments_reaches_filtered_addedAttributes_crosswalked_" + branches + ".gpkg"
-                )
+            define_mag = agree_rast.split(version)
+            define_mag_1 = define_mag[1].split('/')
+            mag = define_mag_1[1]
 
-                huc_gpkg = os.path.join(huc_gpkg, string_manip)
+            if log:
+                log.write(f'  {define_mag[1]}\n')
 
-                define_mag = agree_rast.split(version)
+            stats = perform_zonal_stats(catchment_gpkg, agree_rast)
+            if stats == []:
+                continue
 
-                define_mag_1 = define_mag[1].split('/')
+            get_geom = gpd.read_file(catchment_gpkg)
 
-                mag = define_mag_1[1]
+            get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
 
-                stats = perform_zonal_stats(huc_gpkg, agree_rast)
-                if stats == []:
-                    continue
+            in_mem_df = assemble_hydro_alpha_for_single_huc(
+                stats, test_case_class.huc, mag, test_case_class.benchmark_cat
+            )
 
-                print('assembling_hydroalpha_for_single_huc')
-                get_geom = gpd.read_file(huc_gpkg)
+            hydro_geom_df = get_geom[["HydroID", "geometry"]]
 
-                get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
+            geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how='inner').to_crs('EPSG:3857')
 
-                in_mem_df = assemble_hydro_alpha_for_single_huc(
-                    stats, test_case_class.huc, mag, test_case_class.benchmark_cat
-                )
+            concat_df_list = [geom_output, csv_output]
 
-                hydro_geom_df = get_geom[["HydroID", "geometry"]]
+            csv_output = pd.concat(concat_df_list, sort=False)
 
-                geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how='inner')
+    if missing_hucs:
+        log.write(
+            f"There were {len(missing_hucs)} HUCs missing from the input FIM version:\n"
+            + "\n".join([h.fim_dir for h in missing_hucs])
+        )
 
-                concat_df_list = [geom_output, csv_output]
+    print()
+    print(csv_output.groupby('BENCH').size())
+    print(f'total     {len(csv_output)}')
+    log.write("\n------------------------------------\n")
+    csv_output.groupby('BENCH').size().to_string(log)
+    log.write(f'\ntotal     {len(csv_output)}\n')
 
-                csv_output = pd.concat(concat_df_list, sort=False)
-
-    print('projecting to 3857')
-    csv_output = csv_output.to_crs('EPSG:3857')
-
-    print('manipulating the input string to exclude gpkg and include csv')
-    csv_path_list = csv.split(".")
-    csv_path = csv_path_list[0]
-    csv_path_dot = csv_path + ".csv"
-
-    print('writing_to_gpkg')
-    csv_output.to_file(csv, driver="GPKG")
+    print('Writing to GPKG')
+    log.write(f'Writing geopackage {csv}\n')
+    csv_output.to_file(csv, driver="GPKG", engine='fiona')
 
     # Add version information to csv_output dataframe
     csv_output['version'] = version
 
-    print('writing_to_csv')
-    csv_output.to_csv(csv_path_dot)  # Save to CSV
+    print('Writing to CSV')
+    csv_path = csv.replace(".gpkg", ".csv")
+    log.write(f'Writing CSV {csv_path}\n')
+    csv_output.to_csv(csv_path)  # Save to CSV
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Produces alpha metrics by hyrdoid.')
+
+    parser.add_argument(
+        '-b',
+        '--benchmark_category',
+        help='Choice of truth data. Options are: all, ble, ifc, nws, usgs, ras2fim',
+        required=True,
+    )
+    parser.add_argument(
+        '-v', '--version', help='The fim version to use. Should be similar to fim_3_0_24_14_ms', required=True
+    )
+    parser.add_argument(
+        '-g',
+        '--gpkg',
+        help='Filepath and filename to hold exported gpkg file. '
+        'Similar to /data/path/fim_performance_catchments.gpkg. A CSV with the same name will also be written.',
+        required=True,
+    )
+    parser.add_argument(
+        '-l',
+        '--log',
+        help='Optional flag to write a log file with the same name as the --GPKG.',
+        required=False,
+        default=None,
+        action='store_true',
+    )
+
+    # Assign variables from arguments.
+    args = vars(parser.parse_args())
+    benchmark_category = args['benchmark_category']
+    version = args['version']
+    csv = args['gpkg']
+    log = args['log']
+
+    print("================================")
+    print("Start test_case_by_hydroid.py")
+    start_time = datetime.now()
+    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    print(f"started: {dt_string}")
+    print()
+
+    ## Initiate log file
+    if log:
+        log = open(csv.replace('.gpkg', '.log'), "w")
+        log.write('START TIME: ' + str(start_time) + '\n')
+        log.write('#########################################################\n\n')
+        log.write('')
+        log.write(f'Runtime args:\n {args}\n\n')
+
+    # This is the main execution -- try block is to catch and log errors
+    try:
+        catchment_zonal_stats(benchmark_category, version, csv, log)
+    except Exception as ex:
+        print(f"ERROR: Execution failed. Please check the log file for details. \n {log.name if log else ''}")
+        if log:
+            log.write(f"ERROR -->\n{ex}")
+        traceback.print_exc(file=log)
+        if log:
+            log.write(f'Errored at: {str(datetime.now().strftime("%m/%d/%Y %H:%M:%S"))} \n')
+
+    end_time = datetime.now()
+    dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
+    tot_run_time = end_time - start_time
+    if log:
+        log.write(f'END TIME: {str(end_time)} \n')
+        log.write(f'TOTAL RUN TIME: {str(tot_run_time)} \n')
+        log.close()
 
     print("================================")
     print("End test_case_by_hydroid.py")
 
-    end_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     print(f"ended: {dt_string}")
 
-    # calculate duration
-    time_duration = end_time - start_time
-    print(f"Duration: {str(time_duration).split('.')[0]}")
+    print(f"Duration: {str(tot_run_time).split('.')[0]}")
     print()
