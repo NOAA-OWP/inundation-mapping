@@ -690,9 +690,12 @@ def post_process_huc(
                     file_name_parts = tif_file_name.split("_")
                     magnitude = file_name_parts[1]
 
-                    if "ft" in tif_file_name:  # stage based, ie grnm1_action_11p0ft_extent.tif
+                    # stage based, ie grnm1_action_11p0ft_extent.tif
+                    # careful. ft can be part of the site name
+                    if len(file_name_parts) >= 3 and "ft" in file_name_parts[2]:  
                         try:
-                            interval_stage = float(file_name_parts[2].replace('p', '.').replace("ft", ""))
+                            stage_val = file_name_parts[2].replace('p', '.').replace("ft", "")
+                            interval_stage = float(stage_val)
                         except ValueError:
                             interval_stage = None
                             MP_LOG.error(
