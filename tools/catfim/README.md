@@ -37,6 +37,9 @@ Flow-based example with HUC list:
 ### Changing Symbol Drawing Order
 
 - **ArcGIS Pro:** Go to the Symbology pane and navgate to the Symbol layer drawing tab. Make sure the "Enable symbol layer drawing" option is switched "ON", and then adjust the Drawing Order of the magnitudes so they are in this order: action, minor, moderate, major, record.
+
+![screenshot of Symbology pane in ArcGIS Pro](https://github.com/NOAA-OWP/inundation-mapping/blob/b527e762478fef2c1ffc5f0ff4d494f1746663bb/tools/catfim/images/screenshot_vis_settings.JPG)
+
 - **QGIS**: To change the symbol drawing order in QGIS...
 
 ## Glossary
