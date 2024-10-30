@@ -287,32 +287,40 @@ def add_crosswalk(
         if huc_id.startswith('19'):
             print("Update rating curves for short reaches in Alaska.")
             # Create a DataFrame with new values for discharge based on 'update_id'
-            new_values = output_src[output_src['HydroID'].isin(sml_segs['update_id'])][['HydroID', 'Stage', 'Discharge (m3s-1)']]
+            new_values = output_src[output_src['HydroID'].isin(sml_segs['update_id'])][
+                ['HydroID', 'Stage', 'Discharge (m3s-1)']
+            ]
 
             # Merge this new values DataFrame with sml_segs on 'update_id' and 'HydroID'
             sml_segs_with_values = sml_segs.merge(
-                new_values,
-                left_on='update_id',
-                right_on='HydroID',
-                suffixes=('', '_new')
+                new_values, left_on='update_id', right_on='HydroID', suffixes=('', '_new')
             )
             sml_segs_with_values = sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']]
-            merged_output_src = output_src.merge(sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']], left_on=['HydroID', 'Stage'], right_on=['short_id', 'Stage'], suffixes=('', '_df2'))
+            merged_output_src = output_src.merge(
+                sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']],
+                left_on=['HydroID', 'Stage'],
+                right_on=['short_id', 'Stage'],
+                suffixes=('', '_df2'),
+            )
             merged_output_src = merged_output_src[['HydroID', 'Stage', 'Discharge (m3s-1)_df2']]
             output_src = pd.merge(output_src, merged_output_src, on=['HydroID', 'Stage'], how='left')
-            output_src['Discharge (m3s-1)'] = output_src['Discharge (m3s-1)_df2'].fillna(output_src['Discharge (m3s-1)'])
+            output_src['Discharge (m3s-1)'] = output_src['Discharge (m3s-1)_df2'].fillna(
+                output_src['Discharge (m3s-1)']
+            )
             output_src = output_src.drop(columns=['Discharge (m3s-1)_df2'])
         else:
-         for index, segment in sml_segs.iterrows():
-            short_id = segment[0]
-            update_id = segment[1]
-            new_values = output_src.loc[output_src['HydroID'] == update_id][['Stage', 'Discharge (m3s-1)']]
+            for index, segment in sml_segs.iterrows():
+                short_id = segment[0]
+                update_id = segment[1]
+                new_values = output_src.loc[output_src['HydroID'] == update_id][
+                    ['Stage', 'Discharge (m3s-1)']
+                ]
 
-            for src_index, src_stage in new_values.iterrows():
-                output_src.loc[
-                    (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage[0]),
-                    ['Discharge (m3s-1)'],
-                ] = src_stage[1]
+                for src_index, src_stage in new_values.iterrows():
+                    output_src.loc[
+                        (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage[0]),
+                        ['Discharge (m3s-1)'],
+                    ] = src_stage[1]
 
     output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
 
