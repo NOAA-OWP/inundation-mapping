@@ -914,32 +914,15 @@ def reformat_inundation_maps(
         MP_LOG.trace(F"Tif to process is {tif_to_process}")
 
         # Convert raster to shapes
-        # with rasterio.open(tif_to_process) as src:
-        #     image = src.read(1)
-        #     mask = image > 0
-
-        # # Aggregate shapes
-        # results = (
-        #     {'properties': {'extent': 1}, 'geometry': s}
-        #     for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
-        # )
-
-        # trying a similar process from 'identify_catchment_boundary.py
         with rasterio.open(tif_to_process) as src:
-            band = src.read(1)
-            band[np.where(band <= 0)] = 0
-            band[np.where(band > 0)] = 1
-            inundated = band > 0
-            # results = (
-            #     {'properties': {'extent': v}, 'geometry': s}
-            #     for i, (s, v) in enumerate(shapes(band, mask=inundated, transform=affine))
-            # )  # don't need enumerate (slows it down a tad)
-            # Oct 29, 2024: Found this trick in HydroVIS PR 941
-            # https://github.com/NOAA-OWP/hydrovis/pull/941
-            results = list(
-                {'properties': {'extent': v}, 'geometry': s}
-                for ___, (s, v) in rasterio.features.shapes(band, mask=inundated, transform=src.transform)
-            )
+            image = src.read(1)
+            mask = image > 0
+
+        # Aggregate shapes
+        results = (
+            {'properties': {'extent': 1}, 'geometry': s}
+            for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
+        )
 
         # Convert list of shapes to polygon
         # lots of polys
