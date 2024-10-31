@@ -52,7 +52,7 @@ profile = 'black'
 line_length = 110
 multi_line_output = 3
 lines_after_imports = 2
-extend-skip = [""".csv"""
+extend-skip = [""".csv"""]
 
 # yes, the exclue format is different from black
 [tool.flake8]
