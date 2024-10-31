@@ -576,7 +576,7 @@ def iterate_through_huc_stage_based(
                 # analyzing the status message as one factor to decide if the record
                 # is or should be mapped.
                 status_msg_allowing_continue = ""
-                
+
                 lid = lid.lower()  # Convert lid to lower case
 
                 MP_LOG.lprint("-----------------------------------")

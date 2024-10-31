@@ -692,7 +692,7 @@ def post_process_huc(
 
                     # stage based, ie grnm1_action_11p0ft_extent.tif
                     # careful. ft can be part of the site name
-                    if len(file_name_parts) >= 3 and "ft" in file_name_parts[2]:  
+                    if len(file_name_parts) >= 3 and "ft" in file_name_parts[2]:
                         try:
                             stage_val = file_name_parts[2].replace('p', '.').replace("ft", "")
                             interval_stage = float(stage_val)
