@@ -42,7 +42,7 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 skip-string-normalization = true
 skip-magic-trailing-comma = true
 line-length = 110
-extend = '''
+exclude = '''
 /(
   \.csv
 )/
@@ -54,7 +54,7 @@ line_length = 110
 multi_line_output = 3
 lines_after_imports = 2
 # extend-skip = [".csv"]
-skip_glob = [".csv"]
+skip_glob = ["*.csv"]
 
 # yes, the exclue format is different from black
 [tool.flake8]
