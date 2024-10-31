@@ -41,6 +41,7 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 [tool.black]
 skip-string-normalization = true
 skip-magic-trailing-comma = true
+line-length = 110
 extend-exclude = '''
 /(
   \.csv$
@@ -52,7 +53,8 @@ profile = 'black'
 line_length = 110
 multi_line_output = 3
 lines_after_imports = 2
-extend-skip = [".csv"]
+# extend-skip = [".csv"]
+skip_glob = [".csv"]
 
 # yes, the exclue format is different from black
 [tool.flake8]
@@ -72,7 +74,6 @@ extend-ignore = """
 exclude = ["*.csv"]
 
 per-file-ignores = """
-    *.csv
     src/subdiv_chan_obank_src.py: E712
     src/src_roughness_optimization.py: E712, F841
     src/agreedem.py: E712
