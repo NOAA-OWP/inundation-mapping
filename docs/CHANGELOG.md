@@ -2,6 +2,14 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.5.x.x - 2024-10-31 - [PR#1285](https://github.com/NOAA-OWP/inundation-mapping/pull/1285)
+
+Major upgrades and bug fixes to the CatFIM product, informally called CatFIM 2.1. See the PR for all details
+
+<br/><br/>
+
+
+
 ## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
 
 The fix: During the post processing scan for the word "error" or "warning", it was only finding records which had either of those two words as stand alone words and not part of bigger phrases.  ie); "error" was found, but not "fielderror". Added wildcards and it is now fixed.
