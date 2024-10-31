@@ -41,11 +41,16 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 [tool.black]
 skip-string-normalization = true
 skip-magic-trailing-comma = true
-
+extend-exclude = '''
+(
+  # Ignore files ending with .csv
+  \.csv$
+)
+'''
 
 [tool.isort]
 profile = 'black'
-line_length = 120
+line_length = 110
 multi_line_output = 3
 lines_after_imports = 2
 
@@ -54,15 +59,15 @@ lines_after_imports = 2
 count = true
 doctests = true
 max-complexity = 56
-max-line-length = 120
+max-line-length = 110
 extend-ignore = """
     E203,
     E266,
     E501,
     W503,
-    W391
-    F403,
+    W391,
     F401,
+    F403,
     """
 exclude = ["*.csv"]
 
