@@ -41,13 +41,18 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 [tool.black]
 skip-string-normalization = true
 skip-magic-trailing-comma = true
-exclude = ["*.csv$"]
+exclude = '''
+/(
+      \.csv
+)/
+'''
 
 [tool.isort]
 profile = 'black'
 multi_line_output = 3
 lines_after_imports = 2
 
+# yes, the exclue format is different from black
 [tool.flake8]
 count = true
 doctests = true
@@ -62,10 +67,9 @@ extend-ignore = """
     F403,
     F401,
     """
-exclude = ["*.csv$"]
+exclude = ["*.csv"]
 
 per-file-ignores = """
-    *.csv
     src/subdiv_chan_obank_src.py: E712
     src/src_roughness_optimization.py: E712, F841
     src/agreedem.py: E712
