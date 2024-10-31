@@ -41,14 +41,11 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 [tool.black]
 skip-string-normalization = true
 skip-magic-trailing-comma = true
-exclude = '''
-/(
-      \.csv
-)/
-'''
+
 
 [tool.isort]
 profile = 'black'
+line_length = 120
 multi_line_output = 3
 lines_after_imports = 2
 
