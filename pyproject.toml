@@ -42,9 +42,9 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 skip-string-normalization = true
 skip-magic-trailing-comma = true
 line-length = 110
-extend-exclude = '''
+extend = '''
 /(
-  \.csv$
+  \.csv
 )/
 '''
 
