@@ -39,14 +39,12 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 # - Tools -
 
 [tool.black]
-line_length = 110
 skip-string-normalization = true
 skip-magic-trailing-comma = true
-
+exclude = ".*\.csv$"
 
 [tool.isort]
 profile = 'black'
-line_length = 110
 multi_line_output = 3
 lines_after_imports = 2
 
@@ -54,7 +52,7 @@ lines_after_imports = 2
 count = true
 doctests = true
 max-complexity = 56
-max-line-length = 110
+max-line-length = 120
 extend-ignore = """
     E203,
     E266,
@@ -64,6 +62,8 @@ extend-ignore = """
     F403,
     F401,
     """
+exclude = ".*\.csv$"
+    
 per-file-ignores = """
     src/subdiv_chan_obank_src.py: E712
     src/src_roughness_optimization.py: E712, F841
@@ -78,6 +78,5 @@ per-file-ignores = """
     tools/run_test_case.py: E711
     tools/tools_shared_functions.py: F821, F841, E711
     tools/vary_mannings_n_composite.py: E712
-
     data/usgs/rating_curve_get_usgs_curves.py: F841
     """
