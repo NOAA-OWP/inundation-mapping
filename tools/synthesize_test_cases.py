@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
-import ast
 import csv
 import json
 import os
 import re
-import signal
 import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait

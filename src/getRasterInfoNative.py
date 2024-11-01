@@ -9,6 +9,9 @@ import sys
 from osgeo import gdal, osr
 
 
+gdal.UseExceptions()
+
+
 """
 read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy
     <<< $(./getRasterInfoNative.py <raster.tif>)

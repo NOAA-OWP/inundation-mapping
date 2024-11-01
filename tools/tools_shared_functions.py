@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
+import datetime as dt
 import json
+import logging
 import os
 import pathlib
+import traceback
 from pathlib import Path
 
 import geopandas as gpd
@@ -13,6 +16,7 @@ import rasterio.crs
 import rasterio.shutil
 import requests
 import rioxarray as rxr
+import urllib3
 import xarray as xr
 from dotenv import load_dotenv
 from geocube.api.core import make_geocube
@@ -63,9 +67,16 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     filtered_segments = []
 
     for feature_id in unfiltered_segments:
-        stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
+
+        try:
+            stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
+        except Exception as e:
+            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
+
         if stream_order == desired_order:
             filtered_segments.append(feature_id)
+        # else:
+        #     print(f'Stream order for {feature_id} did not match desired stream order...')
 
     return filtered_segments
 
@@ -477,9 +488,7 @@ def get_stats_table_from_binary_rasters(
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
 
-        from datetime import datetime
-
-        now = datetime.now()
+        now = dt.datetime.now()
         current_time = now.strftime("%m/%d/%Y %H:%M:%S")
 
         with open(legend_txt, 'w') as f:
@@ -594,7 +603,7 @@ def get_metadata(
     metadata_url : STR
         metadata base URL.
     select_by : STR
-        Location search option.
+        Location search option. Options include: 'state', TODO: add options
     selector : LIST
         Value to match location data against. Supplied as a LIST.
     must_include : STR, optional
@@ -660,7 +669,7 @@ def get_metadata(
             metadata.update(crosswalk_info)
         metadata_dataframe = pd.json_normalize(metadata_list)
         # Replace all periods with underscores in column names
-        metadata_dataframe.columns = metadata_dataframe.columns.str.replace('.', '_')
+        metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
     else:
         # if request was not succesful, print error message.
         print(f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}')
@@ -673,7 +682,7 @@ def get_metadata(
 ########################################################################
 # Function to assign HUC code using the WBD spatial layer using a spatial join
 ########################################################################
-def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
+def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, huc_list=list()):
     '''
     Assigns the proper FIM HUC 08 code to each site in the input DataFrame.
     Converts input DataFrame to a GeoDataFrame using lat/lon attributes
@@ -703,9 +712,16 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
     '''
     # Import huc8 layer as geodataframe and retain necessary columns
     print("Reading WBD...")
-    huc8 = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
+    huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     print("WBD read.")
-    huc8 = huc8[['HUC8', 'name', 'states', 'geometry']]
+    huc8 = huc8_all[['HUC8', 'name', 'states', 'geometry']]
+
+    if len(huc_list) > 0:
+        # filter by hucs we are using
+        huc8 = huc8[huc8['HUC8'].isin(huc_list)]
+
+    huc8.sort_values(by='HUC8', ascending=True, inplace=True)
+
     # Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
     crs_lookup = {'NAD27': 'EPSG:4267', 'NAD83': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
     # Create empty geodataframe and define CRS for potential horizontal datums
@@ -940,6 +956,9 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
 
     # Call the API
     session = requests.Session()
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     retry = Retry(connect=3, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
@@ -1390,8 +1409,8 @@ def process_extent(extent, profile, output_raster=False):
     # Fill holes in extent
     poly_extent_fill_holes = MultiPolygon(Polygon(p.exterior) for p in poly_extent['geometry'])
     # loop through the filled polygons and insert the new geometry
-    for i in range(len(poly_extent_fill_holes)):
-        poly_extent.loc[i, 'geometry'] = poly_extent_fill_holes[i]
+    for i, part in enumerate(poly_extent_fill_holes.geoms):
+        poly_extent.loc[i, 'geometry'] = part
 
     # Dissolve filled holes with main map and explode
     poly_extent['dissolve_field'] = 1

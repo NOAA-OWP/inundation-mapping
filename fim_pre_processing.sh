@@ -122,6 +122,7 @@ fi
 # outputsDir & workDir come from the Dockerfile
 outputDestDir=$outputsDir/$runName
 tempRunDir=$workDir/$runName
+# export WBT_PATH=${tempRunDir}/whitebox_temp
 
 # default values
 if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi
@@ -203,6 +204,7 @@ if [ ! -d $outputDestDir ]; then
     mkdir -p $outputDestDir
     chmod 777 $outputDestDir
     mkdir -p $tempRunDir
+	chmod 777 $tempRunDir
 else
     # remove these directories and files on a new or overwrite run
     rm -rdf $outputDestDir/logs
@@ -213,6 +215,7 @@ else
     rm -f $outputDestDir/fim_inputs*
     rm -f $outputDestDir/*.env
 fi
+
 
 mkdir -p $outputDestDir/logs/unit
 mkdir -p $outputDestDir/logs/branch
@@ -228,6 +231,9 @@ cp $envFile $outputDestDir/params.env
 # or via pipeline. There is likely a more elegent way to do this.
 
 args_file=$outputDestDir/runtime_args.env
+
+# reset it again (this time recursive for the new incoming folders
+chmod 777 -R $outputDestDir
 
 # the jobHucLimit is not from the args files, only jobBranchLimit
 echo "export runName=$runName" >> $args_file

@@ -370,7 +370,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
     )
 
-    sites_gdf.to_file(os.path.join(workspace, 'sites_bool_flags.gpkg'), driver='GPKG')
+    sites_gdf.to_file(os.path.join(workspace, 'sites_bool_flags.gpkg'), driver='GPKG', engine='fiona')
 
     # Filter and save filtered file for viewing
     acceptable_sites_gdf = sites_gdf[
@@ -379,7 +379,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
     acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
     acceptable_sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_for_rating_curves.csv'))
     acceptable_sites_gdf.to_file(
-        os.path.join(workspace, 'acceptable_sites_for_rating_curves.gpkg'), driver='GPKG'
+        os.path.join(workspace, 'acceptable_sites_for_rating_curves.gpkg'), driver='GPKG', engine='fiona'
     )
 
     # Make list of acceptable sites
@@ -404,7 +404,9 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         # If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:
             sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
-            sites_gdf.to_file(Path(workspace) / 'usgs_gages.gpkg', layer='usgs_gages', driver='GPKG')
+            sites_gdf.to_file(
+                Path(workspace) / 'usgs_gages.gpkg', layer='usgs_gages', driver='GPKG', engine='fiona'
+            )
 
         # Write out flow files for each threshold across all sites
         write_categorical_flow_files(metadata_list, workspace)

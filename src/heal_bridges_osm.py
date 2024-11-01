@@ -37,7 +37,7 @@ def process_bridges_in_huc(
 
         # Get max hand values for each bridge
         osm_gdf['max_hand'] = zonal_stats(
-            osm_gdf['geometry'], hand_grid_array, affine=hand_grid.transform, stats="max"
+            osm_gdf['geometry'], hand_grid_array, affine=hand_grid.transform, stats="max", nodata=-999
         )
         # pull the values out of the geopandas columns so we can use them as floats
         osm_gdf['max_hand'] = [x.get('max') for x in osm_gdf.max_hand]
@@ -71,9 +71,12 @@ def process_bridges_in_huc(
     osm_gdf['branch'] = branch_id
     osm_gdf['mainstem'] = 0 if branch_id == '0' else 1
 
-    # Write the bridge points to a geopackage
-    osm_gdf.to_file(bridge_centroids, index=False)
-
+    # Check if the GeoDataFrame is empty
+    if not osm_gdf.empty:
+        # Write the bridge points to a geopackage
+        osm_gdf.to_file(bridge_centroids, index=False, engine='fiona')
+    else:
+        print('The geoDataFrame is empty. File not saved.')
     return
 
 
@@ -91,6 +94,12 @@ def flows_from_hydrotable(bridge_pnts, hydroTable):
         axis=1,
         result_type='expand',
     )
+    # Convert stages and dischrages to ft and cfs respectively
+    bridge_pnts['max_hand_ft'] = bridge_pnts['max_hand'] * 3.28084
+    bridge_pnts['max_hand_75_ft'] = bridge_pnts['max_hand_75'] * 3.28084
+    bridge_pnts['max_discharge_cfs'] = bridge_pnts['max_discharge'] * 35.3147
+    bridge_pnts['max_discharge_75_cfs'] = bridge_pnts['max_discharge75'] * 35.3147
+
     return bridge_pnts
 
 
@@ -100,6 +109,7 @@ if __name__ == "__main__":
         python3 src/heal_bridges_osm.py
             -g /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_3763000013.tif
             -s /outputs/fim_4_4_15_0/1209301/osm_bridges_subset.gpkg
+            -p /outputs/fim_4_4_15_0/1209301/branches/3763000013/gw_catchments_reaches_filtered_addedAttributes_crosswalked_3763000013.gpkg
             -c /outputs/fim_4_4_15_0/1209301/1209301/branches/3763000013/osm_bridge_centroids_3763000013.tif
             -b 10
             -r 10

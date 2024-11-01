@@ -122,20 +122,20 @@ def produce_mosaicked_inundation(
             if depths_raster is not None:
                 mosaic_output = depths_raster
 
-    if mosaic_output is not None:
-        # Call Mosaic_inundation
-        mosaic_file_path = Mosaic_inundation(
-            map_file.copy(),
-            mosaic_attribute=mosaic_attribute,
-            mosaic_output=mosaic_output,
-            mask=mask,
-            unit_attribute_name=unit_attribute_name,
-            nodata=elev_raster_ndv,
-            remove_inputs=remove_intermediate,
-            verbose=verbose,
-            is_mosaic_for_branches=is_mosaic_for_branches,
-            inundation_polygon=inundation_polygon,
-        )
+        if mosaic_output is not None:
+            # Call Mosaic_inundation
+            mosaic_file_path = Mosaic_inundation(
+                map_file.copy(),
+                mosaic_attribute=mosaic_attribute,
+                mosaic_output=mosaic_output,
+                mask=mask,
+                unit_attribute_name=unit_attribute_name,
+                nodata=elev_raster_ndv,
+                remove_inputs=remove_intermediate,
+                verbose=verbose,
+                is_mosaic_for_branches=is_mosaic_for_branches,
+                inundation_polygon=inundation_polygon,
+            )
 
     fh.vprint("Mosaicking complete.", verbose)
 
