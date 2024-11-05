@@ -318,14 +318,25 @@ def generate_flows_for_huc(
         # Write all_messages by HUC to be scraped later.
         if len(all_messages) > 0:
 
+            # Check for duplicate sites in the messages
+            lids  = [msg.split(':')[0] for msg in all_messages]
+            duplicate_lids = set([x for x in lids if lids.count(x) > 1])
+
+            # If there are duplicate sites and one of the lines has '---', drop that line
+            filtered_messages = [
+                msg for msg in all_messages 
+                if not (msg.split(':')[0] in duplicate_lids and ':---' in msg)
+            ]
+
             # TODO: Aug 2024: This is now identical to the way flow handles messages
             # but the system should probably be changed to somethign more elegant but good enough
             # for now. At least is is MP safe.
-            # Write all_messages to huc-specific file.
+
+            # Write filtered_messages to huc-specific file.
             # MP_LOG.lprint(f'Writing message file for {huc}')
             huc_messages_txt_file = os.path.join(huc_messages_dir, str(huc) + '_messages.txt')
             with open(huc_messages_txt_file, 'w') as f:
-                for item in all_messages:
+                for item in filtered_messages:
                     item = item.strip()
                     # f.write("%s\n" % item)
                     f.write(f"{item}\n")
