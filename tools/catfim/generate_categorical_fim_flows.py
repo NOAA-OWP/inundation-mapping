@@ -143,7 +143,7 @@ def generate_flows_for_huc(
 
             # Yes.. stages, we will handle missing flows later even though we don't use the stage here
             if stages is None or len(stages) == 0:
-                msg = ':error getting stages values from WRDS API'
+                msg = ':Error getting stages values from WRDS API'
                 all_messages.append(lid + msg)
                 MP_LOG.warning(huc_lid_id + msg)
                 continue
@@ -152,14 +152,14 @@ def generate_flows_for_huc(
 
             # Check if stages are supplied, if not write message and exit.
             if all(stages.get(category, None) is None for category in categories):
-                message = f'{lid}:missing all stage data'
+                message = f'{lid}:Missing all stage data'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
 
             # Check if calculated flows are supplied, if not write message and exit.
             if all(flows.get(category, None) is None for category in categories):
-                message = f'{lid}:missing all calculated flows for all stages'
+                message = f'{lid}:Missing all calculated flows for all stages'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
@@ -188,7 +188,7 @@ def generate_flows_for_huc(
 
             # If there are no segments, write message and exit out
             if not segments or len(segments) == 0:
-                message = f'{lid}:missing nwm stream segments'
+                message = f'{lid}:Missing nwm stream segments'
                 all_messages.append(message)
                 MP_LOG.warning(f"{huc} - {message}")
                 continue
@@ -232,7 +232,7 @@ def generate_flows_for_huc(
                     invalid_flows.append(category)
 
             if len(invalid_flows) == 5:
-                msg = ':no valid flow values are available'
+                msg = ':No valid flow values are available'
                 all_messages.append(lid + msg)
                 MP_LOG.warning(huc_lid_id + msg)
                 continue
@@ -282,7 +282,7 @@ def generate_flows_for_huc(
                             'lat': [lat],
                             'lon': [lon],
                             'mapped': 'yes',
-                            'status': 'OK',
+                            'status': 'Good',
                         }
                     )
                     csv_df = pd.concat([csv_df, line_df], ignore_index=True)
@@ -307,9 +307,9 @@ def generate_flows_for_huc(
                 csv_df.to_csv(file_name, index=False)
 
                 if missing_wrds_data_msg == "":
-                    all_messages.append(lid + ':OK')
+                    all_messages.append(lid + ':Good')
             else:
-                msg = ':missing all calculated flows'
+                msg = ':Missing all calculated flows'
                 all_messages.append(lid + msg)
                 MP_LOG.error(huc_lid_id + msg)
 
@@ -451,9 +451,12 @@ def generate_flows(
 
     FLOG.lprint("Start aggregate_wbd_hucs")
     start_dt = datetime.now(timezone.utc)
-
+  
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
-    FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}")  # TEMP DEBUG
+    FLOG.trace("huc_dictionary is ...")
+    FLOG.trace(huc_dictionary)
+    
+    # FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}")  # TEMP DEBUG
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
@@ -477,16 +480,7 @@ def generate_flows(
             all_meta_lists,
             nwm_flows_df,
             nwm_flows_alaska_df,
-        )  # Alaska
-
-        # return (
-        #     huc_dictionary,
-        #     out_gdf,
-        #     metadata_url,
-        #     threshold_url,
-        #     all_meta_lists,
-        #     nwm_flows_df,
-        # )  # No Alaska
+        )
 
     # only flow based needs the "flow" dir
     output_flows_dir = os.path.join(output_catfim_dir, "flows")
@@ -623,7 +617,7 @@ def generate_flows(
         # status for null fields.
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
-        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
+        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('Good')
         # viz_out_gdf['status'] = viz_out_gdf['status'].apply(lambda x: x[3:] if x.startswith("---") else x)
 
     # Filter out columns and write out to file
@@ -636,6 +630,8 @@ def generate_flows(
 
     # stage based doesn't get here
     # crs is 3857 - web mercator at this point
+    
+    # The csv will be updated later if something fails during inundation
     nws_lid_csv_file_path = os.path.join(mapping_dir, 'flow_based_catfim_sites.csv')
     viz_out_gdf.to_csv(nws_lid_csv_file_path)
 
@@ -672,9 +668,11 @@ def __load_nwm_metadata(
 
         FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
 
-        # lid_to_run could be a single lid or the word "all"
-        # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
         if lid_to_run != "all":
+            # single lid for now
+            
+            # must_include_value variable not yet tested
+            # must_include_value = 'nws_data.rfc_forecast_point' if lid_to_run not in ['HI', 'PR', 'AK'] else None
             all_meta_lists, ___ = get_metadata(
                 metadata_url,
                 select_by='nws_lid',
@@ -684,7 +682,14 @@ def __load_nwm_metadata(
                 downstream_trace_distance=nwm_ds_search,
             )
         else:
-            conus_list, ___ = get_metadata(
+            # This gets all records including AK, HI and PR, but only if they ahve forecast points
+            
+            # Note: Nov 2024: AK has 152 sites with forecast points, but after research
+            # non of the AK sites that nws_data.rfc_forecast_point = False so we can
+            # exclude them.
+            # Previously we allowed HI and PR sites to come in and most were failing.
+            # So, we will include HI and PR as well here
+            all_meta_lists, ___ = get_metadata(
                 metadata_url,
                 select_by='nws_lid',
                 selector=['all'],
@@ -692,17 +697,18 @@ def __load_nwm_metadata(
                 upstream_trace_distance=nwm_us_search,
                 downstream_trace_distance=nwm_ds_search,
             )
-            # Get metadata for Islands and Alaska
-            islands_list, ___ = get_metadata(
-                metadata_url,
-                select_by='state',
-                selector=['HI', 'PR', 'AK'],
-                must_include=None,
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
-            # Append the lists
-            all_meta_lists = conus_list + islands_list
+    
+            # islands_list, ___ = get_metadata(
+            #     metadata_url,
+            #     select_by='state',
+            #     selector=['HI', 'PR'],
+            #     must_include=None,
+            #     upstream_trace_distance=nwm_us_search,
+            #     downstream_trace_distance=nwm_ds_search,
+            # )
+
+            #  Append the lists
+            # all_meta_lists = filtered_all_meta_list + islands_list
 
         with open(meta_file, "wb") as p_handle:
             pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)

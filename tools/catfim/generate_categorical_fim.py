@@ -222,6 +222,7 @@ def process_generate_categorical_fim(
         )
 
     # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
+    # single lid, not multiple
     lid_to_run = "all"
 
     # Check that fim_inputs.csv exists and raise error if necessary
@@ -339,9 +340,7 @@ def process_generate_categorical_fim(
     # end if else
 
     FLOG.lprint("")
-    if (
-        step_num <= 3
-    ):  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
+    if step_num <= 3:  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
         # Updating mapping status
         FLOG.lprint('Updating mapping status...')
         update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path)
@@ -359,8 +358,27 @@ def process_generate_categorical_fim(
     # calculate duration
     time_duration = overall_end_time - overall_start_time
     FLOG.lprint(f"Duration: {str(time_duration).split('.')[0]}")
-
     return
+
+
+def get_list_ahps_with_library_gpkgs(output_mapping_dir):
+
+    # as it is a set it will dig out unique files
+    ahps_ids_with_gpkgs = []
+    # gpkg_file_names =
+    file_pattern = os.path.join(output_mapping_dir, "gpkg") + '/*_dissolved.gpkg'
+    # print(file_pattern)
+    for file_path in glob.glob(file_pattern):
+        file_name = os.path.basename(file_path)
+        file_name_segs = file_name.split("_")
+        if len(file_name_segs) <= 1:
+            continue
+        ahps_id = file_name_segs[1]
+        if len(ahps_id) == 5:  # yes, we assume the ahps in the second arg
+            if ahps_id not in ahps_ids_with_gpkgs:
+                ahps_ids_with_gpkgs.append(ahps_id)
+
+    return ahps_ids_with_gpkgs
 
 
 def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
@@ -387,29 +405,9 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
         FLOG.critical(f"flows_gdf is empty. Path is {catfim_sites_file_path}. Program aborted.")
         sys.exit(1)
 
-    # Yes.. embedded def
-    def get_list_ahps_with_library_gpkgs():
-
-        # as it is a set it will dig out unique files
-        ahps_ids_with_gpkgs = []
-        # gpkg_file_names =
-        file_pattern = os.path.join(output_mapping_dir, "gpkg") + '/*_dissolved.gpkg'
-        # print(file_pattern)
-        for file_path in glob.glob(file_pattern):
-            file_name = os.path.basename(file_path)
-            file_name_segs = file_name.split("_")
-            if len(file_name_segs) <= 1:
-                continue
-            ahps_id = file_name_segs[1]
-            if len(ahps_id) == 5:  # yes, we assume the ahps in the second arg
-                if ahps_id not in ahps_ids_with_gpkgs:
-                    ahps_ids_with_gpkgs.append(ahps_id)
-
-        return ahps_ids_with_gpkgs
-
     try:
 
-        valid_ahps_ids = get_list_ahps_with_library_gpkgs()
+        valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
 
         if len(valid_ahps_ids) == 0:
             FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
@@ -419,7 +417,7 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
         for ind, row in sites_gdf.iterrows():
             ahps_id = row['ahps_lid']
             status_val = row['status']
-            if status_val == 'OK' or status_val.startswith("---") is True:
+            if status_val == 'Good' or status_val.startswith("---") is True:
 
                 # Note. It is possible for a status to start with --- but fail
                 # later. So we wil temp change it to yes, and it might be changed
@@ -431,19 +429,21 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
             else:
                 sites_gdf.at[ind, 'mapped'] = 'no'
 
-            # overrides the mapped flag (can't use the row object)
+            # Overrides the mapped flag (can't use the row object)
+            # We comfortably assume that if the mapped status is no, the reason is already in the status column
             if ahps_id not in valid_ahps_ids and sites_gdf.at[ind, 'mapped'] == "yes":
                 sites_gdf.at[ind, 'mapped'] = 'no'
 
-                # override any previous status message
-                if status_val == "":
-                    sites_gdf.at[ind, 'status'] = (
-                        "An internal error has occurred while creating features for this site."
-                    )
-                FLOG.warning(f"mapped status was changed to no for {ahps_id}. Check error logs for it")
+                # Then the sites failed to inundate for this site
+                sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
+                FLOG.warning(f"Mapped status was changed to no for {ahps_id}. No inundation files exist")
 
         # sites_gdf.reset_index(inplace=True, drop=True)
+        
+        # for any records that failed at this point and mapped status is changed to no, then drop those
+        # records from inundation
 
+        # We are re-saving the sites files
         sites_gdf.to_file(catfim_sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona")
 
         # csv flow file name
@@ -575,7 +575,6 @@ def iterate_through_huc_stage_based(
                 # being processed. Later the status message will go through some tests
                 # analyzing the status message as one factor to decide if the record
                 # is or should be mapped.
-                status_msg_allowing_continue = ""
 
                 lid = lid.lower()  # Convert lid to lower case
 
@@ -606,14 +605,14 @@ def iterate_through_huc_stage_based(
                 # MP_LOG.lprint(f"flows are {flows}")
 
                 if thresholds is None or len(thresholds) == 0:
-                    msg = ':error getting thresholds from WRDS API'
+                    msg = ':Error getting thresholds from WRDS API'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
                 # Check if stages are supplied, if not write message and exit.
                 if all(thresholds.get(category, None) is None for category in categories):
-                    msg = ':missing all threshold stage data'
+                    msg = ':Missing all threshold stage data'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -671,20 +670,20 @@ def iterate_through_huc_stage_based(
                     # ie) action higher than major.
                     # Look into it later
 
-                MP_LOG.trace(
-                    f"stage values (pre-processed) in order are {action_stage}, {minor_stage}, {moderate_stage},"
+                MP_LOG.trace(f"{huc_lid_id}:"
+                    f" stage values (pre-processed) in order are {action_stage}, {minor_stage}, {moderate_stage},"
                     f" {major_stage}, {record_stage} "
                 )
 
                 if len(invalid_stages) == 5:
-                    msg = ':no valid threshold values are available'
+                    msg = ':No valid threshold values are available'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
                 # Yes.. a bit weird, we are going to put three dashs in front of the message
                 # to help show it is valid even with a missing stage msg.
-                # any other record with a status value that is not "OK"
+                # any other record with a status value that is not "Good"
                 # or does not start with a --- is assumed to be possibly bad (not mapped)
                 missing_stages_msg = ""
                 for ind, stage in enumerate(invalid_stages):
@@ -692,19 +691,12 @@ def iterate_through_huc_stage_based(
                         missing_stages_msg = f":---Missing stage data for {stage}"
                     else:
                         missing_stages_msg += f"; {stage}"
-
-                # might be concat "" to "" but that is ok
-                status_msg_allowing_continue += missing_stages_msg
-
-                if status_msg_allowing_continue != "":
-                    all_messages.append(lid + status_msg_allowing_continue)
-                    MP_LOG.warning(huc_lid_id + status_msg_allowing_continue)
-                # Won't be using the status_msg_allowing_continue value past here (for now)
+                # we will apply this message it if makes it to the end
 
                 # Look for acceptable elevs
                 acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
                 if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
-                    msg = ":unable to find gage data"
+                    msg = ":Unable to find gage data"
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -727,7 +719,7 @@ def iterate_through_huc_stage_based(
                 )
                 lid_altitude = metadata['usgs_data']['altitude']
                 if lid_altitude is None or lid_altitude == 0:
-                    msg = ':ahps altitude value is invalid'
+                    msg = ':AHPS site altitude value is invalid'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -754,7 +746,7 @@ def iterate_through_huc_stage_based(
                         MP_LOG.warning(f"{huc_lid_id}: Not in acceptable threshold range")
                         continue
                 except Exception:
-                    MP_LOG.error(f"{huc_lid_id}: filtering out 'bad' data in the usgs data")
+                    MP_LOG.error(f"{huc_lid_id}: Filtering out 'bad' data in the usgs data")
                     MP_LOG.error(traceback.format_exc())
                     continue
 
@@ -776,7 +768,7 @@ def iterate_through_huc_stage_based(
                 #   Otherwise this causes bad mapping.
                 elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
                 if abs(elevation_diff) > 10:
-                    msg = ':large discrepancy in elevation estimates from gage and HAND'
+                    msg = ':Large discrepancy in elevation estimates from gage and HAND'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -887,7 +879,7 @@ def iterate_through_huc_stage_based(
                     )
 
                     MP_LOG.trace(
-                        f"stage values (pre-interval processing) in order are {action_stage}, {minor_stage}, {moderate_stage},"
+                        f".. Stage values (pre-interval processing) in order are {action_stage}, {minor_stage}, {moderate_stage},"
                         f" {major_stage}, {record_stage}"
                     )
 
@@ -1023,7 +1015,7 @@ def iterate_through_huc_stage_based(
                                 'lid_alt_ft': stage_based_att_dict[lid][threshold]['lid_alt_ft'],
                                 'lid_alt_m': stage_based_att_dict[lid][threshold]['lid_alt_m'],
                                 'mapped': 'yes',
-                                'status': 'OK',
+                                'status': 'Good',
                             }
                         )
                         csv_df = pd.concat([csv_df, line_df], ignore_index=True)
@@ -1050,9 +1042,12 @@ def iterate_through_huc_stage_based(
 
                     # If it made it to this point (i.e. no continues), there were no major preventers of mapping
                     if missing_stages_msg == "":
-                        all_messages.append(lid + ':OK')
+                        all_messages.append(lid + ':Good')
+                    else:
+                        all_messages.append(lid + missing_stages_msg)
+                        MP_LOG.warning(huc_lid_id + missing_stages_msg)
                 else:
-                    msg = ':missing all calculated flows'
+                    msg = ':Missing all calculated flows'
                     all_messages.append(lid + msg)
                     MP_LOG.error(huc_lid_id + msg)
 
@@ -1170,7 +1165,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     # If datum not supplied, skip to new site
     datum = datum_data.get('datum', None)
     if datum is None:
-        msg = ':datum info unavailable'
+        msg = ':Datum info unavailable'
         all_messages.append(lid + msg)
         MP_LOG.warning(huc_lid_id + msg)
         return None, all_messages
@@ -1321,7 +1316,7 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
         ]
 
         if len(matching_rows) == 0:
-            msg = ':gage not in HAND usgs gage records'
+            msg = ':Gage not in HAND usgs gage records'
             all_messages.append(lid + msg)
             MP_LOG.warning(huc_lid_id + msg)
             return lid_usgs_elev, all_messages
@@ -1340,13 +1335,13 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
             ].values[0]
 
         if lid_usgs_elev == 0:
-            msg = ':dem adjusted elevation is 0 or not set'
+            msg = ':DEM adjusted elevation is 0 or not set'
             all_messages.append(lid + msg)
             MP_LOG.warning(huc_lid_id + msg)
             return lid_usgs_elev, all_messages
 
     except IndexError:  # Occurs when LID is missing from table (yes. warning)
-        msg = ':error when extracting dem adjusted elevation value'
+        msg = ':Error when extracting dem adjusted elevation value'
         all_messages.append(lid + msg)
         MP_LOG.warning(f"{huc_lid_id}: adjusting dem_adj_elevation")
         MP_LOG.warning(huc_lid_id + msg)
@@ -1419,6 +1414,9 @@ def generate_stage_based_categorical_fim(
         )
     )
 
+    FLOG.trace("Huc distionary is ...")
+    FLOG.trace(huc_dictionary)
+
     child_log_file_prefix = FLOG.MP_calc_prefix_name(FLOG.LOG_FILE_PATH, "MP_iter_hucs")
 
     FLOG.lprint(">>>>>>>>>>>>>>>>>>>>>>>>>>>>")
@@ -1435,10 +1433,6 @@ def generate_stage_based_categorical_fim(
                 if huc in lst_hucs:
                     # FLOG.lprint(f'Generating stage based catfim for : {huc}')
 
-                    # # Code variation for DROPPING Alaska HUCs
-                    # nwm_flows_region_df = all_nwm_flows_df
-
-                    # Code variation for keeping alaska HUCs
                     nwm_flows_region_df = nwm_flows_alaska_df if str(huc[:2]) == '19' else nwm_flows_df
 
                     progress_stmt = f"index {huc_index + 1} of {num_hucs}"
@@ -1569,10 +1563,14 @@ def generate_stage_based_categorical_fim(
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
         # viz_out_gdf.reset_index(inplace=True)
+        
+        # TODO: This is ugly. It is possible that there are no inundation files for any given lid
+        # if that is true, we need to update this sites csv. We will figure that out in final 
+        # library mapping and update the sites csv at the same time for those scenarios
 
-        #  (msg in flows)
-        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('OK')
-
+         #  (msg in flows)
+        viz_out_gdf['status'] = viz_out_gdf['status'].fillna('Good')
+        
         # Add acceptance criteria to viz_out_gdf before writing
         viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
         viz_out_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)
@@ -1584,12 +1582,13 @@ def generate_stage_based_categorical_fim(
         # consistant with all other CatFIM outputs
         viz_out_gdf.rename(columns={"nws_lid": "ahps_lid"}, inplace=True)
 
-        viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG', index=True, engine='fiona')
+        # Index = False as it already has a field called Index from the merge
+        viz_out_gdf.to_file(nws_lid_gpkg_file_path, driver='GPKG', index=False, engine='fiona')
 
         csv_file_path = nws_lid_gpkg_file_path.replace(".gpkg", ".csv")
-        viz_out_gdf.to_csv(csv_file_path)
+        viz_out_gdf.to_csv(csv_file_path, index=False)
     else:
-        FLOG.lprint(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : has no messages")
+        FLOG.warning(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : has no messages and should have some")
 
 
 def set_start_files_folders(

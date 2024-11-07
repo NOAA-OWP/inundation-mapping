@@ -240,55 +240,60 @@ class FIM_logger:
 
             # we are merging them in order (reg files, then warnings, then errors)
 
-            # open and write to the parent log
-            # This will write all logs including errors and warning
-            with open(parent_log_output_file, 'a') as main_log:
-                # Iterate through list
-                for temp_log_file in log_file_list:
-                    # Open each file in read mode
-                    with open(temp_log_file) as infile:
-                        main_log.write(infile.read())
-                    if "warning" not in temp_log_file and "error" not in temp_log_file:
-                        if remove_old_files:
-                            os.remove(temp_log_file)
-
-            # now the warning files if there are any
-            log_warning_file_list = list(Path(folder_path).rglob(f"{file_prefix}*_warnings*"))
-            if len(log_warning_file_list) > 0:
-                log_warning_file_list.sort()
-                parent_warning_file = parent_log_output_file.replace(".log", "_warnings.log")
-                with open(parent_warning_file, 'a') as warning_log:
+            # It is ok if it fails with a file not found. Sometimes during multi proc
+            # merging, we get some anomylies. Rare but it happens.
+            try:
+                # open and write to the parent log
+                # This will write all logs including errors and warning
+                with open(parent_log_output_file, 'a') as main_log:
                     # Iterate through list
-                    for temp_log_file in log_warning_file_list:
+                    for temp_log_file in log_file_list:
                         # Open each file in read mode
                         with open(temp_log_file) as infile:
-                            warning_log.write(infile.read())
+                            main_log.write(infile.read())
+                        if "warning" not in temp_log_file and "error" not in temp_log_file:
+                            if remove_old_files:
+                                os.remove(temp_log_file)
 
-                        if remove_old_files:
-                            os.remove(temp_log_file)
+                # now the warning files if there are any
+                log_warning_file_list = list(Path(folder_path).rglob(f"{file_prefix}*_warnings*"))
+                if len(log_warning_file_list) > 0:
+                    log_warning_file_list.sort()
+                    parent_warning_file = parent_log_output_file.replace(".log", "_warnings.log")
+                    with open(parent_warning_file, 'a') as warning_log:
+                        # Iterate through list
+                        for temp_log_file in log_warning_file_list:
+                            # Open each file in read mode
+                            with open(temp_log_file) as infile:
+                                warning_log.write(infile.read())
 
-            # now the warning files if there are any
-            log_error_file_list = list(Path(folder_path).rglob(f"{file_prefix}*_errors*"))
-            if len(log_error_file_list) > 0:
-                log_error_file_list.sort()
-                parent_error_file = parent_log_output_file.replace(".log", "_errors.log")
-                # doesn't yet exist, then create a blank one
-                with open(parent_error_file, 'a') as error_log:
-                    # Iterate through list
-                    for temp_log_file in log_error_file_list:
-                        # Open each file in read mode
-                        with open(temp_log_file) as infile:
-                            error_log.write(infile.read())
+                            if remove_old_files:
+                                os.remove(temp_log_file)
 
-                        if remove_old_files:
-                            os.remove(temp_log_file)
+                # now the warning files if there are any
+                log_error_file_list = list(Path(folder_path).rglob(f"{file_prefix}*_errors*"))
+                if len(log_error_file_list) > 0:
+                    log_error_file_list.sort()
+                    parent_error_file = parent_log_output_file.replace(".log", "_errors.log")
+                    # doesn't yet exist, then create a blank one
+                    with open(parent_error_file, 'a') as error_log:
+                        # Iterate through list
+                        for temp_log_file in log_error_file_list:
+                            # Open each file in read mode
+                            with open(temp_log_file) as infile:
+                                error_log.write(infile.read())
+
+                            if remove_old_files:
+                                os.remove(temp_log_file)
+            except FileNotFoundError as ex:
+                print(f"Merge file not found. Details: {ex}. Program continuing")
 
         return
 
     # -------------------------------------------------
     def trace(self, msg):
         # goes to file only, not console
-        level = "TRACE    "  # keeps spacing the same  (9 chars wide)
+        level = "TRACE".ljust(9)  # keeps spacing the same  (9 chars wide)
         if self.LOG_FILE_PATH == "":
             print(self.LOG_SYS_NOT_SETUP_MSG)
             return
@@ -301,7 +306,7 @@ class FIM_logger:
     # -------------------------------------------------
     def lprint(self, msg):
         # goes to console and log file
-        level = "LPRINT   "  # keeps spacing the same  (9 chars wide)
+        level = "LPRINT".ljust(9)  # keeps spacing the same  (9 chars wide)
         print(f"{msg} ")
 
         if self.LOG_FILE_PATH == "":
@@ -316,7 +321,7 @@ class FIM_logger:
     # -------------------------------------------------
     def notice(self, msg):
         # goes to console and log file
-        level = "NOTICE   "  # keeps spacing the same  (9 chars wide)
+        level = "NOTICE".ljust(9)  # keeps spacing the same  (9 chars wide)
         # print(f"{cl.fore.TURQUOISE_2}{msg}{cl.style.RESET}")
         print(f"{level}: {msg}")
 
@@ -332,7 +337,7 @@ class FIM_logger:
     # -------------------------------------------------
     def success(self, msg):
         # goes to console and log file
-        level = "SUCCESS  "  # keeps spacing the same  (9 chars wide)
+        level = "SUCCESS".ljust(9)  # keeps spacing the same  (9 chars wide)
 
         # c_msg_type = f"{cl.fore.SPRING_GREEN_2B}<{level}>{cl.style.RESET}"
         # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
@@ -350,7 +355,7 @@ class FIM_logger:
     # -------------------------------------------------
     def warning(self, msg):
         # goes to console and log file and warning log file
-        level = "WARNING  "  # keeps spacing the same  (9 chars wide)
+        level = "WARNING".ljust(9)  # keeps spacing the same  (9 chars wide)
 
         # c_msg_type = f"{cl.fore.LIGHT_YELLOW}<{level}>{cl.style.RESET}"
         # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
@@ -372,7 +377,7 @@ class FIM_logger:
     # -------------------------------------------------
     def error(self, msg):
         # goes to console and log file and error log file
-        level = "ERROR    "  # keeps spacing the same  (9 chars wide)
+        level = "ERROR".ljust(9)  # keeps spacing the same  (9 chars wide)
 
         # c_msg_type = f"{cl.fore.RED_1}<{level}>{cl.style.RESET}"
         # print(f"{self.__get_clog_dt()} {c_msg_type} : {msg}")
@@ -393,7 +398,7 @@ class FIM_logger:
 
     # -------------------------------------------------
     def critical(self, msg):
-        level = "CRITICAL "  # keeps spacing the same (9 chars wide)
+        level = "CRITICAL".ljust(9)  # keeps spacing the same (9 chars wide)
 
         # c_msg_type = f"{cl.style.BOLD}{cl.fore.RED_3A}{cl.back.WHITE}{self.__get_dt()}"
         # c_msg_type += f" <{level}>"

@@ -141,10 +141,9 @@ def produce_stage_based_catfim_tifs(
                     pass
 
             # Create inundation maps with branch and stage data
+            # only sites /categories that got this far are valid and can be inundated
             try:
-                # print("Generating stage-based FIM for " + huc + " and branch " + branch)
-                #
-                MP_LOG.lprint(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM")
+                MP_LOG.trace(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM")
 
                 executor.submit(
                     produce_tif_per_huc_per_mag_for_stage,
@@ -173,10 +172,10 @@ def produce_stage_based_catfim_tifs(
     # Merge all rasters in lid_directory that have the same magnitude/category.
     path_list = []
 
-    MP_LOG.trace(f"Merging files from {lid_directory}")
+    MP_LOG.lprint(f"Merging files from {lid_directory}")
     lid_dir_list = os.listdir(lid_directory)
 
-    MP_LOG.lprint(f"{huc}: Merging {category}")
+    MP_LOG.lprint(f"{huc}: {lid} : Merging {category}")
     # MP_LOG.trace("lid_dir_list is ")
     # MP_LOG.trace(lid_dir_list)
     # MP_LOG.lprint("")
@@ -197,7 +196,7 @@ def produce_stage_based_catfim_tifs(
         summed_array = zero_branch_array  # Initialize it as the branch zero array
 
         output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')
-        MP_LOG.trace(f"Output file to be saved is {output_tif}")
+        # MP_LOG.trace(f"Output file to be saved is {output_tif}")
 
         # Loop through remaining items in list and sum them with summed_array
         for remaining_raster in path_list[1:]:
@@ -233,12 +232,13 @@ def produce_stage_based_catfim_tifs(
             dst.write(summed_array, 1)
             MP_LOG.lprint(f"{output_tif} - saved")
         del summed_array
+    else:
+        MP_LOG.warning(f"{huc}: {lid}: Merging {category} : no valid inundated branches")
 
     return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
 
 
 # This is part of an MP call and needs MP_LOG
-
 
 # This is a form of inundation which we are doing ourselves
 # as we only have one flow value and our normal inundation tools
@@ -294,18 +294,6 @@ def produce_tif_per_huc_per_mag_for_stage(
             'uint8'
         )
 
-        # with rasterio.Env():
-        #     profile = rem_src.profile
-        #     profile.update(dtype=rasterio.uint8)
-        #     profile.update(nodata=10)
-
-        #     with rasterio.open(output_tif.replace(".tif", "rra.tif"), 'w', **profile) as dst:
-        #         dst.write(reclass_rem_array, 1)
-
-        # reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != 0), 1, 0).astype(
-        #     'uint8'
-        # )
-
         # print(f"Hydroid_list is {hydroid_list} for {hand_stage}")
 
         hydroid_mask = np.isin(catchments_array, hydroid_list)
@@ -313,18 +301,6 @@ def produce_tif_per_huc_per_mag_for_stage(
         target_catchments_array = np.where(
             ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
         ).astype('uint8')
-
-        # target_catchments_array = np.where(
-        #     ((hydroid_mask == True) & (catchments_array != 0)), 1, 0
-        # ).astype('uint8')
-
-        # with rasterio.Env():
-        #     profile = rem_src.profile
-        #     profile.update(dtype=rasterio.uint8)
-        #     profile.update(nodata=10)
-
-        #     with rasterio.open(output_tif.replace(".tif", "tc.tif"), 'w', **profile) as dst:
-        #         dst.write(target_catchments_array, 1)
 
         masked_reclass_rem_array = np.where(
             ((reclass_rem_array >= 1) & (target_catchments_array >= 1)), 1, 0
@@ -359,6 +335,9 @@ def produce_tif_per_huc_per_mag_for_stage(
                 with rasterio.open(output_tif, 'w', **profile) as dst:
                     # dst.nodata = 0
                     dst.write(masked_reclass_rem_array, 1)
+        else:
+            MP_LOG.trace(f"{huc} : {lid} : {category} : {branch} : inundation was all zero cells")
+            
 
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage")
