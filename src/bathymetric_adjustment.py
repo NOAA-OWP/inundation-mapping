@@ -12,6 +12,7 @@ from os.path import join
 import geopandas as gpd
 import pandas as pd
 
+
 # -------------------------------------------------------
 # Adjusting synthetic rating curves using 'USACE eHydro' bathymetry data
 def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbose):
@@ -199,7 +200,7 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
         if 'missing_xs_area_m2' not in src_df.columns:
             src_df.drop(columns=["Bathymetry_source"], inplace=True)
             src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
-            
+
         else:
             src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
             # checked
@@ -546,4 +547,3 @@ if __name__ == '__main__':
         number_of_jobs,
         verbose,
     )
-
