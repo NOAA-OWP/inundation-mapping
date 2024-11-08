@@ -161,12 +161,13 @@ Tcount
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
 if [ "$bathymetry_adjust" = "True" ]; then
-    l_echo $startDiv"Performing Bathymetry Adjustment routine"
-    Tstart
+    echo -e $startDiv"Performing Bathymetry Adjustment routine"
     # Run bathymetry adjustment routine
+    Tstart
     python3 $srcDir/bathymetric_adjustment.py \
         -fim_dir $outputDestDir \
-        -bathy $bathymetry_file \
+        -bathy_ehydro $bathy_file_ehydro \
+        -bathy_aibased $bathy_file_aibased \
         -buffer $wbd_buffer \
         -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg \
         -j $jobLimit
