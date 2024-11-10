@@ -10,9 +10,6 @@ import boto3
 from dotenv import load_dotenv
 
 
-# from tools_shared_variables import INPUTS_DIR, OUTPUTS_DIR, TEST_CASES_DIR
-
-
 def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool = False):
     """
     Create input data for the flood inundation model
@@ -25,9 +22,11 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
         Path to the input data
     output_root_folder : str
         Path to save the output data
+    use_s3 : bool
+        Download data from S3 (default is False)
     """
 
-    def get_validation_hucs(root_dir: str, org: str):
+    def __get_validation_hucs(root_dir: str, org: str):
         """
         Get the list of HUCs for validation
 
@@ -58,7 +57,7 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
                 if re.match(r'^\d{8}$', d)
             ]
 
-    def copy_validation_data(org: str, huc: str, data_path: str, output_data_path: str):
+    def __copy_validation_data(org: str, huc: str, data_path: str, output_data_path: str):
         """
         Make the path to the validation data
 
@@ -79,9 +78,9 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
         output_validation_path = os.path.join(output_data_path, validation_path)
         os.makedirs(output_validation_path, exist_ok=True)
 
-        copy_folder(os.path.join(data_path, validation_path), output_data_path)
+        __copy_folder(os.path.join(data_path, validation_path), output_data_path)
 
-    def copy_file(input_file: str, output_path: str, input_root: str = '/data'):
+    def __copy_file(input_file: str, output_path: str, input_root: str = '/data'):
         """
         Copies a file if it doesn't already exist
 
@@ -92,7 +91,7 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
         output_path : str
             Path to save the output data
         input_root : str
-            input_file root directory
+            input_file root directory (default is '/data')
         """
 
         input_path, basename = os.path.split(input_file)
@@ -115,7 +114,7 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
         else:
             print(f"{os.path.join(output_path, basename)} already exists.")
 
-    def copy_folder(input_path, output_path, input_root='/data'):
+    def __copy_folder(input_path: str, output_path: str, input_root: str = '/data'):
         """
         Copies a folder if it doesn't already exist
 
@@ -125,6 +124,8 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
             Path to the input data
         output_path : str
             Path to save the output data
+        input_root : str
+            input_file root directory (default is '/data')
         """
 
         output_path = input_path.replace(input_root, output_path)
@@ -136,14 +137,20 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
             print(f"Copying {input_path} to {output_path}")
             shutil.copytree(input_path, output_path, dirs_exist_ok=True)
 
-    def download_s3_folder(bucket_name, s3_folder, local_dir=None):
+    def download_s3_folder(bucket_name: str, s3_folder: str, local_dir: str = None):
         """
         Download the contents of a folder directory
-        Args:
-            bucket_name: the name of the s3 bucket
-            s3_folder: the folder path in the s3 bucket
-            local_dir: a relative or absolute directory path in the local file system
+
+        Parameters
+        ----------
+        bucket_name:
+            the name of the s3 bucket
+        s3_folder:
+            the folder path in the s3 bucket
+        local_dir:
+            a relative or absolute directory path in the local file system
         """
+
         Bucket = s3_resource.Bucket(bucket_name)
         for obj in Bucket.objects.filter(Prefix=s3_folder):
             target = (
@@ -208,7 +215,7 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
     validation_hucs = {}
     orgs = ['ble', 'nws', 'usgs', 'ras2fim']
     for org in orgs:
-        validation_hucs[org] = get_validation_hucs(root_dir, org)
+        validation_hucs[org] = __get_validation_hucs(root_dir, org)
 
         os.makedirs(os.path.join(output_root_folder, 'test_cases', f'{org}_test_cases'), exist_ok=True)
 
@@ -240,19 +247,19 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
                 input_LANDSEA = INPUT_LANDSEA
 
         ## wbd
-        copy_file(wbd_gpkg_path, output_root_folder)
-        copy_file(input_LANDSEA, output_root_folder)
+        __copy_file(wbd_gpkg_path, output_root_folder)
+        __copy_file(input_LANDSEA, output_root_folder)
 
         # dem
-        copy_file(input_DEM_domain, output_root_folder)
-        copy_file(input_DEM_file, output_root_folder)
+        __copy_file(input_DEM_domain, output_root_folder)
+        __copy_file(input_DEM_file, output_root_folder)
 
         # lakes
         ## nwm_hydrofabric
-        copy_file(input_NWM_lakes, output_root_folder)
+        __copy_file(input_NWM_lakes, output_root_folder)
 
         ## nld_vectors
-        copy_file(input_NLD_levee_protected_areas, output_root_folder)
+        __copy_file(input_NLD_levee_protected_areas, output_root_folder)
 
         # create VRT
         print('Creating VRT')
@@ -264,54 +271,54 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
         subprocess.call(command)
 
         ## pre_clip_huc8
-        copy_folder(os.path.join(PRE_CLIP_HUC_DIR, huc), output_root_folder)
+        __copy_folder(os.path.join(PRE_CLIP_HUC_DIR, huc), output_root_folder)
 
         ## validation data
         for org in orgs:
             if huc in validation_hucs[org]:
-                copy_validation_data(org, huc, data_path, output_root_folder)
+                __copy_validation_data(org, huc, data_path, output_root_folder)
 
     ## ahps_sites
-    copy_file(NWS_LID, output_root_folder)
+    __copy_file(NWS_LID, output_root_folder)
 
     ## bathymetry_adjustment
-    copy_file(BATHYMETRY_FILE, output_root_folder)
+    __copy_file(BATHYMETRY_FILE, output_root_folder)
     ## huc_lists
-    copy_folder(os.path.join(input_path, 'huc_lists'), output_root_folder)
+    __copy_folder(os.path.join(input_path, 'huc_lists'), output_root_folder)
 
     ## nld
-    copy_file(INPUT_NLD, output_root_folder)
+    __copy_file(INPUT_NLD, output_root_folder)
 
     ## levees_preprocessed
-    copy_file(INPUT_LEVEES_PREPROCESSED, output_root_folder)
+    __copy_file(INPUT_LEVEES_PREPROCESSED, output_root_folder)
 
     ## rating_curve
-    copy_file(BANKFULL_FLOWS_FILE, output_root_folder)
+    __copy_file(BANKFULL_FLOWS_FILE, output_root_folder)
 
     ## recurr_flows
-    copy_file(NWM_RECUR_FILE, output_root_folder)
+    __copy_file(NWM_RECUR_FILE, output_root_folder)
 
     recurr_intervals = ['2', '5', '10', '25', '50']
     for recurr_interval in recurr_intervals:
-        copy_file(
+        __copy_file(
             os.path.join(os.path.split(NWM_RECUR_FILE)[0], f'nwm3_17C_recurr_{recurr_interval}_0_cms.csv'),
             output_root_folder,
         )
 
-    copy_file(VMANN_INPUT_FILE, output_root_folder)
+    __copy_file(VMANN_INPUT_FILE, output_root_folder)
 
-    copy_folder(INPUT_CALIB_POINTS_DIR, output_root_folder)
+    __copy_folder(INPUT_CALIB_POINTS_DIR, output_root_folder)
 
     ## usgs_gages
-    copy_file(os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder)
+    __copy_file(os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder)
 
-    copy_file(USGS_RATING_CURVE_CSV, output_root_folder)
+    __copy_file(USGS_RATING_CURVE_CSV, output_root_folder)
 
     ## osm bridges
-    copy_file(OSM_BRIDGES, output_root_folder)
+    __copy_file(OSM_BRIDGES, output_root_folder)
 
     ## ras2fim
-    copy_folder(os.path.join(RAS2FIM_INPUT_DIR), output_root_folder)
+    __copy_folder(os.path.join(RAS2FIM_INPUT_DIR), output_root_folder)
 
 
 if __name__ == '__main__':
