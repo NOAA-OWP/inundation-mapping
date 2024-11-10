@@ -173,12 +173,22 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
 
     # Set inputsDir for the bash scripts
     os.environ['inputsDir'] = input_path
+
     load_dotenv('/foss_fim/src/bash_variables.env')
+
     PRE_CLIP_HUC_DIR = os.environ["pre_clip_huc_dir"]
+    INPUT_DEM_DOMAIN = os.environ["input_DEM_domain"]
+    INPUT_DEM_DOMAIN_ALASKA = os.environ["input_DEM_domain_Alaska"]
+    INPUT_DEM = os.environ['input_DEM']
+    INPUT_DEM_ALASKA = os.environ['input_DEM_Alaska']
+    INPUT_LANDSEA = os.environ['input_landsea']
+    INPUT_LANDSEA_ALASKA = os.environ['input_landsea_Alaska']
     INPUT_NLD = os.environ["input_NLD"]
     INPUT_LEVEES_PREPROCESSED = os.environ["input_levees_preprocessed"]
     INPUT_NLD_LEVEE_PROTECTED_AREAS = os.environ["input_nld_levee_protected_areas"]
+    INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA = os.environ["input_nld_levee_protected_areas_Alaska"]
     INPUT_NWM_LAKES = os.environ['input_nwm_lakes']
+    INPUT_NWM_LAKES_ALASKA = os.environ['input_nwm_lakes_Alaska']
     INPUT_GL_BOUNDARIES = os.environ["input_GL_boundaries"]
     INPUT_WBD_GDB = os.environ["input_WBD_gdb"]
     INPUT_WBD_GDB_ALASKA = os.environ["input_WBD_gdb_Alaska"]
@@ -190,6 +200,7 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
     VMANN_INPUT_FILE = os.environ["vmann_input_file"]
     RAS2FIM_INPUT_DIR = os.environ["ras2fim_input_dir"]
     NWM_RECUR_FILE = os.environ["nwm_recur_file"]
+    NWS_LID = os.environ["nws_lid"]
 
     root_dir = os.path.split(input_path)[0]
 
@@ -207,28 +218,41 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
         # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
         if huc2Identifier == '19':
             wbd_gpkg_path = INPUT_WBD_GDB_ALASKA
-            input_LANDSEA = f"{input_path}/landsea/water_polygons_alaska.gpkg"
-            input_DEM = os.environ['input_DEM_Alaska']
-            input_DEM_domain = os.environ["input_DEM_domain_Alaska"]
+            input_LANDSEA = INPUT_LANDSEA_ALASKA
+            input_DEM = INPUT_DEM_ALASKA
+            input_DEM_domain = INPUT_DEM_DOMAIN_ALASKA
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC8_{huc}_dem.tif')
+            input_NWM_lakes = INPUT_NWM_LAKES_ALASKA
+            input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA
+
         else:
             wbd_gpkg_path = INPUT_WBD_GDB
-            input_DEM = os.environ['input_DEM']
-            input_DEM_domain = os.environ["input_DEM_domain"]
+            input_DEM = INPUT_DEM
+            input_DEM_domain = INPUT_DEM_DOMAIN
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC6_{huc[:6]}_dem.tif')
+            input_NWM_lakes = INPUT_NWM_LAKES
+            input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS
 
             # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
             if huc2Identifier == "04":
                 input_LANDSEA = INPUT_GL_BOUNDARIES
             else:
-                input_LANDSEA = f"{input_path}/landsea/water_polygons_us.gpkg"
+                input_LANDSEA = INPUT_LANDSEA
 
         ## wbd
         copy_file(wbd_gpkg_path, output_root_folder)
         copy_file(input_LANDSEA, output_root_folder)
 
         # dem
+        copy_file(input_DEM_domain, output_root_folder)
         copy_file(input_DEM_file, output_root_folder)
+
+        # lakes
+        ## nwm_hydrofabric
+        copy_file(input_NWM_lakes, output_root_folder)
+
+        ## nld_vectors
+        copy_file(input_NLD_levee_protected_areas, output_root_folder)
 
         # create VRT
         print('Creating VRT')
@@ -248,7 +272,7 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
                 copy_validation_data(org, huc, data_path, output_root_folder)
 
     ## ahps_sites
-    copy_file(os.path.join(input_path, 'ahps_sites', 'nws_lid.gpkg'), output_root_folder)
+    copy_file(NWS_LID, output_root_folder)
 
     ## bathymetry_adjustment
     copy_file(BATHYMETRY_FILE, output_root_folder)
@@ -258,14 +282,8 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
     ## nld
     copy_file(INPUT_NLD, output_root_folder)
 
-    ## nld_vectors
-    copy_file(INPUT_NLD_LEVEE_PROTECTED_AREAS, output_root_folder)
-
     ## levees_preprocessed
     copy_file(INPUT_LEVEES_PREPROCESSED, output_root_folder)
-
-    ## nwm_hydrofabric
-    copy_file(INPUT_NWM_LAKES, output_root_folder)
 
     ## rating_curve
     copy_file(BANKFULL_FLOWS_FILE, output_root_folder)

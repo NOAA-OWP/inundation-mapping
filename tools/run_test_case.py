@@ -54,10 +54,11 @@ class Benchmark(object):
     def huc_data(self):
         '''Returns a dict of HUC8, magnitudes, and sites.'''
         huc_mags = {}
-        for huc in os.listdir(self.validation_data):
-            if not re.match(r'\d{8}', huc):
-                continue
-            huc_mags[huc] = self.data(huc)
+        if os.path.exists(self.validation_data):
+            for huc in os.listdir(self.validation_data):
+                if not re.match(r'\d{8}', huc):
+                    continue
+                huc_mags[huc] = self.data(huc)
         return huc_mags
 
     def data(self, huc):
@@ -127,18 +128,34 @@ class Test_Case(Benchmark):
         self.benchmark_dir = os.path.join(self.validation_data, self.huc)
 
         # Create list of shapefile paths to use as exclusion areas.
-        self.mask_dict = {
-            'levees': {
-                'path': '/data/inputs/nld_vectors/Levee_protected_areas.gpkg',
-                'buffer': None,
-                'operation': 'exclude',
-            },
-            'waterbodies': {
-                'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
-                'buffer': None,
-                'operation': 'exclude',
-            },
-        }
+        if self.huc[:2] == '19':
+            self.mask_dict = {
+                'levees': {
+                    'path': os.getenv('input_nld_levee_protected_areas_Alaska'),
+                    'buffer': None,
+                    'operation': 'exclude',
+                },
+                'waterbodies': {
+                    # 'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
+                    'path': os.getenv('input_nwm_lakes_Alaska'),
+                    'buffer': None,
+                    'operation': 'exclude',
+                },
+            }
+
+        else:
+            self.mask_dict = {
+                'levees': {
+                    'path': os.getenv('input_nld_levee_protected_areas'),
+                    'buffer': None,
+                    'operation': 'exclude',
+                },
+                'waterbodies': {
+                    'path': os.getenv('input_nwm_lakes_Alaska'),
+                    'buffer': None,
+                    'operation': 'exclude',
+                },
+            }
 
     @classmethod
     def list_all_test_cases(cls, version, archive, benchmark_categories=[]):
