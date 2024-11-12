@@ -331,3 +331,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     get_sample_data(**vars(args))
+
+    # python /foss_fim/data/get_sample_data.py -u 03100204 -i /data -o /outputs/sample-data

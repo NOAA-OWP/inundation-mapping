@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-05-22 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
+
+### Summary
+Contains files to generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for specified HUC(s) as well as related patches to replace absolute file paths with relative file paths, a fix for evaluating when IFC data are not available, and update code to generate pre-clip data so that WBD for Alaska contains only one layer. NOTE: this PR requires `wbd.gpkg` to be created by the updated `generate_pre_clip_fim_huc8.py` to be copied to the pre-clip HUC folders to remove a warning in `synthesize_test_case.py`.
+
+### Usage
+```
+python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_fim/data/sample-data
+
+### Additions
+
+- `data/`
+    - `sandbox/` [archived]
+        - `Dockerfile`: A copy of the root Dockerfile that also pulls code and data into the build image [archived]
+        - `fim-in-a-box.ipynb`: Jupyter notebook to run and evaluate an example HUC [archived]
+        - 'README.md' [archived]
+    - `get_sample_data.py`: Copies relevant data for `inputs` and `test_cases` from the FIM data folder for specified HUC(s) and saves it to a separate location
+    - `wbd/generate_pre_clip_fim_huc8.py`: Fix file paths and layers
+- `src/bash_variables.env`: Add paths for landsea and nws_lid
+- `tools/run_test_case.py`: Skip evaluation for missing validation data and fix hardcoded paths for masks
+
+<br/><br/>
+
 ## v4.5.12.0 - 2024-11-01 - [PR#1327](https://github.com/NOAA-OWP/inundation-mapping/pull/1327)
 
 The purpose of this PR is to cut down the runtime for four Alaska HUCs (19020104, 19020503, 19020402 , and 19020602). It significantly optimizes runtime by replacing a nested for loop, used for updating rating curve for small segments, with a vectorized process. This changes were applied only to the Alaska HUCs.
@@ -14,22 +37,6 @@ As part of this PR, small modification was applied to bridge_inundation.py.
 
 <br/><br/>
 
-
-## v4.5.x.x - 2024-05-22 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
-
-Contains files to create a self-contained FIM sandbox demo image, including:
-1. generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for a single HUC
-2. create a Docker image that contains the data generated in the previous step in `/data` and a copy of the `inundation-mapping` code in `/foss_fim`
-
-### Additions
-
-- `data/sandbox/`
-    - `Dockerfile`: A copy of the root Dockerfile that also pulls code and data into the build image
-    - `fim-in-a-box.ipynb`: Jupyter script to run FIM and create evaluation metrics and inundation plot
-    - `get_sample_data.py`: Copies relevant data (e.g., `inputs` and `test_cases`) from the FIM data folder for a single HUC and saves it to a separate location
-    - `README.md`: Build and usage instructions
-
-<br/><br/>
 
 ## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
 
