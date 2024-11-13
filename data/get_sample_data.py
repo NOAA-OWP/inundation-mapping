@@ -190,24 +190,13 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
     INPUT_DEM_ALASKA = os.environ['input_DEM_Alaska']
     INPUT_LANDSEA = os.environ['input_landsea']
     INPUT_LANDSEA_ALASKA = os.environ['input_landsea_Alaska']
-    INPUT_NLD = os.environ["input_NLD"]
-    INPUT_LEVEES_PREPROCESSED = os.environ["input_levees_preprocessed"]
     INPUT_NLD_LEVEE_PROTECTED_AREAS = os.environ["input_nld_levee_protected_areas"]
     INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA = os.environ["input_nld_levee_protected_areas_Alaska"]
     INPUT_NWM_LAKES = os.environ['input_nwm_lakes']
     INPUT_NWM_LAKES_ALASKA = os.environ['input_nwm_lakes_Alaska']
     INPUT_GL_BOUNDARIES = os.environ["input_GL_boundaries"]
-    INPUT_WBD_GDB = os.environ["input_WBD_gdb"]
     INPUT_WBD_GDB_ALASKA = os.environ["input_WBD_gdb_Alaska"]
-    BANKFULL_FLOWS_FILE = os.environ["bankfull_flows_file"]
-    INPUT_CALIB_POINTS_DIR = os.environ["input_calib_points_dir"]
-    USGS_RATING_CURVE_CSV = os.environ["usgs_rating_curve_csv"]
-    BATHYMETRY_FILE = os.environ["bathymetry_file"]
-    OSM_BRIDGES = os.environ["osm_bridges"]
-    VMANN_INPUT_FILE = os.environ["vmann_input_file"]
-    RAS2FIM_INPUT_DIR = os.environ["ras2fim_input_dir"]
     NWM_RECUR_FILE = os.environ["nwm_recur_file"]
-    NWS_LID = os.environ["nws_lid"]
 
     root_dir = os.path.split(input_path)[0]
 
@@ -219,12 +208,55 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
 
         os.makedirs(os.path.join(output_root_folder, 'test_cases', f'{org}_test_cases'), exist_ok=True)
 
+    # Copy WBD (needed for post-processing)
+    __copy_file(os.environ["input_WBD_gdb"], output_root_folder)
+    ## ahps_sites
+    __copy_file(os.environ["nws_lid"], output_root_folder)
+
+    ## bathymetry_adjustment
+    __copy_file(os.environ["bathymetry_file"], output_root_folder)
+    ## huc_lists
+    __copy_folder(os.path.join(input_path, 'huc_lists'), output_root_folder)
+
+    ## nld
+    __copy_file(os.environ["input_NLD"], output_root_folder)
+
+    ## levees_preprocessed
+    __copy_file(os.environ["input_levees_preprocessed"], output_root_folder)
+
+    ## rating_curve
+    __copy_file(os.environ["bankfull_flows_file"], output_root_folder)
+
+    ## recurr_flows
+    __copy_file(NWM_RECUR_FILE, output_root_folder)
+
+    recurr_intervals = ['2', '5', '10', '25', '50']
+    for recurr_interval in recurr_intervals:
+        __copy_file(
+            os.path.join(os.path.split(NWM_RECUR_FILE)[0], f'nwm3_17C_recurr_{recurr_interval}_0_cms.csv'),
+            output_root_folder,
+        )
+
+    __copy_file(os.environ["vmann_input_file"], output_root_folder)
+
+    __copy_folder(os.environ["input_calib_points_dir"], output_root_folder)
+
+    ## usgs_gages
+    __copy_file(os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder)
+
+    __copy_file(os.environ["usgs_rating_curve_csv"], output_root_folder)
+
+    ## osm bridges
+    __copy_file(os.environ["osm_bridges"], output_root_folder)
+
+    ## ras2fim
+    __copy_folder(os.environ["ras2fim_input_dir"], output_root_folder)
+
     for huc in hucs:
         huc2Identifier = huc[:2]
 
         # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
         if huc2Identifier == '19':
-            wbd_gpkg_path = INPUT_WBD_GDB_ALASKA
             input_LANDSEA = INPUT_LANDSEA_ALASKA
             input_DEM = INPUT_DEM_ALASKA
             input_DEM_domain = INPUT_DEM_DOMAIN_ALASKA
@@ -232,8 +264,9 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
             input_NWM_lakes = INPUT_NWM_LAKES_ALASKA
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA
 
+            __copy_file(INPUT_WBD_GDB_ALASKA, output_root_folder)
+
         else:
-            wbd_gpkg_path = INPUT_WBD_GDB
             input_DEM = INPUT_DEM
             input_DEM_domain = INPUT_DEM_DOMAIN
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC6_{huc[:6]}_dem.tif')
@@ -246,8 +279,7 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
             else:
                 input_LANDSEA = INPUT_LANDSEA
 
-        ## wbd
-        __copy_file(wbd_gpkg_path, output_root_folder)
+        ## landsea mask
         __copy_file(input_LANDSEA, output_root_folder)
 
         # dem
@@ -277,48 +309,6 @@ def get_sample_data(hucs, data_path: str, output_root_folder: str, use_s3: bool 
         for org in orgs:
             if huc in validation_hucs[org]:
                 __copy_validation_data(org, huc, data_path, output_root_folder)
-
-    ## ahps_sites
-    __copy_file(NWS_LID, output_root_folder)
-
-    ## bathymetry_adjustment
-    __copy_file(BATHYMETRY_FILE, output_root_folder)
-    ## huc_lists
-    __copy_folder(os.path.join(input_path, 'huc_lists'), output_root_folder)
-
-    ## nld
-    __copy_file(INPUT_NLD, output_root_folder)
-
-    ## levees_preprocessed
-    __copy_file(INPUT_LEVEES_PREPROCESSED, output_root_folder)
-
-    ## rating_curve
-    __copy_file(BANKFULL_FLOWS_FILE, output_root_folder)
-
-    ## recurr_flows
-    __copy_file(NWM_RECUR_FILE, output_root_folder)
-
-    recurr_intervals = ['2', '5', '10', '25', '50']
-    for recurr_interval in recurr_intervals:
-        __copy_file(
-            os.path.join(os.path.split(NWM_RECUR_FILE)[0], f'nwm3_17C_recurr_{recurr_interval}_0_cms.csv'),
-            output_root_folder,
-        )
-
-    __copy_file(VMANN_INPUT_FILE, output_root_folder)
-
-    __copy_folder(INPUT_CALIB_POINTS_DIR, output_root_folder)
-
-    ## usgs_gages
-    __copy_file(os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder)
-
-    __copy_file(USGS_RATING_CURVE_CSV, output_root_folder)
-
-    ## osm bridges
-    __copy_file(OSM_BRIDGES, output_root_folder)
-
-    ## ras2fim
-    __copy_folder(os.path.join(RAS2FIM_INPUT_DIR), output_root_folder)
 
 
 if __name__ == '__main__':
