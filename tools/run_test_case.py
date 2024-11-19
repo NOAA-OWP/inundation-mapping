@@ -150,11 +150,7 @@ class Test_Case(Benchmark):
                     'buffer': None,
                     'operation': 'exclude',
                 },
-                'waterbodies': {
-                    'path': os.getenv('input_nwm_lakes_Alaska'),
-                    'buffer': None,
-                    'operation': 'exclude',
-                },
+                'waterbodies': {'path': os.getenv('input_nwm_lakes'), 'buffer': None, 'operation': 'exclude'},
             }
 
     @classmethod
