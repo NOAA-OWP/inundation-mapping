@@ -14,6 +14,10 @@ import utils.fim_logger as fl
 # global RLOG
 FLOG = fl.FIM_logger()  # the non mp version
 
+
+### sorry.. this is a bit ugly and you need to comment, or adjust column names
+# based on what you are loading. (for now)
+
 """
 This tool can compare two version of the "sites" csv"s (not the poly libray files at this time).
 It is intended to compare a previous "sites" csv to a new one to see what changes have appeared
@@ -56,8 +60,6 @@ def compare_sites(prev_file, new_file, output_file):
     # Setup variables
     overall_start_time = datetime.now(timezone.utc)
     dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
-    # Column names to compare
-    col_names = ["ahps_lid", "nws_data_name", "HUC8", "mapped", "status"]
 
     # setup logging system
     log_file_name = f"compare_log_file_{overall_start_time.strftime('%Y_%m_%d__%H_%M_%S')}"
@@ -67,12 +69,20 @@ def compare_sites(prev_file, new_file, output_file):
     FLOG.lprint("================================")
     FLOG.lprint(f"Start sites compare - (UTC): {dt_string}")
     FLOG.lprint("")
-    FLOG.lprint("Input arguments:")
-    FLOG.lprint(locals())
-    FLOG.lprint("")
+    # FLOG.lprint("Input arguments:")
+    # FLOG.lprint(locals())
+    # FLOG.lprint("")
 
     # Load both files
     print("loading previous file")
+
+    # Column names to compare   (for 4.4.0.0 and 4.5.11.1, the columns were named ahps_lid for stage)
+    # flow is / was always just ahps_lid
+    # col_names = ["nws_lid", "nws_data_name", "HUC8", "mapped", "status"]
+
+    # Column names to compare   (for 4.5.11.1, the columns were named ahps_lid for stage)
+    col_names = ["ahps_lid", "nws_data_name", "HUC8", "mapped", "status"]
+
     # If not, load the columns, the rename to match
     prev_df = pd.read_csv(prev_file, usecols=col_names)
     if "nws_lid" in prev_df.columns:
@@ -81,25 +91,27 @@ def compare_sites(prev_file, new_file, output_file):
     prev_df.HUC8.astype(str)
     prev_df.HUC8 = prev_df.HUC8.astype('str').str.zfill(8)
     prev_df = prev_df.sort_values(by=['ahps_lid'])
-    prev_df = prev_df.add_prefix("prev_")  # rename all columns to add the suffix of "prev_"
+    prev_df = prev_df.add_prefix("prev_data_")  # rename all columns to add the suffix of "prev_"
     # prev_df.to_csv(output_file)
 
     print("loading new file")
     # This has a bug. in 4.5.2.11 stage the column was named 'nws_lid'
     # but for future versions, it will be named "ahps_lid"
+
     # 4.5.2.11 stage
     # new_col_names = ["nws_lid", "nws_data_name", "HUC8", "mapped", "status"]
 
-    # 4.5.2.11 flow
+    # All flow ones are ahps_lid  and 4.5.11.1 stage is ahps_lid
     new_col_names = ["ahps_lid", "nws_data_name", "HUC8", "mapped", "status"]
     new_df = pd.read_csv(new_file, usecols=new_col_names)
     # to get it in sync with the prev column names
     if "nws_lid" in new_df.columns:
         new_df.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+
     new_df.HUC8.astype(str)
     new_df.HUC8 = new_df.HUC8.astype('str').str.zfill(8)
     new_df = new_df.sort_values(by=['ahps_lid'])
-    new_df = new_df.add_prefix("new_")  # rename all columns to add the suffix of "new_"
+    new_df = new_df.add_prefix("new_data_")  # rename all columns to add the suffix of "new_"
 
     # print("Prev")
     # print(prev_df) # prev_df.loc[0]
@@ -109,6 +121,7 @@ def compare_sites(prev_file, new_file, output_file):
     # print(new_df)
     # print()
 
+    col_names = ["ahps_lid", "nws_data_name", "HUC8", "mapped", "status"]
     compare_data(prev_df, new_df, output_file, col_names)
 
     # Wrap up
@@ -127,20 +140,28 @@ def compare_sites(prev_file, new_file, output_file):
 def compare_data(prev_df, new_df, output_file, col_names):
 
     # find the matching recs based on aphs_id, and gets all of the prev_dfs recs
-    results_df = prev_df.merge(new_df, left_on='prev_ahps_lid', right_on='new_ahps_lid', how='outer')
+    results_df = prev_df.merge(
+        new_df, left_on='prev_data_ahps_lid', right_on='new_data_ahps_lid', how='outer'
+    )
 
     # strip out line breaks from the two status columns
-    results_df["prev_status"] = results_df["prev_status"].replace("\n", "")
-    results_df["new_status"] = results_df["new_status"].replace("\n", "")
+    results_df["prev_data_status"] = results_df["prev_data_status"].replace("\n", "")
+    results_df["new_data_status"] = results_df["new_data_status"].replace("\n", "")
 
     for col in col_names:
         # add compare columns and sets defaults
-        results_df[f"is_match_{col}"] = results_df[f"prev_{col}"] == results_df[f"new_{col}"]
+        results_df[f"does_{col}_match"] = results_df[f"prev_data_{col}"] == results_df[f"new_data_{col}"]
 
     # for 4.4.0.0, almost all stage status columns have the phrase "usgs_elev_table missing, "
     # remove that from the front of prev_if applicable (the space on the end is critical)
-    results_df["prev_adj_status"] = results_df["prev_status"].str.replace("usgs_elev_table missing, ", "")
-    results_df["is_match_adj_status"] = results_df["prev_adj_status"] == results_df["new_status"]
+
+    results_df["prev_data_status"] = results_df["prev_data_status"].str.replace(
+        "usgs_elev_table missing, ", ""
+    )
+    # results_df["is_match_status_adj_status"] = results_df["prev_data_adj_status"] == results_df["new_status"]
+
+    # 4.5.2.11. status was the word "OK" and 4.4.0.0, now in 4.5.11.1 it is the word "Good"
+    # results_df["does_status_match"] = results_df[f"does_{col}_match"] == False & results_df["prev_data_status"] == "OK" & results_df["new_data_status"] == "Good"
 
     # for col in col_names:
     #     results_df[f"has_{col}"] = False

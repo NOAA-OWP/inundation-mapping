@@ -240,6 +240,7 @@ def produce_stage_based_catfim_tifs(
 
 # This is part of an MP call and needs MP_LOG
 
+
 # This is a form of inundation which we are doing ourselves
 # as we only have one flow value and our normal inundation tools
 # are looking for files not single values
@@ -337,7 +338,6 @@ def produce_tif_per_huc_per_mag_for_stage(
                     dst.write(masked_reclass_rem_array, 1)
         else:
             MP_LOG.trace(f"{huc} : {lid} : {category} : {branch} : inundation was all zero cells")
-            
 
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage")

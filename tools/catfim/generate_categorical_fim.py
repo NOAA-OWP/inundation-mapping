@@ -340,7 +340,9 @@ def process_generate_categorical_fim(
     # end if else
 
     FLOG.lprint("")
-    if step_num <= 3:  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
+    if (
+        step_num <= 3
+    ):  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
         # Updating mapping status
         FLOG.lprint('Updating mapping status...')
         update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path)
@@ -439,7 +441,7 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
                 FLOG.warning(f"Mapped status was changed to no for {ahps_id}. No inundation files exist")
 
         # sites_gdf.reset_index(inplace=True, drop=True)
-        
+
         # for any records that failed at this point and mapped status is changed to no, then drop those
         # records from inundation
 
@@ -670,7 +672,8 @@ def iterate_through_huc_stage_based(
                     # ie) action higher than major.
                     # Look into it later
 
-                MP_LOG.trace(f"{huc_lid_id}:"
+                MP_LOG.trace(
+                    f"{huc_lid_id}:"
                     f" stage values (pre-processed) in order are {action_stage}, {minor_stage}, {moderate_stage},"
                     f" {major_stage}, {record_stage} "
                 )
@@ -1110,7 +1113,7 @@ def load_restricted_sites():
 
         if len(nws_lid) != 5:  # could be just a blank row in the
             FLOG.warning(
-                f"From the ahps_restricted_sites, an invalid nws_lid value of '{nws_lid}'"
+                f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
                 " and has dropped from processing"
             )
             indexs_for_recs_to_be_removed_from_list.append(ind)
@@ -1563,14 +1566,14 @@ def generate_stage_based_categorical_fim(
         viz_out_gdf = viz_out_gdf.merge(status_df, how='left', on='nws_lid')
 
         # viz_out_gdf.reset_index(inplace=True)
-        
+
         # TODO: This is ugly. It is possible that there are no inundation files for any given lid
-        # if that is true, we need to update this sites csv. We will figure that out in final 
+        # if that is true, we need to update this sites csv. We will figure that out in final
         # library mapping and update the sites csv at the same time for those scenarios
 
-         #  (msg in flows)
+        #  (msg in flows)
         viz_out_gdf['status'] = viz_out_gdf['status'].fillna('Good')
-        
+
         # Add acceptance criteria to viz_out_gdf before writing
         viz_out_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
         viz_out_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)

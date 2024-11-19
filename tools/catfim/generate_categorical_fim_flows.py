@@ -319,13 +319,12 @@ def generate_flows_for_huc(
         if len(all_messages) > 0:
 
             # Check for duplicate sites in the messages
-            lids  = [msg.split(':')[0] for msg in all_messages]
+            lids = [msg.split(':')[0] for msg in all_messages]
             duplicate_lids = set([x for x in lids if lids.count(x) > 1])
 
             # If there are duplicate sites and one of the lines has '---', drop that line
             filtered_messages = [
-                msg for msg in all_messages 
-                if not (msg.split(':')[0] in duplicate_lids and ':---' in msg)
+                msg for msg in all_messages if not (msg.split(':')[0] in duplicate_lids and ':---' in msg)
             ]
 
             # TODO: Aug 2024: This is now identical to the way flow handles messages
@@ -451,11 +450,11 @@ def generate_flows(
 
     FLOG.lprint("Start aggregate_wbd_hucs")
     start_dt = datetime.now(timezone.utc)
-  
+
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
     FLOG.trace("huc_dictionary is ...")
     FLOG.trace(huc_dictionary)
-    
+
     # FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}")  # TEMP DEBUG
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
@@ -630,7 +629,7 @@ def generate_flows(
 
     # stage based doesn't get here
     # crs is 3857 - web mercator at this point
-    
+
     # The csv will be updated later if something fails during inundation
     nws_lid_csv_file_path = os.path.join(mapping_dir, 'flow_based_catfim_sites.csv')
     viz_out_gdf.to_csv(nws_lid_csv_file_path)
@@ -670,7 +669,7 @@ def __load_nwm_metadata(
 
         if lid_to_run != "all":
             # single lid for now
-            
+
             # must_include_value variable not yet tested
             # must_include_value = 'nws_data.rfc_forecast_point' if lid_to_run not in ['HI', 'PR', 'AK'] else None
             all_meta_lists, ___ = get_metadata(
@@ -683,12 +682,17 @@ def __load_nwm_metadata(
             )
         else:
             # This gets all records including AK, HI and PR, but only if they ahve forecast points
-            
+
             # Note: Nov 2024: AK has 152 sites with forecast points, but after research
             # non of the AK sites that nws_data.rfc_forecast_point = False so we can
             # exclude them.
             # Previously we allowed HI and PR sites to come in and most were failing.
             # So, we will include HI and PR as well here
+
+            # We can not just filter out based on dup lids as depending on which
+            # metadata load they are on, dup lid records will have different data
+
+            # orig_meta_lists, ___ = get_metadata(
             all_meta_lists, ___ = get_metadata(
                 metadata_url,
                 select_by='nws_lid',
@@ -697,7 +701,24 @@ def __load_nwm_metadata(
                 upstream_trace_distance=nwm_us_search,
                 downstream_trace_distance=nwm_ds_search,
             )
-    
+
+            # If we decided to put HI and PR back in we can do two loads one
+            # with the flag and one without. Then iterate through the meta_lists
+            # results and filtered out based on the state full value. Then
+            # call WRDS again with those specific states and simply concat them.
+
+            # filtered_meta_data = []
+            # for metadata in orig_meta_lists:
+            #     df = pd.json_normalize(metadata)
+            #     state = df['nws_data.state'].item()
+            #     lid = df['identifiers.nws_lid'].item()
+            #     if state.lower() not in ["alaska", "hawaii", "puerto rico"]:
+            #         filtered_meta_data.append(metadata)
+
+            # must_include='nws_data.rfc_forecast_point',
+
+            # Nov 2024: We used to call them site specific and may add them back in but ok to leave then
+
             # islands_list, ___ = get_metadata(
             #     metadata_url,
             #     select_by='state',
@@ -709,6 +730,8 @@ def __load_nwm_metadata(
 
             #  Append the lists
             # all_meta_lists = filtered_all_meta_list + islands_list
+
+            # print(f"len(all_meta_lists) is {len(all_meta_lists)}")
 
         with open(meta_file, "wb") as p_handle:
             pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
