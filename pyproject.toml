@@ -20,7 +20,6 @@ maintainers = [
     {name = "Hamideh Safa", email = "hamideh.safa@noaa.gov"},
     {name = "James Coll", email = "james.coll@noaa.gov"},
     {name = "Matt Luck", email = "matt.luck@noaa.gov"},
-    {name = "Nick Chadwick", email = "nick.chadwick@noaa.gov"},
     {name = "Riley McDermott", email = "riley.mcdermott@noaa.gov"},
     {name = "Robert Hanna", email = "robert.hanna@noaa.gov"},
     {name = "Ryan Spies", email = "ryan.spies@noaa.gov"}

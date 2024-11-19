@@ -2,7 +2,7 @@ nws_lid,restricted_reason
 # RULES: Ensure that the top line has no comments above the header line above:
 #     -- Careful not to add commas other then the one after the lid ID.
 #     -- Don't allow for any duplicate LID values in this list please.
-# 
+#
 # Comment lines can be added as any independent line in this csv.
 #
 AABDB,Test Site
