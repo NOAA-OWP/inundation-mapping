@@ -269,25 +269,7 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
         )
 
         catchment_geom = gpd.read_file(catchment_gpkg)
-        # # csv_output is already 3857 for HV, but all on AK are starting at 5070 for all catchments,
-        # # agreement rasters.
-        # # We need to reproject the incoming catchment pkg to 3857 before we do much
-        # crs_key = "EPSG:3338" if str(test_case_class.huc[:2]) == '19' else "EPSG:5070"
-
-        # # Need to set it before we reproject (aka.. the they system what type the incoming projection is)
-        # catchment_geom.set_crs(crs_key)
-        # reproj_catchment_geom = catchment_geom.to_crs(VIZ_PROJECTION)
-
-        # reproj_catchment_geom['geometry'] = reproj_catchment_geom.apply(
-        #     lambda row: make_valid(row.geometry), axis=1)
-
         catchment_geom['geometry'] = catchment_geom.apply(lambda row: make_valid(row.geometry), axis=1)
-
-        # hydro_geom_df = reproj_catchment_geom[["HydroID", "geometry"]]
-        # hydro_geom_df = catchment_geom[["HydroID", "geometry"]]
-
-        # FLOG.trace("........... hydro_geom_df ..........")
-        # FLOG.trace(hydro_geom_df)
 
         for agree_rast in agreement_dict:
 
@@ -303,9 +285,6 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
                 FLOG.lprint(f"{test_case_class.test_id}: No zonal stats for {mag}")
                 continue
 
-            # stats["HydroID"] = hydro_geom_df["HydroID"]
-            # FLOG.lprint(f'hydroid is {hydro_geom_df["HydroID"][1]}')
-
             hydro_geom_df = catchment_geom[["HydroID", "geometry"]]
 
             in_mem_df = assemble_hydro_alpha_for_single_huc(
@@ -314,7 +293,6 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
 
             FLOG.trace(f"merging geom output: {test_case_class.test_id}: magnitude = {mag}")
 
-            # all projections
             geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how='inner').to_crs(VIZ_PROJECTION)
 
             csv_output = pd.concat([geom_output, csv_output], sort=False)
