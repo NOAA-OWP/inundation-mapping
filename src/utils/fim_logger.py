@@ -393,7 +393,7 @@ class FIM_logger:
 
     # -------------------------------------------------
     def critical(self, msg):
-        level = "CRITICAL"  # keeps spacing the same
+        level = "CRITICAL".ljust(9)
 
         # c_msg_type = f"{cl.style.BOLD}{cl.fore.RED_3A}{cl.back.WHITE}{self.__get_dt()}"
         # c_msg_type += f" <{level}>"

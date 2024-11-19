@@ -2,8 +2,11 @@
 
 import argparse
 import os
+import shutil
+import sys
 import traceback
-from datetime import datetime
+import warnings
+from datetime import datetime, timezone
 
 import geopandas as gpd
 import pandas as pd
@@ -13,21 +16,22 @@ from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
 from tqdm import tqdm
 
+import utils.fim_logger as fl
+from utils.shared_variables import VIZ_PROJECTION
 
+
+warnings.filterwarnings("ignore", category=FutureWarning, module="gdal")
 gpd.options.io_engine = "pyogrio"
+
+# global RLOG
+FLOG = fl.FIM_logger()  # the non mp version
 
 """
 This module uses zonal stats to subdivide alpha metrics by each HAND catchment.
 The output is a vector geopackage and is also known as the "FIM Performance" layer
 when loaded into HydroVIS. At the time of this commit, it takes approximately
-32 hours to complete.
+20 to 32 hours to complete.
 
-Example usage:
-python /foss_fim/tools/test_case_by_hydro_id.py \
-    -b all \
-    -v fim_4_5_2_11 \
-    -g /outputs/fim_performance_v4_5_2_11.gpkg \
-    -l
 """
 
 
@@ -74,6 +78,8 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
         ]
     )
 
+    FLOG.trace(f"Assemble hydro for huc is {huc8} for {mag} and  {bench}")
+
     for dicts in stats:
         tot_pop = dicts['tn'] + dicts['fn'] + dicts['fp'] + dicts['tp']
         if tot_pop == 0:
@@ -82,10 +88,8 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
         stats_dictionary = compute_stats_from_contingency_table(
             dicts['tn'], dicts['fn'], dicts['fp'], dicts['tp'], cell_area=100, masked_count=dicts['mp']
         )
-        # Calls compute_stats_from_contingency_table from run_test_case.py
 
-        hydroid = dicts['HydroID']
-        stats_dictionary['HydroID'] = hydroid
+        HydroID = dicts['HydroID']
 
         contingency_tot_area_km2 = float(stats_dictionary['contingency_tot_area_km2'])
         if contingency_tot_area_km2 != 'NA':
@@ -143,7 +147,7 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
         if masked_perc != 'NA':
             masked_perc = round(masked_perc, 2)
 
-        HydroID = stats_dictionary['HydroID']
+        # HydroID = stats_dictionary['HydroID']
 
         dict_with_list_values = {
             'HydroID': [HydroID],
@@ -196,7 +200,7 @@ def assemble_hydro_alpha_for_single_huc(stats, huc8, mag, bench):
     return in_mem_df
 
 
-def catchment_zonal_stats(benchmark_category, version, csv, log):
+def catchment_zonal_stats(benchmark_category, version, output_file_name):
     # Execution code
     csv_output = gpd.GeoDataFrame(
         columns=[
@@ -221,7 +225,7 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
             'geometry',
         ],
         geometry='geometry',
-    ).set_crs('EPSG:3857')
+    ).set_crs(VIZ_PROJECTION)
 
     # This funtion, relies on the Test_Case class defined in run_test_case.py to list all available test cases
     all_test_cases = Test_Case.list_all_test_cases(
@@ -229,89 +233,134 @@ def catchment_zonal_stats(benchmark_category, version, csv, log):
         archive=True,
         benchmark_categories=[] if benchmark_category == "all" else [benchmark_category],
     )
-    print(f'Found {len(all_test_cases)} test cases')
-    if log:
-        log.write(f'Found {len(all_test_cases)} test cases...\n')
+
+    num_test_cases = len(all_test_cases)
+    FLOG.lprint("")
+    FLOG.lprint(f'Processing {num_test_cases} test cases...')
+
     missing_hucs = []
 
+    # easier to filter by one huc for debugging purposes
+    # debug_test_hucs = ["12090301", "07100007", "19020302"]
+    # tqdm will likely not work with all of the printd
     for test_case_class in tqdm(all_test_cases, desc=f'Running {len(all_test_cases)} test cases'):
         if not os.path.exists(test_case_class.fim_dir):
-            print(f'{test_case_class.fim_dir} does not exist')
-            missing_hucs.append(test_case_class)
-            if log:
-                log.write(f'{test_case_class.fim_dir} does not exist\n')
+            FLOG.warning(f'{test_case_class.fim_dir} does not exist')
+            missing_hucs.append(test_case_class.huc)
             continue
 
-        if log:
-            log.write(test_case_class.test_id + '\n')
+        # DEBUGGING CODE
+        # huc = test_case_class.huc
+        # if huc not in  debug_test_hucs:
+        #     print(f"skipped {huc}")
+        #     continue
+
+        FLOG.lprint(f"Processing {test_case_class.test_id}")
+        test_case_processing_start = datetime.now(timezone.utc)
 
         agreement_dict = test_case_class.get_current_agreements()
 
-        for agree_rast in agreement_dict:
+        # We are only using branch 0 catchments to define boundaries for zonal stats
+        catchment_gpkg = os.path.join(
+            test_case_class.fim_dir,
+            'branches',
+            '0',
+            "gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg",
+        )
 
-            # We are only using branch 0 catchments to define boundaries for zonal stats
-            catchment_gpkg = os.path.join(
-                test_case_class.fim_dir,
-                'branches',
-                '0',
-                "gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg",
-            )
+        catchment_geom = gpd.read_file(catchment_gpkg)
+        # # csv_output is already 3857 for HV, but all on AK are starting at 5070 for all catchments,
+        # # agreement rasters.
+        # # We need to reproject the incoming catchment pkg to 3857 before we do much
+        # crs_key = "EPSG:3338" if str(test_case_class.huc[:2]) == '19' else "EPSG:5070"
+
+        # # Need to set it before we reproject (aka.. the they system what type the incoming projection is)
+        # catchment_geom.set_crs(crs_key)
+        # reproj_catchment_geom = catchment_geom.to_crs(VIZ_PROJECTION)
+
+        # reproj_catchment_geom['geometry'] = reproj_catchment_geom.apply(
+        #     lambda row: make_valid(row.geometry), axis=1)
+
+        catchment_geom['geometry'] = catchment_geom.apply(lambda row: make_valid(row.geometry), axis=1)
+
+        # hydro_geom_df = reproj_catchment_geom[["HydroID", "geometry"]]
+        # hydro_geom_df = catchment_geom[["HydroID", "geometry"]]
+
+        # FLOG.trace("........... hydro_geom_df ..........")
+        # FLOG.trace(hydro_geom_df)
+
+        for agree_rast in agreement_dict:
 
             define_mag = agree_rast.split(version)
             define_mag_1 = define_mag[1].split('/')
             mag = define_mag_1[1]
 
-            if log:
-                log.write(f'  {define_mag[1]}\n')
-
+            FLOG.trace(f"Processing {test_case_class.test_id}: {mag}")
+            FLOG.trace(define_mag[1])
+            FLOG.trace(f"catchment_gpkg : {catchment_gpkg} - agree_rast is {agree_rast}")
             stats = perform_zonal_stats(catchment_gpkg, agree_rast)
             if stats == []:
+                FLOG.lprint(f"{test_case_class.test_id}: No zonal stats for {mag}")
                 continue
 
-            get_geom = gpd.read_file(catchment_gpkg)
+            # stats["HydroID"] = hydro_geom_df["HydroID"]
+            # FLOG.lprint(f'hydroid is {hydro_geom_df["HydroID"][1]}')
 
-            get_geom['geometry'] = get_geom.apply(lambda row: make_valid(row.geometry), axis=1)
+            hydro_geom_df = catchment_geom[["HydroID", "geometry"]]
 
             in_mem_df = assemble_hydro_alpha_for_single_huc(
                 stats, test_case_class.huc, mag, test_case_class.benchmark_cat
             )
 
-            hydro_geom_df = get_geom[["HydroID", "geometry"]]
+            FLOG.trace(f"merging geom output: {test_case_class.test_id}: magnitude = {mag}")
 
-            geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how='inner').to_crs('EPSG:3857')
+            # all projections
+            geom_output = hydro_geom_df.merge(in_mem_df, on='HydroID', how='inner').to_crs(VIZ_PROJECTION)
 
-            concat_df_list = [geom_output, csv_output]
+            csv_output = pd.concat([geom_output, csv_output], sort=False)
 
-            csv_output = pd.concat(concat_df_list, sort=False)
+        FLOG.lprint(f"Processing complete for {test_case_class.test_id}")
+        # calculate duration per test case
+        test_case_processing_end = datetime.now(timezone.utc)
+        time_duration = test_case_processing_end - test_case_processing_start
+        FLOG.lprint(f".. Duration: {str(time_duration).split('.')[0]}")
 
     if missing_hucs:
-        log.write(
-            f"There were {len(missing_hucs)} HUCs missing from the input FIM version:\n"
-            + "\n".join([h.fim_dir for h in missing_hucs])
-        )
+        FLOG.warning(f"There were {len(missing_hucs)} HUCs missing from the input FIM version")
+        FLOG.warning(missing_hucs)
 
-    print()
-    print(csv_output.groupby('BENCH').size())
-    print(f'total     {len(csv_output)}')
-    log.write("\n------------------------------------\n")
-    csv_output.groupby('BENCH').size().to_string(log)
-    log.write(f'\ntotal     {len(csv_output)}\n')
-
-    print('Writing to GPKG')
-    log.write(f'Writing geopackage {csv}\n')
-    csv_output.to_file(csv, driver="GPKG", engine='fiona')
-
+    csv_output.sort_values(by=['huc8', 'BENCH'])
     # Add version information to csv_output dataframe
     csv_output['version'] = version
 
-    print('Writing to CSV')
-    csv_path = csv.replace(".gpkg", ".csv")
-    log.write(f'Writing CSV {csv_path}\n')
-    csv_output.to_csv(csv_path)  # Save to CSV
+    # Change the index into a named column of "oid" (for HV), then move it to the front
+    csv_output["oid"] = csv_output.index
+    oid_col = csv_output.pop("oid")
+    csv_output.insert(0, oid_col.name, oid_col)
+
+    # we don't want to save this group by, just show the size
+    FLOG.lprint(f"total grouped by benchmark: {csv_output.groupby('BENCH').size()}")
+    FLOG.lprint("------------------------------------")
+
+    FLOG.lprint(f'Writing geopackage {output_file_name}')
+    csv_output.to_file(output_file_name, index=False, driver="GPKG", engine='fiona')
+
+    FLOG.lprint('Writing to CSV')
+    csv_path = output_file_name.replace(".gpkg", ".csv")
+    csv_output.to_csv(csv_path, index=False)  # Save to CSV
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Produces alpha metrics by hyrdoid.')
+
+    """
+    Example usage:
+    python /foss_fim/tools/test_case_by_hydro_id.py \
+        -b all \
+        -v fim_4_5_11_1 \
+        -g /outputs/fim_performance/hand_4_5_11_1/fim_performance_catchments.gpkg
+    """
+
+    parser = argparse.ArgumentParser(description='Produces alpha metrics by hydro id.')
 
     parser.add_argument(
         '-b',
@@ -320,69 +369,91 @@ if __name__ == "__main__":
         required=True,
     )
     parser.add_argument(
-        '-v', '--version', help='The fim version to use. Should be similar to fim_3_0_24_14_ms', required=True
+        '-v',
+        '--version',
+        help='The fim version to use. eg) hand_4_5_11_1. Note: folder must be in the previous_fim folder.',
+        required=True,
     )
     parser.add_argument(
         '-g',
         '--gpkg',
-        help='Filepath and filename to hold exported gpkg file. '
-        'Similar to /data/path/fim_performance_catchments.gpkg. A CSV with the same name will also be written.',
+        help='Filepath and filename to hold exported gpkg file.'
+        ' eg. /data/fim_performance/hand_4_5_11_1/fim_performance_catchments.gpkg.'
+        ' A CSV with the same name will also be written.',
         required=True,
-    )
-    parser.add_argument(
-        '-l',
-        '--log',
-        help='Optional flag to write a log file with the same name as the --GPKG.',
-        required=False,
-        default=None,
-        action='store_true',
     )
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
     benchmark_category = args['benchmark_category']
     version = args['version']
-    csv = args['gpkg']
-    log = args['log']
+    gpkg_file = args['gpkg']
+
+    # TODO: Oct 2024: This logic below should be moved into a function
+    # leaving nothing here but just loading args and passing them to the function
 
     print("================================")
     print("Start test_case_by_hydroid.py")
-    start_time = datetime.now()
-    dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-    print(f"started: {dt_string}")
-    print()
 
-    ## Initiate log file
-    if log:
-        log = open(csv.replace('.gpkg', '.log'), "w")
-        log.write('START TIME: ' + str(start_time) + '\n')
-        log.write('#########################################################\n\n')
-        log.write('')
-        log.write(f'Runtime args:\n {args}\n\n')
+    # =======================
+    # Validate and setup enviro
 
-    # This is the main execution -- try block is to catch and log errors
+    # adjust and check file extension
+    # Why change extension to lower case? Makes it easier to make a log file name from it
+
+    gpkg_file_name = os.path.basename(gpkg_file)
+    file_name_segs = os.path.splitext(gpkg_file_name)
+
+    if len(file_name_segs) != 2:
+        raise Exception(f"file name of {gpkg_file_name} appears invalid (missing extension)")
+    orig_ext = file_name_segs[1]
+    new_ext = orig_ext.lower()
+    if new_ext != ".gpkg":
+        raise Exception(f"file name of {gpkg_file_name} appears invalid (not a gpkg extension)")
+
+    # we are going to replace the .gpkg extension lower
+    gpkg_file_name.replace(orig_ext, new_ext)
+    output_folder = os.path.dirname(gpkg_file)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder, exist_ok=True)
+
+    # adjusted file name with extension as final output file
+    output_file_name = os.path.join(output_folder, gpkg_file_name)
+    FLOG.lprint(f"Output file will be {output_file_name}")
+    log_folder_path = os.path.join(output_folder, "logs")
+
+    log_output_file = FLOG.calc_log_name_and_path(log_folder_path, "test_by_hydro_id")
+    # file names looks like this ie: {prefix}_{yyyy}_{mm}_{dd}-{hr_min_sec}
+    # (folder path}/logs/test_by_hydro_id_2024_10_26_-13_21_43.log
+    FLOG.setup(log_output_file)
+
+    overall_start_time = datetime.now(timezone.utc)
+    dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+
+    FLOG.lprint("================================")
+    FLOG.lprint(f"Start Test Case by Hydro ID - (UTC): {dt_string}")
+    FLOG.lprint("")
+
+    FLOG.trace(f'Runtime args: {args}')
+    print(f"log file being created as {FLOG.LOG_FILE_PATH}")
+
     try:
-        catchment_zonal_stats(benchmark_category, version, csv, log)
-    except Exception as ex:
-        print(f"ERROR: Execution failed. Please check the log file for details. \n {log.name if log else ''}")
-        if log:
-            log.write(f"ERROR -->\n{ex}")
-        traceback.print_exc(file=log)
-        if log:
-            log.write(f'Errored at: {str(datetime.now().strftime("%m/%d/%Y %H:%M:%S"))} \n')
+        catchment_zonal_stats(benchmark_category, version, output_file_name)
+    except Exception:
+        # FLOG.critical generally means stop the program
+        # FLOG.error means major problem but execution continues (sometimes in MP)
+        FLOG.critical("Execution failed")
+        FLOG.critical(traceback.format_exc())
+        sys.exit(1)
 
-    end_time = datetime.now()
-    dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
-    tot_run_time = end_time - start_time
-    if log:
-        log.write(f'END TIME: {str(end_time)} \n')
-        log.write(f'TOTAL RUN TIME: {str(tot_run_time)} \n')
-        log.close()
+    FLOG.lprint("================================")
+    FLOG.lprint("End test_case_by_hydroid")
 
-    print("================================")
-    print("End test_case_by_hydroid.py")
+    overall_end_time = datetime.now(timezone.utc)
+    dt_string = overall_end_time.strftime("%m/%d/%Y %H:%M:%S")
+    FLOG.lprint(f"Ended (UTC): {dt_string}")
 
-    print(f"ended: {dt_string}")
-
-    print(f"Duration: {str(tot_run_time).split('.')[0]}")
+    # calculate duration
+    time_duration = overall_end_time - overall_start_time
+    FLOG.lprint(f"Duration: {str(time_duration).split('.')[0]}")
     print()
