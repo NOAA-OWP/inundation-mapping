@@ -1,6 +1,56 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.12.0 - 2024-11-01 - [PR#1327](https://github.com/NOAA-OWP/inundation-mapping/pull/1327)
+
+The purpose of this PR is to cut down the runtime for four Alaska HUCs (19020104, 19020503, 19020402 , and 19020602). It significantly optimizes runtime by replacing a nested for loop, used for updating rating curve for small segments, with a vectorized process. This changes were applied only to the Alaska HUCs.
+As part of this PR, small modification was applied to bridge_inundation.py.
+
+### Changes
+
+- `src/add_crosswalk.py`
+- `src/delineate_hydros_and_produce_HAND.sh`
+- `tools/bridge_inundation.py`
+
+<br/><br/>
+
+
+## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
+
+The fix: During the post processing scan for the word "error" or "warning", it was only finding records which had either of those two words as stand alone words and not part of bigger phrases.  ie); "error" was found, but not "fielderror". Added wildcards and it is now fixed.
+
+Note: it is finding a good handful more errors and warnings that were being missed in earlier code versions.
+
+### Changes
+`fim_post_processing.sh`: fix as described.
+
+<br/><br/>
+
+
+## v4.5.11.2 - 2024-10-25 - [PR#1322](https://github.com/NOAA-OWP/inundation-mapping/pull/1322)
+
+For security reasons, we needed to create a docker image that does not use the root user in anyway. The new `Dockerfile.prod` file is to be used when we want to use a non-root user. The  original `Dockerfile` has been renamed to `Dockerfile.dev` and will continue to use it's root users which has no problems with interacting with external mounts.
+
+Note: Re: using pip or pipenv installs.
+In the Dockerfile.prod, you can not do installs or update using either pipenv or pip.  Those types of tests and adjustments need to be done in the `Dockerfile.dev`. `Dockerfile.dev` will also allow change to the `Pipfile` and `Pipfile.lock` . Both docker files share the Pipfiles so it should be just fine.
+
+### File Renames
+- Was: `Dockerfile`,  now `Dockerfile.dev`
+
+### Additions
+
+- Dockerfile.prod: as described
+
+### Changes
+- `README.md`: change notes from phrase `Dockerfile` to `Dockerfile.dev`. Also added some notes about the new convention of outputs no longer starting with `fim_` but now `hand_`
+- `fim_pipeline.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_post_processing.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_pre_processing.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_process_unit_wb.sh`: Change for the new `Dockerfile.prod` for permissions.
+
+<br/><br/>
+
+
 ## v4.5.11.1 - 2024-10-16 - [PR#1318](https://github.com/NOAA-OWP/inundation-mapping/pull/1318)
 
 Bug fixes to address issues during `fim_pipeline.sh`.
