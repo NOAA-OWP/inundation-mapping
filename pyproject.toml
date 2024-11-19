@@ -71,7 +71,7 @@ extend-ignore = """
     F401,
     F403,
     """
-exclude = [".\*.csv"]
+exclude = ["*.csv"]
 
 per-file-ignores = """
     src/subdiv_chan_obank_src.py: E712
