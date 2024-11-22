@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-11-18 - [PR#1328](https://github.com/NOAA-OWP/inundation-mapping/pull/1328)
+## v4.5.12.1 - 2024-11-22 - [PR#1328](https://github.com/NOAA-OWP/inundation-mapping/pull/1328)
 
 Fixes bug and adds error checking in FIM Performance. Fixes #1326.
 
