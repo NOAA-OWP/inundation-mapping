@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.12.1 - 2024-11-22 - [PR#1328](https://github.com/NOAA-OWP/inundation-mapping/pull/1328)
+
+Fixes bug and adds error checking in FIM Performance. Fixes #1326.
+
+### Changes
+- `src/utils/fim_logger.py`: Fix a spacing issue
+- `tools/`
+    - `pixel_counter.py`: Adds check if file exists
+    - `run_test_case.py`: if there is a .aux.xml file in the test_case dir, this can fail. now fixed.
+    - `test_case_by_hydro_id.py`: Fixes bug and adds error checking/logging
+
+<br/><br/>
+
+
 ## v4.5.12.0 - 2024-11-01 - [PR#1327](https://github.com/NOAA-OWP/inundation-mapping/pull/1327)
 
 The purpose of this PR is to cut down the runtime for four Alaska HUCs (19020104, 19020503, 19020402 , and 19020602). It significantly optimizes runtime by replacing a nested for loop, used for updating rating curve for small segments, with a vectorized process. This changes were applied only to the Alaska HUCs.
