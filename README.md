@@ -136,9 +136,9 @@ docker run --rm -it --name Robs_container \
 ### Subsetting input data
 A subset of the data required to run and evaluate FIM can be obtained with the use of ESIP AWS keys. In order to generate these data:
 1. Start a Docker container as in the previous step
-2. Run `/foss_fim/data/get_sample_data.py` replacing `aws_access_key_id` and `aws_secret_access_key` with your AWS access keys. To generate data for HUC 03100204, for example:
+2. Run `/foss_fim/data/get_sample_data.py` replacing `<aws_access_key_id>` and `<aws_secret_access_key>` with your AWS access keys. To generate data for HUC 03100204, for example:
 ```
-python /foss_fim/data/get_sample_data.py -u 03100204 -i s3://noaa-nws-owp-fim/hand_fim/ -o /outputs/sample-data -r hand_fim -s3 -ak [aws_access_key_id] -sk [aws_secret_access_key]
+python /foss_fim/data/get_sample_data.py -u 03100204 -i s3://noaa-nws-owp-fim/hand_fim/ -o /outputs/sample-data -r hand_fim -s3 -ak <aws_access_key_id> -sk <aws_secret_access_key>
 ```
 3. Exit the Docker container by typing `exit`. Alternatively, you can leave this container running and run the next command in a new terminal tab or window.
 4. Start a new Docker container with the `/data` volume mount pointing at the local output location (`-o`) used in `get_sample_data.py` (step 2). For example:
