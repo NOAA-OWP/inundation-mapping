@@ -49,11 +49,6 @@ The available inputs, test cases, and versioned FIM outputs can be found by runn
 aws s3 ls s3://noaa-nws-owp-fim/hand_fim/  --profile esip
 ```
 
-Download a directory of sample outputs for a single HUC8:
-```
-aws s3 sync s3://noaa-nws-owp-fim/hand_fim/outputs/hand_4_5_2_11/12090301 \
-    /your_local_folder_name/12090301 --profile esip
-```
 By adjusting pathing, you can also download entire directories such as the `hand_4_5_2_11` folder. An entire output HAND set is approximately 1.7 TB.
 
 **Note**: There may be newer editions than `hand_4_5_11_1`, and it is recommended to adjust the command above for the latest version.
@@ -138,6 +133,25 @@ docker run --rm -it --name Robs_container \
     fim_4:dev_20230620
 ```
 
+### Subsetting input data
+A subset of the data required to run and evaluate FIM can be obtained with the use of ESIP AWS keys. In order to generate these data:
+1. Start a Docker container as in the previous step
+2. Run `/foss_fim/data/get_sample_data.py` replacing `<aws_access_key_id>` and `<aws_secret_access_key>` with your AWS access keys. To generate data for HUC 03100204, for example:
+```
+python /foss_fim/data/get_sample_data.py -u 03100204 -i s3://noaa-nws-owp-fim/hand_fim/ -o /outputs/sample-data -r hand_fim -s3 -ak <aws_access_key_id> -sk <aws_secret_access_key>
+```
+3. Exit the Docker container by typing `exit`. Alternatively, you can leave this container running and run the next command in a new terminal tab or window.
+4. Start a new Docker container with the `/data` volume mount pointing at the local output location (`-o`) used in `get_sample_data.py` (step 2). For example:
+```bash
+docker run --rm -it --name Robs_data_container \
+    -v /home/projects/fim/code/inundation-mapping/:/foss_fim \
+    -v /home/projects/fim/data/outputs/:/outputs \
+    -v /home/projects/fim/data/outputs_temp/:/fim_temp \
+    -v /home/projects/fim/data/outputs/sample-data:/data \
+    fim_4:dev_20230620
+```
+5. Now you can run the following commands with the sample data.
+
 ### Produce HAND Hydrofabric
 ```
 fim_pipeline.sh -u <huc8> -n <name_your_run> -o
@@ -160,15 +174,6 @@ The three sections are:
 3. `fim_post_processing.sh` : This section takes all of the HUCs that have been processed, aggregates key information from each HUC directory and looks for errors across all HUC folders. It also processes the HUC group in sub-steps such as usgs guages processesing, rating curve adjustments and more. Naturally, running or re-running this script can only be done after running `fim_pre_processing.sh` and at least one run of `fim_process_unit_wb.sh`.
 
 Running the `fim_pipeline.sh` is a quicker process than running all three steps independently, but you can run some sections more than once if you like.
-
-### Testing in Other HUCs
-To test in HUCs other than the provided HUCs, the following processes can be followed to acquire and preprocess additional NHDPlus rasters and vectors. After these steps are run, the "Produce HAND Hydrofabric" step can be run for the new HUCs.
-
-```
-/foss_fim/src/acquire_and_preprocess_inputs.py -u <huc8s_to_process>
-```
-    Sorry, this tool is deprecated, replacement scripts are coming soon.
-
 
 ### Evaluating Inundation Map Performance
 After `fim_pipeline.sh` completes, or combinations of the three major steps described above, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
