@@ -4,7 +4,6 @@ import argparse
 import glob
 import os
 import re
-import sys
 from pathlib import Path
 
 import geopandas as gpd
@@ -891,7 +890,7 @@ def eval_plots(
             joined = gdf.merge(all_ahps_datasets, on='nws_lid')
             # Project to VIZ projection and write to file
             joined = joined.to_crs(VIZ_PROJECTION)
-            joined.to_file(Path(workspace) / 'fim_performance_points.shp')
+            joined.to_file(Path(workspace) / 'fim_performance_points.shp', engine='fiona')
         else:
             print(
                 'NWS/USGS MS datasets not analyzed, no spatial data created.\n'
@@ -949,7 +948,7 @@ def eval_plots(
             # Project to VIZ projection
             wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
             # Write out to file
-            wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp')
+            wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp', engine='fiona')
         else:
             print(
                 'BLE/IFC/RAS2FIM FR datasets not analyzed, no spatial data created.\n'

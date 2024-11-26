@@ -78,6 +78,8 @@ fi
 # make outputs directory
 mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
+chmod 777 $tempHucDataDir
+chmod 777 $tempBranchDataDir
 
 # Clean out previous unit logs and branch logs starting with this huc
 rm -f $outputDestDir/logs/unit/"$hucNumber"_unit.log

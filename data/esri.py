@@ -50,7 +50,7 @@ class ESRI_REST(object):
         gdf_complete = rest_call._query_rest()
         # Save geodataframe as geopackage
         if save_file:
-            gdf_complete.to_file(save_file, driver="GPKG", index=False)
+            gdf_complete.to_file(save_file, driver="GPKG", index=False, engine='fiona')
         else:
             return gdf_complete
 

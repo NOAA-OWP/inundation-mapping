@@ -178,13 +178,12 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     '''
 
     # Validation
-    total_cpus_available = os.cpu_count()
+    total_cpus_available = os.cpu_count() - 2
     if number_of_jobs > total_cpus_available:
         print(
             f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -2: '
             f'{total_cpus_available - 2} will be used instead.'
         )
-        number_of_jobs = total_cpus_available - 2
 
     # Read in huc_list file and turn into a list data structure
     if os.path.exists(huc_list):
@@ -512,13 +511,25 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
 
 
 if __name__ == '__main__':
+
+    # NOTE: Super important: Make sure the bash_variables are correct before doing pre-clip.
+    # It pulls a wide number of values from there.
+    # Especially if you can a diretory for a new data load.
+    #     ie) DEMS at data/inputs/3dep_dems/10m_5070/20240916/
+    #
+    # You have to run this twice, once for Alaska and once for CONUS
+    # but make sure put both results the same folder
+    # and you will need to submit the two HUC lists
+    # SouthernAlaska_HUC8.lst
+    # included_huc8.lst
+
     parser = argparse.ArgumentParser(
         description='This script gets WBD layer, calls the clip_vectors_to_wbd.py script, and clips the wbd. '
         'A plethora gpkg files per huc are generated (see args to subset_vector_layers), and placed within '
         'the output directory specified as the <outputs_dir> argument.',
         usage='''
             ./generate_pre_clip_fim_huc8.py
-                -n /data/inputs/pre_clip_huc8/24_3_20
+                -n /data/inputs/pre_clip_huc8/20240927
                 -u /data/inputs/huc_lists/included_huc8_withAlaska.lst
                 -j 6
                 -o
@@ -529,9 +540,10 @@ if __name__ == '__main__':
         '-n',
         '--outputs_dir',
         help='Directory to output all of the HUC level .gpkg files. Use the format: '
-        '<year_month_day> (i.e. September 26, 2023 would be 23_09_26)',
+        '<year_month_day> (i.e. September 26, 2024 would be 20240926)',
     )
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
+
     parser.add_argument(
         '-j',
         '--number_of_jobs',
