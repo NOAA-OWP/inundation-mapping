@@ -36,7 +36,7 @@ def Edit_points(
 
     # join on HydroID to add branch_id
     if out_reach_points is not None:
-        reach_points.to_file(out_reach_points, driver='GPKG', index=False)
+        reach_points.to_file(out_reach_points, driver='GPKG', index=False, engine='fiona')
 
     # make pixel points
     if verbose:
@@ -46,7 +46,7 @@ def Edit_points(
     pixel_points['id'] = list(range(1, len(pixel_points) + 1))
 
     if out_pixel_points is not None:
-        pixel_points.to_file(out_pixel_points, driver='GPKG', index=False)
+        pixel_points.to_file(out_pixel_points, driver='GPKG', index=False, engine='fiona')
 
     return (reach_points, pixel_points)
 

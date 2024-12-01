@@ -3,6 +3,7 @@ import datetime as dt
 import logging
 import os
 import traceback
+import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -10,7 +11,8 @@ import geopandas as gpd
 import osmnx as ox
 import pandas as pd
 import pyproj
-from shapely.geometry import shape
+from networkx import Graph, connected_components
+from shapely.geometry import LineString, shape
 
 
 CRS = "epsg:5070"
@@ -19,6 +21,32 @@ CRS = "epsg:5070"
 # Save all OSM bridge features by HUC8 to a specified folder location.
 # Bridges will have point geometry converted to linestrings if needed
 #
+# Dissolve touching lines
+def find_touching_groups(gdf):
+    # Create a graph
+    graph = Graph()
+
+    # Add nodes for each geometry
+    graph.add_nodes_from(gdf.index)
+
+    # Create spatial index for efficient querying
+    spatial_index = gdf.sindex
+
+    # For each geometry, find touching geometries and add edges to the graph
+    for idx, geometry in gdf.iterrows():
+        possible_matches_index = list(spatial_index.intersection(geometry['geometry'].bounds))
+        possible_matches = gdf.iloc[possible_matches_index]
+        precise_matches = possible_matches[possible_matches.intersects(geometry['geometry'])]
+
+        for match_idx in precise_matches.index:
+            if match_idx != idx:
+                graph.add_edge(idx, match_idx)
+
+    # Find connected components
+    groups = list(connected_components(graph))
+    return groups
+
+
 def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
     """
     Returns: The huc number but only if it failed, so we can make a master list of failed HUCs.
@@ -40,13 +68,47 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             logging.info(f"osmnx pull for {huc_num} came back with no records")
             return huc_num
 
+        # Create bridge_type column
+        # Check if 'highway' column exists
+        if 'highway' not in gdf.columns:
+            gdf['highway'] = None
+
+        # Check if 'railway' column exists
+        if 'railway' not in gdf.columns:
+            gdf['railway'] = None
+
+        # Create the bridge_type column by combining above information
+        gdf['bridge_type'] = gdf.apply(
+            lambda row: (
+                f"highway-{row['highway']}" if pd.notna(row['highway']) else f"railway-{row['railway']}"
+            ),
+            axis=1,
+        )
+        gdf.reset_index(inplace=True)
+        # Remove abandoned bridges
+        gdf = gdf[gdf['bridge'] != 'abandoned']
+
         cols_to_drop = []
         for col in gdf.columns:
             if any(isinstance(val, list) for val in gdf[col]):
                 cols_to_drop.append(col)
 
         # This a common and know duplicate column name (and others)
-        bad_column_names = ["atv", "fixme", "FIXME"]
+        bad_column_names = [
+            "atv",
+            "fixme",
+            "FIXME",
+            "NYSDOT_ref",
+            "REF",
+            "fid",
+            "fixme:maxspeed",
+            "LAYER",
+            "unsigned_ref",
+            "Fut_Ref",
+            "Ref",
+            "FIXME:ref",
+            "id",
+        ]
         for bad_cn in bad_column_names:
             if bad_cn in gdf.columns:
                 cols_to_drop.append(bad_cn)
@@ -57,7 +119,37 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         gdf1 = gdf[gdf.geometry.apply(lambda x: x.geom_type == 'LineString')]
 
         gdf1 = gdf1.to_crs(CRS)
-        gdf1.to_file(huc_bridge_file, driver="GPKG")
+
+        # Perform dissolve touching lines
+        buffered = gdf1.copy()
+        buffered['geometry'] = buffered['geometry'].buffer(0.0001)
+        # Find groups of touching geometries
+        touching_groups = find_touching_groups(buffered)
+
+        # Dissolve each group separately
+        warnings.filterwarnings('ignore')
+        dissolved_groups = []
+        for group in touching_groups:
+            group_gdf = buffered.loc[list(group)]
+            if not group_gdf.empty:
+                dissolved_group = group_gdf.dissolve()
+                single_part_group = dissolved_group.explode(index_parts=False)
+                dissolved_groups.append(single_part_group)
+
+        # Combine dissolved groups and reconstruct GeoDataFrame
+        if dissolved_groups:
+            dissolved_gdf = pd.concat(dissolved_groups, ignore_index=True)
+            final_gdf = gpd.GeoDataFrame(dissolved_gdf, crs=buffered.crs)
+        else:
+            final_gdf = buffered.copy()
+
+        # Polygon to linestring
+        final_gdf['geometry'] = final_gdf['geometry'].apply(
+            lambda geom: LineString(geom.exterior.coords) if geom.geom_type == 'Polygon' else geom
+        )
+        # Reconstruct the GeoDataFrame to remove fragmentation
+        final_gdf = final_gdf.copy()
+        final_gdf.to_file(huc_bridge_file, driver="GPKG")
 
         # returns the HUC but only if it failed so we can keep a list of failed HUCs
         return ""
@@ -95,7 +187,7 @@ def combine_huc_features(output_dir):
     section_time = dt.datetime.now(dt.timezone.utc)
     logging.info(f"  .. started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
-    all_bridges_gdf = all_bridges_gdf_raw[['osmid', 'name', 'geometry']]
+    all_bridges_gdf = all_bridges_gdf_raw[['osmid', 'name', 'bridge_type', 'geometry']]
     all_bridges_gdf.to_file(osm_bridge_file, driver="GPKG")
 
     return
@@ -185,6 +277,15 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs):
     # all huc8 processing must be completed before this function call
     combine_huc_features(output_folder)
 
+    # Clean up individual HUC8 files
+    logging.info('Deleting individual HUC8 files as a final cleanup step')
+    huc_files = Path(output_folder).glob('huc_*_osm_bridges.gpkg')
+    for huc_file in huc_files:
+        try:
+            os.remove(huc_file)
+        except Exception as e:
+            logging.info(f"Error deleting {huc_file}: {str(e)}")
+
     if len(failed_HUCs_list) > 0:
         logging.info("\n+++++++++++++++++++")
         logging.info("HUCs that failed to download from OSM correctly are:")
@@ -236,6 +337,7 @@ def __setup_logger(outputs_dir):
     logging.basicConfig(
         filename=log_file_path, level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S'
     )
+    logging.captureWarnings(True)
 
     # set up logging to console
     console = logging.StreamHandler()
@@ -260,7 +362,7 @@ if __name__ == "__main__":
         It should be run only as often as the user thinks OSM has had any important updates.
         - As written, the code will skip any HUC that there's already a file for.
         - Each HUC8's worth of OSM bridge features is saved out individually, then merged together
-        into one. The HUC8 files can be deleted if desired, as an added final cleanup step.
+        into one.
     '''
 
     parser = argparse.ArgumentParser(description='Acquires and saves Open Street Map bridge features')

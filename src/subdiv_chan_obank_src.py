@@ -417,48 +417,51 @@ def run_prep(
             huc_list = [process_huc]
         for huc in huc_list:
             # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-            if re.match(r'\d{8}', huc):
-                huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
-                for branch_id in os.listdir(huc_branches_dir):
-                    branch_dir = os.path.join(huc_branches_dir, branch_id)
-                    in_src_bankfull_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
-                    htable_filename = join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-                    huc_plot_output_dir = join(branch_dir, 'src_plots')
+            if process_huc is None or huc in process_huc:
+                if re.match(r'\d{8}', huc):
+                    huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
+                    for branch_id in os.listdir(huc_branches_dir):
+                        branch_dir = os.path.join(huc_branches_dir, branch_id)
+                        in_src_bankfull_filename = join(
+                            branch_dir, 'src_full_crosswalked_' + branch_id + '.csv'
+                        )
+                        htable_filename = join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+                        huc_plot_output_dir = join(branch_dir, 'src_plots')
 
-                    if isfile(in_src_bankfull_filename) and isfile(htable_filename):
-                        procs_list.append(
-                            [
-                                in_src_bankfull_filename,
-                                df_mann,
-                                huc,
-                                branch_id,
-                                htable_filename,
-                                output_suffix,
-                                src_plot_option,
-                                huc_plot_output_dir,
-                            ]
-                        )
-                    else:
-                        print(
-                            'HUC: '
-                            + str(huc)
-                            + '  branch id: '
-                            + str(branch_id)
-                            + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
-                            + 'or hydroTable_*.csv) in the fim output dir: '
-                            + str(branch_dir)
-                            + ' - skipping this branch!!!\n'
-                        )
-                        log_file.write(
-                            'HUC: '
-                            + str(huc)
-                            + '  branch id: '
-                            + str(branch_id)
-                            + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
-                            + 'or hydroTable_*.csv) in the fim output dir: '
-                            + str(branch_dir)
-                            + ' - skipping this branch!!!\n'
-                        )
+                        if isfile(in_src_bankfull_filename) and isfile(htable_filename):
+                            procs_list.append(
+                                [
+                                    in_src_bankfull_filename,
+                                    df_mann,
+                                    huc,
+                                    branch_id,
+                                    htable_filename,
+                                    output_suffix,
+                                    src_plot_option,
+                                    huc_plot_output_dir,
+                                ]
+                            )
+                        else:
+                            print(
+                                'HUC: '
+                                + str(huc)
+                                + '  branch id: '
+                                + str(branch_id)
+                                + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
+                                + 'or hydroTable_*.csv) in the fim output dir: '
+                                + str(branch_dir)
+                                + ' - skipping this branch!!!\n'
+                            )
+                            log_file.write(
+                                'HUC: '
+                                + str(huc)
+                                + '  branch id: '
+                                + str(branch_id)
+                                + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
+                                + 'or hydroTable_*.csv) in the fim output dir: '
+                                + str(branch_dir)
+                                + ' - skipping this branch!!!\n'
+                            )
 
         ## Pass huc procs_list to multiprocessing function
         multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, verbose)

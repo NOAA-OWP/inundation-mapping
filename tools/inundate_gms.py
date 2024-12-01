@@ -186,14 +186,15 @@ def __inundate_gms_generator(
         catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
+        # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
+
         if hydro_table_df is not None:
-            if 'HUC' not in hydro_table_df.index.names:
-                hydro_table_df.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
-            hydro_table_branch = hydro_table_df.loc[hydro_table_df["branch_id"] == int(branch_id)]
+            hydro_table_all = hydro_table_df.set_index(["HUC", "feature_id", "HydroID"], inplace=False)
+            hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
         else:
-            # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
             hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
             if os.path.isfile(hydro_table_huc):
+
                 htable_req_cols = [
                     "HUC",
                     "branch_id",
@@ -203,6 +204,7 @@ def __inundate_gms_generator(
                     "discharge_cms",
                     "LakeID",
                 ]
+
                 hydro_table_all = pd.read_csv(
                     hydro_table_huc,
                     dtype={
@@ -216,6 +218,7 @@ def __inundate_gms_generator(
                     },
                     usecols=htable_req_cols,
                 )
+
                 hydro_table_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
                 hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
             else:
@@ -268,10 +271,11 @@ def __inundate_gms_generator(
             "quiet": not verbose,
         }
 
-        yield (inundate_input, identifiers)
+        yield inundate_input, identifiers
 
 
 if __name__ == "__main__":
+
     # parse arguments
     parser = argparse.ArgumentParser(description="Inundate FIM")
     parser.add_argument(

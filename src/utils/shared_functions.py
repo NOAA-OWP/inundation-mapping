@@ -175,6 +175,30 @@ def check_file_age(file):
 
 
 ########################################################################
+# Function to find huc subdirectories with the same name btw two parent folders
+########################################################################
+def find_matching_subdirectories(parent_folder1, parent_folder2):
+    # List all subdirectories in the first parent folder
+    subdirs1 = {
+        d
+        for d in os.listdir(parent_folder1)
+        if os.path.isdir(os.path.join(parent_folder1, d)) and len(d) == 8
+    }
+
+    # List all subdirectories in the second parent folder
+    subdirs2 = {
+        d
+        for d in os.listdir(parent_folder2)
+        if os.path.isdir(os.path.join(parent_folder2, d)) and len(d) == 8
+    }
+
+    # Find common subdirectories with exactly 8 characters
+    matching_subdirs = list(subdirs1 & subdirs2)
+
+    return matching_subdirs
+
+
+########################################################################
 # Function to concatenate huc csv files to a single dataframe/csv
 ########################################################################
 def concat_huc_csv(fim_dir, csv_name):

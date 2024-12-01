@@ -115,7 +115,8 @@ fi
 echo
 echo "---- Unit (HUC) processing is complete"
 date -u
-Calc_Duration $pipeline_start_time
+Calc_Duration "Duration : " $pipeline_start_time
+echo "---------------------------------------------------"
 
 ## POST PROCESSING
 
@@ -126,9 +127,10 @@ rm -d $workDir/$runName
 . $projectDir/fim_post_processing.sh -n $runName -j $jobMaxLimit
 
 echo
-echo "======================== End of fim_pipeline.sh =========================="
+
+echo "======================== End of fim_pipeline for $runName =========="
 date -u
-Calc_Duration $pipeline_start_time
+Calc_Duration "Total Duration is ... " $pipeline_start_time
 echo
 
 # Exit the script

@@ -20,6 +20,10 @@ def main(arg1, arg2, image_only, log_file, gpkg):
     Please be advised that this feature has not been thoroughly tested to ensure robustness.
 
     When arg1 and arg2 are single files, the files names need not match but the extensions must match.
+
+    Note: If any file has a date/time field, it will likely never be successful on a hash compare. This
+    is seen often in gpkgs.
+
     """
 
     if log_file is not None:

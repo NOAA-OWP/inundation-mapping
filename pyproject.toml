@@ -15,17 +15,13 @@ maintainers = [
     {name = "Fernando Salas", email = "fernando.salas@noaa.gov"},
     {name = "Carson Pruitt", email = "carson.pruitt@noaa.gov"},
     {name = "Ali Forghani", email = "ali.forghani@noaa.gov"},
-    {name = "Bradford Bates", email = "bradford.bates@noaa.gov"},
     {name = "Emily Deardorff", email = "emily.deardorff@noaa.gov"},
-    {name = "Fernando Aristizabal", email = "fernando.aristizabal@noaa.gov"},
     {name = "Greg Petrochenkov", email = "greg.petrochenkov@noaa.gov"},
     {name = "Hamideh Safa", email = "hamideh.safa@noaa.gov"},
     {name = "James Coll", email = "james.coll@noaa.gov"},
     {name = "Matt Luck", email = "matt.luck@noaa.gov"},
-    {name = "Laura Keys", email = "laura.keys@noaa.gov"},
     {name = "Nick Chadwick", email = "nick.chadwick@noaa.gov"},
     {name = "Riley McDermott", email = "riley.mcdermott@noaa.gov"},
-    {name = "Rob Gonzalez-Pita", email = "rob.g.pita@noaa.gov"},
     {name = "Robert Hanna", email = "robert.hanna@noaa.gov"},
     {name = "Ryan Spies", email = "ryan.spies@noaa.gov"}
 ]
@@ -50,15 +46,15 @@ skip-magic-trailing-comma = true
 
 [tool.isort]
 profile = 'black'
+line_length = 110
 multi_line_output = 3
-line_length = 110 # It should be the same as `tool.black.line-length` above
 lines_after_imports = 2
 
 [tool.flake8]
 count = true
 doctests = true
 max-complexity = 56
-max-line-length = 110  # It should be the same as `tool.black.line-length` above
+max-line-length = 110
 extend-ignore = """
     E203,
     E266,
@@ -73,13 +69,17 @@ per-file-ignores = """
     src/src_roughness_optimization.py: E712, F841
     src/agreedem.py: E712
     src/build_stream_traversal.py: E722
-    tools/vary_mannings_n_composite.py: E712
-    tools/tools_shared_functions.py: F821, F841, E711
+
+    tools/check_deep_flooding.py: E712
+    tools/eval_alt_catfim.py: F841
+    tools/generate_categorical_fim.py: C901, E712
+    tools/generate_categorical_fim_mapping.py: E712
+    tools/inundation.py: F821
     tools/rating_curve_comparison.py: F821, F841
     tools/run_test_case.py: E711
-    tools/inundation.py: F821
-    tools/eval_alt_catfim.py: F841
-    tools/check_deep_flooding.py: E712
+    tools/tools_shared_functions.py: F821, F841, E711
+    tools/vary_mannings_n_composite.py: E712
+
     data/usgs/rating_curve_get_usgs_curves.py: F841
     """
 

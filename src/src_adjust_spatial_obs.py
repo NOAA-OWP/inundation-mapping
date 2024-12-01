@@ -108,7 +108,7 @@ def process_points(args):
             branch_debug_pts_out_gpkg = os.path.join(
                 branch_dir, 'export_water_edge_df_' + branch_id + '.gpkg'
             )
-            water_edge_df.to_file(branch_debug_pts_out_gpkg, driver='GPKG', index=False)
+            water_edge_df.to_file(branch_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
 
         # print('Processing points for HUC: ' + str(huc) + '  Branch: ' + str(branch_id))
         ## Get median HAND value for appropriate groups.
@@ -281,7 +281,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
             huc_debug_pts_out = os.path.join(fim_directory, huc, 'debug_water_edge_df_' + huc + '.csv')
             water_edge_df.to_csv(huc_debug_pts_out)
             huc_debug_pts_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df_' + huc + '.gpkg')
-            water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False)
+            water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
             # write parquet file using ".to_parquet() method"
             parquet_filepath = os.path.join(fim_directory, huc, 'debug_water_edge_df_' + huc + '.parquet')
             water_edge_df.to_parquet(parquet_filepath, index=False)

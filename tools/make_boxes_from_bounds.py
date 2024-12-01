@@ -37,7 +37,9 @@ def find_hucs_of_bounding_boxes(
     bounding_boxes = bounding_boxes.to_crs(wbd_proj)
 
     if bounding_boxes_outfile is not None:
-        bounding_boxes.to_file(bounding_boxes_outfile, driver=getDriver(bounding_boxes_outfile), index=False)
+        bounding_boxes.to_file(
+            bounding_boxes_outfile, driver=getDriver(bounding_boxes_outfile), index=False, engine='fiona'
+        )
 
     wbdcol_name = 'HUC' + wbd_layer[-1]
 
