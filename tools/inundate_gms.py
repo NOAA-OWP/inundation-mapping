@@ -21,6 +21,7 @@ def Inundate_gms(
     depths_raster=None,
     verbose=False,
     log_file=None,
+    hydro_table_df=None,
     output_fileNames=None,
 ):
     # input handling
@@ -161,6 +162,7 @@ def __inundate_gms_generator(
     depths_raster,
     forecast,
     verbose=False,
+    hydro_table_df=None,
 ):
     # Iterate over branches
     for idx, row in hucs_branches.iterrows():
@@ -177,35 +179,40 @@ def __inundate_gms_generator(
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
         # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
-        hydroTable_huc = os.path.join(huc_dir, "hydrotable.csv")
-        if os.path.isfile(hydroTable_huc):
-            htable_req_cols = [
-                "HUC",
-                "branch_id",
-                "feature_id",
-                "HydroID",
-                "stage",
-                "discharge_cms",
-                "LakeID",
-            ]
-            hydroTable_all = pd.read_csv(
-                hydroTable_huc,
-                dtype={
-                    "HUC": str,
-                    "branch_id": int,
-                    "feature_id": str,
-                    "HydroID": str,
-                    "stage": float,
-                    "discharge_cms": float,
-                    "LakeID": int,
-                },
-                usecols=htable_req_cols,
-            )
-            hydroTable_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
+
+        if hydro_table_df is not None:
+            hydroTable_all = hydro_table_df.set_index(["HUC", "feature_id", "HydroID"], inplace=False)
             hydroTable_branch = hydroTable_all.loc[hydroTable_all["branch_id"] == int(branch_id)]
         else:
-            # Earlier FIM4 versions only have branch level hydrotables
-            hydroTable_branch = os.path.join(branch_dir, f"hydroTable_{branch_id}.csv")
+            hydroTable_huc = os.path.join(huc_dir, "hydrotable.csv")
+            if os.path.isfile(hydroTable_huc):
+                htable_req_cols = [
+                    "HUC",
+                    "branch_id",
+                    "feature_id",
+                    "HydroID",
+                    "stage",
+                    "discharge_cms",
+                    "LakeID",
+                ]
+                hydroTable_all = pd.read_csv(
+                    hydroTable_huc,
+                    dtype={
+                        "HUC": str,
+                        "branch_id": int,
+                        "feature_id": str,
+                        "HydroID": str,
+                        "stage": float,
+                        "discharge_cms": float,
+                        "LakeID": int,
+                    },
+                    usecols=htable_req_cols,
+                )
+                hydroTable_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
+                hydroTable_branch = hydroTable_all.loc[hydroTable_all["branch_id"] == int(branch_id)]
+            else:
+                # Earlier FIM4 versions only have branch level hydrotables
+                hydroTable_branch = os.path.join(branch_dir, f"hydroTable_{branch_id}.csv")
 
         xwalked_file_name = f"gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg"
         catchment_poly = os.path.join(branch_dir, xwalked_file_name)
@@ -257,6 +264,7 @@ def __inundate_gms_generator(
 
 
 if __name__ == "__main__":
+
     # parse arguments
     parser = argparse.ArgumentParser(description="Inundate FIM")
     parser.add_argument(
