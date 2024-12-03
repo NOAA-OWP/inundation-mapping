@@ -89,7 +89,6 @@ def produce_stage_based_catfim_tifs(
     datum_adj_wse = stage_val + datum_adj_ft + lid_altitude
     MP_LOG.trace(f"datum_adj_wse pre convert is {datum_adj_wse} (stage = {stage_val}, datum_adj_ft = {datum_adj_ft}, lid_alt is {lid_altitude})")
     datum_adj_wse_m = datum_adj_wse * 0.3048  # Convert ft to m
-    MP_LOG.trace(f"datum_adj_wse in meters is {datum_adj_wse}")
 
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
     hand_stage = datum_adj_wse_m - lid_usgs_elev
@@ -111,8 +110,8 @@ def produce_stage_based_catfim_tifs(
     branches.sort()
     # MP_LOG.trace(f"{huc_lid_cat_id} branches are {branches}")
 
-    # This is an MP in an MP. We want this set of mp's to roll up to the 
-    # parent MP file, and not the full catfim parent log. We roll this child MP into 
+    # This is an MP in an MP. We want this set of mp's to roll up to the
+    # parent MP file, and not the full catfim parent log. We roll this child MP into
     # it's parent mp and later that parent MP will rollup to the catfim file.
     child_log_file_prefix = MP_LOG.MP_calc_prefix_name(MP_LOG.LOG_FILE_PATH, "MP_branch")
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
@@ -675,11 +674,7 @@ def post_process_huc(
                 #      masm1_major_20.6_extent.tif  (non-interval, float)
                 #      masm1_major_20.0ft_extent.tif (interval)
                 # If flow based, the file name looks like this: masm1_action_extent.tif
-                
-                # TODO: Nov 2024: This is very, very weak. Extracting the stage value from 
-                # the file name and using the file name to figure out if it is an interval stage (using "ft")
-                
-                MP_LOG.trace(f".. tif to Process = {tif_to_process}")
+                MP_LOG.trace(f".. Tif to Process = {tif_to_process}")
                 try:
 
                     tif_file_name = os.path.basename(tif_to_process)

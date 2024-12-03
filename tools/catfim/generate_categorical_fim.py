@@ -439,6 +439,7 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
                 sites_gdf.at[ind, 'mapped'] = 'yes'
                 # remove the "---" from the start, as it is a warning, and not an error
                 status_val = status_val[3:]
+                sites_gdf.at[ind, 'status'] = status_val
             elif status_val == "Good":
                 sites_gdf.at[ind, 'mapped'] = 'yes'
             else:

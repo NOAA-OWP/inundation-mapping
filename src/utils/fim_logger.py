@@ -238,7 +238,6 @@ class FIM_logger:
         log_file_list = [str(x) for x in log_file_list_paths]
         
         if len(log_file_list) > 0:
-            
             log_file_list.sort()
 
             # we are merging them in order (reg files, then warnings, then errors)

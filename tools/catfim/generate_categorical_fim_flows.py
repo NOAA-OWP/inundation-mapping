@@ -594,7 +594,6 @@ def generate_flows(
             .rename(columns={0: 'nws_lid', 1: 'status'})
         )
 
-
         # We want one viz_out_gdf record per ahps and if there are more than one, contact the messages
 
         # status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
