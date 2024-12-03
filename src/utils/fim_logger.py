@@ -2,8 +2,7 @@
 
 import datetime as dt
 import os
-import random
-import traceback
+
 from pathlib import Path
 
 
@@ -147,7 +146,8 @@ class FIM_logger:
             using a defined file path.
 
             As this is an MP file, the parent_log_output_file may have a date in it
-            The file name is calculated as such {file_prefix}-{random 12 digit key}.log()
+            The file name is calculated as such 
+            {file_prefix}-{currernt datetime with milli}.log()
             ie) catfim_2024_07_09-16_30_02__012345678901.log
 
             The extra file portion is added as in MultiProc, you can have dozens of processes
@@ -165,8 +165,10 @@ class FIM_logger:
         # -----------------
         log_folder = os.path.dirname(parent_log_output_file)
 
-        random_id = random.randrange(1000000000, 99999999999)
-        log_file_name = f"{file_prefix}___{random_id}.log"
+        # random_id = random.randrange(1000000000, 99999999999)
+        # this is an epoch time
+        dt_str = dt.datetime.now().strftime('%H%M%S%f')
+        log_file_name = f"{file_prefix}___{dt_str}.log"
         log_file_path = os.path.join(log_folder, log_file_name)
 
         self.setup(log_file_path)
@@ -232,10 +234,11 @@ class FIM_logger:
         folder_path = os.path.dirname(parent_log_output_file)
         os.makedirs(folder_path, exist_ok=True)
 
-        log_file_list_paths = list(Path(folder_path).rglob(f"{file_prefix}*"))
+        log_file_list_paths = list(Path(folder_path).glob(f"*{file_prefix}*"))
         log_file_list = [str(x) for x in log_file_list_paths]
-
+        
         if len(log_file_list) > 0:
+            
             log_file_list.sort()
 
             # we are merging them in order (reg files, then warnings, then errors)

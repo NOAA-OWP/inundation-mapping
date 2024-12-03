@@ -42,6 +42,7 @@ gpd.options.io_engine = "pyogrio"
 # we will use an MP object either way
 def produce_stage_based_catfim_tifs(
     stage_val,
+    is_interval_stage,
     datum_adj_ft,
     branch_dir,
     lid_usgs_elev,
@@ -51,22 +52,44 @@ def produce_stage_based_catfim_tifs(
     lid,
     huc,
     lid_directory,
-    category,
+    category,    
     number_of_jobs,
-    parent_log_output_file,
+    mp_parent_log_file,
     child_log_file_prefix,
 ):
 
-    MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
+    MP_LOG.MP_Log_setup(mp_parent_log_file, child_log_file_prefix)
 
     messages = []
+    
+    # Change to an int if whole number only. ie.. we don't want 22.00 but 22.0, but keep 22.15
+    # category_key comes things like this: action, action_24.0ft, or action_24.6ft
+    # and yes... this needs a better answer.
+    
+    category_key = category + "_"  # ie) action_
+    
+    if (float(stage_val) % 1 == 0):  # then we have a whole number
+        # then we will turn it into a int and manually add ".0" on it
+        category_key += str(int(stage_val)) + ".0"
+    else:
+        category_key += "{:.2f}".format(stage_val)
 
-    huc_lid_cat_id = f"{huc} : {lid} : {category}"
+    category_key += "ft"
+        
+    if is_interval_stage == True:
+        category_key += "i"
+    
+    # The "i" in the end means it is an interval
+    # Now we are action_24.0ft or action_24.6ft or action_24.65ft or action_24.0fti
+   
+    huc_lid_cat_id = f"{huc} : {lid} : {category_key}"
     MP_LOG.trace(f"{huc_lid_cat_id}: Starting to create tifs")
-
+    
     # Determine datum-offset water surface elevation (from above).
     datum_adj_wse = stage_val + datum_adj_ft + lid_altitude
+    MP_LOG.trace(f"datum_adj_wse pre convert is {datum_adj_wse} (stage = {stage_val}, datum_adj_ft = {datum_adj_ft}, lid_alt is {lid_altitude})")
     datum_adj_wse_m = datum_adj_wse * 0.3048  # Convert ft to m
+    MP_LOG.trace(f"datum_adj_wse in meters is {datum_adj_wse}")
 
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
     hand_stage = datum_adj_wse_m - lid_usgs_elev
@@ -82,19 +105,20 @@ def produce_stage_based_catfim_tifs(
 
     # Produce extent tif hand_stage. Multiprocess across branches.
     # branches = os.listdir(branch_dir)
-    # MP_LOG.lprint(f"{huc_lid_cat_id} branch_dir is {branch_dir}")
+    # MP_LOG.trace(f"{huc_lid_cat_id} branch_dir is {branch_dir}")
 
     branches = [x for x in os.listdir(branch_dir) if os.path.isdir(os.path.join(branch_dir, x))]
     branches.sort()
+    # MP_LOG.trace(f"{huc_lid_cat_id} branches are {branches}")
 
-    # We need to merge what we have up to this point.
-    # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix)
-    # child_log_file_prefix = MP_LOG.MP_calc_prefix_name(parent_log_output_file, "MP_prod_huc_mag_stage", huc)
-    child_log_file_prefix = MP_LOG.MP_calc_prefix_name(parent_log_output_file, "MP_prod_huc_mag_stage")
+    # This is an MP in an MP. We want this set of mp's to roll up to the 
+    # parent MP file, and not the full catfim parent log. We roll this child MP into 
+    # it's parent mp and later that parent MP will rollup to the catfim file.
+    child_log_file_prefix = MP_LOG.MP_calc_prefix_name(MP_LOG.LOG_FILE_PATH, "MP_branch")
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         for branch in branches:
-            msg_id_w_branch = f"{huc} - {branch} - {lid} - {category}"
-            # MP_LOG.trace(f"{msg_id_w_branch} : inundating branches")
+            msg_id_w_branch = f"{huc_lid_cat_id}: {branch}"
+            # MP_LOG.trace(f"{msg_id_w_branch} : inundating branch")
             # Define paths to necessary files to produce inundation grids.
             full_branch_path = os.path.join(branch_dir, branch)
             rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
@@ -136,14 +160,14 @@ def produce_stage_based_catfim_tifs(
                     hydroid_list += list(subset_hydrotable_df.HydroID.unique())
                 except IndexError:
                     MP_LOG.trace(
-                        f"Index Error for {huc} -- {branch} -- {category}. FeatureId is {feature_id} : Continuing on."
+                        f"Index Error for {msg_id_w_branch}. FeatureId is {feature_id} : Continuing on."
                     )
                     pass
 
             # Create inundation maps with branch and stage data
             # only sites /categories that got this far are valid and can be inundated
             try:
-                MP_LOG.trace(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM")
+                # MP_LOG.trace(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM")
 
                 executor.submit(
                     produce_tif_per_huc_per_mag_for_stage,
@@ -152,50 +176,50 @@ def produce_stage_based_catfim_tifs(
                     hydroid_list,
                     hand_stage,
                     lid_directory,
-                    category,
+                    category_key,
                     huc,
                     lid,
                     branch,
-                    parent_log_output_file,
+                    MP_LOG.LOG_FILE_PATH,
                     child_log_file_prefix,
                 )
 
             except Exception:
-                msg = f': inundation failed at {category}'
+                msg = f':inundation failed at {category}'
                 messages.append(lid + msg)
                 MP_LOG.warning(msg_id_w_branch + msg)
                 MP_LOG.error(traceback.format_exc())
 
-    MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
+    # Nov 2024: Fix this. The logs get out of order as it is can be a MP in MP
+    # hold on this
+    # MP_LOG.merge_log_files(mp_parent_log_file, child_log_file_prefix, True)
 
     # -- MOSAIC -- #
     # Merge all rasters in lid_directory that have the same magnitude/category.
     path_list = []
 
-    MP_LOG.lprint(f"Merging files from {lid_directory}")
-    lid_dir_list = os.listdir(lid_directory)
+    # we are looking for the branch files for the category/stage
+    # or any given stage interval
+    
+    lid_dir_list = [x for x in os.listdir(lid_directory) if category_key in x]
+    lid_dir_list.sort()  # To force branch 0 first in list, sort
 
-    MP_LOG.lprint(f"{huc}: {lid} : Merging {category}")
-    # MP_LOG.trace("lid_dir_list is ")
-    # MP_LOG.trace(lid_dir_list)
-    # MP_LOG.lprint("")
+    # MP_LOG.lprint(f"{huc}: {lid} : Merging branch files {huc_lid_cat_id}")
+    # MP_LOG.trace(f"{huc_lid_cat_id} : lid_dir_list is... {lid_dir_list}")
+    # MP_LOG.trace("")
 
     for f in lid_dir_list:
-        if category in f:
-            path_list.append(os.path.join(lid_directory, f))
+        path_list.append(os.path.join(lid_directory, f))
 
-    path_list.sort()  # To force branch 0 first in list, sort
-
-    # MP_LOG.trace(f"len of path_list is {len(path_list)}")
-
-    if len(path_list) > 0:
+    # Merging all of the branch tifs into one lid_category tif
+    if len(lid_dir_list) > 0:
         zero_branch_grid = path_list[0]
         zero_branch_src = rasterio.open(zero_branch_grid)
         zero_branch_array = zero_branch_src.read(1)
         # zero_branch_array.nodata = 0
         summed_array = zero_branch_array  # Initialize it as the branch zero array
 
-        output_tif = os.path.join(lid_directory, lid + '_' + category + '_extent.tif')
+        output_tif = os.path.join(lid_directory, lid + '_' + category_key + '_extent.tif')
         # MP_LOG.trace(f"Output file to be saved is {output_tif}")
 
         # Loop through remaining items in list and sum them with summed_array
@@ -204,6 +228,7 @@ def produce_stage_based_catfim_tifs(
             remaining_raster_src = rasterio.open(remaining_raster)
             remaining_raster_array_original = remaining_raster_src.read(1)
 
+            # TODO: Nov 2024: We should need to reproject at all (Research if this works wihtout it)
             # Reproject non-branch-zero grids so I can sum them with the branch zero grid
             remaining_raster_array = np.empty(zero_branch_array.shape, dtype=np.int8)
             reproject(
@@ -231,15 +256,14 @@ def produce_stage_based_catfim_tifs(
         with rasterio.open(output_tif, 'w', **profile) as dst:
             dst.write(summed_array, 1)
             MP_LOG.lprint(f"{output_tif} - saved")
-        del summed_array
-    else:
-        MP_LOG.warning(f"{huc}: {lid}: Merging {category} : no valid inundated branches")
+    #     del summed_array
+    # else:
+    #     MP_LOG.warning(f"{huc}: {lid}: Merging {category_key} : no valid inundated branches")
 
     return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
 
 
 # This is part of an MP call and needs MP_LOG
-
 
 # This is a form of inundation which we are doing ourselves
 # as we only have one flow value and our normal inundation tools
@@ -250,7 +274,7 @@ def produce_tif_per_huc_per_mag_for_stage(
     hydroid_list,
     hand_stage,
     lid_directory,
-    category,
+    category_key,
     huc,
     lid,
     branch,
@@ -260,23 +284,26 @@ def produce_tif_per_huc_per_mag_for_stage(
     """
     # Open rem_path and catchment_path using rasterio.
 
-    Note: category is not always just things like "action", "moderate", etc
-       When using this intervals, it can look like action_24ft, moderate_26ft
+    Note: category can have different formats, depending if it is an interval or not or int or float
+    If it has a stage number it, it is an interval value
+       ie) action, action_24ft, action_24.6, or action_24.6ft
     """
 
     try:
         # This is setting up logging for this function to go up to the parent
         MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
 
-        # MP_LOG.lprint("+++++++++++++++++++++++")
-        # MP_LOG.lprint(f"At the start of producing a tif for {huc}")
-        # MP_LOG.trace(locals())
-        # MP_LOG.trace("+++++++++++++++++++++++")
-
+        file_name = lid + '_' + category_key + '_extent_' + huc + '_' + branch
         output_tif = os.path.join(
-            lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif'
+            lid_directory,  file_name + '.tif'
         )
-
+        
+        MP_LOG.lprint("+++++++++++++++++++++++")
+        MP_LOG.lprint(f"... At the start of producing a tif for {file_name}")
+        MP_LOG.trace(locals())
+        MP_LOG.lprint(f"output_tif is {output_tif} (if it is valid)")        
+        MP_LOG.trace("+++++++++++++++++++++++")
+        
         # both of these have a nodata value of 0 (well.. not by the image but by cell values)
         rem_src = rasterio.open(rem_path)
         catchments_src = rasterio.open(catchments_path)
@@ -295,8 +322,6 @@ def produce_tif_per_huc_per_mag_for_stage(
             'uint8'
         )
 
-        # print(f"Hydroid_list is {hydroid_list} for {hand_stage}")
-
         hydroid_mask = np.isin(catchments_array, hydroid_list)
 
         target_catchments_array = np.where(
@@ -313,18 +338,21 @@ def produce_tif_per_huc_per_mag_for_stage(
 
         # Save resulting array to new tif with appropriate name. ie) brdc1_record_extent_18060005.tif
         # to our mapping/huc/lid site
+        # No cells were inundated which is common. Lots of branches don't inundate as they are out of the extent area
         is_all_zero = np.all(masked_reclass_rem_array == 0)
 
         # MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
 
         # if not is_all_zero:
-        # if is_all_zero is False: # this logic didn't let ANY files get saved
+        # if is_all_zero == False: # this logic didn't let ANY files get saved
         #    'is False' means that the object does not exist and not that it really equals the value of False
-        if is_all_zero == False:  # corrected logic
-            output_tif = os.path.join(
-                lid_directory, lid + '_' + category + '_extent_' + huc + '_' + branch + '.tif'
-            )
-            # MP_LOG.lprint(f" +++ Output_Tif is {output_tif}")
+        if is_all_zero == False:
+            # output_tif = os.path.join(
+            #     lid_directory, lid + '_' + category_key + '_extent_' + huc + '_' + branch + '.tif'
+            # )
+            # # # File may or may not exist
+            # # if os.path.exists(output_tif):
+            MP_LOG.lprint(f" +++ Output_tif is {output_tif}")
             with rasterio.Env():
                 profile = rem_src.profile
                 profile.update(dtype=rasterio.uint8)
@@ -337,7 +365,7 @@ def produce_tif_per_huc_per_mag_for_stage(
                     # dst.nodata = 0
                     dst.write(masked_reclass_rem_array, 1)
         else:
-            MP_LOG.trace(f"{huc} : {lid} : {category} : {branch} : inundation was all zero cells")
+             MP_LOG.trace(f"{file_name} : inundation was all zero cells")
 
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage")
@@ -602,16 +630,7 @@ def post_process_huc(
             mapping_huc_lid_dir = os.path.join(huc_dir, ahps_lid)
             MP_LOG.trace(f"mapping_huc_lid_dir is {mapping_huc_lid_dir}")
 
-            # Append desired filenames to list. (notice.. no value after the word extent)
-            # tif_list = [x for x in os.listdir(mapping_huc_lid_dir) if x.endswith("extent.tif")]  # doesn't match the old filenames
-
-            # new logic actually finds the extent tifs
-            # It will find only the mag rollups and not its branches
-
-            # if stage based, the file names looks like this: masm1_major_20p0ft_extent.tif
-            #    but there also is masm1_major_extent.tif, so we want both
-            # if flow based, the file name looks like this: masm1_action_extent.tif
-
+            # aka. ends with "extent.tif" which means it is a rolled up version up for there branches
             tif_list = [x for x in os.listdir(mapping_huc_lid_dir) if ('extent.tif') in x]
 
             if len(tif_list) == 0:
@@ -620,11 +639,7 @@ def post_process_huc(
                 continue
 
             for tif in tif_list:
-                if 'extent.tif' in tif:
-                    # as we processing tifs for just one ahps at a time, we can further files that have that
-                    # ahps_lid in it.
-                    if ahps_lid in tif:
-                        tifs_to_reformat_list.append(os.path.join(mapping_huc_lid_dir, tif))
+                tifs_to_reformat_list.append(os.path.join(mapping_huc_lid_dir, tif))
 
             if len(tifs_to_reformat_list) == 0:
                 # MP_LOG.warning(f">> no tifs found for {huc} {ahps_lid} at {mapping_huc_lid_dir}")
@@ -635,7 +650,7 @@ def post_process_huc(
 
             # There may not necessarily be an attributes.csv for this lid, depending on how flow processing went
             # lots of lids fall out in the attributes or flow steps.
-            if os.path.exists(nws_lid_attributes_filename) is False:
+            if os.path.exists(nws_lid_attributes_filename) == False:
                 MP_LOG.warning(f"{ahps_lid} has no attributes file which may perfectly fine.")
                 continue
 
@@ -650,30 +665,34 @@ def post_process_huc(
             # for log_file in old_refomat_log_files:
             #     os.remove(log_file)
 
-            # with ProcessPoolExecutor(max_workers=job_number_inundate) as executor:
-            # TODO:
-            # Aug 2024, Using MP (job number inundate has very little value, drop it)
-            # Clean up that ji MP
-            #            with ProcessPoolExecutor(max_workers=job_number_inundate) as executor:
+            # we only have the rolled up, no branch versions by now
             for tif_to_process in tifs_to_reformat_list:
                 # If not os.path.exists(tif_to_process):
                 #    continue
 
-                # If stage based, the file names looks like this: masm1_major_20p0ft_extent.tif
-                #    but there also is masm1_major_extent.tif, so we want both
+                # If stage based, the file names looks like this:
+                #      masm1_major_extent.tif  (non-interval, whole number)
+                #      masm1_major_20.6_extent.tif  (non-interval, float)
+                #      masm1_major_20.0ft_extent.tif (interval)
                 # If flow based, the file name looks like this: masm1_action_extent.tif
-                MP_LOG.trace(f".. Tif to Process = {tif_to_process}")
+                
+                # TODO: Nov 2024: This is very, very weak. Extracting the stage value from 
+                # the file name and using the file name to figure out if it is an interval stage (using "ft")
+                
+                MP_LOG.trace(f".. tif to Process = {tif_to_process}")
                 try:
 
                     tif_file_name = os.path.basename(tif_to_process)
                     file_name_parts = tif_file_name.split("_")
-                    magnitude = file_name_parts[1]
+                    magnitude = file_name_parts[1]  # part 0 is the lid
 
-                    # stage based, ie grnm1_action_11p0ft_extent.tif
-                    # careful. ft can be part of the site name
-                    if len(file_name_parts) >= 3 and "ft" in file_name_parts[2]:
+                    # but if it doesn't have "fti" at the end it is not an interval
+
+                    # careful. ft can be part of the site name, so only check part 3
+                    interval_stage = None
+                    if len(file_name_parts) >= 3 and "fti" in file_name_parts[2]:
                         try:
-                            stage_val = file_name_parts[2].replace('p', '.').replace("ft", "")
+                            stage_val = file_name_parts[2].replace("fti", "")
                             interval_stage = float(stage_val)
                         except ValueError:
                             interval_stage = None
@@ -682,8 +701,6 @@ def post_process_huc(
                                 f" at {mapping_huc_lid_dir}"
                             )
                             MP_LOG.error(traceback.format_exc())
-                    else:  # flow based. ie) cfkt2_action_extent.tif
-                        interval_stage = None
 
                     reformat_inundation_maps(
                         ahps_lid,
@@ -702,7 +719,7 @@ def post_process_huc(
                         f"An ind reformat map error occured for {huc} - {ahps_lid} - magnitude {magnitude}"
                     )
                     MP_LOG.error(traceback.format_exc())
-
+                
             # rolls up logs from child MP processes into this parent_log_output_file
             # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
 
@@ -804,7 +821,6 @@ def post_process_cat_fim_for_viz(
         # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gpkg
         diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
         diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
-        diss_extent_gdf['viz'] = 'yes'
 
         if 'interval_stage' in diss_extent_gdf.columns:
             # Update the stage column value to be the interval value if an interval values exists
@@ -835,15 +851,16 @@ def post_process_cat_fim_for_viz(
     if catfim_method == "flow_based":
         FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
         merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
-    # else:
-    #     FLOG.lprint("Dissolving stage based catfim_libary by ahps and magnitudes and interval value")
-    #     merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid',
-    #                                                        'magnitude',
-    #                                                        'interval_stage'], as_index=False)
 
     if 'level_0' in merged_layers_gdf:
         merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
 
+    if 'status' in merged_layers_gdf:
+        merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
+        
+    if 'mapped' in merged_layers_gdf:
+        merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
+        
     output_file_name = f"{catfim_method}_catfim_library"
 
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
@@ -880,8 +897,7 @@ def reformat_inundation_maps(
     # interval stage might come in as null and that is ok
 
     # Note: child_log_file_prefix is "MP_reformat_tifs_{huc}", meaning all logs created by this
-    # function start with the phrase "MP_reformat_tifs_{huc}". This will rollup to the master
-    # catfim logs
+    # function start with the phrase will rollup to the master catfim logs
 
     # This is setting up logging for this function to go up to the parent
     MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
@@ -890,7 +906,7 @@ def reformat_inundation_maps(
         MP_LOG.trace(
             f"{huc} : {ahps_lid} : {magnitude} -- Start reformat_inundation_maps" " (tif extent to gpkg poly)"
         )
-        MP_LOG.trace(F"Tif to process is {tif_to_process}")
+        MP_LOG.trace(F"tif to process is {tif_to_process}")
 
         # Convert raster to shapes
         with rasterio.open(tif_to_process) as src:
@@ -1015,12 +1031,6 @@ def manage_catfim_mapping(
 
     # FLOG.lprint("Aggregating Categorical FIM")
     # Get fim_version.
-
-    # run_dir_prefix = ""
-    # if fim_run_dir.startswith("fim_"):
-    #     run_dir_prefix = "fim_"
-    # else:
-    #     run_dir_prefix = "hand_"
 
     fim_version = os.path.basename(os.path.normpath(fim_run_dir))
 
