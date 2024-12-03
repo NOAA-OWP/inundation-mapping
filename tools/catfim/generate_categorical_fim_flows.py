@@ -609,10 +609,9 @@ def generate_flows(
 
         viz_out_gdf['status'] = viz_out_gdf['status'].fillna('Good')
         # viz_out_gdf['status'] = viz_out_gdf['status'].apply(lambda x: x[3:] if x.startswith("---") else x)
-        
+
         # There could be duplicate message for one ahps (ie. missing nwm segments), so drop dups
         messages_df.drop_duplicates(subset=["nws_lid", "status"], keep="first", inplace=True)
-        
 
     # Filter out columns and write out to file
     # viz_out_gdf = viz_out_gdf.filter(

@@ -2,7 +2,6 @@
 
 import datetime as dt
 import os
-
 from pathlib import Path
 
 
@@ -146,7 +145,7 @@ class FIM_logger:
             using a defined file path.
 
             As this is an MP file, the parent_log_output_file may have a date in it
-            The file name is calculated as such 
+            The file name is calculated as such
             {file_prefix}-{currernt datetime with milli}.log()
             ie) catfim_2024_07_09-16_30_02__012345678901.log
 
@@ -236,7 +235,7 @@ class FIM_logger:
 
         log_file_list_paths = list(Path(folder_path).glob(f"*{file_prefix}*"))
         log_file_list = [str(x) for x in log_file_list_paths]
-        
+
         if len(log_file_list) > 0:
             log_file_list.sort()
 

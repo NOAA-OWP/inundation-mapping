@@ -121,7 +121,7 @@ def process_generate_categorical_fim(
     if output_folder.endswith("/"):
         output_folder = output_folder[:-1]
     output_catfim_dir = output_folder + "_" + catfim_method
-    
+
     local_vals = locals()
 
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
@@ -421,17 +421,19 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
         for ind, row in sites_gdf.iterrows():
             ahps_id = row['ahps_lid']
             status_val = row['status']
-            
+
             if ahps_id not in valid_ahps_ids:
                 sites_gdf.at[ind, 'mapped'] = 'no'
-                
-                if status_val == "Good" or status_val == "" or status_val.startswith("---"):  # Then it picked up the default but failed during inundations
+
+                if (
+                    status_val == "Good" or status_val == "" or status_val.startswith("---")
+                ):  # Then it picked up the default but failed during inundations
                     # Then the sites failed to inundate for this site
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
                     FLOG.warning(f"Mapped status was changed to no for {ahps_id}. No inundation files exist")
                 continue
                 # It is safe to assume a status message for invalid ones already exist
-            
+
             # Mapped should be "yes", and "Good",
             if status_val == "":
                 sites_gdf.at[ind, 'mapped'] = 'yes'
@@ -443,11 +445,11 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
             elif status_val == "Good":
                 sites_gdf.at[ind, 'mapped'] = 'yes'
             else:
-                 # Overrides the mapped flag (can't use the row object) (likely already mapped is no)
+                # Overrides the mapped flag (can't use the row object) (likely already mapped is no)
                 # We comfortably assume that if the mapped status is no, the reason is already in the status column
                 sites_gdf.at[ind, 'mapped'] = 'no'
 
-         # sites_gdf.reset_index(inplace=True, drop=True)
+        # sites_gdf.reset_index(inplace=True, drop=True)
 
         # for any records that failed at this point and mapped status is changed to no, then drop those
         # records from inundation
@@ -630,11 +632,11 @@ def iterate_through_huc_stage_based(
                 # The error and warning message is already formatted correctly if applicable
                 # Hold the warning_msg to the end
                 stage_values_df, valid_stage_names, stage_warning_msg, err_msg = __calc_stage_values(
-                    categories, thresholds)
+                    categories, thresholds
+                )
 
                 MP_LOG.trace(
-                    f"{huc_lid_id}:"
-                    f" stage values (pre-processed) are {stage_values_df.values.tolist()}"
+                    f"{huc_lid_id}:" f" stage values (pre-processed) are {stage_values_df.values.tolist()}"
                 )
 
                 if err_msg != "":
@@ -744,11 +746,11 @@ def iterate_through_huc_stage_based(
                 for idx, stage_row in stage_values_df.iterrows():
                     # MP_LOG.lprint(f"{huc_lid_id}: Magnitude is {category}")
                     # Pull stage value and confirm it's valid, then process
-                    
+
                     category = stage_row['stage_name']
                     stage_value = stage_row['stage_value']
 
-                    # messages already included in the stage_warning_msg above                    
+                    # messages already included in the stage_warning_msg above
                     if stage_value == -1:
                         continue
 
@@ -770,7 +772,7 @@ def iterate_through_huc_stage_based(
                         lid,
                         huc,
                         mapping_lid_directory,
-                        category,                        
+                        category,
                         job_number_inundate,
                         MP_LOG.LOG_FILE_PATH,
                         child_log_file_prefix,
@@ -797,9 +799,10 @@ def iterate_through_huc_stage_based(
                 # MP_LOG.merge_log_files(MP_LOG.LOG_FILE_PATH, child_log_file_prefix_tifs, True)
 
                 # we do intervals only on non-recors stages
-                non_rec_stage_values_df = stage_values_df[(stage_values_df["stage_value"] != -1) & 
-                                                          (stage_values_df["stage_name"] != 'record')]
-                
+                non_rec_stage_values_df = stage_values_df[
+                    (stage_values_df["stage_value"] != -1) & (stage_values_df["stage_name"] != 'record')
+                ]
+
                 # MP_LOG.trace(f"non_rec_stage_values_df is {non_rec_stage_values_df}")
 
                 # We already inundated and created files for the specific stages just not the intervals
@@ -808,8 +811,10 @@ def iterate_through_huc_stage_based(
 
                 num_non_rec_stages = len(non_rec_stage_values_df)
                 if num_non_rec_stages > 0:
-                   
-                    interval_list = __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc_lid_id)
+
+                    interval_list = __calc_stage_intervals(
+                        non_rec_stage_values_df, past_major_interval_cap, huc_lid_id
+                    )
 
                     MP_LOG.lprint(f"{huc_lid_id}:interval list is {interval_list}")
 
@@ -822,7 +827,7 @@ def iterate_through_huc_stage_based(
                         try:
 
                             for interval_rec in interval_list:  # list of lists
-                                
+
                                 category = interval_rec[0]  # stage name
                                 interval_stage_value = interval_rec[1]
 
@@ -839,7 +844,7 @@ def iterate_through_huc_stage_based(
                                     lid,
                                     huc,
                                     mapping_lid_directory,
-                                    category,                                    
+                                    category,
                                     job_number_inundate,
                                     parent_log_output_file,
                                     tif_child_log_file_prefix,
@@ -863,8 +868,9 @@ def iterate_through_huc_stage_based(
                     MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix, True)
 
                 else:
-                    MP_LOG.lprint(f"{huc_lid_id}: Skipping intervals as there"
-                                  " are not any 'non-record' stages")
+                    MP_LOG.lprint(
+                        f"{huc_lid_id}: Skipping intervals as there" " are not any 'non-record' stages"
+                    )
 
                 # end of skip_add_intervals == False
 
@@ -876,7 +882,7 @@ def iterate_through_huc_stage_based(
                 # some may have failed inundation, which we will rectify later
                 for threshold in valid_stage_names:
                     try:
-                        
+
                         # we don't know if the magnitude/stage can be mapped yes it hasn't been inundated
                         line_df = pd.DataFrame(
                             {
@@ -967,7 +973,6 @@ def iterate_through_huc_stage_based(
 
 
 def __calc_stage_values(categories, thresholds):
-
     '''
     Overview:
         Calculates values for each of the five stages. Any that do not have a threshold or have invalid values.
@@ -987,17 +992,13 @@ def __calc_stage_values(categories, thresholds):
     warning_msg = ""
 
     # default values
-    default_stage_data = [['action', -1],
-                            ['minor', -1],
-                            ['moderate', -1],
-                            ['major', -1],
-                            ['record', -1]]
-    
+    default_stage_data = [['action', -1], ['minor', -1], ['moderate', -1], ['major', -1], ['record', -1]]
+
     valid_stage_names = []
-    
+
     # Setting up a default df (not counting record)
     stage_values_df = pd.DataFrame(default_stage_data, columns=['stage_name', 'stage_value'])
-    
+
     for stage in categories:
 
         if stage in thresholds:
@@ -1007,7 +1008,7 @@ def __calc_stage_values(categories, thresholds):
                 valid_stage_names.append(stage)
 
     invalid_stages_df = stage_values_df[stage_values_df["stage_value"] <= 0]
-    
+
     if len(invalid_stages_df) == 5:
         err_msg = ':All threshold values are unavailable or invalid'  # already formatted
         return None, [], "", err_msg
@@ -1023,34 +1024,33 @@ def __calc_stage_values(categories, thresholds):
             warning_msg = f":---Missing stage data for {stage_row['stage_name']}"
         else:
             warning_msg += f"; {stage_row['stage_name']}"
-        
+
     return stage_values_df, valid_stage_names, warning_msg, err_msg
 
 
 def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc_lid_id):
-    
     '''
     Return:
         interval_recs is a list of list [["action", 21], ["action", 22],....]
         This represents stage names and depths to inundate against to generate all interval recs we need
     '''
-    
+
     interval_recs = []
-    
+
     # recs will be in order
     # we do this one stage at a time, so we keep track of the stage name associated with the interval
     for idx, stage_rec in non_rec_stage_values_df.iterrows():
-    
+
         cur_stage_name = stage_rec["stage_name"]
         cur_stage_val = stage_rec["stage_value"]
-        
+
         # calc the intervals between the cur and the next stage
         # for the cur, we need to round up, but the curr and the next
         # to stay at full integers. We do this as it is possible for stages to be decimals
         # ie) action is 2.4, and mod is 4.6, we want intervals at 3 and 4.
         # The highest value of the interval_list is not included
-        min_interval_val = int(cur_stage_val) + 1        
-        
+        min_interval_val = int(cur_stage_val) + 1
+
         if idx < len(non_rec_stage_values_df) - 1:  # not the last record
             # get the next stage value
             next_stage_val = non_rec_stage_values_df.iloc[idx + 1]["stage_value"]
@@ -1058,12 +1058,12 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
         else:
             # last rec. Just add 5 more (or the value from the input args)
             max_interval_val = int(min_interval_val) + past_major_interval_cap
-            
+
             # + 1 as the last interval is not included
         # MP_LOG.lprint(f"{huc_lid_id} : {cur_stage_name} is {cur_stage_val} and"
         #              f"  min_interval_val is {min_interval_val} ; max interval value is {max_interval_val}")
         interval_list = np.arange(min_interval_val, max_interval_val)
-        
+
         for int_val in interval_list:
             interval_recs.append([cur_stage_name, int_val])
 
@@ -1514,10 +1514,10 @@ def generate_stage_based_categorical_fim(
     # Identify what lids were mapped by merging with lids_df. Populate
     # 'mapped' column with 'No' if sites did not map.
     sites_gdf = sites_gdf.merge(lids_df, how='left', on='nws_lid')
-    
+
     # Added here, but may be changed later if files don't inundate
     sites_gdf['mapped'] = "no"
-    
+
     # Read all messages for all HUCs
     # This is basically identical to a chunk in flow based. At a min, consolidate
     # or better yet, find a more elegant, yet still MP safe, system than .txt files
@@ -1536,7 +1536,7 @@ def generate_stage_based_categorical_fim(
     # Filter out columns and write out to file
     # flow based doesn't make it here only stage
     nws_lid_gpkg_file_path = os.path.join(output_mapping_dir, 'stage_based_catfim_sites.gpkg')
-    
+
     # Write messages to DataFrame, split into columns, aggregate messages.
     if len(huc_message_list) > 0:
 

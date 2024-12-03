@@ -52,7 +52,7 @@ def produce_stage_based_catfim_tifs(
     lid,
     huc,
     lid_directory,
-    category,    
+    category,
     number_of_jobs,
     mp_parent_log_file,
     child_log_file_prefix,
@@ -61,33 +61,35 @@ def produce_stage_based_catfim_tifs(
     MP_LOG.MP_Log_setup(mp_parent_log_file, child_log_file_prefix)
 
     messages = []
-    
+
     # Change to an int if whole number only. ie.. we don't want 22.00 but 22.0, but keep 22.15
     # category_key comes things like this: action, action_24.0ft, or action_24.6ft
     # and yes... this needs a better answer.
-    
+
     category_key = category + "_"  # ie) action_
-    
-    if (float(stage_val) % 1 == 0):  # then we have a whole number
+
+    if float(stage_val) % 1 == 0:  # then we have a whole number
         # then we will turn it into a int and manually add ".0" on it
         category_key += str(int(stage_val)) + ".0"
     else:
         category_key += "{:.2f}".format(stage_val)
 
     category_key += "ft"
-        
+
     if is_interval_stage == True:
         category_key += "i"
-    
+
     # The "i" in the end means it is an interval
     # Now we are action_24.0ft or action_24.6ft or action_24.65ft or action_24.0fti
-   
+
     huc_lid_cat_id = f"{huc} : {lid} : {category_key}"
     MP_LOG.trace(f"{huc_lid_cat_id}: Starting to create tifs")
-    
+
     # Determine datum-offset water surface elevation (from above).
     datum_adj_wse = stage_val + datum_adj_ft + lid_altitude
-    MP_LOG.trace(f"datum_adj_wse pre convert is {datum_adj_wse} (stage = {stage_val}, datum_adj_ft = {datum_adj_ft}, lid_alt is {lid_altitude})")
+    MP_LOG.trace(
+        f"datum_adj_wse pre convert is {datum_adj_wse} (stage = {stage_val}, datum_adj_ft = {datum_adj_ft}, lid_alt is {lid_altitude})"
+    )
     datum_adj_wse_m = datum_adj_wse * 0.3048  # Convert ft to m
 
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
@@ -199,7 +201,7 @@ def produce_stage_based_catfim_tifs(
 
     # we are looking for the branch files for the category/stage
     # or any given stage interval
-    
+
     lid_dir_list = [x for x in os.listdir(lid_directory) if category_key in x]
     lid_dir_list.sort()  # To force branch 0 first in list, sort
 
@@ -264,6 +266,7 @@ def produce_stage_based_catfim_tifs(
 
 # This is part of an MP call and needs MP_LOG
 
+
 # This is a form of inundation which we are doing ourselves
 # as we only have one flow value and our normal inundation tools
 # are looking for files not single values
@@ -293,16 +296,14 @@ def produce_tif_per_huc_per_mag_for_stage(
         MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
 
         file_name = lid + '_' + category_key + '_extent_' + huc + '_' + branch
-        output_tif = os.path.join(
-            lid_directory,  file_name + '.tif'
-        )
-        
+        output_tif = os.path.join(lid_directory, file_name + '.tif')
+
         MP_LOG.lprint("+++++++++++++++++++++++")
         MP_LOG.lprint(f"... At the start of producing a tif for {file_name}")
         MP_LOG.trace(locals())
-        MP_LOG.lprint(f"output_tif is {output_tif} (if it is valid)")        
+        MP_LOG.lprint(f"output_tif is {output_tif} (if it is valid)")
         MP_LOG.trace("+++++++++++++++++++++++")
-        
+
         # both of these have a nodata value of 0 (well.. not by the image but by cell values)
         rem_src = rasterio.open(rem_path)
         catchments_src = rasterio.open(catchments_path)
@@ -364,7 +365,7 @@ def produce_tif_per_huc_per_mag_for_stage(
                     # dst.nodata = 0
                     dst.write(masked_reclass_rem_array, 1)
         else:
-             MP_LOG.trace(f"{file_name} : inundation was all zero cells")
+            MP_LOG.trace(f"{file_name} : inundation was all zero cells")
 
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage")
@@ -714,7 +715,7 @@ def post_process_huc(
                         f"An ind reformat map error occured for {huc} - {ahps_lid} - magnitude {magnitude}"
                     )
                     MP_LOG.error(traceback.format_exc())
-                
+
             # rolls up logs from child MP processes into this parent_log_output_file
             # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
 
@@ -852,10 +853,10 @@ def post_process_cat_fim_for_viz(
 
     if 'status' in merged_layers_gdf:
         merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
-        
+
     if 'mapped' in merged_layers_gdf:
         merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
-        
+
     output_file_name = f"{catfim_method}_catfim_library"
 
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
