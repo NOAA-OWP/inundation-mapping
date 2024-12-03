@@ -44,7 +44,7 @@ gpd.options.io_engine = "pyogrio"
 
 def get_env_paths(env_file):
 
-    if os.path.exists(env_file) is False:
+    if os.path.exists(env_file) == False:
         raise Exception(f"The environment file of {env_file} does not seem to exist")
 
     load_dotenv(env_file)
@@ -116,8 +116,6 @@ def generate_flows_for_huc(
             "nwis_time": pd.Series(dtype='str'),
             "lat": pd.Series(dtype='float'),
             "lon": pd.Series(dtype='float'),
-            "mapped": pd.Series(dtype='str'),
-            "status": pd.Series(dtype='str'),
         }
 
         # Loop through each lid in list to create flow file
@@ -281,8 +279,6 @@ def generate_flows_for_huc(
                             'nwis_time': nwis_timestamp,
                             'lat': [lat],
                             'lon': [lon],
-                            'mapped': 'yes',
-                            'status': 'Good',
                         }
                     )
                     csv_df = pd.concat([csv_df, line_df], ignore_index=True)
@@ -452,8 +448,6 @@ def generate_flows(
     start_dt = datetime.now(timezone.utc)
 
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
-    FLOG.trace("huc_dictionary is ...")
-    FLOG.trace(huc_dictionary)
 
     # FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}")  # TEMP DEBUG
     # Drop list fields if invalid
@@ -600,9 +594,6 @@ def generate_flows(
             .rename(columns={0: 'nws_lid', 1: 'status'})
         )
 
-        # There could be duplicate message for one ahps (ie. missing nwm segments), so drop dups
-        messages_df.drop_duplicates(subset=["nws_lid", "status"], keep="first", inplace=True)
-
         # We want one viz_out_gdf record per ahps and if there are more than one, contact the messages
 
         # status_df = messages_df.groupby(['nws_lid'])['status'].apply(', '.join).reset_index()
@@ -618,6 +609,9 @@ def generate_flows(
 
         viz_out_gdf['status'] = viz_out_gdf['status'].fillna('Good')
         # viz_out_gdf['status'] = viz_out_gdf['status'].apply(lambda x: x[3:] if x.startswith("---") else x)
+
+        # There could be duplicate message for one ahps (ie. missing nwm segments), so drop dups
+        messages_df.drop_duplicates(subset=["nws_lid", "status"], keep="first", inplace=True)
 
     # Filter out columns and write out to file
     # viz_out_gdf = viz_out_gdf.filter(
