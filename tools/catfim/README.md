@@ -1,13 +1,40 @@
 ##  About CatFIM
 CatFIM is short for Categorical Flood Inundation Mapping. CatFIM is a tool that is run on HAND FIM outputs to inundate a bunch of AHPS sites to specific stages or flow levels. This is useful for quality controlling HAND FIM as well as for preparing for hypothetical flood events. CatFIM models floods at up to 5 different magnitudes: action, minor, moderate, major, and record. The flows or stages for these magnitudes is pulled from the WRDS API.
 
-### Who can run CatFIM?
-CatFIM can only be run by systems that can access the WRDS API, which is restricted to computers on the NOAA network. If you are outside the NOAA network and would like to run code from inundation-mapping, see the README in NOAA-OWP/inundation-mapping.
-
 ### Stage-based vs Flow-based
 There are two modes for running CatFIM: stage-based and flow-based. Stage-based CatFIM inundates the HAND FIM relative elevation model (REM) based on different magnitudes of stage, which is the height of the water surface. Flow-based CatFIM inundates the REM based on different magnitudes of flow, which is measured as the volume over time of water flowing past a certain point of the river. A rating curve is used to get the water height from the flow volume at a given location.
 
+### How are CatFIM sites selected?
+
+Our goal is to produce good CatFIM for as many APHS sites as possible. In order to meet this goal, a site must meet a variety of acceptance critera and data availability checks for us to produce CatFIM at the site. 
+
+If you have a question about why a specific point is being excluded, you can check the "Status" attribute of the CatFIM point to see what issue might be occurring. If there is a question or concern about a specific point, feel free to reach out to GID via Slack or VLAB.
+
+
+CatFIM sites must: 
+- have site-specific stage- or flow- thresholds available
+- be an NWM forecast point (for sites in CONUS*)
+- not be on the stage-based AHPS restricted sites list (for stage-based CatFIM)
+- have an accurate vertical datum (for stage-based CatFIM)
+- meet the USGS Gages Acceptance Criteria (detailed below)
+
+USGS Gages Acceptance Criteria:
+- [Lat/Long Coordinate Method](https://help.waterdata.usgs.gov/code/coord_meth_cd_query?fmt=html) must be one of the following: "C", "D", "W", "X", "Y", "Z", "N", "M", "L", "G", "R", "F", "S"
+- [Acceptable Altitute Accuracy Threshold](https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI) must be 1 or lower
+- [Altitute Method Type](https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html) must be one of the following: "A", "D", "F", "I", "J", "L", "N", "R", "W", "X", "Y", "Z"
+- [Site Type](https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html) must be: "ST" (stream)
+
+*Note: Previous versions of CatFIM also restricted sites based on [Lat/Long Coordinate Accuracy](https://help.waterdata.usgs.gov/code/coord_acy_cd_query?fmt=html), but that criteria was removed in Fall 2024 to increase availability of CatFIM sites.*
+
+*For sites outside of CONUS: As of 12/4/2024, these criteria are currently being workshopped to account for the unique challenges of producing CatFIM in non-CONUS locations. Check back for updates or reach out to GID via Slack if you have specific questions! 
+
+
 ## Running CatFIM
+### Who can run CatFIM?
+CatFIM can only be run by systems that can access the WRDS API, which is restricted to computers on the NOAA network. If you are outside the NOAA network and would like to run code from inundation-mapping, see the README in NOAA-OWP/inundation-mapping.
+
+
+### Commands
 Stage-based example with step system and pre-downloaded metadata: 
 
 `python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8 -e /data/config/catfim.env -t /data/docker_test_1 -me '/data/nwm_metafile.pkl' -sb -step 2`
