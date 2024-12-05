@@ -53,6 +53,7 @@ def produce_stage_based_catfim_tifs(
     huc,
     lid_directory,
     category,
+    category_key,
     number_of_jobs,
     mp_parent_log_file,
     child_log_file_prefix,
@@ -62,34 +63,11 @@ def produce_stage_based_catfim_tifs(
 
     messages = []
 
-    # Change to an int if whole number only. ie.. we don't want 22.00 but 22.0, but keep 22.15
-    # category_key comes things like this: action, action_24.0ft, or action_24.6ft
-    # and yes... this needs a better answer.
-
-    category_key = category + "_"  # ie) action_
-
-    if float(stage_val) % 1 == 0:  # then we have a whole number
-        # then we will turn it into a int and manually add ".0" on it
-        category_key += str(int(stage_val)) + ".0"
-    else:
-        category_key += "{:.2f}".format(stage_val)
-
-    category_key += "ft"
-
-    if is_interval_stage == True:
-        category_key += "i"
-
-    # The "i" in the end means it is an interval
-    # Now we are action_24.0ft or action_24.6ft or action_24.65ft or action_24.0fti
-
     huc_lid_cat_id = f"{huc} : {lid} : {category_key}"
     MP_LOG.trace(f"{huc_lid_cat_id}: Starting to create tifs")
 
     # Determine datum-offset water surface elevation (from above).
     datum_adj_wse = stage_val + datum_adj_ft + lid_altitude
-    MP_LOG.trace(
-        f"datum_adj_wse pre convert is {datum_adj_wse} (stage = {stage_val}, datum_adj_ft = {datum_adj_ft}, lid_alt is {lid_altitude})"
-    )
     datum_adj_wse_m = datum_adj_wse * 0.3048  # Convert ft to m
 
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
@@ -300,9 +278,9 @@ def produce_tif_per_huc_per_mag_for_stage(
 
         MP_LOG.lprint("+++++++++++++++++++++++")
         MP_LOG.lprint(f"... At the start of producing a tif for {file_name}")
-        MP_LOG.trace(locals())
-        MP_LOG.lprint(f"output_tif is {output_tif} (if it is valid)")
-        MP_LOG.trace("+++++++++++++++++++++++")
+        # MP_LOG.trace(locals())
+        # MP_LOG.lprint(f"output_tif is {output_tif} (if it is valid)")
+        # MP_LOG.trace("+++++++++++++++++++++++")
 
         # both of these have a nodata value of 0 (well.. not by the image but by cell values)
         rem_src = rasterio.open(rem_path)
@@ -364,8 +342,8 @@ def produce_tif_per_huc_per_mag_for_stage(
                 with rasterio.open(output_tif, 'w', **profile) as dst:
                     # dst.nodata = 0
                     dst.write(masked_reclass_rem_array, 1)
-        else:
-            MP_LOG.trace(f"{file_name} : inundation was all zero cells")
+        # else:
+        #     MP_LOG.trace(f"{file_name} : inundation was all zero cells")
 
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage")
@@ -814,7 +792,7 @@ def post_process_cat_fim_for_viz(
         # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
         FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
 
-        # Concatenate each /gpkg/{aphs}_{magnitude}_extent_{huc}_dissolved.gpkg
+        # Concatenate each /gpkg/{huc}_{aphs}_{magnitude}_extent.gpkg
         diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
         diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
 
@@ -954,7 +932,7 @@ def reformat_inundation_maps(
 
         # Save dissolved multipolygon
         handle = os.path.split(tif_to_process)[1].replace('.tif', '')
-        diss_extent_filename = os.path.join(gpkg_dir, f"{huc}_{handle}_dissolved.gpkg")
+        diss_extent_filename = os.path.join(gpkg_dir, f"{huc}_{handle}.gpkg")
         extent_poly_diss["geometry"] = [
             MultiPolygon([feature]) if type(feature) is Polygon else feature
             for feature in extent_poly_diss["geometry"]
