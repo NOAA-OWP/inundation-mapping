@@ -10,6 +10,16 @@ This PR updates deny lists to avoid saving unnecessary files.
 - `config/deny_branch_zero.lst`
 - `config/deny_branches.lst`
 - `config/deny_unit.lst`
+## v4.5.12.1 - 2024-11-22 - [PR#1328](https://github.com/NOAA-OWP/inundation-mapping/pull/1328)
+
+Fixes bug and adds error checking in FIM Performance. Fixes #1326.
+
+### Changes
+- `src/utils/fim_logger.py`: Fix a spacing issue
+- `tools/`
+    - `pixel_counter.py`: Adds check if file exists
+    - `run_test_case.py`: if there is a .aux.xml file in the test_case dir, this can fail. now fixed.
+    - `test_case_by_hydro_id.py`: Fixes bug and adds error checking/logging
 
 <br/><br/>
 
