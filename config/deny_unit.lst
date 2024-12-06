@@ -27,7 +27,7 @@ nwm_headwater_points_subset.gpkg
 # nwm_lakes_proj_subset.gpkg
 # nwm_subset_streams.gpkg
 # nwm_subset_streams_levelPaths.gpkg
-# nwm_subset_streams_levelPaths_dissolved.gpkg
+nwm_subset_streams_levelPaths_dissolved.gpkg
 # nwm_subset_streams_levelPaths_dissolved_extended.gpkg
 nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
 # ras_elev_table.csv
@@ -37,7 +37,7 @@ nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
 # wbd8_clp.gpkg
 wbd_buffered.gpkg
 wbd_buffered_streams.gpkg
-HUC6_dem_domain.gpkg
+DEM_Domain.gpkg
 usgs_gages.gpkg
 reformat_ras_rating_curve_points_rel_101.gpkg
 nws_lid.gpkg
