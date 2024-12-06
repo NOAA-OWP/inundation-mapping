@@ -394,6 +394,7 @@ def generate_flows(
 
     FLOG.setup(log_output_file)  # reusing the parent logs
 
+    FLOG.lprint("Gettting flows")
     # FLOG.trace("args coming into generate flows")
     # FLOG.trace(locals()) # see all args coming in to the function
 

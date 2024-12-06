@@ -3,6 +3,7 @@
 import argparse
 import glob
 import os
+import math
 import shutil
 import sys
 import time
@@ -566,8 +567,7 @@ def iterate_through_huc_stage_based(
                 
                 # debugging
                 # if lid.upper() not in ['ALWP1','ILTP1', 'JRSP1']:
-                # if lid.upper() not in ['BWKI1']:
-                #       continue
+                #   continue
 
                 # TODO: Oct 2024, yes. this is goofy but temporary
                 # Some lids will add a status message but are allowed to continue.
@@ -726,7 +726,7 @@ def iterate_through_huc_stage_based(
                 # and we will need a new prefix for it.
 
                 # For each flood category / magnitude
-                # MP_LOG.lprint(f"{huc_lid_id}: About to process flood categories")
+                MP_LOG.lprint(f"{huc_lid_id}: About to process flood categories")
                 # child_log_file_prefix_tifs = MP_LOG.MP_calc_prefix_name(
                 #     MP_LOG.LOG_FILE_PATH, child_log_file_prefix + "_MP_tifs"
                 # )
@@ -811,9 +811,11 @@ def iterate_through_huc_stage_based(
                 # MP_LOG.merge_log_files(MP_LOG.LOG_FILE_PATH, child_log_file_prefix_tifs, True)
 
                 # we do intervals only on non-record and valid stages
-                non_rec_stage_values_df = stage_values_df[
+                non_rec_stage_values_df_unsorted = stage_values_df[
                     (stage_values_df["stage_value"] != -1) & (stage_values_df["stage_name"] != 'record')
                 ]
+
+                non_rec_stage_values_df = non_rec_stage_values_df_unsorted.sort_values(by='stage_value').reset_index()
 
                 # MP_LOG.trace(f"non_rec_stage_values_df is {non_rec_stage_values_df}")
 
@@ -827,8 +829,6 @@ def iterate_through_huc_stage_based(
                     interval_list = __calc_stage_intervals(
                         non_rec_stage_values_df, past_major_interval_cap, huc_lid_id
                     )
-
-                    MP_LOG.lprint(f"{huc_lid_id}:interval list is {interval_list}")
 
                     tif_child_log_file_prefix = MP_LOG.MP_calc_prefix_name(
                         parent_log_output_file, "MP_sb_interval_tifs"
@@ -907,6 +907,7 @@ def iterate_through_huc_stage_based(
 
                 # for threshold in categories:  (threshold and category are somewhat interchangeable)
                 # some may have failed inundation, which we will rectify later
+                MP_LOG.trace(f"{huc_lid_id}: updating threshhold values")
                 for threshold in valid_stage_names:
                     try:
 
@@ -1066,37 +1067,65 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
 
     interval_recs = []
 
+    stage_values_claimed = []
+    
+    MP_LOG.trace(f"{huc_lid_id}: Calculating intervals for non_rec_stage_values_df is {non_rec_stage_values_df}")
+
+    num_stage_value_recs = len(non_rec_stage_values_df)
+    MP_LOG.trace(f"{huc_lid_id}: num_stage_value_recs is {num_stage_value_recs}")
+
     # recs will be in order
     # we do this one stage at a time, so we keep track of the stage name associated with the interval
-    for idx, stage_rec in non_rec_stage_values_df.iterrows():
+    for idx  in non_rec_stage_values_df.index:
 
-        cur_stage_name = stage_rec["stage_name"]
-        cur_stage_val = stage_rec["stage_value"]
+        row = non_rec_stage_values_df.loc[idx]
+        
+        # MP_LOG.trace(f"{huc_lid_id}: interval calcs - non_rec_stage_value is idx: {idx}; {row}")
+                
+        cur_stage_name = row["stage_name"]
+        cur_stage_val = row["stage_value"]
 
         # calc the intervals between the cur and the next stage
         # for the cur, we need to round up, but the curr and the next
         # to stay at full integers. We do this as it is possible for stages to be decimals
         # ie) action is 2.4, and mod is 4.6, we want intervals at 3 and 4.
         # The highest value of the interval_list is not included
-        min_interval_val = int(cur_stage_val) + 1
+
+        if float(cur_stage_val) % 1 == 0:  # then we have a whole number
+            # we only put it on the stage_value_claimed if is whole becuase
+            # the intervals are whole numbers and are looking for dups
+            
+            cur_stage_val = int(cur_stage_val)
+            stage_values_claimed.append(cur_stage_val)
+            min_interval_val = int(cur_stage_val) + 1            
+
+        else: 
+            # round up to nextg whole number
+            min_interval_val = math.ceil(cur_stage_val) + 1
 
         if idx < len(non_rec_stage_values_df) - 1:  # not the last record
             # get the next stage value
             next_stage_val = non_rec_stage_values_df.iloc[idx + 1]["stage_value"]
             max_interval_val = int(next_stage_val)
+            # MP_LOG.trace(f"{huc_lid_id}: Next stage value is {max_interval_val}")
         else:
             # last rec. Just add 5 more (or the value from the input args)
             max_interval_val = int(min_interval_val) + past_major_interval_cap
+            # MP_LOG.trace(f"{huc_lid_id}: Last rec and max_in is {max_interval_val}")
 
             # + 1 as the last interval is not included
-        # MP_LOG.lprint(f"{huc_lid_id} : {cur_stage_name} is {cur_stage_val} and"
-        #              f"  min_interval_val is {min_interval_val} ; max interval value is {max_interval_val}")
+        # MP_LOG.lprint(f"{huc_lid_id}: {cur_stage_name} is {cur_stage_val} and"
+        #               f"  min_interval_val is {min_interval_val} ; max interval value is {max_interval_val}")
         interval_list = np.arange(min_interval_val, max_interval_val)
 
+        # sometimes dups seem to slip through but not sure why, this fixes it
         for int_val in interval_list:
-            interval_recs.append([cur_stage_name, int_val])
+            if int_val not in stage_values_claimed:
+                interval_recs.append([cur_stage_name, int_val])
+                # MP_LOG.trace(f"{huc_lid_id}: Added interval value of {int_val}")
+                stage_values_claimed.append(int_val)
 
-        # MP_LOG.trace(f"{huc_lid_id} intervals are {interval_list}")
+    MP_LOG.lprint(f"{huc_lid_id} interval recs are {interval_recs}")
 
     return interval_recs
 

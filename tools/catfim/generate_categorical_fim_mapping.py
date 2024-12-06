@@ -149,7 +149,7 @@ def produce_stage_based_catfim_tifs(
                 # MP_LOG.trace(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM")
 
                 executor.submit(
-                    produce_tif_per_huc_per_mag_for_stage,
+                    produce_inundated_branch_tif,
                     rem_path,
                     catchments_path,
                     hydroid_list,
@@ -199,7 +199,7 @@ def produce_stage_based_catfim_tifs(
         summed_array = zero_branch_array  # Initialize it as the branch zero array
 
         output_tif = os.path.join(lid_directory, lid + '_' + category_key + '_extent.tif')
-        # MP_LOG.trace(f"Output file to be saved is {output_tif}")
+        MP_LOG.trace(f"{huc_lid_cat_id}: Merging all branches into output file to be saved as {output_tif}")
 
         # Loop through remaining items in list and sum them with summed_array
         for remaining_raster in path_list[1:]:
@@ -229,26 +229,36 @@ def produce_stage_based_catfim_tifs(
         del zero_branch_array  # Clean up
 
         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
-
         profile = zero_branch_src.profile
         summed_array = summed_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
             dst.write(summed_array, 1)
-            MP_LOG.lprint(f"{output_tif} - saved")
+            MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
     #     del summed_array
+    
+        # For space reasons, we need to delete all of the intermediary files such as:
+        #    Stage: grmn3_action_extent_0.tif, grmn3_action_extent_1933000003.tif. The give aways are a number before
+        #        the .tif
+        #    Flows: allm1_action_12p0ft_extent_01010002_0.tif, allm1_action_12p0ft_extent_01010002_7170000001.tif
+        #       your give away is to just delete any file that has the HUC number in teh file name
+        # The intermediatary are all inundated branch tifs.
+
+        # The ones we want to keep end at _extent.tif and remove ones that have _extent_*.tif
+        MP_LOG.lprint(f"{huc_lid_cat_id}: Removing interium inundated branch files")
+        branch_tifs = glob.glob(f"{lid_directory}/{lid}_{category_key}_extent_*.tif")
+        for tif_file in branch_tifs:
+            os.remove(tif_file)
+    
     # else:
     #     MP_LOG.warning(f"{huc}: {lid}: Merging {category_key} : no valid inundated branches")
-
+    
     return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
 
-
 # This is part of an MP call and needs MP_LOG
-
-
 # This is a form of inundation which we are doing ourselves
 # as we only have one flow value and our normal inundation tools
 # are looking for files not single values
-def produce_tif_per_huc_per_mag_for_stage(
+def produce_inundated_branch_tif(
     rem_path,
     catchments_path,
     hydroid_list,
@@ -276,8 +286,8 @@ def produce_tif_per_huc_per_mag_for_stage(
         file_name = lid + '_' + category_key + '_extent_' + huc + '_' + branch
         output_tif = os.path.join(lid_directory, file_name + '.tif')
 
-        MP_LOG.lprint("+++++++++++++++++++++++")
-        MP_LOG.lprint(f"... At the start of producing a tif for {file_name}")
+        # MP_LOG.lprint("+++++++++++++++++++++++")
+        # MP_LOG.lprint(f"... At the start of producing a tif for {file_name}")
         # MP_LOG.trace(locals())
         # MP_LOG.lprint(f"output_tif is {output_tif} (if it is valid)")
         # MP_LOG.trace("+++++++++++++++++++++++")
@@ -330,7 +340,7 @@ def produce_tif_per_huc_per_mag_for_stage(
             # )
             # # # File may or may not exist
             # # if os.path.exists(output_tif):
-            MP_LOG.lprint(f" +++ Output_tif is {output_tif}")
+            MP_LOG.lprint(f" +++ Branch output_tif is {output_tif}")
             with rasterio.Env():
                 profile = rem_src.profile
                 profile.update(dtype=rasterio.uint8)
@@ -561,18 +571,6 @@ def run_inundation(
     if not os.path.exists(output_extent_tif):
         MP_LOG.error(f"FAILURE_huc_{huc} - {ahps_site} - {magnitude} map failed to create")
         return
-
-    # For space reasons, we need to delete all of the intermediary files such as:
-    #    Stage: grmn3_action_extent_0.tif, grmn3_action_extent_1933000003.tif. The give aways are a number before
-    #        the .tif
-    #    Flows: allm1_action_12p0ft_extent_01010002_0.tif, allm1_action_12p0ft_extent_01010002_7170000001.tif
-    #       your give away is to just delete any file that has the HUC number in teh file name
-    # The intermediatary are all inundated branch tifs.
-
-    # The ones we want to keep end at _extent.tif
-    # branch_tifs = glob.glob(f"{output_huc_site_mapping_dir}/*_extent_*.tif")
-    # for tif_file in branch_tifs:
-    #     os.remove(tif_file)
 
     return
 
