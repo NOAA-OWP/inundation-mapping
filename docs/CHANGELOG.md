@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2024-12-06 - [PR#1360](https://github.com/NOAA-OWP/inundation-mapping/pull/1360)
+
+Fixed missing osmid in osm_bridge_centroid.gpkg. Also, HUC column is added to outputs.
+
+### Changes
+- `data/bridges/pull_osm_bridges.py`
+- `src/aggregate_by_huc.py`
+
+<br/><br/>
+
+
 ## v4.5.12.1 - 2024-11-22 - [PR#1328](https://github.com/NOAA-OWP/inundation-mapping/pull/1328)
 
 Fixes bug and adds error checking in FIM Performance. Fixes #1326.
