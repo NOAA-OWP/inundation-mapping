@@ -205,7 +205,7 @@ class HucDirectory(object):
         if not os.path.isfile(bridge_filename):
             return
 
-        bridge_pnts = gpd.read_file(bridge_filename)
+        bridge_pnts = gpd.read_file(bridge_filename, dtype=self.bridge_dtypes)
         if bridge_pnts.empty:
             return
         hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
@@ -288,6 +288,7 @@ class HucDirectory(object):
                         (c > 1) & (bridge_pnts.feature_id != bridge_pnts.crossing_feature_id), 'is_backwater'
                     ] = 1
                     # Write file
+                    bridge_pnts = bridge_pnts.astype(self.bridge_dtypes, errors='ignore')
                     bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
 
             # print(f"agg_by_huc for huc id {huc_id} is done")
