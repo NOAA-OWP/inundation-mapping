@@ -11,7 +11,7 @@ agree_smogrid_dist.tif
 agree_smogrid_zerod.tif
 # 3d_nld_subset_levees_burned.gpkg
 # branch_id.lst
-# branch_polygons.gpkg
+branch_polygons.gpkg
 dem_burned.tif
 dem_burned_filled.tif
 dem_meters.tif
@@ -23,12 +23,13 @@ flows_grid_boolean.tif
 # nwm_catchments_proj_subset.gpkg
 # nwm_catchments_proj_subset_levelPaths.gpkg
 nwm_headwaters.gpkg
+nwm_headwater_points_subset.gpkg
 # nwm_lakes_proj_subset.gpkg
 # nwm_subset_streams.gpkg
 # nwm_subset_streams_levelPaths.gpkg
-# nwm_subset_streams_levelPaths_dissolved.gpkg
+nwm_subset_streams_levelPaths_dissolved.gpkg
 # nwm_subset_streams_levelPaths_dissolved_extended.gpkg
-# nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
+nwm_subset_streams_levelPaths_dissolved_headwaters.gpkg
 # ras_elev_table.csv
 # usgs_elev_table.csv
 # usgs_subset_gages.gpkg
@@ -36,7 +37,7 @@ nwm_headwaters.gpkg
 # wbd8_clp.gpkg
 wbd_buffered.gpkg
 wbd_buffered_streams.gpkg
-HUC6_dem_domain.gpkg
+DEM_Domain.gpkg
 usgs_gages.gpkg
 reformat_ras_rating_curve_points_rel_101.gpkg
 nws_lid.gpkg
