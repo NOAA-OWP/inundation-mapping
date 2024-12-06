@@ -2,8 +2,8 @@
 
 import argparse
 import glob
-import os
 import math
+import os
 import shutil
 import sys
 import time
@@ -423,7 +423,7 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
 
             if ahps_id not in valid_ahps_ids:
                 sites_gdf.at[ind, 'mapped'] = 'no'
-                
+
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
                     FLOG.warning(f"Mapped status was changed to no for {ahps_id}. No inundation files exist")
@@ -439,7 +439,7 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
                 # remove the "---" from the start, as it is a warning, and not an error
                 status_val = status_val[3:]
                 sites_gdf.at[ind, 'status'] = status_val
- 
+
         # sites_gdf.reset_index(inplace=True, drop=True)
 
         # We are re-saving the sites files
@@ -564,7 +564,7 @@ def iterate_through_huc_stage_based(
             }
 
             for lid in nws_lids:
-                
+
                 # debugging
                 # if lid.upper() not in ['ALWP1','ILTP1', 'JRSP1']:
                 #   continue
@@ -579,7 +579,7 @@ def iterate_through_huc_stage_based(
                 # is or should be mapped.
 
                 lid = lid.lower()  # Convert lid to lower case
-                
+
                 MP_LOG.lprint("-----------------------------------")
                 huc_lid_id = f"{huc} : {lid}"
                 MP_LOG.lprint(f"processing {huc_lid_id}")
@@ -778,10 +778,10 @@ def iterate_through_huc_stage_based(
                         MP_LOG.LOG_FILE_PATH,
                         child_log_file_prefix,
                     )
-                    
-                    # If we get a message back, then something went wrong with the site adn we need to 
+
+                    # If we get a message back, then something went wrong with the site adn we need to
                     # remove it as a valid site
-                    
+
                     all_messages += messages
 
                     # Extra metadata for alternative CatFIM technique.
@@ -798,13 +798,14 @@ def iterate_through_huc_stage_based(
                             }
                         }
                     )
-                    
+
                     # Let's see any tifs made it, if not.. change this to an invalid stage value
-                    stage_file_name = os.path.join(mapping_lid_directory, lid + '_' + category_key + '_extent.tif')
+                    stage_file_name = os.path.join(
+                        mapping_lid_directory, lid + '_' + category_key + '_extent.tif'
+                    )
                     if os.path.exists(stage_file_name) == False:
                         # somethign failed and we didn't get a rolled up extent file, so we need to reject the stage
                         stage_values_df.at[idx, 'stage_value'] = -1
-                    
 
                 # So, we might have an MP inside an MP
                 # let's merge what we have at this point, before we go into another MP
@@ -815,7 +816,9 @@ def iterate_through_huc_stage_based(
                     (stage_values_df["stage_value"] != -1) & (stage_values_df["stage_name"] != 'record')
                 ]
 
-                non_rec_stage_values_df = non_rec_stage_values_df_unsorted.sort_values(by='stage_value').reset_index()
+                non_rec_stage_values_df = non_rec_stage_values_df_unsorted.sort_values(
+                    by='stage_value'
+                ).reset_index()
 
                 # MP_LOG.trace(f"non_rec_stage_values_df is {non_rec_stage_values_df}")
 
@@ -899,7 +902,7 @@ def iterate_through_huc_stage_based(
                     msg = ':All stages failed to inundate'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
-                    continue                    
+                    continue
 
                 # Create a csv with same information as geopackage but with each threshold as new record.
                 # Probably a less verbose way.
@@ -965,8 +968,8 @@ def iterate_through_huc_stage_based(
                     csv_df.to_csv(attributes_filepath, index=False)
 
                     # If it made it to this point (i.e. no continues), there were no major preventers of mapping
-                    # well.. mostly. If it fails, we can change back to 
-                    
+                    # well.. mostly. If it fails, we can change back to
+
                     if stage_warning_msg == "":  # does not mean the lid is good.
                         all_messages.append(lid + ':Good')
                     else:  # we will leave the ":---" on it for now if it is does have a warnning message
@@ -1068,20 +1071,22 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
     interval_recs = []
 
     stage_values_claimed = []
-    
-    MP_LOG.trace(f"{huc_lid_id}: Calculating intervals for non_rec_stage_values_df is {non_rec_stage_values_df}")
+
+    MP_LOG.trace(
+        f"{huc_lid_id}: Calculating intervals for non_rec_stage_values_df is {non_rec_stage_values_df}"
+    )
 
     num_stage_value_recs = len(non_rec_stage_values_df)
     MP_LOG.trace(f"{huc_lid_id}: num_stage_value_recs is {num_stage_value_recs}")
 
     # recs will be in order
     # we do this one stage at a time, so we keep track of the stage name associated with the interval
-    for idx  in non_rec_stage_values_df.index:
+    for idx in non_rec_stage_values_df.index:
 
         row = non_rec_stage_values_df.loc[idx]
-        
+
         # MP_LOG.trace(f"{huc_lid_id}: interval calcs - non_rec_stage_value is idx: {idx}; {row}")
-                
+
         cur_stage_name = row["stage_name"]
         cur_stage_val = row["stage_value"]
 
@@ -1094,12 +1099,12 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
         if float(cur_stage_val) % 1 == 0:  # then we have a whole number
             # we only put it on the stage_value_claimed if is whole becuase
             # the intervals are whole numbers and are looking for dups
-            
+
             cur_stage_val = int(cur_stage_val)
             stage_values_claimed.append(cur_stage_val)
-            min_interval_val = int(cur_stage_val) + 1            
+            min_interval_val = int(cur_stage_val) + 1
 
-        else: 
+        else:
             # round up to nextg whole number
             min_interval_val = math.ceil(cur_stage_val) + 1
 
@@ -1407,7 +1412,7 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
 
 
 def __calculate_category_key(category, stage_value, is_interval_stage):
-        
+
     # Calcuate the category key which becomes part of a file name
     # Change to an int if whole number only. ie.. we don't want 22.00 but 22.0, but keep 22.15
     # category_key comes things like this: action, action_24.0ft, or action_24.6ft
@@ -1425,7 +1430,6 @@ def __calculate_category_key(category, stage_value, is_interval_stage):
 
     # The "i" in the end means it is an interval
     # Now we are action_24.0ft or action_24.6ft or action_24.65ft or action_24.0fti
-
 
     if is_interval_stage == True:
         category_key += "i"
@@ -1633,7 +1637,7 @@ def generate_stage_based_categorical_fim(
             .str.split(':', n=1, expand=True)
             .rename(columns={0: 'nws_lid', 1: 'status'})
         )
-         
+
         # see if there are any duplicates. Their should not be in theory
         duplicate_lids = messages_df[messages_df.duplicated(['nws_lid'])]
         if len(duplicate_lids) > 0:

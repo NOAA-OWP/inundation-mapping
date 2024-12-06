@@ -234,8 +234,8 @@ def produce_stage_based_catfim_tifs(
         with rasterio.open(output_tif, 'w', **profile) as dst:
             dst.write(summed_array, 1)
             MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
-    #     del summed_array
-    
+        #     del summed_array
+
         # For space reasons, we need to delete all of the intermediary files such as:
         #    Stage: grmn3_action_extent_0.tif, grmn3_action_extent_1933000003.tif. The give aways are a number before
         #        the .tif
@@ -248,11 +248,12 @@ def produce_stage_based_catfim_tifs(
         branch_tifs = glob.glob(f"{lid_directory}/{lid}_{category_key}_extent_*.tif")
         for tif_file in branch_tifs:
             os.remove(tif_file)
-    
+
     # else:
     #     MP_LOG.warning(f"{huc}: {lid}: Merging {category_key} : no valid inundated branches")
-    
+
     return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+
 
 # This is part of an MP call and needs MP_LOG
 # This is a form of inundation which we are doing ourselves
