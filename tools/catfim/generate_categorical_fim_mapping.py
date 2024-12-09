@@ -112,7 +112,7 @@ def produce_stage_based_lid_tifs(
             # sometimes, these can fail to exist if a branchf initial failed during HAND generation
             if not os.path.exists(rem_path):
                 msg = ":rem doesn't exist"
-                #messages.append(lid + msg)
+                # messages.append(lid + msg)
                 MP_LOG.warning(msg_id_w_branch + msg)
                 continue
             if not os.path.exists(catchments_path):

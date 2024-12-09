@@ -716,7 +716,7 @@ def iterate_through_huc_stage_based(
                 # If no segments, write message and exit out
                 if not segments or len(segments) == 0:
                     msg = ':missing nwm segments'
-                    messages.append(lid + msg)
+                    all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
@@ -1653,8 +1653,7 @@ def generate_stage_based_categorical_fim(
             FLOG.warning("Duplicate ahps ids found...")
             FLOG.warning(duplicate_lids)
             # let's just pick the last one (gulp)
-            messages_df = messages_df.drop_duplicates(subset=['nws_lid'],
-                                                      keep='last').reset_index(drop=True)
+            messages_df = messages_df.drop_duplicates(subset=['nws_lid'], keep='last').reset_index(drop=True)
 
         # Join messages to populate status field to candidate sites. Assign
         # status for null fields.
