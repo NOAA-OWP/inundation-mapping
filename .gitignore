@@ -14,3 +14,5 @@ config/*.swp
 .vscode/
 **/.DS_Store
 .private/
+!tools/catfim/*.csv
+!tools/catfim/catfim.env.template

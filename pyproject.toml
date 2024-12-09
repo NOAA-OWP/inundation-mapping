@@ -20,7 +20,6 @@ maintainers = [
     {name = "Hamideh Safa", email = "hamideh.safa@noaa.gov"},
     {name = "James Coll", email = "james.coll@noaa.gov"},
     {name = "Matt Luck", email = "matt.luck@noaa.gov"},
-    {name = "Nick Chadwick", email = "nick.chadwick@noaa.gov"},
     {name = "Riley McDermott", email = "riley.mcdermott@noaa.gov"},
     {name = "Robert Hanna", email = "robert.hanna@noaa.gov"},
     {name = "Ryan Spies", email = "ryan.spies@noaa.gov"}
@@ -39,17 +38,24 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 # - Tools -
 
 [tool.black]
-line_length = 110
 skip-string-normalization = true
 skip-magic-trailing-comma = true
-
+line-length = 110
+exclude = '''
+/(
+   \.csv$
+)/
+'''
 
 [tool.isort]
 profile = 'black'
 line_length = 110
 multi_line_output = 3
 lines_after_imports = 2
+# extend-skip = [".csv"]
+skip_glob = ["*.csv"]
 
+# yes, the exclue format is different from black
 [tool.flake8]
 count = true
 doctests = true
@@ -59,26 +65,21 @@ extend-ignore = """
     E203,
     E266,
     E501,
+    E712,
     W503,
-    W391
-    F403,
+    W391,
     F401,
+    F403,
     """
-per-file-ignores = """
-    src/subdiv_chan_obank_src.py: E712
-    src/src_roughness_optimization.py: E712, F841
-    src/agreedem.py: E712
-    src/build_stream_traversal.py: E722
+exclude = ["*.csv"]
 
-    tools/check_deep_flooding.py: E712
+per-file-ignores = """
+    src/src_roughness_optimization.py: F841
+    src/build_stream_traversal.py: E722
     tools/eval_alt_catfim.py: F841
-    tools/generate_categorical_fim.py: C901, E712
-    tools/generate_categorical_fim_mapping.py: E712
     tools/inundation.py: F821
     tools/rating_curve_comparison.py: F821, F841
     tools/run_test_case.py: E711
     tools/tools_shared_functions.py: F821, F841, E711
-    tools/vary_mannings_n_composite.py: E712
-
     data/usgs/rating_curve_get_usgs_curves.py: F841
     """

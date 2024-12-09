@@ -2,14 +2,13 @@
 # Additional hooks: https://pre-commit.com/hooks.html
 
 repos:
+
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.0.1
     hooks:
         -   id: trailing-whitespace
             # Below is python regex to exclude all .md files
             exclude: .*md$
-        -   id: end-of-file-fixer
-            exclude:  Pipfile.lock
         -   id: check-added-large-files
             args: ['--maxkb=5000']
         -   id: check-json
