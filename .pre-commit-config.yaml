@@ -9,8 +9,6 @@ repos:
         -   id: trailing-whitespace
             # Below is python regex to exclude all .md files
             exclude: .*md$
-        -   id: end-of-file-fixer
-            exclude:  Pipfile.lock
         -   id: check-added-large-files
             args: ['--maxkb=5000']
         -   id: check-json
