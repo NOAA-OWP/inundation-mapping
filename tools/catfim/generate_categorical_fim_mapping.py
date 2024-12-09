@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 import argparse
 import glob
 import os
@@ -111,17 +112,17 @@ def produce_stage_based_lid_tifs(
 
             # sometimes, these can fail to exist if a branchf initial failed during HAND generation
             if not os.path.exists(rem_path):
-                msg = ":rem doesn't exist"
+                msg = ":rem doesn't exist (could be bad branch)"
                 # messages.append(lid + msg)
                 MP_LOG.warning(msg_id_w_branch + msg)
                 continue
             if not os.path.exists(catchments_path):
-                msg = ":catchments files don't exist"
+                msg = ":catchments files don't exist (could be bad branch)"
                 # messages.append(lid + msg)
                 MP_LOG.warning(msg_id_w_branch + msg)
                 continue
             if not os.path.exists(hydrotable_path):
-                msg = ":hydrotable doesn't exist"
+                msg = ":hydrotable doesn't exist (could be bad branch)"
                 # messages.append(lid + msg)
                 MP_LOG.warning(msg_id_w_branch + msg)
                 continue
