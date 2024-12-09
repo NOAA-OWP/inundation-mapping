@@ -651,7 +651,7 @@ def __load_nwm_metadata(
     # This feature means we can copy the pickle file to another enviro (AWS?) as it won't need to call
     # WRDS unless we need a smaller or modified version. This one likely has all nws_lid data.
 
-    if os.path.isfile(nwm_metafile) is True:
+    if os.path.isfile(nwm_metafile) == True:
         FLOG.lprint(f"Meta file already downloaded and exists at {nwm_metafile}")
 
         with open(nwm_metafile, "rb") as p_handle:

@@ -19,7 +19,7 @@ from generate_categorical_fim_flows import generate_flows
 from generate_categorical_fim_mapping import (
     manage_catfim_mapping,
     post_process_cat_fim_for_viz,
-    produce_stage_based_catfim_tifs,
+    produce_stage_based_lid_tifs,
 )
 from tools_shared_functions import (
     filter_nwm_segments_by_stream_order,
@@ -599,7 +599,8 @@ def iterate_through_huc_stage_based(
                     continue
 
                 if len(lid) != 5:
-                    all_messages.append(lid + ":This lid value is invalid")
+                    msg = ":This lid value is invalid"
+                    all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
@@ -712,6 +713,13 @@ def iterate_through_huc_stage_based(
                     unfiltered_segments, desired_order, nwm_flows_region_df
                 )
 
+                # If no segments, write message and exit out
+                if not segments or len(segments) == 0:
+                    msg = ':missing nwm segments'
+                    messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
+
                 # Check for large discrepancies between the elevation values from WRDS and HAND.
                 #   Otherwise this causes bad mapping.
                 elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
@@ -760,7 +768,7 @@ def iterate_through_huc_stage_based(
                     category_key = __calculate_category_key(category, stage_value, False)
 
                     # These are the up to 5 magnitudes being inundated at their stage value
-                    (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_catfim_tifs(
+                    (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_lid_tifs(
                         stage_value,
                         False,
                         datum_adj_ft,
@@ -851,7 +859,7 @@ def iterate_through_huc_stage_based(
                                 category_key = __calculate_category_key(category, interval_stage_value, True)
 
                                 executor.submit(
-                                    produce_stage_based_catfim_tifs,
+                                    produce_stage_based_lid_tifs,
                                     interval_stage_value,
                                     True,
                                     datum_adj_ft,
@@ -1639,12 +1647,14 @@ def generate_stage_based_categorical_fim(
         )
 
         # see if there are any duplicates. Their should not be in theory
+        # We pull them out so we can print dups, before removing them from the parent
         duplicate_lids = messages_df[messages_df.duplicated(['nws_lid'])]
         if len(duplicate_lids) > 0:
             FLOG.warning("Duplicate ahps ids found...")
             FLOG.warning(duplicate_lids)
-            # let's just pick the first one (gulp)
-            messages_df.drop_duplicates(subset=['nws_lid'], keep='first', inplace=True).reset_index()
+            # let's just pick the last one (gulp)
+            messages_df = messages_df.drop_duplicates(subset=['nws_lid'],
+                                                      keep='last').reset_index(drop=True)
 
         # Join messages to populate status field to candidate sites. Assign
         # status for null fields.
@@ -1690,7 +1700,7 @@ def set_start_files_folders(
             os.mkdir(output_catfim_dir)
 
         # Create output directories (check against maping only as a proxy for all three)
-        if os.path.exists(output_mapping_dir) is True:
+        if os.path.exists(output_mapping_dir) == True:
             if overwrite == False:
                 raise Exception(
                     f"The output mapping folder of {output_catfim_dir} already exists."
