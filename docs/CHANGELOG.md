@@ -5,6 +5,17 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v4.5.13.0 - 2024-12-101 - [PR#1285](https://github.com/NOAA-OWP/inundation-mapping/pull/1285)
 
 Major upgrades and bug fixes to the CatFIM product, informally called CatFIM 2.1. See the PR for all details
+## v4.5.12.2 - 2024-12-10 - [PR#1346](https://github.com/NOAA-OWP/inundation-mapping/pull/1346)
+
+This PR updates deny lists to avoid saving unnecessary files.
+I also added PR #1260 (changes to data/bathymetry/preprocess_bathymetry.py ) to this PR.
+
+### Changes
+
+- `config/deny_branch_zero.lst`
+- `config/deny_branches.lst`
+- `config/deny_unit.lst`
+- `data/bathymetry/preprocess_bathymetry.py`
 
 <br/><br/>
 
