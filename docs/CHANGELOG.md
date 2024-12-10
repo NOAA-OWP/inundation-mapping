@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.5.13.0 - 2024-12-101 - [PR#1285](https://github.com/NOAA-OWP/inundation-mapping/pull/1285)
+
+Major upgrades and bug fixes to the CatFIM product, informally called CatFIM 2.1. See the PR for all details
+
+<br/><br/>
+
+
 ## v4.5.12.1 - 2024-11-22 - [PR#1328](https://github.com/NOAA-OWP/inundation-mapping/pull/1328)
 
 Fixes bug and adds error checking in FIM Performance. Fixes #1326.
@@ -28,12 +36,6 @@ As part of this PR, small modification was applied to bridge_inundation.py.
 
 <br/><br/>
 
-
-## v4.5.x.x - 2024-10-31 - [PR#1285](https://github.com/NOAA-OWP/inundation-mapping/pull/1285)
-
-Major upgrades and bug fixes to the CatFIM product, informally called CatFIM 2.1. See the PR for all details
-
-<br/><br/>
 
 
 
