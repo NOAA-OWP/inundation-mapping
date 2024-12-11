@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.12.2 - 2024-12-09 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
+## v4.5.13.` - 2024-12-13 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
 
 This PR was triggered by two dep-bot PR's. One for Tornado, one for aiohttp. Upon further research, these two exist only as dependencies for Jupyter and Jupyterlab which were very out of date. Upgrading Jupyter/JupyterLab took care of the other two.
 
@@ -13,6 +13,9 @@ Covers PR [1237](https://github.com/NOAA-OWP/inundation-mapping/pull/1347): Bump
 ### Changes
 - `Dockerfile.dev` and `Dockerfile.prod`:  As described above.
 - `Pipfile` and `Pipefile.lock`:   As described above.
+
+<br/><br/>
+
 
 ## v4.5.13.0 - 2024-12-10 - [PR#1285](https://github.com/NOAA-OWP/inundation-mapping/pull/1285)
 
