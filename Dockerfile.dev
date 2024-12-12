@@ -91,7 +91,7 @@ ENV PYTHONUNBUFFERED=TRUE
 
 ## ADD TO PATHS ##
 ENV PATH="$projectDir:${PATH}"
-ENV PYTHONPATH="${PYTHONPATH}:${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
 
 ## install python 3 modules ##
 COPY Pipfile .
