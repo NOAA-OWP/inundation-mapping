@@ -202,8 +202,12 @@ def split_flows(
         terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
+        del terminal_nwm_point
+
         # Snap and trim the flowline to the snapped point
         flows = snap_and_trim_flow(snapped_point, flows)
+
+        del snapped_point
 
     # If it is branch 0: Loop over NWM terminal segments
     else:
@@ -218,12 +222,15 @@ def split_flows(
                 terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
                 snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
+                del terminal_nwm_point
+
                 # Snap and trim the flowline to the snapped point
                 flows = snap_and_trim_flow(snapped_point, flows)
 
+            del snapped_point
         del nwm_streams_terminal
 
-    del terminal_nwm_point, snapped_point, nwm_streams
+    del nwm_streams
 
     # Split stream segments at HUC8 boundaries
     print('Splitting stream segments at HUC8 boundaries...')

@@ -320,8 +320,6 @@ def mitigate_branch_outlet_backpool(
             # (Backpool Error Criteria 1)
             flagged_catchment, outlier_catchment_ids = catch_catchment_size_outliers(catchment_pixels_geom)
 
-            del catchment_pixels_geom
-
             # --------------------------------------------------------------
             # If there are outlier catchments, test whether the catchment occurs at the outlet
             # (Backpool Error Criteria 2)
@@ -387,6 +385,8 @@ def mitigate_branch_outlet_backpool(
 
                     # Get the catchment ID of the new snapped point
                     pt_3tl_geom['catchment_id'] = pt_3tl_geom.apply(get_raster_value, axis=1)
+
+                    del catchment_pixels_geom
 
                     # Snap and trim the flowline to the selected point
                     trimmed_flows, inital_length_km = snap_and_trim_splitflow(pt_3tl_geom, split_flows_geom)
