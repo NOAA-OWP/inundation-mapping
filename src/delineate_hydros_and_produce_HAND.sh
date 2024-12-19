@@ -243,9 +243,7 @@ python3 $srcDir/add_crosswalk.py \
     -w $tempHucDataDir/wbd8_clp.gpkg \
     -b $b_arg \
     -u $hucNumber \
-    -y $tempCurrentBranchDataDir/nwm_catchments_proj_subset.tif \
     -m $manning_n \
-    -z $z_arg \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
     -g $min_stream_length

@@ -188,10 +188,15 @@ def _evaluate_crosswalk_network(
     nwm_streams_headwaters = nwm_streams[nwm_streams_headwaters_list]
     flows_headwaters = flows[flows_headwaters_list]
 
+    del flows_headwaters_list, nwm_streams_headwaters_list
+
     # Map headwater points to DEM-derived reaches
     flows_headwaters = flows_headwaters.sjoin_nearest(nwm_headwaters)
     flows_headwaters = flows_headwaters[['HydroID', 'ID']]
     nwm_streams_headwaters = nwm_streams_headwaters.sjoin_nearest(nwm_headwaters)
+
+    del nwm_headwaters
+
     nwm_streams_headwaters = nwm_streams_headwaters[['feature_id', 'ID']]
 
     def _hydroid_to_feature_id(df, hydroid, hydroid_attr, feature_id_attr):
@@ -220,10 +225,14 @@ def _evaluate_crosswalk_network(
     for hydroid in flows_outlets:
         flows_dict = _get_upstream_data(flows, flows_headwaters, flows_dict, hydroid, 'HydroID', 'NextDownID')
 
+    del flows_outlets, flows_headwaters
+
     for feature_id in streams_outlets:
         streams_dict = _get_upstream_data(
             nwm_streams, nwm_streams_headwaters, streams_dict, feature_id, 'feature_id', 'to'
         )
+
+    del nwm_streams, nwm_streams_headwaters, streams_outlets
 
     results = []
     for flow in flows_dict:
@@ -270,6 +279,8 @@ def _evaluate_crosswalk_network(
     results = pd.DataFrame(
         data=results, columns=['HydroID', 'feature_id', 'upstream_fids', 'upstream_nwm_fids', 'status']
     )
+
+    del flows_dict, streams_dict, flows
 
     return results
 

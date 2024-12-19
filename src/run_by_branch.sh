@@ -76,8 +76,8 @@ $srcDir/clip_rasters_to_branches.py -d $current_branch_id \
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
-<<<$($srcDir/getRasterInfoNative.py $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
+read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
+<<<$($srcDir/getRasterInfoNative.py -r $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
 
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##

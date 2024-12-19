@@ -46,7 +46,11 @@ def convert_grid_cells_to_points(raster, index_option, output_points_filename=Fa
             id[i - 1] = i
         i += 1
 
+    del raster
+
     pointGDF = gpd.GeoDataFrame({'id': id, 'geometry': points}, crs=PREP_PROJECTION, geometry='geometry')
+
+    del id, points
 
     if output_points_filename is False:
         return pointGDF

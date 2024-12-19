@@ -386,14 +386,20 @@ def mitigate_branch_outlet_backpool(
                     # Get the catchment ID of the new snapped point
                     pt_3tl_geom['catchment_id'] = pt_3tl_geom.apply(get_raster_value, axis=1)
 
+                    del catchment_pixels_geom
+
                     # Snap and trim the flowline to the selected point
                     trimmed_flows, inital_length_km = snap_and_trim_splitflow(pt_3tl_geom, split_flows_geom)
+
+                    del split_flows_geom, pt_3tl_geom
 
                     # Create buffer around the updated flows geodataframe (and make sure it's all one shape)
                     buffer = trimmed_flows.buffer(10).geometry.union_all()
 
                     # Remove flowpoints that don't intersect with the trimmed flow line
                     split_points_filtered_geom = split_points_geom[split_points_geom.geometry.within(buffer)]
+
+                    del split_points_geom
 
                     # --------------------------------------------------------------
                     # Calculate the slope and length of the newly trimmed flows
@@ -431,6 +437,8 @@ def mitigate_branch_outlet_backpool(
                     # Dissolve the filtered pixel catchments into one geometry (the new boundary)
                     cp_new_boundary_geom = cp_poly_filt_geom.dissolve()
 
+                    del cp_poly_filt_geom
+
                     # Convert the geodataframe into a format compatible to rasterio
                     catchment_pixels_new_boundary_json = gdf_to_json(cp_new_boundary_geom)
 
@@ -461,8 +469,12 @@ def mitigate_branch_outlet_backpool(
                         # Get the area of the old and new catchment boundaries
                         catchment_pixels_old_boundary_geom = cp_poly_geom.dissolve()
 
+                        del cp_poly_geom
+
                         old_boundary_area = catchment_pixels_old_boundary_geom.area
                         new_boundary_area = cp_new_boundary_geom.area
+
+                        del catchment_pixels_old_boundary_geom, cp_new_boundary_geom
 
                         # Calculate the km and percent differences of the catchment area
                         boundary_area_km_diff = float(old_boundary_area - new_boundary_area)
@@ -502,6 +514,8 @@ def mitigate_branch_outlet_backpool(
 
                         output_flows.to_file(split_flows_filename, driver='GPKG', index=False)
                         split_points_filtered_geom.to_file(split_points_filename, driver='GPKG', index=False)
+
+                        del output_flows, split_points_filtered_geom
 
             else:
                 print('Incorrectly-large outlet pixel catchment was NOT detected.')

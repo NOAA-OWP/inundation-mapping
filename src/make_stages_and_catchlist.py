@@ -33,10 +33,14 @@ def make_stages_and_catchlist(
     slopes = flows['S0'].tolist()
     lengthkm = flows['LengthKm'].tolist()
 
+    del flows
+
     try:
         areasqkm = catchments['areasqkm'].tolist()
     except KeyError:
         areasqkm = catchments['geometry'].area / 10**6
+
+    del catchments
 
     with open(stages_filename, 'w') as f:
         f.write("Stage\n")
@@ -47,8 +51,6 @@ def make_stages_and_catchlist(
         f.write("{}\n".format(len_of_hydroIDs))
         for h, s, l, a in zip(hydroIDs, slopes, lengthkm, areasqkm):
             f.write("{} {} {} {}\n".format(h, s, l, a))
-
-    # TODO we need a main block
 
 
 if __name__ == '__main__':

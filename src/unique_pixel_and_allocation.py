@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""
-Created on Fri Oct 16 07:51:56 2020
 
-@author: trevor.grout
-"""
 import argparse
 import os
 
@@ -52,6 +48,8 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels):
     # At streams return the unique array value otherwise return 0 values
     stream_pixel_values = np.where(streams == 1, unique_vals, 0)
 
+    del streams, unique_vals
+
     # Reassign dtype to be float64 (needs to be float64)
     streams_profile.update(dtype='float64')
 
@@ -71,8 +69,12 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels):
     # Add stream channel ids
     allocation = np.where(allocation > 0, allocation, stream_pixel_values)
 
+    del stream_pixel_values
+
     with rasterio.open(allocation_grid, 'w', **allocation_profile) as allocation_ds:
         allocation_ds.write(allocation, 1)
+
+    del allocation
 
     return distance_grid, allocation_grid
 
