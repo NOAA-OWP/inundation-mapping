@@ -646,7 +646,7 @@ def __load_nwm_metadata(
 
     FLOG.trace(metadata_url)
 
-    all_meta_lists = []
+    output_meta_list = []
     # Check to see if meta file already exists
     # This feature means we can copy the pickle file to another enviro (AWS?) as it won't need to call
     # WRDS unless we need a smaller or modified version. This one likely has all nws_lid data.
@@ -655,7 +655,7 @@ def __load_nwm_metadata(
         FLOG.lprint(f"Meta file already downloaded and exists at {nwm_metafile}")
 
         with open(nwm_metafile, "rb") as p_handle:
-            all_meta_lists = pickle.load(p_handle)
+            output_meta_list = pickle.load(p_handle)
 
     else:
         meta_file = os.path.join(output_catfim_dir, "nwm_metafile.pkl")
@@ -667,7 +667,7 @@ def __load_nwm_metadata(
 
             # must_include_value variable not yet tested
             # must_include_value = 'nws_data.rfc_forecast_point' if lid_to_run not in ['HI', 'PR', 'AK'] else None
-            all_meta_lists, ___ = get_metadata(
+            output_meta_list, ___ = get_metadata(
                 metadata_url,
                 select_by='nws_lid',
                 selector=[lid_to_run],
@@ -688,7 +688,8 @@ def __load_nwm_metadata(
             # metadata load they are on, dup lid records will have different data
 
             # orig_meta_lists, ___ = get_metadata(
-            all_meta_lists, ___ = get_metadata(
+            # all_meta_lists, ___ = get_metadata(
+            forecast_point_meta_list, ___ = get_metadata(
                 metadata_url,
                 select_by='nws_lid',
                 selector=['all'],
@@ -715,23 +716,61 @@ def __load_nwm_metadata(
             # Nov 2024: We used to call them site specific and may add them back in but ok to leave then
 
             # islands_list, ___ = get_metadata(
-            #     metadata_url,
-            #     select_by='state',
-            #     selector=['HI', 'PR'],
-            #     must_include=None,
-            #     upstream_trace_distance=nwm_us_search,
-            #     downstream_trace_distance=nwm_ds_search,
-            # )
+            oconus_meta_list, ___ = get_metadata(
 
-            #  Append the lists
-            # all_meta_lists = filtered_all_meta_list + islands_list
+                metadata_url,
+                select_by='state',
+                selector=['HI', 'PR', 'AK'],
+                must_include=None,
+                upstream_trace_distance=nwm_us_search,
+                downstream_trace_distance=nwm_ds_search,
+            )
+
+            # Append the lists
+            unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
 
             # print(f"len(all_meta_lists) is {len(all_meta_lists)}")
+            
+            # ---------- Filter the metadata list
+
+            output_meta_list = []
+            unique_lids, duplicate_lids = [], [] # TODO: maybe remove eventually?
+            duplicate_meta_list = [] # TODO: remove eventually
+            nonelid_metadata_list = [] # TODO: remove eventually
+
+            for i, site in enumerate(unfiltered_meta_list):
+                nws_lid = site['identifiers']['nws_lid']
+
+                if nws_lid == None:
+                    # No LID available
+                    nonelid_metadata_list.append(site) # TODO: replace this with Continue, eventually we wont need this list
+
+                elif nws_lid in unique_lids:
+                    # Duplicate LID
+                    duplicate_lids.append(nws_lid)
+                    duplicate_meta_list.append(site) # TODO: remove eventually
+
+                else: 
+                    # Unique/unseen LID that's not None
+                    unique_lids.append(nws_lid)
+                    output_meta_list.append(site)
+
+            # # TEMP DEBUG: Print metadata stats
+            # print(f'Input metadata list length: {len(unfiltered_meta_list)}')
+            # print(f'Output (unique) metadata list length: {len(filt_meta_list)}')
+            # print(f'Number of unique LIDs: {len(unique_lids)}')
+            # print(f'Number of duplicate LIDs: {len(duplicate_lids)}')
+            # print(f'Number of None LIDs: {len(nonelid_metadata_list)}')
+
+        # ----------
 
         with open(meta_file, "wb") as p_handle:
-            pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
+            # pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    return all_meta_lists
+            
+    return output_meta_list
+    # return all_meta_lists
 
 
 if __name__ == '__main__':
