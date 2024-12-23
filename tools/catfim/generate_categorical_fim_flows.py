@@ -646,7 +646,7 @@ def __load_nwm_metadata(
 
     FLOG.trace(metadata_url)
 
-    all_meta_lists = []
+    output_meta_list = []
     # Check to see if meta file already exists
     # This feature means we can copy the pickle file to another enviro (AWS?) as it won't need to call
     # WRDS unless we need a smaller or modified version. This one likely has all nws_lid data.
@@ -655,7 +655,7 @@ def __load_nwm_metadata(
         FLOG.lprint(f"Meta file already downloaded and exists at {nwm_metafile}")
 
         with open(nwm_metafile, "rb") as p_handle:
-            all_meta_lists = pickle.load(p_handle)
+            output_meta_list = pickle.load(p_handle)
 
     else:
         meta_file = os.path.join(output_catfim_dir, "nwm_metafile.pkl")
@@ -667,7 +667,7 @@ def __load_nwm_metadata(
 
             # must_include_value variable not yet tested
             # must_include_value = 'nws_data.rfc_forecast_point' if lid_to_run not in ['HI', 'PR', 'AK'] else None
-            all_meta_lists, ___ = get_metadata(
+            output_meta_list, ___ = get_metadata(
                 metadata_url,
                 select_by='nws_lid',
                 selector=[lid_to_run],
@@ -733,7 +733,7 @@ def __load_nwm_metadata(
             
             # ---------- Filter the metadata list
 
-            filt_meta_list = []
+            output_meta_list = []
             unique_lids, duplicate_lids = [], [] # TODO: maybe remove eventually?
             duplicate_meta_list = [] # TODO: remove eventually
             nonelid_metadata_list = [] # TODO: remove eventually
@@ -753,7 +753,7 @@ def __load_nwm_metadata(
                 else: 
                     # Unique/unseen LID that's not None
                     unique_lids.append(nws_lid)
-                    filt_meta_list.append(site)
+                    output_meta_list.append(site)
 
             # # TEMP DEBUG: Print metadata stats
             # print(f'Input metadata list length: {len(unfiltered_meta_list)}')
@@ -765,11 +765,11 @@ def __load_nwm_metadata(
         # ----------
 
         with open(meta_file, "wb") as p_handle:
-            pickle.dump(filt_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
             # pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
             
-    return filt_meta_list
+    return output_meta_list
     # return all_meta_lists
 
 
