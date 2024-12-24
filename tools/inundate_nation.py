@@ -183,10 +183,11 @@ def create_bool_rasters(args):
 
     print("Calculating boolean inundate raster: " + rasfile)
     p = in_raster_dir + os.sep + rasfile
-    raster = rasterio.open(p)
-    profile = raster.profile
-    array = raster.read()
-    del raster
+
+    with rasterio.open(p) as raster:
+        profile = raster.profile
+        array = raster.read()
+
     array[array > 0] = 1
     array[array <= 0] = 0
     # And then change the band count to 1, set the

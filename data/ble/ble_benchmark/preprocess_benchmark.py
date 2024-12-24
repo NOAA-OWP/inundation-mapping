@@ -33,46 +33,46 @@ def preprocess_benchmark_static(benchmark_raster, reference_raster, out_raster_p
             (required for writing to output dataset).
 
     '''
-    # Open and read raster and benchmark rasters
-    reference = rasterio.open(reference_raster)
-    benchmark = rasterio.open(benchmark_raster)
-    benchmark_arr = benchmark.read(1)
-
     # Set arbitrary no data value that is not possible value of the benchmark dataset. It is reassigned later.
     nodata_value = -2147483648
 
-    # Determine the new transform and dimensions of reprojected/resampled raster
-    new_transform, new_width, new_height = calculate_default_transform(
-        benchmark.crs,
-        reference.crs,
-        benchmark.width,
-        benchmark.height,
-        *benchmark.bounds,
-        resolution=reference.res,
-    )
+    # Open and read raster and benchmark rasters
+    with rasterio.open(reference_raster) as reference, rasterio.open(benchmark_raster) as benchmark:
+        benchmark_arr = benchmark.read(1)
 
-    # Define an empty array that is same dimensions as output by the "calculate_default_transform" command
-    benchmark_projected = np.empty((new_height, new_width), dtype=np.int32)
+        # Determine the new transform and dimensions of reprojected/resampled raster
+        new_transform, new_width, new_height = calculate_default_transform(
+            benchmark.crs,
+            reference.crs,
+            benchmark.width,
+            benchmark.height,
+            *benchmark.bounds,
+            resolution=reference.res,
+        )
 
-    # Reproject and resample the benchmark dataset. Bilinear resampling due to continuous depth data
-    reproject(
-        benchmark_arr,
-        destination=benchmark_projected,
-        src_transform=benchmark.transform,
-        src_crs=benchmark.crs,
-        src_nodata=benchmark.nodata,
-        dst_transform=new_transform,
-        dst_crs=reference.crs,
-        dst_nodata=nodata_value,
-        dst_resolution=reference.res,
-        resampling=Resampling.bilinear,
-    )
+        # Define an empty array that is same dimensions as output by the "calculate_default_transform" command
+        benchmark_projected = np.empty((new_height, new_width), dtype=np.int32)
+
+        # Reproject and resample the benchmark dataset. Bilinear resampling due to continuous depth data
+        reproject(
+            benchmark_arr,
+            destination=benchmark_projected,
+            src_transform=benchmark.transform,
+            src_crs=benchmark.crs,
+            src_nodata=benchmark.nodata,
+            dst_transform=new_transform,
+            dst_crs=reference.crs,
+            dst_nodata=nodata_value,
+            dst_resolution=reference.res,
+            resampling=Resampling.bilinear,
+        )
+
+        profile = reference.profile
 
     # Convert entire depth grid to boolean (1 = Flood, 0 = No Flood)
     boolean_benchmark = np.where(benchmark_projected != nodata_value, 1, 0)
 
     # Update profile (data type, NODATA, transform, width/height)
-    profile = reference.profile
     profile.update(transform=new_transform)
     profile.update(dtype=rasterio.int8)
     # Update NODATA to some integer so we can keep int8 datatype. There are no NODATA in the raster dataset
