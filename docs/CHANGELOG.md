@@ -24,6 +24,58 @@ python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_f
 
 <br/><br/>
 
+## v4.5.13.1 - 2024-12-13 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
+
+This PR was triggered by two dep-bot PR's. One for Tornado, one for aiohttp. Upon further research, these two exist only as dependencies for Jupyter and Jupyterlab which were very out of date. Upgrading Jupyter/JupyterLab took care of the other two.
+
+Also fixed a minor warning during docker builds.
+
+Covers PR [1237](https://github.com/NOAA-OWP/inundation-mapping/pull/1347): Bump aiohttp from 3.10.5 to 3.10.11  and  PR [1348](https://github.com/NOAA-OWP/inundation-mapping/pull/1348): Bump tornado from 6.4.1 to 6.4.2
+
+
+### Changes
+- `Dockerfile.dev` and `Dockerfile.prod`:  As described above.
+- `Pipfile` and `Pipefile.lock`:   As described above.
+
+<br/><br/>
+
+
+## v4.5.13.0 - 2024-12-10 - [PR#1285](https://github.com/NOAA-OWP/inundation-mapping/pull/1285)
+
+Major upgrades and bug fixes to the CatFIM product, informally called CatFIM 2.1. See the PR for all details
+
+<br/><br/>
+
+
+## v4.5.12.2 - 2024-12-10 - [PR#1346](https://github.com/NOAA-OWP/inundation-mapping/pull/1346)
+
+This PR updates deny lists to avoid saving unnecessary files.
+I also added PR #1260 (changes to data/bathymetry/preprocess_bathymetry.py ) to this PR.
+
+### Changes
+
+- `config/deny_branch_zero.lst`
+- `config/deny_branches.lst`
+- `config/deny_unit.lst`
+- `data/bathymetry/preprocess_bathymetry.py`
+
+<br/><br/>
+
+
+## v4.5.12.1 - 2024-11-22 - [PR#1328](https://github.com/NOAA-OWP/inundation-mapping/pull/1328)
+
+Fixes bug and adds error checking in FIM Performance. Fixes #1326.
+
+### Changes
+- `src/utils/fim_logger.py`: Fix a spacing issue
+- `tools/`
+    - `pixel_counter.py`: Adds check if file exists
+    - `run_test_case.py`: if there is a .aux.xml file in the test_case dir, this can fail. now fixed.
+    - `test_case_by_hydro_id.py`: Fixes bug and adds error checking/logging
+
+<br/><br/>
+
+
 ## v4.5.12.0 - 2024-11-01 - [PR#1327](https://github.com/NOAA-OWP/inundation-mapping/pull/1327)
 
 The purpose of this PR is to cut down the runtime for four Alaska HUCs (19020104, 19020503, 19020402 , and 19020602). It significantly optimizes runtime by replacing a nested for loop, used for updating rating curve for small segments, with a vectorized process. This changes were applied only to the Alaska HUCs.
@@ -36,6 +88,8 @@ As part of this PR, small modification was applied to bridge_inundation.py.
 - `tools/bridge_inundation.py`
 
 <br/><br/>
+
+
 
 
 ## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)

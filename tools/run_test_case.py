@@ -541,6 +541,6 @@ class Test_Case(Benchmark):
                 continue
 
             for f in os.listdir(mag_dir):
-                if 'agreement.tif' in f:
+                if f.endswith('agreement.tif'):  # sometimes there are {xxxx}.tif.aux.xml
                     agreement_list.append(os.path.join(mag_dir, f))
         return agreement_list
