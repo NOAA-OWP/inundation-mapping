@@ -137,7 +137,7 @@ def get_sample_data(
         """
 
         if input_root:
-            output_path = input_path.replace(input_root, output_path)
+            output_path = os.path.join(output_path, input_path.removeprefix(input_root))
 
         if use_s3:
             print(f"Downloading {input_path} to {output_path}")
