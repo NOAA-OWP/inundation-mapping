@@ -662,11 +662,8 @@ def __load_nwm_metadata(
 
         FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
 
-        if lid_to_run != "all":
-            # single lid for now
-
-            # must_include_value variable not yet tested
-            # must_include_value = 'nws_data.rfc_forecast_point' if lid_to_run not in ['HI', 'PR', 'AK'] else None
+        if lid_to_run != "all": # TODO: Deprecate LID options (in favor of HUC list functionlity)
+            # Single lid for now (deprecated)
             output_meta_list, ___ = get_metadata(
                 metadata_url,
                 select_by='nws_lid',
@@ -675,20 +672,13 @@ def __load_nwm_metadata(
                 upstream_trace_distance=nwm_us_search,
                 downstream_trace_distance=nwm_ds_search,
             )
+
         else:
-            # This gets all records including AK, HI and PR, but only if they ahve forecast points
+            # Dec 2024: Running two API calls: one to get all forecast points, and another 
+            # to get all points (non-forecast and forecast) for the OCONUS regions. Then, 
+            # duplicate LIDs are removed.
 
-            # Note: Nov 2024: AK has 152 sites with forecast points, but after research
-            # non of the AK sites that nws_data.rfc_forecast_point = False so we can
-            # exclude them.
-            # Previously we allowed HI and PR sites to come in and most were failing.
-            # So, we will include HI and PR as well here
-
-            # We can not just filter out based on dup lids as depending on which
-            # metadata load they are on, dup lid records will have different data
-
-            # orig_meta_lists, ___ = get_metadata(
-            # all_meta_lists, ___ = get_metadata(
+            # Get all forecast points
             forecast_point_meta_list, ___ = get_metadata(
                 metadata_url,
                 select_by='nws_lid',
@@ -698,26 +688,8 @@ def __load_nwm_metadata(
                 downstream_trace_distance=nwm_ds_search,
             )
 
-            # If we decided to put HI and PR back in we can do two loads one
-            # with the flag and one without. Then iterate through the meta_lists
-            # results and filtered out based on the state full value. Then
-            # call WRDS again with those specific states and simply concat them.
-
-            # filtered_meta_data = []
-            # for metadata in orig_meta_lists:
-            #     df = pd.json_normalize(metadata)
-            #     state = df['nws_data.state'].item()
-            #     lid = df['identifiers.nws_lid'].item()
-            #     if state.lower() not in ["alaska", "hawaii", "puerto rico"]:
-            #         filtered_meta_data.append(metadata)
-
-            # must_include='nws_data.rfc_forecast_point',
-
-            # Nov 2024: We used to call them site specific and may add them back in but ok to leave then
-
-            # islands_list, ___ = get_metadata(
+            # Get all points for OCONUS regions (HI, PR, and AK)
             oconus_meta_list, ___ = get_metadata(
-
                 metadata_url,
                 select_by='state',
                 selector=['HI', 'PR', 'AK'],
@@ -731,46 +703,38 @@ def __load_nwm_metadata(
 
             # print(f"len(all_meta_lists) is {len(all_meta_lists)}")
             
-            # ---------- Filter the metadata list
-
+            # Filter the metadata list
             output_meta_list = []
-            unique_lids, duplicate_lids = [], [] # TODO: maybe remove eventually?
-            duplicate_meta_list = [] # TODO: remove eventually
-            nonelid_metadata_list = [] # TODO: remove eventually
+            unique_lids, duplicate_lids = [], [] # TODO: remove?
+            duplicate_meta_list = []
+            nonelid_metadata_list = [] # TODO: remove
 
             for i, site in enumerate(unfiltered_meta_list):
                 nws_lid = site['identifiers']['nws_lid']
 
                 if nws_lid == None:
                     # No LID available
-                    nonelid_metadata_list.append(site) # TODO: replace this with Continue, eventually we wont need this list
+                    nonelid_metadata_list.append(site) # TODO: replace with Continue
 
                 elif nws_lid in unique_lids:
                     # Duplicate LID
                     duplicate_lids.append(nws_lid)
-                    duplicate_meta_list.append(site) # TODO: remove eventually
+                    duplicate_meta_list.append(site) # TODO: remove extra lists
 
                 else: 
                     # Unique/unseen LID that's not None
                     unique_lids.append(nws_lid)
                     output_meta_list.append(site)
 
-            # # TEMP DEBUG: Print metadata stats
-            # print(f'Input metadata list length: {len(unfiltered_meta_list)}')
-            # print(f'Output (unique) metadata list length: {len(filt_meta_list)}')
-            # print(f'Number of unique LIDs: {len(unique_lids)}')
-            # print(f'Number of duplicate LIDs: {len(duplicate_lids)}')
-            # print(f'Number of None LIDs: {len(nonelid_metadata_list)}')
+            FLOG.lprint(f'{len(duplicate_lids)} duplicate points removed.')
+            FLOG.lprint(f'Filtered metadatada downloaded for {len(output_meta_list)} points.')
 
         # ----------
 
         with open(meta_file, "wb") as p_handle:
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
-            # pickle.dump(all_meta_lists, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            
     return output_meta_list
-    # return all_meta_lists
 
 
 if __name__ == '__main__':
