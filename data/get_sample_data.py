@@ -111,9 +111,12 @@ def get_sample_data(
             print(f"Copying {os.path.join(input_path, basename)} to {output_path}")
             os.makedirs(output_path, exist_ok=True)
             if use_s3:
-                s3.download_file(
-                    bucket, os.path.join(input_path, basename), os.path.join(output_path, basename)
-                )
+                try:
+                    s3.download_file(
+                        bucket, os.path.join(input_path, basename), os.path.join(output_path, basename)
+                    )
+                except Exception as e:
+                    print(f"/tError downloading {os.path.join(input_path, basename)}: {e}")
             else:
                 shutil.copy2(os.path.join(input_path, basename), output_path)
 
@@ -137,6 +140,10 @@ def get_sample_data(
         """
 
         if input_root:
+            # Make sure input root ends with a '/'
+            if input_root[-1] != '/':
+                input_root = input_root + '/'
+
             output_path = os.path.join(output_path, input_path.removeprefix(input_root))
 
         if use_s3:
@@ -199,7 +206,6 @@ def get_sample_data(
 
     load_dotenv('/foss_fim/src/bash_variables.env')
 
-    PRE_CLIP_HUC_DIR = os.environ["pre_clip_huc_dir"]
     INPUT_DEM_DOMAIN = os.environ["input_DEM_domain"]
     INPUT_DEM_DOMAIN_ALASKA = os.environ["input_DEM_domain_Alaska"]
     INPUT_DEM = os.environ['input_DEM']
@@ -213,6 +219,7 @@ def get_sample_data(
     INPUT_GL_BOUNDARIES = os.environ["input_GL_boundaries"]
     INPUT_WBD_GDB_ALASKA = os.environ["input_WBD_gdb_Alaska"]
     NWM_RECUR_FILE = os.environ["nwm_recur_file"]
+    INPUT_CALIB_POINTS_DIR = os.environ["input_calib_points_dir"]
 
     root_dir = os.path.split(input_path)[0]
 
@@ -256,8 +263,6 @@ def get_sample_data(
 
     __copy_file(os.environ["vmann_input_file"], output_root_folder, input_root)
 
-    __copy_folder(os.environ["input_calib_points_dir"], output_root_folder, input_root)
-
     ## usgs_gages
     __copy_file(os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder, input_root)
 
@@ -265,9 +270,6 @@ def get_sample_data(
 
     ## osm bridges
     __copy_file(os.environ["osm_bridges"], output_root_folder, input_root)
-
-    ## ras2fim
-    __copy_folder(os.environ["ras2fim_input_dir"], output_root_folder, input_root)
 
     for huc in hucs:
         huc2Identifier = huc[:2]
@@ -323,8 +325,29 @@ def get_sample_data(
         command.extend(dem_list)
         subprocess.call(command)
 
+        __copy_file(os.path.join(INPUT_CALIB_POINTS_DIR, f'{huc}.parquet'), output_root_folder, input_root)
+
+        ## ras2fim
+        ras2fim_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
+        __copy_file(
+            os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_csv_filename"]),
+            output_root_folder,
+            input_root,
+        )
+        __copy_file(
+            os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_gpkg_filename"]),
+            output_root_folder,
+            input_root,
+        )
+
+        __copy_file(
+            os.path.join(os.environ["ras2fim_input_dir"], huc, os.environ["ras_rating_curve_gpkg_filename"]),
+            output_root_folder,
+            input_root,
+        )
+
         ## pre_clip_huc8
-        __copy_folder(os.path.join(PRE_CLIP_HUC_DIR, huc), output_root_folder, input_root)
+        __copy_folder(os.path.join(os.environ["pre_clip_huc_dir"], huc), output_root_folder, input_root)
 
         ## validation data
         for org in orgs:
