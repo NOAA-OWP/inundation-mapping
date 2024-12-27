@@ -4,7 +4,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v4.5.x.x - 2024-05-22 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
 
 ### Summary
-Contains files to generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for specified HUC(s) as well as related patches to replace absolute file paths with relative file paths, a fix for evaluating when IFC data are not available, and update code to generate pre-clip data so that WBD for Alaska contains only one layer. NOTE: this PR requires `wbd.gpkg` to be created by the updated `generate_pre_clip_fim_huc8.py` to be copied to the pre-clip HUC folders to remove a warning in `synthesize_test_case.py`.
+Contains files to generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for specified HUC(s) as well update code to generate pre-clip data so that WBD for Alaska contains only one layer. NOTE: this PR requires `wbd.gpkg` to be created by the updated `generate_pre_clip_fim_huc8.py` to be copied to the pre-clip HUC folders to remove a warning in `synthesize_test_case.py`.
 
 ### Usage
 ```
@@ -19,8 +19,6 @@ python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_f
         - 'README.md' [archived]
     - `get_sample_data.py`: Copies relevant data for `inputs` and `test_cases` from the FIM data folder for specified HUC(s) and saves it to a separate location
     - `wbd/generate_pre_clip_fim_huc8.py`: Fix file paths and layers
-- `src/bash_variables.env`: Add paths for landsea and nws_lid
-- `tools/run_test_case.py`: Skip evaluation for missing validation data and fix hardcoded paths for masks
 
 <br/><br/>
 
