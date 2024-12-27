@@ -145,8 +145,8 @@ class HucDirectory(object):
         self.bridge_dtypes = {
             'osmid': int,
             'name': str,
-            'max_hand': float,
-            'max_hand_75': float,
+            'threshold_hand': float,
+            'threshold_hand_75': float,
             'feature_id': int,
             'HydroID': int,
             'order_': str,
