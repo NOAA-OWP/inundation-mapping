@@ -116,7 +116,8 @@ def get_sample_data(
                         bucket, os.path.join(input_path, basename), os.path.join(output_path, basename)
                     )
                 except Exception as e:
-                    print(f"/tError downloading {os.path.join(input_path, basename)}: {e}")
+                    print(f"Error downloading {os.path.join(input_path, basename)}: {e}")
+                    os.rmdir(output_path)
             else:
                 shutil.copy2(os.path.join(input_path, basename), output_path)
 
@@ -229,7 +230,10 @@ def get_sample_data(
     for org in orgs:
         validation_hucs[org] = __get_validation_hucs(root_dir, org)
 
-        os.makedirs(os.path.join(output_root_folder, 'test_cases', f'{org}_test_cases'), exist_ok=True)
+        os.makedirs(
+            os.path.join(output_root_folder, f'test_cases/{org}_test_cases/validation_data_{org}'),
+            exist_ok=True,
+        )
 
     # Copy WBD (needed for post-processing)
     __copy_file(os.environ["input_WBD_gdb"], output_root_folder, input_root)
