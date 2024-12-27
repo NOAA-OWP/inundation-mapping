@@ -20,6 +20,19 @@ python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_f
     - `get_sample_data.py`: Copies relevant data for `inputs` and `test_cases` from the FIM data folder for specified HUC(s) and saves it to a separate location
     - `wbd/generate_pre_clip_fim_huc8.py`: Fix file paths and layers
 
+## v4.x.x.x - 2024-12-27 - [PR#1387](https://github.com/NOAA-OWP/inundation-mapping/pull/1387)
+
+Fixes two issues in test_cases:
+1. An error in `synthesize_test_cases` and `run_test_case` if any directories of the 5 benchmark sources (BLE, NWS, IFC, USGS, or ras2fim) do not exist. This issue was originally discovered and fixed in #1178, but is being elevated to its own PR here. Fixes #1386.
+2. Updated `run_test_cases` to accommodate levee and waterbody masking in Alaska. As part of these changes, hardcoded paths were replaced by environment variables.
+
+### Changes
+
+- `src/bash_variables.env`: Added environment variables for Alaska waterbody and levee masks and two variables to replace fixed paths in an upcoming PR (#1178).
+- `tools/`
+    - `run_test_case.py`: Fixed error if missing validation data. Updated masking data to include Alaska.
+    - `synthesize_test_cases.py`: Fixed error if missing validation data.
+    
 <br/><br/>
 
 ## v4.5.13.1 - 2024-12-13 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
