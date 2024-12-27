@@ -119,7 +119,10 @@ def get_sample_data(
                     print(f"Error downloading {os.path.join(input_path, basename)}: {e}")
                     os.rmdir(output_path)
             else:
-                shutil.copy2(os.path.join(input_path, basename), output_path)
+                if os.path.exists(os.path.join(output_path, basename)):
+                    shutil.copy2(os.path.join(input_path, basename), output_path)
+                else:
+                    print(f"{os.path.join(input_path, basename)} does not exist.")
 
             return os.path.join(output_path, basename)
 
@@ -356,7 +359,10 @@ def get_sample_data(
         ## validation data
         for org in orgs:
             if huc in validation_hucs[org]:
-                __copy_validation_data(org, huc, bucket_path, output_root_folder)
+                if use_s3:
+                    __copy_validation_data(org, huc, bucket_path, output_root_folder)
+                else:
+                    __copy_validation_data(org, huc, data_path, output_root_folder)
 
 
 if __name__ == '__main__':
