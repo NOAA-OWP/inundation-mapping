@@ -949,7 +949,7 @@ def get_reccur_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals):
     if nwm_ids > 0:
         try:
             nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[
-                nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().item()
+                nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().loc[0]
             ]
             nwm_recurr_intervals['pred_elev'] = np.interp(
                 nwm_recurr_intervals.discharge_cfs.values,
@@ -1299,6 +1299,7 @@ if __name__ == '__main__':
     )  # using WARNING level to avoid benign? info messages ("Failed to auto identify EPSG: 7")
     format = '  %(message)s'
     log_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    os.makedirs(output_dir, exist_ok=True)
     handlers = [
         logging.FileHandler(os.path.join(output_dir, f'rating_curve_comparison_{log_dt_string}.log')),
         logging.StreamHandler(),
