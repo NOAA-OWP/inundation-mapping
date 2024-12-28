@@ -9,6 +9,7 @@ import os
 import time
 import argparse
 import geopandas as gpd
+import traceback
 
 
 def merge_bridge_tifs(lidar_tif_dir,HUC6_lidar_tif_osmids,merged_file_path):
@@ -104,104 +105,109 @@ def identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir):
 
 
 def make_dif_ratsers(OSM_bridge_file,dem_dir,lidar_tif_dir,output_dir):
-    start_time = time.time()
+    try:
+        start_time = time.time()
 
-    #add HUC6 info update the osm bridge line file with existence of lidar 
-    OSM_bridge_lines_gdf=gpd.read_file(OSM_bridge_file)
-    OSM_bridge_lines_gdf['HUC6']=OSM_bridge_lines_gdf['HUC'].str[:6]
-    OSM_bridge_lines_gdf=identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir)
-    # OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['has_lidar_tif']=='Y'].to_file('/outputs/Ali_bridges_lidar/final/Step4_make_diff_elev/test.gpkg')
-
-
-    dem_files=list(glob.glob(os.path.join(dem_dir, '*.tif')))
-    # dem_files=['/data/inputs/dems/3dep_dems/10m_5070/20240916/HUC6_020502_dem.tif']
-    # dem_files=[]
-    for dem_file in dem_files:
-        base_name, extension = os.path.splitext(os.path.basename(dem_file))
-        HUC6=base_name.split('_')[1]
-
-        #get alis t of osmids in this HUC6 with lidar-generated tif files
-        HUC6_lidar_tif_osmids=OSM_bridge_lines_gdf[(OSM_bridge_lines_gdf['HUC6']==HUC6)&(OSM_bridge_lines_gdf['has_lidar_tif']=='Y') ]['osmid'].values.tolist()
-
-        if HUC6_lidar_tif_osmids and len(HUC6_lidar_tif_osmids)>5:  #the second condition is just for debugging...remove it
-            print('making diff for HUC6_%s with %d tif'%(HUC6,len(HUC6_lidar_tif_osmids)))
-            output_file_name=f"{base_name}_diff{extension}"
-            merged_file_path=os.path.join(output_dir,'merged.tif')
-            print('merging')
-            merge_bridge_tifs(lidar_tif_dir,HUC6_lidar_tif_osmids,merged_file_path)
-
-            local_da = xr.open_dataarray(merged_file_path, engine="rasterio", chunks={"x": 1024, "y": 1024})
-            #remove the merged file which is not needed anymore
-            os.remove(os.path.join(output_dir,'merged.tif'))
-
-            # Retrieve profile from the original DEM file
-            with rasterio.open(dem_file) as src:
-                dem_profile = src.profile
-
-            # Open the regional TIFF as an xarray DataArray
-            original_da = xr.open_dataarray(dem_file, engine="rasterio", chunks={"x": 1024, "y": 1024})
-            original_nodata=original_da.rio.nodata
-            enhanced_da = original_da.copy()
-
-            # Open the local TIFF as an xarray DataArray and reproject to match the regional grid, if needed
-            print('reprojeting the merged')
-            if local_da.rio.crs != original_da.rio.crs:
-                print('check the inputs. The crs must match between lidar-tif files and DEM. ')
-                exit()
-                # local_da = local_da.rio.reproject_match(original_da) 
-            # Replace values in the regional DataArray with the local DataArray values at overlapping locations
-            enhanced_da = enhanced_da.where(local_da.isnull(), other=local_da)
-            # # Set nodata value to be consistent
-            enhanced_da=enhanced_da.fillna(original_nodata)
-            enhanced_da.rio.write_nodata(original_nodata, inplace=True)
-
-            diff = enhanced_da - original_da
-
-            # Save the result to a new TIFF file
-            # diff.rio.to_raster(os.path.join(output_dir,output_file_name),compress="LZW") first version
-            # Update the profile with the desired settings
-            # Ensure CRS is properly set for the output
-            if diff.rio.crs is None:
-                diff.rio.write_crs(original_da.rio.crs, inplace=True)
-
-            # Update the profile with the desired settings
-            output_profile = dem_profile.copy()
-            output_profile.update({
-                'driver': 'GTiff',
-                'dtype': 'float32',
-                'compress': 'LZW',
-                'tiled': True,
-                'blockxsize': 256,
-                'blockysize': 256,
-                'BIGTIFF': 'YES',
-                'nodata': original_nodata,
-                'width': original_da.rio.width,  # Use original DEM's width
-                'height': original_da.rio.height,  # Use original DEM's height
-                'transform': original_da.rio.transform()
-            })
-
-            # Ensure diff.values has the correct shape
-            data = diff.values
-            if data.ndim == 4:
-                data = data.squeeze()  # Remove extra dimensions if present
-            if data.ndim == 2:  # Single-band case (height, width)
-                data = data[None, :, :]  # Add band dimension
-
-            # Write the final output raster
-            output_file_path = os.path.join(output_dir, output_file_name)
-            with rasterio.open(output_file_path, 'w', **output_profile) as dst:
-                dst.write(data)
-
-            end_time = time.time()
-            print(f"Method2 time: {end_time - start_time:.4f} seconds")
-
-        else: #if there are no lidar raster for this HUC6, just return a zero diff file
-            print('There is no lidar-generated raster file for osm bridges in HUC%s'%HUC6)
+        #add HUC6 info update the osm bridge line file with existence of lidar 
+        OSM_bridge_lines_gdf=gpd.read_file(OSM_bridge_file)
+        OSM_bridge_lines_gdf['HUC6']=OSM_bridge_lines_gdf['HUC'].str[:6]
+        OSM_bridge_lines_gdf=identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir)
+        # OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['has_lidar_tif']=='Y'].to_file('/outputs/Ali_bridges_lidar/final/Step4_make_diff_elev/test.gpkg')
 
 
-    # #save the osm bridge line file
-    base, ext = os.path.splitext(os.path.basename(OSM_bridge_file)) 
-    OSM_bridge_lines_gdf.to_file(os.path.join(output_dir,f"{base}_modified{ext}"))
+        dem_files=list(glob.glob(os.path.join(dem_dir, '*.tif')))
+        dem_files=['/data/inputs/dems/3dep_dems/10m_5070/20240916/HUC6_020502_dem.tif']
+        # dem_files=[]
+        for dem_file in dem_files:
+            base_name, extension = os.path.splitext(os.path.basename(dem_file))
+            HUC6=base_name.split('_')[1]
+
+            #get alis t of osmids in this HUC6 with lidar-generated tif files
+            HUC6_lidar_tif_osmids=OSM_bridge_lines_gdf[(OSM_bridge_lines_gdf['HUC6']==HUC6)&(OSM_bridge_lines_gdf['has_lidar_tif']=='Y') ]['osmid'].values.tolist()
+
+            if HUC6_lidar_tif_osmids and len(HUC6_lidar_tif_osmids)>5:  #the second condition is just for debugging...remove it
+                print('making diff for HUC6_%s with %d tif'%(HUC6,len(HUC6_lidar_tif_osmids)))
+                output_file_name=f"{base_name}_diff{extension}"
+                merged_file_path=os.path.join(output_dir,'merged.tif')
+                print('merging')
+                merge_bridge_tifs(lidar_tif_dir,HUC6_lidar_tif_osmids,merged_file_path)
+
+                local_da = xr.open_dataarray(merged_file_path, engine="rasterio", chunks={"x": 1024, "y": 1024})
+                #remove the merged file which is not needed anymore
+                os.remove(os.path.join(output_dir,'merged.tif'))
+
+                # Retrieve profile from the original DEM file
+                with rasterio.open(dem_file) as src:
+                    dem_profile = src.profile
+
+                # Open the regional TIFF as an xarray DataArray
+                original_da = xr.open_dataarray(dem_file, engine="rasterio", chunks={"x": 1024, "y": 1024})
+                original_nodata=original_da.rio.nodata
+                enhanced_da = original_da.copy()
+
+                # Open the local TIFF as an xarray DataArray and reproject to match the regional grid, if needed
+                print('reprojeting the merged')
+                if local_da.rio.crs != original_da.rio.crs:
+                    print('check the inputs. The crs must match between lidar-tif files and DEM. ')
+                    exit()
+                    # local_da = local_da.rio.reproject_match(original_da) 
+                # Replace values in the regional DataArray with the local DataArray values at overlapping locations
+                local_da = local_da.reindex_like(enhanced_da, method='nearest')
+                enhanced_da = enhanced_da.where(local_da.isnull(), other=local_da)
+                # # Set nodata value to be consistent
+                enhanced_da=enhanced_da.fillna(original_nodata)
+                enhanced_da.rio.write_nodata(original_nodata, inplace=True)
+
+                diff = enhanced_da - original_da
+                del enhanced_da  #good practice to clean the memory especially for big rasters
+
+                # Save the result to a new TIFF file
+                # diff.rio.to_raster(os.path.join(output_dir,output_file_name),compress="LZW") first version
+                # Update the profile with the desired settings
+                # Ensure CRS is properly set for the output
+                if diff.rio.crs is None:
+                    diff.rio.write_crs(original_da.rio.crs, inplace=True)
+
+                # Update the profile with the desired settings
+                output_profile = dem_profile.copy()
+                output_profile.update({
+                    'driver': 'GTiff',
+                    'dtype': 'float32',
+                    'compress': 'LZW',
+                    'tiled': True,
+                    'blockxsize': 256,
+                    'blockysize': 256,
+                    'BIGTIFF': 'YES',
+                    'nodata': original_nodata,
+                    'width': original_da.rio.width,  # Use original DEM's width
+                    'height': original_da.rio.height,  # Use original DEM's height
+                    'transform': original_da.rio.transform()
+                })
+
+                # Ensure diff.values has the correct shape
+                data = diff.values
+                if data.ndim == 4:
+                    data = data.squeeze()  # Remove extra dimensions if present
+                if data.ndim == 2:  # Single-band case (height, width)
+                    data = data[None, :, :]  # Add band dimension
+
+                # Write the final output raster
+                output_file_path = os.path.join(output_dir, output_file_name)
+                with rasterio.open(output_file_path, 'w', **output_profile) as dst:
+                    dst.write(data)
+
+                end_time = time.time()
+                print(f"Method2 time: {end_time - start_time:.4f} seconds")
+
+            else: #if there are no lidar raster for this HUC6, just return a zero diff file
+                print('There is no lidar-generated raster file for osm bridges in HUC%s'%HUC6)
+
+
+        # #save the osm bridge line file
+        base, ext = os.path.splitext(os.path.basename(OSM_bridge_file)) 
+        OSM_bridge_lines_gdf.to_file(os.path.join(output_dir,f"{base}_modified{ext}"))
+    except Exception:
+        print(traceback.format_exc())
 
 
 
@@ -253,6 +259,6 @@ if __name__ == "__main__":
 
 
     args = vars(parser.parse_args())
-
+    print('starting...')
     make_dif_ratsers(**args)
 
