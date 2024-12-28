@@ -123,7 +123,7 @@ def handle_noises(points_gdf):
     return modified_points_gdf
 
 
-def make_local_tifs(modified_las_path,raster_resolution, tif_path):
+def make_local_tifs(modified_las_path,raster_resolution,tif_crs, tif_path):
     my_pipe={
         "pipeline": [
             {
@@ -131,6 +131,12 @@ def make_local_tifs(modified_las_path,raster_resolution, tif_path):
             "filename": modified_las_path, 
             "spatialreference": "EPSG:3857"  # specify the correct coordinate reference system
             },
+
+             { #reproject to 5070 or Alaska crs?
+            "in_srs":'EPSG:3857',
+            "out_srs": 'EPSG:%d'%tif_crs,
+            "type": "filters.reprojection",
+             },
             
             {
             "type": "writers.gdal",
@@ -232,7 +238,7 @@ def process_bridges_lidar_data(OSM_bridge_file,buffer_width,raster_resolution,ou
     os.makedirs(point_dir, exist_ok=True)
     os.makedirs(tif_files_dir, exist_ok=True)
 
-    tif_crs=3857 # consider using for Alaska ?
+    tif_crs=5070 # consider changing for Alaska ?
 
     #produce footprints of lidar dataset over conus
     entwine_footprints_gdf=make_lidar_footprints()
@@ -282,7 +288,7 @@ def process_bridges_lidar_data(OSM_bridge_file,buffer_width,raster_resolution,ou
             
             #make tif files
             tif_output=os.path.join(output_dir,'tif_files','%s.tif'%osmid)
-            make_local_tifs(modified_las_path,raster_resolution, tif_output)
+            make_local_tifs(modified_las_path,raster_resolution,tif_crs, tif_output)
 
             #remove the temporary las file
             os.remove(modified_las_path)

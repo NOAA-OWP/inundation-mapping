@@ -12,68 +12,88 @@ import geopandas as gpd
 
 
 def merge_bridge_tifs(lidar_tif_dir,HUC6_lidar_tif_osmids,merged_file_path):
+
+    merge_start_time = time.time()
     
-    # Read and merge the lidar generated TIFF files
-    # lidar_tif_files=list(glob.glob(os.path.join(lidar_tif_dir, '*.tif')))
-
-    # HUC6_lidar_tif_osmids=OSM_bridge_lines_gdf[(OSM_bridge_lines_gdf['HUC6']==HUC6)&(OSM_bridge_lines_gdf['has_lidar_tif']=='Y') ]['osmid'].values.tolist()
-
-    
-
-    #keep the tif files within HUC6
-    # HUC6_gdf=gpd.read_file(os.path.join(huc6_dir,'HUC6_%s.gpkg'%HUC6))
-    # HUC6_gdf.to_crs(OSM_bridge_lines_gdf.crs, inplace=True)
-    # OSM_bridges_within_HUC6=OSM_bridge_lines_gdf.sjoin(HUC6_gdf,how="inner", predicate="within")['osmid'].values.astype(str)
-
-    # HUC6_lidar_tif_files =  [ tif_file for tif_file in lidar_tif_files if os.path.basename(tif_file).split('.')[0] in OSM_bridge_lines_gdf['HUC6'].values]
-
-    # if not HUC6_lidar_tif_osmids: 
-    #     return False
-    
-    # else:
     src_files_to_mosaic = []
 
     for osmid in HUC6_lidar_tif_osmids:
         fp=os.path.join(lidar_tif_dir,'%s.tif'%str(osmid))
-        # print(fp)
-
         src = rasterio.open(fp)
         src_files_to_mosaic.append(src)
 
-    mosaic, out_trans = merge(src_files_to_mosaic)
+    mosaic, out_trans = merge(src_files_to_mosaic,nodata=src_files_to_mosaic[0].nodata)
     # Close all the source files
     for src in src_files_to_mosaic:
         src.close()
-    # Create an empty raster that covers the entire domain
-    # Define the metadata
-    out_meta = src.meta.copy()
-    # out_meta.update({
-    #     "driver": "GTiff",
-    #     "height": mosaic.shape[1],
-    #     "width": mosaic.shape[2],
-    #     "transform": out_trans,
-    #     "crs": 'EPSG:3857'
-    # })
 
-    out_meta.update({
-            'driver': 'GTiff',
-            'dtype': 'float32',
-            'compress': 'LZW',
-            'tiled': True,
-            'blockxsize': 256,
-            'blockysize': 256,
-            'BIGTIFF': 'YES',
-            # 'nodata': original_nodata,
-            'width': mosaic.shape[2],
-            'height': mosaic.shape[1],
-            'transform': out_trans
-        })
+    out_meta = {
+        'driver': 'GTiff',
+        'dtype': 'float32',
+        'compress': 'LZW',
+        'tiled': True,
+        'blockxsize': 256,
+        'blockysize': 256,
+        'BIGTIFF': 'YES',
+        'height': mosaic.shape[1],  # Number of rows in the merged raster
+        'width': mosaic.shape[2],   # Number of columns in the merged raster
+        'transform': out_trans,
+        'crs': src_files_to_mosaic[0].crs,
+        'count': mosaic.shape[0],
+        'nodata': src_files_to_mosaic[0].nodata
+    }
+    
 
     with rasterio.open(merged_file_path, 'w', **out_meta) as dest:
         dest.write(mosaic)
 
+    merge_end_time = time.time()
+    print(f"merging time: {merge_end_time - merge_start_time:.4f} seconds")
 
-    # return True
+
+
+    # src_files_to_mosaic = []
+
+    # for osmid in HUC6_lidar_tif_osmids:
+    #     fp=os.path.join(lidar_tif_dir,'%s.tif'%str(osmid))
+    #     # print(fp)
+
+    #     src = rasterio.open(fp)
+    #     src_files_to_mosaic.append(src)
+
+    # mosaic, out_trans = merge(src_files_to_mosaic)
+    # # Close all the source files
+    # for src in src_files_to_mosaic:
+    #     src.close()
+    # # Create an empty raster that covers the entire domain
+    # # Define the metadata
+    # out_meta = src.meta.copy()
+    # # out_meta.update({
+    # #     "driver": "GTiff",
+    # #     "height": mosaic.shape[1],
+    # #     "width": mosaic.shape[2],
+    # #     "transform": out_trans,
+    # #     "crs": 'EPSG:3857'
+    # # })
+
+    # out_meta.update({
+    #         'driver': 'GTiff',
+    #         'dtype': 'float32',
+    #         'compress': 'LZW',
+    #         'tiled': True,
+    #         'blockxsize': 256,
+    #         'blockysize': 256,
+    #         'BIGTIFF': 'YES',
+    #         # 'nodata': original_nodata,
+    #         'width': mosaic.shape[2],
+    #         'height': mosaic.shape[1],
+    #         'transform': out_trans
+    #     })
+
+    # with rasterio.open(merged_file_path, 'w', **out_meta) as dest:
+    #     dest.write(mosaic)
+
+
 
 def identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir):
     #identify osmids with lidar-tif or not
@@ -110,7 +130,7 @@ def make_dif_ratsers(OSM_bridge_file,dem_dir,lidar_tif_dir,output_dir):
             print('merging')
             merge_bridge_tifs(lidar_tif_dir,HUC6_lidar_tif_osmids,merged_file_path)
 
-            local_da = xr.open_dataarray(merged_file_path, engine="rasterio")
+            local_da = xr.open_dataarray(merged_file_path, engine="rasterio", chunks={"x": 1024, "y": 1024})
             #remove the merged file which is not needed anymore
             os.remove(os.path.join(output_dir,'merged.tif'))
 
@@ -119,14 +139,16 @@ def make_dif_ratsers(OSM_bridge_file,dem_dir,lidar_tif_dir,output_dir):
                 dem_profile = src.profile
 
             # Open the regional TIFF as an xarray DataArray
-            original_da = xr.open_dataarray(dem_file, engine="rasterio")
+            original_da = xr.open_dataarray(dem_file, engine="rasterio", chunks={"x": 1024, "y": 1024})
             original_nodata=original_da.rio.nodata
             enhanced_da = original_da.copy()
 
             # Open the local TIFF as an xarray DataArray and reproject to match the regional grid, if needed
             print('reprojeting the merged')
             if local_da.rio.crs != original_da.rio.crs:
-                local_da = local_da.rio.reproject_match(original_da) 
+                print('check the inputs. The crs must match between lidar-tif files and DEM. ')
+                exit()
+                # local_da = local_da.rio.reproject_match(original_da) 
             # Replace values in the regional DataArray with the local DataArray values at overlapping locations
             enhanced_da = enhanced_da.where(local_da.isnull(), other=local_da)
             # # Set nodata value to be consistent
