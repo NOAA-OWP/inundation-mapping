@@ -117,7 +117,8 @@ def get_sample_data(
                     )
                 except Exception as e:
                     print(f"Error downloading {os.path.join(input_path, basename)}: {e}")
-                    os.rmdir(output_path)
+                    if not os.listdir(output_path):
+                        os.rmdir(output_path)
             else:
                 if os.path.exists(os.path.join(output_path, basename)):
                     shutil.copy2(os.path.join(input_path, basename), output_path)
