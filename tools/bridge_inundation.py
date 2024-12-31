@@ -87,6 +87,11 @@ def bridge_risk_status(
     # Concatenate all GeoDataFrame into a single GeoDataFrame
     bridge_points = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
 
+    if bridge_points.feature_id.dtype != 'int':
+        bridge_points.feature_id = bridge_points.feature_id.astype(int)
+    if flow_file_data.feature_id.dtype != 'int':
+        flow_file_data.feature_id = flow_file_data.feature_id.astype(int)
+
     # Find the common feature_id between flow_file and bridge_points
     merged_bri = bridge_points.merge(flow_file_data, on='feature_id', how='inner')
 
@@ -111,7 +116,7 @@ def bridge_risk_status(
     bridge_out = merged_bri.loc[merged_data_max]
     bridge_out.reset_index(drop=True, inplace=True)
     bridge_out.drop('risk', axis=1, inplace=True)
-    bridge_out.to_file(output_dir, driver='GPKG', layer='bridge_risk_status')
+    bridge_out.to_file(output_dir, index=False, driver="GPKG", engine='fiona')
 
     return bridge_out
 

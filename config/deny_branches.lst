@@ -10,6 +10,7 @@ agree_smogrid.tif
 agree_smogrid_allo.tif
 agree_smogrid_dist.tif
 agree_smogrid_zerod.tif
+backpool_stats.csv
 catch_list_{}.txt
 coordFile_{}.txt
 crosswalk_table_{}.csv
