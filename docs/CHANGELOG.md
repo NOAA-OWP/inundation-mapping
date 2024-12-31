@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2024-12-31 - [PR#1389](https://github.com/NOAA-OWP/inundation-mapping/pull/1389)
+
+Updates Python packages to resolve dependency conflicts that were preventing `Dockerfile.dev` to build on Mac. This also resolves two security warnings: https://github.com/NOAA-OWP/inundation-mapping/security/dependabot/51 and https://github.com/NOAA-OWP/inundation-mapping/security/dependabot/52.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Upgrades Python packages
+
+<br/><br/>
+
 ## v4.5.13.1 - 2024-12-13 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
 
 This PR was triggered by two dep-bot PR's. One for Tornado, one for aiohttp. Upon further research, these two exist only as dependencies for Jupyter and Jupyterlab which were very out of date. Upgrading Jupyter/JupyterLab took care of the other two.
