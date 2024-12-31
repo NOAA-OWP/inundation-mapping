@@ -8,6 +8,10 @@ This script produces inundation depths and attempts to overcome the catchment bo
 ### Additions
 
 - `tools/interpolate_water_surface.py`: New post-inundation processing tool for extending depths beyond catchment limits. The `interpolate_wse()` contains the logic for computing the updated depth raster, but users can also call this module directly to perform inundation, similar to how `inundate_mosaic_wrapper.py` works, but with the new post-processing enhancement.
+
+<br/><br/>
+
+
 ## v4.5.13.1 - 2024-12-13 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
 
 This PR was triggered by two dep-bot PR's. One for Tornado, one for aiohttp. Upon further research, these two exist only as dependencies for Jupyter and Jupyterlab which were very out of date. Upgrading Jupyter/JupyterLab took care of the other two.
