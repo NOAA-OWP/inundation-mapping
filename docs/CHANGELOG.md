@@ -9,7 +9,7 @@ Fixes two issues in test_cases:
 
 ### Changes
 
-- `src/bash_variables.env`: Added environment variables for Alaska waterbody and levee masks and two variables to replace fixed paths in an upcoming PR (#1178).
+- `src/bash_variables.env`: Added environment variables for Alaska waterbody and levee masks.
 - `tools/`
     - `run_test_case.py`: Fixed error if missing validation data. Updated masking data to include Alaska.
     - `synthesize_test_cases.py`: Fixed error if missing validation data.
