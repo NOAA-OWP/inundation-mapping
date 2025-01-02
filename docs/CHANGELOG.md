@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2025-01-02 - [PR#1388]https://github.com/NOAA-OWP/inundation-mapping/pull/1388)
+
+Fixed Sierra test bugs to draw the vertical lines.
+
+### Changes
+
+- `tools/rating_curve_comparison.py`
+
+<br/><br/>
+
+
 ## v4.5.13.1 - 2024-12-13 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
 
 This PR was triggered by two dep-bot PR's. One for Tornado, one for aiohttp. Upon further research, these two exist only as dependencies for Jupyter and Jupyterlab which were very out of date. Upgrading Jupyter/JupyterLab took care of the other two.
