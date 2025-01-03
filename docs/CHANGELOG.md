@@ -14,9 +14,6 @@ The location of this file was also added to the `bash_variables.env`.
 
 - `fim_post_processing.sh`: New arguments were added.
 
-### Testing
-This PR has been tested over multiple HUC8s around the Illinois River, Kanawha River, and Ohio River.
-
 
 ## v4.5.13.4 - 2024-01-03 - [PR#1382](https://github.com/NOAA-OWP/inundation-mapping/pull/1382)
 
