@@ -3,8 +3,6 @@
 import argparse
 import copy
 import os
-import pathlib
-import sys
 import tempfile
 
 import numpy as np
@@ -14,7 +12,6 @@ import pandas as pd
 # from types import NoneType
 from osgeo import gdal, ogr
 from osgeo.gdalconst import *
-from pandas import DataFrame
 from pixel_counter_functions import (
     get_bridge_counts,
     get_levee_counts,
