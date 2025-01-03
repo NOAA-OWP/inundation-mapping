@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.14.0 - 2025-01-03 - [PR#1340](https://github.com/NOAA-OWP/inundation-mapping/pull/1340)
+## v4.5.x.x - 2025-01-03 - [PR#1340](https://github.com/NOAA-OWP/inundation-mapping/pull/1340)
 
 This branch focuses on adjusting rating curves by using bathymetric data and optimized channel roughness values. The bathymetry data includes eHydro surveys and AI-based datasets created for all NWM streams. New manning roughness values were developed for each feature-id using a differential evolution objective function (OF). The OF minimizes the number of the false_positives and false_negatives cells in our flood inundation maps where we have test cases across the CONUS. 
 
