@@ -54,6 +54,8 @@ def process_bridges_in_huc(
     with rasterio.open(source_hand_raster, 'w', **profile) as new_hand_grid:
         new_hand_grid.write(hand_grid_array, 1)
 
+    del hand_grid_array
+
     # Switch the geometry over to the centroid points
     osm_gdf['geometry'] = osm_gdf['centroid_geometry']
     osm_gdf = osm_gdf.drop(columns='centroid_geometry')
@@ -62,6 +64,9 @@ def process_bridges_in_huc(
     osm_gdf = osm_gdf.loc[osm_gdf.max_hand >= 0]
     catchments_df = gpd.read_file(catchments)
     osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
+
+    del catchments_df
+
     osm_gdf = osm_gdf.drop(columns='index_right')
     # Calculate threatened stage
     osm_gdf['max_hand_75'] = osm_gdf.max_hand * threatened_percent
@@ -77,6 +82,9 @@ def process_bridges_in_huc(
         osm_gdf.to_file(bridge_centroids, index=False, engine='fiona')
     else:
         print('The geoDataFrame is empty. File not saved.')
+
+    del osm_gdf
+
     return
 
 

@@ -3,13 +3,13 @@
 
 # TODO standardize this script
 
-import os.path
-import sys
+import argparse
 
-from osgeo import gdal, osr
+import rasterio as rio
+from osgeo import osr
 
 
-gdal.UseExceptions()
+osr.UseExceptions()
 
 
 """
@@ -64,69 +64,47 @@ def ReprojectCoords(coords, src_srs, tgt_srs):
     return trans_coords
 
 
-# get file size function
-def sizeof_fmt(num, suffix='B'):
-    for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
-        if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f%s%s" % (num, 'Y', suffix)
+def get_raster_info(raster):
+    # open dataset
+    with rio.open(raster) as ds:
+        meta = ds.meta
+
+    # fsize = sizeof_fmt(os.path.getsize(sys.argv[1]))
+    cols = meta.get("width")
+    rows = meta.get("height")
+    nodata = meta.get("nodata")
+
+    gt = meta.get("transform")  # (1336251.3593209502, 10.0, 0.0, 657665.814333962, 0.0, -10.0)
+
+    ext = GetExtent(gt.to_gdal(), cols, rows)
+
+    lon1 = ext[0][0]
+    lon2 = ext[2][0]
+    lat1 = ext[2][1]
+    lat2 = ext[0][1]
+
+    # calculate cellsize
+    resx = (ext[2][0] - ext[0][0]) / cols
+    resy = (ext[0][1] - ext[2][1]) / rows
+
+    # print out RasterInfos
+    print(
+        cols,
+        rows,
+        nodata,
+        str(lon1),
+        str(lat1),
+        str(lon2),
+        str(lat2),
+        "{:.15f}".format(resx),
+        "{:.15f}".format(resy),
+    )
 
 
-# open dataset
-ds = gdal.Open(sys.argv[1])
-fsize = sizeof_fmt(os.path.getsize(sys.argv[1]))
-cols = ds.RasterXSize
-rows = ds.RasterYSize
-nodata = ds.GetRasterBand(1).GetNoDataValue()
-# stats = ds.GetRasterBand(1).GetStatistics(True, True)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Get raster information")
+    parser.add_argument("-r", "--raster", help="Raster file to get information from")
 
-gt = ds.GetGeoTransform()
-ext = GetExtent(gt, cols, rows)
+    args = parser.parse_args()
 
-src_srs = osr.SpatialReference()
-src_srs.ImportFromWkt(ds.GetProjection())
-tgt_srs = src_srs.CloneGeogCS()
-
-geo_ext = ReprojectCoords(ext, src_srs, tgt_srs)
-lon1 = ext[0][0]
-lon2 = ext[2][0]
-lat1 = ext[2][1]
-lat2 = ext[0][1]
-
-# calculate cellsize
-resx = (ext[2][0] - ext[0][0]) / cols
-resy = (ext[0][1] - ext[2][1]) / rows
-
-# print out RasterInfos
-print(
-    fsize,
-    cols,
-    rows,
-    nodata,
-    str(lon1),
-    str(lat1),
-    str(lon2),
-    str(lat2),
-    "{:.15f}".format(resx),
-    "{:.15f}".format(resy),
-)
-# print stats[0],
-# print stats[1],
-# print stats[2],
-# print stats[3],
-# print "\"" + str(lat1) + "," + str(lon1) + "," + str(lat2) + "," + str(lon2) + "\""
-# print str(lon1),
-# print str(lat1),
-# print str(lon2),
-# print str(lat2),
-
-# if resx < 0.01: # unit is degree
-# 	print "%.15f"  % (resx),
-# 	print "%.15f" % (resy)
-# else:
-# 	print "%.15f" % (resx),
-# 	print "%.15f" % (resy)
-
-# close dataset
-ds = None
+    get_raster_info(**vars(args))
