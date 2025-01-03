@@ -242,6 +242,7 @@ python3 $srcDir/add_crosswalk.py \
     -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv \
     -w $tempHucDataDir/wbd8_clp.gpkg \
     -b $b_arg \
+    -u $hucNumber \
     -y $tempCurrentBranchDataDir/nwm_catchments_proj_subset.tif \
     -m $manning_n \
     -z $z_arg \

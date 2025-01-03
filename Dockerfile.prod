@@ -1,0 +1,129 @@
+## Temporary image to build the libraries and only save the needed artifacts
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4 AS builder
+WORKDIR /opt/builder
+ARG dataDir=/data
+ARG projectDir=/foss_fim
+ARG depDir=/dependencies
+ARG taudemVersion=98137bb6541a0d0077a9c95becfed4e56d0aa0ac
+ARG taudemVersion2=81f7a07cdd3721617a30ee4e087804fddbcffa88
+ENV taudemDir=$depDir/taudem/bin
+ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
+
+# remove reference to missing repo
+# RUN rm /etc/apt/sources.list.d/apache-arrow.sources
+
+RUN apt-get update && apt-get install -y git  && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/dtarb/taudem.git
+RUN git clone https://github.com/fernandoa123/cybergis-toolkit.git taudem_accelerated_flowDirections
+
+RUN apt-get update --fix-missing && apt-get install -y cmake mpich \
+    libgtest-dev libboost-test-dev libnetcdf-dev && rm -rf /var/lib/apt/lists/*
+
+## Compile Main taudem repo ##
+RUN mkdir -p taudem/bin
+RUN cd taudem \
+    && git checkout $taudemVersion \
+    && cd src \
+    && make
+
+## Compile taudem repo with accelerated flow directions ##
+RUN cd taudem_accelerated_flowDirections/taudem \
+    && git checkout $taudemVersion2 \
+    && mkdir build \
+    && cd build \
+    && cmake .. \
+    && make
+
+RUN mkdir -p $taudemDir
+RUN mkdir -p $taudemDir2
+
+## Move needed binaries to the next stage of the image
+RUN cd taudem/bin && mv -t $taudemDir flowdircond streamnet gagewatershed catchhydrogeo dinfdistdown
+RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d8flowdir dinfflowdir
+
+
+###############################################################################################
+# Base Image that has GDAL, PROJ, etc
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4
+ARG dataDir=/data
+ENV projectDir=/foss_fim
+ARG depDir=/dependencies
+ENV inputsDir=$dataDir/inputs
+ENV outputsDir=/outputs
+ENV srcDir=$projectDir/src
+ENV toolsDir=$projectDir/tools
+ENV workDir=/fim_temp
+ENV taudemDir=$depDir/taudem/bin
+ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
+
+## ADDING FIM GROUP ##
+ARG GroupID=1370800235
+ARG GroupName=fim
+RUN addgroup --gid $GroupID $GroupName
+ENV GID=$GroupID
+ENV GN=$GroupName
+
+RUN mkdir -p $workDir
+RUN mkdir -p $depDir
+COPY --from=builder $depDir $depDir
+
+# remove reference to missing repo
+# RUN rm /etc/apt/sources.list.d/apache-arrow.sources
+
+RUN apt-get update --fix-missing && rm -rf /var/lib/apt/lists/*
+RUN apt update --fix-missing
+
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata wget
+
+RUN apt auto-remove
+
+## adding AWS CLI (for bash) ##
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+   unzip awscliv2.zip && \
+   ./aws/install
+
+## adding environment variables for numba and python ##
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+ENV PYTHONUNBUFFERED=TRUE
+
+## ADD TO PATHS ##
+ENV PATH="$projectDir:${PATH}"
+ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+
+## install python 3 modules ##
+COPY Pipfile .
+COPY Pipfile.lock .
+RUN pip3 install pipenv==2024.0.1 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
+
+# ----------------------------------
+# Mar 2023 / Sep 2024
+# There are some nuances in the whitebox python downloads in that the first time it loads
+# it goes to the internet and downloads the latest/greatest WBT (whiteboxtools) engine which is
+# required for the whitebox python library to work. We don't want to have FIM attempting a download
+# each time a container is opened and the whitebox engine is called.
+# Instead we will setup the WBT engine at time of docker build (same as Taudem and AWS).
+# Whitebox code detects that the engine it there and makes no attempt to update it.
+# We download and unzip it to the same file folder that pip deployed the whitebox library.
+# Whitebox also attempts to always download a folder called testdata regardless of use.
+# We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
+ENV WBT_PATH=/usr/local/lib/python3.10/dist-packages/whitebox/WBT
+RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
+    unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
+    cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
+# ----------------------------------
+
+# The containiner will auto use this account to run
+ARG RuntimeUser=svc_user
+RUN useradd -u 8877 -g $GroupName -s /bin/bash $RuntimeUser
+RUN chmod 777 $workDir
+RUN mkdir -p "/home/${RuntimeUser}"
+RUN chmod 777 /home/$RuntimeUser
+
+## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
+ADD ./src/entrypoint.sh /
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
+
+## This results in the default user being the svc_user user
+USER $RuntimeUser

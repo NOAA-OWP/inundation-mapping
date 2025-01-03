@@ -267,7 +267,7 @@ Tcount
 l_echo $startDiv"Resetting Permissions"
 Tstart
     # super slow to change chmod on the log folder. Not really manditory anyways
-    find $outputDestDir -maxdepth 1 -type f -exec chmod 666 {} +  # just root level files
+    find $outputDestDir -maxdepth 1 -type f -exec chmod 777 {} +  # just root level files
 Tcount
 
 
@@ -275,11 +275,11 @@ l_echo $startDiv"Scanning logs for errors and warnings. This can take quite a fe
 echo "Results will be saved in root not inside the log folder."
 Tstart
     # grep -H -r -i -n "error" $outputDestDir/logs/ > $outputDestDir/all_errors_from_logs.log
-    find $outputDestDir -type f | grep -H -r -i -n "error" $outputDestDir/logs/ > \
+    find $outputDestDir -type f | grep -H -R -i -n ".*error.*" $outputDestDir/logs/ > \
          $outputDestDir/all_errors_from_logs.log &
     l_echo "error scan done, now on to warnings scan"
 
-    find $outputDestDir -type f | grep -H -r -i -n "warning" $outputDestDir/logs/ > \
+    find $outputDestDir -type f | grep -H -R -i -n ".*warning.*" $outputDestDir/logs/ > \
          $outputDestDir/all_warnings_from_logs.log &
     l_echo "warning scan done"
 Tcount
