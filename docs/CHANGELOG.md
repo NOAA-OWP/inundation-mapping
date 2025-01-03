@@ -1,6 +1,133 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.13.2 - 2025-01-03 - [PR#1360](https://github.com/NOAA-OWP/inundation-mapping/pull/1360)
+
+Fixed missing osmid in osm_bridge_centroid.gpkg. Also, HUC column is added to outputs.
+
+### Changes
+- `data/bridges/pull_osm_bridges.py`
+- `src/aggregate_by_huc.py`
+
+<br/><br/>
+
+
+## v4.5.13.1 - 2024-12-13 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
+
+This PR was triggered by two dep-bot PR's. One for Tornado, one for aiohttp. Upon further research, these two exist only as dependencies for Jupyter and Jupyterlab which were very out of date. Upgrading Jupyter/JupyterLab took care of the other two.
+
+Also fixed a minor warning during docker builds.
+
+Covers PR [1237](https://github.com/NOAA-OWP/inundation-mapping/pull/1347): Bump aiohttp from 3.10.5 to 3.10.11  and  PR [1348](https://github.com/NOAA-OWP/inundation-mapping/pull/1348): Bump tornado from 6.4.1 to 6.4.2
+
+
+### Changes
+- `Dockerfile.dev` and `Dockerfile.prod`:  As described above.
+- `Pipfile` and `Pipefile.lock`:   As described above.
+
+<br/><br/>
+
+
+## v4.5.13.0 - 2024-12-10 - [PR#1285](https://github.com/NOAA-OWP/inundation-mapping/pull/1285)
+
+Major upgrades and bug fixes to the CatFIM product, informally called CatFIM 2.1. See the PR for all details
+
+<br/><br/>
+
+
+## v4.5.12.2 - 2024-12-10 - [PR#1346](https://github.com/NOAA-OWP/inundation-mapping/pull/1346)
+
+This PR updates deny lists to avoid saving unnecessary files.
+I also added PR #1260 (changes to data/bathymetry/preprocess_bathymetry.py ) to this PR.
+
+### Changes
+
+- `config/deny_branch_zero.lst`
+- `config/deny_branches.lst`
+- `config/deny_unit.lst`
+- `data/bathymetry/preprocess_bathymetry.py`
+
+<br/><br/>
+
+
+## v4.5.12.1 - 2024-11-22 - [PR#1328](https://github.com/NOAA-OWP/inundation-mapping/pull/1328)
+
+Fixes bug and adds error checking in FIM Performance. Fixes #1326.
+
+### Changes
+- `src/utils/fim_logger.py`: Fix a spacing issue
+- `tools/`
+    - `pixel_counter.py`: Adds check if file exists
+    - `run_test_case.py`: if there is a .aux.xml file in the test_case dir, this can fail. now fixed.
+    - `test_case_by_hydro_id.py`: Fixes bug and adds error checking/logging
+
+<br/><br/>
+
+
+## v4.5.12.0 - 2024-11-01 - [PR#1327](https://github.com/NOAA-OWP/inundation-mapping/pull/1327)
+
+The purpose of this PR is to cut down the runtime for four Alaska HUCs (19020104, 19020503, 19020402 , and 19020602). It significantly optimizes runtime by replacing a nested for loop, used for updating rating curve for small segments, with a vectorized process. This changes were applied only to the Alaska HUCs.
+As part of this PR, small modification was applied to bridge_inundation.py.
+
+### Changes
+
+- `src/add_crosswalk.py`
+- `src/delineate_hydros_and_produce_HAND.sh`
+- `tools/bridge_inundation.py`
+
+<br/><br/>
+
+
+
+
+## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
+
+The fix: During the post processing scan for the word "error" or "warning", it was only finding records which had either of those two words as stand alone words and not part of bigger phrases.  ie); "error" was found, but not "fielderror". Added wildcards and it is now fixed.
+
+Note: it is finding a good handful more errors and warnings that were being missed in earlier code versions.
+
+### Changes
+`fim_post_processing.sh`: fix as described.
+
+<br/><br/>
+
+
+## v4.5.11.2 - 2024-10-25 - [PR#1322](https://github.com/NOAA-OWP/inundation-mapping/pull/1322)
+
+For security reasons, we needed to create a docker image that does not use the root user in anyway. The new `Dockerfile.prod` file is to be used when we want to use a non-root user. The  original `Dockerfile` has been renamed to `Dockerfile.dev` and will continue to use it's root users which has no problems with interacting with external mounts.
+
+Note: Re: using pip or pipenv installs.
+In the Dockerfile.prod, you can not do installs or update using either pipenv or pip.  Those types of tests and adjustments need to be done in the `Dockerfile.dev`. `Dockerfile.dev` will also allow change to the `Pipfile` and `Pipfile.lock` . Both docker files share the Pipfiles so it should be just fine.
+
+### File Renames
+- Was: `Dockerfile`,  now `Dockerfile.dev`
+
+### Additions
+
+- Dockerfile.prod: as described
+
+### Changes
+- `README.md`: change notes from phrase `Dockerfile` to `Dockerfile.dev`. Also added some notes about the new convention of outputs no longer starting with `fim_` but now `hand_`
+- `fim_pipeline.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_post_processing.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_pre_processing.sh`: Change for the new `Dockerfile.prod` for permissions.
+- `fim_process_unit_wb.sh`: Change for the new `Dockerfile.prod` for permissions.
+
+<br/><br/>
+
+
+## v4.5.11.1 - 2024-10-16 - [PR#1318](https://github.com/NOAA-OWP/inundation-mapping/pull/1318)
+
+Bug fixes to address issues during `fim_pipeline.sh`.
+
+### Changes
+
+- `src/`
+    - `aggregate_by_huc.py`: Fix `pyogrio` field error.
+    - `stream_branches.py`: Remove `bids_temp` and fix index.
+
+<br/><br/>
+
 ## v4.5.11.0 - 2024-10-11 - [PR#1298](https://github.com/NOAA-OWP/inundation-mapping/pull/1298)
 
 This PR addresses four issues regarding OSM bridges. It dissolves touching bridge lines so each bridge has a single linestring. It also removes abandoned bridge from the dataset and it adds bridge type field to bridge centroids. As part of this PR, `max_hand_ft` and `max_discharge_cfs` columns are added to `osm_bridge_centroids.gkpg`.
