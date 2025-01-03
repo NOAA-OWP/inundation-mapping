@@ -662,7 +662,7 @@ def __load_nwm_metadata(
 
         FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
 
-        if lid_to_run != "all": # TODO: Deprecate LID options (in favor of HUC list functionlity)
+        if lid_to_run != "all":  # TODO: Deprecate LID options (in favor of HUC list functionlity)
             # Single lid for now (deprecated)
             output_meta_list, ___ = get_metadata(
                 metadata_url,
@@ -674,8 +674,8 @@ def __load_nwm_metadata(
             )
 
         else:
-            # Dec 2024: Running two API calls: one to get all forecast points, and another 
-            # to get all points (non-forecast and forecast) for the OCONUS regions. Then, 
+            # Dec 2024: Running two API calls: one to get all forecast points, and another
+            # to get all points (non-forecast and forecast) for the OCONUS regions. Then,
             # duplicate LIDs are removed.
 
             # Get all forecast points
@@ -702,26 +702,26 @@ def __load_nwm_metadata(
             unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
 
             # print(f"len(all_meta_lists) is {len(all_meta_lists)}")
-            
+
             # Filter the metadata list
             output_meta_list = []
-            unique_lids, duplicate_lids = [], [] # TODO: remove?
+            unique_lids, duplicate_lids = [], []  # TODO: remove?
             duplicate_meta_list = []
-            nonelid_metadata_list = [] # TODO: remove
+            nonelid_metadata_list = []  # TODO: remove
 
             for i, site in enumerate(unfiltered_meta_list):
                 nws_lid = site['identifiers']['nws_lid']
 
-                if nws_lid == None:
+                if nws_lid is None:
                     # No LID available
-                    nonelid_metadata_list.append(site) # TODO: replace with Continue
+                    nonelid_metadata_list.append(site)  # TODO: replace with Continue
 
                 elif nws_lid in unique_lids:
                     # Duplicate LID
                     duplicate_lids.append(nws_lid)
-                    duplicate_meta_list.append(site) # TODO: remove extra lists
+                    duplicate_meta_list.append(site)  # TODO: remove extra lists
 
-                else: 
+                else:
                     # Unique/unseen LID that's not None
                     unique_lids.append(nws_lid)
                     output_meta_list.append(site)
