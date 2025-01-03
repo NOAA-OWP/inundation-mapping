@@ -1,19 +1,22 @@
 import argparse
+import gc
 import logging
 import os
 import re
+import sys
 
 import geopandas as gpd
 import pandas as pd
 
 
-def find_max_elevation(interpolated_flows_path, attributes_path):
+def find_max_elevation(interpolated_flows_path, attributes_path, df_poly_search, data_source):
     """
     Finds the maximum elevation from a flows CSV file, associates it with attributes, and updates paths.
 
     Parameters:
     - interpolated_flows_path (str): Path to the CSV file containing interpolated flows data.
     - attributes_path (str): Path to the CSV file containing attributes data.
+    - data_source: String to identify "nws" or "usgs" data source
 
     Returns:
     - tuple: A tuple containing the maximum elevation, updated path, study limit file path, levee file path,
@@ -44,6 +47,25 @@ def find_max_elevation(interpolated_flows_path, attributes_path):
         for col in columns_to_extract:
             df_find_max[col] = df_attributes[col].dropna().iloc[0] if col in df_attributes.columns else None
 
+        if df_find_max['elevation'] is None:
+            logging.warning(f"Skipping {interpolated_flows_path} due to no valid max elevation.")
+            return None, None, None, None, None
+
+        # Skip specific lids due to issues
+        # tarn7: FIM multipolygons for max extent cause millions of points (ignore)
+        skip_lids = ['tarn7']
+        if df_find_max['nws_lid'] in skip_lids:
+            logging.warning(
+                f"Skipping the max stage/flow process - " f"manual override for: {df_find_max['nws_lid']}."
+            )
+            return None, None, None, None, None
+
+        # Filter the dataframe to corresponding lid to check for poly search override
+        new_search_lids = [df_find_max['nws_lid']]
+        df_poly_search_subset = df_poly_search[df_poly_search['lid'].isin(new_search_lids)]
+        if df_poly_search_subset.empty:
+            df_poly_search_subset = None
+
         # Assign specific values to certain columns
         df_find_max['magnitude'] = 'maximum'  # Set the magnitude to "maximum"
 
@@ -51,7 +73,6 @@ def find_max_elevation(interpolated_flows_path, attributes_path):
         columns_to_nullify = [
             'magnitude_stage',
             'magnitude_elev_navd88',
-            'grid_name',
             'grid_stage',
             'grid_elev_navd88',
             'grid_flow_cfs',
@@ -60,8 +81,9 @@ def find_max_elevation(interpolated_flows_path, attributes_path):
             df_find_max[col] = None
 
         # Update the path using the new function
-        updated_path = update_path(df_find_max['path'])
+        updated_path = update_path_search(df_find_max['path'], df_poly_search_subset, data_source)
         if updated_path is None:
+            logging.warning(f"Unexpected issue identifying polygon path: {updated_path}")
             return None, None, None, None, None
 
         # Update the row with the new path
@@ -82,7 +104,7 @@ def find_max_elevation(interpolated_flows_path, attributes_path):
         return None, None, None, None, None
 
 
-def update_path(original_path):
+def update_path_search(original_path, df_poly_search_subset, data_source):
     """
     Updates the given path string by replacing certain patterns and checking if the file exists.
 
@@ -94,26 +116,73 @@ def update_path(original_path):
     """
     try:
         # Replace "ahps_inundation_libraries" with "nws"
-        updated_path = original_path.replace("ahps_inundation_libraries", "nws")
+        if data_source == 'nws':
+            updated_path = original_path.replace("ahps_inundation_libraries", str(data_source))
+        if data_source == 'usgs':
+            updated_path = original_path.replace("USGS_FIM", 'AHPS' + os.sep + str(data_source))
 
         # Replace "depth_grids" (case-insensitive) with "polygons"
         updated_path = re.sub(r"depth_grids", "polygons", updated_path, flags=re.IGNORECASE)
+        # Replace "custom" (case-insensitive) with "polygons"
+        updated_path = re.sub(r"custom", "polygons", updated_path, flags=re.IGNORECASE)
+        # Replace "Depth_grid" (case-insensitive) with "Polygons"
+        updated_path = re.sub(r"Depth_grid", "Polygons", updated_path, flags=re.IGNORECASE)
 
         # Replace the .tif with .shp
-        updated_path = updated_path.replace(".tif", ".shp")
+        # updated_path = updated_path.replace(".tiff", ".shp").replace(".tif", ".shp")
+        # Extract the directory path
+        directory_path = os.path.dirname(updated_path)
+        # Extract file name without the extension
+        file_name = os.path.splitext(os.path.basename(updated_path))[0]
+        # Check if the there is data in df_poly_search_subset (already filtered to lid)
+        if df_poly_search_subset is not None:
+            # Check if file_name is in the 'tif_file_search' column of df_poly_search_subset
+            if file_name in df_poly_search_subset['tif_file_search'].values:
+                orig_file_name = file_name
+                # Assign new file name from 'new_poly_search' column corresponding to the 'tif_file_search' match
+                file_name = df_poly_search_subset.loc[
+                    df_poly_search_subset['tif_file_search'] == file_name, 'new_poly_search'
+                ].values[0]
+                logging.info(
+                    f"Replacing poly name search using provided csv: {orig_file_name} --> {file_name}"
+                )
+        # Add the new extension (.shp)
+        shp_file_name = f"{file_name}.shp"
+        # Combine directory path and new file name
+        updated_path = os.path.join(directory_path, shp_file_name)
 
         # Check if the updated path file exists
         if os.path.exists(updated_path):
-            logging.debug(f"File exists: {updated_path}")
+            logging.info(f"File exists: {updated_path}")
+            return updated_path
+        elif os.path.exists(re.sub(r"_0.shp", ".shp", updated_path, flags=re.IGNORECASE)):
+            updated_path = re.sub(r"_0.shp", ".shp", updated_path, flags=re.IGNORECASE)
+            logging.info(f"File exists: {updated_path}")
+            return updated_path
+        elif os.path.exists(re.sub(r"elev_", "", updated_path, flags=re.IGNORECASE)):
+            updated_path = re.sub(r"elev_", "", updated_path, flags=re.IGNORECASE)
+            logging.info(f"File exists: {updated_path}")
+            return updated_path
+        elif os.path.exists(re.sub(r".shp", "_0.shp", updated_path, flags=re.IGNORECASE)):
+            updated_path = re.sub(r".shp", "_0.shp", updated_path, flags=re.IGNORECASE)
+            logging.info(f"File exists: {updated_path}")
             return updated_path
         else:
-            updated_path = re.sub(r"_0.shp", ".shp", updated_path, flags=re.IGNORECASE)
-            if os.path.exists(updated_path):
-                logging.debug(f"File exists: {updated_path}")
-                return updated_path
+            # combined search with removing both "_0" and "elev_"
+            updated_path_0 = re.sub(r"_0.shp", ".shp", updated_path, flags=re.IGNORECASE)
+            updated_path_elev = re.sub(r"elev_", "", updated_path_0, flags=re.IGNORECASE)
+            if os.path.exists(updated_path_elev):
+                logging.info(f"File exists: {updated_path_elev}")
+                return updated_path_elev
             else:
-                logging.warning(f"Unexpected - File does not exist: {updated_path}")
-                return None
+                shp_file_name = 'elev_' + shp_file_name
+                updated_path = os.path.join(directory_path, shp_file_name)
+                if os.path.exists(updated_path):
+                    logging.info(f"File exists: {updated_path}")
+                    return updated_path
+                else:
+                    logging.warning(f"Unexpected - File does not exist: {updated_path}")
+                    return None
     except Exception as e:
         logging.error(f"Error updating path {original_path}: {e}")
         return None
@@ -199,7 +268,7 @@ def check_max_elevation(csv_path, max_elevation):
         return False
 
 
-def find_flood_magnitude_shapes(attributes_path, interpolated_flows_path):
+def find_flood_magnitude_shapes(attributes_path, interpolated_flows_path, df_poly_search, data_source):
     """
     Finds flood magnitude polygon shapefiles by joining attributes and flows data, and updates paths.
 
@@ -220,12 +289,12 @@ def find_flood_magnitude_shapes(attributes_path, interpolated_flows_path):
         logging.debug(f"Columns in {attributes_path}: {df_attributes.columns.tolist()}")
 
         # Check if the required columns exist
-        if 'magnitude' not in df_attributes.columns or 'grid_name' not in df_attributes.columns:
-            logging.error(f"Required columns 'magnitude' or 'grid_name' not found in {attributes_path}.")
+        if 'magnitude' not in df_attributes.columns or 'grid_stage' not in df_attributes.columns:
+            logging.error(f"Required columns 'magnitude' or 'grid_stage' not found in {attributes_path}.")
             return {}
 
-        if 'name' not in df_flows.columns:
-            logging.error(f"Required column 'name' not found in {interpolated_flows_path}.")
+        if 'stage' not in df_flows.columns:
+            logging.error(f"Required column 'stage' not found in {interpolated_flows_path}.")
             return {}
 
         # Filter rows with non-null and non-empty 'magnitude' values
@@ -233,22 +302,44 @@ def find_flood_magnitude_shapes(attributes_path, interpolated_flows_path):
             df_attributes['magnitude'].notnull() & (df_attributes['magnitude'].astype(str).str.strip() != '')
         ]
         df_valid = df_attributes[
-            df_attributes['grid_name'].notnull() & (df_attributes['grid_name'].astype(str).str.strip() != '')
+            df_attributes['grid_stage'].notnull()
+            & (df_attributes['grid_stage'].astype(str).str.strip() != '')
         ]
 
-        # Remove all ".tif" extensions from the 'grid_name' column
-        df_valid['grid_name'] = df_valid['grid_name'].str.replace('.tif', '', regex=False)
+        # Remove all ".tif" extensions from the 'grid_stage' column
+        # df_valid['grid_stage'] = df_valid['grid_stage'].str.replace('.tiff', '', regex=False)
+        # df_valid['grid_stage'] = df_valid['grid_stage'].str.replace('.tif', '', regex=False)
+
+        # Ensure that 'grid_stage' and 'stage' columns are strings in both dataframes
+        df_valid['grid_stage'] = df_valid['grid_stage'].astype(str)
+        df_flows['stage'] = df_flows['stage'].astype(str)
+
+        # Check for any NaN or empty values before merging and replace them with empty strings
+        df_valid['grid_stage'].fillna('', inplace=True)
+        df_flows['stage'].fillna('', inplace=True)
 
         if df_valid.empty:
             logging.warning(f"No valid entries found in the 'magnitude' column of {attributes_path}.")
             return {}
 
-        # Join df_valid and df_flows using 'grid_name' from df_valid and 'name' from df_flows
-        df_joined = df_valid.merge(df_flows, left_on='grid_name', right_on='name', how='inner')
+        # Join df_valid and df_flows using 'grid_stage' from df_valid and 'stage' from df_flows
+        df_joined = df_valid.merge(df_flows, left_on='grid_stage', right_on='stage', how='inner')
+
+        # After merging, inspect other columns for data type consistency
+        for col in df_joined.columns:
+            if df_joined[col].dtype == 'object':
+                # Convert any object columns to string to avoid mixed type issues
+                df_joined[col] = df_joined[col].astype(str)
 
         if df_joined.empty:
             logging.warning(f"No matching entries found between attributes and flows data: {attributes_path}")
             return {}
+
+        # Filter the dataframe to corresponding lid to check for poly search override
+        new_search_lids = df_joined['nws_lid'].tolist()
+        df_poly_search_subset = df_poly_search[df_poly_search['lid'].isin(new_search_lids)]
+        if df_poly_search_subset.empty:
+            df_poly_search_subset = None
 
         # Prepare a list to store the results
         results = []
@@ -263,9 +354,10 @@ def find_flood_magnitude_shapes(attributes_path, interpolated_flows_path):
             flood_cat_paths[magnitude] = path
 
             # Update the path using the new function
-            updated_path = update_path(path)
+            updated_path = update_path_search(path, df_poly_search_subset, data_source)
             if updated_path is None:
-                return None, None, None, None, None
+                logging.warning(f"Unexpected issue finding polygon path: {path}")
+                continue
 
             # Update the row with the new path
             row['path'] = updated_path
@@ -298,12 +390,12 @@ def find_flood_magnitude_shapes(attributes_path, interpolated_flows_path):
         return []
 
 
-def process_shapefile_to_parquet_with_sampling(
-    shapefile_path, study_limit_file, levee_file, point_attributes, output_dir, step=5
+def process_shapefile_to_points_with_sampling(
+    shapefile_path, study_limit_file, levee_file, point_attributes, data_source, step=5
 ):
     """
     Processes a shapefile to extract edge vertices with sampling, applies buffer operations using other shapefiles,
-    and converts the output to a Parquet file.
+    and converts returns the filtered dataframe.
 
     Parameters:
     - shapefile_path (str): Path to the input shapefile containing polygon or multipolygon geometries.
@@ -311,7 +403,6 @@ def process_shapefile_to_parquet_with_sampling(
     - levee_file (str): Path to the levee shapefile, which will also be used for buffering.
     - point_attributes (dict): Dictionary containing point attributes like 'nws_lid', 'flow', 'magnitude', etc.,
                                to be added to each extracted point.
-    - output_dir (str): Directory where the output files (Parquet and optional buffer polygons) will be saved.
     - step (int, optional): Sampling step for extracting vertices from polygon edges. Defaults to 5.
 
     Returns:
@@ -321,7 +412,7 @@ def process_shapefile_to_parquet_with_sampling(
     The function performs the following steps:
     1. Reads the input shapefile using GeoPandas.
     2. Logs and checks the types of geometries present in the shapefile.
-    3. If the 'nws_lid' is 'tarn7', it dissolves multipolygons into single polygons.
+    3. If the 'nws_lid' is dissolve list, it dissolves multipolygons into single polygons.
     4. Extracts edge vertices from polygons and multipolygons using a specified sampling step.
     5. Creates a GeoDataFrame of the sampled points, transforms its CRS to EPSG:5070, and attaches point attributes.
     6. Buffers geometries from the provided study limit and levee shapefiles and removes points within these buffer areas.
@@ -332,6 +423,11 @@ def process_shapefile_to_parquet_with_sampling(
     try:
         try:
             gdf = gpd.read_file(shapefile_path)
+            # Check if the CRS is not set
+            if gdf.crs is None:
+                logging.debug(f"CRS is missing for {shapefile_path} --> Setting CRS to EPSG:4326.")
+                gdf.set_crs(epsg=4326, inplace=True)
+
         except Exception as e:
             logging.error(f"Failed to read shapefile {shapefile_path}: {e}")
             return
@@ -344,13 +440,22 @@ def process_shapefile_to_parquet_with_sampling(
             logging.warning(f"No valid polygons found in {shapefile_path}.")
             return
 
-        # Dissolve MultiPolygons into single Polygons if nws_lid is "tarn7"
-        if point_attributes.get('nws_lid') == 'tarn7':
-            if 'MultiPolygon' in gdf.geometry.geom_type.unique():
-                # Unify all geometries into a single geometry and then break into polygons
-                unified_geom = gdf.geometry.unary_union
-                gdf = gpd.GeoDataFrame(geometry=[unified_geom], crs=gdf.crs)
-                gdf = gdf.explode(index_parts=True)
+        # Dissolve MultiPolygons into single Polygons if nws_lid is in list below
+        # Polygon data is binned by depths for these?
+        dissolve_locations = ['tarn7', 'pgvn7']
+        if point_attributes.get('nws_lid') in dissolve_locations:
+            # if 'MultiPolygon' in gdf.geometry.geom_type.unique():
+            print('Dissolving multipolygons...')
+            # Unify all geometries into a single MultiPolygon
+            unified_geom = gdf.unary_union
+
+            # Convert the unified geometry back to a GeoDataFrame
+            gdf = gpd.GeoDataFrame(geometry=[unified_geom], crs=gdf.crs)
+
+            # Break the unified geometry into individual Polygons if necessary
+            gdf = gdf.explode(index_parts=True, ignore_index=True)
+
+            logging.debug(f"Dissolving multipolygons: {shapefile_path}")
 
         # Extract edge vertices with sampling
         all_points = []
@@ -383,6 +488,9 @@ def process_shapefile_to_parquet_with_sampling(
         # Convert "flow" from cubic feet to cubic meters
         point_attributes['flow'] = point_attributes['flow'] * 0.0283168
         point_attributes['flow_unit'] = 'cms'  # Set the magnitude to "maximum"
+        point_attributes['submitter'] = data_source  # Set the data source attribute
+        point_attributes['coll_time'] = '2024-09-04'  # Set the data source attribute
+        point_attributes['layer'] = point_attributes['magnitude']  # Set the data source attribute
 
         # Rename 'huc' to 'HUC8' if it exists
         if 'huc' in point_attributes:
@@ -392,6 +500,7 @@ def process_shapefile_to_parquet_with_sampling(
         attributes_to_keep = [
             'nws_lid',
             'magnitude',
+            'layer',
             'path',
             'name',
             'elevation',
@@ -399,6 +508,8 @@ def process_shapefile_to_parquet_with_sampling(
             'flow',
             'flow_unit',
             'flow_source',
+            'coll_time',
+            'submitter',
             'wfo',
             'HUC8',
         ]
@@ -470,12 +581,30 @@ def process_shapefile_to_parquet_with_sampling(
         logging.error(f"Error processing shapefile {shapefile_path}: {e}")
 
 
-def process_directory(root_dir, output_dir, log_file):
+def process_directory(root_dir, data_source, manual_search_override, output_dir):
+    root_dir = os.path.join(root_dir, data_source)
+    # Check if the directory exists, and if not, exit with an error code
+    if not os.path.exists(root_dir) or not os.path.isdir(root_dir):
+        print(f"Error: Directory {root_dir} does not exist.")
+        sys.exit(1)
+    if not os.path.exists(manual_search_override):
+        print(f"Error: Directory {manual_search_override} does not exist.")
+        sys.exit(1)
+
+    output_dir = os.path.join(output_dir, data_source)
+    # Create the directory if it doesn't exist
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    log_file = os.path.join(output_dir, "processing_log.log")
     logging.basicConfig(
         filename=log_file, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s'
     )
+
+    df_poly_search = pd.read_csv(manual_search_override)
+
     logging.info(f"Starting process in directory: {root_dir}")
     accumulated_data = []  # List to accumulate nws_lid and magnitude data
+    lid_dict = {}  # List to accumulate all available nws_lid
     # Loop through each first-level directory under root_dir
     for huc_dir in reversed(sorted(os.listdir(root_dir))):
         print(huc_dir)
@@ -485,13 +614,16 @@ def process_directory(root_dir, output_dir, log_file):
             # Now walk through each subdirectory within the first-level directory
             for subdir, dirs, files in os.walk(first_level_path):
                 for file in files:
-                    if file.endswith('_interpolated_flows.csv'):
+                    if file.endswith('_flows.csv'):
                         interpolated_flows_path = os.path.join(subdir, file)
                         print(f"Processing {interpolated_flows_path}.")
-                        logging.debug(f"Processing {interpolated_flows_path}.")
+                        logging.info(f"Processing {interpolated_flows_path}.")
 
                         # Find the corresponding _attributes.csv file
-                        attributes_file = file.replace('_interpolated_flows.csv', '_attributes.csv')
+                        if data_source == 'nws':
+                            attributes_file = file.replace('_interpolated_flows.csv', '_attributes.csv')
+                        else:
+                            attributes_file = file.replace('_flows.csv', '_attributes.csv')
                         attributes_path = os.path.join(subdir, attributes_file)
 
                         if not os.path.exists(attributes_path):
@@ -499,59 +631,65 @@ def process_directory(root_dir, output_dir, log_file):
                                 f"Attributes file {attributes_file} not found for {file} in {subdir}."
                             )
                         else:
+                            lid = str(file)[:5]
+                            # Add LID and HUC8 to the dictionary
+                            lid_dict[lid] = str(huc_dir)
                             max_elevation, path_value, study_limit_file, levee_file, point_attributes = (
-                                find_max_elevation(interpolated_flows_path, attributes_path)
+                                find_max_elevation(
+                                    interpolated_flows_path, attributes_path, df_poly_search, data_source
+                                )
                             )
 
-                            if max_elevation is None:
-                                logging.warning(
-                                    f"Skipping {interpolated_flows_path} due to no valid max elevation."
-                                )
-                                continue
-                            if check_max_elevation(attributes_path, max_elevation):
-                                print(
-                                    f"Path with max elevation greater than magnitude_elev_navd88: {path_value}"
-                                )
-
-                                # Process the shapefile and collect points
-                                gdf_points = process_shapefile_to_parquet_with_sampling(
-                                    path_value,
-                                    study_limit_file,
-                                    levee_file,
-                                    point_attributes,
-                                    output_dir,
-                                    step=10,
-                                )
-
-                                if gdf_points is not None:
-                                    # Check and align CRS before concatenation
-                                    if all_points.empty:
-                                        all_points = gdf_points
-                                    else:
-                                        gdf_points = gdf_points.to_crs(all_points.crs)
-                                    print('successfully created points for:')
+                            if max_elevation is not None:
+                                if check_max_elevation(attributes_path, max_elevation):
                                     print(
-                                        point_attributes['nws_lid'] + ' --> ' + point_attributes['magnitude']
+                                        f"Path with max elevation greater than magnitude_elev_navd88: {path_value}"
                                     )
-                                    # Append the collected points to all_points GeoDataFrame
-                                    all_points = pd.concat([all_points, gdf_points], ignore_index=True)
-                                    # Accumulate nws_lid and magnitude for CSV export
-                                    accumulated_data.append(
-                                        {
-                                            'nws_lid': point_attributes['nws_lid'],
-                                            'HUC8': point_attributes['HUC8'],
-                                            'magnitude': point_attributes['magnitude'],
-                                        }
+
+                                    # Process the shapefile and collect points
+                                    gdf_points = process_shapefile_to_points_with_sampling(
+                                        path_value,
+                                        study_limit_file,
+                                        levee_file,
+                                        point_attributes,
+                                        data_source,
+                                        step=10,
                                     )
-                            else:
-                                logging.info(
-                                    f"Max elevation in {interpolated_flows_path} is not greater than max magnitude_elev_navd88 in {attributes_file}."
-                                )
+
+                                    if gdf_points is not None:
+                                        # Check and align CRS before concatenation
+                                        if all_points.empty:
+                                            all_points = gdf_points
+                                        else:
+                                            gdf_points = gdf_points.to_crs(all_points.crs)
+                                        print('successfully created points for:')
+                                        print(
+                                            point_attributes['nws_lid']
+                                            + ' --> '
+                                            + point_attributes['magnitude']
+                                        )
+                                        # Append the collected points to all_points GeoDataFrame
+                                        all_points = pd.concat([all_points, gdf_points], ignore_index=True)
+                                        # Accumulate nws_lid and magnitude for CSV export
+                                        accumulated_data.append(
+                                            {
+                                                'nws_lid': point_attributes['nws_lid'],
+                                                'HUC8': point_attributes['HUC8'],
+                                                'magnitude': point_attributes['magnitude'],
+                                            }
+                                        )
+                                        # Clear GeoDataFrame after each file to free memory
+                                        del gdf_points
+                                        gc.collect()
+                                else:
+                                    logging.info(
+                                        f"Max elevation in {interpolated_flows_path} is not greater than max magnitude_elev_navd88 in {attributes_file}."
+                                    )
 
                             # Find flood magnitude shapes and process them
                             print('Checking for flood category data files...')
                             flood_cat_paths = find_flood_magnitude_shapes(
-                                attributes_path, interpolated_flows_path
+                                attributes_path, interpolated_flows_path, df_poly_search, data_source
                             )
                             if flood_cat_paths:
                                 print('Processing flood category data files...')
@@ -568,12 +706,12 @@ def process_directory(root_dir, output_dir, log_file):
                                     ]  # Use the full dictionary as attributes if needed
 
                                     # Process the shapefile and collect points
-                                    gdf_points = process_shapefile_to_parquet_with_sampling(
+                                    gdf_points = process_shapefile_to_points_with_sampling(
                                         path_value,
                                         study_limit_file,
                                         levee_file,
                                         point_attributes,
-                                        output_dir,
+                                        data_source,
                                         step=10,
                                     )
 
@@ -599,12 +737,24 @@ def process_directory(root_dir, output_dir, log_file):
                                                 'magnitude': point_attributes['magnitude'],
                                             }
                                         )
+                                        # Clear GeoDataFrame after each file to free memory
+                                        del gdf_points
+                                        gc.collect()
                             else:
                                 logging.info(
                                     f"Did not find any flood category maps to process in {attributes_file} or could not find corresponding data in {attributes_file}."
                                 )
 
             if not all_points.empty:
+                # Force columns to consistent data types
+                # Convert all object columns to string
+                for col in all_points.select_dtypes(include=['object']).columns:
+                    all_points[col] = all_points[col].astype(str)
+
+                # If there are numeric columns that should be int or float, make sure they are correct
+                for col in all_points.select_dtypes(include=['int', 'float']).columns:
+                    all_points[col] = pd.to_numeric(all_points[col], errors='coerce')
+
                 # Define the output Parquet file path using the 8-digit subdirectory name
                 parquet_path = os.path.join(output_dir, f"{huc_dir}.parquet")
 
@@ -612,10 +762,22 @@ def process_directory(root_dir, output_dir, log_file):
                 all_points.to_parquet(parquet_path)
                 print(parquet_path)
                 logging.info(f"Points from all files in subdirectory {subdir} saved to {parquet_path}")
+                # Clear GeoDataFrame after each file to free memory
+                del all_points
+                gc.collect()
 
     # After processing all directories, group the accumulated data by nws_lid and export to CSV
     if accumulated_data:
         df_accumulated = pd.DataFrame(accumulated_data)
+        # Check if any LIDs in lid_dict are missing from grouped_df, and add them
+        for lid, huc8 in lid_dict.items():
+            if lid not in df_accumulated['nws_lid'].values:
+                # Create a new DataFrame with the missing LID and HUC8
+                new_row = pd.DataFrame({'nws_lid': [lid], 'HUC8': [huc8], 'magnitude': ['']})
+
+                # Concatenate the new row to df_accumulated
+                df_accumulated = pd.concat([df_accumulated, new_row], ignore_index=True)
+
         # Group by nws_lid and concatenate HUC8 and magnitude values
         grouped_df = (
             df_accumulated.groupby('nws_lid')
@@ -648,6 +810,19 @@ if __name__ == '__main__':
         help='Path to the root directory containing the HUC directories.',
     )
     parser.add_argument(
+        '-s',
+        '--source',
+        type=str,
+        choices=['nws', 'usgs'],  # Restrict the options to "nws" or "usgs"
+        help='Choose to process either "nws" or "usgs"',
+    )
+    parser.add_argument(
+        '-f',
+        '--manual_search_override',
+        type=str,
+        help='Path to csv file with list of lids and manual search overrides to handle file name discrepancies',
+    )
+    parser.add_argument(
         '-o',
         '--output_directory_path',
         type=str,
@@ -656,9 +831,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     root_directory_path = args.root_directory_path
+    data_source = args.source
+    manual_search_override = args.manual_search_override
     output_directory_path = args.output_directory_path
-    log_file = os.path.join(root_directory_path, "processing_log.log")
 
     # root_directory_path = r'B:\FIM_development\fim_assessment\FOSS\ahps_benchmark\5_5_2024\nws'
     # output_directory_path = r'C:\GID\FOSS_FIM\ahps_max_stage_flow_preprocess\calibration_points\5_5_2024'
-    process_directory(root_directory_path, output_directory_path, log_file)
+    process_directory(root_directory_path, data_source, manual_search_override, output_directory_path)
