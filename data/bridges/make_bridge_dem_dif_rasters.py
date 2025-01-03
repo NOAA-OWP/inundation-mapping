@@ -106,30 +106,31 @@ def identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir):
 
 def make_dif_ratsers(OSM_bridge_file,dem_dir,lidar_tif_dir,output_dir):
     try:
-        start_time = time.time()
-
         #add HUC6 info update the osm bridge line file with existence of lidar 
         OSM_bridge_lines_gdf=gpd.read_file(OSM_bridge_file)
         OSM_bridge_lines_gdf['HUC6']=OSM_bridge_lines_gdf['HUC'].str[:6]
         OSM_bridge_lines_gdf=identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir)
-        # OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['has_lidar_tif']=='Y'].to_file('/outputs/Ali_bridges_lidar/final/Step4_make_diff_elev/test.gpkg')
-
 
         dem_files=list(glob.glob(os.path.join(dem_dir, '*.tif')))
-        dem_files=['/data/inputs/dems/3dep_dems/10m_5070/20240916/HUC6_020502_dem.tif']
+        available_dif_files=list(glob.glob(os.path.join(output_dir, '*.tif')))
+        # dem_files=['/data/inputs/dems/3dep_dems/10m_5070/20240916/HUC6_020502_dem.tif']
         # dem_files=[]
         for dem_file in dem_files:
             base_name, extension = os.path.splitext(os.path.basename(dem_file))
+            output_file_name=f"{base_name}_diff{extension}"
+            output_file_path = os.path.join(output_dir, output_file_name)
+
             HUC6=base_name.split('_')[1]
+            print('working on HUC6%s'%str(HUC6))
 
             #get alis t of osmids in this HUC6 with lidar-generated tif files
             HUC6_lidar_tif_osmids=OSM_bridge_lines_gdf[(OSM_bridge_lines_gdf['HUC6']==HUC6)&(OSM_bridge_lines_gdf['has_lidar_tif']=='Y') ]['osmid'].values.tolist()
 
-            if HUC6_lidar_tif_osmids and len(HUC6_lidar_tif_osmids)>5:  #the second condition is just for debugging...remove it
+
+            if HUC6_lidar_tif_osmids and output_file_path not in available_dif_files and HUC6 not in (['051201','101800', '102500']) :  # remove the second condition...it is just a temporarily workaround
                 print('making diff for HUC6_%s with %d tif'%(HUC6,len(HUC6_lidar_tif_osmids)))
-                output_file_name=f"{base_name}_diff{extension}"
+                
                 merged_file_path=os.path.join(output_dir,'merged.tif')
-                print('merging')
                 merge_bridge_tifs(lidar_tif_dir,HUC6_lidar_tif_osmids,merged_file_path)
 
                 local_da = xr.open_dataarray(merged_file_path, engine="rasterio", chunks={"x": 1024, "y": 1024})
@@ -146,7 +147,6 @@ def make_dif_ratsers(OSM_bridge_file,dem_dir,lidar_tif_dir,output_dir):
                 enhanced_da = original_da.copy()
 
                 # Open the local TIFF as an xarray DataArray and reproject to match the regional grid, if needed
-                print('reprojeting the merged')
                 if local_da.rio.crs != original_da.rio.crs:
                     print('check the inputs. The crs must match between lidar-tif files and DEM. ')
                     exit()
@@ -192,12 +192,10 @@ def make_dif_ratsers(OSM_bridge_file,dem_dir,lidar_tif_dir,output_dir):
                     data = data[None, :, :]  # Add band dimension
 
                 # Write the final output raster
-                output_file_path = os.path.join(output_dir, output_file_name)
+                
                 with rasterio.open(output_file_path, 'w', **output_profile) as dst:
                     dst.write(data)
 
-                end_time = time.time()
-                print(f"Method2 time: {end_time - start_time:.4f} seconds")
 
             else: #if there are no lidar raster for this HUC6, just return a zero diff file
                 print('There is no lidar-generated raster file for osm bridges in HUC%s'%HUC6)
@@ -241,13 +239,6 @@ if __name__ == "__main__":
         help='REQUIRED: folder path where lidar-gerenared bridge elevtions are located.',
         required=True,
     )
-
-    # parser.add_argument(
-    #     '-huc',
-    #     '--huc6_dir',
-    #     help='REQUIRED: folder path where huc6 gpkg files are located.',
-    #     required=True,
-    # )
 
 
     parser.add_argument(

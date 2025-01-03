@@ -40,17 +40,8 @@ def process_non_lidar_osm(osm_gdf,source_hand_raster):
     return non_lidar_osm_gdf,hand_grid_array,hand_grid_profile
 
 
-def process_lidar_osm(osm_gdf,hand_grid_array,hand_grid_profile):
-    #first read diff file and reproject if needed
-    # diff_dem_path=os.path.join('/outputs/Ali_bridges_lidar/new_inputs/HUC_12090301','diff_dem.tif')
-    #original_dem_path=r"C:\Users\ali.forghani\Desktop\lidar\Data/HUC8_12090301_dem.tif"
-    # diff_dem_path="/outputs/Ali_bridges_lidar/new_inputs/HUC_02050206/diff_dem_02050206.tif" 
-    #diff_dem_path="/outputs/Ali_bridges_lidar/outputs/HUC6_020502_dem_diff.tif"
-    diff_dem_path="/outputs/Ali_bridges_lidar/outputs/run2/New_HUC6_020502_dem_diff.tif"
-
-
-    # diff_dem_path=os.path.join('/outputs/Ali_bridges_lidar/new_inputs/HUC_12090301','diff_dem.tif')
-    with rasterio.open(diff_dem_path) as diff_grid:
+def process_lidar_osm(osm_gdf,hand_grid_array,hand_grid_profile,bridge_elev_diff_raster):
+    with rasterio.open(bridge_elev_diff_raster) as diff_grid:
         diff_grid_array = diff_grid.read(1)  # Read the first band
         diff_grid_transform = diff_grid.transform
         diff_grid_crs = diff_grid.crs
@@ -91,8 +82,7 @@ def process_lidar_osm(osm_gdf,hand_grid_array,hand_grid_profile):
 
 
 def process_bridges_in_huc(
-    source_hand_raster, bridge_vector_file, catchments, bridge_centroids, resolution
-):
+    source_hand_raster,bridge_elev_diff_raster, bridge_vector_file,buffer_width, catchments, bridge_centroids ):
     
 
     if not os.path.exists(source_hand_raster):
@@ -101,11 +91,9 @@ def process_bridges_in_huc(
 
     if os.path.exists(bridge_vector_file):
         # Read the bridge lines file and buffer it by half of the input width
-        bridge_vector_file=os.path.join('/outputs/Ali_bridges_lidar/outputs/','osm_all_bridges_modified.gpkg')
         osm_gdf = gpd.read_file(bridge_vector_file)
-        osm_gdf.to_crs('EPSG:5070', inplace=True) #this should be temporary
         osm_gdf['centroid_geometry'] = osm_gdf.centroid
-        # osm_gdf['geometry'] = osm_gdf.geometry.buffer(buffer_width, resolution=resolution)
+        osm_gdf['geometry'] = osm_gdf.geometry.buffer(buffer_width, resolution=buffer_width)
     else:
         # skip this huc because it didn't pull in the initial OSM script
         # and could have errors in the data or geometry
@@ -115,7 +103,7 @@ def process_bridges_in_huc(
     
     #first process the osm bridges without reliable lidar data using previous method
     non_lidar_osm_gdf,hand_grid_array,hand_grid_profile= process_non_lidar_osm(osm_gdf,source_hand_raster)
-    lidar_osm_gdf,updated_hand_grid_array=process_lidar_osm(osm_gdf,hand_grid_array,hand_grid_profile)
+    lidar_osm_gdf,updated_hand_grid_array=process_lidar_osm(osm_gdf,hand_grid_array,hand_grid_profile,bridge_elev_diff_raster)
 
     osm_gdf= pd.concat([non_lidar_osm_gdf, lidar_osm_gdf], ignore_index=True)
     
@@ -198,7 +186,20 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        '-d', '--bridge_elev_diff_raster', help='REQUIRED: Path of bridge_elev_diff raster file', required=True
+    )
+
+    parser.add_argument(
         '-s', '--bridge_vector_file', help='REQUIRED: A gpkg that contains the bridges vectors', required=True
+    )
+
+    parser.add_argument(
+        '-b',
+        '--buffer_width',
+        help='OPTIONAL: Buffer to apply to non-lidar OSM bridges. Default value is 10m (on each side)',
+        required=False,
+        default=10,
+        type=float,
     )
 
     parser.add_argument(
@@ -212,22 +213,15 @@ if __name__ == "__main__":
         required=True,
     )
 
+
     # parser.add_argument(
-    #     '-b',
-    #     '--buffer_width',
-    #     help='OPTIONAL: Buffer to apply to OSM bridges. Default value is 10m (on each side)',
+    #     '-r',
+    #     '--resolution',
+    #     help='OPTIONAL: Resolution of HAND grid. Default value is 10m',
     #     required=False,
     #     default=10,
-    #     type=float,
+    #     type=int,
     # )
-    parser.add_argument(
-        '-r',
-        '--resolution',
-        help='OPTIONAL: Resolution of HAND grid. Default value is 10m',
-        required=False,
-        default=10,
-        type=int,
-    )
 
     args = vars(parser.parse_args())
 

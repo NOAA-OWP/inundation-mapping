@@ -135,11 +135,16 @@ mkdir -p $tempCurrentBranchDataDir
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
 # Note: don't need to use gdalwarp -cblend as we are using a buffered wbd
-[ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && \
+[ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && {
 gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" \
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res $input_DEM $tempHucDataDir/dem_meters.tif
 
+# Clip the bridge elevation diff raster (DEM_diff)
+gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" \
+    -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
+    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res $input_bridge_elev_diff $tempHucDataDir/bridge_elev_diff_meters.tif
+}
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"

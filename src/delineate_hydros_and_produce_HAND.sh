@@ -266,10 +266,13 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
     echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
     python3 $srcDir/heal_bridges_osm.py \
         -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -d $tempCurrentBranchDataDir/bridge_elev_diff_meters_$current_branch_id.tif \
         -s $tempHucDataDir/osm_bridges_subset.gpkg \
+        -b 10 \
         -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
-        -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg \
-        -r $res
+        -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg 
+
+
 else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
 fi
