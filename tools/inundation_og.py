@@ -433,13 +433,13 @@ def __inundate_in_huc(
 def __go_fast_mapping(rem, catchments, catchmentStagesDict, inundation, depths):
     for i, (r, cm) in enumerate(zip(rem, catchments)):
         if cm in catchmentStagesDict:
-            if r >= 0.027:  # 0.027 meters representing an inch or more of inundation depth
+            if r >= 0:
                 depth = catchmentStagesDict[cm] - r
                 depths[i] = max(depth, 0)  # set negative depths to 0
             else:
                 depths[i] = 0
 
-            if depths[i] >= 0.027:  # set positive depths to positive
+            if depths[i] > 0:  # set positive depths to positive
                 inundation[i] *= -1
             # else: # set positive depths to value of positive catchment value
             # inundation[i] = cm
