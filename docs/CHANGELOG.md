@@ -8,6 +8,13 @@ This script produces inundation depths and attempts to overcome the catchment bo
 ### Additions
 
 - `tools/interpolate_water_surface.py`: New post-inundation processing tool for extending depths beyond catchment limits. The `interpolate_wse()` contains the logic for computing the updated depth raster, but users can also call this module directly to perform inundation, similar to how `inundate_mosaic_wrapper.py` works, but with the new post-processing enhancement.
+## v4.5.13.2 - 2025-01-03 - [PR#1360](https://github.com/NOAA-OWP/inundation-mapping/pull/1360)
+
+Fixed missing osmid in osm_bridge_centroid.gpkg. Also, HUC column is added to outputs.
+
+### Changes
+- `data/bridges/pull_osm_bridges.py`
+- `src/aggregate_by_huc.py`
 
 <br/><br/>
 
