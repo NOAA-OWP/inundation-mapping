@@ -40,6 +40,24 @@ Fixed missing osmid in osm_bridge_centroid.gpkg. Also, HUC column is added to ou
 <br/><br/>
 
 
+## v4.5.___ - 2025-___ - [PR#1379](https://github.com/NOAA-OWP/inundation-mapping/pull/1379)
+
+There are many sites in non-CONUS regions (AK, PR, HI) where we would like to run CatFIM but they are being excluded because they are not NWM forecast points. This update brings back the double API pull and adds in some code to filter out duplicate (and NULL) lids from the metadata lists. 
+
+### Additions
+- `inundation-mapping/tools/catfim/vis_categorical_fim.py`: Functions for reading in, processing, and visualizing CatFIM results. 
+-  `inundation-mapping/tools/catfim/notebooks/vis_catfim_cross_section.ipynb`: A new Jupyter notebook for viewing and analyzing CatFIM results.
+- `inundation-mapping/tools/catfim/notebooks/eval_catfim_metadata.ipynb`: A new Jupyter notebook for evaluating metadata and results from CatFIM runs. 
+- `inundation-mapping/tools/catfim/notebooks/.ipynb_checkpoints/vis_catfim_cross_section-checkpoint.ipynb`: Checkpoint file.
+- `inundation-mapping/tools/catfim/notebooks/.ipynb_checkpoints/eval_catfim_metadata-checkpoint.ipynb`: Checkpoint file.
+
+### Changes
+
+- `inundation-mapping/tools/catfim/generate_categorical_fim_flows.py`: Re-implements the dual API call and filters out duplicate sites.
+
+
+<br/><br/>
+
 ## v4.5.13.1 - 2024-12-13 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
 
 This PR was triggered by two dep-bot PR's. One for Tornado, one for aiohttp. Upon further research, these two exist only as dependencies for Jupyter and Jupyterlab which were very out of date. Upgrading Jupyter/JupyterLab took care of the other two.
