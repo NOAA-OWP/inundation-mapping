@@ -28,9 +28,13 @@ def filter_catchments_and_add_attributes(
     # filter segments within huc boundary
     select_flows = tuple(map(str, map(int, wbd[wbd.HUC8.str.contains(huc_code)][FIM_ID])))
 
+    del wbd
+
     if input_flows.HydroID.dtype != 'str':
         input_flows.HydroID = input_flows.HydroID.astype(str)
     output_flows = input_flows[input_flows.HydroID.str.startswith(select_flows)].copy()
+
+    del input_flows
 
     if output_flows.HydroID.dtype != 'int':
         output_flows.HydroID = output_flows.HydroID.astype(int)
@@ -72,6 +76,8 @@ def filter_catchments_and_add_attributes(
         # this is not an exception, but a custom exit code that can be trapped
         print("There are no flowlines in the HUC after stream order filtering.")
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
+
+    del input_catchments
 
 
 if __name__ == '__main__':
