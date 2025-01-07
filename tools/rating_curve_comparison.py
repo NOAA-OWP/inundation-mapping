@@ -255,7 +255,9 @@ def generate_rating_curve_metrics(args):
                 str_order = np.unique(usgs_rc.order_).item()
                 feature_id = str(gage.feature_id)
 
-                usgs_pred_elev, feature_index = get_reccur_intervals(usgs_rc, usgs_crosswalk, nwm_recurr_intervals_all)
+                usgs_pred_elev, feature_index = get_reccur_intervals(
+                    usgs_rc, usgs_crosswalk, nwm_recurr_intervals_all
+                )
 
                 # Handle sites missing data
                 if len(usgs_pred_elev) < 1:
@@ -283,7 +285,9 @@ def generate_rating_curve_metrics(args):
                     continue
 
                 if feature_index is not None:
-                    fim_pred_elev = get_reccur_intervals_fim(fim_rc, usgs_crosswalk, nwm_recurr_intervals_all, feature_index)
+                    fim_pred_elev = get_reccur_intervals_fim(
+                        fim_rc, usgs_crosswalk, nwm_recurr_intervals_all, feature_index
+                    )
 
                 # Handle sites missing data
                 if len(fim_pred_elev) < 1:
@@ -971,7 +975,8 @@ def get_reccur_intervals_fim(site_rc, usgs_crosswalk, nwm_recurr_intervals, feat
 
     else:
         return []
-    
+
+
 def get_reccur_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals):
     usgs_site = site_rc.merge(usgs_crosswalk, on="location_id")
     nwm_ids = len(usgs_site.feature_id.drop_duplicates())
@@ -982,8 +987,8 @@ def get_reccur_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals):
     if nwm_ids > 0:
         try:
             filtered = nwm_recurr_intervals.copy().loc[
-                    nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[0]
-                ]
+                nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[0]
+            ]
             min_q_recurr = filtered.discharge_cfs.min()
             max_q_recurr = filtered.discharge_cfs.max()
             spread_q = max_q_recurr - min_q_recurr
@@ -992,7 +997,7 @@ def get_reccur_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals):
             if nwm_ids == 1:
                 nwm_recurr_intervals = filtered
                 feature_index = 0
-                
+
             # If there is more one feature_id for each location_id
             else:
                 if ratio > 0.1:
@@ -1001,7 +1006,7 @@ def get_reccur_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals):
                 else:
                     nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[
                         nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[1]
-                ]
+                    ]
                     feature_index = 1
             nwm_recurr_intervals['pred_elev'] = np.interp(
                 nwm_recurr_intervals.discharge_cfs.values,
