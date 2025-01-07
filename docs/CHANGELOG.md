@@ -9,6 +9,41 @@ Fixed Sierra test bugs to draw the vertical lines.
 
 - `tools/rating_curve_comparison.py`
 
+
+## v4.5.13.4 - 2024-01-03 - [PR#1382](https://github.com/NOAA-OWP/inundation-mapping/pull/1382)
+
+Cleans up Python files within `delineate_hydros_and_produce_HAND.sh` to improve performance, especially memory management, including removing unused imports, deleting object references when objects are no longer needed, and removing GDAL from the `fim_process_unit_wb.sh` step of FIM pipeline. Contributes to #1351 and #1376.
+
+### Changes
+- `data/create_vrt_file.py` and `tools/pixel_counter.py`: Removes unused import
+- `src/`
+    - `accumulate_headwaters.py`, `add_crosswalk.py`, `adjust_thalweg_lateral.py`, `filter_catchments_and_add_attributes.py`, `heal_bridges_osm.py`, `make_rem.py`, `make_stages_and_catchlist.py`, `mitigate_branch_outlet_backpool.py`, `reachID_grid_to_vector_points.py`, `split_flows.py`, `unique_pixel_and_allocation.py`: Deletes objects no longer in use
+    - `delineate_hydros_and_produce_HAND.sh`, `run_by_branch.sh`, `run_unit_wb.sh` : Updates arguments
+    - `getRasterInfoNative.py`: Refactors in `rasterio` (removed `gdal`)
+- `tools/evaluate_crosswalk.py`: Deletes objects no longer in use
+
+<br/><br/>
+
+
+## v4.5.13.3 - 2025-01-03 - [PR#1048](https://github.com/NOAA-OWP/inundation-mapping/pull/1048)
+
+This script produces inundation depths and attempts to overcome the catchment boundary issue by interpolating water surface elevations between catchments. Water surface calculations require the hydroconditioned DEM (`dem_thalwegCond_{}.tif`) for computation, however, this file is not in the standard outputs from fim_pipeline.sh. Therefore, users may have to re-run fim_pipeline.sh with dem_thalwegCond_{}.tif removed from all deny lists.
+
+### Additions
+
+- `tools/interpolate_water_surface.py`: New post-inundation processing tool for extending depths beyond catchment limits. The `interpolate_wse()` contains the logic for computing the updated depth raster, but users can also call this module directly to perform inundation, similar to how `inundate_mosaic_wrapper.py` works, but with the new post-processing enhancement.
+
+<br/><br/>
+
+
+## v4.5.13.2 - 2025-01-03 - [PR#1360](https://github.com/NOAA-OWP/inundation-mapping/pull/1360)
+
+Fixed missing osmid in osm_bridge_centroid.gpkg. Also, HUC column is added to outputs.
+
+### Changes
+- `data/bridges/pull_osm_bridges.py`
+- `src/aggregate_by_huc.py`
+
 <br/><br/>
 
 
