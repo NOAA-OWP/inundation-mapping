@@ -744,9 +744,19 @@ def iterate_through_huc_stage_based(
                 if not os.path.exists(mapping_lid_directory):
                     os.mkdir(mapping_lid_directory)
 
+                # Check whether stage value is actually a WSE value, and fix if needed:
+                # Get lowest stage value
+                lowest_stage_val = stage_values_df['stage_value'].min()
+
+                # Stage value is larger than the elevation value, subtract the elev
+                # from the "stage" value to get the actual stage
+                if lowest_stage_val > lid_altitude:
+                    stage_values_df['stage_value'] = stage_values_df['stage_value'] - lid_altitude
+                    MP_LOG.lprint(f"{huc_lid_id}: Lowest stage val ({lowest_stage_val}) was greater than elev ({lid_altitude}). Subtracted elev from stage vals to fix.")
+
                 # At this point we have at least one valid stage/category
-                # cyle through on the stages that are valid
-                # This are not interval values
+                # Cycle through the stages that are valid
+                # These are not interval values
                 for idx, stage_row in stage_values_df.iterrows():
                     # MP_LOG.lprint(f"{huc_lid_id}: Magnitude is {category}")
                     # Pull stage value and confirm it's valid, then process
