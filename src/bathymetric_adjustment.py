@@ -113,7 +113,7 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
             * pow(src_df['SLOPE'], 0.5)
             / src_df['ManningN']
         )
-        
+
         # Force zero stage to have zero discharge
         src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
         # Calculate number of adjusted HydroIDs
@@ -280,11 +280,13 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             # src_df['Volume (m3)'] = src_df['Volume (m3)'] + (
             #     src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000))
 
-            BedArea_m2 = src_df['BedArea (m2)'] + (src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000))
+            BedArea_m2 = src_df['BedArea (m2)'] + (
+                src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000)
+            )
             src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["BedArea (m2)"]] = BedArea_m2
             # src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (
             #     src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000))
-            
+
             # Recalc discharge with adjusted geometries
             WettedPerimeter_m = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
             src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["WettedPerimeter (m)"]] = WettedPerimeter_m
@@ -310,7 +312,7 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             #     * pow(src_df['SLOPE'], 0.5)
             #     / src_df['ManningN']
             # )
-            
+
             # Force zero stage to have zero discharge
             src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
 
@@ -361,15 +363,16 @@ def apply_src_adjustment_for_bathymetry(
 
     if ai_toggle == 1:
         try:
-                if os.path.exists(bathy_file_aibased):
-                    msg = f"Correcting rating curve for AI-based bathy for huc : {huc}"
-                    log_text += msg + '\n'
-                    print(msg + '\n')
+            if os.path.exists(bathy_file_aibased):
+                msg = f"Correcting rating curve for AI-based bathy for huc : {huc}"
+                log_text += msg + '\n'
+                print(msg + '\n')
 
-                    log_text += correct_rating_for_ai_bathymetry(
-                        fim_dir, huc, strm_order, bathy_file_aibased) #, ai_toggle
-                else:
-                    print(f'AI-based bathymetry file does not exist for huc : {huc}')
+                log_text += correct_rating_for_ai_bathymetry(
+                    fim_dir, huc, strm_order, bathy_file_aibased
+                )  # , ai_toggle
+            else:
+                print(f'AI-based bathymetry file does not exist for huc : {huc}')
 
         except Exception:
             log_text += f"An error has occurred while processing AI-based bathy for huc {huc}"
@@ -390,7 +393,7 @@ def process_bathy_adjustment(
     output_suffix,
     number_of_jobs,
     ai_toggle,
-    verbose,    
+    verbose,
 ):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input bathy_file.
@@ -465,7 +468,7 @@ def process_bathy_adjustment(
     log_text += msg
     print(msg)
 
-    if ai_toggle == 1:        
+    if ai_toggle == 1:
         msg = f"AI-Based bathymetry data is applied on streams with order {strm_order} or higher\n"
         log_text += msg
         print(msg)
