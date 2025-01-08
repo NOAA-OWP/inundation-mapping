@@ -539,7 +539,6 @@ if __name__ == '__main__':
         -bathy_aibased /data/inputs/bathymetry/ml_outputs_v1.01.parquet
         -buffer 5000 -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -j $jobLimit
     """
-
     parser = ArgumentParser(description="Bathymetric Adjustment")
     parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
     parser.add_argument(
