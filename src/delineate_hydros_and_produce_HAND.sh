@@ -74,9 +74,9 @@ $taudemDir/flowdircond -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_flo
 
 ## D8 SLOPES ##
 echo -e $startDiv"D8 Slopes from DEM $hucNumber $current_branch_id"
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-    -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
-    -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif
+python3 $srcDir/compute_slopes.py \
+    -d $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
+    -s $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif
 
 ## STREAMNET FOR REACHES ##
 echo -e $startDiv"Stream Net for Reaches $hucNumber $current_branch_id"
