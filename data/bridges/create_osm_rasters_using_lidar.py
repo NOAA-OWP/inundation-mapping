@@ -213,20 +213,29 @@ def create_dem_diff(original_dem_path,local_tif_paths,diff_dem_path):
     # Save the result to a new TIFF file
     diff.rio.to_raster(diff_dem_path)
 
-def NOT_USED_add_diff_into_rem(rem_path,diff_dem_path,updated_rem_path):
-    # Open REM and DIFF using xarray with rasterio engine
-    rem = xr.open_dataarray(rem_path, engine="rasterio")
-    diff = xr.open_dataarray(diff_dem_path, engine="rasterio")
+def make_rasers_in_parallel(args):
+    osmid,points_path,output_dir,raster_resolution,tif_crs=args
+    try:
 
-    # Reproject DIFF to match REM
-    diff_reprojected = diff.rio.reproject_match(rem)
+        # #make a gpkg file from points
+        points_gdf=las_to_gpkg(points_path)
+        if not points_gdf.empty:
+            modified_points_gdf=handle_noises(points_gdf)
+            if modified_points_gdf is None:
+                return
 
-    # Add DIFF values to REM where DIFF has valid data
-    updated_rem = rem.copy()
-    updated_rem = updated_rem.where(diff_reprojected.isnull(), rem + diff_reprojected)
+            #make a las file for subsequent pdal pipeline
+            modified_las_path=os.path.join(output_dir,'point_files','%s_modified.las'%osmid)
+            las_obj=gpkg_to_las(modified_points_gdf)
+            las_obj.write(modified_las_path)
+            
+            #make tif files
+            tif_output=os.path.join(output_dir,'tif_files','%s.tif'%osmid)
+            make_local_tifs(modified_las_path,raster_resolution,tif_crs, tif_output)
+            os.remove(modified_las_path)
+    except:
+        print("something wrong with %s"%str(osmid))
 
-    # Save the result to a new file
-    updated_rem.rio.to_raster(updated_rem_path)
 
 def process_bridges_lidar_data(OSM_bridge_file,buffer_width,raster_resolution,output_dir):
     start_time = dt.datetime.now(dt.timezone.utc)
@@ -262,7 +271,6 @@ def process_bridges_lidar_data(OSM_bridge_file,buffer_width,raster_resolution,ou
     for i, row in OSM_polygons_gdf.iterrows():
         osmid,poly_geo, lidar_url = row.osmid, row.geometry, row.url
         pool_args.append((osmid,poly_geo, lidar_url,output_dir))
-        # download_lidar_points(osmid,poly_geo, lidar_url,output_dir)
 
     print('There are %d files to get downloaded'%len(pool_args))
     with Pool(15) as pool:
@@ -270,47 +278,13 @@ def process_bridges_lidar_data(OSM_bridge_file,buffer_width,raster_resolution,ou
 
     downloaded_points_files = glob.glob(os.path.join(output_dir,'point_files', '*.las'))
 
+    pool_args=[]
     for points_path in downloaded_points_files:
         osmid= os.path.basename(points_path).split('.las')[0]
+        pool_args.append((osmid,points_path,output_dir,raster_resolution,tif_crs ))
 
-        #make a gpkg file from points
-        points_gdf=las_to_gpkg(points_path)
-        if not points_gdf.empty:
-            
-            modified_points_gdf=handle_noises(points_gdf)
-            if modified_points_gdf is None:
-                continue
-    
-            #make a las file for subsequent pdal pipeline
-            modified_las_path=os.path.join(output_dir,'point_files','%s_modified.las'%osmid)
-            las_obj=gpkg_to_las(modified_points_gdf)
-            las_obj.write(modified_las_path)
-            
-            #make tif files
-            tif_output=os.path.join(output_dir,'tif_files','%s.tif'%osmid)
-            make_local_tifs(modified_las_path,raster_resolution,tif_crs, tif_output)
-
-            #remove the temporary las file
-            os.remove(modified_las_path)
-
-    # #identify osmids with lidar-tif or not
-    # lidar_tif_folder = os.path.join(output_dir,'tif_files')
-    # tif_ids = set(os.path.splitext(os.path.basename(f))[0] for f in os.listdir(lidar_tif_folder) if f.endswith('.tif'))
-    # OSM_bridge_lines_gdf['has_lidar_tif'] = OSM_bridge_lines_gdf['osmid'].apply(lambda x: 'Y' if str(x) in tif_ids else 'N')
-
-    # ## TODO update the osm bridge lines fie (with a new name?) 
-    # base, ext = os.path.splitext(OSM_bridge_file) 
-    # OSM_bridge_lines_gdf.to_file(os.path.join(output_dir,f"{base}_modified{ext}"))
-
-    #make a dif file by integrating lidar enerated tifs and 3DEP DEM
-    # original_dem_path=r"../Data/HUC8_12090301_dem.tif" 
-    # original_dem_path=r"C:\Users\ali.forghani\Desktop\lidar\Data\HUC8_02050206_dem.tif"
-    # diff_dem_path=os.path.join(output_dir,'diff_dem_02050206.tif')
-    # lidar_tif_paths=list(glob.glob(os.path.join(lidar_tif_folder, '*.tif')))
-    # create_dem_diff(original_dem_path,lidar_tif_paths,diff_dem_path)
-
-
-
+    with Pool(10) as pool:
+        pool.map(make_rasers_in_parallel, pool_args)
 
 
 
@@ -376,24 +350,6 @@ if __name__ == "__main__":
     
 
 
-    # #updated 3DEP DEM
-    # original_dem_path=r"../Data/HUC8_12090301_dem.tif" 
-    # enhanced_dem_path=os.path.join(output_dir,'enhanced','HUC8_12090301_dem_enhanced.tif')
-    # diff_dem_path=r"../Results\final\enhanced/diff_dem.tif"
-    # local_tif_paths=list(glob.glob(os.path.join(r'../Results/final/lidar_generated_tif', '*.tif')))
-    # create_dem_diff(original_dem_path,local_tif_paths,diff_dem_path)
-
-    # #record for which osmids we have a lidar-generated tif
-    # local_tif_ids = [int(os.path.splitext(os.path.basename(path))[0]) for path in local_tif_paths]
-    # intersection['has_lidar_tif'] = np.where(intersection['osmid'].isin(local_tif_ids),'Y','N')
-    # intersection.to_file('../Results/final/Intersected_with_lidar.gpkg')
-
-
-
-    # #add diff tif file into HAND GRID
-    # rem_path = r"../Data\rem_zeroed_masked_0.tif"
-    # updated_rem_path = r"../Results\final\enhanced\rem_updated.tif"
-    # add_diff_into_rem(rem_path,diff_dem_path,updated_rem_path)
 
 
 
