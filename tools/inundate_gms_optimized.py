@@ -5,7 +5,7 @@ import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import pandas as pd
-from inundation8 import NoForecastFound, hydroTableHasOnlyLakes, inundate
+from inundation_optimized import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
@@ -42,7 +42,8 @@ def Inundate_gms(
             os.remove(log_file)
 
         if verbose:
-            print("HUC8,BranchID,Exception", file=open(log_file, "w"))
+            with open(log_file, 'a') as f:
+                f.write("HUC8,BranchID,Exception")
     # if log_file:
     #     logging.basicConfig(filename=log_file, level=logging.INFO)
     #     logging.info('HUC8,BranchID,Exception')
@@ -98,19 +99,22 @@ def Inundate_gms(
 
         except NoForecastFound as exc:
             if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                with open(log_file, 'a') as f:
+                    f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
             elif verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except hydroTableHasOnlyLakes as exc:
             if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                with open(log_file, 'a') as f:
+                    f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
             elif verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except Exception as exc:
             if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                with open(log_file, 'a') as f:
+                    f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
             else:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
         else:

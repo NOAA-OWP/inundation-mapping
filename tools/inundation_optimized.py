@@ -11,7 +11,7 @@ from warnings import warn
 
 import fiona
 import geopandas as gpd
-import gval
+import numba.typed.typeddict
 import numpy as np
 import pandas as pd
 import rasterio
@@ -19,9 +19,6 @@ import rioxarray as rxr
 import xarray as xr
 from gval.homogenize.spatial_alignment import _matching_spatial_indices
 from numba import njit, prange, typed, types
-from rasterio.features import shapes
-from rasterio.io import DatasetReader, DatasetWriter
-from rasterio.mask import mask
 from shapely.geometry import shape
 
 
@@ -41,8 +38,8 @@ class NoForecastFound(Exception):
 
 
 def inundate(
-    rem,
-    catchments,
+    rem: Union[str, xr.DataArray, xr.Dataset],
+    catchments: Union[str, xr.DataArray, xr.Dataset],
     catchment_poly,
     hydro_table,
     forecast,
@@ -55,7 +52,7 @@ def inundate(
     inundation_raster=None,
     depths=None,
     src_table=None,
-    quiet=False,
+    quiet: bool = False,
 ):
     """
 
@@ -67,10 +64,10 @@ def inundate(
 
     Parameters
     ----------
-    rem : str or rasterio.DatasetReader
+    rem : str or rioxarray DataSet or DataArray
         File path to or rasterio dataset reader of Relative Elevation Model raster.
         Must have the same CRS as catchments raster.
-    catchments : str or rasterio.DatasetReader
+    catchments : str or rioxarray DataSet or DataArray
         File path to or rasterio dataset reader of Catchments raster. Must have the same CRS as REM raster
     hydro_table : str or pandas.DataFrame
         File path to hydro-table csv or Pandas DataFrame object with correct indices and columns.
@@ -196,9 +193,51 @@ def inundate(
 
 
 def __validation(
-    rem, catchments, hydro_table, hucs=None, hucs_layerName=None, num_workers=1, aggregate=False, quiet=False
+    rem: Union[str, xr.DataArray, xr.Dataset],
+    catchments: Union[str, xr.DataArray, xr.Dataset],
+    hydro_table: Union[str, pd.DataFrame],
+    hucs: list = None,
+    hucs_layerName: str = None,
+    num_workers: int = 1,
+    aggregate: bool = False,
+    quiet: bool = False,
 ):
+    """
+    Checking inputs for valid formats and values
 
+    Parameters
+    ----------
+    rem : Union[str, xr.DataArray, xr.Dataset]
+        File path to or rasterio dataset reader of Relative Elevation Model raster.
+    catchments : Union[str, xr.DataArray, xr.Dataset]
+        File path to or rasterio dataset reader of Catchments raster.
+    hydro_table : Union[str, pd.DataFrame]
+        File path to hydro-table csv or Pandas DataFrame object with correct indices and columns.
+    hucs : list, optional
+        Batch mode only. File path or fiona collection of vector polygons in HUC 4,6,or 8's to inundate on.
+    hucs_layerName : str, optional
+        Batch mode only. Layer name in hucs to use if multi-layer file is passed.
+    num_workers: int
+        Batch mode only. Number of workers to use in batch mode. Must be 1 or greater.
+    aggregate: bool, optional
+        Batch mode only. Aggregates output rasters to VRT mosaic files and merges polygons to single GPKG file
+        Currently not functional. Raises warning and sets to false. On to-do list.
+    quiet: bool, optional
+        Whether to supress printed output
+
+    Returns
+    -------
+    rem : Union[xr.Dataset, xr.DataArray]
+        Normalized elevation values for the catchment
+    catchments: Union[xr.Dataset, xr.DataArray]
+        Rasterized catchments with HydroIDs
+    hucs : Union[None, fiona.Collection]
+        Vector collection of hucs or None
+    num_workers :  int
+        Number of parallel workers
+    quiet : bool
+        Whether to supress printed output
+    """
     # check for num_workers
     num_workers = int(num_workers)
     assert num_workers >= 1, "Number of workers should be 1 or greater"
@@ -219,18 +258,18 @@ def __validation(
     # input rem
     if isinstance(rem, str):
         rem = rxr.open_rasterio(rem)
-    elif isinstance(rem, isinstance(xr.Dataset)):
+    elif isinstance(rem, xr.Dataset) or isinstance(rem, xr.DataArray):
         pass
     else:
-        raise TypeError("Pass rasterio dataset or filepath for rem")
+        raise TypeError("Pass rioxarray Dataset/DataArray or filepath for rem")
 
     # input catchments grid
     if isinstance(catchments, str):
         catchments = rxr.open_rasterio(catchments)
-    elif isinstance(catchments, xr.Dataset):
+    elif isinstance(catchments, xr.Dataset) or isinstance(catchments, xr.DataArray):
         pass
     else:
-        raise TypeError("Pass rasterio dataset or filepath for catchments")
+        raise TypeError("Pass rioxarray Dataset/DataArray or filepath for catchments")
 
     # check for matching number of bands and single band only
     assert _matching_spatial_indices(
@@ -251,10 +290,39 @@ def __validation(
     if hydro_table is None:
         raise TypeError("Pass hydro table csv")
 
-    return rem, catchments, hucs, rem, num_workers, quiet
+    return rem, catchments, hucs, num_workers, quiet
 
 
-def __inundate_in_huc(rem, catchments, hucCode, catchmentStagesDict, depths, inundation_raster, quiet):
+def __inundate_in_huc(
+    rem: Union[str, xr.DataArray, xr.Dataset],
+    catchments: Union[str, xr.DataArray, xr.Dataset],
+    hucCode: str,
+    catchmentStagesDict: numba.typed.typeddict,
+    depths: str,
+    inundation_raster: str,
+    quiet: bool,
+):
+    """
+    Inundate within the chosen scope
+
+    Parameters
+    ----------
+    rem : Union[str, xr.DataArray, xr.Dataset]
+        File path to or rasterio dataset reader of Relative Elevation Model raster.
+    catchments : Union[str, xr.DataArray, xr.Dataset]
+        File path to or rasterio dataset reader of Catchments raster.
+    hucCode : str
+        Catchment processing unit to inundate
+    catchmentStagesDict :  numba dictionary
+        Numba compatible dictionary with HydroID as a key and flood stage as a value
+    depths : str
+        Name of inundation depth dataset
+    inundation_raster : str
+        Name of inundation extent dataset
+    quiet : bool
+        Whether to supress printed output
+
+    """
     # verbose print
     if hucCode is not None:
         __vprint("Inundating {} ...".format(hucCode), not quiet)
@@ -322,25 +390,29 @@ def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, noda
     # Iterate through each latitude and longitude
     for i in prange(y):
         for j in prange(x):
-
-            # If rem and or catchments
-            if rem[0, i, j] == nodata_r:
-                catchments[0, i, j] = nodata_c
-            elif catchments[0, i, j] == nodata_c:
-                rem[0, i, j] = 0
-            else:
+            # If catchments are nodata
+            if catchments[0, i, j] != nodata_c:
+                # catchments in stage dict
                 if catchments[0, i, j] in catchmentStagesDict:
+                    # if elevation is zero or greater
                     if rem[0, i, j] >= 0:
                         depth = catchmentStagesDict[catchments[0, i, j]] - rem[0, i, j]
-                        rem[0, i, j] = max(depth, 0)  # set negative depths to 0
-                        if rem[0, i, j] <= 0:  # set positive depths to positive
-                            catchments[0, i, j] *= -1
+
+                        # If the depth is greater than approximately 1/10th of a foot
+                        if depth < 30:
+                            catchments[0, i, j] *= -1  # set HydroIDs to negative
+                            rem[0, i, j] = 0
+                        else:
+                            rem[0, i, j] = depth
                     else:
                         rem[0, i, j] = 0
-                        catchments[0, i, j] *= -1
+                        catchments[0, i, j] *= -1  # set HydroIDs to negative
                 else:
-                    rem[0, i, j] = nodata_r
+                    rem[0, i, j] = 0
                     catchments[0, i, j] = nodata_c
+            else:
+                rem[0, i, j] = 0
+                catchments[0, i, j] = nodata_c
 
 
 def __make_windows_generator(
@@ -379,7 +451,7 @@ def __make_windows_generator(
 
     Returns
     -------
-    Yields the following:
+    Tuple of rioxarray Datasets/DataArrays and other data
     rem : rioxarray DataArray
         Either full or masked dataset
     catchments : rioxarray DataArray
@@ -394,7 +466,9 @@ def __make_windows_generator(
         Name of inundation extent raster to output
     quiet: bool
         Whether to suppress printed output or run in verbose mode
+
     """
+
     if hucs is not None:
         # get attribute name for HUC column
         for huc in hucs:
@@ -463,7 +537,7 @@ def __make_windows_generator(
     else:
         hucCode = None
 
-        yield (rem, catchments, hucCode, catchmentStagesDict, depths, inundation_raster, quiet)
+        yield rem, catchments, hucCode, catchmentStagesDict, depths, inundation_raster, quiet
 
 
 def __append_huc_code_to_file_name(fileName, hucCode):
@@ -578,7 +652,7 @@ def __subset_hydroTable_to_forecast(hydroTable, forecast, subset_hucs=None):
             h = round(interpolated_stage[0], 4)
 
             hid = types.int16(np.int16(str(hid)[4:]))
-            h = types.int16(h * 1000)
+            h = types.int16(np.round(h * 1000))
             catchmentStagesDict[hid] = h
 
         # huc set

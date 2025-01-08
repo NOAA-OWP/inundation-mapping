@@ -83,10 +83,3 @@ per-file-ignores = """
     tools/tools_shared_functions.py: F821, F841, E711
     data/usgs/rating_curve_get_usgs_curves.py: F841
     """
-
-
-
-[build-system]
-requires = ["maturin>=1.7", 'setuptools>=42']
-#build-backend = "maturin"
-build-backend = 'setuptools.build_meta'

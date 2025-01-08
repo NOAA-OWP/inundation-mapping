@@ -359,23 +359,6 @@ def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: i
     return {x: y for x, y in zip(metric_df.columns, metric_df.values[0])}
 
 
-def delete_and_garbage_collect(objects_to_delete: list):
-    """
-    Deletes and garbage collects objects to free memory
-
-    Prammeters
-    ----------
-    object_to_delete : list
-        List of objects to delete and garbage collect
-
-    """
-
-    for obj in objects_to_delete:
-        del obj
-
-    gc.collect()
-
-
 def get_stats_table_from_binary_rasters(
     benchmark_raster_path: str, candidate_raster_path: str, agreement_raster: str = None, mask_dict: dict = {}
 ):
@@ -453,7 +436,8 @@ def get_stats_table_from_binary_rasters(
                 # Make sure features are present in bounding box area before projecting.
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
-                    delete_and_garbage_collect([poly_all])
+                    del poly_all
+                    gc.collect()
                     continue
 
                 # Project layer to reference crs.
@@ -589,7 +573,8 @@ def get_stats_table_from_binary_rasters(
                     )
                     agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
                     agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.uint8, driver="COG")
-                    delete_and_garbage_collect([agreement_map_write])
+                    del agreement_map_write
+                    gc.collect()
 
                 # Update stats table dictionary
                 stats_table_dictionary.update(
