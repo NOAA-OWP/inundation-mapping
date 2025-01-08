@@ -218,6 +218,17 @@ if  [ -f $tempCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
         --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
 fi
 
+# ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
+# if [ "$healed_hand_hydrocondition" = true ]; then
+#     echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
+#     gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
+#         -R $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+#         -D $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+#         -T $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+#         --calc="R+(D-T)" --NoDataValue=$ndv \
+#         --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
+# fi
+
 ## HYDRAULIC PROPERTIES ##
 echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"
 $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \

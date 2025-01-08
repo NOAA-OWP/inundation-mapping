@@ -94,8 +94,26 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
 
         src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
         src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
-        # # Add missing hydraulic geometry into base parameters
 
+        # Add missing hydraulic geometry into base parameters
+        src_df['Volume (m3)'] = src_df['Volume (m3)'] + (
+            src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000)
+        )
+        src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (
+            src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000)
+        )
+        # Recalc discharge with adjusted geometries
+        src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
+        src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
+        src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
+        src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
+        src_df['Discharge (m3s-1)'] = (
+            src_df['WetArea (m2)']
+            * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
+            * pow(src_df['SLOPE'], 0.5)
+            / src_df['ManningN']
+        )
+        
         # Force zero stage to have zero discharge
         src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
         # Calculate number of adjusted HydroIDs
@@ -110,7 +128,7 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
 
 # -------------------------------------------------------
 # Adjusting synthetic rating curves using 'AI-based' bathymetry data
-def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_aibased, verbose):
+def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibased):
     """
     Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input AI-based bathy_file.
@@ -136,6 +154,7 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
 
     """
     log_text = f'Calculating AI-based bathymetry adjustment: {huc}\n'
+    print(f'Calculating AI-based bathymetry adjustment: {huc}\n')
 
     # Load AI-based bathymetry data
     ml_bathy_data = pd.read_parquet(bathy_file_aibased, engine='pyarrow')
@@ -178,6 +197,7 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
     # test = aib_df[aib_df.duplicated(subset='feature_id', keep=False)]
     aib_df = aib_df0.drop_duplicates(subset=['feature_id'], keep='first')
     aib_df.index = range(len(aib_df))
+    print(f'Adjusting SRCs only with EHydro Bathymetry Data: {huc}\n')
 
     # Get src_full from each branch
     src_all_branches_path = []
@@ -196,10 +216,37 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
         branch = src_name.split(".")[0].split("_")[-1]
         log_text += f'  Branch: {branch}\n'
 
-        # Merge in missing bathy data and fill Nans
+        # Merge in missing ai bathy data and fill Nans
         if 'missing_xs_area_m2' not in src_df.columns:
             src_df.drop(columns=["Bathymetry_source"], inplace=True)
             src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
+
+            src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
+            src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
+
+            # Add missing hydraulic geometry into base parameters
+            src_df['Volume (m3)'] = src_df['Volume (m3)'] + (
+                src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000)
+            )
+            src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (
+                src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000)
+            )
+            # Recalc discharge with adjusted geometries
+            src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
+            src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
+            src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
+            src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
+            src_df['Discharge (m3s-1)'] = (
+                src_df['WetArea (m2)']
+                * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
+                * pow(src_df['SLOPE'], 0.5)
+                / src_df['ManningN']
+            )
+            # Force zero stage to have zero discharge
+            src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+
+            # Write src back to file
+            src_df.to_csv(src, index=False)
 
         else:
             src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
@@ -224,32 +271,51 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
             src_df = src_df.rename(columns={'missing_wet_perimeter_m_x': 'missing_wet_perimeter_m'})
             src_df = src_df.rename(columns={'Bathymetry_source_x': 'Bathymetry_source'})
 
-        src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
-        src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
+            src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
+            src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
 
-        # Add missing hydraulic geometry into base parameters
-        src_df['Volume (m3)'] = src_df['Volume (m3)'] + (
-            src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000)
-        )
-        src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (
-            src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000)
-        )
-        # Recalc discharge with adjusted geometries
-        src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
-        src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
-        src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
-        src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
-        src_df['Discharge (m3s-1)'] = (
-            src_df['WetArea (m2)']
-            * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-            * pow(src_df['SLOPE'], 0.5)
-            / src_df['ManningN']
-        )
-        # Force zero stage to have zero discharge
-        src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+            # Add missing hydraulic geometry into base parameters
+            Volume_m3 = src_df['Volume (m3)'] + (src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000))
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["Volume (m3)"]] = Volume_m3
+            # src_df['Volume (m3)'] = src_df['Volume (m3)'] + (
+            #     src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000))
 
-        # Write src back to file
-        src_df.to_csv(src, index=False)
+            BedArea_m2 = src_df['BedArea (m2)'] + (src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000))
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["BedArea (m2)"]] = BedArea_m2
+            # src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (
+            #     src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000))
+            
+            # Recalc discharge with adjusted geometries
+            WettedPerimeter_m = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["WettedPerimeter (m)"]] = WettedPerimeter_m
+            # src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
+            Wetarea_m2 = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["WetArea (m2)"]] = Wetarea_m2
+            # src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
+            HydraulicRadius_m = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["HydraulicRadius (m)"]] = HydraulicRadius_m
+            # src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
+            src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
+
+            dicharge_cms = (
+                src_df['WetArea (m2)']
+                * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
+                * pow(src_df['SLOPE'], 0.5)
+                / src_df['ManningN']
+            )
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["Discharge (m3s-1)"]] = dicharge_cms
+            # src_df['Discharge (m3s-1)'] = (
+            #     src_df['WetArea (m2)']
+            #     * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
+            #     * pow(src_df['SLOPE'], 0.5)
+            #     / src_df['ManningN']
+            # )
+            
+            # Force zero stage to have zero discharge
+            src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+
+            # Write src back to file
+            src_df.to_csv(src, index=False)
 
     return log_text
 
@@ -257,7 +323,7 @@ def correct_rating_for_ai_based_bathymetry(fim_dir, huc, strm_order, bathy_file_
 # --------------------------------------------------------
 # Apply src_adjustment_for_bathymetry
 def apply_src_adjustment_for_bathymetry(
-    fim_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, verbose, log_file_path
+    fim_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, ai_toggle, verbose, log_file_path
 ):
     """
     Function for applying both eHydro & AI-based bathymetry adjustment to synthetic rating curves.
@@ -293,21 +359,21 @@ def apply_src_adjustment_for_bathymetry(
     except Exception:
         print(f"Error trying to write to the log file of {log_file_path}")
 
-    try:
-        if os.path.exists(bathy_file_aibased):
-            msg = f"Correcting rating curve for AI-based bathy for huc : {huc}"
-            log_text += msg + '\n'
-            print(msg + '\n')
+    if ai_toggle == 1:
+        try:
+                if os.path.exists(bathy_file_aibased):
+                    msg = f"Correcting rating curve for AI-based bathy for huc : {huc}"
+                    log_text += msg + '\n'
+                    print(msg + '\n')
 
-            log_text += correct_rating_for_ai_based_bathymetry(
-                fim_dir, huc, strm_order, bathy_file_aibased, verbose
-            )
-        else:
-            print(f'AI-based bathymetry file does not exist for huc : {huc}')
+                    log_text += correct_rating_for_ai_bathymetry(
+                        fim_dir, huc, strm_order, bathy_file_aibased) #, ai_toggle
+                else:
+                    print(f'AI-based bathymetry file does not exist for huc : {huc}')
 
-    except Exception:
-        log_text += f"An error has occurred while processing AI-based bathy for huc {huc}"
-        log_text += traceback.format_exc()
+        except Exception:
+            log_text += f"An error has occurred while processing AI-based bathy for huc {huc}"
+            log_text += traceback.format_exc()
 
     with open(log_file_path, "a") as log_file:
         log_file.write(log_text + '\n')
@@ -323,7 +389,8 @@ def process_bathy_adjustment(
     wbd,
     output_suffix,
     number_of_jobs,
-    verbose,
+    ai_toggle,
+    verbose,    
 ):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input bathy_file.
@@ -368,14 +435,21 @@ def process_bathy_adjustment(
 
     # Let log_text build up starting here until the bottom.
     log_text = ""
-
     # Exit program if the bathymetric data doesn't exist
-    if not all([os.path.exists(bathy_file_ehydro), os.path.exists(bathy_file_aibased)]):
-        statement = f'The input bathymetry files {bathy_file_ehydro} and {bathy_file_aibased} do not exist. Exiting...'
-        with open(log_file_path, "w") as log_file:
-            log_file.write(statement)
-        print(statement)
-        sys.exit(0)
+    if ai_toggle == 1:
+        if not all([os.path.exists(bathy_file_ehydro), os.path.exists(bathy_file_aibased)]):
+            statement = f'The input bathymetry files {bathy_file_ehydro} and {bathy_file_aibased} do not exist. Exiting...'
+            with open(log_file_path, "w") as log_file:
+                log_file.write(statement)
+            print(statement)
+            sys.exit(0)
+    else:
+        if not os.path.exists(bathy_file_ehydro):
+            statement = f'The input bathymetry file {bathy_file_ehydro} does not exist. Exiting...'
+            with open(log_file_path, "w") as log_file:
+                log_file.write(statement)
+            print(statement)
+            sys.exit(0)
 
     # Find applicable HUCs to apply ehydro bathymetric adjustment
     fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
@@ -391,9 +465,10 @@ def process_bathy_adjustment(
     log_text += msg
     print(msg)
 
-    msg = f"AI-Based bathymetry data is applied on streams with order {strm_order} or higher\n"
-    log_text += msg
-    print(msg)
+    if ai_toggle == 1:        
+        msg = f"AI-Based bathymetry data is applied on streams with order {strm_order} or higher\n"
+        log_text += msg
+        print(msg)
 
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         # Loop through all hucs, build the arguments, and submit them to the process pool
@@ -405,6 +480,7 @@ def process_bathy_adjustment(
                 'strm_order': strm_order,
                 'bathy_file_ehydro': bathy_file_ehydro,
                 'bathy_file_aibased': bathy_file_aibased,
+                'ai_toggle': ai_toggle,
                 'verbose': verbose,
                 'log_file_path': log_file_path,
             }
@@ -516,6 +592,14 @@ if __name__ == '__main__':
         type=int,
     )
     parser.add_argument(
+        '-ait',
+        '--ai_toggle',
+        help='Toggle to apply ai_based bathymetry, ait = 1',
+        required=False,
+        default=0,
+        type=int,
+    )
+    parser.add_argument(
         '-vb',
         '--verbose',
         help='OPTIONAL: verbose progress bar',
@@ -534,6 +618,7 @@ if __name__ == '__main__':
     wbd = args['wbd']
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
+    ai_toggle = args['ai_toggle']
     verbose = bool(args['verbose'])
 
     process_bathy_adjustment(
@@ -545,5 +630,6 @@ if __name__ == '__main__':
         wbd,
         output_suffix,
         number_of_jobs,
+        ai_toggle,
         verbose,
     )
