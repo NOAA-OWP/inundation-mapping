@@ -120,7 +120,7 @@ def inundate(
 
     """
 
-    rem, catchments, hucs, rem, num_workers, quiet = __validation(
+    rem, catchments, hucs, num_workers, quiet = __validation(
         rem=rem,
         catchments=catchments,
         hydro_table=hydro_table,
