@@ -161,7 +161,7 @@ Tcount
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
 if [ "$bathymetry_adjust" = "True" ]; then
-    echo -e $startDiv"Performing Bathymetry Adjustment routine"    
+    echo -e $startDiv"Performing Bathymetry Adjustment routine"
     # Run bathymetry adjustment routine
     ai_toggle=${ai_toggle:-0}
     Tstart
