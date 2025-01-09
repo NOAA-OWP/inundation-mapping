@@ -51,7 +51,7 @@ Description
 
 import argparse
 import sys
-from collections import Counter, OrderedDict
+from collections import OrderedDict
 from os import remove
 from os.path import isfile
 
@@ -148,6 +148,7 @@ def split_flows(
 
     # Read in flows data and check for relevant streams within HUC boundary
     flows = gpd.read_file(flows_filename)
+    flows_crs = flows.crs
     if len(flows) == 0:
         # Note: This is not an exception, but a custom exit code that can be trapped
         print("No relevant streams within HUC boundaries.")
@@ -156,13 +157,6 @@ def split_flows(
     # Read in and format other data
     wbd8 = gpd.read_file(wbd8_clp_filename)
     dem = rasterio.open(dem_filename, 'r')
-
-    # if isfile(catchment_pixels_filename):
-    #     with rasterio.open(catchment_pixels_filename) as src:
-    #         catchments_geom = src.read(1)
-    # else:
-    #     catchments_geom = None
-    #     print(f'No catchment pixels geometry found at {catchment_pixels_filename}.') ## debug
 
     if isfile(lakes_filename):
         lakes = gpd.read_file(lakes_filename)
@@ -208,8 +202,12 @@ def split_flows(
         terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
         snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
+        del terminal_nwm_point
+
         # Snap and trim the flowline to the snapped point
         flows = snap_and_trim_flow(snapped_point, flows)
+
+        del snapped_point
 
     # If it is branch 0: Loop over NWM terminal segments
     else:
@@ -224,8 +222,15 @@ def split_flows(
                 terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
                 snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
+                del terminal_nwm_point
+
                 # Snap and trim the flowline to the snapped point
                 flows = snap_and_trim_flow(snapped_point, flows)
+
+            del snapped_point
+        del nwm_streams_terminal
+
+    del nwm_streams
 
     # Split stream segments at HUC8 boundaries
     print('Splitting stream segments at HUC8 boundaries...')
@@ -361,9 +366,11 @@ def split_flows(
             slope = slope_min
         slopes = slopes + [slope]
 
+    del flows, dem
+
     # Assemble the slopes and split flows into a geodataframe
     split_flows_gdf = gpd.GeoDataFrame(
-        {'S0': slopes, 'geometry': split_flows}, crs=flows.crs, geometry='geometry'
+        {'S0': slopes, 'geometry': split_flows}, crs=flows_crs, geometry='geometry'
     )
     split_flows_gdf['LengthKm'] = split_flows_gdf.geometry.length * toMetersConversion
     if lakes is not None:
@@ -385,6 +392,9 @@ def split_flows(
     addattributes = build_stream_traversal.build_stream_traversal_columns()
     tResults = None
     tResults = addattributes.execute(split_flows_gdf, wbd8, hydro_id)
+
+    del wbd8
+
     if tResults[0] == 'OK':
         split_flows_gdf = tResults[1]
     else:
@@ -413,8 +423,10 @@ def split_flows(
     split_points = [Point(*point) for point in split_points]
 
     split_points_gdf = gpd.GeoDataFrame(
-        {'id': hydroIDs_points, 'geometry': split_points}, crs=flows.crs, geometry='geometry'
+        {'id': hydroIDs_points, 'geometry': split_points}, crs=flows_crs, geometry='geometry'
     )
+
+    del split_flows, split_points, hydroIDs_points
 
     # --------------------------------------------------------------
     # Save the outputs
@@ -439,6 +451,8 @@ def split_flows(
     split_points_gdf.to_file(
         split_points_filename, driver=getDriver(split_points_filename), index=False, engine='fiona'
     )
+
+    del split_flows_gdf, split_points_gdf
 
 
 if __name__ == '__main__':
