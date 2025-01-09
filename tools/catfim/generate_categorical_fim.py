@@ -749,11 +749,14 @@ def iterate_through_huc_stage_based(
                 # Get lowest stage value
                 lowest_stage_val = stage_values_df['stage_value'].min()
 
-                # Stage value is larger than the elevation value, subtract the elev
-                # from the "stage" value to get the actual stage
-                if lowest_stage_val > lid_altitude:
+                maximum_stage_threshold = 250 # TODO: Move to a variables file?
+
+                # Stage value is larger than the elevation value AND greater than the 
+                # maximum stage threshold, subtract the elev from the "stage" value 
+                # to get the actual stage
+                if (lowest_stage_val > lid_altitude) and (lowest_stage_val > maximum_stage_threshold):
                     stage_values_df['stage_value'] = stage_values_df['stage_value'] - lid_altitude
-                    MP_LOG.lprint(f"{huc_lid_id}: Lowest stage val ({lowest_stage_val}) was greater than elev ({lid_altitude}). Subtracted elev from stage vals to fix.")
+                    MP_LOG.lprint(f"{huc_lid_id}: Lowest stage val > elev and higher than max stage thresh. Subtracted elev from stage vals to fix.")
 
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
