@@ -9,8 +9,8 @@ There are many sites in non-CONUS regions (AK, PR, HI) where we would like to ru
 - `inundation-mapping/tools/catfim/vis_categorical_fim.py`: Functions for reading in, processing, and visualizing CatFIM results. 
 -  `inundation-mapping/tools/catfim/notebooks/vis_catfim_cross_section.ipynb`: A new Jupyter notebook for viewing and analyzing CatFIM results.
 - `inundation-mapping/tools/catfim/notebooks/eval_catfim_metadata.ipynb`: A new Jupyter notebook for evaluating metadata and results from CatFIM runs. 
-- `inundation-mapping/tools/catfim/notebooks/.ipynb_checkpoints/vis_catfim_cross_section-checkpoint.ipynb`: Checkpoint file.
-- `inundation-mapping/tools/catfim/notebooks/.ipynb_checkpoints/eval_catfim_metadata-checkpoint.ipynb`: Checkpoint file.
+- `inundation-mapping\config/symbology/qgis/catfim_library.qml`: Symbology preset for viewing CatFIM library in QGIS.
+
 
 ### Changes
 
