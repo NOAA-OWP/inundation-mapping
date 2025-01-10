@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.___ - 2025-___ - [PR#1379](https://github.com/NOAA-OWP/inundation-mapping/pull/1379)
+## v4.5.13.0 - 2025-01-10 - [PR#1379](https://github.com/NOAA-OWP/inundation-mapping/pull/1379)
 
 There are many sites in non-CONUS regions (AK, PR, HI) where we would like to run CatFIM but they are being excluded because they are not NWM forecast points. This update brings back the double API pull and adds in some code to filter out duplicate (and NULL) lids from the metadata lists. 
 
@@ -19,7 +19,7 @@ There are many sites in non-CONUS regions (AK, PR, HI) where we would like to ru
 
 <br/><br/>
 
-## v4.5.13.6 - 2025-1-10 - [PR#1387](https://github.com/NOAA-OWP/inundation-mapping/pull/1387)
+## v4.5.13.6 - 2025-01-10 - [PR#1387](https://github.com/NOAA-OWP/inundation-mapping/pull/1387)
 
 Fixes two issues in test_cases:
 1. An error in `synthesize_test_cases` and `run_test_case` if any directories of the 5 benchmark sources (BLE, NWS, IFC, USGS, or ras2fim) do not exist. This issue was originally discovered and fixed in #1178, but is being elevated to its own PR here. Fixes #1386.
