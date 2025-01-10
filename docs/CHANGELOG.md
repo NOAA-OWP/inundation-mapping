@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.5.x.x - 2024-01-06 - [PR#1268](https://github.com/NOAA-OWP/inundation-mapping/pull/1268)
+
+This code preprocesses the partner FIM benchmark HEC-RAS libraries and converts the inundation extent polygons into a edge point database for the input to the HAND SRC calibration/adjustment algorithm. The key changes with the new input data are the addition of the max stage/flow points as well as the removal of the 10m grid point snapping. Note that the raw data to run this code is not available for external users, so the data processing code can only be run internally within OWP.
+
+### Additions
+`data/nws/ahps_bench_polys_to_calb_pts.py`: this script ingests the HEC-RAS partner FIM benchmark data and outputs huc level parquet files containing the water edge points with associated attributes.
+`data/nws/merge_nws_usgs_point_parquet.py`: the script combines the `nws` and `usgs` parquet point files created seperately by the `ahps_bench_polys_to_calb_pts.py` script
+
+<br/><br/>
+
 ## v4.5.13.1 - 2024-12-13 - [PR#1361](https://github.com/NOAA-OWP/inundation-mapping/pull/1361)
 
 This PR was triggered by two dep-bot PR's. One for Tornado, one for aiohttp. Upon further research, these two exist only as dependencies for Jupyter and Jupyterlab which were very out of date. Upgrading Jupyter/JupyterLab took care of the other two.
