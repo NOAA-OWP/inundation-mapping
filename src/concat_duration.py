@@ -1,9 +1,11 @@
 import argparse
-import os 
 import errno
 import math
+import os
 import re
+
 import pandas as pd
+
 
 def calculate_total_time(df, column_name):
     """
@@ -13,7 +15,9 @@ def calculate_total_time(df, column_name):
         df (pandas.DataFrame): The DataFrame containing the processing time columns.
         column_name (str): The name of columns in the DataFrame.
     """
-    total_second_time = df[column_name].apply(lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1])).sum()
+    total_second_time = (
+        df[column_name].apply(lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1])).sum()
+    )
     minutes_time = total_second_time // 60
     seconds_time = total_second_time % 60
     if seconds_time < 10:
@@ -21,15 +25,16 @@ def calculate_total_time(df, column_name):
     else:
         summary_time = f"{minutes_time}:{seconds_time}"
     # Calculate total time for HUC Duration%
-    percent_time = minutes_time + math.floor((seconds_time / 60) *100) / 100
+    percent_time = minutes_time + math.floor((seconds_time / 60) * 100) / 100
     return summary_time, percent_time
+
 
 def duration_system(hydrofabric_dir, output_csv_file):
     """
     Thhis function read processing_time text files for each huc and
     writes the results to an output csv file.
 
-    Args: 
+    Args:
         hydrofabric_dir (str): Path to hydrofabric directory.
         output_csv_file (str): The path to the output csv file.
     """
@@ -48,7 +53,7 @@ def duration_system(hydrofabric_dir, output_csv_file):
         # check if the netry is a directory
         if os.path.isdir(full_path):
             hucs.append(entry)
-    
+
     all_rows = []
     for huc in hucs:
         txt_file = f'processing_time_{huc}.txt'
@@ -60,19 +65,39 @@ def duration_system(hydrofabric_dir, output_csv_file):
     # Remove all text files
     # os.remove(txt_path)
 
-    column_names = ["HUC8", "HUC Duration", "HUC Duration%", "Branches", "Branch0 Duration", "Branch0 Duration%", "Branches Duration", "Branches Duration%"]
+    column_names = [
+        "HUC8",
+        "HUC Duration",
+        "HUC Duration%",
+        "Branches",
+        "Branch0 Duration",
+        "Branch0 Duration%",
+        "Branches Duration",
+        "Branches Duration%",
+    ]
     df = pd.DataFrame(all_rows, columns=column_names)
     num_hucs = len(df['HUC8'])
     num_branches = df['Branches'].astype(int).sum()
-
-
 
     summary_time1, percent_time1 = calculate_total_time(df, 'HUC Duration')
     summary_time2, percent_time2 = calculate_total_time(df, 'Branch0 Duration')
     summary_time3, percent_time3 = calculate_total_time(df, 'Branches Duration')
 
-    Summary_row = pd.DataFrame([[num_hucs, summary_time1, percent_time1, num_branches, summary_time2, percent_time2,
-                                  summary_time3, percent_time3]], columns=column_names)
+    Summary_row = pd.DataFrame(
+        [
+            [
+                num_hucs,
+                summary_time1,
+                percent_time1,
+                num_branches,
+                summary_time2,
+                percent_time2,
+                summary_time3,
+                percent_time3,
+            ]
+        ],
+        columns=column_names,
+    )
     final_df = pd.concat([df, Summary_row], ignore_index=True)
 
     final_df.to_csv(output_csv_file, index=False)
@@ -90,9 +115,8 @@ if __name__ == "__main__":
         required=True,
         type=str,
     )
-    parser.add_argument("-o", "--output_csv_file", help="Path to the output csv file.", required=True, type=str)
+    parser.add_argument(
+        "-o", "--output_csv_file", help="Path to the output csv file.", required=True, type=str
+    )
     # Extract to dictionary and run
     duration_system(**vars(parser.parse_args()))
-
-
-
