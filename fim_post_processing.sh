@@ -96,6 +96,16 @@ echo ""
 T_total_start
 post_proc_start_time=`date +%s`
 
+echo "Concatenate all processing time files into a CSV file"
+csvFile=$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv
+
+if [[ ! -f "$csvFile" ]]; then
+    echo "Concatenate"
+    python3 $srcDir/concat_duration.py -fim $outputDestDir -o $csvFile
+else
+    echo "Duration CSV file already exists, skipping..."
+fi
+
 ## RUN UPDATE HYDROTABLE AND SRC ##
 # Define the counter file
 
