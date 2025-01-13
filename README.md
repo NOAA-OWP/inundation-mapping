@@ -10,6 +10,8 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 
 # FIM Version 4
 
+#### Note: While we use the phrase "FIM" regularily, the phrase "HAND" is also used and is generally interchangeable. Most output folders now follow the convenction of "hand_4_x_x_x".
+
 ## Accessing Data through ESIP S3 Bucket
 The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) if you experience issues with permissions.
 
@@ -49,12 +51,12 @@ aws s3 ls s3://noaa-nws-owp-fim/hand_fim/  --profile esip
 
 Download a directory of sample outputs for a single HUC8:
 ```
-aws s3 sync s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_4_0_0/12090301 \
+aws s3 sync s3://noaa-nws-owp-fim/hand_fim/outputs/hand_4_5_2_11/12090301 \
     /your_local_folder_name/12090301 --profile esip
 ```
-By adjusting pathing, you can also download entire directories such as the `fim_4_4_0_0` folder. An entire output FIM set (e.g. `fim_4_4_0_0`) is approximately 1.1 TB.
+By adjusting pathing, you can also download entire directories such as the `hand_4_5_2_11` folder. An entire output HAND set is approximately 1.7 TB.
 
-**Note**: There may be newer editions than `fim_4_4_0_0`, and it is recommended to adjust the command above for the latest version.
+**Note**: There may be newer editions than `hand_4_5_11_1`, and it is recommended to adjust the command above for the latest version.
 
 ## Setting up your Environment
 
@@ -85,7 +87,7 @@ Git will auto create a subfolder named `inundation-mapping` where the code will 
 
 ### Installation
 1. Install Docker : [Docker](https://docs.docker.com/get-docker/)
-2. Build Docker Image : `docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>`
+2. Build Docker Image : `docker build -f Dockerfile.dev -t <image_name>:<tag> <path/to/repository>`
 3. Create FIM group on host machine:
     - Linux: `groupadd -g 1370800178 fim`
 4. Change group ownership of repo (needs to be redone when a new file occurs in the repo):
@@ -128,7 +130,7 @@ docker run --rm -it --name <your_container_name> \
 ```
 For example:
 ```bash
-docker run --rm -it --name robs_container \
+docker run --rm -it --name Robs_container \
     -v /home/projects/fim/code/inundation-mapping/:/foss_fim \
     -v /home/projects/fim/data/outputs/:/outputs \
     -v /home/projects/fim/data/outputs_temp/:/fim_temp \
