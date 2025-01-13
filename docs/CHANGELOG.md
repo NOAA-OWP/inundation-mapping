@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.13.7 - 2025-01-10 - [PR#1399](https://github.com/NOAA-OWP/inundation-mapping/pull/1399)
+
+This update improves stage-based CatFIM by detecting and correcting instances where the stage value provided in the WRDS database is actually stage + elevation (which is actually water surface elevation and, uncaught, causes overflooding). 
+
+### Changes
+- `inundation-mapping/tools/catfim/generate_categorical_fim.py`: Added an update to detect and fix cases where WSE is provided in lieu of stage.
+
+<br/><br/>
+
 ## v4.5.13.7 - 2025-01-10 - [PR#1379](https://github.com/NOAA-OWP/inundation-mapping/pull/1379)
 
 There are many sites in non-CONUS regions (AK, PR, HI) where we would like to run CatFIM but they are being excluded because they are not NWM forecast points. This update brings back the double API pull and adds in some code to filter out duplicate (and NULL) lids from the metadata lists. 
