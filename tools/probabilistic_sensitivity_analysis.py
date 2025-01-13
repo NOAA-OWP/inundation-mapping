@@ -177,7 +177,7 @@ def sensitivity(huc08, feature_id, src_feats, rec_values, flow_values, lock):
 
         flow_types = ['test', '100yr', 'major', 'moderate', 'minor']
 
-        outputs_dir = '/home/sven/repos/inundation-mapping/outputs/'
+        outputs_dir = '/outputs/'
         src_path = os.path.join(outputs_dir, 'fim_files', 'parameter_output', huc08, 'srcs')
 
         discrete_options = {
@@ -254,9 +254,7 @@ def process_sensitivity_analysis(huc, branches=None):
     if not os.path.exists(f'./results_{huc}'):
         os.makedirs(f'./results_{huc}')
 
-    gdf = gpd.read_file(
-        f'/home/sven/repos/inundation-mapping/outputs/fim_outputs/{huc}/nwm_subset_streams.gpkg'
-    )
+    gdf = gpd.read_file(f'/outputs/fim_outputs/{huc}/nwm_subset_streams.gpkg')
     features = gdf['ID']
     src_df = None
 
