@@ -1,6 +1,48 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.13.7 - 2025-01-10 - [PR#1379](https://github.com/NOAA-OWP/inundation-mapping/pull/1379)
+
+There are many sites in non-CONUS regions (AK, PR, HI) where we would like to run CatFIM but they are being excluded because they are not NWM forecast points. This update brings back the double API pull and adds in some code to filter out duplicate (and NULL) lids from the metadata lists. 
+
+### Additions
+- `inundation-mapping/tools/catfim/vis_categorical_fim.py`: Functions for reading in, processing, and visualizing CatFIM results. 
+-  `inundation-mapping/tools/catfim/notebooks/vis_catfim_cross_section.ipynb`: A new Jupyter notebook for viewing and analyzing CatFIM results.
+- `inundation-mapping/tools/catfim/notebooks/eval_catfim_metadata.ipynb`: A new Jupyter notebook for evaluating metadata and results from CatFIM runs. 
+- `inundation-mapping\config/symbology/qgis/catfim_library.qml`: Symbology preset for viewing CatFIM library in QGIS.
+
+
+### Changes
+
+- `inundation-mapping/tools/catfim/generate_categorical_fim_flows.py`: Re-implements the dual API call and filters out duplicate sites.
+
+
+<br/><br/>
+
+## v4.5.13.6 - 2025-01-10 - [PR#1387](https://github.com/NOAA-OWP/inundation-mapping/pull/1387)
+
+Fixes two issues in test_cases:
+1. An error in `synthesize_test_cases` and `run_test_case` if any directories of the 5 benchmark sources (BLE, NWS, IFC, USGS, or ras2fim) do not exist. This issue was originally discovered and fixed in #1178, but is being elevated to its own PR here. Fixes #1386.
+2. Updated `run_test_cases` to accommodate levee and waterbody masking in Alaska. As part of these changes, hardcoded paths were replaced by environment variables.
+
+### Changes
+
+- `tools/`
+    - `run_test_case.py`: Fixed error if missing validation data. Updated masking data to include Alaska.
+    - `synthesize_test_cases.py`: Fixed error if missing validation data.
+    
+<br/><br/>
+
+
+## v4.5.13.5 - 2025-01-09 - [PR#1389](https://github.com/NOAA-OWP/inundation-mapping/pull/1389)
+
+Updates Python packages to resolve dependency conflicts that were preventing `Dockerfile.dev` to build on Mac. This also resolves two security warnings: https://github.com/NOAA-OWP/inundation-mapping/security/dependabot/51 and https://github.com/NOAA-OWP/inundation-mapping/security/dependabot/52.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Upgrades Python packages
+
+<br/><br/>
 
 
 ## v4.5.13.4 - 2024-01-03 - [PR#1382](https://github.com/NOAA-OWP/inundation-mapping/pull/1382)
