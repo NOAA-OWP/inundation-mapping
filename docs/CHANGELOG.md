@@ -7,7 +7,10 @@ Fixed Sierra test bugs to draw the vertical lines.
 
 ### Changes
 
-- `tools/rating_curve_comparison.py`
+- `tools/rating_curve_comparison.py`: Modified the script to make sure vertical lines are displayed
+
+<br/><br/>
+
 ## v4.5.13.7 - 2025-01-10 - [PR#1379](https://github.com/NOAA-OWP/inundation-mapping/pull/1379)
 
 There are many sites in non-CONUS regions (AK, PR, HI) where we would like to run CatFIM but they are being excluded because they are not NWM forecast points. This update brings back the double API pull and adds in some code to filter out duplicate (and NULL) lids from the metadata lists. 
