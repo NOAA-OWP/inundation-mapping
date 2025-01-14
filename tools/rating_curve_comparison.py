@@ -752,16 +752,18 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
         max_q = gage_max_q.get(gage, None)
         recurr_q_max = recurr_data_max.get(gage, None)
         if max_q is not None and not np.isnan(max_q):
-            if max_q > recurr_q_max:    
+            if max_q > recurr_q_max:
                 max_x = max_q
             else:
-                max_x = recurr_q_max + (0.001 * recurr_q_max) # To make sure vertical lines are displayed in the plot
+                max_x = recurr_q_max + (
+                    0.001 * recurr_q_max
+                )  # To make sure vertical lines are displayed in the plot
         # For gages without USGS rating curve data
         else:
             max_x = rc.discharge_cfs.max()
         padding_value = max_x * padding
-        ax.set_xlim(0 - padding_value ,max_x)
-        
+        ax.set_xlim(0 - padding_value, max_x)
+
     # Adjust the arrangement of the plots
     g.fig.tight_layout(w_pad=1)
     g.add_legend()
@@ -1002,7 +1004,6 @@ def get_recurr_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals, feature_
     usgs_site = site_rc.merge(usgs_crosswalk, on="location_id")
     nwm_ids = len(usgs_site.feature_id.drop_duplicates())
 
-
     if nwm_ids > 0:
         try:
             if feature_index is None:
@@ -1024,7 +1025,7 @@ def get_recurr_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals, feature_
                     feature_index = 1
             nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[
                 nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[feature_index]
-                ]
+            ]
             nwm_recurr_intervals['pred_elev'] = np.interp(
                 nwm_recurr_intervals.discharge_cfs.values,
                 usgs_site['discharge_cfs'],
