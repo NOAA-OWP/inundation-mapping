@@ -255,7 +255,7 @@ def generate_rating_curve_metrics(args):
                 str_order = np.unique(usgs_rc.order_).item()
                 feature_id = str(gage.feature_id)
 
-                usgs_pred_elev, feature_index = get_reccur_intervals(
+                usgs_pred_elev, feature_index = get_recurr_intervals(
                     usgs_rc, usgs_crosswalk, nwm_recurr_intervals_all
                 )
 
@@ -285,7 +285,7 @@ def generate_rating_curve_metrics(args):
                     continue
 
                 if feature_index is not None:
-                    fim_pred_elev = get_reccur_intervals_fim(
+                    fim_pred_elev, feature_index = get_recurr_intervals(
                         fim_rc, usgs_crosswalk, nwm_recurr_intervals_all, feature_index
                     )
 
@@ -599,6 +599,7 @@ def generate_single_plot(rc, plot_filename, recurr_data_table):
 
 def generate_facet_plot(rc, plot_filename, recurr_data_table):
     # Filter FIM elevation based on USGS data
+    gage_max_q = {}
     for gage in rc.location_id.unique():
         # print(recurr_data_table.head)
         try:
@@ -606,6 +607,7 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             max_elev = rc.loc[(rc.location_id == gage) & (rc.source == 'USGS')].elevation_ft.max()
             min_q = rc.loc[(rc.location_id == gage) & (rc.source == 'USGS')].discharge_cfs.min()
             max_q = rc.loc[(rc.location_id == gage) & (rc.source == 'USGS')].discharge_cfs.max()
+            gage_max_q[gage] = max_q
             ri100 = recurr_data_table[
                 (recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')
             ].discharge_cfs.max()
@@ -715,6 +717,7 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
 
     ## Plot recurrence intervals
     axes = g.axes_dict
+    recurr_data_max = {}
     for gage in axes:
         ax = axes[gage]
         plt.sca(ax)
@@ -722,6 +725,8 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             recurr_data = recurr_data_table[
                 (recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')
             ].filter(items=['recurr_interval', 'discharge_cfs'])
+            recurr_q_max = recurr_data['discharge_cfs'].max()
+            recurr_data_max[gage] = recurr_q_max
             for i, r in recurr_data.iterrows():
                 if not r.recurr_interval.isnumeric():
                     continue  # skip catfim flows
@@ -741,6 +746,22 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             logging.info("WARNING: Could not plot recurrence intervals...")
             logging.info(f'Summary: {summary} \n Exception: \n {repr(ex)}')
 
+    padding = 0.05
+    for gage in g.axes_dict:
+        ax = g.axes_dict[gage]
+        max_q = gage_max_q.get(gage, None)
+        recurr_q_max = recurr_data_max.get(gage, None)
+        if max_q is not None and not np.isnan(max_q):
+            if max_q > recurr_q_max:    
+                max_x = max_q
+            else:
+                max_x = recurr_q_max + (0.001 * recurr_q_max) # To make sure vertical lines are displayed in the plot
+        # For gages without USGS rating curve data
+        else:
+            max_x = rc.discharge_cfs.max()
+        padding_value = max_x * padding
+        ax.set_xlim(0 - padding_value ,max_x)
+        
     # Adjust the arrangement of the plots
     g.fig.tight_layout(w_pad=1)
     g.add_legend()
@@ -947,67 +968,63 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
     plt.close()
 
 
-def get_reccur_intervals_fim(site_rc, usgs_crosswalk, nwm_recurr_intervals, feature_index):
+# def get_recurr_intervals_fim(site_rc, usgs_crosswalk, nwm_recurr_intervals, feature_index):
+#     usgs_site = site_rc.merge(usgs_crosswalk, on="location_id")
+#     nwm_ids = len(usgs_site.feature_id.drop_duplicates())
+
+#     if nwm_ids > 0:
+#         try:
+#             nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[
+#                 nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().loc[feature_index]
+#             ]
+#             nwm_recurr_intervals['pred_elev'] = np.interp(
+#                 nwm_recurr_intervals.discharge_cfs.values,
+#                 usgs_site['discharge_cfs'],
+#                 usgs_site['elevation_ft'],
+#                 left=np.nan,
+#                 right=np.nan,
+#             )
+
+#             return nwm_recurr_intervals
+#         except Exception as ex:
+#             summary = traceback.StackSummary.extract(traceback.walk_stack(None))
+#             # logging.info("WARNING: get_recurr_intervals failed for some reason....")
+#             # logging.info(f"*** {ex}")
+#             # logging.info(''.join(summary.format()))
+#             print(summary, repr(ex))
+#             return []
+
+#     else:
+#         return []
+
+
+def get_recurr_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals, feature_index=None):
     usgs_site = site_rc.merge(usgs_crosswalk, on="location_id")
     nwm_ids = len(usgs_site.feature_id.drop_duplicates())
 
-    if nwm_ids > 0:
-        try:
-            nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[
-                nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().loc[feature_index]
-            ]
-            nwm_recurr_intervals['pred_elev'] = np.interp(
-                nwm_recurr_intervals.discharge_cfs.values,
-                usgs_site['discharge_cfs'],
-                usgs_site['elevation_ft'],
-                left=np.nan,
-                right=np.nan,
-            )
-
-            return nwm_recurr_intervals
-        except Exception as ex:
-            summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-            # logging.info("WARNING: get_recurr_intervals failed for some reason....")
-            # logging.info(f"*** {ex}")
-            # logging.info(''.join(summary.format()))
-            print(summary, repr(ex))
-            return []
-
-    else:
-        return []
-
-
-def get_reccur_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals):
-    usgs_site = site_rc.merge(usgs_crosswalk, on="location_id")
-    nwm_ids = len(usgs_site.feature_id.drop_duplicates())
-    min_discharge = site_rc.loc[(site_rc.source == 'USGS')].discharge_cfs.min()
-    max_discharge = site_rc.loc[(site_rc.source == 'USGS')].discharge_cfs.max()
-    discharge_range = max_discharge - min_discharge
 
     if nwm_ids > 0:
         try:
-            filtered = nwm_recurr_intervals.copy().loc[
-                nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[0]
-            ]
-            min_q_recurr = filtered.discharge_cfs.min()
-            max_q_recurr = filtered.discharge_cfs.max()
-            spread_q = max_q_recurr - min_q_recurr
-            ratio = spread_q / discharge_range
-            # If there is only one feature_id for each location_id
-            if nwm_ids == 1:
-                nwm_recurr_intervals = filtered
-                feature_index = 0
-
-            # If there is more one feature_id for each location_id
-            else:
-                if ratio > 0.1:
-                    nwm_recurr_intervals = filtered
+            if feature_index is None:
+                min_discharge = site_rc.loc[(site_rc.source == 'USGS')].discharge_cfs.min()
+                max_discharge = site_rc.loc[(site_rc.source == 'USGS')].discharge_cfs.max()
+                discharge_range = max_discharge - min_discharge
+                filtered = nwm_recurr_intervals.copy().loc[
+                    nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[0]
+                ]
+                min_q_recurr = filtered.discharge_cfs.min()
+                max_q_recurr = filtered.discharge_cfs.max()
+                spread_q = max_q_recurr - min_q_recurr
+                ratio = spread_q / discharge_range
+                # If there is only one feature_id for each location_id or the ratio is large enough
+                if nwm_ids == 1 or ratio > 0.1:
                     feature_index = 0
+                # If there is more one feature_id for each location_id and the ratio is not large enough
                 else:
-                    nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[
-                        nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[1]
-                    ]
                     feature_index = 1
+            nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[
+                nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[feature_index]
+                ]
             nwm_recurr_intervals['pred_elev'] = np.interp(
                 nwm_recurr_intervals.discharge_cfs.values,
                 usgs_site['discharge_cfs'],
@@ -1020,10 +1037,10 @@ def get_reccur_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals):
         except Exception as ex:
             summary = traceback.StackSummary.extract(traceback.walk_stack(None))
             print(summary, repr(ex))
-            return []
+            return [], None
 
     else:
-        return []
+        return [], None
 
 
 def calculate_rc_stats_elev(rc, stat_groups=None):
