@@ -101,7 +101,7 @@ csvFile=$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv
 
 if [[ ! -f "$csvFile" ]]; then
     echo "Concatenate"
-    python3 $srcDir/concat_duration.py -fim $outputDestDir -o $csvFile
+    python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile
 else
     echo "Duration CSV file already exists, skipping..."
 fi
