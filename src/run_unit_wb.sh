@@ -127,7 +127,6 @@ $srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths
 
 ## CREATE BRANCH ZERO ##
 branch0_start_time=`date +%s`
-date -u 
 
 echo -e $startDiv"Creating branch zero for $hucNumber"
 tempCurrentBranchDataDir=$tempBranchDataDir/$branch_zero_id
