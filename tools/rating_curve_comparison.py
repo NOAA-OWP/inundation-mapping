@@ -599,7 +599,6 @@ def generate_single_plot(rc, plot_filename, recurr_data_table):
 
 def generate_facet_plot(rc, plot_filename, recurr_data_table):
     # Filter FIM elevation based on USGS data
-    gage_max_q = {}
     for gage in rc.location_id.unique():
         # print(recurr_data_table.head)
         try:
@@ -607,7 +606,6 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             max_elev = rc.loc[(rc.location_id == gage) & (rc.source == 'USGS')].elevation_ft.max()
             min_q = rc.loc[(rc.location_id == gage) & (rc.source == 'USGS')].discharge_cfs.min()
             max_q = rc.loc[(rc.location_id == gage) & (rc.source == 'USGS')].discharge_cfs.max()
-            gage_max_q[gage] = max_q
             ri100 = recurr_data_table[
                 (recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')
             ].discharge_cfs.max()
@@ -717,7 +715,6 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
 
     ## Plot recurrence intervals
     axes = g.axes_dict
-    recurr_data_max = {}
     for gage in axes:
         ax = axes[gage]
         plt.sca(ax)
@@ -726,7 +723,6 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
                 (recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')
             ].filter(items=['recurr_interval', 'discharge_cfs'])
             recurr_q_max = recurr_data['discharge_cfs'].max()
-            recurr_data_max[gage] = recurr_q_max
             for i, r in recurr_data.iterrows():
                 if not r.recurr_interval.isnumeric():
                     continue  # skip catfim flows
@@ -745,24 +741,6 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             summary = traceback.StackSummary.extract(traceback.walk_stack(None))
             logging.info("WARNING: Could not plot recurrence intervals...")
             logging.info(f'Summary: {summary} \n Exception: \n {repr(ex)}')
-
-    padding = 0.05
-    for gage in g.axes_dict:
-        ax = g.axes_dict[gage]
-        max_q = gage_max_q.get(gage, None)
-        recurr_q_max = recurr_data_max.get(gage, None)
-        if max_q is not None and not np.isnan(max_q):
-            if max_q > recurr_q_max:
-                max_x = max_q
-            else:
-                max_x = recurr_q_max + (
-                    0.001 * recurr_q_max
-                )  # To make sure vertical lines are displayed in the plot
-        # For gages without USGS rating curve data
-        else:
-            max_x = rc.discharge_cfs.max()
-        padding_value = max_x * padding
-        ax.set_xlim(0 - padding_value, max_x)
 
     # Adjust the arrangement of the plots
     g.fig.tight_layout(w_pad=1)
@@ -968,36 +946,6 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
     ax[0, 1].legend()
     plt.savefig(plot_filename, dpi=200)
     plt.close()
-
-
-# def get_recurr_intervals_fim(site_rc, usgs_crosswalk, nwm_recurr_intervals, feature_index):
-#     usgs_site = site_rc.merge(usgs_crosswalk, on="location_id")
-#     nwm_ids = len(usgs_site.feature_id.drop_duplicates())
-
-#     if nwm_ids > 0:
-#         try:
-#             nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[
-#                 nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().loc[feature_index]
-#             ]
-#             nwm_recurr_intervals['pred_elev'] = np.interp(
-#                 nwm_recurr_intervals.discharge_cfs.values,
-#                 usgs_site['discharge_cfs'],
-#                 usgs_site['elevation_ft'],
-#                 left=np.nan,
-#                 right=np.nan,
-#             )
-
-#             return nwm_recurr_intervals
-#         except Exception as ex:
-#             summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-#             # logging.info("WARNING: get_recurr_intervals failed for some reason....")
-#             # logging.info(f"*** {ex}")
-#             # logging.info(''.join(summary.format()))
-#             print(summary, repr(ex))
-#             return []
-
-#     else:
-#         return []
 
 
 def get_recurr_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals, feature_index=None):
