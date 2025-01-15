@@ -86,9 +86,9 @@ def get_sample_data(
         output_validation_path = os.path.join(output_data_path, validation_path)
         os.makedirs(output_validation_path, exist_ok=True)
 
-        __copy_folder(os.path.join(data_path, validation_path), output_data_path, data_path)
+        __copy_folder(os.path.join(data_path, validation_path), output_validation_path)
 
-    def __copy_file(input_file: str, output_path: str, input_root: str):
+    def __copy_file(input_file: str, output_path: str, input_root: str, bucket_path: str = None):
         """
         Copies a file if it doesn't already exist
 
@@ -104,7 +104,14 @@ def get_sample_data(
 
         input_path, basename = os.path.split(input_file)
 
-        output_file = input_file.replace(input_root, output_path)
+        # Strip bucket path if use_s3 is True
+        if use_s3:
+            output_file = input_file.removeprefix(bucket_path)[1:]
+            output_file = os.path.join(output_path, output_file)
+
+        else:
+            output_file = input_file.replace(input_root, output_path)
+
         output_path = os.path.split(output_file)[0]
 
         if not os.path.exists(os.path.join(output_path, basename)):
@@ -130,7 +137,7 @@ def get_sample_data(
         else:
             print(f"{os.path.join(output_path, basename)} already exists.")
 
-    def __copy_folder(input_path: str, output_path: str, input_root: str = None):
+    def __copy_folder(input_path: str, output_path: str, input_root: str = None, bucket_path: str = None):
         """
         Copies a folder if it doesn't already exist
 
@@ -149,7 +156,11 @@ def get_sample_data(
             if input_root[-1] != '/':
                 input_root = input_root + '/'
 
-            output_path = os.path.join(output_path, input_path.removeprefix(input_root))
+                    # Strip bucket path if use_s3 is True
+            if use_s3:
+                input_dir = input_path.removeprefix(bucket_path)[1:]
+
+            output_path = os.path.join(output_path, input_dir.removeprefix(input_root))
 
         if use_s3:
             print(f"Downloading {input_path} to {output_path}")
@@ -206,6 +217,8 @@ def get_sample_data(
         if not os.path.exists(input_path):
             raise FileNotFoundError(f'{input_path} does not exist')
 
+        bucket_path = None
+
     # Set inputsDir for the bash scripts
     os.environ['inputsDir'] = input_path
 
@@ -240,26 +253,26 @@ def get_sample_data(
         )
 
     # Copy WBD (needed for post-processing)
-    __copy_file(os.environ["input_WBD_gdb"], output_root_folder, input_root)
+    __copy_file(os.environ["input_WBD_gdb"], output_root_folder, input_root, bucket_path)
     ## ahps_sites
-    __copy_file(os.environ["nws_lid"], output_root_folder, input_root)
+    __copy_file(os.environ["nws_lid"], output_root_folder, input_root, bucket_path)
 
     ## bathymetry_adjustment
-    __copy_file(os.environ["bathymetry_file"], output_root_folder, input_root)
+    __copy_file(os.environ["bathymetry_file"], output_root_folder, input_root, bucket_path)
     ## huc_lists
-    __copy_folder(os.path.join(input_path, 'huc_lists'), output_root_folder, input_root)
+    __copy_folder(os.path.join(input_path, 'huc_lists'), output_root_folder, input_root, bucket_path)
 
     ## nld
-    __copy_file(os.environ["input_NLD"], output_root_folder, input_root)
+    __copy_file(os.environ["input_NLD"], output_root_folder, input_root, bucket_path)
 
     ## levees_preprocessed
-    __copy_file(os.environ["input_levees_preprocessed"], output_root_folder, input_root)
+    __copy_file(os.environ["input_levees_preprocessed"], output_root_folder, input_root, bucket_path)
 
     ## rating_curve
-    __copy_file(os.environ["bankfull_flows_file"], output_root_folder, input_root)
+    __copy_file(os.environ["bankfull_flows_file"], output_root_folder, input_root, bucket_path)
 
     ## recurr_flows
-    __copy_file(NWM_RECUR_FILE, output_root_folder, input_root)
+    __copy_file(NWM_RECUR_FILE, output_root_folder, input_root, bucket_path)
 
     recurr_intervals = ['2', '5', '10', '25', '50']
     for recurr_interval in recurr_intervals:
@@ -267,17 +280,18 @@ def get_sample_data(
             os.path.join(os.path.split(NWM_RECUR_FILE)[0], f'nwm3_17C_recurr_{recurr_interval}_0_cms.csv'),
             output_root_folder,
             input_root,
+            bucket_path
         )
 
-    __copy_file(os.environ["vmann_input_file"], output_root_folder, input_root)
+    __copy_file(os.environ["vmann_input_file"], output_root_folder, input_root, bucket_path)
 
     ## usgs_gages
-    __copy_file(os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder, input_root)
+    __copy_file(os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder, input_root, bucket_path)
 
-    __copy_file(os.environ["usgs_rating_curve_csv"], output_root_folder, input_root)
+    __copy_file(os.environ["usgs_rating_curve_csv"], output_root_folder, input_root, bucket_path)
 
     ## osm bridges
-    __copy_file(os.environ["osm_bridges"], output_root_folder, input_root)
+    __copy_file(os.environ["osm_bridges"], output_root_folder, input_root, bucket_path)
 
     for huc in hucs:
         huc2Identifier = huc[:2]
@@ -291,7 +305,7 @@ def get_sample_data(
             input_NWM_lakes = INPUT_NWM_LAKES_ALASKA
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA
 
-            __copy_file(INPUT_WBD_GDB_ALASKA, output_root_folder, input_root)
+            __copy_file(INPUT_WBD_GDB_ALASKA, output_root_folder, input_root, bucket_path)
 
         else:
             input_DEM = INPUT_DEM
@@ -307,33 +321,35 @@ def get_sample_data(
                 input_LANDSEA = INPUT_LANDSEA
 
         ## landsea mask
-        __copy_file(input_LANDSEA, output_root_folder, input_root)
+        __copy_file(input_LANDSEA, output_root_folder, input_root, bucket_path)
 
         # dem
-        __copy_file(input_DEM_domain, output_root_folder, input_root)
-        __copy_file(input_DEM_file, output_root_folder, input_root)
+        __copy_file(input_DEM_domain, output_root_folder, input_root, bucket_path)
+        __copy_file(input_DEM_file, output_root_folder, input_root, bucket_path)
 
         # lakes
         ## nwm_hydrofabric
-        __copy_file(input_NWM_lakes, output_root_folder, input_root)
+        __copy_file(input_NWM_lakes, output_root_folder, input_root, bucket_path)
 
         ## nld_vectors
-        __copy_file(input_NLD_levee_protected_areas, output_root_folder, input_root)
+        __copy_file(input_NLD_levee_protected_areas, output_root_folder, input_root, bucket_path)
 
         # create VRT
         print('Creating VRT')
         if use_s3:
-            output_VRT_file = input_DEM.replace(input_root, output_root_folder)
+            input_DEM = input_DEM.removeprefix(bucket_path)[1:]
+            output_VRT_file = os.path.join(output_root_folder, input_DEM)
         else:
             output_VRT_file = input_DEM.replace(data_path, output_root_folder)
 
         command = ['gdalbuildvrt', output_VRT_file]
         dem_dirname = os.path.dirname(output_VRT_file)
+
         dem_list = [os.path.join(dem_dirname, x) for x in os.listdir(dem_dirname) if x.endswith(".tif")]
         command.extend(dem_list)
         subprocess.call(command)
 
-        __copy_file(os.path.join(INPUT_CALIB_POINTS_DIR, f'{huc}.parquet'), output_root_folder, input_root)
+        __copy_file(os.path.join(INPUT_CALIB_POINTS_DIR, f'{huc}.parquet'), output_root_folder, input_root, bucket_path)
 
         ## ras2fim
         ras2fim_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
@@ -341,21 +357,24 @@ def get_sample_data(
             os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_csv_filename"]),
             output_root_folder,
             input_root,
+            bucket_path
         )
         __copy_file(
             os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_gpkg_filename"]),
             output_root_folder,
             input_root,
+            bucket_path
         )
 
         __copy_file(
             os.path.join(os.environ["ras2fim_input_dir"], huc, os.environ["ras_rating_curve_gpkg_filename"]),
             output_root_folder,
             input_root,
+            bucket_path
         )
 
         ## pre_clip_huc8
-        __copy_folder(os.path.join(os.environ["pre_clip_huc_dir"], huc), output_root_folder, input_root)
+        __copy_folder(os.path.join(os.environ["pre_clip_huc_dir"], huc), output_root_folder, input_root, bucket_path)
 
         ## validation data
         for org in orgs:
