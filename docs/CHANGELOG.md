@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.13._ - 2025-_____ - [PR#1405](https://github.com/NOAA-OWP/inundation-mapping/pull/1405)
+
+Removing the references to lid_to_run from CatFIM in order to keep the CatFIM scripts cleaner.  
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Remove references to `lid_to_run` variable.
+- ` tools/catfim/generate_categorical_fim_flows.py`: Remove references to `lid_to_run` variable.
+
+<br/><br/>
+
 ## v4.5.13.7 - 2025-01-10 - [PR#1379](https://github.com/NOAA-OWP/inundation-mapping/pull/1379)
 
 There are many sites in non-CONUS regions (AK, PR, HI) where we would like to run CatFIM but they are being excluded because they are not NWM forecast points. This update brings back the double API pull and adds in some code to filter out duplicate (and NULL) lids from the metadata lists. 
