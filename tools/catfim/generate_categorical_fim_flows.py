@@ -357,7 +357,6 @@ def generate_flows(
     output_catfim_dir,
     nwm_us_search,
     nwm_ds_search,
-    # lid_to_run, ## TODO: Remove
     env_file,
     job_number_huc,
     is_stage_based,
