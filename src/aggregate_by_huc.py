@@ -205,7 +205,9 @@ class HucDirectory(object):
         if not os.path.isfile(bridge_filename):
             return
 
-        bridge_pnts = gpd.read_file(bridge_filename, dtype=self.bridge_dtypes)
+        bridge_pnts = gpd.read_file(bridge_filename)
+        for col, dtype in self.bridge_dtypes.items():
+            bridge_pnts[col] = bridge_pnts[col].astype(dtype)
         if bridge_pnts.empty:
             return
         hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
