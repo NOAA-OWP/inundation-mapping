@@ -81,7 +81,6 @@ def process_generate_categorical_fim(
     output_folder,
     overwrite,
     search,
-    # lid_to_run,
     lst_hucs,
     job_number_intervals,
     past_major_interval_cap,
@@ -225,9 +224,9 @@ def process_generate_categorical_fim(
             'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
         )
 
-    # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
-    # single lid, not multiple
-    lid_to_run = "all"
+    # # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
+    # # single lid, not multiple
+    # lid_to_run = "all"
 
     # Check that fim_inputs.csv exists and raise error if necessary
     fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
@@ -265,7 +264,7 @@ def process_generate_categorical_fim(
                 fim_run_dir,
                 nwm_us_search,
                 nwm_ds_search,
-                lid_to_run,
+                # lid_to_run, ## TODO: Remove
                 env_file,
                 job_number_inundate,
                 job_number_huc,
@@ -310,7 +309,7 @@ def process_generate_categorical_fim(
                 output_catfim_dir,
                 nwm_us_search,
                 nwm_ds_search,
-                lid_to_run,
+                # lid_to_run, ## TODO: Remove
                 env_file,
                 job_flows,
                 is_stage_based,
@@ -1451,7 +1450,7 @@ def generate_stage_based_categorical_fim(
     fim_run_dir,
     nwm_us_search,
     nwm_ds_search,
-    lid_to_run,
+    # lid_to_run, ## TODO: Remove
     env_file,
     job_number_inundate,
     job_number_huc,
@@ -1497,7 +1496,7 @@ def generate_stage_based_categorical_fim(
             output_catfim_dir,
             nwm_us_search,
             nwm_ds_search,
-            lid_to_run,
+            # lid_to_run, ## TODO: Remove
             env_file,
             job_flows,
             True,
@@ -1799,16 +1798,6 @@ if __name__ == '__main__':
         required=False,
         default='5',
     )
-
-    ## Deprecated, use lst_hucs instead
-    # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
-    # parser.add_argument(
-    #     '-l',
-    #     '--lid_to_run',
-    #     help='OPTIONAL: NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Defaults to all sites',
-    #     required=False,
-    #     default='all',
-    # )
 
     # NOTE: The HUCs you put in this, MUST be a HUC that is valid in your -f/ --fim_run_dir (HAND output folder)
     parser.add_argument(
