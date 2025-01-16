@@ -430,7 +430,7 @@ def generate_flows(
     # TODO: Aug 2024:
     # Filter the meta list to just HUCs in the fim run output or huc if sent in as a param
     all_meta_lists = __load_nwm_metadata(
-        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile ## TODO: Remove lid to run
+        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile
     )
 
     end_dt = datetime.now(timezone.utc)
@@ -638,9 +638,7 @@ def generate_flows(
 
 
 # local script calls __load_nwm_metadata so FLOG is already setup
-def __load_nwm_metadata(
-    output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile ## TODO: Remove lid to run
-):
+def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile):
 
     FLOG.trace(metadata_url)
 
