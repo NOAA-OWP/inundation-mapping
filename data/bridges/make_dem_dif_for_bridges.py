@@ -3,9 +3,13 @@
 import rasterio
 from rasterio.merge import merge
 import xarray as xr
-import rioxarray  # Extension of xarray for geospatial data
+import rioxarray 
+from multiprocessing import Pool
+from datetime import datetime, timezone
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 import glob
 import os
+import sys
 import time
 import argparse
 import geopandas as gpd
@@ -14,212 +18,17 @@ from rasterio.features import rasterize
 import pandas as pd
 import numpy as np
 import traceback
-
-
-def RETIRED_merge_bridge_tifs(lidar_tif_dir,HUC6_lidar_tif_osmids,merged_file_path,output_profile):
-
-    merge_start_time = time.time()
-    
-    src_files_to_mosaic = []
-
-    for osmid in HUC6_lidar_tif_osmids:
-        fp=os.path.join(lidar_tif_dir,'%s.tif'%str(osmid))
-        src = rasterio.open(fp)
-        src_files_to_mosaic.append(src)
-
-    mosaic, out_trans = merge(src_files_to_mosaic,nodata=src_files_to_mosaic[0].nodata)
-    # Close all the source files
-    for src in src_files_to_mosaic:
-        src.close()
-    
-    #out_meta = {
-    #    'driver': 'GTiff',
-    #    'dtype': 'float32',
-    #    'compress': 'LZW',
-    #    'tiled': True,
-    #    'blockxsize': 256,
-    #    'blockysize': 256,
-    #    'BIGTIFF': 'YES',
-    #    'height': mosaic.shape[1],  # Number of rows in the merged raster
-    #    'width': mosaic.shape[2],   # Number of columns in the merged raster
-    #    'transform': out_trans,
-    #    'crs': src_files_to_mosaic[0].crs,
-    #    'count': mosaic.shape[0],
-    #    'nodata': src_files_to_mosaic[0].nodata
-    #}
-
-    
-
-    with rasterio.open(merged_file_path, 'w', **output_profile) as dest:
-        dest.write(mosaic)
-
-    merge_end_time = time.time()
-    print(f"merging time: {merge_end_time - merge_start_time:.4f} seconds")
-
-
-
-    # src_files_to_mosaic = []
-
-    # for osmid in HUC6_lidar_tif_osmids:
-    #     fp=os.path.join(lidar_tif_dir,'%s.tif'%str(osmid))
-    #     # print(fp)
-
-    #     src = rasterio.open(fp)
-    #     src_files_to_mosaic.append(src)
-
-    # mosaic, out_trans = merge(src_files_to_mosaic)
-    # # Close all the source files
-    # for src in src_files_to_mosaic:
-    #     src.close()
-    # # Create an empty raster that covers the entire domain
-    # # Define the metadata
-    # out_meta = src.meta.copy()
-    # # out_meta.update({
-    # #     "driver": "GTiff",
-    # #     "height": mosaic.shape[1],
-    # #     "width": mosaic.shape[2],
-    # #     "transform": out_trans,
-    # #     "crs": 'EPSG:3857'
-    # # })
-
-    # out_meta.update({
-    #         'driver': 'GTiff',
-    #         'dtype': 'float32',
-    #         'compress': 'LZW',
-    #         'tiled': True,
-    #         'blockxsize': 256,
-    #         'blockysize': 256,
-    #         'BIGTIFF': 'YES',
-    #         # 'nodata': original_nodata,
-    #         'width': mosaic.shape[2],
-    #         'height': mosaic.shape[1],
-    #         'transform': out_trans
-    #     })
-
-    # with rasterio.open(merged_file_path, 'w', **out_meta) as dest:
-    #     dest.write(mosaic)
+import utils.shared_functions as sf
+from utils.shared_functions import FIM_Helpers as fh
+import logging
 
 
 
 def identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir):
     #identify osmids with lidar-tif or not
-    
     tif_ids = set(os.path.splitext(os.path.basename(f))[0] for f in os.listdir(lidar_tif_dir) if f.endswith('.tif'))
     OSM_bridge_lines_gdf['has_lidar_tif'] = OSM_bridge_lines_gdf['osmid'].apply(lambda x: 'Y' if str(x) in tif_ids else 'N')
     return OSM_bridge_lines_gdf
-
-
-def RETIRED_make_dif_ratsers(OSM_bridge_file,dem_dir,lidar_tif_dir,output_dir):
-    try:
-        #add HUC6 info update the osm bridge line file with existence of lidar 
-        OSM_bridge_lines_gdf=gpd.read_file(OSM_bridge_file)
-        OSM_bridge_lines_gdf['HUC6']=OSM_bridge_lines_gdf['HUC'].str[:6]
-        OSM_bridge_lines_gdf=identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir)
-
-        dem_files=list(glob.glob(os.path.join(dem_dir, '*.tif')))
-        available_dif_files=list(glob.glob(os.path.join(output_dir, '*.tif')))
-        # dem_files=['/data/inputs/dems/3dep_dems/10m_5070/20240916/HUC6_020502_dem.tif']
-        # dem_files=[]
-        for dem_file in dem_files:
-            base_name, extension = os.path.splitext(os.path.basename(dem_file))
-            output_file_name=f"{base_name}_diff{extension}"
-            output_file_path = os.path.join(output_dir, output_file_name)
-
-            HUC6=base_name.split('_')[1]
-            print('working on HUC6%s'%str(HUC6))
-
-            #get alis t of osmids in this HUC6 with lidar-generated tif files
-            HUC6_lidar_tif_osmids=OSM_bridge_lines_gdf[(OSM_bridge_lines_gdf['HUC6']==HUC6)&(OSM_bridge_lines_gdf['has_lidar_tif']=='Y') ]['osmid'].values.tolist()
-
-
-            if HUC6_lidar_tif_osmids and output_file_path not in available_dif_files and HUC6 in ['160600']:# (['051201','101800', '102500','150100','160600','170102']) :  # remove the second condition
-                print('making diff for HUC6_%s with %d tif'%(HUC6,len(HUC6_lidar_tif_osmids)))
-
-                # Retrieve profile from the original DEM file
-                with rasterio.open(dem_file) as src:
-                    dem_profile = src.profile
-                output_profile = dem_profile.copy()
-                                    
-                merged_file_path=os.path.join(output_dir,'merged.tif')
-                merge_bridge_tifs(lidar_tif_dir,HUC6_lidar_tif_osmids,merged_file_path,output_profile)
-                print('1')  
-                local_da = xr.open_dataarray(merged_file_path, engine="rasterio", chunks={"x": 1024, "y": 1024})
-                #remove the merged file which is not needed anymore
-                #os.remove(os.path.join(output_dir,'merged.tif'))
-
-
-
-                # Open the regional TIFF as an xarray DataArray
-                print('2') 
-                original_da = xr.open_dataarray(dem_file, engine="rasterio", chunks={"x": 1024, "y": 1024})
-                print('3') 
-                original_nodata=original_da.rio.nodata
-                enhanced_da = original_da.copy()
-
-                # Open the local TIFF as an xarray DataArray and reproject to match the regional grid, if needed
-                if local_da.rio.crs != original_da.rio.crs:
-                    print('check the inputs. The crs must match between lidar-tif files and DEM. ')
-                    exit()
-                    # local_da = local_da.rio.reproject_match(original_da) 
-                # Replace values in the regional DataArray with the local DataArray values at overlapping locations
-                print('4') 
-                local_da = local_da.reindex_like(enhanced_da, method='nearest')
-                print('5') 
-                enhanced_da = enhanced_da.where(local_da.isnull(), other=local_da)
-                # # Set nodata value to be consistent
-                enhanced_da=enhanced_da.fillna(original_nodata)
-                enhanced_da.rio.write_nodata(original_nodata, inplace=True)
-                print('6') 
-                diff = enhanced_da - original_da
-                del enhanced_da  #good practice to clean the memory especially for big rasters
-
-                # Save the result to a new TIFF file
-                # diff.rio.to_raster(os.path.join(output_dir,output_file_name),compress="LZW") first version
-                # Update the profile with the desired settings
-                # Ensure CRS is properly set for the output
-                if diff.rio.crs is None:
-                    diff.rio.write_crs(original_da.rio.crs, inplace=True)
-
-                # Update the profile with the desired settings
-                
-                output_profile.update({
-                    'driver': 'GTiff',
-                    'dtype': 'float32',
-                    'compress': 'LZW',
-                    'tiled': True,
-                    'blockxsize': 256,
-                    'blockysize': 256,
-                    'BIGTIFF': 'YES',
-                    'nodata': original_nodata,
-                    'width': original_da.rio.width,  # Use original DEM's width
-                    'height': original_da.rio.height,  # Use original DEM's height
-                    'transform': original_da.rio.transform()
-                })
-                print('7')
-                
-                # Ensure diff.values has the correct shape
-                data = diff.values
-                print(data.ndim)
-                if data.ndim == 4:
-                    data = data.squeeze()  # Remove extra dimensions if present
-                if data.ndim == 2:  # Single-band case (height, width)
-                    data = data[None, :, :]  # Add band dimension
-
-                # Write the final output raster
-                print('8')
-                with rasterio.open(output_file_path, 'w', **output_profile) as dst:
-                    dst.write(data)
-
-
-            else: #if there are no lidar raster for this HUC6, just return a zero diff file
-                print('There is no lidar-generated raster file for osm bridges in HUC%s'%HUC6)
-
-
-        # #save the osm bridge line file
-        base, ext = os.path.splitext(os.path.basename(OSM_bridge_file)) 
-        OSM_bridge_lines_gdf.to_file(os.path.join(output_dir,f"{base}_modified{ext}"))
-    except Exception:
-        print(traceback.format_exc())
 
 
 def rasters_to_point(tif_paths):
@@ -257,100 +66,178 @@ def rasters_to_point(tif_paths):
     return combined_gdf
 
 
-def make_one_diff(raster_file,points_gdf,output_raster):
+def make_one_diff(dem_file,OSM_bridge_lines_gdf,lidar_tif_dir,HUC6, output_diff_path):
+    logging.info('working on HUC6: ' + str(HUC6))
+    try:
+ 
+        HUC6_lidar_tif_osmids=OSM_bridge_lines_gdf[(OSM_bridge_lines_gdf['HUC6']==HUC6)&(OSM_bridge_lines_gdf['has_lidar_tif']=='Y') ]['osmid'].values.tolist()
+        HUC6_lidar_tif_paths=[os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC6_lidar_tif_osmids]
+        
+        if HUC6_lidar_tif_paths:
+            HUC6_lidar_points_gdf=rasters_to_point(HUC6_lidar_tif_paths)
+            # HUC6_lidar_points_gdf.to_crs('EPSG:5070', inplace=True) #this can be temporarily
 
-    # Example Usage
-    # raster_file = r"C:\Users\ali.forghani\Desktop\dev_lidar_bridge\Revise_Merging_bridges\HUC6_160600_dem.tif"
-    # output_raster = r"C:\Users\ali.forghani\Desktop\dev_lidar_bridge\Revise_Merging_bridges\HUC6_160600_dem_diff.tif"  # Path to save the updated raster
+            temp_buffer=OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['HUC6']==HUC6]
+            
+            #make a buffer file because we want to keep only the points within 2 meter of the bridge lines
+            temp_buffer.loc[:, 'geometry'] = temp_buffer['geometry'].buffer(2)
+            HUC6_lidar_points_gdf=gpd.sjoin(HUC6_lidar_points_gdf, temp_buffer, predicate='within')
 
-     #Sample raster values at each point location
-    coords = [(geom.x, geom.y) for geom in points_gdf.geometry]  # Extract point coordinates
-    with rasterio.open(raster_file) as src:
-        raster = src.read(1)  # Read the first band
-        raster_meta = src.meta.copy()  # Copy metadata for the output raster
-        transform = src.transform  # Affine transform
-        nodata = src.nodata  # NoData value of the raster
-        sampled_values = [value[0] for value in src.sample(coords)]  # Sample raster values
+            #Sample raster values at each point location
+            coords = [(geom.x, geom.y) for geom in HUC6_lidar_points_gdf.geometry]  # Extract point coordinates
+            with rasterio.open(dem_file) as src:
+                raster = src.read(1)  # Read the first band
+                raster_meta = src.meta.copy()  # Copy metadata for the output raster
+                transform = src.transform  # Affine transform
+                nodata = src.nodata  # NoData value of the raster
+                sampled_values = [value[0] for value in src.sample(coords)]  # Sample raster values
 
-    # Step 5: Add the sampled values to the GeoDataFrame
-    points_gdf['ori_dem'] = sampled_values
-    points_gdf['diff']=points_gdf['value']-points_gdf['ori_dem']
+            # Step 5: Add the sampled values to the GeoDataFrame
+            HUC6_lidar_points_gdf['ori_dem'] = sampled_values
+            HUC6_lidar_points_gdf['diff']=HUC6_lidar_points_gdf['value']-HUC6_lidar_points_gdf['ori_dem']
 
-    # Replace 'value' with the column in your GeoPackage that contains the point values
-    shapes = ((geom, value) for geom, value in zip(points_gdf.geometry, points_gdf['diff']))
+            # Replace 'value' with the column in your GeoPackage that contains the point values
+            shapes = ((geom, value) for geom, value in zip(HUC6_lidar_points_gdf.geometry, HUC6_lidar_points_gdf['diff']))
 
-    # Step 4: Rasterize the points
-    updated_raster = rasterize(
-        shapes=shapes,
-        out_shape=raster.shape,  # Match the shape of the original raster
-        transform=transform,  # Use the original raster's affine transform
-        fill=0,  # Preserve 0 value for areas without points
-        merge_alg=rasterio.enums.MergeAlg.replace,  # Replace raster values with point values
-        dtype=raster.dtype
-    )
-    print('almost')
+            # Step 4: Rasterize the points
+            updated_raster = rasterize(
+                shapes=shapes,
+                out_shape=raster.shape,  # Match the shape of the original raster
+                transform=transform,  # Use the original raster's affine transform
+                fill=0,  # Preserve 0 value for areas without points
+                merge_alg=rasterio.enums.MergeAlg.replace,  # Replace raster values with point values
+                dtype=raster.dtype
+            )
 
-        # Apply the original raster's NoData mask
-    updated_raster[raster == nodata] = nodata
+            # Apply the original raster's NoData mask
+            updated_raster[raster == nodata] = nodata
 
-    # Step 5: Save the updated raster
-    raster_meta.update({'dtype': updated_raster.dtype, 'compress': 'lzw'})  # Update metadata
-    with rasterio.open(output_raster, 'w', **raster_meta) as dst:
-        dst.write(updated_raster, 1)  
+            # Step 5: Save the updated raster
+            raster_meta.update({'dtype': updated_raster.dtype, 'compress': 'lzw'})  # Update metadata
+            with rasterio.open(output_diff_path, 'w', **raster_meta) as dst:
+                dst.write(updated_raster, 1)  
+
+        else:
+            print('no lidar data for HUC6: %s'%str(HUC6))
+            logging.info('no lidar data for HUC6: ' + str(HUC6) )
+
+    except Exception as ex:
+        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
+        print(f"*** {ex}")
+        print(''.join(summary.format()))
+        logging.critical(f"*** {ex}")
+        logging.critical(''.join(summary.format()))
+        sys.exit(1)
+
 
 
 
 def make_dif_rasters(OSM_bridge_file,dem_dir,lidar_tif_dir,output_dir):
+    # start time and setup logs
+    start_time = datetime.now(timezone.utc)
+    fh.print_start_header('Making HUC6 elev difference rasters', start_time)
+
+    __setup_logger(output_dir)
+    logging.info(f"Saving results in {output_dir}")
+    
     try:
-        #add HUC6 info update the osm bridge line file with existence of lidar 
+        print('reading osm bridge lines...')
         OSM_bridge_lines_gdf=gpd.read_file(OSM_bridge_file)
-        print(OSM_bridge_lines_gdf.head())
-        #make a buffer file
-        OSM_bridge_lines_gdf['geometry'] = OSM_bridge_lines_gdf['geometry'].buffer(2)
         
+        print('adding HUC6 number and info about existence of lidar raster or not...')
         OSM_bridge_lines_gdf['HUC6']=OSM_bridge_lines_gdf['HUC'].str[:6]
         OSM_bridge_lines_gdf=identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir)
 
         dem_files=list(glob.glob(os.path.join(dem_dir, '*.tif')))
-        for dem_file in dem_files:
-            base_name, extension = os.path.splitext(os.path.basename(dem_file))
-            output_file_name=f"{base_name}_diff{extension}"
-            output_file_path = os.path.join(output_dir, output_file_name)
 
-            HUC6=base_name.split('_')[1]
-            print('working on HUC6%s'%str(HUC6))
+        #TODO delete below two lines
+        available_dif_files=list(glob.glob(os.path.join(output_dir, '*.tif')))
+        base_names_no_ext = [os.path.splitext(os.path.basename(path))[0].split('_')[1] for path in available_dif_files]
 
-            #get a list of osmids in this HUC6 with lidar-generated tif files
-            HUC6_lidar_tif_osmids=OSM_bridge_lines_gdf[(OSM_bridge_lines_gdf['HUC6']==HUC6)&(OSM_bridge_lines_gdf['has_lidar_tif']=='Y') ]['osmid'].values.tolist()
-            HUC6_lidar_tif_paths=[os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC6_lidar_tif_osmids]
-            
-            if HUC6_lidar_tif_paths and HUC6 not in (['051201']):#,'101800', '102500','150100','160600','170102']):
-                HUC6_lidar_points_gdf=rasters_to_point(HUC6_lidar_tif_paths)
-                HUC6_lidar_points_gdf.to_crs('EPSG:5070', inplace=True) #this can be temporarily
-                #only keep the points within 2 meter buffer around the line
-                temp_buffer=OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['HUC6']==HUC6]
-                HUC6_lidar_points_gdf=gpd.sjoin(HUC6_lidar_points_gdf, temp_buffer, predicate='within')
-                make_one_diff(dem_file,HUC6_lidar_points_gdf,output_file_path) 
-            else:
-                print('no lidar data for HUC_%s'%str(HUC6))
-                
-        # #save the osm bridge line file
+
+        number_of_jobs=6
+        with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
+            executor_dict = {}
+
+            for dem_file in dem_files:
+                #prepare path for output diff file
+                base_name, extension = os.path.splitext(os.path.basename(dem_file))
+                output_diff_file_name=f"{base_name}_diff{extension}"
+                output_diff_path = os.path.join(output_dir, output_diff_file_name)
+                HUC6=base_name.split('_')[1] 
+                if HUC6 not in   base_names_no_ext: 
+
+                    make_one_diff_args = {
+                        'dem_file': dem_file,
+                        'OSM_bridge_lines_gdf': OSM_bridge_lines_gdf,
+                        'lidar_tif_dir': lidar_tif_dir,
+                        'HUC6': HUC6,
+                        'output_diff_path': output_diff_path
+                    }
+
+                    try:
+                        future = executor.submit(make_one_diff, **make_one_diff_args)
+                        executor_dict[future] = dem_file
+                    except Exception as ex:
+                        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
+                        print(f"*** {ex}")
+                        print(''.join(summary.format()))
+                        logging.critical(f"*** {ex}")
+                        logging.critical(''.join(summary.format()))
+                        sys.exit(1)
+
+            # Send the executor to the progress bar and wait for all tasks to finish
+            sf.progress_bar_handler(executor_dict, "Making HUC6 Diff Raster files")
+
+        #save with new info (with existence of lidar data or not)
+        print('saving the osm bridge lines with info for existence of lidar rasters or not.')
+        logging.info('saving the osm bridge lines with info for existence of lidar rasters or not')
         base, ext = os.path.splitext(os.path.basename(OSM_bridge_file)) 
         OSM_bridge_lines_gdf.to_file(os.path.join(output_dir,f"{base}_modified{ext}"))
-    except Exception:
-        print(traceback.format_exc())
+
+        # Record run time 
+        end_time = datetime.now(timezone.utc)
+        tot_run_time = end_time - start_time
+        fh.print_end_header('Making HUC6 dem diff rasters complete', start_time, end_time)
+        logging.info('TOTAL RUN TIME: ' + str(tot_run_time))
+        logging.info(fh.print_date_time_duration(start_time, end_time))
+
+
+    except Exception as ex:
+        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
+        print(f"*** {ex}")
+        print(''.join(summary.format()))
+        logging.critical(f"*** {ex}")
+        logging.critical(''.join(summary.format()))
+        sys.exit(1)
+
+
+
+def __setup_logger(output_folder_path):
+    start_time = datetime.now(timezone.utc)
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"DEM_diff_rasters-{file_dt_string}.log"
+
+    log_file_path = os.path.join(output_folder_path, log_file_name)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger()
+    logger.addHandler(file_handler)
+    logger.setLevel(logging.DEBUG)
+
+    logging.info(f'Started (UTC): {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info("----------------")
+
 
 if __name__ == "__main__":  
 
     '''
-        Sample usage:
-       python create_osm_raster_using_lidar.py
-       -i osm_all_bridges.gpkg
-       -b 1.5
-       -r 3
-       -o /results/02050206
        
-       python foss_fim/data/bridges/make_bridge_dem_dif_rasters.py
+       python foss_fim/data/bridges/make_dem_dif_for_bridges.py
        -i "outputs/lidar_bridge/osm_all_bridges.gpkg" 
        -d /data/inputs/dems/3dep_dems/10m_5070/20240916/ 
        -l "outputs/lidar_bridge/tif_files_res3m/" 
@@ -388,6 +275,5 @@ if __name__ == "__main__":
 
 
     args = vars(parser.parse_args())
-    print('starting...')
     make_dif_rasters(**args)
 

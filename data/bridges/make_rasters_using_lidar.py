@@ -334,14 +334,8 @@ if __name__ == "__main__":
 
     args = vars(parser.parse_args())
 
-    # try:
     process_bridges_lidar_data(**args)
 
-    # except Exception:
-    #     print('something wrong')
-    #     #logging.info(traceback.format_exc())
-    #     end_time = dt.datetime.now(dt.timezone.utc)
-    #     #logging.info(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
 
 
