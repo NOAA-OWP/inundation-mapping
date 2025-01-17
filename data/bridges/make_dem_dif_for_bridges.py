@@ -32,18 +32,12 @@ def identify_bridges_with_lidar(OSM_bridge_lines_gdf,lidar_tif_dir):
 
 
 def rasters_to_point(tif_paths):
-    # tif_dir=r"C:\Users\ali.forghani\Desktop\dev_lidar_bridge\Revise_Merging_bridges\osm_rasters\10m"
-    # raster_path = r"C:\Users\ali.forghani\Desktop\dev_lidar_bridge\Revise_Merging_bridges\osm_rasters\10m\539158740.tif"
-    # output_path = r"C:\Users\ali.forghani\Desktop\dev_lidar_bridge\Revise_Merging_bridges\Shortened_HUC6_160600_dem_point.gpkg"
-
-    # tif_files=list(glob.glob(os.path.join(tif_dir, '*.tif')))
     gdf_list=[]
     for tif_file in tif_paths:
-        # Open the raster file
         with rasterio.open(tif_file) as src:
-            raster_data = src.read(1)  # Read the first band
-            transform = src.transform  # Get the affine transform
-            nodata = src.nodata  # Get the nodata value if available
+            raster_data = src.read(1)  
+            transform = src.transform  
+            nodata = src.nodata 
             
             # Get the indices of all valid (non-nodata) pixels
             valid_mask = (raster_data != nodata)
@@ -58,8 +52,7 @@ def rasters_to_point(tif_paths):
             # Create point geometries
             points = [Point(x, y) for x, y in zip(xs, ys)]
 
-        # Create a GeoDataFrame
-        gdf = gpd.GeoDataFrame({'value': values,'osmid': os.path.basename(tif_file)[0:-4]}, geometry=points, crs=src.crs)
+        gdf = gpd.GeoDataFrame({'lidar_elev': values,'osmid': os.path.basename(tif_file)[0:-4]}, geometry=points, crs=src.crs)
         gdf_list.append(gdf)
 
     combined_gdf = gpd.GeoDataFrame(pd.concat(gdf_list, ignore_index=True))
@@ -93,11 +86,11 @@ def make_one_diff(dem_file,OSM_bridge_lines_gdf,lidar_tif_dir,HUC6, output_diff_
                 sampled_values = [value[0] for value in src.sample(coords)]  # Sample raster values
 
             # Step 5: Add the sampled values to the GeoDataFrame
-            HUC6_lidar_points_gdf['ori_dem'] = sampled_values
-            HUC6_lidar_points_gdf['diff']=HUC6_lidar_points_gdf['value']-HUC6_lidar_points_gdf['ori_dem']
+            HUC6_lidar_points_gdf['ori_dem_elev'] = sampled_values
+            HUC6_lidar_points_gdf['elev_diff']=HUC6_lidar_points_gdf['lidar_elev']-HUC6_lidar_points_gdf['ori_dem_elev']
 
             # Replace 'value' with the column in your GeoPackage that contains the point values
-            shapes = ((geom, value) for geom, value in zip(HUC6_lidar_points_gdf.geometry, HUC6_lidar_points_gdf['diff']))
+            shapes = ((geom, value) for geom, value in zip(HUC6_lidar_points_gdf.geometry, HUC6_lidar_points_gdf['elev_diff']))
 
             # Step 4: Rasterize the points
             updated_raster = rasterize(
@@ -122,12 +115,8 @@ def make_one_diff(dem_file,OSM_bridge_lines_gdf,lidar_tif_dir,HUC6, output_diff_
             logging.info('no lidar data for HUC6: ' + str(HUC6) )
 
     except Exception as ex:
-        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-        print(f"*** {ex}")
-        print(''.join(summary.format()))
-        logging.critical(f"*** {ex}")
-        logging.critical(''.join(summary.format()))
-        sys.exit(1)
+        print('something is wrong for HUC6: %s'%str(HUC6))
+        logging.info('something is wrong for HUC6: ' + str(HUC6) )
 
 
 
@@ -261,7 +250,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-l',
         '--lidar_tif_dir',
-        help='REQUIRED: folder path where lidar-gerenared bridge elevtions are located.',
+        help='REQUIRED: folder path where lidar-gerenared bridge elevation rasters are located.',
         required=True,
     )
 

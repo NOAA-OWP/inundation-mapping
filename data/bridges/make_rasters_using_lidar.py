@@ -1,5 +1,5 @@
 import argparse
-import datetime as dt
+from datetime import datetime, timezone
 import laspy
 import numpy as np
 import pdal
@@ -14,12 +14,17 @@ from shapely.geometry import Point,MultiPoint
 from scipy.spatial import KDTree
 import xarray as xr
 from multiprocessing import Pool
-
+import utils.shared_functions as sf
+from utils.shared_functions import FIM_Helpers as fh
+import logging
+import traceback
+import sys
 
 def download_lidar_points(args):
     osmid,poly_geo, lidar_url,output_dir=args
     poly_wkt=poly_geo.wkt
     las_file_path=os.path.join(output_dir,'point_files','%s.las'%str(osmid))
+
     my_pipe={
     "pipeline": [
         {
@@ -30,7 +35,7 @@ def download_lidar_points(args):
         },
         {
         "type": "filters.returns",
-        "groups": "last,only"  #last mean the last if when there are multiple returns..it does not include cases When there is only one return. so we need both "last" and "only" 
+        "groups": "last,only"  #need both last and only because 'last' applies only when there are multiple returns and does not include cases with a single return. 
         },
 
         # {
@@ -41,7 +46,6 @@ def download_lidar_points(args):
         # },
 
         {
-        # "filename": os.path.join(st.session_state['this_bridge_output'] , 'all_last_return_points.las'),
         "filename": las_file_path ,
         "tag": "writerslas",
         "type": "writers.las"
@@ -93,6 +97,8 @@ def las_to_gpkg(las_path):
 
 
 def handle_noises(points_gdf):
+    # Replace non-bridge point values with the average of the nearest two bridge points (with classification codes 13 or 17_).
+
     points_gdf.loc[:,'x'] = points_gdf.geometry.x
     points_gdf.loc[:,'y'] = points_gdf.geometry.y
 
@@ -181,39 +187,7 @@ def make_lidar_footprints():
     return entwine_footprints_gdf
 
 
-def create_dem_diff(original_dem_path,local_tif_paths,diff_dem_path):
-    # Step 1: Open the regional TIFF as an xarray DataArray
-    original_da = xr.open_dataarray(original_dem_path, engine="rasterio")
-    original_nodata=original_da.rio.nodata
-    enhanced_da = original_da.copy()
-
-    for i, local_tif_path in enumerate(local_tif_paths): 
-        print(local_tif_path)
-    
-        # Step 2: Open the local TIFF as an xarray DataArray and reproject to match the regional grid, if needed
-        local_da = xr.open_dataarray(local_tif_path, engine="rasterio")
-
-        if local_da.rio.crs != original_da.rio.crs:
-            local_da = local_da.rio.reproject_match(original_da) 
-
-        # Step 3: Replace values in the regional DataArray with the local DataArray values at overlapping locations
-        enhanced_da = enhanced_da.where(local_da.isnull(), other=local_da)
-
-    # # Step 4: Set nodata value to be consistent
-    enhanced_da=enhanced_da.fillna(original_nodata)
-    enhanced_da.rio.write_nodata(original_nodata, inplace=True)
-
-    # Sif needed, Explicitly assign the CRS from the regional data to the final combined data
-    # updated_regional_da.rio.write_crs(regional_da.rio.crs, inplace=True)
-
-    # enhanced_da.rio.to_raster(enhanced_dem_path)
-
-    diff = enhanced_da - original_da
-
-    # Save the result to a new TIFF file
-    diff.rio.to_raster(diff_dem_path)
-
-def make_rasers_in_parallel(args):
+def make_rasters_in_parallel(args):
     osmid,points_path,output_dir,raster_resolution,tif_crs=args
     try:
 
@@ -230,62 +204,122 @@ def make_rasers_in_parallel(args):
             las_obj.write(modified_las_path)
             
             #make tif files
-            tif_output=os.path.join(output_dir,'tif_files','%s.tif'%osmid)
+            tif_output=os.path.join(output_dir,'lidar_osm_rasters','%s.tif'%osmid)
             make_local_tifs(modified_las_path,raster_resolution,tif_crs, tif_output)
             os.remove(modified_las_path)
+        else:
+            logging.info("Not enough valid points available for osmid: %s"%str(osmid))
+            print("Not enough valid points available for osmid: %s"%str(osmid))
+
     except:
-        print("something wrong with %s"%str(osmid))
+        logging.info("something is wrong for osmid: %s"%str(osmid))
+        print("something is wrong for osmid: %s"%str(osmid))
 
 
 def process_bridges_lidar_data(OSM_bridge_file,buffer_width,raster_resolution,output_dir):
-    start_time = dt.datetime.now(dt.timezone.utc)
+    # start time and setup logs
+    start_time = datetime.now(timezone.utc)
+    fh.print_start_header('Making HUC6 elev difference rasters', start_time)
 
-    # Create subfolders 'lidar_points' and 'classifications' inside the main folder
-    point_dir = os.path.join(output_dir, 'point_files')
-    tif_files_dir = os.path.join(output_dir, 'tif_files')
+    __setup_logger(output_dir)
+    logging.info(f"Saving results in {output_dir}")
 
-    os.makedirs(point_dir, exist_ok=True)
-    os.makedirs(tif_files_dir, exist_ok=True)
+    try:
 
-    tif_crs=5070 # consider changing for Alaska ?
+        # Create subfolders 'point_points' and 'lidar_osm_rasters' inside the moutput folder
+        point_dir = os.path.join(output_dir, 'point_files')
+        tif_files_dir = os.path.join(output_dir, 'lidar_osm_rasters')
 
-    #produce footprints of lidar dataset over conus
-    entwine_footprints_gdf=make_lidar_footprints()
+        os.makedirs(point_dir, exist_ok=True)
+        os.makedirs(tif_files_dir, exist_ok=True)
 
-    OSM_bridge_lines_gdf=gpd.read_file(OSM_bridge_file)
-    OSM_polygons_gdf=OSM_bridge_lines_gdf.copy()
-    OSM_polygons_gdf['geometry'] = OSM_polygons_gdf['geometry'].buffer(buffer_width)  
-    OSM_polygons_gdf.to_crs(entwine_footprints_gdf.crs, inplace=True)
-    OSM_polygons_gdf.rename(columns={'name':'bridge_name'}, inplace=True)
-        
-    #intersect with lidar urls
-    OSM_polygons_gdf = gpd.overlay(OSM_polygons_gdf, entwine_footprints_gdf, how='intersection')
+        tif_crs=5070 # consider changing for Alaska ?
 
-    OSM_polygons_gdf.to_file(os.path.join(output_dir,'buffered_bridges.gpkg'))
+        #produce footprints of lidar dataset over conus
+        text='generating footprints of available CONUS lidar datasets'
+        print(text)
+        logging.info(text)
+        entwine_footprints_gdf=make_lidar_footprints()
 
-    #filter if there are multiple urls for a bridge, keep the url with highest count
-    OSM_polygons_gdf = OSM_polygons_gdf.loc[OSM_polygons_gdf.groupby('osmid')['count'].idxmax()]
-    OSM_polygons_gdf = OSM_polygons_gdf.reset_index(drop=True)
+        text='read osm bridge lines and make a polygon foortprint'
+        print(text)
+        logging.info(text)
+        OSM_bridge_lines_gdf=gpd.read_file(OSM_bridge_file)
+        OSM_polygons_gdf=OSM_bridge_lines_gdf.copy()
+        OSM_polygons_gdf['geometry'] = OSM_polygons_gdf['geometry'].buffer(buffer_width)  
+        OSM_polygons_gdf.to_crs(entwine_footprints_gdf.crs, inplace=True)
+        OSM_polygons_gdf.rename(columns={'name':'bridge_name'}, inplace=True)
+            
+        #intersect with lidar urls
+        text='Identify USGS/Entwine lidar URLs for intersecting with each bridge polygon'
+        print(text)
+        logging.info(text)
+        OSM_polygons_gdf = gpd.overlay(OSM_polygons_gdf, entwine_footprints_gdf, how='intersection')
 
-    pool_args=[]
-    for i, row in OSM_polygons_gdf.iterrows():
-        osmid,poly_geo, lidar_url = row.osmid, row.geometry, row.url
-        pool_args.append((osmid,poly_geo, lidar_url,output_dir))
+        OSM_polygons_gdf.to_file(os.path.join(output_dir,'buffered_bridges.gpkg'))
 
-    print('There are %d files to get downloaded'%len(pool_args))
-    with Pool(15) as pool:
-        pool.map(download_lidar_points, pool_args)
+        #filter if there are multiple urls for a bridge, keep the url with highest count
+        OSM_polygons_gdf = OSM_polygons_gdf.loc[OSM_polygons_gdf.groupby('osmid')['count'].idxmax()]
+        OSM_polygons_gdf = OSM_polygons_gdf.reset_index(drop=True)
 
-    downloaded_points_files = glob.glob(os.path.join(output_dir,'point_files', '*.las'))
+        text='download last-return lidar points (with epsg:3857) within each bridge polygon from the identified URLs'
+        print(text)
+        logging.info(text)
+        pool_args=[]
+        for i, row in OSM_polygons_gdf.iterrows():
+            osmid,poly_geo, lidar_url = row.osmid, row.geometry, row.url
+            pool_args.append((osmid,poly_geo, lidar_url,output_dir))
 
-    pool_args=[]
-    for points_path in downloaded_points_files:
-        osmid= os.path.basename(points_path).split('.las')[0]
-        pool_args.append((osmid,points_path,output_dir,raster_resolution,tif_crs ))
+        print('There are %d files to get downloaded'%len(pool_args))
+        with Pool(15) as pool:
+            pool.map(download_lidar_points, pool_args)
 
-    with Pool(10) as pool:
-        pool.map(make_rasers_in_parallel, pool_args)
+        text='Generate raster files after filtering the points for bridge classification codes'
+        print(text)
+        logging.info(text)
+        downloaded_points_files = glob.glob(os.path.join(output_dir,'point_files', '*.las'))
 
+        pool_args=[]
+        for points_path in downloaded_points_files:
+            osmid= os.path.basename(points_path).split('.las')[0]
+            pool_args.append((osmid,points_path,output_dir,raster_resolution,tif_crs ))
+
+        with Pool(10) as pool:
+            pool.map(make_rasters_in_parallel, pool_args)
+
+        # Record run time 
+        end_time = datetime.now(timezone.utc)
+        tot_run_time = end_time - start_time
+        fh.print_end_header('Making osm rasters complete', start_time, end_time)
+        logging.info('TOTAL RUN TIME: ' + str(tot_run_time))
+        logging.info(fh.print_date_time_duration(start_time, end_time))
+
+    except Exception as ex:
+        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
+        print(f"*** {ex}")
+        print(''.join(summary.format()))
+        logging.critical(f"*** {ex}")
+        logging.critical(''.join(summary.format()))
+        sys.exit(1)
+
+def __setup_logger(output_folder_path):
+    start_time = datetime.now(timezone.utc)
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"osm_lidar_rasters-{file_dt_string}.log"
+
+    log_file_path = os.path.join(output_folder_path, log_file_name)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger()
+    logger.addHandler(file_handler)
+    logger.setLevel(logging.DEBUG)
+
+    logging.info(f'Started (UTC): {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
+    logging.info("----------------")
 
 
 if __name__ == "__main__":  
@@ -308,7 +342,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-b',
         '--buffer_width',
-        help='OPTIONAL: Buffer to apply to OSM bridge lines to convert them to polygon. Default value is 1.5m (on each side)',
+        help='OPTIONAL: Buffer to apply to OSM bridge lines to select lidar points within the buffered area. Default value is 1.5m (on each side)',
         required=False,
         default=1.5,
         type=float,
