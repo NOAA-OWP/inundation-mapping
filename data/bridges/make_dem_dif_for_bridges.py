@@ -21,6 +21,7 @@ import traceback
 import utils.shared_functions as sf
 from utils.shared_functions import FIM_Helpers as fh
 import logging
+from data.create_vrt_file import create_vrt_file
 
 
 
@@ -79,10 +80,10 @@ def make_one_diff(dem_file,OSM_bridge_lines_gdf,lidar_tif_dir,HUC6, output_diff_
             #Sample raster values at each point location
             coords = [(geom.x, geom.y) for geom in HUC6_lidar_points_gdf.geometry]  # Extract point coordinates
             with rasterio.open(dem_file) as src:
-                raster = src.read(1)  # Read the first band
-                raster_meta = src.meta.copy()  # Copy metadata for the output raster
-                transform = src.transform  # Affine transform
-                nodata = src.nodata  # NoData value of the raster
+                raster = src.read(1)  
+                raster_meta = src.meta.copy()  
+                transform = src.transform  
+                nodata = src.nodata 
                 sampled_values = [value[0] for value in src.sample(coords)]  # Sample raster values
 
             # Step 5: Add the sampled values to the GeoDataFrame
@@ -111,8 +112,21 @@ def make_one_diff(dem_file,OSM_bridge_lines_gdf,lidar_tif_dir,HUC6, output_diff_
                 dst.write(updated_raster, 1)  
 
         else:
-            print('no lidar data for HUC6: %s'%str(HUC6))
-            logging.info('no lidar data for HUC6: ' + str(HUC6) )
+            print('Making a diff raster file only with values of zero for HUC6:' + str(HUC6))
+            logging.info('Making a diff raster file only with values of zero for HUC6:' + str(HUC6))
+
+            with rasterio.open(dem_file) as src:
+                raster = src.read(1)  
+                nodata = src.nodata 
+                raster_meta = src.meta.copy()  
+
+            # Set all raster values except nodata to zero
+            updated_raster = np.where(raster == nodata, nodata, 0.0)
+
+            # Step 5: Save the updated raster
+            raster_meta.update({ 'compress': 'lzw'})  # Update metadata to compress
+            with rasterio.open(output_diff_path, 'w', **raster_meta) as dst:
+                dst.write(updated_raster, 1)  
 
     except Exception as ex:
         print('something is wrong for HUC6: %s'%str(HUC6))
@@ -184,6 +198,11 @@ def make_dif_rasters(OSM_bridge_file,dem_dir,lidar_tif_dir,output_dir):
         base, ext = os.path.splitext(os.path.basename(OSM_bridge_file)) 
         OSM_bridge_lines_gdf.to_file(os.path.join(output_dir,f"{base}_modified{ext}"))
 
+        #now make a vrt file from all generated diff raster files
+        print('Making a vrt files from all diff raster files.')
+        logging.info('Making a vrt files from all diff raster files')
+        create_vrt_file(output_dir,'bridge_elev_diff.vrt')
+
         # Record run time 
         end_time = datetime.now(timezone.utc)
         tot_run_time = end_time - start_time
@@ -225,12 +244,12 @@ def __setup_logger(output_folder_path):
 if __name__ == "__main__":  
 
     '''
-       
-       python foss_fim/data/bridges/make_dem_dif_for_bridges.py
-       -i "outputs/lidar_bridge/osm_all_bridges.gpkg" 
+
+       python foss_fim/data/bridges/make_dem_dif_for_bridges.py 
+       -i data/inputs/osm/bridges/250102/osm_all_bridges.gpkg 
        -d /data/inputs/dems/3dep_dems/10m_5070/20240916/ 
-       -l "outputs/lidar_bridge/tif_files_res3m/" 
-       -o "outputs/lidar_bridge/HUC6_DEM_DIFF/"
+       -l data/inputs/osm/bridges/250102/lidar_osm_rasters/ 
+       -o data/inputs/osm/bridges/250102/huc6_dem_diff/
        
     '''
 

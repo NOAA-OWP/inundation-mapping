@@ -369,29 +369,3 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
 
     process_bridges_lidar_data(**args)
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-

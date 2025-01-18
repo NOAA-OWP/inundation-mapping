@@ -91,6 +91,8 @@ def process_bridges_in_huc(
 
     if os.path.exists(bridge_vector_file):
         # Read the bridge lines file and buffer it by half of the input width
+        #TODO below line is temporarily until updating pre_clips
+        bridge_vector_file=os.path.join('/data/inputs/osm/bridges/250102/huc6_dem_diff/','osm_all_bridges_modified.gpkg')
         osm_gdf = gpd.read_file(bridge_vector_file)
         osm_gdf['centroid_geometry'] = osm_gdf.centroid
         osm_gdf['geometry'] = osm_gdf.geometry.buffer(buffer_width, resolution=buffer_width)
@@ -108,7 +110,6 @@ def process_bridges_in_huc(
     osm_gdf= pd.concat([non_lidar_osm_gdf, lidar_osm_gdf], ignore_index=True)
     
     # # Write the new HAND grid
-    # source_hand_raster="/outputs/Ali_bridges_lidar/outputs/updated_HAND_grid.tif"
     with rasterio.open(source_hand_raster, 'w', **hand_grid_profile) as new_hand_grid:
          new_hand_grid.write(updated_hand_grid_array, 1)
 
@@ -172,7 +173,6 @@ if __name__ == "__main__":
             -p /outputs/fim_4_4_15_0/1209301/branches/3763000013/gw_catchments_reaches_filtered_addedAttributes_crosswalked_3763000013.gpkg
             -c /outputs/fim_4_4_15_0/1209301/1209301/branches/3763000013/osm_bridge_centroids_3763000013.tif
             -b 10
-            -r 10
 
     '''
 
@@ -213,15 +213,6 @@ if __name__ == "__main__":
         required=True,
     )
 
-
-    # parser.add_argument(
-    #     '-r',
-    #     '--resolution',
-    #     help='OPTIONAL: Resolution of HAND grid. Default value is 10m',
-    #     required=False,
-    #     default=10,
-    #     type=int,
-    # )
 
     args = vars(parser.parse_args())
 
