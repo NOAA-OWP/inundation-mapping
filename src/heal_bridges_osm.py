@@ -84,6 +84,7 @@ def process_lidar_osm(osm_gdf,hand_grid_array,hand_grid_profile,bridge_elev_diff
 def process_bridges_in_huc(
     source_hand_raster,bridge_elev_diff_raster, bridge_vector_file,buffer_width, catchments, bridge_centroids ):
     
+    #make sure to also record the elevation of center of bridge which involves sampling of the DEM and DEM_DIFF.
 
     if not os.path.exists(source_hand_raster):
         print(f"-- no hand grid, {source_hand_raster}")
@@ -92,7 +93,7 @@ def process_bridges_in_huc(
     if os.path.exists(bridge_vector_file):
         # Read the bridge lines file and buffer it by half of the input width
         #TODO below line is temporarily until updating pre_clips
-        bridge_vector_file=os.path.join('/data/inputs/osm/bridges/250102/huc6_dem_diff/','osm_all_bridges_modified.gpkg')
+        # bridge_vector_file=os.path.join('/data/inputs/osm/bridges/250102/huc6_dem_diff/','osm_all_bridges_modified.gpkg')
         osm_gdf = gpd.read_file(bridge_vector_file)
         osm_gdf['centroid_geometry'] = osm_gdf.centroid
         osm_gdf['geometry'] = osm_gdf.geometry.buffer(buffer_width, resolution=buffer_width)

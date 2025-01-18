@@ -46,6 +46,9 @@ date -u
 echo -e $startDiv"Copying staged wbd and .gpkg files from $pre_clip_huc_dir/$hucNumber"
 cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 
+#temporarily for debugging
+cp "data/inputs/osm/bridges/250102/huc6_dem_diff/osm_all_bridges_modified.gpkg" "$tempHucDataDir/osm_bridges_subset.gpkg"
+
 # Copy necessary files from $inputsDir into $tempHucDataDir to avoid File System Collisions
 # For buffer_stream_branches.py
 cp $huc_input_DEM_domain $tempHucDataDir
@@ -243,9 +246,10 @@ if [ "$levelpaths_exist" = "1" ]; then
         -p $tempHucDataDir/flowdir_d8_burned_filled.tif
 fi
 
-## MAKE A COPY OF THE DEM FOR BRANCH 0
+## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
 cp $tempHucDataDir/dem_meters.tif $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
+cp $tempHucDataDir/bridge_elev_diff_meters.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters_$branch_zero_id.tif
 
 
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
