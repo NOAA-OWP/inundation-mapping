@@ -47,7 +47,7 @@ echo -e $startDiv"Copying staged wbd and .gpkg files from $pre_clip_huc_dir/$huc
 cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 
 #temporarily for debugging
-cp "data/inputs/osm/bridges/250102/huc6_dem_diff/osm_all_bridges_modified.gpkg" "$tempHucDataDir/osm_bridges_subset.gpkg"
+cp "data/inputs/osm/bridges/250102/osm_all_bridges_modified_02050206.gpkg" "$tempHucDataDir/osm_bridges_subset.gpkg"
 
 # Copy necessary files from $inputsDir into $tempHucDataDir to avoid File System Collisions
 # For buffer_stream_branches.py
