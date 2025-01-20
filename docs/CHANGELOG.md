@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.13.7 - 2025-01-10 - [PR#1399](https://github.com/NOAA-OWP/inundation-mapping/pull/1399)
+## v4.5.13.x - 2025-01-10 - [PR#1399](https://github.com/NOAA-OWP/inundation-mapping/pull/1399)
 
 This update improves stage-based CatFIM by detecting and correcting instances where the stage value provided in the WRDS database is actually stage + elevation (which is actually water surface elevation and, uncaught, causes overflooding). 
 
