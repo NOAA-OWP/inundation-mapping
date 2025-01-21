@@ -759,6 +759,9 @@ def iterate_through_huc_stage_based(
                         f"{huc_lid_id}: Lowest stage val > elev and higher than max stage thresh. Subtracted elev from stage vals to fix."
                     )
 
+                # +++++++++++++++++++++++++++++
+                # This section is for inundating stages and intervals come later
+                
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
                 # This are not interval values
@@ -785,7 +788,6 @@ def iterate_through_huc_stage_based(
                     # These are the up to 5 magnitudes being inundated at their stage value
                     (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_lid_tifs(
                         stage_value,
-                        False,
                         datum_adj_ft,
                         branch_dir,
                         lid_usgs_elev,
@@ -845,6 +847,9 @@ def iterate_through_huc_stage_based(
 
                 # MP_LOG.trace(f"non_rec_stage_values_df is {non_rec_stage_values_df}")
 
+                # +++++++++++++++++++++++++++++
+                # Creating interval tifs (if applicable)
+                    
                 # We already inundated and created files for the specific stages just not the intervals
                 # Make list of interval recs to be created
                 interval_list = []  # might stay empty
@@ -876,7 +881,6 @@ def iterate_through_huc_stage_based(
                                 executor.submit(
                                     produce_stage_based_lid_tifs,
                                     interval_stage_value,
-                                    True,
                                     datum_adj_ft,
                                     branch_dir,
                                     lid_usgs_elev,
@@ -1153,7 +1157,7 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
                 # MP_LOG.trace(f"{huc_lid_id}: Added interval value of {int_val}")
                 stage_values_claimed.append(int_val)
 
-    MP_LOG.lprint(f"{huc_lid_id} interval recs are {interval_recs}")
+    # MP_LOG.lprint(f"{huc_lid_id} interval recs are {interval_recs}")
 
     return interval_recs
 
