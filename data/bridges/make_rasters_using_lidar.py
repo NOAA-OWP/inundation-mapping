@@ -19,28 +19,29 @@ import xarray as xr
 from scipy.spatial import KDTree
 from shapely.geometry import MultiPoint, Point
 
-import utils.shared_functions as sf
-from utils.shared_functions import FIM_Helpers as fh
+
+# import utils.shared_functions as sf
+# from utils.shared_functions import FIM_Helpers as fh
 
 
 def download_lidar_points(args):
-    osmid, poly_geo, lidar_url, output_dir = args
+    osmid, poly_geo, lidar_url, output_dir, bridges_crs = args
     poly_wkt = poly_geo.wkt
     las_file_path = os.path.join(output_dir, 'point_files', '%s.las' % str(osmid))
 
+    # based on pdal documentation, The polygon wkt can be followed by a slash (‘/’) and a spatial reference specification to apply to the polygon.
     my_pipe = {
         "pipeline": [
-            {"polygon": str(poly_wkt), "filename": lidar_url, "type": "readers.ept", "tag": "readdata"},
+            {
+                "polygon": str(poly_wkt) + '/%s' % bridges_crs,
+                "filename": lidar_url,
+                "type": "readers.ept",
+                "tag": "readdata",
+            },
             {
                 "type": "filters.returns",
                 "groups": "last,only",  # need both last and only because 'last' applies only when there are multiple returns and does not include cases with a single return.
             },
-            # {
-            #     "in_srs":'EPSG:3857',
-            #     "out_srs": 'EPSG:%d'%tif_crs,
-            #     "type": "filters.reprojection",
-            #     "tag": "reprojected",
-            # },
             {"filename": las_file_path, "tag": "writerslas", "type": "writers.las"},
         ]
     }
@@ -52,7 +53,7 @@ def download_lidar_points(args):
     pipeline.execute()
 
 
-def las_to_gpkg(las_path):
+def las_to_gpkg(las_path, bridges_crs):
     las = laspy.read(las_path)
 
     # make x,y coordinates
@@ -62,7 +63,7 @@ def las_to_gpkg(las_path):
     las_points = list(MultiPoint(x_y).geoms)
 
     # put the points in a GeoDataFrame for a more standard syntax through Geopandas
-    points_gdf = gpd.GeoDataFrame(geometry=las_points, crs="epsg:3857")
+    points_gdf = gpd.GeoDataFrame(geometry=las_points, crs=bridges_crs)
 
     # add other required data into gdf...here only elevation
     z_values = np.array(las.z)
@@ -114,22 +115,14 @@ def handle_noises(points_gdf):
     noises.loc[:, 'z'] = np.mean(nearest_z_values, axis=1)
 
     modified_points_gdf = pd.concat([noises, non_noises])
+
     return modified_points_gdf
 
 
-def make_local_tifs(modified_las_path, raster_resolution, tif_crs, tif_path):
+def make_local_tifs(modified_las_path, raster_resolution, bridges_crs, tif_path):
     my_pipe = {
         "pipeline": [
-            {
-                "type": "readers.las",
-                "filename": modified_las_path,
-                "spatialreference": "EPSG:3857",  # specify the correct coordinate reference system
-            },
-            {  # reproject to 5070 or Alaska crs?
-                "in_srs": 'EPSG:3857',
-                "out_srs": 'EPSG:%d' % tif_crs,
-                "type": "filters.reprojection",
-            },
+            {"type": "readers.las", "filename": modified_las_path, "spatialreference": bridges_crs},
             {
                 "type": "writers.gdal",
                 "filename": tif_path,
@@ -163,7 +156,7 @@ def gpkg_to_las(points_gdf):
     return las_obj
 
 
-def make_lidar_footprints():
+def make_lidar_footprints(bridges_crs):
     str_hobu_footprints = (
         r"https://raw.githubusercontent.com/hobu/usgs-lidar/master/boundaries/boundaries.topojson"
     )
@@ -171,18 +164,18 @@ def make_lidar_footprints():
     entwine_footprints_gdf.set_crs(
         "epsg:4326", inplace=True
     )  # it is geographic (lat-long degrees) commonly used for GPS for accurate locations
-    # it is important to reproject to 3857 because poly_wkt in process_lidar must be in that crs to properly apply "readers.ept" step.
 
-    entwine_footprints_gdf.to_crs("epsg:3857", inplace=True)
+    entwine_footprints_gdf.to_crs(bridges_crs, inplace=True)
     return entwine_footprints_gdf
 
 
 def make_rasters_in_parallel(args):
-    osmid, points_path, output_dir, raster_resolution, tif_crs = args
+    osmid, points_path, output_dir, raster_resolution, bridges_crs = args
+    bridges_crs = '%s' % bridges_crs
     try:
 
         # #make a gpkg file from points
-        points_gdf = las_to_gpkg(points_path)
+        points_gdf = las_to_gpkg(points_path, bridges_crs)
         if not points_gdf.empty:
             modified_points_gdf = handle_noises(points_gdf)
             if modified_points_gdf is None:
@@ -195,7 +188,7 @@ def make_rasters_in_parallel(args):
 
             # make tif files
             tif_output = os.path.join(output_dir, 'lidar_osm_rasters', '%s.tif' % osmid)
-            make_local_tifs(modified_las_path, raster_resolution, tif_crs, tif_output)
+            make_local_tifs(modified_las_path, raster_resolution, bridges_crs, tif_output)
             os.remove(modified_las_path)
         else:
             logging.info("Not enough valid points available for osmid: %s" % str(osmid))
@@ -209,7 +202,8 @@ def make_rasters_in_parallel(args):
 def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution, output_dir):
     # start time and setup logs
     start_time = datetime.now(timezone.utc)
-    fh.print_start_header('Making HUC6 elev difference rasters', start_time)
+    # fh.print_start_header('Making HUC6 elev difference rasters', start_time)
+    logging.info(f"Making HUC6 elev difference rasters {start_time}")
 
     __setup_logger(output_dir)
     logging.info(f"Saving results in {output_dir}")
@@ -223,22 +217,20 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         os.makedirs(point_dir, exist_ok=True)
         os.makedirs(tif_files_dir, exist_ok=True)
 
-        tif_crs = 5070  # consider changing for Alaska ?
-
-        # produce footprints of lidar dataset over conus
-        text = 'generating footprints of available CONUS lidar datasets'
-        print(text)
-        logging.info(text)
-        entwine_footprints_gdf = make_lidar_footprints()
-
         text = 'read osm bridge lines and make a polygon foortprint'
         print(text)
         logging.info(text)
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
         OSM_polygons_gdf = OSM_bridge_lines_gdf.copy()
         OSM_polygons_gdf['geometry'] = OSM_polygons_gdf['geometry'].buffer(buffer_width)
-        OSM_polygons_gdf.to_crs(entwine_footprints_gdf.crs, inplace=True)
         OSM_polygons_gdf.rename(columns={'name': 'bridge_name'}, inplace=True)
+        bridges_crs = OSM_polygons_gdf.crs
+
+        # produce footprints of lidar dataset over conus
+        text = 'generating footprints of available CONUS lidar datasets'
+        print(text)
+        logging.info(text)
+        entwine_footprints_gdf = make_lidar_footprints(bridges_crs)
 
         # intersect with lidar urls
         text = 'Identify USGS/Entwine lidar URLs for intersecting with each bridge polygon'
@@ -258,7 +250,7 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         pool_args = []
         for i, row in OSM_polygons_gdf.iterrows():
             osmid, poly_geo, lidar_url = row.osmid, row.geometry, row.url
-            pool_args.append((osmid, poly_geo, lidar_url, output_dir))
+            pool_args.append((osmid, poly_geo, lidar_url, output_dir, bridges_crs))
 
         print('There are %d files to get downloaded' % len(pool_args))
         with Pool(15) as pool:
@@ -272,7 +264,7 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         pool_args = []
         for points_path in downloaded_points_files:
             osmid = os.path.basename(points_path).split('.las')[0]
-            pool_args.append((osmid, points_path, output_dir, raster_resolution, tif_crs))
+            pool_args.append((osmid, points_path, output_dir, raster_resolution, bridges_crs))
 
         with Pool(10) as pool:
             pool.map(make_rasters_in_parallel, pool_args)
@@ -280,9 +272,9 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         # Record run time
         end_time = datetime.now(timezone.utc)
         tot_run_time = end_time - start_time
-        fh.print_end_header('Making osm rasters complete', start_time, end_time)
+        # fh.print_end_header('Making osm rasters complete', start_time, end_time)
         logging.info('TOTAL RUN TIME: ' + str(tot_run_time))
-        logging.info(fh.print_date_time_duration(start_time, end_time))
+        # logging.info(fh.print_date_time_duration(start_time, end_time))
 
     except Exception as ex:
         summary = traceback.StackSummary.extract(traceback.walk_stack(None))
