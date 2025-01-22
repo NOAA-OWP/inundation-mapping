@@ -78,6 +78,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             gdf['railway'] = None
 
         # Create the bridge_type column by combining above information
+        gdf['HUC'] = huc_num
         gdf['bridge_type'] = gdf.apply(
             lambda row: (
                 f"highway-{row['highway']}" if pd.notna(row['highway']) else f"railway-{row['railway']}"
@@ -187,7 +188,7 @@ def combine_huc_features(output_dir):
     section_time = dt.datetime.now(dt.timezone.utc)
     logging.info(f"  .. started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
-    all_bridges_gdf = all_bridges_gdf_raw[['osmid', 'name', 'bridge_type', 'geometry']]
+    all_bridges_gdf = all_bridges_gdf_raw[['osmid', 'name', 'bridge_type', 'HUC', 'geometry']]
     all_bridges_gdf.to_file(osm_bridge_file, driver="GPKG")
 
     return

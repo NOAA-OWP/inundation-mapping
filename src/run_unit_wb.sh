@@ -151,8 +151,8 @@ gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
-    <<<$($srcDir/getRasterInfoNative.py $tempHucDataDir/dem_meters.tif)
+read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
+    <<<$($srcDir/getRasterInfoNative.py -r $tempHucDataDir/dem_meters.tif)
 
 ## RASTERIZE NLD MULTILINES ##
 echo -e $startDiv"Rasterize all NLD multilines using zelev vertices $hucNumber $branch_zero_id"
