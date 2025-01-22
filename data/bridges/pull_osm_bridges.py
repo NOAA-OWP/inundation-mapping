@@ -13,9 +13,12 @@ import pandas as pd
 import pyproj
 from networkx import Graph, connected_components
 from shapely.geometry import LineString, shape
+from dotenv import load_dotenv
 
 
-CRS = "epsg:5070"
+load_dotenv('/foss_fim/src/bash_variables.env')
+DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
 # Save all OSM bridge features by HUC8 to a specified folder location.
@@ -78,7 +81,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             gdf['railway'] = None
 
         # Create the bridge_type column by combining above information
-        gdf['HUC'] = huc_num
+        gdf['HUC8'] = huc_num
         gdf['bridge_type'] = gdf.apply(
             lambda row: (
                 f"highway-{row['highway']}" if pd.notna(row['highway']) else f"railway-{row['railway']}"
@@ -119,7 +122,10 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 
         gdf1 = gdf[gdf.geometry.apply(lambda x: x.geom_type == 'LineString')]
 
-        gdf1 = gdf1.to_crs(CRS)
+        if str(huc_num).startswith('19'):
+            gdf1 = gdf1.to_crs(ALASKA_CRS)
+        else:
+            gdf1 = gdf1.to_crs(DEFAULT_FIM_PROJECTION_CRS)
 
         # Perform dissolve touching lines
         buffered = gdf1.copy()
@@ -176,20 +182,26 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 #
 def combine_huc_features(output_dir):
 
-    bridge_file_names = Path(output_dir).glob("huc_*_osm_bridges.gpkg")
-
-    osm_bridge_file = os.path.join(output_dir, "osm_all_bridges.gpkg")
-
-    all_bridges_gdf_raw = pd.concat([gpd.read_file(gpkg) for gpkg in bridge_file_names], ignore_index=True)
-
-    # only save out a subset of columns, because many hucs have different column names
+    # make two separate files for alaska and non-alaska (conus)
+     # only save out a subset of columns, because many hucs have different column names
     # and data, so you could end up with thousands of columns if you keep them all!
-    logging.info(f"Writing bridge lines {osm_bridge_file}")
-    section_time = dt.datetime.now(dt.timezone.utc)
-    logging.info(f"  .. started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    alaska_bridge_file_names = list(Path(output_dir).glob("huc_19*_osm_bridges.gpkg"))
+    if alaska_bridge_file_names:
+        alaska_all_bridges_gdf_raw = pd.concat([gpd.read_file(gpkg) for gpkg in alaska_bridge_file_names], ignore_index=True)
+        alaska_all_bridges_gdf = alaska_all_bridges_gdf_raw[['osmid', 'name', 'bridge_type', 'HUC8', 'geometry']]
+        alaska_osm_bridge_file = os.path.join(output_dir, "alaska_osm_bridges.gpkg")
 
-    all_bridges_gdf = all_bridges_gdf_raw[['osmid', 'name', 'bridge_type', 'HUC', 'geometry']]
-    all_bridges_gdf.to_file(osm_bridge_file, driver="GPKG")
+        logging.info(f"Writing Alaska bridge lines: {alaska_osm_bridge_file}")
+        alaska_all_bridges_gdf.to_file(alaska_osm_bridge_file, driver="GPKG")
+
+    conus_bridge_file_names = list(Path(output_dir).glob("huc_*_osm_bridges.gpkg"))
+    conus_bridge_file_names = [file for file in conus_bridge_file_names if not file.name.startswith("huc_19")]
+    if conus_bridge_file_names:
+        conus_all_bridges_gdf_raw = pd.concat([gpd.read_file(gpkg) for gpkg in conus_bridge_file_names], ignore_index=True)
+        conus_all_bridges_gdf = conus_all_bridges_gdf_raw[['osmid', 'name', 'bridge_type', 'HUC8', 'geometry']]
+        conus_osm_bridge_file = os.path.join(output_dir, "conus_osm_bridges.gpkg")
+        logging.info(f"Writing CONUS bridge lines: {conus_osm_bridge_file}")
+        conus_all_bridges_gdf.to_file(conus_osm_bridge_file, driver="GPKG")
 
     return
 
