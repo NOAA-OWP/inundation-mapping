@@ -12,8 +12,7 @@ import numpy as np
 import pandas as pd
 import rioxarray as rxr
 import xarray as xr
-from inundate_gms import Inundate_gms
-from mosaic_inundation import Mosaic_inundation
+from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from scipy.stats import (
     expon,
     gamma,
@@ -346,22 +345,15 @@ def inundate_probabilistic(
         )
         df.to_csv(flow_file, index=False)
 
-        # Create inundation maps and mosaic
-        map_file = Inundate_gms(
-            hydrofabric_dir=hydrofabric_dir,
-            forecast=flow_file,
-            hucs=[huc],
-            inundation_raster=os.path.join(fim_outputs_dir, f'inundation_{huc}.tif'),
+        produce_mosaicked_inundation(
+            hydrofabric_dir,
+            huc,
+            flow_file,
             hydro_table_df=new_htable,
-            verbose=True,
-        )
-
-        Mosaic_inundation(
-            map_file,
-            mosaic_attribute='inundation_rasters',
-            mosaic_output=final_inundation_path,
+            inundation_raster=final_inundation_path,
             mask=mask_path,
-            unit_attribute_name='huc8',
+            verbose=True,
+            num_workers=8,
         )
 
         ds = rxr.open_rasterio(final_inundation_path)
