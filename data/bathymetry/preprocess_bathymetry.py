@@ -9,6 +9,13 @@ import pandas as pd
 import rasterio
 from osgeo import gdal, gdal_array
 from rasterstats import zonal_stats
+import whitebox
+
+
+# Set wbt envs
+wbt = whitebox.WhiteboxTools()
+wbt.set_verbose_mode(False)
+wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
 
 """
@@ -56,8 +63,10 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         with rasterio.open(tif) as bathy_ft:
             bathy_affine = bathy_ft.transform
             bathy_ft = bathy_ft.read(1)
-            bathy_ft[np.where(bathy_ft == -9999.0)] = np.nan
-            bathy_ft[np.where(bathy_ft <= 0.0)] = 0.000001
+
+        bathy_ft[np.where(bathy_ft == -9999.0)] = np.nan
+        bathy_ft[np.where(bathy_ft <= 0.0)] = 0.000001
+
         survey_min_depth = np.nanmin(bathy_ft)
 
         assert survey_min_depth < min_depth_threshold, (
@@ -71,12 +80,19 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         )
 
         bathy_m = bathy_ft / 3.28084
-        bathy_gdal = gdal_array.OpenArray(bathy_m)
+        # bathy_gdal = gdal_array.OpenArray(bathy_m)
+
+        bathy_temp = '/outputs/temp/preprocess_bathymetry_bathy_m.tif'
+
+        with rasterio.open(
+            bathy_temp, 'w', driver='GTiff', height=bathy_m.shape[0], width=bathy_m.shape[1]
+        ) as dst:
+            dst.write(bathy_m, 1)
 
         # Read in shapefiles
         bathy_bounds = gpd.read_file(survey_gdb, layer=bathy_bounds, engine="pyogrio", use_arrow=True)
-        nwm_streams = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_flows.gpkg", mask=bathy_bounds)
-        nwm_catchments = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_catchments.gpkg", mask=bathy_bounds)
+        nwm_streams = gpd.read_file(os.environ['input_nwm_flows'], mask=bathy_bounds)
+        nwm_catchments = gpd.read_file(os.environ['input_nwm_catchments'], mask=bathy_bounds)
         bathy_bounds = bathy_bounds.to_crs(nwm_streams.crs)
 
         # Find missing volume from depth tif
@@ -93,8 +109,12 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
 
         # Derive slope tif
         output_slope_tif = os.path.join(os.path.dirname(tif), 'bathy_slope.tif')
-        slope_tif = gdal.DEMProcessing(output_slope_tif, bathy_gdal, 'slope', format='GTiff')
-        slope_tif = slope_tif.GetRasterBand(1).ReadAsArray()
+        # slope_tif = gdal.DEMProcessing(output_slope_tif, bathy_gdal, 'slope', format='GTiff')
+        wbt.slope(bathy_temp, output_slope_tif)
+
+        with rasterio.open(output_slope_tif) as slope_tif:
+            slope_tif = slope_tif.GetRasterBand(1).ReadAsArray()
+
         os.remove(output_slope_tif)
         slope_tif[np.where(slope_tif == -9999.0)] = np.nan
         missing_bed_area = (1 / np.cos(slope_tif * np.pi / 180)) - 1
