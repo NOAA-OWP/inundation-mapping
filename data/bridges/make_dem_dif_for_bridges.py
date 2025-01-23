@@ -65,22 +65,22 @@ def rasters_to_point(tif_paths):
     return combined_gdf
 
 
-def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC6, output_diff_path):
-    logging.info('working on HUC6: ' + str(HUC6))
+def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC,HUC_choice, output_diff_path):
+    
     try:
 
         HUC6_lidar_tif_osmids = OSM_bridge_lines_gdf[
-            (OSM_bridge_lines_gdf['HUC6'] == HUC6) & (OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y')
+            (OSM_bridge_lines_gdf['HUC%d'%HUC_choice] == HUC) & (OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y')
         ]['osmid'].values.tolist()
         HUC6_lidar_tif_paths = [
             os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC6_lidar_tif_osmids
         ]
 
         if HUC6_lidar_tif_paths:
+            logging.info('working on HUC%d %s with %d osm rasters: '%(HUC_choice,str(HUC),len(HUC6_lidar_tif_paths)) )
             HUC6_lidar_points_gdf = rasters_to_point(HUC6_lidar_tif_paths)
-            # HUC6_lidar_points_gdf.to_crs('EPSG:5070', inplace=True) #this can be temporarily
 
-            temp_buffer = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['HUC6'] == HUC6]
+            temp_buffer = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['osmid'].isin(HUC6_lidar_tif_osmids)]
 
             # make a buffer file because we want to keep only the points within 2 meter of the bridge lines
             temp_buffer.loc[:, 'geometry'] = temp_buffer['geometry'].buffer(2)
@@ -128,8 +128,8 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC6, output_di
                 dst.write(updated_raster, 1)
 
         else:
-            print('Making a diff raster file only with values of zero for HUC6:' + str(HUC6))
-            logging.info('Making a diff raster file only with values of zero for HUC6:' + str(HUC6))
+            print('Making a diff raster file only with values of zero for HUC%d:'%HUC_choice + str(HUC))
+            logging.info('Making a diff raster file only with values of zero for HUC%d:'%HUC_choice + str(HUC))
 
             with rasterio.open(dem_file) as src:
                 raster = src.read(1)
@@ -145,8 +145,8 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC6, output_di
                 dst.write(updated_raster, 1)
 
     except Exception:
-        print('something is wrong for HUC6: %s' % str(HUC6))
-        logging.info('something is wrong for HUC6: ' + str(HUC6))
+        print('something is wrong for HUC: %s' % str(HUC))
+        logging.info('something is wrong for HUC6: ' + str(HUC))
 
 
 def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir):
@@ -162,7 +162,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir):
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
 
         print('adding HUC6 number and info about existence of lidar raster or not...')
-        OSM_bridge_lines_gdf['HUC6'] = OSM_bridge_lines_gdf['HUC'].str[:6]
+        OSM_bridge_lines_gdf['HUC6'] = OSM_bridge_lines_gdf['HUC8'].str[:6]
         OSM_bridge_lines_gdf = identify_bridges_with_lidar(OSM_bridge_lines_gdf, lidar_tif_dir)
 
         dem_files = list(glob.glob(os.path.join(dem_dir, '*.tif')))
@@ -182,14 +182,18 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir):
                 base_name, extension = os.path.splitext(os.path.basename(dem_file))
                 output_diff_file_name = f"{base_name}_diff{extension}"
                 output_diff_path = os.path.join(output_dir, output_diff_file_name)
-                HUC6 = base_name.split('_')[1]
-                if HUC6 not in base_names_no_ext:
+                HUC = base_name.split('_')[1]
+
+                HUC_choice=len(HUC) #this is usually 8 or 6
+
+                if HUC not in base_names_no_ext:
 
                     make_one_diff_args = {
                         'dem_file': dem_file,
                         'OSM_bridge_lines_gdf': OSM_bridge_lines_gdf,
                         'lidar_tif_dir': lidar_tif_dir,
-                        'HUC6': HUC6,
+                        'HUC': HUC,
+                        'HUC_choice':HUC_choice,
                         'output_diff_path': output_diff_path,
                     }
 
@@ -256,11 +260,19 @@ def __setup_logger(output_folder_path):
 
 if __name__ == "__main__":
 
+    # this code needs to be run twice: once for conus and once for Alaska :
+
     #    python foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i data/inputs/osm/bridges/250102/osm_all_bridges.gpkg
+    #    -i data/inputs/osm/bridges/250102/conus_osm_bridges.gpkg
     #    -d /data/inputs/dems/3dep_dems/10m_5070/20240916/
-    #    -l data/inputs/osm/bridges/250102/lidar_osm_rasters/
-    #    -o data/inputs/osm/bridges/250102/huc6_dem_diff/
+    #    -l data/inputs/osm/bridges/250102/CanBeDeleted_conus_lidar_osm_rasters/
+    #    -o data/inputs/osm/bridges/250102/huc6_dem_diff/conus/
+
+    #    python foss_fim/data/bridges/make_dem_dif_for_bridges.py
+    #    -i data/inputs/osm/bridges/250102/alaska_osm_bridges.gpkg
+    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20240916/
+    #    -l data/inputs/osm/bridges/250102/CanBeDeleted_alaska_lidar_osm_rasters/
+    #    -o data/inputs/osm/bridges/250102/huc6_dem_diff/alaska/
 
     parser = argparse.ArgumentParser(description='Make bridge dem difference rasters')
 
