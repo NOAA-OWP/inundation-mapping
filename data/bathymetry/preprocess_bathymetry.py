@@ -7,9 +7,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-from osgeo import gdal, gdal_array
-from rasterstats import zonal_stats
 import whitebox
+from rasterstats import zonal_stats
 
 
 # Set wbt envs
@@ -52,15 +51,11 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         min_depth_threshold : int
             Highest value allowed for the minimum depth of the survey
             in feet (Checks for data referenced to a datum).
-
-        Example usage:
-        python3 /foss_fim/inundation-mapping/data/bathymetry/preprocess_bathymetry.py \
-        -input_dir /fim-home/bathymetry_processing/surveys \
-        -output_dir /fim-home/bathymetry_processing/combined.gpkg
     """
 
     try:
         with rasterio.open(tif) as bathy_ft:
+            bathy_profile = bathy_ft.profile
             bathy_affine = bathy_ft.transform
             bathy_ft = bathy_ft.read(1)
 
@@ -80,19 +75,17 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         )
 
         bathy_m = bathy_ft / 3.28084
-        # bathy_gdal = gdal_array.OpenArray(bathy_m)
 
-        bathy_temp = '/outputs/temp/preprocess_bathymetry_bathy_m.tif'
+        output_slope_tif = os.path.join(os.path.dirname(tif), 'bathy_slope.tif')
+        bathy_temp = os.path.join(os.path.dirname(tif), 'bathy_m.tif')
 
-        with rasterio.open(
-            bathy_temp, 'w', driver='GTiff', height=bathy_m.shape[0], width=bathy_m.shape[1]
-        ) as dst:
+        with rasterio.open(bathy_temp, 'w', **bathy_profile) as dst:
             dst.write(bathy_m, 1)
 
         # Read in shapefiles
         bathy_bounds = gpd.read_file(survey_gdb, layer=bathy_bounds, engine="pyogrio", use_arrow=True)
-        nwm_streams = gpd.read_file(os.environ['input_nwm_flows'], mask=bathy_bounds)
-        nwm_catchments = gpd.read_file(os.environ['input_nwm_catchments'], mask=bathy_bounds)
+        nwm_streams = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_flows.gpkg", mask=bathy_bounds)
+        nwm_catchments = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_catchments.gpkg", mask=bathy_bounds)
         bathy_bounds = bathy_bounds.to_crs(nwm_streams.crs)
 
         # Find missing volume from depth tif
@@ -108,12 +101,10 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         # print("------------------------------")
 
         # Derive slope tif
-        output_slope_tif = os.path.join(os.path.dirname(tif), 'bathy_slope.tif')
-        # slope_tif = gdal.DEMProcessing(output_slope_tif, bathy_gdal, 'slope', format='GTiff')
-        wbt.slope(bathy_temp, output_slope_tif)
+        wbt.slope(bathy_temp, output_slope_tif, units="degrees")
 
         with rasterio.open(output_slope_tif) as slope_tif:
-            slope_tif = slope_tif.GetRasterBand(1).ReadAsArray()
+            slope_tif = slope_tif.read(1)
 
         os.remove(output_slope_tif)
         slope_tif[np.where(slope_tif == -9999.0)] = np.nan
@@ -230,3 +221,10 @@ if __name__ == '__main__':
 
     process_directory(input_dir, output_dir, min_depth_threshold, bathy_bounds)
     print("Batch processing complete :)")
+
+    # Example usage
+    """
+    python3 /foss_fim/data/bathymetry/preprocess_bathymetry.py \
+        -input_dir /fim-home/bathymetry_processing/surveys \
+        -output_dir /fim-home/bathymetry_processing/combined.gpkg
+    """
