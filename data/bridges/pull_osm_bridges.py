@@ -11,9 +11,9 @@ import geopandas as gpd
 import osmnx as ox
 import pandas as pd
 import pyproj
+from dotenv import load_dotenv
 from networkx import Graph, connected_components
 from shapely.geometry import LineString, shape
-from dotenv import load_dotenv
 
 
 load_dotenv('/foss_fim/src/bash_variables.env')
@@ -183,12 +183,16 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 def combine_huc_features(output_dir):
 
     # make two separate files for alaska and non-alaska (conus)
-     # only save out a subset of columns, because many hucs have different column names
+    # only save out a subset of columns, because many hucs have different column names
     # and data, so you could end up with thousands of columns if you keep them all!
     alaska_bridge_file_names = list(Path(output_dir).glob("huc_19*_osm_bridges.gpkg"))
     if alaska_bridge_file_names:
-        alaska_all_bridges_gdf_raw = pd.concat([gpd.read_file(gpkg) for gpkg in alaska_bridge_file_names], ignore_index=True)
-        alaska_all_bridges_gdf = alaska_all_bridges_gdf_raw[['osmid', 'name', 'bridge_type', 'HUC8', 'geometry']]
+        alaska_all_bridges_gdf_raw = pd.concat(
+            [gpd.read_file(gpkg) for gpkg in alaska_bridge_file_names], ignore_index=True
+        )
+        alaska_all_bridges_gdf = alaska_all_bridges_gdf_raw[
+            ['osmid', 'name', 'bridge_type', 'HUC8', 'geometry']
+        ]
         alaska_osm_bridge_file = os.path.join(output_dir, "alaska_osm_bridges.gpkg")
 
         logging.info(f"Writing Alaska bridge lines: {alaska_osm_bridge_file}")
@@ -197,8 +201,12 @@ def combine_huc_features(output_dir):
     conus_bridge_file_names = list(Path(output_dir).glob("huc_*_osm_bridges.gpkg"))
     conus_bridge_file_names = [file for file in conus_bridge_file_names if not file.name.startswith("huc_19")]
     if conus_bridge_file_names:
-        conus_all_bridges_gdf_raw = pd.concat([gpd.read_file(gpkg) for gpkg in conus_bridge_file_names], ignore_index=True)
-        conus_all_bridges_gdf = conus_all_bridges_gdf_raw[['osmid', 'name', 'bridge_type', 'HUC8', 'geometry']]
+        conus_all_bridges_gdf_raw = pd.concat(
+            [gpd.read_file(gpkg) for gpkg in conus_bridge_file_names], ignore_index=True
+        )
+        conus_all_bridges_gdf = conus_all_bridges_gdf_raw[
+            ['osmid', 'name', 'bridge_type', 'HUC8', 'geometry']
+        ]
         conus_osm_bridge_file = os.path.join(output_dir, "conus_osm_bridges.gpkg")
         logging.info(f"Writing CONUS bridge lines: {conus_osm_bridge_file}")
         conus_all_bridges_gdf.to_file(conus_osm_bridge_file, driver="GPKG")

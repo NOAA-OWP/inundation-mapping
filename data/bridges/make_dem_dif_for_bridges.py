@@ -65,19 +65,23 @@ def rasters_to_point(tif_paths):
     return combined_gdf
 
 
-def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC,HUC_choice, output_diff_path):
-    
+def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice, output_diff_path):
+
     try:
 
         HUC6_lidar_tif_osmids = OSM_bridge_lines_gdf[
-            (OSM_bridge_lines_gdf['HUC%d'%HUC_choice] == HUC) & (OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y')
+            (OSM_bridge_lines_gdf['HUC%d' % HUC_choice] == HUC)
+            & (OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y')
         ]['osmid'].values.tolist()
         HUC6_lidar_tif_paths = [
             os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC6_lidar_tif_osmids
         ]
 
         if HUC6_lidar_tif_paths:
-            logging.info('working on HUC%d %s with %d osm rasters: '%(HUC_choice,str(HUC),len(HUC6_lidar_tif_paths)) )
+            logging.info(
+                'working on HUC%d %s with %d osm rasters: '
+                % (HUC_choice, str(HUC), len(HUC6_lidar_tif_paths))
+            )
             HUC6_lidar_points_gdf = rasters_to_point(HUC6_lidar_tif_paths)
 
             temp_buffer = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['osmid'].isin(HUC6_lidar_tif_osmids)]
@@ -128,8 +132,10 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC,HUC_choice,
                 dst.write(updated_raster, 1)
 
         else:
-            print('Making a diff raster file only with values of zero for HUC%d:'%HUC_choice + str(HUC))
-            logging.info('Making a diff raster file only with values of zero for HUC%d:'%HUC_choice + str(HUC))
+            print('Making a diff raster file only with values of zero for HUC%d:' % HUC_choice + str(HUC))
+            logging.info(
+                'Making a diff raster file only with values of zero for HUC%d:' % HUC_choice + str(HUC)
+            )
 
             with rasterio.open(dem_file) as src:
                 raster = src.read(1)
@@ -184,7 +190,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir):
                 output_diff_path = os.path.join(output_dir, output_diff_file_name)
                 HUC = base_name.split('_')[1]
 
-                HUC_choice=len(HUC) #this is usually 8 or 6
+                HUC_choice = len(HUC)  # this is usually 8 or 6
 
                 if HUC not in base_names_no_ext:
 
@@ -193,7 +199,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir):
                         'OSM_bridge_lines_gdf': OSM_bridge_lines_gdf,
                         'lidar_tif_dir': lidar_tif_dir,
                         'HUC': HUC,
-                        'HUC_choice':HUC_choice,
+                        'HUC_choice': HUC_choice,
                         'output_diff_path': output_diff_path,
                     }
 

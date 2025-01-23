@@ -42,6 +42,12 @@ def download_lidar_points(args):
                 "type": "filters.returns",
                 "groups": "last,only",  # need both last and only because 'last' applies only when there are multiple returns and does not include cases with a single return.
             },
+            {  # make sure to reproject to desired crs. Otherwise the points will be in EPSG 3857
+                "in_srs": 'EPSG:3857',
+                "out_srs": '%s' % bridges_crs,
+                "type": "filters.reprojection",
+                "tag": "reprojected",
+            },
             {"filename": las_file_path, "tag": "writerslas", "type": "writers.las"},
         ]
     }
@@ -171,7 +177,6 @@ def make_lidar_footprints(bridges_crs):
 
 def make_rasters_in_parallel(args):
     osmid, points_path, output_dir, raster_resolution, bridges_crs = args
-    bridges_crs = '%s' % bridges_crs
     try:
 
         # #make a gpkg file from points
@@ -224,7 +229,7 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         OSM_polygons_gdf = OSM_bridge_lines_gdf.copy()
         OSM_polygons_gdf['geometry'] = OSM_polygons_gdf['geometry'].buffer(buffer_width)
         OSM_polygons_gdf.rename(columns={'name': 'bridge_name'}, inplace=True)
-        bridges_crs = OSM_polygons_gdf.crs
+        bridges_crs = str(OSM_polygons_gdf.crs)  # parallel processing arguments do not like crs objects
 
         # produce footprints of lidar dataset over conus
         text = 'generating footprints of available CONUS lidar datasets'
@@ -341,11 +346,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        '-o',
-        '--output_dir',
-        help='REQUIRED: folder path where individual HUC8 results will be saved to.'
-        ' File names are hardcoded to format hucxxxxxxxx_bridges_lidar.',
-        required=True,
+        '-o', '--output_dir', help='REQUIRED: folder path where results will be saved to.', required=True
     )
 
     args = vars(parser.parse_args())
