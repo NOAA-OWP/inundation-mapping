@@ -59,7 +59,7 @@ def download_lidar_points(args):
     pipeline.execute()
 
 
-def las_to_gpkg(las_path, bridges_crs):
+def las_to_gpkg(osmid, las_path, bridges_crs):
     las = laspy.read(las_path)
 
     # make x,y coordinates
@@ -90,7 +90,13 @@ def las_to_gpkg(las_path, bridges_crs):
     #  Also, 'point_source_id' are usually not reliable.  So, the only way to assign return numbers is by comparing return number and 'number of returns' as pdal is doing:
     # https://pdal.io/en/latest/stages/filters.returns.html
 
-    return points_gdf
+    classification_counts = points_gdf.groupby('classification').size().reset_index()
+    classification_counts.columns = ['class_code', 'count']
+
+    classification_counts['count_Percent'] = 100 * classification_counts['count'] / len(points_gdf)
+    classification_counts['osmid'] = osmid
+
+    return points_gdf, classification_counts
 
 
 def handle_noises(points_gdf):
@@ -180,7 +186,8 @@ def make_rasters_in_parallel(args):
     try:
 
         # #make a gpkg file from points
-        points_gdf = las_to_gpkg(points_path, bridges_crs)
+        points_gdf, classification_counts = las_to_gpkg(osmid, points_path, bridges_crs)
+
         if not points_gdf.empty:
             modified_points_gdf = handle_noises(points_gdf)
             if modified_points_gdf is None:
@@ -195,9 +202,12 @@ def make_rasters_in_parallel(args):
             tif_output = os.path.join(output_dir, 'lidar_osm_rasters', '%s.tif' % osmid)
             make_local_tifs(modified_las_path, raster_resolution, bridges_crs, tif_output)
             os.remove(modified_las_path)
+
         else:
-            logging.info("Not enough valid points available for osmid: %s" % str(osmid))
-            print("Not enough valid points available for osmid: %s" % str(osmid))
+            logging.info("No points available for osmid: %s" % str(osmid))
+            print("No points available for osmid: %s" % str(osmid))
+
+        return classification_counts
 
     except Exception:
         logging.info("something is wrong for osmid: %s" % str(osmid))
@@ -272,7 +282,12 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
             pool_args.append((osmid, points_path, output_dir, raster_resolution, bridges_crs))
 
         with Pool(10) as pool:
-            pool.map(make_rasters_in_parallel, pool_args)
+            list_of_classification_results = pool.map(make_rasters_in_parallel, pool_args)
+
+        bridges_classifications_df = pd.concat(list_of_classification_results, ignore_index=True)
+        bridges_classifications_df.to_csv(
+            os.path.join(output_dir, 'classifications_summary.csv'), index=False
+        )
 
         # Record run time
         end_time = datetime.now(timezone.utc)
