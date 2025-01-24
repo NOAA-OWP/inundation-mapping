@@ -750,14 +750,14 @@ def iterate_through_huc_stage_based(
 
                 maximum_stage_threshold = 250  # TODO: Move to a variables file?
 
-                # Make an "uncorrected stage" column for better documentation
-                stage_values_df['stage_value_uncorrected'] = stage_values_df['stage_value']
-
+                # Make an "rfc_stage" column for better documentation which shows the original
+                # uncorrect WRDS value before we adjsuted it for inundation
+                stage_values_df['rfc_stage'] = stage_values_df['stage_value']
 
                 # Stage value is larger than the elevation value AND greater than the
                 # maximum stage threshold, subtract the elev from the "stage" value
                 # to get the actual stage
-                
+
                 if (lowest_stage_val > lid_altitude) and (lowest_stage_val > maximum_stage_threshold):
                     stage_values_df['stage_value'] = stage_values_df['stage_value'] - lid_altitude
                     MP_LOG.lprint(
@@ -766,7 +766,7 @@ def iterate_through_huc_stage_based(
 
                 # +++++++++++++++++++++++++++++
                 # This section is for inundating stages and intervals come later
-                
+
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
                 # This are not interval values
@@ -854,7 +854,7 @@ def iterate_through_huc_stage_based(
 
                 # +++++++++++++++++++++++++++++
                 # Creating interval tifs (if applicable)
-                    
+
                 # We already inundated and created files for the specific stages just not the intervals
                 # Make list of interval recs to be created
                 interval_list = []  # might stay empty
@@ -943,7 +943,9 @@ def iterate_through_huc_stage_based(
                 # for threshold in categories:  (threshold and category are somewhat interchangeable)
                 # some may have failed inundation, which we will rectify later
                 MP_LOG.trace(f"{huc_lid_id}: updating threshhold values")
+
                 for threshold in valid_stage_names:
+
                     try:
 
                         # we don't know if the magnitude/stage can be mapped yes it hasn't been inundated
@@ -960,9 +962,12 @@ def iterate_through_huc_stage_based(
                                 'q': flows[threshold],
                                 'q_uni': flows['units'],
                                 'q_src': flows['source'],
-                                'stage_uncorrected': stage_values_df.loc[stage_values_df['stage_name'] == threshold]['stage_value_uncorrected'], 
-                                'stage': stage_values_df.loc[stage_values_df['stage_name'] == threshold]['stage_value'], 
-                                # 'stage': thresholds[threshold], # Previous stage, wasn't getting the corrected val
+                                'rfs_stage': stage_values_df.loc[stage_values_df['stage_name'] == threshold][
+                                    'rfc_stage'
+                                ],
+                                'stage': stage_values_df.loc[stage_values_df['stage_name'] == threshold][
+                                    'stage_value'
+                                ],
                                 'stage_uni': thresholds['units'],
                                 's_src': thresholds['source'],
                                 'wrds_time': thresholds['wrds_timestamp'],
