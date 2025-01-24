@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-05-22 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
+## v4.5.14.2 - 2025-01-24 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
 
 ### Summary
 Contains files to generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for specified HUC(s) as well update code to generate pre-clip data so that WBD for Alaska contains only one layer. NOTE: this PR requires `wbd.gpkg` to be created by the updated `generate_pre_clip_fim_huc8.py` to be copied to the pre-clip HUC folders to remove a warning in `synthesize_test_case.py`.
@@ -9,6 +9,7 @@ Contains files to generate data to run and evaluate FIM (`fim_pipeline.sh` and `
 ### Usage
 ```
 python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_fim/data/sample-data
+```
 
 ### Additions
 
@@ -20,7 +21,7 @@ python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_f
     - `get_sample_data.py`: Copies relevant data for `inputs` and `test_cases` from the FIM data folder for specified HUC(s) and saves it to a separate location
     - `wbd/generate_pre_clip_fim_huc8.py`: Fix file paths and layers
 
-## v4.x.x.x - 2024-12-27 - [PR#1387](https://github.com/NOAA-OWP/inundation-mapping/pull/1387)
+<br/><br/>
 
 ## v4.5.14.1 - 2025-01-24 - [PR#1268](https://github.com/NOAA-OWP/inundation-mapping/pull/1268)
 
