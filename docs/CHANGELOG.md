@@ -1,6 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.14.2 - 2025-01-24 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
+
+### Summary
+Contains files to generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for specified HUC(s) as well update code to generate pre-clip data so that WBD for Alaska contains only one layer. NOTE: this PR requires `wbd.gpkg` to be created by the updated `generate_pre_clip_fim_huc8.py` to be copied to the pre-clip HUC folders to remove a warning in `synthesize_test_case.py`.
+
+### Usage
+```
+python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_fim/data/sample-data
+```
+
+### Additions
+
+- `data/`
+    - `sandbox/` [archived]
+        - `Dockerfile`: A copy of the root Dockerfile that also pulls code and data into the build image [archived]
+        - `fim-in-a-box.ipynb`: Jupyter notebook to run and evaluate an example HUC [archived]
+        - 'README.md' [archived]
+    - `get_sample_data.py`: Copies relevant data for `inputs` and `test_cases` from the FIM data folder for specified HUC(s) and saves it to a separate location
+    - `wbd/generate_pre_clip_fim_huc8.py`: Fix file paths and layers
+
+<br/><br/>
 
 ## v4.5.14.1 - 2025-01-24 - [PR#1268](https://github.com/NOAA-OWP/inundation-mapping/pull/1268)
 
@@ -99,6 +120,7 @@ Fixes two issues in test_cases:
 
 ### Changes
 
+- `src/bash_variables.env`: Added environment variables for Alaska waterbody and levee masks and two variables to replace fixed paths in an upcoming PR (#1178).
 - `tools/`
     - `run_test_case.py`: Fixed error if missing validation data. Updated masking data to include Alaska.
     - `synthesize_test_cases.py`: Fixed error if missing validation data.
@@ -765,7 +787,6 @@ A number of python packages were updated in this PR. You will need to build a ne
 
 <br/><br/>
 
-
 ## v4.5.2.0 - 2024-05-20 - [PR#1166](https://github.com/NOAA-OWP/inundation-mapping/pull/1166)
 
 The main goal of this PR is to create bridge point data that be used as a service in HydroVIS. Since every branch processes bridges separately, it's possible to inundate a bridge from more than just the feature_id it crosses. To reflect this, the `osm_bridge_centroids.gpkg` now found in HUC directories will have coincident points - one that is inundated from the reach it crosses and the other a backwater-influenced point indicated by the `is_backwater` field.
@@ -781,7 +802,6 @@ The main goal of this PR is to create bridge point data that be used as a servic
 - `config/deny_branch_zero.lst` & `deny_branches.lst`: Added `#osm_bridge_centroids_{}.gpkg` to the deny lists.
 
 <br/><br/>
-
 
 ## v4.5.1.3 - 2024-05-17 - [PR#1170](https://github.com/NOAA-OWP/inundation-mapping/pull/1170)
 
