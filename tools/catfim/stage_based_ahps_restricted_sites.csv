@@ -1,69 +1,71 @@
-nws_lid,restricted_reason
+nws_lid,restricted_reason,catfim_type
 # RULES: Ensure that the top line has no comments above the header line above:
 #     -- Careful not to add commas other then the one after the lid ID.
 #     -- Don't allow for any duplicate LID values in this list please.
 #
 # Comment lines can be added as any independent line in this csv.
 #
-AABDB,Test Site
-ADLG1,Stage thresholds seem to be based on sea level and not channel thalweg
-AUGG1,Stage thresholds seem to be based on sea level and not channel thalweg
-BAXG1,Stage thresholds seem to be based on sea level and not channel thalweg
-BRKTS,Test Site
-CNNN6,Pool elevation thresholds. Disabled at request of MARFC
-DMBT2,Test Site
-DMSF1,Tidal Gauge
-DVNIA,Test Site
-GVDA1,bad data in API
-HFMW4,gage relocated. check again later for review
-HLZU1,bad data in API
-HNXCA,Test Site
-HRAG1,Stage thresholds seem to be based on sea level and not channel thalweg
-HUSKR,Test Site
-HZT00,Test Site
-HZT02,Test Site
-ILMNA,Test Site
-JTEST,Test Site
-JYNT2,Test Site
-KLNQ9,Outside U.S.
-LAMF1,Stage thresholds seem to be based on sea level and not channel thalweg.
-MCVA3,historical gauge
-NVRN6,Pool elevation thresholds. Disabled at request of MARFC.
-PEPN6,Pool elevation thresholds. Disabled at request of MARFC.
-PRXQ9,Outside U.S.
-ONDN6,Inundation issues
-QUTG1,Stage thresholds seem to be based on sea level and not channel thalweg
-RCYF1,Out of Service
-RWBW3, historical gauge
-SMSV2,point not in AHPS
-STNG1,Stage thresholds seem to be based on sea level and not channel thalweg
-TESM8,Test Site
-TEST,Test Site
-TEST1,Test Site
-TEST11,Test Site
-TEST2,Test Site
-TEST3,Test Site
-TEST4,Test Site
-TEST9,Test Site
-TESTA,Test Site
-TESTB,Test Site
-TESTC,Test Site
-TESTPT1,Test Site
-TETM8,Test Site
-TS2W3,Test Site
-TS3W3,Test Site
-TS4W3,Test Site
-TSTMO,Test Site
-TSTN6,Test Site
-TSTSP,Test Site
-TSTUP,Test Site
-TTARX,Test Site
-VEFNV,Test Site
-WBYA1,Out of Service
-WLSA1, bad data in API
-WUNTS, not a real gauge
-XXXN3,Test Site
-YDAQ9,Outside U.S.
-YLKA2,Discontinued Gage
-YWRQ9,Outside U.S.
-ZZZT2,Test Site
+AABDB,Test Site,stage
+ADLG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+AUGG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+BAXG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+BRKTS,Test Site,stage
+CNNN6,Pool elevation thresholds. Disabled at request of MARFC,stage
+DMBT2,Test Site,stage
+DMSF1,Tidal Gauge,stage
+DVNIA,Test Site,both
+GVDA1,bad data in API,stage
+HFMW4,gage relocated. check again later for review,stage
+HLZU1,bad data in API,stage
+HNXCA,Test Site,stage
+HRAG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+HUSKR,Test Site,stage
+HZT00,Test Site,stage
+HZT02,Test Site,stage
+ILMNA,Test Site,stage
+JTEST,Test Site,stage
+JYNT2,Test Site,stage
+KLNQ9,Outside U.S.,both
+LAMF1,Stage thresholds seem to be based on sea level and not channel thalweg.,stage
+MCVA3,historical gauge,both
+NVRN6,Pool elevation thresholds. Disabled at request of MARFC.,stage
+PEPN6,Pool elevation thresholds. Disabled at request of MARFC.,stage
+PRXQ9,Outside U.S.,both
+ONDN6,Inundation issues,stage
+QUTG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+RCYF1,Out of Service,both
+RWBW3, historical gauge,stage
+SMSV2,point not in AHPS,both
+STNG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+TESM8,Test Site,stage
+TEST,Test Site,stage
+TEST1,Test Site,stage
+TEST11,Test Site,stage
+TEST2,Test Site,stage
+TEST3,Test Site,stage
+TEST4,Test Site,stage
+TEST9,Test Site,stage
+TESTA,Test Site,stage
+TESTB,Test Site,stage
+TESTC,Test Site,stage
+TESTPT1,Test Site,stage
+TETM8,Test Site,stage
+TS2W3,Test Site,stage
+TS3W3,Test Site,stage
+TS4W3,Test Site,stage
+TSTMO,Test Site,stage
+TSTN6,Test Site,stage
+TSTSP,Test Site,stage
+TSTUP,Test Site,stage
+TTARX,Test Site,both
+VEFNV,Test Site,both
+WBYA1,Out of Service,both
+WLSA1, bad data in API,stage
+WUNTS, not a real gauge,both
+XXXN3,Test Site,stage
+YDAQ9,Outside U.S.,both
+YLKA2,Discontinued Gage,stage
+YWRQ9,Outside U.S.,both
+ZZZT2,Test Site,stage
+CMUG1,Out of Service,both
+EMILY,Test Value,flow

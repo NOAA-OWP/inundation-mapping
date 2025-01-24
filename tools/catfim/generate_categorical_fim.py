@@ -247,13 +247,13 @@ def process_generate_categorical_fim(
     # STAGE-BASED
     if is_stage_based:
         # Generate Stage-Based CatFIM mapping
-        # does flows and inundation  (mapping)
+        # does flows and inundation (mapping)
 
         catfim_sites_file_path = os.path.join(output_mapping_dir, 'stage_based_catfim_sites.gpkg')
 
         if step_num <= 1:
 
-            df_restricted_sites = load_restricted_sites()
+            df_restricted_sites = load_restricted_sites(is_stage_based)
 
             generate_stage_based_categorical_fim(
                 output_catfim_dir,
@@ -1167,16 +1167,18 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
     return interval_recs
 
 
-def load_restricted_sites():
+def load_restricted_sites(is_stage_based):
     """
-    At this point, only stage based uses this. But a arg of "catfim_type (stage or flow) or something
-    can be added later.
+    Previously, only stage based used this. It is now being used by stage-based and flow-based (1/24/25)
+
+    The 'catfim_type' column can have three different values: 'stage', 'flow', and 'both'. This determines
+    whether the site should be filtered out for stage-based CatFIM, flow-based CatFIM, or both of them. 
 
     Returns: a dataframe for the restricted lid and the reason why:
-        "nws_lid", "restricted_reason"
+        'nws_lid', 'restricted_reason', 'catfim_type'
     """
 
-    file_name = "stage_based_ahps_restricted_sites.csv"
+    file_name = "stage_based_ahps_restricted_sites.csv" # TODO: Rename and update path
     current_script_folder = os.path.dirname(__file__)
     file_path = os.path.join(current_script_folder, file_name)
 
@@ -1184,6 +1186,7 @@ def load_restricted_sites():
 
     df_restricted_sites['nws_lid'].fillna("", inplace=True)
     df_restricted_sites['restricted_reason'].fillna("", inplace=True)
+    df_restricted_sites['catfim_type'].fillna("", inplace=True)
 
     # Need to drop the comment lines before doing any more processing
     df_restricted_sites.drop(
@@ -1195,11 +1198,13 @@ def load_restricted_sites():
     # There are enough conditions and a low number of rows that it is easier to
     # test / change them via a for loop
     indexs_for_recs_to_be_removed_from_list = []
+        
+    # Clean up dataframe
     for ind, row in df_restricted_sites.iterrows():
         nws_lid = row['nws_lid']
         restricted_reason = row['restricted_reason']
 
-        if len(nws_lid) != 5:  # could be just a blank row in the
+        if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
             FLOG.warning(
                 f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
                 " and has dropped from processing"
@@ -1213,14 +1218,22 @@ def load_restricted_sites():
             df_restricted_sites.at[ind, 'restricted_reason'] = restricted_reason
             FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
         continue
-    # end for
+    # end loop
 
-    # Invalid records (not dropping, just completely invalid recs from the csv)
+    # Invalid records in CSV (not dropping, just completely invalid recs from the csv)
     # Could be just blank rows from the csv
     if len(indexs_for_recs_to_be_removed_from_list) > 0:
         df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
 
-    # print(df_restricted_sites.head(10))
+    # Filter df_restricted_sites by CatFIM type
+    if is_stage_based == True: # Keep rows where 'catfim_type' is either 'stage' or 'both'
+        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['stage', 'both'])]
+
+    else: # Keep rows where 'catfim_type' is either 'flow' or 'both'
+        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['flow', 'both'])]
+
+    # Remove catfim_type column
+    df_restricted_sites.drop('catfim_type', axis=1, inplace=True)
 
     return df_restricted_sites
 
