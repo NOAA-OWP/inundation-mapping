@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## vx.x.x.x - 2025-01-08 - [PR#1340](https://github.com/NOAA-OWP/inundation-mapping/pull/1340)
+## v4.5.14.0 - 2025-01-24 - [PR#1340](https://github.com/NOAA-OWP/inundation-mapping/pull/1340)
 
 This PR focuses on adjusting rating curves by using bathymetric data and optimized channel roughness values. The bathymetry data includes eHydro surveys and AI-based datasets created for all NWM streams. New manning roughness values were developed for each feature-id using a differential evolution objective function (OF). The OF minimizes the number of the false_positives and false_negatives cells in our flood inundation maps where we have test cases across the CONUS. 
 
@@ -28,7 +28,10 @@ This file contains the ml-bathymetry and manning roughness values data.
 We already had this file, the name of the variable has changed from `bathymetry_file` to `bathy_file_ehydro`, and it was updated.
 
 - `fim_post_processing.sh`: New arguments were added. Please note that the default value for ai_toggle = 0 is included here. 
-## v4.5.3.10 - 2025-01-24 - [PR#1388]https://github.com/NOAA-OWP/inundation-mapping/pull/1388)
+
+<br/><br/>
+
+## v4.5.3.10 - 2025-01-24 - [PR#1388]https://github.com/NOAA-OWP/inundation-mapping/pull/1388
 
 Fixed Sierra test bugs to draw the vertical lines.
 
