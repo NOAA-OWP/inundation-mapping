@@ -1,13 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.13.8 - 2025-01-24 - [PR#1399](https://github.com/NOAA-OWP/inundation-mapping/pull/1399)
+## v4.5.13.9 - 2025-01-24 - [PR#1399](https://github.com/NOAA-OWP/inundation-mapping/pull/1399)
 
 This update improves stage-based CatFIM by detecting and correcting instances where the stage value provided in the WRDS database is actually stage + elevation (which is actually water surface elevation and, uncaught, causes overflooding). 
 
 ### Changes
 - `inundation-mapping/tools/catfim/generate_categorical_fim.py`: Added an update to detect and fix cases where WSE is provided in lieu of stage. Added `uncorrected_stage` and `is_interval` columns to output CSV.
 - `inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added update to facilitate the new `is_interval` column.
+
+<br/><br/>
+
 ## v4.5.13.8 - 2025-01-24 - [PR#1405](https://github.com/NOAA-OWP/inundation-mapping/pull/1405)
 
 Removing the references to lid_to_run from CatFIM in order to keep the CatFIM scripts cleaner.  
