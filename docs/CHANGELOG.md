@@ -6,7 +6,8 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 This update improves stage-based CatFIM by detecting and correcting instances where the stage value provided in the WRDS database is actually stage + elevation (which is actually water surface elevation and, uncaught, causes overflooding). 
 
 ### Changes
-- `inundation-mapping/tools/catfim/generate_categorical_fim.py`: Added an update to detect and fix cases where WSE is provided in lieu of stage.
+- `inundation-mapping/tools/catfim/generate_categorical_fim.py`: Added an update to detect and fix cases where WSE is provided in lieu of stage. Added `uncorrected_stage` and `is_interval` columns to output CSV.
+- `inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added update to facilitate the new `is_interval` column.
 
 <br/><br/>
 
