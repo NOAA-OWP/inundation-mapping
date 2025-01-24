@@ -353,12 +353,10 @@ def generate_flows_for_huc(
 
 
 # This is called from within this script and is not MP, so it can use FLOG directly
-# lid_to_run is temp disabled
 def generate_flows(
     output_catfim_dir,
     nwm_us_search,
     nwm_ds_search,
-    lid_to_run,
     env_file,
     job_number_huc,
     is_stage_based,
@@ -432,7 +430,7 @@ def generate_flows(
     # TODO: Aug 2024:
     # Filter the meta list to just HUCs in the fim run output or huc if sent in as a param
     all_meta_lists = __load_nwm_metadata(
-        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, lid_to_run, nwm_metafile
+        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile
     )
 
     end_dt = datetime.now(timezone.utc)
@@ -640,9 +638,7 @@ def generate_flows(
 
 
 # local script calls __load_nwm_metadata so FLOG is already setup
-def __load_nwm_metadata(
-    output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, lid_to_run, nwm_metafile
-):
+def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile):
 
     FLOG.trace(metadata_url)
 
@@ -662,72 +658,62 @@ def __load_nwm_metadata(
 
         FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
 
-        if lid_to_run != "all":  # TODO: Deprecate LID options (in favor of HUC list functionlity)
-            # Single lid for now (deprecated)
-            output_meta_list, ___ = get_metadata(
-                metadata_url,
-                select_by='nws_lid',
-                selector=[lid_to_run],
-                must_include='nws_data.rfc_forecast_point',
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
+        # Jan 2025: Removed lid_to_run functionality, so it is no longer needed as an input.
 
-        else:
-            # Dec 2024: Running two API calls: one to get all forecast points, and another
-            # to get all points (non-forecast and forecast) for the OCONUS regions. Then,
-            # duplicate LIDs are removed.
+        # Dec 2024: Running two API calls: one to get all forecast points, and another
+        # to get all points (non-forecast and forecast) for the OCONUS regions. Then,
+        # duplicate LIDs are removed.
 
-            # Get all forecast points
-            forecast_point_meta_list, ___ = get_metadata(
-                metadata_url,
-                select_by='nws_lid',
-                selector=['all'],
-                must_include='nws_data.rfc_forecast_point',
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
+        # Get all forecast points
+        forecast_point_meta_list, ___ = get_metadata(
+            metadata_url,
+            select_by='nws_lid',
+            selector=['all'],
+            must_include='nws_data.rfc_forecast_point',
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
 
-            # Get all points for OCONUS regions (HI, PR, and AK)
-            oconus_meta_list, ___ = get_metadata(
-                metadata_url,
-                select_by='state',
-                selector=['HI', 'PR', 'AK'],
-                must_include=None,
-                upstream_trace_distance=nwm_us_search,
-                downstream_trace_distance=nwm_ds_search,
-            )
+        # Get all points for OCONUS regions (HI, PR, and AK)
+        oconus_meta_list, ___ = get_metadata(
+            metadata_url,
+            select_by='state',
+            selector=['HI', 'PR', 'AK'],
+            must_include=None,
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
 
-            # Append the lists
-            unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
+        # Append the lists
+        unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
 
-            # print(f"len(all_meta_lists) is {len(all_meta_lists)}")
+        # print(f"len(all_meta_lists) is {len(all_meta_lists)}")
 
-            # Filter the metadata list
-            output_meta_list = []
-            unique_lids, duplicate_lids = [], []  # TODO: remove?
-            duplicate_meta_list = []
-            nonelid_metadata_list = []  # TODO: remove
+        # Filter the metadata list
+        output_meta_list = []
+        unique_lids, duplicate_lids = [], []  # TODO: remove?
+        duplicate_meta_list = []
+        nonelid_metadata_list = []  # TODO: remove
 
-            for i, site in enumerate(unfiltered_meta_list):
-                nws_lid = site['identifiers']['nws_lid']
+        for i, site in enumerate(unfiltered_meta_list):
+            nws_lid = site['identifiers']['nws_lid']
 
-                if nws_lid is None:
-                    # No LID available
-                    nonelid_metadata_list.append(site)  # TODO: replace with Continue
+            if nws_lid is None:
+                # No LID available
+                nonelid_metadata_list.append(site)  # TODO: replace with Continue
 
-                elif nws_lid in unique_lids:
-                    # Duplicate LID
-                    duplicate_lids.append(nws_lid)
-                    duplicate_meta_list.append(site)  # TODO: remove extra lists
+            elif nws_lid in unique_lids:
+                # Duplicate LID
+                duplicate_lids.append(nws_lid)
+                duplicate_meta_list.append(site)  # TODO: remove extra lists
 
-                else:
-                    # Unique/unseen LID that's not None
-                    unique_lids.append(nws_lid)
-                    output_meta_list.append(site)
+            else:
+                # Unique/unseen LID that's not None
+                unique_lids.append(nws_lid)
+                output_meta_list.append(site)
 
-            FLOG.lprint(f'{len(duplicate_lids)} duplicate points removed.')
-            FLOG.lprint(f'Filtered metadatada downloaded for {len(output_meta_list)} points.')
+        FLOG.lprint(f'{len(duplicate_lids)} duplicate points removed.')
+        FLOG.lprint(f'Filtered metadatada downloaded for {len(output_meta_list)} points.')
 
         # ----------
 
