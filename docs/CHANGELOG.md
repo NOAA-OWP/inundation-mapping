@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2025-01-24 - [PR#1401](https://github.com/NOAA-OWP/inundation-mapping/pull/1401)
+
+This PR improves the current HUC processing duration system by saving the processing time for each HUC separately. This helps prevent collisions that can happen during parallel processing and ensures more accurate, comprehensive results. The new Python script reads all the processing time files and combines them into a CSV. It also adds a summary line at the end with the total runtime, as well as the number of HUCs and branches.
+
+### Additions
+- `src/duration_system.py`: This is a new script that reads duration files for each huc and concatenates them into a csv.
+
+### Changes
+- `src/run_unit_wb.sh` : Recorded the processing time for branch 0 and saved a separate file for each huc.
+- `fim_post_processing.sh`: Added new lines to execute the new script.
+
+<br/><br/>
+
+
 ## v4.5.14.2 - 2025-01-24 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
 
 ### Summary
