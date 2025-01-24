@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.5.14.1 - 2025-01-24 - [PR#1268](https://github.com/NOAA-OWP/inundation-mapping/pull/1268)
+
+This code preprocesses the partner FIM benchmark HEC-RAS libraries and converts the inundation extent polygons into a edge point database for the input to the HAND SRC calibration/adjustment algorithm. The key changes with the new input data are the addition of the max stage/flow points as well as the removal of the 10m grid point snapping. Note that the raw data to run this code is not available for external users, so the data processing code can only be run internally within OWP.
+
+### Additions
+`data/nws/ahps_bench_polys_to_calb_pts.py`: this script ingests the HEC-RAS partner FIM benchmark data and outputs huc level parquet files containing the water edge points with associated attributes.
+`data/nws/merge_nws_usgs_point_parquet.py`: the script combines the `nws` and `usgs` parquet point files created seperately by the `ahps_bench_polys_to_calb_pts.py` script
+
+<br/><br/>
+
 ## v4.5.14.0 - 2025-01-24 - [PR#1340](https://github.com/NOAA-OWP/inundation-mapping/pull/1340)
 
 This PR focuses on adjusting rating curves by using bathymetric data and optimized channel roughness values. The bathymetry data includes eHydro surveys and AI-based datasets created for all NWM streams. New manning roughness values were developed for each feature-id using a differential evolution objective function (OF). The OF minimizes the number of the false_positives and false_negatives cells in our flood inundation maps where we have test cases across the CONUS. 
