@@ -58,12 +58,16 @@ def duration_system(hydrofabric_dir, output_csv_file):
     for huc in hucs:
         txt_file = f'processing_time_{huc}.txt'
         txt_path = os.path.join(dir_path, huc, txt_file)
-        # Read the txt file
-        with open(txt_path, 'r') as file:
-            txt_content = file.readline().strip().split(',')
-            all_rows.append(txt_content)
-    # Remove all text files
-    # os.remove(txt_path)
+        # Check if the text file exist
+        if os.path.exists(txt_path):
+            # Read the txt file
+            with open(txt_path, 'r') as file:
+                txt_content = file.readline().strip().split(',')
+                all_rows.append(txt_content)
+            # Remove all text files
+            os.remove(txt_path)
+        else:
+            print(f"Warning: Missing {txt_file} for HUC {huc}")
 
     column_names = [
         "HUC8",
