@@ -28,9 +28,36 @@ This file contains the ml-bathymetry and manning roughness values data.
 We already had this file, the name of the variable has changed from `bathymetry_file` to `bathy_file_ehydro`, and it was updated.
 
 - `fim_post_processing.sh`: New arguments were added. Please note that the default value for ai_toggle = 0 is included here. 
+## v4.5.3.10 - 2025-01-24 - [PR#1388]https://github.com/NOAA-OWP/inundation-mapping/pull/1388)
+
+Fixed Sierra test bugs to draw the vertical lines.
+
+### Changes
+
+- `tools/rating_curve_comparison.py`: Modified the script to make sure vertical lines are displayed
 
 <br/><br/>
 
+
+## v4.5.13.9 - 2025-01-24 - [PR#1399](https://github.com/NOAA-OWP/inundation-mapping/pull/1399)
+
+This update improves stage-based CatFIM by detecting and correcting instances where the stage value provided in the WRDS database is actually stage + elevation (which is actually water surface elevation and, uncaught, causes overflooding). 
+
+### Changes
+- `inundation-mapping/tools/catfim/generate_categorical_fim.py`: Added an update to detect and fix cases where WSE is provided in lieu of stage. Added `uncorrected_stage` and `is_interval` columns to output CSV.
+- `inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added update to facilitate the new `is_interval` column.
+
+<br/><br/>
+
+## v4.5.13.8 - 2025-01-24 - [PR#1405](https://github.com/NOAA-OWP/inundation-mapping/pull/1405)
+
+Removing the references to lid_to_run from CatFIM in order to keep the CatFIM scripts cleaner.  
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Remove references to `lid_to_run` variable.
+- ` tools/catfim/generate_categorical_fim_flows.py`: Remove references to `lid_to_run` variable.
+
+<br/><br/>
 
 ## v4.5.13.7 - 2025-01-10 - [PR#1379](https://github.com/NOAA-OWP/inundation-mapping/pull/1379)
 
