@@ -1,7 +1,37 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.3.10 - 2025-01-24 - [PR#1388]https://github.com/NOAA-OWP/inundation-mapping/pull/1388)
+## v4.5.14.0 - 2025-01-24 - [PR#1340](https://github.com/NOAA-OWP/inundation-mapping/pull/1340)
+
+This PR focuses on adjusting rating curves by using bathymetric data and optimized channel roughness values. The bathymetry data includes eHydro surveys and AI-based datasets created for all NWM streams. New manning roughness values were developed for each feature-id using a differential evolution objective function (OF). The OF minimizes the number of the false_positives and false_negatives cells in our flood inundation maps where we have test cases across the CONUS. 
+
+Even though the Python scripts of roughness manning number optimization were not included in this branch, optimized roughness values can be found here: `/fim-data/inputs/rating_curve/variable_roughness/mannings_optz_fe_clusters_so3.csv`. Detailed python scripts also can be found here: `/fim-data/outputs/heidi-mannN-optimization/projects/bathy_mannN_projects/dev-bathymetric-adjustment-mannN-optz/`.
+
+### Changes
+- `src/bathymetric-adjustment.py`: `correct_rating_for_ai_based_bathymetry` function was added to the script. This function processes AI-based bathymetry data and adjusts rating curves using this data. Also `apply_src_adjustment_for_bathymetry` function was added to prioritize USACE eHydro over AI-based bathymetry dataset. The multi-processing function `multi_process_hucs` was updated based on the latest code. Also, an ai_toggle parameter was added to `apply_src_adjustment_for_bathymetry` and `process_bathy_adjustment` functions. When ai_toggle = 1, The SRCs will be adjusted with the ai_based bathymetry data. the default value for ai_toggle = 0, means no ai_based bathy data is included. 
+
+- `src/bash_variables.env`: New variables and their paths were added. Also, a new input file with the nwm feature_ids and optimized channel roughness and overbank roughness attributes was created and stored here:
+`/fim-data/inputs/rating_curve/variable_roughness/mannings_optz_fe_clusters_so3.csv`
+The locations of these files were also added to the `bash_variables.env`.
+Please note that when ai_toggle = 1, the manning roughness values should be switched to `vmann_input_file=${inputsDir}/rating_curve/variable_roughness/mannings_optz_fe_clusters_so3.csv` in the current version. 
+
+Here is a list of new/updated input files:
+
+1. `/fim-data/inputs/rating_curve/variable_roughness/mannings_optz_fe_clusters_so3.csv`
+This CSV file contains the new optimized roughness values. It will replace this file:
+`vmann_input_file=${inputsDir}/rating_curve/variable_roughness/mannings_global_nwm3.csv`
+
+2. `bathy_file_aibased=${inputsDir}/bathymetry/ml_outputs_v1.01.parquet`
+This file contains the ml-bathymetry and manning roughness values data.
+
+3. `bathy_file_ehydro=${inputsDir}/bathymetry/final_bathymetry_ehydro.gpkg`
+We already had this file, the name of the variable has changed from `bathymetry_file` to `bathy_file_ehydro`, and it was updated.
+
+- `fim_post_processing.sh`: New arguments were added. Please note that the default value for ai_toggle = 0 is included here. 
+
+<br/><br/>
+
+## v4.5.3.10 - 2025-01-24 - [PR#1388]https://github.com/NOAA-OWP/inundation-mapping/pull/1388
 
 Fixed Sierra test bugs to draw the vertical lines.
 
@@ -177,8 +207,6 @@ As part of this PR, small modification was applied to bridge_inundation.py.
 - `tools/bridge_inundation.py`
 
 <br/><br/>
-
-
 
 
 ## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
