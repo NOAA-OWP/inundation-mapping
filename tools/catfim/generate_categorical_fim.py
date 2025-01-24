@@ -1182,7 +1182,7 @@ def load_restricted_sites(is_stage_based):
         'nws_lid', 'restricted_reason', 'catfim_type'
     """
 
-    file_name = "stage_based_ahps_restricted_sites.csv" # TODO: Rename and update path
+    file_name = "ahps_restricted_sites.csv"
     current_script_folder = os.path.dirname(__file__)
     file_path = os.path.join(current_script_folder, file_name)
 
