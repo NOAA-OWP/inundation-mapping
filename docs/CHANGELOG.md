@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.13._ - 2025-_____ - [PR#1405](https://github.com/NOAA-OWP/inundation-mapping/pull/1405)
+## v4.5.13.8 - 2025-01-24 - [PR#1405](https://github.com/NOAA-OWP/inundation-mapping/pull/1405)
 
 Removing the references to lid_to_run from CatFIM in order to keep the CatFIM scripts cleaner.  
 
