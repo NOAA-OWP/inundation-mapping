@@ -156,7 +156,7 @@ def get_sample_data(
             if input_root[-1] != '/':
                 input_root = input_root + '/'
 
-                    # Strip bucket path if use_s3 is True
+                # Strip bucket path if use_s3 is True
             if use_s3:
                 input_dir = input_path.removeprefix(bucket_path)[1:]
 
@@ -280,13 +280,15 @@ def get_sample_data(
             os.path.join(os.path.split(NWM_RECUR_FILE)[0], f'nwm3_17C_recurr_{recurr_interval}_0_cms.csv'),
             output_root_folder,
             input_root,
-            bucket_path
+            bucket_path,
         )
 
     __copy_file(os.environ["vmann_input_file"], output_root_folder, input_root, bucket_path)
 
     ## usgs_gages
-    __copy_file(os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder, input_root, bucket_path)
+    __copy_file(
+        os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder, input_root, bucket_path
+    )
 
     __copy_file(os.environ["usgs_rating_curve_csv"], output_root_folder, input_root, bucket_path)
 
@@ -349,7 +351,12 @@ def get_sample_data(
         command.extend(dem_list)
         subprocess.call(command)
 
-        __copy_file(os.path.join(INPUT_CALIB_POINTS_DIR, f'{huc}.parquet'), output_root_folder, input_root, bucket_path)
+        __copy_file(
+            os.path.join(INPUT_CALIB_POINTS_DIR, f'{huc}.parquet'),
+            output_root_folder,
+            input_root,
+            bucket_path,
+        )
 
         ## ras2fim
         ras2fim_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
@@ -357,24 +364,26 @@ def get_sample_data(
             os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_csv_filename"]),
             output_root_folder,
             input_root,
-            bucket_path
+            bucket_path,
         )
         __copy_file(
             os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_gpkg_filename"]),
             output_root_folder,
             input_root,
-            bucket_path
+            bucket_path,
         )
 
         __copy_file(
             os.path.join(os.environ["ras2fim_input_dir"], huc, os.environ["ras_rating_curve_gpkg_filename"]),
             output_root_folder,
             input_root,
-            bucket_path
+            bucket_path,
         )
 
         ## pre_clip_huc8
-        __copy_folder(os.path.join(os.environ["pre_clip_huc_dir"], huc), output_root_folder, input_root, bucket_path)
+        __copy_folder(
+            os.path.join(os.environ["pre_clip_huc_dir"], huc), output_root_folder, input_root, bucket_path
+        )
 
         ## validation data
         for org in orgs:
