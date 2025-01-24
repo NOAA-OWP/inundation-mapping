@@ -300,6 +300,9 @@ def process_generate_categorical_fim(
         job_flows = job_number_huc * job_number_inundate
 
         if step_num <= 1:
+
+            df_restricted_sites = load_restricted_sites(is_stage_based)
+
             generate_flows(
                 output_catfim_dir,
                 nwm_us_search,
@@ -310,6 +313,7 @@ def process_generate_categorical_fim(
                 valid_ahps_hucs,
                 nwm_metafile,
                 FLOG.LOG_FILE_PATH,
+                df_restricted_sites,
             )
             end = time.time()
             elapsed_time = (end - start) / 60
@@ -1539,6 +1543,7 @@ def generate_stage_based_categorical_fim(
             lst_hucs,
             nwm_metafile,
             str(FLOG.LOG_FILE_PATH),
+            df_restricted_sites,
         )
     )
 
