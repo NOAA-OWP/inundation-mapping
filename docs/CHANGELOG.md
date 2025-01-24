@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.3.10 - 2025-01-24 - [PR#1388]https://github.com/NOAA-OWP/inundation-mapping/pull/1388)
+
+Fixed Sierra test bugs to draw the vertical lines.
+
+### Changes
+
+- `tools/rating_curve_comparison.py`: Modified the script to make sure vertical lines are displayed
+
+<br/><br/>
+
+
 ## v4.5.13.9 - 2025-01-24 - [PR#1399](https://github.com/NOAA-OWP/inundation-mapping/pull/1399)
 
 This update improves stage-based CatFIM by detecting and correcting instances where the stage value provided in the WRDS database is actually stage + elevation (which is actually water surface elevation and, uncaught, causes overflooding). 
