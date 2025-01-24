@@ -750,9 +750,14 @@ def iterate_through_huc_stage_based(
 
                 maximum_stage_threshold = 250  # TODO: Move to a variables file?
 
+                # Make an "uncorrected stage" column for better documentation
+                stage_values_df['stage_value_uncorrected'] = stage_values_df['stage_value']
+
+
                 # Stage value is larger than the elevation value AND greater than the
                 # maximum stage threshold, subtract the elev from the "stage" value
                 # to get the actual stage
+                
                 if (lowest_stage_val > lid_altitude) and (lowest_stage_val > maximum_stage_threshold):
                     stage_values_df['stage_value'] = stage_values_df['stage_value'] - lid_altitude
                     MP_LOG.lprint(
@@ -955,7 +960,9 @@ def iterate_through_huc_stage_based(
                                 'q': flows[threshold],
                                 'q_uni': flows['units'],
                                 'q_src': flows['source'],
-                                'stage': thresholds[threshold],
+                                'stage_uncorrected': stage_values_df.loc[stage_values_df['stage_name'] == threshold]['stage_value_uncorrected'], 
+                                'stage': stage_values_df.loc[stage_values_df['stage_name'] == threshold]['stage_value'], 
+                                # 'stage': thresholds[threshold], # Previous stage, wasn't getting the corrected val
                                 'stage_uni': thresholds['units'],
                                 's_src': thresholds['source'],
                                 'wrds_time': thresholds['wrds_timestamp'],

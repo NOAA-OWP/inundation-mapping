@@ -935,6 +935,9 @@ def reformat_inundation_maps(
         # already has an ahps_lid column which we want and not the nws_lid column
         extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
 
+        # Remove uncorrected stage from interval rows (to decrease potential for confusion)
+        extent_poly_diss.loc[extent_poly_diss['is_interval'] == True, 'stage_uncorrected'] = None
+
         # Save dissolved multipolygon
         handle = os.path.split(tif_to_process)[1].replace('.tif', '')
         diss_extent_filename = os.path.join(gpkg_dir, f"{huc}_{handle}.gpkg")
