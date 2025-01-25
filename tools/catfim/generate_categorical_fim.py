@@ -81,7 +81,6 @@ def process_generate_categorical_fim(
     output_folder,
     overwrite,
     search,
-    # lid_to_run,
     lst_hucs,
     job_number_intervals,
     past_major_interval_cap,
@@ -225,10 +224,6 @@ def process_generate_categorical_fim(
             'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
         )
 
-    # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
-    # single lid, not multiple
-    lid_to_run = "all"
-
     # Check that fim_inputs.csv exists and raise error if necessary
     fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
     if not os.path.exists(fim_inputs_csv_path):
@@ -265,7 +260,6 @@ def process_generate_categorical_fim(
                 fim_run_dir,
                 nwm_us_search,
                 nwm_ds_search,
-                lid_to_run,
                 env_file,
                 job_number_inundate,
                 job_number_huc,
@@ -310,7 +304,6 @@ def process_generate_categorical_fim(
                 output_catfim_dir,
                 nwm_us_search,
                 nwm_ds_search,
-                lid_to_run,
                 env_file,
                 job_flows,
                 is_stage_based,
@@ -744,6 +737,29 @@ def iterate_through_huc_stage_based(
                 if not os.path.exists(mapping_lid_directory):
                     os.mkdir(mapping_lid_directory)
 
+                # Check whether stage value is actually a WSE value, and fix if needed:
+                # Get lowest stage value
+                lowest_stage_val = stage_values_df['stage_value'].min()
+
+                maximum_stage_threshold = 250  # TODO: Move to a variables file?
+
+                # Make an "rfc_stage" column for better documentation which shows the original
+                # uncorrect WRDS value before we adjsuted it for inundation
+                stage_values_df['rfc_stage'] = stage_values_df['stage_value']
+
+                # Stage value is larger than the elevation value AND greater than the
+                # maximum stage threshold, subtract the elev from the "stage" value
+                # to get the actual stage
+
+                if (lowest_stage_val > lid_altitude) and (lowest_stage_val > maximum_stage_threshold):
+                    stage_values_df['stage_value'] = stage_values_df['stage_value'] - lid_altitude
+                    MP_LOG.lprint(
+                        f"{huc_lid_id}: Lowest stage val > elev and higher than max stage thresh. Subtracted elev from stage vals to fix."
+                    )
+
+                # +++++++++++++++++++++++++++++
+                # This section is for inundating stages and intervals come later
+
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
                 # This are not interval values
@@ -770,7 +786,6 @@ def iterate_through_huc_stage_based(
                     # These are the up to 5 magnitudes being inundated at their stage value
                     (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_lid_tifs(
                         stage_value,
-                        False,
                         datum_adj_ft,
                         branch_dir,
                         lid_usgs_elev,
@@ -830,6 +845,9 @@ def iterate_through_huc_stage_based(
 
                 # MP_LOG.trace(f"non_rec_stage_values_df is {non_rec_stage_values_df}")
 
+                # +++++++++++++++++++++++++++++
+                # Creating interval tifs (if applicable)
+
                 # We already inundated and created files for the specific stages just not the intervals
                 # Make list of interval recs to be created
                 interval_list = []  # might stay empty
@@ -861,7 +879,6 @@ def iterate_through_huc_stage_based(
                                 executor.submit(
                                     produce_stage_based_lid_tifs,
                                     interval_stage_value,
-                                    True,
                                     datum_adj_ft,
                                     branch_dir,
                                     lid_usgs_elev,
@@ -919,7 +936,9 @@ def iterate_through_huc_stage_based(
                 # for threshold in categories:  (threshold and category are somewhat interchangeable)
                 # some may have failed inundation, which we will rectify later
                 MP_LOG.trace(f"{huc_lid_id}: updating threshhold values")
+
                 for threshold in valid_stage_names:
+
                     try:
 
                         # we don't know if the magnitude/stage can be mapped yes it hasn't been inundated
@@ -936,7 +955,12 @@ def iterate_through_huc_stage_based(
                                 'q': flows[threshold],
                                 'q_uni': flows['units'],
                                 'q_src': flows['source'],
-                                'stage': thresholds[threshold],
+                                'rfs_stage': stage_values_df.loc[stage_values_df['stage_name'] == threshold][
+                                    'rfc_stage'
+                                ],
+                                'stage': stage_values_df.loc[stage_values_df['stage_name'] == threshold][
+                                    'stage_value'
+                                ],
                                 'stage_uni': thresholds['units'],
                                 's_src': thresholds['source'],
                                 'wrds_time': thresholds['wrds_timestamp'],
@@ -1138,7 +1162,7 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
                 # MP_LOG.trace(f"{huc_lid_id}: Added interval value of {int_val}")
                 stage_values_claimed.append(int_val)
 
-    MP_LOG.lprint(f"{huc_lid_id} interval recs are {interval_recs}")
+    # MP_LOG.lprint(f"{huc_lid_id} interval recs are {interval_recs}")
 
     return interval_recs
 
@@ -1451,7 +1475,6 @@ def generate_stage_based_categorical_fim(
     fim_run_dir,
     nwm_us_search,
     nwm_ds_search,
-    lid_to_run,
     env_file,
     job_number_inundate,
     job_number_huc,
@@ -1497,7 +1520,6 @@ def generate_stage_based_categorical_fim(
             output_catfim_dir,
             nwm_us_search,
             nwm_ds_search,
-            lid_to_run,
             env_file,
             job_flows,
             True,
@@ -1799,16 +1821,6 @@ if __name__ == '__main__':
         required=False,
         default='5',
     )
-
-    ## Deprecated, use lst_hucs instead
-    # TODO: lid_to_run functionality... remove? for now, just hard code lid_to_run as "all"
-    # parser.add_argument(
-    #     '-l',
-    #     '--lid_to_run',
-    #     help='OPTIONAL: NWS LID, lowercase, to produce CatFIM for. Currently only accepts one. Defaults to all sites',
-    #     required=False,
-    #     default='all',
-    # )
 
     # NOTE: The HUCs you put in this, MUST be a HUC that is valid in your -f/ --fim_run_dir (HAND output folder)
     parser.add_argument(
