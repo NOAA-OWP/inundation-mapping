@@ -26,12 +26,14 @@ if [ $huc2Identifier -eq 19 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
     dem_domain_filename=DEM_Domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
 else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
     dem_domain_filename=HUC6_dem_domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff
 
 fi
 
@@ -48,6 +50,7 @@ cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 
 #temporarily for debugging
 cp "data/inputs/osm/bridges/250102/osm_bridges_02050206.gpkg" "$tempHucDataDir/osm_bridges_subset.gpkg"
+#cp "data/inputs/osm/bridges/250102/osm_bridges_19020201.gpkg" "$tempHucDataDir/osm_bridges_subset.gpkg"
 
 # Copy necessary files from $inputsDir into $tempHucDataDir to avoid File System Collisions
 # For buffer_stream_branches.py
