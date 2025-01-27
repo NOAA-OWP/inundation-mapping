@@ -11,8 +11,8 @@ from zipfile import ZipFile
 import numpy as np
 import pandas as pd
 from create_flow_forecast_file import create_flow_forecast_file
-from osgeo import gdal
 from preprocess_benchmark import preprocess_benchmark_static
+import rasterio
 
 
 def create_ble_benchmark(
@@ -149,21 +149,23 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
         if len(gdb_list) == 1:
             ble_geodatabase = gdb_list[0]
-            src_ds = gdal.Open(ble_geodatabase, gdal.GA_ReadOnly)
-            subdatasets = src_ds.GetSubDatasets()
+            with rasterio.open(ble_geodatabase) as src:
+                subdatasets = src.subdatasets
 
-            # Find depth rasters
-            for depth_raster in depth_rasters:
-                out_file = os.path.join(save_folder, f'{huc}_{depth_raster}.tif')
+                # Find depth rasters
+                for depth_raster in depth_rasters:
+                    out_file = os.path.join(save_folder, f'{huc}_{depth_raster}.tif')
 
-                if not os.path.exists(out_file):
-                    # Read raster data from GDB
-                    print(f'Reading {depth_raster} for {huc}')
-                    depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
+                    if not os.path.exists(out_file):
+                        # Read raster data from GDB
+                        print(f'Reading {depth_raster} for {huc}')
+                        depth_raster_idx, depth_raster_path = [
+                            (idx + 1, item) for idx, item in enumerate(subdatasets) if depth_raster in item
+                        ][0]
 
-                    extract_raster(depth_raster_path, out_file)
+                        extract_raster(depth_raster_path, out_file)
 
-                out_list.append(out_file)
+                    out_list.append(out_file)
 
         if len(out_list) > 0:
             out_files.append(out_list)
@@ -191,17 +193,11 @@ def extract_raster(in_raster: str, out_raster: str):
     None
     """
 
-    data_ds = gdal.Open(in_raster, gdal.GA_ReadOnly)
-    data = data_ds.ReadAsArray()
-    nodata = data_ds.GetRasterBand(1).GetNoDataValue()
+    with rasterio.open(in_raster) as data_ds:
+        data = data_ds.read()
 
-    driver = gdal.GetDriverByName('GTiff')
-    out_ds = driver.Create(out_raster, data.shape[1], data.shape[0], 1, gdal.GDT_Float32)
-    out_ds.SetGeoTransform(data_ds.GetGeoTransform())
-    out_ds.SetProjection(data_ds.GetProjection())
-    out_ds.GetRasterBand(1).WriteArray(data)
-    out_ds.GetRasterBand(1).SetNoDataValue(nodata)
-    out_ds = None
+        with rasterio.open(out_raster, 'w', **data_ds.profile) as out_ds:
+            out_ds.write(data, 1)
 
 
 if __name__ == '__main__':
