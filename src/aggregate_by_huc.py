@@ -291,9 +291,15 @@ class HucDirectory(object):
                     ] = 1
                     # Write file
                     bridge_pnts = bridge_pnts.astype(self.bridge_dtypes, errors='ignore')
+
                     # Set the CRS if it is not already set
+                    huc2Identifier = huc_id[:2]
                     if bridge_pnts.crs is None:
-                        bridge_pnts.set_crs('EPSG:5070', inplace=True)
+                        # Alaska
+                        if huc2Identifier == '19':
+                            bridge_pnts.set_crs('EPSG:3338', inplace=True)
+                        else:
+                            bridge_pnts.set_crs('EPSG:5070', inplace=True)
                     bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
 
             # print(f"agg_by_huc for huc id {huc_id} is done")
