@@ -74,57 +74,56 @@ Description
 # --------------------------------------------------------------
 # Define functions
 
+
 def snap_and_trim_flow(snapped_point, flows):
-        # Find the flowline nearest to the snapped point (if there's multiple flowlines)
-        if len(flows) > 1:
-            sjoin_nearest = gpd.sjoin_nearest(snapped_point, flows, max_distance=100)
-            if sjoin_nearest.empty:
-                return flows
+    # Find the flowline nearest to the snapped point (if there's multiple flowlines)
+    if len(flows) > 1:
+        sjoin_nearest = gpd.sjoin_nearest(snapped_point, flows, max_distance=100)
+        if sjoin_nearest.empty:
+            return flows
 
-            if len(sjoin_nearest) > 1:
-                sjoin_nearest = sjoin_nearest[sjoin_nearest['LINKNO'].isin(sjoin_nearest['DSLINKNO'])]
+        if len(sjoin_nearest) > 1:
+            sjoin_nearest = sjoin_nearest[sjoin_nearest['LINKNO'].isin(sjoin_nearest['DSLINKNO'])]
 
-            nearest_index = int(sjoin_nearest['LINKNO'].iloc[0])
-            flow = flows[flows['LINKNO'] == nearest_index]
-            flow.index = [0]
+        nearest_index = int(sjoin_nearest['LINKNO'].iloc[0])
+        flow = flows[flows['LINKNO'] == nearest_index]
+        flow.index = [0]
 
-        else:
-            flow = flows
-            nearest_index = None
+    else:
+        flow = flows
+        nearest_index = None
 
-        # Snap to DEM flows
-        snapped_point['geometry'] = flow.interpolate(flow.project(snapped_point.geometry))[0]
+    # Snap to DEM flows
+    snapped_point['geometry'] = flow.interpolate(flow.project(snapped_point.geometry))[0]
 
-        # Trim flows to snapped point
-        trimmed_line = shapely_ops_split(
-            flow.iloc[0]['geometry'], snapped_point.iloc[0]['geometry'].buffer(1)
-        )
-        # Note: Buffering is to account for python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
+    # Trim flows to snapped point
+    trimmed_line = shapely_ops_split(flow.iloc[0]['geometry'], snapped_point.iloc[0]['geometry'].buffer(1))
+    # Note: Buffering is to account for python precision issues, print(demDerived_reaches.distance(snapped_point) < 1e-8)
 
-        # Edge cases: line string not split?, nothing is returned, split does not preserve linestring order?
-        # Note to dear reader: last here is really the most upstream segment (see caveats above).
-        # When we split we should get 3 segments, the most downstream one
-        # the tiny 1 meter segment that falls within the snapped point buffer, and the most upstream one.
-        # We want that last one which is why we trimmed_line[len(trimmed_line)-1]
+    # Edge cases: line string not split?, nothing is returned, split does not preserve linestring order?
+    # Note to dear reader: last here is really the most upstream segment (see caveats above).
+    # When we split we should get 3 segments, the most downstream one
+    # the tiny 1 meter segment that falls within the snapped point buffer, and the most upstream one.
+    # We want that last one which is why we trimmed_line[len(trimmed_line)-1]
 
-        last_line_segment = pd.DataFrame(
-            {'id': ['first'], 'geometry': [trimmed_line.geoms[len(trimmed_line.geoms) - 1].wkt]}
-        )
+    last_line_segment = pd.DataFrame(
+        {'id': ['first'], 'geometry': [trimmed_line.geoms[len(trimmed_line.geoms) - 1].wkt]}
+    )
 
-        # Note: When we update geopandas verison: last_line_segment = gpd.GeoSeries.from_wkt(last_line_segment)
-        last_line_segment['geometry'] = last_line_segment['geometry'].apply(wkt.loads)
-        last_line_segment_geodataframe = gpd.GeoDataFrame(last_line_segment).set_crs(flow.crs)
+    # Note: When we update geopandas verison: last_line_segment = gpd.GeoSeries.from_wkt(last_line_segment)
+    last_line_segment['geometry'] = last_line_segment['geometry'].apply(wkt.loads)
+    last_line_segment_geodataframe = gpd.GeoDataFrame(last_line_segment).set_crs(flow.crs)
 
-        # Replace geometry in merged flowine
-        flow_geometry = last_line_segment_geodataframe.iloc[0]['geometry']
+    # Replace geometry in merged flowine
+    flow_geometry = last_line_segment_geodataframe.iloc[0]['geometry']
 
-        if nearest_index is not None:
-            # Update geometry of line closest to snapped_point
-            flows.loc[flows['LINKNO'] == nearest_index, 'geometry'] = flow_geometry
-        else:
-            flows['geometry'] = flow_geometry
+    if nearest_index is not None:
+        # Update geometry of line closest to snapped_point
+        flows.loc[flows['LINKNO'] == nearest_index, 'geometry'] = flow_geometry
+    else:
+        flows['geometry'] = flow_geometry
 
-        return flows
+    return flows
 
 
 def split_flows(
@@ -227,7 +226,7 @@ def split_flows(
 
                 # Snap and trim the flowline to the snapped point
                 flows = snap_and_trim_flow(snapped_point, flows)
-                
+
             del snapped_point
         del nwm_streams_terminal
 
@@ -237,7 +236,7 @@ def split_flows(
     print('Splitting stream segments at HUC8 boundaries...')
 
     flows = (
-        gpd.overlay(flows, wbd8, how='union', keep_geom_type=True) # 
+        gpd.overlay(flows, wbd8, how='union', keep_geom_type=True)  #
         .explode(index_parts=True)
         .reset_index(drop=True)
     )
