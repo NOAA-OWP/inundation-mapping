@@ -43,7 +43,6 @@ gpd.options.io_engine = "pyogrio"
 # we will use an MP object either way
 def produce_stage_based_lid_tifs(
     stage_val,
-    is_interval_stage,
     datum_adj_ft,
     branch_dir,
     lid_usgs_elev,
@@ -665,10 +664,12 @@ def post_process_huc(
 
                     # careful. ft can be part of the site name, so only check part 3
                     interval_stage = None
+                    is_interval = False
                     if len(file_name_parts) >= 3 and "fti" in file_name_parts[2]:
                         try:
                             stage_val = file_name_parts[2].replace("fti", "")
                             interval_stage = float(stage_val)
+                            is_interval = True
                         except ValueError:
                             interval_stage = None
                             MP_LOG.error(
@@ -686,6 +687,7 @@ def post_process_huc(
                         magnitude,
                         nws_lid_attributes_filename,
                         interval_stage,
+                        is_interval,
                         parent_log_output_file,
                         child_log_file_prefix,
                     )
@@ -862,6 +864,7 @@ def reformat_inundation_maps(
     magnitude,
     nws_lid_attributes_filename,
     interval_stage,
+    is_interval,
     parent_log_output_file,
     child_log_file_prefix,
 ):
@@ -914,6 +917,7 @@ def reformat_inundation_maps(
         extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
         extent_poly_diss['interval_stage'] = interval_stage
+        extent_poly_diss['is_interval'] = is_interval
 
         # Project to Web Mercator
         extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
@@ -930,6 +934,9 @@ def reformat_inundation_maps(
         )
         # already has an ahps_lid column which we want and not the nws_lid column
         extent_poly_diss = extent_poly_diss.drop(columns='nws_lid')
+
+        # Remove uncorrected stage from interval rows (to decrease potential for confusion)
+        extent_poly_diss.loc[extent_poly_diss['is_interval'] == True, 'stage_uncorrected'] = None
 
         # Save dissolved multipolygon
         handle = os.path.split(tif_to_process)[1].replace('.tif', '')
