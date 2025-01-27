@@ -8,14 +8,16 @@ import traceback
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from os.path import join
-
+from dotenv import load_dotenv
 import geopandas as gpd
 import pandas as pd
 
 from heal_bridges_osm import flows_from_hydrotable
 from utils.shared_functions import progress_bar_handler
 
-
+load_dotenv('/foss_fim/src/bash_variables.env')
+DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+ALASKA_CRS = os.getenv('ALASKA_CRS')
 class HucDirectory(object):
     def __init__(self, fim_directory, huc_id, limit_branches=[]):
         self.fim_directory = fim_directory
@@ -297,9 +299,9 @@ class HucDirectory(object):
                     if bridge_pnts.crs is None:
                         # Alaska
                         if huc2Identifier == '19':
-                            bridge_pnts.set_crs('EPSG:3338', inplace=True)
+                            bridge_pnts.set_crs(ALASKA_CRS , inplace=True)
                         else:
-                            bridge_pnts.set_crs('EPSG:5070', inplace=True)
+                            bridge_pnts.set_crs(DEFAULT_FIM_PROJECTION_CRS, inplace=True)
                     bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
 
             # print(f"agg_by_huc for huc id {huc_id} is done")
