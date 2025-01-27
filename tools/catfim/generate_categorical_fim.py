@@ -1176,7 +1176,7 @@ def load_restricted_sites(is_stage_based):
     Previously, only stage based used this. It is now being used by stage-based and flow-based (1/24/25)
 
     The 'catfim_type' column can have three different values: 'stage', 'flow', and 'both'. This determines
-    whether the site should be filtered out for stage-based CatFIM, flow-based CatFIM, or both of them. 
+    whether the site should be filtered out for stage-based CatFIM, flow-based CatFIM, or both of them.
 
     Returns: a dataframe for the restricted lid and the reason why:
         'nws_lid', 'restricted_reason', 'catfim_type'
@@ -1202,7 +1202,7 @@ def load_restricted_sites(is_stage_based):
     # There are enough conditions and a low number of rows that it is easier to
     # test / change them via a for loop
     indexs_for_recs_to_be_removed_from_list = []
-        
+
     # Clean up dataframe
     for ind, row in df_restricted_sites.iterrows():
         nws_lid = row['nws_lid']
@@ -1230,10 +1230,10 @@ def load_restricted_sites(is_stage_based):
         df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
 
     # Filter df_restricted_sites by CatFIM type
-    if is_stage_based == True: # Keep rows where 'catfim_type' is either 'stage' or 'both'
+    if is_stage_based == True:  # Keep rows where 'catfim_type' is either 'stage' or 'both'
         df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['stage', 'both'])]
 
-    else: # Keep rows where 'catfim_type' is either 'flow' or 'both'
+    else:  # Keep rows where 'catfim_type' is either 'flow' or 'both'
         df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['flow', 'both'])]
 
     # Remove catfim_type column

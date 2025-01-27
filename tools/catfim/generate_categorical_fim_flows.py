@@ -133,9 +133,7 @@ def generate_flows_for_huc(
 
             # Assume only one rec for now, fix later
             if len(found_restrict_lid) > 0:
-                reason = found_restrict_lid.iloc[
-                    0, found_restrict_lid.columns.get_loc("restricted_reason")
-                ]
+                reason = found_restrict_lid.iloc[0, found_restrict_lid.columns.get_loc("restricted_reason")]
                 msg = ':' + reason
                 all_messages.append(lid + msg)
                 MP_LOG.warning(huc_lid_id + msg)
