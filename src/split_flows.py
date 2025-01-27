@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
 
+import argparse
+import sys
+from collections import OrderedDict
+from os import remove
+from os.path import isfile
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio
+from shapely import ops, wkt
+from shapely.geometry import LineString, Point
+from shapely.ops import split as shapely_ops_split
+
+import build_stream_traversal
+from utils.fim_enums import FIM_exit_codes
+from utils.shared_functions import getDriver
+from utils.shared_variables import FIM_ID
+
+
+gpd.options.io_engine = "pyogrio"
+
 '''
 Description
 
@@ -49,45 +71,10 @@ Description
 
 '''
 
-import argparse
-import sys
-from collections import OrderedDict
-from os import remove
-from os.path import isfile
+# --------------------------------------------------------------
+# Define functions
 
-import geopandas as gpd
-import numpy as np
-import pandas as pd
-import rasterio
-from shapely import ops, wkt
-from shapely.geometry import LineString, Point
-from shapely.ops import split as shapely_ops_split
-
-import build_stream_traversal
-from utils.fim_enums import FIM_exit_codes
-from utils.shared_functions import getDriver
-from utils.shared_variables import FIM_ID
-
-
-gpd.options.io_engine = "pyogrio"
-
-
-def split_flows(
-    flows_filename,
-    dem_filename,
-    split_flows_filename,
-    split_points_filename,
-    wbd8_clp_filename,
-    lakes_filename,
-    nwm_streams_filename,
-    max_length,
-    slope_min,
-    lakes_buffer_input,
-):
-    # --------------------------------------------------------------
-    # Define functions
-
-    def snap_and_trim_flow(snapped_point, flows):
+def snap_and_trim_flow(snapped_point, flows):
         # Find the flowline nearest to the snapped point (if there's multiple flowlines)
         if len(flows) > 1:
             sjoin_nearest = gpd.sjoin_nearest(snapped_point, flows, max_distance=100)
@@ -139,6 +126,19 @@ def split_flows(
 
         return flows
 
+
+def split_flows(
+    flows_filename,
+    dem_filename,
+    split_flows_filename,
+    split_points_filename,
+    wbd8_clp_filename,
+    lakes_filename,
+    nwm_streams_filename,
+    max_length,
+    slope_min,
+    lakes_buffer_input,
+):
     # --------------------------------------------------------------
     # Read in data and set constants
 
@@ -219,6 +219,7 @@ def split_flows(
                 # Identify the end vertex (most downstream, should be last), transform into geodataframe
                 terminal_nwm_point = []
                 last = Point(linestring_geo.coords[-1])
+
                 terminal_nwm_point.append({'ID': 'terminal', 'geometry': last})
                 snapped_point = gpd.GeoDataFrame(terminal_nwm_point).set_crs(nwm_streams.crs)
 
@@ -226,7 +227,7 @@ def split_flows(
 
                 # Snap and trim the flowline to the snapped point
                 flows = snap_and_trim_flow(snapped_point, flows)
-
+                
             del snapped_point
         del nwm_streams_terminal
 
@@ -234,11 +235,13 @@ def split_flows(
 
     # Split stream segments at HUC8 boundaries
     print('Splitting stream segments at HUC8 boundaries...')
+
     flows = (
-        gpd.overlay(flows, wbd8, how='union', keep_geom_type=True)
+        gpd.overlay(flows, wbd8, how='union', keep_geom_type=True) # 
         .explode(index_parts=True)
         .reset_index(drop=True)
     )
+
     flows = flows[~flows.is_empty]
 
     # Make sure flows object doesn't have a length of zero

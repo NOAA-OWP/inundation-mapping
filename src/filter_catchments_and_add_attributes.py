@@ -36,14 +36,46 @@ def filter_catchments_and_add_attributes(
 
     del input_flows
 
-    if output_flows.HydroID.dtype != 'int':
-        output_flows.HydroID = output_flows.HydroID.astype(int)
+    gdf_out = output_flows.copy()
 
-    if len(output_flows) > 0:
+    #Finding streams that drain out of the watershed (to a lake)
+    gdf_out['NextDownID'] = gdf_out['NextDownID'].astype(int)
+    gdf_out['HydroID'] = gdf_out['HydroID'].astype(int)
+    streams_to_lake = gdf_out[gdf_out['NextDownID'] == -1]
+
+    # Finding streams that do NOT have upstream branch
+    nextDownId_set = set(gdf_out['NextDownID'])
+    streams_no_upstream = streams_to_lake[~streams_to_lake['HydroID'].isin(nextDownId_set)]
+
+    # Finding those that they are super tiny
+    streams_no_upstream_tiny = streams_no_upstream[streams_no_upstream['LengthKm']<0.02]
+
+    # Get the index of streams_no_upstream_tiny
+    indices_to_remove = streams_no_upstream_tiny.index
+
+    # Remove streams that are in streams_no_upstream_tiny using index difference
+    output_flows_filtered = gdf_out.loc[gdf_out.index.difference(indices_to_remove)]
+
+    # Remove streams smaller than one meter
+    output_flows_filtered = output_flows_filtered[output_flows_filtered['LengthKm']>0.001]
+
+    # # Finding streams that have upstream branch
+    # nextDownId_set = set(gdf_out['NextDownID'])
+    # # Select rows where ID is in the DownID set
+    # streams_w_upstream = gdf_out[gdf_out['ID'].isin(nextDownId_set)]
+    # #Finding streams with upstream branch that drain out of the watershed
+    # streams_w_upstream_to_lake = streams_w_upstream[streams_w_upstream['NextDownID']==-1]
+    # #Finding streams that do not drain out of the watershed
+    # streams_not_to_lake = gdf_out[gdf_out['NextDownID']!=-1]
+
+    if output_flows_filtered.HydroID.dtype != 'int':
+        output_flows_filtered.HydroID = output_flows_filtered.HydroID.astype(int)
+
+    if len(output_flows_filtered) > 0:
         # merges input flows attributes and filters hydroids
         if input_catchments.HydroID.dtype != 'int':
             input_catchments.HydroID = input_catchments.HydroID.astype(int)
-        output_catchments = input_catchments.merge(output_flows.drop(['geometry'], axis=1), on='HydroID')
+        output_catchments = input_catchments.merge(output_flows_filtered.drop(['geometry'], axis=1), on='HydroID')
 
         # filter out smaller duplicate features
         duplicateFeatures = np.where(np.bincount(output_catchments['HydroID']) > 1)[0]
@@ -62,7 +94,7 @@ def filter_catchments_and_add_attributes(
                 output_catchments.to_file(
                     output_catchments_filename, driver="GPKG", index=False, engine='fiona'
                 )
-                output_flows.to_file(output_flows_filename, driver="GPKG", index=False, engine='fiona')
+                output_flows_filtered.to_file(output_flows_filename, driver="GPKG", index=False, engine='fiona')
             except ValueError:
                 # this is not an exception, but a custom exit code that can be trapped
                 print("There are no flowlines in the HUC after stream order filtering.")
