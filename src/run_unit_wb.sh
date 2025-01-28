@@ -49,8 +49,10 @@ echo -e $startDiv"Copying staged wbd and .gpkg files from $pre_clip_huc_dir/$huc
 cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 
 #temporarily for debugging
-cp "data/inputs/osm/bridges/250102/osm_bridges_02050206.gpkg" "$tempHucDataDir/osm_bridges_subset.gpkg"
+#cp "data/inputs/osm/bridges/250102/osm_bridges_02050206.gpkg" "$tempHucDataDir/osm_bridges_subset.gpkg"
 #cp "data/inputs/osm/bridges/250102/osm_bridges_19020201.gpkg" "$tempHucDataDir/osm_bridges_subset.gpkg"
+cp "data/inputs/osm/bridges/250102/osm_bridges_19020302.gpkg" "$tempHucDataDir/osm_bridges_subset.gpkg"
+
 
 # Copy necessary files from $inputsDir into $tempHucDataDir to avoid File System Collisions
 # For buffer_stream_branches.py
@@ -146,8 +148,8 @@ gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res $input_DEM $tempHucDataDir/dem_meters.tif
 
-# Clip the bridge elevation diff raster (DEM_diff)
-gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" \
+# Clip the bridge elevation diff raster (DEM_diff). Used 'near' to make sure neighboring cells do not get any interpolated value
+gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
     -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res $input_bridge_elev_diff $tempHucDataDir/bridge_elev_diff_meters.tif
 }
