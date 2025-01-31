@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2025-01-24 - [PR#1404]https://github.com/NOAA-OWP/inundation-mapping/pull/1404
+## v4.5.14.4 - 2025-01-31 - [PR#1404]https://github.com/NOAA-OWP/inundation-mapping/pull/1404
 
 This PR resolves warnings when running aggregate_by_huc.py with the bridge_flag option. The warnings happened because the GeoPandas read_file method does not support a dtype argument when reading GeoPackages. This PR also, modifies aggregate_by_huc.py to set the CRS for osm_bridge_points.gpkg. It will only set the CRS if the file does not already have a CRS defined.
 
