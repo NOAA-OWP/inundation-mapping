@@ -11,9 +11,32 @@ This PR improves the current HUC processing duration system by saving the proces
 ### Changes
 - `src/run_unit_wb.sh` : Recorded the processing time for branch 0 and saved a separate file for each huc.
 - `fim_post_processing.sh`: Added new lines to execute the new script.
+## v4.5.14.4 - 2025-01-31 - [PR#1404]https://github.com/NOAA-OWP/inundation-mapping/pull/1404
+
+This PR resolves warnings when running aggregate_by_huc.py with the bridge_flag option. The warnings happened because the GeoPandas read_file method does not support a dtype argument when reading GeoPackages. This PR also, modifies aggregate_by_huc.py to set the CRS for osm_bridge_points.gpkg. It will only set the CRS if the file does not already have a CRS defined.
+
+### Changes
+
+- `src/aggregate_by_huc.py`: Apply specific data types after reading the file and set a CRS for osm_bridge_points.gpkg.
 
 <br/><br/>
 
+
+## v4.5.14.3 - 2025-01-31 - [PR#1413](https://github.com/NOAA-OWP/inundation-mapping/pull/1413)
+
+Implements a denylist for flow-based CatFIM (that uses the same conventions as the existing denylist functionality used in stage-based CatFIM. Adds CMUG1 to the denylist for flow-based CatFIM. 
+
+### Additions
+- `tools/catfim/ahps_restricted_sites.csv`: Renamed from `stage_based_ahps_restricted_sites.csv`. Added an additional column, `catfim_type`, that specifies whether a site should be restricted for flow-based CatFIM (`flow`), stage-based CatFIM (`stage`), or both (`both`).
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Update the `load_restricted_sites()` function to handle restricted sites for both flow- and stage-based CatFIM.
+- `tools/catfim/generate_categorical_fim_flows.py`: Add restricted sites filtration to flow-based CatFIM processing. 
+
+### Removals
+- `tools/catfim/stage_based_ahps_restricted_sites.csv`: Renamed to `ahps_restricted_sites.csv`
+
+<br/><br/>
 
 ## v4.5.14.2 - 2025-01-24 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
 
