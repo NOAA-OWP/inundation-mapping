@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.14.5 - 2025-01-31 - [PR#1401](https://github.com/NOAA-OWP/inundation-mapping/pull/1401)
+
+This PR improves the current HUC processing duration system by saving the processing time for each HUC separately. This helps prevent collisions that can happen during parallel processing and ensures more accurate, comprehensive results. The new Python script reads all the processing time files and combines them into a CSV. It also adds a summary line at the end with the total runtime, as well as the number of HUCs and branches.
+
+### Additions
+- `src/duration_system.py`: This is a new script that reads duration files for each huc and concatenates them into a csv.
+
+### Changes
+- `src/run_unit_wb.sh` : Recorded the processing time for branch 0 and saved a separate file for each huc.
+- `fim_post_processing.sh`: Added new lines to execute the new script.
+
+<br/><br/>
+
+
 ## v4.5.14.4 - 2025-01-31 - [PR#1404]https://github.com/NOAA-OWP/inundation-mapping/pull/1404
 
 This PR resolves warnings when running aggregate_by_huc.py with the bridge_flag option. The warnings happened because the GeoPandas read_file method does not support a dtype argument when reading GeoPackages. This PR also, modifies aggregate_by_huc.py to set the CRS for osm_bridge_points.gpkg. It will only set the CRS if the file does not already have a CRS defined.
@@ -164,6 +178,7 @@ Updates Python packages to resolve dependency conflicts that were preventing `Do
 - `Pipfile` and `Pipfile.lock`: Upgrades Python packages
 
 <br/><br/>
+
 
 
 ## v4.5.13.4 - 2024-01-03 - [PR#1382](https://github.com/NOAA-OWP/inundation-mapping/pull/1382)
