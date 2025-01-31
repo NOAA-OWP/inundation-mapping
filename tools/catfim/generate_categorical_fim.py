@@ -1191,7 +1191,7 @@ def load_restricted_sites(is_stage_based):
     df_restricted_sites['nws_lid'].fillna("", inplace=True)
     df_restricted_sites['restricted_reason'].fillna("", inplace=True)
     df_restricted_sites['catfim_type'].fillna("", inplace=True)
-    
+
     # remove extra empty spaces on either side of all cellls
     df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.strip()
     df_restricted_sites['restricted_reason'] = df_restricted_sites['restricted_reason'].str.strip()
