@@ -254,23 +254,23 @@ def produce_stage_based_lid_tifs(
             # Sum rasters
             summed_array = summed_array + remaining_raster_array
 
-        # # Read in waterbodies geopackage # TODO: Remove this section?
-        # preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Get path from variables? 
-        # preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+        # Read in waterbodies geopackage # TODO: Remove this section?
+        preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Get path from variables? 
+        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
 
-        # # Create a binary raster using the shapefile geometry
-        # lake_mask = geometry_mask(preclip_lakes_gdf.geometry, transform=zero_branch_src.transform, invert=False, out_shape=(zero_branch_src.height, zero_branch_src.width))
+        # Create a binary raster using the shapefile geometry
+        lake_mask = geometry_mask(preclip_lakes_gdf.geometry, transform=zero_branch_src.transform, invert=False, out_shape=(zero_branch_src.height, zero_branch_src.width))
 
-        # # Set values within the lake geometry to zero, masking them out of the FIM
-        # summed_masked_array = summed_array * lake_mask
+        # Set values within the lake geometry to zero, masking them out of the FIM
+        summed_masked_array = summed_array * lake_mask
 
-        del zero_branch_array  # Clean up
+        del zero_branch_array, summed_array  # Clean up
 
         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
         profile = zero_branch_src.profile
-        summed_array = summed_array.astype('uint8')
+        summed_masked_array = summed_masked_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
-            dst.write(summed_array, 1)
+            dst.write(summed_masked_array, 1)
             MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
 
         # For space reasons, we need to delete all of the intermediary files such as:
