@@ -66,6 +66,7 @@ def generate_flows_for_huc(
     nwm_flows_df,
     parent_log_output_file,
     child_log_file_prefix,
+    df_restricted_sites,
 ):
 
     try:
@@ -126,6 +127,17 @@ def generate_flows_for_huc(
 
             # Convert lid to lower case
             lid = lid.lower()
+
+            # Check whether LID is in the restricted sites list
+            found_restrict_lid = df_restricted_sites.loc[df_restricted_sites['nws_lid'] == lid.upper()]
+
+            # Assume only one rec for now, fix later
+            if len(found_restrict_lid) > 0:
+                reason = found_restrict_lid.iloc[0, found_restrict_lid.columns.get_loc("restricted_reason")]
+                msg = ':' + reason
+                all_messages.append(lid + msg)
+                MP_LOG.warning(huc_lid_id + msg)
+                continue
 
             # TODO:  Jun 17, 2024 - This gets recalled for every huc but only uses the nws_list.
             # Move this somewhere outside the huc list so it doesn't need to be called over and over again
@@ -363,6 +375,7 @@ def generate_flows(
     lst_hucs,
     nwm_metafile,
     log_output_file,
+    df_restricted_sites,
 ):
 
     # TODO; Most docstrings like this are now very outdated and need updating
@@ -509,6 +522,7 @@ def generate_flows(
                 nwm_flows_region_df,
                 log_output_file,
                 child_log_file_prefix,
+                df_restricted_sites,
             )
     # end ProcessPoolExecutor
 
