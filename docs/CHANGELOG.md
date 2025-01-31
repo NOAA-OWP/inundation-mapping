@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.___ - 2025-____ - [PR#1413](https://github.com/NOAA-OWP/inundation-mapping/pull/1413)
+## v4.5.14.3 - 2025-01-31 - [PR#1413](https://github.com/NOAA-OWP/inundation-mapping/pull/1413)
 
 Implements a denylist for flow-based CatFIM (that uses the same conventions as the existing denylist functionality used in stage-based CatFIM. Adds CMUG1 to the denylist for flow-based CatFIM. 
 
