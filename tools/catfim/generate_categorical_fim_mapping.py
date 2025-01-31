@@ -17,7 +17,7 @@ import pandas as pd
 import rasterio
 from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
-from rasterio.features import shapes
+from rasterio.features import shapes, geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
@@ -196,7 +196,6 @@ def produce_stage_based_lid_tifs(
         zero_branch_grid = path_list[0]
         zero_branch_src = rasterio.open(zero_branch_grid)
         zero_branch_array = zero_branch_src.read(1)
-        # zero_branch_array.nodata = 0
         summed_array = zero_branch_array  # Initialize it as the branch zero array
 
         output_tif = os.path.join(lid_directory, lid + '_' + category_key + '_extent.tif')
@@ -218,8 +217,7 @@ def produce_stage_based_lid_tifs(
                 src_crs=remaining_raster_src.crs,
                 src_nodata=remaining_raster_src.nodata,
                 dst_transform=zero_branch_src.transform,
-                dst_crs=zero_branch_src.crs,  # TODO: Accomodate AK projection?
-                # dst_nodata=-1,
+                dst_crs=zero_branch_src.crs,
                 dst_nodata=0,
                 dst_resolution=zero_branch_src.res,
                 resampling=Resampling.nearest,
@@ -227,15 +225,24 @@ def produce_stage_based_lid_tifs(
             # Sum rasters
             summed_array = summed_array + remaining_raster_array
 
-        del zero_branch_array  # Clean up
+        # Read in waterbodies geopackage
+        preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Get path from variables? 
+        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+
+        # Create a binary raster using the shapefile geometry
+        lake_mask = geometry_mask(preclip_lakes_gdf.geometry, transform=zero_branch_src.transform, invert=False, out_shape=(zero_branch_src.height, zero_branch_src.width))
+
+        # Set values within the lake geometry to zero, masking them out of the FIM
+        summed_masked_array = summed_array * lake_mask
+
+        del zero_branch_array, summed_array  # Clean up
 
         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
         profile = zero_branch_src.profile
-        summed_array = summed_array.astype('uint8')
+        summed_masked_array = summed_masked_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
-            dst.write(summed_array, 1)
+            dst.write(summed_masked_array, 1)
             MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
-        #     del summed_array
 
         # For space reasons, we need to delete all of the intermediary files such as:
         #    Stage: grmn3_action_extent_0.tif, grmn3_action_extent_1933000003.tif. The give aways are a number before
@@ -899,13 +906,9 @@ def reformat_inundation_maps(
 
         # Convert list of shapes to polygon
         # lots of polys
-        # extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code
         extent_poly = gpd.GeoDataFrame.from_features(
             list(results), crs=src.crs
-        )  # Updating to fix AK proj issue, worked for CONUS and for AK!
-
-        # extent_poly = gpd.GeoDataFrame.from_features(list(results))  # Updated to accomodate AK projection
-        # extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
+        ) 
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
