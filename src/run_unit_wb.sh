@@ -128,6 +128,8 @@ $srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths
     -o $branch_list_lst_file
 
 ## CREATE BRANCH ZERO ##
+branch0_start_time=`date +%s`
+
 echo -e $startDiv"Creating branch zero for $hucNumber"
 tempCurrentBranchDataDir=$tempBranchDataDir/$branch_zero_id
 
@@ -304,6 +306,9 @@ $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branch_zero_lis
 ## Start the local csv branch list
 $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
 
+branch0=$(Calc_Time $branch0_start_time)
+branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
+
 # -------------------
 ## Processing Branches ##
 echo
@@ -322,6 +327,9 @@ else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
 
+branches=$(Calc_Time $branch_processing_start_time)
+branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
+
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"
@@ -334,10 +342,10 @@ fi
 echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration "Duration for processing branches : " $branch_processing_start_time
 #echo
-
+total_branches=$(wc -l < $branch_list_csv_file)
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
-total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time)"
-echo "$total_duration_display" >> "$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv"
+total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
+echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"
