@@ -22,11 +22,10 @@ DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
-
-
 # Save all OSM bridge features by HUC8 to a specified folder location.
 # Bridges will have point geometry converted to linestrings if needed
-#
+
+
 # Dissolve touching lines
 def find_touching_groups(gdf):
     # Create a graph
@@ -88,7 +87,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         # Check if 'railway' column exists
         if 'railway' not in gdf.columns:
             gdf['railway'] = None
-    
+
         if 'highway' not in gdf.columns:
             gdf['lanes'] = None
 
@@ -101,7 +100,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             axis=1,
         )
         gdf.reset_index(inplace=True)
-        
+
         # Remove abandoned bridges
         gdf = gdf[gdf['bridge'] != 'abandoned']
 
@@ -216,7 +215,7 @@ def combine_huc_features(output_dir):
 
         alaska_all_bridges_gdf.reset_index(inplace=True)
         alaska_osm_bridge_file = os.path.join(output_dir, "alaska_osm_bridges.gpkg")
-        
+
         logging.info(f"Writing Alaska bridge lines: {alaska_osm_bridge_file}")
         alaska_all_bridges_gdf.to_file(alaska_osm_bridge_file, driver="GPKG", index=False)
 
@@ -285,7 +284,6 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs, lst_hucs):
     logging.info(f"WBD rec count is {len(huc8s_all)} (pre-filtering if applicable)")
     section_time = dt.datetime.now(dt.timezone.utc)
     logging.info(f"WBD Loaded: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
-
 
     # If filtering hucs coming in, use it, if not ocntinue
     if lst_hucs == '':  # process all
@@ -407,28 +405,27 @@ def __setup_logger(outputs_dir):
 
 
 if __name__ == "__main__":
-    
-    
+
     '''
     Sample usage (min params):
         python3 /foss_fim/data/bridges/pull_osm_bridges.py
             -w /data/inputs/wbd/WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg
             -p /data/inputs/osm/bridges/20250129/
             -j 4
-            -lh '01010002 12090301' 
+            -lh '01010002 12090301'
 
         ** The -lh flg is an optional list of HUC8 if you want to process just those hucs
            if you want all HUC8s in the WBD you submit, leave this arg off
 
     Notes:
         - Note: Jan 2025: use the -w flag as the WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg.
-          It is the full HUC8 WBD layer, but removed all of the 22x, some of the 20x and 21x, 
+          It is the full HUC8 WBD layer, but removed all of the 22x, some of the 20x and 21x,
           removed North Alaska, keeping just the South Alaska we need, plus some stray unneeded HUCs.
           It has not been fully cleaned against our included_huc8_withAlaska.lst as this gpkg
-          has some extras but that is ok for now untili we clean it more. 
-          Why the cleaned .gpkg file? we use it in ohter places and it keeps the 
+          has some extras but that is ok for now untili we clean it more.
+          Why the cleaned .gpkg file? we use it in ohter places and it keeps the
           size and processing time down.
-    
+
         - This tool is meant to pull down all the Open Street Map bridge data for CONUS as a
         precursor to the bridge healing pre-processing (so, a pre-pre-processing step).
         It should be run only as often as the user thinks OSM has had any important updates.
@@ -472,10 +469,10 @@ if __name__ == "__main__":
         '-lh',
         '--lst_hucs',
         help='OPTIONAL: Space-delimited list of HUCs to which can be used to filter osm bridge processing.'
-            ' Defaults to all HUC8s in the WBD input file.',
+        ' Defaults to all HUC8s in the WBD input file.',
         required=False,
         default='',
-    )    
+    )
 
     args = vars(parser.parse_args())
 
