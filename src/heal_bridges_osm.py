@@ -33,7 +33,7 @@ def process_non_lidar_osm(osm_gdf, source_hand_raster, non_lidar_buffer):
             hand_grid_array,
             affine=hand_grid.transform,
             stats="max",
-            nodata=-999,
+            nodata=hand_grid_profile["nodata"],
         )
         # pull the values out of the geopandas columns so we can use them as floats
         non_lidar_osm_gdf['threshold_hand'] = [x.get('max') for x in stats]
@@ -90,7 +90,7 @@ def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_d
         updated_hand_grid_array,
         affine=hand_grid_profile['transform'],
         stats="median",
-        nodata=-999,
+        nodata=hand_grid_profile["nodata"],
     )
     lidar_osm_gdf['threshold_hand'] = [x.get('median') for x in stats]
 
