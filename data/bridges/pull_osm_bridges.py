@@ -30,7 +30,7 @@ ALASKA_CRS = os.getenv('ALASKA_CRS')
 """
 Feb 4, 2025: There are a good handful of HUCs that return no data.
 Known HUCS are:
-02060006 , 
+02060006,
 04160001, 12110102, 13020206, 13020210, 15010006, 16020303, 16020302, 16060003, 16060004, 16060006,
 16060005, 16060009, 16060011, 16060013, 16060014, 17050109, 18090201, 19020203, 20030000, 19020800
 
@@ -198,7 +198,9 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
                 os.rename(huc_bridge_file, new_name)
         except Exception as ex:
             print("---------------")
-            logging.critical(f"Unable to delete {huc_bridge_file} for huc {huc_num} to add '_bad' in file name")
+            logging.critical(
+                f"Unable to delete {huc_bridge_file} for huc {huc_num} to add '_bad' in file name"
+            )
             print(ex)
 
         return huc_num
@@ -454,12 +456,12 @@ if __name__ == "__main__":
     New Feature: Jan 31, 2025:
         Scenerio:
         You run a full WBD and let's say 3 HUCs failed for whatever reasons, let's say two failed for
-        timeouts. 
+        timeouts.
 
         Now, the successfully processed HUCs gpkgs stay in the folder. We no longer remove them. The ones
         that failed first time, we renamed to have the word "bad.gkpg". That convention means the "bad" ones
-        fall out and are not included in the final HUC rollup gpkg. 
-        
+        fall out and are not included in the final HUC rollup gpkg.
+
         Now, with the ability to an new input arg for just specific HUCs to be processed, you can
         re-run this tool with no changes but use the "-lh" flag to run just those specific HUCs
         you want to retry ie) the failed ones that are eligible for re-run.

@@ -472,7 +472,7 @@ if __name__ == '__main__':
 
       - Keep the job numbers low, too many of them can result in incompleted downloads for a HUC
 
-      - It is very common for not all DEMs to not all download correctly on each pass. 
+      - It is very common for not all DEMs to not all download correctly on each pass.
         Review the output files and the logs so you know which are missing. Delete the ones in the outputs
         that are in error. Then run the tool again wihth the -r flag (repair) which will fill in the wholes
 
@@ -488,7 +488,6 @@ if __name__ == '__main__':
       - Each output file will be the name of the input poly plus "_dem.tif". ie) if the wbd gpkg
         is named named "HUC8_12090301", then the output file name will be "HUC8_12090301_dem.tif"
         Or depends what file name you sent in for the boundary: ie) HUC6_120903 becomes HUC6_120903_dem.tif
-      
 
     IMPORTANT:
     (Sept 2022): we do not process HUC8 of 22x (misc US pacific islands).
@@ -500,7 +499,7 @@ if __name__ == '__main__':
     A separate output directory will be keep for South Alaska and will use EPSG:3338 versus the FIM
     default of EPSG:5070
 
-    (Update Jan 2025): In previous runs, pre Alaska, gpkg's from HUC6_5070 were feed in as an arg. This 
+    (Update Jan 2025): In previous runs, pre Alaska, gpkg's from HUC6_5070 were feed in as an arg. This
     resulted in creating 5070 DEMS for all fim related for HUC6 which included all of AK. However,
     now Alaska has been pulled out and we run this acquire script just for AK. As now, I (Rob) will
     manually delete all of the 19x gpkg files from the HUC6_5070 to help with confusion for the next time
