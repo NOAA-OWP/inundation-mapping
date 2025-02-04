@@ -17,13 +17,25 @@ from networkx import Graph, connected_components
 from shapely.geometry import LineString, shape
 
 
-load_dotenv('/foss_fim/src/bash_variables.env')
+# ox.settings.requests_timeout = 600  # Set timeout to 10 minutes (300 seconds)
+srcDir = os.getenv('srcDir')
+load_dotenv(f'{srcDir}/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
 # Save all OSM bridge features by HUC8 to a specified folder location.
 # Bridges will have point geometry converted to linestrings if needed
+
+"""
+Feb 4, 2025: There are a good handful of HUCs that return no data.
+Known HUCS are:
+02060006 , 
+04160001, 12110102, 13020206, 13020210, 15010006, 16020303, 16020302, 16060003, 16060004, 16060006,
+16060005, 16060009, 16060011, 16060013, 16060014, 17050109, 18090201, 19020203, 20030000, 19020800
+
+NOTE: 02060006 is a weird one and times out even after 10 mins. Most are back in secondse
+"""
 
 
 # Dissolve touching lines
@@ -88,9 +100,6 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         if 'railway' not in gdf.columns:
             gdf['railway'] = None
 
-        if 'highway' not in gdf.columns:
-            gdf['lanes'] = None
-
         # Create the bridge_type column by combining above information
         gdf['HUC8'] = huc_num
         gdf['bridge_type'] = gdf.apply(
@@ -102,6 +111,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         gdf.reset_index(inplace=True)
 
         # Remove abandoned bridges
+        # gdf = gdf[gdf['bridge'] != 'abandoned' and gdf['highway' != 'abandoned'] and gdf['railway' != 'abandoned']]
         gdf = gdf[gdf['bridge'] != 'abandoned']
 
         cols_to_drop = []
@@ -109,8 +119,12 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             if any(isinstance(val, list) for val in gdf[col]):
                 cols_to_drop.append(col)
 
-        # This a common and know duplicate column name (and others)
+        # This a common and know duplicate column name (and others) (yes.. id can be a dup).
+        # Each returning dataset from OSM can and almost always does have different schemas - crazy
         bad_column_names = [
+            "id",
+            "fid",
+            "ID",
             "fixme",
             "FIXME",
             "NYSDOT_ref",
@@ -172,8 +186,9 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         return ""
 
     except Exception:
-        logging.info(f"**** ERROR: Couldn't write {huc_num}")
-        logging.info(traceback.format_exc())
+        print("---------------")
+        logging.critical(f"**** ERROR: Couldn't write {huc_num}")
+        logging.critical(traceback.format_exc())
 
         try:
             # rename and we can filter it out later. Even it fails sometimes
@@ -182,7 +197,8 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
                 new_name = huc_bridge_file.replace(".gpkg", "_bad.gpkg")
                 os.rename(huc_bridge_file, new_name)
         except Exception as ex:
-            print(f"Unable to delete {huc_bridge_file} for huc {huc_num} to add '_bad' in file name")
+            print("---------------")
+            logging.critical(f"Unable to delete {huc_bridge_file} for huc {huc_num} to add '_bad' in file name")
             print(ex)
 
         return huc_num
@@ -210,7 +226,7 @@ def combine_huc_features(output_dir):
             [gpd.read_file(gpkg) for gpkg in alaska_bridge_file_names], ignore_index=True
         )
         alaska_all_bridges_gdf = alaska_all_bridges_gdf_raw[
-            ['osmid', 'name', 'bridge_type', 'lanes', 'HUC8', 'geometry']
+            ['osmid', 'name', 'bridge_type', 'HUC8', 'geometry']
         ]
 
         alaska_all_bridges_gdf.reset_index(inplace=True)
@@ -434,6 +450,23 @@ if __name__ == "__main__":
 
         - Each HUC8's worth of OSM bridge features is saved out individually, then merged together
         into one.
+
+    New Feature: Jan 31, 2025:
+        Scenerio:
+        You run a full WBD and let's say 3 HUCs failed for whatever reasons, let's say two failed for
+        timeouts. 
+
+        Now, the successfully processed HUCs gpkgs stay in the folder. We no longer remove them. The ones
+        that failed first time, we renamed to have the word "bad.gkpg". That convention means the "bad" ones
+        fall out and are not included in the final HUC rollup gpkg. 
+        
+        Now, with the ability to an new input arg for just specific HUCs to be processed, you can
+        re-run this tool with no changes but use the "-lh" flag to run just those specific HUCs
+        you want to retry ie) the failed ones that are eligible for re-run.
+
+        I will re-run those hucs, but then fully recalc the final outputs gpkgs, so now you have a
+        correct final gpkg with the originally successful plus the new re-submitted ones.
+
     '''
 
     parser = argparse.ArgumentParser(description='Acquires and saves Open Street Map bridge features')
@@ -480,6 +513,6 @@ if __name__ == "__main__":
         process_osm_bridges(**args)
 
     except Exception:
-        logging.info(traceback.format_exc())
+        logging.critical(traceback.format_exc())
         end_time = dt.datetime.now(dt.timezone.utc)
-        logging.info(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        logging.critical(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
