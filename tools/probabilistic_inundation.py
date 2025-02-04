@@ -2,12 +2,14 @@ import argparse
 import ast
 import gc
 import os
+import shutil
 import sys
 import traceback
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from glob import glob
-from typing import Tuple
+from typing import Dict, Tuple, Union
 
+import gval
 import numpy as np
 import pandas as pd
 import rioxarray as rxr
@@ -52,6 +54,15 @@ def get_fim_probability_distributions(
 
     if posterior_dist is None:
 
+        # # Default weibull likelihood for channel manning roughness
+        # channel_dist = weibull_min(c=2.5, scale=.0317, loc=.032)
+        #
+        # # Default weibull likelihood for overbank manning roughness
+        # obank_dist = weibull_min(c=7, scale=.07, loc=.05)
+        #
+        # # Default weibull likelihood for slope adjustment
+        # slope_dist = weibull_min(c=2.5, scale=.015, loc=-.125)
+
         # Default gamma likelihood for channel manning roughness
         a = 6
         loc = 0.02
@@ -80,17 +91,127 @@ def get_fim_probability_distributions(
     return channel_dist, obank_dist, slope_dist
 
 
+def generate_streamflow_percentiles(
+    feature: int, ensembles: xr.Dataset, forecast_time: np.datetime64, params_weibull: pd.DataFrame
+) -> Dict[str, Union[int, float]]:
+    """
+    Calculates Percentiles for the streamflow distribution
+
+    Parameters
+    ----------
+    feature : int
+        ID of feature to process
+    ensembles : xr.Dataset
+        NWM medium range ensembles
+    forecast_time : np.datetime64
+        Forecast time to slice
+    params_weibull : pd.DataFrame
+        Parameters for features
+
+    Returns
+    -------
+    dict
+        Dictionary of percentiles for streamflow distribution and feature_id
+    """
+
+    # Distributions
+    dist_dict = {
+        "expon": expon,
+        "gamma": gamma,
+        "genextreme": genextreme,
+        "genpareto": genpareto,
+        "gumbel_r": gumbel_r,
+        "kappa": kappa4,
+        "pearson3": pearson3,
+        "norm": norm,
+        "weibull_min": weibull_min,
+    }
+
+    ensemble_forecast = ensembles.sel(
+        {'time': forecast_time, 'feature_id': feature, 'member': ['1', '2', '3', '4', '5', '6']}
+    )['streamflow']
+
+    if int(feature) not in params_weibull.index:
+        return {
+            'feature_id': int(feature),
+            '90': float(ensemble_forecast.sel({'member': '1'})),
+            '75': float(ensemble_forecast.sel({'member': '1'})),
+            '50': float(ensemble_forecast.sel({'member': '1'})),
+            '25': float(ensemble_forecast.sel({'member': '1'})),
+            '10': float(ensemble_forecast.sel({'member': '1'})),
+        }
+    else:
+        parameters = params_weibull.loc[int(feature)]
+
+    # Create probability distribution
+    params = ast.literal_eval(parameters['parameters'])
+
+    params['size'] = 16071
+
+    try:
+        r = dist_dict[parameters['distribution_name']].rvs(**params)
+    except Exception:
+
+        return {
+            'feature_id': int(feature),
+            '90': float(ensemble_forecast.sel({'member': '1'})),
+            '75': float(ensemble_forecast.sel({'member': '1'})),
+            '50': float(ensemble_forecast.sel({'member': '1'})),
+            '25': float(ensemble_forecast.sel({'member': '1'})),
+            '10': float(ensemble_forecast.sel({'member': '1'})),
+        }
+
+    # Sort values and apply weibull exceedance estimates
+    sorted_r = np.sort(r)
+
+    weibull_prob_estimates = [1 - (i / (16071 + 1)) for i in range(16071)]
+
+    # Get weibull estimates for each ensemble
+    likelihoods = np.squeeze(np.interp(ensemble_forecast.values, sorted_r, weibull_prob_estimates))
+
+    # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
+    # (In place of assessing a final distribution for the time being)
+    scaled_likelihoods = likelihoods / np.sum(likelihoods) * np.linspace(1, 0.9, 6) * 10000
+
+    # Create data to fit truncated exponential distribution
+    values = []
+    for value, scale in zip(ensemble_forecast.values, scaled_likelihoods):
+        values.append(np.repeat(value, int(scale)))
+
+    streamflow_expon_values = np.hstack(values).ravel()
+
+    if not np.all(streamflow_expon_values == streamflow_expon_values[0]):
+
+        b, loc, scale = truncexpon.fit(streamflow_expon_values, loc=np.min(streamflow_expon_values))
+
+        # Generate 10000 random values from distribution
+        final_values = truncexpon.rvs(b=b, loc=loc, scale=scale, size=10000)
+
+    else:
+        final_values = np.repeat(streamflow_expon_values[0], 10000)
+
+    # Get percentiles of streamflow
+    return {
+        'feature_id': int(feature),
+        '90': np.max([0, np.percentile(final_values, 10)]),
+        '75': np.max([0, np.percentile(final_values, 25)]),
+        '50': np.max([0, np.percentile(final_values, 50)]),
+        '25': np.max([0, np.percentile(final_values, 75)]),
+        '10': np.max([0, np.percentile(final_values, 90)]),
+    }
+
+
 def inundate_probabilistic(
     ensembles: str,
     parameters: str,
     base_dir: str,
     huc: str,
-    output_folder_name: str,
     mosaic_prob_output_name: str,
     posterior_dist: str = None,
     day: int = 6,
     hour: int = 0,
     overwrite: bool = False,
+    num_jobs: int = 1,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
@@ -105,8 +226,6 @@ def inundate_probabilistic(
         Base directory of FIM output
     huc: str
         Huc to process probabilistic FIM
-    output_folder_name: str
-        Name of final output directory
     mosaic_prob_output_name: str
         Name of final mosaiced probabilistic FIM
     posterior_dist: str = None
@@ -143,88 +262,44 @@ def inundate_probabilistic(
     # forecast_time = ensembles.coords['reference_time'] + np.timedelta64(1, 'W')
     forecast_time = ensembles.coords['reference_time'] + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
 
-    print("forecast_time", forecast_time.values[0], day, hour)
-
     # Percentiles and data to add
     percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
     percentile_values = {'feature_id': [], '90': [], '75': [], '50': [], '25': [], '10': []}
 
-    # Distributions
-    dist_dict = {
-        "expon": expon,
-        "gamma": gamma,
-        "genextreme": genextreme,
-        "genpareto": genpareto,
-        "gumbel_r": gumbel_r,
-        "kappa": kappa4,
-        "pearson3": pearson3,
-        "norm": norm,
-        "weibull_min": weibull_min,
-    }
-
     features = ensembles.coords['feature_id']
 
     # For each feature in the provided ensembles
-    for feature in tqdm(features):
+    with ThreadPoolExecutor(max_workers=num_jobs) as executor:
+        executor_dict = {}
+        for feat in features:
 
-        ensemble_forecast = ensembles.sel(
-            {'time': forecast_time, 'feature_id': feature, 'member': ['1', '2', '3', '4', '5', '6']}
-        )['streamflow']
+            try:
+                future = executor.submit(
+                    generate_streamflow_percentiles,
+                    feature=feat,
+                    ensembles=ensembles,
+                    forecast_time=forecast_time,
+                    params_weibull=params_weibull,
+                )
+                executor_dict[future] = feat
 
-        if int(feature) not in parameters_df.index:
-            #         print('continue')
-            percentile_values['feature_id'].append(int(feature))
-            for key, val in percentiles.items():
-                percentile_values[key].append(float(ensemble_forecast.sel({'member': '3'})))
-        else:
-            parameters = params_weibull.loc[int(feature)].copy()
+            except Exception as ex:
+                print(f"*** {ex}")
+                traceback.print_exc()
+                sys.exit(1)
 
-        # Create probability distribution
-        params = ast.literal_eval(parameters['parameters'])
-        params['size'] = 16071
+        # Send the executor to the progress bar and wait for all MS tasks to finish
+        results = progress_bar_handler(
+            executor_dict, True, f"Running streamflow percentiles with {num_jobs} workers"
+        )
 
-        try:
-            r = dist_dict[parameters['distribution_name']].rvs(**params)
-        except Exception:
-            #         print('fail')
-            percentile_values['feature_id'].append(int(feature))
-            for key, val in percentiles.items():
-                percentile_values[key].append(float(ensemble_forecast.sel({'member': '3'})))
-        #     continue
-
-        # Sort values and apply weibull exceedance estimates
-        sorted_r = np.sort(r)
-
-        weibull_prob_estimates = [1 - (i / (16071 + 1)) for i in range(16071)]
-
-        # Get weibull estimates for each ensemble
-        likelihoods = np.squeeze(np.interp(ensemble_forecast.values, sorted_r, weibull_prob_estimates))
-
-        # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
-        # (In place of assessing a final distribution for the time being)
-        scaled_likelihoods = likelihoods / np.sum(likelihoods) * np.linspace(1, 0.9, 6) * 10000
-
-        # Create data to fit truncated exponential distribution
-        values = []
-        for value, scale in zip(ensemble_forecast.values, scaled_likelihoods):
-            values.append(np.repeat(value, int(scale)))
-
-        streamflow_expon_values = np.hstack(values).ravel()
-
-        if not np.all(streamflow_expon_values == streamflow_expon_values[0]):
-
-            b, loc, scale = truncexpon.fit(streamflow_expon_values, loc=np.min(streamflow_expon_values))
-
-            # Generate 10000 random values from distribution
-            final_values = truncexpon.rvs(b=b, loc=loc, scale=scale, size=10000)
-
-        else:
-            final_values = np.repeat(streamflow_expon_values[0], 10000)
-
-        # Get percentiles of streamflow
-        percentile_values['feature_id'].append(str(int(feature)))
-        for key, val in percentiles.items():
-            percentile_values[key].append(np.max([0, np.percentile(final_values, val)]))
+        for res in results:
+            percentile_values['feature_id'].append(res['feature_id'])
+            percentile_values['90'].append(res['90'])
+            percentile_values['75'].append(res['75'])
+            percentile_values['50'].append(res['50'])
+            percentile_values['25'].append(res['25'])
+            percentile_values['10'].append(res['10'])
 
     channel_dist, obank_dist, slope_dist = get_fim_probability_distributions(
         posterior_dist=posterior_dist, huc=huc
@@ -238,14 +313,14 @@ def inundate_probabilistic(
         slope_adj = slope_dist.ppf(int(percentile) / 100)
 
         # Make directories if they do not exist
+        output_folder_name = '/'.join(mosaic_prob_output_name.split('/')[:-1]).replace('./', '')
+        output_file_name = mosaic_prob_output_name.split('/')[-1]
         base_output_path = os.path.join(fim_outputs_dir, output_folder_name, str(huc))
         src_output_path = os.path.join(base_output_path, 'srcs')
 
-        if not os.path.exists(base_output_path):
-            os.makedirs(base_output_path)
-
-        if not os.path.exists(src_output_path):
-            os.makedirs(src_output_path)
+        # Create directories if they do not exist
+        os.makedirs(base_output_path, exist_ok=True)
+        os.makedirs(src_output_path, exist_ok=True)
 
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
@@ -307,7 +382,7 @@ def inundate_probabilistic(
             fim_dir=hydrofabric_dir,
             mann_n_table=manning_path,
             output_suffix=suffix,
-            number_of_jobs=8,
+            number_of_jobs=num_jobs,
             verbose=False,
             src_plot_option=False,
             process_huc=huc,
@@ -353,7 +428,7 @@ def inundate_probabilistic(
             inundation_raster=final_inundation_path,
             mask=mask_path,
             verbose=True,
-            num_workers=8,
+            num_workers=num_jobs,
         )
 
         ds = rxr.open_rasterio(final_inundation_path)
@@ -375,17 +450,23 @@ def inundate_probabilistic(
 
     # For every percentile inundation map convert values to percentile
     for file in files:
-        raster = rxr.open_rasterio(f'{path}/extent_{file}_v10_day{day}_hour{hour}.tif')
+        file_name = f'{path}/extent_{file}_v10_day{day}_hour{hour}.tif'
+        raster = rxr.open_rasterio(file_name)
         rst1 = xr.where(raster > 0, int(file), raster)
 
         rst2 = rst1.rio.write_crs(raster.rio.crs)
         xrs.append(rst2)
+        os.remove(file_name)
+
+    # Remove SRC path
+    shutil.rmtree(src_output_path)
 
     # Merge all converted rasters and output
     merge_ds = xr.concat(xrs, dim="band")
     max_ds = merge_ds.max(dim='band').assign_coords({"band": 1})
     max_ds = max_ds.rio.write_nodata(0)
-    max_ds.rio.to_raster(os.path.join(base_output_path, mosaic_prob_output_name), driver="COG", dtype=np.int8)
+    polygon = max_ds.gval.vectorize_data()
+    polygon.to_file(os.path.join(base_output_path, output_file_name))
 
 
 def progress_bar_handler(executor_dict, verbose, desc):
@@ -400,14 +481,16 @@ def progress_bar_handler(executor_dict, verbose, desc):
     desc: str
         Description of the process
     """
-
+    results = []
     for future in tqdm(
         as_completed(executor_dict), total=len(executor_dict), disable=(not verbose), desc=desc
     ):
         try:
-            future.result()
+            results.append(future.result())
         except Exception as exc:
             print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
+
+    return results
 
 
 def inundate_hucs(
@@ -415,7 +498,6 @@ def inundate_hucs(
     parameters: str,
     base_dir: str,
     hucs: list,
-    output_folder_name: str,
     mosaic_prob_output_name: str,
     posterior_dist: str = None,
     day: int = 6,
@@ -435,8 +517,6 @@ def inundate_hucs(
         Directory with the output and hydrofabric directories
     hucs: list
         HUCs to process probabilistic inundation for
-    output_folder_name: str
-        Location to output maps
     mosaic_prob_output_name: str
         Name of final mosaiced probabilistic FIM
     posterior_dist: str = None
@@ -451,34 +531,19 @@ def inundate_hucs(
         Number of jobs to process
 
     """
-
-    with ProcessPoolExecutor(max_workers=num_jobs) as executor:
-        executor_dict = {}
-        for huc in hucs:
-
-            try:
-                future = executor.submit(
-                    inundate_probabilistic,
-                    ensembles=ensembles,
-                    parameters=parameters,
-                    base_dir=base_dir,
-                    huc=huc,
-                    output_folder_name=output_folder_name,
-                    mosaic_prob_output_name=f"{mosaic_prob_output_name.split('.')[0]}_{huc}.tif",
-                    posterior_dist=posterior_dist,
-                    day=day,
-                    hour=hour,
-                    overwrite=overwrite,
-                )
-                executor_dict[future] = huc
-
-            except Exception as ex:
-                print(f"*** {ex}")
-                traceback.print_exc()
-                sys.exit(1)
-
-        # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(executor_dict, True, f"Running probabilistic inundation with {num_jobs} workers")
+    for huc in hucs:
+        inundate_probabilistic(
+            ensembles=ensembles,
+            parameters=parameters,
+            base_dir=base_dir,
+            huc=huc,
+            mosaic_prob_output_name=f"{mosaic_prob_output_name[:mosaic_prob_output_name.rfind('.')]}_{huc}.gpkg",
+            posterior_dist=posterior_dist,
+            day=day,
+            hour=hour,
+            overwrite=overwrite,
+            num_jobs=num_jobs,
+        )
 
 
 if __name__ == '__main__':
@@ -491,8 +556,7 @@ if __name__ == '__main__':
         -p ./plink_recurr.csv
         -b "./"
         -hc 03070107
-        -o example2
-        -f mosaic_prob
+        -f ./example2/mosaic_prob
         -j 1
     """
 
@@ -511,13 +575,6 @@ if __name__ == '__main__':
 
     parser.add_argument(
         "-hc", "--hucs", nargs="*", help="REQUIRED: HUCs to process probabilistic inundation", required=True
-    )
-
-    parser.add_argument(
-        "-o",
-        "--output_folder_name",
-        help="REQUIRED: Directory to output results of probabilistic inundation",
-        required=True,
     )
 
     parser.add_argument(

@@ -14,6 +14,7 @@ def produce_mosaicked_inundation(
     hydrofabric_dir,
     hucs,
     flow_file,
+    hydro_table_df=None,
     inundation_raster=None,
     inundation_polygon=None,
     depths_raster=None,
@@ -97,6 +98,7 @@ def produce_mosaicked_inundation(
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
         forecast=flow_file,
+        hydro_table_df=hydro_table_df,
         num_workers=num_workers,
         hucs=hucs,
         inundation_raster=inundation_raster,
