@@ -16,8 +16,11 @@ from rasterstats import zonal_stats
 threatened_percent = 0.75
 
 
-def process_non_lidar_osm(osm_gdf, source_hand_raster):
+def process_non_lidar_osm(osm_gdf, source_hand_raster, non_lidar_buffer):
     non_lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'N']
+    non_lidar_osm_gdf['geometry'] = non_lidar_osm_gdf.geometry.buffer(
+        non_lidar_buffer, resolution=non_lidar_buffer
+    )
 
     # apply non-lidar osm bridges into HAND grid
     with rasterio.open(source_hand_raster, 'r') as hand_grid:
@@ -30,7 +33,7 @@ def process_non_lidar_osm(osm_gdf, source_hand_raster):
             hand_grid_array,
             affine=hand_grid.transform,
             stats="max",
-            nodata=-999,
+            nodata=hand_grid_profile["nodata"],
         )
         # pull the values out of the geopandas columns so we can use them as floats
         non_lidar_osm_gdf['threshold_hand'] = [x.get('max') for x in stats]
@@ -48,7 +51,7 @@ def process_non_lidar_osm(osm_gdf, source_hand_raster):
     return non_lidar_osm_gdf, hand_grid_array, hand_grid_profile
 
 
-def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_diff_raster):
+def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_diff_raster, lidar_buffer):
     with rasterio.open(bridge_elev_diff_raster) as diff_grid:
         diff_grid_array = diff_grid.read(1)  # Read the first band
         diff_grid_transform = diff_grid.transform
@@ -81,12 +84,13 @@ def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_d
 
     # Get median hand values for each lidar-informed bridge
     lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'Y']
+    lidar_osm_gdf['geometry'] = lidar_osm_gdf.geometry.buffer(lidar_buffer, resolution=lidar_buffer)
     stats = zonal_stats(
         lidar_osm_gdf['geometry'],
         updated_hand_grid_array,
         affine=hand_grid_profile['transform'],
         stats="median",
-        nodata=-999,
+        nodata=hand_grid_profile["nodata"],
     )
     lidar_osm_gdf['threshold_hand'] = [x.get('median') for x in stats]
 
@@ -97,7 +101,8 @@ def process_bridges_in_huc(
     source_hand_raster,
     bridge_elev_diff_raster,
     bridge_vector_file,
-    buffer_width,
+    non_lidar_buffer,
+    lidar_buffer,
     catchments,
     bridge_centroids,
 ):
@@ -110,11 +115,8 @@ def process_bridges_in_huc(
 
     if os.path.exists(bridge_vector_file):
         # Read the bridge lines file and buffer it by half of the input width
-        # TODO below line is temporarily until updating pre_clips
-        # bridge_vector_file=os.path.join('/data/inputs/osm/bridges/250102/huc6_dem_diff/','osm_all_bridges_modified.gpkg')
         osm_gdf = gpd.read_file(bridge_vector_file)
         osm_gdf['centroid_geometry'] = osm_gdf.centroid
-        osm_gdf['geometry'] = osm_gdf.geometry.buffer(buffer_width, resolution=buffer_width)
     else:
         # skip this huc because it didn't pull in the initial OSM script
         # and could have errors in the data or geometry
@@ -122,9 +124,11 @@ def process_bridges_in_huc(
         return
 
     # first process the osm bridges without reliable lidar data using previous method
-    non_lidar_osm_gdf, hand_grid_array, hand_grid_profile = process_non_lidar_osm(osm_gdf, source_hand_raster)
+    non_lidar_osm_gdf, hand_grid_array, hand_grid_profile = process_non_lidar_osm(
+        osm_gdf, source_hand_raster, non_lidar_buffer
+    )
     lidar_osm_gdf, updated_hand_grid_array = process_lidar_osm(
-        osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_diff_raster
+        osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_diff_raster, lidar_buffer
     )
 
     osm_gdf = pd.concat([non_lidar_osm_gdf, lidar_osm_gdf], ignore_index=True)
@@ -224,11 +228,20 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        '-b',
-        '--buffer_width',
+        '-b1',
+        '--non_lidar_buffer',
         help='OPTIONAL: Buffer to apply to non-lidar OSM bridges. Default value is 10m (on each side)',
         required=False,
         default=10,
+        type=float,
+    )
+
+    parser.add_argument(
+        '-b2',
+        '--lidar_buffer',
+        help='OPTIONAL: Buffer to apply to lidar OSM bridges. Default value is 1.5m (on each side)',
+        required=False,
+        default=1.5,
         type=float,
     )
 

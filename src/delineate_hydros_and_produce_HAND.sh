@@ -265,7 +265,8 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
         -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
         -d $tempCurrentBranchDataDir/bridge_elev_diff_meters_$current_branch_id.tif \
         -s $tempHucDataDir/osm_bridges_subset.gpkg \
-        -b 10 \
+        -b1 10 \
+        -b2 1.5 \
         -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg
 
