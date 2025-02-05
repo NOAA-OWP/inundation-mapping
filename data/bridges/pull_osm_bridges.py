@@ -31,10 +31,14 @@ ALASKA_CRS = os.getenv('ALASKA_CRS')
 Feb 4, 2025: There are a good handful of HUCs that return no data.
 Known HUCS are:
 02060006,
-04160001, 12110102, 13020206, 13020210, 15010006, 16020303, 16020302, 16060003, 16060004, 16060006,
-16060005, 16060009, 16060011, 16060013, 16060014, 17050109, 18090201, 19020203, 20030000, 19020800
+04160001, 12110102, 13020206, 13020210, 15010006, 16020303, 16020302, 16060003, 16060004, 16060005,
+16060006, 16060009, 16060010, 16060011, 16060013, 16060014, 17050109, 18090201,
+19020203, 19020800, 20030000
 
-NOTE: 02060006 is a weird one and times out even after 10 mins. Most are back in secondse
+NOTE: 02060006 is a weird one and times out even after 10 mins. Most are back in seconds.
+When the run is done, compare the bottom of the logs for the phrase
+'''HUCs that failed to download from OSM correctly are:'' and compare those hucs to the list above.
+
 """
 
 
@@ -111,8 +115,26 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
         gdf.reset_index(inplace=True)
 
         # Remove abandoned bridges
-        # gdf = gdf[gdf['bridge'] != 'abandoned' and gdf['highway' != 'abandoned'] and gdf['railway' != 'abandoned']]
-        gdf = gdf[gdf['bridge'] != 'abandoned']
+
+        unwanted_bridge_types = [
+            'highway-razed',
+            'highway-proposed',
+            'highway-abandoned',
+            'highway-destroyed',
+            'highway-dismantled',
+            'highway-demolished',
+            'railway-razed',
+            'railway-proposed',
+            'railway-abandoned',
+            'railway-destroyed',
+            'railway-dismantled',
+            'railway-demolished',
+        ]
+
+        gdf = gdf[~gdf['bridge_type'].isin(unwanted_bridge_types)]
+
+        # the "bridge" field is only the True / False
+        # gd = gdf[gdf['bridge'] != 'abandoned']
 
         cols_to_drop = []
         for col in gdf.columns:
