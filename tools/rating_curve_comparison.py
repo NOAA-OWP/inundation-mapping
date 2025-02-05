@@ -255,7 +255,9 @@ def generate_rating_curve_metrics(args):
                 str_order = np.unique(usgs_rc.order_).item()
                 feature_id = str(gage.feature_id)
 
-                usgs_pred_elev = get_reccur_intervals(usgs_rc, usgs_crosswalk, nwm_recurr_intervals_all)
+                usgs_pred_elev, feature_index = get_recurr_intervals(
+                    usgs_rc, usgs_crosswalk, nwm_recurr_intervals_all
+                )
 
                 # Handle sites missing data
                 if len(usgs_pred_elev) < 1:
@@ -282,7 +284,10 @@ def generate_rating_curve_metrics(args):
                     )
                     continue
 
-                fim_pred_elev = get_reccur_intervals(fim_rc, usgs_crosswalk, nwm_recurr_intervals_all)
+                if feature_index is not None:
+                    fim_pred_elev, feature_index = get_recurr_intervals(
+                        fim_rc, usgs_crosswalk, nwm_recurr_intervals_all, feature_index
+                    )
 
                 # Handle sites missing data
                 if len(fim_pred_elev) < 1:
@@ -717,6 +722,7 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             recurr_data = recurr_data_table[
                 (recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')
             ].filter(items=['recurr_interval', 'discharge_cfs'])
+            recurr_q_max = recurr_data['discharge_cfs'].max()
             for i, r in recurr_data.iterrows():
                 if not r.recurr_interval.isnumeric():
                     continue  # skip catfim flows
@@ -942,14 +948,31 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
     plt.close()
 
 
-def get_reccur_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals):
+def get_recurr_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals, feature_index=None):
     usgs_site = site_rc.merge(usgs_crosswalk, on="location_id")
     nwm_ids = len(usgs_site.feature_id.drop_duplicates())
 
     if nwm_ids > 0:
         try:
+            if feature_index is None:
+                min_discharge = site_rc.loc[(site_rc.source == 'USGS')].discharge_cfs.min()
+                max_discharge = site_rc.loc[(site_rc.source == 'USGS')].discharge_cfs.max()
+                discharge_range = max_discharge - min_discharge
+                filtered = nwm_recurr_intervals.copy().loc[
+                    nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[0]
+                ]
+                min_q_recurr = filtered.discharge_cfs.min()
+                max_q_recurr = filtered.discharge_cfs.max()
+                spread_q = max_q_recurr - min_q_recurr
+                ratio = spread_q / discharge_range
+                # If there is only one feature_id for each location_id or the ratio is large enough
+                if nwm_ids == 1 or ratio > 0.1:
+                    feature_index = 0
+                # If there is more one feature_id for each location_id and the ratio is not large enough
+                else:
+                    feature_index = 1
             nwm_recurr_intervals = nwm_recurr_intervals.copy().loc[
-                nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().item()
+                nwm_recurr_intervals.feature_id == usgs_site.feature_id.drop_duplicates().iloc[feature_index]
             ]
             nwm_recurr_intervals['pred_elev'] = np.interp(
                 nwm_recurr_intervals.discharge_cfs.values,
@@ -959,17 +982,14 @@ def get_reccur_intervals(site_rc, usgs_crosswalk, nwm_recurr_intervals):
                 right=np.nan,
             )
 
-            return nwm_recurr_intervals
+            return nwm_recurr_intervals, feature_index
         except Exception as ex:
             summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-            # logging.info("WARNING: get_recurr_intervals failed for some reason....")
-            # logging.info(f"*** {ex}")
-            # logging.info(''.join(summary.format()))
             print(summary, repr(ex))
-            return []
+            return [], None
 
     else:
-        return []
+        return [], None
 
 
 def calculate_rc_stats_elev(rc, stat_groups=None):
@@ -1299,6 +1319,7 @@ if __name__ == '__main__':
     )  # using WARNING level to avoid benign? info messages ("Failed to auto identify EPSG: 7")
     format = '  %(message)s'
     log_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    os.makedirs(output_dir, exist_ok=True)
     handlers = [
         logging.FileHandler(os.path.join(output_dir, f'rating_curve_comparison_{log_dt_string}.log')),
         logging.StreamHandler(),

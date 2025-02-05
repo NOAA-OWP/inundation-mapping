@@ -115,6 +115,9 @@ def create_master_metrics_csv(
     # Iterate through 5 benchmark sources
     for benchmark_source in ['ble', 'nws', 'usgs', 'ifc', 'ras2fim']:
         benchmark_test_case_dir = os.path.join(TEST_CASES_DIR, benchmark_source + '_test_cases')
+        if not os.path.exists(benchmark_test_case_dir):
+            continue
+
         test_cases_list = [d for d in os.listdir(benchmark_test_case_dir) if re.match(r'\d{8}_\w{3,7}', d)]
 
         if benchmark_source in ['ble', 'ifc', 'ras2fim']:
