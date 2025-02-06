@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.___ - 2025-____ - [PR#1418](https://github.com/NOAA-OWP/inundation-mapping/pull/1418)
+
+Previously, stage-based CatFIM would inundate areas that we know to be lakes based on our FIM data. This update masks out lakes from stage-based CatFIM inundation. 
+
+### Changes
+
+- `inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added code to filter out HydroIDs that are associated with a non-null LakeID. Also added code to use the water bodies geopackage tomask out lakes right before the tifs are saved, at the end of `produce_stage_based_lid_tifs()`. Comments in this area were also cleaned up. 
+
+<br/><br/>
+
+
 ## v4.5.14.2 - 2025-01-24 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
 
 ### Summary
