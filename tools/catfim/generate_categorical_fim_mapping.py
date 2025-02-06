@@ -143,8 +143,7 @@ def produce_stage_based_lid_tifs(
 
                     # If lakes are detected, add info to the log
                     if len(lake_hydroid_list) > 0:
-                        MP_LOG.trace( # TEMP DEBUG add back in
-                        # print( # temp debug remove
+                        MP_LOG.trace(
                             f"HydroIDs {lake_hydroid_list} removed from processing because they contain lakes. FeatureId is {feature_id}."
                         )
 
@@ -155,8 +154,7 @@ def produce_stage_based_lid_tifs(
                     hydroid_list += nolake_hydroid_list
                     
                 except IndexError:
-                    MP_LOG.trace( # TEMP DEBUG add back in
-                    # print( # temp debug remove
+                    MP_LOG.trace(
                         f"Index Error for {msg_id_w_branch}. FeatureId is {feature_id} : Continuing on."
                     )
                     pass
@@ -254,8 +252,8 @@ def produce_stage_based_lid_tifs(
             # Sum rasters
             summed_array = summed_array + remaining_raster_array
 
-        # Read in waterbodies geopackage # TODO: Remove this section?
-        preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Get path from variables? 
+        # Read in waterbodies geopackage
+        preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Update to get path from variables
         preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
 
         # Create a binary raster using the shapefile geometry
