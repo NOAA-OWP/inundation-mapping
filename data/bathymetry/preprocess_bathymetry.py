@@ -107,7 +107,8 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
             slope_tif = slope_tif.read(1)
 
         os.remove(output_slope_tif)
-        slope_tif[np.where(slope_tif == -9999.0)] = np.nan
+        slope_tif[np.where(slope_tif == -32768)] = np.nan
+
         missing_bed_area = (1 / np.cos(slope_tif * np.pi / 180)) - 1
 
         # Find missing bed area from slope tif
