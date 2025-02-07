@@ -17,7 +17,7 @@ threatened_percent = 0.75
 
 
 def process_non_lidar_osm(osm_gdf, source_hand_raster, non_lidar_buffer):
-    non_lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'N']
+    non_lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'N'].copy()
     non_lidar_osm_gdf['geometry'] = non_lidar_osm_gdf.geometry.buffer(
         non_lidar_buffer, resolution=non_lidar_buffer
     )
@@ -34,9 +34,10 @@ def process_non_lidar_osm(osm_gdf, source_hand_raster, non_lidar_buffer):
             affine=hand_grid.transform,
             stats="max",
             nodata=hand_grid_profile["nodata"],
+            all_touched=True,
         )
         # pull the values out of the geopandas columns so we can use them as floats
-        non_lidar_osm_gdf['threshold_hand'] = [x.get('max') for x in stats]
+        non_lidar_osm_gdf.loc[:, 'threshold_hand'] = [x.get('max') for x in stats]
         # sort in case of overlaps; display max hand value at any given location
         non_lidar_osm_gdf = non_lidar_osm_gdf.sort_values(by="threshold_hand", ascending=False)
 
@@ -83,7 +84,7 @@ def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_d
     )
 
     # Get median hand values for each lidar-informed bridge
-    lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'Y']
+    lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'Y'].copy()
     lidar_osm_gdf['geometry'] = lidar_osm_gdf.geometry.buffer(lidar_buffer, resolution=lidar_buffer)
     stats = zonal_stats(
         lidar_osm_gdf['geometry'],
@@ -91,8 +92,9 @@ def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_d
         affine=hand_grid_profile['transform'],
         stats="median",
         nodata=hand_grid_profile["nodata"],
+        all_touched=True,
     )
-    lidar_osm_gdf['threshold_hand'] = [x.get('median') for x in stats]
+    lidar_osm_gdf.loc[:, 'threshold_hand'] = [x.get('median') for x in stats]
 
     return lidar_osm_gdf, updated_hand_grid_array
 
