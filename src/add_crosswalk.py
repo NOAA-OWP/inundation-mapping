@@ -29,36 +29,20 @@ def add_crosswalk(
     output_hydro_table_fileName,
     input_huc_fileName,
     input_nwmflows_fileName,
-    input_nwmcatras_fileName,
     mannings_n,
-    input_nwmcat_fileName,
-    extent,
     small_segments_filename,
     min_catchment_area,
     min_stream_length,
-    calibration_mode=False,
+    huc_id,
 ):
     input_catchments = gpd.read_file(input_catchments_fileName, engine="pyogrio", use_arrow=True)
     input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio", use_arrow=True)
     input_huc = gpd.read_file(input_huc_fileName, engine="pyogrio", use_arrow=True)
-    input_nwmcat = gpd.read_file(input_nwmcat_fileName, engine="pyogrio", use_arrow=True)
     input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine="pyogrio", use_arrow=True)
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
     input_catchments = input_catchments.dissolve(by='HydroID').reset_index()
-
-    ## crosswalk using stream segment midpoint method
-    input_nwmcat = gpd.read_file(input_nwmcat_fileName, mask=input_huc, engine="fiona")
-
-    # only reduce nwm catchments to mainstems if running mainstems
-    if extent == 'MS':
-        input_nwmcat = input_nwmcat.loc[input_nwmcat.mainstem == 1]
-
-    input_nwmcat = input_nwmcat.rename(columns={'ID': 'feature_id'})
-    if input_nwmcat.feature_id.dtype != 'int':
-        input_nwmcat.feature_id = input_nwmcat.feature_id.astype(int)
-    input_nwmcat = input_nwmcat.set_index('feature_id')
 
     input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
     if input_nwmflows.feature_id.dtype != 'int':
@@ -88,6 +72,8 @@ def add_crosswalk(
     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id', 'distance'])
     crosswalk = crosswalk.merge(input_nwmflows[['order_']], on='feature_id')
 
+    del input_nwmflows
+
     if crosswalk.empty:
         print("No relevant streams within HUC boundaries.")
         sys.exit(FIM_exit_codes.NO_VALID_CROSSWALKS.value)
@@ -95,6 +81,8 @@ def add_crosswalk(
     if input_catchments.HydroID.dtype != 'int':
         input_catchments.HydroID = input_catchments.HydroID.astype(int)
     output_catchments = input_catchments.merge(crosswalk, on='HydroID')
+
+    del input_catchments
 
     if output_catchments.empty:
         print("No valid catchments remain.")
@@ -104,11 +92,15 @@ def add_crosswalk(
         input_flows.HydroID = input_flows.HydroID.astype(int)
     output_flows = input_flows.merge(crosswalk, on='HydroID')
 
+    del input_flows
+
     # added for GMS. Consider adding filter_catchments_and_add_attributes.py to run_by_branch.sh
     if 'areasqkm' not in output_catchments.columns:
         output_catchments['areasqkm'] = output_catchments.geometry.area / (1000**2)
 
     output_flows = output_flows.merge(output_catchments.filter(items=['HydroID', 'areasqkm']), on='HydroID')
+
+    output_flows = output_flows.drop_duplicates(subset='HydroID')
 
     output_flows['ManningN'] = mannings_n
 
@@ -273,6 +265,9 @@ def add_crosswalk(
     input_src_base['Bathymetry_source'] = pd.NA
 
     output_src = input_src_base.drop(columns=['CatchId']).copy()
+
+    del input_src_base
+
     if output_src.HydroID.dtype != 'int':
         output_src.HydroID = output_src.HydroID.astype(int)
 
@@ -281,18 +276,52 @@ def add_crosswalk(
         sml_segs.to_csv(small_segments_filename, index=False)
         print("Update rating curves for short reaches.")
 
-        for index, segment in sml_segs.iterrows():
-            short_id = segment[0]
-            update_id = segment[1]
-            new_values = output_src.loc[output_src['HydroID'] == update_id][['Stage', 'Discharge (m3s-1)']]
+        if huc_id.startswith('19'):
+            print("Update rating curves for short reaches in Alaska.")
+            # Create a DataFrame with new values for discharge based on 'update_id'
+            new_values = output_src[output_src['HydroID'].isin(sml_segs['update_id'])][
+                ['HydroID', 'Stage', 'Discharge (m3s-1)']
+            ]
 
-            for src_index, src_stage in new_values.iterrows():
-                output_src.loc[
-                    (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage[0]),
-                    ['Discharge (m3s-1)'],
-                ] = src_stage[1]
+            # Merge this new values DataFrame with sml_segs on 'update_id' and 'HydroID'
+            sml_segs_with_values = sml_segs.merge(
+                new_values, left_on='update_id', right_on='HydroID', suffixes=('', '_new')
+            )
+            sml_segs_with_values = sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']]
+            merged_output_src = output_src.merge(
+                sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']],
+                left_on=['HydroID', 'Stage'],
+                right_on=['short_id', 'Stage'],
+                suffixes=('', '_df2'),
+            )
+            merged_output_src = merged_output_src[['HydroID', 'Stage', 'Discharge (m3s-1)_df2']]
+            output_src = pd.merge(output_src, merged_output_src, on=['HydroID', 'Stage'], how='left')
+
+            del merged_output_src
+
+            output_src['Discharge (m3s-1)'] = output_src['Discharge (m3s-1)_df2'].fillna(
+                output_src['Discharge (m3s-1)']
+            )
+            output_src = output_src.drop(columns=['Discharge (m3s-1)_df2'])
+        else:
+            for index, segment in sml_segs.iterrows():
+                short_id = segment[0]
+                update_id = segment[1]
+                new_values = output_src.loc[output_src['HydroID'] == update_id][
+                    ['Stage', 'Discharge (m3s-1)']
+                ]
+
+                for src_index, src_stage in new_values.iterrows():
+                    output_src.loc[
+                        (output_src['HydroID'] == short_id) & (output_src['Stage'] == src_stage[0]),
+                        ['Discharge (m3s-1)'],
+                    ] = src_stage[1]
+
+    del sml_segs
 
     output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
+
+    del crosswalk
 
     output_crosswalk = output_src[['HydroID', 'feature_id']]
     output_crosswalk = output_crosswalk.drop_duplicates(ignore_index=True)
@@ -356,6 +385,8 @@ def add_crosswalk(
         input_huc[FIM_ID] = input_huc[FIM_ID].astype(str)
     output_hydro_table = output_hydro_table.merge(input_huc.loc[:, [FIM_ID, 'HUC8']], how='left', on=FIM_ID)
 
+    del input_huc
+
     if output_flows.HydroID.dtype != 'str':
         output_flows.HydroID = output_flows.HydroID.astype(str)
     output_hydro_table = output_hydro_table.merge(
@@ -398,6 +429,8 @@ def add_crosswalk(
     with open(output_src_json_fileName, 'w') as f:
         json.dump(output_src_json, f, sort_keys=True, indent=2)
 
+    del output_catchments, output_flows, output_src, output_crosswalk, output_hydro_table, output_src_json
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -422,20 +455,15 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--output-hydro-table-fileName", help="Hydrotable", required=True)
     parser.add_argument("-w", "--input-huc-fileName", help="HUC8 boundary", required=True)
     parser.add_argument("-b", "--input-nwmflows-fileName", help="Subest NWM burnlines", required=True)
-    parser.add_argument("-y", "--input-nwmcatras-fileName", help="NWM catchment raster", required=False)
     parser.add_argument(
         "-m",
         "--mannings-n",
         help="Mannings n. Accepts single parameter set or list of parameter set in calibration mode. Currently input as csv.",
         required=True,
     )
-    parser.add_argument("-z", "--input-nwmcat-fileName", help="NWM catchment polygon", required=True)
-    parser.add_argument("-p", "--extent", help="GMS only for now", default="GMS", required=False)
+    parser.add_argument("-u", "--huc-id", help="HUC ID", required=True)
     parser.add_argument(
         "-k", "--small-segments-filename", help="output list of short segments", required=True
-    )
-    parser.add_argument(
-        "-c", "--calibration-mode", help="Mannings calibration flag", required=False, action="store_true"
     )
     parser.add_argument("-e", "--min-catchment-area", help="Minimum catchment area", required=True)
     parser.add_argument("-g", "--min-stream-length", help="Minimum stream length", required=True)

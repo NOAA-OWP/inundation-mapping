@@ -227,7 +227,6 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
     -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
 
-
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"
 python3 $srcDir/add_crosswalk.py \
@@ -242,9 +241,8 @@ python3 $srcDir/add_crosswalk.py \
     -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv \
     -w $tempHucDataDir/wbd8_clp.gpkg \
     -b $b_arg \
-    -y $tempCurrentBranchDataDir/nwm_catchments_proj_subset.tif \
+    -u $hucNumber \
     -m $manning_n \
-    -z $z_arg \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
     -g $min_stream_length
