@@ -18,6 +18,7 @@ import pdal
 import xarray as xr
 from scipy.spatial import KDTree
 from shapely.geometry import MultiPoint, Point
+from tqdm import tqdm
 
 
 # import utils.shared_functions as sf
@@ -217,11 +218,26 @@ def make_rasters_in_parallel(args):
 def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution, output_dir):
     # start time and setup logs
     start_time = datetime.now(timezone.utc)
-    # fh.print_start_header('Making HUC6 elev difference rasters', start_time)
-    logging.info(f"Making HUC6 elev difference rasters {start_time}")
+
+    # check existence of output directory
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    else:
+        non_log_files = [f for f in os.listdir(output_dir) if not f.endswith(".log")]
+        if non_log_files:  # if output directory has any file exepting previous log files, stop the code.
+            sys.exit(
+                f" Error: {output_dir} contains some files. Either remove them or provide an empty directory. Program terminated."
+            )
 
     __setup_logger(output_dir)
+    logging.info(f"Making elevation raster files for osm bridges {start_time}")
+
     logging.info(f"Saving results in {output_dir}")
+
+    # check input file veracity
+    if not OSM_bridge_file.endswith(".gpkg"):
+        logging.critical(f" Error: {OSM_bridge_file} is not a .gpkg file. Program terminated.")
+        sys.exit(f" Error: {OSM_bridge_file} is not a .gpkg file. Program terminated.")
 
     try:
 
@@ -236,9 +252,17 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         print(text)
         logging.info(text)
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
+
+        # osm file must contain osmid field
+        if 'osmid' not in OSM_bridge_lines_gdf.columns:
+            logging.critical(f"Error: {OSM_bridge_file} is missing osmid column. Program terminated.")
+            sys.exit(f"Error: {OSM_bridge_file} is missing osmid column. Program terminated.")
+
         OSM_polygons_gdf = OSM_bridge_lines_gdf.copy()
         OSM_polygons_gdf['geometry'] = OSM_polygons_gdf['geometry'].buffer(buffer_width)
-        OSM_polygons_gdf.rename(columns={'name': 'bridge_name'}, inplace=True)
+
+        if 'name' in OSM_polygons_gdf.columns:
+            OSM_polygons_gdf.rename(columns={'name': 'bridge_name'}, inplace=True)
         bridges_crs = str(OSM_polygons_gdf.crs)  # parallel processing arguments do not like crs objects
 
         # produce footprints of lidar dataset over conus
@@ -269,7 +293,16 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
 
         print('There are %d files to get downloaded' % len(pool_args))
         with Pool(15) as pool:
-            pool.map(download_lidar_points, pool_args)
+            list(
+                tqdm(
+                    pool.imap_unordered(download_lidar_points, pool_args),
+                    total=len(pool_args),
+                    desc="Downloading Lidar Points",
+                    unit="task",
+                )
+            )
+            pool.close()  # Prevents new tasks from being submitted
+            pool.join()  # Waits for all processes to complete
 
         text = 'Generate raster files after filtering the points for bridge classification codes'
         print(text)
@@ -282,7 +315,16 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
             pool_args.append((osmid, points_path, output_dir, raster_resolution, bridges_crs))
 
         with Pool(10) as pool:
-            list_of_classification_results = pool.map(make_rasters_in_parallel, pool_args)
+            list_of_classification_results = list(
+                tqdm(
+                    pool.imap_unordered(make_rasters_in_parallel, pool_args),
+                    total=len(pool_args),
+                    desc="Processing Rasters",
+                    unit="task",
+                )
+            )
+            pool.close()  # Prevents new tasks from being submitted
+            pool.join()  # Waits for all processes to complete
 
         bridges_classifications_df = pd.concat(list_of_classification_results, ignore_index=True)
         bridges_classifications_df.to_csv(
@@ -292,16 +334,14 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         # Record run time
         end_time = datetime.now(timezone.utc)
         tot_run_time = end_time - start_time
-        # fh.print_end_header('Making osm rasters complete', start_time, end_time)
         logging.info('TOTAL RUN TIME: ' + str(tot_run_time))
-        # logging.info(fh.print_date_time_duration(start_time, end_time))
 
     except Exception as ex:
-        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-        print(f"*** {ex}")
-        print(''.join(summary.format()))
-        logging.critical(f"*** {ex}")
-        logging.critical(''.join(summary.format()))
+        error_message = traceback.format_exc()
+        print(f"Critical Error: {ex}")
+        print(error_message)
+        logging.critical(f"Critical Error: {ex}")
+        logging.critical(error_message)
         sys.exit(1)
 
 
