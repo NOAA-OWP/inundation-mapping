@@ -21,7 +21,7 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
     Step 4: It calculates a weighted average calibration coefficient and adjusts Manning’s roughness.
     Step 5: It recalculates the discharge and updates the hydroTable.
     """
-    hydrotable_huc_path = os.path.join(huc_path, f'hydrotable.csv')
+    hydrotable_huc_path = os.path.join(huc_path, 'hydrotable.csv')
     hydrotable_huc = pd.read_csv(hydrotable_huc_path, low_memory=False)
     branch_list = hydrotable_huc['branch_id'].unique().tolist()
     branch_folder = os.listdir(huc_path)
@@ -182,7 +182,7 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
         'discharge'
     ]
     new_hydrotable = new_hydrotable.drop(columns=['discharge'])
-    new_htable_path = os.path.join(huc_path, f'new3_hydrotable.csv')
+    new_htable_path = os.path.join(huc_path, 'hydrotable.csv')
     new_hydrotable.to_csv(new_htable_path, index=False)
 
 
