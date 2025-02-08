@@ -26,7 +26,9 @@ def interpolate_discharge(rem_value, hydro_id, htable_df):
 
 
 # Function to generate polygons from the combined elevation and catchment data below the threshold
-def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, no_data_value, htable_df):
+def polygonize_combined_rasters(
+    elevation, catchment_ids, transform, threshold, no_data_value, htable_df, branch_id
+):
     start_time = time.time()
 
     # Create mask for areas below threshold and with valid elevation values
@@ -47,6 +49,7 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
                         'rem': threshold,
                         'catchment_id': catchment_id,
                         'discharge_cms': discharge_cms,
+                        'branch_id': branch_id,
                     },
                 }
             )
@@ -104,7 +107,7 @@ def process_branch(branch_path, branch_id):
     with ThreadPoolExecutor() as executor:
         for threshold_features in executor.map(
             lambda thr: polygonize_combined_rasters(
-                elevation, catchment_ids, transform, thr, no_data_value, htable_df
+                elevation, catchment_ids, transform, thr, no_data_value, htable_df, branch_id
             ),
             thresholds,
         ):

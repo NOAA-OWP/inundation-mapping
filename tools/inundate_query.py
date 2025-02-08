@@ -1,16 +1,19 @@
+import argparse
 import os
 import sys
-import argparse
-import pandas as pd
-import geopandas as gpd
-import numpy as np
 import time
 from multiprocessing import Pool, cpu_count
 
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+
+
 def find_closest_polygons_in_branch(branch_path, branch_id, feature_discharge_map, depth_calc=False):
     """Find the closest matching polygons for each HydroID in the parquet file based on discharge_cms.
-    If depth_calc is True, also return polygons with rem_ft values that are 2, 4, 6, etc. feet less than the closest polygon."""
-    parquet_path = os.path.join(branch_path, f'thresholded_catchment_polygons_{branch_id}.parquet')
+    If depth_calc is True, also return polygons with rem_ft values that are 2, 4, 6, etc. feet less than the closest polygon.
+    """
+    parquet_path = os.path.join(branch_path, f'hand_geosrc_{branch_id}.parquet')
     if not os.path.exists(parquet_path):
         return []
     else:
@@ -33,7 +36,9 @@ def find_closest_polygons_in_branch(branch_path, branch_id, feature_discharge_ma
 
             for depth in range(2, int(closest_rem_ft) + 1, 2):
                 target_rem_ft = closest_rem_ft - depth
-                matching_polygons = merged_gdf[(merged_gdf['HydroID'] == hydro_id) & (merged_gdf['rem_ft'] == target_rem_ft)]
+                matching_polygons = merged_gdf[
+                    (merged_gdf['HydroID'] == hydro_id) & (merged_gdf['rem_ft'] == target_rem_ft)
+                ]
 
                 if not matching_polygons.empty:
                     matching_polygons = matching_polygons.copy()
@@ -44,10 +49,12 @@ def find_closest_polygons_in_branch(branch_path, branch_id, feature_discharge_ma
 
     return accumulated_polygons
 
+
 def process_branch(args):
     """Helper function to process a branch with multiprocessing."""
     branch_path, branch_id, feature_discharge_map, depth_calc = args
     return find_closest_polygons_in_branch(branch_path, branch_id, feature_discharge_map, depth_calc)
+
 
 def main(flow_csv_path, fim_output_dir, output_gpkg_path, depth_calc=False):
     initial_time = time.time()
@@ -63,19 +70,27 @@ def main(flow_csv_path, fim_output_dir, output_gpkg_path, depth_calc=False):
         sys.exit(1)
 
     crosswalk_df = pd.read_csv(crosswalk_path, dtype={'huc8': str, 'branch_id': str})
-    merged_df = crosswalk_df.merge(flow_df, on='feature_id', how='left').drop_duplicates(subset=['feature_id', 'huc8', 'branch_id'])
+    merged_df = crosswalk_df.merge(flow_df, on='feature_id', how='left').drop_duplicates(
+        subset=['feature_id', 'huc8', 'branch_id']
+    )
 
     if merged_df['huc8'].isnull().any() or merged_df['branch_id'].isnull().any():
         print("Warning: Some feature_ids were not found in the crosswalk table and will be skipped.")
         merged_df = merged_df.dropna(subset=['huc8', 'branch_id'])
 
     branch_args = []
+    valid_branch_count = 0
     for (huc, branch_id), group in merged_df.groupby(['huc8', 'branch_id']):
         branch_path = os.path.join(fim_output_dir, huc, 'branches', str(branch_id))
+        if not os.path.isdir(branch_path):
+            continue
         feature_discharge_map = dict(zip(group['feature_id'], group['discharge']))
         branch_args.append((branch_path, branch_id, feature_discharge_map, depth_calc))
+        valid_branch_count += 1
 
-    with Pool(processes=cpu_count()-2) as pool:
+    print(f"Total number of valid branches avaialable to process: {valid_branch_count}")
+
+    with Pool(processes=cpu_count() - 2) as pool:
         results = pool.map(process_branch, branch_args)
 
     accumulated_polygons = [polygon for result in results if result for polygon in result]
@@ -90,32 +105,17 @@ def main(flow_csv_path, fim_output_dir, output_gpkg_path, depth_calc=False):
 
     print(f"Total run time: {time.time() - initial_time:.2f} seconds.")
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Extract flood polygons based on feature IDs and flow values.")
-    parser.add_argument(
-        '-i',
-        '--fim_output_dir',
-        type=str,
-        help='Path to the FIM output directory.',
+    parser = argparse.ArgumentParser(
+        description="Extract flood polygons based on feature IDs and flow values."
     )
+    parser.add_argument('-i', '--fim_output_dir', type=str, help='Path to the FIM output directory.')
     parser.add_argument(
-        '-f',
-        '--flow_csv_path',
-        type=str,
-        help='Path to the input CSV file containing flow data.',
+        '-f', '--flow_csv_path', type=str, help='Path to the input CSV file containing flow data.'
     )
-    parser.add_argument(
-        '-o',
-        '--output_gpkg_path',
-        type=str,
-        help='Path to the output GeoPackage file.',
-    )
-    parser.add_argument(
-        '-d',
-        '--depth',
-        action='store_true',
-        help='Include depth polygons calculation.',
-    )
+    parser.add_argument('-o', '--output_gpkg_path', type=str, help='Path to the output GeoPackage file.')
+    parser.add_argument('-d', '--depth', action='store_true', help='Include depth polygons calculation.')
 
     args = parser.parse_args()
     flow_csv_path = args.flow_csv_path
