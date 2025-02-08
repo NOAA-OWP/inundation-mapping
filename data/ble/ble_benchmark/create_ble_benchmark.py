@@ -8,11 +8,12 @@ from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 
+import gemgis
 import numpy as np
 import pandas as pd
+import rasterio
 from create_flow_forecast_file import create_flow_forecast_file
 from preprocess_benchmark import preprocess_benchmark_static
-import rasterio
 
 
 def create_ble_benchmark(
@@ -124,7 +125,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
         List of paths to extracted rasters
     """
 
-    depth_rasters = ['BLE_DEP0_2PCT', 'BLE_DEP01PCT']
+    depth_rasters = ['RasterBLE_DEP0_2PCT', 'RasterBLE_DEP01PCT']
 
     # Download and unzip each file
     hucs = []
@@ -149,22 +150,18 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
         if len(gdb_list) == 1:
             ble_geodatabase = gdb_list[0]
-            with rasterio.open(ble_geodatabase) as src:
-                subdatasets = src.subdatasets
 
-                # Find depth rasters
-                for depth_raster in depth_rasters:
-                    out_file = os.path.join(save_folder, f'{huc}_{depth_raster}.tif')
+            huc_save_folder = os.path.join(save_folder, huc)
+            if not os.path.exists(huc_save_folder):
+                os.makedirs(huc_save_folder)
 
-                    if not os.path.exists(out_file):
-                        # Read raster data from GDB
-                        print(f'Reading {depth_raster} for {huc}')
-                        depth_raster_idx, depth_raster_path = [
-                            (idx + 1, item) for idx, item in enumerate(subdatasets) if depth_raster in item
-                        ][0]
+            gemgis.raster.read_raster_gdb(path=ble_geodatabase, path_out=huc_save_folder + '/')
 
-                        extract_raster(depth_raster_path, out_file)
+            # Find depth rasters
+            for depth_raster in depth_rasters:
+                out_file = os.path.join(save_folder, huc, depth_raster + '.tif')
 
+                if os.path.exists(out_file):
                     out_list.append(out_file)
 
         if len(out_list) > 0:
