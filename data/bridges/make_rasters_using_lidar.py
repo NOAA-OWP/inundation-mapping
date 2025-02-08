@@ -27,37 +27,44 @@ from tqdm import tqdm
 
 def download_lidar_points(args):
     osmid, poly_geo, lidar_url, output_dir, bridges_crs = args
-    poly_wkt = poly_geo.wkt
-    las_file_path = os.path.join(output_dir, 'point_files', '%s.las' % str(osmid))
+    try:
+        poly_wkt = poly_geo.wkt
+        las_file_path = os.path.join(output_dir, 'point_files', '%s.las' % str(osmid))
 
-    # based on pdal documentation, The polygon wkt can be followed by a slash (‘/’) and a spatial reference specification to apply to the polygon.
-    my_pipe = {
-        "pipeline": [
-            {
-                "polygon": str(poly_wkt) + '/%s' % bridges_crs,
-                "filename": lidar_url,
-                "type": "readers.ept",
-                "tag": "readdata",
-            },
-            {
-                "type": "filters.returns",
-                "groups": "last,only",  # need both last and only because 'last' applies only when there are multiple returns and does not include cases with a single return.
-            },
-            {  # make sure to reproject to desired crs. Otherwise the points will be in EPSG 3857
-                "in_srs": 'EPSG:3857',
-                "out_srs": '%s' % bridges_crs,
-                "type": "filters.reprojection",
-                "tag": "reprojected",
-            },
-            {"filename": las_file_path, "tag": "writerslas", "type": "writers.las"},
-        ]
-    }
+        # based on pdal documentation, The polygon wkt can be followed by a slash (‘/’) and a spatial reference specification to apply to the polygon.
+        my_pipe = {
+            "pipeline": [
+                {
+                    "polygon": str(poly_wkt) + '/%s' % bridges_crs,
+                    "filename": lidar_url,
+                    "type": "readers.ept",
+                    "tag": "readdata",
+                },
+                {
+                    "type": "filters.returns",
+                    "groups": "last,only",  # need both last and only because 'last' applies only when there are multiple returns and does not include cases with a single return.
+                },
+                {  # make sure to reproject to desired crs. Otherwise the points will be in EPSG 3857
+                    "in_srs": 'EPSG:3857',
+                    "out_srs": '%s' % bridges_crs,
+                    "type": "filters.reprojection",
+                    "tag": "reprojected",
+                },
+                {"filename": las_file_path, "tag": "writerslas", "type": "writers.las"},
+            ]
+        }
 
-    # Create a PDAL pipeline object
-    pipeline = pdal.Pipeline(json.dumps(my_pipe))
+        # Create a PDAL pipeline object
+        pipeline = pdal.Pipeline(json.dumps(my_pipe))
 
-    # Execute the pipeline
-    pipeline.execute()
+        # Execute the pipeline
+        pipeline.execute()
+
+    except Exception as e:
+        error_message = f"Error processing {osmid}: {str(e)}"
+        print(error_message)
+        logging.error(error_message)
+        traceback.print_exc()
 
 
 def las_to_gpkg(osmid, las_path, bridges_crs):
@@ -121,7 +128,7 @@ def handle_noises(points_gdf):
     tree = KDTree(non_noises[['x', 'y']])
 
     # Find the 2 nearest neighbors for each outlier in class 1 based on x, y coordinates
-    distances, indices = tree.query(noises[['x', 'y']].values, k=2)
+    _, indices = tree.query(noises[['x', 'y']].values, k=2)
 
     # Get the z values of the nearest 2 neighbors
     nearest_z_values = non_noises.iloc[indices.flatten()]['z'].values.reshape(indices.shape)
@@ -210,9 +217,11 @@ def make_rasters_in_parallel(args):
 
         return classification_counts
 
-    except Exception:
-        logging.info("something is wrong for osmid: %s" % str(osmid))
-        print("something is wrong for osmid: %s" % str(osmid))
+    except Exception as e:
+        error_message = f"Error processing {osmid}: {str(e)}"
+        print(error_message)
+        logging.error(error_message)
+        traceback.print_exc()
 
 
 def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution, output_dir):
