@@ -83,7 +83,7 @@ def process_generate_categorical_fim(
     search,
     lst_hucs,
     catfim_version,
-    hand_version,
+    model_version,
     job_number_intervals,
     past_major_interval_cap,
     step_num,
@@ -149,9 +149,9 @@ def process_generate_categorical_fim(
     # ================================
     # Define default arguments. Modify these if necessary
     
-    if hand_version != "":
-        hand_version = "HAND " + hand_version
-        hand_version = hand_version.replace(".", "_")
+    if model_version != "":
+        model_version = "HAND " + model_version
+        model_version = model_version.replace(".", "_")
     if catfim_version != "":
         catfim_version = "CatFIM " + catfim_version
         catfim_version = catfim_version.replace(".", "_")
@@ -290,7 +290,7 @@ def process_generate_categorical_fim(
 
             ahps_jobs = job_number_huc * 5
             post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, ahps_jobs,
-                                         catfim_version, hand_version, FLOG.LOG_FILE_PATH)
+                                         catfim_version, model_version, FLOG.LOG_FILE_PATH)
         else:
             FLOG.lprint("post_process_cat_fim_for_viz step skipped")
 
@@ -337,7 +337,7 @@ def process_generate_categorical_fim(
                 output_catfim_dir,
                 catfim_method,
                 catfim_version,
-                hand_version,
+                model_version,
                 job_number_huc,
                 job_number_inundate,
                 FLOG.LOG_FILE_PATH,
@@ -352,7 +352,7 @@ def process_generate_categorical_fim(
     if (step_num <= 3):  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
         # Updating mapping status
         FLOG.lprint('Updating mapping status...')
-        update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, hand_version)
+        update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, model_version)
         FLOG.lprint('Updating mapping status complete')
     else:
         FLOG.lprint("Updating mapping status step skipped")
@@ -390,7 +390,7 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
     return ahps_ids_with_gpkgs
 
 # This is used by both Stage Based and Flow Based
-def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, hand_version):
+def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, model_version):
     '''
     Overview:
         - Gets a list of valid ahps that have at least one gkpg file. If we have at least one, then the site mapped something
@@ -448,7 +448,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
 
         # sites_gdf.reset_index(inplace=True, drop=True)
 
-        sites_gdf["hand_version"] = hand_version
+        sites_gdf["model_version"] = model_version
         sites_gdf["product_version"] = catfim_version
 
         # We are re-saving the sites files
@@ -1913,9 +1913,9 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-hv',
-        '--hand-version',
+        '--model-version',
         help='OPTIONAL: The version of the HAND data outputs that was used to run the product.'
-        ' This value is included in the output gpkgs and csvs in a field named hand_version.'
+        ' This value is included in the output gpkgs and csvs in a field named model_version.'
         ' If you put in a value here, we will change dots to underscores only.'
         ' This shoudl be a HAND version number only and not include the word HAND_'
         ' ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank',

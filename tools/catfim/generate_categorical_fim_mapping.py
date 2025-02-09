@@ -710,7 +710,7 @@ def post_process_huc(
 
 # This is not part of an MP process, but does need FLOG carried into it so it can use FLOG directly
 def post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, job_huc_ahps,
-                                 catfim_version, hand_version, log_output_file):
+                                 catfim_version, model_version, log_output_file):
 
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
@@ -836,7 +836,7 @@ def post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, job_huc_ahps,
 
     output_file_name = f"{catfim_method}_catfim_library"
 
-    merged_layers_gdf["hand_version"] = hand_version
+    merged_layers_gdf["model_version"] = model_version
     merged_layers_gdf["product_version"] = catfim_version
 
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
@@ -981,7 +981,7 @@ def manage_catfim_mapping(
     output_catfim_dir,
     catfim_method,
     catfim_version,
-    hand_version,
+    model_version,
     job_number_huc,
     job_number_inundate,
     log_output_file,
@@ -1018,7 +1018,7 @@ def manage_catfim_mapping(
     # for now, we will manually multiple the huc * 5 (max number of ahps types)
     ahps_jobs = job_number_huc * 5
     post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, ahps_jobs,
-                                 catfim_version, hand_version, str(FLOG.LOG_FILE_PATH))
+                                 catfim_version, model_version, str(FLOG.LOG_FILE_PATH))
 
     end = time.time()
     elapsed_time = (end - start) / 60
