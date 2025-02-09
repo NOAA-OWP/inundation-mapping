@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2025-02-09 - [PR#1426](https://github.com/NOAA-OWP/inundation-mapping/pull/1426)
+
+Added two new input args to add hand version and product version as output columns to all four output files of FB sites and library plus SB sites and library. This includes the new "model_version" and "product_version". The model verion field will be similar to "HAND 4_5_11_1" and the product version will be similar to "CatFIM 2_2"
+
+### Changes
+
+- `tools\catfim`
+    - `generate_categorical_fim.py' : as described above.
+     - `generate_categorical_mapping.py' : as described above.
+
+<br/><br/>
+
+
 ## v4.5.14.5 - 2025-01-31 - [PR#1401](https://github.com/NOAA-OWP/inundation-mapping/pull/1401)
 
 This PR improves the current HUC processing duration system by saving the processing time for each HUC separately. This helps prevent collisions that can happen during parallel processing and ensures more accurate, comprehensive results. The new Python script reads all the processing time files and combines them into a CSV. It also adds a summary line at the end with the total runtime, as well as the number of HUCs and branches.
