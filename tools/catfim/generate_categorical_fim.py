@@ -148,7 +148,7 @@ def process_generate_categorical_fim(
 
     # ================================
     # Define default arguments. Modify these if necessary
-    
+
     if model_version != "":
         model_version = "HAND " + model_version
         model_version = model_version.replace(".", "_")
@@ -348,7 +348,7 @@ def process_generate_categorical_fim(
     # end if else
 
     FLOG.lprint("")
-    
+
     # This is done for SB and FB
     if (
         step_num <= 3
@@ -1804,7 +1804,7 @@ if __name__ == '__main__':
         help='REQUIRED: Docker mount path to the catfim environment file. ie) data/config/catfim.env',
         required=True,
     )
-        
+
     parser.add_argument(
         '-jh',
         '--job_number_huc',
@@ -1903,7 +1903,7 @@ if __name__ == '__main__':
         required=False,
         default="",
     )
-    
+
     parser.add_argument(
         '-cv',
         '--catfim-version',
@@ -1926,7 +1926,7 @@ if __name__ == '__main__':
         required=False,
         default="",
     )
-    
+
     parser.add_argument(
         '-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true"
     )
