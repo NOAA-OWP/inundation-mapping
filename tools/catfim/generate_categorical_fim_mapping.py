@@ -585,7 +585,6 @@ def post_process_huc(
     ahps_dir_list,
     huc_dir,
     gpkg_dir,
-    fim_version,
     huc,
     parent_log_output_file,
     child_log_file_prefix,
@@ -682,7 +681,6 @@ def post_process_huc(
                         ahps_lid,
                         tif_to_process,
                         gpkg_dir,
-                        fim_version,
                         huc,
                         magnitude,
                         nws_lid_attributes_filename,
@@ -711,9 +709,8 @@ def post_process_huc(
 
 
 # This is not part of an MP process, but does need FLOG carried into it so it can use FLOG directly
-def post_process_cat_fim_for_viz(
-    catfim_method, output_catfim_dir, job_huc_ahps, fim_version, log_output_file
-):
+def post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, job_huc_ahps,
+                                 catfim_version, hand_version, log_output_file):
 
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
@@ -768,7 +765,6 @@ def post_process_cat_fim_for_viz(
                 ahps_dir_list,
                 huc_dir,
                 gpkg_dir,
-                fim_version,
                 huc,
                 log_output_file,
                 child_log_file_prefix,
@@ -840,6 +836,9 @@ def post_process_cat_fim_for_viz(
 
     output_file_name = f"{catfim_method}_catfim_library"
 
+    merged_layers_gdf["hand_version"] = hand_version
+    merged_layers_gdf["product_version"] = catfim_version
+
     # TODO: Aug 2024: gpkg are not opening in qgis now? project, wkt, non defined geometry columns?
     gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
     FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
@@ -859,7 +858,6 @@ def reformat_inundation_maps(
     ahps_lid,
     tif_to_process,
     gpkg_dir,
-    fim_version,
     huc,
     magnitude,
     nws_lid_attributes_filename,
@@ -914,7 +912,6 @@ def reformat_inundation_maps(
         extent_poly_diss = extent_poly_diss.reset_index(drop=True)
         extent_poly_diss['ahps_lid'] = ahps_lid
         extent_poly_diss['magnitude'] = magnitude
-        extent_poly_diss['version'] = fim_version
         extent_poly_diss['huc'] = huc
         extent_poly_diss['interval_stage'] = interval_stage
         extent_poly_diss['is_interval'] = is_interval
@@ -983,6 +980,8 @@ def manage_catfim_mapping(
     output_flows_dir,
     output_catfim_dir,
     catfim_method,
+    catfim_version,
+    hand_version,
     job_number_huc,
     job_number_inundate,
     log_output_file,
@@ -1012,19 +1011,14 @@ def manage_catfim_mapping(
         FLOG.lprint("Skip running Inundation as Step > 1")
 
     # FLOG.lprint("Aggregating Categorical FIM")
-    # Get fim_version.
-
-    fim_version = os.path.basename(os.path.normpath(fim_run_dir))
-
     # Step 2
     # TODO: Aug 2024, so we need to clean it up
     # This step does not need a job_number_inundate as it can't really use it.
     # It processes primarily hucs and ahps in multiproc
     # for now, we will manually multiple the huc * 5 (max number of ahps types)
     ahps_jobs = job_number_huc * 5
-    post_process_cat_fim_for_viz(
-        catfim_method, output_catfim_dir, ahps_jobs, fim_version, str(FLOG.LOG_FILE_PATH)
-    )
+    post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, ahps_jobs,
+                                 catfim_version, hand_version, str(FLOG.LOG_FILE_PATH))
 
     end = time.time()
     elapsed_time = (end - start) / 60

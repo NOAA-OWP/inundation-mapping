@@ -82,6 +82,8 @@ def process_generate_categorical_fim(
     overwrite,
     search,
     lst_hucs,
+    catfim_version,
+    hand_version,
     job_number_intervals,
     past_major_interval_cap,
     step_num,
@@ -146,7 +148,13 @@ def process_generate_categorical_fim(
 
     # ================================
     # Define default arguments. Modify these if necessary
-    fim_version = os.path.split(fim_run_dir)[1]
+    
+    if hand_version != "":
+        hand_version = "HAND " + hand_version
+        hand_version = hand_version.replace(".", "_")
+    if catfim_version != "":
+        catfim_version = "CatFIM " + catfim_version
+        catfim_version = catfim_version.replace(".", "_")
 
     # ================================
     # TODO: Aug 2024: Job values are not well used. There are some times where not
@@ -281,9 +289,8 @@ def process_generate_categorical_fim(
             # for now, we will manuall multiple the huc * 5 (max number of ahps types)
 
             ahps_jobs = job_number_huc * 5
-            post_process_cat_fim_for_viz(
-                catfim_method, output_catfim_dir, ahps_jobs, fim_version, FLOG.LOG_FILE_PATH
-            )
+            post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, ahps_jobs,
+                                         catfim_version, hand_version, FLOG.LOG_FILE_PATH)
         else:
             FLOG.lprint("post_process_cat_fim_for_viz step skipped")
 
@@ -329,6 +336,8 @@ def process_generate_categorical_fim(
                 output_flows_dir,
                 output_catfim_dir,
                 catfim_method,
+                catfim_version,
+                hand_version,
                 job_number_huc,
                 job_number_inundate,
                 FLOG.LOG_FILE_PATH,
@@ -338,12 +347,12 @@ def process_generate_categorical_fim(
     # end if else
 
     FLOG.lprint("")
-    if (
-        step_num <= 3
-    ):  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
+    
+    # This is done for SB and FB
+    if (step_num <= 3):  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
         # Updating mapping status
         FLOG.lprint('Updating mapping status...')
-        update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path)
+        update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, hand_version)
         FLOG.lprint('Updating mapping status complete')
     else:
         FLOG.lprint("Updating mapping status step skipped")
@@ -380,8 +389,8 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
 
     return ahps_ids_with_gpkgs
 
-
-def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
+# This is used by both Stage Based and Flow Based
+def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, hand_version):
     '''
     Overview:
         - Gets a list of valid ahps that have at least one gkpg file. If we have at least one, then the site mapped something
@@ -438,6 +447,9 @@ def update_flow_mapping_status(output_mapping_dir, catfim_sites_file_path):
                 sites_gdf.at[ind, 'status'] = status_val
 
         # sites_gdf.reset_index(inplace=True, drop=True)
+
+        sites_gdf["hand_version"] = hand_version
+        sites_gdf["product_version"] = catfim_version
 
         # We are re-saving the sites files
         sites_gdf.to_file(catfim_sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona")
@@ -1771,7 +1783,7 @@ if __name__ == '__main__':
     Sample
     python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8
     -e /data/config/catfim.env -t /data/catfim/rob_test/docker_test_1
-    -me '/data/catfim/rob_test/nwm_metafile.pkl' -sb -step 2
+    -me '/data/catfim/rob_test/nwm_metafile.pkl' -sb -cv "2.2" -hd "4.5.11.1" -step 2
     '''
 
     # Parse arguments
@@ -1779,15 +1791,16 @@ if __name__ == '__main__':
     parser.add_argument(
         '-f',
         '--fim_run_dir',
-        help='Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11',
+        help='REQUIRED: Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11',
         required=True,
     )
     parser.add_argument(
         '-e',
         '--env_file',
-        help='Docker mount path to the catfim environment file. ie) data/config/catfim.env',
+        help='REQUIRED: Docker mount path to the catfim environment file. ie) data/config/catfim.env',
         required=True,
     )
+        
     parser.add_argument(
         '-jh',
         '--job_number_huc',
@@ -1886,7 +1899,30 @@ if __name__ == '__main__':
         required=False,
         default="",
     )
+    
+    parser.add_argument(
+        '-cv',
+        '--catfim-version',
+        help='OPTIONAL: The version of the code that was used to run the product. This value is included'
+        ' in the output gpkgs and csvs in a field named product_version. If you put in a value here,'
+        ' we will add the phrase CatFIM to the front of it.'
+        ' ie) 2.0 becomes CatFIM, 2.2 becomes CatFIM, etc. Defaults to blank',
+        required=False,
+        default="",
+    )
 
+    parser.add_argument(
+        '-hv',
+        '--hand-version',
+        help='OPTIONAL: The version of the HAND data outputs that was used to run the product.'
+        ' This value is included in the output gpkgs and csvs in a field named hand_version.'
+        ' If you put in a value here, we will change dots to underscores only.'
+        ' This shoudl be a HAND version number only and not include the word HAND_'
+        ' ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank',
+        required=False,
+        default="",
+    )
+    
     parser.add_argument(
         '-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true"
     )
