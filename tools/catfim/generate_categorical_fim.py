@@ -291,7 +291,7 @@ def process_generate_categorical_fim(
             ahps_jobs = job_number_huc * 5
             post_process_cat_fim_for_viz(
                 catfim_method, output_catfim_dir, ahps_jobs, catfim_version, model_version, FLOG.LOG_FILE_PATH
-                )
+            )
         else:
             FLOG.lprint("post_process_cat_fim_for_viz step skipped")
 
