@@ -289,8 +289,9 @@ def process_generate_categorical_fim(
             # for now, we will manuall multiple the huc * 5 (max number of ahps types)
 
             ahps_jobs = job_number_huc * 5
-            post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, ahps_jobs,
-                                         catfim_version, model_version, FLOG.LOG_FILE_PATH)
+            post_process_cat_fim_for_viz(
+                catfim_method, output_catfim_dir, ahps_jobs, catfim_version, model_version, FLOG.LOG_FILE_PATH
+                )
         else:
             FLOG.lprint("post_process_cat_fim_for_viz step skipped")
 
@@ -349,7 +350,9 @@ def process_generate_categorical_fim(
     FLOG.lprint("")
     
     # This is done for SB and FB
-    if (step_num <= 3):  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
+    if (
+        step_num <= 3
+    ):  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
         # Updating mapping status
         FLOG.lprint('Updating mapping status...')
         update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, model_version)
@@ -388,6 +391,7 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
                 ahps_ids_with_gpkgs.append(ahps_id)
 
     return ahps_ids_with_gpkgs
+
 
 # This is used by both Stage Based and Flow Based
 def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, model_version):

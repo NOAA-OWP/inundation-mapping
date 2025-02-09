@@ -709,8 +709,9 @@ def post_process_huc(
 
 
 # This is not part of an MP process, but does need FLOG carried into it so it can use FLOG directly
-def post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, job_huc_ahps,
-                                 catfim_version, model_version, log_output_file):
+def post_process_cat_fim_for_viz(
+    catfim_method, output_catfim_dir, job_huc_ahps, catfim_version, model_version, log_output_file
+):
 
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
@@ -1017,8 +1018,9 @@ def manage_catfim_mapping(
     # It processes primarily hucs and ahps in multiproc
     # for now, we will manually multiple the huc * 5 (max number of ahps types)
     ahps_jobs = job_number_huc * 5
-    post_process_cat_fim_for_viz(catfim_method, output_catfim_dir, ahps_jobs,
-                                 catfim_version, model_version, str(FLOG.LOG_FILE_PATH))
+    post_process_cat_fim_for_viz(
+        catfim_method, output_catfim_dir, ahps_jobs, catfim_version, model_version, str(FLOG.LOG_FILE_PATH)
+    )
 
     end = time.time()
     elapsed_time = (end - start) / 60
