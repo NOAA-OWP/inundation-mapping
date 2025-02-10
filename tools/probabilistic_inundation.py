@@ -54,35 +54,14 @@ def get_fim_probability_distributions(
 
     if posterior_dist is None:
 
-        # # Default weibull likelihood for channel manning roughness
-        # channel_dist = weibull_min(c=2.5, scale=.0317, loc=.032)
-        #
-        # # Default weibull likelihood for overbank manning roughness
-        # obank_dist = weibull_min(c=7, scale=.07, loc=.05)
-        #
-        # # Default weibull likelihood for slope adjustment
-        # slope_dist = weibull_min(c=2.5, scale=.015, loc=-.125)
+        # Default weibull likelihood for channel manning roughness
+        channel_dist = weibull_min(c=1.5, scale=0.0367, loc=0.032)
 
-        # Default gamma likelihood for channel manning roughness
-        a = 6
-        loc = 0.02
-        scale = 0.0076
+        # Default weibull likelihood for overbank manning roughness
+        obank_dist = weibull_min(c=2, scale=0.035, loc=0.09)
 
-        channel_dist = gamma(a=a, loc=loc, scale=scale)
-
-        # Default gamma likelihood for overbank manning roughness
-        a = 14
-        loc = 0.07
-        scale = 0.004
-
-        obank_dist = gamma(a=a, loc=loc, scale=scale)
-
-        # Default gamma likelihood for slope adjustment
-        a = 1.5
-        loc = -0.02
-        scale = 0.008
-
-        slope_dist = gamma(a=a, loc=loc, scale=scale)
+        # Default weibull likelihood for slope adjustment
+        slope_dist = weibull_min(c=3.1, scale=0.095, loc=-0.01)
 
     else:
 
