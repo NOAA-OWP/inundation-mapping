@@ -159,18 +159,6 @@ def produce_stage_based_lid_tifs(
                     )
                     pass
 
-            # # Determine hydroids at which to perform inundation
-            # for feature_id in segments:
-            #     # print(f"... feature id is {feature_id}")
-            #     try:
-            #         subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
-            #         hydroid_list += list(subset_hydrotable_df.HydroID.unique())
-            #     except IndexError:
-            #         MP_LOG.trace(
-            #             f"Index Error for {msg_id_w_branch}. FeatureId is {feature_id} : Continuing on."
-            #         )
-            #         pass
-
             # Create inundation maps with branch and stage data
             # only sites /categories that got this far are valid and can be inundated
             try:
@@ -252,15 +240,30 @@ def produce_stage_based_lid_tifs(
             # Sum rasters
             summed_array = summed_array + remaining_raster_array
 
-        # Read in waterbodies geopackage
-        preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Update to get path from variables
-        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+        summed_masked_array = mask_out_lakes(summed_array, huc, zero_branch_src)
 
-        # Create a binary raster using the shapefile geometry
-        lake_mask = geometry_mask(preclip_lakes_gdf.geometry, transform=zero_branch_src.transform, invert=False, out_shape=(zero_branch_src.height, zero_branch_src.width))
+        def mask_out_lakes(summed_array, huc, zero_branch_src)
+            '''
+            Inputs:
+            summed_array: inundation TIF that needs lakes removed
+            huc: HUC8 id (string), needed to get the correct lakes file
+            zero_branch_src: src from a raster, use for getting the correct raster dimensions
 
-        # Set values within the lake geometry to zero, masking them out of the FIM
-        summed_masked_array = summed_array * lake_mask
+            Outputs: 
+            
+            '''
+
+            # Read in waterbodies geopackage
+            preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Update to get path from variables
+            preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+
+            # Create a binary raster using the shapefile geometry
+            lake_mask = geometry_mask(preclip_lakes_gdf.geometry, transform=zero_branch_src.transform, invert=False, out_shape=(zero_branch_src.height, zero_branch_src.width))
+
+            # Set values within the lake geometry to zero, masking them out of the FIM
+            summed_masked_array = summed_array * lake_mask
+
+            return summed_masked_array
 
         del zero_branch_array, summed_array  # Clean up
 
@@ -534,8 +537,8 @@ def run_catfim_inundation(
 
 
 # This is part of an MP Pool
-# It use used for flow-based
-# It inundate each set based on the ahps/mangnitude list and for each segment in the
+# It is used for flow-based
+# It inundates each set based on the ahps/mangnitude list and for each segment in the
 # the branch hydrotable
 # Then each is inundated per branch and mosiaked for the ahps
 def run_inundation(
@@ -588,6 +591,9 @@ def run_inundation(
             subset=None,
             verbose=False,
         )
+
+        # TODO: Mask out lakes here? TEMP DEBUG
+
         MP_LOG.trace(f"Mosaicking complete for {huc} : {ahps_site} : {magnitude}")
     except Exception:
         # Log errors and their tracebacks
