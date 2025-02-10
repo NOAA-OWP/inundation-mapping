@@ -17,7 +17,7 @@ import pandas as pd
 import rasterio
 from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
-from rasterio.features import shapes, geometry_mask
+from rasterio.features import geometry_mask, shapes
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
@@ -128,18 +128,21 @@ def produce_stage_based_lid_tifs(
 
             # Use hydroTable to determine hydroid_list from site_ms_segments.
             hydrotable_df = pd.read_csv(
-                hydrotable_path, low_memory=False, dtype={'HUC': str, 'LakeID': float, 'subdiv_applied': int})
+                hydrotable_path, low_memory=False, dtype={'HUC': str, 'LakeID': float, 'subdiv_applied': int}
+            )
 
             hydroid_list, lake_hydroid_list, nolake_hydroid_list = [], [], []
 
             # Determine hydroids at which to perform inundation
             for feature_id in segments:
-                
+
                 try:
                     subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
 
-                    # List of HydroID's where the LakeID is greater than 0 (which shows that there's a lake) 
-                    lake_hydroid_list = list(subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] > 0]['HydroID'].unique())
+                    # List of HydroID's where the LakeID is greater than 0 (which shows that there's a lake)
+                    lake_hydroid_list = list(
+                        subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] > 0]['HydroID'].unique()
+                    )
 
                     # If lakes are detected, add info to the log
                     if len(lake_hydroid_list) > 0:
@@ -148,11 +151,13 @@ def produce_stage_based_lid_tifs(
                         )
 
                     # List of HydroID's where there the LakeID is less than 0 (no lake, so we can inundate)
-                    nolake_hydroid_list = list(subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] < 0]['HydroID'].unique())
-                        
+                    nolake_hydroid_list = list(
+                        subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] < 0]['HydroID'].unique()
+                    )
+
                     # Add HydroIDs without lakes to the list to process
                     hydroid_list += nolake_hydroid_list
-                    
+
                 except IndexError:
                     MP_LOG.trace(
                         f"Index Error for {msg_id_w_branch}. FeatureId is {feature_id} : Continuing on."
@@ -257,8 +262,13 @@ def produce_stage_based_lid_tifs(
             preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Update to get path from variables
             preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
 
-            # Create a binary raster using the shapefile geometry
-            lake_mask = geometry_mask(preclip_lakes_gdf.geometry, transform=zero_branch_src.transform, invert=False, out_shape=(zero_branch_src.height, zero_branch_src.width))
+        # Create a binary raster using the shapefile geometry
+        lake_mask = geometry_mask(
+            preclip_lakes_gdf.geometry,
+            transform=zero_branch_src.transform,
+            invert=False,
+            out_shape=(zero_branch_src.height, zero_branch_src.width),
+        )
 
             # Set values within the lake geometry to zero, masking them out of the FIM
             summed_masked_array = summed_array * lake_mask
@@ -939,9 +949,7 @@ def reformat_inundation_maps(
 
         # Convert list of shapes to polygon
         # lots of polys
-        extent_poly = gpd.GeoDataFrame.from_features(
-            list(results), crs=src.crs
-        ) 
+        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
