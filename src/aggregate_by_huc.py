@@ -287,8 +287,8 @@ class HucDirectory(object):
                     b0 = b0.rename(columns={'feature_id': 'crossing_feature_id'})
                     bridge_pnts = bridge_pnts.merge(b0, on='osmid', how='left')
                     # Remove bridge points that have the same osmid and feature_id
-                    g = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('min')
-                    bridge_pnts = bridge_pnts.copy()[(bridge_pnts['max_discharge'] == g)]
+                    g = bridge_pnts.groupby(['osmid', 'feature_id'])['threshold_discharge'].transform('min')
+                    bridge_pnts = bridge_pnts.copy()[(bridge_pnts['threshold_discharge'] == g)]
                     # Set backwater bridge sites
                     bridge_pnts['is_backwater'] = 0
                     c = bridge_pnts.groupby(['osmid'])['feature_id'].transform('count')
