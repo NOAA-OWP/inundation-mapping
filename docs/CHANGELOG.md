@@ -1,7 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2025-01-24 - [PR#1379](https://github.com/NOAA-OWP/inundation-mapping/pull/1379)
+## v4.5.x.x - 2025-02-10 - [PR#1427](https://github.com/NOAA-OWP/inundation-mapping/pull/1427)
+
+Removes GDAL imports if `rasterio` is also being used in the same Python interpreter session. Also updates some Python packages.
+
+### Changes
+
+- `Dockerfile.owp`: renamed from `Dockerfile.prod`
+- `Pipfile` and `Pipfile.lock`: added `gemgis`, `pymc`, and `rio_vrt`; upgraded `osmnx`
+- `data/`
+    - `bathymetry/preprocess_bathymetry.py`: Replaced `gdal` with `whitebox`
+    - `ble/ble_benchmark/`
+        - `create_ble_benchmark.py`: Replaced GDAL with `gemgis` and `whitebox`
+        - `preprocess_benchmark.py`: Added `with` context for `rasterio.open()`
+- `src/utils/shared_functions.py`: Remove unused function and `rasterio` import
+- `tools/inundate_nation.py`: Replaced `gdal` with `rio_vrt` and `whitebox`
+
+<br/><br/>
+
 ## v4.5.14.5 - 2025-01-31 - [PR#1401](https://github.com/NOAA-OWP/inundation-mapping/pull/1401)
 
 This PR improves the current HUC processing duration system by saving the processing time for each HUC separately. This helps prevent collisions that can happen during parallel processing and ensures more accurate, comprehensive results. The new Python script reads all the processing time files and combines them into a CSV. It also adds a summary line at the end with the total runtime, as well as the number of HUCs and branches.
