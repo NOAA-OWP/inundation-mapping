@@ -257,7 +257,7 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         os.makedirs(point_dir, exist_ok=True)
         os.makedirs(tif_files_dir, exist_ok=True)
 
-        text = 'read osm bridge lines and make a polygon foortprint'
+        text = 'read osm bridge lines and make a polygon footprint'
         print(text)
         logging.info(text)
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
