@@ -16,3 +16,4 @@ config/*.swp
 .private/
 !tools/catfim/*.csv
 !tools/catfim/catfim.env.template
+!data/bridges/*.txt
