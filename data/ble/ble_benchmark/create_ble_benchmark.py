@@ -174,29 +174,6 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     return spatial_df, ble_geodatabase
 
 
-def extract_raster(in_raster: str, out_raster: str):
-    """
-    Extract raster from GDB and save to out_raster
-
-    Parameters
-    ----------
-    in_raster: str
-        Path to input raster
-    out_raster: str
-        Path to output raster
-
-    Returns
-    -------
-    None
-    """
-
-    with rasterio.open(in_raster) as data_ds:
-        data = data_ds.read()
-
-        with rasterio.open(out_raster, 'w', **data_ds.profile) as out_ds:
-            out_ds.write(data, 1)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Create BLE benchmark files',
