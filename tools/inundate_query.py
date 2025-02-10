@@ -34,10 +34,14 @@ def find_closest_polygons_in_branch(branch_path, branch_id, feature_discharge_ma
             group['depth_ft'] = 0
             accumulated_polygons.extend(group.to_dict('records'))
 
+            # Interate through depth values starting from 2 ft up to closest rem_ft w/ 2ft steps
             for depth in range(2, int(closest_rem_ft) + 1, 2):
                 target_rem_ft = closest_rem_ft - depth
+                # Find polys in the merged gdf for the current hydroid matching the target rem_ft value
+                # Included an error tolerance in lookup to account for floating point diffs
                 matching_polygons = merged_gdf[
-                    (merged_gdf['HydroID'] == hydro_id) & (merged_gdf['rem_ft'] == target_rem_ft)
+                    (merged_gdf['HydroID'] == hydro_id)
+                    & (np.isclose(merged_gdf['rem_ft'], target_rem_ft, atol=0.1))
                 ]
 
                 if not matching_polygons.empty:

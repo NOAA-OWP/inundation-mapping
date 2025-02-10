@@ -19,10 +19,12 @@ def interpolate_discharge(rem_value, hydro_id, htable_df):
     if len(src_data) > 1:
         # Perform linear interpolation
         discharge = np.interp(rem_value, src_data['stage'], src_data['discharge_cms'])
+        volume_m3 = np.interp(rem_value, src_data['stage'], src_data['Volume (m3)'])
     else:
         discharge = np.nan  # If no data available for interpolation, return NaN
+        volume_m3 = np.nan
 
-    return discharge
+    return discharge, volume_m3
 
 
 # Function to generate polygons from the combined elevation and catchment data below the threshold
@@ -40,7 +42,7 @@ def polygonize_combined_rasters(
         if value > 0:
             geom_shape = shape(geom)
             catchment_id = int(value)
-            discharge_cms = interpolate_discharge(threshold, catchment_id, htable_df)
+            discharge_cms, volume_m3 = interpolate_discharge(threshold, catchment_id, htable_df)
 
             features.append(
                 {
@@ -49,6 +51,7 @@ def polygonize_combined_rasters(
                         'rem': threshold,
                         'catchment_id': catchment_id,
                         'discharge_cms': discharge_cms,
+                        'volume_m3': volume_m3,
                         'branch_id': branch_id,
                     },
                 }
