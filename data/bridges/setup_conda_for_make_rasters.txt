@@ -11,7 +11,7 @@ To setup your Conda enviro for the tool. You will only need to set it up once, t
 		
 		At some point earlier one, it might ask you to continue (y/n), enter "y". It will take up to 2 - 10 mins to run.
 		
-		When it is done and back to command line, you can type the following to see if the enviro is setup correctly
+		When it is done and back to command line, you can type the following to see if the enviro is setup correctly
 		conda env list  (and you should see somethign similar to:)
 			
 			# conda environments:
