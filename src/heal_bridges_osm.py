@@ -38,7 +38,7 @@ def process_non_lidar_osm(osm_gdf, source_hand_raster, non_lidar_buffer):
         )
         # pull the values out of the geopandas columns so we can use them as floats
         non_lidar_osm_gdf.loc[:, 'threshold_hand'] = [x.get('max') for x in stats]
-        # sort in case of overlaps; display max hand value at any given location
+        # sort in case of overlaps; display theshold hand value at any given location
         non_lidar_osm_gdf = non_lidar_osm_gdf.sort_values(by="threshold_hand", ascending=False)
 
         # Burn the bridges into the HAND grid
@@ -183,7 +183,7 @@ def flow_lookup(stages, hydroid, hydroTable):
 
 
 def flows_from_hydrotable(bridge_pnts, hydroTable):
-    bridge_pnts[['max_discharge', 'max_discharge75']] = bridge_pnts.apply(
+    bridge_pnts[['threshold_discharge', 'threshold_discharge75']] = bridge_pnts.apply(
         lambda row: flow_lookup((row.threshold_hand, row.threshold_hand_75), row.HydroID, hydroTable),
         axis=1,
         result_type='expand',
@@ -191,8 +191,8 @@ def flows_from_hydrotable(bridge_pnts, hydroTable):
     # Convert stages and dischrages to ft and cfs respectively
     bridge_pnts['threshold_hand_ft'] = bridge_pnts['threshold_hand'] * 3.28084
     bridge_pnts['threshold_hand_75_ft'] = bridge_pnts['threshold_hand_75'] * 3.28084
-    bridge_pnts['max_discharge_cfs'] = bridge_pnts['max_discharge'] * 35.3147
-    bridge_pnts['max_discharge_75_cfs'] = bridge_pnts['max_discharge75'] * 35.3147
+    bridge_pnts['threshold_discharge_cfs'] = bridge_pnts['threshold_discharge'] * 35.3147
+    bridge_pnts['threshold_discharge_75_cfs'] = bridge_pnts['threshold_discharge75'] * 35.3147
 
     return bridge_pnts
 
@@ -209,7 +209,7 @@ if __name__ == "__main__":
 
     '''
 
-    parser = argparse.ArgumentParser(description='Rasterizes max HAND values under OSM lines and heals HAND')
+    parser = argparse.ArgumentParser(description='Heals HAND for osm bridges')
 
     parser.add_argument(
         '-g',
