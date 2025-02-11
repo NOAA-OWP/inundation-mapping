@@ -8,11 +8,10 @@ from io import BytesIO
 from urllib.request import urlopen
 from zipfile import ZipFile
 
-import gemgis
 import numpy as np
 import pandas as pd
-import rasterio
 from create_flow_forecast_file import create_flow_forecast_file
+from osgeo import gdal
 from preprocess_benchmark import preprocess_benchmark_static
 
 
@@ -125,7 +124,7 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
         List of paths to extracted rasters
     """
 
-    depth_rasters = ['RasterBLE_DEP0_2PCT', 'RasterBLE_DEP01PCT']
+    depth_rasters = ['BLE_DEP0_2PCT', 'BLE_DEP01PCT']
 
     # Download and unzip each file
     hucs = []
@@ -150,19 +149,21 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
 
         if len(gdb_list) == 1:
             ble_geodatabase = gdb_list[0]
-
-            huc_save_folder = os.path.join(save_folder, huc)
-            if not os.path.exists(huc_save_folder):
-                os.makedirs(huc_save_folder)
-
-            gemgis.raster.read_raster_gdb(path=ble_geodatabase, path_out=huc_save_folder + '/')
+            src_ds = gdal.Open(ble_geodatabase, gdal.GA_ReadOnly)
+            subdatasets = src_ds.GetSubDatasets()
 
             # Find depth rasters
             for depth_raster in depth_rasters:
-                out_file = os.path.join(save_folder, huc, depth_raster + '.tif')
+                out_file = os.path.join(save_folder, f'{huc}_{depth_raster}.tif')
 
-                if os.path.exists(out_file):
-                    out_list.append(out_file)
+                if not os.path.exists(out_file):
+                    # Read raster data from GDB
+                    print(f'Reading {depth_raster} for {huc}')
+                    depth_raster_path = [item[0] for item in subdatasets if depth_raster in item[1]][0]
+
+                    extract_raster(depth_raster_path, out_file)
+
+                out_list.append(out_file)
 
         if len(out_list) > 0:
             out_files.append(out_list)
@@ -172,6 +173,35 @@ def download_and_extract_rasters(spatial_df: pd.DataFrame, save_folder: str):
     spatial_df['rasters'] = out_files
 
     return spatial_df, ble_geodatabase
+
+
+def extract_raster(in_raster: str, out_raster: str):
+    """
+    Extract raster from GDB and save to out_raster
+
+    Parameters
+    ----------
+    in_raster: str
+        Path to input raster
+    out_raster: str
+        Path to output raster
+
+    Returns
+    -------
+    None
+    """
+
+    data_ds = gdal.Open(in_raster, gdal.GA_ReadOnly)
+    data = data_ds.ReadAsArray()
+    nodata = data_ds.GetRasterBand(1).GetNoDataValue()
+
+    driver = gdal.GetDriverByName('GTiff')
+    out_ds = driver.Create(out_raster, data.shape[1], data.shape[0], 1, gdal.GDT_Float32)
+    out_ds.SetGeoTransform(data_ds.GetGeoTransform())
+    out_ds.SetProjection(data_ds.GetProjection())
+    out_ds.GetRasterBand(1).WriteArray(data)
+    out_ds.GetRasterBand(1).SetNoDataValue(nodata)
+    out_ds = None
 
 
 if __name__ == '__main__':
