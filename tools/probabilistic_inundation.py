@@ -400,6 +400,7 @@ def inundate_probabilistic(
         )
         df.to_csv(flow_file, index=False)
 
+        # Temporarily constrained to one run for lambda
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
@@ -408,7 +409,7 @@ def inundate_probabilistic(
             inundation_raster=final_inundation_path,
             mask=mask_path,
             verbose=True,
-            num_workers=num_jobs,
+            num_workers=1,
         )
 
         ds = rxr.open_rasterio(final_inundation_path)
