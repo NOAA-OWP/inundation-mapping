@@ -17,7 +17,7 @@ import pandas as pd
 import rasterio
 from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
-from rasterio.features import geometry_mask, shapes
+from rasterio.features import shapes
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
@@ -26,6 +26,7 @@ from tqdm import tqdm
 import utils.fim_logger as fl
 from utils.shared_functions import getDriver
 from utils.shared_variables import ALASKA_CRS, PREP_PROJECTION, VIZ_PROJECTION
+from tools_shared_functions import mask_out_lakes
 
 
 # TODO: Aug 2024: This script was upgraded significantly with lots of misc TODO's embedded.
@@ -245,35 +246,8 @@ def produce_stage_based_lid_tifs(
             # Sum rasters
             summed_array = summed_array + remaining_raster_array
 
+        # Mask out the lakes from the inundation array
         summed_masked_array = mask_out_lakes(summed_array, huc, zero_branch_src)
-
-        def mask_out_lakes(summed_array, huc, zero_branch_src)
-            '''
-            Inputs:
-            summed_array: inundation TIF that needs lakes removed
-            huc: HUC8 id (string), needed to get the correct lakes file
-            zero_branch_src: src from a raster, use for getting the correct raster dimensions
-
-            Outputs: 
-            
-            '''
-
-            # Read in waterbodies geopackage
-            preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Update to get path from variables
-            preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
-
-        # Create a binary raster using the shapefile geometry
-        lake_mask = geometry_mask(
-            preclip_lakes_gdf.geometry,
-            transform=zero_branch_src.transform,
-            invert=False,
-            out_shape=(zero_branch_src.height, zero_branch_src.width),
-        )
-
-            # Set values within the lake geometry to zero, masking them out of the FIM
-            summed_masked_array = summed_array * lake_mask
-
-            return summed_masked_array
 
         del zero_branch_array, summed_array  # Clean up
 
@@ -412,6 +386,7 @@ def produce_inundated_branch_tif(
 
 
 # This is not part of an MP process, but needs to have FLOG carried over so this file can see it
+# Used for Flow only? 
 def run_catfim_inundation(
     fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
 ):
@@ -518,6 +493,13 @@ def run_catfim_inundation(
                                 child_log_file_prefix,
                             )
 
+                            # # Mask out lakes from inundated tif and re-save tif 
+                            # # TODO: Update to only run if lake detected?
+                            # with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
+                            #     output_extent_array = output_extent_src.read(1)
+                            #     output_extent_array_masked = mask_out_lakes(output_extent_array, huc, output_extent_src)                              
+                            #     output_extent_src.write(output_extent_array_masked, 1)
+
                         except Exception:
                             FLOG.critical(
                                 "A critical error occured while attempting inundation"
@@ -602,9 +584,17 @@ def run_inundation(
             verbose=False,
         )
 
-        # TODO: Mask out lakes here? TEMP DEBUG
-
         MP_LOG.trace(f"Mosaicking complete for {huc} : {ahps_site} : {magnitude}")
+
+        # Mask out lakes from inundated tif and re-save tif 
+        # TODO: Update to only run if lake detected?
+        with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
+            output_extent_array = output_extent_src.read(1)
+            output_extent_array_masked = mask_out_lakes(output_extent_array, huc, output_extent_src)                              
+            output_extent_src.write(output_extent_array_masked, 1)
+
+        MP_LOG.trace(f"Lake masking complete for {huc} : {ahps_site} : {magnitude}")
+
     except Exception:
         # Log errors and their tracebacks
         MP_LOG.error(f"Exception: running inundation for {huc}")

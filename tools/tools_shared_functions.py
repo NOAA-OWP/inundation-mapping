@@ -27,6 +27,7 @@ from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from shapely.geometry import MultiPolygon, Polygon, shape
 from urllib3.util.retry import Retry
+from rasterio.features import geometry_mask
 
 
 gpd.options.io_engine = "pyogrio"
@@ -80,6 +81,38 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
 
     return filtered_segments
 
+def mask_out_lakes(input_array, huc, raster_src):
+    '''
+    This function is used in CatFIM to mask out lakes from inundated tifs.
+
+    Inputs:
+
+    input_array: inundation TIF that needs lakes removed (called summed_array for stage-based)
+    huc: HUC8 id (string), needed to get the correct lakes file
+    raster_src: src from a raster that should be uses for getting the correct raster dimensions
+
+    Outputs:
+    
+    masked_array: same array as before, but with lakes masked out and the dimensions of raster_src
+
+    '''
+
+    # Read in waterbodies geopackage 
+    preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Update to get path from variables
+    preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+
+    # Create a binary raster using the shapefile geometry
+    lake_mask = geometry_mask(
+        preclip_lakes_gdf.geometry,
+        transform=raster_src.transform,
+        invert=False,
+        out_shape=(raster_src.height, raster_src.width),
+    )
+
+    # Set values within the lake geometry to zero, masking them out of the FIM
+    masked_array = input_array * lake_mask
+
+    return masked_array
 
 def check_for_regression(
     stats_json_to_test, previous_version, previous_version_stats_json_path, regression_test_csv=None
