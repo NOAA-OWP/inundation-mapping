@@ -4,6 +4,7 @@
 *.swn
 .nfs*
 *.yml
+*.txt
 __pycache__/
 config/**
 !config/deny*.lst
