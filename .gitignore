@@ -3,6 +3,7 @@
 *.swo
 *.swn
 .nfs*
+*.yml
 __pycache__/
 config/**
 !config/deny*.lst
