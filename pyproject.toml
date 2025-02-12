@@ -71,7 +71,7 @@ extend-ignore = """
     F401,
     F403,
     """
-exclude = ["*.csv"]
+exclude = ["*.csv", ".yml", ".txt"]
 
 per-file-ignores = """
     src/src_roughness_optimization.py: F841
