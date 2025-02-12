@@ -493,13 +493,6 @@ def run_catfim_inundation(
                                 child_log_file_prefix,
                             )
 
-                            # # Mask out lakes from inundated tif and re-save tif 
-                            # # TODO: Update to only run if lake detected?
-                            # with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
-                            #     output_extent_array = output_extent_src.read(1)
-                            #     output_extent_array_masked = mask_out_lakes(output_extent_array, huc, output_extent_src)                              
-                            #     output_extent_src.write(output_extent_array_masked, 1)
-
                         except Exception:
                             FLOG.critical(
                                 "A critical error occured while attempting inundation"
