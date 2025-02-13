@@ -358,15 +358,15 @@ def inundate_probabilistic(
         # Subdivide the channels
         # Keep it to one job for use in Lambda
         suffix = "prob_adjusted"
-        run_prep(
-            fim_dir=hydrofabric_dir,
-            mann_n_table=manning_path,
-            output_suffix=suffix,
-            number_of_jobs=1,
-            verbose=False,
-            src_plot_option=False,
-            process_huc=huc,
-        )
+        # run_prep(
+        #     fim_dir=hydrofabric_dir,
+        #     mann_n_table=manning_path,
+        #     output_suffix=suffix,
+        #     number_of_jobs=1,
+        #     verbose=False,
+        #     src_plot_option=False,
+        #     process_huc=huc,
+        # )
 
         # Create new hydrotable to pass in to inundation
         srcs = glob(f'{hydrofabric_dir}/{huc}/branches/*/hydroTable*{suffix}.csv')
@@ -446,7 +446,7 @@ def inundate_probabilistic(
     merge_ds = xr.concat(xrs, dim="band")
     max_ds = merge_ds.max(dim='band').assign_coords({"band": 1})
     max_ds = max_ds.rio.write_nodata(0)
-    max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
+    # max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
     polygon = max_ds.gval.vectorize_data()
     polygon.to_file(os.path.join(base_output_path, output_file_name))
 
