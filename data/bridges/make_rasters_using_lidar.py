@@ -227,7 +227,9 @@ def make_rasters_in_parallel(osmid, points_path, output_dir, raster_resolution, 
         traceback.print_exc()
 
 
-def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution, output_dir):
+def process_bridges_lidar_data(
+    OSM_bridge_file, buffer_width, raster_resolution, output_dir, job_number_lidar, job_number_raster
+):
     # start time and setup logs
     start_time = datetime.now(timezone.utc)
 
@@ -295,7 +297,7 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         OSM_polygons_gdf = OSM_polygons_gdf.loc[OSM_polygons_gdf.groupby('osmid')['count'].idxmax()]
         OSM_polygons_gdf = OSM_polygons_gdf.reset_index(drop=True)
 
-        text = 'download last-return lidar points (with epsg:3857) within each bridge polygon from the identified URLs'
+        text = f'download last-return lidar points within each bridge polygon from the identified URLs using {job_number_lidar} processors'
         print(text)
         logging.info(text)
 
@@ -303,7 +305,7 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
 
         print(f"There are {len(OSM_polygons_gdf)} files to download")
 
-        with ProcessPoolExecutor(max_workers=15) as executor:
+        with ProcessPoolExecutor(max_workers=job_number_lidar) as executor:
             for i, row in OSM_polygons_gdf.iterrows():
                 osmid, poly_geo, lidar_url = row.osmid, row.geometry, row.url
 
@@ -329,14 +331,14 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
             # Progress bar handler
             progress_bar_handler(executor_dict, "Downloading Lidar Points")
 
-        text = 'Generate raster files after filtering the points for bridge classification codes'
+        text = f'Generate raster files after filtering the points for bridge classification codes using {job_number_raster} processors'
         print(text)
         logging.info(text)
         downloaded_points_files = glob.glob(os.path.join(output_dir, 'point_files', '*.las'))
 
         executor_dict = {}
 
-        with ProcessPoolExecutor(max_workers=10) as executor:
+        with ProcessPoolExecutor(max_workers=job_number_raster) as executor:
             for points_path in downloaded_points_files:
                 osmid = os.path.basename(points_path).split('.las')[0]
 
@@ -443,6 +445,24 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '-o', '--output_dir', help='REQUIRED: folder path where results will be saved to.', required=True
+    )
+
+    parser.add_argument(
+        '-jl',
+        '--job_number_lidar',
+        help='OPTIONAL: Number of (jobs) cores/processes for downloading lidar data. Default=15. ',
+        required=False,
+        default=15,
+        type=int,
+    )
+
+    parser.add_argument(
+        '-jr',
+        '--job_number_raster',
+        help='OPTIONAL: Number of (jobs) cores/processes for making osm rasters from lidar data. Default=10.  ',
+        required=False,
+        default=10,
+        type=int,
     )
 
     args = vars(parser.parse_args())
