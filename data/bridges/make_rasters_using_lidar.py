@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
 from multiprocessing import Pool
 from pathlib import Path
@@ -21,12 +22,15 @@ from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
 
-# import utils.shared_functions as sf
-# from utils.shared_functions import FIM_Helpers as fh
+def progress_bar_handler(executor_dict, desc):
+    for future in tqdm(as_completed(executor_dict), total=len(executor_dict), desc=desc):
+        try:
+            future.result()
+        except Exception as exc:
+            print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
 
 
-def download_lidar_points(args):
-    osmid, poly_geo, lidar_url, output_dir, bridges_crs = args
+def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs):
     try:
         poly_wkt = poly_geo.wkt
         las_file_path = os.path.join(output_dir, 'point_files', '%s.las' % str(osmid))
@@ -189,8 +193,7 @@ def make_lidar_footprints(bridges_crs):
     return entwine_footprints_gdf
 
 
-def make_rasters_in_parallel(args):
-    osmid, points_path, output_dir, raster_resolution, bridges_crs = args
+def make_rasters_in_parallel(osmid, points_path, output_dir, raster_resolution, bridges_crs):
     try:
 
         # #make a gpkg file from points
@@ -295,47 +298,76 @@ def process_bridges_lidar_data(OSM_bridge_file, buffer_width, raster_resolution,
         text = 'download last-return lidar points (with epsg:3857) within each bridge polygon from the identified URLs'
         print(text)
         logging.info(text)
-        pool_args = []
-        for i, row in OSM_polygons_gdf.iterrows():
-            osmid, poly_geo, lidar_url = row.osmid, row.geometry, row.url
-            pool_args.append((osmid, poly_geo, lidar_url, output_dir, bridges_crs))
 
-        print('There are %d files to get downloaded' % len(pool_args))
-        with Pool(15) as pool:
-            list(
-                tqdm(
-                    pool.imap_unordered(download_lidar_points, pool_args),
-                    total=len(pool_args),
-                    desc="Downloading Lidar Points",
-                    unit="task",
-                )
-            )
-            pool.close()  # Prevents new tasks from being submitted
-            pool.join()  # Waits for all processes to complete
+        executor_dict = {}
+
+        print(f"There are {len(OSM_polygons_gdf)} files to download")
+
+        with ProcessPoolExecutor(max_workers=15) as executor:
+            for i, row in OSM_polygons_gdf.iterrows():
+                osmid, poly_geo, lidar_url = row.osmid, row.geometry, row.url
+
+                download_lidar_args = {
+                    'osmid': osmid,
+                    'poly_geo': poly_geo,
+                    'lidar_url': lidar_url,
+                    'output_dir': output_dir,
+                    'bridges_crs': bridges_crs,
+                }
+
+                try:
+                    future = executor.submit(download_lidar_points, **download_lidar_args)
+                    executor_dict[future] = osmid  # Store task association
+                except Exception as ex:
+                    summary = traceback.StackSummary.extract(traceback.walk_stack(None))
+                    print(f"*** {ex}")
+                    print(''.join(summary.format()))
+                    logging.critical(f"*** {ex}")
+                    logging.critical(''.join(summary.format()))
+                    sys.exit(1)
+
+            # Progress bar handler
+            progress_bar_handler(executor_dict, "Downloading Lidar Points")
 
         text = 'Generate raster files after filtering the points for bridge classification codes'
         print(text)
         logging.info(text)
         downloaded_points_files = glob.glob(os.path.join(output_dir, 'point_files', '*.las'))
 
-        pool_args = []
-        for points_path in downloaded_points_files:
-            osmid = os.path.basename(points_path).split('.las')[0]
-            pool_args.append((osmid, points_path, output_dir, raster_resolution, bridges_crs))
+        executor_dict = {}
 
-        with Pool(10) as pool:
-            list_of_classification_results = list(
-                tqdm(
-                    pool.imap_unordered(make_rasters_in_parallel, pool_args),
-                    total=len(pool_args),
-                    desc="Processing Rasters",
-                    unit="task",
-                )
-            )
-            pool.close()  # Prevents new tasks from being submitted
-            pool.join()  # Waits for all processes to complete
+        with ProcessPoolExecutor(max_workers=10) as executor:
+            for points_path in downloaded_points_files:
+                osmid = os.path.basename(points_path).split('.las')[0]
 
+                make_rasters_args = {
+                    'osmid': osmid,
+                    'points_path': points_path,
+                    'output_dir': output_dir,
+                    'raster_resolution': raster_resolution,
+                    'bridges_crs': bridges_crs,
+                }
+
+                try:
+                    future = executor.submit(make_rasters_in_parallel, **make_rasters_args)
+                    executor_dict[future] = points_path  # Store task association
+                except Exception as ex:
+                    summary = traceback.StackSummary.extract(traceback.walk_stack(None))
+                    print(f"*** {ex}")
+                    print(''.join(summary.format()))
+                    logging.critical(f"*** {ex}")
+                    logging.critical(''.join(summary.format()))
+                    sys.exit(1)
+
+            # Progress bar handler
+            progress_bar_handler(executor_dict, "Processing Rasters")
+
+        # Collect results
+        list_of_classification_results = [future.result() for future in executor_dict]
+
+        # Combine results into a DataFrame
         bridges_classifications_df = pd.concat(list_of_classification_results, ignore_index=True)
+
         bridges_classifications_df.to_csv(
             os.path.join(output_dir, 'classifications_summary.csv'), index=False
         )
