@@ -8,6 +8,7 @@ Previously, stage-based CatFIM would inundate areas that we know to be lakes bas
 ### Changes
 
 - `inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added code to filter out HydroIDs that are associated with a non-null LakeID. Also added code to use the water bodies geopackage tomask out lakes right before the tifs are saved, at the end of `produce_stage_based_lid_tifs()`. Comments in this area were also cleaned up. 
+- `tools/tools_shared_functions.py`: Added a function for masking out lakes.
 
 <br/><br/>
 
