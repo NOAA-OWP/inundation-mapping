@@ -21,12 +21,12 @@ from rasterio.features import shapes
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
+from tools_shared_functions import mask_out_lakes
 from tqdm import tqdm
 
 import utils.fim_logger as fl
 from utils.shared_functions import getDriver
 from utils.shared_variables import ALASKA_CRS, PREP_PROJECTION, VIZ_PROJECTION
-from tools_shared_functions import mask_out_lakes
 
 
 # TODO: Aug 2024: This script was upgraded significantly with lots of misc TODO's embedded.
@@ -386,7 +386,7 @@ def produce_inundated_branch_tif(
 
 
 # This is not part of an MP process, but needs to have FLOG carried over so this file can see it
-# Used for Flow only? 
+# Used for Flow only?
 def run_catfim_inundation(
     fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
 ):
@@ -579,11 +579,11 @@ def run_inundation(
 
         MP_LOG.trace(f"Mosaicking complete for {huc} : {ahps_site} : {magnitude}")
 
-        # Mask out lakes from inundated tif and re-save tif 
+        # Mask out lakes from inundated tif and re-save tif
         # TODO: Update to only run if lake detected?
         with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
             output_extent_array = output_extent_src.read(1)
-            output_extent_array_masked = mask_out_lakes(output_extent_array, huc, output_extent_src)                              
+            output_extent_array_masked = mask_out_lakes(output_extent_array, huc, output_extent_src)
             output_extent_src.write(output_extent_array_masked, 1)
 
         MP_LOG.trace(f"Lake masking complete for {huc} : {ahps_site} : {magnitude}")
