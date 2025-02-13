@@ -43,16 +43,22 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 # )/
 # '''
 
+# exclude: |
+#            (?x)^(
+#                \.csv$ |
+#                \.txt$ |
+#                \.yml$ |
+#            )$
+
 [tool.black]
 skip-string-normalization = true
 skip-magic-trailing-comma = true
 line-length = 110
-exclude: |
-            (?x)^(
-                \.csv$ |
-                \.txt$ |
-                \.yml$ |
-            )$
+exclude = '''
+/(
+   \.csv$ | \.txt$ | \.yml$
+ )/
+ '''
 
 [tool.isort]
 profile = 'black'
