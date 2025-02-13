@@ -358,15 +358,15 @@ def inundate_probabilistic(
         # Subdivide the channels
         # Keep it to one job for use in Lambda
         suffix = "prob_adjusted"
-        # run_prep(
-        #     fim_dir=hydrofabric_dir,
-        #     mann_n_table=manning_path,
-        #     output_suffix=suffix,
-        #     number_of_jobs=1,
-        #     verbose=False,
-        #     src_plot_option=False,
-        #     process_huc=huc,
-        # )
+        run_prep(
+            fim_dir=hydrofabric_dir,
+            mann_n_table=manning_path,
+            output_suffix=suffix,
+            number_of_jobs=1,
+            verbose=False,
+            src_plot_option=False,
+            process_huc=huc,
+        )
 
         # Create new hydrotable to pass in to inundation
         srcs = glob(f'{hydrofabric_dir}/{huc}/branches/*/hydroTable*{suffix}.csv')
@@ -419,7 +419,7 @@ def inundate_probabilistic(
         ds4 = xr.where(ds3 > 0, 1, ds3)
         ds5 = ds4.rio.set_crs(crs)
         ds6 = ds5.rio.set_nodata(0)
-        ds6.rio.to_raster(final_inundation_path, driver="COG")
+        ds6.rio.to_raster(final_inundation_path, driver="COG", dtype=np.int8)
 
         del ds, ds2, ds3, ds4, ds5, ds6
         gc.collect()
