@@ -37,15 +37,22 @@ Wiki = "https://github.com/NOAA-OWP/inundation-mapping/wiki"
 
 # - Tools -
 
+# exclude = '''
+# /(
+#   \.csv$ | \.csv$ | \.csv$
+# )/
+# '''
+
 [tool.black]
 skip-string-normalization = true
 skip-magic-trailing-comma = true
 line-length = 110
-exclude = '''
-/(
-   \.csv$
-)/
-'''
+exclude: |
+            (?x)^(
+                \.csv$ |
+                \.txt$ |
+                \.yml$ |
+            )$
 
 [tool.isort]
 profile = 'black'
@@ -53,7 +60,7 @@ line_length = 110
 multi_line_output = 3
 lines_after_imports = 2
 # extend-skip = [".csv"]
-skip_glob = ["*.csv"]
+skip_glob = ["*.csv", "*.yml", "*.txt""]
 
 # yes, the exclue format is different from black
 [tool.flake8]
@@ -71,7 +78,7 @@ extend-ignore = """
     F401,
     F403,
     """
-exclude = ["*.csv", ".yml", ".txt"]
+exclude = ["*.csv", "*.yml", "*.txt"]
 
 per-file-ignores = """
     src/src_roughness_optimization.py: F841
