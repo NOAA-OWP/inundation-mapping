@@ -22,6 +22,9 @@ from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
 
+osm_lidar_bad_sites = [229091666]
+
+
 def progress_bar_handler(executor_dict, desc):
     for future in tqdm(as_completed(executor_dict), total=len(executor_dict), desc=desc):
         try:
@@ -266,6 +269,9 @@ def process_bridges_lidar_data(
         print(text)
         logging.info(text)
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
+
+        # remove bad sites that can get will stuck in downloading lidar
+        OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[~OSM_bridge_lines_gdf['osmid'].isin(osm_lidar_bad_sites)]
 
         # osm file must contain osmid field
         if 'osmid' not in OSM_bridge_lines_gdf.columns:
