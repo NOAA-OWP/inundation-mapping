@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.14.6 - 2025-02-14 - [PR#1418](https://github.com/NOAA-OWP/inundation-mapping/pull/1418)
+
+Previously, stage-based CatFIM would inundate areas that we know to be lakes based on our FIM data. This update masks out lakes from stage-based CatFIM inundation. 
+
+### Changes
+
+- `inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added code to filter out HydroIDs that are associated with a non-null LakeID. Also added code to use the water bodies geopackage tomask out lakes right before the tifs are saved, at the end of `produce_stage_based_lid_tifs()`. Comments in this area were also cleaned up. 
+- `tools/tools_shared_functions.py`: Added a function for masking out lakes.
+
+<br/><br/>
+
 ## v4.5.14.5 - 2025-01-31 - [PR#1401](https://github.com/NOAA-OWP/inundation-mapping/pull/1401)
 
 This PR improves the current HUC processing duration system by saving the processing time for each HUC separately. This helps prevent collisions that can happen during parallel processing and ensures more accurate, comprehensive results. The new Python script reads all the processing time files and combines them into a CSV. It also adds a summary line at the end with the total runtime, as well as the number of HUCs and branches.

@@ -21,6 +21,7 @@ from rasterio.features import shapes
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
+from tools_shared_functions import mask_out_lakes
 from tqdm import tqdm
 
 import utils.fim_logger as fl
@@ -130,14 +131,34 @@ def produce_stage_based_lid_tifs(
             hydrotable_df = pd.read_csv(
                 hydrotable_path, low_memory=False, dtype={'HUC': str, 'LakeID': float, 'subdiv_applied': int}
             )
-            hydroid_list = []
+
+            hydroid_list, lake_hydroid_list, nolake_hydroid_list = [], [], []
 
             # Determine hydroids at which to perform inundation
             for feature_id in segments:
-                # print(f"... feature id is {feature_id}")
+
                 try:
                     subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
-                    hydroid_list += list(subset_hydrotable_df.HydroID.unique())
+
+                    # List of HydroID's where the LakeID is greater than 0 (which shows that there's a lake)
+                    lake_hydroid_list = list(
+                        subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] > 0]['HydroID'].unique()
+                    )
+
+                    # If lakes are detected, add info to the log
+                    if len(lake_hydroid_list) > 0:
+                        MP_LOG.trace(
+                            f"HydroIDs {lake_hydroid_list} removed from processing because they contain lakes. FeatureId is {feature_id}."
+                        )
+
+                    # List of HydroID's where there the LakeID is less than 0 (no lake, so we can inundate)
+                    nolake_hydroid_list = list(
+                        subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] < 0]['HydroID'].unique()
+                    )
+
+                    # Add HydroIDs without lakes to the list to process
+                    hydroid_list += nolake_hydroid_list
+
                 except IndexError:
                     MP_LOG.trace(
                         f"Index Error for {msg_id_w_branch}. FeatureId is {feature_id} : Continuing on."
@@ -196,7 +217,6 @@ def produce_stage_based_lid_tifs(
         zero_branch_grid = path_list[0]
         zero_branch_src = rasterio.open(zero_branch_grid)
         zero_branch_array = zero_branch_src.read(1)
-        # zero_branch_array.nodata = 0
         summed_array = zero_branch_array  # Initialize it as the branch zero array
 
         output_tif = os.path.join(lid_directory, lid + '_' + category_key + '_extent.tif')
@@ -218,8 +238,7 @@ def produce_stage_based_lid_tifs(
                 src_crs=remaining_raster_src.crs,
                 src_nodata=remaining_raster_src.nodata,
                 dst_transform=zero_branch_src.transform,
-                dst_crs=zero_branch_src.crs,  # TODO: Accomodate AK projection?
-                # dst_nodata=-1,
+                dst_crs=zero_branch_src.crs,
                 dst_nodata=0,
                 dst_resolution=zero_branch_src.res,
                 resampling=Resampling.nearest,
@@ -227,15 +246,17 @@ def produce_stage_based_lid_tifs(
             # Sum rasters
             summed_array = summed_array + remaining_raster_array
 
-        del zero_branch_array  # Clean up
+        # Mask out the lakes from the inundation array
+        summed_masked_array = mask_out_lakes(summed_array, huc, zero_branch_src)
+
+        del zero_branch_array, summed_array  # Clean up
 
         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
         profile = zero_branch_src.profile
-        summed_array = summed_array.astype('uint8')
+        summed_masked_array = summed_masked_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
-            dst.write(summed_array, 1)
+            dst.write(summed_masked_array, 1)
             MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
-        #     del summed_array
 
         # For space reasons, we need to delete all of the intermediary files such as:
         #    Stage: grmn3_action_extent_0.tif, grmn3_action_extent_1933000003.tif. The give aways are a number before
@@ -365,6 +386,7 @@ def produce_inundated_branch_tif(
 
 
 # This is not part of an MP process, but needs to have FLOG carried over so this file can see it
+# Used for Flow only?
 def run_catfim_inundation(
     fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
 ):
@@ -500,8 +522,8 @@ def run_catfim_inundation(
 
 
 # This is part of an MP Pool
-# It use used for flow-based
-# It inundate each set based on the ahps/mangnitude list and for each segment in the
+# It is used for flow-based
+# It inundates each set based on the ahps/mangnitude list and for each segment in the
 # the branch hydrotable
 # Then each is inundated per branch and mosiaked for the ahps
 def run_inundation(
@@ -554,7 +576,18 @@ def run_inundation(
             subset=None,
             verbose=False,
         )
+
         MP_LOG.trace(f"Mosaicking complete for {huc} : {ahps_site} : {magnitude}")
+
+        # Mask out lakes from inundated tif and re-save tif
+        # TODO: Update to only run if lake detected?
+        with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
+            output_extent_array = output_extent_src.read(1)
+            output_extent_array_masked = mask_out_lakes(output_extent_array, huc, output_extent_src)
+            output_extent_src.write(output_extent_array_masked, 1)
+
+        MP_LOG.trace(f"Lake masking complete for {huc} : {ahps_site} : {magnitude}")
+
     except Exception:
         # Log errors and their tracebacks
         MP_LOG.error(f"Exception: running inundation for {huc}")
@@ -899,13 +932,7 @@ def reformat_inundation_maps(
 
         # Convert list of shapes to polygon
         # lots of polys
-        # extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=PREP_PROJECTION)  # Previous code
-        extent_poly = gpd.GeoDataFrame.from_features(
-            list(results), crs=src.crs
-        )  # Updating to fix AK proj issue, worked for CONUS and for AK!
-
-        # extent_poly = gpd.GeoDataFrame.from_features(list(results))  # Updated to accomodate AK projection
-        # extent_poly = extent_poly.set_crs(src.crs)  # Update to accomodate AK projection
+        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')
