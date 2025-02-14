@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2025-02-14 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
+## v4.5.x.x - 2025-02-14 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1414)
 
 ### Summary
 This PR fixes Hydrotables that have hydroIDs with nan values. These hydroids are associated with very small reaches which are linked to one-pixel catchments. Thus, those small reaches were removed in filter_catchments_and_add_attributes.py. This PR also removes the GMS catchments whose main streams are less than 1 m. This PR will close issue #1339.
