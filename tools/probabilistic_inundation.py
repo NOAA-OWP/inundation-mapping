@@ -71,7 +71,7 @@ def get_fim_probability_distributions(
 
 
 def generate_streamflow_percentiles(
-    feature: int, ensembles: xr.Dataset, forecast_time: np.datetime64, params_weibull: pd.DataFrame
+    feature: int, ensemble_forecast: xr.Dataset, params_weibull: pd.DataFrame
 ) -> Dict[str, Union[int, float]]:
     """
     Calculates Percentiles for the streamflow distribution
@@ -80,10 +80,10 @@ def generate_streamflow_percentiles(
     ----------
     feature : int
         ID of feature to process
-    ensembles : xr.Dataset
+    ensemble_forecast : xr.Dataset
         NWM medium range ensembles
-    forecast_time : np.datetime64
-        Forecast time to slice
+    # forecast_time : np.datetime64
+    #     Forecast time to slice
     params_weibull : pd.DataFrame
         Parameters for features
 
@@ -106,10 +106,6 @@ def generate_streamflow_percentiles(
         "weibull_min": weibull_min,
     }
 
-    ensemble_forecast = ensembles.sel(
-        {'time': forecast_time, 'feature_id': feature, 'member': ['1', '2', '3', '4', '5', '6']}
-    )['streamflow']
-
     if int(feature) not in params_weibull.index:
         return {
             'feature_id': int(feature),
@@ -125,12 +121,14 @@ def generate_streamflow_percentiles(
     # Create probability distribution
     params = ast.literal_eval(parameters['parameters'])
 
-    params['size'] = 16071
+    # params['size'] = 16071
 
     try:
-        r = dist_dict[parameters['distribution_name']].rvs(**params)
+        # print(params)
+        r = dist_dict[parameters['distribution_name']](**params)
+        # .rvs(**params))
     except Exception:
-
+        # print('exception')
         return {
             'feature_id': int(feature),
             '90': float(ensemble_forecast.sel({'member': '1'})),
@@ -140,44 +138,44 @@ def generate_streamflow_percentiles(
             '10': float(ensemble_forecast.sel({'member': '1'})),
         }
 
-    # Sort values and apply weibull exceedance estimates
-    sorted_r = np.sort(r)
-
-    weibull_prob_estimates = [1 - (i / (16071 + 1)) for i in range(16071)]
-
-    # Get weibull estimates for each ensemble
-    likelihoods = np.squeeze(np.interp(ensemble_forecast.values, sorted_r, weibull_prob_estimates))
+    likelihoods = np.array([1 - r.cdf(x) for x in ensemble_forecast.values])
 
     # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
-    # (In place of assessing a final distribution for the time being)
-    scaled_likelihoods = likelihoods / np.sum(likelihoods) * np.linspace(1, 0.9, 6) * 10000
+    scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6) * 10000
 
     # Create data to fit truncated exponential distribution
     values = []
-    for value, scale in zip(ensemble_forecast.values, scaled_likelihoods):
+    for value, scale in zip(np.squeeze(ensemble_forecast.values), scaled_likelihoods):
         values.append(np.repeat(value, int(scale)))
 
     streamflow_expon_values = np.hstack(values).ravel()
 
     if not np.all(streamflow_expon_values == streamflow_expon_values[0]):
 
-        b, loc, scale = truncexpon.fit(streamflow_expon_values, loc=np.min(streamflow_expon_values))
-
         # Generate 10000 random values from distribution
-        final_values = truncexpon.rvs(b=b, loc=loc, scale=scale, size=10000)
+        trunc_expon = truncexpon(
+            *truncexpon.fit(streamflow_expon_values, loc=np.min(streamflow_expon_values))
+        )
+
+        return {
+            'feature_id': int(feature),
+            '90': np.max([0, trunc_expon.ppf(0.1)]),
+            '75': np.max([0, trunc_expon.ppf(0.25)]),
+            '50': np.max([0, trunc_expon.ppf(0.5)]),
+            '25': np.max([0, trunc_expon.ppf(0.75)]),
+            '10': np.max([0, trunc_expon.ppf(0.9)]),
+        }
 
     else:
-        final_values = np.repeat(streamflow_expon_values[0], 10000)
 
-    # Get percentiles of streamflow
-    return {
-        'feature_id': int(feature),
-        '90': np.max([0, np.percentile(final_values, 10)]),
-        '75': np.max([0, np.percentile(final_values, 25)]),
-        '50': np.max([0, np.percentile(final_values, 50)]),
-        '25': np.max([0, np.percentile(final_values, 75)]),
-        '10': np.max([0, np.percentile(final_values, 90)]),
-    }
+        return {
+            'feature_id': int(feature),
+            '90': np.max([0, streamflow_expon_values[0]]),
+            '75': np.max([0, streamflow_expon_values[0]]),
+            '50': np.max([0, streamflow_expon_values[0]]),
+            '25': np.max([0, streamflow_expon_values[0]]),
+            '10': np.max([0, streamflow_expon_values[0]]),
+        }
 
 
 def inundate_probabilistic(
@@ -191,6 +189,7 @@ def inundate_probabilistic(
     hour: int = 0,
     overwrite: bool = False,
     num_jobs: int = 1,
+    num_threads: int = 1,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
@@ -215,6 +214,10 @@ def inundate_probabilistic(
         Hours ahead to pick from reference forecast time
     overwrite: bool = False
         Whether to overwrite existing output
+    num_jobs: int
+        Number of processes to parallelize over
+    num_threads: int
+        Number of threads to parallelize over
 
     """
 
@@ -238,7 +241,7 @@ def inundate_probabilistic(
     mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
 
     # Slice of time in forecast (possibly changed to
-    # forecast_time = ensembles.coords['reference_time'] + np.timedelta64(1, 'W')
+
     forecast_time = ensembles.coords['reference_time'] + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
 
     # Percentiles and data to add
@@ -248,21 +251,25 @@ def inundate_probabilistic(
     features = ensembles.coords['feature_id']
 
     # For each feature in the provided ensembles
-    with ThreadPoolExecutor(max_workers=num_jobs) as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
         executor_dict = {}
         for feat in features:
+
+            ensemble_forecast = ensembles.sel(
+                {'time': forecast_time, 'feature_id': feat, 'member': ['1', '2', '3', '4', '5', '6']}
+            )['streamflow']
 
             try:
                 future = executor.submit(
                     generate_streamflow_percentiles,
                     feature=feat,
-                    ensembles=ensembles,
-                    forecast_time=forecast_time,
+                    ensemble_forecast=ensemble_forecast.copy(),
                     params_weibull=params_weibull,
                 )
                 executor_dict[future] = feat
 
             except Exception as ex:
+                print("Something went wrong")
                 print(f"*** {ex}")
                 traceback.print_exc()
                 sys.exit(1)
@@ -362,7 +369,7 @@ def inundate_probabilistic(
             fim_dir=hydrofabric_dir,
             mann_n_table=manning_path,
             output_suffix=suffix,
-            number_of_jobs=1,
+            number_of_jobs=num_jobs,
             verbose=False,
             src_plot_option=False,
             process_huc=huc,
@@ -409,7 +416,8 @@ def inundate_probabilistic(
             inundation_raster=final_inundation_path,
             mask=mask_path,
             verbose=True,
-            num_workers=1,
+            num_workers=num_jobs,
+            num_threads=1,
         )
 
         ds = rxr.open_rasterio(final_inundation_path)
@@ -446,7 +454,7 @@ def inundate_probabilistic(
     merge_ds = xr.concat(xrs, dim="band")
     max_ds = merge_ds.max(dim='band').assign_coords({"band": 1})
     max_ds = max_ds.rio.write_nodata(0)
-    # max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
+    max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
     polygon = max_ds.gval.vectorize_data()
     polygon.to_file(os.path.join(base_output_path, output_file_name))
 
@@ -486,6 +494,7 @@ def inundate_hucs(
     hour: int = 0,
     overwrite: bool = False,
     num_jobs: int = 1,
+    num_threads: int = 1,
 ):
     """Driver for running probabilistic inundation on selected HUCs
 
@@ -510,7 +519,9 @@ def inundate_hucs(
     overwrite: bool = False
         Whether to overwrite existing output
     num_jobs: int
-        Number of jobs to process
+        Number of processes to parallelize over
+    num_threads: int
+        Number of threads to parallelize over
 
     """
     for huc in hucs:
@@ -525,6 +536,7 @@ def inundate_hucs(
             hour=hour,
             overwrite=overwrite,
             num_jobs=num_jobs,
+            num_threads=num_threads,
         )
 
 
@@ -600,6 +612,10 @@ if __name__ == '__main__':
 
     parser.add_argument(
         "-j", "--num_jobs", type=int, help="REQUIRED: Number of jobs to process HUCs", required=True
+    )
+
+    parser.add_argument(
+        "-t", "--num_threads", type=int, help="REQUIRED: Number of threads to process HUCs", required=True
     )
 
     args = vars(parser.parse_args())

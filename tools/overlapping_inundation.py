@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import concurrent.futures
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from threading import Lock
 
@@ -74,6 +74,11 @@ class OverlapWindowMerge:
 
         self.partitions = num_partitions
         self.window_sizes = window_xy_size
+
+    @staticmethod
+    def __vprint(message, verbose):
+        if verbose:
+            print(message)
 
     @staticmethod
     @njit
@@ -254,7 +259,7 @@ class OverlapWindowMerge:
 
         return [final_bnds, bnds, data]
 
-    def merge_rasters(self, out_fname, nodata=-9999, threaded=False, workers=4):
+    def merge_rasters(self, out_fname, nodata=-9999, threaded=False, workers=4, quiet=True):
         """
         Merge multiple raster datasets
 
@@ -294,8 +299,6 @@ class OverlapWindowMerge:
             compress="lzw",
         )
 
-        final_windows, data_windows, data = [], [], []
-
         def __data_generator(data_dict, path_points, bbox, meta):
             for key, val in data_dict.items():
                 f_window, window, dat = self.read_rst_data(key, val, path_points, bbox, meta)
@@ -329,8 +332,19 @@ class OverlapWindowMerge:
                 for d, dw, fw, ddict in dgen:
                     merge_partial(d, dw, fw, ddict)
             else:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                    executor.map(merge_partial, data, data_windows, final_windows, data_dict.values())
+                executor = ThreadPoolExecutor(max_workers=workers)
+                results = {executor.submit(merge_partial, *wg): 1 for wg in dgen}
+
+                for future in as_completed(results):
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        self.__vprint("Exception {} for {}".format(exc, results[future]), not quiet)
+                    else:
+                        if results[future] is not None:
+                            self.__vprint("... {} complete".format(results[future]), not quiet)
+                        else:
+                            self.__vprint("... complete", not quiet)
 
     def mask_mosaic(self, mosaic, polys, polys_layer=None, outfile=None):
         # rem_array,window_transform = mask(rem,[shape(huc['geometry'])],crop=True,indexes=1)

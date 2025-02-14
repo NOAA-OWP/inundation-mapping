@@ -86,7 +86,7 @@ def Mosaic_inundation(
             inundation_maps_list,
             ag_mosaic_output,
             nodata,
-            workers=1,
+            workers=workers,
             remove_inputs=remove_inputs,
             mask=mask,
             verbose=verbose,
@@ -133,7 +133,7 @@ def mosaic_by_unit(
         else:
             threaded = False
 
-        overlap.merge_rasters(mosaic_output, threaded=threaded, workers=1, nodata=nodata)
+        overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
 
         if mask:
             fh.vprint("Masking ...", verbose)

@@ -25,6 +25,7 @@ def produce_mosaicked_inundation(
     remove_intermediate=True,
     verbose=False,
     is_mosaic_for_branches=False,
+    num_threads=1,
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
@@ -137,6 +138,7 @@ def produce_mosaicked_inundation(
                 verbose=verbose,
                 is_mosaic_for_branches=is_mosaic_for_branches,
                 inundation_polygon=inundation_polygon,
+                workers=num_threads,
             )
 
     fh.vprint("Mosaicking complete.", verbose)
