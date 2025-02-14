@@ -153,6 +153,7 @@ class HucDirectory(object):
             'name': str,
             'threshold_hand': float,
             'threshold_hand_75': float,
+            'has_lidar_tif': str,
             'feature_id': int,
             'HydroID': int,
             'order_': str,
