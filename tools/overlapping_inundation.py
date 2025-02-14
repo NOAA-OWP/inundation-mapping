@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import concurrent.futures
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
@@ -302,7 +303,7 @@ class OverlapWindowMerge:
         def __data_generator(data_dict, path_points, bbox, meta):
             for key, val in data_dict.items():
                 f_window, window, dat = self.read_rst_data(key, val, path_points, bbox, meta)
-                yield (dat, window, f_window, val)
+                yield dat, window, f_window, val
                 # final_windows.append(f_window)
                 # data_windows.append(window)
                 # data.append(dat)
@@ -332,6 +333,7 @@ class OverlapWindowMerge:
                 for d, dw, fw, ddict in dgen:
                     merge_partial(d, dw, fw, ddict)
             else:
+                # start up thread pool
                 executor = ThreadPoolExecutor(max_workers=workers)
                 results = {executor.submit(merge_partial, *wg): 1 for wg in dgen}
 

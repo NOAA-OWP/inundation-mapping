@@ -181,7 +181,8 @@ def generate_streamflow_percentiles(
 def inundate_probabilistic(
     ensembles: str,
     parameters: str,
-    base_dir: str,
+    hydrofabric_dir: str,
+    outputs_dir: str,
     huc: str,
     mosaic_prob_output_name: str,
     posterior_dist: str = None,
@@ -200,8 +201,10 @@ def inundate_probabilistic(
         Path to load medium range ensembles
     parameters: str
         Path to load fit parameters to distributions
-    base_dir: str
-        Base directory of FIM output
+    hydrofabric_dir: str
+        Directory with the hydrofabric directories
+    output_dir: str
+        Directory to write output files
     huc: str
         Huc to process probabilistic FIM
     mosaic_prob_output_name: str
@@ -228,14 +231,8 @@ def inundate_probabilistic(
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
     params_weibull.set_index('feature_id', inplace=True)
 
-    # Outputs directory
-    outputs_dir = os.path.join(base_dir, 'outputs')
-
-    # Hydrofabric directory
-    hydrofabric_dir = os.path.join(outputs_dir, 'fim_outputs')
-
     # Fim outputs directory
-    fim_outputs_dir = os.path.join(outputs_dir, 'fim_files')
+    fim_outputs_dir = outputs_dir
 
     # Masks for waterbodies
     mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
@@ -296,17 +293,18 @@ def inundate_probabilistic(
 
         channel_n = channel_dist.ppf(1 - int(percentile) / 100)
         overbank_n = obank_dist.ppf(1 - int(percentile) / 100)
-        slope_adj = slope_dist.ppf(int(percentile) / 100)
+        # slope_adj = slope_dist.ppf(int(percentile) / 100)
 
         # Make directories if they do not exist
-        output_folder_name = '/'.join(mosaic_prob_output_name.split('/')[:-1]).replace('./', '')
         output_file_name = mosaic_prob_output_name.split('/')[-1]
-        base_output_path = os.path.join(fim_outputs_dir, output_folder_name, str(huc))
+        base_output_path = os.path.join(fim_outputs_dir, str(huc))
         src_output_path = os.path.join(base_output_path, 'srcs')
+        flow_path = os.path.join(base_output_path, 'flows')
 
         # Create directories if they do not exist
         os.makedirs(base_output_path, exist_ok=True)
         os.makedirs(src_output_path, exist_ok=True)
+        os.makedirs(flow_path, exist_ok=True)
 
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
@@ -335,25 +333,25 @@ def inundate_probabilistic(
 
         dfs = []
 
-        # Change the slope of each branch
-        crosswalk_srcs = [
-            x
-            for x in glob(f'{hydrofabric_dir}/{huc}/branches/*/src_full_crosswalked_*.csv')
-            if '_og' not in x
-        ]
-        for c_src in crosswalk_srcs:
-
-            og_file = os.path.splitext(c_src)[0] + '_og.csv'
-            if not os.path.exists(og_file):
-                og_src = pd.read_csv(c_src)
-                og_src.to_csv(og_file, index=False)
-                del og_src
-
-            og_src = pd.read_csv(og_file)
-
-            og_src['SLOPE'] = np.max([og_src['SLOPE'] + slope_adj, np.repeat(1e-5, og_src.shape[0])], axis=0)
-
-            og_src.to_csv(c_src, index=False)
+        # # Change the slope of each branch
+        # crosswalk_srcs = [
+        #     x
+        #     for x in glob(f'{hydrofabric_dir}/{huc}/branches/*/src_full_crosswalked_*.csv')
+        #     if '_og' not in x
+        # ]
+        # for c_src in crosswalk_srcs:
+        #
+        #     og_file = os.path.splitext(c_src)[0] + '_og.csv'
+        #     if not os.path.exists(og_file):
+        #         og_src = pd.read_csv(c_src)
+        #         og_src.to_csv(og_file, index=False)
+        #         del og_src
+        #
+        #     og_src = pd.read_csv(og_file)
+        #
+        #     og_src['SLOPE'] = np.max([og_src['SLOPE'] + slope_adj, np.repeat(1e-5, og_src.shape[0])], axis=0)
+        #
+        #     og_src.to_csv(c_src, index=False)
 
         # Change Mannings N
         fs_og = htable_og['feature_id'].unique()
@@ -364,16 +362,17 @@ def inundate_probabilistic(
 
         # Subdivide the channels
         # Keep it to one job for use in Lambda
-        suffix = "prob_adjusted"
-        run_prep(
-            fim_dir=hydrofabric_dir,
-            mann_n_table=manning_path,
-            output_suffix=suffix,
-            number_of_jobs=num_jobs,
-            verbose=False,
-            src_plot_option=False,
-            process_huc=huc,
-        )
+        # suffix = "prob_adjusted"
+        suffix = ""
+        # run_prep(
+        #     fim_dir=hydrofabric_dir,
+        #     mann_n_table=manning_path,
+        #     output_suffix=suffix,
+        #     number_of_jobs=num_jobs,
+        #     verbose=False,
+        #     src_plot_option=False,
+        #     process_huc=huc,
+        # )
 
         # Create new hydrotable to pass in to inundation
         srcs = glob(f'{hydrofabric_dir}/{huc}/branches/*/hydroTable*{suffix}.csv')
@@ -400,7 +399,7 @@ def inundate_probabilistic(
         new_htable = new_htable.sort_values(['branch_id', 'feature_id', 'stage']).reset_index(drop=True)
 
         # CHANGE depending on structure in EFS *****
-        flow_file = f'{base_dir}/{huc}_{percentile}_flow.csv'
+        flow_file = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
 
         df = pd.DataFrame(
             {"feature_id": percentile_values['feature_id'], "discharge": percentile_values[percentile]}
@@ -417,7 +416,7 @@ def inundate_probabilistic(
             mask=mask_path,
             verbose=True,
             num_workers=num_jobs,
-            num_threads=1,
+            num_threads=num_threads,
         )
 
         ds = rxr.open_rasterio(final_inundation_path)
@@ -449,12 +448,13 @@ def inundate_probabilistic(
 
     # Remove SRC path
     shutil.rmtree(src_output_path)
+    shutil.rmtree(flow_path)
 
     # Merge all converted rasters and output
     merge_ds = xr.concat(xrs, dim="band")
     max_ds = merge_ds.max(dim='band').assign_coords({"band": 1})
     max_ds = max_ds.rio.write_nodata(0)
-    max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
+    # max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
     polygon = max_ds.gval.vectorize_data()
     polygon.to_file(os.path.join(base_output_path, output_file_name))
 
@@ -486,7 +486,8 @@ def progress_bar_handler(executor_dict, verbose, desc):
 def inundate_hucs(
     ensembles: str,
     parameters: str,
-    base_dir: str,
+    hydrofabric_dir: str,
+    outputs_dir: str,
     hucs: list,
     mosaic_prob_output_name: str,
     posterior_dist: str = None,
@@ -504,8 +505,10 @@ def inundate_hucs(
         Location of nws ensemble NetCDF file
     parameters: str
         Location of parameter CSV file
-    base_dir: str
-        Directory with the output and hydrofabric directories
+    hydrofabric_dir: str
+        Directory with the hydrofabric directories
+    outputs_dir: str
+        Directory to write output files
     hucs: list
         HUCs to process probabilistic inundation for
     mosaic_prob_output_name: str
@@ -528,7 +531,8 @@ def inundate_hucs(
         inundate_probabilistic(
             ensembles=ensembles,
             parameters=parameters,
-            base_dir=base_dir,
+            hydrofabric_dir=hydrofabric_dir,
+            outputs_dir=outputs_dir,
             huc=huc,
             mosaic_prob_output_name=f"{mosaic_prob_output_name[:mosaic_prob_output_name.rfind('.')]}_{huc}.gpkg",
             posterior_dist=posterior_dist,
@@ -564,7 +568,14 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--parameters", help='REQUIRED: Location of parameters CSV file', required=True)
 
     parser.add_argument(
-        "-b", "--base_dir", help="REQUIRED: Base directory with fim outputs and hydrofabric", required=True
+        "-hd",
+        "--hydrofabric_dir",
+        help="REQUIRED: Base directory with fim outputs and hydrofabric",
+        required=True,
+    )
+
+    parser.add_argument(
+        "-od", "--outputs_dir", help="REQUIRED: Directory with fim outputs and hydrofabric", required=True
     )
 
     parser.add_argument(
