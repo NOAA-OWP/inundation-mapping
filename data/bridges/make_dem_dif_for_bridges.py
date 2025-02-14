@@ -266,7 +266,8 @@ def __setup_logger(output_folder_path):
 
 if __name__ == "__main__":
 
-    # this code needs to be run twice: once for conus and once for Alaska :
+    # NOTE that this script must be run before pre-clipping, because pre-clipped osm data must have "has_lidar_tif" field showing existence of lidar or not
+    #   This code needs to be run twice: once for conus and once for Alaska :
 
     #    python foss_fim/data/bridges/make_dem_dif_for_bridges.py
     #    -i data/inputs/osm/bridges/250102/conus_osm_bridges.gpkg

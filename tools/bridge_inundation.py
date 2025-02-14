@@ -106,7 +106,9 @@ def bridge_risk_status(
 
     # Apply risk_class function to each row
     merged_bri['risk_status'] = merged_bri.apply(risk_class, axis=1)
-    merged_bri.drop('discharge', axis=1, inplace=True)
+
+    # change the name of the given flow
+    merged_bri.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
 
     # Drop not_at_risk status from points with the same geometry
     mapping_dic = {'not_at_risk': 0, 'at_risk': 1, 'threatened': 2}
