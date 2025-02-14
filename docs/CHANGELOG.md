@@ -10,8 +10,6 @@ This PR fixes Hydrotables that have hydroIDs with nan values. These hydroids are
 - `src`:
    - `filter_catchments_and_add_attributes.py`: Lines of code have been added to the function `filter_catchments_and_add_attributes` to find streams that do NOT have upstream branches and they are so tiny.
 
-### Testing
-This PR has been tested successfully on 25 HUC8s, including 04040002, 01010009, 01050002, 01060001, 01100003, 01100004, 01100006, 02030202, 02070011, 03010205, 03050111, 03090203, 04010102, 04080103, 04140101, 04290001, 07020012, 08010202, 09020104, 09030003, 10130205, 16060010, 17120005, 21010005, and 04040003.
 
 <br/><br/>
 
