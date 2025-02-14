@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2025-02-09 - [PR#1426](https://github.com/NOAA-OWP/inundation-mapping/pull/1426)
+## v4.5.14.7 - 2025-02-14 - [PR#1426](https://github.com/NOAA-OWP/inundation-mapping/pull/1426)
 
 Added two new input args to add hand version and product version as output columns to all four output files of FB sites and library plus SB sites and library. This includes the new "model_version" and "product_version". The model verion field will be similar to "HAND 4_5_11_1" and the product version will be similar to "CatFIM 2_2"
 
