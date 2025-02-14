@@ -59,15 +59,6 @@ def filter_catchments_and_add_attributes(
     # Remove streams smaller than one meter
     output_flows_filtered = output_flows_filtered[output_flows_filtered['LengthKm'] > 0.001]
 
-    # # Finding streams that have upstream branch
-    # nextDownId_set = set(gdf_out['NextDownID'])
-    # # Select rows where ID is in the DownID set
-    # streams_w_upstream = gdf_out[gdf_out['ID'].isin(nextDownId_set)]
-    # #Finding streams with upstream branch that drain out of the watershed
-    # streams_w_upstream_to_lake = streams_w_upstream[streams_w_upstream['NextDownID']==-1]
-    # #Finding streams that do not drain out of the watershed
-    # streams_not_to_lake = gdf_out[gdf_out['NextDownID']!=-1]
-
     if output_flows_filtered.HydroID.dtype != 'int':
         output_flows_filtered.HydroID = output_flows_filtered.HydroID.astype(int)
 
