@@ -564,8 +564,8 @@ def __append_huc_code_to_file_name(fileName, hucCode):
 
 
 def __subset_hydroTable_to_forecast(hydroTable, forecast, subset_hucs=None):
+    htable_req_cols = ['HUC', 'feature_id', 'HydroID', 'stage', 'discharge_cms', 'LakeID']
     if isinstance(hydroTable, str):
-        htable_req_cols = ['HUC', 'feature_id', 'HydroID', 'stage', 'discharge_cms', 'LakeID']
         hydroTable = pd.read_csv(
             hydroTable,
             dtype={
@@ -586,7 +586,7 @@ def __subset_hydroTable_to_forecast(hydroTable, forecast, subset_hucs=None):
         hydroTable = hydroTable.set_index(['HUC', 'feature_id', 'HydroID'])
 
     elif isinstance(hydroTable, pd.DataFrame):
-        pass  # consider checking for correct dtypes, indices, and columns
+        pass
     else:
         raise TypeError("Pass path to hydro-table csv or Pandas DataFrame")
 

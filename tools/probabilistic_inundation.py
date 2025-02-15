@@ -29,8 +29,6 @@ from scipy.stats import (
 )
 from tqdm import tqdm
 
-from subdiv_chan_obank_src import run_prep
-
 
 def get_fim_probability_distributions(
     posterior_dist: str = None, huc: int = None
@@ -178,6 +176,152 @@ def generate_streamflow_percentiles(
         }
 
 
+def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_manning, slope_adj):
+    df_src = pd.read_csv(
+        os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv")
+    )
+    df_htable = pd.read_csv(
+        os.path.join(hydrofabric_dir, huc, 'branches', branch, f"hydroTable_{branch}.csv"),
+        dtype={'HUC': str, 'last_updated': object, 'submitter': object, 'obs_source': object},
+    )
+
+    # Subdivide Geometry ----------------------------------------------------------------------------------
+
+    df_src['Volume_chan (m3)'] = np.where(
+        df_src['Stage'] <= df_src['Stage_bankfull'],
+        df_src['Volume (m3)'],
+        (
+            df_src['Volume_bankfull']
+            + ((df_src['Stage'] - df_src['Stage_bankfull']) * df_src['SurfArea_bankfull'])
+        ),
+    )
+    df_src['BedArea_chan (m2)'] = np.where(
+        df_src['Stage'] <= df_src['Stage_bankfull'], df_src['BedArea (m2)'], df_src['BedArea_bankfull']
+    )
+    df_src['WettedPerimeter_chan (m)'] = np.where(
+        df_src['Stage'] <= df_src['Stage_bankfull'],
+        (df_src['BedArea_chan (m2)'] / df_src['LENGTHKM'] / 1000),
+        (df_src['BedArea_chan (m2)'] / df_src['LENGTHKM'] / 1000)
+        + ((df_src['Stage'] - df_src['Stage_bankfull']) * 2),
+    )
+
+    ## Calculate overbank volume & bed area
+    df_src['Volume_obank (m3)'] = np.where(
+        df_src['Stage'] > df_src['Stage_bankfull'], (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0
+    )
+    df_src['BedArea_obank (m2)'] = np.where(
+        df_src['Stage'] > df_src['Stage_bankfull'],
+        (df_src['BedArea (m2)'] - df_src['BedArea_chan (m2)']),
+        0.0,
+    )
+    df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)'] / df_src['LENGTHKM'] / 1000
+
+    # Subdivide Geometry ----------------------------------------------------------------------------------
+
+    df_src['channel_n'] = channel_manning
+    df_src['overbank_n'] = overbank_manning
+
+    df_src['subdiv_applied'] = np.where(df_src['Stage_bankfull'].isnull(), False, True)  # creat
+
+    # Subdivide Manning Eq --------------------------------------------------------------------------------
+
+    df_src = df_src.drop(
+        ['WetArea_chan (m2)', 'HydraulicRadius_chan (m)', 'Discharge_chan (m3s-1)', 'Velocity_chan (m/s)'],
+        axis=1,
+        errors='ignore',
+    )  # drop these cols (in case subdiv was previously performed)
+    df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)'] / df_src['LENGTHKM'] / 1000
+    df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)'] / df_src['WettedPerimeter_chan (m)']
+    df_src['HydraulicRadius_chan (m)'].fillna(0, inplace=True)
+    df_src['Discharge_chan (m3s-1)'] = (
+        df_src['WetArea_chan (m2)']
+        * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
+        * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        / df_src['channel_n']
+    )
+    df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
+    df_src['Velocity_chan (m/s)'].fillna(0, inplace=True)
+
+    ## Calculate discharge (overbank) using Manning's equation
+    df_src = df_src.drop(
+        [
+            'WetArea_obank (m2)',
+            'HydraulicRadius_obank (m)',
+            'Discharge_obank (m3s-1)',
+            'Velocity_obank (m/s)',
+        ],
+        axis=1,
+        errors='ignore',
+    )  # drop these cols (in case subdiv was previously performed)
+    df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)'] / df_src['LENGTHKM'] / 1000
+    df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
+    df_src = df_src.replace([np.inf, -np.inf], np.nan)  # need to replace inf instances (divide by 0)
+    df_src['HydraulicRadius_obank (m)'].fillna(0, inplace=True)
+    df_src['Discharge_obank (m3s-1)'] = (
+        df_src['WetArea_obank (m2)']
+        * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
+        * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        / df_src['overbank_n']
+    )
+    df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
+    df_src['Velocity_obank (m/s)'].fillna(0, inplace=True)
+
+    ## Calcuate the total of the subdivided discharge (channel + overbank)
+    df_src = df_src.drop(
+        ['Discharge (m3s-1)_subdiv'], axis=1, errors='ignore'
+    )  # drop these cols (in case subdiv was previously performed)
+    df_src['Discharge (m3s-1)_subdiv'] = df_src['Discharge_chan (m3s-1)'] + df_src['Discharge_obank (m3s-1)']
+    df_src.loc[df_src['Stage'] == 0, ['Discharge (m3s-1)_subdiv']] = 0
+
+    # Subdivide Manning Eq --------------------------------------------------------------------------------
+
+    ## Use the default discharge column when vmann is not being applied
+    df_src['Discharge (m3s-1)_subdiv'] = np.where(
+        df_src['subdiv_applied'] == False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']
+    )  # reset the discharge value back to the original if vmann=false
+
+    df_src = df_src[
+        [
+            'HydroID',
+            'Stage',
+            'Bathymetry_source',
+            'subdiv_applied',
+            'channel_n',
+            'overbank_n',
+            'Discharge (m3s-1)_subdiv',
+        ]
+    ]
+
+    df_src = df_src.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)_subdiv': 'subdiv_discharge_cms'})
+    df_src['discharge_cms'] = df_src[
+        'subdiv_discharge_cms'
+    ]  # create a copy of vmann modified discharge (used to track future changes)
+
+    ## drop the previously modified discharge column to be replaced with updated version
+    df_htable = df_htable.drop(
+        [
+            'subdiv_applied',
+            'discharge_cms',
+            'overbank_n',
+            'channel_n',
+            'subdiv_discharge_cms',
+            'Bathymetry_source',
+        ],
+        axis=1,
+        errors='ignore',
+    )
+    df_htable = df_htable.merge(
+        df_src, how='left', left_on=['HydroID', 'stage'], right_on=['HydroID', 'stage']
+    )
+
+    df_htable['branch_id'] = int(branch)
+    df_htable['LakeID'] = -999
+    df_htable['HydroID'] = df_htable['HydroID'].astype(str)
+    df_htable['feature_id'] = df_htable['feature_id'].astype(str)
+
+    return df_htable
+
+
 def inundate_probabilistic(
     ensembles: str,
     parameters: str,
@@ -284,6 +428,7 @@ def inundate_probabilistic(
             percentile_values['25'].append(res['25'])
             percentile_values['10'].append(res['10'])
 
+    # ensembles
     channel_dist, obank_dist, slope_dist = get_fim_probability_distributions(
         posterior_dist=posterior_dist, huc=huc
     )
@@ -293,7 +438,7 @@ def inundate_probabilistic(
 
         channel_n = channel_dist.ppf(1 - int(percentile) / 100)
         overbank_n = obank_dist.ppf(1 - int(percentile) / 100)
-        # slope_adj = slope_dist.ppf(int(percentile) / 100)
+        slope_adj = slope_dist.ppf(int(percentile) / 100)
 
         # Make directories if they do not exist
         output_file_name = mosaic_prob_output_name.split('/')[-1]
@@ -316,87 +461,14 @@ def inundate_probabilistic(
             continue
 
         # Open the original hydrotable
-        htable_og = pd.read_csv(
-            os.path.join(hydrofabric_dir, str(huc), 'hydrotable.csv'),
-            dtype={
-                'HUC': str,
-                'feature_id': str,
-                'HydroID': str,
-                'stage': float,
-                'discharge_cms': float,
-                'LakeID': int,
-                'last_updated': object,
-                'submitter': object,
-                'obs_source': object,
-            },
-        )
+        all_branches = glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
+        all_branches = [x.split('/')[-1] for x in all_branches]
 
         dfs = []
-
-        # # Change the slope of each branch
-        # crosswalk_srcs = [
-        #     x
-        #     for x in glob(f'{hydrofabric_dir}/{huc}/branches/*/src_full_crosswalked_*.csv')
-        #     if '_og' not in x
-        # ]
-        # for c_src in crosswalk_srcs:
-        #
-        #     og_file = os.path.splitext(c_src)[0] + '_og.csv'
-        #     if not os.path.exists(og_file):
-        #         og_src = pd.read_csv(c_src)
-        #         og_src.to_csv(og_file, index=False)
-        #         del og_src
-        #
-        #     og_src = pd.read_csv(og_file)
-        #
-        #     og_src['SLOPE'] = np.max([og_src['SLOPE'] + slope_adj, np.repeat(1e-5, og_src.shape[0])], axis=0)
-        #
-        #     og_src.to_csv(c_src, index=False)
-
-        # Change Mannings N
-        fs_og = htable_og['feature_id'].unique()
-
-        mannings_df = pd.DataFrame({'feature_id': fs_og, 'channel_n': channel_n, 'overbank_n': overbank_n})
-        manning_path = os.path.join(src_output_path, 'manning_table.csv')
-        mannings_df.to_csv(manning_path, index=False)
-
-        # Subdivide the channels
-        # Keep it to one job for use in Lambda
-        # suffix = "prob_adjusted"
-        suffix = ""
-        # run_prep(
-        #     fim_dir=hydrofabric_dir,
-        #     mann_n_table=manning_path,
-        #     output_suffix=suffix,
-        #     number_of_jobs=num_jobs,
-        #     verbose=False,
-        #     src_plot_option=False,
-        #     process_huc=huc,
-        # )
-
-        # Create new hydrotable to pass in to inundation
-        srcs = glob(f'{hydrofabric_dir}/{huc}/branches/*/hydroTable*{suffix}.csv')
-        for src in srcs:
-            branch = int(src.split('/')[-2])
-            df = pd.read_csv(
-                src,
-                dtype={
-                    'HUC': str,
-                    'feature_id': str,
-                    'HydroID': str,
-                    'stage': float,
-                    'discharge_cms': float,
-                    'LakeID': int,
-                    'last_updated': object,
-                    'submitter': object,
-                    'obs_source': object,
-                },
-            )
-            df.insert(1, 'branch_id', branch)
-            dfs.append(df)
+        for branch in all_branches:
+            dfs.append(get_subdivided_src(hydrofabric_dir, huc, branch, channel_n, overbank_n, slope_adj))
 
         new_htable = pd.concat(dfs)
-        new_htable = new_htable.sort_values(['branch_id', 'feature_id', 'stage']).reset_index(drop=True)
 
         # CHANGE depending on structure in EFS *****
         flow_file = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
