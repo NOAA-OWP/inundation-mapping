@@ -3,35 +3,34 @@ To run  make_rasters_using_lidar.py, it must be run in a windows conda enviro.  
 
 To setup your Conda enviro for the tool. You will only need to set it up once, then from there one, you can just turn it on/off (activate / deactivate)
 	1) Open Anaconda Window
-	
+
 	2) Path to the directory where your source code is at (adjusting for path):
 	   ie) cd C:\Users\rdp-user\Projects\dev-lidar-bridges2\inundation-mapping\data\bridges
-	
+
 	3) run :   conda env create --file=conda_fim_bridges_enviro.yml
-		
+
 		At some point earlier one, it might ask you to continue (y/n), enter "y". It will take up to 2 - 10 mins to run.
-		
+
 		When it is done and back to command line, you can type the following to see if the enviro is setup correctly
 		conda env list  (and you should see somethign similar to:)
-			
+
 			# conda environments:
 			#
 			base                 * C:\Users\rdp-user\anaconda3
 			fim_bridges            C:\Users\rdp-user\anaconda3\envs\fim_bridges
-			
+
 			(and there may be more enviros from previous projects which is fine.
-			
+
 To activate it (turn it on) and run it
 	• conda activate fim_bridges
 
 Make sure you are in the directory you want:  ie)  cd C:\Users\rdp-user\Projects\dev-lidar-bridges2\inundation-mapping\data\bridges
 
 	• Now we can run it. Adjusting for pathing:
-	
+
 	python make_rasters_using_lidar.py -i C:\Users\rdp-user\Projects\Lidar_bridges\20250207\conus_osm_bridges.gpkg -o C:\Users\rdp-user\Projects\Lidar_bridges\20250207\conus_osm_lidar_rasters\
-			
+
 	• It may take 48 hours (wildly ish, depending on your computer specs)
 
 When you are done, you can type:
 	conda deactivate
-	

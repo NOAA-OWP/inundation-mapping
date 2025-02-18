@@ -178,7 +178,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
 
         print('Adding HUC8/6 number and info about existence of lidar raster or not...')
-        OSM_bridge_lines_gdf['HUC6'] = OSM_bridge_lines_gdf['huc8'].str[:6]
+        OSM_bridge_lines_gdf['huc6'] = OSM_bridge_lines_gdf['huc8'].str[:6]
         OSM_bridge_lines_gdf = identify_bridges_with_lidar(OSM_bridge_lines_gdf, lidar_tif_dir)
 
         dem_files = list(glob.glob(os.path.join(dem_dir, '*.tif')))
@@ -216,15 +216,13 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
                         executor_dict[future] = dem_file
                     except Exception as ex:
                         msg = f"*** Error processing HUC {HUC} : Details: {ex}"
-                        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
                         print(msg)
-                        print(''.join(summary.format()))
                         logging.critical(msg)
-                        logging.critical(''.join(summary.format()))
+                        print(traceback.format_exc())
+                        logging.critical(traceback.format_exc())
                         dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-                        msg = f"Program aborted: {dt_string}"
-                        print(msg)
-                        logging.critical(msg)
+                        print(f"*** Program aborted time: {dt_string}")
+                        logging.critical(f"*** Program aborted time: {dt_string}")
                         executor.shutdown(wait=False)
                         sys.exit(1)  # TODO: figure out why it won't actually terminate
 
@@ -251,17 +249,15 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
         # logging.info(fh.print_date_time_duration(start_time, end_time))
 
     except Exception as ex:
-        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-        msg = f"*** An error occured while making dem diffs : Details: {ex}"
-        print(msg)
-        print(''.join(summary.format()))
-        logging.critical(msg)
-        logging.critical(''.join(summary.format()))
         dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-        msg = f"Program aborted: {dt_string}"
+        msg = f"*** An error occured while making dem diffs : Details: {ex}"
+        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+        print(msg)
+
         print(msg)
         logging.critical(msg)
-        sys.exit(1)
+        print(traceback.format_exc())
+        logging.critical(traceback.format_exc())
 
 
 def __setup_logger(output_folder_path):
