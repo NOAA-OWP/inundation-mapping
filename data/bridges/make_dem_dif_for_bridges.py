@@ -3,7 +3,8 @@ import glob
 import logging
 import os
 import sys
-import time
+
+# import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
@@ -13,7 +14,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import rioxarray
+
+# import rioxarray
 import xarray as xr
 from rasterio.features import rasterize
 from rasterio.merge import merge
@@ -77,7 +79,7 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
     try:
 
         HUC_lidar_tif_osmids = OSM_bridge_lines_gdf[
-            (OSM_bridge_lines_gdf['HUC%d' % HUC_choice] == HUC)
+            (OSM_bridge_lines_gdf['huc%d' % HUC_choice] == HUC)
             & (OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y')
         ]['osmid'].values.tolist()
         HUC_lidar_tif_paths = [os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC_lidar_tif_osmids]
@@ -154,7 +156,9 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
 
     except Exception:
         print('something is wrong for HUC: %s' % str(HUC))
-        logging.info('something is wrong for HUC6: ' + str(HUC))
+        logging.critical('something is wrong for HUC: ' + str(HUC))
+        print(traceback.format_exc())
+        logging.critical(traceback.format_exc())
 
 
 def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number_jobs):
@@ -234,6 +238,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
         OSM_bridge_lines_gdf.to_file(os.path.join(output_dir, f"{base}_modified{ext}"))
 
         # now make a vrt file from all generated diff raster files
+        print("==================")
         print('Making a vrt files from all diff raster files.')
         logging.info('Making a vrt files from all diff raster files')
         create_vrt_file(output_dir, 'bridge_elev_diff.vrt')
@@ -241,9 +246,9 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
         # Record run time
         end_time = datetime.now(timezone.utc)
         tot_run_time = end_time - start_time
-        fh.print_end_header('Making HUC6 dem diff rasters complete', start_time, end_time)
+        fh.print_end_header('Making HUC dem diff rasters complete', start_time, end_time)
         logging.info('TOTAL RUN TIME: ' + str(tot_run_time))
-        logging.info(fh.print_date_time_duration(start_time, end_time))
+        # logging.info(fh.print_date_time_duration(start_time, end_time))
 
     except Exception as ex:
         summary = traceback.StackSummary.extract(traceback.walk_stack(None))
