@@ -17,6 +17,12 @@ from networkx import Graph, connected_components
 from shapely.geometry import LineString, shape
 
 
+"""
+TODO:  Make the huc level osm files in a working dir
+but then save the "final" ones in the output_dir
+"""
+
+
 # ox.settings.requests_timeout = 1200  # Set timeout to 20 minutes
 srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
@@ -532,6 +538,22 @@ if __name__ == "__main__":
         correct final gpkg with the originally successful plus the new re-submitted ones.
 
     '''
+
+    ###############################
+    #
+    # Normal processing order
+    #    1)  Run pull_osm_bridges
+    #    2)  Run make_rasters_using_lidar.py  (via conda enviro for this step only)
+    #    3)  Run make_dem_dif_for_bridges.py. This also makes a new vrt for this set.
+    #        as well as making modified osm_files we want for pre-clip.
+    #        Copy the new '__osm_bridges_modified.gpkg' to beside the original __osm_bridges.gpkg
+    #    4)  Update bash_variables for the new dem diff vrt paths
+    #    5)  Using the modified osm's, run pre-clip
+    #    6)  Update bash_variables for the new pre-clip paths
+    #
+    # Each of these steps need to be run twice, one for CONUS and once for AK
+    #
+    ###############################
 
     parser = argparse.ArgumentParser(description='Acquires and saves Open Street Map bridge features')
 

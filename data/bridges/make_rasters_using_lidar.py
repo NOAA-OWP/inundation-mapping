@@ -419,12 +419,33 @@ def __setup_logger(output_folder_path):
 
 if __name__ == "__main__":
 
-    # Sample usage:
-    # python create_osm_raster_using_lidar.py
-    # -i osm_all_bridges.gpkg
-    # -b 1.5
-    # -r 3
-    # -o /results/02050206
+    # This tool must be run in a conda enviro. See the 'setup_conda_for_make_rasters.txt'
+    #    for more details. Other steps can be run in our standard docker enviros.
+    #
+    # Sample usage:  (using a the conda enviro specifically for this step)
+    # python make_rasters_using_lidar.py
+    #  -i C:\some_path\Lidar_bridges\20250207\conus_osm_bridges.gpkg
+    #  -o C:\some_path\Lidar_bridges\20250207\conus_osm_lidar_rasters\
+    #  -jl 30
+    #  -jr 30
+    #  -b 1.5
+    #  -r 3
+
+    ###############################
+    #
+    # Normal processing order
+    #    1)  Run pull_osm_bridges  (if a new set was required)
+    #    2)  Run make_rasters_using_lidar.py  (via conda enviro for this step only)
+    #    3)  Run make_dem_dif_for_bridges.py. This also makes a new vrt for this set.
+    #        as well as making modified osm_files we want for pre-clip.
+    #        Copy the new '__osm_bridges_modified.gpkg' to beside the original __osm_bridges.gpkg
+    #    4)  Update bash_variables for the new dem diff vrt paths
+    #    5)  Using the modified osm's, run pre-clip
+    #    6)  Update bash_variables for the new pre-clip paths
+    #
+    # Each of these steps need to be run twice, one for CONUS and once for AK
+    #
+    ###############################
 
     parser = argparse.ArgumentParser(
         description='Download lidar points for buffered OSM bridges and make tif files'

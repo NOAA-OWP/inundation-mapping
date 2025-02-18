@@ -24,6 +24,13 @@ from data.create_vrt_file import create_vrt_file
 from utils.shared_functions import FIM_Helpers as fh
 
 
+"""
+Even though this scripts talks about things in terms of HUC6s, it us usually run
+twice. Once for CONUS which has its original DEMs as HUC6, but we run it again
+for AK which has original DEMs of HUC8. But that is ok, this script handles both.
+"""
+
+
 def identify_bridges_with_lidar(OSM_bridge_lines_gdf, lidar_tif_dir):
     # identify osmids with lidar-tif or not
     tif_ids = set(
@@ -69,31 +76,26 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
 
     try:
 
-        HUC6_lidar_tif_osmids = OSM_bridge_lines_gdf[
+        HUC_lidar_tif_osmids = OSM_bridge_lines_gdf[
             (OSM_bridge_lines_gdf['HUC%d' % HUC_choice] == HUC)
             & (OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y')
         ]['osmid'].values.tolist()
-        HUC6_lidar_tif_paths = [
-            os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC6_lidar_tif_osmids
-        ]
+        HUC_lidar_tif_paths = [os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC_lidar_tif_osmids]
 
-        if HUC6_lidar_tif_paths:
+        if HUC_lidar_tif_paths:
             logging.info(
-                'working on HUC%d %s with %d osm rasters: '
-                % (HUC_choice, str(HUC), len(HUC6_lidar_tif_paths))
+                'working on HUC%d %s with %d osm rasters: ' % (HUC_choice, str(HUC), len(HUC_lidar_tif_paths))
             )
-            HUC6_lidar_points_gdf = rasters_to_point(HUC6_lidar_tif_paths)
+            HUC_lidar_points_gdf = rasters_to_point(HUC_lidar_tif_paths)
 
-            temp_buffer = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['osmid'].isin(HUC6_lidar_tif_osmids)]
+            temp_buffer = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['osmid'].isin(HUC_lidar_tif_osmids)]
 
             # make a buffer file because we want to keep only the points within 2 meter of the bridge lines
             temp_buffer.loc[:, 'geometry'] = temp_buffer['geometry'].buffer(2)
-            HUC6_lidar_points_gdf = gpd.sjoin(HUC6_lidar_points_gdf, temp_buffer, predicate='within')
+            HUC_lidar_points_gdf = gpd.sjoin(HUC_lidar_points_gdf, temp_buffer, predicate='within')
 
             # Sample raster values at each point location
-            coords = [
-                (geom.x, geom.y) for geom in HUC6_lidar_points_gdf.geometry
-            ]  # Extract point coordinates
+            coords = [(geom.x, geom.y) for geom in HUC_lidar_points_gdf.geometry]  # Extract point coordinates
             with rasterio.open(dem_file) as src:
                 raster = src.read(1)
                 raster_meta = src.meta.copy()
@@ -102,15 +104,15 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
                 sampled_values = [value[0] for value in src.sample(coords)]  # Sample raster values
 
             # Step 5: Add the sampled values to the GeoDataFrame
-            HUC6_lidar_points_gdf['ori_dem_elev'] = sampled_values
-            HUC6_lidar_points_gdf['elev_diff'] = (
-                HUC6_lidar_points_gdf['lidar_elev'] - HUC6_lidar_points_gdf['ori_dem_elev']
+            HUC_lidar_points_gdf['ori_dem_elev'] = sampled_values
+            HUC_lidar_points_gdf['elev_diff'] = (
+                HUC_lidar_points_gdf['lidar_elev'] - HUC_lidar_points_gdf['ori_dem_elev']
             )
 
             # Replace 'value' with the column in your GeoPackage that contains the point values
             shapes = (
                 (geom, value)
-                for geom, value in zip(HUC6_lidar_points_gdf.geometry, HUC6_lidar_points_gdf['elev_diff'])
+                for geom, value in zip(HUC_lidar_points_gdf.geometry, HUC_lidar_points_gdf['elev_diff'])
             )
 
             # Step 4: Rasterize the points
@@ -155,32 +157,34 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
         logging.info('something is wrong for HUC6: ' + str(HUC))
 
 
-def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir):
+def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number_jobs):
     # start time and setup logs
     start_time = datetime.now(timezone.utc)
-    fh.print_start_header('Making HUC6 elev difference rasters', start_time)
+    dt_string = start_time.strftime("%m/%d/%Y %H:%M:%S")
+    fh.print_start_header('Making HUC elev difference rasters', start_time)
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     __setup_logger(output_dir)
     logging.info(f"Saving results in {output_dir}")
 
     try:
-        print('reading osm bridge lines...')
+        print('Reading osm bridge lines...')
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
 
-        print('adding HUC6 number and info about existence of lidar raster or not...')
-        OSM_bridge_lines_gdf['HUC6'] = OSM_bridge_lines_gdf['HUC8'].str[:6]
+        print('Adding HUC8/6 number and info about existence of lidar raster or not...')
+        OSM_bridge_lines_gdf['HUC6'] = OSM_bridge_lines_gdf['huc8'].str[:6]
         OSM_bridge_lines_gdf = identify_bridges_with_lidar(OSM_bridge_lines_gdf, lidar_tif_dir)
 
         dem_files = list(glob.glob(os.path.join(dem_dir, '*.tif')))
 
-        # TODO delete below two lines
         available_dif_files = list(glob.glob(os.path.join(output_dir, '*.tif')))
         base_names_no_ext = [
             os.path.splitext(os.path.basename(path))[0].split('_')[1] for path in available_dif_files
         ]
 
-        number_of_jobs = 6
-        with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
+        with ProcessPoolExecutor(max_workers=number_jobs) as executor:
             executor_dict = {}
 
             for dem_file in dem_files:
@@ -207,15 +211,21 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir):
                         future = executor.submit(make_one_diff, **make_one_diff_args)
                         executor_dict[future] = dem_file
                     except Exception as ex:
+                        msg = f"*** Error processing HUC {HUC} : Details: {ex}"
                         summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-                        print(f"*** {ex}")
+                        print(msg)
                         print(''.join(summary.format()))
-                        logging.critical(f"*** {ex}")
+                        logging.critical(msg)
                         logging.critical(''.join(summary.format()))
-                        sys.exit(1)
+                        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+                        msg = f"Program aborted: {dt_string}"
+                        print(msg)
+                        logging.critical(msg)
+                        executor.shutdown(wait=False)
+                        sys.exit(1)  # TODO: figure out why it won't actually terminate
 
             # Send the executor to the progress bar and wait for all tasks to finish
-            sf.progress_bar_handler(executor_dict, "Making HUC6 Diff Raster files")
+            sf.progress_bar_handler(executor_dict, "Making HUC8/6 Diff Raster files")
 
         # save with new info (with existence of lidar data or not)
         print('saving the osm bridge lines with info for existence of lidar rasters or not.')
@@ -237,10 +247,15 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir):
 
     except Exception as ex:
         summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-        print(f"*** {ex}")
+        msg = f"*** An error occured while making dem diffs : Details: {ex}"
+        print(msg)
         print(''.join(summary.format()))
-        logging.critical(f"*** {ex}")
+        logging.critical(msg)
         logging.critical(''.join(summary.format()))
+        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+        msg = f"Program aborted: {dt_string}"
+        print(msg)
+        logging.critical(msg)
         sys.exit(1)
 
 
@@ -266,20 +281,39 @@ def __setup_logger(output_folder_path):
 
 if __name__ == "__main__":
 
-    # NOTE that this script must be run before pre-clipping, because pre-clipped osm data must have "has_lidar_tif" field showing existence of lidar or not
+    # NOTE that this script must be run before pre-clipping,
+    #   because pre-clipped osm data must have "has_lidar_tif" field showing existence of lidar or not
     #   This code needs to be run twice: once for conus and once for Alaska :
 
     #    python foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i data/inputs/osm/bridges/250102/conus_osm_bridges.gpkg
+    #    -i /data/inputs/osm/bridges/20250207/conus_osm_bridges.gpkg
     #    -d /data/inputs/dems/3dep_dems/10m_5070/20240916/
-    #    -l data/inputs/osm/bridges/250102/CanBeDeleted_conus_lidar_osm_rasters/
-    #    -o data/inputs/osm/bridges/250102/huc6_dem_diff/conus/
+    #    -l /data/inputs/osm/bridges/20250207/CAN_BE_DELETED_conus_osm_lidar_rasters/lidar_osm_rasters/
+    #    -o /data/inputs/osm/bridges/20250207/10m_dem_diffs/conus/
+    #    -j 30
 
     #    python foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i data/inputs/osm/bridges/250102/alaska_osm_bridges.gpkg
+    #    -i /data/inputs/osm/bridges/20250207/alaska_osm_bridges.gpkg
     #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20240916/
-    #    -l data/inputs/osm/bridges/250102/CanBeDeleted_alaska_lidar_osm_rasters/
-    #    -o data/inputs/osm/bridges/250102/huc6_dem_diff/alaska/
+    #    -l /data/inputs/osm/bridges/20250207/CAN_BE_DELETED_alaska_osm_lidar_rasters/lidar_osm_rasters/
+    #    -o /data/inputs/osm/bridges/20250207/10m_dem_diffs/alaska/
+    #    -j 30
+
+    ###############################
+    #
+    # Normal processing order  (you may not necessarily need to re-pull bridges get new lidar)
+    #    1)  Run pull_osm_bridges
+    #    2)  Run make_rasters_using_lidar.py  (via conda enviro for this step only)
+    #    3)  Run make_dem_dif_for_bridges.py. This also makes a new vrt for this set.
+    #        as well as making modified osm_files we want for pre-clip.
+    #        Copy the new '__osm_bridges_modified.gpkg' to beside the original __osm_bridges.gpkg
+    #    4)  Update bash_variables for the new dem diff vrt paths
+    #    5)  Using the modified osm's, run pre-clip
+    #    6)  Update bash_variables for the new pre-clip paths
+    #
+    # Each of these steps need to be run twice, one for CONUS and once for AK
+    #
+    ###############################
 
     parser = argparse.ArgumentParser(description='Make bridge dem difference rasters')
 
@@ -300,6 +334,15 @@ if __name__ == "__main__":
 
     parser.add_argument(
         '-o', '--output_dir', help='REQUIRED: folder path for output diff rasters.', required=True
+    )
+
+    parser.add_argument(
+        '-j',
+        '--number-jobs',
+        help='OPTIONAL: Number of (jobs) cores/processes for making dem diffs, default is 10. ',
+        required=False,
+        default=10,
+        type=int,
     )
 
     args = vars(parser.parse_args())
