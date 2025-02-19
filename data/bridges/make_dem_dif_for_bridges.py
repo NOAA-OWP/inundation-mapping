@@ -77,7 +77,7 @@ def rasters_to_point(tif_paths):
 def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice, output_diff_path):
 
     try:
-
+        print(f"Start processing {HUC}")
         HUC_lidar_tif_osmids = OSM_bridge_lines_gdf[
             (OSM_bridge_lines_gdf['huc%d' % HUC_choice] == HUC)
             & (OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y')
@@ -153,6 +153,7 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
             raster_meta.update({'compress': 'lzw'})  # Update metadata to compress
             with rasterio.open(output_diff_path, 'w', **raster_meta) as dst:
                 dst.write(updated_raster, 1)
+        print(f"End of processing {HUC}")
 
     except Exception:
         print('something is wrong for HUC: %s' % str(HUC))
@@ -182,6 +183,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
         OSM_bridge_lines_gdf = identify_bridges_with_lidar(OSM_bridge_lines_gdf, lidar_tif_dir)
 
         dem_files = list(glob.glob(os.path.join(dem_dir, '*.tif')))
+        dem_files.sort()
 
         available_dif_files = list(glob.glob(os.path.join(output_dir, '*.tif')))
         base_names_no_ext = [
@@ -227,7 +229,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
                         sys.exit(1)  # TODO: figure out why it won't actually terminate
 
             # Send the executor to the progress bar and wait for all tasks to finish
-            sf.progress_bar_handler(executor_dict, "Making HUC8/6 Diff Raster files")
+            # sf.progress_bar_handler(executor_dict, "Making HUC8/6 Diff Raster files")
 
         # save with new info (with existence of lidar data or not)
         print('saving the osm bridge lines with info for existence of lidar rasters or not.')
