@@ -227,7 +227,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace, sleep_time, env_file):
 
     if not os.path.exists(workspace):
         os.makedirs(workspace, exist_ok=True)
-    import pdb;pdb.set_trace()
+    # import pdb;pdb.set_trace()
     # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
     if list_of_gage_sites == ['all']:
         print('getting metadata for all sites')
@@ -360,7 +360,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace, sleep_time, env_file):
     # Populate mainstems attribute field
     sites_gdf['mainstem'] = 'no'
     sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
-    import pdb;pdb.set_trace()
+    # import pdb;pdb.set_trace()
     sys.exit()
     sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_pre.csv'))
 
@@ -383,7 +383,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace, sleep_time, env_file):
     sites_gdf['acceptable_alt_error'] = np.where(
         sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
     )
-    import pdb;pdb.set_trace()
+    # import pdb;pdb.set_trace()
     sys.exit()
     sites_gdf.to_file(os.path.join(workspace, 'sites_bool_flags.gpkg'), driver='GPKG', engine='fiona')
 
