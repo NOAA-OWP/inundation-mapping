@@ -143,7 +143,14 @@ def generate_streamflow_percentiles(
 
     # Create data to fit truncated exponential distribution
     values = []
+
     for value, scale in zip(np.squeeze(ensemble_forecast.values), scaled_likelihoods):
+        if np.isnan(value):
+            value = 0
+
+        if np.isnan(scale):
+            scale = 1
+
         values.append(np.repeat(value, int(scale)))
 
     streamflow_expon_values = np.hstack(values).ravel()
@@ -396,6 +403,8 @@ def inundate_probabilistic(
         executor_dict = {}
         for feat in features:
 
+            feat = feat if isinstance(feat, int) else int(feat)
+
             ensemble_forecast = ensembles.sel(
                 {'time': forecast_time, 'feature_id': feat, 'member': ['1', '2', '3', '4', '5', '6']}
             )['streamflow']
@@ -417,7 +426,7 @@ def inundate_probabilistic(
 
         # Send the executor to the progress bar and wait for all MS tasks to finish
         results = progress_bar_handler(
-            executor_dict, True, f"Running streamflow percentiles with {num_jobs} workers"
+            executor_dict, True, f"Running streamflow percentiles with {num_threads} workers"
         )
 
         for res in results:
@@ -469,7 +478,6 @@ def inundate_probabilistic(
             dfs.append(get_subdivided_src(hydrofabric_dir, huc, branch, channel_n, overbank_n, slope_adj))
 
         new_htable = pd.concat(dfs)
-
         # CHANGE depending on structure in EFS *****
         flow_file = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
 
