@@ -41,11 +41,11 @@ This script calls the NOAA Tidal API for datum conversions. Experience shows tha
 '''
 
 # import variables from .env file
-load_dotenv()
-API_BASE_URL = os.getenv("API_BASE_URL")
-WBD_LAYER = os.getenv("WBD_LAYER")
-EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
-NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
+
+API_BASE_URL = ""
+WBD_LAYER = ""
+EVALUATED_SITES_CSV = ""
+NWM_FLOWS_MS = ""
 
 
 def get_all_active_usgs_sites():
@@ -154,9 +154,15 @@ def write_categorical_flow_files(metadata, workspace):
 
 
 ###############################################################################
+def set_global_env(env_file):
+    global API_BASE_URL, WBD_LAYER, NWM_FLOWS_MS 
+    load_dotenv(env_file)
 
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    WBD_LAYER = os.getenv("WBD_LAYER")
+    NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
 
-def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
+def usgs_rating_to_elev(list_of_gage_sites, workspace, sleep_time, env_file):
     '''
 
     Returns rating curves, for a set of sites, adjusted to elevation NAVD.
@@ -207,15 +213,21 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         all input sites. Additional metadata also contained in DataFrame
 
     '''
+    # import variables from .env file
+    set_global_env(env_file)
 
     # Define URLs for metadata and rating curve
     metadata_url = f'{API_BASE_URL}/metadata'
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
 
     # Create workspace directory if it doesn't exist
-    if not os.path.exists(workspace):
-        os.mkdir(workspace)
+    if not workspace:
+        raise Exception("Can't have an empty workspace")
 
+
+    if not os.path.exists(workspace):
+        os.makedirs(workspace, exist_ok=True)
+    import pdb;pdb.set_trace()
     # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
     if list_of_gage_sites == ['all']:
         print('getting metadata for all sites')
@@ -348,6 +360,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
     # Populate mainstems attribute field
     sites_gdf['mainstem'] = 'no'
     sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
+    import pdb;pdb.set_trace()
+    sys.exit()
     sites_gdf.to_csv(os.path.join(workspace, 'acceptable_sites_pre.csv'))
 
     sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
@@ -369,7 +383,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
     sites_gdf['acceptable_alt_error'] = np.where(
         sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
     )
-
+    import pdb;pdb.set_trace()
+    sys.exit()
     sites_gdf.to_file(os.path.join(workspace, 'sites_bool_flags.gpkg'), driver='GPKG', engine='fiona')
 
     # Filter and save filtered file for viewing
@@ -431,15 +446,21 @@ if __name__ == '__main__':
         required=True,
     )
     parser.add_argument(
-        '-w', '--workspace', help='Directory where all outputs will be stored.', default=False, required=False
+        '-w', '--workspace', help='Directory where all outputs will be stored.', default="", required=True
     )
     parser.add_argument(
         '-t', '--sleep_timer', help='How long to rest between datum API calls', default=1.0, required=False
     )
-
+    parser.add_argument(
+        '-e',
+        '--env_file',
+        help='OPTIONAL: Docker mount path to the environment file. ie) data/config/fim_enviro_values.env',
+        required=False,
+        default= '/data/config/fim_enviro_values.env'
+    )
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
-
+    
     # Check if csv is supplied
     if args['list_of_gage_sites'][0].endswith('.csv'):
         # Convert csv list to python list
@@ -450,7 +471,7 @@ if __name__ == '__main__':
     list_of_gage_sites = args['list_of_gage_sites']
     workspace = args['workspace']
     sleep_timer = float(args['sleep_timer'])
-
+    env_file = args['env_file']
     # Generate USGS rating curves
     print("Executing...")
-    usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites, workspace=workspace, sleep_time=sleep_timer)
+    usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites, workspace=workspace, sleep_time=sleep_timer, env_file = env_file)
