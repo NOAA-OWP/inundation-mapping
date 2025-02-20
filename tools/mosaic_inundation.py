@@ -133,6 +133,7 @@ def mosaic_by_unit(
         else:
             threaded = False
 
+        print('mosaic workers', workers, threaded)
         overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
 
         if mask:

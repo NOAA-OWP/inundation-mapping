@@ -4,6 +4,8 @@ import gc
 import os
 import shutil
 import sys
+
+# import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from glob import glob
@@ -14,7 +16,7 @@ import numpy as np
 import pandas as pd
 import rioxarray as rxr
 import xarray as xr
-from inundate_mosaic_wrapper import produce_mosaicked_inundation
+from inundate_mosaic_wrapper_optimized import produce_mosaicked_inundation
 from scipy.stats import (
     expon,
     gamma,
@@ -183,7 +185,16 @@ def generate_streamflow_percentiles(
         }
 
 
-def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_manning, slope_adj):
+def get_subdivided_src(
+    hydrofabric_dir,
+    huc,
+    branch,
+    channel_manning,
+    overbank_manning,
+    slope_adj,
+    htable_directory,
+    htable_output,
+):
     df_src = pd.read_csv(
         os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv")
     )
@@ -326,7 +337,8 @@ def get_subdivided_src(hydrofabric_dir, huc, branch, channel_manning, overbank_m
     df_htable['HydroID'] = df_htable['HydroID'].astype(str)
     df_htable['feature_id'] = df_htable['feature_id'].astype(str)
 
-    return df_htable
+    output_table = os.path.join(htable_directory, htable_output.format(branch))
+    df_htable.to_feather(output_table)
 
 
 def inundate_probabilistic(
@@ -453,11 +465,13 @@ def inundate_probabilistic(
         output_file_name = mosaic_prob_output_name.split('/')[-1]
         base_output_path = os.path.join(fim_outputs_dir, str(huc))
         src_output_path = os.path.join(base_output_path, 'srcs')
+        htable_output_path = os.path.join(base_output_path, 'srcs')
         flow_path = os.path.join(base_output_path, 'flows')
 
         # Create directories if they do not exist
         os.makedirs(base_output_path, exist_ok=True)
         os.makedirs(src_output_path, exist_ok=True)
+        os.makedirs(htable_output_path, exist_ok=True)
         os.makedirs(flow_path, exist_ok=True)
 
         # Establish directory to save the final mosaiced inundation
@@ -473,11 +487,20 @@ def inundate_probabilistic(
         all_branches = glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
         all_branches = [x.split('/')[-1] for x in all_branches]
 
-        dfs = []
+        htable_output_file = "htable_{0}.feather"
         for branch in all_branches:
-            dfs.append(get_subdivided_src(hydrofabric_dir, huc, branch, channel_n, overbank_n, slope_adj))
+            get_subdivided_src(
+                hydrofabric_dir,
+                huc,
+                branch,
+                channel_n,
+                overbank_n,
+                slope_adj,
+                htable_output_path,
+                htable_output_file,
+            )
 
-        new_htable = pd.concat(dfs)
+        # new_htable = pd.concat(dfs)
         # CHANGE depending on structure in EFS *****
         flow_file = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
 
@@ -486,44 +509,56 @@ def inundate_probabilistic(
         )
         df.to_csv(flow_file, index=False)
 
+        # print("Before produce_mosaicked inundation", time.localtime())
         # Temporarily constrained to one run for lambda
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
             flow_file,
-            hydro_table_df=new_htable,
+            hydro_table_df=os.path.join(htable_output_path, htable_output_file),
             inundation_raster=final_inundation_path,
             mask=mask_path,
             verbose=True,
             num_workers=num_jobs,
             num_threads=num_threads,
         )
-
+        # print("Before final manipulation", time.localtime())
         ds = rxr.open_rasterio(final_inundation_path)
         nodata, crs = ds.rio.nodata, ds.rio.crs
-        ds2 = xr.where(ds == nodata, 0, ds)
-        ds3 = xr.where(ds2 < 0, 0, ds2)
-        ds4 = xr.where(ds3 > 0, 1, ds3)
-        ds5 = ds4.rio.set_crs(crs)
-        ds6 = ds5.rio.set_nodata(0)
-        ds6.rio.to_raster(final_inundation_path, driver="COG", dtype=np.int8)
+        ds.data = xr.where(ds == nodata, 0, ds)
+        ds.data = xr.where(ds < 0, 0, ds)
+        ds.data = xr.where(ds > 0, 1, ds)
+        ds.rio.set_crs(crs, inplace=True)
+        ds.rio.write_nodata(0, inplace=True)
+        ds.rio.to_raster(final_inundation_path, driver="COG", dtype=np.int8)
 
-        del ds, ds2, ds3, ds4, ds5, ds6
+        ds.close()
+        del ds
         gc.collect()
+
+        # print("Done percentile run", time.localtime())
 
     path = base_output_path
     files = ['90', '75', '50', '25', '10']
 
-    xrs = []
-
     # For every percentile inundation map convert values to percentile
+    max_ds = None
     for file in files:
         file_name = f'{path}/extent_{file}_v10_day{day}_hour{hour}.tif'
         raster = rxr.open_rasterio(file_name)
-        rst1 = xr.where(raster > 0, int(file), raster)
+        raster.data = xr.where(raster > 0, int(file), raster)
+        raster.rio.write_crs(raster.rio.crs, inplace=True)
+        if max_ds is None:
+            max_ds = raster
+        else:
+            merge_ds = xr.concat([max_ds, raster], dim="band")
+            max_ds = merge_ds.max(dim='band').assign_coords({"band": 1})
+            max_ds.rio.write_nodata(0, inplace=True)
 
-        rst2 = rst1.rio.write_crs(raster.rio.crs)
-        xrs.append(rst2)
+            raster.close()
+            del raster, merge_ds
+            gc.collect()
+
         os.remove(file_name)
 
     # Remove SRC path
@@ -531,11 +566,13 @@ def inundate_probabilistic(
     shutil.rmtree(flow_path)
 
     # Merge all converted rasters and output
-    merge_ds = xr.concat(xrs, dim="band")
-    max_ds = merge_ds.max(dim='band').assign_coords({"band": 1})
-    max_ds = max_ds.rio.write_nodata(0)
+
+    # max_ds = max_ds.rio.write_nodata(0)
     # max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
     polygon = max_ds.gval.vectorize_data()
+    max_ds.close()
+    del max_ds
+    gc.collect()
     polygon.to_file(os.path.join(base_output_path, output_file_name))
 
 

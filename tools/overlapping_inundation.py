@@ -176,7 +176,7 @@ class OverlapWindowMerge:
         ]
         path_points = (scaled_path_points + self.proc_unit_bounds[0]) * self.res
 
-        # Create arange of latitudes and longitudes and add half of window size
+        # Create a range of latitudes and longitudes and add half of window size
         latitudes = np.arange(
             self.proc_unit_bounds[0, 0],
             self.proc_unit_bounds[1, 0] + self.lat_lon_sign[0],
