@@ -410,7 +410,7 @@ def __inundate_in_huc(
     return inundation_raster, depths, None
 
 
-@njit(nogil=True, fastmath=True, parallel=True, cache=True)
+@njit(nogil=True, fastmath=True, parallel=True, cache=False)
 def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, nodata_c):
     """
     Numba optimization for determining flood depth and flood
