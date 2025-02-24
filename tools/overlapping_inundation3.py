@@ -370,29 +370,30 @@ class OverlapWindowMerge:
         else:
             raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
 
+        mosaic_read = rxr.open_rasterio(mosaic)
         geom = polys['geometry'].values[0]
-        with rxr.open_rasterio(mosaic, cache=False, lock=False) as mosaic_read:
-            mosaic_read = mosaic_read.sel({'band': 1})
-            with rasterio.open(outfile, "w", **profile) as mosaic_write:
-                for window in windows:
-                    mosaic_sliced = mosaic_read.isel(
-                        y=slice(window.row_off, window.row_off + window.height),
-                        x=slice(window.col_off, window.col_off + window.width),
-                    )
-                    bbox = box(*mosaic_sliced.rio.bounds())
 
-                    if geom.intersects(bbox):
+        mosaic_read = mosaic_read.sel({'band': 1})
+        with rasterio.open(outfile, "w", **profile) as mosaic_write:
+            for window in windows:
+                mosaic_sliced = mosaic_read.isel(
+                    y=slice(window.row_off, window.row_off + window.height),
+                    x=slice(window.col_off, window.col_off + window.width),
+                )
+                bbox = box(*mosaic_sliced.rio.bounds())
 
-                        inter = geom.intersection(bbox)
+                if geom.intersects(bbox):
 
-                        if inter.area != bbox.area:
-                            gdf_temp = gpd.GeoDataFrame(geometry=[inter], crs=mosaic_sliced.rio.crs)
-                            gdf_temp['arb'] = np.int8(1)
-                            temp_rast = make_geocube(
-                                vector_data=gdf_temp, measurements=['arb'], like=mosaic_sliced
-                            )
-                            mosaic_sliced.data = xr.where(np.isnan(temp_rast['arb']), 0, mosaic_sliced.data)
-                            mosaic_write.write_band(1, mosaic_sliced.data.squeeze(), window=window)
+                    inter = geom.intersection(bbox)
+
+                    if inter.area != bbox.area:
+                        gdf_temp = gpd.GeoDataFrame(geometry=[inter], crs=mosaic_sliced.rio.crs)
+                        gdf_temp['arb'] = np.int8(1)
+                        temp_rast = make_geocube(
+                            vector_data=gdf_temp, measurements=['arb'], like=mosaic_sliced
+                        )
+                        mosaic_sliced.data = xr.where(np.isnan(temp_rast['arb']), 0, mosaic_sliced.data)
+                        mosaic_write.write_band(1, mosaic_sliced.data.squeeze(), window=window)
 
 
 # Quasi multi write

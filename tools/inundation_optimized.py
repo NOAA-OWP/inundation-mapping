@@ -54,6 +54,7 @@ def inundate(
     depths=None,
     src_table=None,
     quiet: bool = False,
+    windowed=False,
 ):
     """
 
@@ -196,6 +197,7 @@ def inundate(
             quiet,
             hucs=hucs,
             hucSet=hucSet,
+            windowed=windowed,
         )
 
         # start up thread pool
@@ -226,107 +228,6 @@ def inundate(
         # power down pool
         # executor.shutdown(wait=True)
     return inundation_rasters, depth_rasters, inundation_polys
-
-
-# def __validation(
-#     rem: Union[str, xr.DataArray, xr.Dataset],
-#     catchments: Union[str, xr.DataArray, xr.Dataset],
-#     hydro_table: Union[str, pd.DataFrame],
-#     hucs: list = None,
-#     hucs_layerName: str = None,
-#     num_workers: int = 1,
-#     aggregate: bool = False,
-#     quiet: bool = False,
-# ):
-#     """
-#     Checking inputs for valid formats and values
-#
-#     Parameters
-#     ----------
-#     rem : Union[str, xr.DataArray, xr.Dataset]
-#         File path to or rasterio dataset reader of Relative Elevation Model raster.
-#     catchments : Union[str, xr.DataArray, xr.Dataset]
-#         File path to or rasterio dataset reader of Catchments raster.
-#     hydro_table : Union[str, pd.DataFrame]
-#         File path to hydro-table csv or Pandas DataFrame object with correct indices and columns.
-#     hucs : list, optional
-#         Batch mode only. File path or fiona collection of vector polygons in HUC 4,6,or 8's to inundate on.
-#     hucs_layerName : str, optional
-#         Batch mode only. Layer name in hucs to use if multi-layer file is passed.
-#     num_workers: int
-#         Batch mode only. Number of workers to use in batch mode. Must be 1 or greater.
-#     aggregate: bool, optional
-#         Batch mode only. Aggregates output rasters to VRT mosaic files and merges polygons to single GPKG file
-#         Currently not functional. Raises warning and sets to false. On to-do list.
-#     quiet: bool, optional
-#         Whether to supress printed output
-#
-#     Returns
-#     -------
-#     rem : Union[xr.Dataset, xr.DataArray]
-#         Normalized elevation values for the catchment
-#     catchments: Union[xr.Dataset, xr.DataArray]
-#         Rasterized catchments with HydroIDs
-#     hucs : Union[None, fiona.Collection]
-#         Vector collection of hucs or None
-#     num_workers :  int
-#         Number of parallel workers
-#     quiet : bool
-#         Whether to supress printed output
-#     """
-#     # check for num_workers
-#     num_workers = int(num_workers)
-#     assert num_workers >= 1, "Number of workers should be 1 or greater"
-#     if (num_workers > 1) & (hucs is None):
-#         raise AssertionError("Pass a HUCs file to batch process inundation mapping")
-#
-#         # check that aggregate is only done for hucs mode
-#     aggregate = bool(aggregate)
-#     if aggregate:
-#         warn("Aggregate feature currently not working. Setting to false for now.")
-#         aggregate = False
-#     if hucs is None:
-#         assert not aggregate, "Pass HUCs file if aggregation is desired"
-#
-#     # bool quiet
-#     quiet = bool(quiet)
-#
-#     # input rem
-#     if isinstance(rem, str):
-#         rem = rxr.open_rasterio(rem)
-#     elif isinstance(rem, xr.Dataset) or isinstance(rem, xr.DataArray):
-#         pass
-#     else:
-#         raise TypeError("Pass rioxarray Dataset/DataArray or filepath for rem")
-#
-#     # input catchments grid
-#     if isinstance(catchments, str):
-#         catchments = rxr.open_rasterio(catchments)
-#     elif isinstance(catchments, xr.Dataset) or isinstance(catchments, xr.DataArray):
-#         pass
-#     else:
-#         raise TypeError("Pass rioxarray Dataset/DataArray or filepath for catchments")
-#
-#     # check for matching number of bands and single band only
-#     assert _matching_spatial_indices(
-#         rem, catchments
-#     ), "REM and catchments rasters are required to be single band only"
-#
-#     # open hucs
-#     if hucs is None:
-#         pass
-#     elif isinstance(hucs, str):
-#         hucs = fiona.open(hucs, 'r', layer=hucs_layerName)
-#     elif isinstance(hucs, fiona.Collection):
-#         pass
-#     else:
-#         raise TypeError("Pass fiona collection or filepath for hucs")
-#
-#     # catchment stages dictionary
-#     if hydro_table is None:
-#         raise TypeError("Pass hydro table csv")
-#
-#     return rem, catchments, hucs, num_workers, quiet
 
 
 def __inundate_in_huc(
@@ -471,6 +372,7 @@ def __make_windows_generator(
     quiet,
     hucs=None,
     hucSet=None,
+    windowed=False,
 ):
     """
     Generator to split processing in to windows or different masked datasets
@@ -584,11 +486,26 @@ def __make_windows_generator(
     else:
         hucCode = None
 
-        for ij, window in rem.block_windows():
+        if windowed is True:
+            for ij, window in rem.block_windows():
+
+                yield (
+                    rem.read(1, window=window),
+                    catchments.read(1, window=window),
+                    rem.profile,
+                    catchments.profile,
+                    hucCode,
+                    catchmentStagesDict,
+                    depths,
+                    inundation_raster,
+                    quiet,
+                    window,
+                )
+        else:
 
             yield (
-                rem.read(1, window=window),
-                catchments.read(1, window=window),
+                rem.read(1),
+                catchments.read(1),
                 rem.profile,
                 catchments.profile,
                 hucCode,
@@ -596,7 +513,7 @@ def __make_windows_generator(
                 depths,
                 inundation_raster,
                 quiet,
-                window,
+                None,
             )
 
 

@@ -127,7 +127,7 @@ def mosaic_by_unit(
     verbose=False,
 ):
     # overlap object instance
-    overlap = OverlapWindowMerge(inundation_maps_list, (40, 40))
+    overlap = OverlapWindowMerge(inundation_maps_list, (30, 30))
 
     if mosaic_output is not None:
         if workers > 1:
@@ -137,9 +137,9 @@ def mosaic_by_unit(
 
         overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
 
-        # if mask:
-        #     fh.vprint("Masking ...", verbose)
-        #     overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output)
+        if mask:
+            fh.vprint("Masking ...", verbose)
+            overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output)
 
     del overlap
     gc.collect()

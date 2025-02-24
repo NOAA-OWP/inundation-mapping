@@ -357,6 +357,7 @@ def inundate_probabilistic(
     overwrite: bool = False,
     num_jobs: int = 1,
     num_threads: int = 1,
+    windowed: bool = False,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
@@ -524,10 +525,11 @@ def inundate_probabilistic(
             verbose=True,
             num_workers=num_jobs,
             num_threads=num_threads,
+            windowed=windowed,
         )
         # print("Before final manipulation", time.localtime())
         print("file exists: ", os.path.exists(final_inundation_path))
-        ds = rxr.open_rasterio(final_inundation_path, cache=False, lock=False)
+        ds = rxr.open_rasterio(final_inundation_path)
         nodata, crs = ds.rio.nodata, ds.rio.crs
         ds.data = xr.where(ds == nodata, 0, ds)
         ds.data = xr.where(ds < 0, 0, ds)
@@ -617,6 +619,7 @@ def inundate_hucs(
     overwrite: bool = False,
     num_jobs: int = 1,
     num_threads: int = 1,
+    windowed: bool = False,
 ):
     """Driver for running probabilistic inundation on selected HUCs
 
@@ -662,6 +665,7 @@ def inundate_hucs(
             overwrite=overwrite,
             num_jobs=num_jobs,
             num_threads=num_threads,
+            windowed=windowed,
         )
 
 
@@ -748,6 +752,10 @@ if __name__ == '__main__':
 
     parser.add_argument(
         "-t", "--num_threads", type=int, help="REQUIRED: Number of threads to process HUCs", required=True
+    )
+
+    parser.add_argument(
+        "-w", "--windowed", type=bool, help="REQUIRED: Number of threads to process HUCs", required=True
     )
 
     args = vars(parser.parse_args())

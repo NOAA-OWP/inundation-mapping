@@ -23,6 +23,7 @@ def Inundate_gms(
     verbose=False,
     log_file=None,
     output_fileNames=None,
+    windowed=False,
 ):
     # input handling
     if hucs is not None:
@@ -71,6 +72,7 @@ def Inundate_gms(
         forecast,
         hydro_table_df,
         verbose=False,
+        windowed=windowed,
     )
 
     # start up process pool
@@ -161,6 +163,7 @@ def __inundate_gms_generator(
     forecast,
     hydro_table_df=None,
     verbose=False,
+    windowed=False,
 ):
     """
     Generator for use in parallelizing inundation
@@ -251,6 +254,7 @@ def __inundate_gms_generator(
             "inundation_raster": inundation_branch_raster,
             "depths": depths_branch_raster,
             "quiet": not verbose,
+            "windowed": windowed,
         }
 
         yield inundate_input, identifiers

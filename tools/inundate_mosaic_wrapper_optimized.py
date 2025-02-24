@@ -28,6 +28,7 @@ def produce_mosaicked_inundation(
     verbose=False,
     is_mosaic_for_branches=False,
     num_threads=1,
+    windowed=False,
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
@@ -108,6 +109,7 @@ def produce_mosaicked_inundation(
         inundation_raster=inundation_raster,
         depths_raster=depths_raster,
         verbose=verbose,
+        windowed=windowed,
     )
     print("End GMS", time.localtime())
     # Write map file if designated
