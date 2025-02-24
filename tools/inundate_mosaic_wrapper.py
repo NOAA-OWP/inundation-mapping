@@ -1,6 +1,7 @@
 import argparse
 import errno
 import os
+import time
 from timeit import default_timer as timer
 
 from inundate_gms import Inundate_gms
@@ -95,6 +96,7 @@ def produce_mosaicked_inundation(
             "Please lower the num_workers.".format(num_workers, total_cpus_available)
         )
 
+    print("Starting GMS", time.localtime())
     # Call Inundate_gms
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
@@ -106,6 +108,7 @@ def produce_mosaicked_inundation(
         depths_raster=depths_raster,
         verbose=verbose,
     )
+    print("End GMS", time.localtime())
 
     # Write map file if designated
     if map_filename is not None:
@@ -126,6 +129,8 @@ def produce_mosaicked_inundation(
                 mosaic_output = depths_raster
 
         if mosaic_output is not None:
+            print("Start GMS", time.localtime())
+
             # Call Mosaic_inundation
             mosaic_file_path = Mosaic_inundation(
                 map_file.copy(),
@@ -140,6 +145,8 @@ def produce_mosaicked_inundation(
                 inundation_polygon=inundation_polygon,
                 workers=num_threads,
             )
+
+            print("End Mosaic", time.localtime())
 
     fh.vprint("Mosaicking complete.", verbose)
 

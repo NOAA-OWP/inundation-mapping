@@ -4,8 +4,7 @@ import gc
 import os
 import shutil
 import sys
-
-# import time
+import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from glob import glob
@@ -449,7 +448,7 @@ def inundate_probabilistic(
             percentile_values['25'].append(res['25'])
             percentile_values['10'].append(res['10'])
 
-    # ensembles
+    ensembles.close()
     channel_dist, obank_dist, slope_dist = get_fim_probability_distributions(
         posterior_dist=posterior_dist, huc=huc
     )
@@ -522,7 +521,7 @@ def inundate_probabilistic(
             num_workers=num_jobs,
             num_threads=num_threads,
         )
-        # print("Before final manipulation", time.localtime())
+        print("Before final manipulation", time.localtime())
         ds = rxr.open_rasterio(final_inundation_path)
         nodata, crs = ds.rio.nodata, ds.rio.crs
         ds.data = xr.where(ds == nodata, 0, ds)
@@ -536,7 +535,8 @@ def inundate_probabilistic(
         del ds
         gc.collect()
 
-        # print("Done percentile run", time.localtime())
+        time.sleep(1)
+        print("Done percentile run", time.localtime())
 
     path = base_output_path
     files = ['90', '75', '50', '25', '10']
@@ -567,7 +567,6 @@ def inundate_probabilistic(
 
     # Merge all converted rasters and output
 
-    # max_ds = max_ds.rio.write_nodata(0)
     # max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
     polygon = max_ds.gval.vectorize_data()
     max_ds.close()

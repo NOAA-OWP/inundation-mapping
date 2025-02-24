@@ -19,6 +19,7 @@ import rioxarray as rxr
 import xarray as xr
 from gval.homogenize.spatial_alignment import _matching_spatial_indices
 from numba import njit, prange, typed, types
+from rasterio.mask import mask
 from shapely.geometry import shape
 
 
@@ -139,7 +140,7 @@ def inundate(
 
     # input rem
     if isinstance(rem, str):
-        rem = rxr.open_rasterio(rem)
+        rem = rasterio.open(rem)
     elif isinstance(rem, xr.Dataset) or isinstance(rem, xr.DataArray):
         pass
     else:
@@ -147,16 +148,17 @@ def inundate(
 
     # input catchments grid
     if isinstance(catchments, str):
-        catchments = rxr.open_rasterio(catchments)
+        catchments = rasterio.open(catchments)
     elif isinstance(catchments, xr.Dataset) or isinstance(catchments, xr.DataArray):
         pass
     else:
         raise TypeError("Pass rioxarray Dataset/DataArray or filepath for catchments")
 
     # check for matching number of bands and single band only
-    assert _matching_spatial_indices(
-        rem, catchments
-    ), "REM and catchments rasters are required to be single band only"
+    assert ((rem.transform * (0, 0)) == (catchments.transform * (0, 0))) & (
+        (rem.transform * (rem.width, rem.height))
+        == (catchments.transform * (catchments.width, catchments.height))
+    ), "REM and catchments rasters require same upper left and lower right extents"
 
     # open hucs
     if hucs is None:
@@ -223,13 +225,6 @@ def inundate(
 
         # power down pool
         # executor.shutdown(wait=True)
-
-    # close datasets
-    rem.close()
-    catchments.close()
-    del rem, catchments
-    gc.collect()
-
     return inundation_rasters, depth_rasters, inundation_polys
 
 
@@ -335,13 +330,16 @@ def inundate(
 
 
 def __inundate_in_huc(
-    rem: Union[str, xr.DataArray, xr.Dataset],
-    catchments: Union[str, xr.DataArray, xr.Dataset],
-    hucCode: str,
-    catchmentStagesDict: numba.typed.typeddict,
-    depths: str,
-    inundation_raster: str,
-    quiet: bool,
+    rem_array,
+    catchments_array,
+    rem_profile,
+    catchments_profile,
+    hucCode,
+    catchmentStagesDict,
+    depths,
+    inundation_raster,
+    quiet=False,
+    window=None,
 ):
     """
     Inundate within the chosen scope
@@ -368,44 +366,31 @@ def __inundate_in_huc(
     if hucCode is not None:
         __vprint("Inundating {} ...".format(hucCode), not quiet)
 
-    # reset output values
-    nodata_r = np.int16(rem.rio.nodata)
-    nodata_c = np.int16(catchments.rio.nodata)
+    depths_profile = rem_profile
+    inundation_profile = catchments_profile
+    depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, compress='lzw')
+    inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, compress='lzw')
 
+    # print("Nodata", rem_profile['nodata'], type(rem_profile['nodata']),
+    #                                             catchments_profile['nodata'], type(catchments_profile['nodata']))
     # make output arrays
-    __go_fast_mapping(
-        rem.data,
-        catchments.data,
+    rem, catchments = __go_fast_mapping(
+        rem_array,
+        catchments_array,
         catchmentStagesDict,
-        rem.data.shape[2],
-        rem.data.shape[1],
-        nodata_r,
-        nodata_c,
+        rem_array.shape[1],
+        rem_array.shape[0],
+        np.int16(rem_profile['nodata']),
+        np.int16(catchments_profile['nodata']),
     )
 
-    raster_profile = {
-        "driver": 'GTiff',
-        "blockxsize": 256,
-        "blockysize": 256,
-        "tiled": True,
-        "compress": 'lzw',
-        "transform": rem.rio.transform(),
-        "height": rem.data.shape[1],
-        "width": rem.data.shape[2],
-        "count": 1,
-        "dtype": np.int16,
-    }
-
     if depths is not None:
-        rem.rio.to_raster(depths, **raster_profile)
+        with rasterio.open(depths, "w", **depths_profile) as file:
+            file.write(rem, window=window, indexes=1)
 
     if inundation_raster is not None:
-        catchments.rio.to_raster(inundation_raster, **raster_profile)
-
-    rem.close()
-    catchments.close()
-    del rem, catchments
-    gc.collect()
+        with rasterio.open(inundation_raster, "w", **inundation_profile) as file:
+            file.write(catchments, window=window, indexes=1)
 
     return inundation_raster, depths, None
 
@@ -437,28 +422,30 @@ def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, noda
     for i in prange(y):
         for j in prange(x):
             # If catchments are nodata
-            if catchments[0, i, j] != nodata_c:
+            if catchments[i, j] != nodata_c:
                 # catchments in stage dict
-                if catchments[0, i, j] in catchmentStagesDict:
+                if catchments[i, j] in catchmentStagesDict:
                     # if elevation is zero or greater
-                    if rem[0, i, j] >= 0:
-                        depth = catchmentStagesDict[catchments[0, i, j]] - rem[0, i, j]
+                    if rem[i, j] >= 0:
+                        depth = catchmentStagesDict[catchments[i, j]] - rem[i, j]
 
                         # If the depth is greater than approximately 1/10th of a foot
                         if depth < 30:
-                            catchments[0, i, j] *= -1  # set HydroIDs to negative
-                            rem[0, i, j] = 0
+                            catchments[i, j] *= -1  # set HydroIDs to negative
+                            rem[i, j] = 0
                         else:
-                            rem[0, i, j] = depth
+                            rem[i, j] = depth
                     else:
-                        rem[0, i, j] = 0
-                        catchments[0, i, j] *= -1  # set HydroIDs to negative
+                        rem[i, j] = 0
+                        catchments[i, j] *= -1  # set HydroIDs to negative
                 else:
-                    rem[0, i, j] = 0
-                    catchments[0, i, j] = nodata_c
+                    rem[i, j] = 0
+                    catchments[i, j] = nodata_c
             else:
-                rem[0, i, j] = 0
-                catchments[0, i, j] = nodata_c
+                rem[i, j] = 0
+                catchments[i, j] = nodata_c
+
+    return rem, catchments
 
 
 def __make_windows_generator(
@@ -540,8 +527,8 @@ def __make_windows_generator(
             try:
                 if mask_type == "huc":
                     # window = geometry_window(rem,shape(huc['geometry']))
-                    rem_masked = rem.rio.clip([shape(huc['geometry'])], from_disk=True)
-                    catchments_masked = catchments.rio.clip([shape(huc['geometry'])], from_disk=True)
+                    rem_array, window_transform = mask(rem, shape(huc['geometry']), crop=True, indexes=1)
+                    catchments_array = mask(catchments, shape(huc['geometry']), crop=True, indexes=1)
                 elif mask_type == "filter":
 
                     if isinstance(catchment_poly, str):
@@ -558,9 +545,9 @@ def __make_windows_generator(
                         catchment_poly.HydroID = catchment_poly.HydroID.astype(str)
                     catchment_poly = catchment_poly[catchment_poly.HydroID.str.startswith(fossid)]
 
-                    rem_masked = rem.rio.clip([shape(huc['geometry'])], from_disk=True)
-                    catchments_masked = catchments.rio.clip([shape(huc['geometry'])], from_disk=True)
-                    # del catchment_poly
+                    rem_array, window_transform = mask(rem, catchment_poly['geometry'], crop=True, indexes=1)
+                    catchments_array, _ = mask(catchments, catchment_poly['geometry'], crop=True, indexes=1)
+                    del catchment_poly
                 elif mask_type is None:
                     pass
                 else:
@@ -571,8 +558,10 @@ def __make_windows_generator(
             hucCode = huc['properties'][hucColName]
 
             yield (
-                rem_masked,
-                catchments_masked,
+                rem_array,
+                catchments_array,
+                rem.profile,
+                catchments.profile,
                 hucCode,
                 catchmentStagesDict,
                 depths,
@@ -583,7 +572,20 @@ def __make_windows_generator(
     else:
         hucCode = None
 
-        yield rem, catchments, hucCode, catchmentStagesDict, depths, inundation_raster, quiet
+        for ij, window in rem.block_windows():
+
+            yield (
+                rem.read(1, window=window),
+                catchments.read(1, window=window),
+                rem.profile,
+                catchments.profile,
+                hucCode,
+                catchmentStagesDict,
+                depths,
+                inundation_raster,
+                quiet,
+                window,
+            )
 
 
 def __append_huc_code_to_file_name(fileName, hucCode):

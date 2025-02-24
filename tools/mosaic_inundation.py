@@ -2,10 +2,12 @@
 # coding: utf-8
 
 import argparse
+import gc
 import os
+import time
 
 import pandas as pd
-from overlapping_inundation import OverlapWindowMerge
+from overlapping_inundation3 import OverlapWindowMerge
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
@@ -125,7 +127,7 @@ def mosaic_by_unit(
     verbose=False,
 ):
     # overlap object instance
-    overlap = OverlapWindowMerge(inundation_maps_list, (30, 30))
+    overlap = OverlapWindowMerge(inundation_maps_list, (40, 40))
 
     if mosaic_output is not None:
         if workers > 1:
@@ -133,12 +135,14 @@ def mosaic_by_unit(
         else:
             threaded = False
 
-        print('mosaic workers', workers, threaded)
         overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
 
-        if mask:
-            fh.vprint("Masking ...", verbose)
-            overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output)
+        # if mask:
+        #     fh.vprint("Masking ...", verbose)
+        #     overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output)
+
+    del overlap
+    gc.collect()
 
     if remove_inputs:
         fh.vprint("Removing inputs ...", verbose)
@@ -164,7 +168,7 @@ def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon
     with rasterio.open(inundation_raster) as src:
         # Open inundation_raster using rasterio.
         image = src.read(1)
-        print("Producing merged polygon...")
+        # print("Producing merged polygon...")
 
         # Use numpy.where operation to reclassify depth_array on the condition that the pixel values are > 0.
         reclass_inundation_array = np.where((image > 0) & (image != src.nodata), 1, 0).astype("uint8")
