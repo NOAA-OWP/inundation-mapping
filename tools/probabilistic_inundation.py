@@ -31,6 +31,10 @@ from scipy.stats import (
 from tqdm import tqdm
 
 
+# import gdal
+# gdal.UseExceptions()
+
+
 def get_fim_probability_distributions(
     posterior_dist: str = None, huc: int = None
 ) -> Tuple[gamma, gamma, gamma]:
@@ -522,7 +526,7 @@ def inundate_probabilistic(
             num_threads=num_threads,
         )
         print("Before final manipulation", time.localtime())
-        ds = rxr.open_rasterio(final_inundation_path)
+        ds = rxr.open_rasterio(final_inundation_path, cache=False)
         nodata, crs = ds.rio.nodata, ds.rio.crs
         ds.data = xr.where(ds == nodata, 0, ds)
         ds.data = xr.where(ds < 0, 0, ds)
