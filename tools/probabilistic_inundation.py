@@ -534,7 +534,7 @@ def inundate_probabilistic(
         ds.data = xr.where(ds == nodata, 0, ds)
         ds.data = xr.where(ds < 0, 0, ds)
         ds.data = xr.where(ds > 0, 1, ds)
-        ds.rio.set_crs(crs, inplace=True)
+        ds.rio.write_crs(crs, inplace=True)
         ds.rio.write_nodata(0, inplace=True)
         ds.rio.to_raster(final_inundation_path, driver="COG", dtype=np.int8)
 

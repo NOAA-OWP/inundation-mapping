@@ -7,7 +7,7 @@ import os
 import time
 
 import pandas as pd
-from overlapping_inundation3 import OverlapWindowMerge
+from overlapping_inundation import OverlapWindowMerge
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
