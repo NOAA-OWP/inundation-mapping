@@ -525,8 +525,9 @@ def inundate_probabilistic(
             num_workers=num_jobs,
             num_threads=num_threads,
         )
-        print("Before final manipulation", time.localtime())
-        ds = rxr.open_rasterio(final_inundation_path, cache=False)
+        # print("Before final manipulation", time.localtime())
+        print("file exists: ", os.path.exists(final_inundation_path))
+        ds = rxr.open_rasterio(final_inundation_path, cache=False, lock=False)
         nodata, crs = ds.rio.nodata, ds.rio.crs
         ds.data = xr.where(ds == nodata, 0, ds)
         ds.data = xr.where(ds < 0, 0, ds)

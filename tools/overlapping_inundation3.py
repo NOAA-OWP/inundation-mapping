@@ -371,7 +371,7 @@ class OverlapWindowMerge:
             raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
 
         geom = polys['geometry'].values[0]
-        with rxr.open_rasterio(mosaic, cache=False) as mosaic_read:
+        with rxr.open_rasterio(mosaic, cache=False, lock=False) as mosaic_read:
             mosaic_read = mosaic_read.sel({'band': 1})
             with rasterio.open(outfile, "w", **profile) as mosaic_write:
                 for window in windows:
