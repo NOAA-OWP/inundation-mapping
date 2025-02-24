@@ -1,22 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2025-02-10 - [PR#1427](https://github.com/NOAA-OWP/inundation-mapping/pull/1427)
+## v4.5.x.x - 2025-02-24 - [PR#1427](https://github.com/NOAA-OWP/inundation-mapping/pull/1427)
 
 Removes GDAL imports if `rasterio` is also being used in the same Python interpreter session. Also updates some Python packages.
 
 ### Changes
 
 - `Dockerfile.owp`: renamed from `Dockerfile.prod`
-- `Pipfile` and `Pipfile.lock`: added `gemgis`, `pymc`, and `rio_vrt`; upgraded `osmnx`
+- `Pipfile` and `Pipfile.lock`: added `pymc`, and `rio_vrt`; upgraded `osmnx`
 - `data/`
     - `bathymetry/preprocess_bathymetry.py`: Replaced `gdal` with `whitebox`
-    - `ble/ble_benchmark/`
-        - `create_ble_benchmark.py`: Replaced GDAL with `gemgis` and `whitebox`
-        - `preprocess_benchmark.py`: Added `with` context for `rasterio.open()`
 - `src/utils/shared_functions.py`: Remove unused function and `rasterio` import
 - `tools/inundate_nation.py`: Replaced `gdal` with `rio_vrt` and `whitebox`
-## v4.5.14.8 - 2025-02-14 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1414)
+
+<br/><br/>
+
+### v4.5.14.8 - 2025-02-14 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1414)
 
 ### Summary
 This PR fixes Hydrotables that have hydroIDs with nan values. These hydroids are associated with very small reaches which are linked to one-pixel catchments. Thus, those small reaches were removed in filter_catchments_and_add_attributes.py. This PR also removes the GMS catchments whose main streams are less than 1 m. This PR will close issue #1339.
