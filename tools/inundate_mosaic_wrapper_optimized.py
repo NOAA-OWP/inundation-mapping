@@ -109,7 +109,7 @@ def produce_mosaicked_inundation(
         depths_raster=depths_raster,
         verbose=verbose,
     )
-    # print("Begin GMS", time.localtime())
+    print("End GMS", time.localtime())
     # Write map file if designated
     if map_filename is not None:
         if not os.path.isdir(os.path.dirname(map_filename)):
@@ -118,7 +118,7 @@ def produce_mosaicked_inundation(
         map_file.to_csv(map_filename, index=False)
 
     fh.vprint("Mosaicking extent...", verbose)
-    # print("Mosaicing Begin", time.localtime())
+    print("Mosaicing Begin", time.localtime())
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
         if mosaic_attribute == "inundation_rasters":

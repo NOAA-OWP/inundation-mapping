@@ -368,8 +368,20 @@ def __inundate_in_huc(
 
     depths_profile = rem_profile
     inundation_profile = catchments_profile
-    depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, compress='lzw')
-    inundation_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True, compress='lzw')
+    depths_profile.update(
+        driver='GTiff',
+        blockxsize=256,
+        blockysize=256,
+        tiled=True,
+        # compress='lzw'
+    )
+    inundation_profile.update(
+        driver='GTiff',
+        blockxsize=256,
+        blockysize=256,
+        tiled=True,
+        # compress='lzw'
+    )
 
     # print("Nodata", rem_profile['nodata'], type(rem_profile['nodata']),
     #                                             catchments_profile['nodata'], type(catchments_profile['nodata']))
