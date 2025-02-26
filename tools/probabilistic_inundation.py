@@ -458,9 +458,8 @@ def inundate_probabilistic(
         posterior_dist=posterior_dist, huc=huc
     )
 
-    # cache_dir = os.path.join(outputs_dir, "cache")
-    # os.makedirs(cache_dir, exist_ok=True)
-    # os.environ["NUMBA_CACHE_DIR"] = cache_dir
+    print('NUMBA_CACHE_DIR', os.environ["NUMBA_CACHE_DIR"])
+    print('Initial Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
 
     # Apply inundation map to each percentile
     for percentile, val in percentiles.items():
@@ -533,6 +532,7 @@ def inundate_probabilistic(
         )
         # print("Before final manipulation", time.localtime())
         print("file exists: ", os.path.exists(final_inundation_path))
+        print('Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
 
     path = base_output_path
     files = ['90', '75', '50', '25', '10']
