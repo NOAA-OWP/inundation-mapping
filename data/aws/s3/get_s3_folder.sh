@@ -1,8 +1,10 @@
 #!/bin/bash -e
 
+# Note: This is pretty rough with a lot of hardcoding
+# and is used for rtx FIM_30 at this time, but can easily be upgraded later if required.
 
-# Note: This is pretty rough with alot of hardcoding
-# and is used for rtx FIM_30 at this time
+# Why bash?  Easier than having to load a FIM docker image or create a conda enviro in order
+# to use python and other packages.
 
 
 # Remember to run EXPORT lastest 3 AWS key variables in the same window
@@ -25,28 +27,35 @@
 :
 usage_msg()
 {
-    echo "Sample Usage:  sh get_s3_folder.sh
+    echo "This tool downloads just one folder path {-s/-n}
+
+    Sample Usage:  sh get_s3_folder.sh
                 -s 's3://(somebucket)/ripple/30_pcnt_domain/collections'
                 -n 'mip_03170004'
-                -t '~/fim_30'
+                -t '/home/rdp-user/output/ripple/fim_30'
                 -log 'logs_20250216_0545.txt'
+                -c 'ripple_download_stats.csv'
 
                 # NOTE: for now.. Leave off all starting and trailing slashes.
 
     REQUIRED:
       -s/--s3_source_path      : Full s3 bucket and common prefix.
-                                   Parent folder where all child key folders live
+                                 Parent folder where all child key folders live
                                    ie) s3://(somebucket)/ripple/30_pcnt_domain/collections
-      -n/--s3_key_name         : Folder name (key) to be downloaded.
+      -n/--key_name            : Folder name (key) to be downloaded.
                                    ie) mip_03170004
-                                  from s3://(somebucket)/ripple/30_pcnt_domain/collections/mip_03170004
+                                   from s3://(somebucket)/ripple/30_pcnt_domain/collections/mip_03170004
       -t/--trg_path            : Root local folder path for downloads.
                                    ie) ~/fim_30
-      -log/--log_file_name     : Just the log file name not path, suggest adding a date stamp to it.
-                                   It will be saved in the same root target path.
-      -c/--csv_stats_file_name : Just the csv file name not path, where the download data per folder
-                                   will be saved.
-                                   This saves (folder_name, download_size, num_models, date_downloaded)
+      -log/--log_file          : log file name and path, suggest adding a date stamp to it.
+      -c/--stats_file          : The csv file name and path, where the download data per folder
+                                 will be saved.
+                                 This saves a header line of:
+                                 (folder_name, download_size, num_models, date_downloaded)
+                                 if not already there. Can just keep concating from previous 
+                                 runs if you like.
+    OPTIONS:
+      -h/--help                 : Print usage statement.
     "
 }
 
@@ -59,7 +68,7 @@ while [ "$1" != "" ]; do
         shift
         s3_source_path=$1
         ;;
-    -n|--s3_key_name)
+    -n|--key_name)
         shift
         key_name=$1
         ;;
@@ -67,13 +76,13 @@ while [ "$1" != "" ]; do
         shift
         trg_path=$1
         ;;
-    -log|--log_file_name)
+    -log|--log_file)
         shift
-        log_file_name=$1
+        log_file=$1
         ;;
-    -c|--csv_stats_file_name)
+    -c|--stats_file)
         shift
-        stats_file_name=$1
+        stats_file=$1
         ;;
     -h|--help)
         shift
@@ -84,6 +93,8 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
+
+echo "hi there"
 
 # ==========================================================
 # VALIDATION
@@ -106,17 +117,19 @@ if [ "$trg_path" = "" ]; then
     exit 22
 fi
 
-if [ "$log_file_name" = "" ]; then
+if [ "$log_file" = "" ]; then
     echo "ERROR: Missing -log (log file name)"
     usage_msg
     exit 22
 fi
 
-if [ "$stats_file_name" = "" ]; then
+if [ "$stats_file" = "" ]; then
     echo "ERROR: Missing -c (stats csv file name)"
     usage_msg
     exit 22
 fi
+
+echo $log_file
 
 # TODO: Lots more validation such as extensions, valid s3 paths, etc
 
@@ -141,46 +154,47 @@ Formatted_Date( ){
 
 s3_uri="$s3_source_path/$key_name"
 trg="$trg_path/$key_name"
-log_file="$trg_path/$log_file_name"
-stats_file="$trg_path/$stats_file_name"
+
+# Does folder exist? create it if not
+mkdir -p $trg
 
 # Check if the file exists and is empty
 # Add header only if empty
 stats_header="folder_name,download_size,num_models,date_downloaded"
-if [ -e "$stats_file" ] && [ ! -s "$stats_file" ]; then
-    echo "$stats_header" >> ${stats_file}
-elif [ ! -e "$FILE" ]; then
-    echo "$stats_header" >> ${stats_file}
+
+if [ ! -e "$stats_file" ]; then
+    echo "$stats_header" >> $stats_file
 fi
 
 echo "========================"
 msg="$(Formatted_Date) : Downloading from $s3_source_path to $trg_path"
-echo $msg ; echo "$msg" >> ${log_file}
+echo -e $msg ; echo -e "$msg" >> $log_file
 
 msg="----------------- \n"
-msg="${msg}model_name: ${key_name} \n"
-echo $msg ; echo "$msg" >> ${log_file}
+msg="${msg} model_name: ${key_name} \n"
+echo -e $msg ; echo -e "$msg" >> $log_file
 
 t_start=`date +%s`
 
 # sleep 20
 cli_args="--exclude '*' --include 'library_extent/*' --include 'qc/*' --include '*.xlsx'"
 cli_args="${cli_args} --include 'ripple.gpkg' --include 'start_reaches.csv'"
-cmd_str="aws s3 sync ${s3_source_path}/${key_name} ${trg_path}/ $cli_args"
-eval "$cmd_str"
+cmd_str="aws s3 sync ${s3_source_path}/${key_name}/ ${trg_path}/${key_name}/ $cli_args"
+echo "$cmd_str"
+# eval "$cmd_str"
 # aws s3 sync "${s3_source_path/${model_name} ${trg}/ --exclude '*' --include 'library_extent/*' --include 'qc/*' --include '*.xlsx' --include 'ripple.gpkg' --include 'start_reaches.csv'
 echo "AWS download done"
 date
 
 dur=$(Calc_Duration $t_start)
 msg="Duration (in percent minutes): $dur min"
-echo $msg ; echo "$msg" >> ${log_file}
+echo $msg ; echo "$msg" >> $log_file
 
 #du -sh ${trg} | xargs echo "Total size raw: "
 #du -sh ${trg} | xargs echo "Total size  --- "
 disk_usage="$(du -sh  $trg | cut -f1)"
 msg="Total Size: $disk_usage"
-echo $msg ; echo "$msg" >> ${log_file}
+echo $msg ; echo "$msg" >> $log_file
 
 size_in_kb=`du -b --max-depth=0  $trg | cut -f1`
 f_size=$(printf '%.4f\n' $(echo $size_in_kb /100000000 | bc -l))
@@ -188,15 +202,22 @@ msg="Folder Size in GiB: $f_size"
 echo $msg ; echo "$msg" >> ${log_file}
 
 # find ${trg}/library_extent/ -mindepth 1 -maxdepth 1 -type d | wc -l | xargs echo "Total folders: "
-folder_count=$(find ${trg}/library_extent/ -mindepth 1 -maxdepth 1 -type d | wc -l)
-msg="Total folders: $folder_count"
-echo $msg ; echo "$msg" >> ${log_file}
+extent_folder="${trg}/library_extent/"
+if [ -d "$stats_file" ]; then
+    folder_count=$(find ${trg}/library_extent/ -mindepth 1 -maxdepth 1 -type d | wc -l)
+else
+    folder_count="0"
+fi
+
+msg="Total library extent folders: $folder_count"
+echo $msg ; echo "$msg" >> $log_file
 
 # Now build up the stats line for the log
-# This one is a simple csv, no headers.
+# This one is a simple csv
+# It does not attempt to look for an entry that may already exist for the key at this time.
 download_date=$(date +"%m/%d/%Y")
-stats="$model_name,$f_size,$dur,$folder_count,$download_date"
-echo $stats
-echo "$stats" >> ${stats_file}
+stats="$key_name,$f_size,$dur,$folder_count,$download_date"
+# echo $stats
+echo "$stats" >> $stats_file
 echo "Model download complete"
-echo
+
