@@ -321,7 +321,7 @@ def __inundate_in_huc(
     return inundation_raster, depths, None
 
 
-@njit(nogil=True, fastmath=True, parallel=True, cache=True)
+@njit(nogil=True, fastmath=True, parallel=False, cache=True)
 def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, nodata_c, out_array):
     """
     Numba optimization for determining flood depth and flood
@@ -331,7 +331,7 @@ def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, noda
     rem : numpy array
         Relative elevation model values which will be replaced by inundation depth values
     catchments : numpy array
-        Rasterized catchments represented by HydoIDs to be replaced with inundation values
+        Rasterized catchments represented by HydroIDs to be replaced with inundation values
     catchmentStagesDict :  numba dictionary
         Numba compatible dictionary with HydroID as a key and flood stage as a value
     x : int
