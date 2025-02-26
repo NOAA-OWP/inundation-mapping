@@ -7,7 +7,7 @@ import os
 import time
 
 import pandas as pd
-from overlapping_inundation import OverlapWindowMerge
+from overlapping_inundation3 import OverlapWindowMerge
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
@@ -135,11 +135,17 @@ def mosaic_by_unit(
         else:
             threaded = False
 
-        overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
+        directory, file = os.path.split(mosaic_output)
+        file, ext = os.path.splitext(file)
+        merge = os.path.join(directory, file + "_mosaic" + ext)
+        overlap.merge_rasters(merge, threaded=threaded, workers=workers, nodata=nodata)
 
         if mask:
             fh.vprint("Masking ...", verbose)
-            overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output)
+            print("Masking Begin", time.localtime())
+            overlap.mask_mosaic(merge, mask, outfile=mosaic_output, workers=workers)
+
+            os.remove(merge)
 
     del overlap
     gc.collect()

@@ -200,10 +200,11 @@ def inundate(
             windowed=windowed,
         )
 
-        # start up thread pool
         # executor = ThreadPoolExecutor(max_workers=num_workers)
+        #
+        # # submit jobs
         # results = {executor.submit(__inundate_in_huc, *wg): wg[6] for wg in window_gen}
-
+        #
         inundation_rasters = []
         depth_rasters = []
         inundation_polys = []
@@ -217,6 +218,13 @@ def inundate(
         #             __vprint("... {} complete".format(results[future]), not quiet)
         #         else:
         #             __vprint("... complete", not quiet)
+        #
+        #         inundation_rasters += [future.result()[0]]
+        #         depth_rasters += [future.result()[1]]
+        #         inundation_polys += [future.result()[2]]
+        #
+        # # power down pool
+        # executor.shutdown(wait=True)
 
         # Temprorarily incurring serial processing
         for wg in window_gen:
@@ -282,12 +290,16 @@ def __inundate_in_huc(
         blockysize=256,
         tiled=True,
         # compress='lzw'
+        dtype='int8',
+        nodata=0,
     )
 
     # print("Nodata", rem_profile['nodata'], type(rem_profile['nodata']),
     #                                             catchments_profile['nodata'], type(catchments_profile['nodata']))
     # make output arrays
-    rem, catchments = __go_fast_mapping(
+
+    out_array = np.tile(np.int8(0), rem_array.shape)
+    rem, out_array = __go_fast_mapping(
         rem_array,
         catchments_array,
         catchmentStagesDict,
@@ -295,6 +307,7 @@ def __inundate_in_huc(
         rem_array.shape[0],
         np.int16(rem_profile['nodata']),
         np.int16(catchments_profile['nodata']),
+        out_array,
     )
 
     if depths is not None:
@@ -303,13 +316,13 @@ def __inundate_in_huc(
 
     if inundation_raster is not None:
         with rasterio.open(inundation_raster, "w", **inundation_profile) as file:
-            file.write(catchments, window=window, indexes=1)
+            file.write(out_array, window=window, indexes=1)
 
     return inundation_raster, depths, None
 
 
-@njit(nogil=True, fastmath=True, parallel=True, cache=False)
-def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, nodata_c):
+@njit(nogil=True, fastmath=True, parallel=True, cache=True)
+def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, nodata_c, out_array):
     """
     Numba optimization for determining flood depth and flood
 
@@ -344,21 +357,23 @@ def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, noda
 
                         # If the depth is greater than approximately 1/10th of a foot
                         if depth < 30:
-                            catchments[i, j] *= -1  # set HydroIDs to negative
                             rem[i, j] = 0
+                            out_array[i, j] = np.int8(0)
+
                         else:
                             rem[i, j] = depth
+                            out_array[i, j] = np.int8(1)
                     else:
                         rem[i, j] = 0
-                        catchments[i, j] *= -1  # set HydroIDs to negative
+                        out_array[i, j] = np.int8(0)
                 else:
                     rem[i, j] = 0
-                    catchments[i, j] = nodata_c
+                    out_array[i, j] = np.int8(0)
             else:
                 rem[i, j] = 0
-                catchments[i, j] = nodata_c
+                out_array[i, j] = np.int8(0)
 
-    return rem, catchments
+    return rem, out_array
 
 
 def __make_windows_generator(

@@ -77,7 +77,7 @@ def Inundate_gms(
 
     # start up process pool
     # better results with Process pool
-    # executor = ThreadPoolExecutor(max_workers=num_workers)
+    executor = ThreadPoolExecutor(max_workers=num_workers)
 
     # collect output filenames
     inundation_raster_fileNames = [None] * number_of_branches
@@ -86,33 +86,34 @@ def Inundate_gms(
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
 
+    executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
     idx = 0
-    for inp, ids in (pbar := tqdm(inundate_input_generator)):
-
-        hucCode, branch_id = ids
-        pbar.set_description(f"Running HUC {hucCode} branch {branch_id}")
+    for future in tqdm(
+        as_completed(executor_generator),
+        total=len(executor_generator),
+        desc=f"Inundating branches with {num_workers} workers",
+        disable=(not verbose),
+    ):
+        hucCode, branch_id = executor_generator[future]
 
         try:
-            result = inundate(**inp)
+            future.result()
 
         except NoForecastFound as exc:
             if log_file is not None:
-                with open(log_file, 'a') as f:
-                    f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
             elif verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except hydroTableHasOnlyLakes as exc:
             if log_file is not None:
-                with open(log_file, 'a') as f:
-                    f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
             elif verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except Exception as exc:
             if log_file is not None:
-                with open(log_file, 'a') as f:
-                    f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
             else:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
         else:
@@ -121,21 +122,75 @@ def Inundate_gms(
 
             try:
                 # print(hucCode,branch_id,future.result()[0][0])
-                inundation_raster_fileNames[idx] = result[0][0]
+                inundation_raster_fileNames[idx] = future.result()[0][0]
             except TypeError:
                 pass
 
             try:
-                depths_raster_fileNames[idx] = result[1][0]
+                depths_raster_fileNames[idx] = future.result()[1][0]
             except TypeError:
                 pass
 
             try:
-                inundation_polygon_fileNames[idx] = result[2][0]
+                inundation_polygon_fileNames[idx] = future.result()[2][0]
             except TypeError:
                 pass
 
             idx += 1
+
+    # power down pool
+    executor.shutdown(wait=True)
+
+    # idx = 0
+    # for inp, ids in (pbar := tqdm(inundate_input_generator)):
+    #
+    #     hucCode, branch_id = ids
+    #     pbar.set_description(f"Running HUC {hucCode} branch {branch_id}")
+    #
+    #     try:
+    #         result = inundate(**inp)
+    #
+    #     except NoForecastFound as exc:
+    #         if log_file is not None:
+    #             with open(log_file, 'a') as f:
+    #                 f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+    #         elif verbose:
+    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+    #
+    #     except hydroTableHasOnlyLakes as exc:
+    #         if log_file is not None:
+    #             with open(log_file, 'a') as f:
+    #                 f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+    #         elif verbose:
+    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+    #
+    #     except Exception as exc:
+    #         if log_file is not None:
+    #             with open(log_file, 'a') as f:
+    #                 f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+    #         else:
+    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
+    #     else:
+    #         hucCodes[idx] = hucCode
+    #         branch_ids[idx] = branch_id
+    #
+    #         try:
+    #             # print(hucCode,branch_id,future.result()[0][0])
+    #             inundation_raster_fileNames[idx] = result[0][0]
+    #         except TypeError:
+    #             pass
+    #
+    #         try:
+    #             depths_raster_fileNames[idx] = result[1][0]
+    #         except TypeError:
+    #             pass
+    #
+    #         try:
+    #             inundation_polygon_fileNames[idx] = result[2][0]
+    #         except TypeError:
+    #             pass
+    #
+    #         idx += 1
 
     # make filename dataframe
     output_fileNames_df = pd.DataFrame(

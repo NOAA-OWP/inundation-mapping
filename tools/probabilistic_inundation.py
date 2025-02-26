@@ -458,6 +458,10 @@ def inundate_probabilistic(
         posterior_dist=posterior_dist, huc=huc
     )
 
+    # cache_dir = os.path.join(outputs_dir, "cache")
+    # os.makedirs(cache_dir, exist_ok=True)
+    # os.environ["NUMBA_CACHE_DIR"] = cache_dir
+
     # Apply inundation map to each percentile
     for percentile, val in percentiles.items():
 
@@ -529,21 +533,6 @@ def inundate_probabilistic(
         )
         # print("Before final manipulation", time.localtime())
         print("file exists: ", os.path.exists(final_inundation_path))
-        ds = rxr.open_rasterio(final_inundation_path)
-        nodata, crs = ds.rio.nodata, ds.rio.crs
-        ds.data = xr.where(ds == nodata, 0, ds)
-        ds.data = xr.where(ds < 0, 0, ds)
-        ds.data = xr.where(ds > 0, 1, ds)
-        ds.rio.write_crs(crs, inplace=True)
-        ds.rio.write_nodata(0, inplace=True)
-        ds.rio.to_raster(final_inundation_path, driver="COG", dtype=np.int8)
-
-        ds.close()
-        del ds
-        gc.collect()
-
-        time.sleep(1)
-        print("Done percentile run", time.localtime())
 
     path = base_output_path
     files = ['90', '75', '50', '25', '10']
