@@ -353,6 +353,7 @@ def inundate_probabilistic(
     num_jobs: int = 1,
     num_threads: int = 1,
     windowed: bool = False,
+    output_raster: bool = False,
     quiet=True,
 ):
     """
@@ -384,6 +385,10 @@ def inundate_probabilistic(
         Number of processes to parallelize over
     num_threads: int
         Number of threads to parallelize over
+    windowed: bool = False
+        Whether to run inundation in windowed mode for memory conservation
+    output_raster: bool = False
+        Whether to keep the output raster along with the vector output
 
     """
 
@@ -437,7 +442,7 @@ def inundate_probabilistic(
 
         # Send the executor to the progress bar and wait for all MS tasks to finish
         results = progress_bar_handler(
-            executor_dict, True, f"Running streamflow percentiles with {num_threads} workers"
+            executor_dict, not quiet, f"Running streamflow percentiles with {num_threads} workers"
         )
 
         for res in results:
@@ -502,7 +507,6 @@ def inundate_probabilistic(
                 htable_output_file,
             )
 
-        # new_htable = pd.concat(dfs)
         # CHANGE depending on structure in EFS *****
         flow_file = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
 
@@ -529,12 +533,13 @@ def inundate_probabilistic(
         print("file exists: ", os.path.exists(final_inundation_path))
         # print('Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
 
-    files = ['90', '75', '50', '25', '10']
+    percentiles
+    percentile_files = [
+        f'{base_output_path}/extent_{file}_v10_day{day}_hour{hour}.tif' for file in list(percentiles.keys())
+    ]
 
     # For every percentile inundation map convert values to percentile
-    datasets = [
-        rasterio.open(f'{base_output_path}/extent_{file}_v10_day{day}_hour{hour}.tif') for file in files
-    ]
+    datasets = [rasterio.open(file) for file in percentile_files]
     windows = [windows for _, windows in datasets[0].block_windows()]
     profile = datasets[0].profile
     raster_crs = datasets[0].crs
@@ -565,7 +570,7 @@ def inundate_probabilistic(
 
     out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
     with rasterio.open(out_rast, "w+", **profile) as write_rst:
-        dgen = __data_generator(datasets, files, windows, write_rst)
+        dgen = __data_generator(datasets, list(percentiles.keys()), windows, write_rst)
         results = {executor.submit(merge_percentiles, *wg): 1 for wg in dgen}
 
         for future in as_completed(results):
@@ -597,37 +602,14 @@ def inundate_probabilistic(
         gdf = gpd.GeoDataFrame(data, crs=raster_crs)
         gdf.to_file(os.path.join(base_output_path, output_file_name))
 
-    # max_ds = None
-    # for file in files:
-    #     file_name =
-    #     raster = rxr.open_rasterio(file_name)
-    #     raster.data = xr.where(raster > 0, int(file), raster)
-    #     raster.rio.write_crs(raster.rio.crs, inplace=True)
-    #     if max_ds is None:
-    #         max_ds = raster
-    #     else:
-    #         merge_ds = xr.concat([max_ds, raster], dim="band")
-    #         max_ds = merge_ds.max(dim='band').assign_coords({"band": 1})
-    #         max_ds.rio.write_nodata(0, inplace=True)
-    #
-    #         raster.close()
-    #         del raster, merge_ds
-    #         gc.collect()
-    #
-    #     os.remove(file_name)
+    for file in percentile_files:
+        os.remove(file)
 
+    if output_raster is False:
+        os.remove(out_rast)
     # Remove SRC path
     shutil.rmtree(src_output_path)
     shutil.rmtree(flow_path)
-
-    # Merge all converted rasters and output
-    #
-    # # max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
-    # polygon = max_ds.gval.vectorize_data()
-    # max_ds.close()
-    # del max_ds
-    # gc.collect()
-    # polygon.to_file(os.path.join(base_output_path, output_file_name))
 
 
 def progress_bar_handler(executor_dict, verbose, desc):
@@ -668,6 +650,8 @@ def inundate_hucs(
     num_jobs: int = 1,
     num_threads: int = 1,
     windowed: bool = False,
+    output_raster: bool = False,
+    quiet: bool = True,
 ):
     """Driver for running probabilistic inundation on selected HUCs
 
@@ -697,6 +681,12 @@ def inundate_hucs(
         Number of processes to parallelize over
     num_threads: int
         Number of threads to parallelize over
+    windowed: bool = False
+        Whether to run inundation in windowed mode for memory conservation
+    output_raster: bool = False
+        Whether to keep the output raster along with the vector output
+    quiet: bool = False
+        Whether to be verbose or not
 
     """
     for huc in hucs:
@@ -714,6 +704,8 @@ def inundate_hucs(
             num_jobs=num_jobs,
             num_threads=num_threads,
             windowed=windowed,
+            output_raster=output_raster,
+            quiet=quiet,
         )
 
 
@@ -792,6 +784,18 @@ if __name__ == '__main__':
         default=False,
         help="OPTIONAL: Whether to overwrite existing output",
         required=False,
+    )
+
+    parser.add_argument(
+        "-or",
+        "--output_raster",
+        default=False,
+        help="OPTIONAL: Whether to keep final raster output along with vector",
+        required=False,
+    )
+
+    parser.add_argument(
+        "-q", "--quiet", default=True, help="OPTIONAL: Whether to be verbose or not", required=False
     )
 
     parser.add_argument(

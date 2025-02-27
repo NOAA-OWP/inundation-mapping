@@ -135,9 +135,6 @@ def mosaic_by_unit(
         else:
             threaded = False
 
-        directory, file = os.path.split(mosaic_output)
-        file, ext = os.path.splitext(file)
-        # merge = os.path.join(directory, file + "_mosaic" + ext)
         overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
 
         if mask:
@@ -145,20 +142,15 @@ def mosaic_by_unit(
             print("Masking Begin", time.localtime())
             overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
-            # os.remove(merge)
+    if remove_inputs:
+        fh.vprint("Removing inputs ...", verbose)
 
-    # del overlap
-    # gc.collect()
+        remove_list = []
+        for inun_map in inundation_maps_list:
+            if inun_map is not None and os.path.isfile(inun_map):
+                remove_list.append(inun_map)
 
-    # if remove_inputs:
-    #     fh.vprint("Removing inputs ...", verbose)
-    #
-    #     remove_list = []
-    #     for inun_map in inundation_maps_list:
-    #         if inun_map is not None and os.path.isfile(inun_map):
-    #             remove_list.append(inun_map)
-    #
-    #     return remove_list
+        return remove_list
 
 
 def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon, driver="GPKG"):
