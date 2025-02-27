@@ -1,19 +1,17 @@
 import argparse
 import ast
-import gc
 import os
 import shutil
 import sys
-import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from glob import glob
 from typing import Dict, Tuple, Union
 
-import gval
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import rioxarray as rxr
+import rasterio
 import xarray as xr
 from inundate_mosaic_wrapper_optimized import produce_mosaicked_inundation
 from scipy.stats import (
@@ -28,6 +26,7 @@ from scipy.stats import (
     truncexpon,
     weibull_min,
 )
+from shapely.geometry import shape
 from tqdm import tqdm
 
 
@@ -127,11 +126,9 @@ def generate_streamflow_percentiles(
     # params['size'] = 16071
 
     try:
-        # print(params)
         r = dist_dict[parameters['distribution_name']](**params)
         # .rvs(**params))
     except Exception:
-        # print('exception')
         return {
             'feature_id': int(feature),
             '90': float(ensemble_forecast.sel({'member': '1'})),
@@ -161,7 +158,6 @@ def generate_streamflow_percentiles(
     streamflow_expon_values = np.hstack(values).ravel()
 
     if not np.all(streamflow_expon_values == streamflow_expon_values[0]):
-
         # Generate 10000 random values from distribution
         trunc_expon = truncexpon(
             *truncexpon.fit(streamflow_expon_values, loc=np.min(streamflow_expon_values))
@@ -177,7 +173,6 @@ def generate_streamflow_percentiles(
         }
 
     else:
-
         return {
             'feature_id': int(feature),
             '90': np.max([0, streamflow_expon_values[0]]),
@@ -358,6 +353,7 @@ def inundate_probabilistic(
     num_jobs: int = 1,
     num_threads: int = 1,
     windowed: bool = False,
+    quiet=True,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
@@ -405,7 +401,6 @@ def inundate_probabilistic(
     mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
 
     # Slice of time in forecast (possibly changed to
-
     forecast_time = ensembles.coords['reference_time'] + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
 
     # Percentiles and data to add
@@ -458,8 +453,8 @@ def inundate_probabilistic(
         posterior_dist=posterior_dist, huc=huc
     )
 
-    print('NUMBA_CACHE_DIR', os.environ["NUMBA_CACHE_DIR"])
-    print('Initial Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
+    # print('NUMBA_CACHE_DIR', os.environ["NUMBA_CACHE_DIR"])
+    # print('Initial Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
 
     # Apply inundation map to each percentile
     for percentile, val in percentiles.items():
@@ -532,43 +527,107 @@ def inundate_probabilistic(
         )
         # print("Before final manipulation", time.localtime())
         print("file exists: ", os.path.exists(final_inundation_path))
-        print('Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
+        # print('Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
 
-    path = base_output_path
     files = ['90', '75', '50', '25', '10']
 
     # For every percentile inundation map convert values to percentile
-    max_ds = None
-    for file in files:
-        file_name = f'{path}/extent_{file}_v10_day{day}_hour{hour}.tif'
-        raster = rxr.open_rasterio(file_name)
-        raster.data = xr.where(raster > 0, int(file), raster)
-        raster.rio.write_crs(raster.rio.crs, inplace=True)
-        if max_ds is None:
-            max_ds = raster
-        else:
-            merge_ds = xr.concat([max_ds, raster], dim="band")
-            max_ds = merge_ds.max(dim='band').assign_coords({"band": 1})
-            max_ds.rio.write_nodata(0, inplace=True)
+    datasets = [
+        rasterio.open(f'{base_output_path}/extent_{file}_v10_day{day}_hour{hour}.tif') for file in files
+    ]
+    windows = [windows for _, windows in datasets[0].block_windows()]
+    profile = datasets[0].profile
+    raster_crs = datasets[0].crs
+    profile.update(dtype=np.int8)
 
-            raster.close()
-            del raster, merge_ds
-            gc.collect()
+    def merge_percentiles(
+        ds: list, percentiles: list, window: rasterio.windows.Window, wrst=rasterio.io.DatasetWriter
+    ):
+        arrays = []
+        for d, p in zip(ds, percentiles):
+            data = d.read(1, window=window)
+            data[np.where(data > 0)] = np.int8(p)
+            arrays.append(data)
 
-        os.remove(file_name)
+        merged = np.max(arrays, axis=0)
+
+        wrst.write(merged, window=window, indexes=1)
+
+    executor = ThreadPoolExecutor(max_workers=1)
+
+    def __data_generator(datasets, percentiles, windows, wrst):
+        for window in windows:
+            yield datasets, percentiles, window, wrst
+
+    def _vprint(message, verbose):
+        if verbose:
+            print(message)
+
+    out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
+    with rasterio.open(out_rast, "w+", **profile) as write_rst:
+        dgen = __data_generator(datasets, files, windows, write_rst)
+        results = {executor.submit(merge_percentiles, *wg): 1 for wg in dgen}
+
+        for future in as_completed(results):
+            try:
+                future.result()
+            except Exception as exc:
+                _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
+            else:
+                if results[future] is not None:
+                    _vprint("... {} complete".format(results[future]), not quiet)
+                else:
+                    _vprint("... complete", not quiet)
+
+    # Close datasets
+    for ds in datasets:
+        ds.close()
+
+    with rasterio.open(out_rast, 'r') as rst:
+        shapes = rasterio.features.shapes(rst.read(1), mask=None, transform=rst.transform)
+
+        polygons = []
+        for geom, value in shapes:
+            polygon = shape(geom)
+            polygons.append((polygon, value))
+
+        data = []
+        for polygon, value in polygons:
+            data.append({'geometry': polygon, 'value': value})
+        gdf = gpd.GeoDataFrame(data, crs=raster_crs)
+        gdf.to_file(os.path.join(base_output_path, output_file_name))
+
+    # max_ds = None
+    # for file in files:
+    #     file_name =
+    #     raster = rxr.open_rasterio(file_name)
+    #     raster.data = xr.where(raster > 0, int(file), raster)
+    #     raster.rio.write_crs(raster.rio.crs, inplace=True)
+    #     if max_ds is None:
+    #         max_ds = raster
+    #     else:
+    #         merge_ds = xr.concat([max_ds, raster], dim="band")
+    #         max_ds = merge_ds.max(dim='band').assign_coords({"band": 1})
+    #         max_ds.rio.write_nodata(0, inplace=True)
+    #
+    #         raster.close()
+    #         del raster, merge_ds
+    #         gc.collect()
+    #
+    #     os.remove(file_name)
 
     # Remove SRC path
     shutil.rmtree(src_output_path)
     shutil.rmtree(flow_path)
 
     # Merge all converted rasters and output
-
-    # max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
-    polygon = max_ds.gval.vectorize_data()
-    max_ds.close()
-    del max_ds
-    gc.collect()
-    polygon.to_file(os.path.join(base_output_path, output_file_name))
+    #
+    # # max_ds.rio.to_raster(os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif")))
+    # polygon = max_ds.gval.vectorize_data()
+    # max_ds.close()
+    # del max_ds
+    # gc.collect()
+    # polygon.to_file(os.path.join(base_output_path, output_file_name))
 
 
 def progress_bar_handler(executor_dict, verbose, desc):

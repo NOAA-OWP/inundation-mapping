@@ -374,7 +374,7 @@ class OverlapWindowMerge:
         mosaic_read = mosaic_read.sel({'band': 1})
         geom = polys['geometry'].values[0]
 
-        def write_window(mosaic, geom, window, wrst, lock):
+        def write_window(geom, window, wrst, lock):
             mosaic_slice = mosaic.isel(
                 y=slice(window.row_off, window.row_off + window.height),
                 x=slice(window.col_off, window.col_off + window.width),
@@ -390,8 +390,8 @@ class OverlapWindowMerge:
                     gdf_temp['arb'] = np.int8(1)
                     temp_rast = make_geocube(vector_data=gdf_temp, measurements=['arb'], like=mosaic_slice)
                     mosaic_slice.data = xr.where(np.isnan(temp_rast['arb']), 0, mosaic_slice.data)
-                    with lock:
-                        wrst.write_band(1, mosaic_slice.data.squeeze(), window=window)
+                    # with lock:
+                    wrst.write_band(1, mosaic_slice.data.squeeze(), window=window)
 
         executor = ThreadPoolExecutor(max_workers=workers)
 
@@ -401,7 +401,7 @@ class OverlapWindowMerge:
 
         lock = Lock()
 
-        with rasterio.open(outfile, "w", **profile) as wrst:
+        with rasterio.open(outfile, "r+", **profile) as wrst:
             dgen = __data_generator(windows, mosaic_read, geom, wrst, lock)
             results = {executor.submit(write_window, *wg): 1 for wg in dgen}
 

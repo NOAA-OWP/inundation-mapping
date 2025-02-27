@@ -185,6 +185,33 @@ def inundate(
         if src_table is not None:
             create_src_subset_csv(hydro_table, catchmentStagesDict, src_table)
 
+        depths_profile = rem.profile
+        inundation_profile = catchments.profile
+
+        depths_profile.update(
+            driver='GTiff',
+            blockxsize=256,
+            blockysize=256,
+            tiled=True,
+            # compress='lzw'
+        )
+        inundation_profile.update(
+            driver='GTiff',
+            blockxsize=256,
+            blockysize=256,
+            tiled=True,
+            # compress='lzw'
+            dtype='int8',
+            nodata=0,
+        )
+
+        depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
+        inundation_rst = (
+            rasterio.open(inundation_raster, "w+", **inundation_profile)
+            if (inundation_profile is not None)
+            else None
+        )
+
         # make windows generator
         window_gen = __make_windows_generator(
             rem,
@@ -198,6 +225,10 @@ def inundate(
             hucs=hucs,
             hucSet=hucSet,
             windowed=windowed,
+            depth_rst=depth_rst,
+            inundation_rst=inundation_rst,
+            depth_nodata=depths_profile['nodata'],
+            inundation_nodata=inundation_profile['nodata'],
         )
 
         # executor = ThreadPoolExecutor(max_workers=num_workers)
@@ -235,20 +266,24 @@ def inundate(
 
         # power down pool
         # executor.shutdown(wait=True)
+        depth_rst.close()
+        inundation_rst.close()
     return inundation_rasters, depth_rasters, inundation_polys
 
 
 def __inundate_in_huc(
     rem_array,
     catchments_array,
-    rem_profile,
-    catchments_profile,
+    depth_rst,
+    inundation_rst,
     hucCode,
     catchmentStagesDict,
     depths,
     inundation_raster,
     quiet=False,
     window=None,
+    depth_nodata=None,
+    inundation_nodata=None,
 ):
     """
     Inundate within the chosen scope
@@ -275,54 +310,30 @@ def __inundate_in_huc(
     if hucCode is not None:
         __vprint("Inundating {} ...".format(hucCode), not quiet)
 
-    depths_profile = rem_profile
-    inundation_profile = catchments_profile
-    depths_profile.update(
-        driver='GTiff',
-        blockxsize=256,
-        blockysize=256,
-        tiled=True,
-        # compress='lzw'
-    )
-    inundation_profile.update(
-        driver='GTiff',
-        blockxsize=256,
-        blockysize=256,
-        tiled=True,
-        # compress='lzw'
-        dtype='int8',
-        nodata=0,
-    )
-
-    # print("Nodata", rem_profile['nodata'], type(rem_profile['nodata']),
-    #                                             catchments_profile['nodata'], type(catchments_profile['nodata']))
-    # make output arrays
-
-    out_array = np.tile(np.int8(0), rem_array.shape)
-    rem, out_array = __go_fast_mapping(
+    # out_array = np.tile(np.int8(0), rem_array.shape)
+    rem, catchments = __go_fast_mapping(
         rem_array,
         catchments_array,
         catchmentStagesDict,
         rem_array.shape[1],
         rem_array.shape[0],
-        np.int16(rem_profile['nodata']),
-        np.int16(catchments_profile['nodata']),
-        out_array,
+        np.int16(depth_nodata),
+        np.int16(inundation_nodata),
     )
 
+    # print(inundation_raster, type(final_array[0][0]), np.max(final_array))
+
     if depths is not None:
-        with rasterio.open(depths, "w", **depths_profile) as file:
-            file.write(rem, window=window, indexes=1)
+        depth_rst.write(rem, window=window, indexes=1)
 
     if inundation_raster is not None:
-        with rasterio.open(inundation_raster, "w", **inundation_profile) as file:
-            file.write(out_array, window=window, indexes=1)
+        inundation_rst.write(catchments, window=window, indexes=1)
 
     return inundation_raster, depths, None
 
 
-@njit(nogil=True, fastmath=True, parallel=False, cache=False)
-def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, nodata_c, out_array):
+@njit(nogil=True, fastmath=True, parallel=True, cache=True)
+def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, nodata_c):
     """
     Numba optimization for determining flood depth and flood
 
@@ -331,7 +342,7 @@ def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, noda
     rem : numpy array
         Relative elevation model values which will be replaced by inundation depth values
     catchments : numpy array
-        Rasterized catchments represented by HydroIDs to be replaced with inundation values
+        Rasterized catchments represented by HydoIDs to be replaced with inundation values
     catchmentStagesDict :  numba dictionary
         Numba compatible dictionary with HydroID as a key and flood stage as a value
     x : int
@@ -357,23 +368,21 @@ def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, noda
 
                         # If the depth is greater than approximately 1/10th of a foot
                         if depth < 30:
+                            catchments[i, j] *= -1  # set HydroIDs to negative
                             rem[i, j] = 0
-                            out_array[i, j] = np.int8(0)
-
                         else:
                             rem[i, j] = depth
-                            out_array[i, j] = np.int8(1)
                     else:
                         rem[i, j] = 0
-                        out_array[i, j] = np.int8(0)
+                        catchments[i, j] *= -1  # set HydroIDs to negative
                 else:
                     rem[i, j] = 0
-                    out_array[i, j] = np.int8(0)
+                    catchments[i, j] = nodata_c
             else:
                 rem[i, j] = 0
-                out_array[i, j] = np.int8(0)
+                catchments[i, j] = nodata_c
 
-    return rem, out_array
+    return rem, catchments
 
 
 def __make_windows_generator(
@@ -388,6 +397,10 @@ def __make_windows_generator(
     hucs=None,
     hucSet=None,
     windowed=False,
+    depth_rst=None,
+    inundation_rst=None,
+    depth_nodata=None,
+    inundation_nodata=None,
 ):
     """
     Generator to split processing in to windows or different masked datasets
@@ -489,13 +502,16 @@ def __make_windows_generator(
             yield (
                 rem_array,
                 catchments_array,
-                rem.profile,
-                catchments.profile,
+                depth_rst,
+                inundation_rst,
                 hucCode,
                 catchmentStagesDict,
                 depths,
                 inundation_raster,
                 quiet,
+                None,
+                depth_nodata,
+                inundation_nodata,
             )
 
     else:
@@ -507,28 +523,32 @@ def __make_windows_generator(
                 yield (
                     rem.read(1, window=window),
                     catchments.read(1, window=window),
-                    rem.profile,
-                    catchments.profile,
+                    depth_rst,
+                    inundation_rst,
                     hucCode,
                     catchmentStagesDict,
                     depths,
                     inundation_raster,
                     quiet,
                     window,
+                    depth_nodata,
+                    inundation_nodata,
                 )
         else:
 
             yield (
                 rem.read(1),
                 catchments.read(1),
-                rem.profile,
-                catchments.profile,
+                depth_rst,
+                inundation_rst,
                 hucCode,
                 catchmentStagesDict,
                 depths,
                 inundation_raster,
                 quiet,
                 None,
+                depth_nodata,
+                inundation_nodata,
             )
 
 

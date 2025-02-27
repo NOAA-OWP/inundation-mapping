@@ -2,6 +2,8 @@
 
 import argparse
 import os
+import sys
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
@@ -112,6 +114,7 @@ def Inundate_gms(
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except Exception as exc:
+            traceback.print_exc(file=sys.stdout)
             if log_file is not None:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
             else:
