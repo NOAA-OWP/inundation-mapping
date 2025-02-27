@@ -266,8 +266,11 @@ def inundate(
 
         # power down pool
         # executor.shutdown(wait=True)
-        depth_rst.close()
-        inundation_rst.close()
+        if depth_rst is not None:
+            depth_rst.close()
+        if inundation_rst is not None:
+            inundation_rst.close()
+
     return inundation_rasters, depth_rasters, inundation_polys
 
 
