@@ -94,8 +94,6 @@ while [ "$1" != "" ]; do
     shift
 done
 
-echo "hi there"
-
 # ==========================================================
 # VALIDATION
 # print usage if arguments empty
@@ -144,7 +142,7 @@ Calc_Duration( ) {
     local dur_remainder_sec=$((total_sec %60))
     local dur_sec_percent=$((100*$dur_remainder_sec/60))
 
-    echo $dur_min.$dur_sec_percent
+    echo -e "${dur_min}.${dur_sec_percent}"
 }
 
 Formatted_Date( ){
@@ -160,64 +158,71 @@ mkdir -p $trg
 
 # Check if the file exists and is empty
 # Add header only if empty
-stats_header="folder_name,download_size,num_models,date_downloaded"
-
+stats_header="model_collection_name,source,huc,download_size_in_mib,download_time_in_mins_perc,num_models,date_downloaded"
+stats_download_date=$(date +"%Y%m%d_%H%M%S")
 if [ ! -e "$stats_file" ]; then
     echo "$stats_header" >> $stats_file
 fi
 
-echo "========================"
-msg="$(Formatted_Date) : Downloading from $s3_source_path to $trg_path"
-echo -e $msg ; echo -e "$msg" >> $log_file
+model_name_split=(${key_name//_/ })
+collection_source="${model_name_split[0]}"
+huc="${model_name_split[1]}"
 
-msg="----------------- \n"
-msg="${msg} model_name: ${key_name} \n"
-echo -e $msg ; echo -e "$msg" >> $log_file
+msg="++++++++++++++++++++"
+echo -e $msg ; echo "$msg" >> $log_file
+line_lead="$(Formatted_Date): ${key_name} --"
+msg="${line_lead} Processing started for $key_name"
+echo -e $msg ; echo "$msg" >> $log_file
+msg="${line_lead} From $s3_uri to $trg"
+echo -e $msg ; echo "$msg" >> $log_file
 
 t_start=`date +%s`
 
 # sleep 20
 cli_args="--exclude '*' --include 'library_extent/*' --include 'qc/*' --include '*.xlsx'"
 cli_args="${cli_args} --include 'ripple.gpkg' --include 'start_reaches.csv'"
-cmd_str="aws s3 sync ${s3_source_path}/${key_name}/ ${trg_path}/${key_name}/ $cli_args"
-echo "$cmd_str"
-# eval "$cmd_str"
-# aws s3 sync "${s3_source_path/${model_name} ${trg}/ --exclude '*' --include 'library_extent/*' --include 'qc/*' --include '*.xlsx' --include 'ripple.gpkg' --include 'start_reaches.csv'
-echo "AWS download done"
-date
+cmd_str="aws s3 cp  ${s3_source_path}/${key_name}/ ${trg_path}/${key_name}/ $cli_args --recursive"
+# echo "$cmd_str"
+eval "$cmd_str"
 
-dur=$(Calc_Duration $t_start)
-msg="Duration (in percent minutes): $dur min"
-echo $msg ; echo "$msg" >> $log_file
+dur="$(Calc_Duration $t_start)"
+msg="${line_lead} s3 download complete: duration (in percent minutes) = $dur"
+echo -e $msg ; echo "$msg" >> $log_file
 
-#du -sh ${trg} | xargs echo "Total size raw: "
-#du -sh ${trg} | xargs echo "Total size  --- "
-disk_usage="$(du -sh  $trg | cut -f1)"
-msg="Total Size: $disk_usage"
-echo $msg ; echo "$msg" >> $log_file
+disk_usage="$(du -shm $trg | cut -f1)"
+# msg="$disk_usage"
 
-size_in_kb=`du -b --max-depth=0  $trg | cut -f1`
-f_size=$(printf '%.4f\n' $(echo $size_in_kb /100000000 | bc -l))
-msg="Folder Size in GiB: $f_size"
-echo $msg ; echo "$msg" >> ${log_file}
+# f_size=$(printf '%.0f\n' $(echo $disk_usage / 1000 | bc -l))
+# f_size=$(printf '%.0f\n' $(echo $disk_usage / 1000 | bc -l))
+msg="Folder Size in MiB = $disk_usage"
+# echo "$msg"
 
 # find ${trg}/library_extent/ -mindepth 1 -maxdepth 1 -type d | wc -l | xargs echo "Total folders: "
 extent_folder="${trg}/library_extent/"
-if [ -d "$stats_file" ]; then
-    folder_count=$(find ${trg}/library_extent/ -mindepth 1 -maxdepth 1 -type d | wc -l)
+# echo "libray folder is $extent_folder"
+if [ -d "$extent_folder" ]; then
+    # echo "made it here"
+    folder_count="$(find ${extent_folder}/ -mindepth 1 -maxdepth 1 -type d | wc -l)"
 else
+    # echo "nope.. here"
     folder_count="0"
 fi
+msg+="; Extent folder count = $folder_count"
 
-msg="Total library extent folders: $folder_count"
-echo $msg ; echo "$msg" >> $log_file
+# msg="$(Formatted_Date) : ${key_name}: ${msg}; library extent folders = $folder_count"
+msg="${line_lead} ${msg}"
+echo -e $msg ; echo "$msg" >> $log_file
 
 # Now build up the stats line for the log
 # This one is a simple csv
 # It does not attempt to look for an entry that may already exist for the key at this time.
-download_date=$(date +"%m/%d/%Y")
-stats="$key_name,$f_size,$dur,$folder_count,$download_date"
+
+# stats_header="model_collection_name,source,huc,download_size_in_mib,download_time_in_mins_perc,num_models,date_downloaded"
+dur=$(Calc_Duration $t_start)
+stats="$key_name,$collection_source,$huc,$disk_usage,$dur,$folder_count,$stats_download_date"
 # echo $stats
 echo "$stats" >> $stats_file
-echo "Model download complete"
+
+msg="${line_lead} Processing complete: Duration (in percent minutes) = $dur mins"
+echo -e $msg ; echo "$msg" >> $log_file
 

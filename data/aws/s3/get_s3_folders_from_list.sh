@@ -83,7 +83,7 @@ while [ "$1" != "" ]; do
         shift
         s3_source_path=$1
         ;;
-    -list/--list_of_keys)
+    -list|--list_of_keys)
         shift
         list_of_keys=$1
         ;;
@@ -101,21 +101,70 @@ while [ "$1" != "" ]; do
     shift
 done
 
-file_date=$(date +"%Y_%m_%d")
+# Yes.. this is duplicated for now
+Calc_Duration( ) {
+    local start_time=$1
+    local end_time=`date +%s`
+
+    local total_sec=$(( $end_time - $start_time ))
+    local dur_min=$((total_sec / 60))
+    local dur_remainder_sec=$((total_sec %60))
+    local dur_sec_percent=$((100*$dur_remainder_sec/60))
+
+    echo -e "${dur_min}.${dur_sec_percent}"
+}
+
+file_date=$(date +"%Y%m%d%_H%M%S")
 log_file="${trg_path}/s3_download_log_${file_date}.txt"
 csv_stats_file="${trg_path}/ripple_download_stats.csv"
 
-# chmod 777 ./get_s3_folder.sh
+# let's split the incoming list_of_keys into an array we can iterate through
+# I don't want to use parallization at this point as even with just one aws sync running
+# it hits the network near max. aws sync has it own form of paralliation in it via chunking
+
+# echo "++ $list_of_keys ++"
+
+# First. let's see if it is file path or string with spaces.
+if [ ! -e "$list_of_keys" ]
+then
+    # Not a file, let check if it single collection folder name or multiple
+    # echo "list is now $list_of_keys"
+    # Split the string by space
+    arr_key_names=(${list_of_keys//' '/ })
+else
+    # load the file and turn into an array
+    msg="loading the file list of model names from $list_of_keys"
+    echo -e $msg ; echo "$msg" >> $log_file
+    readarray -t arr_key_names < "${list_of_keys}"
+fi
+
+# for key in "${arr_key_names[@]}"; do
+#     #echo "inside the loop"
+#     if [ -n "$key" ]; then
+#         echo ".. ${key}.."
+#     else
+#         echo "empty"
+#     fi
+# done
+
+t_overall_start=`date +%s`
+echo
+echo "======================= Start of loading model collection folders ========================="
+msg="---- Started: `date -u`"
+echo -e $msg ; echo "$msg" >> $log_file
+
+for key in "${arr_key_names[@]}"; do
+    if [ -n "$key" ]; then
+        # echo ".. ${key}.."
+        ./get_s3_folder.sh -s "$s3_source_path" -n "$key" -t "$trg_path" -log "$log_file" -c "$csv_stats_file"
+    fi
+done
 
 echo
-echo "======================= Start of loading model folders ========================="
-echo "---- Started: `date -u`"
-
-script_path="$(echo $(pwd) | tr -d ' ')/get_s3_folder.sh"
-echo $script_path
-
-source_args="-s '$s3_source_path' -n 'mip_03170004' -t '$trg_path' -log '$log_file' -c '$csv_stats_file'"
-echo "$source_args"
-./get_s3_folder.sh -s "$s3_source_path" -n "mip_03170004" -t "$trg_path" -log "$log_file" -c "$csv_stats_file"
-#./test.sh "sup"
-
+msg="---- Ended: `date -u`"
+echo -e $msg ; echo "$msg" >> $log_file
+dur="$(Calc_Duration $t_overall_start)"
+msg="Overall processing duration (in percent minutes) : $dur mins"
+echo -e $msg ; echo "$msg" >> $log_file
+echo "======================= End of loading model collection folders ========================="
+echo
