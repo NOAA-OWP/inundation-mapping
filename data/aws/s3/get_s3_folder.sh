@@ -225,4 +225,3 @@ echo "$stats" >> $stats_file
 
 msg="${line_lead} Processing complete: Duration (in percent minutes) = $dur mins"
 echo -e $msg ; echo "$msg" >> $log_file
-
