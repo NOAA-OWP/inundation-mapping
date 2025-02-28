@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.5.x.x - 2025-02-24 - [PR#1427](https://github.com/NOAA-OWP/inundation-mapping/pull/1427)
 
-Removes GDAL imports if `rasterio` is also being used in the same Python interpreter session. Also updates some Python packages.
+Avoids importing both GDAL and `rasterio` in the same Python interpreter session. Also updates some Python packages.
 
 ### Changes
 
@@ -16,7 +16,7 @@ Removes GDAL imports if `rasterio` is also being used in the same Python interpr
 
 <br/><br/>
 
-### v4.5.14.8 - 2025-02-14 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1414)
+## v4.5.14.8 - 2025-02-14 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1414)
 
 ### Summary
 This PR fixes Hydrotables that have hydroIDs with nan values. These hydroids are associated with very small reaches which are linked to one-pixel catchments. Thus, those small reaches were removed in filter_catchments_and_add_attributes.py. This PR also removes the GMS catchments whose main streams are less than 1 m. This PR will close issue #1339.
@@ -94,12 +94,94 @@ Implements a denylist for flow-based CatFIM (that uses the same conventions as t
 
 ## v4.5.14.2 - 2025-01-24 - [PR#1178](https://github.com/NOAA-OWP/inundation-mapping/pull/1178)
 
-Avoid having GDAL and rasterio in the same Python environment. This is a known issue with rasterio and GDAL that can cause problems.
+### Summary
+Contains files to generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for specified HUC(s) as well update code to generate pre-clip data so that WBD for Alaska contains only one layer. NOTE: this PR requires `wbd.gpkg` to be created by the updated `generate_pre_clip_fim_huc8.py` to be copied to the pre-clip HUC folders to remove a warning in `synthesize_test_case.py`.
+
+### Usage
+```
+python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_fim/data/sample-data
+```
+
+### Additions
+
+- `data/`
+    - `sandbox/` [archived]
+        - `Dockerfile`: A copy of the root Dockerfile that also pulls code and data into the build image [archived]
+        - `fim-in-a-box.ipynb`: Jupyter notebook to run and evaluate an example HUC [archived]
+        - 'README.md' [archived]
+    - `get_sample_data.py`: Copies relevant data for `inputs` and `test_cases` from the FIM data folder for specified HUC(s) and saves it to a separate location
+    - `wbd/generate_pre_clip_fim_huc8.py`: Fix file paths and layers
+
+<br/><br/>
+
+## v4.5.14.1 - 2025-01-24 - [PR#1268](https://github.com/NOAA-OWP/inundation-mapping/pull/1268)
+
+This code preprocesses the partner FIM benchmark HEC-RAS libraries and converts the inundation extent polygons into a edge point database for the input to the HAND SRC calibration/adjustment algorithm. The key changes with the new input data are the addition of the max stage/flow points as well as the removal of the 10m grid point snapping. Note that the raw data to run this code is not available for external users, so the data processing code can only be run internally within OWP.
+
+### Additions
+`data/nws/ahps_bench_polys_to_calb_pts.py`: this script ingests the HEC-RAS partner FIM benchmark data and outputs huc level parquet files containing the water edge points with associated attributes.
+`data/nws/merge_nws_usgs_point_parquet.py`: the script combines the `nws` and `usgs` parquet point files created seperately by the `ahps_bench_polys_to_calb_pts.py` script
+
+<br/><br/>
+
+## v4.5.14.0 - 2025-01-24 - [PR#1340](https://github.com/NOAA-OWP/inundation-mapping/pull/1340)
+
+This PR focuses on adjusting rating curves by using bathymetric data and optimized channel roughness values. The bathymetry data includes eHydro surveys and AI-based datasets created for all NWM streams. New manning roughness values were developed for each feature-id using a differential evolution objective function (OF). The OF minimizes the number of the false_positives and false_negatives cells in our flood inundation maps where we have test cases across the CONUS. 
+
+Even though the Python scripts of roughness manning number optimization were not included in this branch, optimized roughness values can be found here: `/fim-data/inputs/rating_curve/variable_roughness/mannings_optz_fe_clusters_so3.csv`. Detailed python scripts also can be found here: `/fim-data/outputs/heidi-mannN-optimization/projects/bathy_mannN_projects/dev-bathymetric-adjustment-mannN-optz/`.
+
+### Changes
+- `src/bathymetric-adjustment.py`: `correct_rating_for_ai_based_bathymetry` function was added to the script. This function processes AI-based bathymetry data and adjusts rating curves using this data. Also `apply_src_adjustment_for_bathymetry` function was added to prioritize USACE eHydro over AI-based bathymetry dataset. The multi-processing function `multi_process_hucs` was updated based on the latest code. Also, an ai_toggle parameter was added to `apply_src_adjustment_for_bathymetry` and `process_bathy_adjustment` functions. When ai_toggle = 1, The SRCs will be adjusted with the ai_based bathymetry data. the default value for ai_toggle = 0, means no ai_based bathy data is included. 
+
+- `src/bash_variables.env`: New variables and their paths were added. Also, a new input file with the nwm feature_ids and optimized channel roughness and overbank roughness attributes was created and stored here:
+`/fim-data/inputs/rating_curve/variable_roughness/mannings_optz_fe_clusters_so3.csv`
+The locations of these files were also added to the `bash_variables.env`.
+Please note that when ai_toggle = 1, the manning roughness values should be switched to `vmann_input_file=${inputsDir}/rating_curve/variable_roughness/mannings_optz_fe_clusters_so3.csv` in the current version. 
+
+Here is a list of new/updated input files:
+
+1. `/fim-data/inputs/rating_curve/variable_roughness/mannings_optz_fe_clusters_so3.csv`
+This CSV file contains the new optimized roughness values. It will replace this file:
+`vmann_input_file=${inputsDir}/rating_curve/variable_roughness/mannings_global_nwm3.csv`
+
+2. `bathy_file_aibased=${inputsDir}/bathymetry/ml_outputs_v1.01.parquet`
+This file contains the ml-bathymetry and manning roughness values data.
+
+3. `bathy_file_ehydro=${inputsDir}/bathymetry/final_bathymetry_ehydro.gpkg`
+We already had this file, the name of the variable has changed from `bathymetry_file` to `bathy_file_ehydro`, and it was updated.
+
+- `fim_post_processing.sh`: New arguments were added. Please note that the default value for ai_toggle = 0 is included here. 
+
+<br/><br/>
+
+## v4.5.3.10 - 2025-01-24 - [PR#1388]https://github.com/NOAA-OWP/inundation-mapping/pull/1388
+
+Fixed Sierra test bugs to draw the vertical lines.
 
 ### Changes
 
-- `inundation-mapping/tools/catfim/generate_categorical_fim_flows.py`: Re-implements the dual API call and filters out duplicate sites.
+- `tools/rating_curve_comparison.py`: Modified the script to make sure vertical lines are displayed
 
+<br/><br/>
+
+
+## v4.5.13.9 - 2025-01-24 - [PR#1399](https://github.com/NOAA-OWP/inundation-mapping/pull/1399)
+
+This update improves stage-based CatFIM by detecting and correcting instances where the stage value provided in the WRDS database is actually stage + elevation (which is actually water surface elevation and, uncaught, causes overflooding). 
+
+### Changes
+- `inundation-mapping/tools/catfim/generate_categorical_fim.py`: Added an update to detect and fix cases where WSE is provided in lieu of stage. Added `uncorrected_stage` and `is_interval` columns to output CSV.
+- `inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added update to facilitate the new `is_interval` column.
+
+<br/><br/>
+
+## v4.5.13.8 - 2025-01-24 - [PR#1405](https://github.com/NOAA-OWP/inundation-mapping/pull/1405)
+
+Removing the references to lid_to_run from CatFIM in order to keep the CatFIM scripts cleaner.  
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Remove references to `lid_to_run` variable.
+- ` tools/catfim/generate_categorical_fim_flows.py`: Remove references to `lid_to_run` variable.
 
 <br/><br/>
 
