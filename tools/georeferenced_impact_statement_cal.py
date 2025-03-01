@@ -50,12 +50,15 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
             print('No polygons found for this NWSLID.')
             return
 
+        wbd_path = os.path.join(huc_path, 'wbd.gpkg')
+        wbd_polygon = gpd.read_file(wbd_path)
         target_polygon = target_polygon.to_crs(catchments.crs)
+        polygons_results = gpd.sjoin(target_polygon, wbd_polygon, predicate='intersects')
 
         # Check if catchment and the polygons intersect
         catchments_results = gpd.sjoin(target_polygon, catchments, predicate='intersects')
         if catchments_results.empty:
-            # print(f'No overlap found with branch {branch}, skipping...')
+            print(f'No overlap found with branch {branch}, skipping...')
             continue
 
         hydroid_list = (
@@ -64,30 +67,35 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
 
         polygon_types = {
             'Action': {
-                'polygon': target_polygon[target_polygon['ImpactStatus'] == 'Action'],
+                'polygon': polygons_results[polygons_results['ImpactStatus'] == 'Action'],
                 'flow_col': 'ActionFlow',
+                'stage_col': 'ImpactStage',
                 'weighted_variables': None,
             },
             'Minor': {
-                'polygon': target_polygon[target_polygon['ImpactStatus'] == 'Minor'],
+                'polygon': polygons_results[polygons_results['ImpactStatus'] == 'Minor'],
                 'flow_col': 'MinorFlow',
+                'stage_col': 'ImpactStage',
                 'weighted_variables': None,
             },
             'Moderate': {
-                'polygon': target_polygon[target_polygon['ImpactStatus'] == 'Moderate'],
+                'polygon': polygons_results[polygons_results['ImpactStatus'] == 'Moderate'],
                 'flow_col': 'ModerateFlow',
+                'stage_col': 'ImpactStage',
                 'weighted_variables': None,
             },
             'Major': {
-                'polygon': target_polygon[target_polygon['ImpactStatus'] == 'Major'],
+                'polygon': polygons_results[polygons_results['ImpactStatus'] == 'Major'],
                 'flow_col': 'MajorFlow',
+                'stage_col': 'ImpactStage',
                 'weighted_variables': None,
             },
         }
 
+
         impc_stm_df = pd.DataFrame(columns=['HydroID', 'discharge', 'stage'])
         cal_data = []
-        weithed_values = []  # Store weighted calibration values
+        weigthed_values = []  # Store weighted calibration values
 
         for catchment in hydroid_list:
             htable_branch = hydrotable_huc[hydrotable_huc['branch_id'] == branch]
@@ -104,45 +112,73 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
                 for poly_type, poly_data in polygon_types.items():
                     polygon = poly_data['polygon']
                     flow_col = poly_data['flow_col']
-                    # Sample the REM values under each polygon
                     if polygon.empty:
                         continue
-                    if polygon.crs != src.crs:
-                        polygon = polygon.to_crs(src.crs)
-                    geometry_ = [g.__geo_interface__ for g in polygon.geometry]
-                    out_image, out_transform = mask(src, geometry_, crop=True)
-                    data = out_image[0]
-                    data = data[data != src.nodata]
-                    y = data.flatten()
-                    df = pd.DataFrame({'y': y})
-                    # Statistic calculation
-                    percentile_75 = df['y'].quantile(0.75)
-                    med = df['y'].quantile(0.5)
-                    q1 = df['y'].quantile(0.25)
-                    iqr = percentile_75 - q1
-                    upper = percentile_75 + (1.5 * iqr)
-                    upper_extreme = df[df['y'] <= upper]['y'].max()
+                    # Handel multiple ImpactStages for each threshold
+                    dfs_poly = {val: polygon[polygon['ImpactStage'] == val] for val in polygon['ImpactStage'].unique()}
+                    all_poly = []
+                    poly_stages = []
+                    for val, group in dfs_poly.items():
+                        if group.crs != src.crs:
+                            group = group.to_crs(src.crs)
+                        geometry_ = [g.__geo_interface__ for g in group.geometry]
+                         # Check if rem and the polygons intersect
+                        polygon_catchment = gpd.sjoin(catchments, group, predicate='intersects')
+                        if polygon_catchment.empty:
+                            print(f'No overlap between {poly_type} polygon and branch {branch} found, skipping...')
+                            continue
+                        out_image, out_transform = mask(src, geometry_, crop=True)
+                        data = out_image[0]
+                        data = data[data != src.nodata]
+                        all_poly.append(data)
+                        poly_stages.append(val)
 
-                    # Find closest matching stage to the user provided HAND value
-                    find_src_stage_med = target_hid.loc[target_hid['stage'].sub(med).abs().idxmin()]
-                    find_src_stage_75 = target_hid.loc[target_hid['stage'].sub(percentile_75).abs().idxmin()]
-                    find_src_stage_max = target_hid.loc[target_hid['stage'].sub(upper_extreme).abs().idxmin()]
+                    if len(all_poly) == 0:
+                        continue
 
-                    # Copy the corresponding hydroTable discharge for the matching stage
-                    discharge_obs = polygon[flow_col].iloc[0] * 0.028316847
-                    src_discharge_med = find_src_stage_med.discharge_cms
-                    src_discharge_75 = find_src_stage_75.discharge_cms
-                    src_discharge_max = find_src_stage_max.discharge_cms
+                    weight_polygon = []
+                    for i in range(len(all_poly)):
+                        y = all_poly[i].flatten()
+                        df = pd.DataFrame({'y': y})
+                        # Statistic calculation
+                        percentile_75 = df['y'].quantile(0.75)
+                        med = df['y'].quantile(0.5)
+                        q1 = df['y'].quantile(0.25)
+                        iqr = percentile_75 - q1
+                        upper = percentile_75 + (1.5 * iqr)
+                        upper_extreme = df[df['y'] <= upper]['y'].max()
 
-                    # Calculate calibration coefficient
-                    calib_co_med = src_discharge_med / discharge_obs
-                    calib_co_75 = src_discharge_75 / discharge_obs
-                    calib_co_max = src_discharge_max / discharge_obs
-                    weighted = np.dot([calib_co_med, calib_co_75, calib_co_max], weights)
-                    weithed_values.append(weighted)
+                        # Find closest matching stage to the user provided HAND value
+                        find_src_stage_med = target_hid.loc[target_hid['stage'].sub(med).abs().idxmin()]
+                        find_src_stage_75 = target_hid.loc[target_hid['stage'].sub(percentile_75).abs().idxmin()]
+                        find_src_stage_max = target_hid.loc[target_hid['stage'].sub(upper_extreme).abs().idxmin()]
+
+                        # Copy the corresponding hydroTable discharge for the matching stage
+                        if pd.notna(polygon[flow_col].iloc[0]):
+                                discharge_obs = polygon[flow_col].iloc[0] * 0.028316847
+                        else:
+                            usgs_nwslid = pd.read_csv('/data/inputs/usgs_gages/acceptable_sites_for_rating_curves.csv')
+                            loc_id = usgs_nwslid.loc[usgs_nwslid['nws_lid'] == NWSLID, 'location_id'].values[0]
+                            usgs_rating = pd.read_csv('/data/inputs/usgs_gages/usgs_rating_curves.csv')
+                            usgs_target = usgs_rating[usgs_rating['location_id'] == loc_id]
+                            discharge_obs = usgs_target.loc[usgs_target['stage'] == poly_stages[i], 'flow'].values[0]
+                            discharge_obs *= 0.028316847
+                        src_discharge_med = find_src_stage_med.discharge_cms
+                        src_discharge_75 = find_src_stage_75.discharge_cms
+                        src_discharge_max = find_src_stage_max.discharge_cms
+
+                        # Calculate calibration coefficient
+                        calib_co_med = src_discharge_med / discharge_obs
+                        calib_co_75 = src_discharge_75 / discharge_obs
+                        calib_co_max = src_discharge_max / discharge_obs
+                        weighted = np.dot([calib_co_med, calib_co_75, calib_co_max], weights)
+                        weight_polygon.append(weighted)
+                    median_weight = np.median(weight_polygon)
+                    weigthed_values.append(median_weight)
 
             # Median calibration coefficient
-            median_cal_coefficient = np.median(weithed_values)
+            median_cal_coefficient = np.median(weigthed_values)
+            
             # Adjusted roughness
             new_roughness = median_cal_coefficient * 0.06
             # Recalculating discharge
@@ -167,7 +203,7 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
         concat_df = pd.concat(cal_data, axis=0, ignore_index=True)
         all_df.append(concat_df)
 
-    impc_stm_df = pd.concat(cal_data, axis=0, ignore_index=True)
+    impc_stm_df = pd.concat(all_df, axis=0, ignore_index=True)
     impc_stm_df['impact_sta'] = 'True'
     impc_stm_df['HydroID'] = impc_stm_df['HydroID'].astype(int)
     impc_stm_df['stage'] = impc_stm_df['stage'].astype(float)
@@ -182,7 +218,7 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
         'discharge'
     ]
     new_hydrotable = new_hydrotable.drop(columns=['discharge'])
-    new_htable_path = os.path.join(huc_path, 'hydrotable.csv')
+    new_htable_path = os.path.join(huc_path, 'hydrotable22.csv')
     new_hydrotable.to_csv(new_htable_path, index=False)
 
 
