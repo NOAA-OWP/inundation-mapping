@@ -210,7 +210,7 @@ if [ "$levelpaths_exist" = "1" ]; then
         -d $tempHucDataDir/dem_meters.tif \
         -w $tempHucDataDir \
         -o $tempHucDataDir/dem_burned.tif \
-        -b $agree_DEM_buffer \
+        -b $agree_DEM_buffer_gms \
         -sm 10 \
         -sh 1000
 fi
