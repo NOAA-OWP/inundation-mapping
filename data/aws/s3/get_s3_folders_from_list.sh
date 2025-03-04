@@ -114,7 +114,7 @@ Calc_Duration( ) {
     echo -e "${dur_min}.${dur_sec_percent}"
 }
 
-file_date=$(date +"%Y%m%d%_H%M%S")
+file_date=$(date +"%Y%m%d%-H%M%S")
 log_file="${trg_path}/s3_download_log_${file_date}.txt"
 csv_stats_file="${trg_path}/ripple_download_stats.csv"
 
@@ -123,6 +123,7 @@ csv_stats_file="${trg_path}/ripple_download_stats.csv"
 # it hits the network near max. aws sync has it own form of paralliation in it via chunking
 
 # echo "++ $list_of_keys ++"
+echo "Logs going to ${log_file}"
 
 # First. let's see if it is file path or string with spaces.
 if [ ! -e "$list_of_keys" ]
