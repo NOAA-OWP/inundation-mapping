@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v? - 2025-03-04 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
+## v? - 2025-03-04 - [PR#1406](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
 This PR closes the issue #1242. 
 This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The workflow consists of:  
 - Extracting lidar-derived elevations for bridges  
