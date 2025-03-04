@@ -1,6 +1,55 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v? - 2025-03-04 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
+This PR closes the issue #1242. 
+This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The workflow consists of:  
+- Extracting lidar-derived elevations for bridges  
+- Calculating DEM required corrections (elevation differences between lidar elevations and 3DEP DEMs within bridge areas)  
+- Adding the DEM corrections into the final HAND grid
+
+
+### Additions
+- `data/bridges/make_rasters_using_lidar.py`. Generates bridge elevation raster files using lidar data, as described [here](https://github.com/NOAA-OWP/inundation-mapping/issues/1242#issuecomment-2599242908). This script has to be run on Windows machines. This script must be run twice, each time with a different OSM bridge-lines GPKG file: once for the CONUS and separately for Alaska. The raster files are generated using EPSG:5070 for CONUS bridges and EPSG:3338 for Alaska bridges.
+- `data/bridges/make_dem_dif_for_bridges.py` Generates DEM correction files by subtracting USGS 3DEP DEMs from lidar-elevation raster files at HUC levels, as described [here](https://github.com/NOAA-OWP/inundation-mapping/issues/1242#issuecomment-2599242908). Non-bridge locations (which make up most of the HUC domain) have zero values, while OSM bridge locations typically show positive values. This script also needs to be run twice: once for the CONUS and a separate time specifically for Alaska.
+
+- `data/bridges/conda_fim_bridges_enviro.yml` A conda environment file to install conda env needed for running _data/bridges/make_rasters_using_lidar.py_
+- `data/bridges/setup_conda_for_make_rasters.txt` Provides instructions for running the _data/bridges/make_rasters_using_lidar.py_ script on a Windows machine using a Conda environment.
+
+
+
+### Changes
+- `data/bridges/pull_osm_bridges.py` The updates include:
+     - This script now generates two separate OSM bridge centerline files: one for CONUS and another for Alaska, each with its own CRS to improve accuracy.
+     - It was also pulling in some bad bridge HUCs as well as some pulling in a bunch of invalid date. While it originally had code to drop bridge type of "abandoned", it was not working. We also realized we were missing code to drop a bunch of other invalid data based on bridge types such as "razed, dismantled, destroyed, etc". We also made a decision to drop "proposed" bridge types as we don't know its status on being built. We spot checked a bunch of the "proposed" and none yet existed. Maybe they will appear in later pulls.  We also found more invalid columns that triggered dropping of some bridge data. We also upgraded logging a bit to find errors of what bridge data was being dropped.
+
+- `src/bash_variables.env` - Ingests links to two new VRT files for DEM correction rasters (CONUS and Alaska) and the new Alaska OSM bridges GPKG file, plus new pre-clip directory.
+- `data/wbd/generate_pre_clip_fim_huc8.py` Pre-clips the new Alaska OSM bridges GPKG file.
+
+- `src/run_unit_wb.sh` Crops the DEM correction VRT file to the buffered HUC boundary and create a copy for branch 0.
+- `src/run_by_branch.sh` Clips HUC-level DEM correction rasters for branches.
+
+
+
+- `src/heal_bridges_osm.py` Now implements two distinct workflows for healing the REM at OSM bridge locations, depending on the availability of lidar data: 
+    - If lidar data is unavailable: The existing workflow is followed, creating a 10m buffer around the bridge centerline and applying the maximum REN value within this buffer to the entire area.
+    - If lidar data is available: The script reads DEM correction rasters and add their values into the REM, effectively healing it at bridge locations (DEM correction files have zero value for non-bridge locations). Additionally, it reports the median healed REM values within a 1.5m buffer around bridge centerlines for use in determining bridge risk status.
+- `src/delineate_hydros_and_produce_HAND.sh` Updated to align with the revised input arguments of `src/heal_bridges_osm.py`
+
+- `src/aggregate_by_huc.py`  Applies 'threshold' HAND/discharge terminology instead of 'max' HAND/discharge terminology for determining bridges risk status. Also included information on the presence or absence of lidar data in the bridge risk status report.
+- `tools/bridge_inundation.py`. Applies 'threshold' HAND/discharge terminology instead of 'max' HAND/discharge terminology for determining bridges risk status. Also added the 'evaluated_discharge' field to show the given flow for determining the risk status. 
+
+- `data/usgs/acquire_and_preprocess_3dep_dems.py` : minor updates to inline comments
+- `data/create_vrt_file.py`:  small updates to text and changed timezones to be UTC instead of local to match much of our other conventions. Note: Many of our files are not yet UTC, but we hope to change them as we work on related files in the future.
+
+- `.gitignore / pyproject.toml` - With the addition of the new `conda_fim_bridges_enviro.yml` and `setup_conda_for_make_rasters.txt`, our current linting system was consistantly failing linting tests. Adjustments were made to try and have linting ignore the two files.
+
+
+### Testing
+A series of comprehensive test runs for both CONUS and Alaska were conducted to develop and validate the results. Some observations have been documented #1242.
+
+<br/><br/>
+
 ## v4.5.14.8 - 2025-02-14 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1414)
 
 ### Summary
