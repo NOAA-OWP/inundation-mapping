@@ -29,6 +29,7 @@ def produce_mosaicked_inundation(
     is_mosaic_for_branches=False,
     num_threads=1,
     windowed=False,
+    log_file: str = None,
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
@@ -50,6 +51,7 @@ def produce_mosaicked_inundation(
         num_workers (int):        Number of parallel jobs to run.
         keep_intermediate (bool): Option to keep intermediate files.
         verbose (bool):           Print verbose messages to screen. Not tested.
+        log_file (str):           File path for log file
     """
 
     # Check that inundation_raster or depths_raster is supplied
@@ -110,6 +112,7 @@ def produce_mosaicked_inundation(
         depths_raster=depths_raster,
         verbose=verbose,
         windowed=windowed,
+        log_file=log_file,
     )
     print("End GMS", time.localtime())
     # Write map file if designated

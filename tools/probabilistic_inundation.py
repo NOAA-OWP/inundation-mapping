@@ -354,7 +354,8 @@ def inundate_probabilistic(
     num_threads: int = 1,
     windowed: bool = False,
     output_raster: bool = False,
-    quiet=True,
+    quiet: bool = True,
+    log_file: str = None,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
@@ -389,6 +390,8 @@ def inundate_probabilistic(
         Whether to run inundation in windowed mode for memory conservation
     output_raster: bool = False
         Whether to keep the output raster along with the vector output
+    log_file: str = None
+        Filepath of log file
 
     """
 
@@ -528,6 +531,7 @@ def inundate_probabilistic(
             num_workers=num_jobs,
             num_threads=num_threads,
             windowed=windowed,
+            log_file=log_file,
         )
         # print("Before final manipulation", time.localtime())
         print("file exists: ", os.path.exists(final_inundation_path))
@@ -652,6 +656,7 @@ def inundate_hucs(
     windowed: bool = False,
     output_raster: bool = False,
     quiet: bool = True,
+    log_file: str = None,
 ):
     """Driver for running probabilistic inundation on selected HUCs
 
@@ -687,6 +692,8 @@ def inundate_hucs(
         Whether to keep the output raster along with the vector output
     quiet: bool = False
         Whether to be verbose or not
+    log_file: str = None
+        Filepath of log file
 
     """
     for huc in hucs:
@@ -706,6 +713,7 @@ def inundate_hucs(
             windowed=windowed,
             output_raster=output_raster,
             quiet=quiet,
+            log_file=log_file,
         )
 
 
@@ -809,6 +817,8 @@ if __name__ == '__main__':
     parser.add_argument(
         "-w", "--windowed", type=bool, help="REQUIRED: Number of threads to process HUCs", required=True
     )
+
+    parser.add_argument("-l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
 
     args = vars(parser.parse_args())
 
