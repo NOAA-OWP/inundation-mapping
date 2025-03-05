@@ -52,7 +52,7 @@ usage_msg()
                                  will be saved.
                                  This saves a header line of:
                                  (folder_name, download_size, num_models, date_downloaded)
-                                 if not already there. Can just keep concating from previous 
+                                 if not already there. Can just keep concating from previous
                                  runs if you like.
     OPTIONS:
       -h/--help                 : Print usage statement.
@@ -127,13 +127,13 @@ if [ "$stats_file" = "" ]; then
     exit 22
 fi
 
-echo $log_file
+# echo $log_file
 
 # TODO: Lots more validation such as extensions, valid s3 paths, etc
 
 # ==========================================================
 # function to calc duration  (really doesn't need to keep being reloaded and should be a sep file)
-Calc_Duration( ) {
+calc_Duration( ) {
     local start_time=$1
     local end_time=`date +%s`
 
@@ -145,7 +145,7 @@ Calc_Duration( ) {
     echo -e "${dur_min}.${dur_sec_percent}"
 }
 
-Formatted_Date( ){
+formatted_Date( ){
     dt_string=$(date +"%Y%m%d-%H:%M:%S")
     echo "$dt_string"
 }
@@ -153,47 +153,69 @@ Formatted_Date( ){
 s3_uri="$s3_source_path/$key_name"
 trg="$trg_path/$key_name"
 
-# Does folder exist? create it if not
-mkdir -p $trg
-
-# Check if the file exists and is empty
-# Add header only if empty
-stats_header="model_collection_name,source,huc,download_size_in_mib,download_time_in_mins_perc,num_models,date_downloaded"
-stats_download_date=$(date +"%Y%m%d_%H%M%S")
-if [ ! -e "$stats_file" ]; then
-    echo "$stats_header" >> $stats_file
-fi
-
 model_name_split=(${key_name//_/ })
 collection_source="${model_name_split[0]}"
 huc="${model_name_split[1]}"
 
 msg="++++++++++++++++++++"
-echo -e $msg ; echo "$msg" >> $log_file
-line_lead="$(Formatted_Date): ${key_name} --"
+echo -e $msg ; echo "$msg" >> ${log_file}
+line_lead="$(formatted_Date): ${key_name} --"
 msg="${line_lead} Processing started for $key_name"
-echo -e $msg ; echo "$msg" >> $log_file
+echo -e $msg ; echo "$msg" >> ${log_file}
 msg="${line_lead} From $s3_uri to $trg"
-echo -e $msg ; echo "$msg" >> $log_file
+echo -e $msg ; echo "$msg" >> ${log_file}
+
+# Check if MC folder already exist
+if [ -d $trg ] ; then
+    echo -e "\n^^^^^^^^^^^^^^^^^"
+    msg="A model collection file already exists for ${key_name} in target folders"
+    echo -e $msg ; echo "$msg" >> ${log_file}
+
+    msg="Do you want to overwrite or skip this model? (lower case) \n"
+    msg+="  -- type 'over' to overwrite (remove folder and rebuild) \n"
+    msg+="  -- type 'skip' to skip processing this model \n"
+    msg+="  -- type any other keys to abort and shut down the tool \n"
+    msg+="CAUTION: both overwrite and skipping may result in errors in the stats file"
+
+    echo -e "${msg}"
+    read -p "---:" action
+
+    if [[ "$action" == "over" ]]; then
+        msg="Overwriting (remove folder and rebuild)"
+        echo -e $msg ; echo "$msg" >> ${log_file}        
+        # Sleep for 3 seconds in case they change their mind (and time to read msg)
+        sleep 3s
+        rm -rdf "${trg}"
+
+    elif [[ "$action" == "skip" ]]; then
+        msg="Skipping model collection"
+        echo -e $msg ; echo "$msg" >> ${log_file}
+        sleep 3s
+        exit 0
+    else
+        msg="Abort (terminating tool)"
+        echo -e $msg ; echo "$msg" >> ${log_file}
+        exit 1
+    fi
+fi
+
+# Does folder exist? create it if not
+mkdir -p $trg
 
 t_start=`date +%s`
 
 # sleep 20
 cli_args="--exclude '*' --include 'library_extent/*' --include 'qc/*' --include '*.xlsx'"
 cli_args="${cli_args} --include 'ripple.gpkg' --include 'start_reaches.csv'"
-cmd_str="aws s3 cp  ${s3_source_path}/${key_name}/ ${trg_path}/${key_name}/ $cli_args --recursive"
+cmd_str="aws s3 cp  ${s3_uri}/ ${trg}/ $cli_args --recursive"
 # echo "$cmd_str"
 eval "$cmd_str"
 
-dur="$(Calc_Duration $t_start)"
+dur="$(calc_Duration $t_start)"
 msg="${line_lead} s3 download complete: duration (in percent minutes) = $dur"
-echo -e $msg ; echo "$msg" >> $log_file
+echo -e $msg ; echo "$msg" >> ${log_file}
 
 disk_usage="$(du -shm $trg | cut -f1)"
-# msg="$disk_usage"
-
-# f_size=$(printf '%.0f\n' $(echo $disk_usage / 1000 | bc -l))
-# f_size=$(printf '%.0f\n' $(echo $disk_usage / 1000 | bc -l))
 msg="Folder Size in MiB = $disk_usage"
 # echo "$msg"
 
@@ -201,27 +223,36 @@ msg="Folder Size in MiB = $disk_usage"
 extent_folder="${trg}/library_extent/"
 # echo "libray folder is $extent_folder"
 if [ -d "$extent_folder" ]; then
-    # echo "made it here"
     folder_count="$(find ${extent_folder}/ -mindepth 1 -maxdepth 1 -type d | wc -l)"
 else
-    # echo "nope.. here"
     folder_count="0"
 fi
 msg+="; Extent folder count = $folder_count"
 
-# msg="$(Formatted_Date) : ${key_name}: ${msg}; library extent folders = $folder_count"
+# msg="$(formatted_Date) : ${key_name}: ${msg}; library extent folders = $folder_count"
 msg="${line_lead} ${msg}"
-echo -e $msg ; echo "$msg" >> $log_file
+echo -e $msg ; echo "$msg" >> ${log_file}
 
 # Now build up the stats line for the log
 # This one is a simple csv
+
+# *******
+# IMPORTANT
 # It does not attempt to look for an entry that may already exist for the key at this time.
+# So, you can get dup model collection ids (ie. mip_02040101). Should fix this.
+# *******
+# Check if the file exists and is empty
+# Add header only if empty
+stats_header="model_collection_name,source,huc,num_models,download_size_in_mib,download_dur_in_mins_perc,date_downloaded"
+stats_download_date=$(date +"%Y%m%d_%H%M%S")
+if [ ! -e "$stats_file" ]; then
+    echo "$stats_header" >> ${stats_file}
+fi
 
-# stats_header="model_collection_name,source,huc,download_size_in_mib,download_time_in_mins_perc,num_models,date_downloaded"
-dur=$(Calc_Duration $t_start)
-stats="$key_name,$collection_source,$huc,$disk_usage,$dur,$folder_count,$stats_download_date"
+dur=$(calc_Duration $t_start)
+stats="$key_name,$collection_source,$huc,$folder_count,$disk_usage,$dur,$stats_download_date"
 # echo $stats
-echo "$stats" >> $stats_file
+echo "$stats" >> ${stats_file}
 
-msg="${line_lead} Processing complete: Duration (in percent minutes) = $dur mins"
-echo -e $msg ; echo "$msg" >> $log_file
+msg="${line_lead} Model Collection processing complete: Duration (in percent minutes) = $dur mins"
+echo -e $msg ; echo "$msg" >> ${log_file}

@@ -28,17 +28,59 @@
 # YES, YES.... s3 buckets don't really have folders, just prefixes
 # but for simplicity here, we will call them folders
 
-# At this time we do not aim for parellization as aws cli sync has some built in
+# At this time we do not aim for parallization as aws cli sync has some built in
 # and when I watch the network traffic, it is pretty much maxed out even without parallelization.
+
+
+# ****  MC = Model Collection  ******
+
+# *****************************************
+# PREPARING AND RUNNING DATA
+# Mar 2025:
+# While not overly elegant at this point, we took some shortcuts in the name of effort/reward.
+#
+# STEPS FOR PREP:
+#   - Did a simple aws ls at the level where all of the MC folders were at
+
+#   - Copied / Pasted from screen into a doc, then saved it in files of 50.  Becuase the export
+#     can time out, sets of 50 worked ok, but a good handful woudl time out before even finishing
+#     50 collections. When a set of 50 timed out, I manually just split that set of "50" names
+#     into a smaller subset with the remaining models in that set of 50 that did not complete.
+
+#   - Ran this script passing in which set of 50 script (ie.. ripple_download_set_20.txt)
+#     I was able to get multiple machines pulling at the same time.
+
+# Runtime notes:
+#   - If the tool failed on a record, the system by design shuts down. That way we could manually adjust
+#     files and folders before conitnuing on. When it failed on a MC, it would start the
+#     the folder, and start filling it.  If it did not finish that model, it has no record in the
+#     the stats file. AWS time outs happened about 5 times over the first set of 485 models for
+#     FIM_30 (split into sets of 50). One set of 50 had to be split twice as it was soo big / long.
+
+#   - When it failed, I deleted the last WIP model colleciton folder which at least started downloading.
+#     But restarting that folder entirely, I picked up correct stats versus "sync" which would have
+#     shortened the download time if partially there aleady. I would also ensure the stats file was 
+#     happy.
+
+#   - One HUC may have more than one MC folder. A MC folder is a source plus a HUC. ie) mip_12090301 
+#     and/or ble_12090301. A small amount of HUCs have more than one source as of FIM_30.
+# 
+# Overall Metrics:
+#     I don't have a tool for this, but I manually copied/pasted all of the contents of each stats
+#     file into a master google sheets. Then I could sort out things like:
+#        - Which HUCs has an MC folder but no models, library extent folders, in it.
+#        - Number of models in each MC folder.
+#        - The source type for that MC folder. ie) mip  versus  ble  (we only have two at this point)
+#        - For each HUC, does it have valid models for one or more of ras2fim, ripple ble, ripple mip
+#        
+# *****************************************
 
 :
 usage_msg()
 {
     echo "This takes a single S3 folder key name (not full s3 folder path), then use
     the incoming single, multiple or txt file with list of the s3 folder key names.
-    
-    Sample Usage:  sh get_s3_folder_from_list.sh -m 'mip_03170004'
-
+ 
     Sample Usage:  sh get_s3_folder_from_list.sh
                 -s 's3://(somebucket)/ripple/30_pcnt_domain/collections'
                 -list 'mip_03170004' (or multiple or file. See notes below)
@@ -101,8 +143,8 @@ while [ "$1" != "" ]; do
     shift
 done
 
-# Yes.. this is duplicated for now
-Calc_Duration( ) {
+# Yes.. this is duplicated for now (couldnt' figure how to read function from other script)
+calc_Duration( ) {
     local start_time=$1
     local end_time=`date +%s`
 
@@ -114,7 +156,7 @@ Calc_Duration( ) {
     echo -e "${dur_min}.${dur_sec_percent}"
 }
 
-file_date=$(date +"%Y%m%d%-H%M%S")
+file_date=$(date '+%Y%m%d_%H%M%S')
 log_file="${trg_path}/s3_download_log_${file_date}.txt"
 csv_stats_file="${trg_path}/ripple_download_stats.csv"
 
@@ -135,7 +177,7 @@ then
 else
     # load the file and turn into an array
     msg="loading the file list of model names from $list_of_keys"
-    echo -e $msg ; echo "$msg" >> $log_file
+    echo -e $msg ; echo "$msg" >> ${log_file}
     readarray -t arr_key_names < "${list_of_keys}"
 fi
 
@@ -152,7 +194,7 @@ t_overall_start=`date +%s`
 echo
 echo "======================= Start of loading model collection folders ========================="
 msg="---- Started: `date -u`"
-echo -e $msg ; echo "$msg" >> $log_file
+echo -e $msg ; echo "$msg" >> ${log_file}
 
 for key in "${arr_key_names[@]}"; do
     if [ -n "$key" ]; then
@@ -163,9 +205,9 @@ done
 
 echo
 msg="---- Ended: `date -u`"
-echo -e $msg ; echo "$msg" >> $log_file
-dur="$(Calc_Duration $t_overall_start)"
+echo -e $msg ; echo "$msg" >> ${log_file}
+dur="$(calc_Duration $t_overall_start)"
 msg="Overall processing duration (in percent minutes) : $dur mins"
-echo -e $msg ; echo "$msg" >> $log_file
+echo -e $msg ; echo "$msg" >> ${log_file}
 echo "======================= End of loading model collection folders ========================="
 echo
