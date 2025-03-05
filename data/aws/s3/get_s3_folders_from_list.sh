@@ -59,10 +59,10 @@
 
 #   - When it failed, I deleted the last WIP model colleciton folder which at least started downloading.
 #     But restarting that folder entirely, I picked up correct stats versus "sync" which would have
-#     shortened the download time if partially there aleady. I would also ensure the stats file was 
+#     shortened the download time if partially there aleady. I would also ensure the stats file was
 #     happy.
 
-#   - One HUC may have more than one MC folder. A MC folder is a source plus a HUC. ie) mip_12090301 
+#   - One HUC may have more than one MC folder. A MC folder is a source plus a HUC. ie) mip_12090301
 #     and/or ble_12090301. A small amount of HUCs have more than one source as of FIM_30.
 # 
 # Overall Metrics:
