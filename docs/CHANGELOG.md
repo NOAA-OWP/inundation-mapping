@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2025-03-06 - [PR#1452](https://github.com/NOAA-OWP/inundation-mapping/pull/1452)
+Updates `data/get_sample_data.py` for changes in input data resulting from the addition of lidar bridge elevation.
+
+### Changes
+
+- `data/get_sample_data.py`: Updated input files and creates a VRT for bridge elevation diff.
+- `fim_post_processing.sh`: Used WBD environment variable instead of hardcoding
+
+<br/><br/>
+
 ## v? - 2025-03-04 - [PR#1406](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
 This PR closes the issue #1242. 
 This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The workflow consists of:  
