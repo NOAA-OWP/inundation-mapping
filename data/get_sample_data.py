@@ -208,7 +208,6 @@ def get_sample_data(
         command.extend(dem_list)
         subprocess.call(command)
 
-
     if use_s3:
         if not aws_access_key_id or not aws_secret_access_key:
             raise ValueError('AWS access key ID and secret access key are required when using S3')
@@ -346,7 +345,9 @@ def get_sample_data(
             else:
                 input_LANDSEA = INPUT_LANDSEA
 
-        input_bridge_elev_diff = os.path.join(os.path.split(input_bridge_elev)[0], f'HUC6_{huc[:6]}_dem_diff.tif')
+        input_bridge_elev_diff = os.path.join(
+            os.path.split(input_bridge_elev)[0], f'HUC6_{huc[:6]}_dem_diff.tif'
+        )
         __copy_file(input_bridge_elev_diff, output_root_folder, input_root, bucket_path)
 
         ## landsea mask
