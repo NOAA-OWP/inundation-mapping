@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v? - 2025-03-04 - [PR#1406](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
+## v.6.0.0 - 2025-03-07 - [PR#1406](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
 This PR closes the issue #1242. 
 This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The workflow consists of:  
 - Extracting lidar-derived elevations for bridges  
@@ -17,7 +17,6 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 - `data/bridges/setup_conda_for_make_rasters.txt` Provides instructions for running the _data/bridges/make_rasters_using_lidar.py_ script on a Windows machine using a Conda environment.
 
 
-
 ### Changes
 - `data/bridges/pull_osm_bridges.py` The updates include:
      - This script now generates two separate OSM bridge centerline files: one for CONUS and another for Alaska, each with its own CRS to improve accuracy.
@@ -28,7 +27,6 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 
 - `src/run_unit_wb.sh` Crops the DEM correction VRT file to the buffered HUC boundary and create a copy for branch 0.
 - `src/run_by_branch.sh` Clips HUC-level DEM correction rasters for branches.
-
 
 
 - `src/heal_bridges_osm.py` Now implements two distinct workflows for healing the REM at OSM bridge locations, depending on the availability of lidar data: 
@@ -44,9 +42,11 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 
 - `.gitignore / pyproject.toml` - With the addition of the new `conda_fim_bridges_enviro.yml` and `setup_conda_for_make_rasters.txt`, our current linting system was consistantly failing linting tests. Adjustments were made to try and have linting ignore the two files.
 
-
 ### Testing
 A series of comprehensive test runs for both CONUS and Alaska were conducted to develop and validate the results. Some observations have been documented #1242.
+
+<br/><br/>
+
 ## v4.5.14.10 - 2025-03-07 - [PR#1447](https://github.com/NOAA-OWP/inundation-mapping/pull/1447)
 
 ### Summary
