@@ -22,7 +22,7 @@ RUN apt-get update && \
 ## ============================
 ## Install dependencies for compilation
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y \
     git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev \
     make gcc g++ && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
@@ -34,22 +34,29 @@ RUN git clone https://github.com/fernandoa123/cybergis-toolkit.git taudem_accele
 
 ## ============================
 ## Compile Main taudem repo ##
-RUN mkdir -p taudem/bin && \
-    cd taudem && git checkout $taudemVersion && \
-    cd src && make
+RUN mkdir -p taudem/bin
+RUN cd taudem \
+    && git checkout $taudemVersion \
+    && cd src \
+    && make
 
 ## ============================
 ## Compile taudem repo with accelerated flow directions ##
-RUN cd taudem_accelerated_flowDirections/taudem && \
-    git checkout $taudemVersion2 && \
-    mkdir build && cd build && \
-    cmake .. && make
+RUN cd taudem_accelerated_flowDirections/taudem \
+    && git checkout $taudemVersion2 \
+    && mkdir build \
+    && cd build \
+    && cmake .. \
+    && make
 
 ## ============================
 ## Move needed binaries
-RUN mkdir -p $taudemDir $taudemDir2
-RUN cd taudem/bin && mv -t $taudemDir flowdircond streamnet gagewatershed catchhydrogeo dinfdistdown
-RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d8flowdir dinfflowdir
+RUN mkdir -p $taudemDir
+RUN mkdir -p $taudemDir2
+RUN cd taudem/bin \
+    && mv -t $taudemDir flowdircond streamnet gagewatershed catchhydrogeo dinfdistdown
+RUN cd taudem_accelerated_flowDirections/taudem/build/bin \
+    && mv -t $taudemDir2 d8flowdir dinfflowdir
 
 ## ============================
 ## Fix permissions before copying to final stage
@@ -71,14 +78,6 @@ ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
 ## ============================
-## ADDING FIM GROUP
-ARG GroupID=10000
-ARG GroupName=fim
-RUN addgroup --gid $GroupID $GroupName
-ENV GID=$GroupID
-ENV GN=$GroupName
-
-## ============================
 ## Create working directories
 RUN mkdir -p $workDir $depDir
 
@@ -97,10 +96,21 @@ RUN apt-get update --fix-missing && \
     expect tmux rsync tzdata wget make gcc g++ && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
+RUN apt auto-remove
 
-# Ensure Python and Pipenv are installed
+# Ensure Python and Pipenv are installed  (pipenv version not managed)
 RUN python3 -m pip install --upgrade pip setuptools wheel
 RUN python3 -m pip install --no-cache-dir pipenv
+
+## adding AWS CLI (for bash) ##
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install
+
+## adding environment variables for numba and python ##
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+ENV PYTHONUNBUFFERED=TRUE
 
 # Set environment variables for stability
 ENV PIP_NO_CACHE_DIR=off
@@ -112,17 +122,8 @@ COPY Pipfile .
 COPY Pipfile.lock .
 
 # Try installing dependencies (with verbose logging)
+# TODO: what is this actually installing?
 RUN pipenv install --system --deploy --ignore-pipfile --verbose || pipenv install --system --verbose
-
-## adding AWS CLI (for bash) ##
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install
-
-## adding environment variables for numba and python ##
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
-ENV PYTHONUNBUFFERED=TRUE
 
 ## ADD TO PATHS ##
 ENV PATH="$projectDir:${PATH}"
@@ -147,7 +148,7 @@ RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_
 
 ## ============================
 ## Set default permissions
-RUN umask 0022
+# RUN umask 0022
 
 ## ============================
 ## Set entrypoint
