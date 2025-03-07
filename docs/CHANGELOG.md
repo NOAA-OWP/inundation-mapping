@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2025-02-24 - [PR#1427](https://github.com/NOAA-OWP/inundation-mapping/pull/1427)
+## v4.5.14.9 - 2025-03-07 - [PR#1427](https://github.com/NOAA-OWP/inundation-mapping/pull/1427)
 
 Avoids importing both GDAL and `rasterio` in the same Python interpreter session. Also updates some Python packages.
 
