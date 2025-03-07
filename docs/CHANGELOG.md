@@ -47,6 +47,30 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 
 ### Testing
 A series of comprehensive test runs for both CONUS and Alaska were conducted to develop and validate the results. Some observations have been documented #1242.
+## v4.5.14.10 - 2025-03-07 - [PR#1447](https://github.com/NOAA-OWP/inundation-mapping/pull/1447)
+
+### Summary
+This PR update Dockerfile.owp which is for building the podman image in owp server. Also `Dockerfile.dev` updated to be more clean and matchup the podman image.
+
+### Changes
+- `inundation-mapping`:
+   - `Dockerfile.owp`: This file updated and now podman image on owp server can be built.
+   - `Dockerfile.dev`: This file updated to match the podman image and be more clean to read.
+
+<br/><br/>
+
+## v4.5.14.9 - 2025-03-07 - [PR#1427](https://github.com/NOAA-OWP/inundation-mapping/pull/1427)
+
+Avoids importing both GDAL and `rasterio` in the same Python interpreter session. Also updates some Python packages.
+
+### Changes
+
+- `Dockerfile.owp`: renamed from `Dockerfile.prod`
+- `Pipfile` and `Pipfile.lock`: added `pymc`, and `rio_vrt`; upgraded `osmnx`
+- `data/`
+    - `bathymetry/preprocess_bathymetry.py`: Replaced `gdal` with `whitebox`
+- `src/utils/shared_functions.py`: Remove unused function and `rasterio` import
+- `tools/inundate_nation.py`: Replaced `gdal` with `rio_vrt` and `whitebox`
 
 <br/><br/>
 
@@ -245,7 +269,6 @@ Fixes two issues in test_cases:
 
 ### Changes
 
-- `src/bash_variables.env`: Added environment variables for Alaska waterbody and levee masks and two variables to replace fixed paths in an upcoming PR (#1178).
 - `tools/`
     - `run_test_case.py`: Fixed error if missing validation data. Updated masking data to include Alaska.
     - `synthesize_test_cases.py`: Fixed error if missing validation data.
@@ -366,6 +389,8 @@ As part of this PR, small modification was applied to bridge_inundation.py.
 - `tools/bridge_inundation.py`
 
 <br/><br/>
+
+
 
 
 ## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
@@ -913,6 +938,7 @@ A number of python packages were updated in this PR. You will need to build a ne
 
 <br/><br/>
 
+
 ## v4.5.2.0 - 2024-05-20 - [PR#1166](https://github.com/NOAA-OWP/inundation-mapping/pull/1166)
 
 The main goal of this PR is to create bridge point data that be used as a service in HydroVIS. Since every branch processes bridges separately, it's possible to inundate a bridge from more than just the feature_id it crosses. To reflect this, the `osm_bridge_centroids.gpkg` now found in HUC directories will have coincident points - one that is inundated from the reach it crosses and the other a backwater-influenced point indicated by the `is_backwater` field.
@@ -928,6 +954,7 @@ The main goal of this PR is to create bridge point data that be used as a servic
 - `config/deny_branch_zero.lst` & `deny_branches.lst`: Added `#osm_bridge_centroids_{}.gpkg` to the deny lists.
 
 <br/><br/>
+
 
 ## v4.5.1.3 - 2024-05-17 - [PR#1170](https://github.com/NOAA-OWP/inundation-mapping/pull/1170)
 
