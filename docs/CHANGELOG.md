@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2025-03-07 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1447)
+
+### Summary
+This PR update Dockerfile.owp which is for building the podman image in `owpal-d-fim1`. Also Dockerfile.dev updated to be more clean and matchup the podman image.
+
+### Changes
+- `inundation-mapping`:
+   - `Dockerfile.owp`: This file updated and now podman image on owp server can be built.
+   - `Dockerfile.dev`: This file updated to match the podman image and be more clean to read.
+
+<br/><br/>
+
 ## v4.5.14.8 - 2025-02-14 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1414)
 
 ### Summary
