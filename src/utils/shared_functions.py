@@ -13,7 +13,6 @@ import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
-import rasterio
 from tqdm import tqdm
 
 import utils.shared_variables as sv
@@ -84,77 +83,6 @@ def get_fossid_from_huc8(
     for huc in hucs:
         if huc['properties']['HUC8'] == huc8_id:
             return huc['properties'][foss_id_attribute]
-
-
-def update_raster_profile(args):
-    elev_cm_filename = args[0]
-    elev_m_filename = args[1]
-    projection = args[2]
-    nodata_val = args[3]
-    blocksize = args[4]
-    keep_intermediate = args[5]
-    overwrite = args[6]
-
-    if os.path.exists(elev_m_filename) & overwrite:
-        os.remove(elev_m_filename)
-    elif not os.path.exists(elev_m_filename):
-        pass
-    else:
-        print(f"Skipping {elev_m_filename}. Use overwrite option.")
-        return
-
-    if isinstance(blocksize, int):
-        pass
-    elif isinstance(blocksize, str):
-        blocksize = int(blocksize)
-    elif isinstance(blocksize, float):
-        blocksize = int(blocksize)
-    else:
-        raise TypeError("Pass integer for blocksize")
-
-    assert elev_cm_filename.endswith('.tif'), "input raster needs to be a tif"
-
-    # Update nodata value and convert from cm to meters
-    dem_cm = rasterio.open(elev_cm_filename)
-
-    no_data = dem_cm.nodata
-
-    dem_m_profile = dem_cm.profile.copy()
-    dem_m_profile.update(
-        driver='GTiff',
-        tiled=True,
-        nodata=nodata_val,
-        blockxsize=blocksize,
-        blockysize=blocksize,
-        dtype='float32',
-        crs=projection,
-        compress='lzw',
-        interleave='band',
-    )
-
-    dest = rasterio.open(elev_m_filename, "w", **dem_m_profile, BIGTIFF='YES')
-
-    for idx, window in dem_cm.block_windows(1):
-        data = dem_cm.read(1, window=window)
-
-        # wrote out output of this line as the same variable.
-        data = np.where(data == int(no_data), nodata_val, (data / 100).astype(rasterio.float32))
-
-        # removed this line to avoid having two array copies of data. Kills memory usage
-        # del data
-
-        dest.write(data, indexes=1, window=window)
-
-    # not necessary
-    # del dem_m
-
-    dem_cm.close()
-    dest.close()
-
-    if keep_intermediate is False:
-        os.remove(elev_cm_filename)
-
-    return elev_m_filename
 
 
 ########################################################################
