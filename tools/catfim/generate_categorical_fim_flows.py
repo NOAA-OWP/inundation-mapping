@@ -701,25 +701,23 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
         # Append the lists
         unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
 
-        # print(f"len(all_meta_lists) is {len(all_meta_lists)}")
-
         # Filter the metadata list
         output_meta_list = []
-        unique_lids, duplicate_lids = [], []  # TODO: remove?
+        unique_lids, duplicate_lids = [], []
         duplicate_meta_list = []
-        nonelid_metadata_list = []  # TODO: remove
+        nonelid_metadata_list = []
 
         for i, site in enumerate(unfiltered_meta_list):
             nws_lid = site['identifiers']['nws_lid']
 
             if nws_lid is None:
                 # No LID available
-                nonelid_metadata_list.append(site)  # TODO: replace with Continue
+                nonelid_metadata_list.append(site)
 
             elif nws_lid in unique_lids:
                 # Duplicate LID
                 duplicate_lids.append(nws_lid)
-                duplicate_meta_list.append(site)  # TODO: remove extra lists
+                duplicate_meta_list.append(site)
 
             else:
                 # Unique/unseen LID that's not None
@@ -727,6 +725,8 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
                 output_meta_list.append(site)
 
         FLOG.lprint(f'{len(duplicate_lids)} duplicate points removed.')
+        FLOG.lprint(f'Duplicate point LIDs: {duplicate_lids}')
+        FLOG.lprint(f'{len(nonelid_metadata_list)} points with value of None for nws_lid removed.')
         FLOG.lprint(f'Filtered metadatada downloaded for {len(output_meta_list)} points.')
 
         # ----------
