@@ -17,7 +17,7 @@ def bridge_risk_status(
     This function detect which bridge points are affected by a specified flow file. The function requires a flow file (expected to follow
     the schema used by 'inundation_mosaic_wrapper') with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
     containing bridge points labeled as "threatened", "at risk", or "not at risk" based on forcasted discharge compared to preset discharge
-    ("max_discharge" or "max_discharge75").
+    ("threshold_discharge" or "threshold_discharge75").
 
     Args:
         hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
@@ -97,16 +97,18 @@ def bridge_risk_status(
 
     # Assign risk status for each point
     def risk_class(row):
-        if row['discharge'] > row['max_discharge']:
+        if row['discharge'] > row['threshold_discharge']:
             return 'threatened'
-        elif row['max_discharge75'] <= row['discharge'] < row['max_discharge']:
+        elif row['threshold_discharge75'] <= row['discharge'] < row['threshold_discharge']:
             return 'at_risk'
         else:
             return 'not_at_risk'
 
     # Apply risk_class function to each row
     merged_bri['risk_status'] = merged_bri.apply(risk_class, axis=1)
-    merged_bri.drop('discharge', axis=1, inplace=True)
+
+    # change the name of the given flow
+    merged_bri.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
 
     # Drop not_at_risk status from points with the same geometry
     mapping_dic = {'not_at_risk': 0, 'at_risk': 1, 'threatened': 2}

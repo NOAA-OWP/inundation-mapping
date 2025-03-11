@@ -3,7 +3,7 @@
 import argparse
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from osgeo import gdal
 
@@ -43,11 +43,11 @@ def create_vrt_file(src_directory, vrt_file_name):
 
     # -------------------
     # setup logs
-    start_time = datetime.now()
+    start_time = datetime.now(timezone.utc)
     fh.print_start_header('Creating vrt file', start_time)
 
     __setup_logger(src_directory)
-    logging.info(f"saving vrt to {target_vrt_file_path}")
+    logging.info(f"Saving vrt to {target_vrt_file_path}")
 
     # -------------------
     # processing
@@ -56,8 +56,8 @@ def create_vrt_file(src_directory, vrt_file_name):
 
     __create_vrt(tif_file_names, target_vrt_file_path)
 
-    end_time = datetime.now()
-    fh.print_end_header('Loading 3dep dems', start_time, end_time)
+    end_time = datetime.now(timezone.utc)
+    fh.print_end_header('Finished creating vrt file', start_time, end_time)
     logging.info(fh.print_date_time_duration(start_time, end_time))
 
 
@@ -71,7 +71,7 @@ def __create_vrt(tif_file_names, target_vrt_file_path):
 
 
 def __setup_logger(output_folder_path):
-    start_time = datetime.now()
+    start_time = datetime.now(timezone.utc)
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_name = f"vrt_build-{file_dt_string}.log"
 
@@ -92,7 +92,10 @@ def __setup_logger(output_folder_path):
 
 
 if __name__ == '__main__':
-    # Sample Usage:  python3 /foss_fim/data/create_vrt_file.py -s /data/inputs/3dep_dems/10m_5070/ -n "fim_seamless_3dep_dem_10m_5070.vrt"
+    # Sample Usage:
+    #    python3 /foss_fim/data/create_vrt_file.py
+    #    -s /data/inputs/3dep_dems/10m_5070/
+    #    -n "fim_seamless_3dep_dem_10m_5070.vrt"
 
     parser = argparse.ArgumentParser(description='Create a vrt using all tifs in a given directory')
 
