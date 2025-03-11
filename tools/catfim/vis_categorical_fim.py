@@ -190,6 +190,7 @@ def subset_apply_symbology_catfim_library(catfim_library, points_filt_gdf, lid, 
 
     return catfim_library_filt, colordict
 
+
 # -------------------------------------------------------------
 # Plotting CatFIM (for visualizing, not saving)
 # -------------------------------------------------------------
@@ -204,6 +205,7 @@ map_catfim_at_site(catfim_library_filt, flowline_filt_gdf, points_filt_gdf, colo
 map_catfim_full_extent(catfim_library_filt, flowline_filt_gdf, points_filt_gdf, colordict, plot_title='', legend=False)
 
 '''
+
 
 def map_catfim_at_site(
     catfim_library_filt,
@@ -366,6 +368,7 @@ def map_catfim_full_extent(
     ax.set_yticks([])
     plt.show()
 
+
 # -------------------------------------------------------------
 # Plotting CatFIM and saving plots
 # -------------------------------------------------------------
@@ -384,6 +387,7 @@ map_catfim_at_site_zoomed_out(catfim_library_filt, flowline_filt_gdf, points_fil
 map_and_save_catfim_full_extent(catfim_library_filt, flowline_filt_gdf, points_filt_gdf, colordict, plot_title = plot_title, plot_filename = plot_filename, legend=False)
 
 '''
+
 
 def map_and_save_catfim_full_extent(
     catfim_library_filt, flowline_filt_gdf, points_filt_gdf, colordict, plot_title, plot_filename, legend
@@ -435,6 +439,7 @@ def map_and_save_catfim_full_extent(
     # plt.show()
 
     plt.savefig(plot_filename)
+
 
 def map_catfim_at_site_zoomed_out(
     catfim_library_filt,
