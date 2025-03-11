@@ -9,7 +9,7 @@ Updated the APHS restricted sites list so all test sites are excluded from BOTH 
 ### Changes
 - `tools/catfim/ahps_restricted_sites.csv`: Updated the restricted sites list so the test sites are applied to both stage- and flow-based CatFIM. Tidied up status phrasing.
 - `tools/catfim/generate_categorical_fim.py`: Updated restricted site processing so "Restricted Site" is appended at the beginning of the site status for sites that are removed due to the restricted sites list. 
-- `tools/catfim/generate_categorical_fim_flows.py`: Updated restricted site processing so "Restricted Site" is appended at the beginning of the site status for sites that are removed due to the restricted sites list. 
+- `tools/catfim/generate_categorical_fim_flows.py`: Updated restricted site processing so "Restricted Site" is appended at the beginning of the site status for sites that are removed due to the restricted sites list. Also updated the metadata retrieval code so it now prints the ID's of sites excluded due to being duplicates. 
 - `tools/catfim/vis_categorical_fim.py`: Update the CatFIM mapping functions to include two functions for saving CatFIM plots. Cleaned up comments and corrected code usage examples.
 
 <br/><br/>
