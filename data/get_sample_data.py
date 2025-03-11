@@ -13,11 +13,10 @@ from dotenv import load_dotenv
 def get_sample_data(
     hucs,
     data_path: str,
-    output_root_folder: str,
-    input_root: str = '/data',
-    use_s3: bool = False,
-    aws_access_key_id: str = None,
-    aws_secret_access_key: str = None,
+    output_root_folder: str="sample_data",
+    input_root: str="inputs",
+    aws_access_key_id: str="",
+    aws_secret_access_key: str="",
 ):
     """
     Create input data for the flood inundation model
@@ -27,12 +26,34 @@ def get_sample_data(
     hucs : str
         HUC(s) to process
     data_path : str
-        Path to the input data
+        Path to the root data (s3 path s3://bucket/and parent folder. The input_root and output_root_folder
+        are relative to this path
     output_root_folder : str
         Path to save the output data
-    use_s3 : bool
-        Download data from S3 (default is False)
+    input_root: str
+        Path to get the input data
+    aws_access_key_id:
+        Required 
+    aws_secret_access_key:
+        Required 
     """
+
+    ####################
+    # TODO: Needs input validation code
+
+    if data_path.startswith("s3://") or data_path.startswith("S3://"):
+        # use_s3 = True
+        if not aws_access_key_id or not aws_secret_access_key:
+            raise ValueError('AWS access key ID and secret access key are required when using S3')
+        if data_path.startswith("S3://"):
+            data_path.replace("S3://", "s3://")
+    else:
+        # Mar 2025: Local usage temporarily disabled
+        # use_s3 = False
+        raise ValueError("The data path must be an s3 address, bucket and parent folder."
+                         " The parent folder needs to have an inputs and output folder somewhere in "
+                         " in folders under it. ie) s3://noaa-nws-owp-fim/hand_fim/")
+
 
     def __get_validation_hucs(root_dir: str, org: str):
         """
@@ -43,27 +64,30 @@ def get_sample_data(
         root_dir : str
             Root directory
         org : str
-            Organization name
+            Organization name (test case source.. ble, usgs, etc)
+
+        Note: In some S3 buckets, IFC may not exist. Also in some buckets
+            there may not necessarily be any test_case_data
         """
 
-        if use_s3:
-            return list(
-                set(
-                    [
-                        d.key.split('/')[4]
-                        for d in s3_resource.Bucket(bucket).objects.filter(
-                            Prefix=f'{root_dir}/test_cases/{org}_test_cases/validation_data_{org}'
-                        )
-                        if re.match(r'^\d{8}$', d.key.split('/')[4])
-                    ]
-                )
+#         if use_s3:
+        return list(
+            set(
+                [
+                    d.key.split('/')[4]
+                    for d in s3_resource.Bucket(bucket).objects.filter(
+                        Prefix=f'{root_dir}/test_cases/{org}_test_cases/validation_data_{org}'
+                    )
+                    if re.match(r'^\d{8}$', d.key.split('/')[4])
+                ]
             )
-        else:
-            return [
-                d
-                for d in os.listdir(f'/data/test_cases/{org}_test_cases/validation_data_{org}')
-                if re.match(r'^\d{8}$', d)
-            ]
+        )
+        # else:
+        #     return [
+        #         d
+        #         for d in os.listdir(f'{root_dir}/test_cases/{org}_test_cases/validation_data_{org}')
+        #         if re.match(r'^\d{8}$', d)
+        #     ]
 
     def __copy_validation_data(org: str, huc: str, data_path: str, output_data_path: str):
         """
@@ -72,7 +96,7 @@ def get_sample_data(
         Parameters
         ----------
         org : str
-            Organization name
+            Organization name (benchmark source (ble, usgs, etc))
         huc : str
             HUC
         input_path : str
@@ -88,7 +112,7 @@ def get_sample_data(
 
         __copy_folder(os.path.join(data_path, validation_path), output_validation_path)
 
-    def __copy_file(input_file: str, output_path: str, input_root: str, bucket_path: str = None):
+    def __copy_file(input_file: str, output_path: str, input_path: str, bucket_path: str = None):
         """
         Copies a file if it doesn't already exist
 
@@ -98,8 +122,8 @@ def get_sample_data(
             Path to the input data
         output_path : str
             Path to save the output data
-        input_root : str
-            input_file root directory (default is '/data')
+        input_path : str
+            input_file root directory
         """
 
         input_path, basename = os.path.split(input_file)
@@ -110,7 +134,7 @@ def get_sample_data(
             output_file = os.path.join(output_path, output_file)
 
         else:
-            output_file = input_file.replace(input_root, output_path)
+            output_file = input_file.replace(input_path, output_path)
 
         output_path = os.path.split(output_file)[0]
 
@@ -148,19 +172,18 @@ def get_sample_data(
         output_path : str
             Path to save the output data
         input_root : str
-            input_file root directory (default is '/data')
+            input_file root directory
         """
 
-        if input_root:
-            # Make sure input root ends with a '/'
-            if input_root[-1] != '/':
-                input_root = input_root + '/'
+        # Make sure input root ends with a '/'
+        if input_root[-1] != '/':
+            input_root = input_root + '/'
 
-                # Strip bucket path if use_s3 is True
-            if use_s3:
-                input_dir = input_path.removeprefix(bucket_path)[1:]
+        # Strip bucket path if use_s3 is True
+        if use_s3:
+            input_root = input_path.removeprefix(bucket_path)[1:]
 
-            output_path = os.path.join(output_path, input_dir.removeprefix(input_root))
+        output_path = os.path.join(output_path, input_path.removeprefix(input_root))
 
         if use_s3:
             print(f"Downloading {input_path} to {output_path}")
@@ -209,8 +232,6 @@ def get_sample_data(
         subprocess.call(command)
 
     if use_s3:
-        if not aws_access_key_id or not aws_secret_access_key:
-            raise ValueError('AWS access key ID and secret access key are required when using S3')
 
         s3 = boto3.client(
             's3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key
@@ -223,10 +244,14 @@ def get_sample_data(
             data_path = data_path[5:]
 
         bucket, bucket_path = data_path.split('/', 1)
-        input_path = os.path.join(bucket_path, 'inputs')
+        input_path = os.path.join(bucket_path, input_root)
 
     else:
-        input_path = os.path.join(data_path, 'inputs')
+
+        if data_path.startswith != "/":
+            data_path = f"/{data_path}"
+
+        input_path = os.path.join(data_path, input_root)
 
         if not os.path.exists(input_path):
             raise FileNotFoundError(f'{input_path} does not exist')
@@ -235,6 +260,7 @@ def get_sample_data(
 
     # Set inputsDir for the bash scripts
     os.environ['inputsDir'] = input_path
+    root_dir = data_path  # yes.. redundant. TODO fix this.    
 
     load_dotenv('/foss_fim/src/bash_variables.env')
 
@@ -256,19 +282,6 @@ def get_sample_data(
     INPUT_BRIDGE_ELEV_DIFF_ALASKA = os.environ["input_bridge_elev_diff_alaska"]
     INPUT_OSM_BRIDGES = os.environ["osm_bridges"]
     INPUT_OSM_BRIDGES_ALASKA = os.environ["osm_bridges_alaska"]
-
-    root_dir = os.path.split(input_path)[0]
-
-    ## test_cases
-    validation_hucs = {}
-    orgs = ['ble', 'nws', 'usgs', 'ras2fim']
-    for org in orgs:
-        validation_hucs[org] = __get_validation_hucs(root_dir, org)
-
-        os.makedirs(
-            os.path.join(output_root_folder, f'test_cases/{org}_test_cases/validation_data_{org}'),
-            exist_ok=True,
-        )
 
     # Copy WBD (needed for post-processing)
     __copy_file(os.environ["input_WBD_gdb"], output_root_folder, input_root, bucket_path)
@@ -406,27 +419,96 @@ def get_sample_data(
             os.path.join(os.environ["pre_clip_huc_dir"], huc), output_root_folder, input_root, bucket_path
         )
 
-        ## validation data
+        ## test_cases validation data (not huc specific)
+
+        # TODO: validation data may or may not exist. 
+
+        validation_hucs = {}
+        orgs = ['ble', 'nws', 'usgs', 'ras2fim']  # skip IFC
         for org in orgs:
-            if huc in validation_hucs[org]:
-                if use_s3:
-                    __copy_validation_data(org, huc, bucket_path, output_root_folder)
-                else:
-                    __copy_validation_data(org, huc, data_path, output_root_folder)
+            validation_hucs[org] = __get_validation_hucs(root_dir, org)
+
+            os.makedirs(
+                os.path.join(output_root_folder, f'test_cases/{org}_test_cases/validation_data_{org}'),
+                exist_ok=True,
+            )
+
+        # ## validation data
+        # for org in orgs:
+        #     if huc in validation_hucs[org]:
+        #         if use_s3:
+        #             __copy_validation_data(org, huc, bucket_path, output_root_folder)
+        #         else:
+        #             __copy_validation_data(org, huc, data_path, output_root_folder)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Create input data for the flood inundation model')
-    parser.add_argument('-u', '--hucs', nargs='+', help='HUC to process')
-    parser.add_argument('-i', '--data-path', help='Path to the input data')
-    parser.add_argument('-o', '--output-root-folder', help='Path to save the output data')
-    parser.add_argument('-r', '--input-root', help='Root directory of the input data', default='/data')
-    parser.add_argument('-s3', '--use-s3', action='store_true', help='Download data from S3')
-    parser.add_argument('-ak', '--aws-access-key-id', help='AWS access key ID', required=False)
-    parser.add_argument('-sk', '--aws-secret-access-key', help='AWS secret access key', required=False)
+
+    # This tool can be only be used against s3 to pull data and make a sample input folder on your 
+    # local machine.
+
+    # Samples (with min args)
+    #    S3:
+    #       python /foss_fim/data/get_sample_data.py
+    #           -u 03100204
+    #           -i 's3://noaa-nws-owp-fim/hand_fim'
+    #           -o "c://my_fim_data" or "//home/myuser/my_fim_data"
+    #           -ak '{some AWS Access key value}'
+    #           -sk '{some AWS Secret key value}'    
+
+    parser = argparse.ArgumentParser(
+        description='Create input data for the flood inundation model')
+    
+    parser.add_argument(
+        '-u',
+        '--hucs',
+        nargs='+',
+        help='REQUIRED: HUC(s) to process',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-i', 
+        '--data-path',
+        help="REQUIRED: Root directory for the input and output paths. ie) 's3://noaa-nws-owp-fim/hand_fim/'"
+        " The 'r' input root and 'o' output-root-folder is relative this this root dir.",
+        required=True,
+    )
+
+    parser.add_argument(
+        '-ak',
+        '--aws-access-key-id',
+        help="REQUIRED: AWS access key id",
+        required=True,
+        default="",
+        )
+    
+    parser.add_argument(
+        '-sk',
+        '--aws-secret-access-key',
+        help='REQUIRED: AWS secret access key',
+        required=True,
+        default="",
+        )
+
+    parser.add_argument(
+        '-o',
+        '--output-root-folder',
+        help="REQUIRED: Local folder where your sample input data will saved."
+        " ie) c://my_fim_data" or "//home/myuser/my_fim_data",
+        default="",
+        required=True,
+        )
+
+    parser.add_argument(
+        '-r',
+        '--input-root',
+        help="OPTIONAL: Root directory of the input data. Defaults to 'inputs'",
+        default='inputs',
+        required=False,
+        )
 
     args = parser.parse_args()
 
     get_sample_data(**vars(args))
-
-    # python /foss_fim/data/get_sample_data.py -u 03100204 -i /data -o /outputs/sample-data
+ 
