@@ -4,8 +4,8 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v4.6.?.? - 2025-03-12 - [PR#1463](https://github.com/NOAA-OWP/inundation-mapping/pull/1463)
 This PR resolves issue #1457 by ensuring that HUCs without lidar-informed bridges are properly handled. The code now checks for the availability of lidar-informed bridges, and if none exist for a given HUC, the lidar healing workflow is skipped.
 
-Changes
-src/heal_bridges_osm.py ... As described above.
+### Changes
+- `src/heal_bridges_osm.py`  ... As described above. 
 
 ## v4.6.0.0 - 2025-03-07 - [PR#1406](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
 This PR closes the issue #1242. 
