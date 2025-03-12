@@ -45,6 +45,8 @@ def compile_catfim_sites(sorted_path_list):
 
     Outputs:
     - combined_sites_df
+    - combined_sites_metadata_df
+    - version_id_list
     '''
 
     print(f'Results to compile: {sorted_path_list}')
@@ -79,11 +81,18 @@ def compile_catfim_sites(sorted_path_list):
             print(f'WARNING: Did not find ahps_lid or nws_lid column in {csv_path}')
             continue
 
-        # Make a new df with only the needed columns
+        # Make a sites dataframes with only the needed columns
         sites_df['site_processed'] = 'yes'
+
+        # Status dataframe
         trimmed_sites_df = sites_df[
             ['site_id', 'site_processed', 'mapped', 'status']
-        ]  # maybe add this additional data later
+        ]  
+
+        # Metadata dataframe
+        trimmed_site_metadata_df = sites_df[
+            ['site_id', 'nws_data_wfo', 'nws_data_rfc', 'HUC8', 'name', 'states']
+        ]  
 
         # Extract version_id from the path
         match = version_id = re.search(r'(hand|fim)_(\d+_\d+_\d+_\d+)', path)
@@ -116,7 +125,7 @@ def compile_catfim_sites(sorted_path_list):
             # Check if combined_sites_metadata_df already exists 
             combined_sites_metadata_df
 
-            # Filter rows that are not already in combined_sites_metadata_df based on 'site_id'
+            # If it does, filter rows that are not already in combined_sites_metadata_df based on 'site_id'
             new_metadata_rows = trimmed_site_metadata_df[~trimmed_site_metadata_df['site_id'].isin(combined_sites_metadata_df['site_id'])]
             
             # If the metadata table exists, add information ONLY from any sites that weren't included 
