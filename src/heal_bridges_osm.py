@@ -21,7 +21,7 @@ def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar
 
     if non_lidar_osm_gdf.empty:
         return None, hand_grid_array
-    
+
     non_lidar_osm_gdf['geometry'] = non_lidar_osm_gdf.geometry.buffer(
         non_lidar_buffer, resolution=non_lidar_buffer
     )
@@ -53,11 +53,11 @@ def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar
 
 def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer, bridge_elev_diff_raster):
     lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'Y'].copy()
-    
+
     if lidar_osm_gdf.empty:
         return None, hand_grid_array
 
-    #if there are some lidar tif files, then we need to read diff file and apply healing
+    # if there are some lidar tif files, then we need to read diff file and apply healing
     with rasterio.open(bridge_elev_diff_raster) as diff_grid:
         diff_grid_array = diff_grid.read(1)  # Read the first band
         diff_grid_transform = diff_grid.transform
@@ -128,7 +128,7 @@ def process_bridges_in_huc(
         print(f"-- no OSM file, {bridge_vector_file}")
         return
 
-    #read hand grid
+    # read hand grid
     with rasterio.open(source_hand_raster, 'r') as hand_grid:
         hand_grid_profile = hand_grid.profile
         hand_grid_array = hand_grid.read(1)
