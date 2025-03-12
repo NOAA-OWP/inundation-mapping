@@ -7,8 +7,8 @@ import sys
 import traceback
 from datetime import datetime, timezone
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -17,7 +17,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 # FLOG = fl.FIM_logger()  # the non mp version
 
 '''
-This tool compares two or more versions of the CatFIM output site CSV. (Rewritten as of 3/8/25.) 
+This tool compares two or more versions of the CatFIM output site CSV. (Rewritten as of 3/8/25.)
 It produces a compiled CSV of all sites and a CSV for each version comparison.
 It will auto overwrite output files already existing.
 
@@ -34,7 +34,7 @@ Inputs:
 
 Outputs:
 
-- Number of outputs depends on how many CatFIM results are provided. 
+- Number of outputs depends on how many CatFIM results are provided.
 - For example, if 3 versions of flow-based CatFIM are provided, the following outputs will be created:
     - flow_based_compare_all_versions.csv
     - flow_based_<version_1>_vs_<version_2>.csv
@@ -77,9 +77,9 @@ Outputs:
 Change Descriptions:
 - No Change (Has mapped CatFIM in both versions)
 - No Change (Doesn’t have mapped CatFIM in either version)
-- No Change (Site is excluded in both versions) 
-- Added (Site where CatFIM was not processed previously but now has mapped CatFIM) 
-- Added (Site where  CatFIM was not mapped previously but now has mapped CatFIM) 
+- No Change (Site is excluded in both versions)
+- Added (Site where CatFIM was not processed previously but now has mapped CatFIM)
+- Added (Site where  CatFIM was not mapped previously but now has mapped CatFIM)
 - Removed (Previously had mapped CatFIM, now site isn’t being processed)
 - Removed (Previously had mapped CatFIM, now site isn’t being mapped)
 - Status Change (Previously unmapped, now excluded from  processing)
@@ -141,14 +141,12 @@ def compile_catfim_sites(sorted_path_list):
         sites_df['site_processed'] = 'yes'
 
         # Status dataframe
-        trimmed_sites_df = sites_df[
-            ['site_id', 'site_processed', 'mapped', 'status']
-        ]  
+        trimmed_sites_df = sites_df[['site_id', 'site_processed', 'mapped', 'status']]
 
         # Metadata dataframe
         trimmed_site_metadata_df = sites_df[
             ['site_id', 'nws_data_wfo', 'nws_data_rfc', 'HUC8', 'name', 'states']
-        ]  
+        ]
 
         # Extract version_id from the path
         match = version_id = re.search(r'(hand|fim)_(\d+_\d+_\d+_\d+)', path)
@@ -178,20 +176,24 @@ def compile_catfim_sites(sorted_path_list):
             combined_sites_df = trimmed_sites_df
 
         # Add site metadata df to output metadata df
-        try: 
-            # Check if combined_sites_metadata_df already exists 
+        try:
+            # Check if combined_sites_metadata_df already exists
             combined_sites_metadata_df
 
             # If it does, filter rows that are not already in combined_sites_metadata_df based on 'site_id'
-            new_metadata_rows = trimmed_site_metadata_df[~trimmed_site_metadata_df['site_id'].isin(combined_sites_metadata_df['site_id'])]
-            
-            # If the metadata table exists, add information ONLY from any sites that weren't included 
-            combined_sites_metadata_df = pd.concat([combined_sites_metadata_df, new_metadata_rows], ignore_index=True)
-            
+            new_metadata_rows = trimmed_site_metadata_df[
+                ~trimmed_site_metadata_df['site_id'].isin(combined_sites_metadata_df['site_id'])
+            ]
+
+            # If the metadata table exists, add information ONLY from any sites that weren't included
+            combined_sites_metadata_df = pd.concat(
+                [combined_sites_metadata_df, new_metadata_rows], ignore_index=True
+            )
+
         except NameError:
             # If 'combined_sites_metadata_df' doesn't exist, assign 'trimmed_site_metadata_df' to it
             combined_sites_metadata_df = trimmed_site_metadata_df
-        
+
         # End path loop
 
     version_id_list = []
@@ -201,11 +203,11 @@ def compile_catfim_sites(sorted_path_list):
         if 'site_processed' in col:
             # Fill with 'no' where the value is not 'yes'
             combined_sites_df[col] = combined_sites_df[col].apply(lambda x: 'yes' if x == 'yes' else 'no')
-            
+
         # elif 'catfim_mapped' in col:  # Removed for now
         #     # Fill with 'no' where the value is not 'yes'
         #     combined_sites_df[col] = combined_sites_df[col].apply(lambda x: 'yes' if x == 'yes' else 'no')
-            
+
         elif 'status' in col:
             # Get the version ID from the 'status' column
             version_id = col.replace('_status', '')
@@ -227,18 +229,26 @@ def compile_catfim_sites(sorted_path_list):
 
     # Join the site metadata to the combined_sites_df
     combined_sites_df = pd.merge(combined_sites_metadata_df, combined_sites_df, how='right', on='site_id')
-            
+
     return combined_sites_df, combined_sites_metadata_df, version_id_list
 
+
 # Create version comparison dataframe
-def make_version_comparison_tables(combined_sites_df, combined_sites_metadata_df, product_id, version_id_list, out_save_path, keep_differences_only):
+def make_version_comparison_tables(
+    combined_sites_df,
+    combined_sites_metadata_df,
+    product_id,
+    version_id_list,
+    out_save_path,
+    keep_differences_only,
+):
 
     # Put versions in order
     def version_key(version):
         return list(map(int, version.split('_')))
-    
+
     sorted_versions = sorted(version_id_list, key=version_key)
-    
+
     # Iterate through versions (minus the last one) to calculate the Change and Change_Description columns
     for i in range(len(sorted_versions) - 1):
 
@@ -256,30 +266,49 @@ def make_version_comparison_tables(combined_sites_df, combined_sites_metadata_df
         new_catfim_mapped_col = f'{new_version_id}_catfim_mapped'
 
         old_catfim_status_col = f'{old_version_id}_status'
-        new_catfim_status_col = f'{new_version_id}_status'        
-            
+        new_catfim_status_col = f'{new_version_id}_status'
+
         # Create a subset table with just the versions to compare
-        compare_sites_df = combined_sites_df[['site_id',
-                                                old_site_processed_col, old_catfim_mapped_col, old_catfim_status_col,
-                                                new_site_processed_col, new_catfim_mapped_col, new_catfim_status_col]]
+        compare_sites_df = combined_sites_df[
+            [
+                'site_id',
+                old_site_processed_col,
+                old_catfim_mapped_col,
+                old_catfim_status_col,
+                new_site_processed_col,
+                new_catfim_mapped_col,
+                new_catfim_status_col,
+            ]
+        ]
 
         # Initialize new columns with default values
         change_col = 'Change'
         change_description_col = 'Change_Description'
         compare_sites_df[change_col] = 'ERROR'
-        compare_sites_df[change_description_col] = 'ERROR - Site was unable to be categorized, check status columns manually.'
+        compare_sites_df[change_description_col] = (
+            'ERROR - Site was unable to be categorized, check status columns manually.'
+        )
 
         # Define conditions
         conditions = [
-            (compare_sites_df[old_catfim_mapped_col] == 'no') & (compare_sites_df[new_catfim_mapped_col] == 'no'),
-            (compare_sites_df[old_catfim_mapped_col] == 'yes') & (compare_sites_df[new_catfim_mapped_col] == 'yes'),
-            (compare_sites_df[old_site_processed_col] == 'no') & (compare_sites_df[new_catfim_mapped_col] == 'yes'),
-            (compare_sites_df[old_catfim_mapped_col] == 'no') & (compare_sites_df[new_catfim_mapped_col] == 'yes'),
-            (compare_sites_df[old_catfim_mapped_col] == 'yes') & (compare_sites_df[new_site_processed_col] == 'no'),
-            (compare_sites_df[old_catfim_mapped_col] == 'yes') & (compare_sites_df[new_catfim_mapped_col] == 'no'),
-            (compare_sites_df[old_catfim_mapped_col] == 'no') & (compare_sites_df[new_site_processed_col] == 'no'),
-            (compare_sites_df[old_site_processed_col] == 'no') & (compare_sites_df[new_catfim_mapped_col] == 'no'),
-            (compare_sites_df[old_site_processed_col] == 'no') & (compare_sites_df[new_site_processed_col] == 'no')
+            (compare_sites_df[old_catfim_mapped_col] == 'no')
+            & (compare_sites_df[new_catfim_mapped_col] == 'no'),
+            (compare_sites_df[old_catfim_mapped_col] == 'yes')
+            & (compare_sites_df[new_catfim_mapped_col] == 'yes'),
+            (compare_sites_df[old_site_processed_col] == 'no')
+            & (compare_sites_df[new_catfim_mapped_col] == 'yes'),
+            (compare_sites_df[old_catfim_mapped_col] == 'no')
+            & (compare_sites_df[new_catfim_mapped_col] == 'yes'),
+            (compare_sites_df[old_catfim_mapped_col] == 'yes')
+            & (compare_sites_df[new_site_processed_col] == 'no'),
+            (compare_sites_df[old_catfim_mapped_col] == 'yes')
+            & (compare_sites_df[new_catfim_mapped_col] == 'no'),
+            (compare_sites_df[old_catfim_mapped_col] == 'no')
+            & (compare_sites_df[new_site_processed_col] == 'no'),
+            (compare_sites_df[old_site_processed_col] == 'no')
+            & (compare_sites_df[new_catfim_mapped_col] == 'no'),
+            (compare_sites_df[old_site_processed_col] == 'no')
+            & (compare_sites_df[new_site_processed_col] == 'no'),
         ]
 
         # Define corresponding choices
@@ -308,16 +337,28 @@ def make_version_comparison_tables(combined_sites_df, combined_sites_metadata_df
         ]
 
         # Apply conditions
-        compare_sites_df[change_col] = pd.Series(pd.Categorical(np.select(conditions, choices_change, default='ERROR')))
-        compare_sites_df[change_description_col] = pd.Series(pd.Categorical(np.select(conditions, choices_change_description, default='ERROR - Site was unable to be categorized, check status columns manually.')))
-                    
+        compare_sites_df[change_col] = pd.Series(
+            pd.Categorical(np.select(conditions, choices_change, default='ERROR'))
+        )
+        compare_sites_df[change_description_col] = pd.Series(
+            pd.Categorical(
+                np.select(
+                    conditions,
+                    choices_change_description,
+                    default='ERROR - Site was unable to be categorized, check status columns manually.',
+                )
+            )
+        )
+
         # Reorder columns and exclude the unnecessary ones
-        compare_sites_df = compare_sites_df[['site_id', change_col, change_description_col, old_catfim_status_col, new_catfim_status_col]]
+        compare_sites_df = compare_sites_df[
+            ['site_id', change_col, change_description_col, old_catfim_status_col, new_catfim_status_col]
+        ]
 
         # Join the site metadata to the compare_sites_df
         compare_sites_df = pd.merge(compare_sites_df, combined_sites_metadata_df, how='left', on='site_id')
-        
-        if keep_differences_only == True: 
+
+        if keep_differences_only == True:
             # Remove rows where the value in 'change_col' is 'No Change'
             compare_sites_df = compare_sites_df[compare_sites_df[change_col] != 'No Change']
 
@@ -376,7 +417,7 @@ def main(path_list, output_save_filepath, keep_differences_only):
             flow_path_list.append(path)
         else:
             print(f'WARNING: Unable to process path that does not contain "stage" or "flow": {path}')
-    
+
     if keep_differences_only == True:
         print('-k flag used, keeping only sites with status changes in the comparison tables')
 
@@ -386,10 +427,19 @@ def main(path_list, output_save_filepath, keep_differences_only):
         print('--------- Compiling stage-based CatFIM sites ---------')
         product_id = 'stage_based'
 
-        stage_based_combined_sites_df, combined_sites_metadata_df, version_id_list = compile_catfim_sites(stage_path_list)
-        
+        stage_based_combined_sites_df, combined_sites_metadata_df, version_id_list = compile_catfim_sites(
+            stage_path_list
+        )
+
         # Make and save version comparison tables
-        make_version_comparison_tables(stage_based_combined_sites_df, combined_sites_metadata_df, product_id, version_id_list, output_save_filepath, keep_differences_only)
+        make_version_comparison_tables(
+            stage_based_combined_sites_df,
+            combined_sites_metadata_df,
+            product_id,
+            version_id_list,
+            output_save_filepath,
+            keep_differences_only,
+        )
 
         # Save stage-based outputs
         out_save_path = os.path.join(output_save_filepath, f'{product_id}_compare_all_versions.csv')
@@ -403,10 +453,19 @@ def main(path_list, output_save_filepath, keep_differences_only):
         print('--------- Compiling flow-based CatFIM sites ---------')
         product_id = 'flow_based'
 
-        flow_based_combined_sites_df, combined_sites_metadata_df, version_id_list = compile_catfim_sites(flow_path_list)
+        flow_based_combined_sites_df, combined_sites_metadata_df, version_id_list = compile_catfim_sites(
+            flow_path_list
+        )
 
         # Make and save version comparison tables
-        make_version_comparison_tables(flow_based_combined_sites_df, combined_sites_metadata_df, product_id, version_id_list, output_save_filepath, keep_differences_only)
+        make_version_comparison_tables(
+            flow_based_combined_sites_df,
+            combined_sites_metadata_df,
+            product_id,
+            version_id_list,
+            output_save_filepath,
+            keep_differences_only,
+        )
 
         # Save flow-based outputs
         out_save_path = os.path.join(output_save_filepath, f'{product_id}_compare_all_versions.csv')
@@ -459,9 +518,11 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-k', '--keep-differences-only', 
-        help='OPTIONAL: Option to keep only changed sites in the comparison files.', 
-        required=False, action="store_true"
+        '-k',
+        '--keep-differences-only',
+        help='OPTIONAL: Option to keep only changed sites in the comparison files.',
+        required=False,
+        action="store_true",
     )
 
     args = vars(parser.parse_args())
