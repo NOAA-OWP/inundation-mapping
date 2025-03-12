@@ -17,22 +17,77 @@ pd.options.mode.chained_assignment = None  # default='warn'
 # FLOG = fl.FIM_logger()  # the non mp version
 
 '''
-This tool compares two or more versions of the CatFIM output site CSV.
-
-It will create separate output CSV for flow- and stage-based version comparisons with the following columns:
-- site_id
-- <version>_site_processed
-- <version>_catfim_mapped
-- <version>_status
-
+This tool compares two or more versions of the CatFIM output site CSV. (Rewritten as of 3/8/25.) 
+It produces a compiled CSV of all sites and a CSV for each version comparison.
 It will auto overwrite output files already existing.
 
+Inputs:
+- space-delimited list of CatFIM output paths to compare (-p)
+- output save path (-o)
+- optional flag to keep only sites with status changes in the comparison tables (-k)
+
+- Example usage:
+    python /foss_fim/tools/catfim_sites_compare.py
+    -p  '/data/catfim/hand_4_5_11_1_stage_based/ /data/catfim/fim_4_5_2_11_stage_based/ /data/catfim/fim_4_4_0_0_stage_based/ /data/catfim/hand_4_5_11_1_flow_based/ /data/catfim/fim_4_5_2_11_flow_based/ /data/catfim/fim_4_5_2_0_flow_based/'
+    -o '/home/emily.deardorff/notebooks/'
+    -k
+
+Outputs:
+
+- Number of outputs depends on how many CatFIM results are provided. 
+- For example, if 3 versions of flow-based CatFIM are provided, the following outputs will be created:
+    - flow_based_compare_all_versions.csv
+    - flow_based_<version_1>_vs_<version_2>.csv
+    - flow_based_<version_2>_vs_<version_3>.csv
+
+- If both flow- and stage-based CatFIM are provided, a separate "compare_all_versions" CSV will be created for each product.
+
+- Output CSVs:
+    - <product_id>_compare_all_versions.csv
+        - site_id
+        - nws_data_wfo
+        - nws_data_rfc
+        - HUC8
+        - name
+        - states
+        - <version_1>_site_processed
+        - <version_1>_catfim_mapped
+        - <version_1>_status
+        - <version_2>_site_processed
+        - <version_2>_catfim_mapped
+        - <version_2>_status
+        - <version_3>_site_processed
+        - <version_3>_catfim_mapped
+        - <version_3>_status
+
+    - <product_id>_<version_1>_vs_<version_2>.csv
+        - site_id
+        - Change
+        - Change Description
+        - <version_1>_status
+        - <version_2>_status
+        - nws_data_wfo
+        - nws_data_rfc
+        - HUC8
+        - name
+        - states
+
+    Note: product_id refers to either 'flow_based' or 'stage_based'
+
+Change Descriptions:
+- No Change (Has mapped CatFIM in both versions)
+- No Change (Doesn’t have mapped CatFIM in either version)
+- No Change (Site is excluded in both versions) 
+- Added (Site where CatFIM was not processed previously but now has mapped CatFIM) 
+- Added (Site where  CatFIM was not mapped previously but now has mapped CatFIM) 
+- Removed (Previously had mapped CatFIM, now site isn’t being processed)
+- Removed (Previously had mapped CatFIM, now site isn’t being mapped)
+- Status Change (Previously unmapped, now excluded from  processing)
+
 Potential Upgrades TODO:
-- Could add a flag saying to save differences only.
 - Could add a flag to save a log file.
 - Could add a flag to save a summary of the differences.
 - Could implement sorting by version order in the output CSV.
-- Could include HUC in output CSV.
 
 '''
 
@@ -47,6 +102,7 @@ def compile_catfim_sites(sorted_path_list):
     - combined_sites_df
     - combined_sites_metadata_df
     - version_id_list
+
     '''
 
     print(f'Results to compile: {sorted_path_list}')
@@ -112,7 +168,7 @@ def compile_catfim_sites(sorted_path_list):
             inplace=True,
         )
 
-        # If combined_sites_df exists already, do an outer join to add this one
+        # Add site status df to output status df
         try:
             combined_sites_df
             # If 'combined_sites_df' exists, perform an outer join with 'trimmed_sites_df'
@@ -121,6 +177,7 @@ def compile_catfim_sites(sorted_path_list):
             # If 'combined_sites_df' doesn't exist, assign 'trimmed_sites_df' to it
             combined_sites_df = trimmed_sites_df
 
+        # Add site metadata df to output metadata df
         try: 
             # Check if combined_sites_metadata_df already exists 
             combined_sites_metadata_df
@@ -145,7 +202,7 @@ def compile_catfim_sites(sorted_path_list):
             # Fill with 'no' where the value is not 'yes'
             combined_sites_df[col] = combined_sites_df[col].apply(lambda x: 'yes' if x == 'yes' else 'no')
             
-        # elif 'catfim_mapped' in col:
+        # elif 'catfim_mapped' in col:  # Removed for now
         #     # Fill with 'no' where the value is not 'yes'
         #     combined_sites_df[col] = combined_sites_df[col].apply(lambda x: 'yes' if x == 'yes' else 'no')
             
@@ -275,12 +332,12 @@ def make_version_comparison_tables(combined_sites_df, combined_sites_metadata_df
 def main(path_list, output_save_filepath, keep_differences_only):
     '''
     Inputs
-    - path_list:
-    - output_save_filepath
-    - keep_differences_only true or false
+    - path_list (space-delimited list)
+    - output_save_filepath (string)
+    - keep_differences_only (true or false)
 
     Outputs
-    - saves a CSV to the output_save_filepath
+    - saves CSVs to the output_save_filepath
 
     '''
 
@@ -375,7 +432,6 @@ if __name__ == '__main__':
 
     '''
     This tool compares multiple versions of the CatFIM output site CSV.
-
     It will auto overwrite output files already existing.
 
     Sample usage:
