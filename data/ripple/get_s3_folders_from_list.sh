@@ -95,7 +95,6 @@ usage_msg()
 
              or -list '/home/rdp-user/ripple/fim_30_collection_names.txt'
 
-
     # NOTE: for now.. Leave off all starting and trailing slashes.
 
     All arguments to this script are passed to 'fim_pre_processing.sh'.
