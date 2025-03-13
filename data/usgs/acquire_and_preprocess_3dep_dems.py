@@ -459,16 +459,18 @@ if __name__ == '__main__':
     sample usage (min params):
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
             -e /data/inputs/wbd/wbd/HUC8_South_Alaska/
-            -t /data/inputs/3dep_dems/10m_South_Alaska/
-            -j 20
+            -t /data/inputs/dems/3dep_dems/10m_South_Alaska/20240912
+            -j 6
 
     or
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
             -e /data/inputs/wbd/HUC6_ESPG_5070/
-            -t /data/inputs/usgs/3dep_dems/10m_5070/20240916 -r -j 15
+            -t /data/inputs/dems/3dep_dems/10m_5070/20240916 -r -j 6
 
     Notes:
       - There is alot to know, so read the notes in the functions above.
+
+      - Keep the job numbers low, too many of them can result in incompleted downloads for a HUC
 
       - It is very common for not all DEMs to not all download correctly on each pass.
         Review the output files and the logs so you know which are missing. Delete the ones in the outputs
@@ -483,28 +485,25 @@ if __name__ == '__main__':
         upgrades can easily be made for different urls, output folder paths, huc units, etc
         as/if needed (command line params)
 
-      - The output path can be adjusted in case of a test reload of newer data for 3dep.
-        The default is /data/input/usgs/3dep_dems/10m/
-
       - Each output file will be the name of the input poly plus "_dem.tif". ie) if the wbd gpkg
         is named named "HUC8_12090301", then the output file name will be "HUC8_12090301_dem.tif"
-        Or depends what file name you sent in for the boundary: ie) HUC6_120903
-
-      - While you can (and should use more than one job number (if manageable by your server)),
-        this tool is memory intensive and needs more RAM then it needs cores / cpus. Go ahead and
-        anyways and increase the job number so you are getting the most out of your RAM. Or
-        depending on your machine performance, maybe half of your cpus / cores. This tool will
-        not fail or freeze depending on the number of jobs / cores you select.
+        Or depends what file name you sent in for the boundary: ie) HUC6_120903 becomes HUC6_120903_dem.tif
 
     IMPORTANT:
-    (Sept 2022): we do not process HUC2 of 22 (misc US pacific islands).
-    We left in HUC2 of 19 (alaska) as we hope to get there in the semi near future
+    (Sept 2022): we do not process HUC8 of 22x (misc US pacific islands).
+    We left in HUC8 of 19x (alaska) as we hope to get there in the semi near future
     They need to be removed from the input src clip directory in the first place.
-    They can not be reliably removed in code.
+    They can not be reliably removed in code at this time.
 
     (Update Nov 2023): South Alaska (not all of HUC2 = 19) is now included but not all of Alaska.
     A separate output directory will be keep for South Alaska and will use EPSG:3338 versus the FIM
     default of EPSG:5070
+
+    (Update Jan 2025): In previous runs, pre Alaska, gpkg's from HUC6_5070 were feed in as an arg. This
+    resulted in creating 5070 DEMS for all fim related for HUC6 which included all of AK. However,
+    now Alaska has been pulled out and we run this acquire script just for AK. As now, I (Rob) will
+    manually delete all of the 19x gpkg files from the HUC6_5070 to help with confusion for the next time
+    we do want to reload DEMS.
     '''
 
     parser = argparse.ArgumentParser(description='Acquires and preprocesses USGS 3Dep dems')
