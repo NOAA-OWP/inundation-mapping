@@ -59,10 +59,10 @@
 #     But restarting that folder entirely, I picked up correct stats versus "sync" which would have
 #     shortened the download time if partially there aleady. I would also ensure the stats file was
 #     happy.
-
+#
 #   - One HUC may have more than one FC folder. A FC folder is a source plus a HUC. ie) mip_12090301
 #     and/or ble_12090301. A small amount of HUCs have more than one source as of FIM_30.
-# 
+#
 # Overall Metrics:
 #     I don't have a tool for this, but I manually copied/pasted all of the contents of each stats
 #     file into a master google sheets. Then I could sort out things like:
@@ -74,11 +74,11 @@
 #     A seperate simple JupyterLab was created to quickly make up a csv dataset for the
 #     HECRAS Boundary service. It previously was called ras2fim Boundary Service but now has a new name.
 #     For more details, see the "hecras_boundaries.ipynb" file which creates the final csv (db).
-#        
+#
 # *****************************************
 
 # *** Remember:  You can always daisy change bash commands together with a semi-colon (one big line).
-#    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_1.txt' ; sh 
+#    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_1.txt' ; sh
 #          get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_2.txt' ; etc
 #
 

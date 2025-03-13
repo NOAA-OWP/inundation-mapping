@@ -184,7 +184,7 @@ if [ -d $trg ] ; then
 
     if [[ "$action" == "over" ]]; then
         msg="Overwriting (remove folder and rebuild)"
-        echo -e $msg ; echo "$msg" >> ${log_file}    
+        echo -e $msg ; echo "$msg" >> ${log_file}
         # Sleep for 3 seconds in case they change their mind (and time to read msg)
         sleep 3s
         rm -rdf "${trg}"
