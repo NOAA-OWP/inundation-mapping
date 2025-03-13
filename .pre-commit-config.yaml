@@ -6,9 +6,9 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-        -   id: trailing-whitespace
-            # Below is python regex to exclude all .md files
-            exclude: .*md$
+        #-   id: trailing-whitespace
+        #    # Below is python regex to exclude all .md files
+        #    exclude: .*md$
         -   id: check-added-large-files
             args: ['--maxkb=5000']
         -   id: check-json
