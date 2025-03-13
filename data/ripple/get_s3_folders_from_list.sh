@@ -1,5 +1,6 @@
 #!/bin/bash -e
 
+# ***  FC means Ripple Feature Collection (a folder for inside the Ripple root data dirs) ***
 
 # Note: This is pretty rough with a lot of hardcoding
 # and is used for rtx FIM_30 at this time, but can easily be upgraded later if required.
@@ -15,8 +16,8 @@
 
 # Why does it not just do one big s3 sync for the entire s3 folder(key)?
 # We want to manage it a bit more carefully. We also want stats such as:
-#   - Size of the downloaded the model (key folder name)
-#   - Duration of download per model (key)
+#   - Size of the downloaded the FC (key folder name)
+#   - Duration of download per FC (key)
 #   - A count of how many library extent folder exist. Each library extent folder is one
 #     Ripple HECRAS feature.
 
@@ -31,16 +32,13 @@
 # At this time we do not aim for parallization as aws cli sync has some built in
 # and when I watch the network traffic, it is pretty much maxed out even without parallelization.
 
-
-# ****  MC = Model Collection  ******
-
 # *****************************************
 # PREPARING AND RUNNING DATA
 # Mar 2025:
 # While not overly elegant at this point, we took some shortcuts in the name of effort/reward.
 #
 # STEPS FOR PREP:
-#   - Did a simple aws ls at the level where all of the MC folders were at
+#   - Did a simple aws ls at the level where all of the FC folders were at
 
 #   - Copied / Pasted from screen into a doc, then saved it in files of 50.  Becuase the export
 #     can time out, sets of 50 worked ok, but a good handful woudl time out before even finishing
@@ -52,28 +50,37 @@
 
 # Runtime notes:
 #   - If the tool failed on a record, the system by design shuts down. That way we could manually adjust
-#     files and folders before conitnuing on. When it failed on a MC, it would start the
-#     the folder, and start filling it.  If it did not finish that model, it has no record in the
-#     the stats file. AWS time outs happened about 5 times over the first set of 485 models for
+#     files and folders before conitnuing on. When it failed on a FC, it would start the
+#     the folder, and start filling it.  If it did not finish that FC, it has no record in the
+#     the stats file. AWS time outs happened about 5 times over the first set of 485 FCs for
 #     FIM_30 (split into sets of 50). One set of 50 had to be split twice as it was soo big / long.
 
-#   - When it failed, I deleted the last WIP model colleciton folder which at least started downloading.
+#   - When it failed, I deleted the last WIP feature collection folder which at least started downloading.
 #     But restarting that folder entirely, I picked up correct stats versus "sync" which would have
 #     shortened the download time if partially there aleady. I would also ensure the stats file was
 #     happy.
 
-#   - One HUC may have more than one MC folder. A MC folder is a source plus a HUC. ie) mip_12090301
+#   - One HUC may have more than one FC folder. A FC folder is a source plus a HUC. ie) mip_12090301
 #     and/or ble_12090301. A small amount of HUCs have more than one source as of FIM_30.
 # 
 # Overall Metrics:
 #     I don't have a tool for this, but I manually copied/pasted all of the contents of each stats
 #     file into a master google sheets. Then I could sort out things like:
-#        - Which HUCs has an MC folder but no models, library extent folders, in it.
-#        - Number of models in each MC folder.
-#        - The source type for that MC folder. ie) mip  versus  ble  (we only have two at this point)
-#        - For each HUC, does it have valid models for one or more of ras2fim, ripple ble, ripple mip
+#        - Which HUCs has an FC folder but no features, library extent folders, in it.
+#        - Number of features in each FC folder.
+#        - The source type for that FC folder. ie) mip  versus  ble  (we only have two at this point)
+
+# Data for the HECRAS Boundary Service plus usage for forecast processing.
+#     A seperate simple JupyterLab was created to quickly make up a csv dataset for the
+#     HECRAS Boundary service. It previously was called ras2fim Boundary Service but now has a new name.
+#     For more details, see the "hecras_boundaries.ipynb" file which creates the final csv (db).
 #        
 # *****************************************
+
+# *** Remember:  You can always daisy change bash commands together with a semi-colon (one big line).
+#    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_1.txt' ; sh 
+#          get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_2.txt' ; etc
+#
 
 :
 usage_msg()
@@ -85,7 +92,9 @@ usage_msg()
                 -s 's3://(somebucket)/ripple/30_pcnt_domain/collections'
                 -list 'mip_03170004' (or multiple or file. See notes below)
                 -t '/home/rdp-user/output/ripple/fim_30'
-  
+
+             or -list '/home/rdp-user/ripple/fim_30_collection_names.txt'
+
 
     # NOTE: for now.. Leave off all starting and trailing slashes.
 
@@ -113,6 +122,10 @@ usage_msg()
 
     OPTIONS:
       -h/--help                 : Print usage statement.
+
+    NOTE: You can always daisy change bash commands together with a semi-colon, one big line.
+    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_1.txt' ; sh
+     get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_2.txt' ;  etc
     "
 }
 
@@ -192,7 +205,7 @@ fi
 
 t_overall_start=`date +%s`
 echo
-echo "======================= Start of loading model collection folders ========================="
+echo "======================= Start of loading feature collection folders ========================="
 msg="---- Started: `date -u`"
 echo -e $msg ; echo "$msg" >> ${log_file}
 
@@ -209,5 +222,5 @@ echo -e $msg ; echo "$msg" >> ${log_file}
 dur="$(calc_Duration $t_overall_start)"
 msg="Overall processing duration (in percent minutes) : $dur mins"
 echo -e $msg ; echo "$msg" >> ${log_file}
-echo "======================= End of loading model collection folders ========================="
+echo "======================= End of loading feature collection folders ========================="
 echo

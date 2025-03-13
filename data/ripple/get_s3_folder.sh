@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+# *** FC means Ripple Feature Collection (a folder for inside the Ripple root data dirs) ***
+
 # Note: This is pretty rough with a lot of hardcoding
 # and is used for rtx FIM_30 at this time, but can easily be upgraded later if required.
 
@@ -15,7 +17,7 @@
 # The key is trapping errors which has proven to be many and getting stats on it as well.
 
 # This also could be change to python scripts... TBD
-# We also could jsut pulll down everyting in the remote S3 bucket in one large pull
+# We also could jsut pulll down everything in the remote S3 bucket in one large pull
 # but it is prone to timing out and erroring with such a large pull
 
 # Besides.. this filters out just folders and files we need, dropping the total download
@@ -153,9 +155,9 @@ formatted_Date( ){
 s3_uri="$s3_source_path/$key_name"
 trg="$trg_path/$key_name"
 
-model_name_split=(${key_name//_/ })
-collection_source="${model_name_split[0]}"
-huc="${model_name_split[1]}"
+fc_name_split=(${key_name//_/ })
+collection_source="${fc_name_split[0]}"
+huc="${fc_name_split[1]}"
 
 msg="++++++++++++++++++++"
 echo -e $msg ; echo "$msg" >> ${log_file}
@@ -165,13 +167,13 @@ echo -e $msg ; echo "$msg" >> ${log_file}
 msg="${line_lead} From $s3_uri to $trg"
 echo -e $msg ; echo "$msg" >> ${log_file}
 
-# Check if MC folder already exist
+# Check if FC folder already exist
 if [ -d $trg ] ; then
     echo -e "\n^^^^^^^^^^^^^^^^^"
-    msg="A model collection file already exists for ${key_name} in target folders"
+    msg="A feature collection file already exists for ${key_name} in target folders"
     echo -e $msg ; echo "$msg" >> ${log_file}
 
-    msg="Do you want to overwrite or skip this model? (lower case) \n"
+    msg="Do you want to overwrite or skip this feature collection folder? (lower case) \n"
     msg+="  -- type 'over' to overwrite (remove folder and rebuild) \n"
     msg+="  -- type 'skip' to skip processing this model \n"
     msg+="  -- type any other keys to abort and shut down the tool \n"
@@ -188,7 +190,7 @@ if [ -d $trg ] ; then
         rm -rdf "${trg}"
 
     elif [[ "$action" == "skip" ]]; then
-        msg="Skipping model collection"
+        msg="Skipping feature collection"
         echo -e $msg ; echo "$msg" >> ${log_file}
         sleep 3s
         exit 0
@@ -243,7 +245,7 @@ echo -e $msg ; echo "$msg" >> ${log_file}
 # *******
 # Check if the file exists and is empty
 # Add header only if empty
-stats_header="model_collection_name,source,huc,num_models,download_size_in_mib,download_dur_in_mins_perc,date_downloaded"
+stats_header="feature_collection_name,source,huc,num_features,download_size_in_mib,download_dur_in_mins_perc,date_downloaded"
 stats_download_date=$(date +"%Y%m%d_%H%M%S")
 if [ ! -e "$stats_file" ]; then
     echo "$stats_header" >> ${stats_file}
@@ -254,5 +256,5 @@ stats="$key_name,$collection_source,$huc,$folder_count,$disk_usage,$dur,$stats_d
 # echo $stats
 echo "$stats" >> ${stats_file}
 
-msg="${line_lead} Model Collection processing complete: Duration (in percent minutes) = $dur mins"
+msg="${line_lead} Feature Collection processing complete: Duration (in percent minutes) = $dur mins"
 echo -e $msg ; echo "$msg" >> ${log_file}
