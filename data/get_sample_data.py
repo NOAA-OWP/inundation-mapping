@@ -127,7 +127,7 @@ def get_sample_data(
                     if not os.listdir(output_path):
                         os.rmdir(output_path)
             else:
-                if os.path.exists(os.path.join(output_path, basename)):
+                if os.path.exists(os.path.join(input_path, basename)):
                     shutil.copy2(os.path.join(input_path, basename), output_path)
                 else:
                     print(f"{os.path.join(input_path, basename)} does not exist.")
@@ -160,7 +160,7 @@ def get_sample_data(
             if use_s3:
                 input_dir = input_path.removeprefix(bucket_path)[1:]
 
-            output_path = os.path.join(output_path, input_dir.removeprefix(input_root))
+                output_path = os.path.join(output_path, input_dir.removeprefix(input_root))
 
         if use_s3:
             print(f"Downloading {input_path} to {output_path}")
