@@ -161,6 +161,8 @@ def get_sample_data(
                 input_dir = input_path.removeprefix(bucket_path)[1:]
 
                 output_path = os.path.join(output_path, input_dir.removeprefix(input_root))
+            else:
+                output_path = os.path.join(output_path, input_path.removeprefix(input_root))
 
         if use_s3:
             print(f"Downloading {input_path} to {output_path}")
