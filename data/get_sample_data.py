@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 import boto3
 from dotenv import load_dotenv
@@ -116,9 +117,10 @@ def get_sample_data(
 
         if not os.path.exists(os.path.join(output_path, basename)):
             print(f"Copying {os.path.join(input_path, basename)} to {output_path}")
-            os.makedirs(output_path, exist_ok=True)
+            os.makedirs(os.path.split(output_path)[0], exist_ok=True)
             if use_s3:
                 try:
+                    os.makedirs(output_path, exist_ok=True)
                     s3.download_file(
                         bucket, os.path.join(input_path, basename), os.path.join(output_path, basename)
                     )
@@ -128,6 +130,7 @@ def get_sample_data(
                         os.rmdir(output_path)
             else:
                 if os.path.exists(os.path.join(input_path, basename)):
+                    os.makedirs(output_path, exist_ok=True)
                     shutil.copy2(os.path.join(input_path, basename), output_path)
                 else:
                     print(f"{os.path.join(input_path, basename)} does not exist.")
