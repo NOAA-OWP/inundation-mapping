@@ -12,6 +12,7 @@ config/**
 !config/symbology/
 config/*.swp
 .vscode/
+*.ipynb
 **/.DS_Store
 .private/
 !tools/catfim/*.csv
