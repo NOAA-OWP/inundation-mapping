@@ -43,6 +43,7 @@ def acquire_and_preprocess_3dep_dems(
     repair=False,
     skip_polygons=False,
     target_projection='EPSG:5070',
+    lst_hucs='all',
 ):
     '''
     Overview
@@ -98,7 +99,11 @@ def acquire_and_preprocess_3dep_dems(
              be named DEM_Domain.gkpg and saved in the same folderd as the target_output_folder_path.
 
         - target_projection (String)
-            Projection of the output DEMS and polygons (if included)
+             Projection of the output DEMS and polygons (if included)
+
+        - lst_hucs (string)
+             If the lst_hucs value is used, it will look for those HUCs in the loaded file list and
+             only process ones that match.
     '''
     # -------------------
     # Validation
@@ -166,10 +171,29 @@ def acquire_and_preprocess_3dep_dems(
     # processing
 
     # Get the WBD .gpkg files (or clip extent)
-    extent_file_names = fh.get_file_names(extent_file_path, 'gpkg')
+    extent_file_names_raw = fh.get_file_names(extent_file_path, 'gpkg')
     msg = f"Extent files coming from {extent_file_path}"
     print(msg)
     logging.info(msg)
+
+    # If a HUC list is specified, only keep the specified HUCs
+    lst_hucs = lst_hucs.split()
+    extent_file_names = []
+    if 'all' not in lst_hucs:
+        for huc in lst_hucs:
+            if len(huc) != 6 and len(huc) != 8:
+                raise ValueError("HUC values from the list should be 6 or 8 digits long")
+            extent_file_names.extend([x for x in extent_file_names_raw if huc in x])
+
+        if len(extent_file_names) == 0:
+            raise ValueError(
+                "After applying the huc filter list, there are no files to process."
+                " All files were checked based on the pattern of _(huc number)"
+            )
+    else:
+        extent_file_names = extent_file_names_raw
+
+    extent_file_names.sort()
 
     # download dems, setting projection, block size, etc
     __download_usgs_dems(
@@ -564,6 +588,16 @@ if __name__ == '__main__':
         help='OPTIONAL: Desired output CRS. Defaults to EPSG:5070',
         required=False,
         default='EPSG:5070',
+    )
+
+    parser.add_argument(
+        '-lh',
+        '--lst_hucs',
+        help='OPTIONAL: Space-delimited list of HUCs to do acquire for.'
+        ' If a value exists, it will check the file names of the extent dir for files that have'
+        ' have that huc number in it. Careful using HUC6 versus HUC8 values. Defaults to all HUCs',
+        required=False,
+        default='all',
     )
 
     # Extract to dictionary and assign to variables.
