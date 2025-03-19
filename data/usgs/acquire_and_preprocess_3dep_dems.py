@@ -218,7 +218,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
     base_cmd = 'gdalwarp {0} {1}'
     base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
     base_cmd += ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-    base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
+    base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10 -tap'
     base_cmd += ' -t_srs {3} -cblend 6'
 
     """
@@ -227,7 +227,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
        /data/inputs/usgs/3dep_dems/10m/HUC8_12090301_dem.tif
        -cutline /data/inputs/wbd/HUC8/HUC8_12090301.gpkg
        -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"
-       -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10 -t_srs ESRI:102039 -cblend 6
+       -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10 -tap -t_srs ESRI:102039 -cblend 6
     """
 
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
