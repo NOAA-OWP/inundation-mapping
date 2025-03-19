@@ -26,15 +26,6 @@ TODO:
     - Add input args for resolution size, which means URL and block size also hve to be parameterized.
 '''
 
-"""
-*****************************
-
-### IMPORTANT: Sep 13, 2024: FIM uses vrt's primariy for DEMs but this tool only downloads and preps the DEMs but does
-not create the vrt. That is done using the create_vrt_file.py tool.
-
-"""
-
-
 # local constants (until changed to input param)
 # This URL is part of a series of vrt data available from USGS via an S3 Bucket.
 # for more info see: "http://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Elevation/".
@@ -319,7 +310,10 @@ def download_usgs_dem_file(
             logging.info(msg)
             return
 
-    msg = f" - Downloading -- {target_file_name_raw} - Started"
+    start_time = datetime.now(timezone.utc)
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+
+    msg = f" - Downloading -- {target_file_name_raw} - Started: {file_dt_string}"
     print(msg)
     logging.info(msg)
 
@@ -458,19 +452,22 @@ if __name__ == '__main__':
     '''
     sample usage (min params):
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
-            -e /data/inputs/wbd/wbd/HUC8_South_Alaska/
-            -t /data/inputs/dems/3dep_dems/10m_South_Alaska/20240912
+            -e /data/inputs/wbd/wbd/HUC8_South_Alaska/ -proj "EPSG:3338"
+            -t /data/inputs/dems/3dep_dems/10m_South_Alaska/20250301
             -j 6
 
     or
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
-            -e /data/inputs/wbd/HUC6_ESPG_5070/
-            -t /data/inputs/dems/3dep_dems/10m_5070/20240916 -r -j 6
+            -e /data/inputs/wbd/HUC6_5070/ -proj "EPSG:5070"
+            -t /data/inputs/dems/3dep_dems/10m_5070/20250301 -r -j 6
+
+    *** Keep the job number at 6 as the network can't handle anymore than that anyways ***
 
     Notes:
       - There is alot to know, so read the notes in the functions above.
 
-      - Keep the job numbers low, too many of them can result in incompleted downloads for a HUC
+      - Keep the job numbers low, too many of them can result in incompleted downloads for a HUC.
+        Becuase of this.. it does not need to be run on a prod machine.
 
       - It is very common for not all DEMs to not all download correctly on each pass.
         Review the output files and the logs so you know which are missing. Delete the ones in the outputs
@@ -505,6 +502,14 @@ if __name__ == '__main__':
     manually delete all of the 19x gpkg files from the HUC6_5070 to help with confusion for the next time
     we do want to reload DEMS.
     '''
+
+    """
+    *****************************
+
+    ### IMPORTANT: Sep 13, 2024: FIM uses vrt's primariy for DEMs but this tool only downloads and preps the DEMs but does
+    not create the vrt. That is done using the create_vrt_file.py tool.
+
+    """
 
     parser = argparse.ArgumentParser(description='Acquires and preprocesses USGS 3Dep dems')
 
