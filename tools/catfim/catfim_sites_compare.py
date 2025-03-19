@@ -107,6 +107,8 @@ def compile_catfim_sites(sorted_path_list):
 
     print(f'Results to compile: {sorted_path_list}')
 
+    # sys.exit()
+
     for path in sorted_path_list:
 
         # Create mapping filepath and check that mapping folder exists
@@ -383,8 +385,10 @@ def main(path_list, output_save_filepath, keep_differences_only):
     '''
 
     # Verify that output save path exists
+    # if not os.path.exists(output_save_filepath):
+    #     sys.exit(f'ERROR: Output save path does not exist: {output_save_filepath}.')
     if not os.path.exists(output_save_filepath):
-        sys.exit(f'ERROR: Output save path does not exist: {output_save_filepath}.')
+        os.makedirs(output_save_filepath, exist_ok=True)
 
     # Start stopwatch
     overall_start_time = datetime.now(timezone.utc)
@@ -494,7 +498,7 @@ if __name__ == '__main__':
     It will auto overwrite output files already existing.
 
     Sample usage:
-    python /foss_fim/tools/catfim_sites_compare.py
+    python /foss_fim/tools/catfim/catfim_sites_compare.py
     -p  '/data/catfim/hand_4_5_11_1_stage_based/ /data/catfim/fim_4_5_2_11_stage_based/ /data/catfim/fim_4_4_0_0_stage_based/ /data/catfim/hand_4_5_11_1_flow_based/ /data/catfim/fim_4_5_2_11_flow_based/ /data/catfim/fim_4_5_2_0_flow_based/'
     -o '/home/emily.deardorff/notebooks/'
     -k
