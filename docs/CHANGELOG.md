@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.__ - 2025-____ - [PR#1442](https://github.com/NOAA-OWP/inundation-mapping/pull/1442)
+
+Re-wrote the catfim_sites_compare.py tool. The updated version can handle more model inputs (including outputs from both flow-based and stage-based CatFIM) and produces additional compiled CSVs for analysis. 
+
+### Changes
+
+- `tools/catfim/catfim_sites_compare.py`:
+  - Changed outputs. Instead of one output CSV comparing the two versions provided, the tool will provide one CSV with the compiled statuses from all flow-based outputs, one for stage-based, and then a comparison CSV with before/after status changes for all sequential pairs of CatFIM outputs provided. A log file is no longer being saved.
+  - Changed input structure. Instead of specifying -p for previous CatFIM outputs and -n for new ones, a space-delimited list of CatFIM output paths are provided for -p. 
+  - New optional argument -k specifies to keep only the sites where there has been a status change in the version comparison files.
+  - Changed input allowance. User can now input as many CatFIM output folders as they want (and can combine stage- and flow-based outputs).
+
+<br/><br/>
+
+
 ## v4.6.0.0 - 2025-03-07 - [PR#1406](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
 This PR closes the issue #1242. 
 This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The workflow consists of:  
