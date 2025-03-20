@@ -150,6 +150,15 @@ def compile_catfim_sites(sorted_path_list):
             ['site_id', 'nws_data_wfo', 'nws_data_rfc', 'HUC8', 'name', 'states']
         ]
 
+        # Pad 7-digit HUCs with a leading zero
+        def add_leading_zero(num):
+            num_str = str(num)
+            if len(num_str) == 7:
+                return '0' + num_str
+            return num_str
+
+        trimmed_site_metadata_df['HUC8'] = trimmed_site_metadata_df['HUC8'].apply(add_leading_zero)
+
         # Extract version_id from the path
         match = version_id = re.search(r'(hand|fim)_(\d+_\d+_\d+_\d+)', path)
         if match:
