@@ -1,7 +1,33 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.6.0.3 - 2025-03-20 - [PR#1442](https://github.com/NOAA-OWP/inundation-mapping/pull/1442)
+## v4.6.1.0 - 2025-03-21 - [PR#1429](https://github.com/NOAA-OWP/inundation-mapping/pull/1429)
+
+A collection of simple tools to pull down FIM_30 ripple data. While this has limited value for other data sources and it customized specifically for ripple data downloads, it can easily be modified later as needed.
+
+The tools have a couple of jobs:
+- One set `get_s3_folder.sh` and `get_s3_folders_from_list.sh`, pull down data from rtx and create output csvs with some metadata about the downloads.
+- The second file is very specific for ripple but we want to keep the tool. It takes in the meta data csv's from the download, adds some meta data from a ras2fim dataset, creates a new csv of applicable HUCs, and adds geometry to each row. This becomes the dataset required to send to HydroVIS to create the HECRAS Boundary Service plus assist in processing dynamic flow data for other services.
+
+This also has a few minor misc fixes, notes embedded.
+
+### Additions
+
+- `data/ripple`
+   - `get_s3_folder.sh`:  A script to pull down just one specific folder at any level from any S3 bucket.
+   - `get_s3_folders_from_list.sh`:  A script that can take in a single specific or file path to a file with HUC value.
+   - `hecras_boundaries.ipynb`: As described above. It is specifically for making a HUC based dataset with geometries for ripple and ras2fim.
+
+### Changes
+
+- `.pre-commit-config.yaml`: Updating linting tools version updates. 
+- `fim_post_processing.sh`: A fix for when a person enters incorrect args to the command.
+- `fim_pre_processing.sh`: A fix for when a person enters incorrect args to the command.
+- `pyproject.toml`: Update contributor names for the list.
+
+<br/><br/>
+
+## v4.6.0.3 - 2025-03-21 - [PR#1442](https://github.com/NOAA-OWP/inundation-mapping/pull/1442)
 
 Re-wrote the catfim_sites_compare.py tool. The updated version can handle more model inputs (including outputs from both flow-based and stage-based CatFIM) and produces additional compiled CSVs for analysis. 
 
@@ -15,7 +41,7 @@ Re-wrote the catfim_sites_compare.py tool. The updated version can handle more m
 
 <br/><br/>
 
-## v4.6.0.2 - 2025-03-20 - [PR#1450](https://github.com/NOAA-OWP/inundation-mapping/pull/1450)
+## v4.6.0.2 - 2025-03-21 - [PR#1450](https://github.com/NOAA-OWP/inundation-mapping/pull/1450)
 Updated the APHS restricted sites list so all test sites are excluded from BOTH stage-based and flow-based CatFIM and updated CatFIM so that when a site is excluded due to being on the restricted sites list, the phrase "Restricted Site" is included in the status. Also updated the CatFIM mapping functions so that there are a few functions that save the output plot into a .png file.
 
 
