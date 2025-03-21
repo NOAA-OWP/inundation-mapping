@@ -78,8 +78,8 @@
 # *****************************************
 
 # *** Remember:  You can always daisy change bash commands together with a semi-colon (one big line).
-#    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_1.txt' ; sh
-#          get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_2.txt' ; etc
+#    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_1.txt' ; sh
+#          get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_2.txt' ; etc
 #
 
 :
@@ -91,9 +91,9 @@ usage_msg()
     Sample Usage:  sh get_s3_folder_from_list.sh
                 -s 's3://(somebucket)/ripple/30_pcnt_domain/collections'
                 -list 'mip_03170004' (or multiple or file. See notes below)
-                -t '/home/rdp-user/output/ripple/fim_30'
+                -t '/home/your-user/output/ripple/fim_30'
 
-             or -list '/home/rdp-user/ripple/fim_30_collection_names.txt'
+             or -list '/home/your-user/ripple/fim_30_collection_names.txt'
 
     # NOTE: for now.. Leave off all starting and trailing slashes.
 
@@ -105,7 +105,7 @@ usage_msg()
       -list/--list_of_keys     : This is a simple text file list of all collection (model folders)
                                  to be downloaded. You can submit a list file, a single collection
                                  (folder name) or multiple folder names:
-                                   ie:  '/home/rdp-user/ripple/fim_30_collection_names.txt'
+                                   ie:  '/home/your-user/ripple/fim_30_collection_names.txt'
                                    or   'mip_03170004'
                                    or   'mip_03170004 ble_03170004' (space delimited)
 
@@ -123,8 +123,8 @@ usage_msg()
       -h/--help                 : Print usage statement.
 
     NOTE: You can always daisy change bash commands together with a semi-colon, one big line.
-    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_1.txt' ; sh
-     get_s3_folder_from_list.sh {your args} -list '/home/rdp-user/ripple/names_set_2.txt' ;  etc
+    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_1.txt' ; sh
+     get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_2.txt' ;  etc
     "
 }
 

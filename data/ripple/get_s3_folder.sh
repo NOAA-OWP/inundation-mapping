@@ -34,7 +34,7 @@ usage_msg()
     Sample Usage:  sh get_s3_folder.sh
                 -s 's3://(somebucket)/ripple/30_pcnt_domain/collections'
                 -n 'mip_03170004'
-                -t '/home/rdp-user/output/ripple/fim_30'
+                -t '/home/your/output/ripple/fim_30'
                 -log 'logs_20250216_0545.txt'
                 -c 'ripple_download_stats.csv'
 
