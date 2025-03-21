@@ -4,10 +4,12 @@ To run  make_rasters_using_lidar.py, it must be run in a windows conda enviro.  
 To setup your Conda enviro for the tool. You will only need to set it up once, then from there one, you can just turn it on/off (activate / deactivate)
 	1) Open Anaconda Window
 
-	2) Path to the directory where your source code is at (adjusting for path):
+	2) run conda update --all
+
+	3) Path to the directory where your source code is at (adjusting for path):
 	   ie) cd C:\Users\rdp-user\Projects\dev-lidar-bridges2\inundation-mapping\data\bridges
 
-	3) run :   conda env create --file=conda_fim_bridges_enviro.yml
+	4) run :   conda env create --file=conda_fim_bridges_enviro.yml
 
 		At some point earlier one, it might ask you to continue (y/n), enter "y". It will take up to 2 - 10 mins to run.
 
