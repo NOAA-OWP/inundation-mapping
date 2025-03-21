@@ -1,6 +1,37 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.1.1 - 2025-03-21 - [PR#1469](https://github.com/NOAA-OWP/inundation-mapping/pull/1469)
+
+FIM requires DEMs with a 5 km buffer around HUC8 boundaries. The current workflow for generating these DEMs consists of the following steps:
+
+1. Creating separate DEMs for each HUC8 boundary.
+2. Merging them into a VRT file.
+3. Cropping the VRT to the buffered boundary.
+
+However, this approach introduces two key issues:
+
+- Misalignment of DEMs: Clipping the VRT to the buffered HUC8 extent results in a misaligned DEM, which propagates into the REM and inundation predictions, as highlighted in issue #1415.
+- Interpolation Artifacts: Cropping the VRT involves bilinear interpolation, which alters the original DEM values.
+
+Making changes some arguments to gdalwarp for both run_unit_wb and the acquire DEMs process fixes this.
+
+We also added a new feature to make testing much quicker and easier. A new argument allows you to process just a specific set of HUCs if you want too. This removes the need to have to make special WBD test folders with just the HUCs in it you need. 
+
+Also made an update to the deny lists to remove thre bridge_elev_diff_meter tif files. This fix was applied to the unit, branch 0 and branches level.
+
+### Changes
+
+- `config`
+    - `deny_branch_zero.lst`, `deny_branch.lst`, `deny_unit.lst`
+- `data\usgs`
+    - `acquire_and_preprocess_3dep_dems.py`: Added new optional huc list feature plus make updates to gdalwarp calls to ensure cell alignments down the road.
+ - `src`
+     - `run_unit_wb`: Adjustments to gdalwarp calls to help with alignment
+     - `bash_variables.env`:  Update for the new path for the new DEMs.
+
+<br/><br/>
+
 ## v4.6.1.0 - 2025-03-21 - [PR#1429](https://github.com/NOAA-OWP/inundation-mapping/pull/1429)
 
 A collection of simple tools to pull down FIM_30 ripple data. While this has limited value for other data sources and it customized specifically for ripple data downloads, it can easily be modified later as needed.
