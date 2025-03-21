@@ -85,7 +85,7 @@ source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
 # Tell the system the name and location of the post processing log
-log_file_name=$outputDestDir/post_proc.log
+log_file_name=$outputDestDir/logs/post_proc.log
 Set_log_file_path $log_file_name
 
 l_echo ""
