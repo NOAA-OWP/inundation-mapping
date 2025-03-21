@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.6.x.x - 2025-03-13 - [PR#1429](https://github.com/NOAA-OWP/inundation-mapping/pull/1429)
+## v4.6.1.0 - 2025-03-21 - [PR#1429](https://github.com/NOAA-OWP/inundation-mapping/pull/1429)
 
 A collection of simple tools to pull down FIM_30 ripple data. While this has limited value for other data sources and it customized specifically for ripple data downloads, it can easily be modified later as needed.
 
@@ -27,7 +27,7 @@ This also has a few minor misc fixes, notes embedded.
 
 <br/><br/>
 
-## v4.6.0.3 - 2025-03-20 - [PR#1442](https://github.com/NOAA-OWP/inundation-mapping/pull/1442)
+## v4.6.0.3 - 2025-03-21 - [PR#1442](https://github.com/NOAA-OWP/inundation-mapping/pull/1442)
 
 Re-wrote the catfim_sites_compare.py tool. The updated version can handle more model inputs (including outputs from both flow-based and stage-based CatFIM) and produces additional compiled CSVs for analysis. 
 
@@ -41,7 +41,7 @@ Re-wrote the catfim_sites_compare.py tool. The updated version can handle more m
 
 <br/><br/>
 
-## v4.6.0.2 - 2025-03-20 - [PR#1450](https://github.com/NOAA-OWP/inundation-mapping/pull/1450)
+## v4.6.0.2 - 2025-03-21 - [PR#1450](https://github.com/NOAA-OWP/inundation-mapping/pull/1450)
 Updated the APHS restricted sites list so all test sites are excluded from BOTH stage-based and flow-based CatFIM and updated CatFIM so that when a site is excluded due to being on the restricted sites list, the phrase "Restricted Site" is included in the status. Also updated the CatFIM mapping functions so that there are a few functions that save the output plot into a .png file.
 
 

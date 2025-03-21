@@ -12,9 +12,13 @@ config/**
 !config/symbology/
 config/*.swp
 .vscode/
-*.ipynb
 **/.DS_Store
 .private/
+
 !tools/catfim/*.csv
 !tools/catfim/catfim.env.template
 !data/bridges/*.txt
+
+!**/.ipynb
+**/.ipynb_checkpoints
+**checkpoint.ipynb
