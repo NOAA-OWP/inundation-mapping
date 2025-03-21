@@ -35,6 +35,7 @@ in
     -h|--help)
         shift
         usage
+        exit
         ;;
     *) ;;
     esac
