@@ -7,7 +7,7 @@ To setup your Conda enviro for the tool. You will only need to set it up once, t
 	2) run conda update --all
 
 	3) Path to the directory where your source code is at (adjusting for path):
-	   ie) cd C:\Users\rdp-user\Projects\dev-lidar-bridges2\inundation-mapping\data\bridges
+	   ie) cd /home/rdp-user/projects/dev-download-lidar/inundation-mapping/data/bridges
 
 	4) run :   conda env create --file=conda_fim_bridges_enviro.yml
 
