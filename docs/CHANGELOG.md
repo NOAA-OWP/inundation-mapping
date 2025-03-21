@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.0.3 - 2025-03-20 - [PR#1442](https://github.com/NOAA-OWP/inundation-mapping/pull/1442)
+
+Re-wrote the catfim_sites_compare.py tool. The updated version can handle more model inputs (including outputs from both flow-based and stage-based CatFIM) and produces additional compiled CSVs for analysis. 
+
+### Changes
+
+- `tools/catfim/catfim_sites_compare.py`:
+  - Changed outputs. Instead of one output CSV comparing the two versions provided, the tool will provide one CSV with the compiled statuses from all flow-based outputs, one for stage-based, and then a comparison CSV with before/after status changes for all sequential pairs of CatFIM outputs provided. A log file is no longer being saved.
+  - Changed input structure. Instead of specifying -p for previous CatFIM outputs and -n for new ones, a space-delimited list of CatFIM output paths are provided for -p. 
+  - New optional argument -k specifies to keep only the sites where there has been a status change in the version comparison files.
+  - Changed input allowance. User can now input as many CatFIM output folders as they want (and can combine stage- and flow-based outputs).
+
+<br/><br/>
 
 ## v4.6.0.2 - 2025-03-20 - [PR#1450](https://github.com/NOAA-OWP/inundation-mapping/pull/1450)
 Updated the APHS restricted sites list so all test sites are excluded from BOTH stage-based and flow-based CatFIM and updated CatFIM so that when a site is excluded due to being on the restricted sites list, the phrase "Restricted Site" is included in the status. Also updated the CatFIM mapping functions so that there are a few functions that save the output plot into a .png file.
