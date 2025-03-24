@@ -109,13 +109,10 @@ def compile_catfim_sites(sorted_path_list):
 
     print(f'Results to compile: {sorted_path_list}')
 
-    for path in sorted_path_list:
+    version_id_list = []
 
-        # # Create mapping filepath and check that mapping folder exists # TODO: TEMP DEBUG remove once the other method is tested
-        # if not os.path.exists(mapping_path):
-        #     print(f'WARNING: Filepath does not exist for mapping folder: {mapping_path}')
-        #     continue
-    
+    for path in sorted_path_list:
+   
         mapping_path = os.path.join(path, 'mapping')
 
         # Get the CSV filename and check that it exists
@@ -168,6 +165,8 @@ def compile_catfim_sites(sorted_path_list):
             print(f'WARNING: Unable to extract version ID from {path}')
             continue
 
+        version_id_list.append(version_id)
+
         # Rename status 'mapped' and 'status' columns to have the version_id
         trimmed_sites_df.rename(
             columns={
@@ -205,10 +204,11 @@ def compile_catfim_sites(sorted_path_list):
         except NameError:
             # If 'combined_sites_metadata_df' doesn't exist, assign 'trimmed_site_metadata_df' to it
             combined_sites_metadata_df = trimmed_site_metadata_df
-
         # End path loop
 
-    version_id_list = []
+    # Error out if duplicate version IDs are detected
+    if len(version_id_list) != len(set(version_id_list)):
+        sys.exit(f'ERROR: Duplicate version IDs detected in path list: {version_id_list}. Remove duplicates and re-run.')
 
     # Loop through columns and fill in details for NA columns
     for col in combined_sites_df.columns:
@@ -223,7 +223,6 @@ def compile_catfim_sites(sorted_path_list):
         elif 'status' in col:
             # Get the version ID from the 'status' column
             version_id = col.replace('_status', '')
-            version_id_list.append(version_id)
 
             # Construct the corresponding 'site_processed' column name
             site_processed_col = f'{version_id}_site_processed'
@@ -441,7 +440,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
     
     # Put versions in order
     sorted_versions = sorted(version_id_list, key=lambda version: list(map(int, version.split('_'))))
-    
+
     # Iterate through versions (minus the last one) to calculate site change
     for i in range(len(sorted_versions) - 1):
 
@@ -522,11 +521,12 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
     print()
 
     # Print input parameters
+    print('Input parameters: ')
     if keep_differences_only == True:
-        print('-k flag used, keeping only sites with status changes in the comparison tables')
+        print('    -k flag used -- Keeping only sites with status changes in the comparison tables')
     if generate_geopackages == True:
-        print('-g flag used, generating spatial difference maps and site GPKGs for the CatFIM libraries')
-    print(f'Files will be saved to: {output_save_filepath}')
+        print('    -g flag used -- Generating spatial difference maps and site GPKGs (takes about ~5 mins per comparison)')
+    print(f'    -o -- Output save path: {output_save_filepath}')
 
     # Separate path list into flow- and stage-based lists
     # Initialize empty lists for stage and flow
@@ -548,8 +548,10 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
         else:
             print(f'WARNING: Unable to process path that does not contain "stage" or "flow": {path}')
 
-    if keep_differences_only == True:
-        print('-k flag used, keeping only sites with status changes in the comparison tables')
+    # Error out if duplicate paths are detected
+    if len(path_list) != len(set(path_list)):
+        print(f'ERROR: Duplicate paths detected in path list: {path_list}. \nRemove duplicate paths and re-run.')
+        sys.exit()
 
     # Run site compilation for stage-based CatFIM
     if len(stage_path_list) != 0:
@@ -560,29 +562,34 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
             stage_path_list
         )
 
-        # Make and save version comparison tables
-        make_version_comparison_tables(
-            stage_based_combined_sites_df,
-            combined_sites_metadata_df,
-            product_id,
-            version_id_list,
-            output_save_filepath,
-            keep_differences_only,
-            generate_geopackages,
-        )
-
         # Save stage-based outputs
         out_save_path = os.path.join(output_save_filepath, f'{product_id}_compare_all_versions.csv')
         stage_based_combined_sites_df.to_csv(out_save_path, index=False)
-
         print(f'\nCombined stage-based outputs saved to {out_save_path}')
 
-        # Generate spatial difference maps for stage-based
-        if generate_geopackages == True:
-            generate_spatial_difference_maps(stage_path_list,
-                                             product_id,
-                                             version_id_list,
-                                             output_save_filepath)
+
+        if len(stage_path_list) > 1:
+
+            # Make and save version comparison tables
+            make_version_comparison_tables(
+                stage_based_combined_sites_df,
+                combined_sites_metadata_df,
+                product_id,
+                version_id_list,
+                output_save_filepath,
+                keep_differences_only,
+                generate_geopackages,
+            )
+
+            # Generate spatial difference maps for stage-based
+            if generate_geopackages == True:
+                generate_spatial_difference_maps(stage_path_list,
+                                                product_id,
+                                                version_id_list,
+                                                output_save_filepath)
+
+        else:
+            print(f'\nWARNING: Only one version provided for {product_id}. Skipping version comparison tables and GPKGs.')
 
 
     # Run site compilation for flow-based CatFIM
@@ -594,30 +601,33 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
             flow_path_list
         )
 
-        # Make and save version comparison tables
-        make_version_comparison_tables(
-            flow_based_combined_sites_df,
-            combined_sites_metadata_df,
-            product_id,
-            version_id_list,
-            output_save_filepath,
-            keep_differences_only,
-            generate_geopackages,
-        )
-
         # Save flow-based outputs
         out_save_path = os.path.join(output_save_filepath, f'{product_id}_compare_all_versions.csv')
         flow_based_combined_sites_df.to_csv(out_save_path, index=False)
         print(f'\nCombined flow-based outputs saved to {out_save_path}')
 
-        # Generate spatial difference maps for flow-based
-        if generate_geopackages == True:  # TODO: do we want to hard code this out for now?
-            # print('Not generating geopackages for flow-based CatFIM at this time.') # TODO: keep this hardcoding? 
-            generate_spatial_difference_maps(flow_path_list,
-                                             product_id,
-                                             version_id_list,
-                                             output_save_filepath)
+        if len(flow_path_list) > 1:
 
+            # Make and save version comparison tables
+            make_version_comparison_tables(
+                flow_based_combined_sites_df,
+                combined_sites_metadata_df,
+                product_id,
+                version_id_list,
+                output_save_filepath,
+                keep_differences_only,
+                generate_geopackages,
+            )
+
+            # Generate spatial difference maps for flow-based
+            if generate_geopackages == True:
+                generate_spatial_difference_maps(flow_path_list,
+                                                product_id,
+                                                version_id_list,
+                                                output_save_filepath)
+
+        else:
+            print(f'\nWARNING: Only one version provided for {product_id}. Skipping version comparison tables and GPKGs.')
 
     # Wrap up
     overall_end_time = datetime.now(timezone.utc)
@@ -649,7 +659,7 @@ if __name__ == '__main__':
     # Parse arguments
     parser = argparse.ArgumentParser(description='Run CatFIM sites comparison.')
 
-    parser.add_argument(  # NOTE: Should this be a textfile input?
+    parser.add_argument(
         '-p',
         '--path-list',
         help='REQUIRED: Space-delimited list of CatFIM output paths from which to compile sites.',
@@ -674,7 +684,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-g',
         '--generate-geopackages',
-        help='OPTIONAL: Option to generate spatial difference maps for the CatFIM libraries.',
+        help='OPTIONAL: Option to generate spatial difference maps and a points geopackage for the version comparisons.',
         required=False,
         action="store_true",
     )
