@@ -35,11 +35,10 @@ def progress_bar_handler(executor_dict, desc):
 
 def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs):
     try:
-        print(f"processing osmid of {osmid}")
         poly_wkt = poly_geo.wkt
         las_file_path = os.path.join(output_dir, 'point_files', '%s.las' % str(osmid))
 
-        # based on pdal documentation, The polygon wkt can be followed by a slash (‘/’) and a spatial reference specification to apply to the polygon.
+        # based on pdal documentation, The polygon wkt can be followed by a slash (/) and a spatial reference specification to apply to the polygon.
         my_pipe = {
             "pipeline": [
                 {
@@ -67,9 +66,7 @@ def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs):
 
         # Execute the pipeline
         pipeline.execute()
-        log = pipeline.log
-        print(log)
-        print(f"done processing osmid of {osmid}")
+
     except Exception as e:
         error_message = f"Error processing {osmid}: {str(e)}"
         print(error_message)
@@ -245,15 +242,9 @@ def process_bridges_lidar_data(
     else:
         non_log_files = [f for f in os.listdir(output_dir) if not f.endswith(".log")]
         if non_log_files:  # if output directory has any file exepting previous log files, stop the code.
-            # sys.exit(
-            #     f" Error: {output_dir} contains some files. Either remove them or provide an empty directory. Program terminated."
-            # )
-            # delete the files (keeping the log files)
-            print("removing old files")
-            for filename in non_log_files:
-                file_path = os.path.join(output_dir, filename)
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
+            sys.exit(
+                f" Error: {output_dir} contains some files. Either remove them or provide an empty directory. Program terminated."
+            )
 
     __setup_logger(output_dir)
     logging.info(f"Making elevation raster files for osm bridges {start_time}")
@@ -346,12 +337,8 @@ def process_bridges_lidar_data(
                     logging.critical(''.join(summary.format()))
                     sys.exit(1)
 
-                # if i == 0:
-                #     print("test aborting")
-                #     sys.exit(1)
-
             # Progress bar handler
-            # progress_bar_handler(executor_dict, "Downloading Lidar Points")
+            progress_bar_handler(executor_dict, "Downloading Lidar Points")
 
         text = f'Generate raster files after filtering the points for bridge classification codes using {job_number_raster} processors'
         print(text)
