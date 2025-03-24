@@ -606,7 +606,7 @@ def iterate_through_huc_stage_based(
                     reason = found_restrict_lid.iloc[
                         0, found_restrict_lid.columns.get_loc("restricted_reason")
                     ]
-                    msg = ':' + reason
+                    msg = ': Restricted Site - ' + reason
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
