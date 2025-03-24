@@ -304,17 +304,19 @@ if __name__ == "__main__":
 
     ###############################
     #
-    # Normal processing order  (you may not necessarily need to re-pull bridges get new lidar)
-    #    1)  Run pull_osm_bridges
-    #    2)  Run make_rasters_using_lidar.py  (via conda enviro for this step only)
-    #    3)  Run make_dem_dif_for_bridges.py. This also makes a new vrt for this set.
-    #        as well as making modified osm_files we want for pre-clip.
-    #        Copy the new '__osm_bridges_modified.gpkg' to beside the original __osm_bridges.gpkg
-    #    4)  Update bash_variables for the new dem diff vrt paths
-    #    5)  Using the modified osm's, run pre-clip
-    #    6)  Update bash_variables for the new pre-clip paths
+    # If new OSM bridge data is pulled, it will trigger new bridge lidar date, which would trigger
+    #   running this toool.
     #
-    # Each of these steps need to be run twice, one for CONUS and once for AK
+    # Independently, if new DEMs are pulled, then we need to re-run this tool. Assuming we still
+    #    have the most recent Bridge Lidar, which may/may not need to be re-run. It is only needed if
+    #    new OSM data is run.
+    #
+    #  After running this tool, you will get a new "modified" bridge files.
+    #    ie) conus_osm_bridges_modified.gpkg and ak_osm_bridges_modified.
+    #
+    #  You will also get two new DEM Diff VRT's. ie) bridge_elev_diff.vrt (one for AK, one for CONUS)
+    #
+    #  Bash Variables will need to be upated for all four of these files and copied to all 5 enviros.
     #
     ###############################
 
