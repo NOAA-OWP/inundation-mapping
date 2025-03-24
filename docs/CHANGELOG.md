@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.x.x - 2025-03-24 - [PR#1471](https://github.com/NOAA-OWP/inundation-mapping/pull/1471)
+
+During running the `make_dem_dif_for_bridges` tool, which creates some updated inputs and triggers updates for bash_variables, we made a few text adjustments.
+
+The interaction between dems, osm pulls, lidar pulls, dem diffs and pre-clips can get a bit confusing so added a few more notes to help keep this straight.
+
+### Changes
+- `data/bridges`
+    - `conda_fim_bridges_enviro.yml`, `make_dem_dif_for_bridges.py`, `make_rasters_using_lidar.py`, `pull_osm_bridges.py` and `setup_conda_for_make_rasters.txt`:  Text and note updates
+- `src/bash_variables.env`:  Update for some new input paths, plus moved a few inputs to keep osm, bridges, dem and vrt closer together to help remind of inputs updates for the interrelated inputs.
+
+<br/><br/>
+
 ## v4.6.1.1 - 2025-03-21 - [PR#1469](https://github.com/NOAA-OWP/inundation-mapping/pull/1469)
 
 FIM requires DEMs with a 5 km buffer around HUC8 boundaries. The current workflow for generating these DEMs consists of the following steps:
