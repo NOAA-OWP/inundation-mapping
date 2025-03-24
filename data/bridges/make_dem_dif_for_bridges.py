@@ -288,24 +288,24 @@ if __name__ == "__main__":
     #   because pre-clipped osm data must have "has_lidar_tif" field showing existence of lidar or not
     #   This code needs to be run twice: once for conus and once for Alaska :
 
-    #    python foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/20250207/conus_osm_bridges.gpkg
-    #    -d /data/inputs/dems/3dep_dems/10m_5070/20240916/
-    #    -l /data/inputs/osm/bridges/20250207/CAN_BE_DELETED_conus_osm_lidar_rasters/lidar_osm_rasters/
-    #    -o /data/inputs/osm/bridges/20250207/10m_dem_diffs/conus/
+    #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
+    #    -i /data/inputs/osm/bridges/20250207/alaska_osm_bridges.gpkg
+    #    -l /data/inputs/osm/bridges/20250207/alaska_osm_lidar_rasters/lidar_osm_rasters/
+    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20250320/
+    #    -o /data/inputs/osm/bridges/20250323/10m_dem_diffs/alaska/
     #    -j 30
 
-    #    python foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/20250207/alaska_osm_bridges.gpkg
-    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20240916/
-    #    -l /data/inputs/osm/bridges/20250207/CAN_BE_DELETED_alaska_osm_lidar_rasters/lidar_osm_rasters/
-    #    -o /data/inputs/osm/bridges/20250207/10m_dem_diffs/alaska/
+    #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
+    #    -i /data/inputs/osm/bridges/20250207/conus_osm_bridges.gpkg
+    #    -l /data/inputs/osm/bridges/20250207/conus_osm_lidar_rasters/lidar_osm_rasters/
+    #    -d /data/inputs/dems/3dep_dems/10m_5070/20250320/
+    #    -o /data/inputs/osm/bridges/20250323/10m_dem_diffs/conus/
     #    -j 30
 
     ###############################
     #
     # If new OSM bridge data is pulled, it will trigger new bridge lidar date, which would trigger
-    #   running this toool.
+    #   running this tool.
     #
     # Independently, if new DEMs are pulled, then we need to re-run this tool. Assuming we still
     #    have the most recent Bridge Lidar, which may/may not need to be re-run. It is only needed if
@@ -316,7 +316,7 @@ if __name__ == "__main__":
     #
     #  You will also get two new DEM Diff VRT's. ie) bridge_elev_diff.vrt (one for AK, one for CONUS)
     #
-    #  Bash Variables will need to be upated for all four of these files and copied to all 5 enviros.
+    #  Bash Variables will need to be updated for all four of these files and copied to all 5 enviros.
     #
     ###############################
 
