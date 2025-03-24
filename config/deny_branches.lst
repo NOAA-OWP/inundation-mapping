@@ -2,6 +2,7 @@
 # Use comment to allow list the file
 # Use curly braces to denote branch_id
 backpool_stats.csv
+bridge_elev_diff_meters_{}.tif
 catch_list_{}.txt
 coordFile_{}.txt
 crosswalk_table_{}.csv
