@@ -38,7 +38,7 @@ def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs):
         poly_wkt = poly_geo.wkt
         las_file_path = os.path.join(output_dir, 'point_files', '%s.las' % str(osmid))
 
-        # based on pdal documentation, The polygon wkt can be followed by a slash (/) and a spatial reference specification to apply to the polygon.
+        # based on pdal documentation, The polygon wkt can be followed by a slash ("/") and a spatial reference specification to apply to the polygon.
         my_pipe = {
             "pipeline": [
                 {
