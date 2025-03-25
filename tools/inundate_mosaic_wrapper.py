@@ -108,7 +108,7 @@ def produce_mosaicked_inundation(
         depths_raster=depths_raster,
         verbose=verbose,
     )
-    print("End GMS", time.localtime())
+    # print("End GMS", time.localtime())
 
     # Write map file if designated
     if map_filename is not None:
@@ -146,7 +146,7 @@ def produce_mosaicked_inundation(
                 workers=num_threads,
             )
 
-            print("End Mosaic", time.localtime())
+            # print("End Mosaic", time.localtime())
 
     fh.vprint("Mosaicking complete.", verbose)
 

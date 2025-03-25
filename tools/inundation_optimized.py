@@ -201,7 +201,7 @@ def inundate(
             blockysize=256,
             tiled=True,
             # compress='lzw'
-            dtype='int8',
+            # dtype='int8',
             nodata=0,
         )
 
@@ -366,7 +366,11 @@ def __go_fast_mapping(rem, catchments, catchmentStagesDict, x, y, nodata_r, noda
                 # catchments in stage dict
                 if catchments[i, j] in catchmentStagesDict:
                     # if elevation is zero or greater
+                    # print(catchmentStagesDict[catchments[i, j]], rem[i, j],
+                    #       catchmentStagesDict[catchments[i, j]] - rem[i, j])
+
                     if rem[i, j] >= 0:
+
                         depth = catchmentStagesDict[catchments[i, j]] - rem[i, j]
 
                         # If the depth is greater than approximately 1/10th of a foot

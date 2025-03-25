@@ -100,7 +100,7 @@ def produce_mosaicked_inundation(
             "Please lower the num_workers.".format(num_workers, total_cpus_available)
         )
 
-    print("Begin GMS", time.localtime())
+    # print("Begin GMS", time.localtime())
     # Call Inundate_gms
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
@@ -114,7 +114,7 @@ def produce_mosaicked_inundation(
         windowed=windowed,
         log_file=log_file,
     )
-    print("End GMS", time.localtime())
+    # print("End GMS", time.localtime())
     # Write map file if designated
     if map_filename is not None:
         if not os.path.isdir(os.path.dirname(map_filename)):
@@ -123,7 +123,7 @@ def produce_mosaicked_inundation(
         map_file.to_csv(map_filename, index=False)
 
     fh.vprint("Mosaicking extent...", verbose)
-    print("Mosaicing Begin", time.localtime())
+    # print("Mosaicing Begin", time.localtime())
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
         if mosaic_attribute == "inundation_rasters":
@@ -157,7 +157,6 @@ def produce_mosaicked_inundation(
     fh.vprint("Mosaicking complete.", verbose)
     # print(time.localtime())
 
-    # return "myah"
     return mosaic_file_path
 
 

@@ -95,6 +95,7 @@ def generate_streamflow_percentiles(
         Dictionary of percentiles for streamflow distribution and feature_id
     """
 
+    # print('starting percentiles')
     # Distributions
     dist_dict = {
         "expon": expon,
@@ -409,7 +410,9 @@ def inundate_probabilistic(
     mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
 
     # Slice of time in forecast (possibly changed to
-    forecast_time = ensembles.coords['reference_time'] + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
+    forecast_time = (
+        ensembles.coords['reference_time'].values[-1] + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
+    )
 
     # Percentiles and data to add
     percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
@@ -534,7 +537,7 @@ def inundate_probabilistic(
             log_file=log_file,
         )
         # print("Before final manipulation", time.localtime())
-        print("file exists: ", os.path.exists(final_inundation_path))
+        # print("file exists: ", os.path.exists(final_inundation_path))
         # print('Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
 
     percentiles

@@ -139,7 +139,7 @@ def mosaic_by_unit(
 
         if mask:
             fh.vprint("Masking ...", verbose)
-            print("Masking Begin", time.localtime())
+            # print("Masking Begin", time.localtime())
             overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
     if remove_inputs:
