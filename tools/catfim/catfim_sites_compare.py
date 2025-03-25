@@ -409,7 +409,7 @@ def read_format_catfim_library(catfim_library_filepath):  ## TEMP DEBUG TODO: Do
     # Create a GeoDataFrame from the DataFrame
     library_gdf = gpd.GeoDataFrame(library_table, geometry='geometry')
     library_gdf = library_gdf.set_crs('epsg:3857')  # web mercator, the viz projection
-        
+
     return library_gdf
 
 
@@ -417,23 +417,23 @@ def read_format_catfim_library(catfim_library_filepath):  ## TEMP DEBUG TODO: Do
 def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_list, output_save_filepath):
 
     print(f'\nGenerating spatial difference maps for {product_id}.')
-    
+
     library_path_list = []
     for path in sorted_path_list:
-        
+
         # Get the CSV filename and check that it exists
         mapping_path = os.path.join(path, 'mapping')
         csv_path = None
         for filename in os.listdir(mapping_path):
             if filename.endswith('library.csv'):
                 csv_path = os.path.join(mapping_path, filename)
-    
+
         if csv_path is None:
             print(f'WARNING: No library CSV path found for input path {path}')
             continue
 
         library_path_list.append(csv_path)
-    
+
     # Put versions in order
     sorted_versions = sorted(version_id_list, key=lambda version: list(map(int, version.split('_'))))
 
@@ -447,11 +447,11 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         # Get filepaths
         old_version_library_csv_path = next((path for path in library_path_list if old_version_id in path), None)
         new_version_library_csv_path = next((path for path in library_path_list if new_version_id in path), None)
-        
+
         if old_version_library_csv_path is None or new_version_library_csv_path is None:
             print(f'WARNING: Skipping GPKG formation for {comparison_id}')
             continue
-            
+
         print(f'\nCreating comparison geopackages for {comparison_id}.')
 
         # Generate save paths
@@ -461,30 +461,39 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         # Read both versions of CatFIM library CSVs, remove intervals, and convert to a gdf 
         before_gdf = read_format_catfim_library(old_version_library_csv_path)
         after_gdf = read_format_catfim_library(new_version_library_csv_path)
-                
+
         # Merge the GeoDataFrames on 'ahps_lid' and 'magnitude'
         id_col, mag_col, lat_col, lon_col = 'ahps_lid', 'magnitude', 'lat', 'lon'
         merged_gdf = before_gdf.merge(after_gdf, on=[id_col, mag_col], suffixes=('_before', '_after'), how='outer', indicator=True)
-        
+
         # Calculate the differences
         lost_coverage = merged_gdf[merged_gdf['_merge'] == 'left_only'][[id_col, mag_col, 'geometry_before']]
         gained_coverage = merged_gdf[merged_gdf['_merge'] == 'right_only'][[id_col, mag_col, 'geometry_after']]
-        
+
+        # Read in the corresponding output comparison file
+        comparison_table_save_path = os.path.join(output_save_filepath, f'{comparison_id}.csv')
+        comparison_df = pd.read_csv(comparison_table_save_path)
+
+        # Remove sites that have a status of "Removed" from the lost coverage gpkg
+        removed_sites = comparison_df[comparison_df['Change'] == 'Removed']['site_id']
+        lost_coverage = lost_coverage[~lost_coverage[id_col].isin(removed_sites)]
+
+        # Remove sites that have a status of "Added" from the gained coverage gpkg
+        added_sites = comparison_df[comparison_df['Change'] == 'Added']['site_id']
+        gained_coverage = gained_coverage[~gained_coverage[id_col].isin(added_sites)]
+
         # Output the results
         lost_coverage_gdf = gpd.GeoDataFrame(lost_coverage, geometry='geometry_before', crs = after_gdf.crs)
         gained_coverage_gdf = gpd.GeoDataFrame(gained_coverage, geometry='geometry_after', crs = after_gdf.crs)
-        
-        # Read the corresponding output comparison file in and append the metadata to the GeoDataFrames
-        comparison_table_save_path = os.path.join(output_save_filepath, f'{comparison_id}.csv')
-        comparison_df = pd.read_csv(comparison_table_save_path) 
 
+        # Append metadata to the GeoDataFrames
         lost_coverage_gdf = lost_coverage_gdf.merge(comparison_df, left_on=id_col, right_on='site_id', how='left')
         gained_coverage_gdf = gained_coverage_gdf.merge(comparison_df, left_on=id_col, right_on='site_id', how='left')
 
         # Save the results
         lost_coverage_gdf.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG')
         gained_coverage_gdf.to_file(gained_coverage_gpkg_save_path, layer='gained_coverage', driver='GPKG')
-        
+
         print(f'\nSaved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
         print(f'\nSaved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
 
