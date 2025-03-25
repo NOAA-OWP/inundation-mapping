@@ -420,13 +420,9 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
     
     library_path_list = []
     for path in sorted_path_list:
-    
-        mapping_path = os.path.join(path, 'mapping')
-        # if not os.path.exists(mapping_path):# TEMP DEBUG TODO: this check doesn't need to be done twice, it should be moved to where the sorted path list is made
-        #     print(f'WARNING: Filepath does not exist for mapping folder: {mapping_path}')# TEMP DEBUG TODO: this check doesn't need to be done twice, it should be moved to where the sorted path list is made
-        #     continue # TEMP DEBUG TODO: this check doesn't need to be done twice, it should be moved to where the sorted path list is made
-    
+        
         # Get the CSV filename and check that it exists
+        mapping_path = os.path.join(path, 'mapping')
         csv_path = None
         for filename in os.listdir(mapping_path):
             if filename.endswith('library.csv'):
@@ -478,6 +474,13 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         lost_coverage_gdf = gpd.GeoDataFrame(lost_coverage, geometry='geometry_before', crs = after_gdf.crs)
         gained_coverage_gdf = gpd.GeoDataFrame(gained_coverage, geometry='geometry_after', crs = after_gdf.crs)
         
+        # Read the corresponding output comparison file in and append the metadata to the GeoDataFrames
+        comparison_table_save_path = os.path.join(output_save_filepath, f'{comparison_id}.csv')
+        comparison_df = pd.read_csv(comparison_table_save_path) 
+
+        lost_coverage_gdf = lost_coverage_gdf.merge(comparison_df, left_on=id_col, right_on='site_id', how='left')
+        gained_coverage_gdf = gained_coverage_gdf.merge(comparison_df, left_on=id_col, right_on='site_id', how='left')
+
         # Save the results
         lost_coverage_gdf.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG')
         gained_coverage_gdf.to_file(gained_coverage_gpkg_save_path, layer='gained_coverage', driver='GPKG')
