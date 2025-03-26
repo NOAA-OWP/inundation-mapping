@@ -3,7 +3,7 @@
 *.swo
 *.swn
 .nfs*
-__pycache__/
+**/__pycache__/
 config/**
 !config/deny*.lst
 !config/aws*.lst
