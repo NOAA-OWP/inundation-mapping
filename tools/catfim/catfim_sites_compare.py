@@ -27,15 +27,14 @@ Inputs:
 - space-delimited list of CatFIM output paths to compare (-p)
 - output save path (-o)
 - optional flag to keep only sites with status changes in the comparison tables (-k)
+- optional flag to generate spatial difference maps and a points geopackage for the version comparisons (-g)
 
 - Example usage:
     python /foss_fim/tools/catfim_sites_compare.py
     -p  '/data/catfim/hand_4_5_11_1_stage_based/ /data/catfim/fim_4_5_2_11_stage_based/ /data/catfim/fim_4_4_0_0_stage_based/ /data/catfim/hand_4_5_11_1_flow_based/ /data/catfim/fim_4_5_2_11_flow_based/ /data/catfim/fim_4_5_2_0_flow_based/'
-    -o '/home/emily.deardorff/notebooks/'
-    -k
+    -o '/home/emily.deardorff/notebooks/' -k -g
 
 Outputs:
-
 - Number of outputs depends on how many CatFIM results are provided.
 - For example, if 3 versions of flow-based CatFIM are provided, the following outputs will be created:
     - flow_based_compare_all_versions.csv
@@ -46,44 +45,42 @@ Outputs:
 
 - Output CSVs:
     - <product_id>_compare_all_versions.csv
-        - site_id
-        - nws_data_wfo
-        - nws_data_rfc
-        - HUC8
-        - name
-        - states
-        - <version_1>_site_processed
-        - <version_1>_catfim_mapped
-        - <version_1>_status
-        - <version_2>_site_processed
-        - <version_2>_catfim_mapped
-        - <version_2>_status
-        - <version_3>_site_processed
-        - <version_3>_catfim_mapped
-        - <version_3>_status
+        Columns: 
+            site_id, nws_data_wfo, nws_data_rfc, HUC8, name, states, 
+            <version_1>_site_processed, <version_1>_catfim_mapped, <version_1>_status, 
+            <version_2>_site_processed, <version_2>_catfim_mapped, <version_2>_status, 
+            <version_3>_site_processed, <version_3>_catfim_mapped, <version_3>_status
 
     - <product_id>_<version_1>_vs_<version_2>.csv
-        - site_id
-        - Change
-        - Change Description
-        - <version_1>_status
-        - <version_2>_status
-        - nws_data_wfo
-        - nws_data_rfc
-        - HUC8
-        - name
-        - states
+        Columns:
+            site_id, Change, Change Description, 
+            <version_1>_status, <version_2>_status, 
+            nws_data_wfo, nws_data_rfc, HUC8, name, states
 
     Note: product_id refers to either 'flow_based' or 'stage_based'
 
+- Output GPKGs (produced if option -g flag was used):
+    - <product_id>_<version_1>_vs_<version_2>_lost_coverage.gpkg
+        Columns:
+            site_id, magnitude, geometry_before, Change, Change Description,
+            <version_1>_status, <version_2>_status, nws_data_wfo, nws_data_rfc, HUC8, name, states
+    - <product_id>_<version_1>_vs_<version_2>_gained_coverage.gpkg
+        Columns:
+            site_id, magnitude, geometry_after, Change, Change Description,
+            <version_1>_status, <version_2>_status, nws_data_wfo, nws_data_rfc, HUC8, name, states
+    - <product_id>_<version_1>_vs_<version_2>.gpkg
+        Columns:
+            site_id, Change, Change Description,
+            <version_1>_status, <version_2>_status, nws_data_wfo, nws_data_rfc, HUC8, name, states
+
 Change Descriptions:
 - No Change (Has mapped CatFIM in both versions)
-- No Change (Doesn’t have mapped CatFIM in either version)
+- No Change (Doesn't have mapped CatFIM in either version)
 - No Change (Site is excluded in both versions)
 - Added (Site where CatFIM was not processed previously but now has mapped CatFIM)
 - Added (Site where  CatFIM was not mapped previously but now has mapped CatFIM)
-- Removed (Previously had mapped CatFIM, now site isn’t being processed)
-- Removed (Previously had mapped CatFIM, now site isn’t being mapped)
+- Removed (Previously had mapped CatFIM, now site isn't being processed)
+- Removed (Previously had mapped CatFIM, now site isn't being mapped)
 - Status Change (Previously unmapped, now excluded from  processing)
 
 Potential Upgrades TODO:
@@ -112,7 +109,7 @@ def compile_catfim_sites(sorted_path_list):
     version_id_list = []
 
     for path in sorted_path_list:
-   
+
         mapping_path = os.path.join(path, 'mapping')
 
         # Get the CSV filename and check that it exists
@@ -254,6 +251,20 @@ def make_version_comparison_tables(
     keep_differences_only,
     generate_geopackages,
 ):
+    '''
+    Inputs:
+    - combined_sites_df (dataframe of compiled sites from compile_catfim_sites)
+    - combined_sites_metadata_df (dataframe of metadata for the sites from compile_catfim_sites)
+    - product_id (string)
+    - version_id_list (list of strings)
+    - out_save_path (string)
+    - keep_differences_only (True or False)
+    - generate_geopackages (True or False)
+
+    Outputs:
+    - CSVs and GPKGs saved to the out_save_path
+
+    '''
 
     # Put versions in order
     def version_key(version):
@@ -397,6 +408,14 @@ def make_version_comparison_tables(
 
 # Read CatFIM library, remove intervals, and convert it to a gdf 
 def read_format_catfim_library(catfim_library_filepath):  ## TEMP DEBUG TODO: Do I want to put this in a Try statement?
+    '''
+    Inputs:
+    - catfim_library_filepath (string)
+
+    Outputs:
+    - library_gdf (GeoDataFrame)
+
+    '''
 
     library_table = pd.read_csv(catfim_library_filepath)
 
@@ -415,6 +434,17 @@ def read_format_catfim_library(catfim_library_filepath):  ## TEMP DEBUG TODO: Do
 
 # Calculate difference between CatFIM libraries of subsequent versions
 def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_list, output_save_filepath):
+    '''
+    Inputs:
+    - sorted_path_list (list of strings)
+    - product_id (string)
+    - version_id_list (list of strings)
+    - output_save_filepath (string)
+
+    Outputs:
+    - GPKGs saved to the output_save_filepath
+
+    '''
 
     print(f'\nGenerating spatial difference maps for {product_id}.')
 
@@ -503,11 +533,11 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
     Inputs
     - path_list (space-delimited list)
     - output_save_filepath (string)
-    - keep_differences_only (true or false)
-    - generate_geopackages (true or false)
+    - keep_differences_only (True or False)   
+    - generate_geopackages (True or False)
 
     Outputs
-    - saves CSVs and GPKGs to the output_save_filepath
+    - CSVs and GPKGs saved to the output_save_filepath
 
     '''
 
