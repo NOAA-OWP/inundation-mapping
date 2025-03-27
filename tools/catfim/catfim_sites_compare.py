@@ -505,8 +505,6 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
 
         id_col, mag_col = 'ahps_lid', 'magnitude'
 
-        ## NEW
-
         # Initialize empty GeoDataFrames for removed and added geometries
         removed_geom = gpd.GeoDataFrame(columns=[id_col, mag_col, 'geometry'], crs=before_gdf.crs)
         added_geom = gpd.GeoDataFrame(columns=[id_col, mag_col, 'geometry'], crs=after_gdf.crs)
@@ -566,42 +564,6 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         # Set the CRS 
         added_geom = added_geom.set_crs('epsg:3857')  # web mercator, the viz projection
         removed_geom = removed_geom.set_crs('epsg:3857')  # web mercator, the viz projection
-
-
-        ## END NEW
-
-        # # Merge the GeoDataFrames on 'ahps_lid' and 'magnitude'
-        # id_col, mag_col = 'ahps_lid', 'magnitude'
-        # merged_gdf = before_gdf.merge(
-        #     after_gdf, on=[id_col, mag_col], suffixes=('_before', '_after'), how='outer', indicator=True
-        # )
-
-        # # Read in the corresponding output comparison file
-        # comparison_table_save_path = os.path.join(output_save_filepath, f'{comparison_id}.csv')
-        # comparison_df = pd.read_csv(comparison_table_save_path)
-
-        # # Remove sites that have a status of "Removed" from the lost coverage gpkg
-        # removed_sites = comparison_df[comparison_df['Change'] == 'Removed']['site_id']
-        # lost_coverage = lost_coverage[~lost_coverage[id_col].isin(removed_sites)]
-
-        # # Remove sites that have a status of "Added" from the gained coverage gpkg
-        # added_sites = comparison_df[comparison_df['Change'] == 'Added']['site_id']
-        # gained_coverage = gained_coverage[~gained_coverage[id_col].isin(added_sites)]
-
-        # # Output the results
-        # lost_coverage_gdf = gpd.GeoDataFrame(lost_coverage, geometry='geometry_before', crs=after_gdf.crs)
-        # gained_coverage_gdf = gpd.GeoDataFrame(gained_coverage, geometry='geometry_after', crs=after_gdf.crs)
-
-        # # Append metadata to the GeoDataFrames
-        # lost_coverage_gdf = lost_coverage_gdf.merge(
-        #     comparison_df, left_on=id_col, right_on='site_id', how='left'
-        # )
-        # gained_coverage_gdf = gained_coverage_gdf.merge(
-        #     comparison_df, left_on=id_col, right_on='site_id', how='left'
-        # )
-        # # Save to a file 
-        # added_geom.to_file('test_added_geom.gpkg', driver="GPKG")
-        # removed_geom.to_file('test_removed_geom.gpkg', driver="GPKG")
 
         # Save the results
         added_geom.to_file(gained_coverage_gpkg_save_path, layer='gained_coverage', driver='GPKG')
