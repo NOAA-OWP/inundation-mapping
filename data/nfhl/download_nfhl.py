@@ -59,8 +59,10 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
 
             geometry = str(geometry)
 
-            # nfhl_query_url = "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/20/query"
-            nfhl_query_url = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query"
+            nfhl_query_url = (
+                "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/20/query"
+            )
+            # nfhl_query_url = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query"
             nfhl_df = ESRI_REST.query(
                 nfhl_query_url,
                 f="json",
@@ -86,6 +88,8 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
         else:
             nfhl_df = gpd.read_file(out_file)
 
+        nfhl_df = nfhl_df[nfhl_df.geom_type == 'Polygon']
+
         # Clean the geometries to remove self-intersections
         nfhl_df['geometry'] = nfhl_df['geometry'].make_valid()
 
@@ -96,6 +100,7 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
         new_geoms = []
         for row in nfhl_df_exploded.iterrows():
             polygon = row[1].geometry
+
             new_geoms.append(Polygon(polygon.exterior))
 
         nfhl_df_exploded.geometry = new_geoms
