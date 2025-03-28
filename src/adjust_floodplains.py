@@ -18,6 +18,7 @@ wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 def adjust_floodplains(
     input_file,
     dem_file,
+    wbd_file,
     distance_file,
     output_file,
     branch_polygons,
@@ -84,6 +85,17 @@ def adjust_floodplains(
     # Adjust the DEM
     new_dem = dem - adjustment
 
+    # Subtract z_factor from the DEM outside of wbd
+    wbd = gpd.read_file(wbd_file)
+    wbd = wbd.to_crs(dem_src.crs)
+    wbd_mask = np.zeros_like(dem)
+    for geom in wbd.geometry:
+        mask = rio.features.geometry_mask(
+            [geom], out_shape=dem.shape, transform=dem_src.transform, invert=False
+        )
+        wbd_mask[mask] = 1
+    new_dem = np.where(wbd_mask == 1, new_dem - z_factor, new_dem)
+
     new_dem[new_dem < -5000] = dem_nodata
 
     profile.update(dtype=rio.float32, nodata=dem_nodata)
@@ -97,6 +109,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--input-file', help='Input file', type=str)
     parser.add_argument('-e', '--distance-file', help='Distance file', type=str)
     parser.add_argument('-d', '--dem-file', help='DEM file', type=str)
+    parser.add_argument('-w', '--wbd-file', help='WBD file', type=str)
     parser.add_argument('-p', '--branch-polygons', help='Branch polygons', type=str)
     parser.add_argument('-b', '--branch-id', help='Branch ID', type=str)
     parser.add_argument('-o', '--output-file', help='Output file', type=str)
