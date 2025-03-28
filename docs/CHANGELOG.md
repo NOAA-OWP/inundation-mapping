@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.6.X.X - 2025-03-27 - [PR#1477](https://github.com/NOAA-OWP/inundation-mapping/pull/1477)
+## v4.6.1.2 - 2025-03-28 - [PR#1477](https://github.com/NOAA-OWP/inundation-mapping/pull/1477)
 This PR prevents the removal of the processing duration text file from each HUC to aid in debugging. This tries to fix #1458.
 
 ### Changes
