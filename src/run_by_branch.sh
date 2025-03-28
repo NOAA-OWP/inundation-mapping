@@ -91,6 +91,7 @@ $srcDir/adjust_floodplains.py -d $current_branch_id \
     -i $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
     -e $tempCurrentBranchDataDir/flows_grid_boolean_euclidean_distance_$current_branch_id.tif \
     -d $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+    -w $tempHucDataDir/wbd.gpkg \
     -p $tempHucDataDir/branch_polygons.gpkg \
     -b $current_branch_id \
     -o $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
