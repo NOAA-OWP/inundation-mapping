@@ -5,7 +5,7 @@ import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import pandas as pd
-from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
+from inundation_optimized import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
@@ -42,7 +42,8 @@ def Inundate_gms(
             os.remove(log_file)
 
         if verbose:
-            print("HUC8,BranchID,Exception", file=open(log_file, "w"))
+            with open(log_file, 'a') as f:
+                f.write("HUC8,BranchID,Exception")
     # if log_file:
     #     logging.basicConfig(filename=log_file, level=logging.INFO)
     #     logging.info('HUC8,BranchID,Exception')
@@ -98,19 +99,22 @@ def Inundate_gms(
 
         except NoForecastFound as exc:
             if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                with open(log_file, 'a') as f:
+                    f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
             elif verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except hydroTableHasOnlyLakes as exc:
             if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                with open(log_file, 'a') as f:
+                    f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
             elif verbose:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except Exception as exc:
             if log_file is not None:
-                print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
+                with open(log_file, 'a') as f:
+                    f.write(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
             else:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
         else:
@@ -180,10 +184,10 @@ def __inundate_gms_generator(
         huc_dir = os.path.join(hydrofabric_dir, huc)
         branch_dir = os.path.join(huc_dir, "branches", branch_id)
 
-        rem_file_name = f"rem_zeroed_masked_{branch_id}.tif"
+        rem_file_name = f"rem_zeroed_masked_{branch_id}_int16.tif"
         rem_branch = os.path.join(branch_dir, rem_file_name)
 
-        catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
+        catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}_int16.tif"
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
         # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
@@ -235,11 +239,6 @@ def __inundate_gms_generator(
         else:
             inundation_branch_raster = fh.append_id_to_file_name(inundation_raster, branch_id)
 
-        if (inundation_polygon is not None) and (huc not in inundation_polygon):
-            inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon, [huc, branch_id])
-        else:
-            inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon, branch_id)
-
         if (depths_raster is not None) and (huc not in depths_raster):
             depths_branch_raster = fh.append_id_to_file_name(depths_raster, [huc, branch_id])
         else:
@@ -264,10 +263,7 @@ def __inundate_gms_generator(
             "num_workers": 1,
             "aggregate": False,
             "inundation_raster": inundation_branch_raster,
-            "inundation_polygon": inundation_branch_polygon,
             "depths": depths_branch_raster,
-            "out_raster_profile": None,
-            "out_vector_profile": None,
             "quiet": not verbose,
         }
 

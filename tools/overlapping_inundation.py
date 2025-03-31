@@ -3,6 +3,7 @@
 
 import concurrent.futures
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from threading import Lock
 
@@ -76,6 +77,11 @@ class OverlapWindowMerge:
         self.window_sizes = window_xy_size
 
     @staticmethod
+    def __vprint(message, verbose):
+        if verbose:
+            print(message)
+
+    @staticmethod
     @njit
     def get_res_bbox_min(x, v, z, y):
         """
@@ -141,10 +147,10 @@ class OverlapWindowMerge:
         # Get window sizes (both normal and edge windows)
         window_bounds1 = np.flip(
             np.array(np.meshgrid(window_width1, window_height1)).T.reshape(-1, 2), axis=1
-        ).astype(np.int64)
+        ).astype(int)
         window_bounds2 = np.flip(
             np.array(np.meshgrid(window_width2, window_height2)).T.reshape(-1, 2), axis=1
-        ).astype(np.int64)
+        ).astype(int)
 
         window_idx = np.array(np.unravel_index(np.arange(y_res * x_res), (y_res, x_res), order="F"))
 
@@ -224,7 +230,7 @@ class OverlapWindowMerge:
         window = path_points[win_idx]
         window_height, window_width = np.array(
             [np.abs(bbox[win_idx][2] - bbox[win_idx][0]), np.abs(bbox[win_idx][3] - bbox[win_idx][1])]
-        ).astype(np.int64)
+        ).astype(int)
 
         bnds = []
         data = []
@@ -254,7 +260,7 @@ class OverlapWindowMerge:
 
         return [final_bnds, bnds, data]
 
-    def merge_rasters(self, out_fname, nodata=-9999, threaded=False, workers=4):
+    def merge_rasters(self, out_fname, nodata=-9999, threaded=False, workers=4, quiet=True):
         """
         Merge multiple raster datasets
 
@@ -294,12 +300,10 @@ class OverlapWindowMerge:
             compress="lzw",
         )
 
-        final_windows, data_windows, data = [], [], []
-
         def __data_generator(data_dict, path_points, bbox, meta):
             for key, val in data_dict.items():
                 f_window, window, dat = self.read_rst_data(key, val, path_points, bbox, meta)
-                yield (dat, window, f_window, val)
+                yield dat, window, f_window, val
                 # final_windows.append(f_window)
                 # data_windows.append(window)
                 # data.append(dat)
@@ -329,8 +333,20 @@ class OverlapWindowMerge:
                 for d, dw, fw, ddict in dgen:
                     merge_partial(d, dw, fw, ddict)
             else:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                    executor.map(merge_partial, data, data_windows, final_windows, data_dict.values())
+                # start up thread pool
+                executor = ThreadPoolExecutor(max_workers=workers)
+                results = {executor.submit(merge_partial, *wg): 1 for wg in dgen}
+
+                for future in as_completed(results):
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        self.__vprint("Exception {} for {}".format(exc, results[future]), not quiet)
+                    else:
+                        if results[future] is not None:
+                            self.__vprint("... {} complete".format(results[future]), not quiet)
+                        else:
+                            self.__vprint("... complete", not quiet)
 
     def mask_mosaic(self, mosaic, polys, polys_layer=None, outfile=None):
         # rem_array,window_transform = mask(rem,[shape(huc['geometry'])],crop=True,indexes=1)

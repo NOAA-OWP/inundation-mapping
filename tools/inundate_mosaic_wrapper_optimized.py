@@ -4,7 +4,7 @@ import os
 from timeit import default_timer as timer
 
 import pandas as pd
-from inundate_gms import Inundate_gms
+from inundate_gms_optimized import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
 
 from utils.shared_functions import FIM_Helpers as fh
