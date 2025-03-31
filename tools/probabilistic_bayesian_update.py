@@ -1,13 +1,11 @@
-import argparse
 from typing import Tuple, Union
 
 import arviz as az
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
 from pytensor.tensor import TensorVariable
-from scipy.stats import gamma, norm, truncexpon, uniform, weibull_min
+from scipy.stats import weibull_min
 
 
 def get_fim_probability_distributions() -> Tuple[weibull_min, weibull_min, weibull_min]:
@@ -236,6 +234,9 @@ def run_bayesian_updates(
         Observed data used to update the prior distribution for the scale point estimate
 
     Returns
+    -------
+    pd.DataFrame
+        DataFrame containing shape, scale, and location parameters
     """
 
     parameter_names = ["channel_mannning_roughness", "overbank_manning_roughness", "slope_adjustment"]
@@ -246,7 +247,7 @@ def run_bayesian_updates(
 
     posterior_distribution_parameters = pd.DataFrame(
         {
-            "prameter_name": parameter_names,
+            "parameter_name": parameter_names,
             "shape": [n_shp, n_scale, slp_shp],
             "scale": [n_scale, on_scale, slp_scale],
             "loc": [n_loc, on_loc, slp_loc],

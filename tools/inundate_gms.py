@@ -2,7 +2,10 @@
 
 import argparse
 import os
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import sys
+import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
@@ -12,18 +15,52 @@ from utils.shared_functions import FIM_Helpers as fh
 
 
 def Inundate_gms(
-    hydrofabric_dir,
-    forecast,
-    num_workers=1,
-    hydro_table_df=None,
-    hucs=None,
-    inundation_raster=None,
-    inundation_polygon=None,
-    depths_raster=None,
-    verbose=False,
-    log_file=None,
-    output_fileNames=None,
-):
+    hydrofabric_dir: str,
+    forecast: Union[str, pd.DataFrame],
+    num_workers: Optional[int] = 1,
+    hydro_table_df: Optional[Union[str, pd.DataFrame]] = None,
+    hucs: Optional[List[str]] = None,
+    inundation_raster: Optional[str] = None,
+    depths_raster: Optional[str] = None,
+    verbose: Optional[bool] = False,
+    log_file: Optional[str] = None,
+    output_fileNames: Optional[str] = None,
+    windowed: Optional[bool] = False,
+) -> pd.DataFrame:
+    """
+    Run inundation using the Generalized Mainstem methodology
+
+    hydrofabric_dir : str
+        Directory with flood inundation mapping outputs
+    forecast: Union[str, pd.DataFrame]
+        Data with streamflow associated with feature id
+    num_workers: Optional[int], default = 1
+        Number of threads to useNumber of processes to run in parallel
+    hydro_table_df: Optional[Union[str, pd.DataFrame]], default = None
+        Hydro table path or DataFrame
+    hucs: Optional[List[str]], default = None
+        List of hucs to process GMS
+    inundation_raster : str
+        Name of inundation extent raster
+    inundation_polygon: Optional[str], default = None
+        Name of inundation polygon vector
+    depths_raster : str
+        Name of depth raster
+    verbose: Optional[bool], default = False
+        Whether to qsilence output or not
+    log_file: Optional[str], default = None
+        Name of file to log output
+    output_fileNames: Optional[str], default = None
+        Name of file to output filenames from gms inundation routine
+    windowed: Optional[bool], default = False
+        Whether to use window memory optimization
+
+    Returns
+    -------
+    pd.DataFrame
+        Output filenames from gms inundation routine
+
+    """
     # input handling
     if hucs is not None:
         try:
@@ -42,10 +79,8 @@ def Inundate_gms(
             os.remove(log_file)
 
         if verbose:
-            print("HUC8,BranchID,Exception", file=open(log_file, "w"))
-    # if log_file:
-    #     logging.basicConfig(filename=log_file, level=logging.INFO)
-    #     logging.info('HUC8,BranchID,Exception')
+            with open(log_file, 'a') as f:
+                f.write("HUC8,BranchID,Exception")
 
     # load fim inputs
     hucs_branches = pd.read_csv(
@@ -65,16 +100,16 @@ def Inundate_gms(
         hucs_branches,
         hydrofabric_dir,
         inundation_raster,
-        inundation_polygon,
         depths_raster,
         forecast,
         hydro_table_df,
         verbose=False,
+        windowed=windowed,
     )
 
     # start up process pool
     # better results with Process pool
-    # executor = ProcessPoolExecutor(max_workers=num_workers)
+    executor = ThreadPoolExecutor(max_workers=num_workers)
 
     # collect output filenames
     inundation_raster_fileNames = [None] * number_of_branches
@@ -83,13 +118,19 @@ def Inundate_gms(
     hucCodes = [None] * number_of_branches
     branch_ids = [None] * number_of_branches
 
-    # executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
-    # for future in tqdm(
+    executor_generator = {executor.submit(inundate, **inp): ids for inp, ids in inundate_input_generator}
     idx = 0
-    for inp, ids in tqdm(inundate_input_generator, desc=f"Inundating branches with {num_workers} workers"):
-        hucCode, branch_id = ids
+    for future in tqdm(
+        as_completed(executor_generator),
+        total=len(executor_generator),
+        desc=f"Inundating branches with {num_workers} workers",
+        disable=(not verbose),
+    ):
+        hucCode, branch_id = executor_generator[future]
+
         try:
-            results = inundate(**inp)
+            future.result()
+
         except NoForecastFound as exc:
             if log_file is not None:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
@@ -103,6 +144,7 @@ def Inundate_gms(
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
 
         except Exception as exc:
+            traceback.print_exc(file=sys.stdout)
             if log_file is not None:
                 print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
             else:
@@ -111,77 +153,26 @@ def Inundate_gms(
             hucCodes[idx] = hucCode
             branch_ids[idx] = branch_id
 
-        try:
-            # print(hucCode,branch_id,future.result()[0][0])
-            inundation_raster_fileNames[idx] = results[0][0]
-        except TypeError:
-            pass
+            try:
+                # print(hucCode,branch_id,future.result()[0][0])
+                inundation_raster_fileNames[idx] = future.result()[0][0]
+            except TypeError:
+                pass
 
-        try:
-            depths_raster_fileNames[idx] = results[1][0]
-        except TypeError:
-            pass
+            try:
+                depths_raster_fileNames[idx] = future.result()[1][0]
+            except TypeError:
+                pass
 
-        try:
-            inundation_polygon_fileNames[idx] = results[2][0]
-        except TypeError:
-            pass
+            try:
+                inundation_polygon_fileNames[idx] = future.result()[2][0]
+            except TypeError:
+                pass
 
-        idx += 1
-
-    #     idx = 0
-    # for future in tqdm(
-    #     as_completed(executor_generator),
-    #     total=len(executor_generator),
-    #     desc=f"Inundating branches with {num_workers} workers",
-    #     disable=(not verbose),
-    # ):
-    #     hucCode, branch_id = executor_generator[future]
-    #
-    #     try:
-    #         future.result()
-    #
-    #     except NoForecastFound as exc:
-    #         if log_file is not None:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-    #         elif verbose:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-    #
-    #     except hydroTableHasOnlyLakes as exc:
-    #         if log_file is not None:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-    #         elif verbose:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-    #
-    #     except Exception as exc:
-    #         if log_file is not None:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}", file=open(log_file, "a"))
-    #         else:
-    #             print(f"{hucCode},{branch_id},{exc.__class__.__name__}, {exc}")
-    #     else:
-    #         hucCodes[idx] = hucCode
-    #         branch_ids[idx] = branch_id
-    #
-    #         try:
-    #             # print(hucCode,branch_id,future.result()[0][0])
-    #             inundation_raster_fileNames[idx] = future.result()[0][0]
-    #         except TypeError:
-    #             pass
-    #
-    #         try:
-    #             depths_raster_fileNames[idx] = future.result()[1][0]
-    #         except TypeError:
-    #             pass
-    #
-    #         try:
-    #             inundation_polygon_fileNames[idx] = future.result()[2][0]
-    #         except TypeError:
-    #             pass
-    #
-    #         idx += 1
+            idx += 1
 
     # power down pool
-    # executor.shutdown(wait=True)
+    executor.shutdown(wait=True)
 
     # make filename dataframe
     output_fileNames_df = pd.DataFrame(
@@ -201,20 +192,41 @@ def Inundate_gms(
 
 
 def __inundate_gms_generator(
-    hucs_branches,
-    hydrofabric_dir,
-    inundation_raster,
-    inundation_polygon,
-    depths_raster,
-    forecast,
-    hydro_table_df=None,
-    verbose=False,
-):
+    hucs_branches: pd.DataFrame,
+    hydrofabric_dir: str,
+    inundation_raster: str,
+    depths_raster: str,
+    forecast: Union[str, pd.DataFrame],
+    hydro_table_df: Union[str, pd.DataFrame],
+    verbose: Optional[bool] = False,
+    windowed: Optional[bool] = False,
+) -> Tuple[dict, List[str]]:
     """
     Generator for use in parallelizing inundation
 
     Parameters
     ----------
+    hucs_branches : pd.DataFrame
+        DataFrame containing huc8 and branch ids
+    hydrofabric_dir : str
+        Directory with flood inundation mapping outputs
+    inundation_raster : str
+        Name of inundation extent raster
+    depths_raster : str
+        Name of depth raster
+    forecast : Union[str, pd.DataFrame]
+        Dataset with streamflow associated with feature id
+    hydro_table_df: Union[str, pd.DataFrame]
+        Hydrotable DataFrame.
+    verbose: Optional[bool], default = False
+        Whether to qsilence output or not
+    windowed: Optional[bool], default = False
+        Whether to use window memory optimization
+
+    Returns
+    -------
+    Tuple[dict, List[str]]
+        Data inputs for inundate gms and the respective branch ids
 
     """
     # Iterate over branches
@@ -232,23 +244,16 @@ def __inundate_gms_generator(
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
         # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
+        htable_req_cols = ["HUC", "branch_id", "feature_id", "HydroID", "stage", "discharge_cms", "LakeID"]
 
-        if hydro_table_df is not None:
+        if isinstance(hydro_table_df, pd.DataFrame):
             hydro_table_all = hydro_table_df.set_index(["HUC", "feature_id", "HydroID"], inplace=False)
             hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
+        elif isinstance(hydro_table_df, str):
+            hydro_table_branch = hydro_table_df.format(branch_id)
         else:
             hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
             if os.path.isfile(hydro_table_huc):
-
-                htable_req_cols = [
-                    "HUC",
-                    "branch_id",
-                    "feature_id",
-                    "HydroID",
-                    "stage",
-                    "discharge_cms",
-                    "LakeID",
-                ]
 
                 hydro_table_all = pd.read_csv(
                     hydro_table_huc,
@@ -280,11 +285,6 @@ def __inundate_gms_generator(
         else:
             inundation_branch_raster = fh.append_id_to_file_name(inundation_raster, branch_id)
 
-        if (inundation_polygon is not None) and (huc not in inundation_polygon):
-            inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon, [huc, branch_id])
-        else:
-            inundation_branch_polygon = fh.append_id_to_file_name(inundation_polygon, branch_id)
-
         if (depths_raster is not None) and (huc not in depths_raster):
             depths_branch_raster = fh.append_id_to_file_name(depths_raster, [huc, branch_id])
         else:
@@ -292,8 +292,6 @@ def __inundate_gms_generator(
 
         # identifiers
         identifiers = (huc, branch_id)
-
-        # print(f"inundation_branch_raster is {inundation_branch_raster}")
 
         # inundate input
         inundate_input = {
@@ -309,11 +307,9 @@ def __inundate_gms_generator(
             "num_workers": 1,
             "aggregate": False,
             "inundation_raster": inundation_branch_raster,
-            "inundation_polygon": inundation_branch_polygon,
             "depths": depths_branch_raster,
-            "out_raster_profile": None,
-            "out_vector_profile": None,
             "quiet": not verbose,
+            "windowed": windowed,
         }
 
         yield inundate_input, identifiers

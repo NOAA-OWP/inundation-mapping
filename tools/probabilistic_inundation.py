@@ -6,14 +6,14 @@ import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from glob import glob
-from typing import Dict, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
 import xarray as xr
-from inundate_mosaic_wrapper_optimized import produce_mosaicked_inundation
+from inundate_mosaic_wrapper import produce_mosaicked_inundation
 from scipy.stats import (
     expon,
     gamma,
@@ -30,27 +30,23 @@ from shapely.geometry import shape
 from tqdm import tqdm
 
 
-# import gdal
-# gdal.UseExceptions()
-
-
 def get_fim_probability_distributions(
-    posterior_dist: str = None, huc: int = None
+    posterior_dist: Optional[str] = None, huc: Optional[int] = None
 ) -> Tuple[gamma, gamma, gamma]:
     """
     Gets either bayesian updated distributions or default distributions for respective huc
 
     Parameters
     ---------
-    posterior_dist : str, default=None
-        Name of csv file that has posteriod distribution parameters
-    huc : int
-        Identifier for the huc of interest
+    posterior_dist : Optional[str], default = None
+        Name of csv file that has posterior distribution parameters
+    huc: Optional[int], default = None
+        Huc to get distribution for if posterior_dist is not None
 
     Returns
     -------
     Tuple[gamma, gamma, gamma]
-        Gamma distributions for channel Manning roughness overbank Manning roughness, and slope adjustment
+        Gamma distributions for channel Manning roughness, overbank Manning roughness, and slope adjustment
 
     """
 
@@ -84,8 +80,6 @@ def generate_streamflow_percentiles(
         ID of feature to process
     ensemble_forecast : xr.Dataset
         NWM medium range ensembles
-    # forecast_time : np.datetime64
-    #     Forecast time to slice
     params_weibull : pd.DataFrame
         Parameters for features
 
@@ -95,7 +89,6 @@ def generate_streamflow_percentiles(
         Dictionary of percentiles for streamflow distribution and feature_id
     """
 
-    # print('starting percentiles')
     # Distributions
     dist_dict = {
         "expon": expon,
@@ -124,11 +117,9 @@ def generate_streamflow_percentiles(
     # Create probability distribution
     params = ast.literal_eval(parameters['parameters'])
 
-    # params['size'] = 16071
-
     try:
         r = dist_dict[parameters['distribution_name']](**params)
-        # .rvs(**params))
+
     except Exception:
         return {
             'feature_id': int(feature),
@@ -194,9 +185,50 @@ def get_subdivided_src(
     htable_directory,
     htable_output,
 ):
+    """
+    Method for subdividing a synthetic rating curve based on the high water threshold
+
+    Parameters
+    ----------
+    hydrofabric_dir: str
+        Directory with the hydrofabric directories
+    huc: str
+        Huc to process probabilistic FIM
+    branch: str
+        Name of final mosaiced probabilistic FIM
+    channel_manning: float
+        Value for channel manning roughness
+    overbank_manning: float
+        Value for overbank manning roughness
+    slope_adj: float
+        Adjustment of the calculated slope
+    htable_directory: str
+        Directory to synthetic rating curves
+    htable_output: str
+        To get synthetic rating curve
+
+    """
     df_src = pd.read_csv(
         os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv")
     )
+
+    df_src = df_src.drop(
+        [
+            'channel_n',
+            'overbank_n',
+            'subdiv_applied',
+            'Discharge (m3s-1)_subdiv',
+            'Volume_chan (m3)',
+            'Volume_obank (m3)',
+            'BedArea_chan (m2)',
+            'BedArea_obank (m2)',
+            'WettedPerimeter_chan (m)',
+            'WettedPerimeter_obank (m)',
+        ],
+        axis=1,
+        errors='ignore',
+    )
+
     df_htable = pd.read_csv(
         os.path.join(hydrofabric_dir, huc, 'branches', branch, f"hydroTable_{branch}.csv"),
         dtype={'HUC': str, 'last_updated': object, 'submitter': object, 'obs_source': object},
@@ -222,7 +254,7 @@ def get_subdivided_src(
         + ((df_src['Stage'] - df_src['Stage_bankfull']) * 2),
     )
 
-    ## Calculate overbank volume & bed area
+    # Calculate overbank volume & bed area
     df_src['Volume_obank (m3)'] = np.where(
         df_src['Stage'] > df_src['Stage_bankfull'], (df_src['Volume (m3)'] - df_src['Volume_chan (m3)']), 0.0
     )
@@ -253,13 +285,14 @@ def get_subdivided_src(
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
         * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
-        * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        # * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        * pow(df_src['SLOPE'] + slope_adj, 0.5)
         / df_src['channel_n']
     )
     df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
     df_src['Velocity_chan (m/s)'].fillna(0, inplace=True)
 
-    ## Calculate discharge (overbank) using Manning's equation
+    # Calculate discharge (overbank) using Manning's equation
     df_src = df_src.drop(
         [
             'WetArea_obank (m2)',
@@ -277,13 +310,14 @@ def get_subdivided_src(
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
         * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
-        * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        # * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        * pow(df_src['SLOPE'] + slope_adj, 0.5)
         / df_src['overbank_n']
     )
     df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
     df_src['Velocity_obank (m/s)'].fillna(0, inplace=True)
 
-    ## Calcuate the total of the subdivided discharge (channel + overbank)
+    # Calcuate the total of the subdivided discharge (channel + overbank)
     df_src = df_src.drop(
         ['Discharge (m3s-1)_subdiv'], axis=1, errors='ignore'
     )  # drop these cols (in case subdiv was previously performed)
@@ -292,9 +326,9 @@ def get_subdivided_src(
 
     # Subdivide Manning Eq --------------------------------------------------------------------------------
 
-    ## Use the default discharge column when vmann is not being applied
+    # Use the default discharge column when vmann is not being applied
     df_src['Discharge (m3s-1)_subdiv'] = np.where(
-        df_src['subdiv_applied'] == False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']
+        df_src['subdiv_applied'] is False, df_src['Discharge (m3s-1)'], df_src['Discharge (m3s-1)_subdiv']
     )  # reset the discharge value back to the original if vmann=false
 
     df_src = df_src[
@@ -314,7 +348,7 @@ def get_subdivided_src(
         'subdiv_discharge_cms'
     ]  # create a copy of vmann modified discharge (used to track future changes)
 
-    ## drop the previously modified discharge column to be replaced with updated version
+    # drop the previously modified discharge column to be replaced with updated version
     df_htable = df_htable.drop(
         [
             'subdiv_applied',
@@ -347,16 +381,16 @@ def inundate_probabilistic(
     outputs_dir: str,
     huc: str,
     mosaic_prob_output_name: str,
-    posterior_dist: str = None,
-    day: int = 6,
-    hour: int = 0,
-    overwrite: bool = False,
-    num_jobs: int = 1,
-    num_threads: int = 1,
-    windowed: bool = False,
-    output_raster: bool = False,
-    quiet: bool = True,
-    log_file: str = None,
+    posterior_dist: Optional[str] = None,
+    day: Optional[int] = 6,
+    hour: Optional[int] = 0,
+    overwrite: Optional[bool] = False,
+    num_jobs: Optional[int] = 1,
+    num_threads: Optional[int] = 1,
+    windowed: Optional[bool] = False,
+    output_raster: Optional[bool] = False,
+    quiet: Optional[bool] = True,
+    log_file: Optional[str] = None,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
@@ -369,7 +403,7 @@ def inundate_probabilistic(
         Path to load fit parameters to distributions
     hydrofabric_dir: str
         Directory with the hydrofabric directories
-    output_dir: str
+    outputs_dir: str
         Directory to write output files
     huc: str
         Huc to process probabilistic FIM
@@ -377,21 +411,23 @@ def inundate_probabilistic(
         Name of final mosaiced probabilistic FIM
     posterior_dist: str = None
         Name of posterior df
-    day: int = 6
+    day: Optional[int], default = 6
         Days ahead to pick from reference forecast time
-    hour: int = 0,
+    hour: Optional[int], default = 0,
         Hours ahead to pick from reference forecast time
-    overwrite: bool = False
+    overwrite: Optional[bool], default = False
         Whether to overwrite existing output
-    num_jobs: int
+    num_jobs: Optional[int], default = 1
         Number of processes to parallelize over
-    num_threads: int
+    num_threads: Optional[int], default = 1
         Number of threads to parallelize over
-    windowed: bool = False
+    windowed: Optional[bool], default = False
         Whether to run inundation in windowed mode for memory conservation
-    output_raster: bool = False
+    output_raster: Optional[bool], default = False
         Whether to keep the output raster along with the vector output
-    log_file: str = None
+    quiet : Optional[bool], default=False
+        Quiet output
+    log_file: Optional[str], default = None
         Filepath of log file
 
     """
@@ -464,9 +500,6 @@ def inundate_probabilistic(
         posterior_dist=posterior_dist, huc=huc
     )
 
-    # print('NUMBA_CACHE_DIR', os.environ["NUMBA_CACHE_DIR"])
-    # print('Initial Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
-
     # Apply inundation map to each percentile
     for percentile, val in percentiles.items():
 
@@ -513,7 +546,6 @@ def inundate_probabilistic(
                 htable_output_file,
             )
 
-        # CHANGE depending on structure in EFS *****
         flow_file = os.path.join(flow_path, f'{huc}_{percentile}_flow.csv')
 
         df = pd.DataFrame(
@@ -521,8 +553,6 @@ def inundate_probabilistic(
         )
         df.to_csv(flow_file, index=False)
 
-        # print("Before produce_mosaicked inundation", time.localtime())
-        # Temporarily constrained to one run for lambda
         produce_mosaicked_inundation(
             hydrofabric_dir,
             huc,
@@ -535,10 +565,8 @@ def inundate_probabilistic(
             num_threads=num_threads,
             windowed=windowed,
             log_file=log_file,
+            nodata=0,
         )
-        # print("Before final manipulation", time.localtime())
-        # print("file exists: ", os.path.exists(final_inundation_path))
-        # print('Contents of NUMBA_CACHE_DIR', os.listdir(os.environ['NUMBA_CACHE_DIR']))
 
     percentiles
     percentile_files = [
@@ -619,7 +647,7 @@ def inundate_probabilistic(
     shutil.rmtree(flow_path)
 
 
-def progress_bar_handler(executor_dict, verbose, desc):
+def progress_bar_handler(executor_dict, verbose, desc) -> list:
     """Show progress of operation
 
     Parameters
@@ -630,6 +658,12 @@ def progress_bar_handler(executor_dict, verbose, desc):
         Whether to print more progress
     desc: str
         Description of the process
+
+    Returns
+    -------
+    list
+        Results from performing parallelized task
+
     """
     results = []
     for future in tqdm(
@@ -650,18 +684,19 @@ def inundate_hucs(
     outputs_dir: str,
     hucs: list,
     mosaic_prob_output_name: str,
-    posterior_dist: str = None,
-    day: int = 6,
-    hour: int = 0,
-    overwrite: bool = False,
-    num_jobs: int = 1,
-    num_threads: int = 1,
-    windowed: bool = False,
-    output_raster: bool = False,
-    quiet: bool = True,
-    log_file: str = None,
+    posterior_dist: Optional[str] = None,
+    day: Optional[int] = 6,
+    hour: Optional[int] = 0,
+    overwrite: Optional[bool] = False,
+    num_jobs: Optional[int] = 1,
+    num_threads: Optional[int] = 1,
+    windowed: Optional[bool] = False,
+    output_raster: Optional[bool] = False,
+    quiet: Optional[bool] = True,
+    log_file: Optional[str] = None,
 ):
-    """Driver for running probabilistic inundation on selected HUCs
+    """
+    Driver for running probabilistic inundation on selected HUCs
 
     Parameters
     ----------
@@ -677,25 +712,25 @@ def inundate_hucs(
         HUCs to process probabilistic inundation for
     mosaic_prob_output_name: str
         Name of final mosaiced probabilistic FIM
-    posterior_dist: str = None
+    posterior_dist: Optional[str], default = None
         Name of posterior df
-    day: int = 6
+    day: Optional[int], default = 6
         Days ahead to pick from reference forecast time
-    hour: int = 0,
+    hour: Optional[int], default = 0,
         Hours ahead to pick from reference forecast time
-    overwrite: bool = False
+    overwrite: Optional[bool], default = False
         Whether to overwrite existing output
-    num_jobs: int
+    num_jobs: Optional[int], default = 1
         Number of processes to parallelize over
-    num_threads: int
+    num_threads: Optional[int], default = 1
         Number of threads to parallelize over
-    windowed: bool = False
+    windowed: Optional[bool], default = False
         Whether to run inundation in windowed mode for memory conservation
-    output_raster: bool = False
+    output_raster: Optional[bool], default = False
         Whether to keep the output raster along with the vector output
-    quiet: bool = False
+    quiet: Optional[bool], default = False
         Whether to be verbose or not
-    log_file: str = None
+    log_file: Optional[str], default = None
         Filepath of log file
 
     """

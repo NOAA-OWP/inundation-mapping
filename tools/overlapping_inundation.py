@@ -10,14 +10,22 @@ from threading import Lock
 import geopandas as gpd
 import numpy as np
 import rasterio
+import rioxarray as rxr
+import xarray as xr
 from affine import Affine
+from geocube.api.core import make_geocube
 from numba import njit
-from rasterio.mask import mask
 from rasterio.windows import from_bounds
 from scipy.optimize import newton
+from shapely.geometry import box
 
 
 gpd.options.io_engine = "pyogrio"
+
+
+def _vprint(message, verbose):
+    if verbose:
+        print(message)
 
 
 class OverlapWindowMerge:
@@ -75,11 +83,6 @@ class OverlapWindowMerge:
 
         self.partitions = num_partitions
         self.window_sizes = window_xy_size
-
-    @staticmethod
-    def __vprint(message, verbose):
-        if verbose:
-            print(message)
 
     @staticmethod
     @njit
@@ -260,7 +263,7 @@ class OverlapWindowMerge:
 
         return [final_bnds, bnds, data]
 
-    def merge_rasters(self, out_fname, nodata=-9999, threaded=False, workers=4, quiet=True):
+    def merge_rasters(self, out_fname, nodata=0, threaded=False, workers=4, quiet=True):
         """
         Merge multiple raster datasets
 
@@ -341,19 +344,20 @@ class OverlapWindowMerge:
                     try:
                         future.result()
                     except Exception as exc:
-                        self.__vprint("Exception {} for {}".format(exc, results[future]), not quiet)
+                        _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
                     else:
                         if results[future] is not None:
-                            self.__vprint("... {} complete".format(results[future]), not quiet)
+                            _vprint("... {} complete".format(results[future]), not quiet)
                         else:
-                            self.__vprint("... complete", not quiet)
+                            _vprint("... complete", not quiet)
 
-    def mask_mosaic(self, mosaic, polys, polys_layer=None, outfile=None):
-        # rem_array,window_transform = mask(rem,[shape(huc['geometry'])],crop=True,indexes=1)
+    @staticmethod
+    def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=True):
 
-        # input rem
         if isinstance(mosaic, str):
-            mosaic = rasterio.open(mosaic)
+            with rasterio.open(mosaic, 'r') as rst:
+                windows = [windows for _, windows in rst.block_windows()]
+                profile = rst.profile
         elif isinstance(mosaic, rasterio.DatasetReader):
             pass
         else:
@@ -366,28 +370,51 @@ class OverlapWindowMerge:
         else:
             raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
 
-        # fossid = huc['properties']['fossid']
-        # if polys.HydroID.dtype != 'str': polys.HydroID = polys.HydroID.astype(str)
-        # polys=polys[polys.HydroID.str.startswith(fossid)]
-        mosaic_array, window_transform = mask(mosaic, polys["geometry"], crop=True, indexes=1)
+        mosaic_read = rxr.open_rasterio(mosaic)
+        mosaic_read = mosaic_read.sel({'band': 1})
+        geom = polys['geometry'].values[0]
 
-        if outfile:
-            out_profile = mosaic.profile
-            out_profile.update(
-                height=mosaic_array.shape[0],
-                width=mosaic_array.shape[1],
-                transform=window_transform,
-                driver="GTiff",
-                blockxsize=256,
-                blockysize=256,
-                tiled=True,
-                compress="lzw",
+        def write_window(geom, window, wrst, lock):
+            mosaic_slice = mosaic.isel(
+                y=slice(window.row_off, window.row_off + window.height),
+                x=slice(window.col_off, window.col_off + window.width),
             )
+            bbox = box(*mosaic_slice.rio.bounds())
 
-            with rasterio.open(outfile, "w", **out_profile) as otfi:
-                otfi.write(mosaic_array, indexes=1)
+            if geom.intersects(bbox):
 
-        return (mosaic_array, out_profile)
+                inter = geom.intersection(bbox)
+
+                if inter.area != bbox.area:
+                    gdf_temp = gpd.GeoDataFrame(geometry=[inter], crs=mosaic_slice.rio.crs)
+                    gdf_temp['arb'] = np.int8(1)
+                    temp_rast = make_geocube(vector_data=gdf_temp, measurements=['arb'], like=mosaic_slice)
+                    mosaic_slice.data = xr.where(np.isnan(temp_rast['arb']), 0, mosaic_slice.data)
+                    # with lock:
+                    wrst.write_band(1, mosaic_slice.data.squeeze(), window=window)
+
+        executor = ThreadPoolExecutor(max_workers=workers)
+
+        def __data_generator(windows, mosaic, geom, wrst, lock):
+            for window in windows:
+                yield mosaic, geom, window, wrst, lock
+
+        lock = Lock()
+
+        with rasterio.open(outfile, "r+", **profile) as wrst:
+            dgen = __data_generator(windows, mosaic_read, geom, wrst, lock)
+            results = {executor.submit(write_window, *wg): 1 for wg in dgen}
+
+            for future in as_completed(results):
+                try:
+                    future.result()
+                except Exception as exc:
+                    _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
+                else:
+                    if results[future] is not None:
+                        _vprint("... {} complete".format(results[future]), not quiet)
+                    else:
+                        _vprint("... complete", not quiet)
 
 
 # Quasi multi write
@@ -412,8 +439,8 @@ def merge_data(
     :param rst_dims: dimensions of overlapping rasters
     """
 
-    nan_tile = np.array([np.nan])
-    window_data = np.tile(float(nan_tile), [int(final_window.height), int(final_window.width)])
+    nan_tile = np.array([nodata])
+    window_data = np.tile(nan_tile, [int(final_window.height), int(final_window.width)])
 
     for data, bnds, idx in zip(rst_data, window_bnds, datasets):
         # Get indices to apply to base
@@ -442,12 +469,12 @@ def merge_data(
             warnings.simplefilter("ignore", category=RuntimeWarning)
             window_data[row_slice, col_slice] = agg_function(merge)
 
-        window_data[np.isnan(window_data)] = nodata
+        # window_data[np.isnan(window_data)] = nodata
         del merge
 
     del rst_data, window_bnds, datasets
 
-    window_data[(window_data == nan_tile) | (np.isnan(window_data))] = nodata
+    window_data[(window_data == nan_tile)] = nodata
 
     with lock:
         rst.write_band(1, window_data.astype(dtype), window=final_window)

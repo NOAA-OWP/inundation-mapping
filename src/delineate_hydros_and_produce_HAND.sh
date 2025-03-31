@@ -48,6 +48,8 @@ python3 $srcDir/unique_pixel_and_allocation.py \
 ## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber $current_branch_id"
 python3 $srcDir/adjust_thalweg_lateral.py \
+    -h
+    -b $current_branch_id
     -e $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -a $tempCurrentBranchDataDir/demDerived_streamPixels_ids_"$current_branch_id"_allo.tif \
@@ -283,3 +285,9 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -u $hucNumber \
         -z $current_branch_id
 fi
+
+## CONVERSION TO INT16 ##
+echo -e $startDiv"Convert GW Catchments and REM to Int16 $hucNumber $current_branch_id"
+python3 $toolsDir/convert_to_int16.py \
+    -h $tempHucDataDir \
+    -b $current_branch_id
