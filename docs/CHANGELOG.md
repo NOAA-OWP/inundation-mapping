@@ -1,6 +1,215 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.1.2 - 2025-03-28 - [PR#1477](https://github.com/NOAA-OWP/inundation-mapping/pull/1477)
+This PR prevents the removal of the processing duration text file from each HUC to aid in debugging. This tries to fix #1458.
+
+### Changes
+- `src/duration_system.py`  Avoids the removal of the HUC processing duration file. 
+
+<br/><br/>
+
+
+## v4.6.1.1 - 2025-03-21 - [PR#1469](https://github.com/NOAA-OWP/inundation-mapping/pull/1469)
+
+FIM requires DEMs with a 5 km buffer around HUC8 boundaries. The current workflow for generating these DEMs consists of the following steps:
+
+1. Creating separate DEMs for each HUC8 boundary.
+2. Merging them into a VRT file.
+3. Cropping the VRT to the buffered boundary.
+
+However, this approach introduces two key issues:
+
+- Misalignment of DEMs: Clipping the VRT to the buffered HUC8 extent results in a misaligned DEM, which propagates into the REM and inundation predictions, as highlighted in issue #1415.
+- Interpolation Artifacts: Cropping the VRT involves bilinear interpolation, which alters the original DEM values.
+
+Making changes some arguments to gdalwarp for both run_unit_wb and the acquire DEMs process fixes this.
+
+We also added a new feature to make testing much quicker and easier. A new argument allows you to process just a specific set of HUCs if you want too. This removes the need to have to make special WBD test folders with just the HUCs in it you need. 
+
+Also made an update to the deny lists to remove thre bridge_elev_diff_meter tif files. This fix was applied to the unit, branch 0 and branches level.
+
+### Changes
+
+- `config`
+    - `deny_branch_zero.lst`, `deny_branch.lst`, `deny_unit.lst`
+- `data\usgs`
+    - `acquire_and_preprocess_3dep_dems.py`: Added new optional huc list feature plus make updates to gdalwarp calls to ensure cell alignments down the road.
+ - `src`
+     - `run_unit_wb`: Adjustments to gdalwarp calls to help with alignment
+     - `bash_variables.env`:  Update for the new path for the new DEMs.
+
+<br/><br/>
+
+## v4.6.1.0 - 2025-03-21 - [PR#1429](https://github.com/NOAA-OWP/inundation-mapping/pull/1429)
+
+A collection of simple tools to pull down FIM_30 ripple data. While this has limited value for other data sources and it customized specifically for ripple data downloads, it can easily be modified later as needed.
+
+The tools have a couple of jobs:
+- One set `get_s3_folder.sh` and `get_s3_folders_from_list.sh`, pull down data from rtx and create output csvs with some metadata about the downloads.
+- The second file is very specific for ripple but we want to keep the tool. It takes in the meta data csv's from the download, adds some meta data from a ras2fim dataset, creates a new csv of applicable HUCs, and adds geometry to each row. This becomes the dataset required to send to HydroVIS to create the HECRAS Boundary Service plus assist in processing dynamic flow data for other services.
+
+This also has a few minor misc fixes, notes embedded.
+
+### Additions
+
+- `data/ripple`
+   - `get_s3_folder.sh`:  A script to pull down just one specific folder at any level from any S3 bucket.
+   - `get_s3_folders_from_list.sh`:  A script that can take in a single specific or file path to a file with HUC value.
+   - `hecras_boundaries.ipynb`: As described above. It is specifically for making a HUC based dataset with geometries for ripple and ras2fim.
+
+### Changes
+
+- `.pre-commit-config.yaml`: Updating linting tools version updates. 
+- `fim_post_processing.sh`: A fix for when a person enters incorrect args to the command.
+- `fim_pre_processing.sh`: A fix for when a person enters incorrect args to the command.
+- `pyproject.toml`: Update contributor names for the list.
+
+<br/><br/>
+
+## v4.6.0.3 - 2025-03-21 - [PR#1442](https://github.com/NOAA-OWP/inundation-mapping/pull/1442)
+
+Re-wrote the catfim_sites_compare.py tool. The updated version can handle more model inputs (including outputs from both flow-based and stage-based CatFIM) and produces additional compiled CSVs for analysis. 
+
+### Changes
+
+- `tools/catfim/catfim_sites_compare.py`:
+  - Changed outputs. Instead of one output CSV comparing the two versions provided, the tool will provide one CSV with the compiled statuses from all flow-based outputs, one for stage-based, and then a comparison CSV with before/after status changes for all sequential pairs of CatFIM outputs provided. A log file is no longer being saved.
+  - Changed input structure. Instead of specifying -p for previous CatFIM outputs and -n for new ones, a space-delimited list of CatFIM output paths are provided for -p. 
+  - New optional argument -k specifies to keep only the sites where there has been a status change in the version comparison files.
+  - Changed input allowance. User can now input as many CatFIM output folders as they want (and can combine stage- and flow-based outputs).
+
+<br/><br/>
+
+## v4.6.0.2 - 2025-03-21 - [PR#1450](https://github.com/NOAA-OWP/inundation-mapping/pull/1450)
+Updated the APHS restricted sites list so all test sites are excluded from BOTH stage-based and flow-based CatFIM and updated CatFIM so that when a site is excluded due to being on the restricted sites list, the phrase "Restricted Site" is included in the status. Also updated the CatFIM mapping functions so that there are a few functions that save the output plot into a .png file.
+
+
+### Changes
+- `tools/catfim/ahps_restricted_sites.csv`: Updated the restricted sites list so the test sites are applied to both stage- and flow-based CatFIM. Tidied up status phrasing.
+- `tools/catfim/generate_categorical_fim.py`: Updated restricted site processing so "Restricted Site" is appended at the beginning of the site status for sites that are removed due to the restricted sites list. 
+- `tools/catfim/generate_categorical_fim_flows.py`: Updated restricted site processing so "Restricted Site" is appended at the beginning of the site status for sites that are removed due to the restricted sites list. Also updated the metadata retrieval code so it now prints the ID's of sites excluded due to being duplicates. 
+- `tools/catfim/vis_categorical_fim.py`: Update the CatFIM mapping functions to include two functions for saving CatFIM plots. Cleaned up comments and corrected code usage examples.
+
+<br/><br/>
+
+## v4.6.0.1 - 2025-03-21 - [PR#1463](https://github.com/NOAA-OWP/inundation-mapping/pull/1463)
+This PR resolves issue #1457 by ensuring that HUCs without lidar-informed bridges are properly handled. The code now checks for the availability of lidar-informed bridges, and if none exist for a given HUC, the lidar healing workflow is skipped.
+
+### Changes
+- `src/heal_bridges_osm.py`  ... As described above. 
+
+<br/><br/>
+
+
+## v4.6.0.0 - 2025-03-07 - [PR#1406](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
+This PR closes the issue #1242. 
+This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The workflow consists of:  
+- Extracting lidar-derived elevations for bridges  
+- Calculating DEM required corrections (elevation differences between lidar elevations and 3DEP DEMs within bridge areas)  
+- Adding the DEM corrections into the final HAND grid
+
+
+### Additions
+- `data/bridges/make_rasters_using_lidar.py`. Generates bridge elevation raster files using lidar data, as described [here](https://github.com/NOAA-OWP/inundation-mapping/issues/1242#issuecomment-2599242908). This script has to be run on Windows machines. This script must be run twice, each time with a different OSM bridge-lines GPKG file: once for the CONUS and separately for Alaska. The raster files are generated using EPSG:5070 for CONUS bridges and EPSG:3338 for Alaska bridges.
+- `data/bridges/make_dem_dif_for_bridges.py` Generates DEM correction files by subtracting USGS 3DEP DEMs from lidar-elevation raster files at HUC levels, as described [here](https://github.com/NOAA-OWP/inundation-mapping/issues/1242#issuecomment-2599242908). Non-bridge locations (which make up most of the HUC domain) have zero values, while OSM bridge locations typically show positive values. This script also needs to be run twice: once for the CONUS and a separate time specifically for Alaska.
+
+- `data/bridges/conda_fim_bridges_enviro.yml` A conda environment file to install conda env needed for running _data/bridges/make_rasters_using_lidar.py_
+- `data/bridges/setup_conda_for_make_rasters.txt` Provides instructions for running the _data/bridges/make_rasters_using_lidar.py_ script on a Windows machine using a Conda environment.
+
+
+### Changes
+- `data/bridges/pull_osm_bridges.py` The updates include:
+     - This script now generates two separate OSM bridge centerline files: one for CONUS and another for Alaska, each with its own CRS to improve accuracy.
+     - It was also pulling in some bad bridge HUCs as well as some pulling in a bunch of invalid date. While it originally had code to drop bridge type of "abandoned", it was not working. We also realized we were missing code to drop a bunch of other invalid data based on bridge types such as "razed, dismantled, destroyed, etc". We also made a decision to drop "proposed" bridge types as we don't know its status on being built. We spot checked a bunch of the "proposed" and none yet existed. Maybe they will appear in later pulls.  We also found more invalid columns that triggered dropping of some bridge data. We also upgraded logging a bit to find errors of what bridge data was being dropped.
+
+- `src/bash_variables.env` - Ingests links to two new VRT files for DEM correction rasters (CONUS and Alaska) and the new Alaska OSM bridges GPKG file, plus new pre-clip directory.
+- `data/wbd/generate_pre_clip_fim_huc8.py` Pre-clips the new Alaska OSM bridges GPKG file.
+
+- `src/run_unit_wb.sh` Crops the DEM correction VRT file to the buffered HUC boundary and create a copy for branch 0.
+- `src/run_by_branch.sh` Clips HUC-level DEM correction rasters for branches.
+
+
+- `src/heal_bridges_osm.py` Now implements two distinct workflows for healing the REM at OSM bridge locations, depending on the availability of lidar data: 
+    - If lidar data is unavailable: The existing workflow is followed, creating a 10m buffer around the bridge centerline and applying the maximum REN value within this buffer to the entire area.
+    - If lidar data is available: The script reads DEM correction rasters and add their values into the REM, effectively healing it at bridge locations (DEM correction files have zero value for non-bridge locations). Additionally, it reports the median healed REM values within a 1.5m buffer around bridge centerlines for use in determining bridge risk status.
+- `src/delineate_hydros_and_produce_HAND.sh` Updated to align with the revised input arguments of `src/heal_bridges_osm.py`
+
+- `src/aggregate_by_huc.py`  Applies 'threshold' HAND/discharge terminology instead of 'max' HAND/discharge terminology for determining bridges risk status. Also included information on the presence or absence of lidar data in the bridge risk status report.
+- `tools/bridge_inundation.py`. Applies 'threshold' HAND/discharge terminology instead of 'max' HAND/discharge terminology for determining bridges risk status. Also added the 'evaluated_discharge' field to show the given flow for determining the risk status. 
+
+- `data/usgs/acquire_and_preprocess_3dep_dems.py` : minor updates to inline comments
+- `data/create_vrt_file.py`:  small updates to text and changed timezones to be UTC instead of local to match much of our other conventions. Note: Many of our files are not yet UTC, but we hope to change them as we work on related files in the future.
+
+- `.gitignore / pyproject.toml` - With the addition of the new `conda_fim_bridges_enviro.yml` and `setup_conda_for_make_rasters.txt`, our current linting system was consistantly failing linting tests. Adjustments were made to try and have linting ignore the two files.
+
+### Testing
+A series of comprehensive test runs for both CONUS and Alaska were conducted to develop and validate the results. Some observations have been documented #1242.
+
+<br/><br/>
+
+## v4.5.14.10 - 2025-03-07 - [PR#1447](https://github.com/NOAA-OWP/inundation-mapping/pull/1447)
+
+### Summary
+This PR update Dockerfile.owp which is for building the podman image in owp server. Also `Dockerfile.dev` updated to be more clean and matchup the podman image.
+
+### Changes
+- `inundation-mapping`:
+   - `Dockerfile.owp`: This file updated and now podman image on owp server can be built.
+   - `Dockerfile.dev`: This file updated to match the podman image and be more clean to read.
+
+<br/><br/>
+
+## v4.5.14.9 - 2025-03-07 - [PR#1427](https://github.com/NOAA-OWP/inundation-mapping/pull/1427)
+
+Avoids importing both GDAL and `rasterio` in the same Python interpreter session. Also updates some Python packages.
+
+### Changes
+
+- `Dockerfile.owp`: renamed from `Dockerfile.prod`
+- `Pipfile` and `Pipfile.lock`: added `pymc`, and `rio_vrt`; upgraded `osmnx`
+- `data/`
+    - `bathymetry/preprocess_bathymetry.py`: Replaced `gdal` with `whitebox`
+- `src/utils/shared_functions.py`: Remove unused function and `rasterio` import
+- `tools/inundate_nation.py`: Replaced `gdal` with `rio_vrt` and `whitebox`
+
+<br/><br/>
+
+## v4.5.14.8 - 2025-02-14 - [PR#1414](https://github.com/NOAA-OWP/inundation-mapping/pull/1414)
+
+### Summary
+This PR fixes Hydrotables that have hydroIDs with nan values. These hydroids are associated with very small reaches which are linked to one-pixel catchments. Thus, those small reaches were removed in filter_catchments_and_add_attributes.py. This PR also removes the GMS catchments whose main streams are less than 1 m. This PR will close issue #1339.
+
+### Changes
+- `src`:
+   - `filter_catchments_and_add_attributes.py`: Lines of code have been added to the function `filter_catchments_and_add_attributes` to find streams that do NOT have upstream branches and they are so tiny.
+
+<br/><br/>
+
+## v4.5.14.7 - 2025-02-14 - [PR#1426](https://github.com/NOAA-OWP/inundation-mapping/pull/1426)
+
+Added two new input args to add hand version and product version as output columns to all four output files of FB sites and library plus SB sites and library. This includes the new "model_version" and "product_version". The model verion field will be similar to "HAND 4_5_11_1" and the product version will be similar to "CatFIM 2_2"
+
+### Changes
+
+- `tools\catfim`
+    - `generate_categorical_fim.py' : as described above.
+     - `generate_categorical_mapping.py' : as described above.
+
+<br/><br/>
+
+
+## v4.5.14.6 - 2025-02-14 - [PR#1418](https://github.com/NOAA-OWP/inundation-mapping/pull/1418)
+
+Previously, stage-based CatFIM would inundate areas that we know to be lakes based on our FIM data. This update masks out lakes from stage-based CatFIM inundation. 
+
+### Changes
+
+- `inundation-mapping/tools/catfim/generate_categorical_fim_mapping.py`: Added code to filter out HydroIDs that are associated with a non-null LakeID. Also added code to use the water bodies geopackage tomask out lakes right before the tifs are saved, at the end of `produce_stage_based_lid_tifs()`. Comments in this area were also cleaned up. 
+- `tools/tools_shared_functions.py`: Added a function for masking out lakes.
+
+<br/><br/>
+
 ## v4.5.14.5 - 2025-01-31 - [PR#1401](https://github.com/NOAA-OWP/inundation-mapping/pull/1401)
 
 This PR improves the current HUC processing duration system by saving the processing time for each HUC separately. This helps prevent collisions that can happen during parallel processing and ensures more accurate, comprehensive results. The new Python script reads all the processing time files and combines them into a CSV. It also adds a summary line at the end with the total runtime, as well as the number of HUCs and branches.
@@ -161,7 +370,6 @@ Fixes two issues in test_cases:
 
 ### Changes
 
-- `src/bash_variables.env`: Added environment variables for Alaska waterbody and levee masks and two variables to replace fixed paths in an upcoming PR (#1178).
 - `tools/`
     - `run_test_case.py`: Fixed error if missing validation data. Updated masking data to include Alaska.
     - `synthesize_test_cases.py`: Fixed error if missing validation data.
@@ -282,6 +490,8 @@ As part of this PR, small modification was applied to bridge_inundation.py.
 - `tools/bridge_inundation.py`
 
 <br/><br/>
+
+
 
 
 ## v4.5.11.3 - 2024-10-25 - [PR#1320](https://github.com/NOAA-OWP/inundation-mapping/pull/1320)
@@ -829,6 +1039,7 @@ A number of python packages were updated in this PR. You will need to build a ne
 
 <br/><br/>
 
+
 ## v4.5.2.0 - 2024-05-20 - [PR#1166](https://github.com/NOAA-OWP/inundation-mapping/pull/1166)
 
 The main goal of this PR is to create bridge point data that be used as a service in HydroVIS. Since every branch processes bridges separately, it's possible to inundate a bridge from more than just the feature_id it crosses. To reflect this, the `osm_bridge_centroids.gpkg` now found in HUC directories will have coincident points - one that is inundated from the reach it crosses and the other a backwater-influenced point indicated by the `is_backwater` field.
@@ -844,6 +1055,7 @@ The main goal of this PR is to create bridge point data that be used as a servic
 - `config/deny_branch_zero.lst` & `deny_branches.lst`: Added `#osm_bridge_centroids_{}.gpkg` to the deny lists.
 
 <br/><br/>
+
 
 ## v4.5.1.3 - 2024-05-17 - [PR#1170](https://github.com/NOAA-OWP/inundation-mapping/pull/1170)
 
