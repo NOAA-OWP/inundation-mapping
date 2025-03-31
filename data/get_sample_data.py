@@ -19,6 +19,7 @@ def get_sample_data(
     use_s3: bool = False,
     aws_access_key_id: str = None,
     aws_secret_access_key: str = None,
+    get_test_cases: bool = False,
 ):
     """
     Create input data for the flood inundation model
@@ -28,11 +29,20 @@ def get_sample_data(
     hucs : str
         HUC(s) to process
     data_path : str
-        Path to the input data
+        Path to the root data (s3 path s3://bucket/and parent folder. The input_root and output_root_folder
+        are relative to this path
     output_root_folder : str
         Path to save the output data
     use_s3 : bool
         Download data from S3 (default is False)
+    input_root: str
+        Path to get the input data
+    aws_access_key_id : str
+        Required
+    aws_secret_access_key : str
+        Required
+    get_test_cases : bool
+        Get validation data (default is False)
     """
 
     def __get_validation_hucs(root_dir: str, org: str):
@@ -44,7 +54,9 @@ def get_sample_data(
         root_dir : str
             Root directory
         org : str
-            Organization name
+            Organization name (test case source.. ble, usgs, etc)
+
+        Note: In some buckets there may not necessarily be any test_case_data
         """
 
         if use_s3:
@@ -73,7 +85,7 @@ def get_sample_data(
         Parameters
         ----------
         org : str
-            Organization name
+            Organization name  (benchmark source: ble, usgs, etc.)
         huc : str
             HUC
         input_path : str
@@ -264,16 +276,17 @@ def get_sample_data(
 
     root_dir = os.path.split(input_path)[0]
 
-    ## test_cases
-    validation_hucs = {}
-    orgs = ['ble', 'nws', 'usgs', 'ras2fim']
-    for org in orgs:
-        validation_hucs[org] = __get_validation_hucs(root_dir, org)
+    if get_test_cases:
+        ## test_cases
+        validation_hucs = {}
+        orgs = ['ble', 'nws', 'usgs', 'ras2fim']
+        for org in orgs:
+            validation_hucs[org] = __get_validation_hucs(root_dir, org)
 
-        os.makedirs(
-            os.path.join(output_root_folder, f'test_cases/{org}_test_cases/validation_data_{org}'),
-            exist_ok=True,
-        )
+            os.makedirs(
+                os.path.join(output_root_folder, f'test_cases/{org}_test_cases/validation_data_{org}'),
+                exist_ok=True,
+            )
 
     # Copy WBD (needed for post-processing)
     __copy_file(os.environ["input_WBD_gdb"], output_root_folder, input_root, bucket_path)
@@ -411,13 +424,14 @@ def get_sample_data(
             os.path.join(os.environ["pre_clip_huc_dir"], huc), output_root_folder, input_root, bucket_path
         )
 
-        ## validation data
-        for org in orgs:
-            if huc in validation_hucs[org]:
-                if use_s3:
-                    __copy_validation_data(org, huc, bucket_path, output_root_folder)
-                else:
-                    __copy_validation_data(org, huc, data_path, output_root_folder)
+        if get_test_cases:
+            ## validation data
+            for org in orgs:
+                if huc in validation_hucs[org]:
+                    if use_s3:
+                        __copy_validation_data(org, huc, bucket_path, output_root_folder)
+                    else:
+                        __copy_validation_data(org, huc, data_path, output_root_folder)
 
 
 if __name__ == '__main__':
@@ -429,6 +443,7 @@ if __name__ == '__main__':
     parser.add_argument('-s3', '--use-s3', action='store_true', help='Download data from S3')
     parser.add_argument('-ak', '--aws-access-key-id', help='AWS access key ID', required=False)
     parser.add_argument('-sk', '--aws-secret-access-key', help='AWS secret access key', required=False)
+    parser.add_argument('-t', '--get-test-cases', action='store_true', help='Get validation data')
 
     args = parser.parse_args()
 
