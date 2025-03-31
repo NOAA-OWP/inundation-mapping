@@ -5,66 +5,66 @@ nws_lid,restricted_reason,catfim_type
 #
 # Comment lines can be added as any independent line in this csv.
 #
-AABDB,Test Site,stage
+AABDB,Test Site,both
 ADLG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
 AUGG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
 BAXG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
-BRKTS,Test Site,stage
+BRKTS,Test Site,both
 CNNN6,Pool elevation thresholds. Disabled at request of MARFC,stage
-DMBT2,Test Site,stage
+DMBT2,Test Site,both
 DMSF1,Tidal Gauge,stage
 DVNIA,Test Site,both
-GVDA1,bad data in API,stage
-HFMW4,gage relocated. check again later for review,stage
-HLZU1,bad data in API,stage
-HNXCA,Test Site,stage
+GVDA1,Bad data in API,stage
+HFMW4,Gauge relocated. check again later for review,both
+HLZU1,Bad data in API,both
+HNXCA,Test Site,both
 HRAG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
-HUSKR,Test Site,stage
-HZT00,Test Site,stage
-HZT02,Test Site,stage
-ILMNA,Test Site,stage
-JTEST,Test Site,stage
-JYNT2,Test Site,stage
+HUSKR,Test Site,both
+HZT00,Test Site,both
+HZT02,Test Site,both
+ILMNA,Test Site,both
+JTEST,Test Site,both
+JYNT2,Test Site,both
 KLNQ9,Outside U.S.,both
 LAMF1,Stage thresholds seem to be based on sea level and not channel thalweg.,stage
-MCVA3,historical gauge,both
+MCVA3,Historical gauge,both
 NVRN6,Pool elevation thresholds. Disabled at request of MARFC.,stage
 PEPN6,Pool elevation thresholds. Disabled at request of MARFC.,stage
 PRXQ9,Outside U.S.,both
 ONDN6,Inundation issues,stage
 QUTG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
 RCYF1,Out of Service,both
-RWBW3, historical gauge,stage
-SMSV2,point not in AHPS,both
+RWBW3,Historical gauge,both
+SMSV2,Point not in AHPS,both
 STNG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
-TESM8,Test Site,stage
-TEST,Test Site,stage
-TEST1,Test Site,stage
-TEST11,Test Site,stage
-TEST2,Test Site,stage
-TEST3,Test Site,stage
-TEST4,Test Site,stage
-TEST9,Test Site,stage
-TESTA,Test Site,stage
-TESTB,Test Site,stage
-TESTC,Test Site,stage
-TESTPT1,Test Site,stage
-TETM8,Test Site,stage
-TS2W3,Test Site,stage
-TS3W3,Test Site,stage
-TS4W3,Test Site,stage
-TSTMO,Test Site,stage
-TSTN6,Test Site,stage
-TSTSP,Test Site,stage
-TSTUP,Test Site,stage
+TESM8,Test Site,both
+TEST,Test Site,both
+TEST1,Test Site,both
+TEST11,Test Site,both
+TEST2,Test Site,both
+TEST3,Test Site,both
+TEST4,Test Site,both
+TEST9,Test Site,both
+TESTA,Test Site,both
+TESTB,Test Site,both
+TESTC,Test Site,both
+TESTPT1,Test Site,both
+TETM8,Test Site,both
+TS2W3,Test Site,both
+TS3W3,Test Site,both
+TS4W3,Test Site,both
+TSTMO,Test Site,both
+TSTN6,Test Site,both
+TSTSP,Test Site,both
+TSTUP,Test Site,both
 TTARX,Test Site,both
 VEFNV,Test Site,both
 WBYA1,Out of Service,both
-WLSA1, bad data in API,stage
-WUNTS, not a real gauge,both
-XXXN3,Test Site,stage
+WLSA1,Bad data in API,stage
+WUNTS,Not a real gauge,both
+XXXN3,Test Site,both
 YDAQ9,Outside U.S.,both
-YLKA2,Discontinued Gage,stage
+YLKA2,Discontinued gauge,both
 YWRQ9,Outside U.S.,both
-ZZZT2,Test Site,stage
+ZZZT2,Test Site,both
 CMUG1,Out of Service,both
