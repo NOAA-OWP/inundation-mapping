@@ -275,4 +275,3 @@ dependencies:
       - laspy==2.5.4
       - pdal-plugins==1.6.2
       - python-pdal==0.0.1
-prefix: C:\Users\rdp-user\anaconda3\envs\fim_bridges
