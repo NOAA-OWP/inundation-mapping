@@ -14,6 +14,15 @@ The interaction between dems, osm pulls, lidar pulls, dem diffs and pre-clips ca
 
 <br/><br/>
 
+## v4.6.1.2 - 2025-03-28 - [PR#1477](https://github.com/NOAA-OWP/inundation-mapping/pull/1477)
+This PR prevents the removal of the processing duration text file from each HUC to aid in debugging. This tries to fix #1458.
+
+### Changes
+- `src/duration_system.py`  Avoids the removal of the HUC processing duration file. 
+
+<br/><br/>
+
+
 ## v4.6.1.1 - 2025-03-21 - [PR#1469](https://github.com/NOAA-OWP/inundation-mapping/pull/1469)
 
 FIM requires DEMs with a 5 km buffer around HUC8 boundaries. The current workflow for generating these DEMs consists of the following steps:
