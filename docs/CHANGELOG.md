@@ -14,6 +14,10 @@ Changes include:
 ### Changes
 
 - `tools\synthesize_test_cases.py`: As described above.
+
+<br/><br/>
+
+
 ## v4.6.1.3 - 2025-04-01 - [PR#1471](https://github.com/NOAA-OWP/inundation-mapping/pull/1471)
 
 During running the `make_dem_dif_for_bridges` tool, which creates some updated inputs and triggers updates for bash_variables, we made a few text adjustments.
