@@ -436,6 +436,34 @@ def read_format_catfim_library(catfim_library_filepath):
 
     return library_gdf
 
+def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
+    '''
+    Inputs:
+    - input_gdf (GeoDataFrame)
+    - id_col (string): column name for the site ID
+    - mag_col (string): column name for the magnitude
+    - minimum_area_threshold (float): minimum area threshold in square meters
+
+    Outputs:
+    - cleaned_gdf (GeoDataFrame): cleaned GeoDataFrame with polygons larger than the threshold
+    '''
+
+    # Turn multipolygon into multiple polygons
+    cleaned_gdf = input_gdf.explode()
+
+    # Calculate area and remove polygon segments smaller than threshold (sq m)
+    cleaned_gdf['area']=cleaned_gdf.area
+    cleaned_gdf = cleaned_gdf[cleaned_gdf['area']>=minimum_area_threshold]
+
+    # Condense back into a multipolygon
+    cleaned_gdf = cleaned_gdf.dissolve(by=[id_col, mag_col])
+
+    # Remove area column
+    cleaned_gdf.drop('area', axis=1, inplace=True)
+    cleaned_gdf = cleaned_gdf.reset_index()
+    # cleaned_gdf['area'] = cleaned_gdf.area
+    
+    return cleaned_gdf 
 
 # Calculate difference between CatFIM libraries of subsequent versions
 def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_list, output_save_filepath):
@@ -549,12 +577,15 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                 added = after_union.difference(before_union)
 
                 if not removed.is_empty:
-                    removed = pd.DataFrame({id_col: [lid], mag_col: [magnitude], 'geometry': [removed]})
-                    removed_geom = pd.concat([removed_geom, removed])
+                    removed_gdf = gpd.GeoDataFrame({id_col: [lid], mag_col: [magnitude], 'geometry': [removed]}, crs = removed_geom.crs)
+                    removed_gdf_cleaned = remove_polygon_shards(removed_gdf, id_col, mag_col, minimum_area_threshold = 100)
+                    removed_geom = pd.concat([removed_geom, removed_gdf_cleaned])
 
                 if not added.is_empty:
-                    added = pd.DataFrame({id_col: [lid], mag_col: [magnitude], 'geometry': [added]})
-                    added_geom = pd.concat([added_geom, added])
+                    added_gdf = gpd.GeoDataFrame({id_col: [lid], mag_col: [magnitude], 'geometry': [added]}, crs = added_geom.crs)
+                    added_gdf_cleaned = remove_polygon_shards(added_gdf, id_col, mag_col, minimum_area_threshold = 100)
+                    added_geom = pd.concat([added_geom, added_gdf_cleaned])
+
 
         # Add back in the metadata columns
         removed_geom = removed_geom.merge(before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']], on=[id_col, mag_col], how='left')
@@ -566,11 +597,19 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         removed_geom = removed_geom.set_crs(web_mercator_crs)  # web mercator, the viz projection
 
         # Save the geopackages
-        added_geom.to_file(gained_coverage_gpkg_save_path, layer='gained_coverage', driver='GPKG')
-        removed_geom.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG')
+        if len(added_geom) == 0:
+            print('\nNo gained coverage detected, not saving a gained coverage GPKG.')
+        else:
+            added_geom.to_file(gained_coverage_gpkg_save_path, layer='gained_coverage', driver='GPKG')
+            print(f'\nSaved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
 
-        print(f'\nSaved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
-        print(f'\nSaved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
+        if len(removed_geom) == 0:
+            print('\nNo lost coverage detected, not saving a lost coverage GPKG.')
+        else:
+            removed_geom.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG')
+            print(f'\nSaved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
+
+
 
 
 # Main function for catfim_site_tracking
