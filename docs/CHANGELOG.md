@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.6.x.x - 2025-04-01 - [PR#1471](https://github.com/NOAA-OWP/inundation-mapping/pull/1471)
+## v4.6.1.3 - 2025-04-01 - [PR#1471](https://github.com/NOAA-OWP/inundation-mapping/pull/1471)
 
 During running the `make_dem_dif_for_bridges` tool, which creates some updated inputs and triggers updates for bash_variables, we made a few text adjustments.
 
