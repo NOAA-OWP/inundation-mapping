@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.5.x.x - 2025-03-06 - [PR#1452](https://github.com/NOAA-OWP/inundation-mapping/pull/1452)
+Updates `data/get_sample_data.py` for changes in input data resulting from the addition of lidar bridge elevation.
+
+### Changes
+
+- `data/get_sample_data.py`: Updated input files and creates a VRT for bridge elevation diff.
+- `fim_post_processing.sh`: Used WBD environment variable instead of hardcoding
+
+<br/><br/>
+
+## v? - 2025-03-04 - [PR#1406](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
 ## v4.6.1.4 - 2025-04-01 - [PR#1479](https://github.com/NOAA-OWP/inundation-mapping/pull/1479)
 This PR prevents the removal of the processing duration text file from each HUC to aid in debugging. This tries to fix #1458.
 
@@ -149,6 +160,7 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 - `data/bridges/setup_conda_for_make_rasters.txt` Provides instructions for running the _data/bridges/make_rasters_using_lidar.py_ script on a Windows machine using a Conda environment.
 
 
+
 ### Changes
 - `data/bridges/pull_osm_bridges.py` The updates include:
      - This script now generates two separate OSM bridge centerline files: one for CONUS and another for Alaska, each with its own CRS to improve accuracy.
@@ -159,6 +171,7 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 
 - `src/run_unit_wb.sh` Crops the DEM correction VRT file to the buffered HUC boundary and create a copy for branch 0.
 - `src/run_by_branch.sh` Clips HUC-level DEM correction rasters for branches.
+
 
 
 - `src/heal_bridges_osm.py` Now implements two distinct workflows for healing the REM at OSM bridge locations, depending on the availability of lidar data: 
@@ -173,6 +186,7 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 - `data/create_vrt_file.py`:  small updates to text and changed timezones to be UTC instead of local to match much of our other conventions. Note: Many of our files are not yet UTC, but we hope to change them as we work on related files in the future.
 
 - `.gitignore / pyproject.toml` - With the addition of the new `conda_fim_bridges_enviro.yml` and `setup_conda_for_make_rasters.txt`, our current linting system was consistantly failing linting tests. Adjustments were made to try and have linting ignore the two files.
+
 
 ### Testing
 A series of comprehensive test runs for both CONUS and Alaska were conducted to develop and validate the results. Some observations have been documented #1242.
