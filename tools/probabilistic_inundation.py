@@ -391,6 +391,7 @@ def inundate_probabilistic(
     output_raster: Optional[bool] = False,
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
+    max_to_forecast_time: Optional[bool] = None,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
@@ -429,6 +430,8 @@ def inundate_probabilistic(
         Quiet output
     log_file: Optional[str], default = None
         Filepath of log file
+    max_to_forecast_time: Optional[bool], default = False
+        Take max streamflow values for this many days from reference time
 
     """
 
@@ -445,10 +448,10 @@ def inundate_probabilistic(
     # Masks for waterbodies
     mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
 
-    # Slice of time in forecast (possibly changed to
-    forecast_time = (
-        ensembles.coords['reference_time'].values[-1] + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
-    )
+    # Slice of time in forecast
+
+    reference_time = ensembles.coords['reference_time'].values[-1]
+    forecast_time = reference_time + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
 
     # Percentiles and data to add
     percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
@@ -463,9 +466,18 @@ def inundate_probabilistic(
 
             feat = feat if isinstance(feat, int) else int(feat)
 
-            ensemble_forecast = ensembles.sel(
-                {'time': forecast_time, 'feature_id': feat, 'member': ['1', '2', '3', '4', '5', '6']}
-            )['streamflow']
+            if max_to_forecast_time is False:
+                ensemble_forecast = ensembles.sel(
+                    {'time': forecast_time, 'feature_id': feat, 'member': ['1', '2', '3', '4', '5', '6']}
+                )['streamflow']
+            else:
+                ensemble_forecast = ensembles.sel(
+                    {
+                        'time': slice(reference_time, forecast_time),
+                        'feature_id': feat,
+                        'member': ['1', '2', '3', '4', '5', '6'],
+                    }
+                ).max('time')['streamflow']
 
             try:
                 future = executor.submit(
@@ -568,7 +580,7 @@ def inundate_probabilistic(
             nodata=0,
         )
 
-    percentiles
+    # percentiles
     percentile_files = [
         f'{base_output_path}/extent_{file}_v10_day{day}_hour{hour}.tif' for file in list(percentiles.keys())
     ]
@@ -694,6 +706,7 @@ def inundate_hucs(
     output_raster: Optional[bool] = False,
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
+    max_to_forecast_time: Optional[bool] = False,
 ):
     """
     Driver for running probabilistic inundation on selected HUCs
@@ -732,6 +745,8 @@ def inundate_hucs(
         Whether to be verbose or not
     log_file: Optional[str], default = None
         Filepath of log file
+    max_to_forecast_time: Optional[bool], default = False
+        Take max streamflow values for this many days from reference time
 
     """
     for huc in hucs:
@@ -752,6 +767,7 @@ def inundate_hucs(
             output_raster=output_raster,
             quiet=quiet,
             log_file=log_file,
+            max_to_forecast_time=max_to_forecast_time,
         )
 
 
@@ -857,6 +873,15 @@ if __name__ == '__main__':
     )
 
     parser.add_argument("-l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
+
+    parser.add_argument(
+        "-mf",
+        "--max_to_forecast_time",
+        type=bool,
+        help="OPTIONAL: " "Whether to take a max for the slice of reference time to forecast time",
+        required=False,
+        default=False,
+    )
 
     args = vars(parser.parse_args())
 
