@@ -11,10 +11,9 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from shapely import wkt
-from shapely.geometry import Point
-
-from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import cascaded_union, unary_union
+
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -436,6 +435,7 @@ def read_format_catfim_library(catfim_library_filepath):
 
     return library_gdf
 
+
 def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     '''
     Inputs:
@@ -461,8 +461,9 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     # Remove area column
     cleaned_gdf.drop('area', axis=1, inplace=True)
     cleaned_gdf = cleaned_gdf.reset_index()
-    
-    return cleaned_gdf 
+
+    return cleaned_gdf
+
 
 # Calculate difference between CatFIM libraries of subsequent versions
 def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_list, output_save_filepath):
@@ -528,15 +529,15 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             output_save_filepath, f'{comparison_id}_gained_coverage.gpkg'
         )
 
-        read_gpkg_start_time = datetime.now(timezone.utc) ## TEMP DEBUG
+        read_gpkg_start_time = datetime.now(timezone.utc)
 
         # Read both versions of CatFIM library CSVs, remove intervals, and convert to a gdf
         before_gdf = read_format_catfim_library(old_version_library_csv_path)
         after_gdf = read_format_catfim_library(new_version_library_csv_path)
 
-        read_gpkg_end_time = datetime.now(timezone.utc) ## TEMP DEBUG
-        gpkg_time_duration = read_gpkg_end_time - read_gpkg_start_time ## TEMP DEBUG
-        print(f"Time elapsed while reading in the CatFIM libraries: {str(gpkg_time_duration).split('.')[0]}") ## TEMP DEBUG
+        read_gpkg_end_time = datetime.now(timezone.utc)
+        gpkg_time_duration = read_gpkg_end_time - read_gpkg_start_time
+        print(f"Time elapsed while reading in the CatFIM libraries: {str(gpkg_time_duration).split('.')[0]}")
 
         id_col, mag_col = 'ahps_lid', 'magnitude'
 
@@ -544,7 +545,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         removed_geom = gpd.GeoDataFrame(columns=[id_col, mag_col, 'geometry'], crs=after_gdf.crs)
         added_geom = gpd.GeoDataFrame(columns=[id_col, mag_col, 'geometry'], crs=after_gdf.crs)
 
-        print(f'Comparing {len(before_gdf)} before geometries to {len(after_gdf)} after geometries.') ## TEMP DEBUG
+        print(f'Comparing {len(before_gdf)} before geometries to {len(after_gdf)} after geometries.')
 
         # Make a dataframe with all the lids and magnitudes in after_gdf and before_gdf
         combined_lids_gdf = pd.concat(
@@ -552,12 +553,12 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         )
         combined_lids_gdf = combined_lids_gdf.drop_duplicates()
         combined_lids_gdf = combined_lids_gdf.reset_index(drop=True)
-        print(f'Found {len(combined_lids_gdf)} unique lid/magnitude combinations.') ## TEMP DEBUG
+        print(f'Found {len(combined_lids_gdf)} unique lid/magnitude combinations.')
 
         for i, (lid, magnitude) in enumerate(combined_lids_gdf[[id_col, mag_col]].itertuples(index=False)):
 
-            # if i >= 1000: ## TEMP DEBUG only run 100 iterations
-            #     break ## TEMP DEBUG only run 100 iterations
+            # if i >= 1000:  # TEMP DEBUG only run 100 iterations
+            #     break  # TEMP DEBUG only run 100 iterations
 
             if i % 100 == 0:
                 print(f'Processed {i} of {len(combined_lids_gdf)} geometries.')
@@ -576,21 +577,36 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                 added = after_union.difference(before_union)
 
                 if not removed.is_empty:
-                    removed_gdf = gpd.GeoDataFrame({id_col: [lid], mag_col: [magnitude], 'geometry': [removed]}, crs = removed_geom.crs)
-                    removed_gdf_cleaned = remove_polygon_shards(removed_gdf, id_col, mag_col, minimum_area_threshold = 800)
+                    removed_gdf = gpd.GeoDataFrame(
+                        {id_col: [lid], mag_col: [magnitude], 'geometry': [removed]}, crs=removed_geom.crs
+                    )
+                    removed_gdf_cleaned = remove_polygon_shards(
+                        removed_gdf, id_col, mag_col, minimum_area_threshold=800
+                    )
                     removed_geom = pd.concat([removed_geom, removed_gdf_cleaned])
 
                 if not added.is_empty:
-                    added_gdf = gpd.GeoDataFrame({id_col: [lid], mag_col: [magnitude], 'geometry': [added]}, crs = added_geom.crs)
-                    added_gdf_cleaned = remove_polygon_shards(added_gdf, id_col, mag_col, minimum_area_threshold = 800)
+                    added_gdf = gpd.GeoDataFrame(
+                        {id_col: [lid], mag_col: [magnitude], 'geometry': [added]}, crs=added_geom.crs
+                    )
+                    added_gdf_cleaned = remove_polygon_shards(
+                        added_gdf, id_col, mag_col, minimum_area_threshold=800
+                    )
                     added_geom = pd.concat([added_geom, added_gdf_cleaned])
 
-
         # Add back in the metadata columns
-        removed_geom = removed_geom.merge(before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']], on=[id_col, mag_col], how='left')
-        added_geom = added_geom.merge(before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']], on=[id_col, mag_col], how='left')
+        removed_geom = removed_geom.merge(
+            before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']],
+            on=[id_col, mag_col],
+            how='left',
+        )
+        added_geom = added_geom.merge(
+            before_gdf[[id_col, mag_col, 'huc', 'name', 'WFO', 'rfc', 'state', 'county']],
+            on=[id_col, mag_col],
+            how='left',
+        )
 
-        # Set the CRS 
+        # Set the CRS
         web_mercator_crs = 'epsg:3857'
         added_geom = added_geom.set_crs(web_mercator_crs)  # web mercator, the viz projection
         removed_geom = removed_geom.set_crs(web_mercator_crs)  # web mercator, the viz projection
