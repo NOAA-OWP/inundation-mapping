@@ -3,8 +3,6 @@
 import argparse
 import copy
 import os
-import pathlib
-import sys
 import tempfile
 
 import numpy as np
@@ -14,7 +12,6 @@ import pandas as pd
 # from types import NoneType
 from osgeo import gdal, ogr
 from osgeo.gdalconst import *
-from pandas import DataFrame
 from pixel_counter_functions import (
     get_bridge_counts,
     get_levee_counts,
@@ -150,6 +147,10 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
         if vector_path == "":
             print('No vector path provided. Continuing to next layer.')
             continue
+        if not os.path.exists(vector_path):
+            print(f'{vector_path} does not exist. Continuing to next layer.')
+            continue
+
         # Opens vector file and sets path
 
         try:

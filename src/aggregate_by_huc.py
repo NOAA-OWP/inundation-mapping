@@ -11,9 +11,15 @@ from os.path import join
 
 import geopandas as gpd
 import pandas as pd
+from dotenv import load_dotenv
 
 from heal_bridges_osm import flows_from_hydrotable
 from utils.shared_functions import progress_bar_handler
+
+
+load_dotenv('/foss_fim/src/bash_variables.env')
+DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
+ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
 class HucDirectory(object):
@@ -145,8 +151,9 @@ class HucDirectory(object):
         self.bridge_dtypes = {
             'osmid': int,
             'name': str,
-            'max_hand': float,
-            'max_hand_75': float,
+            'threshold_hand': float,
+            'threshold_hand_75': float,
+            'has_lidar_tif': str,
             'feature_id': int,
             'HydroID': int,
             'order_': str,
@@ -206,6 +213,8 @@ class HucDirectory(object):
             return
 
         bridge_pnts = gpd.read_file(bridge_filename)
+        for col, dtype in self.bridge_dtypes.items():
+            bridge_pnts[col] = bridge_pnts[col].astype(dtype)
         if bridge_pnts.empty:
             return
         hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
@@ -279,8 +288,8 @@ class HucDirectory(object):
                     b0 = b0.rename(columns={'feature_id': 'crossing_feature_id'})
                     bridge_pnts = bridge_pnts.merge(b0, on='osmid', how='left')
                     # Remove bridge points that have the same osmid and feature_id
-                    g = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('min')
-                    bridge_pnts = bridge_pnts.copy()[(bridge_pnts['max_discharge'] == g)]
+                    g = bridge_pnts.groupby(['osmid', 'feature_id'])['threshold_discharge'].transform('min')
+                    bridge_pnts = bridge_pnts.copy()[(bridge_pnts['threshold_discharge'] == g)]
                     # Set backwater bridge sites
                     bridge_pnts['is_backwater'] = 0
                     c = bridge_pnts.groupby(['osmid'])['feature_id'].transform('count')
@@ -288,6 +297,16 @@ class HucDirectory(object):
                         (c > 1) & (bridge_pnts.feature_id != bridge_pnts.crossing_feature_id), 'is_backwater'
                     ] = 1
                     # Write file
+                    bridge_pnts = bridge_pnts.astype(self.bridge_dtypes, errors='ignore')
+
+                    # Set the CRS if it is not already set
+                    huc2Identifier = huc_id[:2]
+                    if bridge_pnts.crs is None:
+                        # Alaska
+                        if huc2Identifier == '19':
+                            bridge_pnts.set_crs(ALASKA_CRS, inplace=True)
+                        else:
+                            bridge_pnts.set_crs(DEFAULT_FIM_PROJECTION_CRS, inplace=True)
                     bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
 
             # print(f"agg_by_huc for huc id {huc_id} is done")

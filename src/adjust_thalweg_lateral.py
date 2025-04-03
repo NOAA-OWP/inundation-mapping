@@ -98,6 +98,8 @@ def adjust_thalweg_laterally(
                     ndv,
                 )
 
+                del elevation_window, zone_window, cost_window
+
             # --------------------------------------------------------------------------------------------- #
 
         # Specify raster object metadata.
@@ -123,6 +125,8 @@ def adjust_thalweg_laterally(
                 minimized_dem_window = minimized_dem_window.reshape(window_shape).astype(np.float32)
 
                 dem_lateral_thalweg_adj_object.write(minimized_dem_window, window=window, indexes=1)
+
+                del dem_window, zone_window, thalweg_window, minimized_dem_window
 
 
 if __name__ == '__main__':

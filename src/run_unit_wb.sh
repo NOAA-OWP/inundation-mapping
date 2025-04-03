@@ -26,12 +26,14 @@ if [ $huc2Identifier -eq 19 ]; then
     huc_input_DEM_domain=$input_DEM_domain_Alaska
     input_DEM=$input_DEM_Alaska
     dem_domain_filename=DEM_Domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
 else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain
     input_DEM=$input_DEM
     dem_domain_filename=HUC6_dem_domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff
 
 fi
 
@@ -126,6 +128,8 @@ $srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths
     -o $branch_list_lst_file
 
 ## CREATE BRANCH ZERO ##
+branch0_start_time=`date +%s`
+
 echo -e $startDiv"Creating branch zero for $hucNumber"
 tempCurrentBranchDataDir=$tempBranchDataDir/$branch_zero_id
 
@@ -135,16 +139,21 @@ mkdir -p $tempCurrentBranchDataDir
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
 # Note: don't need to use gdalwarp -cblend as we are using a buffered wbd
-[ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && \
-gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" \
+[ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && {
+gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res $input_DEM $tempHucDataDir/dem_meters.tif
+    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_DEM $tempHucDataDir/dem_meters.tif
 
+# Clip the bridge elevation diff raster (DEM_diff). Used 'near' to make sure neighboring cells do not get any interpolated value
+gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
+    -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
+    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_bridge_elev_diff $tempHucDataDir/bridge_elev_diff_meters.tif
+}
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
-    <<<$($srcDir/getRasterInfoNative.py $tempHucDataDir/dem_meters.tif)
+read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
+    <<<$($srcDir/getRasterInfoNative.py -r $tempHucDataDir/dem_meters.tif)
 
 ## RASTERIZE NLD MULTILINES ##
 echo -e $startDiv"Rasterize all NLD multilines using zelev vertices $hucNumber $branch_zero_id"
@@ -238,9 +247,10 @@ if [ "$levelpaths_exist" = "1" ]; then
         -p $tempHucDataDir/flowdir_d8_burned_filled.tif
 fi
 
-## MAKE A COPY OF THE DEM FOR BRANCH 0
+## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
 cp $tempHucDataDir/dem_meters.tif $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
+cp $tempHucDataDir/bridge_elev_diff_meters.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters_$branch_zero_id.tif
 
 
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
@@ -296,6 +306,9 @@ $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branch_zero_lis
 ## Start the local csv branch list
 $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
 
+branch0=$(Calc_Time $branch0_start_time)
+branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
+
 # -------------------
 ## Processing Branches ##
 echo
@@ -314,6 +327,9 @@ else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
 
+branches=$(Calc_Time $branch_processing_start_time)
+branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
+
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"
@@ -326,10 +342,10 @@ fi
 echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration "Duration for processing branches : " $branch_processing_start_time
 #echo
-
+total_branches=$(wc -l < $branch_list_csv_file)
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
-total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time)"
-echo "$total_duration_display" >> "$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv"
+total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
+echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"

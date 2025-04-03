@@ -1,6 +1,9 @@
-## Temporary image to build the libraries and only save the needed artifacts
+## ============================
+##  BUILDER STAGE
+## ============================
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4 AS builder
 WORKDIR /opt/builder
+
 ARG dataDir=/data
 ARG projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -9,17 +12,27 @@ ARG taudemVersion2=81f7a07cdd3721617a30ee4e087804fddbcffa88
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
-# remove reference to missing repo
-# RUN rm /etc/apt/sources.list.d/apache-arrow.sources
+## ============================
+## Fix APT permission issue
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends apt-utils && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
-RUN apt-get update && apt-get install -y git  && rm -rf /var/lib/apt/lists/*
+## ============================
+## Install dependencies for compilation
+RUN apt-get update && \
+    apt-get install -y \
+    git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev \
+    make gcc g++ && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
+## ============================
+## Clone repositories
 RUN git clone https://github.com/dtarb/taudem.git
 RUN git clone https://github.com/fernandoa123/cybergis-toolkit.git taudem_accelerated_flowDirections
 
-RUN apt-get update --fix-missing && apt-get install -y cmake mpich \
-    libgtest-dev libboost-test-dev libnetcdf-dev && rm -rf /var/lib/apt/lists/*
-
+## ============================
 ## Compile Main taudem repo ##
 RUN mkdir -p taudem/bin
 RUN cd taudem \
@@ -27,6 +40,7 @@ RUN cd taudem \
     && cd src \
     && make
 
+## ============================
 ## Compile taudem repo with accelerated flow directions ##
 RUN cd taudem_accelerated_flowDirections/taudem \
     && git checkout $taudemVersion2 \
@@ -35,16 +49,22 @@ RUN cd taudem_accelerated_flowDirections/taudem \
     && cmake .. \
     && make
 
+## ============================
+## Move needed binaries
 RUN mkdir -p $taudemDir
 RUN mkdir -p $taudemDir2
+RUN cd taudem/bin \
+    && mv -t $taudemDir flowdircond streamnet gagewatershed catchhydrogeo dinfdistdown
+RUN cd taudem_accelerated_flowDirections/taudem/build/bin \
+    && mv -t $taudemDir2 d8flowdir dinfflowdir
 
-## Move needed binaries to the next stage of the image
-RUN cd taudem/bin && mv -t $taudemDir flowdircond streamnet gagewatershed catchhydrogeo dinfdistdown
-RUN cd taudem_accelerated_flowDirections/taudem/build/bin && mv -t $taudemDir2 d8flowdir dinfflowdir
+## ============================
+## Fix permissions before copying to final stage
+RUN chown -R root:root $depDir && chmod -R 755 $depDir
 
-
-###############################################################################################
-# Base Image that has GDAL, PROJ, etc
+###################################################################################
+##  FINAL IMAGE STAGE
+## ============================
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4
 ARG dataDir=/data
 ENV projectDir=/foss_fim
@@ -57,45 +77,58 @@ ENV workDir=/fim_temp
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
-## ADDING FIM GROUP ##
-ARG GroupID=1370800235
-ARG GroupName=fim
-RUN addgroup --gid $GroupID $GroupName
-ENV GID=$GroupID
-ENV GN=$GroupName
+## ============================
+## Create working directories
+RUN mkdir -p $workDir $depDir
 
-RUN mkdir -p $workDir
-RUN mkdir -p $depDir
+## ============================
+## Fix COPY issue
 COPY --from=builder $depDir $depDir
+RUN chown -R root:root $depDir && chmod -R 755 $depDir
 
-# remove reference to missing repo
-# RUN rm /etc/apt/sources.list.d/apache-arrow.sources
+## ============================
+## Install necessary packages
 
-RUN apt-get update --fix-missing && rm -rf /var/lib/apt/lists/*
-RUN apt update --fix-missing
-
-RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y p7zip-full python3-pip time mpich parallel libgeos-dev expect tmux rsync tzdata wget
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends \
+    p7zip-full python3.10 python3-pip python3-dev time mpich libmpich-dev parallel libgeos-dev \
+    expect tmux rsync tzdata wget make gcc g++ && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
 RUN apt auto-remove
 
+# Ensure Python and Pipenv are installed  (pipenv version not managed)
+RUN python3 -m pip install --upgrade pip setuptools wheel
+RUN python3 -m pip install --no-cache-dir pipenv
+
 ## adding AWS CLI (for bash) ##
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-   unzip awscliv2.zip && \
-   ./aws/install
+    unzip awscliv2.zip && \
+    ./aws/install
 
 ## adding environment variables for numba and python ##
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 ENV PYTHONUNBUFFERED=TRUE
 
-## ADD TO PATHS ##
-ENV PATH="$projectDir:${PATH}"
-ENV PYTHONPATH="${PYTHONPATH}:${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+# Set environment variables for stability
+ENV PIP_NO_CACHE_DIR=off
+ENV PIPENV_VENV_IN_PROJECT=1
+ENV PIPENV_NOSPIN=1
 
-## install python 3 modules ##
+# Copy Pipfile and Pipfile.lock
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pip3 install pipenv==2024.0.1 && PIP_NO_CACHE_DIR=off pipenv install --system --deploy --ignore-pipfile
+
+# Try installing dependencies (with verbose logging)
+# TODO: what is this actually installing?
+RUN pipenv install --system --deploy --ignore-pipfile --verbose || pipenv install --system --verbose
+
+## ADD TO PATHS ##
+ENV PATH="$projectDir:${PATH}"
+ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+
 
 # ----------------------------------
 # Mar 2023 / Sep 2024
@@ -112,18 +145,12 @@ ENV WBT_PATH=/usr/local/lib/python3.10/dist-packages/whitebox/WBT
 RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
     unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
     cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
-# ----------------------------------
 
-# The containiner will auto use this account to run
-ARG RuntimeUser=svc_user
-RUN useradd -u 8877 -g $GroupName -s /bin/bash $RuntimeUser
-RUN chmod 777 $workDir
-RUN mkdir -p "/home/${RuntimeUser}"
-RUN chmod 777 /home/$RuntimeUser
+## ============================
+## Set default permissions
+# RUN umask 0022
 
-## RUN UMASK TO CHANGE DEFAULT PERMISSIONS ##
+## ============================
+## Set entrypoint
 ADD ./src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
-
-## This results in the default user being the svc_user user
-USER $RuntimeUser

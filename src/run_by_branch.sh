@@ -70,14 +70,14 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"
 $srcDir/clip_rasters_to_branches.py -d $current_branch_id \
     -b $tempHucDataDir/branch_polygons.gpkg \
     -i $branch_id_attribute \
-    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/flowdir_d8_burned_filled.tif \
-    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled.tif
+    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/flowdir_d8_burned_filled.tif $tempHucDataDir/bridge_elev_diff_meters.tif \
+    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters.tif
 
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
-<<<$($srcDir/getRasterInfoNative.py $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
+read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
+<<<$($srcDir/getRasterInfoNative.py -r $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
 
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
