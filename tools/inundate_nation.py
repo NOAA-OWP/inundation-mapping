@@ -11,7 +11,8 @@ from multiprocessing import Pool
 
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
-from osgeo import gdal
+from rasterio.shutil import copy
+from rio_vrt import build_vrt
 
 from utils.shared_functions import FIM_Helpers as fh
 
@@ -183,10 +184,11 @@ def create_bool_rasters(args):
 
     print("Calculating boolean inundate raster: " + rasfile)
     p = in_raster_dir + os.sep + rasfile
-    raster = rasterio.open(p)
-    profile = raster.profile
-    array = raster.read()
-    del raster
+
+    with rasterio.open(p) as raster:
+        profile = raster.profile
+        array = raster.read()
+
     array[array > 0] = 1
     array[array <= 0] = 0
     # And then change the band count to 1, set the
@@ -199,13 +201,13 @@ def create_bool_rasters(args):
         nodata=0,
         blockxsize=512,
         blockysize=512,
-        dtype="int8",
+        dtype="uint8",
         compress="lzw",
     )
     with rasterio.open(
         output_bool_dir + os.sep + rasfile[:-4] + '_' + fim_version + '.tif', "w", **profile
     ) as dst:
-        dst.write(array.astype(rasterio.int8))
+        dst.write(array.astype(rasterio.uint8))
 
 
 def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
@@ -215,22 +217,16 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
             p = output_bool_dir + os.sep + rasfile
             rasters_to_mosaic.append(p)
 
-    output_mosiac_vrt = os.path.join(output_bool_dir, fim_version_tag + "_merged.vrt")
-    logging.info("Creating virtual raster: " + output_mosiac_vrt)
-    vrt = gdal.BuildVRT(output_mosiac_vrt, rasters_to_mosaic)
+    output_mosaic_vrt = os.path.join(output_bool_dir, fim_version_tag + "_merged.vrt")
+    logging.info("Creating virtual raster: " + output_mosaic_vrt)
+    vrt_file = build_vrt(output_mosaic_vrt, rasters_to_mosaic)
 
-    output_mosiac_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")
-    logging.info("Building raster mosaic: " + output_mosiac_raster)
-    logging.info("Using " + str(threads) + " threads for parallizing")
+    output_mosaic_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")
+    logging.info("Building raster mosaic: " + output_mosaic_raster)
+    logging.info("Using " + str(threads) + " threads for parallelizing")
     print("Note: This step can take a number of hours if processing 100s of hucs")
-    gdal.Translate(
-        output_mosiac_raster,
-        vrt,
-        xRes=10,
-        yRes=-10,
-        creationOptions=['COMPRESS=LZW', 'TILED=YES', 'PREDICTOR=2', 'NUM_THREADS=' + str(threads)],
-    )
-    vrt = None
+    copy(vrt_file, output_mosaic_raster)
+    vrt_file = None
 
 
 def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):

@@ -17,7 +17,7 @@ def bridge_risk_status(
     This function detect which bridge points are affected by a specified flow file. The function requires a flow file (expected to follow
     the schema used by 'inundation_mosaic_wrapper') with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
     containing bridge points labeled as "threatened", "at risk", or "not at risk" based on forcasted discharge compared to preset discharge
-    ("max_discharge" or "max_discharge75").
+    ("threshold_discharge" or "threshold_discharge75").
 
     Args:
         hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
@@ -87,21 +87,28 @@ def bridge_risk_status(
     # Concatenate all GeoDataFrame into a single GeoDataFrame
     bridge_points = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
 
+    if bridge_points.feature_id.dtype != 'int':
+        bridge_points.feature_id = bridge_points.feature_id.astype(int)
+    if flow_file_data.feature_id.dtype != 'int':
+        flow_file_data.feature_id = flow_file_data.feature_id.astype(int)
+
     # Find the common feature_id between flow_file and bridge_points
     merged_bri = bridge_points.merge(flow_file_data, on='feature_id', how='inner')
 
     # Assign risk status for each point
     def risk_class(row):
-        if row['discharge'] > row['max_discharge']:
+        if row['discharge'] > row['threshold_discharge']:
             return 'threatened'
-        elif row['max_discharge75'] <= row['discharge'] < row['max_discharge']:
+        elif row['threshold_discharge75'] <= row['discharge'] < row['threshold_discharge']:
             return 'at_risk'
         else:
             return 'not_at_risk'
 
     # Apply risk_class function to each row
     merged_bri['risk_status'] = merged_bri.apply(risk_class, axis=1)
-    merged_bri.drop('discharge', axis=1, inplace=True)
+
+    # change the name of the given flow
+    merged_bri.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
 
     # Drop not_at_risk status from points with the same geometry
     mapping_dic = {'not_at_risk': 0, 'at_risk': 1, 'threatened': 2}
@@ -111,7 +118,7 @@ def bridge_risk_status(
     bridge_out = merged_bri.loc[merged_data_max]
     bridge_out.reset_index(drop=True, inplace=True)
     bridge_out.drop('risk', axis=1, inplace=True)
-    bridge_out.to_file(output_dir, driver='GPKG', layer='bridge_risk_status')
+    bridge_out.to_file(output_dir, index=False, driver="GPKG", engine='fiona')
 
     return bridge_out
 

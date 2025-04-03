@@ -10,6 +10,8 @@ agree_smogrid.tif
 agree_smogrid_allo.tif
 agree_smogrid_dist.tif
 agree_smogrid_zerod.tif
+backpool_stats.csv
+bridge_elev_diff_meters_{}.tif
 catch_list_{}.txt
 coordFile_{}.txt
 crosswalk_table_{}.csv
@@ -38,7 +40,7 @@ flows_points_pixels_{}.gpkg
 gw_catchments_pixels_{}.tif
 gw_catchments_reaches_{}.gpkg
 gw_catchments_reaches_{}.tif
-#gw_catchments_reaches_filtered_addedAttributes_{}.gpkg
+gw_catchments_reaches_filtered_addedAttributes_{}.gpkg
 #gw_catchments_reaches_filtered_addedAttributes_{}.tif
 #gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg
 headwaters_{}.tif

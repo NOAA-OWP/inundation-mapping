@@ -1,0 +1,70 @@
+nws_lid,restricted_reason,catfim_type
+# RULES: Ensure that the top line has no comments above the header line above:
+#     -- Careful not to add commas other then the one after the lid ID.
+#     -- Don't allow for any duplicate LID values in this list please.
+#
+# Comment lines can be added as any independent line in this csv.
+#
+AABDB,Test Site,both
+ADLG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+AUGG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+BAXG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+BRKTS,Test Site,both
+CNNN6,Pool elevation thresholds. Disabled at request of MARFC,stage
+DMBT2,Test Site,both
+DMSF1,Tidal Gauge,stage
+DVNIA,Test Site,both
+GVDA1,Bad data in API,stage
+HFMW4,Gauge relocated. check again later for review,both
+HLZU1,Bad data in API,both
+HNXCA,Test Site,both
+HRAG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+HUSKR,Test Site,both
+HZT00,Test Site,both
+HZT02,Test Site,both
+ILMNA,Test Site,both
+JTEST,Test Site,both
+JYNT2,Test Site,both
+KLNQ9,Outside U.S.,both
+LAMF1,Stage thresholds seem to be based on sea level and not channel thalweg.,stage
+MCVA3,Historical gauge,both
+NVRN6,Pool elevation thresholds. Disabled at request of MARFC.,stage
+PEPN6,Pool elevation thresholds. Disabled at request of MARFC.,stage
+PRXQ9,Outside U.S.,both
+ONDN6,Inundation issues,stage
+QUTG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+RCYF1,Out of Service,both
+RWBW3,Historical gauge,both
+SMSV2,Point not in AHPS,both
+STNG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+TESM8,Test Site,both
+TEST,Test Site,both
+TEST1,Test Site,both
+TEST11,Test Site,both
+TEST2,Test Site,both
+TEST3,Test Site,both
+TEST4,Test Site,both
+TEST9,Test Site,both
+TESTA,Test Site,both
+TESTB,Test Site,both
+TESTC,Test Site,both
+TESTPT1,Test Site,both
+TETM8,Test Site,both
+TS2W3,Test Site,both
+TS3W3,Test Site,both
+TS4W3,Test Site,both
+TSTMO,Test Site,both
+TSTN6,Test Site,both
+TSTSP,Test Site,both
+TSTUP,Test Site,both
+TTARX,Test Site,both
+VEFNV,Test Site,both
+WBYA1,Out of Service,both
+WLSA1,Bad data in API,stage
+WUNTS,Not a real gauge,both
+XXXN3,Test Site,both
+YDAQ9,Outside U.S.,both
+YLKA2,Discontinued gauge,both
+YWRQ9,Outside U.S.,both
+ZZZT2,Test Site,both
+CMUG1,Out of Service,both

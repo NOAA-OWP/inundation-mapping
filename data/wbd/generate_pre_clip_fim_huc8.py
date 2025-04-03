@@ -66,6 +66,9 @@ input_DEM_Alaska = os.getenv('input_DEM_Alaska')  # alaska
 input_DEM_domain = os.getenv('input_DEM_domain')
 input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # alaska
 
+input_landsea = os.getenv('input_landsea')
+input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # alaska
+
 input_nwm_lakes = os.getenv('input_nwm_lakes')
 input_nwm_catchments = os.getenv('input_nwm_catchments')
 input_nwm_catchments_Alaska = os.getenv('input_nwm_catchments_Alaska')
@@ -86,6 +89,7 @@ input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
 input_nld_levee_protected_areas_Alaska = os.getenv('input_nld_levee_protected_areas_Alaska')
 
 input_osm_bridges = os.getenv('osm_bridges')
+input_osm_bridges_alaska = os.getenv('osm_bridges_alaska')
 
 # Variables from config/params_template.env
 wbd_buffer = os.getenv('wbd_buffer')
@@ -325,28 +329,25 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
         # SET VARIABLES AND FILE INPUTS #
         hucUnitLength = len(huc)
         huc2Identifier = huc[:2]
+        input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
 
         # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
         if huc2Identifier == '19':
             huc_CRS = ALASKA_CRS
-            input_NHD_WBHD_layer = 'WBD_National_South_Alaska'
             input_WBD_filename = input_WBD_gdb_Alaska
-            wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National_South_Alaska.gpkg'
         else:
             huc_CRS = DEFAULT_FIM_PROJECTION_CRS
-            input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
             input_WBD_filename = input_WBD_gdb
-            wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National.gpkg'
 
         # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
         if huc2Identifier == "04":
             input_LANDSEA = f"{input_GL_boundaries}"
             # print(f'Using {input_LANDSEA} for water body mask (Great Lakes)')
         elif huc2Identifier == "19":
-            input_LANDSEA = f"{inputsDir}/landsea/water_polygons_alaska.gpkg"
+            input_LANDSEA = input_landsea_Alaska
             # print(f'Using {input_LANDSEA} for water body mask (Alaska)')
         else:
-            input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
+            input_LANDSEA = input_landsea
 
         logging.info(f"-- {huc} : Get WBD")
 
@@ -414,7 +415,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 wbd_buffer_distance=wbd_buffer_int,
                 levee_protected_areas=input_nld_levee_protected_areas_Alaska,
                 subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-                osm_bridges=input_osm_bridges,
+                osm_bridges=input_osm_bridges_alaska,
                 subset_osm_bridges=f"{huc_directory}/osm_bridges_subset.gpkg",
                 is_alaska=True,
                 huc_CRS=huc_CRS,  # TODO: simplify
@@ -467,7 +468,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 '-clipsrc',
                 f'{huc_directory}/wbd_buffered.gpkg',
                 f'{huc_directory}/wbd8_clp.gpkg',
-                wbd_gpkg_path,
+                input_WBD_filename,
                 input_NHD_WBHD_layer,
             ],
             stdout=subprocess.PIPE,
