@@ -452,8 +452,8 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     cleaned_gdf = input_gdf.explode()
 
     # Calculate area and remove polygon segments smaller than threshold (sq m)
-    cleaned_gdf['area']=cleaned_gdf.area
-    cleaned_gdf = cleaned_gdf[cleaned_gdf['area']>=minimum_area_threshold]
+    cleaned_gdf['area'] = cleaned_gdf.area
+    cleaned_gdf = cleaned_gdf[cleaned_gdf['area'] > minimum_area_threshold]
 
     # Condense back into a multipolygon
     cleaned_gdf = cleaned_gdf.dissolve(by=[id_col, mag_col])
@@ -461,7 +461,6 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     # Remove area column
     cleaned_gdf.drop('area', axis=1, inplace=True)
     cleaned_gdf = cleaned_gdf.reset_index()
-    # cleaned_gdf['area'] = cleaned_gdf.area
     
     return cleaned_gdf 
 
@@ -578,12 +577,12 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
 
                 if not removed.is_empty:
                     removed_gdf = gpd.GeoDataFrame({id_col: [lid], mag_col: [magnitude], 'geometry': [removed]}, crs = removed_geom.crs)
-                    removed_gdf_cleaned = remove_polygon_shards(removed_gdf, id_col, mag_col, minimum_area_threshold = 100)
+                    removed_gdf_cleaned = remove_polygon_shards(removed_gdf, id_col, mag_col, minimum_area_threshold = 800)
                     removed_geom = pd.concat([removed_geom, removed_gdf_cleaned])
 
                 if not added.is_empty:
                     added_gdf = gpd.GeoDataFrame({id_col: [lid], mag_col: [magnitude], 'geometry': [added]}, crs = added_geom.crs)
-                    added_gdf_cleaned = remove_polygon_shards(added_gdf, id_col, mag_col, minimum_area_threshold = 100)
+                    added_gdf_cleaned = remove_polygon_shards(added_gdf, id_col, mag_col, minimum_area_threshold = 800)
                     added_geom = pd.concat([added_geom, added_gdf_cleaned])
 
 
@@ -608,8 +607,6 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         else:
             removed_geom.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG')
             print(f'\nSaved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
-
-
 
 
 # Main function for catfim_site_tracking
@@ -653,7 +650,7 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
         print('    -k flag used -- Keeping only sites with status changes in the comparison tables')
     if generate_geopackages == True:
         print(
-            '    -g flag used -- Generating spatial difference maps and site GPKGs (takes about ~5 mins per comparison)'
+            '    -g flag used -- Generating spatial difference maps and site GPKGs (takes about 90 mins per comparison)'
         )
     print(f'    -o -- Output save path: {output_save_filepath}')
 
