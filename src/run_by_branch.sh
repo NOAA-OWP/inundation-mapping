@@ -70,15 +70,13 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"
 $srcDir/clip_rasters_to_branches.py -d $current_branch_id \
     -b $tempHucDataDir/branch_polygons.gpkg \
     -i $branch_id_attribute \
-    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/flowdir_d8_burned_filled.tif $tempHucDataDir/bridge_elev_diff_meters.tif \
-    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters.tif
-
+    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/bridge_elev_diff_meters.tif \
+    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters.tif
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"
 read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
 <<<$($srcDir/getRasterInfoNative.py -r $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
-
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"
@@ -86,6 +84,30 @@ gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES"
     -te $xmin $ymin $xmax $ymax \
     -ts $ncols $nrows $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_extended_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif
+
+## ADJUST FLOODPLAINS ##
+echo -e $startDiv"Adjust floodplains $hucNumber $current_branch_id"
+$srcDir/adjust_floodplains.py -d $current_branch_id \
+    -i $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
+    -e $tempCurrentBranchDataDir/flows_grid_boolean_euclidean_distance_$current_branch_id.tif \
+    -d $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+    -w $tempHucDataDir/wbd.gpkg \
+    -p $tempHucDataDir/branch_polygons.gpkg \
+    -b $current_branch_id \
+    -o $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+    -z 50 \
+    -f /data/inputs/fema/nfhl/nfhl_flood_hazard_zones_${hucNumber}_100yr.gpkg
+
+## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
+echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"
+rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+    $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif
+
+## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
+echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+    -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"
