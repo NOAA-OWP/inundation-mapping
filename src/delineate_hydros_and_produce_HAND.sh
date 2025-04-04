@@ -286,3 +286,8 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -u $hucNumber \
         -z $current_branch_id
 fi
+
+## CONVERSION TO INT16 ##
+echo -e $startDiv"Convert GW Catchments and REM to Int16 $hucNumber $current_branch_id"
+python3 $toolsDir/convert_to_int16.py \
+    -b $tempCurrentBranchDataDir

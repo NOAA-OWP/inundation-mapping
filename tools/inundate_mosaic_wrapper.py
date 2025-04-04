@@ -2,7 +2,9 @@ import argparse
 import errno
 import os
 from timeit import default_timer as timer
+from typing import List, Optional, Union
 
+import pandas as pd
 from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
 
@@ -11,19 +13,24 @@ from utils.shared_variables import elev_raster_ndv
 
 
 def produce_mosaicked_inundation(
-    hydrofabric_dir,
-    hucs,
-    flow_file,
-    inundation_raster=None,
-    inundation_polygon=None,
-    depths_raster=None,
-    map_filename=None,
-    mask=None,
-    unit_attribute_name="huc8",
-    num_workers=1,
-    remove_intermediate=True,
-    verbose=False,
-    is_mosaic_for_branches=False,
+    hydrofabric_dir: str,
+    hucs: Union[str, List[str]],
+    flow_file: str,
+    hydro_table_df: Optional[str] = None,
+    inundation_raster: Optional[str] = None,
+    inundation_polygon: Optional[str] = None,
+    depths_raster: Optional[str] = None,
+    map_filename: Optional[str] = None,
+    mask: Optional[str] = None,
+    unit_attribute_name: Optional[str] = "huc8",
+    num_workers: Optional[int] = 1,
+    remove_intermediate: Optional[bool] = True,
+    verbose: Optional[bool] = False,
+    is_mosaic_for_branches: Optional[bool] = False,
+    num_threads: Optional[int] = 1,
+    windowed: Optional[bool] = False,
+    log_file: Optional[str] = None,
+    nodata: Optional[int] = elev_raster_ndv,
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
@@ -32,19 +39,44 @@ def produce_mosaicked_inundation(
     organized by NWM feature_id and discharge in cms. "feature_id" and "discharge" columns MUST be present
     in the flow file.
 
-    Args:
-        hydrofabric_dir (str):    Path to hydrofabric directory where FIM outputs were written by
-                                    fim_pipeline.
-        huc (str):                The HUC for which to produce mosaicked inundation files.
-        flow_file (str):          Path to flow file to be used for inundation.
-                                    feature_ids in flow_file should be present in supplied HUC.
-        inundation_raster (str):  Full path to output inundation raster
-                                    (encoded by positive and negative HydroIDs).
-        inuntation_polygon (str): Full path to output inundation polygon. Optional.
-        depths_raster (str):      Full path to output depths_raster. Pixel values will be in meters. Optional.
-        num_workers (int):        Number of parallel jobs to run.
-        keep_intermediate (bool): Option to keep intermediate files.
-        verbose (bool):           Print verbose messages to screen. Not tested.
+    Parameters
+    ----------
+    hydrofabric_dir : str
+        Path to hydrofabric directory where FIM outputs were written by fim_pipeline
+    hucs : str
+        The HUC for which to produce mosaicked inundation files.
+    flow_file : str
+        Path to flow file to be used for inundation. Feature_ids in flow_file should be present in supplied HUC.
+    hydro_table_df : Optional[str], default = None
+        Path to the synthetic rating curve table
+    inundation_raster : Optional[str], default=None
+        Full path to output inundation raster (encoded by positive and negative HydroIDs).
+    inundation_polygon : Optional[str], default=None
+        Full path to output inundation polygon
+    depths_raster : Optional[str], default = None
+        Full path to output depths_raster. Pixel values will be in meters
+    map_filename : Optional[str], default = None
+        If not None saves the mapfiles to a csv file
+    mask : Optional[str], default = None
+        The inclusive mask for the final mosaicked datasets
+    unit_attribute_name : Optional[str], default="huc8"
+        The name of the processing unit
+    num_workers : Optional[int]:
+        Number of parallel processes to run.
+    remove_intermediate : Optional[bool], default=True
+        Option to keep intermediate files.
+    verbose : Optional[bool], default=False
+        Print verbose messages to screen. Not tested.
+    is_mosaic_for_branches : Optional[Bool], default=False
+        Whether the mosaic routine is for branches
+    num_threads : Optional[int], default=1
+        Number of threads to process
+    windowed : Optional[bool], default=False
+        Memory conscious creation of inundation and depth datasets
+    log_file : Optional[str], default=None
+        File path for log file
+    nodata : Optional[int], default=elev_raster_ndv
+        Nodata to pass to the mosaic_inundation function
     """
 
     # Check that inundation_raster or depths_raster is supplied
@@ -81,7 +113,7 @@ def produce_mosaicked_inundation(
             )
 
     # Check that flow file exists
-    if not os.path.exists(flow_file):
+    if not isinstance(flow_file, pd.DataFrame) and not os.path.exists(flow_file):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file)
 
     # Check job numbers and raise error if necessary
@@ -97,11 +129,14 @@ def produce_mosaicked_inundation(
     map_file = Inundate_gms(
         hydrofabric_dir=hydrofabric_dir,
         forecast=flow_file,
-        num_workers=num_workers,
+        hydro_table_df=hydro_table_df,
+        num_workers=num_threads,
         hucs=hucs,
         inundation_raster=inundation_raster,
         depths_raster=depths_raster,
         verbose=verbose,
+        windowed=windowed,
+        log_file=log_file,
     )
 
     # Write map file if designated
@@ -123,6 +158,7 @@ def produce_mosaicked_inundation(
                 mosaic_output = depths_raster
 
         if mosaic_output is not None:
+
             # Call Mosaic_inundation
             mosaic_file_path = Mosaic_inundation(
                 map_file.copy(),
@@ -130,11 +166,12 @@ def produce_mosaicked_inundation(
                 mosaic_output=mosaic_output,
                 mask=mask,
                 unit_attribute_name=unit_attribute_name,
-                nodata=elev_raster_ndv,
+                nodata=nodata,
                 remove_inputs=remove_intermediate,
                 verbose=verbose,
                 is_mosaic_for_branches=is_mosaic_for_branches,
                 inundation_polygon=inundation_polygon,
+                workers=num_threads,
             )
 
     fh.vprint("Mosaicking complete.", verbose)

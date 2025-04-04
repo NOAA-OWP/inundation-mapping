@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+
 import datetime as dt
+import gc
 import json
 import logging
 import os
@@ -19,14 +21,13 @@ import rioxarray as rxr
 import urllib3
 import xarray as xr
 from dotenv import load_dotenv
-from geocube.api.core import make_geocube
 from gval import CatStats
 from rasterio import features
 from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from shapely.geometry import MultiPolygon, Polygon, shape
+from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
 
@@ -393,6 +394,23 @@ def cross_walk_gval_fim(metric_df: pd.DataFrame, cell_area: int, masked_count: i
     return {x: y for x, y in zip(metric_df.columns, metric_df.values[0])}
 
 
+def delete_and_garbage_collect(objects_to_delete: list):
+    """
+    Deletes and garbage collects objects to free memory
+
+    Prammeters
+    ----------
+    object_to_delete : list
+        List of objects to delete and garbage collect
+
+    """
+
+    for obj in objects_to_delete:
+        del obj
+
+    gc.collect()
+
+
 def get_stats_table_from_binary_rasters(
     benchmark_raster_path: str, candidate_raster_path: str, agreement_raster: str = None, mask_dict: dict = {}
 ):
@@ -470,7 +488,7 @@ def get_stats_table_from_binary_rasters(
                 # Make sure features are present in bounding box area before projecting.
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
-                    del poly_all
+                    delete_and_garbage_collect([poly_all])
                     continue
 
                 # Project layer to reference crs.
@@ -485,16 +503,21 @@ def get_stats_table_from_binary_rasters(
                     all_masks_df = poly_all_proj
 
                 del poly_all, poly_all_proj
+                gc.collect()
 
     stats_table_dictionary = {}  # Initialize empty dictionary.
 
     c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
+
     del candidate_raster, benchmark_raster
+    gc.collect()
 
     agreement_map = c_aligned.gval.compute_agreement_map(
         b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
     )
+
     del c_aligned, b_aligned
+    gc.collect()
 
     agreement_map_og = agreement_map.copy()
     agreement_map.rio.write_nodata(4, inplace=True)
@@ -517,8 +540,10 @@ def get_stats_table_from_binary_rasters(
     # Only write the agreement raster if user-specified.
     if agreement_raster != None:
         agreement_map_write = agreement_map.rio.write_nodata(10, encoded=True)
-        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.int32, driver="COG")
+        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.uint8, driver="COG")
+
         del agreement_map_write
+        gc.collect()
 
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
@@ -547,6 +572,7 @@ def get_stats_table_from_binary_rasters(
     )
 
     del crosstab_table, metrics_table
+    gc.collect()
 
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
     if mask_dict != {}:
@@ -564,6 +590,7 @@ def get_stats_table_from_binary_rasters(
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
                     del poly_all
+                    gc.collect()
                     continue
 
                 poly_all_proj = poly_all.to_crs(agreement_map.rio.crs)
@@ -596,8 +623,8 @@ def get_stats_table_from_binary_rasters(
                         os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
                     )
                     agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
-                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.int32, driver="COG")
-                    del agreement_map_write
+                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.uint8, driver="COG")
+                    delete_and_garbage_collect([agreement_map_write])
 
                 # Update stats table dictionary
                 stats_table_dictionary.update(
@@ -609,11 +636,11 @@ def get_stats_table_from_binary_rasters(
                         )
                     }
                 )
-                del agreement_map_include
-
-                del poly_all, poly_all_proj, metrics_table, crosstab_table
+                del agreement_map_include, poly_all, poly_all_proj, metrics_table, crosstab_table
+                gc.collect()
 
     del agreement_map
+    gc.collect()
 
     return stats_table_dictionary
 
@@ -1650,7 +1677,7 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
     for idx, wind in agreement_raster.block_windows(1):
         window_data = agreement_raster.read(1, window=wind)
         values, counts = np.unique(window_data, return_counts=True)
-        for val, cts in values_counts:
+        for val, cts in zip(values, counts):
             totals[val] += cts
 
     results = dict()

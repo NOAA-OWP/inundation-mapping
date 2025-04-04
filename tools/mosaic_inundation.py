@@ -3,6 +3,7 @@
 
 import argparse
 import os
+from typing import Optional, Union
 
 import pandas as pd
 from overlapping_inundation import OverlapWindowMerge
@@ -13,19 +14,55 @@ from utils.shared_variables import elev_raster_ndv
 
 
 def Mosaic_inundation(
-    map_file,
-    mosaic_attribute,
-    mosaic_output=None,
-    mask=None,
-    unit_attribute_name="huc8",
-    nodata=elev_raster_ndv,
-    workers=1,
-    remove_inputs=False,
-    subset=None,
-    verbose=True,
-    is_mosaic_for_branches=False,
-    inundation_polygon=None,
-):
+    map_file: Union[str, pd.DataFrame],
+    mosaic_attribute: str,
+    mosaic_output: Optional[str] = None,
+    mask: Optional[str] = None,
+    unit_attribute_name: Optional[str] = "huc8",
+    nodata: Optional[int] = elev_raster_ndv,
+    workers: Optional[int] = 1,
+    remove_inputs: Optional[bool] = False,
+    subset: Optional[str] = None,
+    verbose: Optional[bool] = True,
+    is_mosaic_for_branches: Optional[bool] = False,
+    inundation_polygon: Optional[str] = None,
+) -> str:
+    """
+    Mosaic inundation extents or depths
+
+    Parameters
+    ----------
+    map_file : Union[str, pd.DataFrame]
+        Either the path or dataframe of the files processed previously in inundation
+    mosaic_attribute: str
+        Attribute to mosaic the map files
+    mosaic_output: Optional[str], default = None
+        Name of final mosaiced inundation file
+    mask: Optional[str], default = None
+        Name of file to inclusively mask final output file
+    unit_attribute_name: Optional[str], default = None
+        Processing unit to mosaic inundation
+    nodata: Optional[int], default = elev_raster_ndv
+        Value to represent nodata
+    workers: Optional[int], default = 1
+        Number of parallel processes to use
+    remove_inputs: Optional[bool], default = False
+        Whether to remove intermediate input files
+    subset: Optional[str], default = None
+        Path to file for subsetting inundation files
+    verbose: Optional[bool], default = True
+        Quiet output
+    is_mosaic_for_branches: Optional[bool] = False,
+        Whether to append branch name after output
+    inundation_polygon: Optional[str], default = None
+        File path for inundation polygon
+
+    Returns
+    -------
+    str
+        File name of mosaiced output
+
+    """
     if not os.path.isdir(os.path.dirname(mosaic_output)):
         os.makedirs(os.path.dirname(mosaic_output))
 
@@ -86,7 +123,7 @@ def Mosaic_inundation(
             inundation_maps_list,
             ag_mosaic_output,
             nodata,
-            workers=1,
+            workers=workers,
             remove_inputs=remove_inputs,
             mask=mask,
             verbose=verbose,
@@ -94,9 +131,6 @@ def Mosaic_inundation(
 
         if remove_list is not None:
             remove_at_end.extend(remove_list)
-
-    # # inundation maps
-    # inundation_maps_df.reset_index(drop=True)
 
     if inundation_polygon is not None:
         mosaic_final_inundation_extent_to_poly(ag_mosaic_output, inundation_polygon)
@@ -116,14 +150,39 @@ def Mosaic_inundation(
 # the number of possible threads, no results will be returned. But it is usually
 # pretty fast anyways. This needs to be fixed.
 def mosaic_by_unit(
-    inundation_maps_list,
-    mosaic_output,
-    nodata=elev_raster_ndv,
-    workers=1,
-    remove_inputs=False,
-    mask=None,
-    verbose=False,
-):
+    inundation_maps_list: list,
+    mosaic_output: str,
+    nodata: Optional[int] = elev_raster_ndv,
+    workers: Optional[int] = 1,
+    remove_inputs: Optional[bool] = False,
+    mask: Optional[str] = None,
+    verbose: Optional[bool] = False,
+) -> Union[list, None]:
+    """
+    Mosaic inundation extents or depths
+
+    Parameters
+    ----------
+    inundation_maps_list : list
+        List of inundation maps to mosaic
+    mosaic_output: Optional[str], default = None
+        Name of final mosaiced inundation file
+    nodata: Optional[int], default = elev_raster_ndv
+        Value to represent nodata
+    workers: Optional[int], default = 1
+        Number of parallel processes to use
+    remove_inputs: Optional[bool], default = False
+        Whether to remove intermediate input files
+    mask: Optional[str], default = None
+        Name of file to inclusively mask final output file
+    verbose: Optional[bool], default = True
+        Quiet output
+
+    Returns
+    -------
+    str
+        File name of mosaiced output
+    """
     # overlap object instance
     overlap = OverlapWindowMerge(inundation_maps_list, (30, 30))
 
@@ -133,11 +192,12 @@ def mosaic_by_unit(
         else:
             threaded = False
 
-        overlap.merge_rasters(mosaic_output, threaded=threaded, workers=1, nodata=nodata)
+        overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
 
         if mask:
             fh.vprint("Masking ...", verbose)
-            overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output)
+            # print("Masking Begin", time.localtime())
+            overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
     if remove_inputs:
         fh.vprint("Removing inputs ...", verbose)
@@ -150,7 +210,24 @@ def mosaic_by_unit(
         return remove_list
 
 
-def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon, driver="GPKG"):
+def mosaic_final_inundation_extent_to_poly(
+    inundation_raster: Optional[str] = None,
+    inundation_polygon: Optional[str] = None,
+    driver: Optional[str] = "GPKG",
+):
+    """
+    Vectorize moasiced raster dataset
+
+    Parameters
+    ----------
+    inundation_raster: Optional[str], default = None
+        File path to input inundation raster
+    inundation_polygon: Optional[str], default = None
+        File path to output inundation polygon
+    driver: Optional[str], default = "GPKG",
+        File type to output inundation polygon
+
+    """
     import geopandas as gpd
     import numpy as np
     import rasterio
@@ -163,7 +240,6 @@ def mosaic_final_inundation_extent_to_poly(inundation_raster, inundation_polygon
     with rasterio.open(inundation_raster) as src:
         # Open inundation_raster using rasterio.
         image = src.read(1)
-        print("Producing merged polygon...")
 
         # Use numpy.where operation to reclassify depth_array on the condition that the pixel values are > 0.
         reclass_inundation_array = np.where((image > 0) & (image != src.nodata), 1, 0).astype("uint8")
