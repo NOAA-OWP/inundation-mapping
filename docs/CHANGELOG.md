@@ -1,6 +1,37 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.1.4 - 2025-04-01 - [PR#1479](https://github.com/NOAA-OWP/inundation-mapping/pull/1479)
+This PR prevents the removal of the processing duration text file from each HUC to aid in debugging. This tries to fix #1458.
+
+During a recent usage of synthesize_test_cases.py, it processed all of the benchmark data correctly, but failed to create the metrics file.  Part of it was related to a bad path for where it would save the file, but wasn't revealed for a few hours later. 
+
+Changes include:
+- More validation data checks, including testing paths at the start of the script.
+- Added a new feature (-mm) which allows the script to create a metrics csv without having to reprocess all benchmark data.
+- Some linting fixes.
+
+### Changes
+
+- `tools\synthesize_test_cases.py`: As described above.
+
+<br/><br/>
+
+
+## v4.6.1.3 - 2025-04-01 - [PR#1471](https://github.com/NOAA-OWP/inundation-mapping/pull/1471)
+
+During running the `make_dem_dif_for_bridges` tool, which creates some updated inputs and triggers updates for bash_variables, we made a few text adjustments.
+
+The interaction between dems, osm pulls, lidar pulls, dem diffs and pre-clips can get a bit confusing so added a few more notes to help keep this straight.
+
+### Changes
+- `data/bridges`
+    - `conda_fim_bridges_enviro.yml`, `make_dem_dif_for_bridges.py`, `make_rasters_using_lidar.py`, `pull_osm_bridges.py` and `setup_conda_for_make_rasters.txt`:  Text and note updates
+- `src/bash_variables.env`:  Update for some new input paths, plus moved a few inputs to keep osm, bridges, dem and vrt closer together to help remind of inputs updates for the interrelated inputs.
+
+<br/><br/>
+
+
 ## v4.6.1.2 - 2025-03-28 - [PR#1477](https://github.com/NOAA-OWP/inundation-mapping/pull/1477)
 This PR prevents the removal of the processing duration text file from each HUC to aid in debugging. This tries to fix #1458.
 
