@@ -17,7 +17,7 @@ def convert_to_int16(branch_dir: str):
     ----------
     branch_dir : str
         Directory containing hydrofabric data
-   
+
     """
 
     # Get gage watershed catchments and rems for the appropriate branch (or * for all branches)
