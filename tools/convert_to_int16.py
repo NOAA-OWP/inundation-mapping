@@ -9,22 +9,20 @@ import rioxarray as rxr
 import xarray as xr
 
 
-def convert_to_int16(huc_dir: str, branch: str):
+def convert_to_int16(branch_dir: str):
     """
     Method to convert gage watershed hydro id and relative elevation model datasets from float32 to int16
 
     Parameters
     ----------
-    huc_dir : str
+    branch_dir : str
         Directory containing hydrofabric data
-    branch : str
-        ID of branch to convert (or * to convert them all)
-
+   
     """
 
     # Get gage watershed catchments and rems for the appropriate branch (or * for all branches)
-    catchments = glob(f"{huc_dir}/branches/{branch}/gw_catchments_reaches_filtered_addedAttributes_*.tif")
-    rems = glob(f"{huc_dir}/branches/{branch}/rem_zeroed_masked_*.tif")
+    catchments = glob(f"{branch_dir}/gw_catchments_reaches_filtered_addedAttributes_*.tif")
+    rems = glob(f"{branch_dir}/rem_zeroed_masked_*.tif")
 
     # Iterate through each pair of gw catchments and rems
     for c, r in zip(catchments, rems):
@@ -68,19 +66,14 @@ if __name__ == "__main__":
     Example Usage:
 
     python ./convert_to_int16.py
-        -h ../outputs/fim_outputs
-        -b 0
+        -b ../outputs/fim_outputs/12090301/0
     """
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Convert float32 and int32 datasets to int16")
 
     parser.add_argument(
-        "-h", "--huc_dir", help="REQUIRED: Directory with FIM output data for HUC", required=True
-    )
-
-    parser.add_argument(
-        "-b", "--branches", help="REQUIRED: Id of branch to process (or * for all)", required=True
+        "-b", "--branch_dir", help="REQUIRED: Id of branch to process (or * for all)", required=True
     )
 
     args = vars(parser.parse_args())
