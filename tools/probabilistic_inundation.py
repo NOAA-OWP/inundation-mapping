@@ -102,6 +102,16 @@ def generate_streamflow_percentiles(
         "weibull_min": weibull_min,
     }
 
+    if ensemble_forecast.coords['member'].values[0] == 'nbm':
+        return {
+            'feature_id': int(feature),
+            '90': float(ensemble_forecast.sel({'member': 'nbm'})),
+            '75': float(ensemble_forecast.sel({'member': 'nbm'})),
+            '50': float(ensemble_forecast.sel({'member': 'nbm'})),
+            '25': float(ensemble_forecast.sel({'member': 'nbm'})),
+            '10': float(ensemble_forecast.sel({'member': 'nbm'})),
+        }
+
     if int(feature) not in params_weibull.index:
         return {
             'feature_id': int(feature),
@@ -391,7 +401,7 @@ def inundate_probabilistic(
     output_raster: Optional[bool] = False,
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
-    max_to_forecast_time: Optional[bool] = None,
+    aggregate_forecasts: Optional[str] = None,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
@@ -430,8 +440,12 @@ def inundate_probabilistic(
         Quiet output
     log_file: Optional[str], default = None
         Filepath of log file
-    max_to_forecast_time: Optional[bool], default = False
-        Take max streamflow values for this many days from reference time
+    aggregate_forecasts: Optional[str], default = None
+        Method to aggregate forecasts.  Options are "max_to_forecast", "timeslice_max_of_any_feature_id",
+        "timeslice_max_sum".
+        Get max forecast for each feature id of all time up to day and hour after reference time
+        Get a timeslice of the time of max streamflow for any feature ids
+        Get a timeslice of the time of max of summed streamflow in the feature ids
 
     """
 
@@ -445,11 +459,10 @@ def inundate_probabilistic(
     # Fim outputs directory
     fim_outputs_dir = outputs_dir
 
-    # Masks for waterbodies
+    # Masks for HUC Domain
     mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
 
     # Slice of time in forecast
-
     reference_time = ensembles.coords['reference_time'].values[-1]
     forecast_time = reference_time + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
 
@@ -461,23 +474,53 @@ def inundate_probabilistic(
 
     # For each feature in the provided ensembles
     with ThreadPoolExecutor(max_workers=1) as executor:
+
+        member_select = ['nbm'] if 'nbm' in ensembles.coords['member'] else ['1', '2', '3', '4', '5', '6']
+
+        # Get max streamflow for every feature up to forecast time
+        if aggregate_forecasts == "max_to_forecast":
+
+            print('max_to_forecast')
+
+            sel_forecast = ensembles.sel(
+                {'time': slice(reference_time, forecast_time), 'member': member_select}
+            ).max('time')['streamflow']
+
+        # Timeslice representing the max streamflow for any feature id in time up to forecast time
+        elif aggregate_forecasts == "timeslice_max_of_any_feature_id":
+
+            sel_forecast = ensembles.sel({'member': member_select})['streamflow'].isel(
+                {
+                    'time': ensembles['streamflow']
+                    .sel({'time': slice(reference_time, forecast_time), 'member': member_select})
+                    .max(['feature_id', 'member'], skipna=True)
+                    .argmax()
+                }
+            )
+
+        # Timeslice representing the max sum of streamflow for all feature ids in time up to forecast time
+        elif aggregate_forecasts == "timeslice_max_sum":
+
+            sel_forecast = ensembles.sel({'member': member_select})['streamflow'].isel(
+                {
+                    'time': ensembles['streamflow']
+                    .sel({'time': slice(reference_time, forecast_time), 'member': member_select})
+                    .sum(['feature_id', 'member'], skipna=True)
+                    .argmax()
+                }
+            )
+
+        # Timeslice at forecast time
+        else:
+
+            sel_forecast = ensembles.sel({'time': forecast_time, 'member': member_select})['streamflow']
+
+        # Generate streamflow likelihoods for each feature
         executor_dict = {}
         for feat in features:
 
             feat = feat if isinstance(feat, int) else int(feat)
-
-            if max_to_forecast_time is False:
-                ensemble_forecast = ensembles.sel(
-                    {'time': forecast_time, 'feature_id': feat, 'member': ['1', '2', '3', '4', '5', '6']}
-                )['streamflow']
-            else:
-                ensemble_forecast = ensembles.sel(
-                    {
-                        'time': slice(reference_time, forecast_time),
-                        'feature_id': feat,
-                        'member': ['1', '2', '3', '4', '5', '6'],
-                    }
-                ).max('time')['streamflow']
+            ensemble_forecast = sel_forecast.sel({'feature_id': feat, 'member': member_select})
 
             try:
                 future = executor.submit(
@@ -706,7 +749,7 @@ def inundate_hucs(
     output_raster: Optional[bool] = False,
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
-    max_to_forecast_time: Optional[bool] = False,
+    aggregate_forecasts: Optional[str] = None,
 ):
     """
     Driver for running probabilistic inundation on selected HUCs
@@ -745,8 +788,12 @@ def inundate_hucs(
         Whether to be verbose or not
     log_file: Optional[str], default = None
         Filepath of log file
-    max_to_forecast_time: Optional[bool], default = False
-        Take max streamflow values for this many days from reference time
+    aggregate_forecasts: Optional[str], default = None
+        Method to aggregate forecasts.  Options are "max_to_forecast", "timeslice_max_of_any_feature_id",
+        "timeslice_max_sum".
+        Get max forecast for each feature id of all time up to day and hour after reference time
+        Get a timeslice of the time of max streamflow for any feature ids
+        Get a timeslice of the time of max of summed streamflow in the feature ids
 
     """
     for huc in hucs:
@@ -767,7 +814,7 @@ def inundate_hucs(
             output_raster=output_raster,
             quiet=quiet,
             log_file=log_file,
-            max_to_forecast_time=max_to_forecast_time,
+            aggregate_forecasts=aggregate_forecasts,
         )
 
 
@@ -875,12 +922,11 @@ if __name__ == '__main__':
     parser.add_argument("-l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
 
     parser.add_argument(
-        "-mf",
-        "--max_to_forecast_time",
-        type=bool,
-        help="OPTIONAL: " "Whether to take a max for the slice of reference time to forecast time",
-        required=False,
-        default=False,
+        "-a",
+        "--aggregate_forecasts",
+        type=str,
+        help='OPTIONAL: Method to aggregate forecasts.  Options are max_to_forecast, '
+        'timeslice_max_of_any_feature_id, timeslice_max_sum',
     )
 
     args = vars(parser.parse_args())
