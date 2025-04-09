@@ -5,7 +5,6 @@ import os
 import re
 import shutil
 import subprocess
-from pathlib import Path
 
 import boto3
 from dotenv import load_dotenv
@@ -19,7 +18,6 @@ def get_sample_data(
     use_s3: bool = False,
     aws_access_key_id: str = None,
     aws_secret_access_key: str = None,
-    get_test_cases: bool = False,
 ):
     """
     Create input data for the flood inundation model
@@ -29,20 +27,11 @@ def get_sample_data(
     hucs : str
         HUC(s) to process
     data_path : str
-        Path to the root data (s3 path s3://bucket/and parent folder. The input_root and output_root_folder
-        are relative to this path
+        Path to the input data
     output_root_folder : str
         Path to save the output data
     use_s3 : bool
         Download data from S3 (default is False)
-    input_root: str
-        Path to get the input data
-    aws_access_key_id : str
-        Required
-    aws_secret_access_key : str
-        Required
-    get_test_cases : bool
-        Get validation data (default is False)
     """
 
     def __get_validation_hucs(root_dir: str, org: str):
@@ -54,9 +43,7 @@ def get_sample_data(
         root_dir : str
             Root directory
         org : str
-            Organization name (test case source.. ble, usgs, etc)
-
-        Note: In some buckets there may not necessarily be any test_case_data
+            Organization name
         """
 
         if use_s3:
@@ -85,7 +72,7 @@ def get_sample_data(
         Parameters
         ----------
         org : str
-            Organization name  (benchmark source: ble, usgs, etc.)
+            Organization name
         huc : str
             HUC
         input_path : str
@@ -129,10 +116,9 @@ def get_sample_data(
 
         if not os.path.exists(os.path.join(output_path, basename)):
             print(f"Copying {os.path.join(input_path, basename)} to {output_path}")
-            os.makedirs(os.path.split(output_path)[0], exist_ok=True)
+            os.makedirs(output_path, exist_ok=True)
             if use_s3:
                 try:
-                    os.makedirs(output_path, exist_ok=True)
                     s3.download_file(
                         bucket, os.path.join(input_path, basename), os.path.join(output_path, basename)
                     )
@@ -141,8 +127,7 @@ def get_sample_data(
                     if not os.listdir(output_path):
                         os.rmdir(output_path)
             else:
-                if os.path.exists(os.path.join(input_path, basename)):
-                    os.makedirs(output_path, exist_ok=True)
+                if os.path.exists(os.path.join(output_path, basename)):
                     shutil.copy2(os.path.join(input_path, basename), output_path)
                 else:
                     print(f"{os.path.join(input_path, basename)} does not exist.")
@@ -175,9 +160,7 @@ def get_sample_data(
             if use_s3:
                 input_dir = input_path.removeprefix(bucket_path)[1:]
 
-                output_path = os.path.join(output_path, input_dir.removeprefix(input_root))
-            else:
-                output_path = os.path.join(output_path, input_path.removeprefix(input_root))
+            output_path = os.path.join(output_path, input_dir.removeprefix(input_root))
 
         if use_s3:
             print(f"Downloading {input_path} to {output_path}")
@@ -211,12 +194,28 @@ def get_sample_data(
                 continue
             Bucket.download_file(obj.key, target)
 
-    def __create_VRT(vrt_file: str):
+    def __create_vrt(input_file: str, use_s3: bool, bucket_path: str = None):
+        """
+        Creates a VRT file from a list of input files
+
+        Parameters
+        ----------
+        input_file : str
+            Path to the input data
+        output_path : str
+            Path to save the output data
+        input_root : str
+            input_file root directory (default is '/data')
+        """
+
+        # Strip bucket path if use_s3 is True
         if use_s3:
-            vrt_file = vrt_file.removeprefix(bucket_path)[1:]
-            output_VRT_file = os.path.join(output_root_folder, vrt_file)
+            if not bucket_path:
+                raise ValueError('Bucket path is required when using S3')
+            input_file = input_file.removeprefix(bucket_path)[1:]
+            output_VRT_file = os.path.join(output_root_folder, input_file)
         else:
-            output_VRT_file = vrt_file.replace(data_path, output_root_folder)
+            output_VRT_file = input_file.replace(data_path, output_root_folder)
 
         command = ['gdalbuildvrt', output_VRT_file]
         dem_dirname = os.path.dirname(output_VRT_file)
@@ -271,33 +270,27 @@ def get_sample_data(
     INPUT_CALIB_POINTS_DIR = os.environ["input_calib_points_dir"]
     INPUT_BRIDGE_ELEV_DIFF = os.environ["input_bridge_elev_diff"]
     INPUT_BRIDGE_ELEV_DIFF_ALASKA = os.environ["input_bridge_elev_diff_alaska"]
-    INPUT_OSM_BRIDGES = os.environ["osm_bridges"]
-    INPUT_OSM_BRIDGES_ALASKA = os.environ["osm_bridges_alaska"]
-
     root_dir = os.path.split(input_path)[0]
 
-    if get_test_cases:
-        ## test_cases
-        validation_hucs = {}
-        orgs = ['ble', 'nws', 'usgs', 'ras2fim']
-        for org in orgs:
-            validation_hucs[org] = __get_validation_hucs(root_dir, org)
+    ## test_cases
+    validation_hucs = {}
+    orgs = ['ble', 'nws', 'usgs', 'ras2fim']
+    for org in orgs:
+        validation_hucs[org] = __get_validation_hucs(root_dir, org)
 
-            os.makedirs(
-                os.path.join(output_root_folder, f'test_cases/{org}_test_cases/validation_data_{org}'),
-                exist_ok=True,
-            )
+        os.makedirs(
+            os.path.join(output_root_folder, f'test_cases/{org}_test_cases/validation_data_{org}'),
+            exist_ok=True,
+        )
 
     # Copy WBD (needed for post-processing)
     __copy_file(os.environ["input_WBD_gdb"], output_root_folder, input_root, bucket_path)
-
     ## ahps_sites
     __copy_file(os.environ["nws_lid"], output_root_folder, input_root, bucket_path)
 
     ## bathymetry_adjustment
     __copy_file(os.environ["bathy_file_ehydro"], output_root_folder, input_root, bucket_path)
     __copy_file(os.environ["bathy_file_aibased"], output_root_folder, input_root, bucket_path)
-    __copy_file(os.environ["mannN_file_aibased"], output_root_folder, input_root, bucket_path)
 
     ## huc_lists
     __copy_folder(os.path.join(input_path, 'huc_lists'), output_root_folder, input_root, bucket_path)
@@ -332,6 +325,9 @@ def get_sample_data(
 
     __copy_file(os.environ["usgs_rating_curve_csv"], output_root_folder, input_root, bucket_path)
 
+    ## osm bridges
+    __copy_file(os.environ["osm_bridges"], output_root_folder, input_root, bucket_path)
+
     for huc in hucs:
         huc2Identifier = huc[:2]
 
@@ -343,8 +339,10 @@ def get_sample_data(
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC8_{huc}_dem.tif')
             input_NWM_lakes = INPUT_NWM_LAKES_ALASKA
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA
-            input_OSM_bridges = INPUT_OSM_BRIDGES_ALASKA
-            input_bridge_elev = INPUT_BRIDGE_ELEV_DIFF_ALASKA
+            input_bridge_elev_diff = INPUT_BRIDGE_ELEV_DIFF_ALASKA
+            input_DEM_diff = os.path.join(
+                os.path.split(input_bridge_elev_diff)[0], f'HUC8_{huc}_dem_diff.tif'
+            )
 
             __copy_file(INPUT_WBD_GDB_ALASKA, output_root_folder, input_root, bucket_path)
 
@@ -354,8 +352,10 @@ def get_sample_data(
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC6_{huc[:6]}_dem.tif')
             input_NWM_lakes = INPUT_NWM_LAKES
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS
-            input_OSM_bridges = INPUT_OSM_BRIDGES
-            input_bridge_elev = INPUT_BRIDGE_ELEV_DIFF
+            input_bridge_elev_diff = INPUT_BRIDGE_ELEV_DIFF
+            input_DEM_diff = os.path.join(
+                os.path.split(input_bridge_elev_diff)[0], f'HUC6_{huc[:6]}_dem_diff.tif'
+            )
 
             # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
             if huc2Identifier == "04":
@@ -363,17 +363,13 @@ def get_sample_data(
             else:
                 input_LANDSEA = INPUT_LANDSEA
 
-        input_bridge_elev_diff = os.path.join(
-            os.path.split(input_bridge_elev)[0], f'HUC6_{huc[:6]}_dem_diff.tif'
-        )
-        __copy_file(input_bridge_elev_diff, output_root_folder, input_root, bucket_path)
-
         ## landsea mask
         __copy_file(input_LANDSEA, output_root_folder, input_root, bucket_path)
 
         # dem
         __copy_file(input_DEM_domain, output_root_folder, input_root, bucket_path)
         __copy_file(input_DEM_file, output_root_folder, input_root, bucket_path)
+        __copy_file(input_DEM_diff, output_root_folder, input_root, bucket_path)
 
         # lakes
         ## nwm_hydrofabric
@@ -381,14 +377,6 @@ def get_sample_data(
 
         ## nld_vectors
         __copy_file(input_NLD_levee_protected_areas, output_root_folder, input_root, bucket_path)
-
-        ## osm_bridges
-        __copy_file(input_OSM_bridges, output_root_folder, input_root, bucket_path)
-
-        # create VRTs
-        print('Creating VRTs')
-        __create_VRT(input_DEM)
-        __create_VRT(input_bridge_elev)
 
         __copy_file(
             os.path.join(INPUT_CALIB_POINTS_DIR, f'{huc}.parquet'),
@@ -424,14 +412,20 @@ def get_sample_data(
             os.path.join(os.environ["pre_clip_huc_dir"], huc), output_root_folder, input_root, bucket_path
         )
 
-        if get_test_cases:
-            ## validation data
-            for org in orgs:
-                if huc in validation_hucs[org]:
-                    if use_s3:
-                        __copy_validation_data(org, huc, bucket_path, output_root_folder)
-                    else:
-                        __copy_validation_data(org, huc, data_path, output_root_folder)
+        ## validation data
+        for org in orgs:
+            if huc in validation_hucs[org]:
+                if use_s3:
+                    __copy_validation_data(org, huc, bucket_path, output_root_folder)
+                else:
+                    __copy_validation_data(org, huc, data_path, output_root_folder)
+
+    # create VRTs
+    print('Creating DEM VRT')
+    __create_vrt(input_DEM, use_s3, bucket_path)
+
+    print('Creating DEM diff VRT')
+    __create_vrt(input_bridge_elev_diff, use_s3, bucket_path)
 
 
 if __name__ == '__main__':
@@ -443,7 +437,6 @@ if __name__ == '__main__':
     parser.add_argument('-s3', '--use-s3', action='store_true', help='Download data from S3')
     parser.add_argument('-ak', '--aws-access-key-id', help='AWS access key ID', required=False)
     parser.add_argument('-sk', '--aws-secret-access-key', help='AWS secret access key', required=False)
-    parser.add_argument('-t', '--get-test-cases', action='store_true', help='Get validation data')
 
     args = parser.parse_args()
 
