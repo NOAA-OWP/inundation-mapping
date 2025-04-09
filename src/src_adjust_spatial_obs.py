@@ -183,7 +183,14 @@ def find_hucs_with_points(points_file_dir, fim_out_huc_list):
     <fim_out_huc_list> that contain calibration point data.
     '''
 
-    files_in_points_file_dir = os.listdir(points_file_dir)
+    try:
+        files_in_points_file_dir = os.listdir(points_file_dir)
+    except FileNotFoundError:
+        print(
+            f"ERROR: Could not find the input calibration points directory: {points_file_dir}. "
+            "Please check the path and try again."
+        )
+        return []
 
     # Use list comprehension to slice .parquet off filename, and also prune non-parquet files in directory
     hucs_in_points_file_dir = [i[:-8] for i in files_in_points_file_dir if i.endswith('.parquet')]
