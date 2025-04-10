@@ -288,33 +288,35 @@ if __name__ == "__main__":
     #   because pre-clipped osm data must have "has_lidar_tif" field showing existence of lidar or not
     #   This code needs to be run twice: once for conus and once for Alaska :
 
-    #    python foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/20250207/conus_osm_bridges.gpkg
-    #    -d /data/inputs/dems/3dep_dems/10m_5070/20240916/
-    #    -l /data/inputs/osm/bridges/20250207/CAN_BE_DELETED_conus_osm_lidar_rasters/lidar_osm_rasters/
-    #    -o /data/inputs/osm/bridges/20250207/10m_dem_diffs/conus/
+    #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
+    #    -i /data/inputs/osm/bridges/20250207/alaska_osm_bridges.gpkg
+    #    -l /data/inputs/osm/bridges/20250207/alaska_osm_lidar_rasters/lidar_osm_rasters/
+    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20250320/
+    #    -o /data/inputs/osm/bridges/20250323/10m_dem_diffs/alaska/
     #    -j 30
 
-    #    python foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/20250207/alaska_osm_bridges.gpkg
-    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20240916/
-    #    -l /data/inputs/osm/bridges/20250207/CAN_BE_DELETED_alaska_osm_lidar_rasters/lidar_osm_rasters/
-    #    -o /data/inputs/osm/bridges/20250207/10m_dem_diffs/alaska/
+    #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
+    #    -i /data/inputs/osm/bridges/20250207/conus_osm_bridges.gpkg
+    #    -l /data/inputs/osm/bridges/20250207/conus_osm_lidar_rasters/lidar_osm_rasters/
+    #    -d /data/inputs/dems/3dep_dems/10m_5070/20250320/
+    #    -o /data/inputs/osm/bridges/20250323/10m_dem_diffs/conus/
     #    -j 30
 
     ###############################
     #
-    # Normal processing order  (you may not necessarily need to re-pull bridges get new lidar)
-    #    1)  Run pull_osm_bridges
-    #    2)  Run make_rasters_using_lidar.py  (via conda enviro for this step only)
-    #    3)  Run make_dem_dif_for_bridges.py. This also makes a new vrt for this set.
-    #        as well as making modified osm_files we want for pre-clip.
-    #        Copy the new '__osm_bridges_modified.gpkg' to beside the original __osm_bridges.gpkg
-    #    4)  Update bash_variables for the new dem diff vrt paths
-    #    5)  Using the modified osm's, run pre-clip
-    #    6)  Update bash_variables for the new pre-clip paths
+    # If new OSM bridge data is pulled, it will trigger new bridge lidar date, which would trigger
+    #   running this tool.
     #
-    # Each of these steps need to be run twice, one for CONUS and once for AK
+    # Independently, if new DEMs are pulled, then we need to re-run this tool. Assuming we still
+    #    have the most recent Bridge Lidar, which may/may not need to be re-run. It is only needed if
+    #    new OSM data is run.
+    #
+    #  After running this tool, you will get a new "modified" bridge files.
+    #    ie) conus_osm_bridges_modified.gpkg and ak_osm_bridges_modified.
+    #
+    #  You will also get two new DEM Diff VRT's. ie) bridge_elev_diff.vrt (one for AK, one for CONUS)
+    #
+    #  Bash Variables will need to be updated for all four of these files and copied to all 5 enviros.
     #
     ###############################
 

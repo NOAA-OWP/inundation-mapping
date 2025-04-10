@@ -76,6 +76,7 @@ in
     -h|--help)
         shift
         usage
+        exit
         ;;
     -ud|--unitDenylist)
         shift
