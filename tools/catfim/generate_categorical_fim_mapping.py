@@ -247,7 +247,8 @@ def produce_stage_based_lid_tifs(
             summed_array = summed_array + remaining_raster_array
 
         # Mask out the lakes from the inundation array
-        summed_masked_array = mask_out_lakes(summed_array, huc, zero_branch_src)
+        summed_masked_array, mask_status = mask_out_lakes(summed_array, huc, zero_branch_src, fim_dir)
+        MP_LOG.lprint(mask_status)
 
         del zero_branch_array, summed_array  # Clean up
 
@@ -583,7 +584,7 @@ def run_inundation(
         # TODO: Update to only run if lake detected?
         with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
             output_extent_array = output_extent_src.read(1)
-            output_extent_array_masked = mask_out_lakes(output_extent_array, huc, output_extent_src)
+            output_extent_array_masked, mask_status = mask_out_lakes(output_extent_array, huc, output_extent_src, fim_run_dir)
             output_extent_src.write(output_extent_array_masked, 1)
 
         MP_LOG.trace(f"Lake masking complete for {huc} : {ahps_site} : {magnitude}")

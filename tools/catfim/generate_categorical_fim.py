@@ -1625,7 +1625,6 @@ def generate_stage_based_categorical_fim(
     all_csv_df = pd.DataFrame()
     refined_csv_files_list = []
     for csv_file in attrib_csv_files:
-
         full_csv_path = os.path.join(attributes_dir, csv_file)
         # HUC has to be read in as string to preserve leading zeros.
         try:
@@ -1637,7 +1636,6 @@ def generate_stage_based_categorical_fim(
             FLOG.error(f"ERROR: loading csv {full_csv_path}")
             FLOG.error(traceback.format_exc())
             pass
-
     # Write to file
     if len(all_csv_df) == 0:
         raise Exception("no csv files found")
