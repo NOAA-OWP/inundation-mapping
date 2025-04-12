@@ -59,7 +59,7 @@ def get_fim_probability_distributions(
         obank_dist = weibull_min(c=2, scale=0.035, loc=0.09)
 
         # Default weibull likelihood for slope adjustment
-        slope_dist = weibull_min(c=3.1, scale=0.095, loc=-0.01)
+        slope_dist = weibull_min(c=10, scale=0.95 / 10, loc=-0.0916)
 
     else:
 
@@ -102,7 +102,8 @@ def generate_streamflow_percentiles(
         "weibull_min": weibull_min,
     }
 
-    if ensemble_forecast.coords['member'].values[0] == 'nbm':
+    if 'nbm' in ensemble_forecast.coords['member']:
+
         return {
             'feature_id': int(feature),
             '90': float(ensemble_forecast.sel({'member': 'nbm'})),
@@ -295,8 +296,7 @@ def get_subdivided_src(
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
         * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
-        # * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
-        * pow(df_src['SLOPE'] + slope_adj, 0.5)
+        * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
         / df_src['channel_n']
     )
     df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
@@ -320,8 +320,7 @@ def get_subdivided_src(
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
         * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
-        # * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
-        * pow(df_src['SLOPE'] + slope_adj, 0.5)
+        * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
         / df_src['overbank_n']
     )
     df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
@@ -402,6 +401,7 @@ def inundate_probabilistic(
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
     aggregate_forecasts: Optional[str] = None,
+    output_vector: Optional[bool] = True,
 ):
     """
     Method to probabilistically inundate based on provided ensembles
@@ -435,7 +435,7 @@ def inundate_probabilistic(
     windowed: Optional[bool], default = False
         Whether to run inundation in windowed mode for memory conservation
     output_raster: Optional[bool], default = False
-        Whether to keep the output raster along with the vector output
+        Whether to keep the output raster
     quiet : Optional[bool], default=False
         Quiet output
     log_file: Optional[str], default = None
@@ -446,8 +446,13 @@ def inundate_probabilistic(
         Get max forecast for each feature id of all time up to day and hour after reference time
         Get a timeslice of the time of max streamflow for any feature ids
         Get a timeslice of the time of max of summed streamflow in the feature ids
+    output_vector: Optional[bool], default = True
+        Whether to create vector output
 
     """
+
+    if output_raster is False and output_vector is False:
+        raise ValueError("Either output_raster or output_vector must be set to True")
 
     # Load datasets
     ensembles = xr.open_dataset(ensembles)
@@ -475,24 +480,20 @@ def inundate_probabilistic(
     # For each feature in the provided ensembles
     with ThreadPoolExecutor(max_workers=1) as executor:
 
-        member_select = ['nbm'] if 'nbm' in ensembles.coords['member'] else ['1', '2', '3', '4', '5', '6']
-
         # Get max streamflow for every feature up to forecast time
         if aggregate_forecasts == "max_to_forecast":
 
-            print('max_to_forecast')
-
-            sel_forecast = ensembles.sel(
-                {'time': slice(reference_time, forecast_time), 'member': member_select}
-            ).max('time')['streamflow']
+            sel_forecast = ensembles.sel({'time': slice(reference_time, forecast_time)}).max('time')[
+                'streamflow'
+            ]
 
         # Timeslice representing the max streamflow for any feature id in time up to forecast time
         elif aggregate_forecasts == "timeslice_max_of_any_feature_id":
 
-            sel_forecast = ensembles.sel({'member': member_select})['streamflow'].isel(
+            sel_forecast = ensembles['streamflow'].isel(
                 {
                     'time': ensembles['streamflow']
-                    .sel({'time': slice(reference_time, forecast_time), 'member': member_select})
+                    .sel({'time': slice(reference_time, forecast_time)})
                     .max(['feature_id', 'member'], skipna=True)
                     .argmax()
                 }
@@ -501,10 +502,10 @@ def inundate_probabilistic(
         # Timeslice representing the max sum of streamflow for all feature ids in time up to forecast time
         elif aggregate_forecasts == "timeslice_max_sum":
 
-            sel_forecast = ensembles.sel({'member': member_select})['streamflow'].isel(
+            sel_forecast = ensembles['streamflow'].isel(
                 {
                     'time': ensembles['streamflow']
-                    .sel({'time': slice(reference_time, forecast_time), 'member': member_select})
+                    .sel({'time': slice(reference_time, forecast_time)})
                     .sum(['feature_id', 'member'], skipna=True)
                     .argmax()
                 }
@@ -513,14 +514,14 @@ def inundate_probabilistic(
         # Timeslice at forecast time
         else:
 
-            sel_forecast = ensembles.sel({'time': forecast_time, 'member': member_select})['streamflow']
+            sel_forecast = ensembles.sel({'time': forecast_time})['streamflow']
 
         # Generate streamflow likelihoods for each feature
         executor_dict = {}
         for feat in features:
 
             feat = feat if isinstance(feat, int) else int(feat)
-            ensemble_forecast = sel_forecast.sel({'feature_id': feat, 'member': member_select})
+            ensemble_forecast = sel_forecast.sel({'feature_id': feat})
 
             try:
                 future = executor.submit(
@@ -678,26 +679,28 @@ def inundate_probabilistic(
     for ds in datasets:
         ds.close()
 
-    with rasterio.open(out_rast, 'r') as rst:
-        shapes = rasterio.features.shapes(rst.read(1), mask=None, transform=rst.transform)
+    if output_vector is True:
+        with rasterio.open(out_rast, 'r') as rst:
+            shapes = rasterio.features.shapes(rst.read(1), mask=None, transform=rst.transform)
 
-        polygons = []
-        for geom, value in shapes:
-            polygon = shape(geom)
-            polygons.append((polygon, value))
+            polygons = []
+            for geom, value in shapes:
+                polygon = shape(geom)
+                polygons.append((polygon, value))
 
-        data = []
-        for polygon, value in polygons:
-            data.append({'geometry': polygon, 'value': value})
-        gdf = gpd.GeoDataFrame(data, crs=raster_crs)
-        gdf.to_file(os.path.join(base_output_path, output_file_name))
+            data = []
+            for polygon, value in polygons:
+                data.append({'geometry': polygon, 'value': value})
+            gdf = gpd.GeoDataFrame(data, crs=raster_crs)
+            gdf.to_file(os.path.join(base_output_path, output_file_name))
 
     for file in percentile_files:
         os.remove(file)
 
     if output_raster is False:
         os.remove(out_rast)
-    # Remove SRC path
+
+    # Remove SRC path and flow path
     shutil.rmtree(src_output_path)
     shutil.rmtree(flow_path)
 
@@ -750,6 +753,7 @@ def inundate_hucs(
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
     aggregate_forecasts: Optional[str] = None,
+    output_vector: Optional[bool] = True,
 ):
     """
     Driver for running probabilistic inundation on selected HUCs
@@ -783,7 +787,7 @@ def inundate_hucs(
     windowed: Optional[bool], default = False
         Whether to run inundation in windowed mode for memory conservation
     output_raster: Optional[bool], default = False
-        Whether to keep the output raster along with the vector output
+        Whether to keep the output raster output
     quiet: Optional[bool], default = False
         Whether to be verbose or not
     log_file: Optional[str], default = None
@@ -794,6 +798,8 @@ def inundate_hucs(
         Get max forecast for each feature id of all time up to day and hour after reference time
         Get a timeslice of the time of max streamflow for any feature ids
         Get a timeslice of the time of max of summed streamflow in the feature ids
+    output_vector: Optional[bool], default = True
+        Whether to create vector output
 
     """
     for huc in hucs:
@@ -815,6 +821,7 @@ def inundate_hucs(
             quiet=quiet,
             log_file=log_file,
             aggregate_forecasts=aggregate_forecasts,
+            output_vector=output_vector,
         )
 
 
@@ -899,7 +906,15 @@ if __name__ == '__main__':
         "-or",
         "--output_raster",
         default=False,
-        help="OPTIONAL: Whether to keep final raster output along with vector",
+        help="OPTIONAL: Whether to keep final raster output",
+        required=False,
+    )
+
+    parser.add_argument(
+        "-ov",
+        "--output_vector",
+        default=True,
+        help="OPTIONAL: Whether to create final vector output",
         required=False,
     )
 
