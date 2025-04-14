@@ -92,7 +92,6 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
             },
         }
 
-
         impc_stm_df = pd.DataFrame(columns=['HydroID', 'discharge', 'stage'])
         cal_data = []
         weigthed_values = []  # Store weighted calibration values
@@ -115,17 +114,21 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
                     if polygon.empty:
                         continue
                     # Handel multiple ImpactStages for each threshold
-                    dfs_poly = {val: polygon[polygon['ImpactStage'] == val] for val in polygon['ImpactStage'].unique()}
+                    dfs_poly = {
+                        val: polygon[polygon['ImpactStage'] == val] for val in polygon['ImpactStage'].unique()
+                    }
                     all_poly = []
                     poly_stages = []
                     for val, group in dfs_poly.items():
                         if group.crs != src.crs:
                             group = group.to_crs(src.crs)
                         geometry_ = [g.__geo_interface__ for g in group.geometry]
-                         # Check if rem and the polygons intersect
+                        # Check if rem and the polygons intersect
                         polygon_catchment = gpd.sjoin(catchments, group, predicate='intersects')
                         if polygon_catchment.empty:
-                            print(f'No overlap between {poly_type} polygon and branch {branch} found, skipping...')
+                            print(
+                                f'No overlap between {poly_type} polygon and branch {branch} found, skipping...'
+                            )
                             continue
                         out_image, out_transform = mask(src, geometry_, crop=True)
                         data = out_image[0]
@@ -150,18 +153,28 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
 
                         # Find closest matching stage to the user provided HAND value
                         find_src_stage_med = target_hid.loc[target_hid['stage'].sub(med).abs().idxmin()]
-                        find_src_stage_75 = target_hid.loc[target_hid['stage'].sub(percentile_75).abs().idxmin()]
-                        find_src_stage_max = target_hid.loc[target_hid['stage'].sub(upper_extreme).abs().idxmin()]
+                        find_src_stage_75 = target_hid.loc[
+                            target_hid['stage'].sub(percentile_75).abs().idxmin()
+                        ]
+                        find_src_stage_max = target_hid.loc[
+                            target_hid['stage'].sub(upper_extreme).abs().idxmin()
+                        ]
 
                         # Copy the corresponding hydroTable discharge for the matching stage
                         if pd.notna(polygon[flow_col].iloc[0]):
-                                discharge_obs = polygon[flow_col].iloc[0] * 0.028316847
+                            discharge_obs = polygon[flow_col].iloc[0] * 0.028316847
                         else:
-                            usgs_nwslid = pd.read_csv('/data/inputs/usgs_gages/acceptable_sites_for_rating_curves.csv')
-                            loc_id = usgs_nwslid.loc[usgs_nwslid['nws_lid'] == NWSLID, 'location_id'].values[0]
+                            usgs_nwslid = pd.read_csv(
+                                '/data/inputs/usgs_gages/acceptable_sites_for_rating_curves.csv'
+                            )
+                            loc_id = usgs_nwslid.loc[usgs_nwslid['nws_lid'] == NWSLID, 'location_id'].values[
+                                0
+                            ]
                             usgs_rating = pd.read_csv('/data/inputs/usgs_gages/usgs_rating_curves.csv')
                             usgs_target = usgs_rating[usgs_rating['location_id'] == loc_id]
-                            discharge_obs = usgs_target.loc[usgs_target['stage'] == poly_stages[i], 'flow'].values[0]
+                            discharge_obs = usgs_target.loc[
+                                usgs_target['stage'] == poly_stages[i], 'flow'
+                            ].values[0]
                             discharge_obs *= 0.028316847
                         src_discharge_med = find_src_stage_med.discharge_cms
                         src_discharge_75 = find_src_stage_75.discharge_cms
@@ -178,7 +191,7 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
 
             # Median calibration coefficient
             median_cal_coefficient = np.median(weigthed_values)
-            
+
             # Adjusted roughness
             new_roughness = median_cal_coefficient * 0.06
             # Recalculating discharge
