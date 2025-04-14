@@ -44,7 +44,7 @@ def add_crosswalk(
 
     input_catchments = input_catchments.dissolve(by='HydroID').reset_index()
 
-    input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
+    input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id', 'Slope': 'SLOPE_HFAB'})
     if input_nwmflows.feature_id.dtype != 'int':
         input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
     input_nwmflows = input_nwmflows.set_index('feature_id')
@@ -70,7 +70,7 @@ def add_crosswalk(
     crosswalk.loc[crosswalk['distance'] > 100.0, 'feature_id'] = pd.NA
 
     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id', 'distance'])
-    crosswalk = crosswalk.merge(input_nwmflows[['order_']], on='feature_id')
+    crosswalk = crosswalk.merge(input_nwmflows[['order_', 'SLOPE_HFAB']], on='feature_id')
 
     del input_nwmflows
 
@@ -237,12 +237,20 @@ def add_crosswalk(
 
     # calculate src_full
     input_src_base = pd.read_csv(input_srcbase_fileName, dtype=object)
+    input_src_base = input_src_base.rename(columns={' SLOPE': 'SLOPE_RISE_RUN'})
+
     if input_src_base.CatchId.dtype != 'int':
         input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
     input_src_base = input_src_base.merge(
-        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
+        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_', 'SLOPE_HFAB']],
+        left_on='CatchId',
+        right_on='HydroID',
     )
+
+    # Merge 'SLOPE_RISE_RUN' and 'SLOPE_HFAB' into 'SLOPE'
+    print(input_src_base.columns)
+    input_src_base['SLOPE'] = input_src_base['SLOPE_HFAB'].combine_first(input_src_base['SLOPE_RISE_RUN'])
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
@@ -344,6 +352,8 @@ def add_crosswalk(
             'HydraulicRadius (m)',
             'WetArea (m2)',
             'Volume (m3)',
+            'SLOPE_HFAB',
+            'SLOPE_RISE_RUN',
             'SLOPE',
             'ManningN',
             'Stage',
