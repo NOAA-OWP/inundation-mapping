@@ -34,6 +34,7 @@ def add_crosswalk(
     min_catchment_area,
     min_stream_length,
     huc_id,
+    iris_sword_slope,
 ):
     input_catchments = gpd.read_file(input_catchments_fileName, engine="pyogrio", use_arrow=True)
     input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio", use_arrow=True)
@@ -477,6 +478,9 @@ if __name__ == '__main__':
     )
     parser.add_argument("-e", "--min-catchment-area", help="Minimum catchment area", required=True)
     parser.add_argument("-g", "--min-stream-length", help="Minimum stream length", required=True)
+    parser.add_argument(
+        "-i", "--iris-sword-slope", help="Channel slope data from IRIS-SWORD database", required=True
+    )
 
     args = vars(parser.parse_args())
 

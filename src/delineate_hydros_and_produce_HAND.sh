@@ -245,7 +245,8 @@ echo "Executing command: python3 $srcDir/add_crosswalk.py \
     -m $manning_n \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
-    -g $min_stream_length"
+    -g $min_stream_length
+    -i $iris_sword_slope"
 
 python3 $srcDir/add_crosswalk.py \
     -d $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
@@ -263,7 +264,8 @@ python3 $srcDir/add_crosswalk.py \
     -m $manning_n \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
-    -g $min_stream_length
+    -g $min_stream_length \
+    -i $iris_sword_slope
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
 if [ "$healed_hand_hydrocondition" = true ]; then
