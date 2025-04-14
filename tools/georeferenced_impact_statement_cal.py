@@ -231,7 +231,9 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
         'discharge'
     ]
     new_hydrotable = new_hydrotable.drop(columns=['discharge'])
-    new_htable_path = os.path.join(huc_path, 'hydrotable_impact.csv') # The current file name is intended to preserve the original hydrotable. It can be renamed at a later stage if needed.
+    new_htable_path = os.path.join(
+        huc_path, 'hydrotable_impact.csv'
+    )  # The current file name is intended to preserve the original hydrotable. It can be renamed at a later stage if needed.
     new_hydrotable.to_csv(new_htable_path, index=False)
 
 
