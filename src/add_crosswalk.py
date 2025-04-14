@@ -14,9 +14,6 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
-# TODO - Feb 17, 2023 - We want to explore using FR methodology as branch zero
-
-
 def add_crosswalk(
     input_catchments_fileName,
     input_flows_fileName,
@@ -40,6 +37,9 @@ def add_crosswalk(
     input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio", use_arrow=True)
     input_huc = gpd.read_file(input_huc_fileName, engine="pyogrio", use_arrow=True)
     input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine="pyogrio", use_arrow=True)
+    iris_df = pd.read_parquet(iris_sword_slope).rename(
+        columns={'slope_iris_sword': 'SLOPE_IRIS_SWORD', 'id': 'feature_id'}
+    )
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
@@ -48,6 +48,11 @@ def add_crosswalk(
     input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id', 'Slope': 'SLOPE_HFAB'})
     if input_nwmflows.feature_id.dtype != 'int':
         input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+
+    # Merge IRIS-SWORD slope data with NWM flows
+    input_nwmflows = input_nwmflows.merge(
+        iris_df[['feature_id', 'SLOPE_IRIS_SWORD']], on='feature_id', how='left'
+    )
     input_nwmflows = input_nwmflows.set_index('feature_id')
 
     # Get stream midpoint
@@ -71,7 +76,7 @@ def add_crosswalk(
     crosswalk.loc[crosswalk['distance'] > 100.0, 'feature_id'] = pd.NA
 
     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id', 'distance'])
-    crosswalk = crosswalk.merge(input_nwmflows[['order_', 'SLOPE_HFAB']], on='feature_id')
+    crosswalk = crosswalk.merge(input_nwmflows[['order_', 'SLOPE_HFAB', 'SLOPE_IRIS_SWORD']], on='feature_id')
 
     del input_nwmflows
 
@@ -244,14 +249,17 @@ def add_crosswalk(
         input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
     input_src_base = input_src_base.merge(
-        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_', 'SLOPE_HFAB']],
+        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_', 'SLOPE_HFAB', 'SLOPE_IRIS_SWORD']],
         left_on='CatchId',
         right_on='HydroID',
     )
 
     # Merge 'SLOPE_RISE_RUN' and 'SLOPE_HFAB' into 'SLOPE'
-    print(input_src_base.columns)
-    input_src_base['SLOPE'] = input_src_base['SLOPE_HFAB'].combine_first(input_src_base['SLOPE_RISE_RUN'])
+    input_src_base['SLOPE'] = (
+        input_src_base['SLOPE_IRIS_SWORD']
+        .combine_first(input_src_base['SLOPE_HFAB'])
+        .combine_first(input_src_base['SLOPE_RISE_RUN'])
+    )
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
@@ -354,6 +362,7 @@ def add_crosswalk(
             'WetArea (m2)',
             'Volume (m3)',
             'SLOPE_HFAB',
+            'SLOPE_IRIS_SWORD',
             'SLOPE_RISE_RUN',
             'SLOPE',
             'ManningN',
