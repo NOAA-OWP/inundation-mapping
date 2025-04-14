@@ -89,6 +89,7 @@ input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
 input_nld_levee_protected_areas_Alaska = os.getenv('input_nld_levee_protected_areas_Alaska')
 
 input_osm_bridges = os.getenv('osm_bridges')
+input_osm_bridges_alaska = os.getenv('osm_bridges_alaska')
 
 # Variables from config/params_template.env
 wbd_buffer = os.getenv('wbd_buffer')
@@ -414,7 +415,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 wbd_buffer_distance=wbd_buffer_int,
                 levee_protected_areas=input_nld_levee_protected_areas_Alaska,
                 subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-                osm_bridges=input_osm_bridges,
+                osm_bridges=input_osm_bridges_alaska,
                 subset_osm_bridges=f"{huc_directory}/osm_bridges_subset.gpkg",
                 is_alaska=True,
                 huc_CRS=huc_CRS,  # TODO: simplify
