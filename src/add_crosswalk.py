@@ -276,6 +276,13 @@ def add_crosswalk(
         * pow(input_src_base['SLOPE'], 0.5)
         / input_src_base['ManningN']
     )
+    # TEMPORARY - TO DELETE AFTER TESTING
+    input_src_base['rise_run_discharge_cms'] = (
+        input_src_base['WetArea (m2)']
+        * pow(input_src_base['HydraulicRadius (m)'], 2.0 / 3)
+        * pow(input_src_base['SLOPE_RISE_RUN'], 0.5)
+        / input_src_base['ManningN']
+    )
 
     # set nans to 0
     input_src_base.loc[input_src_base['Stage'] == 0, ['Discharge (m3s-1)']] = 0
@@ -368,6 +375,7 @@ def add_crosswalk(
             'ManningN',
             'Stage',
             'Discharge (m3s-1)',
+            'rise_run_discharge_cms',
         ],
     ]
     output_hydro_table.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
