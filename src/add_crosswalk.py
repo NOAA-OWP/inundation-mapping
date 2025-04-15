@@ -33,10 +33,10 @@ def add_crosswalk(
     huc_id,
     iris_sword_slope,
 ):
-    input_catchments = gpd.read_file(input_catchments_fileName, engine="pyogrio", use_arrow=True)
-    input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio", use_arrow=True)
-    input_huc = gpd.read_file(input_huc_fileName, engine="pyogrio", use_arrow=True)
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine="pyogrio", use_arrow=True)
+    input_catchments = gpd.read_file(input_catchments_fileName, engine='fiona')
+    input_flows = gpd.read_file(input_flows_fileName, engine='fiona')
+    input_huc = gpd.read_file(input_huc_fileName, engine='fiona')
+    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
     iris_df = pd.read_parquet(iris_sword_slope).rename(
         columns={'slope_iris_sword': 'SLOPE_IRIS_SWORD', 'id': 'feature_id'}
     )

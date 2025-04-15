@@ -21,9 +21,9 @@ def filter_catchments_and_add_attributes(
     wbd_filename,
     huc_code,
 ):
-    input_catchments = gpd.read_file(input_catchments_filename)
-    wbd = gpd.read_file(wbd_filename)
-    input_flows = gpd.read_file(input_flows_filename)
+    input_catchments = gpd.read_file(input_catchments_filename, engine='fiona')
+    wbd = gpd.read_file(wbd_filename, engine='fiona')
+    input_flows = gpd.read_file(input_flows_filename, engine='fiona')
 
     # filter segments within huc boundary
     select_flows = tuple(map(str, map(int, wbd[wbd.HUC8.str.contains(huc_code)][FIM_ID])))

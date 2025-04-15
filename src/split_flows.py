@@ -147,7 +147,7 @@ def split_flows(
     toMetersConversion = 1e-3
 
     # Read in flows data and check for relevant streams within HUC boundary
-    flows = gpd.read_file(flows_filename)
+    flows = gpd.read_file(flows_filename, engine='fiona')
     flows_crs = flows.crs
     if len(flows) == 0:
         # Note: This is not an exception, but a custom exit code that can be trapped
@@ -155,11 +155,11 @@ def split_flows(
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
     # Read in and format other data
-    wbd8 = gpd.read_file(wbd8_clp_filename)
+    wbd8 = gpd.read_file(wbd8_clp_filename, engine='fiona')
     dem = rasterio.open(dem_filename, 'r')
 
     if isfile(lakes_filename):
-        lakes = gpd.read_file(lakes_filename)
+        lakes = gpd.read_file(lakes_filename, engine='fiona')
     else:
         lakes = None
 
@@ -182,7 +182,7 @@ def split_flows(
     print('Trimming DEM stream to NWM branch terminus...')
 
     # Read in nwm lines, explode to ensure linestrings are the only geometry
-    nwm_streams = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
+    nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
 
     # If it's NOT branch 0: Dissolve levelpath
     if 'levpa_id' in nwm_streams.columns:
