@@ -87,16 +87,13 @@ gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES"
 
 ## ADJUST FLOODPLAINS ##
 echo -e $startDiv"Adjust floodplains $hucNumber $current_branch_id"
-$srcDir/adjust_floodplains.py -d $current_branch_id \
+$srcDir/adjust_floodplains.py \
     -i $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
     -e $tempCurrentBranchDataDir/flows_grid_boolean_euclidean_distance_$current_branch_id.tif \
     -d $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
     -w $tempHucDataDir/wbd.gpkg \
-    # -p $tempHucDataDir/branch_polygons.gpkg \
-    # -b $current_branch_id \
     -o $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
     -z 50
-    # -f /data/inputs/fema/nfhl/nfhl_flood_hazard_zones_${hucNumber}_100yr.gpkg
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"
