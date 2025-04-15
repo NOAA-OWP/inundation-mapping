@@ -999,6 +999,44 @@ class StreamNetwork(gpd.GeoDataFrame):
         verbose=False,
     ):
 
+        def extend_levelpaths_to_outlet(
+            df: gpd.GeoDataFrame,
+            df_copy: gpd.GeoDataFrame,
+            outlet_id: int,
+            branch_id: int,
+            branch_id_attribute: str,
+        ) -> gpd.GeoDataFrame:
+            """
+            Recursively extends levelpaths to the outlet
+
+            Parameters
+            ----------
+            df : GeoDataFrame
+                levelpath GeoDataFrame
+            branch_id_attribute : str
+                Branch ID attribute
+            levelpath_outlet_id : int
+                Levelpath outlet ID
+            """
+
+            # Get downstream ID
+            to = df_copy.loc[df_copy.ID == outlet_id, 'to']
+
+            # while outlets exist
+            if to.isin(df.ID).item():
+                df_ds = df_copy.copy(deep=True)
+                df_ds = df_ds[df_ds.ID == to.values[0]]
+                df_ds.loc[df_ds.ID == to.item(), branch_id_attribute] = branch_id
+
+                df = pd.concat([df, df_ds], ignore_index=True)
+
+                # find the next downstream segment
+                for df_ds_ID in df_ds.ID.values:
+                    # recursively extend levelpaths
+                    df = extend_levelpaths_to_outlet(df, df_copy, df_ds_ID, branch_id, branch_id_attribute)
+
+            return df
+
         def add_outlet_segments(
             self_extended: gpd.GeoDataFrame,
             self_copy: gpd.GeoDataFrame,
@@ -1080,18 +1118,38 @@ class StreamNetwork(gpd.GeoDataFrame):
             self_in_wbd[[branch_id_attribute, "order_"]].groupby(branch_id_attribute).max()["order_"].copy()
         )
 
-        # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
-        sjoin = gpd.sjoin(self, wbd, predicate='crosses')
+        self_in_wbd_copy = self_in_wbd.copy(deep=True)
 
-        # Get ID of segments downstream of WBD boundary
-        s = self[self['ID'].isin(sjoin['to'])]
+        # Extend each levelpath to the outlet
+        for levelpath in self_in_wbd[branch_id_attribute].unique():
+            # Select segments in levelpath
+            levelpath_df = self_in_wbd[self_in_wbd[branch_id_attribute] == levelpath]
+
+            # Find levelpath outlet ('to' not in 'ID')
+            levelpath_outlet = levelpath_df[~levelpath_df.to.isin(levelpath_df.ID)]
+
+            # Extend levelpath_outlet
+            self_in_wbd = extend_levelpaths_to_outlet(
+                self_in_wbd, self_in_wbd_copy, levelpath_outlet.ID.values[0], levelpath, branch_id_attribute
+            )
+
+            # Update self_in_wbd with extended levelpath
+            # self_in_wbd.loc[self_in_wbd[branch_id_attribute] == levelpath, 'geometry'] = levelpath_df.geometry
+
+        # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
+        sjoin = gpd.sjoin(self_in_wbd, wbd, predicate='crosses')  # this finds both inflows and outflows
+
+        # # Get ID of segments downstream of WBD boundary
+        # s = self[self['ID'].isin(sjoin['to'])]
 
         # Find downstream segments outside of WBD
-        s_in_wbd = gpd.sjoin(s, wbd)
-        s_not_in_wbd = s[~s['ID'].isin(s_in_wbd['ID'])]
+        self_not_in_wbd = self[~self['ID'].isin(self_in_wbd['ID'])]
+
+        outflows = sjoin[sjoin['to'].isin(self_not_in_wbd['ID'])]
 
         # Make a copy of the stream network
         self_copy = self.copy(deep=True)
+        self_in_wbd_copy = self_in_wbd.copy(deep=True)
 
         # Dissolve levelpath(s)
         self = self_in_wbd.dissolve(by=branch_id_attribute, as_index=False)
@@ -1108,13 +1166,13 @@ class StreamNetwork(gpd.GeoDataFrame):
             self.loc[idx, 'ID'] = ds_outlet['ID'].values[0]
             self.loc[idx, 'to'] = ds_outlet['to'].values[0]
 
-        self["order_"] = max_stream_order.values
+        self["order_"] = pd.merge(self, max_stream_order, on='levpa_id')['order__y'].astype(int)
 
-        if not s_not_in_wbd.empty:
+        if not outflows.empty:
             outlets_extended = self.copy(deep=True)
 
             # For each outlet
-            for outlet in s_not_in_wbd.itertuples():
+            for outlet in outflows.itertuples():
                 # Select segments in levelpath
                 temp_df = self_copy[self_copy[branch_id_attribute] == outlet.levpa_id]
 
@@ -1178,7 +1236,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             self.write(out_vector_files, index=False)
 
-        if out_extended_vector_files is not None and not s_not_in_wbd.empty:
+        if out_extended_vector_files is not None and not self_not_in_wbd.empty:
             outlets_extended.write(out_extended_vector_files, index=False)
         else:
             self.write(out_extended_vector_files, index=False)

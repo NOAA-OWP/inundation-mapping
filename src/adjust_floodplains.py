@@ -21,10 +21,10 @@ def adjust_floodplains(
     wbd_file,
     distance_file,
     output_file,
-    branch_polygons,
-    branch_id,
+    # branch_polygons,
+    # branch_id,
     z_factor,
-    fema_flood_zones_file,
+    # fema_flood_zones_file,
 ):
     wbt.euclidean_distance(input_file, distance_file)
 
