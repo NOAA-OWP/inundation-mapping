@@ -113,11 +113,11 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--distance-file', help='Distance file', type=str)
     parser.add_argument('-d', '--dem-file', help='DEM file', type=str)
     parser.add_argument('-w', '--wbd-file', help='WBD file', type=str)
-    parser.add_argument('-p', '--branch-polygons', help='Branch polygons', type=str)
-    parser.add_argument('-b', '--branch-id', help='Branch ID', type=str)
+    # parser.add_argument('-p', '--branch-polygons', help='Branch polygons', type=str)
+    # parser.add_argument('-b', '--branch-id', help='Branch ID', type=str)
     parser.add_argument('-o', '--output-file', help='Output file', type=str)
     parser.add_argument('-z', '--z-factor', help='Z factor', type=float)
-    parser.add_argument('-f', '--fema-flood-zones-file', help='FEMA flood zones file', type=str)
+    # parser.add_argument('-f', '--fema-flood-zones-file', help='FEMA flood zones file', type=str)
 
     args = parser.parse_args()
 
