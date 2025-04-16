@@ -155,6 +155,9 @@ def split_flows(
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
     # Read in and format other data
+    # These HUC-level geopackages are being read using the fiona engine because
+    # the pyogrio + arrow engine was giving random segmentation faults that
+    # we think may be due to many branches trying to read the same GPKG
     wbd8 = gpd.read_file(wbd8_clp_filename, engine='fiona')
     dem = rasterio.open(dem_filename, 'r')
 

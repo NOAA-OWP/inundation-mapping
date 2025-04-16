@@ -35,6 +35,10 @@ def add_crosswalk(
     min_stream_length,
     huc_id,
 ):
+    # These HUC-level geopackages are being read using the fiona engine because
+    # the pyogrio + arrow engine was giving random segmentation faults that
+    # we think may be due to many branches trying to read the same GPKG.
+    # See issue #1376 for details.
     input_catchments = gpd.read_file(input_catchments_fileName, engine='fiona')
     input_flows = gpd.read_file(input_flows_fileName, engine='fiona')
     input_huc = gpd.read_file(input_huc_fileName, engine='fiona')
