@@ -929,10 +929,18 @@ def reformat_inundation_maps(
             {'properties': {'extent': 1}, 'geometry': s}
             for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
         )
+        
+        list_results = list(results)
+
+        # Check whether any shapes were found in the inundated tifs
+        # If not, log a message and return
+        if len(list_results) == 0:
+            MP_LOG.error(f"{huc} : {ahps_lid} : {magnitude} - No values above zero in inundated tif, so zero inundated shapes were found. See GitHub issue #1491 for details.")
+            return
 
         # Convert list of shapes to polygon
         # lots of polys
-        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)
+        extent_poly = gpd.GeoDataFrame.from_features(list_results, crs=src.crs)
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')

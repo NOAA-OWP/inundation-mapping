@@ -1638,7 +1638,7 @@ def generate_stage_based_categorical_fim(
             pass
     # Write to file
     if len(all_csv_df) == 0:
-        raise Exception("no csv files found")
+        raise Exception(f"no csv files found - missing attribute CSVs in {attributes_dir}")
 
     all_csv_df.to_csv(os.path.join(attributes_dir, 'nws_lid_attributes.csv'), index=False)
 
