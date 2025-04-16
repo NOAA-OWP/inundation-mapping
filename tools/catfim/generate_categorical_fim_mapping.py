@@ -940,7 +940,7 @@ def reformat_inundation_maps(
             MP_LOG.error(
                 f"{huc} : {ahps_lid} : {magnitude} - No values above zero in inundated tif, "
                 "so zero inundated shapes were found. See GitHub issue #1491 for details."
-                )
+            )
             return
 
         # Convert list of shapes to polygon
