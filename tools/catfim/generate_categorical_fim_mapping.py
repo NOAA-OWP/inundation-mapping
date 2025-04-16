@@ -931,13 +931,16 @@ def reformat_inundation_maps(
             {'properties': {'extent': 1}, 'geometry': s}
             for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
         )
-        
+
         list_results = list(results)
 
         # Check whether any shapes were found in the inundated tifs
         # If not, log a message and return
         if len(list_results) == 0:
-            MP_LOG.error(f"{huc} : {ahps_lid} : {magnitude} - No values above zero in inundated tif, so zero inundated shapes were found. See GitHub issue #1491 for details.")
+            MP_LOG.error(
+                f"{huc} : {ahps_lid} : {magnitude} - No values above zero in inundated tif, "
+                "so zero inundated shapes were found. See GitHub issue #1491 for details."
+                )
             return
 
         # Convert list of shapes to polygon
