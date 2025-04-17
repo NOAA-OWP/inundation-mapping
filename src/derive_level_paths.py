@@ -21,8 +21,9 @@ def Derive_level_paths(
     out_stream_network,
     branch_id_attribute,
     huc_id,
+    out_stream_network_extended=None,
     out_stream_network_dissolved=None,
-    out_stream_network_dissolved_extended=None,
+    out_stream_network_extended_dissolved=None,
     headwaters_outfile=None,
     catchments=None,
     waterbodies=None,
@@ -179,18 +180,34 @@ def Derive_level_paths(
         stream_network.write(out_stream_network, index=True)
 
     if out_stream_network_dissolved is not None:
+        stream_network_extended = stream_network.extend_branches(
+            wbd=wbd,
+            branch_id_attribute=branch_id_attribute,
+            attribute_excluded=None,  # 'order_',
+            values_excluded=None,  # [1,2],
+            out_vector_files=out_stream_network_extended,
+            verbose=verbose,
+        )
+
+        # dissolve by levelpath
+        stream_network_extended.dissolve_by_branch(
+            branch_id_attribute=branch_id_attribute,
+            attribute_excluded=None,  # 'order_',
+            values_excluded=None,  # [1,2],
+            out_vector_files=out_stream_network_extended_dissolved,
+            verbose=verbose,
+        )
+
         stream_network = stream_network.trim_branches_in_waterbodies(
             wbd=wbd, branch_id_attribute=branch_id_attribute, verbose=verbose
         )
 
         # dissolve by levelpath
         stream_network = stream_network.dissolve_by_branch(
-            wbd=wbd,
             branch_id_attribute=branch_id_attribute,
             attribute_excluded=None,  # 'order_',
             values_excluded=None,  # [1,2],
             out_vector_files=out_stream_network_dissolved,
-            out_extended_vector_files=out_stream_network_dissolved_extended,
             verbose=verbose,
         )
 
@@ -277,8 +294,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-de",
-        "--out-stream-network-dissolved-extended",
-        help="Dissolved output stream network extended",
+        "--out-stream-network-extended",
+        help="Extended output stream network",
+        required=False,
+        default=None,
+    )
+    parser.add_argument(
+        "-ded",
+        "--out-stream-network-extended-dissolved",
+        help="Extended and dissolved output stream network",
         required=False,
         default=None,
     )
