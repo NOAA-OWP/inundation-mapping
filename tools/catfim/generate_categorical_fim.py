@@ -802,7 +802,7 @@ def iterate_through_huc_stage_based(
                     # Calcluate a portion of the file name which includes the category,
                     # a formatted stage value and a possible "i" to show it is an interval file
                     category_key = __calculate_category_key(category, stage_value, False)
-
+                    
                     # These are the up to 5 magnitudes being inundated at their stage value
                     (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_lid_tifs(
                         stage_value,
