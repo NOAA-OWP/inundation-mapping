@@ -187,7 +187,7 @@ if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
     gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-        $tempHucDataDir/nwm_subset_streams_levelPaths_extended_dissolved.gpkg $tempHucDataDir/flows_grid_boolean.tif
+        $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg $tempHucDataDir/flows_grid_boolean.tif
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##

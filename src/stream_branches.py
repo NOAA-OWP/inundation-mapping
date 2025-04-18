@@ -1152,7 +1152,18 @@ class StreamNetwork(gpd.GeoDataFrame):
             self = self.loc[exclude_indices, :]
 
         wbd = gpd.read_file(wbd)
-        wbd = wbd.drop('shape_Length', axis=1)
+        wbd = wbd.drop(
+            columns=[
+                'shape_Length',
+                'metasourceid',
+                'sourcedatadesc',
+                'sourceoriginator',
+                'sourcefeatureid',
+                'loaddate',
+                'referencegnis_ids',
+            ],
+            axis=1,
+        )
 
         # Filter segments that are in the HUC
         self_in_wbd = gpd.sjoin(self, wbd)
@@ -1196,20 +1207,6 @@ class StreamNetwork(gpd.GeoDataFrame):
         self_not_in_wbd = self[~self['ID'].isin(self_in_wbd['ID'])]
 
         outflows = sjoin[sjoin['to'].isin(self_not_in_wbd['ID'])]
-
-        # # Fix ID and to attributes to downstream segment (these may be incorrect after dissolve)
-        # for idx, row in self.iterrows():
-        #     # Get all segments of the levelpath
-        #     self_ref_levpa = self_ref.loc[self_ref[branch_id_attribute] == row[branch_id_attribute]]
-
-        #     # Get downstream segment of self_ref_levpa (self_ref_levpa.to not in self_ref_levpa.ID)
-        #     ds_outlet = self_ref_levpa.loc[~self_ref_levpa['to'].isin(self_ref_levpa['ID'])]
-
-        #     # Update self.ID and self.to to the downstream segment
-        #     self.loc[idx, 'ID'] = ds_outlet['ID'].values[0]
-        #     self.loc[idx, 'to'] = ds_outlet['to'].values[0]
-
-        # self["order_"] = pd.merge(self, max_stream_order, on='levpa_id')['order__y'].astype(int)
 
         if not outflows.empty:
             outlets_extended = self_in_wbd.copy(deep=True)

@@ -79,15 +79,15 @@ def adjust_floodplains(input_file, dem_file, wbd_file, distance_file, output_fil
     new_dem = dem - adjustment
 
     # Subtract z_factor from the DEM outside of wbd
-    wbd = gpd.read_file(wbd_file)
-    wbd = wbd.to_crs(dem_src.crs)
-    wbd_mask = np.zeros_like(dem)
-    for geom in wbd.geometry:
-        mask = rio.features.geometry_mask(
-            [geom], out_shape=dem.shape, transform=dem_src.transform, invert=False
-        )
-        wbd_mask[mask] = 1
-    new_dem = np.where(wbd_mask == 1, new_dem - z_factor, new_dem)
+    # wbd = gpd.read_file(wbd_file)
+    # wbd = wbd.to_crs(dem_src.crs)
+    # wbd_mask = np.zeros_like(dem)
+    # for geom in wbd.geometry:
+    #     mask = rio.features.geometry_mask(
+    #         [geom], out_shape=dem.shape, transform=dem_src.transform, invert=False
+    #     )
+    #     wbd_mask[mask] = 1
+    # new_dem = np.where(wbd_mask == 1, new_dem - z_factor, new_dem)
 
     new_dem[new_dem < -5000] = dem_nodata
 

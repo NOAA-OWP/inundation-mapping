@@ -180,21 +180,12 @@ def Derive_level_paths(
         stream_network.write(out_stream_network, index=True)
 
     if out_stream_network_dissolved is not None:
-        stream_network_extended = stream_network.extend_branches(
+        stream_network.extend_branches(
             wbd=wbd,
             branch_id_attribute=branch_id_attribute,
             attribute_excluded=None,  # 'order_',
             values_excluded=None,  # [1,2],
             out_vector_files=out_stream_network_extended,
-            verbose=verbose,
-        )
-
-        # dissolve by levelpath
-        stream_network_extended.dissolve_by_branch(
-            branch_id_attribute=branch_id_attribute,
-            attribute_excluded=None,  # 'order_',
-            values_excluded=None,  # [1,2],
-            out_vector_files=out_stream_network_extended_dissolved,
             verbose=verbose,
         )
 
