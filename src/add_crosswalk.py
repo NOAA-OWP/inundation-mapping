@@ -344,6 +344,7 @@ def add_crosswalk(
     del sml_segs
 
     output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
+    print(output_src.columns)
 
     del crosswalk
 
@@ -450,6 +451,7 @@ def add_crosswalk(
         output_catchments_fileName, driver=getDriver(output_catchments_fileName), index=False
     )
     output_flows.to_file(output_flows_fileName, driver=getDriver(output_flows_fileName), index=False)
+    print(output_src.columns)
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)
