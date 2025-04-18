@@ -2,9 +2,9 @@ import argparse
 import os
 
 import geopandas as gpd
+import pandas as pd
 from esri import ESRI_REST
 from shapely import Polygon
-import pandas as pd
 
 
 def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCRS=5070):
@@ -21,16 +21,16 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
         The root name for the output file
     """
     wbd = gpd.read_file('/data/inputs/wbd/WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg')
-    
+
     def __get_dfirm_panels(huc, wbd, geometryType='esriGeometryEnvelope', geometryCRS=5070):
         """
         Query the NFHL DFIRM panels for a given HUC8
 
         Returns
         ----------
-        list 
+        list
             List of DFIRM_IDs for panels intersecting the HUC8.
-        """   
+        """
 
         polygon = wbd.loc[wbd.HUC8 == huc]
         minx, miny, maxx, maxy = polygon.geometry.bounds.values[0]
@@ -47,7 +47,9 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
 
         geometry = str(geometry)
 
-        dfirm_query_url = ("https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/1/query")
+        dfirm_query_url = (
+            "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/1/query"
+        )
         dfirm_df = ESRI_REST.query(
             dfirm_query_url,
             f="json",
@@ -59,7 +61,7 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
             geometry=geometry,
             resultRecordCount=100,
             geometryPrecision=1,
-            maxAllowableOffset=1
+            maxAllowableOffset=1,
         )
 
         return dfirm_df['DFIRM_ID'].unique().tolist()
@@ -107,24 +109,23 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
             )
             # Filter for 100-year (A, V zones) and 500-year (X)
             # FLD_ZONE LIKE 'A%' OR FLD_ZONE LIKE 'V%'
-            where_clause = (
-                "(FLD_ZONE LIKE 'X')"
-            )
+            where_clause = "(FLD_ZONE LIKE 'X')"
             # Query for each DFIRM_ID to handle large datasets
             nfhl_dfs = []
             for dfirm_id in dfirm_ids:
                 dfirm_where = f"DFIRM_ID = '{dfirm_id}' AND ({where_clause})"
                 nfhl_df = ESRI_REST.query(
-                    nfhl_query_url,f="json",
+                    nfhl_query_url,
+                    f="json",
                     where=dfirm_where,
                     returnGeometry="true",
                     outFields="*",
                     outSR="5070",
                     geometryType=geometryType,
                     geometry=str(geometry),
-                    resultRecordCount=100, 
+                    resultRecordCount=100,
                     geometryPrecision=1,
-                    maxAllowableOffset=1
+                    maxAllowableOffset=1,
                 )
                 if not nfhl_df.empty:
                     nfhl_dfs.append(nfhl_df)
@@ -156,6 +157,7 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
                 print(f"No flood hazard data found for HUC {huc}")
         else:
             nfhl_df = gpd.read_file(out_file)
+
     # Get DFIRM panels
     dfirm_ids = __get_dfirm_panels(huc, wbd, geometryType, geometryCRS)
     if not dfirm_ids:
@@ -163,7 +165,12 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
         return
     # Get flood hazard zones
     __get_nfhl_flood_hazard_zones(
-        huc=huc, out_file=out_file, wbd=wbd, dfirm_ids=dfirm_ids, geometryType='esriGeometryEnvelope', geometryCRS=5070
+        huc=huc,
+        out_file=out_file,
+        wbd=wbd,
+        dfirm_ids=dfirm_ids,
+        geometryType='esriGeometryEnvelope',
+        geometryCRS=5070,
     )
 
 
