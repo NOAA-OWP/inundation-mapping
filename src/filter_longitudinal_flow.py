@@ -12,25 +12,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
+from scipy.ndimage import generic_filter
 
-
-# def remove_level_paths_from_b0(huc_dir):
-
-#     level_path_gpkg = Path(huc_dir, 'nwm_subset_streams_levelPaths.gpkg')
-#     level_paths = gpd.read_file(level_path_gpkg)
-#     hydrotable_csv = Path(huc_dir, 'hydrotable.csv')
-#     huc_hydrotable = pd.read_csv(hydrotable_csv)
-#     modified_huc_hydrotable = huc_hydrotable[~(huc_hydrotable.feature_id.isin(level_paths.ID) &
-#                                                (huc_hydrotable.branch_id == 0))]
-#     modified_huc_hydrotable.to_csv(hydrotable_csv, index=False)
-#     print(f'  Removed {len(huc_hydrotable[(huc_hydrotable.feature_id.isin(level_paths.ID) & (huc_hydrotable.branch_id == 0))].HydroID.unique())} HydroIDs')
-
-# fim_dir = Path(r'/home/rdp-user/outputs/backpool_no_calb_no_b0_07_12')
-# for huc in [h for h in fim_dir.iterdir() if re.match('\d{8}', h.name)]:
-#     print(huc.name)
-#     remove_level_paths_from_b0(huc)
-
-
+# -------------------------------------------------------
 def extract_longitudinal_variables(src_df, hydroid, stage):
     """Candidate_variables_to_smooth_longitudinally = [
     'BedArea (m2)',
@@ -57,10 +41,16 @@ def extract_longitudinal_variables(src_df, hydroid, stage):
 
     return voi_hid_stage
 
+def min_ignore_zeros(window):
+    nonzero = window[window > 0]
+    if nonzero.size > 0:
+        return np.min(nonzero)
+    else:
+        return 0 
 
 # -------------------------------------------------------
 def filter_voi(voi_array):
-    minfilter = scipy.ndimage.minimum_filter1d(voi_array, 4)
+    minfilter = generic_filter(voi_array, min_ignore_zeros, size=4) #scipy.ndimage.minimum_filter1d(voi_array, 4)
     gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2, radius=2)
     return gfilter
 
@@ -118,10 +108,9 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
         src_df = src_df.merge(lakeID_df, on='HydroID', how='inner')  # validate='many_to_one'
         stages = [round(num, 4) for num in src_df['Stage'][0:84]]
 
-        num_headwaters = len(
-            catchment_gdf.loc[~catchment_gdf.HydroID.isin(catchment_gdf.NextDownID.astype(int)), "HydroID"]
-        )
-        print(num_headwaters)
+        # num_headwaters = len(
+        #     catchment_gdf.loc[~catchment_gdf.HydroID.isin(catchment_gdf.NextDownID.astype(int)), "HydroID"]
+        # )
         headwaters_rows = catchment_gdf.loc[
             ~catchment_gdf.HydroID.isin(catchment_gdf.NextDownID.astype(int)),
         ]
@@ -144,26 +133,7 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
             if len(hydroid_chain[:-1]) > 2:  # Excluding headwaters with len 2 or smaller
                 hydroid_chain_mhws.append(hydroid_chain)
 
-        # for headwater in headwaters:
-        #     hydroid_chain = [headwater]
-        #     current_id = headwater
-        #     max_steps = len(catchment_gdf)  # Prevent infinite loops
-        #     for _ in range(max_steps):
-        #         # Check if current ID exists in HydroID
-        #         if not catchment_gdf.HydroID.isin([current_id]).any():
-        #             break
-        #         print(current_id)
-        #         # Get next downstream ID
-        #         next_hydroid = int(catchment_gdf.loc[
-        #             catchment_gdf.HydroID == current_id,
-        #             "NextDownID"
-        #         ].item())
-
-        #         hydroid_chain.append(next_hydroid)
-        #         current_id = next_hydroid  # Update for next iteration
-        #     if len(hydroid_chain[:-1]) > 2:
-        #         hydroid_chain_mhws.append(hydroid_chain)
-        print(f'Chain_hydroids was created for {branch}')
+        print(f'Chain_hydroids was created for branch: {branch}')
 
         # Makes a logitudinal dataframes of variables of interests
         keys = [
@@ -270,6 +240,7 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
 
             # set nans to 0
             src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+            # src_df.to_csv(join(fim_huc_dir,f'src_full_{branch}_test_new_min_filter.csv'))
 
             # Write src back to file
             src_df.to_csv(src_all_branches_path[isrc], index=False)
