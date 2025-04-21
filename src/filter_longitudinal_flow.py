@@ -8,22 +8,19 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from os.path import join
 
 import geopandas as gpd
-import pandas as pd
-import numpy as np
-import scipy
 import matplotlib.pyplot as plt
-
-import geopandas as gpd
+import numpy as np
 import pandas as pd
-import re
+import scipy
+
 
 # def remove_level_paths_from_b0(huc_dir):
-    
+
 #     level_path_gpkg = Path(huc_dir, 'nwm_subset_streams_levelPaths.gpkg')
 #     level_paths = gpd.read_file(level_path_gpkg)
 #     hydrotable_csv = Path(huc_dir, 'hydrotable.csv')
 #     huc_hydrotable = pd.read_csv(hydrotable_csv)
-#     modified_huc_hydrotable = huc_hydrotable[~(huc_hydrotable.feature_id.isin(level_paths.ID) & 
+#     modified_huc_hydrotable = huc_hydrotable[~(huc_hydrotable.feature_id.isin(level_paths.ID) &
 #                                                (huc_hydrotable.branch_id == 0))]
 #     modified_huc_hydrotable.to_csv(hydrotable_csv, index=False)
 #     print(f'  Removed {len(huc_hydrotable[(huc_hydrotable.feature_id.isin(level_paths.ID) & (huc_hydrotable.branch_id == 0))].HydroID.unique())} HydroIDs')
@@ -33,16 +30,17 @@ import re
 #     print(huc.name)
 #     remove_level_paths_from_b0(huc)
 
+
 def extract_longitudinal_variables(src_df, hydroid, stage):
     """Candidate_variables_to_smooth_longitudinally = [
-            'BedArea (m2)',
-            'Volume (m3)',
-            'SurfaceArea (m2)',
-            'WetArea (m2)',
-            'HydraulicRadius (m)',
-            'Discharge (m3s-1)'
-            ]"""
-    
+    'BedArea (m2)',
+    'Volume (m3)',
+    'SurfaceArea (m2)',
+    'WetArea (m2)',
+    'HydraulicRadius (m)',
+    'Discharge (m3s-1)'
+    ]"""
+
     src = src_df.loc[src_df.HydroID == hydroid]
 
     if src.LakeID.iloc[0] > 0:
@@ -59,16 +57,18 @@ def extract_longitudinal_variables(src_df, hydroid, stage):
 
     return voi_hid_stage
 
+
 # -------------------------------------------------------
 def filter_voi(voi_array):
     minfilter = scipy.ndimage.minimum_filter1d(voi_array, 4)
     gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2, radius=2)
     return gfilter
 
+
 # -------------------------------------------------------
 def filter_longitudinal_jitters_src(fim_dir, huc):
     """Function for smoothing longitudinal jitters in any variables
-    of interest along a stream in synthetic rating curves. 
+    of interest along a stream in synthetic rating curves.
     This will only correct GMS branch's SRCs based on the hydro_ids.
 
         Parameters
@@ -97,36 +97,36 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
                 fim_huc_dir,
                 'branches',
                 str(branch),
-                f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg'
-                )
+                f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg',
+            )
             if os.path.isfile(src_full):
                 src_all_branches_path.append(src_full)
             if os.path.isfile(src_full):
                 cathment_gpkg_path.append(cathment_gpkg)
 
     # Longitudinally filter srcs for WSE
-    for isrc in range(len(src_all_branches_path)): #1
+    for isrc in range(len(src_all_branches_path)):  # 1
 
         branch = re.search(r'branches/(\d{10}|0)/', src_all_branches_path[isrc]).group()[9:-1]
         print(f'Processing branch {branch}\n')
         log_text += f'  Branch: {branch}\n'
-    
+
         catchment_gdf0 = gpd.read_file(cathment_gpkg_path[isrc])
         catchment_gdf = catchment_gdf0.drop_duplicates(subset=['HydroID'], keep='first')
         lakeID_df = catchment_gdf[['HydroID', 'LakeID']].drop_duplicates(subset=['HydroID'])
         src_df = pd.read_csv(src_all_branches_path[isrc], low_memory=False)
-        src_df = src_df.merge(lakeID_df, on='HydroID', how='inner') # validate='many_to_one'
+        src_df = src_df.merge(lakeID_df, on='HydroID', how='inner')  # validate='many_to_one'
         stages = [round(num, 4) for num in src_df['Stage'][0:84]]
 
-        num_headwaters = len(catchment_gdf.loc[
-            ~catchment_gdf.HydroID.isin(catchment_gdf.NextDownID.astype(int)),
-            "HydroID"
-            ])
+        num_headwaters = len(
+            catchment_gdf.loc[~catchment_gdf.HydroID.isin(catchment_gdf.NextDownID.astype(int)), "HydroID"]
+        )
+        print(num_headwaters)
         headwaters_rows = catchment_gdf.loc[
             ~catchment_gdf.HydroID.isin(catchment_gdf.NextDownID.astype(int)),
-            ]
+        ]
         # Remove headwaters with lakeID
-        headwaters = list(headwaters_rows[headwaters_rows['LakeID']<0]['HydroID'])
+        headwaters = list(headwaters_rows[headwaters_rows['LakeID'] < 0]['HydroID'])
 
         # Build hydroid chain first
         hydroid_chain_mhws = []
@@ -135,36 +135,36 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
             nexthydroid = headwater
             # While loop to create the list of hydroids
             while catchment_gdf.HydroID.isin([nexthydroid]).any():
-                # print(nexthydroid)                
+                # print(nexthydroid)
                 nexthydroid = int(
                     catchment_gdf.loc[catchment_gdf.HydroID == nexthydroid, "NextDownID"].item()
-                    )
+                )
                 hydroid_chain.append(nexthydroid)
 
-            if len(hydroid_chain[:-1])>2: # Excluding headwaters with len 2 or smaller
+            if len(hydroid_chain[:-1]) > 2:  # Excluding headwaters with len 2 or smaller
                 hydroid_chain_mhws.append(hydroid_chain)
 
         # for headwater in headwaters:
         #     hydroid_chain = [headwater]
         #     current_id = headwater
-        #     max_steps = len(catchment_gdf)  # Prevent infinite loops                
+        #     max_steps = len(catchment_gdf)  # Prevent infinite loops
         #     for _ in range(max_steps):
         #         # Check if current ID exists in HydroID
         #         if not catchment_gdf.HydroID.isin([current_id]).any():
-        #             break                    
-        #         print(current_id)                    
+        #             break
+        #         print(current_id)
         #         # Get next downstream ID
         #         next_hydroid = int(catchment_gdf.loc[
-        #             catchment_gdf.HydroID == current_id, 
+        #             catchment_gdf.HydroID == current_id,
         #             "NextDownID"
         #         ].item())
-                
+
         #         hydroid_chain.append(next_hydroid)
         #         current_id = next_hydroid  # Update for next iteration
         #     if len(hydroid_chain[:-1]) > 2:
         #         hydroid_chain_mhws.append(hydroid_chain)
         print(f'Chain_hydroids was created for {branch}')
-        
+
         # Makes a logitudinal dataframes of variables of interests
         keys = [
             'BedArea (m2)',
@@ -172,39 +172,37 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
             'SurfaceArea (m2)',
             'WetArea (m2)',
             'HydraulicRadius (m)',
-            'Discharge (m3s-1)'
-            ]
+            'Discharge (m3s-1)',
+        ]
         original_all_voi = {}
         filtered_all_voi = {}
-        if len(hydroid_chain_mhws)>0:
-            for ikey in range(len(keys[0:3])):#3
+        if len(hydroid_chain_mhws) > 0:
+            for ikey in range(len(keys[0:3])):  # 3
                 voi2smooth_mhws = []
                 filtered_voi_mhws = []
                 for hydroid_chain in hydroid_chain_mhws:
                     voi2smooth_df = dict()
                     filtered_voi_df = dict()
                     long_index = 0
-                    for nexthydroid in hydroid_chain[:-1]: #Excluding the last HydroID
+                    for nexthydroid in hydroid_chain[:-1]:  # Excluding the last HydroID
                         voi2smooth_list = []
                         for stage in stages:
                             voi2smooth_list.append(
                                 extract_longitudinal_variables(src_df, nexthydroid, stage)[ikey]
-                                )
-                        voi2smooth_df[nexthydroid] = voi2smooth_list + [long_index]                
+                            )
+                        voi2smooth_df[nexthydroid] = voi2smooth_list + [long_index]
                         long_index += 1
 
                     stages_cols = [str(istg) for istg in stages]
                     voi2smooth_df = pd.DataFrame.from_dict(
-                        voi2smooth_df,
-                        orient="index",
-                        columns=stages_cols + ['long_position']
-                        )
-                    # Applies 2 filters of minimum and gaussian 
-                    # on the logitudinal surface area, volume and bedArea                
+                        voi2smooth_df, orient="index", columns=stages_cols + ['long_position']
+                    )
+                    # Applies 2 filters of minimum and gaussian
+                    # on the logitudinal surface area, volume and bedArea
                     for stage in stages_cols:
                         filtered_voi_array = filter_voi(voi2smooth_df[stage])
                         filtered_voi_df[stage] = list(filtered_voi_array)
-                    
+
                     # Convert filtered_voi_df to a DataFrame
                     filtered_voi_df = pd.DataFrame.from_dict(filtered_voi_df, orient="columns")
                     # Align indices and add "long_position"
@@ -231,10 +229,8 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
                 # Reshaping variables of interest (voi) to be included in src
                 filtered_voi = filtered_all_voi[keys[jkey]].drop('long_position', axis=1)
                 reshaped_filtered_voi = filtered_voi.reset_index().melt(
-                    id_vars='index',
-                    var_name='Stage',
-                    value_name=f'Filtered_{keys[jkey]}'
-                    )
+                    id_vars='index', var_name='Stage', value_name=f'Filtered_{keys[jkey]}'
+                )
                 # print(reshaped_filtered_voi)
                 reshaped_filtered_voi.rename(columns={'index': 'HydroID'}, inplace=True)
                 reshaped_filtered_voi['Stage'] = reshaped_filtered_voi['Stage'].astype(float)
@@ -243,21 +239,17 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
                 src_df = src_df.merge(
                     reshaped_filtered_voi[['HydroID', 'Stage', f'Filtered_{keys[jkey]}']],
                     on=['HydroID', 'Stage'],
-                    how='left'
-                    )
+                    how='left',
+                )
                 # Update voi including SurfaceArea (m2), 'BedArea (m2)' and 'Volume (m3)' in src
                 # Update src_df where LakeID > 0 and Stage matches
                 mask_src = (src_df[f'Filtered_{keys[jkey]}'].notna()) & (src_df['LakeID'] < 0)
                 src_df.loc[mask_src, keys[jkey]] = src_df.loc[mask_src, f'Filtered_{keys[jkey]}']
 
             # Recalculating discharge parameteres
-            src_df['WettedPerimeter (m)'] = (
-                src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
-                )
+            src_df['WettedPerimeter (m)'] = src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
             src_df['WetArea (m2)'] = src_df['Volume (m3)'] / src_df['LENGTHKM'] / 1000
-            src_df['HydraulicRadius (m)'] = (
-                src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
-                )
+            src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
             src_df['HydraulicRadius (m)'].fillna(0, inplace=True)
 
             # Recalculating the discharge
@@ -266,19 +258,16 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
                 * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
                 * pow(src_df['SLOPE'], 0.5)
                 / src_df['ManningN']
-                )
+            )
             # Refining Discharge for lake hydroIDs with the original Q
             # Merge with src_df
             src_df_merged = src_df.merge(
-                Q_lake_hydroID,
-                on=['HydroID', 'LakeID', 'Stage'],
-                how='left',
-                suffixes=('', '_lake'),
-                )
+                Q_lake_hydroID, on=['HydroID', 'LakeID', 'Stage'], how='left', suffixes=('', '_lake')
+            )
             # Update src_df where LakeID > 0 and Stage matches
             mask = (src_df_merged['LakeID'] > 0) & (src_df_merged['Discharge (m3s-1)_lake'].notnull())
             src_df.loc[mask, 'Discharge (m3s-1)'] = src_df_merged.loc[mask, 'Discharge (m3s-1)_lake']
-            
+
             # set nans to 0
             src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
 
@@ -294,19 +283,19 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
 
 
 def analyse_filtered_voi(original_all_voi, filtered_all_voi, fim_huc_dir):
-    
+
     # Get one hydroid
     print(filtered_all_voi['BedArea (m2)'].index)
-    bedarea = filtered_all_voi['BedArea (m2)'][filtered_all_voi['BedArea (m2)'].index==23160060].melt()
-    volume = filtered_all_voi['Volume (m3)'][filtered_all_voi['Volume (m3)'].index==23160060].melt()
+    bedarea = filtered_all_voi['BedArea (m2)'][filtered_all_voi['BedArea (m2)'].index == 23160060].melt()
+    volume = filtered_all_voi['Volume (m3)'][filtered_all_voi['Volume (m3)'].index == 23160060].melt()
 
-    bedarea_org = original_all_voi['BedArea (m2)'][original_all_voi['BedArea (m2)'].index==23160060].melt()
-    volume_org = original_all_voi['Volume (m3)'][original_all_voi['Volume (m3)'].index==23160060].melt()
+    bedarea_org = original_all_voi['BedArea (m2)'][original_all_voi['BedArea (m2)'].index == 23160060].melt()
+    volume_org = original_all_voi['Volume (m3)'][original_all_voi['Volume (m3)'].index == 23160060].melt()
 
-    bedarea = bedarea.drop(84) # drop the `position` row
-    volume = volume.drop(84) # drop the `position` row
-    bedarea_org = bedarea_org.drop(84) # drop the `position` row
-    volume_org = volume_org.drop(84) # drop the `position` row
+    bedarea = bedarea.drop(84)  # drop the `position` row
+    volume = volume.drop(84)  # drop the `position` row
+    bedarea_org = bedarea_org.drop(84)  # drop the `position` row
+    volume_org = volume_org.drop(84)  # drop the `position` row
 
     bedarea['value'] = pd.to_numeric(bedarea['value'], errors='coerce')
     bedarea['variable'] = pd.to_numeric(bedarea['variable'], errors='coerce')
@@ -319,8 +308,8 @@ def analyse_filtered_voi(original_all_voi, filtered_all_voi, fim_huc_dir):
 
     # ax = bedarea.plot(x='value', y='variable', label="adjusted bedarea", logy=True, logx=True)
     fig, ax = plt.subplots(figsize=(10, 6))
-    bedarea.plot(x='value', y='variable', label="Adjusted bed area", ax=ax, logx=True)#, logy=True)
-    bedarea_org.plot(x='value', y='variable', label="Bed area", ax=ax, logx=True)#, logy=True)
+    bedarea.plot(x='value', y='variable', label="Adjusted bed area", ax=ax, logx=True)  # , logy=True)
+    bedarea_org.plot(x='value', y='variable', label="Bed area", ax=ax, logx=True)  # , logy=True)
     # Customize the plot (optional)
     ax.set_xlabel('Bed Area')
     ax.set_ylabel('Stage')
@@ -330,8 +319,8 @@ def analyse_filtered_voi(original_all_voi, filtered_all_voi, fim_huc_dir):
     plt.savefig(f'{fim_huc_dir}/adjusted_bedArea_plot.png', dpi=300, bbox_inches='tight')
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    volume.plot(x='value', y='variable', label="Adjusted Volume (m3)", ax=ax, logx=True)#, logy=True)
-    volume_org.plot(x='value', y='variable', label="Volume (m3)", ax=ax, logx=True)#, logy=True)
+    volume.plot(x='value', y='variable', label="Adjusted Volume (m3)", ax=ax, logx=True)  # , logy=True)
+    volume_org.plot(x='value', y='variable', label="Volume (m3)", ax=ax, logx=True)  # , logy=True)
     # Customize the plot (optional)
     ax.set_xlabel('Volume (m3)')
     ax.set_ylabel('Stage')
@@ -340,22 +329,16 @@ def analyse_filtered_voi(original_all_voi, filtered_all_voi, fim_huc_dir):
     # Display the plot
     plt.savefig(f'{fim_huc_dir}/adjusted_Volume_plot.png', dpi=300, bbox_inches='tight')
 
-
     # ******************* Longitudinal Plotting *************************
     bedarea_filtered = filtered_all_voi['BedArea (m2)']
     volume_filtered = filtered_all_voi['Volume (m3)']
-    bedarea_original = original_all_voi['BedArea (m2)']
-    volume_original = original_all_voi['Volume (m3)']
+    # bedarea_original = original_all_voi['BedArea (m2)']
+    # volume_original = original_all_voi['Volume (m3)']
     'viridis'
     fig, ax = plt.subplots(figsize=(10, 6))
     bedarea_filtered.plot(
-        x='long_position',
-        label="filtered bed area",
-        logy=True,
-        colormap='inferno',
-        ax=ax,
-        legend=False
-        )
+        x='long_position', label="filtered bed area", logy=True, colormap='inferno', ax=ax, legend=False
+    )
     ax.set_xlim(-1, 101)
     ax.set_xlabel('Reaches')
     ax.set_ylabel('Bed Area')
@@ -364,13 +347,8 @@ def analyse_filtered_voi(original_all_voi, filtered_all_voi, fim_huc_dir):
 
     fig, ax = plt.subplots(figsize=(10, 6))
     volume_filtered.plot(
-        x='long_position',
-        label="filtered Volume",
-        logy=True,
-        colormap='inferno',
-        ax=ax,
-        legend=False
-        )
+        x='long_position', label="filtered Volume", logy=True, colormap='inferno', ax=ax, legend=False
+    )
     ax.set_xlim(-1, 101)
     ax.set_xlabel('Reaches')
     ax.set_ylabel('Volume (m3)')
@@ -379,11 +357,8 @@ def analyse_filtered_voi(original_all_voi, filtered_all_voi, fim_huc_dir):
 
 
 # -------------------------------------------------------
-def process_filtering_src(
-    fim_dir,
-    number_of_jobs,
-):
-    """Function for correcting synthetic rating curves. It will correct 
+def process_filtering_src(fim_dir, number_of_jobs):
+    """Function for correcting synthetic rating curves. It will correct
     each branch's SRCs in serial based on the HydroIDs.
 
         Parameters
@@ -419,10 +394,7 @@ def process_filtering_src(
         # Loop through all hucs, build the arguments, and submit them to the process pool
         futures = {}
         for huc in fim_hucs:
-            args = {
-                'fim_dir': fim_dir,
-                'huc': huc,
-            }
+            args = {'fim_dir': fim_dir, 'huc': huc}
             future = executor.submit(filter_longitudinal_jitters_src, **args)
             futures[future] = future
 
@@ -449,7 +421,7 @@ if __name__ == '__main__':
         fim_dir/logs/longitudinal_filter.log.
     number_of_jobs : int
         Optional. Number of CPU cores to parallelize HUC processing. Defaults to 1.
-   
+
     Sample Usage
     ----------
     python3 /foss_fim/src/longitudinal_filter.py
@@ -457,13 +429,7 @@ if __name__ == '__main__':
         -j $jobLimit
     """
     parser = ArgumentParser(description="Longitudinal depth/flow filter")
-    parser.add_argument(
-        '-fim_dir',
-        '--fim-dir',
-        help='FIM output dir',
-        required=True,
-        type=str
-        )
+    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
     parser.add_argument(
         '-j',
         '--number-of-jobs',
