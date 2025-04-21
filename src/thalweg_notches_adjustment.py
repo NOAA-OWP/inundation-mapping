@@ -10,6 +10,7 @@ from os.path import join
 
 import pandas as pd
 
+
 # -------------------------------------------------------
 # Correcting each HydroID SRC for thalweg notches
 def process_nonmonotonic_src(srcs_df, strm_order):
@@ -24,8 +25,9 @@ def process_nonmonotonic_src(srcs_df, strm_order):
         # print(non_monotonic_index)
         # print(srcs_df.loc[:non_monotonic_index[-1], 'TopWidth (m)'])
         # print(srcs_df.loc[:non_monotonic_index[-1], 'Discharge (m3s-1)'])
-        srcs_df.loc[:non_monotonic_index[-1] - 1, 'Discharge (m3s-1)'] = 0
+        srcs_df.loc[: non_monotonic_index[-1] - 1, 'Discharge (m3s-1)'] = 0
     return srcs_df
+
 
 # -------------------------------------------------------
 # Correcting SRCs for thalweg notches
@@ -68,16 +70,15 @@ def correct_src_thalweg_notches(fim_dir, huc, strm_order):
         src_df = pd.read_csv(src, low_memory=False)
 
         src_df2 = src_df.groupby('HydroID', group_keys=False).apply(
-            process_nonmonotonic_src,
-            strm_order=strm_order,
+            process_nonmonotonic_src, strm_order=strm_order
         )
         src_df = src_df2.copy()
-        Q0_cond = (src_df['Discharge (m3s-1)']==0)
+        Q0_cond = src_df['Discharge (m3s-1)'] == 0
         src_df.loc[Q0_cond, 'Volume (m3)'] = 0
-        src_df.loc[Q0_cond, 'WetArea (m2)'] = 0        
+        src_df.loc[Q0_cond, 'WetArea (m2)'] = 0
         src_df.loc[Q0_cond, 'BedArea (m2)'] = 0
         src_df.loc[Q0_cond, 'HydraulicRadius (m)'] = 0
-        
+
         src_df.to_csv(src, index=False)
 
         # Adjusting hydro tables for thalweg notches
@@ -89,7 +90,7 @@ def correct_src_thalweg_notches(fim_dir, huc, strm_order):
 
         ht_df.loc[Q0_cond, 'discharge_cms'] = 0
         ht_df.loc[Q0_cond, 'Volume (m3)'] = 0
-        ht_df.loc[Q0_cond, 'WetArea (m2)'] = 0        
+        ht_df.loc[Q0_cond, 'WetArea (m2)'] = 0
         ht_df.loc[Q0_cond, 'BedArea (m2)'] = 0
         ht_df.loc[Q0_cond, 'HydraulicRadius (m)'] = 0
 
@@ -100,9 +101,7 @@ def correct_src_thalweg_notches(fim_dir, huc, strm_order):
 
 # --------------------------------------------------------
 # Apply src_adjustment_for_thalwegnotches
-def apply_src_adjustment_for_thalwegnotches(
-    fim_dir, huc, strm_order, log_file_path
-):
+def apply_src_adjustment_for_thalwegnotches(fim_dir, huc, strm_order, log_file_path):
     """
     Function for applying thalweg notch adjustment to synthetic rating curves.
 
@@ -118,7 +117,7 @@ def apply_src_adjustment_for_thalwegnotches(
         log_text : str
     """
     log_text = ""
-    
+
     try:
         msg = f"Correcting rating curve for thalweg notch for HUC : {huc}"
         log_text += msg + '\n'
@@ -128,7 +127,7 @@ def apply_src_adjustment_for_thalwegnotches(
     except Exception:
         log_text += f"An error has occurred while processing thalweg notch for huc {huc}"
         log_text += traceback.format_exc()
-    
+
     try:
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
@@ -137,11 +136,7 @@ def apply_src_adjustment_for_thalwegnotches(
 
 
 # -------------------------------------------------------
-def process_thalweg_notches_adjustment(
-    fim_dir,
-    strm_order,
-    number_of_jobs,
-):
+def process_thalweg_notches_adjustment(fim_dir, strm_order, number_of_jobs):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids.
 
@@ -176,12 +171,7 @@ def process_thalweg_notches_adjustment(
         # Loop through all hucs, build the arguments, and submit them to the process pool
         futures = {}
         for huc in fim_hucs:
-            args = {
-                'fim_dir': fim_dir,
-                'huc': huc,
-                'strm_order': strm_order,
-                'log_file_path': log_file_path,
-            }
+            args = {'fim_dir': fim_dir, 'huc': huc, 'strm_order': strm_order, 'log_file_path': log_file_path}
             future = executor.submit(apply_src_adjustment_for_thalwegnotches, **args)
             futures[future] = future
 
@@ -241,8 +231,4 @@ if __name__ == '__main__':
     strm_order = args['strm_order']
     number_of_jobs = args['number_of_jobs']
 
-    process_thalweg_notches_adjustment(
-        fim_dir,
-        strm_order,
-        number_of_jobs
-    )
+    process_thalweg_notches_adjustment(fim_dir, strm_order, number_of_jobs)
