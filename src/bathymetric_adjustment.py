@@ -159,8 +159,11 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
     # Load AI-based bathymetry data
     ml_bathy_data = pd.read_parquet(bathy_file_aibased, engine='pyarrow')
     ml_bathy_data_df = ml_bathy_data[
-        ['COMID', 'owp_tw_inchan', 'owp_inchan_channel_area', 'owp_inchan_channel_perimeter']
+        ['hf_id', 'owp_tw_inchan', 'owp_inchan_channel_area', 'owp_inchan_channel_perimeter']
     ]
+    # ml_bathy_data_df = ml_bathy_data[
+    #     ['COMID', 'owp_tw_inchan', 'owp_inchan_channel_area', 'owp_inchan_channel_perimeter']
+    # ] # 'owp_inchan_channel_volume', 'owp_inchan_channel_bed_area', 'owp_y_inchan'
 
     fim_huc_dir = join(fim_dir, huc)
 
@@ -171,11 +174,11 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
     nwm_stream_clp = nwm_stream.clip(wbd8)
 
     ml_bathy_data_df = ml_bathy_data_df.merge(
-        nwm_stream_clp[['ID', 'order_']], left_on='COMID', right_on='ID'
+        nwm_stream_clp[['ID', 'order_']], left_on='hf_id', right_on='ID'
     )
     aib_bathy_data_df = ml_bathy_data_df.drop(columns=['ID'])
 
-    aib_bathy_data_df = aib_bathy_data_df.rename(columns={'COMID': 'feature_id'})
+    aib_bathy_data_df = aib_bathy_data_df.rename(columns={'hf_id': 'feature_id'})
     aib_bathy_data_df = aib_bathy_data_df.rename(columns={'owp_inchan_channel_area': 'missing_xs_area_m2'})
 
     # Calculating missing_wet_perimeter_m and adding it to aib_bathy_data_gdf
