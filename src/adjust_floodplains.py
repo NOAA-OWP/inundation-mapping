@@ -3,11 +3,13 @@
 import argparse
 import os
 
-import geopandas as gpd
+# import geopandas as gpd
 import numpy as np
 import rasterio as rio
 import whitebox
-from rasterstats import zonal_stats
+
+
+# from rasterstats import zonal_stats
 
 
 wbt = whitebox.WhiteboxTools()
@@ -16,6 +18,29 @@ wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
 
 def adjust_floodplains(input_file, dem_file, wbd_file, distance_file, output_file, z_factor):
+    """
+    Adjusts the floodplains in a DEM based on the distance to a given input file.
+
+    Parameters
+    ----------
+    input_file : str
+        The input raster file to calculate the distance from.
+    dem_file : str
+        The DEM file to adjust.
+    wbd_file : str
+        The watershed boundary dataset file.
+    distance_file : str
+        The output distance file.
+    output_file : str
+        The output adjusted DEM file.
+    z_factor : float
+        The z-factor to adjust the DEM.
+
+    Returns
+    -------
+    None
+    """
+
     wbt.euclidean_distance(input_file, distance_file)
 
     with rio.open(distance_file) as src, rio.open(dem_file) as dem_src:
@@ -55,8 +80,8 @@ def adjust_floodplains(input_file, dem_file, wbd_file, distance_file, output_fil
     # with rio.open(distance_file) as src:
     #     distance = src.read(1)
 
-    distance_threshold = 7000.0
-    z_factor = z_factor * distance_threshold / 1000.0
+    distance_threshold = 3000.0
+    # z_factor = z_factor * distance_threshold / 1000.0
 
     # Limit the distance to the mean + 1 std
     distance = np.where(distance <= distance_threshold, distance, np.nan)
@@ -67,7 +92,9 @@ def adjust_floodplains(input_file, dem_file, wbd_file, distance_file, output_fil
 
     # Calculate the floodplain adjustment
     adjustment = np.where(
-        distance < distance_threshold, (distance_threshold - distance) / distance_threshold * z_factor, 0
+        distance < distance_threshold,
+        ((distance_threshold - distance) / distance_threshold) ** 2.5 * z_factor,
+        0,
     )
 
     adjustment[np.isnan(adjustment)] = 0
