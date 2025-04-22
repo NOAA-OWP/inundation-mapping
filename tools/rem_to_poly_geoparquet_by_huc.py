@@ -14,41 +14,33 @@ from rasterio.features import shapes
 from shapely.geometry import shape
 
 
-# Set scale factor for converting float elevation to integer
 SCALE_FACTOR = 1000
-INT_NODATA_VALUE = 65535  # max of uint16 for no data handling
+INT_NODATA_VALUE = 65535
 
-# Setup logger
+
 logger = logging.getLogger("flood_processing")
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 
-# Function to interpolate discharge based on stage value and HydroID
 def interpolate_discharge(rem_value, hydro_id, htable_df):
     src_data = htable_df[htable_df['HydroID'] == hydro_id]
-
     if len(src_data) > 1:
         discharge = np.interp(rem_value, src_data['stage'], src_data['discharge_cms'])
         volume_m3 = np.interp(rem_value, src_data['stage'], src_data['Volume (m3)'])
     else:
         discharge = np.nan
         volume_m3 = np.nan
-
     return discharge, volume_m3
 
 
-# Function to generate polygons from the combined elevation and catchment data below the threshold
 def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, branch_id, htable_df, logger):
     start_time = time.time()
-
     mask = (elevation < threshold) & (elevation != INT_NODATA_VALUE)
     combined_mask = np.where(mask, catchment_ids, 0).astype(catchment_ids.dtype)
-
     features = []
     true_rem = threshold / SCALE_FACTOR
 
@@ -57,7 +49,6 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
             geom_shape = shape(geom)
             catchment_id = int(value)
             discharge_cms, volume_m3 = interpolate_discharge(true_rem, catchment_id, htable_df)
-
             features.append(
                 {
                     'geometry': geom_shape,
@@ -97,7 +88,6 @@ def process_branch(branch_path, branch_id, log_dir):
         branch_path, f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg'
     )
     htable_path = os.path.join(branch_path, f'hydroTable_{branch_id}.csv')
-    output_geoparquet_path = os.path.join(branch_path, f'hand_geosrc_{branch_id}.parquet')
 
     if not all(
         os.path.exists(path)
@@ -105,7 +95,7 @@ def process_branch(branch_path, branch_id, log_dir):
     ):
         logger.warning(f"[Branch {branch_id}] Skipping due to missing files.")
         print(f"[Branch {branch_id}] Skipping due to missing files.")
-        return
+        return []
 
     htable_df = pd.read_csv(htable_path)
 
@@ -113,8 +103,6 @@ def process_branch(branch_path, branch_id, log_dir):
         elev_data = elev_src.read(1)
         catchment_ids = catch_src.read(1)
         transform = elev_src.transform
-
-        # Set NoData pixels and scale to integer
         mask_invalid = (elev_data > 25.1) | (elev_data == elev_src.nodata)
         elevation = np.floor(elev_data * SCALE_FACTOR).astype(np.uint16)
         elevation[mask_invalid] = INT_NODATA_VALUE
@@ -133,34 +121,17 @@ def process_branch(branch_path, branch_id, log_dir):
         ):
             all_features.extend(threshold_features)
 
-    gdf = gpd.GeoDataFrame.from_features(all_features)
-    gdf['rem_ft'] = np.round(gdf['rem'] / 0.3048, 2)
-
-    if elev_src.crs:
-        gdf.set_crs(elev_src.crs, inplace=True)
-    else:
-        gdf.set_crs("EPSG:4326", inplace=True)
-
-    gdf['geometry'] = gdf['geometry'].apply(lambda geom: geom.buffer(0) if not geom.is_valid else geom)
-    gdf = gdf[gdf.is_valid]
-
-    catchment_gdf = gpd.read_file(catchment_gpkg_path)
-    catchment_gdf = catchment_gdf.drop(columns='geometry')
-
-    gdf = gdf.merge(catchment_gdf, left_on="catchment_id", right_on="HydroID", how="left")
-    gdf.to_parquet(output_geoparquet_path, index=False)
-    logger.info(f"[Branch {branch_id}] Saved output to {output_geoparquet_path}")
-    print(f"[Branch {branch_id}] Saved output to {output_geoparquet_path}")
     logger.info(f"[Branch {branch_id}] Total time: {time.time() - branch_start:.2f} seconds")
     print(f"[Branch {branch_id}] Total time: {time.time() - branch_start:.2f} seconds")
 
     logger.removeHandler(file_handler)
     file_handler.close()
 
+    return all_features
+
 
 def main(fim_output_dir):
     start_time = time.time()
-
     log_dir = os.path.join(fim_output_dir, 'logs', 'polysrc_geoparquet_processing')
     os.makedirs(log_dir, exist_ok=True)
 
@@ -174,7 +145,27 @@ def main(fim_output_dir):
                     branches_dirs.append((branch_path, branch_id, log_dir))
 
     with Pool() as pool:
-        pool.starmap(process_branch, branches_dirs)
+        results = pool.starmap(process_branch, branches_dirs)
+
+    all_features = [feature for result in results if result for feature in result]
+    gdf = gpd.GeoDataFrame.from_features(all_features)
+
+    # columns_to_keep = ['geometry', 'rem', 'catchment_id', 'discharge_cms', 'volume_m3', 'branch_id', 'rem_ft', 'HydroID', 'SO', 'LakeID', 'feature_id', 'order_']
+    # gdf = gdf[columns_to_keep]
+
+    gdf['rem_ft'] = np.round(gdf['rem'] / 0.3048, 2)
+    gdf.set_crs("EPSG:5070", inplace=True)
+    gdf['geometry'] = gdf['geometry'].apply(lambda geom: geom.buffer(0) if not geom.is_valid else geom)
+    gdf = gdf[gdf.is_valid]
+
+    # Write single output file
+    output_path = os.path.join(fim_output_dir, 'hand_geosrc_all_branches.parquet')
+    gdf.to_parquet(output_path, index=False, engine='pyarrow', compression='lz4')
+    logger.info(f"Saved combined output to {output_path}")
+
+    # Write index
+    index_df = gdf[['branch_id', 'HydroID', 'catchment_id', 'discharge_cms']].drop_duplicates()
+    index_df.to_csv(os.path.join(fim_output_dir, 'hand_geosrc_index.csv'), index=False)
 
     logger.info(f"Total run time: {time.time() - start_time:.2f} seconds.")
     print(f"Total run time: {time.time() - start_time:.2f} seconds.")
