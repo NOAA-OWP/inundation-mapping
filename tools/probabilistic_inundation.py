@@ -59,7 +59,7 @@ def get_fim_probability_distributions(
         obank_dist = weibull_min(c=2, scale=0.035, loc=0.09)
 
         # Default weibull likelihood for slope adjustment
-        slope_dist = weibull_min(c=10, scale=0.95 / 10, loc=-0.0916)
+        slope_dist = weibull_min(c=4, scale=0.95 / 10, loc=-0.0867)
 
     else:
 
