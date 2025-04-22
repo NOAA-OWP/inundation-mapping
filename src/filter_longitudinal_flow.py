@@ -52,7 +52,7 @@ def min_ignore_zeros(window):
 # -------------------------------------------------------
 def filter_voi(voi_array):
     minfilter = generic_filter(voi_array, min_ignore_zeros, size=4)
-    #scipy.ndimage.minimum_filter1d(voi_array, 4)
+    # scipy.ndimage.minimum_filter1d(voi_array, 4)
     gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2, radius=2)
     return gfilter
 
