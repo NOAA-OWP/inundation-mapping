@@ -109,7 +109,7 @@ def download_nfhl(huc, out_file, geometryType='esriGeometryEnvelope', geometryCR
             )
             # Filter for 100-year (A, V zones) and 500-year (X)
             # FLD_ZONE LIKE 'A%' OR FLD_ZONE LIKE 'V%'
-            where_clause = "(FLD_ZONE LIKE 'X')"
+            where_clause = "(FLD_ZONE LIKE 'X' AND ZONE_SUBTY = '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')"
             # Query for each DFIRM_ID to handle large datasets
             nfhl_dfs = []
             for dfirm_id in dfirm_ids:
