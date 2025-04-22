@@ -47,7 +47,7 @@ def min_ignore_zeros(window):
     if nonzero.size > 0:
         return np.min(nonzero)
     else:
-        return 0 
+        return 0
 
 # -------------------------------------------------------
 def filter_voi(voi_array):
