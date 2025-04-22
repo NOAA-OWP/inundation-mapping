@@ -36,7 +36,6 @@ def process_branch(sub_branch_path, branch):
         'WetArea (m2)',
         'HydraulicRadius (m)',
         'Discharge (m3s-1)',
-        'rise_run_discharge_cms',
         'Bathymetry_source',
         'feature_id',
     ]

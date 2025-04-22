@@ -276,13 +276,6 @@ def add_crosswalk(
         * pow(input_src_base['SLOPE'], 0.5)
         / input_src_base['ManningN']
     )
-    # TEMPORARY - TO DELETE AFTER TESTING
-    input_src_base['rise_run_discharge_cms'] = (
-        input_src_base['WetArea (m2)']
-        * pow(input_src_base['HydraulicRadius (m)'], 2.0 / 3)
-        * pow(input_src_base['SLOPE_RISE_RUN'], 0.5)
-        / input_src_base['ManningN']
-    )
 
     # set nans to 0
     input_src_base.loc[input_src_base['Stage'] == 0, ['Discharge (m3s-1)']] = 0
@@ -344,7 +337,6 @@ def add_crosswalk(
     del sml_segs
 
     output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
-    print(output_src.columns)
 
     del crosswalk
 
@@ -376,7 +368,6 @@ def add_crosswalk(
             'ManningN',
             'Stage',
             'Discharge (m3s-1)',
-            'rise_run_discharge_cms',
         ],
     ]
     output_hydro_table.rename(columns={'Stage': 'stage', 'Discharge (m3s-1)': 'discharge_cms'}, inplace=True)
@@ -451,7 +442,6 @@ def add_crosswalk(
         output_catchments_fileName, driver=getDriver(output_catchments_fileName), index=False
     )
     output_flows.to_file(output_flows_fileName, driver=getDriver(output_flows_fileName), index=False)
-    print(output_src.columns)
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)
