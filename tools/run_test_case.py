@@ -349,10 +349,11 @@ class Test_Case(Benchmark):
         # Inundate REM
         if not compute_only:  # composite alpha tests don't need to be inundated
             if model == "GMS":
+
                 produce_mosaicked_inundation(
-                    os.path.dirname(self.fim_dir),
-                    self.huc,
-                    benchmark_flows,
+                    hydrofabric_dir=os.path.dirname(self.fim_dir),
+                    hucs=self.huc,
+                    flow_file=benchmark_flows,
                     inundation_raster=predicted_raster_path,
                     mask=os.path.join(self.fim_dir, "wbd.gpkg"),
                     verbose=verbose,

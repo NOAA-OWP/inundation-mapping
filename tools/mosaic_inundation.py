@@ -131,6 +131,7 @@ def Mosaic_inundation(
 
         if remove_list is not None:
             remove_at_end.extend(remove_list)
+            remove_at_end = list(set(remove_at_end))  # Ensures unique values
 
     if inundation_polygon is not None:
         mosaic_final_inundation_extent_to_poly(ag_mosaic_output, inundation_polygon)

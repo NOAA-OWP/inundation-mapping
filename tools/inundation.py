@@ -679,7 +679,7 @@ def __subset_hydroTable_to_forecast(
 
     else:
         # initialize dictionary
-        catchmentStagesDict = typed.Dict.empty(types.int16, types.uint16)
+        catchmentStagesDict = typed.Dict.empty(types.int16, types.int16)
 
         # interpolate stages
         for hid, sub_table in hydroTable.groupby(level='HydroID'):
