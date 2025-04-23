@@ -4,19 +4,16 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## vx.x.x.x - 2025-xx-xx - [PR#1495](https://github.com/NOAA-OWP/inundation-mapping/pull/1495)
 
-This focuses on adjusting thalweg notches by updating synthetic rating curves for each Hydro-ID.
+This focuses on adjusting thalweg notches by healing hydro-conditioning before SRC calculation (Hydraulic) for GMS branches and updating synthetic rating curves in bathymetric_adjustment routing for each Hydro-ID.
 
-### Addition
+The following scripts has been updated where thalweg notches adjusted and synthetic rating curves updated.
 
-The following scripts is added where thalweg notches adjusted and synthetic rating curves updated.
-
-- `src/`
-    - `thalweg_notches_adjustment.py`
-    
+  
 ### Changes
 
 - `src/`
-    - `bash_variables.env`
+    - `bash_variables.env`: Updated for a new input path for new AI-Based bathymetry data from HydroVIS. The new dataset is stored here: /fim-data/inputs/bathymetry/ml_auxiliary_data.parquet
+    - `delineate_hydros_and_produce_HAND.sh`
     - `bathymetric_adjustment.py`
 - `config/`
     - `params_template.env`

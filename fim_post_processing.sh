@@ -186,17 +186,6 @@ if [ "$bathymetry_adjust" = "True" ]; then
     Tcount
 fi
 
-## RUN THALWEG NOTCHES ADJUSTMENT ROUTINE ##
-if [ "$thalweg_notches_adfjustment" = "True" ]; then
-    echo -e $startDiv"Performing Thalweg Notches Adjustment routine"
-    # Run Thalweg Notches Adjustment routine -sl $subset_len
-    Tstart
-    python3 $srcDir/thalweg_notches_adjustment.py \
-        -fim_dir $outputDestDir \
-        -j $jobLimit
-    Tcount
-fi
-
 ## RUN LONGITUDINAL FILTER ROUTINE ##
 if [ "$logitudinal_filter" = "True" ]; then
     echo -e $startDiv"Performing longitudinal filter routine"
