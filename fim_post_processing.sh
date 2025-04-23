@@ -186,6 +186,28 @@ if [ "$bathymetry_adjust" = "True" ]; then
     Tcount
 fi
 
+## RUN NONMONOTONIC SRC ADJUSTMENT ROUTINE ##
+if [ "$nonmonotonic_src_adjustment" = "True" ]; then
+    echo -e $startDiv"Performing Thalweg Notches Adjustment routine"
+    # Run Nonmonotonic SRCs Adjustment routine -sl $subset_len
+    Tstart
+    python3 $srcDir/nonmonotonic_src_adjustment.py \
+        -fim_dir $outputDestDir \
+        -j $jobLimit
+    Tcount
+fi
+
+## RUN LONGITUDINAL FILTER ROUTINE ##
+if [ "$logitudinal_filter" = "True" ]; then
+    echo -e $startDiv"Performing longitudinal filter routine"
+    Tstart
+    python3 $srcDir/filter_longitudinal_flow.py \
+        -fim_dir $outputDestDir \
+        -j $jobLimit \
+
+    Tcount
+fi
+
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
     l_echo $startDiv"Estimating bankfull stage in SRCs"
