@@ -55,7 +55,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):
     src_all_branch_paths = []
     branches = os.listdir(join(fim_huc_dir, 'branches'))
     for branch in branches:
-        if int(branch) > 0: # Just for GMS branches
+        if int(branch) > 0:  # Just for GMS branches
             src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
             if os.path.isfile(src_full):
                 src_all_branch_paths.append(src_full)
