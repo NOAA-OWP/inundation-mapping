@@ -319,6 +319,15 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             # Force zero stage to have zero discharge
             src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
 
+            # Force zero "Number of the cells" to have zero discharge ...
+            cond_q = src_df['Number of Cells'] == 0
+            src_df.loc[cond_q, ['Discharge (m3s-1)']] = 0
+            src_df.loc[cond_q, ['BedArea (m2)']] = 0
+            src_df.loc[cond_q, ['Volume (m3)']] = 0
+            src_df.loc[cond_q, ['WettedPerimeter (m)']] = 0
+            src_df.loc[cond_q, ['WetArea (m2)']] = 0
+            src_df.loc[cond_q, ['HydraulicRadius (m)']] = 0
+
             # Write src back to file
             src_df.to_csv(src, index=False)
 
