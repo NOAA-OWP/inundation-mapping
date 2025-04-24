@@ -50,10 +50,10 @@ def setup_file_logger(log_file_path, logger_name="custom_logger", level=logging.
 
 def run_with_multiprocessing(
     task_function,
-    task_args_list,
-    log_file_path,
+    tasks_args_list,
+    file_logger,
     max_workers=4,
-    task_id_key=None,  #can assign 'HUC'--must be one of the keys in the args list 
+    task_id_key=None,  # must be one of the keys in the args list 
     exit_on_failure=True,
 ):
     '''
@@ -61,27 +61,23 @@ def run_with_multiprocessing(
 
     NOTES:
     This simple setup is using a shared log file and it is ok for now assuming that:
-        - we have limitted amount of logs (3-4 lines per subprocess) in the desired multiprocessing work
+        - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work
         - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
         - if we encounter a case that this does not work correctly, then we can improve it by creating one log file per task and combining them afterward.” 
 
     - Use try/except in both the task function and this wrapper:
-        • The task function should handle known/expected errors and always return a structured result.
+        • The task function should handle known/expected errors and always return True or False.
         • This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
-        • No more try/except inside helper functions inside task function. Let them fail and task_function excpetion handles them.
+        • No more try/except inside helper functions inside task function. Let them fail and task_function exception handles them.
         • Inside helper functions feel free to log any information. but No need to raise errors. 
         • The only exception is that when we really need to address a special case like API limits and wait and retry.
     - Inside your task function or helpers, log live messages using screen_queue.put(msg).
     - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
-    - Always pass three additional arguments into task_function and its helpers: logger ,screen_queue and task_id. 
-        - Do not use any print statements in the task function of its helper functions. Instead use screen_queue.put() like screen_logger.put(f"End of processing {HUC}")
+    - Always pass two additional arguments into task_function and its helpers: file_logger ,screen_queue. 
+        - Do not use any print statements after start of multiprocessing in the task function or inside its helper functions. Instead use screen_queue.put().
         - use file_logger.info() to log the message in the log file
-    - task_function must always (either sucess or fail) return a dictionary were status must be either success or failed. { "huc": HUC,  "status": "success" } or { "huc": HUC,  "status": "failed" }.
-
-
     '''
 
-    file_logger = setup_file_logger(log_file_path)
     screen_queue   = Manager().Queue() #creates a process-safe Queue that allows subprocesses to put() messages into it.
 
 
@@ -99,7 +95,7 @@ def run_with_multiprocessing(
     results = {}
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_id = {}
-        for i, task_kwargs in enumerate(task_args_list):  #for each dictionary of keyword arguments (kwargs)
+        for i, task_kwargs in enumerate(tasks_args_list):  #for each dictionary of keyword arguments (kwargs)
             task_id = f"Task-{i}"
             if task_id_key:
                 task_id = task_kwargs.get(task_id_key, task_id) #this make a unique id (e.g. HUC number) for the task 
@@ -108,7 +104,6 @@ def run_with_multiprocessing(
             kwargs_updated = task_kwargs.copy()
             kwargs_updated["file_logger"] = file_logger
             kwargs_updated["screen_queue"] = screen_queue  
-            kwargs_updated["task_id"] = task_id
 
             future = executor.submit(task_function, **kwargs_updated) #submits tasks to workers in parallel. IMMEDIATELY after submitting (not after finishing the subprocess job) we get back a Future object, which is like a order number to track your requested food in a restaurant while waiting).
             future_to_id[future] = task_id
@@ -123,19 +118,18 @@ def run_with_multiprocessing(
                     # note that the try except inside tak function always return a 'completed' result in a form of dictionary. so, here we should check that dict to see if it was sucess or failure 
                     result = future.result()
                     results[task_id] = result
-                    if result.get("status") == "success":
-                        tqdm.write(f"[{task_id}] ✅ Result: {result}") #do not use print otherwise a new updated bar is created after each print line
-                        file_logger.info(f"[{task_id}] ✅ Result: {result}")
+                    if result:
+                        tqdm.write(f"✅ success for {task_id}") #do not use print otherwise a new updated bar is created after each print line
+                        file_logger.info(f"✅ success for {task_id}")
                     else:
-                        tqdm.write(f"[{task_id}] ❌ Error reported in task: {result}")
-                        file_logger.info(f"[{task_id}] ❌ Error reported in task: {result}")
+                        tqdm.write(f"❌ Error reported for {task_id}.")
+                        file_logger.info(f"❌ Error reported for {task_id}.")
 
                 except Exception as ex:
-                    error_msg = f"[{task_id}] ❌ Error: {ex}"
+                    error_msg = f"❌ Error for {task_id}: {ex}"
                     traceback_msg = traceback.format_exc()
-
-                    print(error_msg)
-
+                    
+                    tqdm.write(error_msg)
                     file_logger.error(error_msg)
                     file_logger.error(traceback_msg)
 
