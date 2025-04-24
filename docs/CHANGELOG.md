@@ -14,6 +14,20 @@ Adds a workaround to the CatFIM lake masking code that just returns the unmasked
 
 <br/><br/>
 
+## v4.6.1.5 - 2025-04-18 - [PR#1490](https://github.com/NOAA-OWP/inundation-mapping/pull/1490)
+
+The segmentation faults we've been experiencing appear to be caused by multiple branches attempting to read the same HUC-level geopackage at the same time. We're not sure why, but the pyogrio/arrow engine seems to be the root cause since changing the engine to fiona for these reads has fixed the issue.
+
+### Changes
+
+The following files are where we've documented the segmentation faults and have changed the HUC-level GPKG reads to have the fiona engine.
+
+- `src/`
+    - `add_crosswalk.py`
+    - `filter_catchments_and_add_attributes.py`
+    - `split_flows.py`
+
+<br/><br/>
 
 ## v4.6.1.4 - 2025-04-01 - [PR#1479](https://github.com/NOAA-OWP/inundation-mapping/pull/1479)
 This PR prevents the removal of the processing duration text file from each HUC to aid in debugging. This tries to fix #1458.
