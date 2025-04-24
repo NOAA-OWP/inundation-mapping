@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.x.x - 2025-04-24 - [PR#1485](https://github.com/NOAA-OWP/inundation-mapping/pull/1484)
+
+A few minor bugs in the ripple download tools are corrected here. It was failing near when it was parsing out s3 folder names as well as failing when saving the download data csv's
+
+### Changes
+
+- `data/ripple/get_s3_folder.sh` and `get_s3_folders_from_list.sh`
+
+<br/><br/>
+
+
+
 ## v4.6.1.5 - 2025-04-18 - [PR#1490](https://github.com/NOAA-OWP/inundation-mapping/pull/1490)
 
 The segmentation faults we've been experiencing appear to be caused by multiple branches attempting to read the same HUC-level geopackage at the same time. We're not sure why, but the pyogrio/arrow engine seems to be the root cause since changing the engine to fiona for these reads has fixed the issue.
