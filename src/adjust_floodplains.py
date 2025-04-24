@@ -93,7 +93,7 @@ def adjust_floodplains(input_file, dem_file, wbd_file, distance_file, output_fil
     # Calculate the floodplain adjustment
     adjustment = np.where(
         distance < distance_threshold,
-        ((distance_threshold - distance) / distance_threshold) ** 2.5 * z_factor,
+        ((distance_threshold - distance) / distance_threshold) ** 2 * z_factor,
         0,
     )
 

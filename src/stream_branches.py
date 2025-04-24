@@ -1090,7 +1090,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             Parameters
             ----------
-            self_ : GeoDataFrame
+            self_extended : GeoDataFrame
                 Dissolved tream network GeoDataFrame
             self_ref : GeoDataFrame
                 Stream network GeoDataFrame
@@ -1098,6 +1098,8 @@ class StreamNetwork(gpd.GeoDataFrame):
                 Outlet segment ID
             ds_outlet_tuple : tuple
                 Outlet segment tuple
+            extended_id : int, optional
+                Extended segment ID, by default None
 
             Returns
             -------
@@ -1169,17 +1171,26 @@ class StreamNetwork(gpd.GeoDataFrame):
         self_in_wbd = gpd.sjoin(self, wbd)
         self_in_wbd = self_in_wbd.drop('index_right', axis=1)
 
-        self_in_wbd_ref = self_in_wbd.copy(deep=True)
+        # Find downstream segments outside of WBD
+        self_not_in_wbd = self_ref[~self_ref['ID'].isin(self_in_wbd['ID'])]
+
+        # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
+        sjoin = gpd.sjoin(self_in_wbd, wbd, predicate='crosses')  # this finds both inflows and outflows
+
+        outflows = sjoin[sjoin['to'].isin(self_not_in_wbd['ID'])]
+
+        if outflows.empty:
+            return self
 
         # ensure the new stream order has the order from it's highest child
         max_stream_order = (
-            self_in_wbd[[branch_id_attribute, "order_"]].groupby(branch_id_attribute).max()["order_"].copy()
+            self_ref[[branch_id_attribute, "order_"]].groupby(branch_id_attribute).max()["order_"].copy()
         )
 
         # Extend each levelpath to the outlet
         for levelpath in self_in_wbd[branch_id_attribute].unique():
             # Select segments in levelpath
-            levelpath_df = self_in_wbd[self_in_wbd[branch_id_attribute] == levelpath]
+            levelpath_df = self[self[branch_id_attribute] == levelpath]
 
             # Find levelpath outlet ('to' not in 'ID')
             levelpath_outlet = levelpath_df[~levelpath_df.to.isin(levelpath_df.ID)]
@@ -1188,65 +1199,41 @@ class StreamNetwork(gpd.GeoDataFrame):
             order = max_stream_order[max_stream_order.index == levelpath].values[0]
 
             # Extend levelpath_outlet
-            self_in_wbd = extend_levelpaths_to_outlet(
-                self_in_wbd,
-                self_in_wbd_ref,
-                levelpath_outlet.ID.values[0],
-                levelpath,
-                branch_id_attribute,
-                order,
+            self = extend_levelpaths_to_outlet(
+                self, self_ref, levelpath_outlet.ID.values[0], levelpath, branch_id_attribute, order
             )
 
-        # Make a copy of the stream network
-        self_in_wbd_ref = self_in_wbd.copy(deep=True)
+        # For each outlet
+        for outlet in outflows.itertuples():
+            # Select segments in levelpath
+            temp_df = self[self[branch_id_attribute] == outlet.levpa_id]
 
-        # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
-        sjoin = gpd.sjoin(self_in_wbd, wbd, predicate='crosses')  # this finds both inflows and outflows
+            # Check if the levelpath outlet is external
+            if not len(temp_df.merge(self_in_wbd, left_on='to', right_on='ID')) == len(temp_df):
+                outlet_id = self_in_wbd.loc[self_in_wbd['to'] == outlet.ID, 'ID'].values[0]
+                self = add_outlet_segments(self, self_ref, outlet_id, outlet)
 
-        # Find downstream segments outside of WBD
-        self_not_in_wbd = self[~self['ID'].isin(self_in_wbd['ID'])]
+        # merges each multi-line string to a singular linestring
+        for lpid, row in tqdm(
+            self.iterrows(), total=len(self), disable=(not verbose), desc="Merging mult-part geoms"
+        ):
+            if isinstance(row.geometry, MultiLineString):
+                merged_line = linemerge(row.geometry)
 
-        outflows = sjoin[sjoin['to'].isin(self_not_in_wbd['ID'])]
+                # self.loc[lpid,'geometry'] = merged_line
+                try:
+                    self.loc[lpid, "geometry"] = merged_line
+                except ValueError:
+                    merged_line = list(merged_line.geoms)[0]
+                    self.loc[lpid, "geometry"] = merged_line
 
-        if not outflows.empty:
-            outlets_extended = self_in_wbd.copy(deep=True)
-
-            # For each outlet
-            for outlet in outflows.itertuples():
-                # Select segments in levelpath
-                temp_df = self_ref[self_ref[branch_id_attribute] == outlet.levpa_id]
-
-                # Check if the levelpath outlet is external
-                if not len(temp_df.merge(self_in_wbd, left_on='to', right_on='ID')) == len(temp_df):
-                    outlet_id = self_in_wbd.loc[self_in_wbd['to'] == outlet.ID, 'ID'].values[0]
-                    outlets_extended = add_outlet_segments(outlets_extended, self_ref, outlet_id, outlet)
-
-            # merges each multi-line string to a singular linestring
-            for lpid, row in tqdm(
-                outlets_extended.iterrows(),
-                total=len(outlets_extended),
-                disable=(not verbose),
-                desc="Merging mult-part geoms",
-            ):
-                if isinstance(row.geometry, MultiLineString):
-                    merged_line = linemerge(row.geometry)
-
-                    # outlets_extended.loc[lpid,'geometry'] = merged_line
-                    try:
-                        outlets_extended.loc[lpid, "geometry"] = merged_line
-                    except ValueError:
-                        merged_line = list(merged_line.geoms)[0]
-                        outlets_extended.loc[lpid, "geometry"] = merged_line
-
-            # self[branch_id_attribute] = bids
-            outlets_extended = StreamNetwork(
-                outlets_extended,
-                branch_id_attribute=branch_id_attribute,
-                attribute_excluded=attribute_excluded,
-                values_excluded=values_excluded,
-            )
-
-            # outlets_extended = outlets_extended.rename(columns={'bids_temp': branch_id_attribute})
+        # self[branch_id_attribute] = bids
+        self = StreamNetwork(
+            self,
+            branch_id_attribute=branch_id_attribute,
+            attribute_excluded=attribute_excluded,
+            values_excluded=values_excluded,
+        )
 
         # merges each multi-line string to a singular linestring
         for lpid, row in tqdm(
@@ -1263,7 +1250,7 @@ class StreamNetwork(gpd.GeoDataFrame):
                     self.loc[lpid, "geometry"] = merged_line
 
         if out_vector_files is not None and not self_not_in_wbd.empty:
-            outlets_extended.write(out_vector_files, index=False)
+            self.write(out_vector_files, index=False)
         else:
             # self[branch_id_attribute] = bids
             self = StreamNetwork(
