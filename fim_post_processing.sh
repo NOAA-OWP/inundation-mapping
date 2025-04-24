@@ -186,9 +186,21 @@ if [ "$bathymetry_adjust" = "True" ]; then
     Tcount
 fi
 
+## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
+if [ "$src_bankfull_toggle" = "True" ]; then
+    l_echo $startDiv"Estimating bankfull stage in SRCs"
+    Tstart
+    # Run SRC bankfull estimation routine routine
+    python3 $srcDir/identify_src_bankfull.py \
+        -fim_dir $outputDestDir \
+        -flows $bankfull_flows_file \
+        -j $jobLimit
+    Tcount
+fi
+
 ## RUN NONMONOTONIC SRC ADJUSTMENT ROUTINE ##
 if [ "$nonmonotonic_src_adjustment" = "True" ]; then
-    echo -e $startDiv"Performing Thalweg Notches Adjustment routine"
+    echo -e $startDiv"Performing Nonmonotonic SRC Adjustment routine"
     # Run Nonmonotonic SRCs Adjustment routine -sl $subset_len
     Tstart
     python3 $srcDir/nonmonotonic_src_adjustment.py \
@@ -205,18 +217,6 @@ if [ "$logitudinal_filter" = "True" ]; then
         -fim_dir $outputDestDir \
         -j $jobLimit \
 
-    Tcount
-fi
-
-## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
-if [ "$src_bankfull_toggle" = "True" ]; then
-    l_echo $startDiv"Estimating bankfull stage in SRCs"
-    Tstart
-    # Run SRC bankfull estimation routine routine
-    python3 $srcDir/identify_src_bankfull.py \
-        -fim_dir $outputDestDir \
-        -flows $bankfull_flows_file \
-        -j $jobLimit
     Tcount
 fi
 
