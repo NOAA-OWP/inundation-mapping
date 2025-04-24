@@ -72,7 +72,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):
             analyze_nonmonotonic_src, strm_order=strm_order
         )
 
-        # Make sure nonmonotonic adjustment just happening within in-channel stages
+        # Make sure nonmonotonic adjustment just applied within in-channel stages
         cond_bankfull = src_df['bankfull_proxy'] == 'floodplain'
         src_df2.loc[cond_bankfull, 'Discharge (m3s-1)'] = src_df.loc[cond_bankfull, 'Discharge (m3s-1)']
 
