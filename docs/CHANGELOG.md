@@ -1,6 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## vx.x.x.x - 2025-0x-xx - [PR#1499](https://github.com/NOAA-OWP/inundation-mapping/pull/1499)
+
+This focuses on adjusting nonmonotonic SRCs for GMS branches by updating discharge and other hydraulic variables for each Hydro-ID where the stage is within `in-channel`.
+
+The following scripts have been updated/added to adjust synthetic rating curves.
+
+### Addition
+
+- `src/`
+    - `nonmonotonic_src_adjustment.py`
+
+### Changes
+
+- `config/`
+    - `params_template.env`
+- `inundation-mapping/`
+    - `fim_post_processing.sh`
+
+<br/><br/>
+
+
 ## v4.6.1.5 - 2025-04-18 - [PR#1490](https://github.com/NOAA-OWP/inundation-mapping/pull/1490)
 
 The segmentation faults we've been experiencing appear to be caused by multiple branches attempting to read the same HUC-level geopackage at the same time. We're not sure why, but the pyogrio/arrow engine seems to be the root cause since changing the engine to fiona for these reads has fixed the issue.
