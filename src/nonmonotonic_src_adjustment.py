@@ -18,7 +18,9 @@ def analyze_nonmonotonic_src(srcs_df, strm_order):
     if srcs_df['order_'].iloc[0] < strm_order:
         return srcs_df
 
-    non_monotonic_index = srcs_df.index[srcs_df['Discharge (m3s-1)'].diff().lt(0)].tolist()
+    cond_chan = srcs_df['bankfull_proxy'] == 'channel'
+    srcs_df_chan = srcs_df[cond_chan]
+    non_monotonic_index = srcs_df_chan.index[srcs_df_chan['Discharge (m3s-1)'].diff().lt(0)].tolist()
 
     # Set 'Discharge' values before the last non-monotonic row to zero
     if non_monotonic_index:
@@ -53,7 +55,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):
     src_all_branch_paths = []
     branches = os.listdir(join(fim_huc_dir, 'branches'))
     for branch in branches:
-        if int(branch) > 0:
+        if int(branch) > 0: # Just for GMS branches
             src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
             if os.path.isfile(src_full):
                 src_all_branch_paths.append(src_full)
