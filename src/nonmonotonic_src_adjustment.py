@@ -142,8 +142,8 @@ def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path):
 # -------------------------------------------------------
 def process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs):
     """
-    Function for correcting nonmonotonic synthetic rating curves using Multi-Proc function 
-    for each HUC8. For GMS branches, it will correct each hydroID SRC in serial based that 
+    Function for correcting nonmonotonic synthetic rating curves using Multi-Proc function
+    for each HUC8. For GMS branches, it will correct each hydroID SRC in serial based that
     shows nonmonotonic behavior within in-channel stages.
 
         Parameters
