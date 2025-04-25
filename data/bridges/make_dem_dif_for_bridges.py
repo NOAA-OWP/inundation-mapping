@@ -6,9 +6,7 @@ import sys
 
 # import time
 import traceback
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
-from multiprocessing import Pool
 
 import geopandas as gpd
 import numpy as np
@@ -21,10 +19,8 @@ from rasterio.features import rasterize
 from rasterio.merge import merge
 from shapely.geometry import Point
 
-import utils.shared_functions as sf
 from data.create_vrt_file import create_vrt_file
-from src.utils.shared_functions import run_with_multiprocessing, setup_file_logger
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import run_with_multiprocessing, setup_multiprocessing_file_logger
 
 
 """
@@ -184,7 +180,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
 
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_path = os.path.join(output_dir, f"DEM_diff_rasters-{file_dt_string}.log")
-    file_logger = setup_file_logger(log_file_path)
+    file_logger = setup_multiprocessing_file_logger(log_file_path)
 
     try:
         print('Reading osm bridge lines...')

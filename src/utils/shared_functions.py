@@ -26,7 +26,7 @@ import utils.shared_variables as sv
 gp.options.io_engine = "pyogrio"
 
 
-def setup_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
+def setup_multiprocessing_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
     """
     Creates and returns a logger that logs to the specified file.
     """
