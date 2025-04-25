@@ -23,8 +23,8 @@ from shapely.geometry import Point
 
 import utils.shared_functions as sf
 from data.create_vrt_file import create_vrt_file
-from utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import run_with_multiprocessing, setup_file_logger
+from utils.shared_functions import FIM_Helpers as fh
 
 
 """
@@ -45,7 +45,7 @@ def identify_bridges_with_lidar(OSM_bridge_lines_gdf, lidar_tif_dir):
     return OSM_bridge_lines_gdf
 
 
-def rasters_to_point(tif_paths):
+def rasters_to_point(tif_paths, file_logger, screen_queue, task_id):
     gdf_list = []
     for tif_file in tif_paths:
         with rasterio.open(tif_file) as src:
@@ -72,13 +72,25 @@ def rasters_to_point(tif_paths):
         gdf_list.append(gdf)
 
     combined_gdf = gpd.GeoDataFrame(pd.concat(gdf_list, ignore_index=True))
+    file_logger.info(f"{len(combined_gdf)} points for {task_id}")
+    screen_queue.put(f"{len(combined_gdf)} points for {task_id}")
     return combined_gdf
 
 
-def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice, output_diff_path,file_logger, screen_queue):
+def make_one_diff(
+    dem_file,
+    OSM_bridge_lines_gdf,
+    lidar_tif_dir,
+    HUC,
+    HUC_choice,
+    output_diff_path,
+    file_logger,
+    screen_queue,
+    task_id,
+):
 
     try:
-        screen_queue.put(f"Start processing {HUC}")
+        screen_queue.put(f"Start processing {task_id}")
         HUC_lidar_tif_osmids = OSM_bridge_lines_gdf[
             (OSM_bridge_lines_gdf['huc%d' % HUC_choice] == HUC)
             & (OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y')
@@ -89,7 +101,7 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
             file_logger.info(
                 'working on HUC%d %s with %d osm rasters: ' % (HUC_choice, str(HUC), len(HUC_lidar_tif_paths))
             )
-            HUC_lidar_points_gdf = rasters_to_point(HUC_lidar_tif_paths)
+            HUC_lidar_points_gdf = rasters_to_point(HUC_lidar_tif_paths, file_logger, screen_queue, task_id)
 
             temp_buffer = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['osmid'].isin(HUC_lidar_tif_osmids)]
 
@@ -137,7 +149,9 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
                 dst.write(updated_raster, 1)
 
         else:
-            screen_queue.put('Making a diff raster file only with values of zero for HUC%d:' % HUC_choice + str(HUC))
+            screen_queue.put(
+                'Making a diff raster file only with values of zero for HUC%d:' % HUC_choice + str(HUC)
+            )
             file_logger.info(
                 'Making a diff raster file only with values of zero for HUC%d:' % HUC_choice + str(HUC)
             )
@@ -154,21 +168,20 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
             raster_meta.update({'compress': 'lzw'})  # Update metadata to compress
             with rasterio.open(output_diff_path, 'w', **raster_meta) as dst:
                 dst.write(updated_raster, 1)
-        screen_queue.put(f"End of processing {HUC}")
+        screen_queue.put(f"End of processing {task_id}")
         return True
 
     except Exception as e:
-        file_logger.error(f"❌ Exception in HUC {HUC}: {str(e)}")
-        file_logger.error(traceback.format_exc()) 
+        file_logger.error(f"❌ Exception in HUC {task_id}: {str(e)}")
+        file_logger.error(traceback.format_exc())
         return False
-
 
 
 def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number_jobs):
     start_time = datetime.now(timezone.utc)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    
+
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_path = os.path.join(output_dir, f"DEM_diff_rasters-{file_dt_string}.log")
     file_logger = setup_file_logger(log_file_path)
@@ -189,7 +202,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
             os.path.splitext(os.path.basename(path))[0].split('_')[1] for path in available_dif_files
         ]
 
-        tasks_args_list =[]
+        tasks_args_list = []
         for dem_file in dem_files:
             # prepare path for output diff file
             base_name, extension = os.path.splitext(os.path.basename(dem_file))
@@ -201,34 +214,39 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
 
             if HUC not in base_names_no_ext:
 
-                tasks_args_list.append({
-                    'dem_file': dem_file,
-                    'OSM_bridge_lines_gdf': OSM_bridge_lines_gdf,
-                    'lidar_tif_dir': lidar_tif_dir,
-                    'HUC': HUC,
-                    'HUC_choice': HUC_choice,
-                    'output_diff_path': output_diff_path,
-                })
+                tasks_args_list.append(
+                    {
+                        'dem_file': dem_file,
+                        'OSM_bridge_lines_gdf': OSM_bridge_lines_gdf,
+                        'lidar_tif_dir': lidar_tif_dir,
+                        'HUC': HUC,
+                        'HUC_choice': HUC_choice,
+                        'output_diff_path': output_diff_path,
+                    }
+                )
 
-        #now start the multiprocessing
+        # now start the multiprocessing
         multiprocessing_results = run_with_multiprocessing(
             task_function=make_one_diff,
             tasks_args_list=tasks_args_list,
             file_logger=file_logger,
-            max_workers=number_jobs, 
-            task_id_key="HUC", # must be one of the task arg keys. used for status report
+            max_workers=number_jobs,
+            task_id_key="HUC",  # must be one of the task arg keys. used for status report
             exit_on_failure=False,
         )
 
         print('multiprocessing tasks finished!')
-        #only report if all succeeded or the failed ones
+        # only report if all succeeded or the failed ones
         failed_keys = [k for k, v in multiprocessing_results.items() if not v]
 
         if not failed_keys:
+            file_logger.info("✅ All multiprocessing tasks Succeeded")
             print("✅ All multiprocessing tasks Succeeded")
         else:
+            file_logger.info(f"❌ {len(failed_keys)} failed:")
             print(f"❌ {len(failed_keys)} failed:")
             for k in failed_keys:
+                file_logger.info(f"  - {k}")
                 print(f"  - {k}")
 
         # save with new info (with existence of lidar data or not)
