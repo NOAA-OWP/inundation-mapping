@@ -3,11 +3,11 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.6.x.x - 2025-04-22 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)
 
-Downloads the FEMA NFHL 500-year data for HUC8.
+Downloads the FEMA NFHL data for HUC8.
 
 ### Changes
 
-`data/nfhl/download_fema_500.py` : downloads 500-year FEMA floodplain.
+`data/nfhl/download_fema_500.py` : downloads FEMA NFHL data.
 
 <br/><br/>
 

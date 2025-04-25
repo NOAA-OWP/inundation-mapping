@@ -211,10 +211,34 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
                     nfhl_100_exploded.geometry = new_geoms_100
                     nfhl_100_exploded = nfhl_100_exploded[~nfhl_100_exploded.geometry.isna()]
                     nfhl_100_final = nfhl_100_exploded.dissolve().reset_index(drop=True)
+                    nfhl_100_final = nfhl_100_final.dropna(axis=1, how='all')
                     nfhl_100_final.to_file(out_file_100yr, index=False, driver='GPKG')
                 else:
                     print(f'No 100-year zones for HUC {huc}')
 
+                # Save 500-year data
+                nfhl_500 = nfhl_df[
+                    (nfhl_df['FLD_ZONE'] == 'X')
+                    & (nfhl_df['ZONE_SUBTY'] == '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')
+                ]
+                if not nfhl_100.empty:
+                    # Derive 100-year output file name
+                    base, ext = os.path.splitext(out_file)
+                    out_file_500yr = f'{base}_500yr{ext}'
+                    nfhl_500_dissolved = nfhl_500.dissolve()
+                    nfhl_500_exploded = nfhl_500_dissolved.explode().reset_index(drop=True)
+                    new_geoms_500 = [
+                        Polygon(geom.exterior)
+                        for geom in nfhl_500_exploded.geometry
+                        if geom is not None and geom.is_valid
+                    ]
+                    nfhl_500_exploded.geometry = new_geoms_500
+                    nfhl_500_exploded = nfhl_500_exploded[~nfhl_500_exploded.geometry.isna()]
+                    nfhl_500_final = nfhl_500_exploded.dissolve().reset_index(drop=True)
+                    nfhl_500_final = nfhl_500_final.dropna(axis=1, how='all')
+                    nfhl_500_final.to_file(out_file_500yr, index=False, driver='GPKG')
+                else:
+                    print(f'No 500-year zones for HUC {huc}')
                 # Process combined 100-year and 500-year zones
                 nfhl_df_dissolved = nfhl_df.dissolve()
                 nfhl_df_exploded = nfhl_df_dissolved.explode().reset_index(drop=True)
@@ -226,6 +250,7 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
                 nfhl_df_exploded = nfhl_df_exploded[~nfhl_df_exploded.geometry.isna()]
                 # final dissolve
                 nfhl_df = nfhl_df_exploded.dissolve().reset_index(drop=True)
+                nfhl_df = nfhl_df.dropna(axis=1, how='all')
                 nfhl_df.to_file(out_file, index=False, driver='GPKG')
             else:
                 print(f"No flood hazard data found for HUC {huc}")
