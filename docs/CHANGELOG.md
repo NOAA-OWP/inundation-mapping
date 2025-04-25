@@ -7,7 +7,7 @@ Downloads the FEMA NFHL data for HUC8.
 
 ### Changes
 
-`data/nfhl/download_fema_500.py` : downloads FEMA NFHL data.
+`data/nfhl/download_fema_nfhl.py` : downloads FEMA NFHL data.
 
 <br/><br/>
 
