@@ -14,6 +14,7 @@ import pandas as pd
 import scipy
 from scipy.ndimage import generic_filter
 
+
 # -------------------------------------------------------
 def extract_longitudinal_variables(src_df, hydroid, stage):
     """
@@ -39,7 +40,7 @@ def extract_longitudinal_variables(src_df, hydroid, stage):
         Returns
         ----------
         voi_hid_stage : list
-    
+
     """
 
     src = src_df.loc[src_df.HydroID == hydroid]
@@ -58,19 +59,20 @@ def extract_longitudinal_variables(src_df, hydroid, stage):
 
     return voi_hid_stage
 
+
 # -------------------------------------------------------
 def min_ignore_zeros(lst):
     """
     Function for calculation non-zero minimumns.
-    
+
         Parameters
         ----------
         lst : list
-        
+
         Returns
         ----------
         minimum : float
-    
+
     """
     nonzero = lst[lst > 0]
     if nonzero.size > 0:
@@ -78,19 +80,20 @@ def min_ignore_zeros(lst):
     else:
         return 0
 
+
 # -------------------------------------------------------
 def filter_voi(voi_array):
     """
     Function for a gaussian and minimum filtering on an array.
-    
+
         Parameters
         ----------
         voi_array : array
-        
+
         Returns
         ----------
         gfilter
-    
+
     """
     minfilter = generic_filter(voi_array, min_ignore_zeros, size=4)
     gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2, radius=2)
@@ -124,7 +127,7 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
     cathment_gpkg_path = []
     branches = os.listdir(join(fim_huc_dir, 'branches'))
     for branch in branches:
-        if int(branch) > 0: # Just for GMS branches
+        if int(branch) > 0:  # Just for GMS branches
             src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
             cathment_gpkg = join(
                 fim_huc_dir,
@@ -314,7 +317,7 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
 # -------------------------------------------------------
 def process_filtering_src(fim_dir, number_of_jobs):
     """
-    Function for correcting synthetic rating curves using Multi-Proc approach. 
+    Function for correcting synthetic rating curves using Multi-Proc approach.
     It will correct each branch's SRCs in serial based on the HydroIDs.
 
         Parameters
