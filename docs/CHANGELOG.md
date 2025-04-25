@@ -3,45 +3,17 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## vx.x.x.x - 2025-xx-xx - [PR#1496](https://github.com/NOAA-OWP/inundation-mapping/pull/1496)
 
-This focuses on filtering discharge NWM reaches, and updating synthetic rating curves accordingly for each Hydro-ID.
+This focuses on filtering discharge and hydraulic properties of NWM reaches and updating synthetic rating curves accordingly for each Hydro-ID.
 
 ### Addition
 
-The following scripts are added where thalweg notches are adjusted, the discharge is filtered across the reaches, and synthetic rating curves are accordingly updated.
+The following scripts are added where the discharge is filtered across the reaches for minimum values and Gaussian fluctuations, and synthetic rating curves are accordingly updated.
 
 - `src/`
-    - `thalweg_notches_adjustment.py`
     - `filter_longitudinal_flow.py`
 
 ### Changes
 
-- `src/`
-    - `bash_variables.env`
-    - `bathymetric_adjustment.py`
-- `config/`
-    - `params_template.env`
-- `inundation-mapping/`
-    - `fim_post_processing.sh`
-
-
-<br/><br/>
-
-## vx.x.x.x - 2025-xx-xx - [PR#1495](https://github.com/NOAA-OWP/inundation-mapping/pull/1495)
-
-This focuses on adjusting thalweg notches by updating synthetic rating curves for each Hydro-ID.
-
-### Addition
-
-The following scripts is added where thalweg notches adjusted and synthetic rating curves updated.
-
-- `src/`
-    - `thalweg_notches_adjustment.py`
-
-### Changes
-
-- `src/`
-    - `bash_variables.env`
-    - `bathymetric_adjustment.py`
 - `config/`
     - `params_template.env`
 - `inundation-mapping/`

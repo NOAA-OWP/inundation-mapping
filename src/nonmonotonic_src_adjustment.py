@@ -64,8 +64,8 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):
     for src in src_all_branch_paths:
         src_name = os.path.basename(src)
         branch = src_name.split(".")[0].split("_")[-1]
-        log_text += f'  Adjusting SRC for Branch: {branch}'
-        print(f'  Adjusting SRC for Branch: {branch}')
+        log_text += f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}'
+        print(f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}')
 
         # Adjusting src tables for nonmonotonic SRCs
         src_df = pd.read_csv(src, low_memory=False)
@@ -88,8 +88,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):
         src_df.to_csv(src, index=False)
 
         # Adjusting hydro tables for nonmonotonic SRC
-        log_text += f'  Adjusting hydroTable for Branch: {branch}'
-        print(f'  Adjusting hydroTable for Branch: {branch}')
+        log_text += f'Adjusting Nonmonotonic hydroTable for HUC {huc} Branch: {branch}'
 
         ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
         ht_df = pd.read_csv(ht_branch_path, low_memory=False)
