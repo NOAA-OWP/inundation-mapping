@@ -20,7 +20,7 @@ from rasterio.merge import merge
 from shapely.geometry import Point
 
 from data.create_vrt_file import create_vrt_file
-from src.utils.shared_functions import run_with_multiprocessing, setup_multiprocessing_file_logger
+from utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
 """
@@ -180,7 +180,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
 
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_path = os.path.join(output_dir, f"DEM_diff_rasters-{file_dt_string}.log")
-    file_logger = setup_multiprocessing_file_logger(log_file_path)
+    file_logger = setup_mp_file_logger(log_file_path)
 
     try:
         print('Reading osm bridge lines...')
@@ -222,7 +222,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
                 )
 
         # now start the multiprocessing
-        multiprocessing_results = run_with_multiprocessing(
+        mp_results = run_with_mp(
             task_function=make_one_diff,
             tasks_args_list=tasks_args_list,
             file_logger=file_logger,
@@ -233,7 +233,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
 
         print('multiprocessing tasks finished!')
         # only report if all succeeded or the failed ones
-        failed_keys = [k for k, v in multiprocessing_results.items() if not v]
+        failed_keys = [k for k, v in mp_results.items() if not v]
 
         if not failed_keys:
             file_logger.info("✅ All multiprocessing tasks Succeeded")
