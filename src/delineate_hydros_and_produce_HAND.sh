@@ -229,25 +229,6 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"
-echo "Executing command: python3 $srcDir/add_crosswalk.py \
-    -d $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
-    -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg \
-    -s $tempCurrentBranchDataDir/src_base_$current_branch_id.csv \
-    -l $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
-    -f $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
-    -r $tempCurrentBranchDataDir/src_full_crosswalked_$current_branch_id.csv \
-    -j $tempCurrentBranchDataDir/src_$current_branch_id.json \
-    -x $tempCurrentBranchDataDir/crosswalk_table_$current_branch_id.csv \
-    -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv \
-    -w $tempHucDataDir/wbd8_clp.gpkg \
-    -b $b_arg \
-    -u $hucNumber \
-    -m $manning_n \
-    -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
-    -e $min_catchment_area \
-    -g $min_stream_length
-    -i $iris_sword_slope"
-
 python3 $srcDir/add_crosswalk.py \
     -d $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
     -a $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg \
