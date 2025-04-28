@@ -802,6 +802,7 @@ def inundate_hucs(
         Whether to create vector output
 
     """
+
     for huc in hucs:
         inundate_probabilistic(
             ensembles=ensembles,
@@ -895,7 +896,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-ow",
+        "-",
         "--overwrite",
         default=False,
         help="OPTIONAL: Whether to overwrite existing output",
@@ -903,18 +904,18 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-or",
+        "-r",
         "--output_raster",
-        default=False,
         help="OPTIONAL: Whether to keep final raster output",
+        action='store_true',
         required=False,
     )
 
     parser.add_argument(
-        "-ov",
+        "-v",
         "--output_vector",
-        default=True,
         help="OPTIONAL: Whether to create final vector output",
+        action='store_true',
         required=False,
     )
 
@@ -931,7 +932,11 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-w", "--windowed", type=bool, help="REQUIRED: Number of threads to process HUCs", required=True
+        "-w",
+        "--windowed",
+        action='store_true',
+        help="REQUIRED: Number of threads to process HUCs",
+        required=False,
     )
 
     parser.add_argument("-l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
