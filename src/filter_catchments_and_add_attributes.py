@@ -21,6 +21,10 @@ def filter_catchments_and_add_attributes(
     wbd_filename,
     huc_code,
 ):
+    # These HUC-level geopackages are being read using the fiona engine because
+    # the pyogrio + arrow engine was giving random segmentation faults that
+    # we think may be due to many branches trying to read the same GPKG.
+    # See issue #1376 for details.
     input_catchments = gpd.read_file(input_catchments_filename, engine='fiona')
     wbd = gpd.read_file(wbd_filename, engine='fiona')
     input_flows = gpd.read_file(input_flows_filename, engine='fiona')
