@@ -75,51 +75,8 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
         print(f'No wbd availble for huc {huc}')
         return
 
-    def __get_dfirm_panels(huc, wbd, geometryType='esriGeometryEnvelope', geometryCRS=geometryCRS):
-        """
-        Query the NFHL DFIRM panels for a given HUC8
-
-        Returns
-        ----------
-        list
-            List of DFIRM_IDs for panels intersecting the HUC8.
-        """
-
-        polygon = wbd.loc[wbd.HUC8 == huc]
-
-        minx, miny, maxx, maxy = polygon.geometry.bounds.values[0]
-
-        geometry = {
-            "xmin": minx,
-            "ymin": miny,
-            "xmax": maxx,
-            "ymax": maxy,
-            "spatialReference": {"wkid": geometryCRS},
-        }
-
-        geometry = str(geometry)
-
-        dfirm_query_url = (
-            "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/1/query"
-        )
-        dfirm_df = ESRI_REST.query(
-            dfirm_query_url,
-            f="json",
-            where="1=1",
-            returnGeometry="true",
-            outFields="*",
-            outSR=str(geometryCRS),
-            geometryType=geometryType,
-            geometry=geometry,
-            resultRecordCount=100,
-            geometryPrecision=1,
-            maxAllowableOffset=1,
-        )
-
-        return dfirm_df['DFIRM_ID'].unique().tolist()
-
     def __get_nfhl_flood_hazard_zones(
-        huc, wbd, out_file, dfirm_ids, geometryType='esriGeometryEnvelope', geometryCRS=geometryCRS
+        huc, wbd, out_file, geometryType='esriGeometryEnvelope', geometryCRS=geometryCRS
     ):
         """
         Query the NFHL flood hazard zones for a given HUC8
@@ -132,8 +89,6 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
             The WBD GeoDataFrame
         out_file : str
             The output file path
-        dfirm_ids: list
-            List of DFIRM_IDs to query
         geometryType : str
             The geometry type to use for the query
         geometryCRS : int
@@ -165,111 +120,92 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
                 "(FLD_ZONE LIKE 'A%' OR FLD_ZONE LIKE 'V%') OR"
                 "(FLD_ZONE LIKE 'X' AND ZONE_SUBTY = '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')"
             )
-            # Query for each DFIRM_ID to handle large datasets
-            nfhl_dfs = []
-            for dfirm_id in dfirm_ids:
-                dfirm_where = f"DFIRM_ID = '{dfirm_id}' AND ({where_clause})"
-                nfhl_df = ESRI_REST.query(
-                    nfhl_query_url,
-                    f="json",
-                    where=dfirm_where,
-                    returnGeometry="true",
-                    outFields="*",
-                    outSR=str(geometryCRS),
-                    geometryType=geometryType,
-                    geometry=str(geometry),
-                    resultRecordCount=100,
-                    geometryPrecision=1,
-                    maxAllowableOffset=1,
-                )
-                if not nfhl_df.empty:
-                    nfhl_dfs.append(nfhl_df)
-            if nfhl_dfs:
-                nfhl_df = gpd.GeoDataFrame(pd.concat(nfhl_dfs, ignore_index=True))
-                # Clean the geometries to remove self-intersections
-                nfhl_df['geometry'] = nfhl_df['geometry'].make_valid()
-                nfhl_df = gpd.clip(nfhl_df, polygon)
-                # Filter polygons and multipolygons
-                # print(nfhl_df.geom_type.value_counts())
-                nfhl_df = nfhl_df[nfhl_df.geom_type.isin(['Polygon', 'MultiPolygon'])]
-                # Explode multipolygon geometries to single polygons
-                nfhl_df = nfhl_df.explode(index_parts=True).reset_index(drop=True)
 
-                # Save 100-year data
-                nfhl_100 = nfhl_df[nfhl_df['FLD_ZONE'].str.startswith(('A', 'V'))]
-                if not nfhl_100.empty:
-                    # Derive 100-year output file name
-                    base, ext = os.path.splitext(out_file)
-                    out_file_100yr = f'{base}_100yr{ext}'
-                    nfhl_100_dissolved = nfhl_100.dissolve()
-                    nfhl_100_exploded = nfhl_100_dissolved.explode().reset_index(drop=True)
-                    new_geoms_100 = [
-                        Polygon(geom.exterior)
-                        for geom in nfhl_100_exploded.geometry
-                        if geom is not None and geom.is_valid
-                    ]
-                    nfhl_100_exploded.geometry = new_geoms_100
-                    nfhl_100_exploded = nfhl_100_exploded[~nfhl_100_exploded.geometry.isna()]
-                    nfhl_100_final = nfhl_100_exploded.dissolve().reset_index(drop=True)
-                    nfhl_100_final = nfhl_100_final.dropna(axis=1, how='all')
-                    nfhl_100_final.to_file(out_file_100yr, index=False, driver='GPKG')
-                else:
-                    print(f'No 100-year zones for HUC {huc}')
+            nfhl_df = ESRI_REST.query(
+                nfhl_query_url,
+                f="json",
+                where=where_clause,
+                returnGeometry="true",
+                outFields="*",
+                outSR=str(geometryCRS),
+                geometryType=geometryType,
+                geometry=str(geometry),
+                resultRecordCount=100,
+                geometryPrecision=1,
+                maxAllowableOffset=1,
+            )
 
-                # Save 500-year data
-                nfhl_500 = nfhl_df[
-                    (nfhl_df['FLD_ZONE'] == 'X')
-                    & (nfhl_df['ZONE_SUBTY'] == '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')
+            # Clean the geometries to remove self-intersections
+            nfhl_df['geometry'] = nfhl_df['geometry'].make_valid()
+            nfhl_df = gpd.clip(nfhl_df, polygon)
+            # Filter polygons and multipolygons
+            # print(nfhl_df.geom_type.value_counts())
+            nfhl_df = nfhl_df[nfhl_df.geom_type.isin(['Polygon', 'MultiPolygon'])]
+            # Explode multipolygon geometries to single polygons
+            nfhl_df = nfhl_df.explode(index_parts=True).reset_index(drop=True)
+
+            # Save 100-year data
+            nfhl_100 = nfhl_df[nfhl_df['FLD_ZONE'].str.startswith(('A', 'V'))]
+            if not nfhl_100.empty:
+                # Derive 100-year output file name
+                base, ext = os.path.splitext(out_file)
+                out_file_100yr = f'{base}_100yr{ext}'
+                nfhl_100_dissolved = nfhl_100.dissolve()
+                nfhl_100_exploded = nfhl_100_dissolved.explode().reset_index(drop=True)
+                new_geoms_100 = [
+                    Polygon(geom.exterior)
+                    for geom in nfhl_100_exploded.geometry
+                    if geom is not None and geom.is_valid
                 ]
-                if not nfhl_100.empty:
-                    # Derive 100-year output file name
-                    base, ext = os.path.splitext(out_file)
-                    out_file_500yr = f'{base}_500yr{ext}'
-                    nfhl_500_dissolved = nfhl_500.dissolve()
-                    nfhl_500_exploded = nfhl_500_dissolved.explode().reset_index(drop=True)
-                    new_geoms_500 = [
-                        Polygon(geom.exterior)
-                        for geom in nfhl_500_exploded.geometry
-                        if geom is not None and geom.is_valid
-                    ]
-                    nfhl_500_exploded.geometry = new_geoms_500
-                    nfhl_500_exploded = nfhl_500_exploded[~nfhl_500_exploded.geometry.isna()]
-                    nfhl_500_final = nfhl_500_exploded.dissolve().reset_index(drop=True)
-                    nfhl_500_final = nfhl_500_final.dropna(axis=1, how='all')
-                    nfhl_500_final.to_file(out_file_500yr, index=False, driver='GPKG')
-                else:
-                    print(f'No 500-year zones for HUC {huc}')
-                # Process combined 100-year and 500-year zones
-                nfhl_df_dissolved = nfhl_df.dissolve()
-                nfhl_df_exploded = nfhl_df_dissolved.explode().reset_index(drop=True)
-
-                new_geom = [Polygon(geom.exterior) for geom in nfhl_df_exploded.geometry]
-                nfhl_df_exploded.geometry = new_geom
-
-                # remove None geometries
-                nfhl_df_exploded = nfhl_df_exploded[~nfhl_df_exploded.geometry.isna()]
-                # final dissolve
-                nfhl_df = nfhl_df_exploded.dissolve().reset_index(drop=True)
-                nfhl_df = nfhl_df.dropna(axis=1, how='all')
-                nfhl_df.to_file(out_file, index=False, driver='GPKG')
+                nfhl_100_exploded.geometry = new_geoms_100
+                nfhl_100_exploded = nfhl_100_exploded[~nfhl_100_exploded.geometry.isna()]
+                nfhl_100_final = nfhl_100_exploded.dissolve().reset_index(drop=True)
+                nfhl_100_final = nfhl_100_final.dropna(axis=1, how='all')
+                nfhl_100_final.to_file(out_file_100yr, index=False, driver='GPKG')
             else:
-                print(f"No flood hazard data found for HUC {huc}")
+                print(f'No 100-year zones for HUC {huc}')
+
+            # Save 500-year data
+            nfhl_500 = nfhl_df[
+                (nfhl_df['FLD_ZONE'] == 'X') & (nfhl_df['ZONE_SUBTY'] == '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')
+            ]
+            if not nfhl_100.empty:
+                # Derive 100-year output file name
+                base, ext = os.path.splitext(out_file)
+                out_file_500yr = f'{base}_500yr{ext}'
+                nfhl_500_dissolved = nfhl_500.dissolve()
+                nfhl_500_exploded = nfhl_500_dissolved.explode().reset_index(drop=True)
+                new_geoms_500 = [
+                    Polygon(geom.exterior)
+                    for geom in nfhl_500_exploded.geometry
+                    if geom is not None and geom.is_valid
+                ]
+                nfhl_500_exploded.geometry = new_geoms_500
+                nfhl_500_exploded = nfhl_500_exploded[~nfhl_500_exploded.geometry.isna()]
+                nfhl_500_final = nfhl_500_exploded.dissolve().reset_index(drop=True)
+                nfhl_500_final = nfhl_500_final.dropna(axis=1, how='all')
+                nfhl_500_final.to_file(out_file_500yr, index=False, driver='GPKG')
+            else:
+                print(f'No 500-year zones for HUC {huc}')
+            # Process combined 100-year and 500-year zones
+            nfhl_df_dissolved = nfhl_df.dissolve()
+            nfhl_df_exploded = nfhl_df_dissolved.explode().reset_index(drop=True)
+
+            new_geom = [Polygon(geom.exterior) for geom in nfhl_df_exploded.geometry]
+            nfhl_df_exploded.geometry = new_geom
+
+            # remove None geometries
+            nfhl_df_exploded = nfhl_df_exploded[~nfhl_df_exploded.geometry.isna()]
+            # final dissolve
+            nfhl_df = nfhl_df_exploded.dissolve().reset_index(drop=True)
+            nfhl_df = nfhl_df.dropna(axis=1, how='all')
+            nfhl_df.to_file(out_file, index=False, driver='GPKG')
         else:
             print(f'Output file {out_file} already exist, skipping.')
 
-    # Get DFIRM panels
-    dfirm_ids = __get_dfirm_panels(huc, wbd, geometryType, geometryCRS)
-    if not dfirm_ids:
-        print(f'No DFIRM panels found for HUC {huc}')
-        return
     # Get flood hazard zones
     __get_nfhl_flood_hazard_zones(
-        huc=huc,
-        out_file=out_file,
-        wbd=wbd,
-        dfirm_ids=dfirm_ids,
-        geometryType='esriGeometryEnvelope',
-        geometryCRS=geometryCRS,
+        huc=huc, out_file=out_file, wbd=wbd, geometryType='esriGeometryEnvelope', geometryCRS=geometryCRS
     )
 
 
