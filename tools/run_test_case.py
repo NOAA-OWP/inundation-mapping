@@ -357,6 +357,8 @@ class Test_Case(Benchmark):
                     inundation_raster=predicted_raster_path,
                     mask=os.path.join(self.fim_dir, "wbd.gpkg"),
                     verbose=verbose,
+                    num_threads=8,
+                    windowed=True,
                 )
 
             # FIM v3 and before

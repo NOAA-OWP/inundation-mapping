@@ -251,22 +251,29 @@ def __inundate_gms_generator(
         elif isinstance(hydro_table_df, str):
             hydro_table_branch = hydro_table_df.format(branch_id)
         else:
-            hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
-            if os.path.isfile(hydro_table_huc):
 
-                hydro_table_all = pd.read_csv(
-                    hydro_table_huc,
-                    dtype={
-                        "HUC": str,
-                        "branch_id": int,
-                        "feature_id": str,
-                        "HydroID": str,
-                        "stage": float,
-                        "discharge_cms": float,
-                        "LakeID": int,
-                    },
-                    usecols=htable_req_cols,
-                )
+            df_type = "csv"
+            if os.path.exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
+                hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
+                df_type = "feather"
+            else:
+                hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
+
+            dtype = {
+                "HUC": str,
+                "branch_id": int,
+                "feature_id": str,
+                "HydroID": str,
+                "stage": float,
+                "discharge_cms": float,
+                "LakeID": int,
+            }
+            if df_type == "feather":
+                hydro_table_all = pd.read_feather(hydro_table_huc)
+            else:
+                hydro_table_all = pd.read_csv(hydro_table_huc, dtype=dtype, usecols=htable_req_cols)
+
+            if os.path.isfile(hydro_table_huc):
 
                 hydro_table_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
                 hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
