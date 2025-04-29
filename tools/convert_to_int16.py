@@ -33,12 +33,12 @@ def convert_to_int16(branch_dir: str):
         nodata, crs = rem.rio.nodata, rem.rio.crs
 
         # Preserve the second highest possible number for int16, use the highest number for nodata
-        rem = xr.where(rem > 32.766, 32.766, rem)
-        rem = xr.where(rem >= 0, np.round(rem * 1000), 32767)
+        rem.data = xr.where(rem > 32.766, 32.766, rem)
+        rem.data = xr.where(rem >= 0, np.round(rem * 1000), 32767)
 
         rem = rem.astype(np.int16)
-        rem = rem.rio.write_nodata(32767)
-        rem = rem.rio.write_crs(crs)
+        rem.rio.write_nodata(32767, inplace=True)
+        rem.rio.write_crs(crs, inplace=True)
 
         rem.rio.to_raster(r, dtype=np.int16, driver="COG")
 
@@ -50,12 +50,12 @@ def convert_to_int16(branch_dir: str):
         # Preserve the last four digits only since the first four of HydroIDs are ubiquitous amongst all HUC08
         nodata, crs = catchments.rio.nodata, catchments.rio.crs
         catchments.data = xr.where(
-            catchments != nodata, catchments - np.round(catchments.max() / 10000) * 10000, catchments
+            catchments != nodata, catchments - np.floor(catchments.max() / 10000) * 10000, catchments
         )
 
         catchments = catchments.astype(np.int16)
-        catchments = catchments.rio.write_nodata(nodata)
-        catchments = catchments.rio.write_crs(crs)
+        catchments.rio.write_nodata(nodata, inplace=True)
+        catchments.rio.write_crs(crs, inplace=True)
 
         catchments.rio.to_raster(c, dtype=np.int16, driver="COG")
 
