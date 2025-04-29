@@ -235,8 +235,7 @@ class OverlapWindowMerge:
             [np.abs(bbox[win_idx][2] - bbox[win_idx][0]), np.abs(bbox[win_idx][3] - bbox[win_idx][1])]
         ).astype(int)
 
-        bnds = []
-        data = []
+        bnds, data, str_dtype = [], [], str(meta['dtype'])
         for ds in datasets:
             # Get rasterio window for each pair of window bounds and depth dataset
 
@@ -251,9 +250,19 @@ class OverlapWindowMerge:
             bnds.append(bnd)
 
             # Read raster data with window
-            read_data = self.depth_rsts[ds].read(1, window=bnd).astype(np.float32)
-            # Convert all no data to nan values
-            read_data[read_data == np.float32(self.depth_rsts[ds].meta["nodata"])] = np.nan
+            read_data = self.depth_rsts[ds].read(1, window=bnd)
+
+            if 'float' in str_dtype:
+                # Convert all no data to nan values
+                read_data[read_data == self.depth_rsts[ds].meta["nodata"]] = np.nan
+
+            elif 'int' in str_dtype:
+
+                read_data[read_data == self.depth_rsts[ds].meta["nodata"]] = np.iinfo(str_dtype).min
+
+            else:
+                raise ValueError('Unsupported dtype')
+
             data.append(read_data)
             del bnd
 
@@ -288,9 +297,9 @@ class OverlapWindowMerge:
                 else:
                     data_dict[win_idx] = [idx]
 
-        agg_function = partial(np.nanmax, axis=0)
-
         meta = self.depth_rsts[0].meta
+
+        agg_function = partial(np.max, axis=0) if 'int' in str(meta['dtype']) else partial(np.nanmax, axis=0)
 
         meta.update(
             transform=self.proc_unit_transform,
@@ -317,7 +326,7 @@ class OverlapWindowMerge:
 
         lock = Lock()
 
-        with rasterio.open(out_fname, "w", **meta) as rst:
+        with rasterio.open(out_fname, "w+", **meta) as rst:
             merge_partial = partial(
                 merge_data,
                 rst=rst,
@@ -476,8 +485,8 @@ def merge_data(
 
     window_data[(window_data == nan_tile)] = nodata
 
-    with lock:
-        rst.write_band(1, window_data.astype(dtype), window=final_window)
+    # with lock:
+    rst.write_band(1, window_data, window=final_window)
     del window_data
 
 

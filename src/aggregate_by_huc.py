@@ -278,7 +278,8 @@ class HucDirectory(object):
                         "discharge_cms",
                         "LakeID",
                     ]
-                    temp_df = self.agg_hydrotable[htable_req_cols].astype(dtype)
+                    temp_df = self.agg_hydrotable.reset_index()
+                    temp_df = temp_df[htable_req_cols].astype(dtype)
                     temp_df.to_feather(hydrotable_file.replace('.csv', '.feather'))
 
             if src_cross_flag:
