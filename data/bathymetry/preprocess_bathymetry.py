@@ -18,7 +18,13 @@ wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
 
 """
-To use this script you will need to create a tif file from the eHydro depth survey tin file.
+This script is developed to preprocess river bathymetric depth surveys into reach averaged values of
+cross-sectional area (m^2) and missing wetted perimeter (m) assigned to the corresponding NWM
+reach. The script is currently adapted to process surveys from the USACE Hydrographic Survey database
+with 1mx1m spatial resolution and RFC provided bathymetry data at 5mx5m spatial resolution. To ensure
+accurate results input surveys must have the correct resolution.
+
+To use this script with eHydro data you will need to create a tif file from the eHydro depth survey tin file.
     To create depth tif:
         1. Download eHydro survey data from USACE Hydrographic Surveys and open the tin file in Q-GIS.
         2. Run rasterize mesh tool on tin file (make sure the tif and gdb file names are the same), e.g.
@@ -30,7 +36,7 @@ To use this script you will need to create a tif file from the eHydro depth surv
 """
 
 
-def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_threshold):
+def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_threshold, survey_source):
     """Function for calculating missing reach averaged cross sectional
     area and wetted perimeter by NWM feature_id.
 
@@ -51,6 +57,9 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         min_depth_threshold : int
             Highest value allowed for the minimum depth of the survey
             in feet (Checks for data referenced to a datum).
+        survey_source : str
+            Source of depth survey information. Script currently formatted (4/29/2025)
+            to recieve either 'eHydro' or 'RFC' data.
     """
 
     try:
@@ -83,7 +92,11 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
             dst.write(bathy_m, 1)
 
         # Read in shapefiles
-        bathy_bounds = gpd.read_file(survey_gdb, layer=bathy_bounds, engine="pyogrio", use_arrow=True)
+        if survey_source == "eHydro":
+            bathy_bounds = gpd.read_file(survey_gdb, layer=bathy_bounds, engine="pyogrio", use_arrow=True)
+        if survey_source == "RFC":
+            bathy_bounds = gpd.read_file(survey_gdb, engine="pyogrio", use_arrow=True)
+
         nwm_streams = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_flows.gpkg", mask=bathy_bounds)
         nwm_catchments = gpd.read_file("/data/inputs/nwm_hydrofabric/nwm_catchments.gpkg", mask=bathy_bounds)
         bathy_bounds = bathy_bounds.to_crs(nwm_streams.crs)
@@ -93,12 +106,11 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
             nwm_catchments, bathy_m, stats=["sum"], affine=bathy_affine, geojson_out=True, nodata=np.nan
         )
         zs_area = gpd.GeoDataFrame.from_features(zs_area)
+        # Convert missing volume for 5 meter resolution
+        if survey_source == 'RFC':
+            zs_area['sum'] = zs_area['sum'] * 25
         zs_area = zs_area.set_crs(nwm_streams.crs)
         zs_area = zs_area.rename(columns={"sum": "missing_volume_m3"})
-
-        # print("------------------------------")
-        # print(zs_area.ID)
-        # print("------------------------------")
 
         # Derive slope tif
         wbt.slope(bathy_temp, output_slope_tif, units="degrees")
@@ -106,7 +118,6 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         with rasterio.open(output_slope_tif) as slope_tif:
             slope_tif = slope_tif.read(1)
 
-        os.remove(output_slope_tif)
         slope_tif[np.where(slope_tif == -32768)] = np.nan
 
         missing_bed_area = (1 / np.cos(slope_tif * np.pi / 180)) - 1
@@ -121,6 +132,9 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
             nodata=np.nan,
         )
         zs_slope = gpd.GeoDataFrame.from_features(zs_slope)
+        # Convert missing bed area for 5 meter resolution
+        if survey_source == 'RFC':
+            zs_slope['sum'] = zs_slope['sum'] * 25
         zs_slope = zs_slope.rename(columns={"sum": "missing_bed_area_m2"})
 
         # Clip streams to survey bounds and find new reach lengths
@@ -142,13 +156,16 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         )
 
         # Add survey meta data
-        time_stamp = bathy_bounds.loc[0, 'SurveyDateStamp']
-        time_stamp_obj = str(time_stamp)
+        if survey_source == "eHydro":
+            time_stamp = bathy_bounds.loc[0, 'SurveyDateStamp']
+            time_stamp_obj = str(time_stamp)
 
-        bathy_nwm_streams['SurveyDateStamp'] = time_stamp_obj  # bathy_bounds.loc[0, 'SurveyDateStamp']
-        bathy_nwm_streams['SurveyId'] = bathy_bounds.loc[0, 'SurveyId']
-        bathy_nwm_streams['Sheet_Name'] = bathy_bounds.loc[0, 'Sheet_Name']
-        bathy_nwm_streams["Bathymetry_source"] = 'USACE eHydro'
+            bathy_nwm_streams['SurveyDateStamp'] = time_stamp_obj  # bathy_bounds.loc[0, 'SurveyDateStamp']
+            bathy_nwm_streams['SurveyId'] = bathy_bounds.loc[0, 'SurveyId']
+            bathy_nwm_streams['Sheet_Name'] = bathy_bounds.loc[0, 'Sheet_Name']
+            bathy_nwm_streams["Bathymetry_source"] = 'USACE eHydro'
+        if survey_source == "RFC":
+            bathy_nwm_streams["Bathymetry_source"] = 'OHRFC provided bathymetry, compiled from USACE data'
 
         # Export geopackage with bathymetry
         num_streams = len(bathy_nwm_streams)
@@ -168,20 +185,29 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
         print(f"Error processing {tif}: {e}")
 
 
-def process_directory(input_dir, output_dir, min_depth_threshold, bathy_bounds_layer='SurveyJob'):
+def process_directory(
+    input_dir, output_dir, min_depth_threshold, survey_source, bathy_bounds_layer='SurveyJob'
+):
 
     tif_files = [f for f in os.listdir(input_dir) if f.endswith('.tif')]
 
     for tif in tif_files:
         base_name = os.path.splitext(tif)[0]
         tif_path = os.path.join(input_dir, tif)
-        gdb_path = os.path.join(input_dir, base_name + '.gdb')
+        print(f"Survey source: {survey_source}")
+        if survey_source == 'eHydro':
+            gdb_path = os.path.join(input_dir, base_name + '.gdb')
+            print(f"Processing {base_name} now...")
+            if not os.path.isdir(gdb_path):
+                print(f"Matching GDB not found for {tif}. Skipping...")
+                continue
+        if survey_source == 'RFC':
+            gdb_path = os.path.join(input_dir, base_name + '.gpkg')
+            print(f"Processing {base_name} now...")
 
-        if not os.path.isdir(gdb_path):
-            print(f"Matching GDB not found for {tif}. Skipping...")
-            continue
-
-        preprocessing_ehydro(tif_path, bathy_bounds_layer, gdb_path, output_dir, min_depth_threshold)
+        preprocessing_ehydro(
+            tif_path, bathy_bounds_layer, gdb_path, output_dir, min_depth_threshold, survey_source
+        )
 
 
 if __name__ == '__main__':
@@ -212,20 +238,31 @@ if __name__ == '__main__':
         required=False,
         type=str,
     )
-
+    parser.add_argument(
+        '-survey_source',
+        '--survey_source',
+        help='Survey data source - eHydro or RFC',
+        default='eHydro',
+        required=True,
+        type=str,
+    )
     args = vars(parser.parse_args())
 
     input_dir = args['input_dir']
     output_dir = args['output_dir']
     min_depth_threshold = args['min_depth_threshold']
     bathy_bounds = args['bathy_bounds']
+    survey_source = args['survey_source']
 
-    process_directory(input_dir, output_dir, min_depth_threshold, bathy_bounds)
+    process_directory(input_dir, output_dir, min_depth_threshold, survey_source, bathy_bounds)
     print("Batch processing complete :)")
+    os.remove(os.path.join(os.path.dirname(input_dir), 'bathy_m.tif'))
+    os.remove(os.path.join(os.path.dirname(input_dir), 'bathy_slope.tif'))
 
     # Example usage
     """
     python3 /foss_fim/data/bathymetry/preprocess_bathymetry.py \
-        -input_dir /fim-home/bathymetry_processing/surveys \
-        -output_dir /fim-home/bathymetry_processing/combined.gpkg
+        -input_dir /home/bathymetry_processing/surveys \
+        -output_dir /home/bathymetry_processing/combined.gpkg
+        -survey_source RFC
     """
