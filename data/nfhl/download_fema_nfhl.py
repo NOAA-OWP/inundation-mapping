@@ -4,7 +4,6 @@ import time
 from multiprocessing import Pool
 
 import geopandas as gpd
-import pandas as pd
 from dotenv import load_dotenv
 from esri import ESRI_REST
 from shapely import Polygon
@@ -72,7 +71,7 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
     geometryCRS = ALASKA_CRS if is_alaska else DEFAULT_FIM_PROJECTION_CRS
 
     if wbd is None:
-        print(f'No wbd availble for huc {huc}')
+        print(f'No wbd available for huc {huc}')
         return
 
     def __get_nfhl_flood_hazard_zones(
@@ -147,9 +146,6 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
             # Save 100-year data
             nfhl_100 = nfhl_df[nfhl_df['FLD_ZONE'].str.startswith(('A', 'V'))]
             if not nfhl_100.empty:
-                # Derive 100-year output file name
-                base, ext = os.path.splitext(out_file)
-                out_file_100yr = f'{base}_100yr{ext}'
                 nfhl_100_dissolved = nfhl_100.dissolve()
                 nfhl_100_exploded = nfhl_100_dissolved.explode().reset_index(drop=True)
                 new_geoms_100 = [
@@ -161,7 +157,8 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
                 nfhl_100_exploded = nfhl_100_exploded[~nfhl_100_exploded.geometry.isna()]
                 nfhl_100_final = nfhl_100_exploded.dissolve().reset_index(drop=True)
                 nfhl_100_final = nfhl_100_final.dropna(axis=1, how='all')
-                nfhl_100_final.to_file(out_file_100yr, index=False, driver='GPKG')
+                # Save to GPKG as '100_year' layer
+                nfhl_100_final.to_file(out_file, layer='100_year', index=False, driver='GPKG')
             else:
                 print(f'No 100-year zones for HUC {huc}')
 
@@ -170,9 +167,6 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
                 (nfhl_df['FLD_ZONE'] == 'X') & (nfhl_df['ZONE_SUBTY'] == '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')
             ]
             if not nfhl_100.empty:
-                # Derive 100-year output file name
-                base, ext = os.path.splitext(out_file)
-                out_file_500yr = f'{base}_500yr{ext}'
                 nfhl_500_dissolved = nfhl_500.dissolve()
                 nfhl_500_exploded = nfhl_500_dissolved.explode().reset_index(drop=True)
                 new_geoms_500 = [
@@ -184,7 +178,8 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
                 nfhl_500_exploded = nfhl_500_exploded[~nfhl_500_exploded.geometry.isna()]
                 nfhl_500_final = nfhl_500_exploded.dissolve().reset_index(drop=True)
                 nfhl_500_final = nfhl_500_final.dropna(axis=1, how='all')
-                nfhl_500_final.to_file(out_file_500yr, index=False, driver='GPKG')
+                # Save to GPKG as '500_year' layer
+                nfhl_500_final.to_file(out_file, layer='500_year', index=False, driver='GPKG')
             else:
                 print(f'No 500-year zones for HUC {huc}')
             # Process combined 100-year and 500-year zones
@@ -199,7 +194,8 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
             # final dissolve
             nfhl_df = nfhl_df_exploded.dissolve().reset_index(drop=True)
             nfhl_df = nfhl_df.dropna(axis=1, how='all')
-            nfhl_df.to_file(out_file, index=False, driver='GPKG')
+            # Save to GPKG as 'combined' layer
+            nfhl_df.to_file(out_file, layer='combined ', index=False, driver='GPKG')
         else:
             print(f'Output file {out_file} already exist, skipping.')
 
@@ -242,7 +238,7 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Query NFHL flood hazard zones for a HUC8")
-    parser.add_argument('-u', "--huc", help="List of HUC8", type=str, required=True)
+    parser.add_argument('-u', "--huc", help="List of HUC8", type=str, required=True, nargs='+')
     parser.add_argument('-o', "--output_folder", help="Output directory", type=str, required=True)
     parser.add_argument(
         '-g', "--geometryType", help="Geometry type", required=False, default='esriGeometryEnvelope'
@@ -250,9 +246,7 @@ if __name__ == "__main__":
     parser.add_argument('-j', "--num_processes", help="Number of processes", type=int, default=1)
 
     args = parser.parse_args()
-
-    # handle single huc or list of hucs
-    huc_list = args.huc.split(',') if ',' in args.huc else [args.huc]
+    huc_list = args.huc
 
     download_nfhl_wrapper(
         huc_list=huc_list,
