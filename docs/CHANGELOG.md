@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.6.1.__ - 2025-__-__ - [PR#1489](https://github.com/NOAA-OWP/inundation-mapping/pull/1489)
+## v4.6.1.6 - 2025-05-01 - [PR#1489](https://github.com/NOAA-OWP/inundation-mapping/pull/1489)
 
 Adds a workaround to the CatFIM lake masking code that just returns the unmasked array if the lakes geopackage is not available. It also pulls the lakes geopackage from the FIM output HUC folder, rather than a hard-coded preclip folder, so the lakes geopackage will be the correct lakes file for that FIM run. This update also improves error tracing in `reformat_inundation_maps()` (from `generate_categorical_fim_mapping.py`) so it produces a more descriptive error message if no inundated polygons are found (rather than the misleading CRS error that was previously given). 
 
