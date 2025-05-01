@@ -8,6 +8,7 @@ import sys
 from multiprocessing import Pool
 
 import geopandas as gpd
+import numpy as np
 import rasterio
 from dotenv import load_dotenv
 
@@ -78,16 +79,20 @@ def process_points(args):
     water_edge_df = args[6]
     htable_path = args[7]
     optional_outputs = args[8]
+    hydroid_prefixpath = args[9]
 
     ## Define coords variable to be used in point raster value attribution.
     coords = [(x, y) for x, y in zip(water_edge_df.X, water_edge_df.Y)]
 
     water_edge_df = water_edge_df.to_crs(DEFAULT_FIM_PROJECTION_CRS)
 
+    with open(hydroid_prefixpath, 'r') as file:
+        hydroid_prefix = file.read()
+
     ## Use point geometry to determine HAND raster pixel values.
     with rasterio.open(hand_path) as hand_src, rasterio.open(catchments_path) as catchments_src:
-        water_edge_df['hand'] = [h[0] for h in hand_src.sample(coords)]
-        water_edge_df['hydroid'] = [c[0] for c in catchments_src.sample(coords)]
+        water_edge_df['hand'] = [np.float32(h[0]) / 1000 for h in hand_src.sample(coords)]
+        water_edge_df['hydroid'] = [hydroid_prefix + c[0].zfill(4) for c in catchments_src.sample(coords)]
 
     water_edge_df = water_edge_df[
         (water_edge_df['hydroid'].notnull()) & (water_edge_df['hand'] > 0) & (water_edge_df['hydroid'] > 0)
@@ -298,6 +303,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
                 branch_dir,
                 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
             )
+            hydroid_prefix_path = os.path.join(fim_directory, huc, 'hydroid_prefix.txt')
 
             # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
             if not os.path.exists(hand_path):
@@ -354,6 +360,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
                         water_edge_df,
                         htable_path,
                         debug_outputs_option,
+                        hydroid_prefix_path,
                     ]
                 )
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import traceback
 from glob import glob
 
@@ -20,9 +21,14 @@ def convert_to_int16(branch_dir: str):
 
     """
 
+    hydroid_prefix = None
+
     # Get gage watershed catchments and rems for the appropriate branch (or * for all branches)
     catchments = glob(f"{branch_dir}/gw_catchments_reaches_filtered_addedAttributes_*.tif")
     rems = glob(f"{branch_dir}/rem_zeroed_masked_*.tif")
+
+    huc_dir = ''.join(branch_dir.split('/')[:-2])
+    hydro_prefix_path = os.path.join(huc_dir, 'hydroid_prefix.txt')
 
     # Iterate through each pair of gw catchments and rems
     for c, r in zip(catchments, rems):
@@ -44,20 +50,25 @@ def convert_to_int16(branch_dir: str):
 
         catchments = rxr.open_rasterio(c)
 
+        if hydroid_prefix is None:
+            hydroid_prefix = np.floor(catchments.max() / 10000) * 10000
+
         # Save original as another file to be deleted by deny list or saved
         catchments.rio.to_raster(c.replace('.tif', '_int32.tif'), driver="COG")
 
         # Preserve the last four digits only since the first four of HydroIDs are ubiquitous amongst all HUC08
         nodata, crs = catchments.rio.nodata, catchments.rio.crs
-        catchments.data = xr.where(
-            catchments != nodata, catchments - np.floor(catchments.max() / 10000) * 10000, catchments
-        )
+        catchments.data = xr.where(catchments != nodata, catchments - hydroid_prefix, catchments)
 
         catchments = catchments.astype(np.int16)
         catchments.rio.write_nodata(nodata, inplace=True)
         catchments.rio.write_crs(crs, inplace=True)
 
         catchments.rio.to_raster(c, dtype=np.int16, driver="COG")
+
+    if not os.path.exists(hydro_prefix_path):
+        with open(hydro_prefix_path, 'w') as file:
+            file.write(hydroid_prefix)
 
 
 if __name__ == "__main__":
