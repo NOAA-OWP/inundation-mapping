@@ -27,7 +27,7 @@ def convert_to_int16(branch_dir: str):
     catchments = glob(f"{branch_dir}/gw_catchments_reaches_filtered_addedAttributes_*.tif")
     rems = glob(f"{branch_dir}/rem_zeroed_masked_*.tif")
 
-    huc_dir = ''.join(branch_dir.split('/')[:-2])
+    huc_dir = '/'.join(branch_dir.split('/')[:-2])
     hydro_prefix_path = os.path.join(huc_dir, 'hydroid_prefix.txt')
 
     # Iterate through each pair of gw catchments and rems
