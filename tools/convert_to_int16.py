@@ -28,7 +28,7 @@ def convert_to_int16(branch_dir: str):
     rems = glob(f"{branch_dir}/rem_zeroed_masked_*.tif")
 
     huc_dir = '/'.join(branch_dir.split('/')[:-2])
-    hydro_prefix_path = os.path.join(huc_dir, 'hydroid_prefix.txt')
+    hydroid_prefix_path = os.path.join(huc_dir, 'hydroid_prefix.txt')
 
     # Iterate through each pair of gw catchments and rems
     for c, r in zip(catchments, rems):
@@ -51,7 +51,7 @@ def convert_to_int16(branch_dir: str):
         catchments = rxr.open_rasterio(c)
 
         if hydroid_prefix is None:
-            hydroid_prefix = np.floor(catchments.max() / 10000) * 10000
+            hydroid_prefix = str(int(np.floor(catchments.max()['band_data'] / 10000)))
 
         # Save original as another file to be deleted by deny list or saved
         catchments.rio.to_raster(c.replace('.tif', '_int32.tif'), driver="COG")
@@ -66,8 +66,8 @@ def convert_to_int16(branch_dir: str):
 
         catchments.rio.to_raster(c, dtype=np.int16, driver="COG")
 
-    if not os.path.exists(hydro_prefix_path):
-        with open(hydro_prefix_path, 'w') as file:
+    if not os.path.exists(hydroid_prefix_path):
+        with open(hydroid_prefix_path, 'w') as file:
             file.write(hydroid_prefix)
 
 
