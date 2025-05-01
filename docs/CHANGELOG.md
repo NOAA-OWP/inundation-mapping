@@ -7,6 +7,9 @@ This PR adds a new manual adjustment file containing SRC calibration factors for
 ### Changes
 -  `src/bash_variables.env` : Updated path to new manual calibration file located here - `../inputs/rating_curve/manual_calibration_coef_order_1_4_houston.csv`
 
+<br/><br/>
+
+
 ## v4.6.1.6 - 2025-05-01 - [PR#1489](https://github.com/NOAA-OWP/inundation-mapping/pull/1489)
 
 Adds a workaround to the CatFIM lake masking code that just returns the unmasked array if the lakes geopackage is not available. It also pulls the lakes geopackage from the FIM output HUC folder, rather than a hard-coded preclip folder, so the lakes geopackage will be the correct lakes file for that FIM run. This update also improves error tracing in `reformat_inundation_maps()` (from `generate_categorical_fim_mapping.py`) so it produces a more descriptive error message if no inundated polygons are found (rather than the misleading CRS error that was previously given). 
