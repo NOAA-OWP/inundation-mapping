@@ -22,11 +22,165 @@ def analyze_nonmonotonic_src(srcs_df, strm_order):
     srcs_df_chan = srcs_df[cond_chan]
     non_monotonic_index = srcs_df_chan.index[srcs_df_chan['Discharge (m3s-1)'].diff().lt(0)].tolist()
 
-    # Set 'Discharge' values before the last non-monotonic row to zero
+    # Recalculate 'Discharge' values before the last non-monotonic row
+    # Note: No change has been applied on WetArea, Volume, LENGTHKM
     if non_monotonic_index:
-        srcs_df.loc[: non_monotonic_index[-1] - 1, 'Discharge (m3s-1)'] = 0
+        
+        # Calculate SurfaceArea (m2) ratio
+        ratio_sa = (
+            srcs_df['BedArea (m2)'][: non_monotonic_index[-1] - 1]
+            / srcs_df['SurfaceArea (m2)'][: non_monotonic_index[-1] - 1]
+            )
+        # Recalculate HydraulicRadius (m)
+        target_hydraulic_radius = srcs_df.loc[non_monotonic_index[-1], 'HydraulicRadius (m)']
+        srcs_df.loc[: non_monotonic_index[-1] - 1, 'HydraulicRadius (m)'] = target_hydraulic_radius
+
+        # Recalculate WettedPerimeter (m)
+        modified_wetprimeter = (
+            srcs_df['WetArea (m2)'][: non_monotonic_index[-1] - 1]
+            / srcs_df['HydraulicRadius (m)'][: non_monotonic_index[-1] - 1]
+            )
+        srcs_df['WettedPerimeter (m)'][: non_monotonic_index[-1] - 1] = modified_wetprimeter
+
+        # Recalculate BedArea (m2)
+        modified_bedarea = (
+            srcs_df['WettedPerimeter (m)'][: non_monotonic_index[-1] - 1]
+            * srcs_df['LENGTHKM'][: non_monotonic_index[-1] - 1]
+            * 1000
+            )
+        srcs_df['BedArea (m2)'][: non_monotonic_index[-1] - 1] = modified_bedarea
+
+        # Recalculate SurfaceArea (m2)
+        srcs_df['SurfaceArea (m2)'][: non_monotonic_index[-1] - 1] = ratio_sa * modified_bedarea
+
+        # Recalculate TopWidth (m)
+        srcs_df['TopWidth (m)'][: non_monotonic_index[-1] - 1] = (
+            srcs_df['SurfaceArea (m2)'][: non_monotonic_index[-1] - 1] / srcs_df['LENGTHKM'] / 1000
+            )
+
+        # Recalculate Discharge (m3s-1)
+        srcs_df['Discharge (m3s-1)'][: non_monotonic_index[-1] - 1] = (
+            srcs_df['WetArea (m2)'][: non_monotonic_index[-1] - 1]
+            * pow(srcs_df['HydraulicRadius (m)'][: non_monotonic_index[-1] - 1], 2.0 / 3)
+            * pow(srcs_df['SLOPE'][: non_monotonic_index[-1] - 1], 0.5)
+            / srcs_df['ManningN'][: non_monotonic_index[-1] - 1]
+        )
 
     return srcs_df
+
+# -------------------------------------------------------
+# Reseting stage column in SRCs
+def reset_stage(srcs_df):
+
+    srcs_df = srcs_df.sort_values('Stage').reset_index(drop=True)
+    step = srcs_df['Stage'].diff().dropna().round(4).mode()[0] if len(srcs_df) > 1 else 0
+    srcs_df['Stage'] = [i*step for i in range(len(srcs_df))]
+
+    return srcs_df
+
+# -------------------------------------------------------
+# calculating bankfull stage in SRCs
+def src_bankfull_lookup(src_df, bankfull_flow_filepath, src_full_filename):
+
+    df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
+    try:
+        df_src = src_df.copy()
+        # pd.read_csv(
+        #     src_full_filename, dtype={'HydroID': int, 'feature_id': int}
+        # )
+
+        ## NWM recurr rename discharge var
+        df_bflows = df_bflows.rename(columns={'discharge': 'bankfull_flow'})
+
+        ## Combine the nwm bankfull estimated flows into the SRC via feature_id
+        df_src = df_src.merge(df_bflows, how='left', on='feature_id')
+
+        ## Check if there are any missing data, negative or zero flow values in the bankfull_flow
+        check_null = df_src['bankfull_flow'].isnull().sum()
+        if check_null > 0:
+            ## Fill missing/nan nwm bankfull_flow values with -999 to handle later
+            df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
+
+        ## Define the channel geometry variable names to use from the src
+        hradius_var = 'HydraulicRadius (m)'
+        volume_var = 'Volume (m3)'
+        surface_area_var = 'SurfaceArea (m2)'
+        bedarea_var = 'BedArea (m2)'
+
+        ## Locate the closest SRC discharge value to the NWM bankfull estimated flow
+        df_src['Q_bfull_find'] = (df_src['bankfull_flow'] - df_src['Discharge (m3s-1)']).abs()
+
+        ## Check for any missing/null entries in the input SRC
+        # There may be null values for lake or coastal flow lines
+        # (need to set a value to do groupby idxmin below)
+        if df_src['Q_bfull_find'].isnull().values.any():
+            ## Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
+            df_src['Q_bfull_find'] = df_src['Q_bfull_find'].fillna(999999)
+
+        df_bankfull_calc = df_src[
+            ['Stage', 'HydroID', bedarea_var, volume_var, hradius_var, surface_area_var, 'Q_bfull_find']
+        ]  # create new subset df to perform the Q_1_5 lookup
+        df_bankfull_calc = df_bankfull_calc[
+            df_bankfull_calc['Stage'] > 0.0
+        ]  # Ensure bankfull stage is greater than stage=0
+        df_bankfull_calc = df_bankfull_calc.reset_index(drop=True)
+        # find the index of the Q_bfull_find (closest matching flow)
+        df_bankfull_calc = df_bankfull_calc.loc[
+            df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()
+        ].reset_index(drop=True)
+        # rename volume to use later for channel portion calc
+        df_bankfull_calc = df_bankfull_calc.rename(
+            columns={
+                'Stage': 'Stage_bankfull',
+                bedarea_var: 'BedArea_bankfull',
+                volume_var: 'Volume_bankfull',
+                hradius_var: 'HRadius_bankfull',
+                surface_area_var: 'SurfArea_bankfull',
+            }
+        )
+        df_src = df_src.merge(
+            df_bankfull_calc[
+                [
+                    'Stage_bankfull',
+                    'HydroID',
+                    'BedArea_bankfull',
+                    'Volume_bankfull',
+                    'HRadius_bankfull',
+                    'SurfArea_bankfull',
+                ]
+            ],
+            how='left',
+            on='HydroID',
+        )
+        df_src = df_src.drop(['Q_bfull_find'], axis=1)
+
+        ## mask bankfull variables when the bankfull estimated flow value is <= 0
+        df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0, inplace=True)
+
+        ## Create a new column to identify channel/floodplain via the bankfull stage value
+        df_src.loc[df_src['Stage'] <= df_src['Stage_bankfull'], 'bankfull_proxy'] = 'channel'
+        df_src.loc[df_src['Stage'] > df_src['Stage_bankfull'], 'bankfull_proxy'] = 'floodplain'
+        df_src['bankfull_proxy'] = df_src['bankfull_proxy'].fillna('channel')
+
+        # ## Output new SRC with bankfull column
+        # df_src.to_csv(src_full_filename, index=False)
+
+    except Exception as ex:
+        summary = traceback.StackSummary.extract(traceback.walk_stack(None))
+        print(str(huc) + '  branch id: ' + str(branch_id) + " failed for some reason")
+        print(f"*** {ex}")
+        print(''.join(summary.format()))
+        log_text = (
+            'ERROR --> '
+            + str(huc)
+            + '  branch id: '
+            + str(branch_id)
+            + " failed (details: "
+            + (f"*** {ex}")
+            + (''.join(summary.format()))
+            + '\n'
+        )
+    return df_src
 
 
 # -------------------------------------------------------
@@ -67,9 +221,19 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):
         log_text += f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}'
         print(f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}')
 
-        # Adjusting src tables for nonmonotonic SRCs
         src_df = pd.read_csv(src, low_memory=False)
 
+        # Removing thalweg notche rows from SRCs
+        cond_ThalwegNRows = ((src_df['Number of Cells'] == 0)) # & (src_df['Stage'] > 0))
+        if cond_ThalwegNRows.sum()>0:
+            src_df_skipTwNRows = src_df[~cond_ThalwegNRows].copy()
+            src_df_skipTwNRows_gb = src_df_skipTwNRows.groupby('HydroID', group_keys=False).apply(
+                reset_stage).reset_index(drop=True)
+
+            src_df = src_df_skipTwNRows_gb.copy()
+            # print(src_df[['HydroID', 'Stage', 'Discharge (m3s-1)']][1760:1850])
+
+        # Adjusting src tables for nonmonotonic SRCs
         src_df2 = src_df.groupby('HydroID', group_keys=False).apply(
             analyze_nonmonotonic_src, strm_order=strm_order
         )
@@ -158,7 +322,7 @@ def process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs):
             Number of CPU cores to parallelize HUC processing.
     """
     # Set up log file
-    log_file_path = os.path.join(fim_dir, 'logs', 'thalwag_notches_adjustment' + '.log')
+    log_file_path = os.path.join(fim_dir, 'logs', 'nonmonotonic_src_adjustment' + '.log')
     print(f'Writing progress to log file here: {log_file_path}')
     print('This may take a few minutes...')
     ## Create a time var to log run time

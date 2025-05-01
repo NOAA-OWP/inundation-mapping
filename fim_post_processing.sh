@@ -187,7 +187,7 @@ if [ "$bathymetry_adjust" = "True" ]; then
 fi
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
-if [ "$src_bankfull_toggle" = "True" ]; then
+if [ "$src_bankfull_toggle" = "True" ] && [ "$current_branch_id" != "$branch_zero_id" ] ; then
     l_echo $startDiv"Estimating bankfull stage in SRCs"
     Tstart
     # Run SRC bankfull estimation routine routine
@@ -217,6 +217,18 @@ if [ "$logitudinal_filter" = "True" ]; then
         -fim_dir $outputDestDir \
         -j $jobLimit \
 
+    Tcount
+fi
+
+## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
+if [ "$src_bankfull_toggle" = "True" ]; then
+    l_echo $startDiv"Estimating bankfull stage in SRCs"
+    Tstart
+    # Run SRC bankfull estimation routine routine
+    python3 $srcDir/identify_src_bankfull.py \
+        -fim_dir $outputDestDir \
+        -flows $bankfull_flows_file \
+        -j $jobLimit
     Tcount
 fi
 

@@ -183,7 +183,7 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
             if len(hydroid_chain[:-1]) > 2:  # Excluding headwaters with len 2 or smaller
                 hydroid_chain_mhws.append(hydroid_chain)
 
-        print(f'Hydroids_chain was created for branch: HUC {huc} Branch: {branch}')
+        # print(f'Hydroids_chain was created for branch: HUC {huc} Branch: {branch}')
 
         # Makes a logitudinal dataframes of variables of interests
         keys = [
@@ -236,7 +236,7 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
                 filtered_voi_mhws_df = pd.concat(filtered_voi_mhws)
 
                 # Add the dataframe to the dictionary
-                print(f'{keys[ikey]} variable were filtered for HUC {huc} Branch: {branch}')
+                # print(f'{keys[ikey]} variable were filtered for HUC {huc} Branch: {branch}')
                 original_all_voi[keys[ikey]] = voi2smooth_mhws_df
                 filtered_all_voi[keys[ikey]] = filtered_voi_mhws_df
 
