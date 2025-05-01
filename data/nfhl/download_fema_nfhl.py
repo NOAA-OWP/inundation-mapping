@@ -195,7 +195,7 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
             nfhl_df = nfhl_df_exploded.dissolve().reset_index(drop=True)
             nfhl_df = nfhl_df.dropna(axis=1, how='all')
             # Save to GPKG as 'combined' layer
-            nfhl_df.to_file(out_file, layer='combined ', index=False, driver='GPKG')
+            nfhl_df.to_file(out_file, layer='combined', index=False, driver='GPKG')
         else:
             print(f'Output file {out_file} already exist, skipping.')
 
@@ -237,6 +237,14 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
 
 
 if __name__ == "__main__":
+
+    """
+    Sample Usage
+    ----------
+    python3 /foss_fim//data/nfhl/download_fema_nfhl.py -u 11070106 08080206
+        -o /outputs/fema/test -j 8
+    """
+
     parser = argparse.ArgumentParser(description="Query NFHL flood hazard zones for a HUC8")
     parser.add_argument('-u', "--huc", help="List of HUC8", type=str, required=True, nargs='+')
     parser.add_argument('-o', "--output_folder", help="Output directory", type=str, required=True)
