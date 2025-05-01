@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.5.x.x - 2025-02-07 - [PR#1425](https://github.com/NOAA-OWP/inundation-mapping/pull/1425)
+## v4.6.1.10 - 2025-05-01 - [PR#1425](https://github.com/NOAA-OWP/inundation-mapping/pull/1425)
 
 A script that uses the National Weather Service's Georeferenced Impact Statement for gauged locations to calibrate the rating curve.
 Step 1: It uses impact statement polygons for a specific site and samples the REM values under each polygon.
@@ -13,6 +13,9 @@ Step 5: It recalculates the discharge and updates the hydroTable.
 
 ### Additions
 - `tools/georeferenced_impact_statement_cal.py` : An script for impact statement calibration.
+<br/><br/>
+
+
 ## v4.6.1.5 - 2025-04-18 - [PR#1490](https://github.com/NOAA-OWP/inundation-mapping/pull/1490)
 
 The segmentation faults we've been experiencing appear to be caused by multiple branches attempting to read the same HUC-level geopackage at the same time. We're not sure why, but the pyogrio/arrow engine seems to be the root cause since changing the engine to fiona for these reads has fixed the issue.
