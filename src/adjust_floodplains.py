@@ -6,6 +6,7 @@ import os
 import geopandas as gpd
 import numpy as np
 import rasterio as rio
+import rasterio.features as features
 import whitebox
 
 
@@ -18,14 +19,14 @@ wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
 
 def adjust_floodplains(
-    input_file,
-    dem_file,
-    distance_file,
-    output_file,
-    z_factor,
-    branch_polygons,
-    branch_id,
-    fema_flood_zones_file,
+    input_file: str,
+    dem_file: str,
+    distance_file: str,
+    output_file: str,
+    z_factor: float,
+    branch_polygons: str,
+    branch_id: str,
+    fema_flood_zones_file: str,
 ):
     """
     Adjusts the floodplains in a DEM based on the distance to a given input file.
@@ -73,9 +74,7 @@ def adjust_floodplains(
     # Mask the distance raster with fema_flood_zones_clipped
     distance_mask = np.zeros_like(distance)
     for geom in fema_flood_zones_clipped.geometry:
-        mask = rio.features.geometry_mask(
-            [geom], out_shape=distance.shape, transform=src.transform, invert=True
-        )
+        mask = features.geometry_mask([geom], out_shape=distance.shape, transform=src.transform, invert=True)
         distance_mask[mask] = 1
     distance = np.where(distance_mask == 1, distance, np.nan)
 
@@ -142,11 +141,10 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--input-file', help='Input file', type=str)
     parser.add_argument('-e', '--distance-file', help='Distance file', type=str)
     parser.add_argument('-d', '--dem-file', help='DEM file', type=str)
-    # parser.add_argument('-w', '--wbd-file', help='WBD file', type=str)
     parser.add_argument('-o', '--output-file', help='Output file', type=str)
     parser.add_argument('-z', '--z-factor', help='Z factor', type=float)
     parser.add_argument('-p', '--branch-polygons', help='Branch polygons file', type=str)
-    parser.add_argument('-b', '--branch-id', help='Branch ID', type=int)
+    parser.add_argument('-b', '--branch-id', help='Branch ID', type=str)
     parser.add_argument('-f', '--fema-flood-zones-file', help='FEMA flood zones file', type=str)
 
     args = parser.parse_args()
