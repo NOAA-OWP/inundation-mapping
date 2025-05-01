@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.6.1.9 - 2025-05-01 - [PR#1472](https://github.com/NOAA-OWP/inundation-mapping/pull/1472)
+
+Previously, we did not have a good way of comparing the inundation between different versions of CatFIM. This PR updates the CatFIM site comparison tool so that users have the option to produce spatial comparison geopackages for each versio. comparison they are producing. 
+
+### Changes
+- `inundation-mapping/tools/catfim/catfim_sites_compare.py`: Updated docstrings and input error handling. Adds the optional `-g` argument, which creates a gained coverage, lost coverage, and site status geopackage for each pair of CatFIM versions it is comparing.
+
+<br/><br/>
+
+
 ## v4.6.1.8 - 2025-05-01 - [PR#1485](https://github.com/NOAA-OWP/inundation-mapping/pull/1485)
 
 A few minor bugs in the ripple download tools are corrected here. It was failing near when it was parsing out s3 folder names as well as failing when saving the download data csv's
