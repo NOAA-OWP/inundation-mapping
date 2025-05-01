@@ -109,7 +109,7 @@ def process_bridges_in_huc(
     bridge_centroids,
 ):
 
-    # make sure to also record the elevation of center of bridge which involves sampling of the DEM and DEM_DIFF.
+    # TODO make sure to also record the elevation of center of bridge which involves sampling of the DEM and DEM_DIFF.
 
     if not os.path.exists(source_hand_raster):
         print(f"-- no hand grid, {source_hand_raster}")
