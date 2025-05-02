@@ -114,6 +114,7 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
         nwm_headwaters= os.getenv('input_nwm_headwaters_Alaska')
         levee_protected_areas=  os.getenv('input_nld_levee_protected_areas_Alaska')
         osm_bridges=  os.getenv('osm_bridges_alaska')
+        osm_roads=  os.getenv('osm_roads_alaska')
         huc_CRS=  os.getenv('ALASKA_CRS') 
     else:
         nwm_lakes =os.getenv('input_nwm_lakes')
@@ -124,11 +125,13 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
         nwm_headwaters= os.getenv('input_nwm_headwaters')
         levee_protected_areas= os.getenv('input_nld_levee_protected_areas')
         osm_bridges= os.getenv('osm_bridges')
+        osm_roads=  os.getenv('osm_roads')
         huc_CRS=os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 
 
+    #for copying, use shutil.copy2 to preserve the orignal files timestamps
     if copying_flags['levee_protected_areas']:
-        shutil.copy(os.path.join(copy_from_dir,output_filenames['levee_protected_areas']),
+        shutil.copy2(os.path.join(copy_from_dir,huc, output_filenames['levee_protected_areas']),
             os.path.join(huc_directory,output_filenames['levee_protected_areas']))
     else:
         # TODO investigate this old comment : Clip levee-protected areas polygons for future masking ocean areas (where applicable)
@@ -145,7 +148,7 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
         del levee_protected_areas
 
     if copying_flags['nwm_lakes']:
-        shutil.copy(os.path.join(copy_from_dir,output_filenames['nwm_lakes']),
+        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['nwm_lakes']),
             os.path.join(huc_directory,output_filenames['nwm_lakes']))
     else:
         # Find intersecting lakes and writeout
@@ -168,7 +171,7 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
         del nwm_lakes
 
     if copying_flags['levee_lines']:
-        shutil.copy(os.path.join(copy_from_dir,output_filenames['levee_lines']),
+        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['levee_lines']),
                      os.path.join(huc_directory,output_filenames['levee_lines']))
     else:
         # Find intersecting levee lines
@@ -181,7 +184,7 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
         del nld_lines
 
     if copying_flags['levee_lines_burned']:
-        shutil.copy(os.path.join(copy_from_dir,output_filenames['levee_lines_burned']),
+        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['levee_lines_burned']),
                 os.path.join(huc_directory,output_filenames['levee_lines_burned']))
     else:
         # Preprocessed levee lines for burning
@@ -196,9 +199,8 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
             )
         del nld_lines_preprocessed
 
-
     if copying_flags['nwm_catchments']:
-        shutil.copy(os.path.join(copy_from_dir,output_filenames['nwm_catchments']),
+        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['nwm_catchments']),
             os.path.join(huc_directory,output_filenames['nwm_catchments']))
     else:
         # Find intersecting nwm_catchments
@@ -219,37 +221,59 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
         del nwm_catchments
 
     if copying_flags['osm_bridges']:
-        shutil.copy(os.path.join(copy_from_dir,output_filenames['osm_bridges']),
+        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['osm_bridges']),
             os.path.join(huc_directory,output_filenames['osm_bridges']))
     else:
         # Subset OSM (Open Street Map) bridges
-        if osm_bridges != "":
-            logging.info(f"Subsetting OSM Bridges for {huc}")
+        logging.info(f"Subsetting OSM Bridges for {huc}")
 
-            subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
-            if subset_osm_bridges_gdb.empty:
-                print("-- No applicable bridges for this HUC")
-                logging.info("-- No applicable bridges for this HUC")
-            else:
-                subset_osm_bridges_gdb.to_file(
-                    os.path.join(huc_directory,output_filenames['osm_bridges']),
-                    driver='GPKG',
-                    index=False,
-                    crs=huc_CRS,
-                    engine="fiona",
-                )
+        subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
+        if subset_osm_bridges_gdb.empty:
+            print("-- No applicable bridges for this HUC")
+            logging.info("-- No applicable bridges for this HUC")
+        else:
+            subset_osm_bridges_gdb.to_file(
+                os.path.join(huc_directory,output_filenames['osm_bridges']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
 
-            del subset_osm_bridges_gdb
+        del subset_osm_bridges_gdb
+
+
+    if copying_flags['osm_roads']:
+        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['osm_roads']),
+            os.path.join(huc_directory,output_filenames['osm_roads']))
+    else:
+        # Subset OSM (Open Street Map) roads
+        logging.info(f"Subsetting OSM roads for {huc}")
+
+        subset_osm_roads_gdb = gpd.read_file(osm_roads, mask=wbd_buffer, engine="fiona")
+        if subset_osm_roads_gdb.empty:
+            print("-- No applicable roads for this HUC")
+            logging.info("-- No applicable roads for this HUC")
+        else:
+            subset_osm_roads_gdb.to_file(
+                os.path.join(huc_directory,output_filenames['osm_roads']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+
+        del subset_osm_roads_gdb
 
     if copying_flags['nwm_streams_headwater']:
         # copy all three wbd_streams_buffer,nws_streams, and nwm_headwaters
-        shutil.copy(os.path.join(copy_from_dir,output_filenames['wbd_streams_buffer']),
+        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['wbd_streams_buffer']),
             os.path.join(huc_directory,output_filenames['wbd_streams_buffer']))
                 
-        shutil.copy(os.path.join(copy_from_dir,output_filenames['nwm_streams']),
+        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['nwm_streams']),
             os.path.join(huc_directory,output_filenames['nwm_streams']))
 
-        shutil.copy(os.path.join(copy_from_dir,output_filenames['nwm_headwaters']),
+        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['nwm_headwaters']),
             os.path.join(huc_directory,output_filenames['nwm_headwaters']))
 
     else:
