@@ -27,8 +27,7 @@ def convert_to_int16(branch_dir: str):
     catchments = glob(f"{branch_dir}/gw_catchments_reaches_filtered_addedAttributes_*.tif")
     rems = glob(f"{branch_dir}/rem_zeroed_masked_*.tif")
 
-    huc_dir = '/'.join(branch_dir.split('/')[:-2])
-    hydroid_prefix_path = os.path.join(huc_dir, 'hydroid_prefix.txt')
+    hydroid_prefix_path = os.path.join(branch_dir, 'hydroid_prefix.txt')
 
     # Iterate through each pair of gw catchments and rems
     for c, r in zip(catchments, rems):
@@ -48,27 +47,28 @@ def convert_to_int16(branch_dir: str):
 
         rem.rio.to_raster(r, dtype=np.int16, driver="COG")
 
-        catchments = rxr.open_rasterio(c)
+        catchment = rxr.open_rasterio(c)
 
         if hydroid_prefix is None:
-            hydroid_prefix = str(int(np.floor(catchments.max()['band_data'] / 10000)))
+            hydroid_prefix = str(int(np.floor(catchment.max() / 10000)))
 
         # Save original as another file to be deleted by deny list or saved
-        catchments.rio.to_raster(c.replace('.tif', '_int32.tif'), driver="COG")
+        catchment.rio.to_raster(c.replace('.tif', '_int32.tif'), driver="COG")
 
         # Preserve the last four digits only since the first four of HydroIDs are ubiquitous amongst all HUC08
-        nodata, crs = catchments.rio.nodata, catchments.rio.crs
-        catchments.data = xr.where(catchments != nodata, catchments - hydroid_prefix, catchments)
+        nodata, crs = catchment.rio.nodata, catchment.rio.crs
+        catchment.data = xr.where(catchment != nodata, catchment - int(hydroid_prefix), catchment)
 
-        catchments = catchments.astype(np.int16)
-        catchments.rio.write_nodata(nodata, inplace=True)
-        catchments.rio.write_crs(crs, inplace=True)
+        catchment = catchment.astype(np.int16)
+        catchment.rio.write_nodata(nodata, inplace=True)
+        catchment.rio.write_crs(crs, inplace=True)
 
-        catchments.rio.to_raster(c, dtype=np.int16, driver="COG")
+        catchment.rio.to_raster(c, dtype=np.int16, driver="COG")
 
-    if not os.path.exists(hydroid_prefix_path):
-        with open(hydroid_prefix_path, 'w') as file:
-            file.write(hydroid_prefix)
+        print(hydroid_prefix_path, 'exists:', os.path.exists(hydroid_prefix_path))
+        if not os.path.exists(hydroid_prefix_path):
+            with open(hydroid_prefix_path, 'w') as file:
+                file.write(hydroid_prefix)
 
 
 if __name__ == "__main__":
