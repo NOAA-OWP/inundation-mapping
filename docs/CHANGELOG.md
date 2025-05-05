@@ -1,6 +1,132 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.1.11 - 2025-05-01 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)
+
+Downloads the FEMA NFHL data for HUC8.
+
+### Changes
+
+`data/nfhl/download_fema_nfhl.py` : downloads FEMA NFHL data.
+
+<br/><br/>
+
+
+## v4.6.1.10 - 2025-05-01 - [PR#1425](https://github.com/NOAA-OWP/inundation-mapping/pull/1425)
+
+A script that uses the National Weather Service's Georeferenced Impact Statement for gauged locations to calibrate the rating curve.
+Step 1: It uses impact statement polygons for a specific site and samples the REM values under each polygon.
+Step 2: For each impact stage (action, minor, moderate, and major), it calculates the median, 75th percentile, and upper extreme HAND values.
+Step 3: It finds the closest matching stage to the user-provided HAND value and copies the corresponding hydroTable values for the matching stage.
+Step 4: It calculates a weighted average calibration coefficient and adjusts Manning’s roughness.
+Step 5: It recalculates the discharge and updates the hydroTable.
+
+### Additions
+- `tools/georeferenced_impact_statement_cal.py` : An script for impact statement calibration.
+
+<br/><br/>
+
+
+## v4.6.1.9 - 2025-05-01 - [PR#1472](https://github.com/NOAA-OWP/inundation-mapping/pull/1472)
+
+Previously, we did not have a good way of comparing the inundation between different versions of CatFIM. This PR updates the CatFIM site comparison tool so that users have the option to produce spatial comparison geopackages for each versio. comparison they are producing. 
+
+### Changes
+- `inundation-mapping/tools/catfim/catfim_sites_compare.py`: Updated docstrings and input error handling. Adds the optional `-g` argument, which creates a gained coverage, lost coverage, and site status geopackage for each pair of CatFIM versions it is comparing.
+
+<br/><br/>
+
+
+## v4.6.1.8 - 2025-05-01 - [PR#1485](https://github.com/NOAA-OWP/inundation-mapping/pull/1485)
+
+A few minor bugs in the ripple download tools are corrected here. It was failing near when it was parsing out s3 folder names as well as failing when saving the download data csv's
+
+### Changes
+
+- `data/ripple/get_s3_folder.sh` and `get_s3_folders_from_list.sh`
+
+<br/><br/>
+
+
+## v4.6.1.7 - 2025-05-01 - [PR#1488](https://github.com/NOAA-OWP/inundation-mapping/pull/1488)
+This PR adds a new manual adjustment file containing SRC calibration factors for Houston HUC 12040104. The addition of this manual calibration file improves inundation issues in Houston described in #1446 by adjusting the SRCs in urban catchments.
+
+### Changes
+-  `src/bash_variables.env` : Updated path to new manual calibration file located here - `../inputs/rating_curve/manual_calibration_coef_order_1_4_houston.csv`
+
+<br/><br/>
+
+
+## v4.6.1.6 - 2025-05-01 - [PR#1489](https://github.com/NOAA-OWP/inundation-mapping/pull/1489)
+
+Adds a workaround to the CatFIM lake masking code that just returns the unmasked array if the lakes geopackage is not available. It also pulls the lakes geopackage from the FIM output HUC folder, rather than a hard-coded preclip folder, so the lakes geopackage will be the correct lakes file for that FIM run. This update also improves error tracing in `reformat_inundation_maps()` (from `generate_categorical_fim_mapping.py`) so it produces a more descriptive error message if no inundated polygons are found (rather than the misleading CRS error that was previously given). 
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Adjustments to spacing.
+- `tools/catfim/generate_categorical_fim_mapping.py`: Updated the two places where `mask_out_lakes()` is run so they have the updated additional input (`fim_run_dir` and `mask_status`). Add `mask_status` to be printed in the log. Improved error messaging in `reformat_inundation_maps()`.
+- `tools/tools_shared_functions.py`: Updated the `mask_out_lakes()` function to have `fim_run_dir` as an additional input to the function and `mask_status` as an additional output. Changed pathing of the lakes gpkg so it comes from the FIM results HUC folder rather than a hard-coded preclip folder. Updated function so it checks whether the lakes GPKG exists for a given HUC and, if not, then it just returns the unmasked lake file with the appropriate `mask_status` message.  
+
+
+<br/><br/>
+
+
+## v4.6.1.5 - 2025-04-18 - [PR#1490](https://github.com/NOAA-OWP/inundation-mapping/pull/1490)
+
+The segmentation faults we've been experiencing appear to be caused by multiple branches attempting to read the same HUC-level geopackage at the same time. We're not sure why, but the pyogrio/arrow engine seems to be the root cause since changing the engine to fiona for these reads has fixed the issue.
+
+### Changes
+
+The following files are where we've documented the segmentation faults and have changed the HUC-level GPKG reads to have the fiona engine.
+
+- `src/`
+    - `add_crosswalk.py`
+    - `filter_catchments_and_add_attributes.py`
+    - `split_flows.py`
+
+<br/><br/>
+
+
+## v4.6.1.4 - 2025-04-01 - [PR#1479](https://github.com/NOAA-OWP/inundation-mapping/pull/1479)
+
+This PR prevents the removal of the processing duration text file from each HUC to aid in debugging. This tries to fix #1458.
+
+During a recent usage of synthesize_test_cases.py, it processed all of the benchmark data correctly, but failed to create the metrics file.  Part of it was related to a bad path for where it would save the file, but wasn't revealed for a few hours later. 
+
+Changes include:
+- More validation data checks, including testing paths at the start of the script.
+- Added a new feature (-mm) which allows the script to create a metrics csv without having to reprocess all benchmark data.
+- Some linting fixes.
+
+### Changes
+
+- `tools\synthesize_test_cases.py`: As described above.
+
+<br/><br/>
+
+
+## v4.6.1.3 - 2025-04-01 - [PR#1471](https://github.com/NOAA-OWP/inundation-mapping/pull/1471)
+
+During running the `make_dem_dif_for_bridges` tool, which creates some updated inputs and triggers updates for bash_variables, we made a few text adjustments.
+
+The interaction between dems, osm pulls, lidar pulls, dem diffs and pre-clips can get a bit confusing so added a few more notes to help keep this straight.
+
+### Changes
+- `data/bridges`
+    - `conda_fim_bridges_enviro.yml`, `make_dem_dif_for_bridges.py`, `make_rasters_using_lidar.py`, `pull_osm_bridges.py` and `setup_conda_for_make_rasters.txt`:  Text and note updates
+- `src/bash_variables.env`:  Update for some new input paths, plus moved a few inputs to keep osm, bridges, dem and vrt closer together to help remind of inputs updates for the interrelated inputs.
+
+<br/><br/>
+
+
+## v4.6.1.2 - 2025-03-28 - [PR#1477](https://github.com/NOAA-OWP/inundation-mapping/pull/1477)
+This PR prevents the removal of the processing duration text file from each HUC to aid in debugging. This tries to fix #1458.
+
+### Changes
+- `src/duration_system.py`  Avoids the removal of the HUC processing duration file. 
+
+<br/><br/>
+
+
 ## v4.6.1.1 - 2025-03-21 - [PR#1469](https://github.com/NOAA-OWP/inundation-mapping/pull/1469)
 
 FIM requires DEMs with a 5 km buffer around HUC8 boundaries. The current workflow for generating these DEMs consists of the following steps:

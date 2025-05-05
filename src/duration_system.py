@@ -65,7 +65,7 @@ def duration_system(hydrofabric_dir, output_csv_file):
                 txt_content = file.readline().strip().split(',')
                 all_rows.append(txt_content)
             # Remove all text files
-            os.remove(txt_path)
+            # os.remove(txt_path)
         else:
             print(f"Warning: Missing {txt_file} for HUC {huc}")
 

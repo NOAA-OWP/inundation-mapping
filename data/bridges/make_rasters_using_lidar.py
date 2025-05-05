@@ -38,7 +38,7 @@ def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs):
         poly_wkt = poly_geo.wkt
         las_file_path = os.path.join(output_dir, 'point_files', '%s.las' % str(osmid))
 
-        # based on pdal documentation, The polygon wkt can be followed by a slash (‘/’) and a spatial reference specification to apply to the polygon.
+        # based on pdal documentation, The polygon wkt can be followed by a slash ("/") and a spatial reference specification to apply to the polygon.
         my_pipe = {
             "pipeline": [
                 {
@@ -431,19 +431,13 @@ if __name__ == "__main__":
     #  -b 1.5
     #  -r 3
 
+    # This needs to be run twice, once for AK and once for CONUS.
+
     ###############################
     #
-    # Normal processing order
-    #    1)  Run pull_osm_bridges  (if a new set was required)
-    #    2)  Run make_rasters_using_lidar.py  (via conda enviro for this step only)
-    #    3)  Run make_dem_dif_for_bridges.py. This also makes a new vrt for this set.
-    #        as well as making modified osm_files we want for pre-clip.
-    #        Copy the new '__osm_bridges_modified.gpkg' to beside the original __osm_bridges.gpkg
-    #    4)  Update bash_variables for the new dem diff vrt paths
-    #    5)  Using the modified osm's, run pre-clip
-    #    6)  Update bash_variables for the new pre-clip paths
+    # If new OSM bridge data is pulled, this tool needs to be run to pull new bridge lidar data.
     #
-    # Each of these steps need to be run twice, one for CONUS and once for AK
+    # With running this tool, you will also need to run 'make_dem_dif_for_briges.py`
     #
     ###############################
 
