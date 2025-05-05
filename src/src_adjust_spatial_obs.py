@@ -100,9 +100,8 @@ def process_points(args):
             hydroids.append(hid)
         water_edge_df['hydroid'] = hydroids
         print("all Hydro ids")
-        for hyid in hydroids:
-            if hyid > 10680000:
-                print(hyid)
+        for hyid in np.unique(hydroids):
+            print(hyid)
 
     water_edge_df = water_edge_df[
         (water_edge_df['hydroid'].notnull()) & (water_edge_df['hand'] > 0) & (water_edge_df['hydroid'] > 0)

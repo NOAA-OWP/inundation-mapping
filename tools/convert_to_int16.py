@@ -57,7 +57,7 @@ def convert_to_int16(branch_dir: str):
 
         # Preserve the last four digits only since the first four of HydroIDs are ubiquitous amongst all HUC08
         nodata, crs = catchment.rio.nodata, catchment.rio.crs
-        catchment.data = xr.where(catchment != nodata, catchment - int(hydroid_prefix), catchment)
+        catchment.data = xr.where(catchment != nodata, catchment - int(hydroid_prefix) * 10000, catchment)
 
         catchment = catchment.astype(np.int16)
         catchment.rio.write_nodata(nodata, inplace=True)
@@ -65,7 +65,6 @@ def convert_to_int16(branch_dir: str):
 
         catchment.rio.to_raster(c, dtype=np.int16, driver="COG")
 
-        print(hydroid_prefix_path, 'exists:', os.path.exists(hydroid_prefix_path))
         if not os.path.exists(hydroid_prefix_path):
             with open(hydroid_prefix_path, 'w') as file:
                 file.write(hydroid_prefix)
