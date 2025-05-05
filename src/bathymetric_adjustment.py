@@ -77,14 +77,37 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
                 how='left',
                 validate='many_to_one',
             )
-        # If there's more than one feature_id in the bathy data, just take the mean
+        # If there's more than one survey for a single feature_id in the bathy data:
+        # take the ohrfc value first, then the mean of all availabe ehydro values.
         except pd.errors.MergeError:
-            reconciled_bathy_data = bathy_data.groupby('feature_id')[
-                ['missing_xs_area_m2', 'missing_wet_perimeter_m']
-            ].mean()
-            reconciled_bathy_data['Bathymetry_source'] = bathy_data.groupby('feature_id')[
-                'Bathymetry_source'
-            ].first()
+            ohrfc_source = 'OHRFC provided bathymetry, compiled from USACE data'
+
+            def ohrfc_bathy_precedence(group):
+                ohrfc_data = group['Bathymetry_source'] == ohrfc_source
+                if ohrfc_data.any():
+                    return group[ohrfc_data].iloc[0]
+                else:
+                    id_group = group.iloc[0].copy()
+                    id_group[['missing_xs_area_m2', 'missing_wet_perimeter_m']] = group[
+                        ['missing_xs_area_m2', 'missing_wet_perimeter_m']
+                    ].mean()
+                    return id_group
+
+            reconciled_bathy_data = (
+                bathy_data[
+                    ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
+                ]
+                .groupby('feature_id')
+                .apply(ohrfc_bathy_precedence, include_groups=False)
+                .reset_index(drop=False)
+            )
+
+            # reconciled_bathy_data = bathy_data.groupby('feature_id')[
+            #     ['missing_xs_area_m2', 'missing_wet_perimeter_m']
+            # ].mean()
+            # reconciled_bathy_data['Bathymetry_source'] = bathy_data.groupby('feature_id')[
+            #     'Bathymetry_source'
+            # ].first()
             src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
 
         # # Exit if there are no recalculations to be made
