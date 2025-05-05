@@ -78,20 +78,6 @@ def adjust_floodplains(
         distance_mask[mask] = 1
     distance = np.where(distance_mask == 1, distance, np.nan)
 
-    # # Save distance raster
-    # with rio.open(distance_file, 'w', **profile) as dst:
-    #     dst.write(distance.astype(rio.float32), 1)
-
-    # # Calculate the mean and standard deviation of the distance
-    # zs = zonal_stats(fema_flood_zones_clipped, distance_file, stats=['mean', 'std'])
-
-    # distance_mean = zs[0]['mean']
-    # distance_std = zs[0]['std']
-    # distance_threshold = distance_mean + distance_std
-
-    # with rio.open(distance_file) as src:
-    #     distance = src.read(1)
-
     distance_threshold = 3000.0
     # z_factor = z_factor * distance_threshold / 1000.0
 
@@ -116,17 +102,6 @@ def adjust_floodplains(
 
     # Adjust the DEM
     new_dem = dem - adjustment
-
-    # Subtract z_factor from the DEM outside of wbd
-    # wbd = gpd.read_file(wbd_file)
-    # wbd = wbd.to_crs(dem_src.crs)
-    # wbd_mask = np.zeros_like(dem)
-    # for geom in wbd.geometry:
-    #     mask = rio.features.geometry_mask(
-    #         [geom], out_shape=dem.shape, transform=dem_src.transform, invert=False
-    #     )
-    #     wbd_mask[mask] = 1
-    # new_dem = np.where(wbd_mask == 1, new_dem - z_factor, new_dem)
 
     new_dem[new_dem < -5000] = dem_nodata
 
