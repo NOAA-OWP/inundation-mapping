@@ -159,7 +159,6 @@ def run_with_mp(
 
     screen_queue.put("DONE")  # sends the stop SIGNAL to thread
     screen_queue_thread.join()  # official closure of thread
-    file_logger.info(f"Final Results: {results}")
     return results
 
 
