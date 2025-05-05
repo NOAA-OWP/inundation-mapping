@@ -37,7 +37,7 @@ do
         echo
         err_exists=1
         echo "***** Branch has no valid flowlines *****"
-        # rm -rf $tempHucDataDir/branches/$branchId/
+        rm -rf $tempHucDataDir/branches/$branchId/
     elif [ $code -eq 64 ]; then
         echo
         err_exists=1
