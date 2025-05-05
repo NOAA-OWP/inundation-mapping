@@ -102,8 +102,8 @@ def generate_streamflow_percentiles(
         "weibull_min": weibull_min,
     }
 
+    # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
     if 'nbm' in ensemble_forecast.coords['member']:
-
         return {
             'feature_id': int(feature),
             '90': float(ensemble_forecast.sel({'member': 'nbm'})),
@@ -113,6 +113,27 @@ def generate_streamflow_percentiles(
             '10': float(ensemble_forecast.sel({'member': 'nbm'})),
         }
 
+    if 'da' in ensemble_forecast.coords['member']:
+        return {
+            'feature_id': int(feature),
+            '90': float(ensemble_forecast.sel({'member': 'da'})),
+            '75': float(ensemble_forecast.sel({'member': 'da'})),
+            '50': float(ensemble_forecast.sel({'member': 'da'})),
+            '25': float(ensemble_forecast.sel({'member': 'da'})),
+            '10': float(ensemble_forecast.sel({'member': 'da'})),
+        }
+
+    if 'short' in ensemble_forecast.coords['member']:
+        return {
+            'feature_id': int(feature),
+            '90': float(ensemble_forecast.sel({'member': 'short'})),
+            '75': float(ensemble_forecast.sel({'member': 'short'})),
+            '50': float(ensemble_forecast.sel({'member': 'short'})),
+            '25': float(ensemble_forecast.sel({'member': 'short'})),
+            '10': float(ensemble_forecast.sel({'member': 'short'})),
+        }
+
+    # If there is no feature in the NWM parameters file
     if int(feature) not in params_weibull.index:
         return {
             'feature_id': int(feature),
@@ -160,6 +181,7 @@ def generate_streamflow_percentiles(
 
     streamflow_expon_values = np.hstack(values).ravel()
 
+    # Check to see if all values are the same, if so grab the first, otherwise get their point percent functions
     if not np.all(streamflow_expon_values == streamflow_expon_values[0]):
         # Generate 10000 random values from distribution
         trunc_expon = truncexpon(
