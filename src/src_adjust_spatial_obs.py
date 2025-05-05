@@ -88,23 +88,23 @@ def process_points(args):
 
     with open(hydroid_prefixpath, 'r') as file:
         hydroid_prefix = file.read()
+        int_hid_prefix = int(hydroid_prefix) * 10000
 
     ## Use point geometry to determine HAND raster pixel values.
     with rasterio.open(hand_path) as hand_src, rasterio.open(catchments_path) as catchments_src:
         water_edge_df['hand'] = [np.float32(h[0]) / 1000 for h in hand_src.sample(coords)]
-
-        hydroids, int_hid_prefix = [], int(hydroid_prefix) * 10000
+        hydroids = []
 
         for c in catchments_src.sample(coords):
             hid = int_hid_prefix * -1 + c[0] if c[0] < 0 else int_hid_prefix + c[0]
             hydroids.append(hid)
         water_edge_df['hydroid'] = hydroids
-        print("all Hydro ids")
-        for hyid in np.unique(hydroids):
-            print(hyid)
 
     water_edge_df = water_edge_df[
-        (water_edge_df['hydroid'].notnull()) & (water_edge_df['hand'] > 0) & (water_edge_df['hydroid'] > 0)
+        (water_edge_df['hydroid'].notnull())
+        & (water_edge_df['hand'] > 0)
+        & (water_edge_df['hand'] != 32.767)
+        & (water_edge_df['hydroid'] > int_hid_prefix)
     ]
 
     ## Check that there are valid obs in the water_edge_df (not empty)
