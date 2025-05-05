@@ -1399,8 +1399,6 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
     try:
         # Drop columns that offend acceptance criteria
         usgs_elev_df['acceptable_codes'] = (
-            # usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-            # & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
             usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
             & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list)
         )
@@ -1413,12 +1411,6 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
         acceptable_usgs_elev_df = usgs_elev_df[
             (usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)
         ]
-
-        # # TEMP DEBUG Record row difference and write it to a CSV or something
-        # label = 'Old code' ## TEMP DEBUG
-        # num_potential_rows = usgs_elev_df.shape[0]
-        # num_acceptable_rows = acceptable_usgs_elev_df.shape[0]
-        # out_message = f'{label}: kept {num_acceptable_rows} rows out of {num_potential_rows} available rows.'
 
     except Exception:
         # Not sure any of the sites actually have those USGS-related
