@@ -83,7 +83,7 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     return filtered_segments
 
 
-def mask_out_lakes(input_array, huc, raster_src):
+def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
     '''
     This function is used in CatFIM to mask out lakes from inundated tifs.
 
@@ -92,29 +92,38 @@ def mask_out_lakes(input_array, huc, raster_src):
     input_array: inundation TIF that needs lakes removed (called summed_array for stage-based)
     huc: HUC8 id (string), needed to get the correct lakes file
     raster_src: src from a raster that should be uses for getting the correct raster dimensions
+    fim_run_dir: path to the fim run directory where the lakes shapefile is located
 
     Outputs:
 
     masked_array: same array as before, but with lakes masked out and the dimensions of raster_src
+    mask_status: string, status of whether lake shapefile was available
 
     '''
 
     # Read in waterbodies geopackage
-    preclip_lakes_path = f'/data/inputs/pre_clip_huc8/20241002/{huc}/nwm_lakes_proj_subset.gpkg'  # TODO: Update to get path from variables
-    preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+    preclip_lakes_path = os.path.join(fim_run_dir, huc, 'nwm_lakes_proj_subset.gpkg')
 
-    # Create a binary raster using the shapefile geometry
-    lake_mask = geometry_mask(
-        preclip_lakes_gdf.geometry,
-        transform=raster_src.transform,
-        invert=False,
-        out_shape=(raster_src.height, raster_src.width),
-    )
+    if not os.path.exists(preclip_lakes_path):
+        # If the lakes shapefile does not exist, return the input array without masking
+        mask_status = f'HUC {huc}: No lakes shapefile found, returning original array'
+        return input_array, mask_status
+    else:
+        # Read in the lakes shapefile
+        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
 
-    # Set values within the lake geometry to zero, masking them out of the FIM
-    masked_array = input_array * lake_mask
+        # Create a binary raster using the shapefile geometry
+        lake_mask = geometry_mask(
+            preclip_lakes_gdf.geometry,
+            transform=raster_src.transform,
+            invert=False,
+            out_shape=(raster_src.height, raster_src.width),
+        )
 
-    return masked_array
+        # Set values within the lake geometry to zero, masking them out of the FIM
+        masked_array = input_array * lake_mask
+        mask_status = f'HUC {huc}: Lakes shapefile available, masked out lake'
+        return masked_array, mask_status
 
 
 def check_for_regression(
