@@ -70,6 +70,8 @@ def preprocessing_ehydro(tif, bathy_bounds, survey_gdb, output, min_depth_thresh
 
         bathy_ft[np.where(bathy_ft == -9999.0)] = np.nan
         bathy_ft[np.where(bathy_ft <= 0.0)] = 0.000001
+        if survey_source == "RFC":
+            bathy_ft[np.where(bathy_ft > 130.0)] = np.nan
 
         survey_min_depth = np.nanmin(bathy_ft)
 

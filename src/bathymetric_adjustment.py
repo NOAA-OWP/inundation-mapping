@@ -14,6 +14,21 @@ import pandas as pd
 
 
 # -------------------------------------------------------
+# Function to use RFC Bathymetry where available over eHydro Data
+def ohrfc_bathy_precedence(group):
+    ohrfc_source = 'OHRFC provided bathymetry, compiled from USACE data'
+    ohrfc_data = group['Bathymetry_source'] == ohrfc_source
+    if ohrfc_data.any():
+        return group[ohrfc_data].iloc[0]
+    else:
+        id_group = group.iloc[0].copy()
+        id_group[['missing_xs_area_m2', 'missing_wet_perimeter_m']] = group[
+            ['missing_xs_area_m2', 'missing_wet_perimeter_m']
+        ].mean()
+        return id_group
+
+
+# -------------------------------------------------------
 # Adjusting synthetic rating curves using 'USACE eHydro' bathymetry data
 def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbose):
     """Function for correcting synthetic rating curves. It will correct each branch's
@@ -80,19 +95,6 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
         # If there's more than one survey for a single feature_id in the bathy data:
         # take the ohrfc value first, then the mean of all availabe ehydro values.
         except pd.errors.MergeError:
-            ohrfc_source = 'OHRFC provided bathymetry, compiled from USACE data'
-
-            def ohrfc_bathy_precedence(group):
-                ohrfc_data = group['Bathymetry_source'] == ohrfc_source
-                if ohrfc_data.any():
-                    return group[ohrfc_data].iloc[0]
-                else:
-                    id_group = group.iloc[0].copy()
-                    id_group[['missing_xs_area_m2', 'missing_wet_perimeter_m']] = group[
-                        ['missing_xs_area_m2', 'missing_wet_perimeter_m']
-                    ].mean()
-                    return id_group
-
             reconciled_bathy_data = (
                 bathy_data[
                     ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
