@@ -94,7 +94,7 @@ $srcDir/adjust_floodplains.py \
     -e $tempCurrentBranchDataDir/flows_grid_boolean_euclidean_distance_$current_branch_id.tif \
     -d $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
-    -z 300 \
+    -z 100 \
     -p $tempHucDataDir/branch_polygons.gpkg \
     -b $current_branch_id \
     -f /data/inputs/fema/nfhl/nfhl_$hucNumber.gpkg
