@@ -20,7 +20,11 @@ This PR has two functions out of necessity for running LoFI operationally:
 - `config/deny_branch_zero.lst` : Added new outputs to delete `rem_zero_masked_*_float32.tif` and `gw_catchments_reaches_filtered_addedAttributes_*_int32.tif`
 - `config/deny_branches.lst` : Added new outputs to delete `rem_zero_masked_*_float32.tif` and `gw_catchments_reaches_filtered_addedAttributes_*_int32.tif`
 - `src_adjust_spatial_obs.py` : Changed sampling gw_catchments and rem to match new datatypes.
+- `src/add_crosswalk.py` : Add hydroid int16 crosswalk. 
+- `src/delineate_hydros_and_produce_HAND.sh` : Add convert to int16 script at end.
 - `src/mask_dem.py` : Changed geopandas engine to fiona to avoid segmentation faults.
+- `src/utils/shared_functions.py` : Add days to output from `print_date_time_duration`.
+- `src/subdiv_chan_obank_src.py` : Allow to run subdivision on a single HUC08.
 - `tools/aggregate_by_huc.py` : Output a feather file alongside the csv hydrotable for faster IO.
 - `tools/inundation.py` : Changed numba optimization routine to minimize copying, support windowed operations, and support int16.
 - `tools/inundate_gms.py` : Include mechanism for multiple gms workers.
