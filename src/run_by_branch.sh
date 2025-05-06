@@ -70,8 +70,8 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"
 $srcDir/clip_rasters_to_branches.py -d $current_branch_id \
     -b $tempHucDataDir/branch_polygons.gpkg \
     -i $branch_id_attribute \
-    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/bridge_elev_diff_meters.tif \
-    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters.tif
+    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/dem_burned.tif $tempHucDataDir/bridge_elev_diff_meters.tif \
+    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/dem_burned.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters.tif
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"
@@ -92,7 +92,7 @@ echo -e $tempHucDataDir/branch_polygons.gpkg
 $srcDir/adjust_floodplains.py \
     -i $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
     -e $tempCurrentBranchDataDir/flows_grid_boolean_euclidean_distance_$current_branch_id.tif \
-    -d $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+    -d $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
     -z 300 \
     -p $tempHucDataDir/branch_polygons.gpkg \

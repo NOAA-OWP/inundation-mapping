@@ -23,7 +23,6 @@ def Derive_level_paths(
     huc_id,
     out_stream_network_extended=None,
     out_stream_network_dissolved=None,
-    out_stream_network_extended_dissolved=None,
     headwaters_outfile=None,
     catchments=None,
     waterbodies=None,
@@ -287,13 +286,6 @@ if __name__ == "__main__":
         "-de",
         "--out-stream-network-extended",
         help="Extended output stream network",
-        required=False,
-        default=None,
-    )
-    parser.add_argument(
-        "-ded",
-        "--out-stream-network-extended-dissolved",
-        help="Extended and dissolved output stream network",
         required=False,
         default=None,
     )

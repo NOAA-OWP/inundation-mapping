@@ -1180,6 +1180,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         outflows = sjoin[sjoin['to'].isin(self_not_in_wbd['ID'])]
 
         if outflows.empty:
+            self.write(out_vector_files, index=False)
             return self
 
         # ensure the new stream order has the order from it's highest child
@@ -1227,7 +1228,6 @@ class StreamNetwork(gpd.GeoDataFrame):
                     merged_line = list(merged_line.geoms)[0]
                     self.loc[lpid, "geometry"] = merged_line
 
-        # self[branch_id_attribute] = bids
         self = StreamNetwork(
             self,
             branch_id_attribute=branch_id_attribute,
