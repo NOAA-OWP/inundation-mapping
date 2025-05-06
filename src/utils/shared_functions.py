@@ -56,6 +56,7 @@ def run_with_mp(
     max_workers=4,
     task_id_key=None,  # must be one of the keys in the args list
     exit_on_failure=True,
+    show_progress=True,
 ):
     '''
     Run a set of tasks in parallel using multiprocessing with robust logging and error handling.
@@ -119,43 +120,56 @@ def run_with_mp(
 
         # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below
         # Setup tqdm progress bar
-        with tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") as pbar:
-            for future in as_completed(future_to_id):
-                task_id = future_to_id[future]
-                try:
-                    # note that try/except here only worries about running and catching catastrophic errors. Specifc errors must be addressed inside the task function
-                    # note that the try except inside task function always return (which is result here) True or False
-                    result = future.result()
-                    results[task_id] = result
-                    if result:
+        pbar = tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") if show_progress else None
+        # with tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") as pbar:
+        for future in as_completed(future_to_id):
+            task_id = future_to_id[future]
+            try:
+                # note that try/except here only worries about running and catching catastrophic errors. Specifc errors must be addressed inside the task function
+                # note that the try except inside task function always return (which is result here) True or False
+                result = future.result()
+                results[task_id] = result
+                if result:
+                    if show_progress:
                         tqdm.write(
                             f"✅ success for {task_id}"
                         )  # do not use print otherwise a new updated bar is created after each print line
-                        file_logger.info(f"✅ success for {task_id}")
                     else:
+                        print(f"✅ success for {task_id}")
+                    file_logger.info(f"✅ success for {task_id}")
+                else:
+                    if show_progress:
                         tqdm.write(f"❌ Error reported for {task_id}.")
-                        file_logger.info(f"❌ Error reported for {task_id}.")
+                    else:
+                        print(f"❌ Error reported for {task_id}.")
+                    file_logger.info(f"❌ Error reported for {task_id}.")
 
-                except Exception as ex:
-                    error_msg = f"❌ Error for {task_id}: {ex}"
-                    traceback_msg = traceback.format_exc()
+            except Exception as ex:
+                error_msg = f"❌ Error for {task_id}: {ex}"
+                traceback_msg = traceback.format_exc()
 
+                if show_progress:
                     tqdm.write(error_msg)
-                    file_logger.error(error_msg)
-                    file_logger.error(traceback_msg)
+                else:
+                    print(error_msg)
+                file_logger.error(error_msg)
+                file_logger.error(traceback_msg)
 
-                    results[task_id] = None
+                results[task_id] = None
 
-                    if exit_on_failure:
-                        dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-                        final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
-                        file_logger.critical(final_msg)
-                        executor.shutdown(
-                            wait=False
-                        )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
-                        sys.exit(1)
+                if exit_on_failure:
+                    dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                    final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
+                    file_logger.critical(final_msg)
+                    executor.shutdown(
+                        wait=False
+                    )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
+                    sys.exit(1)
 
+            if pbar:
                 pbar.update(1)  # ✅ Progress update for each completed task
+        if pbar:
+            pbar.close()
 
     screen_queue.put("DONE")  # sends the stop SIGNAL to thread
     screen_queue_thread.join()  # official closure of thread
