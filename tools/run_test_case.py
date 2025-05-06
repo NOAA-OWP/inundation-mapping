@@ -358,6 +358,7 @@ class Test_Case(Benchmark):
                     mask=os.path.join(self.fim_dir, "wbd.gpkg"),
                     verbose=verbose,
                     num_threads=8,
+                    num_workers=gms_workers,
                     windowed=True,
                 )
 
