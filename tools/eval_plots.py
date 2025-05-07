@@ -1017,23 +1017,34 @@ if __name__ == '__main__':
         action='store_true',
         required=False,
     )
+    parser.add_argument(
+        '-e',
+        '--env-file',
+        help='OPTIONAL: Docker mount path to the environment file. ie) data/config/fim_enviro_values.env',
+        required=False,
+        default= '/data/config/fim_enviro_values.env'
+    )
+
 
     # Extract to dictionary and assign to variables
     args = vars(parser.parse_args())
 
     # Finalize Variables
-    m = args['metrics_csv']
-    w = args['workspace']
-    v = args['versions']
-    s = args['stats']
-    sp = args['spatial']
-    f = args['fim_1_ms']
-    i = args['site_plots']
+    # m = args['metrics_csv']
+    # w = args['workspace']
+    # v = args['versions']
+    # s = args['stats']
+    # sp = args['spatial']
+    # f = args['fim_1_ms']
+    # i = args['site_plots']
+
+
+# FIX WORKSPACE VARIABLE AS WELL
 
     # Run eval_plots function
     print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
     print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
-    eval_plots(metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, fim_1_ms=f, site_barplots=i)
+    # eval_plots(metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, fim_1_ms=f, site_barplots=i)
 
     # Convert output shapefiles to CSV
     print("Converting to CSVs...")

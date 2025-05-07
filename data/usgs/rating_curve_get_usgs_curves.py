@@ -3,6 +3,8 @@ import argparse
 import os
 import sys
 import time
+
+from datetime import datetime, timezone
 from pathlib import Path
 
 import geopandas as gpd
@@ -27,10 +29,13 @@ from tools_shared_variables import (
 )
 
 from utils.shared_variables import PREP_PROJECTION
+from utils.shared_functions import FIM_Helpers as fh
 
 
 gpd.options.io_engine = "pyogrio"
 
+
+# TODO: Do we have test sites like CAtfim? do we need to remove them?
 
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
@@ -44,7 +49,7 @@ This script calls the NOAA Tidal API for datum conversions. Experience shows tha
 
 API_BASE_URL = ""
 WBD_LAYER = ""
-EVALUATED_SITES_CSV = ""
+# EVALUATED_SITES_CSV = ""
 NWM_FLOWS_MS = ""
 
 
@@ -86,7 +91,7 @@ def get_all_active_usgs_sites():
 ##############################################################################
 # Generate categorical flows for each category across all sites.
 ##############################################################################
-def write_categorical_flow_files(metadata, workspace):
+def write_categorical_flow_files(metadata, output_dir, file_date_append):
     '''
     Writes flow files of each category for every feature_id in the input metadata.
     Written to supply input flow files of all gage sites for each flood category.
@@ -95,7 +100,7 @@ def write_categorical_flow_files(metadata, workspace):
     ----------
     metadata : DICT
         Dictionary of metadata from WRDS (e.g. output from get_all_active_usgs_sites).
-    workspace : STR
+    output_dir : STR
         Path to workspace where flow files will be saved.
 
     Returns
@@ -105,8 +110,8 @@ def write_categorical_flow_files(metadata, workspace):
     '''
 
     threshold_url = f'{API_BASE_URL}/nws_threshold'
-    workspace = Path(workspace)
-    workspace.mkdir(parents=True, exist_ok=True)
+    #output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     # For each site in metadata
     all_data = pd.DataFrame()
 
@@ -125,7 +130,7 @@ def write_categorical_flow_files(metadata, workspace):
             continue
 
         # Get the stages and flows
-        stages, flows = get_thresholds(threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all')
+        ___, flows = get_thresholds(threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all')
 
         # For each flood category
         for category in ['action', 'minor', 'moderate', 'major']:
@@ -147,8 +152,9 @@ def write_categorical_flow_files(metadata, workspace):
     # Write CatFIM flows to file
     print("writing for CatFIM")
     if not all_data.empty:
+        catfim_file_name = os.path.join(output_dir, f'catfim_flows_cms_{file_date_append}.csv')
         final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
-        final_data.to_csv(workspace / 'catfim_flows_cms.csv', index=False)
+        final_data.to_csv(catfim_file_name, index=False)
 
     return all_data
 
@@ -200,35 +206,30 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file):
         function to filter out sites that meet certain requirements across CONUS.
 
     output_dir : STR
-        Directory, if specified, where output csv is saved.
+        Directory, if specified, where output csv's and gpkg's is saved.
 
     sleep_time: FLOAT
         Amount of time to rest between API calls. The Tidal API appears to
         error out more during business hours. Increasing sleep_time may help.
 
-
-    Returns
-    -------
-    all_rating_curves : Pandas DataFrame
-        DataFrame containing USGS rating curves adjusted to elevation for
-        all input sites. Additional metadata also contained in DataFrame
-
     '''
+    
+    start_time = datetime.now(timezone.utc)
+    fh.print_start_header('Retrieving new USGS rating curves', start_time)
+    
     # import variables from .env file
     set_global_env(env_file)
-    
 
     # Define URLs for metadata and rating curve
     metadata_url = f'{API_BASE_URL}/metadata'
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
-
-    # Create workspace directory if it doesn't exist
-    if not output_dir:
-        raise Exception("Can't have an empty workspace")
-
-
+        
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
+            
+    file_date_append = start_time.strftime("%Y%m%d")
+
+    
     # import pdb;pdb.set_trace()
     # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
     if list_of_gage_sites == ['all']:
@@ -245,6 +246,11 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file):
         max_sites = 150
         if len(selector) > max_sites:
             chunks = [selector[i : i + max_sites] for i in range(0, len(selector), max_sites)]
+            
+            # TODO: What is a chunk?
+            
+            print(chunks)
+            
             # Get metadata for each chunk
             metadata_list = []
             metadata_df = pd.DataFrame()
@@ -296,6 +302,11 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file):
 
         # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
         #   datum adjustment section (region will need changed)
+        
+        # TODO: Still want to filter out PR, VI, HI?
+        
+        # Waht about AK?
+        
         if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
             continue
         # Get rating curve for site
@@ -356,19 +367,25 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file):
     sites_gdf.fillna({'curve': 'no'}, inplace=True)
     # Add mainstems attribute to acceptable sites
     print('Attributing mainstems sites')
+    
     # Import mainstems segments used in run_by_unit.sh
-    ms_df = gpd.read_file(NWM_FLOWS_MS)
+    # ms_df = gpd.read_file(NWM_FLOWS_MS)
+    
     # ms_segs = ms_df.ID.astype(str).to_list()
     # Populate mainstems attribute field
     sites_gdf['mainstem'] = 'no'
     sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
     # import pdb;pdb.set_trace()
     
+    
+    # TODO: Fix this
     print("abort.. done testing")
     sys.exit()
     
     
-    sites_gdf.to_csv(os.path.join(output_dir, 'acceptable_sites_pre.csv'))
+    # TODO : Do we need this? a debugging tool it looks like
+    # pre what?
+    sites_gdf.to_csv(os.path.join(output_dir, f'acceptable_sites_pre_{file_date_append}.csv'))
 
     sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
@@ -389,9 +406,9 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file):
     sites_gdf['acceptable_alt_error'] = np.where(
         sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
     )
-    # import pdb;pdb.set_trace()
-    sys.exit()
-    sites_gdf.to_file(os.path.join(output_dir, 'sites_bool_flags.gpkg'), driver='GPKG', engine='fiona')
+        
+    sites_bool_flags_file_name = os.path.join(output_dir, f'sites_bool_flags_{file_date_append}.gpkg')
+    sites_gdf.to_file(sites_bool_flags_file_name, driver='GPKG', engine='fiona')
 
     # Filter and save filtered file for viewing
     acceptable_sites_gdf = sites_gdf[
@@ -400,7 +417,7 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file):
     acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
     acceptable_sites_gdf.to_csv(os.path.join(output_dir, 'acceptable_sites_for_rating_curves.csv'))
     acceptable_sites_gdf.to_file(
-        os.path.join(output_dir, 'acceptable_sites_for_rating_curves.gpkg'), driver='GPKG', engine='fiona'
+        os.path.join(output_dir, f'acceptable_sites_for_rating_curves_{file_date_append}.gpkg'), driver='GPKG', engine='fiona'
     )
 
     # Make list of acceptable sites
@@ -412,8 +429,9 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file):
     # If workspace is specified, write data to file.
     if output_dir:
         # Write rating curve dataframe to file
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        all_rating_curves.to_csv(Path(output_dir) / 'usgs_rating_curves.csv', index=False)
+        # Path(output_dir).mkdir(parents=True, exist_ok=True)
+        usgs_rating_curve_file = os.path.join(output_dir, f"usgs_rating_curves_{file_date_append}.csv")
+        all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
         # Save out messages to file.
         first_line = [
             f'THERE WERE {len(api_failure_messages)} SITES THAT EXPERIENCED DATUM CONVERSION ISSUES'
@@ -421,21 +439,49 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file):
         api_failure_messages = first_line + api_failure_messages
         regular_messages = api_failure_messages + regular_messages
         all_messages = pd.DataFrame({'Messages': regular_messages})
-        all_messages.to_csv(Path(output_dir) / 'log.csv', index=False)
+        
+        # fix this log file for the full date addition
+        log_file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+        log_file_path = os.path.join(output_dir, f"log_{log_file_dt_string}.csv")
+        all_messages.to_csv(log_file_path, index=False)
+        
         # If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:
             sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
-            sites_gdf.to_file(
-                Path(output_dir) / 'usgs_gages.gpkg', layer='usgs_gages', driver='GPKG', engine='fiona'
-            )
+            usgs_gages_file = os.path.join(output_dir, f"usgs_gages_{file_date_append}.gpkg")
+        
+            sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 
         # Write out flow files for each threshold across all sites
-        write_categorical_flow_files(metadata_list, output_dir)
+        write_categorical_flow_files(metadata_list, output_dir, file_date_append)
 
-    return all_rating_curves
+    end_time = datetime.now(timezone.utc)
+    fh.print_end_header('Retrieving USGS Ratings complete', start_time, end_time)
+    fh.print_date_time_duration(start_time, end_time)
 
 
 if __name__ == '__main__':
+    
+    '''
+    Sample Command:
+        python3 /foss_fim/data/usgs/rating_curve_get_usgs_curves.py -l 'all' -o '/data/tests/usgs_gages/' 
+    
+    Notes:
+        - all actual file outputs will have today's data appended.
+          ie) usgs_rating_curves_20250326.csv
+          
+        - Output files are (each date appended):
+            - usgs_rating_curves_{date}.csv
+            - usgs_gages_{date}.gpkg
+            - catfim_flows_cms_{date}.csv  (I think we shoudl renamed this if we even really need it)
+            - sites_bool_flags_{date}.gpkg
+            - acceptable_sites_pre_{date}.csv
+            - acceptable_sites_for_rating_curves_{date}.gpkg
+            - acceptable_sites_for_rating_curves_{date}.csv
+            
+            and is normally copied to in 'inputs/usgs_gages'
+    '''
+    
     # Parse arguments
     parser = argparse.ArgumentParser(
         description='Retrieve USGS rating curves adjusted to elevation (NAVD88).\n'
@@ -445,7 +491,7 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-l',
-        '--list_of_gage_sites',
+        '--list-of-gage-sites',
         help='REQUIRED: type "all" for all active usgs sites, specify individual sites separated by space, '
         'or provide a csv of sites (one per line).',
         nargs='+',
@@ -457,12 +503,13 @@ if __name__ == '__main__':
         required=True
     )
     parser.add_argument(
-        '-t', '--sleep_timer', help='How long to rest between datum API calls',
-        default=1.0, required=False
+        '-t', '--sleep-timer', help='OPTIONAL: How long to rest between datum API calls. Defaults to 1.0',
+        default=1.0,
+        required=False
     )
     parser.add_argument(
         '-e',
-        '--env_file',
+        '--env-file',
         help='OPTIONAL: Docker mount path to the environment file. ie) data/config/fim_enviro_values.env',
         required=False,
         default= '/data/config/fim_enviro_values.env'
@@ -478,10 +525,9 @@ if __name__ == '__main__':
         args['list_of_gage_sites'] = sites
 
     list_of_gage_sites = args['list_of_gage_sites']
-    output_dir = args['output-dir']
+    output_dir = args['output_dir']
     sleep_timer = float(args['sleep_timer'])
     env_file = args['env_file']
     # Generate USGS rating curves
-    print("Executing...")
     usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites,
                         output_dir=output_dir, sleep_time=sleep_timer, env_file=env_file)
