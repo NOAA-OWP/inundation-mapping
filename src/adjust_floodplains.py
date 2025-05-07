@@ -23,6 +23,8 @@ def adjust_floodplains(
     dem_file: str,
     distance_file: str,
     output_file: str,
+    distance_threshold: float,
+    slope_exponent: float,
     z_factor: float,
     branch_polygons: str,
     branch_id: str,
@@ -41,6 +43,10 @@ def adjust_floodplains(
         The output distance file.
     output_file : str
         The output adjusted DEM file.
+    distance_threshold : float
+        The distance threshold to limit the adjustment.
+    slope_exponent : float
+        The slope exponent to adjust the DEM.
     z_factor : float
         The z-factor to adjust the DEM.
     branch_polygons : str
@@ -78,9 +84,6 @@ def adjust_floodplains(
         distance_mask[mask] = 1
     distance = np.where(distance_mask == 1, distance, np.nan)
 
-    distance_threshold = 3000.0
-    # z_factor = z_factor * distance_threshold / 1000.0
-
     # Limit the distance to the mean + 1 std
     distance = np.where(distance <= distance_threshold, distance, np.nan)
 
@@ -91,7 +94,7 @@ def adjust_floodplains(
     # Calculate the floodplain adjustment
     adjustment = np.where(
         distance < distance_threshold,
-        ((distance_threshold - distance) / distance_threshold) ** 2 * z_factor,
+        ((distance_threshold - distance) / distance_threshold) ** slope_exponent * z_factor,
         0,
     )
 
@@ -117,6 +120,8 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--distance-file', help='Distance file', type=str)
     parser.add_argument('-d', '--dem-file', help='DEM file', type=str)
     parser.add_argument('-o', '--output-file', help='Output file', type=str)
+    parser.add_argument('-t', '--distance-threshold', help='Distance threshold', type=float)
+    parser.add_argument('-s', '--slope-exponent', help='Slope exponent', type=float)
     parser.add_argument('-z', '--z-factor', help='Z factor', type=float)
     parser.add_argument('-p', '--branch-polygons', help='Branch polygons file', type=str)
     parser.add_argument('-b', '--branch-id', help='Branch ID', type=str)
