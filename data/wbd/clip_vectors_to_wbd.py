@@ -130,12 +130,18 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
 
 
     #for copying, use shutil.copy2 to preserve the orignal files timestamps
-    if copying_flags['levee_protected_areas']:
-        shutil.copy2(os.path.join(copy_from_dir,huc, output_filenames['levee_protected_areas']),
-            os.path.join(huc_directory,output_filenames['levee_protected_areas']))
+    if copying_flags['copy_levee_protected_areas']:
+        src=os.path.join(copy_from_dir,huc, output_filenames['levee_protected_areas'])
+        dst= os.path.join(huc_directory,output_filenames['levee_protected_areas'])
+
+        if os.path.exists(src):
+            logging.info(f"Copying levee-protected areas for {huc} (from previous output).")
+            shutil.copy2(src, dst)
+        else:
+            logging.warning(f"Missing file: levee-protected areas for {huc} not found at {src}.")
     else:
         # TODO investigate this old comment : Clip levee-protected areas polygons for future masking ocean areas (where applicable)
-        logging.info(f"Clip levee-protected areas for {huc}")
+        logging.info(f"Clipping levee-protected areas for {huc}")
         levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
         if not levee_protected_areas.empty:
             levee_protected_areas.to_file(
@@ -147,12 +153,17 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
             )
         del levee_protected_areas
 
-    if copying_flags['nwm_lakes']:
-        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['nwm_lakes']),
-            os.path.join(huc_directory,output_filenames['nwm_lakes']))
+    if copying_flags['copy_nwm_lakes']:
+        src= os.path.join(copy_from_dir,huc,output_filenames['nwm_lakes'])
+        dst= os.path.join(huc_directory,output_filenames['nwm_lakes'])
+        if os.path.exists(src):
+            logging.info(f"Copying nwm_lakes for {huc} (from previous output).")
+            shutil.copy2(src,dst)
+        else:
+            logging.warning(f"Missing file: nwm_lakes for {huc} not found at {src}.")
     else:
         # Find intersecting lakes and writeout
-        logging.info(f"Subsetting NWM Lakes for {huc}")
+        logging.info(f"clipping NWM Lakes for {huc}")
         nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer, engine="fiona")
         nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
 
@@ -170,12 +181,17 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
             )
         del nwm_lakes
 
-    if copying_flags['levee_lines']:
-        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['levee_lines']),
-                     os.path.join(huc_directory,output_filenames['levee_lines']))
+    if copying_flags['copy_levee_lines']:
+        src= os.path.join(copy_from_dir,huc,output_filenames['levee_lines'])
+        dst= os.path.join(huc_directory,output_filenames['levee_lines'])
+        if os.path.exists(src):
+            logging.info(f"Copying NLD levee_lines for {huc} (from previous output).")
+            shutil.copy2(src,dst)
+        else:
+            logging.warning(f"Missing file: levee_lines for {huc} not found at {src}.")
     else:
         # Find intersecting levee lines
-        logging.info(f"Subsetting NLD levee lines for {huc}")
+        logging.info(f"Clipping NLD levee lines for {huc}")
         nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
         if not nld_lines.empty:
             nld_lines.to_file(
@@ -183,11 +199,17 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
             )
         del nld_lines
 
-    if copying_flags['levee_lines_burned']:
-        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['levee_lines_burned']),
-                os.path.join(huc_directory,output_filenames['levee_lines_burned']))
+    if copying_flags['copy_levee_lines_burned']:
+        src=os.path.join(copy_from_dir,huc,output_filenames['levee_lines_burned'])
+        dst= os.path.join(huc_directory,output_filenames['levee_lines_burned'])
+        if os.path.exists(src):
+            logging.info(f"Copying levee_lines_burned for {huc} (from previous output).")
+            shutil.copy2(src,dst )
+        else:
+            logging.warning(f"Missing file: levee_lines_burned for {huc} not found at {src}.")
     else:
         # Preprocessed levee lines for burning
+        logging.info(f"Clipping levee_lines_burned for {huc}.")
         nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer, engine="fiona")
         if not nld_lines_preprocessed.empty:
             nld_lines_preprocessed.to_file(
@@ -199,11 +221,17 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
             )
         del nld_lines_preprocessed
 
-    if copying_flags['nwm_catchments']:
-        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['nwm_catchments']),
-            os.path.join(huc_directory,output_filenames['nwm_catchments']))
+    if copying_flags['copy_nwm_catchments']:
+        src= os.path.join(copy_from_dir,huc,output_filenames['nwm_catchments'])
+        dst= os.path.join(huc_directory,output_filenames['nwm_catchments'])
+        if os.path.exists(src):
+            logging.info(f"Copying nwm_catchments for {huc} (from previous output).")
+            shutil.copy2(src,dst)
+        else:
+            logging.warning(f"Missing file: nwm_catchments for {huc} not found at {src}.")
     else:
         # Find intersecting nwm_catchments
+        logging.info(f"Clipping nwm_catchments for {huc}.")
         nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
 
         if len(nwm_catchments) > 0:
@@ -220,12 +248,17 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
 
         del nwm_catchments
 
-    if copying_flags['osm_bridges']:
-        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['osm_bridges']),
-            os.path.join(huc_directory,output_filenames['osm_bridges']))
+    if copying_flags['copy_osm_bridges']:
+        src= os.path.join(copy_from_dir,huc,output_filenames['osm_bridges'])
+        dst= os.path.join(huc_directory,output_filenames['osm_bridges'])
+        if os.path.exists(src):
+            logging.info(f"Copying osm_bridges for {huc} (from previous output).")
+            shutil.copy2(src,dst )
+        else:
+            logging.warning(f"Missing file: osm_bridges for {huc} not found at {src}.")
     else:
         # Subset OSM (Open Street Map) bridges
-        logging.info(f"Subsetting OSM Bridges for {huc}")
+        logging.info(f"Clipping OSM Bridges for {huc}")
 
         subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
         if subset_osm_bridges_gdb.empty:
@@ -243,12 +276,17 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
         del subset_osm_bridges_gdb
 
 
-    if copying_flags['osm_roads']:
-        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['osm_roads']),
-            os.path.join(huc_directory,output_filenames['osm_roads']))
+    if copying_flags['copy_osm_roads']:
+        src=os.path.join(copy_from_dir,huc,output_filenames['osm_roads'])
+        dst= os.path.join(huc_directory,output_filenames['osm_roads'])
+        if os.path.exists(src):
+            logging.info(f"Copying osm_roads for {huc} (from previous output).")
+            shutil.copy2(src,dst )
+        else:
+            logging.warning(f"Missing file: osm_roads for {huc} not found at {src}.")
     else:
         # Subset OSM (Open Street Map) roads
-        logging.info(f"Subsetting OSM roads for {huc}")
+        logging.info(f"Clipping OSM roads for {huc}")
 
         subset_osm_roads_gdb = gpd.read_file(osm_roads, mask=wbd_buffer, engine="fiona")
         if subset_osm_roads_gdb.empty:
@@ -265,16 +303,16 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
 
         del subset_osm_roads_gdb
 
-    if copying_flags['nwm_streams_headwater']:
-        # copy all three wbd_streams_buffer,nws_streams, and nwm_headwaters
-        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['wbd_streams_buffer']),
-            os.path.join(huc_directory,output_filenames['wbd_streams_buffer']))
-                
-        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['nwm_streams']),
-            os.path.join(huc_directory,output_filenames['nwm_streams']))
+    if copying_flags['copy_nwm_streams_headwater']:
+        for vector_item in ['wbd_streams_buffer','nwm_streams','nwm_headwaters']:
+            src=os.path.join(copy_from_dir,huc,output_filenames[vector_item])
+            dst= os.path.join(huc_directory,output_filenames[vector_item])
 
-        shutil.copy2(os.path.join(copy_from_dir,huc,output_filenames['nwm_headwaters']),
-            os.path.join(huc_directory,output_filenames['nwm_headwaters']))
+            if os.path.exists(src):
+                logging.info(f"Copying {vector_item} for {huc} (from previous output).")
+                shutil.copy2(src,dst)
+            else:
+                logging.warning(f"Missing file: {vector_item} for {huc} not found at {src}.")
 
     else:
         # first Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
@@ -292,7 +330,7 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
         )
 
         # Subset nwm streams
-        logging.info(f"Subsetting NWM Streams for {huc}")
+        logging.info(f"Clipping NWM Streams for {huc}")
         nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
 
         # NWM can have duplicate records, but appear to always be identical duplicates
@@ -333,7 +371,7 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
 
 
         # Subset NWM headwaters
-        logging.info(f"Subsetting NWM Headwater Points for {huc}")
+        logging.info(f"Clipping NWM Headwater Points for {huc}")
         nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
 
         if len(nwm_headwaters) > 0:

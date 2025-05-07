@@ -76,14 +76,14 @@ LOG_FILE_PATH = ""
 
 #need this for definingparse arguments
 args_copy_options = [
-    "nwm_lakes", 
-    "nwm_streams_headwater",  
-    "nwm_catchments", 
-    "levee_lines", 
-    "levee_lines_burned",
-    "levee_protected_areas", 
-    "osm_bridges",
-    "osm_roads"
+    "copy_nwm_lakes", 
+    "copy_nwm_streams_headwater",  
+    "copy_nwm_catchments", 
+    "copy_levee_lines", 
+    "copy_levee_lines_burned",
+    "copy_levee_protected_areas", 
+    "copy_osm_bridges",
+    "copy_osm_roads"
 ]
 
 
@@ -147,7 +147,7 @@ def __merge_mp_logs(log_dir, parent_log_file):
 
 def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite,copying_flags,copy_from_dir):
     '''
-    The function is the main driver of the program to iterate and parallelize writing
+    The function is the main driver of the program to iterate and parallelize writing/copying
     pre-clipped HUC8 vector files.
 
     Inputs:
@@ -169,8 +169,17 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite,copy
     - New directory for each HUC, which contains 10-12 .gpkg files
     - Write to log file in $pre_clip_huc_dir
     '''
-    print("copy_from_dir:",copy_from_dir)
-    print(copying_flags)
+
+    # report which vector data, if any, is being copied instead of pre-clipping
+    copied_layers = [key.replace('copy_', '') for key, val in copying_flags.items() if val]
+
+    if copied_layers:
+        print("The following layers will be copied instead of pre-clipping:")
+        for layer in copied_layers:
+            print(f" - {layer}")
+    else:
+        print("All vector layers will be pre-clipped — no copies from previously pre-clipped data were requested.")
+
 
     # Validation
     total_cpus_available = os.cpu_count() - 2
@@ -357,47 +366,10 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir,copy_from_dir,copying_flags):
 
         logging.info(f"-- {huc} : Get WBD")
 
-        # # TODO: Use Python API (osgeo.ogr) instead of using ogr2ogr executable. Thois seems to be a simple selection of desired HUC. 
-        # get_wbd_subprocess = subprocess.run(
-        #     [
-        #         'ogr2ogr',
-        #         '-f',
-        #         'GPKG',
-        #         '-t_srs',
-        #         huc_CRS,
-        #         f'{huc_directory}/wbd.gpkg',
-        #         input_WBD_filename,
-        #         input_NHD_WBHD_layer,
-        #         '-where',
-        #         f"HUC{hucUnitLength}='{huc}'",
-        #     ],
-        #     stdout=subprocess.PIPE,
-        #     stderr=subprocess.PIPE,
-        #     check=True,
-        #     universal_newlines=True,
-        # )
+        # Read the input layer from the input WBD file using sql to be more efficient
+        sql = f"SELECT * FROM \"{input_NHD_WBHD_layer}\" WHERE HUC8 = '{huc}'"
+        wbd = gpd.read_file(input_WBD_filename, sql=sql)
 
-        # sub_proc_stdout = get_wbd_subprocess.stdout
-        # sub_proc_stderror = get_wbd_subprocess.stderr
-        # if sub_proc_stderror.lower().startswith("warning") is True:
-        #     logging.info(f"Warning from ogr creating wbd file: {sub_proc_stderror}")
-        # elif sub_proc_stderror != "":
-        #     raise Exception(
-        #         f"*** {huc} : Error creating wbd file from ogr for {huc}:" f" Details: {sub_proc_stderror}\n"
-        #     )
-        # else:
-        #     msg = f"-- {huc} : Creating {huc_directory}/wbd.gpkg - Complete"
-        #     if sub_proc_stdout != "":  # warnings?
-        #         msg += f": {sub_proc_stdout}"
-
-        #     logging.info(msg)
-
-        # Read the input layer from the input WBD file
-        #TODO we repeat reading this line for all HUCs
-        all_wbds = gpd.read_file(input_WBD_filename, layer=input_NHD_WBHD_layer)
-
-        # Filter for the desired HUC
-        wbd = all_wbds[all_wbds["HUC8"] == huc]
         wbd = wbd.to_crs(huc_CRS)
 
 
@@ -457,9 +429,6 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir,copy_from_dir,copying_flags):
             copying_flags=copying_flags
         )
 
-        logging.info(f"-- {huc} : Completing Get Vector Layers and Subset:\n")
-
-        #TODO may be removed since it seems we already have wbd_buffered.gpkg.So, why we need another wbd8_clp.gpkg file?
         # Clip WBD8 ##
         logging.info(f"-- {huc} : Creating WBD buffer and clip version")
 
@@ -497,6 +466,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir,copy_from_dir,copying_flags):
                 msg += f": {sub_proc_stdout}"
 
             logging.info(msg)
+
+        logging.info(f"-- {huc} : Completing Get Vector Layers and Subset:\n")
 
     except Exception:
         logging.info(f"*** An error occurred while processing {huc}")
@@ -571,22 +542,22 @@ if __name__ == '__main__':
 
     #for any of the entered argument, arg var value is set to True. 
     # If not provided for a layer name, no key-value is created so need to handle it later
-    for arg_option in args_copy_options:
-        parser.add_argument(f"--copy_{arg_option}", action="store_true", help=f"Copy {arg_option} instead of pre-clipping")
+    for copy_arg_option in args_copy_options:
+        parser.add_argument(f"--{copy_arg_option}", action="store_true", help=f"{copy_arg_option} instead of pre-clipping")
 
     args = vars(parser.parse_args())
 
     if args['copy_from_dir']:
         # if copy argument is not provided, set it to false (so no-copying mode)
-        copying_flags = {arg_option: args.get(f"copy_{arg_option}", False) for arg_option in args_copy_options } 
+        copying_flags = {copy_arg_option: args.get(f"{copy_arg_option}", False) for copy_arg_option in args_copy_options } 
     else:
         # No copy mode, nothing is copied
-        copying_flags = {arg_option: False for arg_option in args_copy_options}
+        copying_flags = {copy_arg_option: False for copy_arg_option in args_copy_options}
 
         #report if user entered one of the copy arg but not the main switch which is copy_from_dir 
-        for arg_option in args_copy_options:
-            if args.get(f"copy_{arg_option}", False):
-                print(f"you entered {arg_option} but forgot to provide copy_from_dir. So, {arg_option} is ignored")
+        for copy_arg_option in args_copy_options:
+            if args.get(f"{copy_arg_option}", False):
+                print(f"you entered {copy_arg_option} but forgot to provide copy_from_dir. So, {copy_arg_option} is ignored")
 
     try:
         pre_clip_hucs_from_wbd(
@@ -636,11 +607,4 @@ if __name__ == '__main__':
                 python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py -u outputs/test.lst -n outputs/preclips/test6_2/ -o 
                 --copy_from_dir data/inputs/pre_clip_huc8/20250218/ 
                 --copy_nwm_catchments --copy_levee_lines_burned --copy_levee_lines --copy_nwm_streams_headwater
-
-
-
-
-
-        #TODO need to add a report in the beginning of run to let user know which vectors are preclip vs copied
-        #TODO also if a vector is being copied make sure a message is printed about that like....skipping preclipping for ?? and instead data ia copied from copy dir
     '''
