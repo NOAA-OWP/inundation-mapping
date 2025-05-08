@@ -3,10 +3,10 @@ import os
 import time
 
 import geopandas as gpd
-from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import rasterio
+from dotenv import load_dotenv
 from rasterstats import zonal_stats
 
 
@@ -241,7 +241,7 @@ def land_use(nbm_flow_path, huc_file_path, fim_dir, surface_areas_gdf, output_di
             '%Barren',
             '%Shrubland',
             '%Herbaceous',
-            'geometry'
+            'geometry',
         ],
     )
     if 'geometry' in percentage_per_huc.columns:
@@ -398,23 +398,10 @@ if __name__ == "__main__":
         print(f'Task1 took {task_time: .2f} minutes')
         timing_summary.append(('Task 1', task_time))
     if args.task2:
-        if (
-            not args.nbm_flow_path
-            or not args.huc_file_path
-            or not args.fim_dir
-            or not args.output_dir
-        ):
-            raise ValueError(
-                "Task2 requires -nbm, -huc_list, -d, -ratio, -o, -wbd"
-            )
+        if not args.nbm_flow_path or not args.huc_file_path or not args.fim_dir or not args.output_dir:
+            raise ValueError("Task2 requires -nbm, -huc_list, -d, -ratio, -o, -wbd")
         start_time = time.time()
-        land_use(
-            args.nbm_flow_path,
-            args.huc_file_path,
-            args.fim_dir,
-            surface_area_gdf,
-            args.output_dir,
-        )
+        land_use(args.nbm_flow_path, args.huc_file_path, args.fim_dir, surface_area_gdf, args.output_dir)
         task_time = (time.time() - start_time) / 60
         print(f'Task2 took {task_time: .2f} minutes')
         timing_summary.append(('Task 2', task_time))

@@ -5,9 +5,9 @@ import time
 from multiprocessing import Pool, cpu_count
 
 import geopandas as gpd
-from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 
 
 # catchment vectorized
@@ -69,9 +69,7 @@ def process_huc(huc, nbm_df_bflows, df_bflows, huc_index, total_hucs, flow_huc12
     return output_file
 
 
-def process_chunk(
-    huc_chunk, nbm_df_bflows, df_bflows, total_hucs, chunk_idx, flow_huc12, output_dir, args
-):
+def process_chunk(huc_chunk, nbm_df_bflows, df_bflows, total_hucs, chunk_idx, flow_huc12, output_dir, args):
     print(f"Processing chunk {chunk_idx + 1} with {len(huc_chunk)} HUCs")
     job_number = args.job_number
     with Pool(processes=job_number) as pool:
@@ -128,14 +126,7 @@ def main(args):
     # Process remaining chunks
     for chunk_idx, huc_chunk in enumerate(huc_chunks):
         chunk_file = process_chunk(
-            huc_chunk,
-            nbm_df_bflows,
-            df_bflows,
-            total_hucs,
-            chunk_idx,
-            flow_huc12,
-            args.output_dir,
-            args,
+            huc_chunk, nbm_df_bflows, df_bflows, total_hucs, chunk_idx, flow_huc12, args.output_dir, args
         )
         if chunk_file:
             chunk_results.append(chunk_file)
