@@ -187,7 +187,7 @@ if [ "$bathymetry_adjust" = "True" ]; then
 fi
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
-if [ "$src_bankfull_toggle" = "True" ] && [ "$current_branch_id" != "$branch_zero_id" ] ; then
+if [ "$src_bankfull_toggle" = "True" ]; then
     l_echo $startDiv"Estimating bankfull stage in SRCs"
     Tstart
     # Run SRC bankfull estimation routine routine
@@ -205,28 +205,6 @@ if [ "$nonmonotonic_src_adjustment" = "True" ]; then
     Tstart
     python3 $srcDir/nonmonotonic_src_adjustment.py \
         -fim_dir $outputDestDir \
-        -j $jobLimit
-    Tcount
-fi
-
-## RUN LONGITUDINAL FILTER ROUTINE ##
-if [ "$logitudinal_filter" = "True" ]; then
-    echo -e $startDiv"Performing longitudinal filter routine"
-    Tstart
-    python3 $srcDir/filter_longitudinal_flow.py \
-        -fim_dir $outputDestDir \
-        -j $jobLimit \
-
-    Tcount
-fi
-
-## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
-if [ "$src_bankfull_toggle" = "True" ]; then
-    l_echo $startDiv"Estimating bankfull stage in SRCs"
-    Tstart
-    # Run SRC bankfull estimation routine routine
-    python3 $srcDir/identify_src_bankfull.py \
-        -fim_dir $outputDestDir \
         -flows $bankfull_flows_file \
         -j $jobLimit
     Tcount
@@ -241,6 +219,17 @@ if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; the
         -fim_dir $outputDestDir \
         -mann $vmann_input_file \
         -j $jobLimit
+    Tcount
+fi
+
+## RUN LONGITUDINAL FILTER ROUTINE ##
+if [ "$logitudinal_filter" = "True" ]; then
+    echo -e $startDiv"Performing longitudinal filter routine"
+    Tstart
+    python3 $srcDir/longitudinal_flow_adjustment.py \
+        -fim_dir $outputDestDir \
+        -j $jobLimit \
+
     Tcount
 fi
 

@@ -140,12 +140,12 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
             if os.path.isfile(src_full):
                 cathment_gpkg_path.append(cathment_gpkg)
 
-    # Longitudinally filter srcs for WSE
+    # Longitudinally adjust srcs for WSE
     for isrc in range(len(src_all_branches_path)):  # 1
 
         branch = re.search(r'branches/(\d{10}|0)/', src_all_branches_path[isrc]).group()[9:-1]
-        print(f'Processing Longitudinally filters for HUC {huc} Branch: {branch}')
-        log_text += f'Processing Longitudinally filters for HUC {huc} Branch: {branch}'
+        print(f'Processing Longitudinal filters for HUC {huc} Branch: {branch}')
+        log_text += f'Processing Longitudinal filters for HUC {huc} Branch: {branch}'
 
         catchment_gdf0 = gpd.read_file(cathment_gpkg_path[isrc])
         catchment_gdf = catchment_gdf0.drop_duplicates(subset=['HydroID'], keep='first')
@@ -264,7 +264,7 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
                 mask_src = (src_df[f'Filtered_{keys[jkey]}'].notna()) & (src_df['LakeID'] < 0)
                 src_df.loc[mask_src, keys[jkey]] = src_df.loc[mask_src, f'Filtered_{keys[jkey]}']
 
-            # Recalculating discharge parameteres
+            # Recalculating discharge variables
             src_df['WettedPerimeter (m)'] = src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
             src_df['WetArea (m2)'] = src_df['Volume (m3)'] / src_df['LENGTHKM'] / 1000
             src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
