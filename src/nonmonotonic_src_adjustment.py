@@ -344,8 +344,8 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         ht_df = pd.read_csv(ht_branch_path, low_memory=False)
 
         ## Use the subdivision discharge column when it is being applied
-        if 'Discharge (m3s-1)_subdiv' in ht_df.columns:
-            ht_df['Discharge (m3s-1)_subdiv'] = src_df['Discharge (m3s-1)_subdiv']
+        if 'subdiv_discharge_cms' in ht_df.columns:
+            ht_df['subdiv_discharge_cms'] = src_df['Discharge (m3s-1)_subdiv']
         ht_df['Number of Cells'] = src_df['Number of Cells']
         ht_df['SurfaceArea (m2)'] = src_df['SurfaceArea (m2)']
         ht_df['BedArea (m2)'] = src_df['BedArea (m2)']
