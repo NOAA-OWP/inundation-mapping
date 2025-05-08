@@ -355,6 +355,11 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         ht_df['WetArea (m2)'] = src_df['WetArea (m2)']
         ht_df['Volume (m3)'] = src_df['Volume (m3)']
         ht_df['discharge_cms'] = src_df['Discharge (m3s-1)']
+        # For the sake of aggregation routine
+        ht_df['Bathymetry_source'] = src_df['Bathymetry_source']
+        ht_df['subdiv_applied'] = src_df['subdiv_applied']
+        ht_df['channel_n'] = src_df['channel_n']
+        ht_df['overbank_n'] = src_df['overbank_n']
 
         # Write ht back to file
         ht_df.to_csv(ht_branch_path, index=False)
