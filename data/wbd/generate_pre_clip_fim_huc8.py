@@ -496,7 +496,7 @@ if __name__ == '__main__':
         - wbd8_clp.gpkg
         - LandSea_subset.gpkg ...this is used to further refine above ? clarify this
 
-    Three stream-related files below are managed using one args of --copy_nwm_streams_headwater
+    Three stream-related files below are managed using one args of -> --copy_nwm_streams_headwater
         - wbd_buffered_streams.gpkg
         - nwm_subset_streams.gpkg
         - nwm_headwater_points_subset.gpkg
