@@ -100,8 +100,8 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
                     ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
                 ]
                 .groupby('feature_id')
-                .apply(ohrfc_bathy_precedence, include_groups=False)
-                .reset_index(drop=False)
+                .apply(ohrfc_bathy_precedence)  # , include_groups=False)
+                .reset_index(drop=True)
             )
 
             # reconciled_bathy_data = bathy_data.groupby('feature_id')[
@@ -142,11 +142,12 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
         # Force zero stage to have zero discharge
         src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
         # Calculate number of adjusted HydroIDs
-        count = len(src_df.loc[(src_df['Stage'] == 0) & (src_df['Bathymetry_source'] == 'USACE eHydro')])
+        # count = len(src_df.loc[(src_df['Stage'] == 0) & (src_df['Bathymetry_source'] == 'USACE eHydro')])
 
         # Write src back to file
         src_df.to_csv(src, index=False)
-        log_text += f'    Successfully recalculated {count} HydroIDs\n'
+        # log_text += f'    Successfully recalculated {count} HydroIDs\n'
+        # print(src_df.head(), src_df.shape)
 
     return log_text
 
@@ -374,7 +375,7 @@ def apply_src_adjustment_for_bathymetry(
             print(msg)
             log_text += correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbose)
         else:
-            print(f'USACE eHydro bathymetry file does not exist for huc: {huc}')
+            print(f'Bathymetry file does not exist for huc: {huc}')
 
     except Exception:
         log_text += f"An error has occurred while processing ehydro bathy for huc {huc}"
