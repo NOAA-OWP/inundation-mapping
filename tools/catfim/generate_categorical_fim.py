@@ -1401,10 +1401,8 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
         # Create detailed USGS exclusion status
         usgs_elev_df['usgs_exclusion_status'] = status_df['msg1'] + status_df['msg2'] + status_df['msg3']
 
-        # Remove the last comma using rstrip
-        usgs_elev_df['usgs_exclusion_status'] = usgs_elev_df['usgs_exclusion_status'].str.rstrip(',')
-
-        # If it doesn't have anything for the exclusion criteria, set the usgs_exclusion_status to acceptable 
+        # If it doesn't have anything for the exclusion criteria, set the usgs_exclusion_status to acceptable
+        # CatFIM will only be processed for sites with a usgs_exclusion_status of 'acceptable' 
         usgs_elev_df['usgs_exclusion_status'] = usgs_elev_df['usgs_exclusion_status'].replace('', 'acceptable')
 
         # Copy df to de-fragment and rename
@@ -1436,7 +1434,7 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
         # Check if the site is not in the usgs table in our data
         if len(matching_rows) == 0:
             # msg = ':Gage not in HAND usgs gage records' # prev error message (deprecated May 2025)
-            msg = ':Gage not in HAND usgs gage records, likely due to exclusion criteria' # TODO: Temporary intermediate solution, more descriptive error message to come
+            msg = ':Gage not in HAND usgs gage records, likely due to exclusion criteria'
             all_messages.append(lid + msg)
             MP_LOG.warning(huc_lid_id + msg)
             return lid_usgs_elev, all_messages
@@ -1456,9 +1454,10 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
         lid_usgs_elev = lid_info['dem_adj_elevation'].values[0]
         usgs_exclusion_status = lid_info['usgs_exclusion_status'].values[0]
 
-        # If there is an exclusion status other than 'acceptable,' return the status 
+        # If there is an exclusion status other than 'acceptable,' return the status
+        # Uses [:-1] to exclude the last comma in the string
         if usgs_exclusion_status != 'acceptable':
-            msg = ':Gage excluded due to the following criteria -- ' + usgs_exclusion_status
+            msg = ':Gage excluded due to the following criteria -- ' + usgs_exclusion_status[:-1]
             all_messages.append(lid + msg)
             MP_LOG.warning(huc_lid_id + msg)
             return lid_usgs_elev, all_messages
