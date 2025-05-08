@@ -667,8 +667,8 @@ def iterate_through_huc_stage_based(
                 # Get the dem_adj_elevation value from usgs_elev_table.csv.
                 # Prioritize the value that is not from branch 0.
                 lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(
-                    acceptable_usgs_elev_df, 
-                    lid, 
+                    acceptable_usgs_elev_df,
+                    lid,
                     huc_lid_id
                 )
                 all_messages = all_messages + dem_eval_messages
