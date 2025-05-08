@@ -3,9 +3,9 @@ import multiprocessing as mp
 import os
 import time
 from multiprocessing import Pool, cpu_count
-from pathlib import Path
 
 import geopandas as gpd
+from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 
@@ -32,7 +32,7 @@ def process_catchments(group):
     )
 
 
-def process_huc(huc, nbm_df_bflows, df_bflows, huc12, huc_index, total_hucs, flow_huc12, output_dir):
+def process_huc(huc, nbm_df_bflows, df_bflows, huc_index, total_hucs, flow_huc12, output_dir):
 
     print(f'Processing HUC {huc} ({huc_index + 1}/{total_hucs})')
     hydrotable_path = f'{args.fim_dir}/{huc}/hydrotable.csv'
@@ -70,7 +70,7 @@ def process_huc(huc, nbm_df_bflows, df_bflows, huc12, huc_index, total_hucs, flo
 
 
 def process_chunk(
-    huc_chunk, nbm_df_bflows, df_bflows, huc12, total_hucs, chunk_idx, flow_huc12, output_dir, args
+    huc_chunk, nbm_df_bflows, df_bflows, total_hucs, chunk_idx, flow_huc12, output_dir, args
 ):
     print(f"Processing chunk {chunk_idx + 1} with {len(huc_chunk)} HUCs")
     job_number = args.job_number
@@ -78,7 +78,7 @@ def process_chunk(
         result_files = pool.starmap(
             process_huc,
             [
-                (huc, nbm_df_bflows, df_bflows, huc12, idx, total_hucs, flow_huc12, output_dir)
+                (huc, nbm_df_bflows, df_bflows, idx, total_hucs, flow_huc12, output_dir)
                 for idx, huc in enumerate(huc_chunk)
             ],
         )
@@ -102,8 +102,11 @@ def main(args):
     with open(args.huc_file, 'r') as f:
         huc_list = [line.strip() for line in f]
     total_hucs = len(huc_list)
-    print(total_hucs)
-    flow_huc12 = pd.read_csv(args.flow_huc12, dtype={'HUC12': 'string'})
+
+    srcDir = os.getenv('srcDir')
+    load_dotenv(f'{srcDir}/bash_variables.env')
+    catchments_to_huc12 = os.getenv('input_catchments_to_huc12')
+    flow_huc12 = pd.read_csv(catchments_to_huc12, dtype={'HUC12': 'string'})
     flow_huc12['HUC12'] = flow_huc12['HUC12'].astype(str).str.strip()
     flow_huc12['HUC12'] = flow_huc12['HUC12'].str.zfill(12)
 
@@ -116,7 +119,6 @@ def main(args):
     high_flow_file = pd.read_csv(args.nwm_file, usecols=['feature_id', 'discharge'])
     df_bflows = high_flow_file.rename(columns={'discharge': 'high_flow'})
     df_bflows['high_flow'] = df_bflows['high_flow']
-    huc12 = gpd.read_file(args.huc12_file)
     # Create temp directory
     os.makedirs(f'{args.output_dir}/temp', exist_ok=True)
     # Define chunking parameters
@@ -129,7 +131,6 @@ def main(args):
             huc_chunk,
             nbm_df_bflows,
             df_bflows,
-            huc12,
             total_hucs,
             chunk_idx,
             flow_huc12,
@@ -168,10 +169,8 @@ if __name__ == '__main__':
         help="Directory path to FIM hydrofabric by processing unit.",
         type=str,
     )
-    parser.add_argument("-catch", "--flow_huc12", required=True, help="Assigned HUC12 ID for each catchment.")
     parser.add_argument("-nbm", "--nbm_file", required=True, help="path to NBM high flow csv")
     parser.add_argument("-nwm", "--nwm_file", required=True, help="path to NWM high flow csv")
-    parser.add_argument("-wbd", "--huc12_file", required=True, help="path to HUC12 file")
     parser.add_argument("-out", "--output_dir", required=True, help="path to save output")
     parser.add_argument(
         "-chunk", "--chunk_size", type=int, required=False, default=20, help="Number of HUCs per chunk"

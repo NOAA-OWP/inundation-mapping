@@ -3,6 +3,7 @@ import os
 import time
 
 import geopandas as gpd
+from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import rasterio
@@ -26,7 +27,7 @@ def load_huc12(wbd, ratio_file_path):
         raise FileNotFoundError(f'ratio file not found: {ratio_file_path}')
 
     # HUC12 data
-    huc12 = gpd.read_parquet(wbd)
+    huc12 = gpd.read_parquet(wbd, columns=['HUC12', 'geometry'])
     huc12['HUC12'] = huc12['HUC12'].astype('int64')
     if huc12.crs != 'EPSG:5070':
         huc12 = huc12.to_crs('EPSG:5070')
@@ -67,9 +68,7 @@ def building_layer(surface_areas_gdf, buildings_file_path, output_dir):
     aggregate_final.to_file(output_dir, layer='buildings', index=False, driver='GPKG')
 
 
-def land_use(
-    nbm_flow_path, huc_file_path, fim_dir, nlcd_path, flow_huc12, surface_areas_gdf, huc_landuse, output_dir
-):
+def land_use(nbm_flow_path, huc_file_path, fim_dir, surface_areas_gdf, output_dir):
     """
     This function creates flood watch layer based on NLCD data.
 
@@ -77,16 +76,19 @@ def land_use(
         - nbm_flow_path (str): Path to the CSV file containing NBM high flow data.
         - huc_file_path (str): Path to the text file containing the list of impacted HUCs.
         - fim_dir (str): Directory path to FIM hydrofabric by processing unit.
-        - nlcd_path (str): Path to the NLCD raster data.
-        - flow_huc12 (str): Path to the CSV file assigning HUC12 IDs to catchments.
         - surface_area_gdf (gdf.GeoDataFrame): GeoDataFrame with HUC12 and ratio.
-        - huc_landuse (str): Path to the GPKG containing landuse for the HUC12s.
         - output_dir (str): Path to save the output GPKG file.
 
         Note:
             To identify all HUCs impacted by an event, perform a spatial join between the max_high_flow_magnitude layer
             and the HUC8 boundaries.
     """
+
+    srcDir = os.getenv('srcDir')
+    load_dotenv(f'{srcDir}/bash_variables.env')
+    input_nlcd = os.getenv('input_nlcd')
+    catchments_to_huc12 = os.getenv('input_catchments_to_huc12')
+    input_huc12_landuse = os.getenv('input_huc12_landuse')
 
     nbm_high_flow = pd.read_csv(nbm_flow_path)
     nbm_df_bflows = nbm_high_flow.rename(columns={'discharge': 'high_flow_nbm'})
@@ -125,10 +127,10 @@ def land_use(
         common_cat = pd.concat(all_huc, axis=0, ignore_index=True)
 
     # Read NLCD data and reproject if needed
-    with rasterio.open(nlcd_path) as nlcd_raster:
+    with rasterio.open(input_nlcd) as nlcd_raster:
         if common_cat.crs != nlcd_raster.crs:
             common_cat = common_cat.to_crs(nlcd_raster.crs)
-        stats = zonal_stats(common_cat, nlcd_path, categorical=True, nodata=250)
+        stats = zonal_stats(common_cat, input_nlcd, categorical=True, nodata=250)
         nlcd_classes = {
             11: 'open water',
             12: 'Ice/Snow',
@@ -159,9 +161,9 @@ def land_use(
                     common_cat.at[idx, f'{int(code)}'] = stat.get(code, 0)
 
     # Load catchment huc12 lookup file
-    flow_huc12 = pd.read_csv(flow_huc12, dtype={'HUC12': 'string'})
+    catchment_huc12 = pd.read_csv(catchments_to_huc12, dtype={'HUC12': 'string'})
     cat_land_huc12 = common_cat.merge(
-        flow_huc12[['HydroID', 'feature_id', 'HUC12', 'branch_id']],
+        catchment_huc12[['HydroID', 'feature_id', 'HUC12', 'branch_id']],
         on=['HydroID', 'feature_id', 'branch_id'],
         how='left',
     )
@@ -227,8 +229,8 @@ def land_use(
     )
 
     # Load landuse percentage data for HUC12
-    percentage_per_huc = gpd.read_file(
-        huc_landuse,
+    percentage_per_huc = gpd.read_parquet(
+        input_huc12_landuse,
         columns=[
             'HUC12',
             '%Urban',
@@ -239,6 +241,7 @@ def land_use(
             '%Barren',
             '%Shrubland',
             '%Herbaceous',
+            'geometry'
         ],
     )
     if 'geometry' in percentage_per_huc.columns:
@@ -351,9 +354,6 @@ if __name__ == "__main__":
     parser.add_argument('-nbm', '--nbm_flow_path', help="path to NBM high flow csv")
     parser.add_argument('-huc_list', '--huc_file_path', help="Path to the text file containing list of HUCs")
     parser.add_argument('-d', '--fim_dir', help="Directory path to FIM hydrofabric by processing unit")
-    parser.add_argument('-nlcd', '--nlcd_path', help="Path to NLCD data")
-    parser.add_argument('-flow_huc12', '--flow_huc12', help="Assigned HUC12 ID for each catchment")
-    parser.add_argument('-huc_landuse', '--huc_landuse', help="Path to HUC12 gpkg")
     parser.add_argument(
         '-infrastructure', '--infrastructure_file', help="Path to critical infrastructure gpkg"
     )
@@ -371,7 +371,7 @@ if __name__ == "__main__":
               - Task1, Impacted buildings:
                     -ratio, -building, -wbd, -o
               Task2, landuse:
-                    -nbm, -huc_list, -d, -nlcd, -flow_huc12, -ratio, -huc_landuse, -wbd, -o
+                    -nbm, -huc_list, -d, -ratio, -wbd, -o
               Task3, Critical Infrastructures:
                     -infrastructure, -inundation, -ratio, -o, -wbd
               Notes:
@@ -402,23 +402,17 @@ if __name__ == "__main__":
             not args.nbm_flow_path
             or not args.huc_file_path
             or not args.fim_dir
-            or not args.nlcd_path
-            or not args.flow_huc12
-            or not args.huc_landuse
             or not args.output_dir
         ):
             raise ValueError(
-                "Task2 requires -nbm, -huc_list, -d, -nlcd, -flow_huc12, -ratio, -huc_landuse, -o, -wbd"
+                "Task2 requires -nbm, -huc_list, -d, -ratio, -o, -wbd"
             )
         start_time = time.time()
         land_use(
             args.nbm_flow_path,
             args.huc_file_path,
             args.fim_dir,
-            args.nlcd_path,
-            args.flow_huc12,
             surface_area_gdf,
-            args.huc_landuse,
             args.output_dir,
         )
         task_time = (time.time() - start_time) / 60
