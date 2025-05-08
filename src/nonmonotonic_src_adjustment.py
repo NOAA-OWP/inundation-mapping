@@ -15,6 +15,7 @@ from os.path import join
 import numpy as np
 import pandas as pd
 
+
 # # -------------------------------------------------------
 # # calculating bankfull stage in SRCs
 # def src_bankfull_lookup(src_df, bankfull_flows_file):
@@ -79,6 +80,7 @@ def reset_stage(srcs_df):
 
     return srcs_df
 
+
 # -------------------------------------------------------
 # Extending src_df with linear_extrapolation for missing stages in thalweg notches
 def extend_src_linear_extrapolation(srcs_df, stages_full):
@@ -136,9 +138,10 @@ def extend_src_linear_extrapolation(srcs_df, stages_full):
 
     return extended_src
 
+
 # -------------------------------------------------------
 # Analysing each HydroID SRC for nonmonotonic SRC
-def analyze_nonmonotonic_src(srcs_df, strm_order): #, thalweg_hydroids
+def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
 
     # Only apply on stream orders >= strm_order
     if srcs_df['order_'].iloc[0] < strm_order:
@@ -155,7 +158,7 @@ def analyze_nonmonotonic_src(srcs_df, strm_order): #, thalweg_hydroids
     # Recalculate 'Discharge' values before the last non-monotonic row
     # Note: No change has been applied on WetArea, Volume, LENGTHKM
     if non_monotonic_index:
-        
+
         # This may help for better extimation of discharge; consider after fim6 release
         # src_cols = ['Number of Cells', 'SurfaceArea (m2)', 'BedArea (m2)']
         # # Recalculate Number of Cells, SurfaceArea (m2) and BedArea (m2)
@@ -187,7 +190,9 @@ def analyze_nonmonotonic_src(srcs_df, strm_order): #, thalweg_hydroids
         # Recalculating discharge variables
         target_TopWidth = target_SurfaceArea / srcs_df['LENGTHKM'][: non_monotonic_index[-1] - 1] / 1000
         target_WettedPerimeter = target_BedArea / srcs_df['LENGTHKM'][: non_monotonic_index[-1] - 1] / 1000
-        target_HydraulicRadius = srcs_df['WetArea (m2)'][: non_monotonic_index[-1] - 1] / target_WettedPerimeter
+        target_HydraulicRadius = (
+            srcs_df['WetArea (m2)'][: non_monotonic_index[-1] - 1] / target_WettedPerimeter
+        )
         srcs_df.loc[: non_monotonic_index[-1] - 1, 'TopWidth (m)'] = target_TopWidth
         srcs_df.loc[: non_monotonic_index[-1] - 1, 'WettedPerimeter (m)'] = target_WettedPerimeter
         srcs_df.loc[: non_monotonic_index[-1] - 1, 'HydraulicRadius (m)'] = target_HydraulicRadius
@@ -203,14 +208,15 @@ def analyze_nonmonotonic_src(srcs_df, strm_order): #, thalweg_hydroids
         srcs_df['Discharge (m3s-1)_subdiv'] = np.where(
             srcs_df['subdiv_applied'] == True,
             srcs_df['Discharge (m3s-1)'],
-            srcs_df['Discharge (m3s-1)_subdiv']
+            srcs_df['Discharge (m3s-1)_subdiv'],
         )
 
     return srcs_df
 
+
 # -------------------------------------------------------
 # Correcting nonmonotonic SRC
-def correct_nonmonotonic_src(fim_dir, huc, strm_order): #, bankfull_flows_file
+def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
     """Function for correcting nonmonotonic synthetic rating curves.
     For GMS branches, it will correct each hydroID SRC in serial based
     that shows nonmonotonic behavior within in-channel stages.
@@ -256,7 +262,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order): #, bankfull_flows_file
         src_df2['Discharge (m3s-1)'] = np.where(
             src_df2['subdiv_applied'] == True,
             src_df2['Discharge (m3s-1)_subdiv'],
-            src_df2['Discharge (m3s-1)']
+            src_df2['Discharge (m3s-1)'],
         )
 
         # Removing thalweg notche rows from SRCs and
@@ -301,15 +307,17 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order): #, bankfull_flows_file
         # Excluding hydroIDs that already fixed in thalweg notches adjustment
         # thalweg_hydroids = [hyid for hyid in src_df[cond_ThalwegNRows]['HydroID'].drop_duplicates()]
         src_df4 = src_df3.groupby('HydroID', group_keys=False).apply(
-            analyze_nonmonotonic_src, strm_order=strm_order # , thalweg_hydroids = thalweg_hydroids
+            analyze_nonmonotonic_src, strm_order=strm_order  # , thalweg_hydroids = thalweg_hydroids
         )
 
         # src_df4 = src_df3.copy()
         # Make sure nonmonotonic adjustment just applied within in-channel stages
         cond_bankfull = src_df3['bankfull_proxy'] == 'floodplain'
         if 'Discharge (m3s-1)_subdiv' in src_df3.columns():
-            src_df4.loc[cond_bankfull, 'Discharge (m3s-1)_subdiv'] = src_df3.loc[cond_bankfull, 'Discharge (m3s-1)_subdiv']
-        src_df4.loc[cond_bankfull, 'Discharge (m3s-1)'] = src_df3.loc[cond_bankfull, 'Discharge (m3s-1)']        
+            src_df4.loc[cond_bankfull, 'Discharge (m3s-1)_subdiv'] = src_df3.loc[
+                cond_bankfull, 'Discharge (m3s-1)_subdiv'
+            ]
+        src_df4.loc[cond_bankfull, 'Discharge (m3s-1)'] = src_df3.loc[cond_bankfull, 'Discharge (m3s-1)']
         src_df4.loc[cond_bankfull, 'SurfaceArea (m2)'] = src_df3.loc[cond_bankfull, 'SurfaceArea (m2)']
         src_df4.loc[cond_bankfull, 'BedArea (m2)'] = src_df3.loc[cond_bankfull, 'BedArea (m2)']
         src_df4.loc[cond_bankfull, 'TopWidth (m)'] = src_df3.loc[cond_bankfull, 'TopWidth (m)']
@@ -337,16 +345,16 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order): #, bankfull_flows_file
 
         ## Use the subdivision discharge column when it is being applied
         if 'Discharge (m3s-1)_subdiv' in ht_df.columns():
-            ht_df ['Discharge (m3s-1)_subdiv'] = src_df['Discharge (m3s-1)_subdiv']
-        ht_df ['Number of Cells'] = src_df['Number of Cells']
-        ht_df ['SurfaceArea (m2)'] = src_df['SurfaceArea (m2)']
-        ht_df ['BedArea (m2)'] = src_df['BedArea (m2)']
-        ht_df ['TopWidth (m)'] = src_df['TopWidth (m)']
-        ht_df ['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)']
-        ht_df ['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)']
-        ht_df ['WetArea (m2)'] = src_df['WetArea (m2)']
-        ht_df ['Volume (m3'] = src_df['Volume (m3']
-        ht_df ['discharge_cms'] = src_df['Discharge (m3s-1)']
+            ht_df['Discharge (m3s-1)_subdiv'] = src_df['Discharge (m3s-1)_subdiv']
+        ht_df['Number of Cells'] = src_df['Number of Cells']
+        ht_df['SurfaceArea (m2)'] = src_df['SurfaceArea (m2)']
+        ht_df['BedArea (m2)'] = src_df['BedArea (m2)']
+        ht_df['TopWidth (m)'] = src_df['TopWidth (m)']
+        ht_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)']
+        ht_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)']
+        ht_df['WetArea (m2)'] = src_df['WetArea (m2)']
+        ht_df['Volume (m3'] = src_df['Volume (m3']
+        ht_df['discharge_cms'] = src_df['Discharge (m3s-1)']
 
         # Write ht back to file
         ht_df.to_csv(ht_branch_path, index=False)
@@ -356,7 +364,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order): #, bankfull_flows_file
 
 # --------------------------------------------------------
 # Apply nonmonotonic src adjustment
-def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path): #bankfull_flows_file, 
+def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path):  # bankfull_flows_file,
     """
     Function for applying nonmonotonic SRC adjustment to synthetic rating curves.
 
@@ -377,7 +385,7 @@ def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path): 
         msg = f"Correcting rating curve for nonmonotonic SRC for HUC : {huc}"
         log_text += msg + '\n'
         print(msg)
-        log_text += correct_nonmonotonic_src(fim_dir, huc, strm_order) # bankfull_flows_file
+        log_text += correct_nonmonotonic_src(fim_dir, huc, strm_order)  # bankfull_flows_file
 
     except Exception:
         log_text += f"An error has occurred while processing nonmonotonic SRC for huc {huc}"
@@ -391,7 +399,7 @@ def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path): 
 
 
 # -------------------------------------------------------
-def process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs): # bankfull_flows_file, 
+def process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs):  # bankfull_flows_file,
     """
     Function for correcting nonmonotonic synthetic rating curves using Multi-Proc function
     for each HUC8. For GMS branches, it will correct each hydroID SRC in serial based that
@@ -502,4 +510,4 @@ if __name__ == '__main__':
     #  bankfull_flows_file = args['bankfull_flows_file']
     number_of_jobs = args['number_of_jobs']
 
-    process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs) #bankfull_flows_file, 
+    process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs)  # bankfull_flows_file,
