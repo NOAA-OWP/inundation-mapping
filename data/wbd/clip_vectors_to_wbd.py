@@ -7,13 +7,12 @@ import sys
 
 import geopandas as gpd
 import pandas as pd
+import json
 import rasterio as rio
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import nearest_points
 from dotenv import load_dotenv
 import shutil
-
-from utils.shared_functions import getDriver
 
 
 gpd.options.io_engine = "pyogrio"
@@ -24,7 +23,18 @@ projectDir = os.getenv('projectDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 load_dotenv(f'{projectDir}/config/params_template.env')
 
-
+output_filenames = {
+            "nwm_lakes": "nwm_lakes_proj_subset.gpkg",
+            "nwm_streams": "nwm_subset_streams.gpkg",
+            "nwm_headwaters": "nwm_headwater_points_subset.gpkg",
+            "wbd_streams_buffer":  "wbd_buffered_streams.gpkg",
+            "nwm_catchments": "nwm_catchments_proj_subset.gpkg",
+            "levee_lines":  "nld_subset_levees.gpkg",
+            "levee_lines_burned":  "3d_nld_subset_levees_burned.gpkg",
+            "levee_protected_areas":  "LeveeProtectedAreas_subset.gpkg",
+            "osm_bridges": "osm_bridges_subset.gpkg",
+            "osm_roads": "osm_roads_subset.gpkg"
+        }
 
 
 def extend_outlet_streams(streams, wbd_buffered, wbd):
@@ -102,7 +112,35 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     return streams
 
 
-def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, copy_from_dir, copying_flags):
+def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename,huc_directory, copy_from_dir, copying_flags):
+    """
+    Subsets vector layers for a given HUC region by either copying from pre-clipped data 
+    or generating new clipped layers based on flags.
+
+    Args:
+        huc (str): HUC number as a string identifier.
+        wbd_filename (str): Path to the GeoPackage file containing the HUC boundary.
+        wbd_buffer_filename (str): Path to the GeoPackage file containing the buffered HUC boundary.
+        huc_directory (str): Output directory for saving the resulting vector layers.
+        copy_from_dir (str): Directory containing pre-clipped vector data to copy from (if applicable).
+        copying_flags (dict): Dictionary with 8 boolean flags indicating which vector layers to copy 
+                              vs. clip. Example:
+            {
+                'copy_nwm_lakes': True,
+                'copy_nwm_streams_headwater': True,
+                'copy_nwm_catchments': False,
+                'copy_levee_lines': False,
+                'copy_levee_lines_burned': False,
+                'copy_levee_protected_areas': False,
+                'copy_osm_bridges': False,
+                'copy_osm_roads': False
+            }
+
+    Returns:
+        None. Saves the subsetted vector layers to the specified `huc_directory`.
+      
+    """
+
     dem_cellsize= float(os.getenv('res'))
 
     if huc[:2]=='19':
@@ -128,7 +166,10 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
         osm_roads=  os.getenv('osm_roads')
         huc_CRS=os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 
-
+    #read wbd and wbd_buffered that are needed for clipping
+    wbd= gpd.read_file(os.path.join(huc_directory,wbd_filename))
+    wbd_buffer = gpd.read_file(os.path.join(huc_directory,wbd_buffer_filename))
+    
     #for copying, use shutil.copy2 to preserve the orignal files timestamps
     if copying_flags['copy_levee_protected_areas']:
         src=os.path.join(copy_from_dir,huc, output_filenames['levee_protected_areas'])
@@ -393,53 +434,36 @@ def subset_vector_layers(huc, wbd, wbd_buffer,output_filenames,huc_directory, co
 
 
 if __name__ == '__main__':
-    # print(sys.argv)
+    '''
+    
+    sample usage:
 
+    python subset_vectors.py \
+    --huc 21020001 \
+    --wbd_filename wbd.gpkg \
+    --wbd_buffer_filename wbd_buffered.gpkg \
+    --huc_directory outputs/preclips/test3/21020001/ \
+    --copy_from_dir data/inputs/pre_clip_huc8/20250218/ \
+    --copying_flags '{"copy_nwm_lakes": true, 
+        "copy_nwm_streams_headwater": true,
+        "copy_nwm_catchments": false,
+            "copy_levee_lines": false,
+            "copy_levee_lines_burned": false, 
+            "copy_levee_protected_areas": false, 
+            "copy_osm_bridges": false,
+                "copy_osm_roads": false}'
+
+    '''
     parser = argparse.ArgumentParser(description='Subset vector layers')
-    parser.add_argument('-a', '--subset-nwm-lakes', help='NWM lake subset', required=True)
-    parser.add_argument('-b', '--subset-nwm-streams', help='NWM streams subset', required=True)
-    parser.add_argument('-d', '--huc', help='HUC boundary ID', required=True, type=str)
-    parser.add_argument(
-        '-e', '--subset-nwm-headwaters', help='NWM headwaters subset', required=True, default=None
-    )
-    parser.add_argument('-f', '--wbd_buffer_filename', help='Buffered HUC boundary', required=True)
-    parser.add_argument(
-        '-s', '--wbd_streams_buffer_filename', help='Buffered HUC boundary (streams)', required=True
-    )
-    parser.add_argument('-g', '--wbd-filename', help='HUC boundary', required=True)
-    parser.add_argument('-i', '--dem-filename', help='DEM filename', required=True)
-    parser.add_argument('-j', '--dem-domain', help='DEM domain polygon', required=True)
-    parser.add_argument('-l', '--nwm-lakes', help='NWM Lakes', required=True)
-    parser.add_argument('-m', '--nwm-catchments', help='NWM catchments', required=True)
-    parser.add_argument('-n', '--subset-nwm-catchments', help='NWM catchments subset', required=True)
-    parser.add_argument('-r', '--nld-lines', help='Levee vectors to use within project path', required=True)
-    parser.add_argument(
-        '-rp', '--nld-lines-preprocessed', help='Levee vectors to use for DEM burning', required=True
-    )
-    parser.add_argument('-v', '--landsea', help='LandSea - land boundary', required=True)
-    parser.add_argument('-w', '--nwm-streams', help='NWM flowlines', required=True)
-    parser.add_argument('-x', '--subset-landsea', help='LandSea subset', required=True)
-    parser.add_argument('-y', '--nwm-headwaters', help='NWM headwaters', required=True)
-    parser.add_argument('-z', '--subset-nld-lines', help='Subset of NLD levee vectors for HUC', required=True)
-    parser.add_argument(
-        '-zp',
-        '--subset-nld-lines-preprocessed',
-        help='Subset of NLD levee vectors for burning elevations into DEMs',
-        required=True,
-    )
-    parser.add_argument(
-        '-wb', '--wbd-buffer-distance', help='WBD Mask buffer distance', required=True, type=int
-    )
-    parser.add_argument(
-        '-lpf', '--levee-protected-areas', help='Levee-protected areas filename', required=True
-    )
-    parser.add_argument(
-        '-lps', '--subset-levee-protected-areas', help='Levee-protected areas subset', required=True
-    )
-    parser.add_argument('-osm', '--osm-bridges', help='Open Street Maps gkpg', required=True)
-    parser.add_argument('-osms', '--subset-osm-bridges', help='Open Street Maps subset', required=True)
-    parser.add_argument('-ak', '--is-alaska', help='If in Alaska', action='store_true')
-    parser.add_argument('-crs', '--huc-CRS', help='HUC crs', required=True)
+
+    parser.add_argument('--huc', type=str, required=True, help='HUC number (e.g., "03180004")')
+    parser.add_argument('--wbd_filename', type=str, required=True, help='name of the HUC boundary gpkg file')
+    parser.add_argument('--wbd_buffer_filename', type=str, required=True, help='name of the buffered HUC boundary gpkg file')
+    parser.add_argument('--huc_directory', type=str, required=True, help='Directory containing the above GPKG files and HUC-specific output results')
+    parser.add_argument('--copy_from_dir', type=str, required=True, help='Directory with pre-clipped data for copying')
+    parser.add_argument('--copying_flags', type=json.loads, required=True,
+                        help='A dictionary with 8 itesm indicating which layers to copy vs. clip (e.g., \'{"copy_nwm_lakes": true, ...}\')')
+  
 
     args = vars(parser.parse_args())
 
