@@ -1392,14 +1392,17 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
     try:
 
         # Create columns for whether the USGS data meets each criterion
-        msg1 = np.where(usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list), '', 'unacceptable USGS data altitude method: ' + usgs_elev_df['usgs_data_alt_method_code'].astype(str)  + ', ')
-        msg2 = np.where(usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list), '', 'unacceptable USGS site type: ' + usgs_elev_df['usgs_data_site_type'].astype(str) + ', ')
-        msg3 = np.where(usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, '', 'unacceptable USGS altitude accuracy threshold: ' + usgs_elev_df['usgs_data_alt_accuracy_code'].astype(str) + ', ')
+        msg1 = np.where(usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list), '', 'Unacceptable USGS data altitude method: ' + usgs_elev_df['usgs_data_alt_method_code'].astype(str)  + ', ')
+        msg2 = np.where(usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list), '', 'Unacceptable USGS site type: ' + usgs_elev_df['usgs_data_site_type'].astype(str) + ', ')
+        msg3 = np.where(usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, '', 'Unacceptable USGS altitude accuracy threshold: ' + usgs_elev_df['usgs_data_alt_accuracy_code'].astype(str) + ', ')
 
         status_df = pd.DataFrame({'msg1': msg1, 'msg2': msg2, 'msg3': msg3})
 
         # Create detailed USGS exclusion status
         usgs_elev_df['usgs_exclusion_status'] = status_df['msg1'] + status_df['msg2'] + status_df['msg3']
+
+        # Remove the last comma using rstrip
+        usgs_elev_df['usgs_exclusion_status'] = usgs_elev_df['usgs_exclusion_status'].str.rstrip(',')
 
         # If it doesn't have anything for the exclusion criteria, set the usgs_exclusion_status to acceptable 
         usgs_elev_df['usgs_exclusion_status'] = usgs_elev_df['usgs_exclusion_status'].replace('', 'acceptable')
@@ -1455,7 +1458,7 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
 
         # If there is an exclusion status other than 'acceptable,' return the status 
         if usgs_exclusion_status != 'acceptable':
-            msg = ':' + usgs_exclusion_status
+            msg = ':Gage excluded due to the following criteria -- ' + usgs_exclusion_status
             all_messages.append(lid + msg)
             MP_LOG.warning(huc_lid_id + msg)
             return lid_usgs_elev, all_messages
