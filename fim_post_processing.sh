@@ -198,18 +198,6 @@ if [ "$src_bankfull_toggle" = "True" ]; then
     Tcount
 fi
 
-## RUN NONMONOTONIC SRC ADJUSTMENT ROUTINE ##
-if [ "$nonmonotonic_src_adjustment" = "True" ]; then
-    echo -e $startDiv"Performing Nonmonotonic SRC Adjustment routine"
-    # Run Nonmonotonic SRCs Adjustment routine -sl $subset_len
-    Tstart
-    python3 $srcDir/nonmonotonic_src_adjustment.py \
-        -fim_dir $outputDestDir \
-        -flows $bankfull_flows_file \
-        -j $jobLimit
-    Tcount
-fi
-
 ## RUN SYNTHETIC RATING SUBDIVISION ROUTINE ##
 if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; then
     l_echo $startDiv"Performing SRC channel/overbank subdivision routine"
@@ -218,6 +206,17 @@ if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; the
     python3 $srcDir/subdiv_chan_obank_src.py \
         -fim_dir $outputDestDir \
         -mann $vmann_input_file \
+        -j $jobLimit
+    Tcount
+fi
+
+## RUN NONMONOTONIC SRC ADJUSTMENT ROUTINE ##
+if [ "$nonmonotonic_src_adjustment" = "True" ]; then
+    echo -e $startDiv"Performing Nonmonotonic SRC Adjustment routine"
+    # Run Nonmonotonic SRCs Adjustment routine -flows $bankfull_flows_file \
+    Tstart
+    python3 $srcDir/nonmonotonic_src_adjustment.py \
+        -fim_dir $outputDestDir \
         -j $jobLimit
     Tcount
 fi

@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# This script may move to before subdivision routine.
+# Consiter it after FIM6.0 release
+# Note: This routine does not Update andy in-channel or over-bank variables
+# in SRCs and HTs. It just updates "Discharge (m3s-1)_subdiv"
 
 import datetime as dt
 import os
@@ -11,59 +15,58 @@ from os.path import join
 import numpy as np
 import pandas as pd
 
+# # -------------------------------------------------------
+# # calculating bankfull stage in SRCs
+# def src_bankfull_lookup(src_df, bankfull_flows_file):
 
-# -------------------------------------------------------
-# calculating bankfull stage in SRCs
-def src_bankfull_lookup(src_df, bankfull_flows_file):
+#     df_bflows = pd.read_csv(bankfull_flows_file, dtype={'feature_id': int})
+#     df_src = src_df.copy()
 
-    df_bflows = pd.read_csv(bankfull_flows_file, dtype={'feature_id': int})
-    df_src = src_df.copy()
+#     # NWM recurr rename discharge var
+#     df_bflows = df_bflows.rename(columns={'discharge': 'bankfull_flow'})
 
-    # NWM recurr rename discharge var
-    df_bflows = df_bflows.rename(columns={'discharge': 'bankfull_flow'})
+#     # Combine the nwm bankfull estimated flows into the SRC via feature_id
+#     df_src = df_src.merge(df_bflows, how='left', on='feature_id')
 
-    # Combine the nwm bankfull estimated flows into the SRC via feature_id
-    df_src = df_src.merge(df_bflows, how='left', on='feature_id')
+#     # Check if there are any missing data, negative or zero flow values in the bankfull_flow
+#     check_null = df_src['bankfull_flow'].isnull().sum()
+#     if check_null > 0:
+#         df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
 
-    # Check if there are any missing data, negative or zero flow values in the bankfull_flow
-    check_null = df_src['bankfull_flow'].isnull().sum()
-    if check_null > 0:
-        df_src['bankfull_flow'] = df_src['bankfull_flow'].fillna(-999)
+#     # Locate the closest SRC discharge value to the NWM bankfull estimated flow
+#     df_src['Q_bfull_find'] = (df_src['bankfull_flow'] - df_src['Discharge (m3s-1)']).abs()
 
-    # Locate the closest SRC discharge value to the NWM bankfull estimated flow
-    df_src['Q_bfull_find'] = (df_src['bankfull_flow'] - df_src['Discharge (m3s-1)']).abs()
+#     # Check for any missing/null entries in the input SRC
+#     # There may be null values for lake or coastal flow lines
+#     # (need to set a value to do groupby idxmin below)
+#     if df_src['Q_bfull_find'].isnull().values.any():
+#         df_src['Q_bfull_find'] = df_src['Q_bfull_find'].fillna(999999)
 
-    # Check for any missing/null entries in the input SRC
-    # There may be null values for lake or coastal flow lines
-    # (need to set a value to do groupby idxmin below)
-    if df_src['Q_bfull_find'].isnull().values.any():
-        df_src['Q_bfull_find'] = df_src['Q_bfull_find'].fillna(999999)
+#     # create new subset df to perform the Q_1_5 lookup
+#     df_bankfull_calc = df_src[['Stage', 'HydroID', 'Q_bfull_find']]
+#     # Ensure bankfull stage is greater than stage=0
+#     df_bankfull_calc = df_bankfull_calc[df_bankfull_calc['Stage'] > 0.0]
+#     df_bankfull_calc = df_bankfull_calc.reset_index(drop=True)
 
-    # create new subset df to perform the Q_1_5 lookup
-    df_bankfull_calc = df_src[['Stage', 'HydroID', 'Q_bfull_find']]
-    # Ensure bankfull stage is greater than stage=0
-    df_bankfull_calc = df_bankfull_calc[df_bankfull_calc['Stage'] > 0.0]
-    df_bankfull_calc = df_bankfull_calc.reset_index(drop=True)
+#     # find the index of the Q_bfull_find (closest matching flow)
+#     df_bankfull_calc = df_bankfull_calc.loc[
+#         df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()
+#     ].reset_index(drop=True)
+#     # rename volume to use later for channel portion calc
+#     df_bankfull_calc = df_bankfull_calc.rename(columns={'Stage': 'Stage_bankfull'})
+#     df_src = df_src.merge(df_bankfull_calc[['Stage_bankfull', 'HydroID']], how='left', on='HydroID')
 
-    # find the index of the Q_bfull_find (closest matching flow)
-    df_bankfull_calc = df_bankfull_calc.loc[
-        df_bankfull_calc.groupby('HydroID')['Q_bfull_find'].idxmin()
-    ].reset_index(drop=True)
-    # rename volume to use later for channel portion calc
-    df_bankfull_calc = df_bankfull_calc.rename(columns={'Stage': 'Stage_bankfull'})
-    df_src = df_src.merge(df_bankfull_calc[['Stage_bankfull', 'HydroID']], how='left', on='HydroID')
+#     df_src = df_src.drop(['Q_bfull_find'], axis=1)
 
-    df_src = df_src.drop(['Q_bfull_find'], axis=1)
+#     ## mask bankfull variables when the bankfull estimated flow value is <= 0
+#     df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0, inplace=True)
 
-    ## mask bankfull variables when the bankfull estimated flow value is <= 0
-    df_src['Stage_bankfull'].mask(df_src['bankfull_flow'] <= 0.0, inplace=True)
+#     ## Create a new column to identify channel/floodplain via the bankfull stage value
+#     df_src.loc[df_src['Stage'] <= df_src['Stage_bankfull'], 'bankfull_proxy'] = 'channel'
+#     df_src.loc[df_src['Stage'] > df_src['Stage_bankfull'], 'bankfull_proxy'] = 'floodplain'
+#     df_src['bankfull_proxy'] = df_src['bankfull_proxy'].fillna('channel')
 
-    ## Create a new column to identify channel/floodplain via the bankfull stage value
-    df_src.loc[df_src['Stage'] <= df_src['Stage_bankfull'], 'bankfull_proxy'] = 'channel'
-    df_src.loc[df_src['Stage'] > df_src['Stage_bankfull'], 'bankfull_proxy'] = 'floodplain'
-    df_src['bankfull_proxy'] = df_src['bankfull_proxy'].fillna('channel')
-
-    return df_src
+#     return df_src
 
 
 # -------------------------------------------------------
@@ -75,71 +78,6 @@ def reset_stage(srcs_df):
     srcs_df['Stage'] = [i * step for i in range(len(srcs_df))]
 
     return srcs_df
-
-
-# -------------------------------------------------------
-# Analysing each HydroID SRC for nonmonotonic SRC
-def analyze_nonmonotonic_src(srcs_df, strm_order, thalweg_hydroids):
-
-    # Only apply on stream orders >= strm_order
-    if srcs_df['order_'].iloc[0] < strm_order:
-        return srcs_df
-
-    # Only apply on HydroIDs that have not been fixed in thalweg notches adjustment
-    if srcs_df['HydroID'].iloc[0] in thalweg_hydroids:
-        return srcs_df
-
-    cond_chan = srcs_df['bankfull_proxy'] == 'channel'
-    srcs_df_chan = srcs_df[cond_chan]
-    non_monotonic_index = srcs_df_chan.index[srcs_df_chan['Discharge (m3s-1)'].diff().lt(0)].tolist()
-
-    # Recalculate 'Discharge' values before the last non-monotonic row
-    # Note: No change has been applied on WetArea, Volume, LENGTHKM
-    if non_monotonic_index:
-
-        # src_cols = ['Number of Cells', 'SurfaceArea (m2)', 'BedArea (m2)']
-        # # Recalculate Number of Cells, SurfaceArea (m2) and BedArea (m2)
-        # for col in src_cols:
-        # # Only use non-NaN values for fitting
-        #     x = existing_src.index.values[-num_rows:]
-        #     y = existing_src[col].values[-num_rows:]
-
-        #     # Numeric columns: extrapolate
-        #     if np.issubdtype(srcs_df[col].dtype, np.number):
-        #         # If only one data point, repeat it
-        #         if len(x) == 1:
-        #             extended_src[col] = y[0]
-        #         else:
-        #             coeffs = np.polyfit(x, y, 1)
-        #             extended_src[col] = np.polyval(coeffs, extended_src.index.values)
-
-        #         # Overwrite with original values where available
-        #         for stage in existing_src.index.values:
-        #             extended_src.at[stage, col] = existing_src.at[stage, col]
-
-        target_numCells = srcs_df.loc[non_monotonic_index[-1], 'Number of Cells']
-        target_SurfaceArea = srcs_df.loc[non_monotonic_index[-1], 'SurfaceArea (m2)']
-        target_BedArea = srcs_df.loc[non_monotonic_index[-1], 'BedArea (m2)']
-        srcs_df.loc[: non_monotonic_index[-1] - 1, 'Number of Cells'] = target_numCells
-        srcs_df.loc[: non_monotonic_index[-1] - 1, 'SurfaceArea (m2)'] = target_SurfaceArea
-        srcs_df.loc[: non_monotonic_index[-1] - 1, 'BedArea (m2)'] = target_BedArea
-
-        # Recalculating discharge variables
-        srcs_df['TopWidth (m)'] = srcs_df['SurfaceArea (m2)'] / srcs_df['LENGTHKM'] / 1000
-        srcs_df['WettedPerimeter (m)'] = srcs_df['BedArea (m2)'] / srcs_df['LENGTHKM'] / 1000
-        srcs_df['HydraulicRadius (m)'] = srcs_df['WetArea (m2)'] / srcs_df['WettedPerimeter (m)']
-        srcs_df['HydraulicRadius (m)'].fillna(0, inplace=True)
-
-        # Recalculate Discharge (m3s-1)
-        srcs_df['Discharge (m3s-1)'][: non_monotonic_index[-1] - 1] = (
-            srcs_df['WetArea (m2)'][: non_monotonic_index[-1] - 1]
-            * pow(srcs_df['HydraulicRadius (m)'][: non_monotonic_index[-1] - 1], 2.0 / 3)
-            * pow(srcs_df['SLOPE'][: non_monotonic_index[-1] - 1], 0.5)
-            / srcs_df['ManningN'][: non_monotonic_index[-1] - 1]
-        )
-
-    return srcs_df
-
 
 # -------------------------------------------------------
 # Extending src_df with linear_extrapolation for missing stages in thalweg notches
@@ -171,7 +109,8 @@ def extend_src_linear_extrapolation(srcs_df, stages_full):
         y = existing_src[col].values[-num_rows:]
 
         # Numeric columns: extrapolate
-        if np.issubdtype(srcs_df[col].dtype, np.number):
+        # if np.issubdtype(srcs_df[col].dtype, np.number):
+        if srcs_df[col].iloc[-1] != srcs_df[col].iloc[-2]:
             coeffs = np.polyfit(x, y, 1)
             extended_src[col] = np.polyval(coeffs, extended_src.index.values)
 
@@ -197,10 +136,81 @@ def extend_src_linear_extrapolation(srcs_df, stages_full):
 
     return extended_src
 
+# -------------------------------------------------------
+# Analysing each HydroID SRC for nonmonotonic SRC
+def analyze_nonmonotonic_src(srcs_df, strm_order): #, thalweg_hydroids
+
+    # Only apply on stream orders >= strm_order
+    if srcs_df['order_'].iloc[0] < strm_order:
+        return srcs_df
+
+    # # Only apply on HydroIDs that have not been fixed in thalweg notches adjustment
+    # if srcs_df['HydroID'].iloc[0] in thalweg_hydroids:
+    #     return srcs_df
+
+    cond_chan = srcs_df['bankfull_proxy'] == 'channel'
+    srcs_df_chan = srcs_df[cond_chan]
+    non_monotonic_index = srcs_df_chan.index[srcs_df_chan['Discharge (m3s-1)'].diff().lt(0)].tolist()
+
+    # Recalculate 'Discharge' values before the last non-monotonic row
+    # Note: No change has been applied on WetArea, Volume, LENGTHKM
+    if non_monotonic_index:
+        
+        # This may help for better extimation of discharge; consider after fim6 release
+        # src_cols = ['Number of Cells', 'SurfaceArea (m2)', 'BedArea (m2)']
+        # # Recalculate Number of Cells, SurfaceArea (m2) and BedArea (m2)
+        # for col in src_cols:
+        # # Only use non-NaN values for fitting
+        #     x = existing_src.index.values[-num_rows:]
+        #     y = existing_src[col].values[-num_rows:]
+
+        #     # Numeric columns: extrapolate
+        #     if np.issubdtype(srcs_df[col].dtype, np.number):
+        #         # If only one data point, repeat it
+        #         if len(x) == 1:
+        #             extended_src[col] = y[0]
+        #         else:
+        #             coeffs = np.polyfit(x, y, 1)
+        #             extended_src[col] = np.polyval(coeffs, extended_src.index.values)
+
+        #         # Overwrite with original values where available
+        #         for stage in existing_src.index.values:
+        #             extended_src.at[stage, col] = existing_src.at[stage, col]
+
+        target_numCells = srcs_df.loc[non_monotonic_index[-1], 'Number of Cells']
+        target_SurfaceArea = srcs_df.loc[non_monotonic_index[-1], 'SurfaceArea (m2)']
+        target_BedArea = srcs_df.loc[non_monotonic_index[-1], 'BedArea (m2)']
+        srcs_df.loc[: non_monotonic_index[-1] - 1, 'Number of Cells'] = target_numCells
+        srcs_df.loc[: non_monotonic_index[-1] - 1, 'SurfaceArea (m2)'] = target_SurfaceArea
+        srcs_df.loc[: non_monotonic_index[-1] - 1, 'BedArea (m2)'] = target_BedArea
+
+        # Recalculating discharge variables
+        target_TopWidth = target_SurfaceArea / srcs_df['LENGTHKM'][: non_monotonic_index[-1] - 1] / 1000
+        target_WettedPerimeter = target_BedArea / srcs_df['LENGTHKM'][: non_monotonic_index[-1] - 1] / 1000
+        target_HydraulicRadius = srcs_df['WetArea (m2)'][: non_monotonic_index[-1] - 1] / target_WettedPerimeter
+        srcs_df.loc[: non_monotonic_index[-1] - 1, 'TopWidth (m)'] = target_TopWidth
+        srcs_df.loc[: non_monotonic_index[-1] - 1, 'WettedPerimeter (m)'] = target_WettedPerimeter
+        srcs_df.loc[: non_monotonic_index[-1] - 1, 'HydraulicRadius (m)'] = target_HydraulicRadius
+        srcs_df['HydraulicRadius (m)'].fillna(0, inplace=True)
+
+        # Recalculate Discharge (m3s-1)
+        srcs_df['Discharge (m3s-1)'][: non_monotonic_index[-1] - 1] = (
+            srcs_df['WetArea (m2)'][: non_monotonic_index[-1] - 1]
+            * pow(srcs_df['HydraulicRadius (m)'][: non_monotonic_index[-1] - 1], 2.0 / 3)
+            * pow(srcs_df['SLOPE'][: non_monotonic_index[-1] - 1], 0.5)
+            / srcs_df['channel_n'][: non_monotonic_index[-1] - 1]
+        )
+        srcs_df['Discharge (m3s-1)_subdiv'] = np.where(
+            srcs_df['subdiv_applied'] == True,
+            srcs_df['Discharge (m3s-1)'],
+            srcs_df['Discharge (m3s-1)_subdiv']
+        )
+
+    return srcs_df
 
 # -------------------------------------------------------
 # Correcting nonmonotonic SRC
-def correct_nonmonotonic_src(fim_dir, huc, strm_order, bankfull_flows_file):
+def correct_nonmonotonic_src(fim_dir, huc, strm_order): #, bankfull_flows_file
     """Function for correcting nonmonotonic synthetic rating curves.
     For GMS branches, it will correct each hydroID SRC in serial based
     that shows nonmonotonic behavior within in-channel stages.
@@ -242,6 +252,13 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order, bankfull_flows_file):
         # src_df2 = src_bankfull_lookup(src_df, bankfull_flows_file)
         src_df2 = src_df.copy()
 
+        ## Use the subdivision discharge column when is is being applied
+        src_df2['Discharge (m3s-1)'] = np.where(
+            src_df2['subdiv_applied'] == True,
+            src_df2['Discharge (m3s-1)_subdiv'],
+            src_df2['Discharge (m3s-1)']
+        )
+
         # Removing thalweg notche rows from SRCs and
         # Applying extend_src_linear_extrapolation to add missing rows
         cond_ThalwegNRows = (src_df2['Number of Cells'] == 0) & (src_df2['Stage'] > 0)
@@ -262,11 +279,9 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order, bankfull_flows_file):
 
             # Apply extend_src_linear_extrapolation to each src_df
             src_df3 = (
-                src_df3.groupby('HydroID', group_keys=False).apply(
-                    extend_src_linear_extrapolation(stages_full=stages_full)
-                )
-                # .apply(lambda src_g: extend_src_linear_extrapolation(src_g, stages_full, src_cols, num_rows))
-                # .sort_values(['HydroID', 'Stage'])
+                src_df3.groupby('HydroID', group_keys=False)
+                .apply(lambda src_g: extend_src_linear_extrapolation(src_g, stages_full))
+                .sort_values(['HydroID', 'Stage'])
                 .reset_index(drop=True)
             )
             cols_int = [
@@ -285,14 +300,16 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order, bankfull_flows_file):
         # Adjusting src tables for nonmonotonic SRCs
         # Excluding hydroIDs that already fixed in thalweg notches adjustment
         # thalweg_hydroids = [hyid for hyid in src_df[cond_ThalwegNRows]['HydroID'].drop_duplicates()]
-        # src_df4 = src_df3.groupby('HydroID', group_keys=False).apply(
-        #     analyze_nonmonotonic_src, strm_order=strm_order, thalweg_hydroids = thalweg_hydroids
-        # )
+        src_df4 = src_df3.groupby('HydroID', group_keys=False).apply(
+            analyze_nonmonotonic_src, strm_order=strm_order # , thalweg_hydroids = thalweg_hydroids
+        )
 
-        src_df4 = src_df3.copy()
+        # src_df4 = src_df3.copy()
         # Make sure nonmonotonic adjustment just applied within in-channel stages
         cond_bankfull = src_df3['bankfull_proxy'] == 'floodplain'
-        src_df4.loc[cond_bankfull, 'Discharge (m3s-1)'] = src_df3.loc[cond_bankfull, 'Discharge (m3s-1)']
+        if 'Discharge (m3s-1)_subdiv' in src_df3.columns():
+            src_df4.loc[cond_bankfull, 'Discharge (m3s-1)_subdiv'] = src_df3.loc[cond_bankfull, 'Discharge (m3s-1)_subdiv']
+        src_df4.loc[cond_bankfull, 'Discharge (m3s-1)'] = src_df3.loc[cond_bankfull, 'Discharge (m3s-1)']        
         src_df4.loc[cond_bankfull, 'SurfaceArea (m2)'] = src_df3.loc[cond_bankfull, 'SurfaceArea (m2)']
         src_df4.loc[cond_bankfull, 'BedArea (m2)'] = src_df3.loc[cond_bankfull, 'BedArea (m2)']
         src_df4.loc[cond_bankfull, 'TopWidth (m)'] = src_df3.loc[cond_bankfull, 'TopWidth (m)']
@@ -304,31 +321,42 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order, bankfull_flows_file):
 
         # Force zero stage to have zero discharge
         src_df4.loc[src_df4['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+        if 'Discharge (m3s-1)_subdiv' in src_df4.columns():
+            src_df4.loc[src_df4['Stage'] == 0, ['Discharge (m3s-1)_subdiv']] = 0
 
         # Write src back to file
         src_df = src_df4.copy()
         src_df.to_csv(src, index=False)
 
-        # # Adjusting hydro tables for nonmonotonic SRC
-        # log_text += f'Adjusting Nonmonotonic hydroTable for HUC {huc} Branch: {branch}'
+        # Adjusting hydro tables for nonmonotonic SRC
+        # Reporting in the log file
+        log_text += f'Adjusting Nonmonotonic hydroTable for HUC {huc} Branch {branch}'
 
-        # ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
-        # ht_df = pd.read_csv(ht_branch_path, low_memory=False)
+        ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
+        ht_df = pd.read_csv(ht_branch_path, low_memory=False)
 
-        # ht_df.loc[Q0_cond, 'discharge_cms'] = 0
-        # ht_df.loc[Q0_cond, 'Volume (m3)'] = 0
-        # ht_df.loc[Q0_cond, 'WetArea (m2)'] = 0
-        # ht_df.loc[Q0_cond, 'BedArea (m2)'] = 0
-        # ht_df.loc[Q0_cond, 'HydraulicRadius (m)'] = 0
+        ## Use the subdivision discharge column when it is being applied
+        if 'Discharge (m3s-1)_subdiv' in ht_df.columns():
+            ht_df ['Discharge (m3s-1)_subdiv'] = src_df['Discharge (m3s-1)_subdiv']
+        ht_df ['Number of Cells'] = src_df['Number of Cells']
+        ht_df ['SurfaceArea (m2)'] = src_df['SurfaceArea (m2)']
+        ht_df ['BedArea (m2)'] = src_df['BedArea (m2)']
+        ht_df ['TopWidth (m)'] = src_df['TopWidth (m)']
+        ht_df ['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)']
+        ht_df ['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)']
+        ht_df ['WetArea (m2)'] = src_df['WetArea (m2)']
+        ht_df ['Volume (m3'] = src_df['Volume (m3']
+        ht_df ['discharge_cms'] = src_df['Discharge (m3s-1)']
 
-        # ht_df.to_csv(ht_branch_path, index=False)
+        # Write ht back to file
+        ht_df.to_csv(ht_branch_path, index=False)
 
     return log_text
 
 
 # --------------------------------------------------------
 # Apply nonmonotonic src adjustment
-def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, bankfull_flows_file, log_file_path):
+def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path): #bankfull_flows_file, 
     """
     Function for applying nonmonotonic SRC adjustment to synthetic rating curves.
 
@@ -349,7 +377,7 @@ def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, bankfull_flows_f
         msg = f"Correcting rating curve for nonmonotonic SRC for HUC : {huc}"
         log_text += msg + '\n'
         print(msg)
-        log_text += correct_nonmonotonic_src(fim_dir, huc, strm_order, bankfull_flows_file)
+        log_text += correct_nonmonotonic_src(fim_dir, huc, strm_order) # bankfull_flows_file
 
     except Exception:
         log_text += f"An error has occurred while processing nonmonotonic SRC for huc {huc}"
@@ -363,7 +391,7 @@ def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, bankfull_flows_f
 
 
 # -------------------------------------------------------
-def process_nonmonotonic_src_adjustment(fim_dir, strm_order, bankfull_flows_file, number_of_jobs):
+def process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs): # bankfull_flows_file, 
     """
     Function for correcting nonmonotonic synthetic rating curves using Multi-Proc function
     for each HUC8. For GMS branches, it will correct each hydroID SRC in serial based that
@@ -404,7 +432,7 @@ def process_nonmonotonic_src_adjustment(fim_dir, strm_order, bankfull_flows_file
                 'fim_dir': fim_dir,
                 'huc': huc,
                 'strm_order': strm_order,
-                'bankfull_flows_file': bankfull_flows_file,
+                # 'bankfull_flows_file': bankfull_flows_file,
                 'log_file_path': log_file_path,
             }
             future = executor.submit(apply_nonmonotonic_src_adjustment, **args)
@@ -452,13 +480,13 @@ if __name__ == '__main__':
         required=False,
         type=int,
     )
-    parser.add_argument(
-        '-flows',
-        '--bankfull_flows_file',
-        help="Path to bankfull flow values per feature-id",
-        required=True,
-        type=str,
-    )
+    # parser.add_argument(
+    #     '-flows',
+    #     '--bankfull_flows_file',
+    #     help="Path to bankfull flow values per feature-id",
+    #     required=True,
+    #     type=str,
+    # )
     parser.add_argument(
         '-j',
         '--number-of-jobs',
@@ -471,7 +499,7 @@ if __name__ == '__main__':
 
     fim_dir = args['fim_dir']
     strm_order = args['strm_order']
-    bankfull_flows_file = args['bankfull_flows_file']
+    #  bankfull_flows_file = args['bankfull_flows_file']
     number_of_jobs = args['number_of_jobs']
 
-    process_nonmonotonic_src_adjustment(fim_dir, strm_order, bankfull_flows_file, number_of_jobs)
+    process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs) #bankfull_flows_file, 
