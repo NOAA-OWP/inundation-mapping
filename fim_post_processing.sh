@@ -198,10 +198,22 @@ if [ "$src_bankfull_toggle" = "True" ]; then
     Tcount
 fi
 
+## RUN SYNTHETIC RATING SUBDIVISION ROUTINE ##
+if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; then
+    l_echo $startDiv"Performing SRC channel/overbank subdivision routine"
+    # Run SRC Subdivision & Variable Roughness routine
+    Tstart
+    python3 $srcDir/subdiv_chan_obank_src.py \
+        -fim_dir $outputDestDir \
+        -mann $vmann_input_file \
+        -j $jobLimit
+    Tcount
+fi
+
 ## RUN NONMONOTONIC SRC ADJUSTMENT ROUTINE ##
 if [ "$nonmonotonic_src_adjustment" = "True" ]; then
     echo -e $startDiv"Performing Nonmonotonic SRC Adjustment routine"
-    # Run Nonmonotonic SRCs Adjustment routine -sl $subset_len
+    # Run Nonmonotonic SRCs Adjustment routine -flows $bankfull_flows_file \
     Tstart
     python3 $srcDir/nonmonotonic_src_adjustment.py \
         -fim_dir $outputDestDir \
@@ -213,22 +225,10 @@ fi
 if [ "$logitudinal_filter" = "True" ]; then
     echo -e $startDiv"Performing longitudinal filter routine"
     Tstart
-    python3 $srcDir/filter_longitudinal_flow.py \
+    python3 $srcDir/longitudinal_flow_adjustment.py \
         -fim_dir $outputDestDir \
         -j $jobLimit \
 
-    Tcount
-fi
-
-## RUN SYNTHETIC RATING SUBDIVISION ROUTINE ##
-if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; then
-    l_echo $startDiv"Performing SRC channel/overbank subdivision routine"
-    # Run SRC Subdivision & Variable Roughness routine
-    Tstart
-    python3 $srcDir/subdiv_chan_obank_src.py \
-        -fim_dir $outputDestDir \
-        -mann $vmann_input_file \
-        -j $jobLimit
     Tcount
 fi
 
