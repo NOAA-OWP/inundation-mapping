@@ -313,7 +313,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         # src_df4 = src_df3.copy()
         # Make sure nonmonotonic adjustment just applied within in-channel stages
         cond_bankfull = src_df3['bankfull_proxy'] == 'floodplain'
-        if 'Discharge (m3s-1)_subdiv' in src_df3.columns():
+        if 'Discharge (m3s-1)_subdiv' in src_df3.columns:
             src_df4.loc[cond_bankfull, 'Discharge (m3s-1)_subdiv'] = src_df3.loc[
                 cond_bankfull, 'Discharge (m3s-1)_subdiv'
             ]
@@ -329,7 +329,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
 
         # Force zero stage to have zero discharge
         src_df4.loc[src_df4['Stage'] == 0, ['Discharge (m3s-1)']] = 0
-        if 'Discharge (m3s-1)_subdiv' in src_df4.columns():
+        if 'Discharge (m3s-1)_subdiv' in src_df4.columns:
             src_df4.loc[src_df4['Stage'] == 0, ['Discharge (m3s-1)_subdiv']] = 0
 
         # Write src back to file
@@ -344,7 +344,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         ht_df = pd.read_csv(ht_branch_path, low_memory=False)
 
         ## Use the subdivision discharge column when it is being applied
-        if 'Discharge (m3s-1)_subdiv' in ht_df.columns():
+        if 'Discharge (m3s-1)_subdiv' in ht_df.columns:
             ht_df['Discharge (m3s-1)_subdiv'] = src_df['Discharge (m3s-1)_subdiv']
         ht_df['Number of Cells'] = src_df['Number of Cells']
         ht_df['SurfaceArea (m2)'] = src_df['SurfaceArea (m2)']
@@ -353,7 +353,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         ht_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)']
         ht_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)']
         ht_df['WetArea (m2)'] = src_df['WetArea (m2)']
-        ht_df['Volume (m3'] = src_df['Volume (m3']
+        ht_df['Volume (m3)'] = src_df['Volume (m3)']
         ht_df['discharge_cms'] = src_df['Discharge (m3s-1)']
 
         # Write ht back to file
