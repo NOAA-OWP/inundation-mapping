@@ -1455,9 +1455,9 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
         usgs_exclusion_status = lid_info['usgs_exclusion_status'].values[0]
 
         # If there is an exclusion status other than 'acceptable,' return the status
-        # Uses [:-1] to exclude the last comma in the string
+        # Uses [:-2] to exclude the last comma and space in the string
         if usgs_exclusion_status != 'acceptable':
-            msg = ':Gage excluded due to the following criteria -- ' + usgs_exclusion_status[:-1]
+            msg = ':Gage excluded due to the following criteria -- ' + usgs_exclusion_status[:-2]
             all_messages.append(lid + msg)
             MP_LOG.warning(huc_lid_id + msg)
             return lid_usgs_elev, all_messages
