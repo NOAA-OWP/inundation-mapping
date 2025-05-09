@@ -18,6 +18,71 @@ The following scripts have been updated/added to adjust synthetic rating curves.
     - `params_template.env`
 - `inundation-mapping/`
     - `fim_post_processing.sh`
+## v4.6.1.11 - 2025-05-01 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)
+
+Downloads the FEMA NFHL data for HUC8.
+
+### Changes
+
+`data/nfhl/download_fema_nfhl.py` : downloads FEMA NFHL data.
+
+<br/><br/>
+
+
+## v4.6.1.10 - 2025-05-01 - [PR#1425](https://github.com/NOAA-OWP/inundation-mapping/pull/1425)
+
+A script that uses the National Weather Service's Georeferenced Impact Statement for gauged locations to calibrate the rating curve.
+Step 1: It uses impact statement polygons for a specific site and samples the REM values under each polygon.
+Step 2: For each impact stage (action, minor, moderate, and major), it calculates the median, 75th percentile, and upper extreme HAND values.
+Step 3: It finds the closest matching stage to the user-provided HAND value and copies the corresponding hydroTable values for the matching stage.
+Step 4: It calculates a weighted average calibration coefficient and adjusts Manning’s roughness.
+Step 5: It recalculates the discharge and updates the hydroTable.
+
+### Additions
+- `tools/georeferenced_impact_statement_cal.py` : An script for impact statement calibration.
+
+<br/><br/>
+
+
+## v4.6.1.9 - 2025-05-01 - [PR#1472](https://github.com/NOAA-OWP/inundation-mapping/pull/1472)
+
+Previously, we did not have a good way of comparing the inundation between different versions of CatFIM. This PR updates the CatFIM site comparison tool so that users have the option to produce spatial comparison geopackages for each versio. comparison they are producing. 
+
+### Changes
+- `inundation-mapping/tools/catfim/catfim_sites_compare.py`: Updated docstrings and input error handling. Adds the optional `-g` argument, which creates a gained coverage, lost coverage, and site status geopackage for each pair of CatFIM versions it is comparing.
+
+<br/><br/>
+
+
+## v4.6.1.8 - 2025-05-01 - [PR#1485](https://github.com/NOAA-OWP/inundation-mapping/pull/1485)
+
+A few minor bugs in the ripple download tools are corrected here. It was failing near when it was parsing out s3 folder names as well as failing when saving the download data csv's
+
+### Changes
+
+- `data/ripple/get_s3_folder.sh` and `get_s3_folders_from_list.sh`
+
+<br/><br/>
+
+
+## v4.6.1.7 - 2025-05-01 - [PR#1488](https://github.com/NOAA-OWP/inundation-mapping/pull/1488)
+This PR adds a new manual adjustment file containing SRC calibration factors for Houston HUC 12040104. The addition of this manual calibration file improves inundation issues in Houston described in #1446 by adjusting the SRCs in urban catchments.
+
+### Changes
+-  `src/bash_variables.env` : Updated path to new manual calibration file located here - `../inputs/rating_curve/manual_calibration_coef_order_1_4_houston.csv`
+
+<br/><br/>
+
+
+## v4.6.1.6 - 2025-05-01 - [PR#1489](https://github.com/NOAA-OWP/inundation-mapping/pull/1489)
+
+Adds a workaround to the CatFIM lake masking code that just returns the unmasked array if the lakes geopackage is not available. It also pulls the lakes geopackage from the FIM output HUC folder, rather than a hard-coded preclip folder, so the lakes geopackage will be the correct lakes file for that FIM run. This update also improves error tracing in `reformat_inundation_maps()` (from `generate_categorical_fim_mapping.py`) so it produces a more descriptive error message if no inundated polygons are found (rather than the misleading CRS error that was previously given). 
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Adjustments to spacing.
+- `tools/catfim/generate_categorical_fim_mapping.py`: Updated the two places where `mask_out_lakes()` is run so they have the updated additional input (`fim_run_dir` and `mask_status`). Add `mask_status` to be printed in the log. Improved error messaging in `reformat_inundation_maps()`.
+- `tools/tools_shared_functions.py`: Updated the `mask_out_lakes()` function to have `fim_run_dir` as an additional input to the function and `mask_status` as an additional output. Changed pathing of the lakes gpkg so it comes from the FIM results HUC folder rather than a hard-coded preclip folder. Updated function so it checks whether the lakes GPKG exists for a given HUC and, if not, then it just returns the unmasked lake file with the appropriate `mask_status` message.  
+
 
 <br/><br/>
 
