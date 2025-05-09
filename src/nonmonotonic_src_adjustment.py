@@ -281,7 +281,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
             # Applying extend_src_linear_extrapolation to add missing rows
             # Identify the standard stages
             stages_full = np.sort(src_df3.groupby('HydroID').filter(lambda x: len(x) == 84)['Stage'].unique())
-            print(stages_full)
+            # print(stages_full)
 
             # Apply extend_src_linear_extrapolation to each src_df
             src_df3 = (
