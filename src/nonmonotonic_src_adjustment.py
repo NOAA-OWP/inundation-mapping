@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # This script may move to before subdivision routine.
 # Consiter it after FIM6.0 release
-# Note: This routine does not Update andy in-channel or over-bank variables
+# Note: This routine does not Update any in-channel or over-bank variables
 # in SRCs and HTs. It just updates "Discharge (m3s-1)_subdiv"
 
 import datetime as dt
@@ -281,7 +281,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
             # Applying extend_src_linear_extrapolation to add missing rows
             # Identify the standard stages
             stages_full = np.sort(src_df3.groupby('HydroID').filter(lambda x: len(x) == 84)['Stage'].unique())
-            print(stages_full)
+            # print(stages_full)
 
             # Apply extend_src_linear_extrapolation to each src_df
             src_df3 = (
