@@ -1388,24 +1388,28 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
     acceptable_usgs_elev_df = None
     try:
+        acceptable_msg = ''
+        unacceptable_alt_meth_msg = 'Unacceptable USGS data altitude method: '
+        unacceptable_site_type_msg = 'Unacceptable USGS site type: '
+        unacceptable_alt_acc_msg = 'Unacceptable USGS altitude accuracy threshold: '
 
         # Create columns for whether the USGS data meets each criterion
         msg1 = np.where(
             usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list),
-            '',
-            'Unacceptable USGS data altitude method: '
+            acceptable_msg, 
+            unacceptable_alt_meth_msg
             + usgs_elev_df['usgs_data_alt_method_code'].astype(str)
             + ', ',
         )
         msg2 = np.where(
             usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list),
-            '',
-            'Unacceptable USGS site type: ' + usgs_elev_df['usgs_data_site_type'].astype(str) + ', ',
+            acceptable_msg,
+            unacceptable_site_type_msg + usgs_elev_df['usgs_data_site_type'].astype(str) + ', ',
         )
         msg3 = np.where(
             usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh,
-            '',
-            'Unacceptable USGS altitude accuracy threshold: '
+            acceptable_msg,
+            unacceptable_alt_acc_msg
             + usgs_elev_df['usgs_data_alt_accuracy_code'].astype(str)
             + ', ',
         )
