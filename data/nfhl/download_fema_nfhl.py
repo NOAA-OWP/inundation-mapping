@@ -142,60 +142,64 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
             nfhl_df = nfhl_df[nfhl_df.geom_type.isin(['Polygon', 'MultiPolygon'])]
             # Explode multipolygon geometries to single polygons
             nfhl_df = nfhl_df.explode(index_parts=True).reset_index(drop=True)
+            if not nfhl_df.empty:
+                # Save 100-year data
+                nfhl_100 = nfhl_df[nfhl_df['FLD_ZONE'].str.startswith(('A', 'V'))]
+                if not nfhl_100.empty:
+                    nfhl_100_dissolved = nfhl_100.dissolve()
+                    nfhl_100_exploded = nfhl_100_dissolved.explode().reset_index(drop=True)
+                    new_geoms_100 = [
+                        Polygon(geom.exterior)
+                        for geom in nfhl_100_exploded.geometry
+                        if geom is not None and geom.is_valid
+                    ]
+                    nfhl_100_exploded.geometry = new_geoms_100
+                    nfhl_100_exploded = nfhl_100_exploded[~nfhl_100_exploded.geometry.isna()]
+                    nfhl_100_final = nfhl_100_exploded.dissolve().reset_index(drop=True)
+                    nfhl_100_final = nfhl_100_final.dropna(axis=1, how='all')
+                    # Save to GPKG as '100_year' layer
+                    nfhl_100_final.to_file(out_file, layer='100_year', index=False, driver='GPKG')
+                else:
+                    print(f'No 100-year zones for HUC {huc}')
 
-            # Save 100-year data
-            nfhl_100 = nfhl_df[nfhl_df['FLD_ZONE'].str.startswith(('A', 'V'))]
-            if not nfhl_100.empty:
-                nfhl_100_dissolved = nfhl_100.dissolve()
-                nfhl_100_exploded = nfhl_100_dissolved.explode().reset_index(drop=True)
-                new_geoms_100 = [
-                    Polygon(geom.exterior)
-                    for geom in nfhl_100_exploded.geometry
-                    if geom is not None and geom.is_valid
+                # Save 500-year data
+                nfhl_500 = nfhl_df[
+                    (nfhl_df['FLD_ZONE'] == 'X')
+                    & (nfhl_df['ZONE_SUBTY'] == '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')
                 ]
-                nfhl_100_exploded.geometry = new_geoms_100
-                nfhl_100_exploded = nfhl_100_exploded[~nfhl_100_exploded.geometry.isna()]
-                nfhl_100_final = nfhl_100_exploded.dissolve().reset_index(drop=True)
-                nfhl_100_final = nfhl_100_final.dropna(axis=1, how='all')
-                # Save to GPKG as '100_year' layer
-                nfhl_100_final.to_file(out_file, layer='100_year', index=False, driver='GPKG')
+                if not nfhl_500.empty:
+                    nfhl_500_dissolved = nfhl_500.dissolve()
+                    nfhl_500_exploded = nfhl_500_dissolved.explode().reset_index(drop=True)
+                    new_geoms_500 = [
+                        Polygon(geom.exterior)
+                        for geom in nfhl_500_exploded.geometry
+                        if geom is not None and geom.is_valid
+                    ]
+                    nfhl_500_exploded.geometry = new_geoms_500
+                    nfhl_500_exploded = nfhl_500_exploded[~nfhl_500_exploded.geometry.isna()]
+                    nfhl_500_final = nfhl_500_exploded.dissolve().reset_index(drop=True)
+                    nfhl_500_final = nfhl_500_final.dropna(axis=1, how='all')
+                    # Save to GPKG as '500_year' layer
+                    nfhl_500_final.to_file(out_file, layer='500_year', index=False, driver='GPKG')
+                else:
+                    print(f'No 500-year zones for HUC {huc}')
+                # Process combined 100-year and 500-year zones
+                nfhl_df_dissolved = nfhl_df.dissolve()
+                nfhl_df_exploded = nfhl_df_dissolved.explode().reset_index(drop=True)
+
+                new_geom = [Polygon(geom.exterior) for geom in nfhl_df_exploded.geometry]
+                nfhl_df_exploded.geometry = new_geom
+
+                # remove None geometries
+                nfhl_df_exploded = nfhl_df_exploded[~nfhl_df_exploded.geometry.isna()]
+                # final dissolve
+                nfhl_df = nfhl_df_exploded.dissolve().reset_index(drop=True)
+                nfhl_df = nfhl_df.dropna(axis=1, how='all')
+                # Save to GPKG as 'combined' layer
+                nfhl_df.to_file(out_file, layer='combined', index=False, driver='GPKG')
+
             else:
-                print(f'No 100-year zones for HUC {huc}')
-
-            # Save 500-year data
-            nfhl_500 = nfhl_df[
-                (nfhl_df['FLD_ZONE'] == 'X') & (nfhl_df['ZONE_SUBTY'] == '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')
-            ]
-            if not nfhl_100.empty:
-                nfhl_500_dissolved = nfhl_500.dissolve()
-                nfhl_500_exploded = nfhl_500_dissolved.explode().reset_index(drop=True)
-                new_geoms_500 = [
-                    Polygon(geom.exterior)
-                    for geom in nfhl_500_exploded.geometry
-                    if geom is not None and geom.is_valid
-                ]
-                nfhl_500_exploded.geometry = new_geoms_500
-                nfhl_500_exploded = nfhl_500_exploded[~nfhl_500_exploded.geometry.isna()]
-                nfhl_500_final = nfhl_500_exploded.dissolve().reset_index(drop=True)
-                nfhl_500_final = nfhl_500_final.dropna(axis=1, how='all')
-                # Save to GPKG as '500_year' layer
-                nfhl_500_final.to_file(out_file, layer='500_year', index=False, driver='GPKG')
-            else:
-                print(f'No 500-year zones for HUC {huc}')
-            # Process combined 100-year and 500-year zones
-            nfhl_df_dissolved = nfhl_df.dissolve()
-            nfhl_df_exploded = nfhl_df_dissolved.explode().reset_index(drop=True)
-
-            new_geom = [Polygon(geom.exterior) for geom in nfhl_df_exploded.geometry]
-            nfhl_df_exploded.geometry = new_geom
-
-            # remove None geometries
-            nfhl_df_exploded = nfhl_df_exploded[~nfhl_df_exploded.geometry.isna()]
-            # final dissolve
-            nfhl_df = nfhl_df_exploded.dissolve().reset_index(drop=True)
-            nfhl_df = nfhl_df.dropna(axis=1, how='all')
-            # Save to GPKG as 'combined' layer
-            nfhl_df.to_file(out_file, layer='combined', index=False, driver='GPKG')
+                print(f'No NFHL data for HUC {huc}')
         else:
             print(f'Output file {out_file} already exist, skipping.')
 
