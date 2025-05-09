@@ -1396,10 +1396,8 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
         # Create columns for whether the USGS data meets each criterion
         msg1 = np.where(
             usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list),
-            acceptable_msg, 
-            unacceptable_alt_meth_msg
-            + usgs_elev_df['usgs_data_alt_method_code'].astype(str)
-            + ', ',
+            acceptable_msg,
+            unacceptable_alt_meth_msg + usgs_elev_df['usgs_data_alt_method_code'].astype(str) + ', ',
         )
         msg2 = np.where(
             usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list),
@@ -1409,9 +1407,7 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
         msg3 = np.where(
             usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh,
             acceptable_msg,
-            unacceptable_alt_acc_msg
-            + usgs_elev_df['usgs_data_alt_accuracy_code'].astype(str)
-            + ', ',
+            unacceptable_alt_acc_msg + usgs_elev_df['usgs_data_alt_accuracy_code'].astype(str) + ', ',
         )
 
         status_df = pd.DataFrame({'msg1': msg1, 'msg2': msg2, 'msg3': msg3})
