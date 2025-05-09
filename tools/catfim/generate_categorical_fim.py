@@ -667,9 +667,7 @@ def iterate_through_huc_stage_based(
                 # Get the dem_adj_elevation value from usgs_elev_table.csv.
                 # Prioritize the value that is not from branch 0.
                 lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(
-                    acceptable_usgs_elev_df,
-                    lid,
-                    huc_lid_id
+                    acceptable_usgs_elev_df, lid, huc_lid_id
                 )
                 all_messages = all_messages + dem_eval_messages
                 if len(dem_eval_messages) > 0:
@@ -1392,9 +1390,25 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
     try:
 
         # Create columns for whether the USGS data meets each criterion
-        msg1 = np.where(usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list), '', 'Unacceptable USGS data altitude method: ' + usgs_elev_df['usgs_data_alt_method_code'].astype(str)  + ', ')
-        msg2 = np.where(usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list), '', 'Unacceptable USGS site type: ' + usgs_elev_df['usgs_data_site_type'].astype(str) + ', ')
-        msg3 = np.where(usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, '', 'Unacceptable USGS altitude accuracy threshold: ' + usgs_elev_df['usgs_data_alt_accuracy_code'].astype(str) + ', ')
+        msg1 = np.where(
+            usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list),
+            '',
+            'Unacceptable USGS data altitude method: '
+            + usgs_elev_df['usgs_data_alt_method_code'].astype(str)
+            + ', ',
+        )
+        msg2 = np.where(
+            usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list),
+            '',
+            'Unacceptable USGS site type: ' + usgs_elev_df['usgs_data_site_type'].astype(str) + ', ',
+        )
+        msg3 = np.where(
+            usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh,
+            '',
+            'Unacceptable USGS altitude accuracy threshold: '
+            + usgs_elev_df['usgs_data_alt_accuracy_code'].astype(str)
+            + ', ',
+        )
 
         status_df = pd.DataFrame({'msg1': msg1, 'msg2': msg2, 'msg3': msg3})
 
@@ -1402,8 +1416,10 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
         usgs_elev_df['usgs_exclusion_status'] = status_df['msg1'] + status_df['msg2'] + status_df['msg3']
 
         # If it doesn't have anything for the exclusion criteria, set the usgs_exclusion_status to acceptable
-        # CatFIM will only be processed for sites with a usgs_exclusion_status of 'acceptable' 
-        usgs_elev_df['usgs_exclusion_status'] = usgs_elev_df['usgs_exclusion_status'].replace('', 'acceptable')
+        # CatFIM will only be processed for sites with a usgs_exclusion_status of 'acceptable'
+        usgs_elev_df['usgs_exclusion_status'] = usgs_elev_df['usgs_exclusion_status'].replace(
+            '', 'acceptable'
+        )
 
         # Copy df to de-fragment and rename
         acceptable_usgs_elev_df = usgs_elev_df.copy()
@@ -1427,9 +1443,9 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
 
     lid_usgs_elev = 0
     all_messages = []
-    try:      
+    try:
         # Check for USGS elevation data that matches the LID
-        matching_rows = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper()] 
+        matching_rows = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper()]
 
         # Check if the site is not in the usgs table in our data
         if len(matching_rows) == 0:
@@ -1443,7 +1459,8 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
         if len(matching_rows) == 2:
             # Get the site that does not have a levpa_id of zero and matches the LID
             lid_info = acceptable_usgs_elev_df.loc[
-                (acceptable_usgs_elev_df['nws_lid'] == lid.upper()) & (acceptable_usgs_elev_df['levpa_id'] != 0)
+                (acceptable_usgs_elev_df['nws_lid'] == lid.upper())
+                & (acceptable_usgs_elev_df['levpa_id'] != 0)
             ]
 
         else:
