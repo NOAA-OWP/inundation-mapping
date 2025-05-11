@@ -3,17 +3,16 @@
 import datetime as dt
 import os
 import re
+import traceback
 from argparse import ArgumentParser
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from os.path import join
 
 import geopandas as gpd
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
 from scipy.ndimage import generic_filter
-
 
 # -------------------------------------------------------
 def extract_longitudinal_variables(src_df, hydroid, stage):
@@ -101,7 +100,7 @@ def filter_voi(voi_array):
 
 
 # -------------------------------------------------------
-def filter_longitudinal_jitters_src(fim_dir, huc):
+def filter_longitudinal_discharge_jitters(fim_dir, huc):
     """
     Function for smoothing longitudinal jitters in any variables
     of interest along a stream in synthetic rating curves.
@@ -187,17 +186,17 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
 
         # Makes a logitudinal dataframes of variables of interests
         keys = [
+            'Discharge (m3s-1)',
             'BedArea (m2)',
             'Volume (m3)',
             'SurfaceArea (m2)',
             'WetArea (m2)',
             'HydraulicRadius (m)',
-            'Discharge (m3s-1)',
         ]
         original_all_voi = {}
         filtered_all_voi = {}
         if len(hydroid_chain_mhws) > 0:
-            for ikey in range(len(keys[0:3])):  # 3
+            for ikey in range(len(keys[0:1])): # Just apply to discharge
                 voi2smooth_mhws = []
                 filtered_voi_mhws = []
                 for hydroid_chain in hydroid_chain_mhws:
@@ -243,7 +242,7 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
             # Defining a lake_discharge dataframe
             Q_lake_hydroID = src_df[['HydroID', 'LakeID', 'Stage', 'Discharge (m3s-1)']]
             # mask_src = (src_df['LakeID'] < 0)
-            for jkey in range(len(keys[0:3])):
+            for jkey in range(len(keys[0:1])): # Just apply to discharge
                 # Reshaping variables of interest (voi) to be included in src
                 filtered_voi = filtered_all_voi[keys[jkey]].drop('long_position', axis=1)
                 reshaped_filtered_voi = filtered_voi.reset_index().melt(
@@ -264,19 +263,19 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
                 mask_src = (src_df[f'Filtered_{keys[jkey]}'].notna()) & (src_df['LakeID'] < 0)
                 src_df.loc[mask_src, keys[jkey]] = src_df.loc[mask_src, f'Filtered_{keys[jkey]}']
 
-            # Recalculating discharge variables
-            src_df['WettedPerimeter (m)'] = src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
-            src_df['WetArea (m2)'] = src_df['Volume (m3)'] / src_df['LENGTHKM'] / 1000
-            src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
-            src_df['HydraulicRadius (m)'].fillna(0, inplace=True)
+            # # Recalculating discharge variables
+            # src_df['WettedPerimeter (m)'] = src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
+            # src_df['WetArea (m2)'] = src_df['Volume (m3)'] / src_df['LENGTHKM'] / 1000
+            # src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
+            # src_df['HydraulicRadius (m)'].fillna(0, inplace=True)
 
-            # Recalculating the discharge
-            src_df['Discharge (m3s-1)'] = (
-                src_df['WetArea (m2)']
-                * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-                * pow(src_df['SLOPE'], 0.5)
-                / src_df['ManningN']
-            )
+            # # Recalculating the discharge
+            # src_df['Discharge (m3s-1)'] = (
+            #     src_df['WetArea (m2)']
+            #     * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
+            #     * pow(src_df['SLOPE'], 0.5)
+            #     / src_df['ManningN']
+            # )
             # Refining Discharge for lake hydroIDs with the original Q
             # Merge with src_df
             src_df_merged = src_df.merge(
@@ -306,16 +305,59 @@ def filter_longitudinal_jitters_src(fim_dir, huc):
             # Write src back to file
             src_df.to_csv(src_all_branches_path[isrc], index=False)
             # log_text += f'Successfully recalculated discharge for HUC {huc} branch {branch}'
-            # print(f'Successfully recalculated discharge for HUC {huc} branch {branch}')
+
+        log_text += f'Adjusting hydroTable for longitudinal filter for HUC {huc} Branch {branch}'
+        ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
+        ht_df = pd.read_csv(ht_branch_path, low_memory=False)
+
+        # updating discharge_cms column
+        ht_df['discharge_cms'] = src_df['Discharge (m3s-1)']
+
+        # Write ht back to file
+        ht_df.to_csv(ht_branch_path, index=False)
 
     log_text += f'Successfully recalculated discharge for HUC {huc}\n'
     print(f'Successfully recalculated discharges for HUC {huc}\n')
 
     return log_text
 
+# --------------------------------------------------------
+# Apply longitudinal dischage adjustment
+def apply_longitudinal_dischage_adjustment(fim_dir, huc, log_file_path):  # bankfull_flows_file,
+    """
+    Function for applying longitudinal dischage adjustment to synthetic rating curves.
+
+    Note: Any failure in here will be logged when it can be but will not abort the Multi-Proc
+
+        Parameters
+        ----------
+        Please refer to correct_src_thalweg_notches and
+        process longitudinal dischage functions parameters.
+
+        Returns
+        ----------
+        log_text : str
+    """
+    log_text = ""
+    try:
+        msg = f"Correcting rating curve for longitudinal discharge ajustment SRC for HUC : {huc}\n"
+        log_text += msg
+        print(msg)
+        log_text += filter_longitudinal_discharge_jitters(fim_dir, huc)  # bankfull_flows_file
+
+    except Exception:
+        log_text += f"An error has occurred while processing longitudinal adjustment for huc {huc}\n"
+        log_text += traceback.format_exc()
+
+    try:
+        with open(log_file_path, "a") as log_file:
+            log_file.write(log_text + '\n')
+    except Exception:
+        print(f"Error trying to write to the log file of {log_file_path}\n")
+
 
 # -------------------------------------------------------
-def process_filtering_src(fim_dir, number_of_jobs):
+def process_longitudinal_flow_adjustment(fim_dir, number_of_jobs):
     """
     Function for correcting synthetic rating curves using Multi-Proc approach.
     It will correct each branch's SRCs in serial based on the HydroIDs.
@@ -346,15 +388,15 @@ def process_filtering_src(fim_dir, number_of_jobs):
     # Find applicable HUCs to apply longitudinal filter
     fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
 
-    msg = f"Applying longitudinal filter on {len(fim_hucs)} HUCs: {fim_hucs}\n"
+    msg = f"Applying longitudinal discharge adjustment on {len(fim_hucs)} HUCs: {fim_hucs}\n"
     log_text += msg
 
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         # Loop through all hucs, build the arguments, and submit them to the process pool
         futures = {}
         for huc in fim_hucs:
-            args = {'fim_dir': fim_dir, 'huc': huc}
-            future = executor.submit(filter_longitudinal_jitters_src, **args)
+            args = {'fim_dir': fim_dir, 'huc': huc, 'log_file_path': log_file_path}
+            future = executor.submit(apply_longitudinal_dischage_adjustment, **args)
             futures[future] = future
 
         for future in as_completed(futures):
@@ -403,4 +445,4 @@ if __name__ == '__main__':
     fim_dir = args['fim_dir']
     number_of_jobs = args['number_of_jobs']
 
-    process_filtering_src(fim_dir, number_of_jobs)
+    process_longitudinal_flow_adjustment(fim_dir, number_of_jobs)

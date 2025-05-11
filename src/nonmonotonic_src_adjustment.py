@@ -254,7 +254,17 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
             src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
             if os.path.isfile(src_full):
                 src_all_branch_paths.append(src_full)
-
+    
+    # Defining integer columns
+    cols_int = [
+    'Number of Cells',
+    'SurfaceArea (m2)',
+    'HydroID',
+    'NextDownID',
+    'order_',
+    'feature_id',
+    ]
+                
     # Update parameters for nonmonotonic SRC
     for src in src_all_branch_paths:
         src_name = os.path.basename(src)
@@ -303,14 +313,6 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
                 .sort_values(['HydroID', 'Stage'])
                 .reset_index(drop=True)
             )
-            cols_int = [
-                'Number of Cells',
-                'SurfaceArea (m2)',
-                'HydroID',
-                'NextDownID',
-                'order_',
-                'feature_id',
-            ]
             src_df3[cols_int] = src_df3[cols_int].astype(int)
 
         else:
@@ -347,6 +349,12 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
 
         # Write src back to file
         src_df = src_df4.copy()
+        # Make sure there is no nan values
+        src_df['Bathymetry_source'] = src_df.groupby('HydroID')['Bathymetry_source'].ffill()
+        src_df.loc[src_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
+        src_df['subdiv_applied'] = src_df.groupby('HydroID')['subdiv_applied'].ffill()
+        src_df['channel_n'] = src_df.groupby('HydroID')['channel_n'].ffill()
+        src_df['overbank_n'] = src_df.groupby('HydroID')['overbank_n'].ffill()
         src_df.to_csv(src, index=False)
 
         # Adjusting hydro tables for nonmonotonic SRC
@@ -355,6 +363,8 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
 
         ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
         ht_df = pd.read_csv(ht_branch_path, low_memory=False)
+        ht_df = ht_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
+        ht_df[cols_int] = ht_df[cols_int].astype(int)
 
         ## Use the subdivision discharge column when it is being applied
         if 'subdiv_discharge_cms' in ht_df.columns:
@@ -373,7 +383,6 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         ht_df['subdiv_applied'] = src_df['subdiv_applied']
         ht_df['channel_n'] = src_df['channel_n']
         ht_df['overbank_n'] = src_df['overbank_n']
-        ht_df.fillna(0, inplace=True)
 
         # Write ht back to file
         ht_df.to_csv(ht_branch_path, index=False)
@@ -401,20 +410,20 @@ def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path): 
     log_text = ""
 
     try:
-        msg = f"Correcting rating curve for nonmonotonic SRC for HUC : {huc}"
-        log_text += msg + '\n'
+        msg = f"Correcting rating curve for nonmonotonic SRC for HUC : {huc}\n"
+        log_text += msg
         print(msg)
         log_text += correct_nonmonotonic_src(fim_dir, huc, strm_order)  # bankfull_flows_file
 
     except Exception:
-        log_text += f"An error has occurred while processing nonmonotonic SRC for huc {huc}"
+        log_text += f"An error has occurred while processing nonmonotonic SRC for huc {huc}\n"
         log_text += traceback.format_exc()
 
     try:
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:
-        print(f"Error trying to write to the log file of {log_file_path}")
+        print(f"Error trying to write to the log file of {log_file_path}\n")
 
 
 # -------------------------------------------------------

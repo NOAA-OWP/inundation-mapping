@@ -223,7 +223,7 @@ fi
 
 ## RUN LONGITUDINAL FILTER ROUTINE ##
 if [ "$logitudinal_filter" = "True" ]; then
-    echo -e $startDiv"Performing longitudinal filter routine"
+    echo -e $startDiv"Performing longitudinal discharge adjustment routine"
     Tstart
     python3 $srcDir/longitudinal_flow_adjustment.py \
         -fim_dir $outputDestDir \
