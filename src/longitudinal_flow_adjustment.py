@@ -14,6 +14,7 @@ import pandas as pd
 import scipy
 from scipy.ndimage import generic_filter
 
+
 # -------------------------------------------------------
 def extract_longitudinal_variables(src_df, hydroid, stage):
     """
@@ -196,7 +197,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
         original_all_voi = {}
         filtered_all_voi = {}
         if len(hydroid_chain_mhws) > 0:
-            for ikey in range(len(keys[0:1])): # Just apply to discharge
+            for ikey in range(len(keys[0:1])):  # Just apply to discharge
                 voi2smooth_mhws = []
                 filtered_voi_mhws = []
                 for hydroid_chain in hydroid_chain_mhws:
@@ -242,7 +243,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             # Defining a lake_discharge dataframe
             Q_lake_hydroID = src_df[['HydroID', 'LakeID', 'Stage', 'Discharge (m3s-1)']]
             # mask_src = (src_df['LakeID'] < 0)
-            for jkey in range(len(keys[0:1])): # Just apply to discharge
+            for jkey in range(len(keys[0:1])):  # Just apply to discharge
                 # Reshaping variables of interest (voi) to be included in src
                 filtered_voi = filtered_all_voi[keys[jkey]].drop('long_position', axis=1)
                 reshaped_filtered_voi = filtered_voi.reset_index().melt(
@@ -320,6 +321,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
     print(f'Successfully recalculated discharges for HUC {huc}\n')
 
     return log_text
+
 
 # --------------------------------------------------------
 # Apply longitudinal dischage adjustment

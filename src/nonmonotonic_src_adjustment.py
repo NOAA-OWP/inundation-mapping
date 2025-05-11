@@ -112,16 +112,18 @@ def extend_src_linear_extrapolation(srcs_df, stages_full):
         y = existing_src[col].values[-num_rows:]
 
         # Columns to extrapolate
-        col_variables = ['Number of Cells',
-                         'SurfaceArea (m2)',
-                         'BedArea (m2)',
-                         'Volume (m3)',
-                         'TopWidth (m)',
-                         'WettedPerimeter (m)',
-                         'WetArea (m2)',
-                         'HydraulicRadius (m)',
-                         'Discharge (m3s-1)',
-                         'Discharge (m3s-1)_subdiv']
+        col_variables = [
+            'Number of Cells',
+            'SurfaceArea (m2)',
+            'BedArea (m2)',
+            'Volume (m3)',
+            'TopWidth (m)',
+            'WettedPerimeter (m)',
+            'WetArea (m2)',
+            'HydraulicRadius (m)',
+            'Discharge (m3s-1)',
+            'Discharge (m3s-1)_subdiv',
+        ]
         # if np.issubdtype(srcs_df[col].dtype, np.number):
         # if srcs_df[col].iloc[-1] != srcs_df[col].iloc[-2]:
         if col in col_variables:
@@ -254,17 +256,10 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
             src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
             if os.path.isfile(src_full):
                 src_all_branch_paths.append(src_full)
-    
+
     # Defining integer columns
-    cols_int = [
-    'Number of Cells',
-    'SurfaceArea (m2)',
-    'HydroID',
-    'NextDownID',
-    'order_',
-    'feature_id',
-    ]
-                
+    cols_int = ['Number of Cells', 'SurfaceArea (m2)', 'HydroID', 'NextDownID', 'order_', 'feature_id']
+
     # Update parameters for nonmonotonic SRC
     for src in src_all_branch_paths:
         src_name = os.path.basename(src)

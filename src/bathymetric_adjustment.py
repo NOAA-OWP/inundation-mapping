@@ -112,7 +112,7 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
             * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
             * pow(src_df['SLOPE'], 0.5)
             / src_df['ManningN']
-        )        
+        )
         # Force zero stage to have zero discharge
         src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
         # # Force zero "Number of the cells" to have zero discharge ...
