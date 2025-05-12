@@ -2,37 +2,15 @@
 
 import glob
 import inspect
-import os
-import re
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import datetime, timezone
-from os.path import splitext
-from pathlib import Path
-
-import fiona
-import geopandas as gp
-import numpy as np
-import pandas as pd
-from tqdm import tqdm
-import sys
 import logging
-import traceback
-from multiprocessing import Manager
-import threading
-
-import utils.shared_variables as sv
-
-
-gp.options.io_engine = "pyogrio"
-
-#!/usr/bin/env python3
-
-import glob
-import inspect
 import os
 import re
+import sys
+import threading
+import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
+from multiprocessing import Manager
 from os.path import splitext
 from pathlib import Path
 
@@ -42,16 +20,11 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-import sys
-import logging
-import traceback
-from multiprocessing import Manager
-import threading
-
 import utils.shared_variables as sv
 
 
 gp.options.io_engine = "pyogrio"
+
 
 def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
     """
@@ -186,8 +159,8 @@ def run_with_mp(
 
     screen_queue.put("DONE")  # sends the stop SIGNAL to thread
     screen_queue_thread.join()  # official closure of thread
-    file_logger.info(f"Final Results: {results}")
     return results
+
 
 def getDriver(fileName):
     driverDictionary = {'.gpkg': 'GPKG', '.geojson': 'GeoJSON', '.shp': 'ESRI Shapefile'}
