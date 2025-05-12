@@ -55,7 +55,7 @@ def extract_longitudinal_variables(src_df, hydroid, stage):
         hydraulicRadius = round(np.interp(stage, src.Stage, src['HydraulicRadius (m)']), 3)
         flow = round(np.interp(stage, src.Stage, src['Discharge (m3s-1)']), 2)
 
-    voi_hid_stage = [bedArea, volume, surfacearea, wetarea, hydraulicRadius, flow]
+    voi_hid_stage = [flow, bedArea, volume, surfacearea, wetarea, hydraulicRadius]
 
     return voi_hid_stage
 
@@ -122,6 +122,19 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
     log_text = f'Filtering Longitudinal Flow Fluctuation for HUC8: {huc}\n'
     fim_huc_dir = join(fim_dir, huc)
 
+    # if int(branch) == 0:
+    src_full_0 = join(fim_huc_dir, 'branches', str(0), 'src_full_crosswalked_0.csv')
+    ht_0_path = join(fim_huc_dir, 'branches', str(0), 'hydroTable_0.csv')
+
+    src_0_df = pd.read_csv(src_full_0, low_memory=False)
+    ht_0_df = pd.read_csv(ht_0_path, low_memory=False)
+    src_0_df.loc[src_0_df['Bathymetry_source'] == str(0), 'Bathymetry_source'] = 'No Bathymetry Applied'
+    ht_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source']
+    
+    # Save updated branch 0 ht and src tables 
+    src_0_df.to_csv(src_full_0, index=False)
+    ht_0_df.to_csv(ht_0_path, index=False)
+
     # Get src_full, hydrotable and catchment from each branch
     src_all_branches_path = []
     cathment_gpkg_path = []
@@ -139,13 +152,13 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
                 src_all_branches_path.append(src_full)
             if os.path.isfile(src_full):
                 cathment_gpkg_path.append(cathment_gpkg)
-
+    
     # Longitudinally adjust srcs for WSE
-    for isrc in range(len(src_all_branches_path)):  # 1
+    for isrc in range(len(src_all_branches_path)):  # 5
 
         branch = re.search(r'branches/(\d{10}|0)/', src_all_branches_path[isrc]).group()[9:-1]
-        print(f'Processing Longitudinal filters for HUC {huc} Branch: {branch}')
-        log_text += f'Processing Longitudinal filters for HUC {huc} Branch: {branch}'
+        print(f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}')
+        log_text += f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}'
 
         catchment_gdf0 = gpd.read_file(cathment_gpkg_path[isrc])
         catchment_gdf = catchment_gdf0.drop_duplicates(subset=['HydroID'], keep='first')
@@ -289,11 +302,11 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
             # Set Hydraulic properties of original stages with discharge = 0 back to 0
             src_df.loc[Q0_mask, ['Discharge (m3s-1)']] = 0
-            src_df.loc[Q0_mask, ['Volume (m3)']] = 0
-            src_df.loc[Q0_mask, ['WettedPerimeter (m)']] = 0
-            src_df.loc[Q0_mask, ['WetArea (m2)']] = 0
-            src_df.loc[Q0_mask, ['HydraulicRadius (m)']] = 0
-            src_df.loc[Q0_mask, ['BedArea (m2)']] = 0
+            # src_df.loc[Q0_mask, ['Volume (m3)']] = 0
+            # src_df.loc[Q0_mask, ['WettedPerimeter (m)']] = 0
+            # src_df.loc[Q0_mask, ['WetArea (m2)']] = 0
+            # src_df.loc[Q0_mask, ['HydraulicRadius (m)']] = 0
+            # src_df.loc[Q0_mask, ['BedArea (m2)']] = 0
 
             # Set cahnnel properties of original stages with Number of Cells = 0 back to 0
             src_df.loc[nocell0_mask, ['Number of Cells']] = 0
