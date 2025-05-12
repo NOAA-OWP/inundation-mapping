@@ -16,43 +16,48 @@ from rasterstats import zonal_stats
 threatened_percent = 0.75
 
 
-def process_non_lidar_osm(osm_gdf, source_hand_raster, non_lidar_buffer):
+def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar_buffer):
     non_lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'N'].copy()
+
+    if non_lidar_osm_gdf.empty:
+        return None, hand_grid_array
+
     non_lidar_osm_gdf['geometry'] = non_lidar_osm_gdf.geometry.buffer(
         non_lidar_buffer, resolution=non_lidar_buffer
     )
 
-    # apply non-lidar osm bridges into HAND grid
-    with rasterio.open(source_hand_raster, 'r') as hand_grid:
-        hand_grid_profile = hand_grid.profile
-        hand_grid_array = hand_grid.read(1)
+    # Get max hand values for each bridge
+    stats = zonal_stats(
+        non_lidar_osm_gdf['geometry'],
+        hand_grid_array,
+        affine=hand_grid_profile['transform'],
+        stats="max",
+        nodata=hand_grid_profile["nodata"],
+        all_touched=True,
+    )
+    # pull the values out of the geopandas columns so we can use them as floats
+    non_lidar_osm_gdf.loc[:, 'threshold_hand'] = [x.get('max') for x in stats]
+    # sort in case of overlaps; display theshold hand value at any given location
+    non_lidar_osm_gdf = non_lidar_osm_gdf.sort_values(by="threshold_hand", ascending=False)
 
-        # Get max hand values for each bridge
-        stats = zonal_stats(
-            non_lidar_osm_gdf['geometry'],
-            hand_grid_array,
-            affine=hand_grid.transform,
-            stats="max",
-            nodata=hand_grid_profile["nodata"],
-            all_touched=True,
-        )
-        # pull the values out of the geopandas columns so we can use them as floats
-        non_lidar_osm_gdf.loc[:, 'threshold_hand'] = [x.get('max') for x in stats]
-        # sort in case of overlaps; display theshold hand value at any given location
-        non_lidar_osm_gdf = non_lidar_osm_gdf.sort_values(by="threshold_hand", ascending=False)
+    # Burn the bridges into the HAND grid
+    shapes = (
+        (geom, value) for geom, value in zip(non_lidar_osm_gdf.geometry, non_lidar_osm_gdf.threshold_hand)
+    )
+    features.rasterize(
+        shapes=shapes, out=hand_grid_array, transform=hand_grid_profile['transform'], all_touched=False
+    )
 
-        # Burn the bridges into the HAND grid
-        shapes = (
-            (geom, value) for geom, value in zip(non_lidar_osm_gdf.geometry, non_lidar_osm_gdf.threshold_hand)
-        )
-        features.rasterize(
-            shapes=shapes, out=hand_grid_array, transform=hand_grid.transform, all_touched=False
-        )
-
-    return non_lidar_osm_gdf, hand_grid_array, hand_grid_profile
+    return non_lidar_osm_gdf, hand_grid_array
 
 
-def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_diff_raster, lidar_buffer):
+def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer, bridge_elev_diff_raster):
+    lidar_osm_gdf = osm_gdf[osm_gdf['has_lidar_tif'] == 'Y'].copy()
+
+    if lidar_osm_gdf.empty:
+        return None, hand_grid_array
+
+    # if there are some lidar tif files, then we need to read diff file and apply healing
     with rasterio.open(bridge_elev_diff_raster) as diff_grid:
         diff_grid_array = diff_grid.read(1)  # Read the first band
         diff_grid_transform = diff_grid.transform
@@ -120,20 +125,26 @@ def process_bridges_in_huc(
         osm_gdf = gpd.read_file(bridge_vector_file)
         osm_gdf['centroid_geometry'] = osm_gdf.centroid
     else:
-        # skip this huc because it didn't pull in the initial OSM script
-        # and could have errors in the data or geometry
         print(f"-- no OSM file, {bridge_vector_file}")
         return
 
+    # read hand grid
+    with rasterio.open(source_hand_raster, 'r') as hand_grid:
+        hand_grid_profile = hand_grid.profile
+        hand_grid_array = hand_grid.read(1)
+
     # first process the osm bridges without reliable lidar data using previous method
-    non_lidar_osm_gdf, hand_grid_array, hand_grid_profile = process_non_lidar_osm(
-        osm_gdf, source_hand_raster, non_lidar_buffer
+    non_lidar_osm_gdf, hand_grid_array = process_non_lidar_osm(
+        osm_gdf, hand_grid_array, hand_grid_profile, non_lidar_buffer
     )
     lidar_osm_gdf, updated_hand_grid_array = process_lidar_osm(
-        osm_gdf, hand_grid_array, hand_grid_profile, bridge_elev_diff_raster, lidar_buffer
+        osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer, bridge_elev_diff_raster
     )
 
-    osm_gdf = pd.concat([non_lidar_osm_gdf, lidar_osm_gdf], ignore_index=True)
+    # either of non_lidar_osm_gdf or lidar_osm_gdf can be None (if there are no lidar or non-lidar bridges)-- so handle it
+    valid_osm_gdfs = [gdf for gdf in [non_lidar_osm_gdf, lidar_osm_gdf] if gdf is not None]
+
+    osm_gdf = pd.concat(valid_osm_gdfs, ignore_index=True)
 
     # # Write the new HAND grid
     with rasterio.open(source_hand_raster, 'w', **hand_grid_profile) as new_hand_grid:
@@ -202,10 +213,12 @@ if __name__ == "__main__":
     Sample usage (min params):
         python3 src/heal_bridges_osm.py
             -g /outputs/fim_4_4_15_0/1209301/branches/3763000013/rem_zeroed_masked_3763000013.tif
+            -d /outputs/fim_4_4_15_0/1209301/branches/3763000013/bridge_elev_diff_meters_3763000013.tif
             -s /outputs/fim_4_4_15_0/1209301/osm_bridges_subset.gpkg
+            -b1 10
+            -b2 1.5
             -p /outputs/fim_4_4_15_0/1209301/branches/3763000013/gw_catchments_reaches_filtered_addedAttributes_crosswalked_3763000013.gpkg
             -c /outputs/fim_4_4_15_0/1209301/1209301/branches/3763000013/osm_bridge_centroids_3763000013.tif
-            -b 10
 
     '''
 

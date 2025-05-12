@@ -12,6 +12,7 @@ agree_smogrid_zerod.tif
 # 3d_nld_subset_levees_burned.gpkg
 # branch_id.lst
 branch_polygons.gpkg
+bridge_elev_diff_meters.tif
 dem_burned.tif
 dem_burned_filled.tif
 dem_meters.tif

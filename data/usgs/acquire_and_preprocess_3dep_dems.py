@@ -26,15 +26,6 @@ TODO:
     - Add input args for resolution size, which means URL and block size also hve to be parameterized.
 '''
 
-"""
-*****************************
-
-### IMPORTANT: Sep 13, 2024: FIM uses vrt's primariy for DEMs but this tool only downloads and preps the DEMs but does
-not create the vrt. That is done using the create_vrt_file.py tool.
-
-"""
-
-
 # local constants (until changed to input param)
 # This URL is part of a series of vrt data available from USGS via an S3 Bucket.
 # for more info see: "http://prd-tnm.s3.amazonaws.com/index.html?prefix=StagedProducts/Elevation/".
@@ -52,6 +43,7 @@ def acquire_and_preprocess_3dep_dems(
     repair=False,
     skip_polygons=False,
     target_projection='EPSG:5070',
+    lst_hucs='all',
 ):
     '''
     Overview
@@ -107,7 +99,11 @@ def acquire_and_preprocess_3dep_dems(
              be named DEM_Domain.gkpg and saved in the same folderd as the target_output_folder_path.
 
         - target_projection (String)
-            Projection of the output DEMS and polygons (if included)
+             Projection of the output DEMS and polygons (if included)
+
+        - lst_hucs (string)
+             If the lst_hucs value is used, it will look for those HUCs in the loaded file list and
+             only process ones that match.
     '''
     # -------------------
     # Validation
@@ -175,10 +171,29 @@ def acquire_and_preprocess_3dep_dems(
     # processing
 
     # Get the WBD .gpkg files (or clip extent)
-    extent_file_names = fh.get_file_names(extent_file_path, 'gpkg')
+    extent_file_names_raw = fh.get_file_names(extent_file_path, 'gpkg')
     msg = f"Extent files coming from {extent_file_path}"
     print(msg)
     logging.info(msg)
+
+    # If a HUC list is specified, only keep the specified HUCs
+    lst_hucs = lst_hucs.split()
+    extent_file_names = []
+    if 'all' not in lst_hucs:
+        for huc in lst_hucs:
+            if len(huc) != 6 and len(huc) != 8:
+                raise ValueError("HUC values from the list should be 6 or 8 digits long")
+            extent_file_names.extend([x for x in extent_file_names_raw if huc in x])
+
+        if len(extent_file_names) == 0:
+            raise ValueError(
+                "After applying the huc filter list, there are no files to process."
+                " All files were checked based on the pattern of _(huc number)"
+            )
+    else:
+        extent_file_names = extent_file_names_raw
+
+    extent_file_names.sort()
 
     # download dems, setting projection, block size, etc
     __download_usgs_dems(
@@ -227,7 +242,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
     base_cmd = 'gdalwarp {0} {1}'
     base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
     base_cmd += ' -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"'
-    base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10'
+    base_cmd += ' -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10 -tap'
     base_cmd += ' -t_srs {3} -cblend 6'
 
     """
@@ -236,7 +251,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
        /data/inputs/usgs/3dep_dems/10m/HUC8_12090301_dem.tif
        -cutline /data/inputs/wbd/HUC8/HUC8_12090301.gpkg
        -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" -overwrite -co "BLOCKXSIZE=256" -co "BLOCKYSIZE=256"
-       -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10 -t_srs ESRI:102039 -cblend 6
+       -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10 -tap -t_srs ESRI:102039 -cblend 6
     """
 
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
@@ -319,7 +334,10 @@ def download_usgs_dem_file(
             logging.info(msg)
             return
 
-    msg = f" - Downloading -- {target_file_name_raw} - Started"
+    start_time = datetime.now(timezone.utc)
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+
+    msg = f" - Downloading -- {target_file_name_raw} - Started: {file_dt_string}"
     print(msg)
     logging.info(msg)
 
@@ -458,19 +476,22 @@ if __name__ == '__main__':
     '''
     sample usage (min params):
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
-            -e /data/inputs/wbd/wbd/HUC8_South_Alaska/
-            -t /data/inputs/dems/3dep_dems/10m_South_Alaska/20240912
+            -e /data/inputs/wbd/wbd/HUC8_South_Alaska/ -proj "EPSG:3338"
+            -t /data/inputs/dems/3dep_dems/10m_South_Alaska/20250301
             -j 6
 
     or
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
-            -e /data/inputs/wbd/HUC6_ESPG_5070/
-            -t /data/inputs/dems/3dep_dems/10m_5070/20240916 -r -j 6
+            -e /data/inputs/wbd/HUC6_5070/ -proj "EPSG:5070"
+            -t /data/inputs/dems/3dep_dems/10m_5070/20250301 -r -j 6
+
+    *** Keep the job number at 6 as the network can't handle anymore than that anyways ***
 
     Notes:
       - There is alot to know, so read the notes in the functions above.
 
-      - Keep the job numbers low, too many of them can result in incompleted downloads for a HUC
+      - Keep the job numbers low, too many of them can result in incompleted downloads for a HUC.
+        Becuase of this.. it does not need to be run on a prod machine.
 
       - It is very common for not all DEMs to not all download correctly on each pass.
         Review the output files and the logs so you know which are missing. Delete the ones in the outputs
@@ -505,6 +526,14 @@ if __name__ == '__main__':
     manually delete all of the 19x gpkg files from the HUC6_5070 to help with confusion for the next time
     we do want to reload DEMS.
     '''
+
+    """
+    *****************************
+
+    ### IMPORTANT: Sep 13, 2024: FIM uses vrt's primariy for DEMs but this tool only downloads and preps the DEMs but does
+    not create the vrt. That is done using the create_vrt_file.py tool.
+
+    """
 
     parser = argparse.ArgumentParser(description='Acquires and preprocesses USGS 3Dep dems')
 
@@ -559,6 +588,16 @@ if __name__ == '__main__':
         help='OPTIONAL: Desired output CRS. Defaults to EPSG:5070',
         required=False,
         default='EPSG:5070',
+    )
+
+    parser.add_argument(
+        '-lh',
+        '--lst_hucs',
+        help='OPTIONAL: Space-delimited list of HUCs to do acquire for.'
+        ' If a value exists, it will check the file names of the extent dir for files that have'
+        ' have that huc number in it. Careful using HUC6 versus HUC8 values. Defaults to all HUCs',
+        required=False,
+        default='all',
     )
 
     # Extract to dictionary and assign to variables.

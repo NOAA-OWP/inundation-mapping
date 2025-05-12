@@ -606,7 +606,7 @@ def iterate_through_huc_stage_based(
                     reason = found_restrict_lid.iloc[
                         0, found_restrict_lid.columns.get_loc("restricted_reason")
                     ]
-                    msg = ':' + reason
+                    msg = ': Restricted Site - ' + reason
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -1625,7 +1625,6 @@ def generate_stage_based_categorical_fim(
     all_csv_df = pd.DataFrame()
     refined_csv_files_list = []
     for csv_file in attrib_csv_files:
-
         full_csv_path = os.path.join(attributes_dir, csv_file)
         # HUC has to be read in as string to preserve leading zeros.
         try:
@@ -1637,10 +1636,9 @@ def generate_stage_based_categorical_fim(
             FLOG.error(f"ERROR: loading csv {full_csv_path}")
             FLOG.error(traceback.format_exc())
             pass
-
     # Write to file
     if len(all_csv_df) == 0:
-        raise Exception("no csv files found")
+        raise Exception(f"no csv files found - missing attribute CSVs in {attributes_dir}")
 
     all_csv_df.to_csv(os.path.join(attributes_dir, 'nws_lid_attributes.csv'), index=False)
 

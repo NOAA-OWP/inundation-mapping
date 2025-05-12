@@ -11,6 +11,7 @@ agree_smogrid_allo.tif
 agree_smogrid_dist.tif
 agree_smogrid_zerod.tif
 backpool_stats.csv
+bridge_elev_diff_meters_{}.tif
 catch_list_{}.txt
 coordFile_{}.txt
 crosswalk_table_{}.csv
