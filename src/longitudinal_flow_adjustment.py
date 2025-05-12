@@ -130,8 +130,8 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
     ht_0_df = pd.read_csv(ht_0_path, low_memory=False)
     src_0_df.loc[src_0_df['Bathymetry_source'] == str(0), 'Bathymetry_source'] = 'No Bathymetry Applied'
     ht_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source']
-    
-    # Save updated branch 0 ht and src tables 
+
+    # Save updated branch 0 ht and src tables
     src_0_df.to_csv(src_full_0, index=False)
     ht_0_df.to_csv(ht_0_path, index=False)
 
@@ -152,7 +152,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
                 src_all_branches_path.append(src_full)
             if os.path.isfile(src_full):
                 cathment_gpkg_path.append(cathment_gpkg)
-    
+
     # Longitudinally adjust srcs for WSE
     for isrc in range(len(src_all_branches_path)):  # 5
 
