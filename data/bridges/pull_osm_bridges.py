@@ -541,17 +541,15 @@ if __name__ == "__main__":
 
     ###############################
     #
-    # Normal processing order
-    #    1)  Run pull_osm_bridges
-    #    2)  Run make_rasters_using_lidar.py  (via conda enviro for this step only)
-    #    3)  Run make_dem_dif_for_bridges.py. This also makes a new vrt for this set.
-    #        as well as making modified osm_files we want for pre-clip.
-    #        Copy the new '__osm_bridges_modified.gpkg' to beside the original __osm_bridges.gpkg
-    #    4)  Update bash_variables for the new dem diff vrt paths
-    #    5)  Using the modified osm's, run pre-clip
-    #    6)  Update bash_variables for the new pre-clip paths
+    # You will need to run this twice, one for CONUS and one for AK
     #
-    # Each of these steps need to be run twice, one for CONUS and once for AK
+    # When you run, this tool, a few additional tools will need to be run.
+    #
+    # First run, `make_rasters_using_lidar.py` (get new bridge lidar). Then you will need to run
+    #    `make_dem_dif_for_bridges.py`.
+    #
+    # Independently, with pulling new osm data, we need to run new pre-clips. pre-clips do not
+    #    need new lidar or dem diffs.
     #
     ###############################
 
