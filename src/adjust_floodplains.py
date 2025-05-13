@@ -74,15 +74,20 @@ def adjust_floodplains(
 
     fema_flood_zones = gpd.read_file(fema_flood_zones_file)
 
-    # Clip the FEMA flood zones to the branch polygon
-    fema_flood_zones_clipped = gpd.clip(fema_flood_zones, branch_poly)
+    if os.path.exists(fema_flood_zones_file):
+        fema_flood_zones = gpd.read_file(fema_flood_zones_file)
 
-    # Mask the distance raster with fema_flood_zones_clipped
-    distance_mask = np.zeros_like(distance)
-    for geom in fema_flood_zones_clipped.geometry:
-        mask = features.geometry_mask([geom], out_shape=distance.shape, transform=src.transform, invert=True)
-        distance_mask[mask] = 1
-    distance = np.where(distance_mask == 1, distance, np.nan)
+        # Clip the FEMA flood zones to the branch polygon
+        fema_flood_zones_clipped = gpd.clip(fema_flood_zones, branch_poly)
+
+        # Mask the distance raster with fema_flood_zones_clipped
+        distance_mask = np.zeros_like(distance)
+        for geom in fema_flood_zones_clipped.geometry:
+            mask = features.geometry_mask(
+                [geom], out_shape=distance.shape, transform=src.transform, invert=True
+            )
+            distance_mask[mask] = 1
+        distance = np.where(distance_mask == 1, distance, np.nan)
 
     # Limit the distance to the mean + 1 std
     distance = np.where(distance <= distance_threshold, distance, np.nan)
