@@ -99,7 +99,7 @@ $srcDir/adjust_floodplains.py \
     -z $floodplain_z_factor \
     -p $tempHucDataDir/branch_polygons.gpkg \
     -b $current_branch_id \
-    -f /data/inputs/fema/nfhl/nfhl_$hucNumber.gpkg
+    -f $input_fema_flood_hazard_zones/nfhl_$hucNumber.gpkg
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"
