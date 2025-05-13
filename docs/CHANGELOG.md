@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.x.x - 2025-05-13 - [PR#1515](https://github.com/NOAA-OWP/inundation-mapping/pull/1515)
+
+Modified the script to skip HUC8s without FEMA data.
+
+### Changes
+
+`data/nfhl/download_fema_nfhl.py` : Updated for areas without FEMA data.
+
+<br/><br/>
+
 ## v4.6.1.11 - 2025-05-01 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)
 
 Downloads the FEMA NFHL data for HUC8.
