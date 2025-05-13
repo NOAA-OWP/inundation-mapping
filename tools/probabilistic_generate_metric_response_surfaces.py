@@ -254,23 +254,23 @@ def evaluate_maps(
 if __name__ == "__main__":
 
     # Base directory
-    base_dir = '../'
+    base_dir = '/data'
     huc = "12090301"
 
     # Outputs Directory
-    outputs_dir = os.path.join(base_dir, 'outputs')
+    outputs_dir = os.path.join(base_dir, 'test_case_validation_data')
 
     # Folder Specific Commands
-    ble_flow_paths = glob(os.path.join(outputs_dir, "validation", "validation_data_ble", huc, '*', "*flow*"))
+    ble_flow_paths = glob(os.path.join(outputs_dir, "validation_data_ble", huc, '*', "*flow*"))
 
     nws_flow_paths = glob(
-        os.path.join(outputs_dir, "validation", "validation_data_nws", huc, '*', "*", "*flows*.csv")
+        os.path.join(outputs_dir, "validation_data_nws", huc, '*', "*", "*flows*.csv")
     )
 
-    ble_benchmarks = glob(os.path.join(outputs_dir, "validation", "validation_data_ble", huc, '*', "*.tif"))
+    ble_benchmarks = glob(os.path.join(outputs_dir, "validation_data_ble", huc, '*', "*.tif"))
 
     nws_benchmarks = glob(
-        os.path.join(outputs_dir, "validation", "validation_data_nws", huc, '*', '*', "*.tif")
+        os.path.join(outputs_dir, "validation_data_nws", huc, '*', '*', "*.tif")
     )
 
     flows = np.unique(
@@ -286,9 +286,10 @@ if __name__ == "__main__":
         np.hstack([[x for x in ble_benchmarks], [x for x in nws_benchmarks if 'action' not in x]])
     )
 
+    fim_output_base = '/projects'
     arguments = {
-        'hydrofabric_dir': os.path.join(outputs_dir, 'fim_outputs'),
-        'fim_outputs_dir': os.path.join('./gridded'),
+        'hydrofabric_dir': os.path.join(base_dir, 'previous_fim', 'hand_4_5_11_1'),
+        'fim_outputs_dir': os.path.join(fim_output_base, 'prob-data'),
         'output_folder_name': 'full_test',
         #     'channel_mannings_n': [.03, .04, .05, .06, .07, .08, .09, .1],
         'channel_mannings_n': [0.06],

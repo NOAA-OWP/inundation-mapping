@@ -856,10 +856,12 @@ if __name__ == '__main__':
     python ./probabilistic_inundation.py
         -e ./gfs_ensembles_03070107.nc
         -p ./plink_recurr.csv
-        -b "./"
+        -hd /data/previous_fim/hand_4_5_11_1/
+        -od /outputs/probabilistic_test
         -hc 03070107
         -f ./example2/mosaic_prob
         -j 1
+        -t 1  
     """
 
     # Parse arguments
@@ -930,6 +932,7 @@ if __name__ == '__main__':
         "--output_raster",
         help="OPTIONAL: Whether to keep final raster output",
         action='store_true',
+        default=True,
         required=False,
     )
 
