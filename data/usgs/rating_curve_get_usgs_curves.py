@@ -427,7 +427,6 @@ if __name__ == '__main__':
         '--list_of_gage_sites',
         help='"all" for all active usgs sites, specify individual sites separated by space, '
         'or provide a csv of sites (one per line).',
-        nargs='+',
         required=True,
     )
     parser.add_argument(
@@ -441,13 +440,16 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     # Check if csv is supplied
-    if args['list_of_gage_sites'][0].endswith('.csv'):
+    if args['list_of_gage_sites'].endswith('.csv'):
         # Convert csv list to python list
         with open(args['list_of_gage_sites']) as f:
             sites = f.read().splitlines()
         args['list_of_gage_sites'] = sites
+        list_of_gage_sites = args['list_of_gage_sites']
 
-    list_of_gage_sites = args['list_of_gage_sites']
+    else:
+        list_of_gage_sites = args['list_of_gage_sites'].split(' ')
+
     workspace = args['workspace']
     sleep_timer = float(args['sleep_timer'])
 
