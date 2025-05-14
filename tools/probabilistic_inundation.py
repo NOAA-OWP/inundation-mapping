@@ -861,7 +861,7 @@ if __name__ == '__main__':
         -hc 03070107
         -f ./example2/mosaic_prob
         -j 1
-        -t 1  
+        -t 1
     """
 
     # Parse arguments

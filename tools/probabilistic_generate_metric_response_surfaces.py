@@ -263,15 +263,11 @@ if __name__ == "__main__":
     # Folder Specific Commands
     ble_flow_paths = glob(os.path.join(outputs_dir, "validation_data_ble", huc, '*', "*flow*"))
 
-    nws_flow_paths = glob(
-        os.path.join(outputs_dir, "validation_data_nws", huc, '*', "*", "*flows*.csv")
-    )
+    nws_flow_paths = glob(os.path.join(outputs_dir, "validation_data_nws", huc, '*', "*", "*flows*.csv"))
 
     ble_benchmarks = glob(os.path.join(outputs_dir, "validation_data_ble", huc, '*', "*.tif"))
 
-    nws_benchmarks = glob(
-        os.path.join(outputs_dir, "validation_data_nws", huc, '*', '*', "*.tif")
-    )
+    nws_benchmarks = glob(os.path.join(outputs_dir, "validation_data_nws", huc, '*', '*', "*.tif"))
 
     flows = np.unique(
         np.hstack(
