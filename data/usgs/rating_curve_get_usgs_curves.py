@@ -223,6 +223,8 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         all input sites. Additional metadata also contained in DataFrame
 
     '''
+    print("-------------------------------------------------------------------------")
+    print("Getting USGS rating curves...")
 
     # Define URLs for metadata and rating curve
     metadata_url = f'{API_BASE_URL}/metadata'
@@ -430,6 +432,18 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         # Write out flow files for each threshold across all sites
         write_categorical_flow_files(metadata_list, workspace)
 
+    end = time.time()
+    elapsed_time = (end - start) / 60
+
+    print()
+    print(f"Finished executing in {str(elapsed_time).split('.')[0]} minutes.")
+
+    if workspace:
+        print(f"Output files written to {workspace}")
+    else:  
+        print("No workspace specified, no output files written.") # TODO: double check that this is correct
+    print("-------------------------------------------------------------------------")
+
     return all_rating_curves
 
 
@@ -495,11 +509,9 @@ if __name__ == '__main__':
     workspace = args['workspace']
     sleep_timer = float(args['sleep_timer'])
 
+    start = time.time()
+
     # Generate USGS rating curves
-    print("Executing...")
+
     usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites, workspace=workspace, sleep_time=sleep_timer)
-    print("Finished executing.")
-    if workspace:
-        print(f"Output files written to {workspace}")
-    else:  
-        print("No workspace specified, no output files written.") # TODO: double check that this is correct
+    
