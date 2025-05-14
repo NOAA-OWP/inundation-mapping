@@ -183,7 +183,23 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
 
         (if all option passed) usgs_gages.gpkg -- a point layer containing ALL USGS gage sites that meet
         certain criteria. In the attribute table is a 'curve' column that will indicate if a rating
-        curve is provided in "usgs_rating_curves.csv"
+        curve is provided in "usgs_rating_curves.csv" # TODO is this still an output?
+
+        acceptable_sites_for_rating_curves.csv -- A csv containing all acceptable sites
+        that have a rating curve.
+
+        acceptable_sites_for_rating_curves.gpkg -- A geopackage containing all acceptable sites
+        that have a rating curve.
+
+        acceptable_sites_pre.csv -- A csv containing all acceptable sites that have a rating curve. 
+
+        catfim_flows_cms.csv -- A csv containing the flow values for each flood category
+        (action, minor, moderate, major) for each site.
+
+        sites_bool_flags.gpkg -- A geopackage containing all acceptable sites 
+        TODO: deprecated as of 5/14/25... remove? or do we use this?
+
+
 
     Parameters
     ----------
@@ -418,10 +434,33 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
 
 
 if __name__ == '__main__':
+    '''
+    Retrieve USGS rating curves adjusted to elevation (NAVD88). 
+    Currently configured to get rating curves within CONUS. # TODO: Check whether this is still true. Update if needed.
+    Recommend running outside of business hours to reduce API related errors. 
+    If error occurs try increasing sleep time (from default of 1).
+
+    Arguments: 
+    -l, --list_of_gage_sites: REQUIRED. Gage sites to process. Can be a space-delineated list of 
+                                gage sites, a CSV (one site per line), or use “all” to get all USGS 
+                                gage sites. Use numerical USGS site codes not NWS LIDS.
+    -w, --workspace:          OPTIONAL. Directory to save outputs.
+    -t, --sleep_timer:        OPTIONAL. Length of time to rest between datum API calls. Defaults to 1.
+
+    Example usage:
+
+    Download all sites to outputs folder
+        /foss_fim/data/usgs/rating_curve_get_usgs_curves.py -l 'all' -w '/outputs' 
+
+    Download certain sites to outputs folder
+        /foss_fim/data/usgs/rating_curve_get_usgs_curves.py -l '04228500 04228502' -w '/outputs' 
+
+    '''
+
     # Parse arguments
     parser = argparse.ArgumentParser(
         description='Retrieve USGS rating curves adjusted to elevation (NAVD88).\n'
-        'Currently configured to get rating curves within CONUS.\n'
+        'Currently configured to get rating curves within CONUS.\n' # TODO: Check whether this is still true. Update if needed.
         'Recommend running outside of business hours to reduce API related errors.\n'
         'If error occurs try increasing sleep time (from default of 1).'
     )
@@ -459,3 +498,8 @@ if __name__ == '__main__':
     # Generate USGS rating curves
     print("Executing...")
     usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites, workspace=workspace, sleep_time=sleep_timer)
+    print("Finished executing.")
+    if workspace:
+        print(f"Output files written to {workspace}")
+    else:  
+        print("No workspace specified, no output files written.") # TODO: double check that this is correct
