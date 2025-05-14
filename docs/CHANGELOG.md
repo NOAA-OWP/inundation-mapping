@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.6.x.x - 2025-xx-xx - [PR#1501](https://github.com/NOAA-OWP/inundation-mapping/pull/1501)
+
+Update by Dependabot for updating the h11 package.
+
+<br/><br/>
+
+
 ## v4.6.1.11 - 2025-05-01 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)
 
 Downloads the FEMA NFHL data for HUC8.
