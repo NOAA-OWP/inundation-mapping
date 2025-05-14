@@ -1,7 +1,7 @@
 import argparse
 import os
-from contextlib import redirect_stdout, redirect_stderr
 import time
+from contextlib import redirect_stderr, redirect_stdout
 from multiprocessing import Pool
 
 import geopandas as gpd
