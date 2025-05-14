@@ -100,13 +100,15 @@ def write_categorical_flow_files(metadata, workspace):
 
     Returns
     -------
-    None.
+    all_data : DataFrame
+        A dataframe of categorical flow for every feature ID in the input metadata.
 
     '''
 
     threshold_url = f'{API_BASE_URL}/nws_threshold'
     workspace = Path(workspace)
     workspace.mkdir(parents=True, exist_ok=True)
+
     # For each site in metadata
     all_data = pd.DataFrame()
 
@@ -131,9 +133,11 @@ def write_categorical_flow_files(metadata, workspace):
         for category in ['action', 'minor', 'moderate', 'major']:
             # Get flow
             flow = flows.get(category, None)
+
             # If flow or feature id are not valid, skip to next site
             if flow is None:
                 continue
+
             # Otherwise, write 'guts' of a flow file and append to a master DataFrame.
             else:
                 data = flow_data([feature_id], flow, convert_to_cms=True)
@@ -144,7 +148,7 @@ def write_categorical_flow_files(metadata, workspace):
                 # Append site data to master DataFrame
                 all_data = pd.concat([all_data, data], ignore_index=True)
 
-    # Write CatFIM flows to file TODO: Figure out if we use this
+    # Write CatFIM flows to file TODO: Figure out if we use this file, deprecate if we don't. 
     print("writing for CatFIM")
     if not all_data.empty:
         final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
@@ -179,7 +183,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
         ONLY SITES IN CONUS ARE CURRENTLY LISTED IN THIS CSV. To get
         additional sites, the Tidal API will need to be reconfigured and tested.
 
-        log.csv -- A csv containing runtime messages.
+        log.csv -- A csv containing gage-specific messages. TODO: Doesn't actually include runtime messages. Add?
 
         (if all option passed) usgs_gages.gpkg -- a point layer containing ALL USGS gage sites that meet
         certain criteria. In the attribute table is a 'curve' column that will indicate if a rating
@@ -292,6 +296,7 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
     all_rating_curves = pd.DataFrame()
     regular_messages = []
     api_failure_messages = []
+
     # For each site in metadata_list
     for metadata in metadata_list:
         print("get_datum")
@@ -300,12 +305,14 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
 
         # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
         #   datum adjustment section (region will need changed)
-        if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
+        if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']: # TODO: Are we not getting any rating curves for these states? If so, should we change that?
             continue
+
         # Get rating curve for site
         location_ids = usgs['usgs_site_code']
         if location_ids is None:  # Some sites don't have a value for usgs_site_code, skip them
             continue
+
         curve = get_rating_curve(rating_curve_url, location_ids=[location_ids])
         # If no rating curve was returned, skip site.
         if curve.empty:
@@ -315,10 +322,11 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
 
         # Adjust datum to NAVD88 if needed. If datum unknown, skip site.
         if usgs['vcs'] == 'NGVD29':
+
             # To prevent time-out errors
             time.sleep(sleep_time)
-            # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
 
+            # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
             datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous')
 
             # If datum API failed, print message and skip site.
@@ -343,13 +351,14 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
             regular_messages.append(message)
             continue
 
-        print("Populating..")
         # Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
+        print("Populating..")
         curve['active'] = usgs['active']
         curve['datum'] = usgs['datum']
         curve['datum_vcs'] = usgs['vcs']
         curve['navd88_datum'] = navd88_datum
         curve['elevation_navd88'] = curve['stage'] + navd88_datum
+
         # Append all rating curves to a dataframe
         all_rating_curves = pd.concat([all_rating_curves, curve])
 
@@ -358,11 +367,14 @@ def usgs_rating_to_elev(list_of_gage_sites, workspace=False, sleep_time=1.0):
     sites_with_data = pd.DataFrame({'location_id': all_rating_curves['location_id'].unique(), 'curve': 'yes'})
     sites_gdf = sites_gdf.merge(sites_with_data, on='location_id', how='left')
     sites_gdf.fillna({'curve': 'no'}, inplace=True)
+
     # Add mainstems attribute to acceptable sites
     print('Attributing mainstems sites')
+
     # Import mainstems segments used in run_by_unit.sh
     ms_df = gpd.read_file(NWM_FLOWS_MS)
     ms_segs = ms_df.ID.astype(str).to_list()
+
     # Populate mainstems attribute field
     sites_gdf['mainstem'] = 'no'
     sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
