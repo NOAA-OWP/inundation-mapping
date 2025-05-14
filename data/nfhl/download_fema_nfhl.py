@@ -1,5 +1,6 @@
 import argparse
 import os
+from contextlib import redirect_stdout, redirect_stderr
 import time
 from multiprocessing import Pool
 
@@ -120,19 +121,21 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometryType='esriGeomet
                 "(FLD_ZONE LIKE 'X' AND ZONE_SUBTY = '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')"
             )
 
-            nfhl_df = ESRI_REST.query(
-                nfhl_query_url,
-                f="json",
-                where=where_clause,
-                returnGeometry="true",
-                outFields="*",
-                outSR=str(geometryCRS),
-                geometryType=geometryType,
-                geometry=str(geometry),
-                resultRecordCount=100,
-                geometryPrecision=1,
-                maxAllowableOffset=1,
-            )
+            with open(os.devnull, 'w') as devnull:
+                with redirect_stdout(devnull), redirect_stderr(devnull):
+                    nfhl_df = ESRI_REST.query(
+                        nfhl_query_url,
+                        f="json",
+                        where=where_clause,
+                        returnGeometry="true",
+                        outFields="*",
+                        outSR=str(geometryCRS),
+                        geometryType=geometryType,
+                        geometry=str(geometry),
+                        resultRecordCount=100,
+                        geometryPrecision=1,
+                        maxAllowableOffset=1,
+                    )
 
             # Clean the geometries to remove self-intersections
             nfhl_df['geometry'] = nfhl_df['geometry'].make_valid()
