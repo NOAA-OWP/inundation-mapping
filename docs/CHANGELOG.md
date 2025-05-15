@@ -1,6 +1,30 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2025-05-15 - [PR#1510](https://github.com/NOAA-OWP/inundation-mapping/pull/1510)
+This PR closes issues #1473 and #1483.
+
+This PR refactors the pre-clipping tool and introduces 9 new optional arguments that allow selective copying of existing pre-clipped vector 
+layers instead of regenerating them. This enhancement significantly reduces runtime, especially when only specific datasets such as OSM roads 
+or bridges need to be updated.
+
+### Additional Fixes and Enhancements
+
+* The tool now supports both CONUS and Alaska HUCs with automatic CRS handling, eliminating the need to run the code separately for each region. 
+It can now process a combination of CONUS and Alaska HUCs in a single run. 
+* A bug affecting lake generation in Alaska was identified and fixed. Previously, Alaska lakes had been omitted due to this bug.
+
+
+
+### Changes
+- data/wbd/generate_pre_clip_fim_huc8.py
+- data/wbd/clip_vectors_to_wbd.py  
+- src/bash_variables.env... Added the paths to newly generated OSM roads for both CONUS and Alaska
+
+
+<br/><br/>
+
+
 ## v4.6.1.11 - 2025-05-01 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)
 
 Downloads the FEMA NFHL data for HUC8.
