@@ -212,6 +212,9 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
                 nfhl_df = nfhl_df_exploded.dissolve().reset_index(drop=True)
                 nfhl_df = nfhl_df.dropna(axis=1, how='all')
                 # Save to GPKG as 'combined' layer
+                if nfhl_df.empty:
+                    file_logger.error(f"No NFHL data retrieved for HUC {huc}")
+                    return False
                 nfhl_df.to_file(out_file, layer='combined', index=False, driver='GPKG')
                 return True
             else:
