@@ -63,7 +63,8 @@ def run_with_mp(
     This simple setup is using a shared log file and it is ok for now assuming that:
         - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work
         - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
-        - if we encounter a case that this does not work correctly, then we can improve it by creating one log file per task and combining them afterward.
+        - if we encounter a case that this does not work correctly, then we can improve it by creating one log file per task and combining them afterward.
+
 
     - Use try/except in both the task function and this wrapper:
         " The task function should handle known/expected errors and always return True or False.
@@ -165,7 +166,7 @@ def run_with_mp(
                     sys.exit(1)
 
             if pbar:
-                pbar.update(1)  #  Progress update for each completed task
+                pbar.update(1)  # Progress update for each completed task
         if pbar:
             pbar.close()
 

@@ -8,6 +8,7 @@ import geopandas as gpd
 from dotenv import load_dotenv
 from esri import ESRI_REST
 from shapely import Polygon
+
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
@@ -121,9 +122,7 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
 
                 geometry = str(geometry)
 
-                nfhl_query_url = (
-                    "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/20/query"
-                )
+                nfhl_query_url = "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/20/query"
                 # Filter for 100-year (A, V zones): FLD_ZONE LIKE 'A%' OR FLD_ZONE LIKE 'V%'
                 # and 500-year (X): FLD_ZONE LIKE 'X' AND ZONE_SUBTY = '0.2 PCT ANNUAL CHANCE FLOOD HAZARD'
                 where_clause = (
@@ -226,11 +225,12 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
             file_logger.info(f"Completed processing HUC {task_id}")
             # screen_queue.put(f"Completed processing HUC {task_id}")
         return success
-    
+
     except Exception as e:
         file_logger.error(f"Exception in HUC {task_id}: {str(e)}")
         file_logger.error(traceback.format_exc())
-        return False        
+        return False
+
 
 def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnvelope', num_processes=1):
     """
@@ -260,14 +260,16 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
 
     tasks_args_list = []
     for huc in huc_list:
-        tasks_args_list.append({
-            "huc": huc,
-            "out_file": os.path.join(output_folder, f"nfhl_{huc}.gpkg"),
-            "wbd_conus": wbd_conus,
-            "wbd_alaska": wbd_alaska,
-            "geometry_type": geometryType,
-        })
-    
+        tasks_args_list.append(
+            {
+                "huc": huc,
+                "out_file": os.path.join(output_folder, f"nfhl_{huc}.gpkg"),
+                "wbd_conus": wbd_conus,
+                "wbd_alaska": wbd_alaska,
+                "geometry_type": geometryType,
+            }
+        )
+
     # Run multiprocessing
     results = run_with_mp(
         task_function=download_nfhl,
@@ -276,10 +278,10 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
         max_workers=num_processes,
         task_id_key='huc',
         exit_on_failure=False,
-        show_progress=False, # Disables the progress bar display
+        show_progress=False,  # Disables the progress bar display
     )
     file_logger.info(f"Multiprocessing results: {results}")
-    
+
     # only report if all succeeded or the failed ones
     failed_keys = [k for k, v in results.items() if not v]
 
