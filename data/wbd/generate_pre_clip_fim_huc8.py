@@ -212,7 +212,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
     ]
 
     if copied_layers:
-        logging.info("The following layers will be copied instead of pre-clipping:")
+        logging.info("The following layers will be copied instead of clipping:")
         for layer in copied_layers:
             logging.info(f" - {layer}")
 
@@ -597,7 +597,7 @@ if __name__ == '__main__':
     # If not provided for a layer name, no key-value is created so need to handle it later
     for copy_arg_option in args_copy_options:
         parser.add_argument(
-            f"--{copy_arg_option}", action="store_true", help=f"{copy_arg_option} instead of pre-clipping"
+            f"--{copy_arg_option}", action="store_true", help=f"{copy_arg_option} instead of clipping"
         )
 
     args = vars(parser.parse_args())
