@@ -251,6 +251,18 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
 
     start_time = dt.datetime.now(dt.timezone.utc)
 
+    # handle .lst file or direct HUC list
+    if len(huc_list) == 1 and huc_list[0].endswith('.lst'):
+        lst_file = huc_list[0]
+        if not os.path.exists(lst_file):
+            raise FileNotFoundError(f"HUC list file {lst_file} does not exist")
+        with open(lst_file, 'r') as f:
+            huc_list = [line.strip() for line in f if line.strip()]
+
+
+    if not huc_list:
+        raise ValueError('No valid HUC8 provided')
+
     os.makedirs(output_folder, exist_ok=True)
     # Set up logger
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
@@ -275,6 +287,10 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
 
     tasks_args_list = []
     for huc in huc_list:
+        if not huc.isdigit() or len(huc) != 8:
+            file_logger.error(f"Skipping invalid HUC8: {huc}")
+            print(f"Skipping invalid HUC8: {huc}")
+            continue
         tasks_args_list.append(
             {
                 "huc": huc,
@@ -325,10 +341,13 @@ if __name__ == "__main__":
     ----------
     python3 /foss_fim//data/nfhl/download_fema_nfhl.py -u 11070106 08080206
         -o /outputs/fema/test -j 8
+    OR
+    python3 /foss_fim//data/nfhl/download_fema_nfhl.py -u huc_list.lst
+        -o /outputs/fema/test -j 8
     """
 
     parser = argparse.ArgumentParser(description="Query NFHL flood hazard zones for a HUC8")
-    parser.add_argument('-u', "--huc", help="List of HUC8", type=str, required=True, nargs='+')
+    parser.add_argument('-u', "--huc", help="List of HUC8 or a .lst file", type=str, required=True, nargs='+')
     parser.add_argument('-o', "--output_folder", help="Output directory", type=str, required=True)
     parser.add_argument(
         '-g', "--geometryType", help="Geometry type", required=False, default='esriGeometryEnvelope'
@@ -336,11 +355,11 @@ if __name__ == "__main__":
     parser.add_argument('-j', "--num_processes", help="Number of processes", type=int, default=1)
 
     args = parser.parse_args()
-    huc_list = args.huc
+    huc_inputs = args.huc
 
     try:
         download_nfhl_wrapper(
-            huc_list=huc_list,
+            huc_list=huc_inputs,
             output_folder=args.output_folder,
             geometryType=args.geometryType,
             num_processes=args.num_processes,
