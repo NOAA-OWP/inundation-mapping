@@ -158,7 +158,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
         branch = re.search(r'branches/(\d{10}|0)/', src_all_branches_path[isrc]).group()[9:-1]
         print(f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}')
-        log_text += f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}'
+        log_text += f'Processing Longitudinal flow adjustment for HUC {huc} Branch: {branch}\n'
 
         catchment_gdf0 = gpd.read_file(cathment_gpkg_path[isrc])
         catchment_gdf = catchment_gdf0.drop_duplicates(subset=['HydroID'], keep='first')
