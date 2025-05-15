@@ -1,4 +1,5 @@
 import argparse
+import datetime as dt
 import os
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
@@ -9,6 +10,7 @@ from dotenv import load_dotenv
 from esri import ESRI_REST
 from shapely import Polygon
 
+from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
@@ -246,11 +248,24 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
     num_processes : int
         Number of processes
     """
+
+    start_time = dt.datetime.now(dt.timezone.utc)
+
     os.makedirs(output_folder, exist_ok=True)
     # Set up logger
-    log_file_path = os.path.join(output_folder, "nfhl_download.log")
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_path = os.path.join(output_folder, f"nfhl_download-{file_dt_string}.log")
     file_logger = setup_mp_file_logger(log_file_path)
+
+    print("==================================")
     file_logger.info("Started NFHL download process")
+    print("Started NFHL download process")
+    print("")
+    print("*** NOTE: This will auto skip previously downloaded huc fema records")
+    print("")
+    file_logger.info(f"   Start time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    print(f"   Start time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    print("")
 
     # Load wbd
     wbd_conus, wbd_alaska = load_wbd(huc_list)
@@ -295,6 +310,12 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
             file_logger.info(f"  - {k}")
             print(f"  - {k}")
     print('Multiprocessing tasks finished :)')
+    print("")
+
+    end_time = dt.datetime.now(dt.timezone.utc)
+    print(f"   End time (UTC): {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    file_logger.info(f"End time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    file_logger.info(fh.print_date_time_duration(start_time, end_time))
 
 
 if __name__ == "__main__":
@@ -317,9 +338,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
     huc_list = args.huc
 
-    download_nfhl_wrapper(
-        huc_list=huc_list,
-        output_folder=args.output_folder,
-        geometryType=args.geometryType,
-        num_processes=args.num_processes,
-    )
+    try:
+        download_nfhl_wrapper(
+            huc_list=huc_list,
+            output_folder=args.output_folder,
+            geometryType=args.geometryType,
+            num_processes=args.num_processes,
+        )
+
+    except Exception:
+        end_time = dt.datetime.now(dt.timezone.utc)
+        print("An exception was thrown")
+        print(traceback.format_exc())
+        print(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
