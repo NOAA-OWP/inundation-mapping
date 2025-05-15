@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.6.X.XX - 2025-05-15 - [PR#1505](https://github.com/NOAA-OWP/inundation-mapping/pull/1505)
+
+Adding new functionality to ingest external data sources for channel slope values used in the SRC calcuations (Manning's equation). We are now ingesting slope values calculated from IRIS-SWORD (CIROH research - publication pending) as well as the NWM hydrofabric slope values (based on the NHD VAA data). The discharge calculation in the SRC is now implementing these slope values using a prioritization scheme (1-IRIS/SWORD, 2-NWM hydrofabric, 3-DEM rise/run calc).
+
+### Changes
+- `src/add_crosswalk.py`: updates to populate/rename the `SLOPE_RISE_RUN`, `SLOPE_HFAB`, `SLOPE_IRIS_SWORD` variables and include the data in the `src_full_crosswalked` and `hydrotable` csv files. This is also where the prioritazation scheme is coded - will define `SLOPE` using first available data (1-IRIS/SWORD, 2-NWM hydrofabric, 3-DEM rise/run calc).
+- `src/bash_variables.env`: added new input file path for `iris_sword_slope` parquet file (view readme in the input data dir for more info)
+- `src/delineate_hydros_and_produce_HAND.sh`: added new -i argument input (IRIS SWORD file)  to `add_crosswalk.py`
+- `src/identify_src_bankfull.py`: updated to remove hard coded process of removing some attributes in the src_full_crosswalked csv files (this is now handled in the `update_htable_src.py`)
+- `src/update_htable_src.py`: updated to specify which columns to preserve in the src_full_crosswalk csv files rather than preserving set number of columns.
+
+<br/><br/>
+
+
 ## v4.6.1.11 - 2025-05-01 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)
 
 Downloads the FEMA NFHL data for HUC8.
