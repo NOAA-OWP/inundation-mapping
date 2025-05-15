@@ -259,7 +259,6 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
         with open(lst_file, 'r') as f:
             huc_list = [line.strip() for line in f if line.strip()]
 
-
     if not huc_list:
         raise ValueError('No valid HUC8 provided')
 
