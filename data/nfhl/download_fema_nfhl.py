@@ -268,69 +268,80 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
     log_file_path = os.path.join(output_folder, f"nfhl_download-{file_dt_string}.log")
     file_logger = setup_mp_file_logger(log_file_path)
 
-    print("==================================")
-    file_logger.info("Started NFHL download process")
-    print("Started NFHL download process")
-    print("")
-    print("*** NOTE: This will auto skip previously downloaded huc fema records")
-    print("")
-    file_logger.info(f"   Start time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    print(f"   Start time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    print("")
+    try:
 
-    # Load wbd
-    wbd_conus, wbd_alaska = load_wbd(huc_list)
+        print("==================================")
+        file_logger.info("Started NFHL download process")
+        print("Started NFHL download process")
+        print("")
+        print("*** NOTE: This will auto skip previously downloaded huc fema records")
+        print("")
+        file_logger.info(f"   Start time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        print(f"   Start time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        print("")
 
-    # Tasks argument list
-    huc_list = sorted(huc_list)
+        # Load wbd
+        wbd_conus, wbd_alaska = load_wbd(huc_list)
 
-    tasks_args_list = []
-    for huc in huc_list:
-        if not huc.isdigit() or len(huc) != 8:
-            file_logger.error(f"Skipping invalid HUC8: {huc}")
-            print(f"Skipping invalid HUC8: {huc}")
-            continue
-        tasks_args_list.append(
-            {
-                "huc": huc,
-                "out_file": os.path.join(output_folder, f"nfhl_{huc}.gpkg"),
-                "wbd_conus": wbd_conus,
-                "wbd_alaska": wbd_alaska,
-                "geometry_type": geometryType,
-            }
+        # Tasks argument list
+        huc_list = sorted(huc_list)
+
+        tasks_args_list = []
+        for huc in huc_list:
+            if not huc.isdigit() or len(huc) != 8:
+                file_logger.error(f"Skipping invalid HUC8: {huc}")
+                print(f"Skipping invalid HUC8: {huc}")
+                continue
+            tasks_args_list.append(
+                {
+                    "huc": huc,
+                    "out_file": os.path.join(output_folder, f"nfhl_{huc}.gpkg"),
+                    "wbd_conus": wbd_conus,
+                    "wbd_alaska": wbd_alaska,
+                    "geometry_type": geometryType,
+                }
+            )
+
+        # Run multiprocessing
+        results = run_with_mp(
+            task_function=download_nfhl,
+            tasks_args_list=tasks_args_list,
+            file_logger=file_logger,
+            max_workers=num_processes,
+            task_id_key='huc',
+            exit_on_failure=False,
+            show_progress=False,  # Disables the progress bar display
         )
+        file_logger.info(f"Multiprocessing results: {results}")
 
-    # Run multiprocessing
-    results = run_with_mp(
-        task_function=download_nfhl,
-        tasks_args_list=tasks_args_list,
-        file_logger=file_logger,
-        max_workers=num_processes,
-        task_id_key='huc',
-        exit_on_failure=False,
-        show_progress=False,  # Disables the progress bar display
-    )
-    file_logger.info(f"Multiprocessing results: {results}")
+        # only report if all succeeded or the failed ones
+        failed_keys = [k for k, v in results.items() if not v]
 
-    # only report if all succeeded or the failed ones
-    failed_keys = [k for k, v in results.items() if not v]
+        if not failed_keys:
+            file_logger.info("All multiprocessing tasks Succeeded")
+            print("All multiprocessing tasks Succeeded")
+        else:
+            file_logger.info(f"{len(failed_keys)} failed:")
+            print(f"{len(failed_keys)} failed:")
+            for k in failed_keys:
+                file_logger.info(f"  - {k}")
+                print(f"  - {k}")
+        print('Multiprocessing tasks finished :)')
+        print("")
 
-    if not failed_keys:
-        file_logger.info("All multiprocessing tasks Succeeded")
-        print("All multiprocessing tasks Succeeded")
-    else:
-        file_logger.info(f"{len(failed_keys)} failed:")
-        print(f"{len(failed_keys)} failed:")
-        for k in failed_keys:
-            file_logger.info(f"  - {k}")
-            print(f"  - {k}")
-    print('Multiprocessing tasks finished :)')
-    print("")
+        end_time = dt.datetime.now(dt.timezone.utc)
+        print(f"   End time (UTC): {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        file_logger.info(f"End time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        file_logger.info(fh.print_date_time_duration(start_time, end_time))
 
-    end_time = dt.datetime.now(dt.timezone.utc)
-    print(f"   End time (UTC): {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    file_logger.info(f"End time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    file_logger.info(fh.print_date_time_duration(start_time, end_time))
+    except Exception:
+        end_time = dt.datetime.now(dt.timezone.utc)
+        print("An exception was thrown")
+        file_logger.error("An exception was thrown")
+        print(traceback.format_exc())
+        file_logger.error(traceback.format_exc())
+
+        print(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
 
 if __name__ == "__main__":
@@ -356,16 +367,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     huc_inputs = args.huc
 
-    try:
-        download_nfhl_wrapper(
-            huc_list=huc_inputs,
-            output_folder=args.output_folder,
-            geometryType=args.geometryType,
-            num_processes=args.num_processes,
-        )
-
-    except Exception:
-        end_time = dt.datetime.now(dt.timezone.utc)
-        print("An exception was thrown")
-        print(traceback.format_exc())
-        print(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    download_nfhl_wrapper(
+        huc_list=huc_inputs,
+        output_folder=args.output_folder,
+        geometryType=args.geometryType,
+        num_processes=args.num_processes,
+    )
