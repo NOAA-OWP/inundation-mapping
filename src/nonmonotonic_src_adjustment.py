@@ -264,7 +264,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
     for src in src_all_branch_paths:
         src_name = os.path.basename(src)
         branch = src_name.split(".")[0].split("_")[-1]
-        log_text += f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}'
+        log_text += f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}\n'
         print(f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}')
 
         src_df = pd.read_csv(src, low_memory=False)
