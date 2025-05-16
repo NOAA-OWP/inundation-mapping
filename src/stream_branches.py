@@ -686,7 +686,8 @@ class StreamNetwork(gpd.GeoDataFrame):
             waterbodies = gpd.read_file(waterbodies)
 
         if isinstance(waterbodies, gpd.GeoDataFrame):
-            waterbodies = waterbodies.drop('OBJECTID', axis=1)
+            if 'OBJECTID' in waterbodies.columns:
+                waterbodies = waterbodies.drop('OBJECTID', axis=1)
 
             # Find branches in waterbodies
             self = self.rename(columns={branch_id_attribute: "bids"})
