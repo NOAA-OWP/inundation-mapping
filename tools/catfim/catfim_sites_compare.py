@@ -476,6 +476,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
 
     Outputs:
     - GPKGs saved to the output_save_filepath
+    - CSVs saved to the output_save_filepath
 
     '''
 
@@ -611,18 +612,27 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         added_geom = added_geom.set_crs(web_mercator_crs)  # web mercator, the viz projection
         removed_geom = removed_geom.set_crs(web_mercator_crs)  # web mercator, the viz projection
 
-        # Save the geopackages
+        # Save the added and removed geometries to GPKGs and CSVs
         if len(added_geom) == 0:
             print('\nNo gained coverage detected, not saving a gained coverage GPKG.')
         else:
             added_geom.to_file(gained_coverage_gpkg_save_path, layer='gained_coverage', driver='GPKG')
             print(f'\nSaved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
 
+            # Save the added geom data as a csv as well
+            added_geom.to_csv(gained_coverage_gpkg_save_path.replace('.gpkg', '.csv'), index=False)
+            print(f'\nSaved gained coverage CSV to {gained_coverage_gpkg_save_path.replace(".gpkg", ".csv")}')
+            
+
         if len(removed_geom) == 0:
             print('\nNo lost coverage detected, not saving a lost coverage GPKG.')
         else:
             removed_geom.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG')
             print(f'\nSaved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
+
+            # Save the removed geom data as a csv as well
+            removed_geom.to_csv(lost_coverage_gpkg_save_path.replace('.gpkg', '.csv'), index=False)
+            print(f'\nSaved lost coverage CSV to {lost_coverage_gpkg_save_path.replace(".gpkg", ".csv")}')
 
 
 # Main function for catfim_site_tracking
