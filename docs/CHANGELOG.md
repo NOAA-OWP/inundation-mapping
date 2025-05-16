@@ -1,7 +1,8 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-05-14 - [PR#1502](https://github.com/NOAA-OWP/inundation-mapping/pull/1502)
+## v4.6.2.0 - 2025-05-14 - [PR#1502](https://github.com/NOAA-OWP/inundation-mapping/pull/1502)
+
 This PR introduces a multiprocessing utility that can be reused across different workflows and projects.
 
 ### Key features:
@@ -17,6 +18,7 @@ This PR introduces a multiprocessing utility that can be reused across different
 - data/bridges/make_dem_dif_for_bridges.py ... Provides an example of how to use the new multiprocessing framework instead of the previous code
 
 <br/><br/>
+
 
 ## v4.6.1.14 - 2025-05-15 - [PR#1510](https://github.com/NOAA-OWP/inundation-mapping/pull/1510)
 
