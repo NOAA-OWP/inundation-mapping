@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.6.x.x - 2025-05-13 - [PR#1481](https://github.com/NOAA-OWP/inundation-mapping/pull/1481)
+## v4.7.4.0 - 2025-05-16 - [PR#1481](https://github.com/NOAA-OWP/inundation-mapping/pull/1481)
 
 Adjusts the elevations in branch floodplains by subtracting an additional amount from the DEM based on distance from the levelpath stream line so streams are more likely to flow directly towards the levelpath in order to address the catchment boundary issue.
 
@@ -22,7 +22,10 @@ Adjusts the elevations in branch floodplains by subtracting an additional amount
     - `run_unit_wb.sh`: Edited some filenames
     - `src_adjust_spatial_obs.py`: Fixed to not error if file is does not exist
     - `stream_branches.py`:  Added method to extend all levelpaths to HUC outlet
-    
+
+<br/><br/>
+
+
 ## v4.7.3.0 - 2025-05-16 - [PR#1496](https://github.com/NOAA-OWP/inundation-mapping/pull/1496)
 
 This focuses on filtering discharge and hydraulic properties of NWM reaches and updating synthetic rating curves accordingly for each Hydro-ID.
