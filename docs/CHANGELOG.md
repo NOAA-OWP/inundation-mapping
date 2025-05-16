@@ -1,6 +1,26 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.7.3.0 - 2025-05-16 - [PR#1496](https://github.com/NOAA-OWP/inundation-mapping/pull/1496)
+
+This focuses on filtering discharge and hydraulic properties of NWM reaches and updating synthetic rating curves accordingly for each Hydro-ID.
+
+### Addition
+
+The following scripts are added where the discharge is filtered across the reaches for minimum values and Gaussian fluctuations, and synthetic rating curves are accordingly updated.
+
+- `src/`
+    - `filter_longitudinal_flow.py`
+    - `nonmonotonic_src_adjustment.py`
+
+### Changes
+
+- `config/`
+    - `params_template.env`
+- `fim_post_processing.sh`
+
+<br/><br/>
+
 
 ## v4.7.2.0 - 2025-05-16 - [PR#1505](https://github.com/NOAA-OWP/inundation-mapping/pull/1505)
 
