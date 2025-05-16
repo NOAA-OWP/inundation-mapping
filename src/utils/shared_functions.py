@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import glob
 import inspect
 import logging
@@ -63,15 +65,14 @@ def run_with_mp(
     This simple setup is using a shared log file and it is ok for now assuming that:
         - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work
         - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
-        - if we encounter a case that this does not work correctly, then we can improve it by creating one log file per task and combining them afterward.
-
+        - if we encounter a case that this does not work correctly, then we can improve it by creating one log file per task and combining them afterward.”
 
     - Use try/except in both the task function and this wrapper:
-        " The task function should handle known/expected errors and always return True or False.
-        " This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
-        " No more try/except inside helper functions inside task function. Let them fail and task_function exception handles them.
-        " Inside helper functions feel free to log any information. but No need to raise errors.
-        " The only exception is that when we really need to address a special case like API limits and wait and retry.
+        • The task function should handle known/expected errors and always return True or False.
+        • This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
+        • No more try/except inside helper functions inside task function. Let them fail and task_function exception handles them.
+        • Inside helper functions feel free to log any information. but No need to raise errors.
+        • The only exception is that when we really need to address a special case like API limits and wait and retry.
     - Inside your task function or helpers, log live messages using screen_queue.put(msg).
     - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
     - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
@@ -131,20 +132,20 @@ def run_with_mp(
                 if result:
                     if show_progress:
                         tqdm.write(
-                            f"success for {task_id}"
+                            f"✅ success for {task_id}"
                         )  # do not use print otherwise a new updated bar is created after each print line
                     else:
-                        print(f"success for {task_id}")
-                    file_logger.info(f"success for {task_id}")
+                        print(f"✅ success for {task_id}")
+                    file_logger.info(f"✅ success for {task_id}")
                 else:
                     if show_progress:
-                        tqdm.write(f"L Error reported for {task_id}.")
+                        tqdm.write(f"❌ Error reported for {task_id}.")
                     else:
-                        print(f"L Error reported for {task_id}.")
-                    file_logger.info(f"L Error reported for {task_id}.")
+                        print(f"❌ Error reported for {task_id}.")
+                    file_logger.info(f"❌ Error reported for {task_id}.")
 
             except Exception as ex:
-                error_msg = f"L Error for {task_id}: {ex}"
+                error_msg = f"❌ Error for {task_id}: {ex}"
                 traceback_msg = traceback.format_exc()
 
                 if show_progress:
@@ -166,7 +167,7 @@ def run_with_mp(
                     sys.exit(1)
 
             if pbar:
-                pbar.update(1)  # Progress update for each completed task
+                pbar.update(1)  # ✅ Progress update for each completed task
         if pbar:
             pbar.close()
 
