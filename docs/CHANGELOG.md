@@ -1,6 +1,31 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.7.4.0 - 2025-05-16 - [PR#1481](https://github.com/NOAA-OWP/inundation-mapping/pull/1481)
+
+Adjusts the elevations in branch floodplains by subtracting an additional amount from the DEM based on distance from the levelpath stream line so streams are more likely to flow directly towards the levelpath in order to address the catchment boundary issue.
+
+### Additions
+
+- `config/params_template.env`: Adds floodplain parameters for `distance_threshold`, `z_factor`, and `slope_exponent`.
+- `data/nwm/fix_nwm_streams.py`: Fixes stream segments that were digitized in reverse order
+- `src/adjust_floodplains.py`: Computes subtraction raster based on distance (restricted to FEMA NFHL 500-year flood hazard zone if available) from levelpath, then subtracts that raster from the DEM
+
+### Changes
+
+- `.pre-commit-config.yaml`: Updated versions
+- `config/deny_branches.lst`: Added new DEM file and removed AGREE files
+- `src/`
+    - `bash_variables.env`: Updated path to flow file
+    - `derive_level_paths.py`: Added call to extend branches
+    - `run_by_branch.sh`: Added `adjust_floodplains.py`, moved pit filling and flowdir after `adjust_floodplains.py`, and edited some filenames
+    - `run_unit_wb.sh`: Edited some filenames
+    - `src_adjust_spatial_obs.py`: Fixed to not error if file is does not exist
+    - `stream_branches.py`:  Added method to extend all levelpaths to HUC outlet
+
+<br/><br/>
+
+
 ## v4.7.3.0 - 2025-05-16 - [PR#1496](https://github.com/NOAA-OWP/inundation-mapping/pull/1496)
 
 This focuses on filtering discharge and hydraulic properties of NWM reaches and updating synthetic rating curves accordingly for each Hydro-ID.
