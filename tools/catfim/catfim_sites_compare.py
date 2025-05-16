@@ -217,10 +217,6 @@ def compile_catfim_sites(sorted_path_list):
             # Fill with 'no' where the value is not 'yes'
             combined_sites_df[col] = combined_sites_df[col].apply(lambda x: 'yes' if x == 'yes' else 'no')
 
-        # elif 'catfim_mapped' in col:  # Removed for now
-        #     # Fill with 'no' where the value is not 'yes'
-        #     combined_sites_df[col] = combined_sites_df[col].apply(lambda x: 'yes' if x == 'yes' else 'no')
-
         elif 'status' in col:
             # Get the version ID from the 'status' column
             version_id = col.replace('_status', '')
@@ -283,7 +279,7 @@ def make_version_comparison_tables(
         new_version_id = sorted_versions[i + 1]
 
         comparison_id = f'{product_id}_{old_version_id}_vs_{new_version_id}'
-        comparison_table_save_path = os.path.join(out_save_path, f'{comparison_id}.csv')
+        comparison_table_save_path = os.path.join(out_save_path, f'{comparison_id}_sites.csv')
 
         # Define column names as variables
         old_site_processed_col = f'{old_version_id}_site_processed'
@@ -292,8 +288,11 @@ def make_version_comparison_tables(
         old_catfim_mapped_col = f'{old_version_id}_catfim_mapped'
         new_catfim_mapped_col = f'{new_version_id}_catfim_mapped'
 
-        old_catfim_status_col = f'{old_version_id}_status'
-        new_catfim_status_col = f'{new_version_id}_status'
+        old_catfim_status_col = 'previous_catfim_status' # f'{old_version_id}_status'
+        new_catfim_status_col =  'new_catfim_status' # f'{new_version_id}_status'
+
+        old_catfim_version_col = 'previous_catfim_version'
+        new_catfim_version_col = 'new_catfim_version'
 
         # Create a subset table with just the versions to compare
         compare_sites_df = combined_sites_df[
@@ -308,13 +307,16 @@ def make_version_comparison_tables(
             ]
         ]
 
+        # Add the version columns to the compare_sites_df
+        compare_sites_df[old_catfim_version_col] = old_version_id
+        compare_sites_df[new_catfim_version_col] = new_version_id
+
         # Initialize new columns with default values
         change_col = 'Change'
         change_description_col = 'Change_Description'
+        default_error_message = 'ERROR - Site was unable to be categorized, check status columns manually.'
         compare_sites_df[change_col] = 'ERROR'
-        compare_sites_df[change_description_col] = (
-            'ERROR - Site was unable to be categorized, check status columns manually.'
-        )
+        compare_sites_df[change_description_col] = default_error_message
 
         # Define conditions
         conditions = [
@@ -372,14 +374,15 @@ def make_version_comparison_tables(
                 np.select(
                     conditions,
                     choices_change_description,
-                    default='ERROR - Site was unable to be categorized, check status columns manually.',
+                    default=default_error_message,
                 )
             )
         )
 
         # Reorder columns and exclude the unnecessary ones
         compare_sites_df = compare_sites_df[
-            ['site_id', change_col, change_description_col, old_catfim_status_col, new_catfim_status_col]
+            ['site_id', change_col, change_description_col, old_catfim_version_col, 
+             old_catfim_status_col, new_catfim_version_col, new_catfim_status_col]
         ]
 
         # Join the site metadata to the compare_sites_df
