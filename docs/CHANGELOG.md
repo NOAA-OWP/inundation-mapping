@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## vx.x.x.x - 2025-xx-xx - [PR#1495](https://github.com/NOAA-OWP/inundation-mapping/pull/1495)
+## v4.7.1.0 - 2025-05-15 - [PR#1495](https://github.com/NOAA-OWP/inundation-mapping/pull/1495)
 
 This focuses on adjusting thalweg notches by healing hydro-conditioning before SRC calculation (Hydraulic) for GMS branches and updating synthetic rating curves in bathymetric_adjustment routing for each Hydro-ID.
 
@@ -15,6 +15,14 @@ The following scripts has been updated where thalweg notches adjusted and synthe
     - `bash_variables.env`: Updated for a new input path for new AI-Based bathymetry data from HydroVIS. The new dataset is stored here: /fim-data/inputs/bathymetry/ml_auxiliary_data.parquet
     - `delineate_hydros_and_produce_HAND.sh`
     - `bathymetric_adjustment.py`
+
+- `config/`
+    - `params_template.env`
+- `fim_post_processing.sh`
+
+<br/><br/>
+
+
 ## v4.7.0.0 - 2025-05-16 - [PR#1499](https://github.com/NOAA-OWP/inundation-mapping/pull/1499)
 
 This focuses on adjusting nonmonotonic SRCs for GMS branches by updating discharge and other hydraulic variables for each Hydro-ID where the stage is within `in-channel`.
@@ -30,8 +38,7 @@ The following scripts have been updated/added to adjust synthetic rating curves.
 
 - `config/`
     - `params_template.env`
-- `inundation-mapping/`
-    - `fim_post_processing.sh`
+- `fim_post_processing.sh`
 
 <br/><br/>
 
