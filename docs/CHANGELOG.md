@@ -1,7 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.6.2.0 - 2025-05-14 - [PR#1502](https://github.com/NOAA-OWP/inundation-mapping/pull/1502)
+## v4.6.2.1 - 2025-05-16 - [PR#1515](https://github.com/NOAA-OWP/inundation-mapping/pull/1515)
+
+Modified the script to skip HUC8s without FEMA data.
+
+### Changes
+
+`data/nfhl/download_fema_nfhl.py` : Updated for areas without FEMA data.
+
+<br/><br/>
+
+
+## v4.6.2.0 - 2025-05-16 - [PR#1502](https://github.com/NOAA-OWP/inundation-mapping/pull/1502)
 
 This PR introduces a multiprocessing utility that can be reused across different workflows and projects.
 
@@ -20,7 +31,7 @@ This PR introduces a multiprocessing utility that can be reused across different
 <br/><br/>
 
 
-## v4.6.1.14 - 2025-05-15 - [PR#1510](https://github.com/NOAA-OWP/inundation-mapping/pull/1510)
+## v4.6.1.14 - 2025-05-16 - [PR#1510](https://github.com/NOAA-OWP/inundation-mapping/pull/1510)
 
 This PR closes issues #1473 and #1483.
 
