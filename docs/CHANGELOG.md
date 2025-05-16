@@ -11,6 +11,68 @@ Modified the script to skip HUC8s without FEMA data.
 
 <br/><br/>
 
+## v4.6.2.0 - 2025-05-14 - [PR#1502](https://github.com/NOAA-OWP/inundation-mapping/pull/1502)
+
+This PR introduces a multiprocessing utility that can be reused across different workflows and projects.
+
+### Key features:
+- Parallel Task Execution: Uses `ProcessPoolExecutor` to run a set of independent tasks in parallel, with configurable number of workers.
+- Robust Logging:
+  - File-based logging using a centralized `file_logger` for recording of individual task results and errors.
+  - Screen output via a multiprocessing-safe `screen_queue`, printed by a dedicated background thread without interrupting the main progress bar.
+  - Task functions always receive three additional arguments of `file_logger`, `screen_queue`, and `task_id` that allow logging for each individual task.
+- Progress Monitoring: Displays real-time progress using `tqdm`, with success or failure messages for each task.
+
+### Changes
+- src/utils/shared_functions.py ... Introduces two new functions that enable multiprocessing across the codebase
+- data/bridges/make_dem_dif_for_bridges.py ... Provides an example of how to use the new multiprocessing framework instead of the previous code
+
+<br/><br/>
+
+
+## v4.6.1.14 - 2025-05-15 - [PR#1510](https://github.com/NOAA-OWP/inundation-mapping/pull/1510)
+
+This PR closes issues #1473 and #1483.
+
+This PR refactors the pre-clipping tool and introduces 9 new optional arguments that allow selective copying of existing pre-clipped vector 
+layers instead of regenerating them. This enhancement significantly reduces runtime, especially when only specific datasets such as OSM roads 
+or bridges need to be updated.
+
+
+### Additional Fixes and Enhancements
+
+* The tool now supports both CONUS and Alaska HUCs with automatic CRS handling, eliminating the need to run the code separately for each region. 
+It can now process a combination of CONUS and Alaska HUCs in a single run. 
+* A bug affecting lake generation in Alaska was identified and fixed. Previously, Alaska lakes had been omitted due to this bug.
+* After providing Alaska lakes, another bug in `src/stream_branches.py` was handled.
+
+
+### Changes
+- data/wbd/generate_pre_clip_fim_huc8.py
+- data/wbd/clip_vectors_to_wbd.py
+- src/stream_branches.py   ...  Fixed a bug for Alaska lakes based on new pre-clipped data
+- src/bash_variables.env   ...  Added the paths to newly generated OSM roads for both CONUS and Alaska
+
+<br/><br/>
+
+
+## v4.6.1.13 - 2025-05-16 - [PR#1501](https://github.com/NOAA-OWP/inundation-mapping/pull/1501)
+
+Update by Dependabot for updating the h11 package.
+
+<br/><br/>
+
+
+## v4.6.1.12 - 2025-05-16 - [PR#1512](https://github.com/NOAA-OWP/inundation-mapping/issues/1512)
+
+Updates the stage-based CatFIM USGS site filtration code so removed sites have clear status message listing what acceptance criteria they didn't meet.
+
+### Changes
+- `inundation-mapping/tools/catfim/generate_categorical_fim.py`: Updated `__create_acceptable_usgs_elev_df()` function to produce a descriptive `usgs_exclusion_status` column instead of just filtering out the sites that don't meet the acceptance criteria. Updated the `__adj_dem_evalation_val()` function to use the `usgs_exclusion_status` column to filter out sites that should be excluded and provide a more descriptive message for the excluded sites, where available.
+
+<br/><br/>
+
+
 ## v4.6.1.11 - 2025-05-01 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)
 
 Downloads the FEMA NFHL data for HUC8.
