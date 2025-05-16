@@ -1,20 +1,40 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import logging
 import os
+import shutil
 import sys
 
 import geopandas as gpd
 import pandas as pd
 import rasterio as rio
+from dotenv import load_dotenv
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import nearest_points
 
-from utils.shared_functions import getDriver
-
 
 gpd.options.io_engine = "pyogrio"
+
+srcDir = os.getenv('srcDir')
+projectDir = os.getenv('projectDir')
+
+load_dotenv(f'{srcDir}/bash_variables.env')
+load_dotenv(f'{projectDir}/config/params_template.env')
+
+output_filenames = {
+    "nwm_lakes": "nwm_lakes_proj_subset.gpkg",
+    "nwm_streams": "nwm_subset_streams.gpkg",
+    "nwm_headwaters": "nwm_headwater_points_subset.gpkg",
+    "wbd_streams_buffer": "wbd_buffered_streams.gpkg",
+    "nwm_catchments": "nwm_catchments_proj_subset.gpkg",
+    "levee_lines": "nld_subset_levees.gpkg",
+    "levee_lines_burned": "3d_nld_subset_levees_burned.gpkg",
+    "levee_protected_areas": "LeveeProtectedAreas_subset.gpkg",
+    "osm_bridges": "osm_bridges_subset.gpkg",
+    "osm_roads": "osm_roads_subset.gpkg",
+}
 
 
 def extend_outlet_streams(streams, wbd_buffered, wbd):
@@ -92,201 +112,211 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     return streams
 
 
-def subset_vector_layers(
-    subset_nwm_lakes,
-    subset_nwm_streams,
-    hucCode,
-    subset_nwm_headwaters,
-    wbd_buffer_filename,
-    wbd_streams_buffer_filename,
-    wbd_filename,
-    dem_filename,
-    dem_domain,
-    nwm_lakes,
-    nwm_catchments,
-    subset_nwm_catchments,
-    nld_lines,
-    nld_lines_preprocessed,
-    landsea,
-    nwm_streams,
-    subset_landsea,
-    nwm_headwaters,
-    subset_nld_lines,
-    subset_nld_lines_preprocessed,
-    wbd_buffer_distance,
-    levee_protected_areas,
-    subset_levee_protected_areas,
-    osm_bridges,
-    subset_osm_bridges,
-    is_alaska,
-    huc_CRS,
-):
+def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, copy_from_dir, copying_flags):
+    """
+    Subsets vector layers for a given HUC region by either copying from pre-clipped data
+    or generating new clipped layers based on flags.
 
-    # print(f"Getting Cell Size for {hucCode}", flush=True)
-    with rio.open(dem_filename) as dem_raster:
-        dem_cellsize = max(dem_raster.res)
+    Args:
+        huc (str): HUC number as a string identifier.
+        wbd_filename (str): Path to the GeoPackage file containing the HUC boundary.
+        wbd_buffer_filename (str): Path to the GeoPackage file containing the buffered HUC boundary.
+        huc_directory (str): Output directory for saving the resulting vector layers.
+        copy_from_dir (str): Directory containing pre-clipped vector data to copy from (if applicable).
+        copying_flags (dict): Dictionary with 8 boolean flags indicating which vector layers to copy
+                              vs. clip. Example:
+            {
+                'copy_nwm_lakes': True,
+                'copy_nwm_streams_headwater': True,
+                'copy_nwm_catchments': False,
+                'copy_levee_lines': False,
+                'copy_levee_lines_burned': False,
+                'copy_levee_protected_areas': False,
+                'copy_osm_bridges': False,
+                'copy_osm_roads': False
+            }
 
-    wbd = gpd.read_file(wbd_filename, engine="pyogrio", use_arrow=True)
-    dem_domain = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+    Returns:
+        None. Saves the subsetted vector layers to the specified `huc_directory`.
 
-    # Get wbd buffer
-    logging.info(f"Create wbd buffer for {hucCode}")
-    wbd_buffer = wbd.copy()
-    wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
-    wbd_buffer = gpd.clip(wbd_buffer, dem_domain)
+    """
 
-    # Clip ocean water polygon for future masking ocean areas (where applicable)
-    logging.info(f"Clip ocean water polygon for {hucCode}")
-    landsea = gpd.read_file(landsea, mask=wbd_buffer, engine="fiona")
-    if not landsea.empty:
-        os.makedirs(os.path.dirname(subset_landsea), exist_ok=True)
-        # print(f"Create landsea gpkg for {hucCode}", flush=True)
-        landsea.to_file(
-            subset_landsea, driver=getDriver(subset_landsea), index=False, crs=huc_CRS, engine="fiona"
-        )
+    dem_cellsize = float(os.getenv('res'))
 
-        # Exclude landsea area from WBD and wbd_buffer
-        wbd = wbd.overlay(landsea, how='difference')
-        wbd.to_file(
-            wbd_filename,
-            layer='WBDHU8',
-            driver=getDriver(wbd_filename),
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
-
-        wbd_buffer = wbd_buffer.overlay(landsea, how='difference')
-
-    del landsea
-
-    # Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
-    logging.info(f"Create stream buffer for {hucCode}")
-    wbd_streams_buffer = wbd_buffer.copy()
-    wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-8 * dem_cellsize, resolution=32)
-
-    wbd_buffer = wbd_buffer[['geometry']]
-    wbd_streams_buffer = wbd_streams_buffer[['geometry']]
-    wbd_buffer.to_file(
-        wbd_buffer_filename, driver=getDriver(wbd_buffer_filename), index=False, crs=huc_CRS, engine="fiona"
-    )
-    wbd_streams_buffer.to_file(
-        wbd_streams_buffer_filename,
-        driver=getDriver(wbd_streams_buffer_filename),
-        index=False,
-        crs=huc_CRS,
-        engine="fiona",
-    )
-
-    # Clip levee-protected areas polygons for future masking ocean areas (where applicable)
-    # print(f"Subsetting Levee Protected Areas for {hucCode}", flush=True)
-    logging.info(f"Clip levee-protected areas for {hucCode}")
-    levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
-    if not levee_protected_areas.empty:
-        levee_protected_areas.to_file(
-            subset_levee_protected_areas,
-            driver=getDriver(subset_levee_protected_areas),
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
-    del levee_protected_areas
-
-    # Find intersecting lakes and writeout
-    # print(f"Subsetting NWM Lakes for {hucCode}", flush=True)
-    logging.info(f"Subsetting NWM Lakes for {hucCode}")
-    nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer, engine="fiona")
-    nwm_lakes = nwm_lakes.loc[nwm_lakes.Shape_Area < 18990454000.0]
-
-    if not nwm_lakes.empty:
-        # Perform fill process to remove holes/islands in the NWM lake polygons
-        nwm_lakes = nwm_lakes.explode(index_parts=True)
-        nwm_lakes_fill_holes = MultiPolygon(
-            Polygon(p.exterior) for p in nwm_lakes['geometry']
-        )  # remove donut hole geometries
-        # Loop through the filled polygons and insert the new geometry
-        for i in range(len(nwm_lakes_fill_holes.geoms)):
-            nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
-        nwm_lakes.to_file(
-            subset_nwm_lakes, driver=getDriver(subset_nwm_lakes), index=False, crs=huc_CRS, engine="fiona"
-        )
-    del nwm_lakes
-
-    # Find intersecting levee lines
-    logging.info(f"Subsetting NLD levee lines for {hucCode}")
-    nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
-    if not nld_lines.empty:
-        nld_lines.to_file(
-            subset_nld_lines, driver=getDriver(subset_nld_lines), index=False, crs=huc_CRS, engine="fiona"
-        )
-    del nld_lines
-
-    # Preprocessed levee lines for burning
-    nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer, engine="fiona")
-    if not nld_lines_preprocessed.empty:
-        nld_lines_preprocessed.to_file(
-            subset_nld_lines_preprocessed,
-            driver=getDriver(subset_nld_lines_preprocessed),
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
-    del nld_lines_preprocessed
-
-    # Subset NWM headwaters
-    logging.info(f"Subsetting NWM Headwater Points for {hucCode}")
-    nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
-
-    if len(nwm_headwaters) > 0:
-        nwm_headwaters.to_file(
-            subset_nwm_headwaters,
-            driver=getDriver(subset_nwm_headwaters),
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
+    if huc[:2] == '19':
+        nwm_lakes = os.getenv('input_nwm_lakes_Alaska')
+        nwm_catchments = os.getenv('input_nwm_catchments_Alaska')
+        nld_lines = os.getenv('input_NLD_Alaska')
+        nld_lines_preprocessed = os.getenv('input_levees_preprocessed_Alaska')
+        nwm_streams = os.getenv('input_nwm_flows_Alaska')
+        nwm_headwaters = os.getenv('input_nwm_headwaters_Alaska')
+        levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Alaska')
+        osm_bridges = os.getenv('osm_bridges_alaska')
+        osm_roads = os.getenv('osm_roads_alaska')
+        huc_CRS = os.getenv('ALASKA_CRS')
     else:
-        print("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
-        logging.info("No headwater point(s) within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0)
+        nwm_lakes = os.getenv('input_nwm_lakes')
+        nwm_catchments = os.getenv('input_nwm_catchments')
+        nld_lines = os.getenv('input_NLD')
+        nld_lines_preprocessed = os.getenv('input_levees_preprocessed')
+        nwm_streams = os.getenv('input_nwm_flows')
+        nwm_headwaters = os.getenv('input_nwm_headwaters')
+        levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
+        osm_bridges = os.getenv('osm_bridges')
+        osm_roads = os.getenv('osm_roads')
+        huc_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 
-    del nwm_headwaters
+    # read wbd and wbd_buffered that are needed for clipping
+    wbd = gpd.read_file(os.path.join(huc_directory, wbd_filename))
+    wbd_buffer = gpd.read_file(os.path.join(huc_directory, wbd_buffer_filename))
 
-    # Find intersecting nwm_catchments
-    # print(f"Subsetting NWM Catchments for {hucCode}", flush=True)
-    nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
+    # for copying, use shutil.copy2 to preserve the orignal files timestamps
+    if copying_flags['copy_levee_protected_areas']:
+        src = os.path.join(copy_from_dir, huc, output_filenames['levee_protected_areas'])
+        dst = os.path.join(huc_directory, output_filenames['levee_protected_areas'])
 
-    if len(nwm_catchments) > 0:
-        nwm_catchments.to_file(
-            subset_nwm_catchments,
-            driver=getDriver(subset_nwm_catchments),
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
+        if os.path.exists(src):
+            logging.info(f"Copying levee-protected areas for {huc} (from previous output).")
+            shutil.copy2(src, dst)
+        else:
+            logging.warning(f"Missing file: levee-protected areas for {huc} not found at {src}.")
     else:
-        logging.info("No NWM catchments within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0)
+        # TODO investigate this old comment : Clip levee-protected areas polygons for future masking ocean areas (where applicable)
+        logging.info(f"Clipping levee-protected areas for {huc}")
+        levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
+        if not levee_protected_areas.empty:
+            levee_protected_areas.to_file(
+                os.path.join(huc_directory, output_filenames['levee_protected_areas']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+        del levee_protected_areas
 
-    del nwm_catchments
+    if copying_flags['copy_nwm_lakes']:
+        src = os.path.join(copy_from_dir, huc, output_filenames['nwm_lakes'])
+        dst = os.path.join(huc_directory, output_filenames['nwm_lakes'])
+        if os.path.exists(src):
+            logging.info(f"Copying nwm_lakes for {huc} (from previous output).")
+            shutil.copy2(src, dst)
+        else:
+            logging.warning(f"Missing file: nwm_lakes for {huc} not found at {src}.")
+    else:
+        # Find intersecting lakes and writeout
+        logging.info(f"clipping NWM Lakes for {huc}")
+        nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer, engine="fiona")
+        nwm_lakes = nwm_lakes.loc[nwm_lakes.geometry.area < 18990454000.0]
 
-    # Subset OSM (Open Street Map) bridges
-    if osm_bridges != "":
-        logging.info(f"Subsetting OSM Bridges for {hucCode}")
+        if not nwm_lakes.empty:
+            # Perform fill process to remove holes/islands in the NWM lake polygons
+            nwm_lakes = nwm_lakes.explode(index_parts=True)
+            nwm_lakes_fill_holes = MultiPolygon(
+                Polygon(p.exterior) for p in nwm_lakes['geometry']
+            )  # remove donut hole geometries
+            # Loop through the filled polygons and insert the new geometry
+            for i in range(len(nwm_lakes_fill_holes.geoms)):
+                nwm_lakes.loc[i, 'geometry'] = nwm_lakes_fill_holes.geoms[i]
+            nwm_lakes.to_file(
+                os.path.join(huc_directory, output_filenames['nwm_lakes']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+        del nwm_lakes
+
+    if copying_flags['copy_levee_lines']:
+        src = os.path.join(copy_from_dir, huc, output_filenames['levee_lines'])
+        dst = os.path.join(huc_directory, output_filenames['levee_lines'])
+        if os.path.exists(src):
+            logging.info(f"Copying NLD levee_lines for {huc} (from previous output).")
+            shutil.copy2(src, dst)
+        else:
+            logging.warning(f"Missing file: levee_lines for {huc} not found at {src}.")
+    else:
+        # Find intersecting levee lines
+        logging.info(f"Clipping NLD levee lines for {huc}")
+        nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
+        if not nld_lines.empty:
+            nld_lines.to_file(
+                os.path.join(huc_directory, output_filenames['levee_lines']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+        del nld_lines
+
+    if copying_flags['copy_levee_lines_burned']:
+        src = os.path.join(copy_from_dir, huc, output_filenames['levee_lines_burned'])
+        dst = os.path.join(huc_directory, output_filenames['levee_lines_burned'])
+        if os.path.exists(src):
+            logging.info(f"Copying levee_lines_burned for {huc} (from previous output).")
+            shutil.copy2(src, dst)
+        else:
+            logging.warning(f"Missing file: levee_lines_burned for {huc} not found at {src}.")
+    else:
+        # Preprocessed levee lines for burning
+        logging.info(f"Clipping levee_lines_burned for {huc}.")
+        nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer, engine="fiona")
+        if not nld_lines_preprocessed.empty:
+            nld_lines_preprocessed.to_file(
+                os.path.join(huc_directory, output_filenames['levee_lines_burned']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+        del nld_lines_preprocessed
+
+    if copying_flags['copy_nwm_catchments']:
+        src = os.path.join(copy_from_dir, huc, output_filenames['nwm_catchments'])
+        dst = os.path.join(huc_directory, output_filenames['nwm_catchments'])
+        if os.path.exists(src):
+            logging.info(f"Copying nwm_catchments for {huc} (from previous output).")
+            shutil.copy2(src, dst)
+        else:
+            logging.warning(f"Missing file: nwm_catchments for {huc} not found at {src}.")
+    else:
+        # Find intersecting nwm_catchments
+        logging.info(f"Clipping nwm_catchments for {huc}.")
+        nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
+
+        if len(nwm_catchments) > 0:
+            nwm_catchments.to_file(
+                os.path.join(huc_directory, output_filenames['nwm_catchments']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+        else:
+            logging.info("No NWM catchments within HUC " + str(huc) + " boundaries.")
+            sys.exit(0)
+
+        del nwm_catchments
+
+    if copying_flags['copy_osm_bridges']:
+        src = os.path.join(copy_from_dir, huc, output_filenames['osm_bridges'])
+        dst = os.path.join(huc_directory, output_filenames['osm_bridges'])
+        if os.path.exists(src):
+            logging.info(f"Copying osm_bridges for {huc} (from previous output).")
+            shutil.copy2(src, dst)
+        else:
+            logging.warning(f"Missing file: osm_bridges for {huc} not found at {src}.")
+    else:
+        # Subset OSM (Open Street Map) bridges
+        logging.info(f"Clipping OSM Bridges for {huc}")
 
         subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
         if subset_osm_bridges_gdb.empty:
             print("-- No applicable bridges for this HUC")
             logging.info("-- No applicable bridges for this HUC")
         else:
-            logging.info(f"Create subset of osm bridges gpkg for {hucCode}")
-            if is_alaska is True:
-                # we need to reproject
-                subset_osm_bridges_gdb = subset_osm_bridges_gdb.to_crs(huc_CRS)
-
             subset_osm_bridges_gdb.to_file(
-                subset_osm_bridges,
-                driver=getDriver(subset_osm_bridges),
+                os.path.join(huc_directory, output_filenames['osm_bridges']),
+                driver='GPKG',
                 index=False,
                 crs=huc_CRS,
                 engine="fiona",
@@ -294,95 +324,167 @@ def subset_vector_layers(
 
         del subset_osm_bridges_gdb
 
-    # Subset nwm streams
-    logging.info(f"Subsetting NWM Streams for {hucCode}")
-    nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
-
-    # NWM can have duplicate records, but appear to always be identical duplicates
-    nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
-
-    nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
-
-    nwm_streams_outlets = nwm_streams[~nwm_streams['to'].isin(nwm_streams['ID'])]
-    nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
-
-    if len(nwm_streams) > 0:
-        # Address issue where NWM streams exit the HUC boundary and then re-enter, creating a MultiLineString
-        nwm_streams_nonoutlets = (
-            gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer).explode(index_parts=True).reset_index()
-        )
-
-        # Find and keep the downstream segment of the NWM stream
-        max_parts = nwm_streams_nonoutlets[['level_0', 'level_1']].groupby('level_0').max()
-
-        nwm_streams_nonoutlets = nwm_streams_nonoutlets.merge(max_parts, on='level_0', suffixes=('', '_max'))
-
-        nwm_streams_nonoutlets = nwm_streams_nonoutlets[
-            nwm_streams_nonoutlets['level_1'] == nwm_streams_nonoutlets['level_1_max']
-        ]
-
-        nwm_streams_nonoutlets = nwm_streams_nonoutlets.drop(columns=['level_1_max'])
-
-        nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
-
-        nwm_streams.to_file(
-            subset_nwm_streams, driver=getDriver(subset_nwm_streams), index=False, crs=huc_CRS, engine="fiona"
-        )
+    if copying_flags['copy_osm_roads']:
+        src = os.path.join(copy_from_dir, huc, output_filenames['osm_roads'])
+        dst = os.path.join(huc_directory, output_filenames['osm_roads'])
+        if os.path.exists(src):
+            logging.info(f"Copying osm_roads for {huc} (from previous output).")
+            shutil.copy2(src, dst)
+        else:
+            logging.warning(f"Missing file: osm_roads for {huc} not found at {src}.")
     else:
-        print("No NWM stream segments within HUC " + str(hucCode) + " boundaries.")
-        logging.info("No NWM stream segments within HUC " + str(hucCode) + " boundaries.")
-        sys.exit(0)
-    del nwm_streams
+        # Subset OSM (Open Street Map) roads
+        logging.info(f"Clipping OSM roads for {huc}")
+
+        subset_osm_roads_gdb = gpd.read_file(osm_roads, mask=wbd_buffer, engine="fiona")
+        if subset_osm_roads_gdb.empty:
+            print("-- No applicable roads for this HUC")
+            logging.info("-- No applicable roads for this HUC")
+        else:
+            subset_osm_roads_gdb.to_file(
+                os.path.join(huc_directory, output_filenames['osm_roads']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+
+        del subset_osm_roads_gdb
+
+    if copying_flags['copy_nwm_streams_headwater']:
+        for vector_item in ['wbd_streams_buffer', 'nwm_streams', 'nwm_headwaters']:
+            src = os.path.join(copy_from_dir, huc, output_filenames[vector_item])
+            dst = os.path.join(huc_directory, output_filenames[vector_item])
+
+            if os.path.exists(src):
+                logging.info(f"Copying {vector_item} for {huc} (from previous output).")
+                shutil.copy2(src, dst)
+            else:
+                logging.warning(f"Missing file: {vector_item} for {huc} not found at {src}.")
+
+    else:
+        # first Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
+        logging.info(f"Create stream buffer for {huc}")
+        wbd_streams_buffer = wbd_buffer.copy()
+        wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-8 * dem_cellsize, resolution=32)
+
+        wbd_streams_buffer = wbd_streams_buffer[['geometry']]
+        wbd_streams_buffer.to_file(
+            os.path.join(huc_directory, output_filenames['wbd_streams_buffer']),
+            driver='GPKG',
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
+        )
+
+        # Subset nwm streams
+        logging.info(f"Clipping NWM Streams for {huc}")
+        nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
+
+        # NWM can have duplicate records, but appear to always be identical duplicates
+        nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
+
+        nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
+
+        nwm_streams_outlets = nwm_streams[~nwm_streams['to'].isin(nwm_streams['ID'])]
+        nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
+
+        if len(nwm_streams) > 0:
+            # Address issue where NWM streams exit the HUC boundary and then re-enter, creating a MultiLineString
+            nwm_streams_nonoutlets = (
+                gpd.clip(nwm_streams_nonoutlets, wbd_streams_buffer).explode(index_parts=True).reset_index()
+            )
+
+            # Find and keep the downstream segment of the NWM stream
+            max_parts = nwm_streams_nonoutlets[['level_0', 'level_1']].groupby('level_0').max()
+
+            nwm_streams_nonoutlets = nwm_streams_nonoutlets.merge(
+                max_parts, on='level_0', suffixes=('', '_max')
+            )
+
+            nwm_streams_nonoutlets = nwm_streams_nonoutlets[
+                nwm_streams_nonoutlets['level_1'] == nwm_streams_nonoutlets['level_1_max']
+            ]
+
+            nwm_streams_nonoutlets = nwm_streams_nonoutlets.drop(columns=['level_1_max'])
+
+            nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
+
+            nwm_streams.to_file(
+                os.path.join(huc_directory, output_filenames['nwm_streams']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+        else:
+            print("No NWM stream segments within HUC " + str(huc) + " boundaries.")
+            logging.info("No NWM stream segments within HUC " + str(huc) + " boundaries.")
+            sys.exit(0)
+        del nwm_streams
+
+        # Subset NWM headwaters
+        logging.info(f"Clipping NWM Headwater Points for {huc}")
+        nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
+
+        if len(nwm_headwaters) > 0:
+            nwm_headwaters.to_file(
+                os.path.join(huc_directory, output_filenames['nwm_headwaters']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+        else:
+            print("No headwater point(s) within HUC " + str(huc) + " boundaries.")
+            logging.info("No headwater point(s) within HUC " + str(huc) + " boundaries.")
+            sys.exit(0)
+
+        del nwm_headwaters
 
 
 if __name__ == '__main__':
-    # print(sys.argv)
+    '''
+    sample usage:
 
+    python subset_vectors.py \
+    --huc 21020001 \
+    --wbd_filename wbd.gpkg \
+    --wbd_buffer_filename wbd_buffered.gpkg \
+    --huc_directory outputs/preclips/test3/21020001/ \
+    --copy_from_dir data/inputs/pre_clip_huc8/20250218/ \
+    --copying_flags '{"copy_nwm_lakes": true,
+        "copy_nwm_streams_headwater": true,
+        "copy_nwm_catchments": false,
+            "copy_levee_lines": false,
+            "copy_levee_lines_burned": false,
+            "copy_levee_protected_areas": false,
+            "copy_osm_bridges": false,
+                "copy_osm_roads": false}'
+
+    '''
     parser = argparse.ArgumentParser(description='Subset vector layers')
-    parser.add_argument('-a', '--subset-nwm-lakes', help='NWM lake subset', required=True)
-    parser.add_argument('-b', '--subset-nwm-streams', help='NWM streams subset', required=True)
-    parser.add_argument('-d', '--hucCode', help='HUC boundary ID', required=True, type=str)
+
+    parser.add_argument('--huc', type=str, required=True, help='HUC number (e.g., "03180004")')
+    parser.add_argument('--wbd_filename', type=str, required=True, help='name of the HUC boundary gpkg file')
     parser.add_argument(
-        '-e', '--subset-nwm-headwaters', help='NWM headwaters subset', required=True, default=None
+        '--wbd_buffer_filename', type=str, required=True, help='name of the buffered HUC boundary gpkg file'
     )
-    parser.add_argument('-f', '--wbd_buffer_filename', help='Buffered HUC boundary', required=True)
     parser.add_argument(
-        '-s', '--wbd_streams_buffer_filename', help='Buffered HUC boundary (streams)', required=True
-    )
-    parser.add_argument('-g', '--wbd-filename', help='HUC boundary', required=True)
-    parser.add_argument('-i', '--dem-filename', help='DEM filename', required=True)
-    parser.add_argument('-j', '--dem-domain', help='DEM domain polygon', required=True)
-    parser.add_argument('-l', '--nwm-lakes', help='NWM Lakes', required=True)
-    parser.add_argument('-m', '--nwm-catchments', help='NWM catchments', required=True)
-    parser.add_argument('-n', '--subset-nwm-catchments', help='NWM catchments subset', required=True)
-    parser.add_argument('-r', '--nld-lines', help='Levee vectors to use within project path', required=True)
-    parser.add_argument(
-        '-rp', '--nld-lines-preprocessed', help='Levee vectors to use for DEM burning', required=True
-    )
-    parser.add_argument('-v', '--landsea', help='LandSea - land boundary', required=True)
-    parser.add_argument('-w', '--nwm-streams', help='NWM flowlines', required=True)
-    parser.add_argument('-x', '--subset-landsea', help='LandSea subset', required=True)
-    parser.add_argument('-y', '--nwm-headwaters', help='NWM headwaters', required=True)
-    parser.add_argument('-z', '--subset-nld-lines', help='Subset of NLD levee vectors for HUC', required=True)
-    parser.add_argument(
-        '-zp',
-        '--subset-nld-lines-preprocessed',
-        help='Subset of NLD levee vectors for burning elevations into DEMs',
+        '--huc_directory',
+        type=str,
         required=True,
+        help='Directory containing the above GPKG files and HUC-specific output results',
     )
     parser.add_argument(
-        '-wb', '--wbd-buffer-distance', help='WBD Mask buffer distance', required=True, type=int
+        '--copy_from_dir', type=str, required=True, help='Directory with pre-clipped data for copying'
     )
     parser.add_argument(
-        '-lpf', '--levee-protected-areas', help='Levee-protected areas filename', required=True
+        '--copying_flags',
+        type=json.loads,
+        required=True,
+        help='A dictionary with 8 itesm indicating which layers to copy vs. clip (e.g., \'{"copy_nwm_lakes": true, ...}\')',
     )
-    parser.add_argument(
-        '-lps', '--subset-levee-protected-areas', help='Levee-protected areas subset', required=True
-    )
-    parser.add_argument('-osm', '--osm-bridges', help='Open Street Maps gkpg', required=True)
-    parser.add_argument('-osms', '--subset-osm-bridges', help='Open Street Maps subset', required=True)
-    parser.add_argument('-ak', '--is-alaska', help='If in Alaska', action='store_true')
-    parser.add_argument('-crs', '--huc-CRS', help='HUC crs', required=True)
 
     args = vars(parser.parse_args())
 

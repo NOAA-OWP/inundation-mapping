@@ -260,7 +260,6 @@ python3 $srcDir/add_crosswalk.py \
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
 if [ "$healed_hand_hydrocondition" = true ] && [ "$current_branch_id" = "$branch_zero_id" ] ; then
-# if [ "$healed_hand_hydrocondition" = true ]; then
     echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
     gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
         -R $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
@@ -298,3 +297,4 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -u $hucNumber \
         -z $current_branch_id
 fi
+
