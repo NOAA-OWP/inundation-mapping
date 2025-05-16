@@ -657,8 +657,9 @@ def iterate_through_huc_stage_based(
 
                 # Look for acceptable elevs
                 acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
+
                 if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
-                    msg = ":Unable to find gage data"
+                    msg = ":Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -686,18 +687,8 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
-                # Filter out sites that don't have "good" data
+                # Filter out sites that don't have "good" data ## TODO: USGS Gage Method: It doens't seem like the below error messages are performing as expected....
                 try:
-                    ## Removed this part to relax coordinate accuracy requirements
-                    # if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list:
-                    #     MP_LOG.warning(
-                    #         f"\t{huc_lid_id}: {metadata['usgs_data']['coord_accuracy_code']} "
-                    #         "Not in acceptable coord acc codes"
-                    #     )
-                    #     continue
-                    # if not metadata['usgs_data']['coord_method_code'] in acceptable_coord_method_code_list:
-                    #     MP_LOG.warning(f"\t{huc_lid_id}: Not in acceptable coord method codes")
-                    #     continue
                     if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
                         MP_LOG.warning(f"{huc_lid_id}: Not in acceptable alt method codes")
                         continue
@@ -1397,28 +1388,41 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
     acceptable_usgs_elev_df = None
     try:
-        # Drop columns that offend acceptance criteria
-        usgs_elev_df['acceptable_codes'] = (
-            # usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-            # & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
-            usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
-            & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list)
+        acceptable_msg = ''
+        unacceptable_alt_meth_msg = 'Unacceptable USGS data altitude method: '
+        unacceptable_site_type_msg = 'Unacceptable USGS site type: '
+        unacceptable_alt_acc_msg = 'Unacceptable USGS altitude accuracy threshold: '
+
+        # Create columns for whether the USGS data meets each criterion
+        msg1 = np.where(
+            usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list),
+            acceptable_msg,
+            unacceptable_alt_meth_msg + usgs_elev_df['usgs_data_alt_method_code'].astype(str) + ', ',
+        )
+        msg2 = np.where(
+            usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list),
+            acceptable_msg,
+            unacceptable_site_type_msg + usgs_elev_df['usgs_data_site_type'].astype(str) + ', ',
+        )
+        msg3 = np.where(
+            usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh,
+            acceptable_msg,
+            unacceptable_alt_acc_msg + usgs_elev_df['usgs_data_alt_accuracy_code'].astype(str) + ', ',
         )
 
-        usgs_elev_df = usgs_elev_df.astype({'usgs_data_alt_accuracy_code': float})
-        usgs_elev_df['acceptable_alt_error'] = np.where(
-            usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
+        status_df = pd.DataFrame({'msg1': msg1, 'msg2': msg2, 'msg3': msg3})
+
+        # Create detailed USGS exclusion status
+        usgs_elev_df['usgs_exclusion_status'] = status_df['msg1'] + status_df['msg2'] + status_df['msg3']
+
+        # If it doesn't have anything for the exclusion criteria, set the usgs_exclusion_status to acceptable
+        # CatFIM will only be processed for sites with a usgs_exclusion_status of 'acceptable'
+        usgs_elev_df['usgs_exclusion_status'] = usgs_elev_df['usgs_exclusion_status'].replace(
+            '', 'acceptable'
         )
 
-        acceptable_usgs_elev_df = usgs_elev_df[
-            (usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)
-        ]
-
-        # # TEMP DEBUG Record row difference and write it to a CSV or something
-        # label = 'Old code' ## TEMP DEBUG
-        # num_potential_rows = usgs_elev_df.shape[0]
-        # num_acceptable_rows = acceptable_usgs_elev_df.shape[0]
-        # out_message = f'{label}: kept {num_acceptable_rows} rows out of {num_potential_rows} available rows.'
+        # Copy df to de-fragment and rename
+        acceptable_usgs_elev_df = usgs_elev_df.copy()
 
     except Exception:
         # Not sure any of the sites actually have those USGS-related
@@ -1440,29 +1444,42 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
     lid_usgs_elev = 0
     all_messages = []
     try:
-        matching_rows = acceptable_usgs_elev_df.loc[
-            acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
-        ]
+        # Check for USGS elevation data that matches the LID
+        matching_rows = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper()]
 
+        # Check if the site is not in the usgs table in our data
         if len(matching_rows) == 0:
-            msg = ':Gage not in HAND usgs gage records'
+            # msg = ':Gage not in HAND usgs gage records' # prev error message (deprecated May 2025)
+            msg = ':Gage not in HAND usgs gage records, likely due to exclusion criteria'
             all_messages.append(lid + msg)
             MP_LOG.warning(huc_lid_id + msg)
             return lid_usgs_elev, all_messages
 
-        # It means there are two level paths, use the one that is not 0
-        # There will never be more than two
+        # It means there are two level paths, use the one that is not 0 (there will never be more than two)
         if len(matching_rows) == 2:
-            lid_usgs_elev = acceptable_usgs_elev_df.loc[
+            # Get the site that does not have a levpa_id of zero and matches the LID
+            lid_info = acceptable_usgs_elev_df.loc[
                 (acceptable_usgs_elev_df['nws_lid'] == lid.upper())
-                & (acceptable_usgs_elev_df['levpa_id'] != 0),
-                'dem_adj_elevation',
-            ].values[0]
-        else:
-            lid_usgs_elev = acceptable_usgs_elev_df.loc[
-                acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
-            ].values[0]
+                & (acceptable_usgs_elev_df['levpa_id'] != 0)
+            ]
 
+        else:
+            # Get the site that matches the LID
+            lid_info = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper()]
+
+        # Get elevation and exclusion status
+        lid_usgs_elev = lid_info['dem_adj_elevation'].values[0]
+        usgs_exclusion_status = lid_info['usgs_exclusion_status'].values[0]
+
+        # If there is an exclusion status other than 'acceptable,' return the status
+        # Uses [:-2] to exclude the last comma and space in the string
+        if usgs_exclusion_status != 'acceptable':
+            msg = ':Gage excluded due to the following criteria -- ' + usgs_exclusion_status[:-2]
+            all_messages.append(lid + msg)
+            MP_LOG.warning(huc_lid_id + msg)
+            return lid_usgs_elev, all_messages
+
+        # Check whether DEM adjusted elevation is 0 or not set
         if lid_usgs_elev == 0:
             msg = ':DEM adjusted elevation is 0 or not set'
             all_messages.append(lid + msg)
@@ -1647,7 +1664,6 @@ def generate_stage_based_categorical_fim(
 
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
 
-    # TODO: Accomodate AK projection?   Yes.. and Alaska and CONUS should all end up as the same projection output
     # epsg:5070, we really want 3857 out for all outputs
     sites_gdf = sites_gdf.to_crs(VIZ_PROJECTION)
     sites_gdf.rename(

@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.1.12 - 2025-05-16 - [PR#1512](https://github.com/NOAA-OWP/inundation-mapping/issues/1512)
+
+Updates the stage-based CatFIM USGS site filtration code so removed sites have clear status message listing what acceptance criteria they didn't meet.
+
+### Changes
+- `inundation-mapping/tools/catfim/generate_categorical_fim.py`: Updated `__create_acceptable_usgs_elev_df()` function to produce a descriptive `usgs_exclusion_status` column instead of just filtering out the sites that don't meet the acceptance criteria. Updated the `__adj_dem_evalation_val()` function to use the `usgs_exclusion_status` column to filter out sites that should be excluded and provide a more descriptive message for the excluded sites, where available.
+
+<br/><br/>
+
+
 ## v4.6.1.11 - 2025-05-01 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)
 
 Downloads the FEMA NFHL data for HUC8.
