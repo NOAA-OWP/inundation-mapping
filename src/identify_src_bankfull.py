@@ -41,20 +41,29 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 def src_bankfull_lookup(args):
     src_full_filename = args[0]
-    src_usecols = args[1]
-    df_bflows = args[2]
-    huc = args[3]
-    branch_id = args[4]
-    src_plot_option = args[5]
-    huc_output_dir = args[6]
+    df_bflows = args[1]
+    huc = args[2]
+    branch_id = args[3]
+    src_plot_option = args[4]
+    huc_output_dir = args[5]
 
     ## Read the src_full_crosswalked.csv
     print('Calculating bankfull: ' + str(huc) + '  branch id: ' + str(branch_id))
     log_text = 'Calculating: ' + str(huc) + '  branch id: ' + str(branch_id) + '\n'
     try:
-        df_src = pd.read_csv(
-            src_full_filename, usecols=src_usecols, dtype={'HydroID': int, 'feature_id': int}
-        )
+        df_src = pd.read_csv(src_full_filename, dtype={'HydroID': int, 'feature_id': int})
+        if 'bankfull_flow' in df_src.columns:
+            log_text += (
+                'WARNING: HUC: '
+                + str(huc)
+                + '  branch id: '
+                + str(branch_id)
+                + ' --> bankfull_flow column already exists in the src_full_crosswalked.csv file. '
+                'Please be sure to run the "update_htable_src.py to clean up the src_full_crosswalked.csv\n'
+            )
+            print(
+                'WARNING bankfull_flow column already exists in the src_full_crosswalked.csv file. Please be sure to run the "update_htable_src.py to clean up the src_full_crosswalked.csv'
+            )
 
         ## NWM recurr rename discharge var
         df_bflows = df_bflows.rename(columns={'discharge': 'bankfull_flow'})
@@ -64,6 +73,7 @@ def src_bankfull_lookup(args):
 
         ## Check if there are any missing data, negative or zero flow values in the bankfull_flow
         check_null = df_src['bankfull_flow'].isnull().sum()
+
         if check_null > 0:
             log_text += (
                 'WARNING: Missing feature_id in crosswalk for huc: '
@@ -309,30 +319,6 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    ## List of columns in SRC_full_crosswalk to read in
-    #       (ignores other columns that may have been added by previous post-proccessing runs)
-    src_usecols = [
-        'Stage',
-        'Number of Cells',
-        'SurfaceArea (m2)',
-        'BedArea (m2)',
-        'Volume (m3)',
-        'SLOPE',
-        'LENGTHKM',
-        'AREASQKM',
-        'ManningN',
-        'HydroID',
-        'NextDownID',
-        'order_',
-        'TopWidth (m)',
-        'WettedPerimeter (m)',
-        'WetArea (m2)',
-        'HydraulicRadius (m)',
-        'Discharge (m3s-1)',
-        'feature_id',
-        'Bathymetry_source',
-    ]
-
     df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
     huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
     huc_list.sort()  # sort huc_list for helping track progress in future print statments
@@ -350,15 +336,7 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
                 if isfile(src_orig_full_filename):
                     huc_pass_list.append(str(huc) + " --> src_full_crosswalked.csv")
                     procs_list.append(
-                        [
-                            src_orig_full_filename,
-                            src_usecols,
-                            df_bflows,
-                            huc,
-                            branch_id,
-                            src_plot_option,
-                            huc_output_dir,
-                        ]
+                        [src_orig_full_filename, df_bflows, huc, branch_id, src_plot_option, huc_output_dir]
                     )
                 else:
                     print(
