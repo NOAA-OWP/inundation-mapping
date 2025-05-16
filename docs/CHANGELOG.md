@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4._____ - 2025-_____ - [PR#1503](https://github.com/NOAA-OWP/inundation-mapping/issues/1503)
+## v4.6.1.12 - 2025-05-16 - [PR#1503](https://github.com/NOAA-OWP/inundation-mapping/issues/1503)
 
 Updates the stage-based CatFIM USGS site filtration code so removed sites have clear status message listing what acceptance criteria they didn't meet.
 
