@@ -1,6 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.6.2.0 - 2025-05-14 - [PR#1502](https://github.com/NOAA-OWP/inundation-mapping/pull/1502)
+
+This PR introduces a multiprocessing utility that can be reused across different workflows and projects.
+
+### Key features:
+- Parallel Task Execution: Uses `ProcessPoolExecutor` to run a set of independent tasks in parallel, with configurable number of workers.
+- Robust Logging:
+  - File-based logging using a centralized `file_logger` for recording of individual task results and errors.
+  - Screen output via a multiprocessing-safe `screen_queue`, printed by a dedicated background thread without interrupting the main progress bar.
+  - Task functions always receive three additional arguments of `file_logger`, `screen_queue`, and `task_id` that allow logging for each individual task.
+- Progress Monitoring: Displays real-time progress using `tqdm`, with success or failure messages for each task.
+
+### Changes
+- src/utils/shared_functions.py ... Introduces two new functions that enable multiprocessing across the codebase
+- data/bridges/make_dem_dif_for_bridges.py ... Provides an example of how to use the new multiprocessing framework instead of the previous code
+
+<br/><br/>
+
+
 ## v4.6.1.14 - 2025-05-15 - [PR#1510](https://github.com/NOAA-OWP/inundation-mapping/pull/1510)
 
 This PR closes issues #1473 and #1483.
