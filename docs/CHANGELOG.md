@@ -13,13 +13,15 @@ or bridges need to be updated.
 * The tool now supports both CONUS and Alaska HUCs with automatic CRS handling, eliminating the need to run the code separately for each region. 
 It can now process a combination of CONUS and Alaska HUCs in a single run. 
 * A bug affecting lake generation in Alaska was identified and fixed. Previously, Alaska lakes had been omitted due to this bug.
+* After providing Alaska lakes, another bug in `src/stream_branches.py` was handled.
 
 
 
 ### Changes
 - data/wbd/generate_pre_clip_fim_huc8.py
-- data/wbd/clip_vectors_to_wbd.py  
-- src/bash_variables.env... Added the paths to newly generated OSM roads for both CONUS and Alaska
+- data/wbd/clip_vectors_to_wbd.py
+- src/stream_branches.py   ...  Fixed a bug for Alaska lakes based on new pre-clipped data
+- src/bash_variables.env   ...  Added the paths to newly generated OSM roads for both CONUS and Alaska
 
 
 <br/><br/>
