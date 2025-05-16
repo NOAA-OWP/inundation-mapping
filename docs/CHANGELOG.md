@@ -1,12 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-05-15 - [PR#1510](https://github.com/NOAA-OWP/inundation-mapping/pull/1510)
+## v4.6.1.14 - 2025-05-15 - [PR#1510](https://github.com/NOAA-OWP/inundation-mapping/pull/1510)
+
 This PR closes issues #1473 and #1483.
 
 This PR refactors the pre-clipping tool and introduces 9 new optional arguments that allow selective copying of existing pre-clipped vector 
 layers instead of regenerating them. This enhancement significantly reduces runtime, especially when only specific datasets such as OSM roads 
 or bridges need to be updated.
+
 
 ### Additional Fixes and Enhancements
 
@@ -16,12 +18,13 @@ It can now process a combination of CONUS and Alaska HUCs in a single run.
 * After providing Alaska lakes, another bug in `src/stream_branches.py` was handled.
 
 
-
 ### Changes
 - data/wbd/generate_pre_clip_fim_huc8.py
 - data/wbd/clip_vectors_to_wbd.py
 - src/stream_branches.py   ...  Fixed a bug for Alaska lakes based on new pre-clipped data
 - src/bash_variables.env   ...  Added the paths to newly generated OSM roads for both CONUS and Alaska
+
+<br/><br/>
 
 
 ## v4.6.1.13 - 2025-05-16 - [PR#1501](https://github.com/NOAA-OWP/inundation-mapping/pull/1501)
