@@ -14,6 +14,20 @@ def process_branch(sub_branch_path, branch):
         sub_branch_path, f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.gpkg'
     )
 
+    # A branch may have failed and these files may not exist. It might be a known captured
+    # branch error such as FIM codes 61, 62, etc.
+    # or may be a legit new bug.
+    # If any of these files are missing, skip trying to update it.
+    # Don't really need to log it as the original fail is alreayd logged earlier.
+
+    if (
+        (os.path.exists(src_base_file) is False)
+        or (os.path.exists(src_full_file) is False)
+        or (os.path.exists(hydro_table_file) is False)
+        or (os.path.exists(input_flows_file) is False)
+    ):
+        return
+
     input_src_base = pd.read_csv(src_base_file, dtype=object)
     input_src_full = pd.read_csv(src_full_file, dtype=object)
     input_hydro_table = pd.read_csv(hydro_table_file, dtype=object)
@@ -53,6 +67,7 @@ def process_branch(sub_branch_path, branch):
     input_hydro_table.to_csv(hydro_table_file, index=False)
 
 
+# TODO: May 16, 2025: add mp and glob filte
 def reset_hydro_and_src(fim_dir):
     hucs = [h for h in os.listdir(fim_dir) if re.match(r'^\d{8}$', h)]
     for huc_folder in hucs:
@@ -75,6 +90,12 @@ if __name__ == '__main__':
         python3 src/update_htable_src.py
             -d /data/previous_fim/fim_4_5_2_0
     '''
+
+    # TODO: May 16, 2025
+    # Add MP, try/except and logging to file only here
+    # We can't do prints really as it doesn't get back to bash correctly.
+    # Make sure log file name has a datetime stamp it in, in case it is run a second time.
+
     parser = argparse.ArgumentParser(description='Update hydrotable and src files.')
     parser.add_argument('-d', '--fim_dir', help='Directory path for fim_pipeline output.', required=True)
 
