@@ -27,6 +27,7 @@ from tools_shared_variables import (
 )
 
 from utils.shared_variables import PREP_PROJECTION
+# from utils.shared_functions import FIM_Helpers as fh # TODO: Rob added, keep or no?
 
 
 gpd.options.io_engine = "pyogrio"
@@ -86,7 +87,7 @@ def get_all_active_usgs_sites():
 ##############################################################################
 # Generate categorical flows for each category across all sites.
 ##############################################################################
-def write_categorical_flow_files(metadata, output_dir):
+def write_categorical_flow_files(metadata, output_dir): # TODO: Rob added file_date_append as an input to this. Keep or no?
     '''
     Writes flow files of each category for every feature_id in the input metadata.
     Written to supply input flow files of all gage sites for each flood category.
@@ -151,8 +152,9 @@ def write_categorical_flow_files(metadata, output_dir):
     # Write CatFIM flows to file TODO: Figure out if we use this file, deprecate if we don't. 
     print("writing for CatFIM")
     if not all_data.empty:
+        catfim_file_name = os.path.join(output_dir, f'catfim_flows_cms_{file_date_append}.csv') # TODO: File date append? Keep or no?
         final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
-        final_data.to_csv(output_dir / 'catfim_flows_cms.csv', index=False)
+        final_data.to_csv(catfim_file_name, index=False)
 
     return all_data
 
@@ -166,7 +168,7 @@ def set_global_env(env_file):
     API_BASE_URL = os.getenv("API_BASE_URL")
     WBD_LAYER = os.getenv("WBD_LAYER")
     NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
-
+# def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file): # TODO: Rob's version. Keep or no?
 def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, env_file=None):
     '''
 
@@ -294,7 +296,7 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
         _, sites_gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
         if not sites_gdf.empty:
             # Get a list of all sites in gdf
-            list_of_sites = sites_gdf['identifiers_usgs_site_code'].to_list()
+            list_of_sites = sites_gdf['identifiers_usgs_site_code'].to_list() # TODO: Do we need this?
             # Rename gdf fields
             sites_gdf.columns = sites_gdf.columns.str.replace('identifiers_', '')
         else:
@@ -382,13 +384,15 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
     print('Attributing mainstems sites')
 
     # Import mainstems segments used in run_by_unit.sh
-    ms_df = gpd.read_file(NWM_FLOWS_MS)
-    ms_segs = ms_df.ID.astype(str).to_list()
+    # ms_df = gpd.read_file(NWM_FLOWS_MS) # TODO: Rob had these commented out. Do the same?
+    # ms_segs = ms_df.ID.astype(str).to_list() # TODO: Rob had these commented out. Do the same?
 
     # Populate mainstems attribute field
     sites_gdf['mainstem'] = 'no'
     sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
-    sites_gdf.to_csv(os.path.join(output_dir, 'acceptable_sites_pre.csv'))
+    
+    # TODO : Do we need this? a debugging tool it looks like
+    sites_gdf.to_csv(os.path.join(output_dir, f'acceptable_sites_pre_{file_date_append}.csv'))
 
     sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
@@ -434,8 +438,9 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
     # If output_dir is specified, write data to file.
     if output_dir:
         # Write rating curve dataframe to file
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        all_rating_curves.to_csv(Path(output_dir) / 'usgs_rating_curves.csv', index=False)
+        # Path(output_dir).mkdir(parents=True, exist_ok=True)
+        usgs_rating_curve_file = os.path.join(output_dir, f"usgs_rating_curves_{file_date_append}.csv")
+        all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
         # Save out messages to file.
         first_line = [
             f'THERE WERE {len(api_failure_messages)} SITES THAT EXPERIENCED DATUM CONVERSION ISSUES'
@@ -443,13 +448,18 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
         api_failure_messages = first_line + api_failure_messages
         regular_messages = api_failure_messages + regular_messages
         all_messages = pd.DataFrame({'Messages': regular_messages})
-        all_messages.to_csv(Path(output_dir) / 'log.csv', index=False)
+        
+        # # fix this log file for the full date addition # TODO: Rob added. Keep or no?
+        # log_file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S") # TODO: Rob added. Keep or no?
+        # log_file_path = os.path.join(output_dir, f"log_{log_file_dt_string}.csv") # TODO: Rob added. Keep or no?
+        # all_messages.to_csv(log_file_path, index=False) # TODO: Rob added. Keep or no?
+        
         # If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:
             sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
-            sites_gdf.to_file(
-                Path(output_dir) / 'usgs_gages.gpkg', layer='usgs_gages', driver='GPKG', engine='fiona'
-            )
+            usgs_gages_file = os.path.join(output_dir, f"usgs_gages_{file_date_append}.gpkg")
+        
+            sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 
         # Write out flow files for each threshold across all sites
         write_categorical_flow_files(metadata_list, output_dir)
@@ -480,7 +490,7 @@ if __name__ == '__main__':
     -l, --list_of_gage_sites: REQUIRED. Gage sites to process. Can be a space-delineated list of 
                                 gage sites, a CSV (one site per line), or use “all” to get all USGS 
                                 gage sites. Use numerical USGS site codes not NWS LIDS.
-    -w, --output_dir:          OPTIONAL. Directory to save outputs.
+    -o, --output_dir:          OPTIONAL. Directory to save outputs.
     -t, --sleep_timer:        OPTIONAL. Length of time to rest between datum API calls. Defaults to 1.
 
     Example usage:
@@ -502,16 +512,20 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-l',
-        '--list_of_gage_sites',
-        help='"all" for all active usgs sites, specify individual sites separated by space, '
+        '--list-of-gage-sites',
+        help='REQUIRED: "all" for all active usgs sites, specify individual sites separated by space, '
         'or provide a csv of sites (one per line).',
         required=True,
     )
     parser.add_argument(
-        '-w', '--output_dir', help='Directory where all outputs will be stored.', default=False, required=False
+        '-o', '--output-dir', help='Directory where all outputs will be stored.',
+        default=False,
+        required=False
     )
     parser.add_argument(
-        '-t', '--sleep_timer', help='How long to rest between datum API calls', default=1.0, required=False
+        '-t', '--sleep-timer', help='How long to rest between datum API calls', 
+        default=1.0,
+        required=False
     )
     parser.add_argument(
     '-e',
@@ -542,5 +556,6 @@ if __name__ == '__main__':
 
     # Generate USGS rating curves
 
-    usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites, output_dir=output_dir, sleep_time=sleep_timer, env_file=env_file)
+    usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites,
+                        output_dir=output_dir, sleep_time=sleep_timer, env_file=env_file)
     
