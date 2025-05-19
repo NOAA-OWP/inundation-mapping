@@ -13,6 +13,32 @@ def process_branch(sub_branch_path, branch):
     input_flows_file = os.path.join(
         sub_branch_path, f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.gpkg'
     )
+    print(str(branch))
+
+    src_full_preserve_columns = [
+        'Stage',
+        'Number of Cells',
+        'SurfaceArea (m2)',
+        'BedArea (m2)',
+        'Volume (m3)',
+        'SLOPE_RISE_RUN',
+        'LENGTHKM',
+        'AREASQKM',
+        'ManningN',
+        'HydroID',
+        'NextDownID',
+        'order_',
+        'SLOPE_HFAB',
+        'SLOPE_IRIS_SWORD',
+        'SLOPE',
+        'TopWidth (m)',
+        'WettedPerimeter (m)',
+        'WetArea (m2)',
+        'HydraulicRadius (m)',
+        'Discharge (m3s-1)',
+        'Bathymetry_source',
+        'feature_id',
+    ]
 
     # A branch may have failed and these files may not exist. It might be a known captured
     # branch error such as FIM codes 61, 62, etc.
@@ -29,7 +55,20 @@ def process_branch(sub_branch_path, branch):
         return
 
     input_src_base = pd.read_csv(src_base_file, dtype=object)
-    input_src_full = pd.read_csv(src_full_file, dtype=object)
+    # Check available columns
+    with open(src_full_file, 'r') as f:
+        first_line = f.readline().strip()
+        actual_columns = first_line.split(',')
+    missing_columns = [col for col in src_full_preserve_columns if col not in actual_columns]
+    if missing_columns:
+        print(
+            f"Warning: The following columns are missing from the file and will be skipped: {missing_columns}"
+        )
+
+    # Filter only available columns
+    available_columns = [col for col in src_full_preserve_columns if col in actual_columns]
+
+    input_src_full = pd.read_csv(src_full_file, dtype=object, usecols=available_columns)
     input_hydro_table = pd.read_csv(hydro_table_file, dtype=object)
     input_flows = gpd.read_file(input_flows_file, engine="pyogrio", use_arrow=True)
 
@@ -40,6 +79,7 @@ def process_branch(sub_branch_path, branch):
     # Update src_full
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
+    input_src_full['SLOPE'] = input_src_full['SLOPE'].astype(float)
     input_src_full['Volume (m3)'] = input_src_base['Volume (m3)']
     input_src_full['BedArea (m2)'] = input_src_base['BedArea (m2)']
     input_src_full['TopWidth (m)'] = input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
@@ -52,11 +92,11 @@ def process_branch(sub_branch_path, branch):
     input_src_full['Discharge (m3s-1)'] = (
         input_src_full['WetArea (m2)']
         * pow(input_src_full['HydraulicRadius (m)'], 2.0 / 3)
-        * pow(input_src_base['SLOPE'], 0.5)
+        * pow(input_src_full['SLOPE'], 0.5)
         / input_src_base['ManningN']
     )
     input_src_full['Bathymetry_source'] = pd.NA
-    input_src_full = input_src_full.iloc[:, :19]
+    # input_src_full = input_src_full.iloc[:, :19]
 
     # Update hydroTable
     input_hydro_table['subdiv_discharge_cms'] = pd.NA
