@@ -1212,8 +1212,10 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             # Check if the levelpath outlet is external
             if not len(temp_df.merge(self_in_wbd, left_on='to', right_on='ID')) == len(temp_df):
-                outlet_id = self_in_wbd.loc[self_in_wbd['to'] == outlet.ID, 'ID'].values[0]
-                self = add_outlet_segments(self, self_ref, outlet_id, outlet)
+                outlet_stream = self_in_wbd.loc[self_in_wbd['to'] == outlet.ID, 'ID']
+                if not outlet_stream.empty:
+                    outlet_id = outlet_stream.values[0]
+                    self = add_outlet_segments(self, self_ref, outlet_id, outlet)
 
         # merges each multi-line string to a singular linestring
         for lpid, row in tqdm(
