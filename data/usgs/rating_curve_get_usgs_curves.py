@@ -377,12 +377,6 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file):
     sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
     # import pdb;pdb.set_trace()
     
-    
-    # TODO: Fix this
-    print("abort.. done testing")
-    sys.exit()
-    
-    
     # TODO : Do we need this? a debugging tool it looks like
     # pre what?
     sites_gdf.to_csv(os.path.join(output_dir, f'acceptable_sites_pre_{file_date_append}.csv'))
