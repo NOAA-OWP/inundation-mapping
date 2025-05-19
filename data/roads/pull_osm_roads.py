@@ -204,7 +204,7 @@ def split_roads(gdf_roads, catchment_path, file_logger, screen_queue, task_id):
         file_logger.info(f"no catchment file for {task_id}")
         screen_queue.put(f"no catchment file for {task_id}")
         gdf_roads_splitted = gdf_roads.copy()
-        gdf_roads_splitted["omsid_catchid"] = gdf_roads_splitted["osmid"].astype(str) + "_000"
+        gdf_roads_splitted["osmid_catchid"] = gdf_roads_splitted["osmid"].astype(str) + "_000"
 
     # skip splitting for Alaska because there are too many catchments
     elif huc_number.startswith('19'):
@@ -212,7 +212,7 @@ def split_roads(gdf_roads, catchment_path, file_logger, screen_queue, task_id):
         file_logger.info(f"skip splitting roads for Alaska HUC {task_id}")
         screen_queue.put(f"skip splitting roads for Alaska HUC {task_id}")
         gdf_roads_splitted = gdf_roads.copy()
-        gdf_roads_splitted["omsid_catchid"] = gdf_roads_splitted["osmid"].astype(str) + "_000"
+        gdf_roads_splitted["osmid_catchid"] = gdf_roads_splitted["osmid"].astype(str) + "_000"
     else:
         file_logger.info(f"spliting roads for {task_id}")
         screen_queue.put(f"spliting roads for {task_id}")
@@ -221,14 +221,14 @@ def split_roads(gdf_roads, catchment_path, file_logger, screen_queue, task_id):
 
         if not gdf_roads_splitted.empty:
             gdf_roads_splitted.rename(columns={"ID": "catchment_id"}, inplace=True)
-            gdf_roads_splitted["omsid_catchid"] = (
+            gdf_roads_splitted["osmid_catchid"] = (
                 gdf_roads_splitted["osmid"].astype(str) + "_" + gdf_roads_splitted["catchment_id"].astype(str)
             )
         else:  # if no catchment available at roads, then return the original roads and assign a dummy catchment id of 000
             file_logger.info(f"no intersecting catchments for {task_id}")
             screen_queue.put(f"no intersecting catchments for {task_id}")
             gdf_roads_splitted = gdf_roads.copy()
-            gdf_roads_splitted["omsid_catchid"] = gdf_roads_splitted["osmid"].astype(str) + "_000"
+            gdf_roads_splitted["osmid_catchid"] = gdf_roads_splitted["osmid"].astype(str) + "_000"
 
     return gdf_roads_splitted
 

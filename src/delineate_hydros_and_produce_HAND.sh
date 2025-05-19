@@ -281,7 +281,8 @@ if  [ -f $tempHucDataDir/osm_roads_subset.gpkg ]; then
     python3 $srcDir/process_roads_fimpact.py \
         -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
         -r $tempHucDataDir/osm_roads_subset.gpkg \
-        -o $tempCurrentBranchDataDir/osm_roads_fimpact_$current_branch_id.gpkg
+        -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -o $tempCurrentBranchDataDir/osm_roads_fimpact_$current_branch_id.csv
 else
     echo -e $startDiv"No osm roads data for $hucNumber"
 fi

@@ -13,7 +13,7 @@ import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
 
-from heal_bridges_osm import flows_from_hydrotable
+from heal_bridges_osm import flow_lookup, flows_from_hydrotable
 from utils.shared_functions import progress_bar_handler
 
 
@@ -163,6 +163,25 @@ class HucDirectory(object):
         }
         self.agg_bridge_pnts = gpd.GeoDataFrame(columns=list(self.bridge_dtypes.keys()))
 
+        self.road_dtypes = {
+            'osmid': int,
+            'highway': str,
+            'name': str,
+            'huc8': str,
+            'catchment_id': str,
+            'omsid_catchid': str,
+            'HydroID': int,
+            'feature_id': int,
+            'order_': str,
+            'threshold_hand': float,
+            'branch': str,
+            'threshold_discharge': float,
+            'threshold_hand_ft': float,
+            'threshold_discharge_cfs': float,
+        }
+
+        self.agg_road_fimpact = pd.DataFrame(columns=list(self.road_dtypes.keys()))
+
     def iter_branches(self):
         if self.limit_branches:
             for branch in self.limit_branches:
@@ -223,8 +242,34 @@ class HucDirectory(object):
         bridge_pnts = flows_from_hydrotable(bridge_pnts, hydrotable)
         self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
 
+    def aggregate_road_fimpacts(self, branch_path, branch_id):
+        road_filename = join(branch_path, f'osm_roads_fimpact_{branch_id}.csv')
+        if not os.path.isfile(road_filename):
+            return
+
+        roads_df_splitted = pd.read_csv(road_filename)
+        if roads_df_splitted.empty:
+            return
+
+        hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
+        hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
+
+        roads_df_splitted['threshold_discharge'] = roads_df_splitted.apply(
+            lambda row: flow_lookup(row.threshold_hand, row.HydroID, hydrotable), axis=1
+        )
+
+        min_thresholds = roads_df_splitted.loc[
+            roads_df_splitted.groupby(['omsid_catchid', 'feature_id'])['threshold_discharge'].idxmin()
+        ]
+
+        # Convert stages and dischrages to ft and cfs respectively
+        min_thresholds['threshold_hand_ft'] = min_thresholds['threshold_hand'] * 3.28084
+        min_thresholds['threshold_discharge_cfs'] = min_thresholds['threshold_discharge'] * 35.3147
+
+        self.agg_road_fimpact = pd.concat([self.agg_road_fimpact, min_thresholds])
+
     def agg_function(
-        self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, huc_id
+        self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id
     ):
         try:
             # try catch and its own log file output in error only.
@@ -241,6 +286,8 @@ class HucDirectory(object):
                     self.aggregate_src_full_crosswalk(branch_path, branch_id)
                 if bridge_flag:
                     self.aggregate_bridge_pnts(branch_path, branch_id)
+                if road_flag:
+                    self.aggregate_road_fimpacts(branch_path, branch_id)
 
             ## After all of the branches are visited, the code below will write the aggregates
             if usgs_elev_flag:
@@ -309,7 +356,15 @@ class HucDirectory(object):
                             bridge_pnts.set_crs(DEFAULT_FIM_PROJECTION_CRS, inplace=True)
                     bridge_pnts.to_file(bridge_pnts_file, index=False, engine='fiona')
 
-            # print(f"agg_by_huc for huc id {huc_id} is done")
+            if road_flag:
+                roads_fimpact_file = join(self.huc_dir_path, 'osm_roads_fimpact.csv')
+                if os.path.isfile(roads_fimpact_file):
+                    os.remove(roads_fimpact_file)
+
+                if not self.agg_road_fimpact.empty:
+                    self.agg_road_fimpact = self.agg_road_fimpact.astype(self.road_dtypes, errors='raise')
+
+                    self.agg_road_fimpact.to_csv(roads_fimpact_file, index=False)
 
         except Exception:
             errMsg = (
@@ -340,6 +395,7 @@ def log_error(
     src_cross_flag,
     ras_elev_flag,
     bridge_flag,
+    road_flag,
     huc_id,
     errMsg,
 ):
@@ -354,6 +410,8 @@ def log_error(
         file_name += "_ras"
     if bridge_flag:
         file_name += "_bridge"
+    if road_flag:
+        file_name += "_road"
     file_name += "_error.log"
 
     log_path = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
@@ -372,6 +430,7 @@ def aggregate_by_huc(
     src_cross_flag,
     ras_elev_flag,
     bridge_flag,
+    road_flag,
     num_job_workers,
 ):
     assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
@@ -407,6 +466,8 @@ def aggregate_by_huc(
             agg_type += "_ras"
         if bridge_flag:
             agg_type += "_bridge"
+        if road_flag:
+            agg_type += "_road"
         filelist = glob.glob(os.path.join(log_folder, f"*{agg_type}*"))
         for f in filelist:
             os.remove(f)
@@ -438,6 +499,7 @@ def aggregate_by_huc(
                         'src_cross_flag': src_cross_flag,
                         'ras_elev_flag': ras_elev_flag,
                         'bridge_flag': bridge_flag,
+                        'road_flag': road_flag,
                         'huc_id': huc_id,
                     }
 
@@ -462,6 +524,7 @@ def aggregate_by_huc(
                         'src_cross_flag': src_cross_flag,
                         'ras_elev_flag': ras_elev_flag,
                         'bridge_flag': bridge_flag,
+                        'road_flag': road_flag,
                         'huc_id': huc_id,
                     }
                     future = executor.submit(huc_dir.agg_function, **args_agg)
@@ -481,6 +544,7 @@ def aggregate_by_huc(
                 src_cross_flag,
                 ras_elev_flag,
                 bridge_flag,
+                road_flag,
                 huc_id,
                 errMsg,
             )
@@ -543,6 +607,14 @@ if __name__ == '__main__':
         '-bridge',
         '--bridge_flag',
         help='Perform aggregate on branch bridge centroid files',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '-road',
+        '--road_flag',
+        help='Perform aggregate on branch roads fimpact files',
         required=False,
         default=False,
         action='store_true',
