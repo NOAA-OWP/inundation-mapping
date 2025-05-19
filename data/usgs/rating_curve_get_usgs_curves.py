@@ -40,12 +40,12 @@ This script calls the NOAA Tidal API for datum conversions. Experience shows tha
     AK, HI, PR/VI.
 '''
 
-# import variables from .env file
-load_dotenv()
-API_BASE_URL = os.getenv("API_BASE_URL")
-WBD_LAYER = os.getenv("WBD_LAYER")
-EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
-NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
+# # import variables from .env file
+# load_dotenv()
+# API_BASE_URL = os.getenv("API_BASE_URL")
+# WBD_LAYER = os.getenv("WBD_LAYER")
+# EVALUATED_SITES_CSV = os.getenv("EVALUATED_SITES_CSV")
+# NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
 
 
 def get_all_active_usgs_sites():
@@ -159,8 +159,15 @@ def write_categorical_flow_files(metadata, output_dir):
 
 ###############################################################################
 
+def set_global_env(env_file):
+    global API_BASE_URL, WBD_LAYER, NWM_FLOWS_MS 
+    load_dotenv(env_file)
 
-def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0):
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    WBD_LAYER = os.getenv("WBD_LAYER")
+    NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
+
+def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, env_file=None):
     '''
 
     Returns rating curves, for a set of sites, adjusted to elevation NAVD.
@@ -229,6 +236,9 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0):
     '''
     print("-------------------------------------------------------------------------")
     print("Getting USGS rating curves...")
+
+    # Import variables from .env file
+    set_global_env(env_file)
 
     # Define URLs for metadata and rating curve
     metadata_url = f'{API_BASE_URL}/metadata'
@@ -503,7 +513,13 @@ if __name__ == '__main__':
     parser.add_argument(
         '-t', '--sleep_timer', help='How long to rest between datum API calls', default=1.0, required=False
     )
-
+    parser.add_argument(
+    '-e',
+    '--env-file',
+    help='OPTIONAL: Docker mount path to the environment file. ie) data/config/fim_enviro_values.env',
+    required=False,
+    default= '/data/config/fim_enviro_values.env'
+    )
     # Extract to dictionary and assign to variables.
     args = vars(parser.parse_args())
 
@@ -520,10 +536,11 @@ if __name__ == '__main__':
 
     output_dir = args['output_dir']
     sleep_timer = float(args['sleep_timer'])
+    env_file = args['env_file']
 
     start = time.time()
 
     # Generate USGS rating curves
 
-    usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites, output_dir=output_dir, sleep_time=sleep_timer)
+    usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites, output_dir=output_dir, sleep_time=sleep_timer, env_file=env_file)
     
