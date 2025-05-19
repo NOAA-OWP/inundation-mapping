@@ -112,6 +112,19 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
 
+## POLYGONIZE REACH CATCHMENTS ##
+echo -e $startDiv"Polygonize Reach Catchments $hucNumber $current_branch_id"
+gdal_polygonize.py -q -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
+    $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments HydroID
+
+## DISSOLVE UNILATERAL CATCHMENTS AND REACHES ##
+echo -e $startDiv"Dissolve Unilateral Catchments and Reaches $hucNumber $current_branch_id"
+$srcDir/dissolve_unilateral_catchments.py \
+    -c $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
+    -r $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
+    -co $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
+    -ro $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg
+
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $current_branch_id"
 $srcDir/reachID_grid_to_vector_points.py \
@@ -298,4 +311,3 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -u $hucNumber \
         -z $current_branch_id
 fi
-
