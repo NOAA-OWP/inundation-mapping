@@ -240,12 +240,20 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
     '''
     print("-------------------------------------------------------------------------")
     print("Getting USGS rating curves...")
+    print()
 
     start = time.time()
-    file_date_append = datetime.now(timezone.utc).strftime("%Y%m%d")
+    start_datetime = datetime.now(timezone.utc)
+    file_date_append = start_datetime.strftime("%Y%m%d")
 
     # Import variables from .env file
-    set_global_env(env_file)
+    if not os.path.exists(env_file):
+        print(f"ERROR: Environment file does not exist: {env_file}")
+        sys.exit()
+    else:
+        print(f'Loading environment file: {env_file}')
+        # Set global variables
+        set_global_env(env_file)
 
     # Define URLs for metadata and rating curve
     metadata_url = f'{API_BASE_URL}/metadata'
@@ -257,8 +265,9 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
 
     # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
     if list_of_gage_sites == ['all']:
-        print('getting metadata for all sites')
+        print('Getting metadata for all sites')
         sites_gdf, metadata_list = get_all_active_usgs_sites()
+
     # Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:
         # Define arguments to retrieve metadata and then get metadata from WRDS
@@ -322,7 +331,8 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
 
         # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
         #   datum adjustment section (region will need changed)
-        if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']: # TODO: Are we not getting any rating curves for these states? If so, should we change that?
+        # TODO: Remove this filtering and adjust datum adjustment section to work with all regions.
+        if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
             continue
 
         # Get rating curve for site
@@ -443,9 +453,9 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
     # If output_dir is specified, write data to file.
     if output_dir:
         # Write rating curve dataframe to file
-        # Path(output_dir).mkdir(parents=True, exist_ok=True)
         usgs_rating_curve_file = os.path.join(output_dir, f"usgs_rating_curves_{file_date_append}.csv")
         all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
+
         # Save out messages to file.
         first_line = [
             f'THERE WERE {len(api_failure_messages)} SITES THAT EXPERIENCED DATUM CONVERSION ISSUES'
@@ -454,10 +464,10 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
         regular_messages = api_failure_messages + regular_messages
         all_messages = pd.DataFrame({'Messages': regular_messages})
         
-        # # fix this log file for the full date addition # TODO: Rob added. Keep or no?
-        # log_file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S") # TODO: Rob added. Keep or no?
-        # log_file_path = os.path.join(output_dir, f"log_{log_file_dt_string}.csv") # TODO: Rob added. Keep or no?
-        # all_messages.to_csv(log_file_path, index=False) # TODO: Rob added. Keep or no?
+        # Save log file with date and time
+        log_file_dt_string = start_datetime.strftime("%Y_%m_%d-%H_%M_%S")
+        log_file_path = os.path.join(output_dir, f"log_{log_file_dt_string}.csv")
+        all_messages.to_csv(log_file_path, index=False)
         
         # If 'all' option specified, reproject then write out shapefile of acceptable sites.
         if list_of_gage_sites == ['all']:
@@ -479,6 +489,8 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
         print(f"Output files written to {output_dir}")
     else:  
         print("No output_dir specified, no output files written.")
+
+    print()
     print("-------------------------------------------------------------------------")
 
     return all_rating_curves
