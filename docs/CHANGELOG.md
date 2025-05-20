@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.7.4.0 - 2025-05-16 - [PR#1529](https://github.com/NOAA-OWP/inundation-mapping/pull/1529)
+
+This PR fixes SVD errors in the nonmopnotonic script.
+
+### Changes
+- `src/`
+    - `bathymetric_adjustment.py`
+    - `nonmonotonic_src_adjustment.py`
+    - `filter_longitudinal_flow.py`
+
+<br/><br/>
+
+
 ## v4.7.4.0 - 2025-05-16 - [PR#1481](https://github.com/NOAA-OWP/inundation-mapping/pull/1481)
 
 Adjusts the elevations in branch floodplains by subtracting an additional amount from the DEM based on distance from the levelpath stream line so streams are more likely to flow directly towards the levelpath in order to address the catchment boundary issue.
