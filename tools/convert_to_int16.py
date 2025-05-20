@@ -34,7 +34,7 @@ def convert_to_int16(branch_dir: str):
         rem = rxr.open_rasterio(r)
 
         # Save original as another file to be deleted by deny list or saved
-        rem.rio.to_raster(r.replace('.tif', '_float32.tif'), driver="COG")
+        rem.rio.to_raster(r.replace('.tif', '_float32.tif'), compress="LZW", tiled=True)
         nodata, crs = rem.rio.nodata, rem.rio.crs
 
         # Preserve the second highest possible number for int16, use the highest number for nodata
@@ -45,7 +45,7 @@ def convert_to_int16(branch_dir: str):
         rem.rio.write_nodata(32767, inplace=True)
         rem.rio.write_crs(crs, inplace=True)
 
-        rem.rio.to_raster(r, dtype=np.int16, driver="COG")
+        rem.rio.to_raster(r, dtype=np.int16, compress="LZW", tiled=True)
 
         catchment = rxr.open_rasterio(c)
 
@@ -53,7 +53,7 @@ def convert_to_int16(branch_dir: str):
             hydroid_prefix = str(int(np.floor(catchment.max() / 10000)))
 
         # Save original as another file to be deleted by deny list or saved
-        catchment.rio.to_raster(c.replace('.tif', '_int32.tif'), driver="COG")
+        catchment.rio.to_raster(c.replace('.tif', '_int32.tif'), compress="LZW", tiled=True)
 
         # Preserve the last four digits only since the first four of HydroIDs are ubiquitous amongst all HUC08
         nodata, crs = catchment.rio.nodata, catchment.rio.crs
@@ -63,7 +63,7 @@ def convert_to_int16(branch_dir: str):
         catchment.rio.write_nodata(nodata, inplace=True)
         catchment.rio.write_crs(crs, inplace=True)
 
-        catchment.rio.to_raster(c, dtype=np.int16, driver="COG")
+        catchment.rio.to_raster(c, dtype=np.int16, compress="LZW", tiled=True)
 
         if not os.path.exists(hydroid_prefix_path):
             with open(hydroid_prefix_path, 'w') as file:
