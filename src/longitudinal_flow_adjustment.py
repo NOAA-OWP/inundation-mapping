@@ -128,11 +128,16 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
     src_0_df = pd.read_csv(src_full_0, low_memory=False)
     ht_0_df = pd.read_csv(ht_0_path, low_memory=False)
+
     src_0_df.loc[src_0_df['Bathymetry_source'] == str(0), 'Bathymetry_source'] = 'No Bathymetry Applied'
+    src_0_df.loc[src_0_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
+    src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].fillna('No Bathymetry Applied')
     ht_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source']
 
     # Save updated branch 0 ht and src tables
+    src_0_df = src_0_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
     src_0_df.to_csv(src_full_0, index=False)
+    ht_0_df = ht_0_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
     ht_0_df.to_csv(ht_0_path, index=False)
 
     # Get src_full, hydrotable and catchment from each branch
@@ -301,20 +306,20 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             src_df = src_df.round(5)
 
             # Set Hydraulic properties of original stages with discharge = 0 back to 0
-            src_df.loc[Q0_mask, ['Discharge (m3s-1)']] = 0
-            # src_df.loc[Q0_mask, ['Volume (m3)']] = 0
-            # src_df.loc[Q0_mask, ['WettedPerimeter (m)']] = 0
-            # src_df.loc[Q0_mask, ['WetArea (m2)']] = 0
-            # src_df.loc[Q0_mask, ['HydraulicRadius (m)']] = 0
-            # src_df.loc[Q0_mask, ['BedArea (m2)']] = 0
+            src_df.loc[Q0_mask, 'Discharge (m3s-1)'] = 0
+            # src_df.loc[Q0_mask, 'Volume (m3)'] = 0
+            # src_df.loc[Q0_mask, 'WettedPerimeter (m)'] = 0
+            # src_df.loc[Q0_mask, 'WetArea (m2)'] = 0
+            # src_df.loc[Q0_mask, 'HydraulicRadius (m)'] = 0
+            # src_df.loc[Q0_mask, 'BedArea (m2)'] = 0
 
             # Set cahnnel properties of original stages with Number of Cells = 0 back to 0
-            src_df.loc[nocell0_mask, ['Number of Cells']] = 0
-            src_df.loc[nocell0_mask, ['SurfaceArea (m2)']] = 0
-            src_df.loc[nocell0_mask, ['TopWidth (m)']] = 0
+            src_df.loc[nocell0_mask, 'Number of Cells'] = 0
+            src_df.loc[nocell0_mask, 'SurfaceArea (m2)'] = 0
+            src_df.loc[nocell0_mask, 'TopWidth (m)'] = 0
 
             # Set nans to 0
-            src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+            src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
             # Write src back to file
             src_df.to_csv(src_all_branches_path[isrc], index=False)
