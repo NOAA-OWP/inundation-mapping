@@ -2,6 +2,8 @@
 
 import argparse
 import logging
+import os
+import warnings
 
 import geopandas as gpd
 import numpy as np
@@ -11,6 +13,7 @@ from shapely.ops import split
 
 
 logging.getLogger('shapely.geos').setLevel(logging.CRITICAL)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 def combine_catchments(ids: list, layers: list, field: str = "HydroID") -> gpd.GeoDataFrame:
@@ -44,6 +47,10 @@ def combine_catchments(ids: list, layers: list, field: str = "HydroID") -> gpd.G
         other_features = layer[~layer[field].isin(ids)]
 
         combined_features = layer[layer[field].isin(ids)]
+
+        if combined_features.empty:
+            out.append(other_features)
+            continue
 
         layer_columns = layer.columns
 
@@ -79,7 +86,9 @@ def combine_catchments(ids: list, layers: list, field: str = "HydroID") -> gpd.G
     return out
 
 
-def dissolve_unilateral_catchments(catchments: str, reaches: str, catchments_out: str, reaches_out: str):
+def dissolve_unilateral_catchments(
+    catchments_filename: str, reaches_filename: str, catchments_out: str, reaches_out: str
+):
     """
     Dissolves catchments where adjacent catchments are "unilateral", i.e., they only capture one side of the floodplain. This function dissolves adjacent catchments if they have missing the floodplain on opposite sides of the river.
 
@@ -99,8 +108,11 @@ def dissolve_unilateral_catchments(catchments: str, reaches: str, catchments_out
         None
     """
 
-    catchments = gpd.read_file(catchments)
-    reaches = gpd.read_file(reaches)
+    catchments_layername = 'catchments'
+    reaches_layername = os.path.splitext(os.path.basename(reaches_filename))[0]
+
+    catchments = gpd.read_file(catchments_filename, layer=catchments_layername)
+    reaches = gpd.read_file(reaches_filename, layer=reaches_layername)
 
     catchments['HydroID'] = catchments['HydroID'].astype(str)
     reaches = reaches.astype({'HydroID': str, 'NextDownID': str, 'LakeID': int})
@@ -110,25 +122,45 @@ def dissolve_unilateral_catchments(catchments: str, reaches: str, catchments_out
 
     catchments = catchments[catchments['HydroID'].isin(reaches['HydroID'])]
 
+    # Get HydroIDs in upstream to downstream order
+    hydroids_ordered = [reaches[~reaches['HydroID'].isin(reaches['NextDownID'])]['HydroID'].values[0]]
+    for i in range(len(reaches) - 1):
+        hydroid = hydroids_ordered[i]
+        next_down_id = reaches[reaches['HydroID'] == hydroid]['NextDownID'].values[0]
+        if next_down_id not in hydroids_ordered:
+            hydroids_ordered.append(next_down_id)
+
+    reaches['upstream_id'] = reaches['HydroID'].apply(
+        lambda x: (
+            reaches[reaches['NextDownID'] == x]['HydroID'].values[0]
+            if not reaches[reaches['NextDownID'] == x].empty
+            else None
+        )
+    )
+
     data = []
     reach_data = []
 
     # Ignore catchments that are in, above, or below lakes
     lake_hydroids = reaches[reaches['LakeID'] > 0]['HydroID']
-    lake_hydroids_above = reaches[reaches['HydroID'].isin(lake_hydroids)]['NextDownID']
-    lake_hydroids_below = reaches[reaches['NextDownID'].isin(lake_hydroids)]['HydroID']
-
-    lake_hydroids = pd.concat([lake_hydroids, lake_hydroids_above, lake_hydroids_below]).drop_duplicates()
-    lake_hydroids = lake_hydroids[~lake_hydroids.isin(catchments['HydroID'])]
-
     if not lake_hydroids.empty:
+        lake_hydroids_above = reaches[reaches['HydroID'].isin(lake_hydroids)]['NextDownID']
+        lake_hydroids_below = reaches[reaches['NextDownID'].isin(lake_hydroids)]['HydroID']
+
+        lake_hydroids = pd.concat([lake_hydroids, lake_hydroids_above, lake_hydroids_below]).drop_duplicates()
+        lake_hydroids = lake_hydroids[~lake_hydroids.isin(catchments['HydroID'])]
+
         catchments = catchments[~catchments['HydroID'].isin(list(lake_hydroids))]
+        reaches = reaches[~reaches['HydroID'].isin(list(lake_hydroids))]
 
     for catchment in catchments.itertuples():
         hydroid = catchment.HydroID
 
         reach = reaches[reaches['HydroID'] == hydroid]
         reach = reach.clip(catchment.geometry)
+
+        if reach.empty:
+            continue
 
         reach_exploded = reach.explode(index_parts=False)
         if len(reach_exploded) > 1:
@@ -138,6 +170,12 @@ def dissolve_unilateral_catchments(catchments: str, reaches: str, catchments_out
         reach = reach_exploded
 
         upstream_reach = reaches[reaches['NextDownID'] == hydroid]
+        upstream_reach_exploded = upstream_reach.explode(index_parts=False)
+        if len(upstream_reach_exploded) > 1:
+            upstream_reach_exploded = upstream_reach_exploded[
+                upstream_reach_exploded.geometry.length == upstream_reach_exploded.geometry.length.max()
+            ]
+        upstream_reach = upstream_reach_exploded
 
         linestring = reach.iloc[0].geometry
         reach_length = linestring.length
@@ -193,17 +231,22 @@ def dissolve_unilateral_catchments(catchments: str, reaches: str, catchments_out
     data_left = data_dissolved[data_dissolved['side'] == 'left']
     data_right = data_dissolved[data_dissolved['side'] == 'right']
 
-    # data_left.to_file('/outputs/split_catchments/catchments_split_left.gpkg', driver='GPKG')
-    # data_right.to_file('/outputs/split_catchments/catchments_split_right.gpkg', driver='GPKG')
+    data_left.to_file('/outputs/split_catchments/catchments_split_left.gpkg', driver='GPKG')
+    data_right.to_file('/outputs/split_catchments/catchments_split_right.gpkg', driver='GPKG')
 
     temp_left = data_left[
         ((data_left['area_prop'] < 0.1) & (data_left['area_total'] < 1000000))
         | (data_left['length_prop'] < 250)
-    ].sort_values(by='area_prop')
+    ]
     temp_right = data_right[
         ((data_right['area_prop'] < 0.1) & (data_right['area_total'] < 1000000))
         | (data_right['length_prop'] < 250)
-    ].sort_values(by='area_prop')
+    ]
+
+    # temp_left_upstream_ids = reaches[reaches['HydroID'].isin(temp_left['HydroID'])]['upstream_id']
+    # temp_right_upstream_ids = reaches[reaches['HydroID'].isin(temp_right['HydroID'])]['upstream_id']
+
+    # Starting from the top of the catchment, find the reaches that
 
     # Loop through the left and right dataframes to find the upstream and downstream reaches
     # and their respective length proportions
@@ -231,33 +274,27 @@ def dissolve_unilateral_catchments(catchments: str, reaches: str, catchments_out
             # Use the upstream reach
             id = upstream_id
             next_id = reach_id
-
-            # Remove the upstream reach from temp_right
-            temp_right = temp_right[temp_right['HydroID'] != upstream_id]
         else:
             # Use the downstream reach
             id = reach_id
             next_id = downstream_id
-
-            # Remove the downstream reach from temp_right
-            temp_right = temp_right[temp_right['HydroID'] != downstream_id]
 
         # Combine the upstream and downstream reaches into a single catchment
         catchments_copy, reaches_copy = combine_catchments(
             [id, next_id], [catchments_copy, reaches_copy], field='HydroID'
         )
 
-    # catchments_copy.to_file('/outputs/split_catchments/catchments_combined_area.gpkg', driver='GPKG')
-    # reaches_copy.to_file('/outputs/split_catchments/reaches_combined_area.gpkg', driver='GPKG')
+    catchments_copy.to_file(catchments_out, layer=catchments_layername, driver='GPKG')
+    reaches_copy.to_file(reaches_out, layer=reaches_layername, driver='GPKG')
 
-    catchments_copy.to_file(catchments_out, driver='GPKG')
-    reaches_copy.to_file(reaches_out, driver='GPKG')
+    catchments_copy.to_file(catchments_filename, layer=catchments_layername, driver='GPKG')
+    reaches_copy.to_file(reaches_filename, layer=reaches_layername, driver='GPKG')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Assess bilateral catchments.")
-    parser.add_argument('-c', '--catchments', type=str, help='Path to catchments file')
-    parser.add_argument('-r', '--reaches', type=str, help='Path to reaches file')
+    parser.add_argument('-c', '--catchments-filename', type=str, help='Path to catchments file')
+    parser.add_argument('-r', '--reaches-filename', type=str, help='Path to reaches file')
     parser.add_argument('-co', '--catchments-out', type=str, help='Path to output catchments file')
     parser.add_argument('-ro', '--reaches-out', type=str, help='Path to output reaches file')
     args = parser.parse_args()

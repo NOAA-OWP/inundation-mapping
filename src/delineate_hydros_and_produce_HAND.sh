@@ -118,12 +118,13 @@ gdal_polygonize.py -q -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_reaches
     $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments HydroID
 
 ## DISSOLVE UNILATERAL CATCHMENTS AND REACHES ##
-echo -e $startDiv"Dissolve Unilateral Catchments and Reaches $hucNumber $current_branch_id"
-$srcDir/dissolve_unilateral_catchments.py \
-    -c $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
-    -r $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
-    -co $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
-    -ro $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg
+if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
+    echo -e $startDiv"Dissolve Unilateral Catchments and Reaches $hucNumber $current_branch_id"
+    $srcDir/dissolve_unilateral_catchments.py \
+        -c $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
+        -r $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
+        -co $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
+        -ro $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $current_branch_id"
