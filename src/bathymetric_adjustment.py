@@ -235,7 +235,7 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
     # test = aib_df[aib_df.duplicated(subset='feature_id', keep=False)]
     aib_df = aib_df0.drop_duplicates(subset=['feature_id'], keep='first')
     aib_df.index = range(len(aib_df))
-    print(f'Adjusting SRCs only with EHydro Bathymetry Data: {huc}\n')
+    print(f'Adjusting SRCs with EHydro and OHRFC Bathymetry Data: {huc}\n')
 
     # Get src_full from each branch
     src_all_branches_path = []
