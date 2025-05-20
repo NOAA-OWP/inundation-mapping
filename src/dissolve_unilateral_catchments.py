@@ -243,10 +243,12 @@ def dissolve_unilateral_catchments(
         | (data_right['length_prop'] < 250)
     ]
 
-    # temp_left_upstream_ids = reaches[reaches['HydroID'].isin(temp_left['HydroID'])]['upstream_id']
-    # temp_right_upstream_ids = reaches[reaches['HydroID'].isin(temp_right['HydroID'])]['upstream_id']
+    # temp_left_upstream_ids = list(reaches[reaches['HydroID'].isin(temp_left['HydroID'])]['upstream_id'])
+    # temp_right_upstream_ids = list(reaches[reaches['HydroID'].isin(temp_right['HydroID'])]['upstream_id'])
 
-    # Starting from the top of the catchment, find the reaches that
+    # TODO
+    # Starting from the top of the catchment, find the reaches that are in successive temp_left and temp_right
+    # for id in hydroids_ordered:
 
     # Loop through the left and right dataframes to find the upstream and downstream reaches
     # and their respective length proportions
