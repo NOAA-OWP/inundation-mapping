@@ -3,6 +3,7 @@ import argparse
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import geopandas as gpd
@@ -27,7 +28,6 @@ from tools_shared_variables import (
 )
 
 from utils.shared_variables import PREP_PROJECTION
-# from utils.shared_functions import FIM_Helpers as fh # TODO: Rob added, keep or no?
 
 
 gpd.options.io_engine = "pyogrio"
@@ -76,18 +76,20 @@ def get_all_active_usgs_sites():
     # Get a geospatial layer (gdf) for all acceptable sites
     print("Aggregating WBD HUCs...")
     dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
-    # Get a list of all sites in gdf
-    list_of_sites = gdf['identifiers_usgs_site_code'].to_list()
+
+    # # Get a list of all sites in gdf
+    # list_of_sites = gdf['identifiers_usgs_site_code'].to_list() # TODO: Removed because unused... fully remove after testing.
+
     # Rename gdf fields
     gdf.columns = gdf.columns.str.replace('identifiers_', '')
 
-    return gdf, list_of_sites, metadata_list
+    return gdf, metadata_list
 
 
 ##############################################################################
 # Generate categorical flows for each category across all sites.
 ##############################################################################
-def write_categorical_flow_files(metadata, output_dir): # TODO: Rob added file_date_append as an input to this. Keep or no?
+def write_categorical_flow_files(metadata, output_dir, file_date_append):
     '''
     Writes flow files of each category for every feature_id in the input metadata.
     Written to supply input flow files of all gage sites for each flood category.
@@ -152,7 +154,7 @@ def write_categorical_flow_files(metadata, output_dir): # TODO: Rob added file_d
     # Write CatFIM flows to file TODO: Figure out if we use this file, deprecate if we don't. 
     print("writing for CatFIM")
     if not all_data.empty:
-        catfim_file_name = os.path.join(output_dir, f'catfim_flows_cms_{file_date_append}.csv') # TODO: File date append? Keep or no?
+        catfim_file_name = os.path.join(output_dir, f'catfim_flows_cms_{file_date_append}.csv')
         final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
         final_data.to_csv(catfim_file_name, index=False)
 
@@ -168,7 +170,7 @@ def set_global_env(env_file):
     API_BASE_URL = os.getenv("API_BASE_URL")
     WBD_LAYER = os.getenv("WBD_LAYER")
     NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
-# def usgs_rating_to_elev(list_of_gage_sites, output_dir, sleep_time, env_file): # TODO: Rob's version. Keep or no?
+
 def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, env_file=None):
     '''
 
@@ -239,6 +241,9 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
     print("-------------------------------------------------------------------------")
     print("Getting USGS rating curves...")
 
+    start = time.time()
+    file_date_append = datetime.now(timezone.utc).strftime("%Y%m%d")
+
     # Import variables from .env file
     set_global_env(env_file)
 
@@ -253,7 +258,7 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
     # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
     if list_of_gage_sites == ['all']:
         print('getting metadata for all sites')
-        sites_gdf, sites_list, metadata_list = get_all_active_usgs_sites()
+        sites_gdf, metadata_list = get_all_active_usgs_sites()
     # Otherwise, if a list of sites is passed, retrieve sites from WRDS.
     else:
         # Define arguments to retrieve metadata and then get metadata from WRDS
@@ -384,8 +389,8 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
     print('Attributing mainstems sites')
 
     # Import mainstems segments used in run_by_unit.sh
-    # ms_df = gpd.read_file(NWM_FLOWS_MS) # TODO: Rob had these commented out. Do the same?
-    # ms_segs = ms_df.ID.astype(str).to_list() # TODO: Rob had these commented out. Do the same?
+    ms_df = gpd.read_file(NWM_FLOWS_MS)
+    ms_segs = ms_df.ID.astype(str).to_list()
 
     # Populate mainstems attribute field
     sites_gdf['mainstem'] = 'no'
@@ -462,7 +467,7 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
             sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 
         # Write out flow files for each threshold across all sites
-        write_categorical_flow_files(metadata_list, output_dir)
+        write_categorical_flow_files(metadata_list, output_dir, file_date_append)
 
     end = time.time()
     elapsed_time = (end - start) / 60
@@ -473,7 +478,7 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
     if output_dir:
         print(f"Output files written to {output_dir}")
     else:  
-        print("No output_dir specified, no output files written.") # TODO: double check that this is correct
+        print("No output_dir specified, no output files written.")
     print("-------------------------------------------------------------------------")
 
     return all_rating_curves
@@ -552,7 +557,6 @@ if __name__ == '__main__':
     sleep_timer = float(args['sleep_timer'])
     env_file = args['env_file']
 
-    start = time.time()
 
     # Generate USGS rating curves
 
