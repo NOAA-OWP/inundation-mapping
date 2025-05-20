@@ -171,17 +171,17 @@ def set_global_env(env_file):
     WBD_LAYER = os.getenv("WBD_LAYER")
     NWM_FLOWS_MS = os.getenv("NWM_FLOWS_MS")
 
-def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, env_file=None):
+def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_time=1.0):
     '''
 
     Returns rating curves, for a set of sites, adjusted to elevation NAVD.
     Currently configured to get rating curve data within CONUS. Tidal API
     call may need to be modified to get datum conversions for AK, HI, PR/VI.
     Workflow as follows:
-        1a. If 'all' option passed, get metadata for all acceptable USGS sites in CONUS.
+        1a. If 'all' option passed, get metadata for all acceptable USGS sites in CONUS. # TODO: Removing this filtering
         1b. If a list of sites passed, get metadata for all sites supplied by user.
         2.  Extract datum information for each site.
-        3.  If site is not in contiguous US skip (due to issue with datum conversions)
+        3.  If site is not in contiguous US skip (due to issue with datum conversions) # TODO: Removing this filtering
         4.  Convert datum if NGVD
         5.  Get rating curve for each site individually
         6.  Convert rating curve to absolute elevation (NAVD) and store in DataFrame
@@ -329,11 +329,11 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
         # Get datum information for site (only need usgs_data)
         nws, usgs = get_datum(metadata)
 
-        # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
-        #   datum adjustment section (region will need changed)
-        # TODO: Remove this filtering and adjust datum adjustment section to work with all regions.
-        if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
-            continue
+        # # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
+        # #   datum adjustment section (region will need changed)
+        # # TODO: Remove this filtering and adjust datum adjustment section to work with all regions.
+        # if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
+        #     continue
 
         # Get rating curve for site
         location_ids = usgs['usgs_site_code']
@@ -354,7 +354,7 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
             time.sleep(sleep_time)
 
             # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous')
+            datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous') # TODO: Change region if hawaii, pr, or vi.
 
             # If datum API failed, print message and skip site.
             if datum_adj_ft is None:
@@ -365,7 +365,7 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
 
             # If datum adjustment succeeded, calculate datum in NAVD88
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
-            message = f'{location_ids}:succesfully converted NGVD29 to NAVD88'
+            message = f'{location_ids}: succesfully converted NGVD29 to NAVD88'
             regular_messages.append(message)
 
         elif usgs['vcs'] == 'NAVD88':
@@ -450,6 +450,10 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
     # Filter out all_rating_curves by list
     all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
 
+    end = time.time()
+    elapsed_time = (end - start) / 60
+    runtime_message = f"Finished executing in {str(elapsed_time).split('.')[0]} minutes."
+
     # If output_dir is specified, write data to file.
     if output_dir:
         # Write rating curve dataframe to file
@@ -461,7 +465,7 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
             f'THERE WERE {len(api_failure_messages)} SITES THAT EXPERIENCED DATUM CONVERSION ISSUES'
         ]
         api_failure_messages = first_line + api_failure_messages
-        regular_messages = api_failure_messages + regular_messages
+        regular_messages = api_failure_messages + regular_messages +[runtime_message]
         all_messages = pd.DataFrame({'Messages': regular_messages})
         
         # Save log file with date and time
@@ -479,18 +483,13 @@ def usgs_rating_to_elev(list_of_gage_sites, output_dir=False, sleep_time=1.0, en
         # Write out flow files for each threshold across all sites
         write_categorical_flow_files(metadata_list, output_dir, file_date_append)
 
-    end = time.time()
-    elapsed_time = (end - start) / 60
-
-    print()
-    print(f"Finished executing in {str(elapsed_time).split('.')[0]} minutes.")
-
     if output_dir:
         print(f"Output files written to {output_dir}")
     else:  
         print("No output_dir specified, no output files written.")
 
     print()
+    print(runtime_message)
     print("-------------------------------------------------------------------------")
 
     return all_rating_curves
@@ -572,6 +571,6 @@ if __name__ == '__main__':
 
     # Generate USGS rating curves
 
-    usgs_rating_to_elev(list_of_gage_sites=list_of_gage_sites,
-                        output_dir=output_dir, sleep_time=sleep_timer, env_file=env_file)
+    usgs_rating_to_elev(list_of_gage_sites, env_file,
+                        output_dir=output_dir, sleep_time=sleep_timer)
     
