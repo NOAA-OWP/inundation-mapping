@@ -59,8 +59,6 @@ def combine_catchments(ids: list, layers: list, field: str = "HydroID") -> gpd.G
             NextDownID = combined_features['NextDownID'].iloc[-1]
         if 'S0' in layer_columns:
             s0 = combined_features['S0'].mean()
-        # if 'LakeID' in layer_columns:
-        #     LakeID = combined_features['LakeID'].max()
         if 'From_Node' in layer_columns:
             from_node = combined_features['From_Node'].iloc[0]
         if 'To_Node' in layer_columns:
@@ -74,8 +72,6 @@ def combine_catchments(ids: list, layers: list, field: str = "HydroID") -> gpd.G
             combined_features['NextDownID'] = NextDownID
         if 'S0' in layer_columns:
             combined_features['S0'] = s0
-        # if 'LakeID' in layer_columns:
-        #     combined_features['LakeID'] = LakeID
         if 'From_Node' in layer_columns:
             combined_features['From_Node'] = from_node
         if 'To_Node' in layer_columns:
@@ -84,6 +80,90 @@ def combine_catchments(ids: list, layers: list, field: str = "HydroID") -> gpd.G
         out.append(pd.concat([other_features, combined_features], ignore_index=True))
 
     return out
+
+
+def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, reaches_copy):
+    """
+    Find and combine sequences of adjacent reaches with missing floodplain on opposite sides.
+    """
+    skip = 0
+    for row in df.itertuples():
+        if skip > 0:
+            skip -= 1
+            continue
+
+        # Get areas of the first reach
+        area_left = data_dissolved[
+            (data_dissolved['HydroID'] == row.HydroID) & (data_dissolved['side'] == 'left')
+        ]['area'].values[0]
+        area_right = data_dissolved[
+            (data_dissolved['HydroID'] == row.HydroID) & (data_dissolved['side'] == 'right')
+        ]['area'].values[0]
+
+        # Get ID of the next reach
+        next_id = reaches.loc[reaches['HydroID'] == row.HydroID, 'NextDownID'].item()
+
+        ids_to_combine = [row.HydroID, next_id]
+
+        # Compute combined area ratio
+        next_area_left = data_dissolved[
+            (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'left')
+        ]['area'].values[0]
+        next_area_right = data_dissolved[
+            (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'right')
+        ]['area'].values[0]
+
+        area_left += next_area_left
+        area_right += next_area_right
+        area_total = row.area_total + next_area_left + next_area_right
+
+        area_left_prop = (area_left + next_area_left) / area_total
+        area_right_prop = (area_right + next_area_right) / area_total
+
+        area_prop = min(area_left_prop, area_right_prop)
+
+        for i in range(row.count):
+            next_id = reaches.loc[reaches['HydroID'] == next_id, 'NextDownID'].item()
+
+            # Compute combined area ratio
+            next_area_left = (
+                area_left
+                + data_dissolved[(data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'left')][
+                    'area'
+                ].values[0]
+            )
+            next_area_right = (
+                area_right
+                + data_dissolved[
+                    (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'right')
+                ]['area'].values[0]
+            )
+
+            next_area_total = next_area_left + next_area_right
+
+            next_area_left_prop = (area_left + next_area_left) / (area_total + next_area_total)
+            next_area_right_prop = (area_right + next_area_right) / (area_total + next_area_total)
+
+            next_area_prop = min(next_area_left_prop, next_area_right_prop)
+
+            # Add next catchment if catchments are more balanced (bilateral)
+            if (next_area_prop > area_prop) or (area_total < 500000):
+                ids_to_combine.append(next_id)
+                area_left += next_area_left
+                area_right += next_area_right
+                area_total += next_area_total
+                area_prop = next_area_prop
+
+                skip += 1
+
+            else:
+                break
+
+        catchments_copy, reaches_copy = combine_catchments(
+            ids_to_combine, [catchments_copy, reaches_copy], field='HydroID'
+        )
+
+    return catchments_copy, reaches_copy
 
 
 def dissolve_unilateral_catchments(
@@ -129,6 +209,8 @@ def dissolve_unilateral_catchments(
         next_down_id = reaches[reaches['HydroID'] == hydroid]['NextDownID'].values[0]
         if next_down_id not in hydroids_ordered:
             hydroids_ordered.append(next_down_id)
+
+    hydroids_ordered = {hydroid: i for i, hydroid in enumerate(hydroids_ordered)}
 
     reaches['upstream_id'] = reaches['HydroID'].apply(
         lambda x: (
@@ -243,54 +325,78 @@ def dissolve_unilateral_catchments(
         | (data_right['length_prop'] < 250)
     ]
 
-    # temp_left_upstream_ids = list(reaches[reaches['HydroID'].isin(temp_left['HydroID'])]['upstream_id'])
-    # temp_right_upstream_ids = list(reaches[reaches['HydroID'].isin(temp_right['HydroID'])]['upstream_id'])
+    temp_left_ids = list(temp_left['HydroID'])
+    temp_right_ids = list(temp_right['HydroID'])
 
-    # TODO
-    # Starting from the top of the catchment, find the reaches that are in successive temp_left and temp_right
-    # for id in hydroids_ordered:
+    # Starting from the top of the HUC, find the reaches that are in successive temp_left and temp_right
+    candidate_list = []
+    for i, id in enumerate(hydroids_ordered):
+        if id in temp_left_ids:
+            next_id = reaches.loc[reaches['HydroID'] == id, 'NextDownID'].item()
+            if next_id in temp_right_ids:
+                candidate_list.append([i, id, next_id, 'left'])
+        if id in temp_right_ids:
+            next_id = reaches.loc[reaches['HydroID'] == id, 'NextDownID'].item()
+            if next_id in temp_left_ids:
+                candidate_list.append([i, id, next_id, 'right'])
 
-    # Loop through the left and right dataframes to find the upstream and downstream reaches
-    # and their respective length proportions
-    for i in temp_left.itertuples():
-        reach_id = i.HydroID
-        # Find the length_prop of the upstream reach
-        upstream_id = reaches[reaches['NextDownID'] == i.HydroID]['HydroID'].values[0]
-        downstream_id = reaches[
-            reaches['HydroID'] == reaches[reaches['HydroID'] == i.HydroID]['NextDownID'].values[0]
-        ]['HydroID'].values[0]
+    candidate_df = pd.DataFrame(candidate_list, columns=['i', 'HydroID', 'NextDownID', 'side'])
+    candidate_ids = list(candidate_df['HydroID'])
 
-        upstream_reach = temp_right[temp_right['HydroID'] == upstream_id]
-        upstream_length_prop = upstream_reach['area_prop'].values[0] if not upstream_reach.empty else np.nan
-        downstream_reach = temp_right[temp_right['HydroID'] == downstream_id]
-        downstream_length_prop = (
-            downstream_reach['area_prop'].values[0] if not downstream_reach.empty else np.nan
-        )
+    # Loop through candidate_df and find candidate HydroIDs where the next down is the opposite side
+    sequences_even = []
+    sequences_odd = []
+    for row in candidate_df.itertuples():
+        if row.NextDownID in candidate_ids and [row.side] != list(
+            candidate_df[candidate_df['HydroID'] == row.NextDownID]['side']
+        ):
+            if [row.side] != list(candidate_df[candidate_df['HydroID'] == row.NextDownID]['side']):
+                position = hydroids_ordered[row.HydroID]
 
-        # if upstream_length_prop and downstream_length_prop are both NaN, skip this iteration
-        if pd.isna(upstream_length_prop) and pd.isna(downstream_length_prop):
-            continue
+                # Separate sides
+                if (position % 2 == 0 and row.side == 'left') or (position % 2 != 0 and row.side == 'right'):
+                    sequences_even.append([row.HydroID, position, row.side])
+                else:
+                    sequences_odd.append([row.HydroID, position, row.side])
 
-        # Find the upstream or downstream reach with the lowest length_prop
-        if upstream_length_prop < downstream_length_prop:
-            # Use the upstream reach
-            id = upstream_id
-            next_id = reach_id
-        else:
-            # Use the downstream reach
-            id = reach_id
-            next_id = downstream_id
+    sequences_even_df = pd.DataFrame(sequences_even, columns=['HydroID', 'position', 'side'])
+    sequences_odd_df = pd.DataFrame(sequences_odd, columns=['HydroID', 'position', 'side'])
 
-        # Combine the upstream and downstream reaches into a single catchment
-        catchments_copy, reaches_copy = combine_catchments(
-            [id, next_id], [catchments_copy, reaches_copy], field='HydroID'
-        )
+    sequences_even_df['diff'] = -sequences_even_df['position'].diff(-1).fillna(0).astype(int)
+    sequences_odd_df['diff'] = -sequences_odd_df['position'].diff(-1).fillna(0).astype(int)
+
+    sequences_even_df['group'] = sequences_even_df['diff'].where(sequences_even_df['diff'] == 1, 0)
+    sequences_odd_df['group'] = sequences_odd_df['diff'].where(sequences_odd_df['diff'] == 1, 0)
+
+    y = sequences_even_df['group']
+    sequences_even_df['count'] = y * (y.groupby((y != y.shift()).cumsum()).cumcount(ascending=False) + 1)
+    z = sequences_odd_df['group']
+    sequences_odd_df['count'] = z * (z.groupby((z != z.shift()).cumsum()).cumcount(ascending=False) + 1)
+
+    # Get area from data_dissolved based on HydroID and side
+    sequences_even_df = sequences_even_df.merge(
+        data_dissolved[['HydroID', 'side', 'area', 'length', 'area_total', 'area_prop']],
+        on=['HydroID', 'side'],
+        how='left',
+    )
+    sequences_odd_df = sequences_odd_df.merge(
+        data_dissolved[['HydroID', 'side', 'area', 'length', 'area_total', 'area_prop']],
+        on=['HydroID', 'side'],
+        how='left',
+    )
+
+    catchments_copy, reaches_copy = find_and_combine_sequences(
+        sequences_even_df, data_dissolved, reaches, catchments_copy, reaches_copy
+    )
+    catchments_copy, reaches_copy = find_and_combine_sequences(
+        sequences_odd_df, data_dissolved, reaches, catchments_copy, reaches_copy
+    )
 
     catchments_copy.to_file(catchments_out, layer=catchments_layername, driver='GPKG')
     reaches_copy.to_file(reaches_out, layer=reaches_layername, driver='GPKG')
 
-    catchments_copy.to_file(catchments_filename, layer=catchments_layername, driver='GPKG')
-    reaches_copy.to_file(reaches_filename, layer=reaches_layername, driver='GPKG')
+    # catchments_copy.to_file(catchments_filename, layer=catchments_layername, driver='GPKG')
+    # reaches_copy.to_file(reaches_filename, layer=reaches_layername, driver='GPKG')
 
 
 if __name__ == "__main__":
