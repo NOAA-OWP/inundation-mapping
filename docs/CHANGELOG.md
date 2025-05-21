@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.7.x.x - 2025-05-21 - [PR#1531](https://github.com/NOAA-OWP/inundation-mapping/pull/1531)
+
+In the post processes logs, some lines showed duration but not the section it was giving for a duration. You ended up with stacked duration lines in the post proc logs.
+
+### Changes
+- `fim_post_processing.sh`: as described above
+
+<br/><br/>
+
+
 ## v4.7.4.0 - 2025-05-16 - [PR#1481](https://github.com/NOAA-OWP/inundation-mapping/pull/1481)
 
 Adjusts the elevations in branch floodplains by subtracting an additional amount from the DEM based on distance from the levelpath stream line so streams are more likely to flow directly towards the levelpath in order to address the catchment boundary issue.
