@@ -341,42 +341,66 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
             continue
 
         curve = get_rating_curve(rating_curve_url, location_ids=[location_ids])
+
         # If no rating curve was returned, skip site.
         if curve.empty:
             message = f'{location_ids}: has no rating curve'
             regular_messages.append(message)
             continue
 
-        # Adjust datum to NAVD88 if needed. If datum unknown, skip site.
-        if usgs['vcs'] == 'NGVD29':
-
-            # To prevent time-out errors
-            time.sleep(sleep_time)
-
-            # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous') # TODO: Change region if hawaii, pr, or vi.
-
-            # If datum API failed, print message and skip site.
-            if datum_adj_ft is None:
-                api_message = f"{location_ids}: datum adjustment failed!!"
-                api_failure_messages.append(api_message)
-                print(api_message)
+        # If the site is in PR, VI, or HI, keep datum in LMSL (local mean sea level) 
+        # because our 3DEP dems are also in LMSL for these areas. 
+        if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
+            if usgs['vcs'] == 'LMSL':
+                navd88_datum = usgs['datum']
+                message = f"{location_ids}: site is in PR, VI, or HI, so datum will be kept in LMSL"
+                regular_messages.append(message)
+            else:
+                # If the site is in PR, VI, or HI, and has a datum other than LMSL, return an error. 
+                message = f"{location_ids}: site is in PR, VI, or HI but has a datum other than LMSL"
+                regular_messages.append(message)
                 continue
 
-            # If datum adjustment succeeded, calculate datum in NAVD88
-            navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
-            message = f'{location_ids}: succesfully converted NGVD29 to NAVD88'
-            regular_messages.append(message)
-
-        elif usgs['vcs'] == 'NAVD88':
-            navd88_datum = usgs['datum']
-            message = f'{location_ids}: already NAVD88'
-            regular_messages.append(message)
-
+        # If the state is not PR, VI, or HI, then we want to adjust the datum to NAVD88 if needed.
+        # If the datum is unknown, skip site.
         else:
-            message = f"{location_ids}: datum unknown"
-            regular_messages.append(message)
-            continue
+            if usgs['vcs'] == 'NGVD29':
+
+                # To prevent time-out errors
+                time.sleep(sleep_time)
+
+                # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
+                datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous')
+
+                # If datum API failed, print message and skip site.
+                if datum_adj_ft is None:
+                    api_message = f"{location_ids}: datum adjustment failed!!"
+                    api_failure_messages.append(api_message)
+                    print(api_message)
+                    continue
+
+                # If datum adjustment succeeded, calculate datum in NAVD88
+                navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
+                message = f'{location_ids}: succesfully converted NGVD29 to NAVD88'
+                regular_messages.append(message)
+
+            elif usgs['vcs'] == 'NAVD88':
+                navd88_datum = usgs['datum']
+                message = f'{location_ids}: already NAVD88'
+                regular_messages.append(message)
+
+            elif usgs['vcs'] == 'LMSL':
+                # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site. 
+                message = f"{location_ids}: LMSL datum found outside of PR, VI, or HI"
+                regular_messages.append(message)
+                continue
+
+            else:
+                # If the site has an unrecognized datum, skip site. 
+                datum_name = usgs['vcs']
+                message = f"{location_ids}: datum unknown - {datum_name}"
+                regular_messages.append(message)
+                continue
 
         # Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
         print("Populating..")
@@ -435,14 +459,14 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     # -- The other acceptance criteria will be filtered out the scripts where the data is used -- #
     sites_gdf['acceptable_site_type'] = sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
 
-    # Filter and save filtered file for viewing
+    # Filter to acceptable sites and save filtered sites file for viewing
     acceptable_sites_gdf = sites_gdf[sites_gdf['acceptable_site_type'] == True]
-
     acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
-    acceptable_sites_gdf.to_csv(os.path.join(output_dir, 'acceptable_sites_for_rating_curves.csv'))
+    acceptable_sites_gdf.to_csv(
+        os.path.join(output_dir, f'acceptable_sites_for_rating_curves_{file_date_append}.csv'))
     acceptable_sites_gdf.to_file(
-        os.path.join(output_dir, 'acceptable_sites_for_rating_curves.gpkg'), driver='GPKG', engine='fiona'
-    )
+        os.path.join(output_dir, f'acceptable_sites_for_rating_curves_{file_date_append}.gpkg'), driver='GPKG', engine='fiona'
+    ) # TODO: Figure out where these output files are used. If they're not used anywhere, remove.
 
     # Make list of acceptable sites
     acceptable_sites_list = acceptable_sites_gdf['location_id'].tolist()
@@ -450,6 +474,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     # Filter out all_rating_curves by list
     all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
 
+    # Calculate elapsed time
     end = time.time()
     elapsed_time = (end - start) / 60
     runtime_message = f"Finished executing in {str(elapsed_time).split('.')[0]} minutes."
@@ -460,20 +485,19 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
         usgs_rating_curve_file = os.path.join(output_dir, f"usgs_rating_curves_{file_date_append}.csv")
         all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
 
-        # Save out messages to file.
+        # Save out messages to log file with date and time
         first_line = [
             f'THERE WERE {len(api_failure_messages)} SITES THAT EXPERIENCED DATUM CONVERSION ISSUES'
         ]
         api_failure_messages = first_line + api_failure_messages
         regular_messages = api_failure_messages + regular_messages +[runtime_message]
-        all_messages = pd.DataFrame({'Messages': regular_messages})
+        all_messages = pd.DataFrame({'Logs - rating_curve_get_usgs_curves.py': regular_messages})
         
-        # Save log file with date and time
-        log_file_dt_string = start_datetime.strftime("%Y_%m_%d-%H_%M_%S")
-        log_file_path = os.path.join(output_dir, f"log_{log_file_dt_string}.csv")
+        log_file_path = os.path.join(output_dir, f"log_{file_date_append}.csv")
         all_messages.to_csv(log_file_path, index=False)
         
-        # If 'all' option specified, reproject then write out shapefile of acceptable sites.
+        # If 'all' option specified, reproject then write out shapefile of acceptable sites. 
+        # TODO: Should it also do something if 'all' isn't specified?
         if list_of_gage_sites == ['all']:
             sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
             usgs_gages_file = os.path.join(output_dir, f"usgs_gages_{file_date_append}.gpkg")
@@ -482,9 +506,8 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
         # Write out flow files for each threshold across all sites
         write_categorical_flow_files(metadata_list, output_dir, file_date_append)
-
-    if output_dir:
         print(f"Output files written to {output_dir}")
+
     else:  
         print("No output_dir specified, no output files written.")
 
