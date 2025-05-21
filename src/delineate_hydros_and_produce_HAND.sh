@@ -125,6 +125,7 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -r $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
         -co $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
         -ro $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg
+fi
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $current_branch_id"
