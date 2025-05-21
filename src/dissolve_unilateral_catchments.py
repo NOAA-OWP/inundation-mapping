@@ -341,23 +341,22 @@ def dissolve_unilateral_catchments(
                 candidate_list.append([i, id, next_id, 'right'])
 
     candidate_df = pd.DataFrame(candidate_list, columns=['i', 'HydroID', 'NextDownID', 'side'])
-    candidate_ids = list(candidate_df['HydroID'])
+    # candidate_ids = list(candidate_df['HydroID'])
 
     # Loop through candidate_df and find candidate HydroIDs where the next down is the opposite side
     sequences_even = []
     sequences_odd = []
     for row in candidate_df.itertuples():
-        if row.NextDownID in candidate_ids and [row.side] != list(
-            candidate_df[candidate_df['HydroID'] == row.NextDownID]['side']
-        ):
-            if [row.side] != list(candidate_df[candidate_df['HydroID'] == row.NextDownID]['side']):
-                position = hydroids_ordered[row.HydroID]
+        # if row.NextDownID in candidate_ids and [row.side] != list(
+        #     candidate_df[candidate_df['HydroID'] == row.NextDownID]['side']
+        # ):
+        position = hydroids_ordered[row.HydroID]
 
-                # Separate sides
-                if (position % 2 == 0 and row.side == 'left') or (position % 2 != 0 and row.side == 'right'):
-                    sequences_even.append([row.HydroID, position, row.side])
-                else:
-                    sequences_odd.append([row.HydroID, position, row.side])
+        # Separate sides
+        if (position % 2 == 0 and row.side == 'left') or (position % 2 != 0 and row.side == 'right'):
+            sequences_even.append([row.HydroID, position, row.side])
+        else:
+            sequences_odd.append([row.HydroID, position, row.side])
 
     sequences_even_df = pd.DataFrame(sequences_even, columns=['HydroID', 'position', 'side'])
     sequences_odd_df = pd.DataFrame(sequences_odd, columns=['HydroID', 'position', 'side'])
