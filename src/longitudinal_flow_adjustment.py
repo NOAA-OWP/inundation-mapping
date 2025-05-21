@@ -126,19 +126,22 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
     src_full_0 = join(fim_huc_dir, 'branches', str(0), 'src_full_crosswalked_0.csv')
     ht_0_path = join(fim_huc_dir, 'branches', str(0), 'hydroTable_0.csv')
 
-    src_0_df = pd.read_csv(src_full_0, low_memory=False)
-    ht_0_df = pd.read_csv(ht_0_path, low_memory=False)
+    if os.path.isfile(src_full_0) and os.path.isfile(ht_0_path):
+        src_0_df = pd.read_csv(src_full_0, low_memory=False)
+        ht_0_df = pd.read_csv(ht_0_path, low_memory=False)
 
-    src_0_df.loc[src_0_df['Bathymetry_source'] == str(0), 'Bathymetry_source'] = 'No Bathymetry Applied'
-    src_0_df.loc[src_0_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
-    src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].fillna('No Bathymetry Applied')
-    ht_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source']
+        src_0_df.loc[src_0_df['Bathymetry_source'] == str(0), 'Bathymetry_source'] = 'No Bathymetry Applied'
+        src_0_df.loc[src_0_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
+        src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].fillna('No Bathymetry Applied')
+        ht_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source']
 
-    # Save updated branch 0 ht and src tables
-    src_0_df = src_0_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
-    src_0_df.to_csv(src_full_0, index=False)
-    ht_0_df = ht_0_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
-    ht_0_df.to_csv(ht_0_path, index=False)
+        # Save updated branch 0 ht and src tables
+        src_0_df = src_0_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
+        src_0_df.to_csv(src_full_0, index=False)
+        ht_0_df = ht_0_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
+        ht_0_df.to_csv(ht_0_path, index=False)
+    else:
+        print(f"Files do not exist: src_full_crosswalked_0.csv and hydroTable_0.csv")
 
     # Get src_full, hydrotable and catchment from each branch
     src_all_branches_path = []
