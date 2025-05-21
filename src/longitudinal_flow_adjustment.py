@@ -141,7 +141,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
         ht_0_df = ht_0_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
         ht_0_df.to_csv(ht_0_path, index=False)
     else:
-        print(f"Files do not exist: src_full_crosswalked_0.csv and hydroTable_0.csv")
+        print("Files do not exist: src_full_crosswalked_0.csv and hydroTable_0.csv")
 
     # Get src_full, hydrotable and catchment from each branch
     src_all_branches_path = []
