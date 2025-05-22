@@ -111,15 +111,23 @@ def variable_mannings_calc(args):
             check_null = df_src['channel_n'].isnull().sum() + df_src['overbank_n'].isnull().sum()
             if check_null > 0:
                 log_text += (
-                    str(huc)
+                    "WARNING:"
+                    + +str(huc)
                     + '  branch id: '
                     + str(branch_id)
                     + ' --> '
-                    + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe'
+                    + 'Null feature_ids found in crosswalk btw roughness dataframe and src dataframe (these will be set to default n values)'
                     + ' --> missing entries= '
                     + str(check_null / 84)
                     + '\n'
                 )
+
+            ## Set default channel and overbank n values
+            default_channel_n = 0.06
+            default_overbank_n = 0.12
+            ## Fill in the missing values with the default n values
+            df_src['channel_n'] = df_src['channel_n'].fillna(default_channel_n)
+            df_src['overbank_n'] = df_src['overbank_n'].fillna(default_overbank_n)
 
             ## Check if there are any missing data in the 'Stage_bankfull' column
             ##   (these are locations where subdiv will not be applied)
