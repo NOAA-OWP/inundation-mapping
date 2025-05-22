@@ -10,6 +10,26 @@ This PR fixes SVD errors in the nonmopnotonic script.
     - `bathymetric_adjustment.py`
     - `nonmonotonic_src_adjustment.py`
     - `filter_longitudinal_flow.py`
+## v4.7.4.2 - 2025-05-22 - [PR#1526](https://github.com/NOAA-OWP/inundation-mapping/pull/1526)
+
+Fix for external levelpath intersecting WBD, an erroneous situation based on the geographic inaccuracy between the NWM streams and the WBD layers.
+
+### Changes
+
+- `src/stream_branches.py`: Ignore external levelpaths that intersect the WBD.
+
+<br/><br/>
+
+
+## v4.7.4.1 - 2025-05-22 - [PR#1530](https://github.com/NOAA-OWP/inundation-mapping/pull/1530)
+
+Selects appropriate GPKG layer when reading NFHL data to use the dissolved 100- and 500-year floodplains.
+This PR also fixes issue #1523.
+
+### Changes
+
+- `src/adjust_floodplains.py`: Added `layer='combined'` when reading NFHL data.
+- `src/stream_branches.py`: Prune branches that failed.
 
 <br/><br/>
 
