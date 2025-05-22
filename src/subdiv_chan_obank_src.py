@@ -112,7 +112,7 @@ def variable_mannings_calc(args):
             if check_null > 0:
                 log_text += (
                     "WARNING:"
-                    + +str(huc)
+                    + str(huc)
                     + '  branch id: '
                     + str(branch_id)
                     + ' --> '
