@@ -160,9 +160,6 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
 
     return all_data
 
-
-###############################################################################
-
 def set_global_env(env_file):
     global API_BASE_URL, WBD_LAYER, NWM_FLOWS_MS 
     load_dotenv(env_file)
@@ -214,8 +211,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
         sites_bool_flags.gpkg -- A geopackage containing all acceptable sites 
         TODO: deprecated as of 5/14/25... remove? or do we use this?
 
-
-
     Parameters
     ----------
     list_of_gage_sites : LIST
@@ -229,7 +224,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     sleep_time: FLOAT
         Amount of time to rest between API calls. The Tidal API appears to
         error out more during business hours. Increasing sleep_time may help.
-
 
     Returns
     -------
@@ -261,7 +255,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
     # Create output_dir directory if it doesn't exist
     if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
 
     # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
     if list_of_gage_sites == ['all']:
