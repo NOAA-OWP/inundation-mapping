@@ -1325,8 +1325,8 @@ class StreamNetwork(gpd.GeoDataFrame):
         if out_vector_files is not None:
             # base_file_path,extension = splitext(out_vector_files)
 
-            if verbose:
-                print("Writing dissolved branches ...")
+            # if verbose:
+            #     print("Writing dissolved branches ...")
 
             # for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
             # out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
@@ -1335,7 +1335,8 @@ class StreamNetwork(gpd.GeoDataFrame):
             # current_stream_network = StreamNetwork(self.loc[bid_indices,:])
 
             # current_stream_network.write(out_vector_file,index=False)
-            self.write(out_vector_files, index=False)
+            # Save the output only in "select_branches_intersecting_huc" function, where we ensure the level path intersects the huc.
+            # self.write(out_vector_files, index=False)
 
             return self
 
