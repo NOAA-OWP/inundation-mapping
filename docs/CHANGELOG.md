@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.7.4.3 - 2025-05-16 - [PR#1529](https://github.com/NOAA-OWP/inundation-mapping/pull/1529)
+
+This PR fixes SVD errors in the nonmopnotonic script.
+
+### Changes
+- `src/`
+    - `bathymetric_adjustment.py`
+    - `nonmonotonic_src_adjustment.py`
+    - `filter_longitudinal_flow.py`
+
+<br/><br/>
+
 ## v4.7.4.2 - 2025-05-22 - [PR#1526](https://github.com/NOAA-OWP/inundation-mapping/pull/1526)
 
 Fix for external levelpath intersecting WBD, an erroneous situation based on the geographic inaccuracy between the NWM streams and the WBD layers.
