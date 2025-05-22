@@ -73,7 +73,7 @@ def adjust_floodplains(
     branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 
     if os.path.exists(fema_flood_zones_file):
-        fema_flood_zones = gpd.read_file(fema_flood_zones_file)
+        fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer='combined')
 
         # Clip the FEMA flood zones to the branch polygon
         fema_flood_zones_clipped = gpd.clip(fema_flood_zones, branch_poly)
