@@ -314,7 +314,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
             # Rename gdf fields
             sites_gdf.columns = sites_gdf.columns.str.replace('identifiers_', '')
         else:
-            print("There is no acceptable site.")
+            print("There are no acceptable sites.")
             sys.exit()
 
     # Create DataFrame to store all appended rating curves
@@ -344,7 +344,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
         # If no rating curve was returned, skip site.
         if curve.empty:
-            message = f'{location_ids}: has no rating curve'
+            message = f'{location_ids}: Removed because it has no rating curve'
             regular_messages.append(message)
             continue
 
@@ -353,11 +353,12 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
         if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
             if usgs['vcs'] == 'LMSL':
                 navd88_datum = usgs['datum']
-                message = f"{location_ids}: site is in PR, VI, or HI, so datum will be kept in LMSL"
+                message = f'{location_ids}: site is in PR, VI, or HI, so datum kept as LMSL'
                 regular_messages.append(message)
             else:
                 # If the site is in PR, VI, or HI, and has a datum other than LMSL, return an error. 
-                message = f"{location_ids}: site is in PR, VI, or HI but has a datum other than LMSL"
+                datum_name = usgs['vcs']
+                message = f'{location_ids}: Removed because site is located PR, VI, or HI but has a datum other than LMSL ({datum_name})'
                 regular_messages.append(message)
                 continue
 
@@ -374,7 +375,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
                 # If datum API failed, print message and skip site.
                 if datum_adj_ft is None:
-                    api_message = f"{location_ids}: datum adjustment failed!!"
+                    api_message = f'{location_ids}: Removed because datum adjustment failed!!'
                     api_failure_messages.append(api_message)
                     print(api_message)
                     continue
@@ -391,14 +392,14 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
             elif usgs['vcs'] == 'LMSL':
                 # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site. 
-                message = f"{location_ids}: LMSL datum found outside of PR, VI, or HI"
+                message = f'{location_ids}: Removed because LMSL datum found outside of PR, VI, or HI'
                 regular_messages.append(message)
                 continue
 
             else:
                 # If the site has an unrecognized datum, skip site. 
                 datum_name = usgs['vcs']
-                message = f"{location_ids}: datum unknown - {datum_name}"
+                message = f'{location_ids}: Removed due to unknown datum ({datum_name})'
                 regular_messages.append(message)
                 continue
 
@@ -412,6 +413,13 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
         # Append all rating curves to a dataframe
         all_rating_curves = pd.concat([all_rating_curves, curve])
+    
+    # Error out with messages if no rating curves made it past the datum checks
+    if len(all_rating_curves) == 0:
+        print('No rating curves to compile.')
+        for msg in regular_messages:
+            print(msg)
+        sys.exit()
 
     # Rename columns and add attribute indicating if rating curve exists
     sites_gdf.rename(columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True)
@@ -422,7 +430,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     # Add mainstems attribute to acceptable sites
     print('Attributing mainstems sites')
 
-    # Import mainstems segments used in run_by_unit.sh
+    # Import mainstems segments to be used in run_by_unit.sh
     ms_df = gpd.read_file(NWM_FLOWS_MS)
     ms_segs = ms_df.ID.astype(str).to_list()
 
