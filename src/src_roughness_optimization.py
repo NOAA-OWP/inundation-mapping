@@ -133,7 +133,14 @@ def update_rating_curve(
     ## Read in the hydroTable.csv and check wether it has previously been updated
     # (rename default columns if needed)
     df_htable = pd.read_csv(
-        htable_path, dtype={'HUC': object, 'last_updated': object, 'submitter': object, 'obs_source': object}
+        htable_path,
+        dtype={
+            'HUC': object,
+            'last_updated': object,
+            'submitter': object,
+            'obs_source': object,
+            'calb_coef_usgs': 'float64',
+        },
     )
     df_prev_adj = pd.DataFrame()  # initialize empty df for populating/checking later
     if 'precalb_discharge_cms' not in df_htable.columns:  # need this column to exist before continuing
