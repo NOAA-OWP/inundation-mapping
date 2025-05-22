@@ -1,13 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.7.4.x - 2025-05-22 - [PR#1481](https://github.com/NOAA-OWP/inundation-mapping/pull/1533)
+## v4.7.4.6 - 2025-05-22 - [PR#1533](https://github.com/NOAA-OWP/inundation-mapping/pull/1533)
 
 Hotfix to address issue caused by a different Slope attribute name in the NWM flowpath data (`nwm_subset_streams_levelPaths.gpkg`). The Alaska hydrofabric uses `So` attribute name whereas the CONUS hydrofabric uses `Slope` for the channel slope attribute name. Also included an additional fix to address a separate issue with missing channel and overbank roughness values in the input roughness file (AK featureids are not included in the current file).
 
 ### Changes
 `src/add_crosswalk.py`: New logic to check for different channel slope attribute names
 `src/subdiv_chan_obank_src.py`: New logic to address feature_ids that we do not specify channel and overbank roughness values in the input file (`vmann_input_file`). Currently we do not have optimized roughness values for AK hucs, so the code now sets missing channel_n values = 0.06 and missing overbank_n values = 0.12.
+
 
 <br/><br/>
 
