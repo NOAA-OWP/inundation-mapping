@@ -8,6 +8,15 @@ Fix for external levelpath intersecting WBD, an erroneous situation based on the
 ### Changes
 
 - `src/stream_branches.py`: Ignore external levelpaths that intersect the WBD.
+## v4.7.4.1 - 2025-05-22 - [PR#1530](https://github.com/NOAA-OWP/inundation-mapping/pull/1530)
+
+Selects appropriate GPKG layer when reading NFHL data to use the dissolved 100- and 500-year floodplains.
+This PR also fixes issue #1523.
+
+### Changes
+
+- `src/adjust_floodplains.py`: Added `layer='combined'` when reading NFHL data.
+- `src/stream_branches.py`: Prune branches that failed.
 
 <br/><br/>
 
