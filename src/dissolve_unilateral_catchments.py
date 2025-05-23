@@ -156,7 +156,10 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
 
                 skip += 1
 
+                print(f'Dissolving {ids_to_combine} and {next_id}')
+
             else:
+                print(f'Stop dissolving {ids_to_combine} and {next_id}')
                 break
 
         catchments_copy, reaches_copy = combine_catchments(
@@ -313,8 +316,8 @@ def dissolve_unilateral_catchments(
     data_left = data_dissolved[data_dissolved['side'] == 'left']
     data_right = data_dissolved[data_dissolved['side'] == 'right']
 
-    # data_left.to_file('/outputs/split_catchments/catchments_split_left.gpkg', driver='GPKG')
-    # data_right.to_file('/outputs/split_catchments/catchments_split_right.gpkg', driver='GPKG')
+    # data_left.to_file('/outputs/v4.7.4.0/11070203/branches/2093000005/catchments_split_left.gpkg', driver='GPKG')
+    # data_right.to_file('/outputs/v4.7.4.0/11070203/branches/2093000005/catchments_split_right.gpkg', driver='GPKG')
 
     temp_left = data_left[
         ((data_left['area_prop'] < 0.1) & (data_left['area_total'] < 1000000))
@@ -391,8 +394,8 @@ def dissolve_unilateral_catchments(
         sequences_odd_df, data_dissolved, reaches, catchments_copy, reaches_copy
     )
 
-    catchments_copy.to_file(catchments_out, layer=catchments_layername, driver='GPKG')
-    reaches_copy.to_file(reaches_out, layer=reaches_layername, driver='GPKG')
+    catchments_copy.to_file(catchments_out, layer=catchments_layername, driver='GPKG', mode='w')
+    reaches_copy.to_file(reaches_out, layer=reaches_layername, driver='GPKG', mode='w')
 
     # catchments_copy.to_file(catchments_filename, layer=catchments_layername, driver='GPKG')
     # reaches_copy.to_file(reaches_filename, layer=reaches_layername, driver='GPKG')

@@ -118,7 +118,7 @@ gdal_polygonize.py -q -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_reaches
     $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments HydroID
 
 ## DISSOLVE UNILATERAL CATCHMENTS AND REACHES ##
-if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" ] ; then
+if [ "$current_branch_id" != "$branch_zero_id" ] ; then
     echo -e $startDiv"Dissolve Unilateral Catchments and Reaches $hucNumber $current_branch_id"
     $srcDir/dissolve_unilateral_catchments.py \
         -c $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
@@ -126,6 +126,13 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -co $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
         -ro $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg
 fi
+
+## RASTERIZE REACH CATCHMENTS ##
+echo -e $startDiv"Rasterize Reach Catchments $hucNumber $current_branch_id"
+gdal_rasterize -q -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+    -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
+    $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
+    $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $current_branch_id"

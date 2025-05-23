@@ -12,6 +12,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+import shapely
 from rasterio.mask import mask
 from shapely import ops
 from shapely.geometry import Point
@@ -108,11 +109,13 @@ def mitigate_branch_outlet_backpool(
 
     # Function to extract the last point from the line
     def extract_last_point(line):
-        return line.coords[-1]
+        # return line.coords[-1]
+        return tuple(shapely.get_coordinates(line)[-1])
 
     # Function to extract the third-to-last point from the line
     def extract_pt_3tl(line):
-        return line.coords[-3]
+        # return line.coords[-3]
+        return tuple(shapely.get_coordinates(line)[-3])
 
     # Function to count coordinates in a linestring
     def count_coordinates(line_string):
@@ -349,7 +352,15 @@ def mitigate_branch_outlet_backpool(
 
                 # Count coordinates in 'geometry' column
                 split_flows_last_geom['num_coordinates'] = split_flows_last_geom['geometry'].apply(
-                    lambda x: count_coordinates(x) if x.geom_type == 'LineString' else None
+                    lambda x: (
+                        count_coordinates(x)
+                        if x.geom_type == 'LineString'
+                        else (
+                            sum([len(x.coords) for x in list(split_flows_last_geom['geometry'].item().geoms)])
+                            if x.geom_type == 'MultiLineString'
+                            else None
+                        )
+                    )
                 )
 
                 # Get the last geometry and check the length of the last geometry
