@@ -100,7 +100,9 @@ def land_use(nbm_flow_path, huc_file_path, fim_dir, surface_areas_gdf, output_di
     total_hucs = len(huc_list)
 
     # Find flooded catchments
-    print('Finding flooded catchments for this event,\n this will take a long time depending on the number of HUCs.')
+    print(
+        'Finding flooded catchments for this event,\n this will take a long time depending on the number of HUCs.'
+    )
     print('==================================')
     print("")
     all_huc = []
@@ -347,24 +349,28 @@ if __name__ == "__main__":
     Example usage:
 
     Task1:
-        python3 /foss_fim/tools/flood_watch_layers.py -task1 -ratio /outputs/flwatch/final_output.csv 
+        python3 /foss_fim/tools/flood_watch_layers.py -task1 -ratio /outputs/flwatch/final_output.csv
         -wbd /data/inputs/wbd/HUC12/huc12.parquet -building /inputs/Flood_watch/mrf_nbm_max_inundation_10day_building_footprints.gpkg
         -o /outputs/flwatch/test.gpkg
     Task2:
         python3 /foss_fim/tools/flood_watch_layers.py -task2
         -nbm /inputs/Flood_watch/20250402T1519Z_mrf_nbm_5day_max_high_flow_magnitude.csv
-        -huc_list /inputs/Flood_watch/huc_list_test.txt -d /data/previous_fim/hand_4_5_11_1/ 
+        -huc_list /inputs/Flood_watch/huc_list_test.txt -d /data/previous_fim/hand_4_5_11_1/
         -ratio /outputs/flwatch/final_output.csv -wbd /data/inputs/wbd/HUC12/huc12.parquet -o /outputs/flwatch/test.gpk
     Task3:
         python3 /foss_fim/tools/flood_watch_layers.py -task3 -infrastructure /inputs/Flood_watch/All_Infrastructure_Merge.gpkg
         -inundation /inputs/Flood_watch/mrf_nbm_max_inundation_10day.gpkg -ratio /outputs/flwatch/final_output.csv
         -wbd /data/inputs/wbd/HUC12/huc12.parquet -o /outputs/flwatch/test.gpkg
     """
-    
+
     parser = argparse.ArgumentParser(description="Run one or more layer for Flood Watch.")
-    parser.add_argument('-task1', '--task1', action='store_true', help='Run task 1: Create Impacted Buildings layer')
+    parser.add_argument(
+        '-task1', '--task1', action='store_true', help='Run task 1: Create Impacted Buildings layer'
+    )
     parser.add_argument('-task2', '--task2', action='store_true', help='Run task 2: Create NLCD layer')
-    parser.add_argument('-task3', '--task3', action='store_true', help='Run task 3: Create Critical Infrastructure layers')
+    parser.add_argument(
+        '-task3', '--task3', action='store_true', help='Run task 3: Create Critical Infrastructure layers'
+    )
     parser.add_argument('-ratio', '--ratio_file_path', help="Path to flood watch ratio file for an event")
     parser.add_argument('-building', '--buildings_file_path', help="Path to impacted buildings")
     parser.add_argument('-wbd', '--wbd', help="Path to HUC12 gpkg")
@@ -372,9 +378,13 @@ if __name__ == "__main__":
     parser.add_argument('-nbm', '--nbm_flow_path', help="path to NBM high flow csv")
     parser.add_argument('-huc_list', '--huc_file_path', help="Path to the text file containing list of HUCs")
     parser.add_argument('-d', '--fim_dir', help="Directory path to FIM hydrofabric by processing unit")
-    parser.add_argument('-infrastructure', '--infrastructure_file', help="Path to critical infrastructure gpkg")
+    parser.add_argument(
+        '-infrastructure', '--infrastructure_file', help="Path to critical infrastructure gpkg"
+    )
     parser.add_argument('-inundation', '--inundation_file', help="Path to inundation file for the event")
-    parser.add_argument('-inputs', '--help-tasks', action='store_true', help="show detailed input requirements for each task")
+    parser.add_argument(
+        '-inputs', '--help-tasks', action='store_true', help="show detailed input requirements for each task"
+    )
     args = parser.parse_args()
 
     start_total_time = time.time()
@@ -391,7 +401,7 @@ if __name__ == "__main__":
               Notes:
                 - Use -task1 and/or task2 and/or task3 to run specific tasks.
                 - If running all tasks with the same -o, outputs are saved as separate layers.
-                - Ensure all file paths are accessible and have correct formats 
+                - Ensure all file paths are accessible and have correct formats.
             """
         )
         exit(0)

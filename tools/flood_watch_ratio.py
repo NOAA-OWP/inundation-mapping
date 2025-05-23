@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from src.utils.shared_functions import FIM_Helpers as fh
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
+
 # catchment vectorized
 def process_catchments(group):
     high_flow_nbm = group['high_flow_nbm'].iloc[0]
@@ -34,10 +35,12 @@ def process_catchments(group):
     )
 
 
-def process_huc(huc, nbm_df_bflows, df_bflows, flow_huc12, fim_dir, output_dir, file_logger, screen_queue, task_id):
+def process_huc(
+    huc, nbm_df_bflows, df_bflows, flow_huc12, fim_dir, output_dir, file_logger, screen_queue, task_id
+):
     """
     Process a HUC to calculate surface area ratios.
-    
+
     Parameters
     -----------
     huc : str
@@ -73,8 +76,10 @@ def process_huc(huc, nbm_df_bflows, df_bflows, flow_huc12, fim_dir, output_dir, 
         nbm_df_bflows['feature_id'] = nbm_df_bflows['feature_id'].astype('int64')
         nbm_ht = hydrotable.merge(nbm_df_bflows, how='left', on='feature_id')
         nrp_nbm_ht = nbm_ht.merge(df_bflows, how='left', on='feature_id')
-        water_table = nrp_nbm_ht.groupby(['branch_id', 'HydroID']).apply(process_catchments).reset_index(drop=True)
-        # Add HUC12 information 
+        water_table = (
+            nrp_nbm_ht.groupby(['branch_id', 'HydroID']).apply(process_catchments).reset_index(drop=True)
+        )
+        # Add HUC12 information
         huc12_df = water_table.merge(
             flow_huc12[['HydroID', 'feature_id', 'HUC12', 'branch_id']],
             on=['HydroID', 'feature_id', 'branch_id'],
@@ -102,6 +107,7 @@ def process_huc(huc, nbm_df_bflows, df_bflows, flow_huc12, fim_dir, output_dir, 
         file_logger.error(f"Exception in {task_id}: {str(e)}")
         screen_queue.put(f"Failed HUC {task_id}: {str(e)}")
         return False
+
 
 def main(args):
     """
@@ -164,7 +170,7 @@ def main(args):
                     "df_bflows": df_bflows,
                     "flow_huc12": flow_huc12,
                     "output_dir": output_dir,
-                    "fim_dir": args.fim_dir
+                    "fim_dir": args.fim_dir,
                 }
             )
         # Run multiprocessing
@@ -191,7 +197,7 @@ def main(args):
         else:
             print("No valid results to concatenate.")
             file_logger.info("No valid results to concatenate.")
-        
+
         # Log summary
         failed_hucs = [huc for huc, status in results.items() if not status]
         if not failed_hucs:
