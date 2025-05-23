@@ -330,8 +330,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
         # # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
         # #   datum adjustment section (region will need changed)
-        # # TODO: Remove this filtering and adjust datum adjustment section to work with all regions.
-        # if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
+        # if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']: # Removed May 2025
         #     continue
 
         # Get rating curve for site
