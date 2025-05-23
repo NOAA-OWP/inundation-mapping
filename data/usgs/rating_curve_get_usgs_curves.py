@@ -321,8 +321,8 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     for i in range(len(metadata_list)):
         metadata = metadata_list[i]
 
-        # Print progress every 100 sites
-        if i % 100 == 0:
+        # Print progress every 50 sites
+        if i % 50 == 0:
             print(f"Processing site {i}/{len(metadata_list)}, {round((i/len(metadata_list))*100, 2)}%")
 
         # Get datum information for site (only need usgs_data)
