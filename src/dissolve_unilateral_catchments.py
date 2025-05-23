@@ -88,8 +88,10 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
     """
     skip = 0
     for row in df.itertuples():
+        print(f'{row.HydroID}, skip: {skip}, count: {row.count}')
         if skip > 0:
             skip -= 1
+            print(f'\tSkipping {row.HydroID}, skip: {skip}')
             continue
 
         # Get areas of the first reach
@@ -123,21 +125,16 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
         area_prop = min(area_left_prop, area_right_prop)
 
         for i in range(row.count):
+            print(f'\t\trow.count: {row.count}, skip: {skip}, i: {i}')
             next_id = reaches.loc[reaches['HydroID'] == next_id, 'NextDownID'].item()
 
             # Compute combined area ratio
-            next_area_left = (
-                area_left
-                + data_dissolved[(data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'left')][
-                    'area'
-                ].values[0]
-            )
-            next_area_right = (
-                area_right
-                + data_dissolved[
-                    (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'right')
-                ]['area'].values[0]
-            )
+            next_area_left = data_dissolved[
+                (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'left')
+            ]['area'].values[0]
+            next_area_right = data_dissolved[
+                (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'right')
+            ]['area'].values[0]
 
             next_area_total = next_area_left + next_area_right
 
@@ -147,6 +144,8 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
             next_area_prop = min(next_area_left_prop, next_area_right_prop)
 
             # Add next catchment if catchments are more balanced (bilateral)
+            skip += 1
+            print(f'\tnext_area_prop: {next_area_prop}, area_prop: {area_prop}, skip: {skip}')
             if (next_area_prop > area_prop) or (area_total < 500000):
                 ids_to_combine.append(next_id)
                 area_left += next_area_left
@@ -154,12 +153,10 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
                 area_total += next_area_total
                 area_prop = next_area_prop
 
-                skip += 1
-
-                print(f'Dissolving {ids_to_combine} and {next_id}')
+                print(f'\tDissolving {ids_to_combine}')
 
             else:
-                print(f'Stop dissolving {ids_to_combine} and {next_id}')
+                print(f'\tStop dissolving {ids_to_combine} at {next_id}')
                 break
 
         catchments_copy, reaches_copy = combine_catchments(
