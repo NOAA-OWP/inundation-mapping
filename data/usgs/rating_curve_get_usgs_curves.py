@@ -175,14 +175,13 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     Currently configured to get rating curve data within CONUS. Tidal API
     call may need to be modified to get datum conversions for AK, HI, PR/VI.
     Workflow as follows:
-        1a. If 'all' option passed, get metadata for all acceptable USGS sites in CONUS. # TODO: Removing this filtering
+        1a. If 'all' option passed, get metadata for all acceptable USGS sites.
         1b. If a list of sites passed, get metadata for all sites supplied by user.
         2.  Extract datum information for each site.
-        3.  If site is not in contiguous US skip (due to issue with datum conversions) # TODO: Removing this filtering
-        4.  Convert datum if NGVD
-        5.  Get rating curve for each site individually
-        6.  Convert rating curve to absolute elevation (NAVD) and store in DataFrame
-        7.  Append all rating curves to a master DataFrame.
+        3.  If site is in CONUS or AK: convert datum if NGVD88. If site is in PR, VI, or HI, keep datum as LMSL.
+        4.  Get rating curve for each site individually
+        5.  Convert rating curve to absolute elevation (NAVD) and store in DataFrame
+        6.  Append all rating curves to a master DataFrame.
 
 
     Outputs, if an output_dir is specified, are:
@@ -191,7 +190,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
         ONLY SITES IN CONUS ARE CURRENTLY LISTED IN THIS CSV. To get
         additional sites, the Tidal API will need to be reconfigured and tested.
 
-        log.csv -- A csv containing gage-specific messages. TODO: Doesn't actually include runtime messages. Add?
+        log.csv -- A csv containing gage-specific messages.
 
         (if all option passed) usgs_gages.gpkg -- a point layer containing ALL USGS gage sites that meet
         certain criteria. In the attribute table is a 'curve' column that will indicate if a rating
@@ -312,14 +311,20 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
             sys.exit()
 
     # Create DataFrame to store all appended rating curves
-    print('processing metadata')
+    print('Processing metadata...')
     all_rating_curves = pd.DataFrame()
     regular_messages = []
     api_failure_messages = []
 
     # For each site in metadata_list
-    for metadata in metadata_list:
-        print("get_datum")
+    # for metadata in metadata_list:
+    for i in range(len(metadata_list)):
+        metadata = metadata_list[i]
+
+        # Print progress every 100 sites
+        if i % 100 == 0:
+            print(f"Processing site {i}/{len(metadata_list)}, {round((i/len(metadata_list))*100, 2)}%")
+
         # Get datum information for site (only need usgs_data)
         nws, usgs = get_datum(metadata)
 
@@ -398,7 +403,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
                 continue
 
         # Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
-        print("Populating..")
         curve['active'] = usgs['active']
         curve['datum'] = usgs['datum']
         curve['datum_vcs'] = usgs['vcs']
