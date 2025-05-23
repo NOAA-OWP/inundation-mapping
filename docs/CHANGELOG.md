@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.7.x.x - 2025-05-23 - [PR#1506](https://github.com/NOAA-OWP/inundation-mapping/pull/1506)
+
+This PR implements FIM in support of Flood Watch operations. It calculates the ratio of surface areas between the National Blend of Models (NBM) and the National Retrospective Probability (NRP) and leverages multiple layers to compute flood impact densities. It generates detailed layers for impacted buildings, land use classifications, and critical infrastructure.
+
+### Additions
+`tools/flood_watch_ratio.py`: Calculates flood watch ratio for an event.
+`tools/flood_watch_layers.py`: Generates different layers for flood watch.
+
+### Changes
+`src/bash_variables.env` : Added new inputs.
+
+<br/><br/>
+
 ## v4.7.4.5 - 2025-05-22 - [PR#1531](https://github.com/NOAA-OWP/inundation-mapping/pull/1531)
 
 In the post processes logs, some lines showed duration but not the section it was giving for a duration. You ended up with stacked duration lines in the post proc logs.
