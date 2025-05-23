@@ -1,14 +1,16 @@
 import argparse
-import multiprocessing as mp
+import datetime as dt
 import os
-import time
-from multiprocessing import Pool, cpu_count
+import traceback
+from multiprocessing import cpu_count
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
+from src.utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 # catchment vectorized
 def process_catchments(group):
@@ -32,77 +34,90 @@ def process_catchments(group):
     )
 
 
-def process_huc(huc, nbm_df_bflows, df_bflows, huc_index, total_hucs, flow_huc12, output_dir):
+def process_huc(huc, nbm_df_bflows, df_bflows, flow_huc12, fim_dir, output_dir, file_logger, screen_queue, task_id):
+    """
+    Process a HUC to calculate surface area ratios.
+    
+    Parameters
+    -----------
+    huc : str
+        The HUC to process
+    nbm_df_bflows : DataFrame
+        NBM flow data
+    df_bflows : DataFrame
+        NWM high water threshold data
+    flow_huc12 : DataFrame
+        File with catchments and feature_id to HUC12 mapping
+    fim_dir : str
+        Directory containing FIM hydrofabric data
+    output_dir : str
+        Directory to save output data
+    file_logger : logging.Logger
+        Logger for file output
+    screen_queue : multiprocessing.Queue
+        Queue for screen updates
+    task_id : str
+        Task identifier (HUC8)
+    """
+    file_logger.info(f"Started processing {task_id}")
+    # screen_queue.put(f'Processing HUC {task_id}')
+    try:
+        hydrotable_path = f'{fim_dir}/{huc}/hydrotable.csv'
+        if not os.path.exists(hydrotable_path):
+            file_logger.warning(f'Skipping HUC {huc}, hydrotable not found')
+            screen_queue.put(f'Skipping HUC {huc}, hydrotable not found')
+            return False
 
-    print(f'Processing HUC {huc} ({huc_index + 1}/{total_hucs})')
-    hydrotable_path = f'{args.fim_dir}/{huc}/hydrotable.csv'
-    if not os.path.exists(hydrotable_path):
-        print(f'skipping HUC {huc}, hydrotable not found')
-        return None
-    hydrotable = pd.read_csv(hydrotable_path, low_memory=False)
-    # branch_list = hydrotable['branch_id'].unique().tolist()
-    # merge with the flow data
-    nbm_df_bflows['feature_id'] = nbm_df_bflows['feature_id'].astype('int64')
-    df_src1 = hydrotable.merge(nbm_df_bflows, how='left', on='feature_id')
-    df_src = df_src1.merge(df_bflows, how='left', on='feature_id')
-    water_table = df_src.groupby(['branch_id', 'HydroID']).apply(process_catchments).reset_index(drop=True)
-    huc12_df = water_table.merge(
-        flow_huc12[['HydroID', 'feature_id', 'HUC12', 'branch_id']],
-        on=['HydroID', 'feature_id', 'branch_id'],
-        how='left',
-    )
-    valid_sur = huc12_df.dropna(subset=['SurfaceArea_nrp', 'SurfaceArea_nbm'])
-    aggreagtion = valid_sur.groupby(['HUC12', 'branch_id'], as_index=False).agg(
-        {'SurfaceArea_nbm': lambda x: np.nanmean(x), 'SurfaceArea_nrp': lambda x: np.nanmean(x)}
-    )
-
-    aggregate_final = (
-        aggreagtion.groupby('HUC12')
-        .agg({'SurfaceArea_nbm': lambda x: np.nanmean(x), 'SurfaceArea_nrp': lambda x: np.nanmean(x)})
-        .reset_index()
-    )
-
-    aggregate_final['ratio'] = aggregate_final['SurfaceArea_nbm'] / aggregate_final['SurfaceArea_nrp']
-
-    output_file = f'{output_dir}/temp/water_table_{huc}.csv'
-    aggregate_final.to_csv(output_file, index=False)
-    return output_file
-
-
-def process_chunk(huc_chunk, nbm_df_bflows, df_bflows, total_hucs, chunk_idx, flow_huc12, output_dir, args):
-    print(f"Processing chunk {chunk_idx + 1} with {len(huc_chunk)} HUCs")
-    job_number = args.job_number
-    with Pool(processes=job_number) as pool:
-        result_files = pool.starmap(
-            process_huc,
-            [
-                (huc, nbm_df_bflows, df_bflows, idx, total_hucs, flow_huc12, output_dir)
-                for idx, huc in enumerate(huc_chunk)
-            ],
+        hydrotable = pd.read_csv(hydrotable_path, low_memory=False)
+        # merge with the flow data
+        nbm_df_bflows['feature_id'] = nbm_df_bflows['feature_id'].astype('int64')
+        nbm_ht = hydrotable.merge(nbm_df_bflows, how='left', on='feature_id')
+        nrp_nbm_ht = nbm_ht.merge(df_bflows, how='left', on='feature_id')
+        water_table = nrp_nbm_ht.groupby(['branch_id', 'HydroID']).apply(process_catchments).reset_index(drop=True)
+        # Add HUC12 information 
+        huc12_df = water_table.merge(
+            flow_huc12[['HydroID', 'feature_id', 'HUC12', 'branch_id']],
+            on=['HydroID', 'feature_id', 'branch_id'],
+            how='left',
+        )
+        # Filter out rows missing surface area data
+        valid_sur = huc12_df.dropna(subset=['SurfaceArea_nrp', 'SurfaceArea_nbm'])
+        aggreagtion = valid_sur.groupby(['HUC12', 'branch_id'], as_index=False).agg(
+            {'SurfaceArea_nbm': lambda x: np.nanmean(x), 'SurfaceArea_nrp': lambda x: np.nanmean(x)}
         )
 
-    # Filter out None results (skipped HUCs) and concatenate this chunk
-    valid_files = [f for f in result_files if f is not None]
-    if valid_files:
-        chunk_df = pd.concat([pd.read_csv(f) for f in valid_files], axis=0, ignore_index=True)
-        # Save this chunk's result
-        chunk_output = f'{output_dir}/temp/chunk_{chunk_idx}.csv'
-        chunk_df.to_csv(chunk_output, index=False)
-        # Clean up temporary HUC files
-        for f in valid_files:
-            os.remove(f)
-        return chunk_output
-    return None
+        aggregate_final = (
+            aggreagtion.groupby('HUC12')
+            .agg({'SurfaceArea_nbm': lambda x: np.nanmean(x), 'SurfaceArea_nrp': lambda x: np.nanmean(x)})
+            .reset_index()
+        )
 
+        aggregate_final['ratio'] = aggregate_final['SurfaceArea_nbm'] / aggregate_final['SurfaceArea_nrp']
+
+        output_file = f'{output_dir}/temp/water_table_{huc}.csv'
+        aggregate_final.to_csv(output_file, index=False)
+        file_logger.info(f"Completed processing {task_id}")
+        return True
+    except Exception as e:
+        file_logger.error(f"Exception in {task_id}: {str(e)}")
+        screen_queue.put(f"Failed HUC {task_id}: {str(e)}")
+        return False
 
 def main(args):
-    total_start_time = time.time()
+    """
+    Main function to run HUC processing.
+
+    Parameters:
+    -----------
+    args: Parsed command-line arguments
+    """
+    start_time = dt.datetime.now(dt.timezone.utc)
     with open(args.huc_file, 'r') as f:
-        huc_list = [line.strip() for line in f]
-    total_hucs = len(huc_list)
+        huc_list = sorted([line.strip() for line in f])
 
     srcDir = os.getenv('srcDir')
     load_dotenv(f'{srcDir}/bash_variables.env')
+    # Read the data
     catchments_to_huc12 = os.getenv('input_catchments_to_huc12')
     flow_huc12 = pd.read_csv(catchments_to_huc12, dtype={'HUC12': 'string'})
     flow_huc12['HUC12'] = flow_huc12['HUC12'].astype(str).str.strip()
@@ -118,35 +133,106 @@ def main(args):
     df_bflows = high_flow_file.rename(columns={'discharge': 'high_flow'})
     df_bflows['high_flow'] = df_bflows['high_flow']
     # Create temp directory
-    os.makedirs(f'{args.output_dir}/temp', exist_ok=True)
-    # Define chunking parameters
-    chunk_size = args.chunk_size
-    huc_chunks = [huc_list[i : i + chunk_size] for i in range(0, len(huc_list), chunk_size)]
-    chunk_results = []
-    # Process remaining chunks
-    for chunk_idx, huc_chunk in enumerate(huc_chunks):
-        chunk_file = process_chunk(
-            huc_chunk, nbm_df_bflows, df_bflows, total_hucs, chunk_idx, flow_huc12, args.output_dir, args
+    output_dir = args.output_dir
+    os.makedirs(f'{output_dir}/temp', exist_ok=True)
+    # Set up logger
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_path = os.path.join(output_dir, f"process_log-{file_dt_string}.log")
+    file_logger = setup_mp_file_logger(log_file_path)
+    try:
+        print("==================================")
+        file_logger.info("Started the process")
+        print("Started the process")
+        print("")
+        print("*** NOTE: This will generate flood watch ratio")
+        print("")
+        file_logger.info(f"   Start time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        print(f"   Start time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        print("")
+
+        # Prepare task arguments list
+        tasks_args_list = []
+        for huc in huc_list:
+            if not huc.isdigit() or len(huc) != 8:
+                file_logger.error(f"Skipping invalid HUC8: {huc}")
+                print(f"Skipping invalid HUC8: {huc}")
+                continue
+            tasks_args_list.append(
+                {
+                    "huc": huc,
+                    "nbm_df_bflows": nbm_df_bflows,
+                    "df_bflows": df_bflows,
+                    "flow_huc12": flow_huc12,
+                    "output_dir": output_dir,
+                    "fim_dir": args.fim_dir
+                }
+            )
+        # Run multiprocessing
+        results = run_with_mp(
+            task_function=process_huc,
+            tasks_args_list=tasks_args_list,
+            file_logger=file_logger,
+            max_workers=args.job_number,
+            task_id_key='huc',
+            exit_on_failure=False,
+            show_progress=False,  # Disables the progress bar display
         )
-        if chunk_file:
-            chunk_results.append(chunk_file)
-    # Combine all chunk files
-    if chunk_results:
-        all_hucs_finals = pd.concat([pd.read_csv(f) for f in chunk_results], axis=0, ignore_index=True)
-        all_hucs_finals.to_csv(f'{args.output_dir}/final_output_0402.csv', index=False)
-        # Clean up chunk files
-        for f in chunk_results:
-            os.remove(f)
-    else:
-        print("No valid results to concatenate.")
 
-    total_end_time = time.time()
-    total_time = total_end_time - total_start_time
+        # Collect successful results
+        successful_hucs = [huc for huc, status in results.items() if status]
+        output_files = [f"{output_dir}/temp/water_table_{huc}.csv" for huc in successful_hucs]
+        # Save final output
+        if output_files:
+            all_hucs_final = pd.concat([pd.read_csv(f) for f in output_files], axis=0, ignore_index=True)
+            all_hucs_final.to_csv(f"{output_dir}/final_output.csv", index=False)
+            # Clean up temp files
+            for f in output_files:
+                os.remove(f)
+        else:
+            print("No valid results to concatenate.")
+            file_logger.info("No valid results to concatenate.")
+        
+        # Log summary
+        failed_hucs = [huc for huc, status in results.items() if not status]
+        if not failed_hucs:
+            file_logger.info("All multiprocessing tasks Succeeded")
+            print("All multiprocessing tasks Succeeded")
+        else:
+            file_logger.info(f"{len(failed_hucs)} failed:")
+            print(f"{len(failed_hucs)} failed:")
+            for huc in failed_hucs:
+                file_logger.info(f"  - {huc}")
+                print(f"  - {huc}")
+        print('Multiprocessing tasks finished :)')
+        print("")
 
-    print(f"total prrocessing time: {total_time / 60:.2f} minutes!")
+        end_time = dt.datetime.now(dt.timezone.utc)
+        print(f"   End time (UTC): {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        file_logger.info(f"End time (UTC): {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        file_logger.info(fh.print_date_time_duration(start_time, end_time))
+
+    except Exception:
+        end_time = dt.datetime.now(dt.timezone.utc)
+        print("An exception was thrown")
+        file_logger.error("An exception was thrown")
+        print(traceback.format_exc())
+        file_logger.error(traceback.format_exc())
+
+        print(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
 
 if __name__ == '__main__':
+
+    """
+    This script processes a list of HUC8 to calculate the ratio of surface areas
+        from NWM high water threshold (NRP) and the NBM for flood watch workflow.
+
+    Sample Usage
+    ----------
+    python3 /foss_fim/tools/flood_watch_ratio.py -huc /input/Flood_watch/huc_list_test.txt
+        -d /data/previous_fim/hand_4_7_4_0 -nbm /projects/Flood_watch/20250402T1519Z_mrf_nbm_5day_max_high_flow_magnitude.csv
+        -nwm /data/inputs/rating_curve/bankfull_flows/nwm3_high_water_threshold_cms.csv -out /outputs/fl_watch
+    """
     parser = argparse.ArgumentParser(
         description='Process HUCs for NBM and NRP surface area and calculating ratio value required for flood watch workflow.'
     )
@@ -163,9 +249,6 @@ if __name__ == '__main__':
     parser.add_argument("-nbm", "--nbm_file", required=True, help="path to NBM high flow csv")
     parser.add_argument("-nwm", "--nwm_file", required=True, help="path to NWM high flow csv")
     parser.add_argument("-out", "--output_dir", required=True, help="path to save output")
-    parser.add_argument(
-        "-chunk", "--chunk_size", type=int, required=False, default=20, help="Number of HUCs per chunk"
-    )
     parser.add_argument(
         "-j",
         "--job_number",
