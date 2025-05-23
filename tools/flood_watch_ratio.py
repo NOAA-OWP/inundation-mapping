@@ -227,7 +227,7 @@ if __name__ == '__main__':
     This script processes a list of HUC8 to calculate the ratio of surface areas
         from NWM high water threshold (NRP) and the NBM for flood watch workflow.
 
-    Sample Usage
+    Example Usage
     ----------
     python3 /foss_fim/tools/flood_watch_ratio.py -huc /input/Flood_watch/huc_list_test.txt
         -d /data/previous_fim/hand_4_7_4_0 -nbm /projects/Flood_watch/20250402T1519Z_mrf_nbm_5day_max_high_flow_magnitude.csv
