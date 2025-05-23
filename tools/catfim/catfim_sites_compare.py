@@ -288,8 +288,8 @@ def make_version_comparison_tables(
         old_catfim_mapped_col = f'{old_version_id}_catfim_mapped'
         new_catfim_mapped_col = f'{new_version_id}_catfim_mapped'
 
-        old_catfim_status_col = 'previous_catfim_status' # f'{old_version_id}_status'
-        new_catfim_status_col =  'new_catfim_status' # f'{new_version_id}_status'
+        old_catfim_status_col = f'{old_version_id}_status'
+        new_catfim_status_col = f'{new_version_id}_status'
 
         old_catfim_version_col = 'previous_catfim_version'
         new_catfim_version_col = 'new_catfim_version'
@@ -384,6 +384,15 @@ def make_version_comparison_tables(
             ['site_id', change_col, change_description_col, old_catfim_version_col, 
              old_catfim_status_col, new_catfim_version_col, new_catfim_status_col]
         ]
+
+        # Rename status columns
+        compare_sites_df.rename(
+            columns={
+                old_catfim_status_col: 'previous_catfim_status',
+                new_catfim_status_col: 'new_catfim_status',
+            },
+            inplace=True,
+        )
 
         # Join the site metadata to the compare_sites_df
         compare_sites_df = pd.merge(compare_sites_df, combined_sites_metadata_df, how='left', on='site_id')
