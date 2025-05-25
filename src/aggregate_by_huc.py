@@ -169,7 +169,7 @@ class HucDirectory(object):
             'name': str,
             'huc8': str,
             'catchment_id': str,
-            'omsid_catchid': str,
+            'osmid_catchid': str,
             'HydroID': int,
             'feature_id': int,
             'order_': str,
@@ -243,11 +243,11 @@ class HucDirectory(object):
         self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
 
     def aggregate_road_fimpacts(self, branch_path, branch_id):
-        road_filename = join(branch_path, f'osm_roads_fimpact_{branch_id}.csv')
+        road_filename = join(branch_path, f'osm_roads_fimpact_{branch_id}.gpkg')
         if not os.path.isfile(road_filename):
             return
 
-        roads_df_splitted = pd.read_csv(road_filename)
+        roads_df_splitted = gpd.read_file(road_filename)
         if roads_df_splitted.empty:
             return
 
@@ -259,7 +259,7 @@ class HucDirectory(object):
         )
 
         min_thresholds = roads_df_splitted.loc[
-            roads_df_splitted.groupby(['omsid_catchid', 'feature_id'])['threshold_discharge'].idxmin()
+            roads_df_splitted.groupby(['osmid_catchid', 'feature_id'])['threshold_discharge'].idxmin()
         ]
 
         # Convert stages and dischrages to ft and cfs respectively
