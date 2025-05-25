@@ -334,7 +334,7 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
                 ## Check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use
                 #   orginial src_full_crosswalked.csv
                 if isfile(src_orig_full_filename):
-                    huc_pass_list.append(str(huc) + " --> src_full_crosswalked.csv")
+                    huc_pass_list.append(str(huc) + ' --> src_full_crosswalked_' + branch_id + '.csv')
                     procs_list.append(
                         [src_orig_full_filename, df_bflows, huc, branch_id, src_plot_option, huc_output_dir]
                     )

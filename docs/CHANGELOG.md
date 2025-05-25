@@ -1,6 +1,75 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.7.4.6 - 2025-05-22 - [PR#1533](https://github.com/NOAA-OWP/inundation-mapping/pull/1533)
+
+Hotfix to address issue caused by a different Slope attribute name in the NWM flowpath data (`nwm_subset_streams_levelPaths.gpkg`). The Alaska hydrofabric uses `So` attribute name whereas the CONUS hydrofabric uses `Slope` for the channel slope attribute name. Also included an additional fix to address a separate issue with missing channel and overbank roughness values in the input roughness file (AK featureids are not included in the current file).
+
+### Changes
+`src/add_crosswalk.py`: New logic to check for different channel slope attribute names
+`src/subdiv_chan_obank_src.py`: New logic to address feature_ids that we do not specify channel and overbank roughness values in the input file (`vmann_input_file`). Currently we do not have optimized roughness values for AK hucs, so the code now sets missing channel_n values = 0.06 and missing overbank_n values = 0.12.
+
+
+<br/><br/>
+
+## v4.7.4.5 - 2025-05-22 - [PR#1531](https://github.com/NOAA-OWP/inundation-mapping/pull/1531)
+
+In the post processes logs, some lines showed duration but not the section it was giving for a duration. You ended up with stacked duration lines in the post proc logs.
+
+### Changes
+- `fim_post_processing.sh`: as described above
+
+<br/><br/>
+
+
+## v4.7.4.4 - 2025-05-22 - [PR#1527](https://github.com/NOAA-OWP/inundation-mapping/pull/1527)
+
+When branches fails, and you run post-processing a second time, it triggers the update_htable_src.py script. However, that script does not know when the branch failed and was erroring out when a file did not exist.
+
+### Changes
+- `src`
+    - `udpate_htable_src.py`:  Skips if key branch files do not exist
+    - `aggregate_by_huc.py`: Added a comment
+
+<br/><br/>
+
+
+## v4.7.4.3 - 2025-05-22 - [PR#1529](https://github.com/NOAA-OWP/inundation-mapping/pull/1529)
+
+This PR fixes SVD errors in the nonmopnotonic script.
+
+### Changes
+- `src/`
+    - `bathymetric_adjustment.py`
+    - `nonmonotonic_src_adjustment.py`
+    - `filter_longitudinal_flow.py`
+
+<br/><br/>
+
+## v4.7.4.2 - 2025-05-22 - [PR#1526](https://github.com/NOAA-OWP/inundation-mapping/pull/1526)
+
+Fix for external levelpath intersecting WBD, an erroneous situation based on the geographic inaccuracy between the NWM streams and the WBD layers.
+
+### Changes
+
+- `src/stream_branches.py`: Ignore external levelpaths that intersect the WBD.
+
+<br/><br/>
+
+
+## v4.7.4.1 - 2025-05-22 - [PR#1530](https://github.com/NOAA-OWP/inundation-mapping/pull/1530)
+
+Selects appropriate GPKG layer when reading NFHL data to use the dissolved 100- and 500-year floodplains.
+This PR also fixes issue #1523.
+
+### Changes
+
+- `src/adjust_floodplains.py`: Added `layer='combined'` when reading NFHL data.
+- `src/stream_branches.py`: Prune branches that failed.
+
+<br/><br/>
+
+
 ## v4.7.4.0 - 2025-05-16 - [PR#1481](https://github.com/NOAA-OWP/inundation-mapping/pull/1481)
 
 Adjusts the elevations in branch floodplains by subtracting an additional amount from the DEM based on distance from the levelpath stream line so streams are more likely to flow directly towards the levelpath in order to address the catchment boundary issue.
