@@ -60,9 +60,8 @@ def process_roads_fimpact(
 
         roads_gdf_splitted.loc[:, 'threshold_hand'] = [x.get(selected_stat) for x in stats]
 
-        roads_gdf_splitted = roads_gdf_splitted.loc[roads_gdf_splitted.threshold_hand > 0]
-
         roads_gdf_splitted['branch'] = branch_id
+        roads_gdf_splitted.to_file(os.path.splitext(output_path)[0] + ".gpkg")
         roads_gdf_splitted.drop(columns=['geometry'], inplace=True)
 
         roads_gdf_splitted.to_csv(output_path, index=False)
@@ -80,7 +79,7 @@ if __name__ == "__main__":
         -g outputs/roads/02050206/branches/0/rem_zeroed_masked_0.tif
         -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg
         -r outputs/roads/02050206/osm_roads_subset.gpkg
-        -o outputs/roads/02050206/branches/0/test_osm_roads_fimpact_0.gpkg
+        -o outputs/roads/02050206/branches/0/test_osm_roads_fimpact_0.csv
 
     '''
 
@@ -111,3 +110,11 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
 
     process_roads_fimpact(**args)
+
+    '''
+    for inundation:
+        possibility of one road with multilple feature id comining from dfferent branchs
+            - if at least one of the branches inundated that osmid_catchid, we flag the entire road segment as inundated.
+
+    save a new gpkg for only inundated roads
+    '''
