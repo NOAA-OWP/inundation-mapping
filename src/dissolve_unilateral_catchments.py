@@ -203,11 +203,18 @@ def dissolve_unilateral_catchments(
     catchments = catchments[catchments['HydroID'].isin(reaches['HydroID'])]
 
     # Get HydroIDs in upstream to downstream order
-    hydroids_ordered = [reaches[~reaches['HydroID'].isin(reaches['NextDownID'])]['HydroID'].values[0]]
-    for i in range(len(reaches) - 1):
-        hydroid = hydroids_ordered[i]
-        next_down_id = reaches[reaches['HydroID'] == hydroid]['NextDownID'].values[0]
-        if next_down_id not in hydroids_ordered:
+    hydroids_ordered = []
+    hydroid_heads = reaches[~reaches['HydroID'].isin(reaches['NextDownID'])]
+    for hydroid_head in hydroid_heads.itertuples():
+        hydroid = hydroid_head.HydroID
+        hydroids_ordered.append(hydroid)
+
+        while reaches.loc[reaches['HydroID'] == hydroid, 'NextDownID'].item() in reaches['HydroID'].values:
+            next_down_id = reaches.loc[reaches['HydroID'] == hydroid, 'NextDownID'].item()
+            next_reach = reaches.loc[reaches['HydroID'] == next_down_id]
+            if next_reach.empty:
+                continue
+            hydroid = next_down_id
             hydroids_ordered.append(next_down_id)
 
     hydroids_ordered = {hydroid: i for i, hydroid in enumerate(hydroids_ordered)}
