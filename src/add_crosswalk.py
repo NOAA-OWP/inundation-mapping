@@ -5,6 +5,7 @@ import json
 import sys
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from numpy import unique
 from rasterstats import zonal_stats
@@ -12,9 +13,6 @@ from rasterstats import zonal_stats
 from utils.fim_enums import FIM_exit_codes
 from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
-
-
-# TODO - Feb 17, 2023 - We want to explore using FR methodology as branch zero
 
 
 def add_crosswalk(
@@ -34,6 +32,7 @@ def add_crosswalk(
     min_catchment_area,
     min_stream_length,
     huc_id,
+    iris_sword_slope,
 ):
     # These HUC-level geopackages are being read using the fiona engine because
     # the pyogrio + arrow engine was giving random segmentation faults that
@@ -43,14 +42,34 @@ def add_crosswalk(
     input_flows = gpd.read_file(input_flows_fileName, engine='fiona')
     input_huc = gpd.read_file(input_huc_fileName, engine='fiona')
     input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
+    iris_df = pd.read_parquet(iris_sword_slope).rename(
+        columns={'slope_iris_sword': 'SLOPE_IRIS_SWORD', 'id': 'feature_id'}
+    )
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
     input_catchments = input_catchments.dissolve(by='HydroID').reset_index()
 
+    # Rename ID column
     input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
     if input_nwmflows.feature_id.dtype != 'int':
         input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+
+    # Handle variable slope column name (AK uses So, CONUS uses Slope)
+    if 'Slope' in input_nwmflows.columns:
+        input_nwmflows = input_nwmflows.rename(columns={'Slope': 'SLOPE_HFAB'})
+    elif 'So' in input_nwmflows.columns:
+        input_nwmflows = input_nwmflows.rename(columns={'So': 'SLOPE_HFAB'})
+    else:
+        input_nwmflows['SLOPE_HFAB'] = np.nan
+        print(
+            f"WARNING: could not find a 'Slope' or 'So' attribute in the NWM hydrofabric at {input_nwmflows_fileName} – setting SLOPE_HFAB to n/a"
+        )
+
+    # Merge IRIS-SWORD slope data with NWM flows
+    input_nwmflows = input_nwmflows.merge(
+        iris_df[['feature_id', 'SLOPE_IRIS_SWORD']], on='feature_id', how='left'
+    )
     input_nwmflows = input_nwmflows.set_index('feature_id')
 
     # Get stream midpoint
@@ -74,7 +93,7 @@ def add_crosswalk(
     crosswalk.loc[crosswalk['distance'] > 100.0, 'feature_id'] = pd.NA
 
     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id', 'distance'])
-    crosswalk = crosswalk.merge(input_nwmflows[['order_']], on='feature_id')
+    crosswalk = crosswalk.merge(input_nwmflows[['order_', 'SLOPE_HFAB', 'SLOPE_IRIS_SWORD']], on='feature_id')
 
     del input_nwmflows
 
@@ -241,11 +260,22 @@ def add_crosswalk(
 
     # calculate src_full
     input_src_base = pd.read_csv(input_srcbase_fileName, dtype=object)
+    input_src_base = input_src_base.rename(columns={' SLOPE': 'SLOPE_RISE_RUN'})
+
     if input_src_base.CatchId.dtype != 'int':
         input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
     input_src_base = input_src_base.merge(
-        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
+        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_', 'SLOPE_HFAB', 'SLOPE_IRIS_SWORD']],
+        left_on='CatchId',
+        right_on='HydroID',
+    )
+
+    # Merge 'SLOPE_RISE_RUN' and 'SLOPE_HFAB' into 'SLOPE'
+    input_src_base['SLOPE'] = (
+        input_src_base['SLOPE_IRIS_SWORD']
+        .combine_first(input_src_base['SLOPE_HFAB'])
+        .combine_first(input_src_base['SLOPE_RISE_RUN'])
     )
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
@@ -348,6 +378,9 @@ def add_crosswalk(
             'HydraulicRadius (m)',
             'WetArea (m2)',
             'Volume (m3)',
+            'SLOPE_HFAB',
+            'SLOPE_IRIS_SWORD',
+            'SLOPE_RISE_RUN',
             'SLOPE',
             'ManningN',
             'Stage',
@@ -473,6 +506,9 @@ if __name__ == '__main__':
     )
     parser.add_argument("-e", "--min-catchment-area", help="Minimum catchment area", required=True)
     parser.add_argument("-g", "--min-stream-length", help="Minimum stream length", required=True)
+    parser.add_argument(
+        "-i", "--iris-sword-slope", help="Channel slope data from IRIS-SWORD database", required=True
+    )
 
     args = vars(parser.parse_args())
 

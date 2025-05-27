@@ -400,6 +400,9 @@ def aggregate_by_huc(
     assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
 
     # -------------------
+    # TODO: May 19, 2025: It is good to keep this in, but it needs to happen at the top of both fim_pipeline and post
+    # post processing. Currently, you run pipeline, you don't find out until here when this problem exists and
+    # it aborts here.
     # Validation
     total_cpus_available = os.cpu_count() - 2
     if num_job_workers > total_cpus_available:
