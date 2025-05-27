@@ -88,7 +88,7 @@ def generate_rating_curve_metrics(args):
     nwm_recurr_data_filename = args[4]
     rc_comparison_plot_filename = args[5]
     nwm_flow_dir = args[6]
-    catfim_flows_filename = args[7]
+    usgs_stage_file = args[7]
     huc = args[8]
     alt_plot = args[9]
     single_plot = args[10]
@@ -221,9 +221,9 @@ def generate_rating_curve_metrics(args):
                 var_name='recurr_interval',
                 value_name='discharge_cms',
             )
-
-            # Append catfim data (already set up in format similar to nwm_recurr_intervals_all)
-            cat_fim = pd.read_csv(catfim_flows_filename, dtype={'feature_id': str})
+ 
+            # Append usgs stage discharge data (already set up in format similar to nwm_recurr_intervals_all)
+            cat_fim = pd.read_csv(usgs_stage_file, dtype={'feature_id': str})
             nwm_recurr_intervals_all = pd.concat([nwm_recurr_intervals_all, cat_fim])
 
             # Convert discharge to cfs and filter
@@ -570,7 +570,7 @@ def generate_single_plot(rc, plot_filename, recurr_data_table):
                 ].filter(items=['recurr_interval', 'discharge_cfs'])
                 for i, r in recurr_data.iterrows():
                     if not r.recurr_interval.isnumeric():
-                        continue  # skip catfim flows
+                        continue  # skip usgs stage discharge flows
                     label = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None  # only label 2 yr
                     plt.axvline(
                         x=r.discharge_cfs, c='purple', linewidth=0.5, label=label
@@ -725,7 +725,7 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             recurr_q_max = recurr_data['discharge_cfs'].max()
             for i, r in recurr_data.iterrows():
                 if not r.recurr_interval.isnumeric():
-                    continue  # skip catfim flows
+                    continue  # skip USGS stage discharge flows
                 label = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None  # only label 2 yr
                 plt.axvline(
                     x=r.discharge_cfs, c='purple', linewidth=0.5, label=label
@@ -876,7 +876,7 @@ def generate_rc_and_rem_plots(rc, plot_filename, recurr_data_table, branches_fol
         ].filter(items=['recurr_interval', 'discharge_cfs'])
         for _, r in recurr_data.iterrows():
             if not r.recurr_interval.isnumeric():
-                continue  # skip catfim flows
+                continue  # skip USGS stage discharge flows
             label = 'NWM 17C\nRecurrence' if r.recurr_interval == '2' else None  # only label 2 yr
             ax[i, 1].axvline(
                 x=r.discharge_cfs, c='purple', linewidth=0.5, label=label
@@ -1232,9 +1232,9 @@ if __name__ == '__main__':
     python3 /foss_fim/tools/rating_curve_comparison.py
         -fim_dir data/previous_fim/hand_4_5_8_0/
         -output_dir data/fim_performance/hand_4_5_8_0/rating_curve_comparison/
-        -gages /data/inputs/usgs_gages/usgs_rating_curves.csv
+        -gages /data/inputs/usgs_gages/usgs_rating_curves_{date}.csv
         -flows /data/inputs/rating_curve/nwm_recur_flows/
-        -catfim /data/inputs/usgs_gages/catfim_flows_cms.csv
+        -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
         -j 40
     """
 
@@ -1248,10 +1248,9 @@ if __name__ == '__main__':
     parser.add_argument('-gages', '--usgs-gages-filename', help='USGS rating curves', required=True, type=str)
     parser.add_argument('-flows', '--nwm-flow-dir', help='NWM recurrence flows dir', required=True, type=str)
 
-    # TODO Sep 2024: catfim_flows_cms.csv should be renamed as it which made no sense.
-    #    It has nothing to do with catfim
+    # Mar 27, 2025: Was named "catfim" but that file name no longer made sense
     parser.add_argument(
-        '-catfim', '--catfim-flows-filename', help='Categorical FIM flows file', required=True, type=str
+        '-stages', '--usgs-stage-file', help='USGS discharge flows file', required=True, type=str
     )
     parser.add_argument(
         '-j', '--number-of-jobs', help='number of workers', required=False, default=1, type=int
@@ -1293,7 +1292,7 @@ if __name__ == '__main__':
     output_dir = args['output_dir']
     usgs_gages_filename = args['usgs_gages_filename']
     nwm_flow_dir = args['nwm_flow_dir']
-    catfim_flows_filename = args['catfim_flows_filename']
+    usgs_stage_filename = args['usgs_stage_file']
     number_of_jobs = args['number_of_jobs']
     stat_groups = args['stat_groups']
     alt_plot = args['alt_plot']
@@ -1365,7 +1364,7 @@ if __name__ == '__main__':
                         nwm_recurr_data_filename,
                         rc_comparison_plot_filename,
                         nwm_flow_dir,
-                        catfim_flows_filename,
+                        usgs_stage_filename,
                         huc,
                         alt_plot,
                         single_plot,

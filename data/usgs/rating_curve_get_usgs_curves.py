@@ -151,12 +151,12 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
                 # Append site data to master DataFrame
                 all_data = pd.concat([all_data, data], ignore_index=True)
 
-    # Write CatFIM flows to file TODO: Figure out if we use this file, deprecate if we don't. 
-    print("writing for CatFIM")
+    # Write usgs stage discharge data, used by Sierra tests (rating_curve_comparison.py)
+    print("Writing for USGS discharge data for each usgs stage (ie. action, minor, etc)")
     if not all_data.empty:
-        catfim_file_name = os.path.join(output_dir, f'catfim_flows_cms_{file_date_append}.csv')
+        usgs_discharge_file_name = os.path.join(output_dir, f'usgs_stage_discharge_cms_{file_date_append}.csv')
         final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
-        final_data.to_csv(catfim_file_name, index=False)
+        final_data.to_csv(usgs_discharge_file_name, index=False)
 
     return all_data
 
@@ -185,27 +185,29 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
 
     Outputs, if an output_dir is specified, are:
-        usgs_rating_curves.csv -- A csv containing USGS rating curve as well
+        Note: All files have today's date appended.
+        
+        usgs_rating_curves_{date}.csv -- A csv containing USGS rating curve as well
         as datum adjustment and rating curve expressed as an elevation (NAVD88).
         ONLY SITES IN CONUS ARE CURRENTLY LISTED IN THIS CSV. To get
         additional sites, the Tidal API will need to be reconfigured and tested.
 
-        log.csv -- A csv containing gage-specific messages.
+        log_{date}.csv -- A csv containing gage-specific messages.
 
-        (if all option passed) usgs_gages.gpkg -- a point layer containing ALL USGS gage sites that meet
+        (if all option passed) usgs_gages_{date}.gpkg -- a point layer containing ALL USGS gage sites that meet
         certain criteria. In the attribute table is a 'curve' column that will indicate if a rating
-        curve is provided in "usgs_rating_curves.csv" # TODO is this still an output?
+        curve is provided in "usgs_rating_curves_{date}.csv" 
 
-        acceptable_sites_for_rating_curves.csv -- A csv containing all acceptable sites
+        acceptable_sites_for_rating_curves_{date}.csv -- A csv containing all acceptable sites
         that have a rating curve.
 
-        acceptable_sites_for_rating_curves.gpkg -- A geopackage containing all acceptable sites
+        acceptable_sites_for_rating_curves_{date}.gpkg -- A geopackage containing all acceptable sites
         that have a rating curve.
 
-        acceptable_sites_pre.csv -- A csv containing all acceptable sites that have a rating curve. 
+        acceptable_sites_pre_{date}.csv -- A csv containing all acceptable sites that have a rating curve. 
 
-        catfim_flows_cms.csv -- A csv containing the flow values for each flood category
-        (action, minor, moderate, major) for each site.
+        usgs_stage_discharge_cms_{date}.csv -- A csv containing the flow values for each flood category
+        (action, minor, moderate, major) for each site.  Used by Seirra Testing (rating_curve_comparison)
 
         sites_bool_flags.gpkg -- A geopackage containing all acceptable sites 
         TODO: deprecated as of 5/14/25... remove? or do we use this?
