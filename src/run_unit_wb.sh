@@ -80,7 +80,7 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
     -r "ID" \
     -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
     -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
-    -de $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_extended.gpkg \
+    -de $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg \
     -e $tempHucDataDir/nwm_headwaters.gpkg \
     -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
     -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg \
@@ -186,7 +186,7 @@ if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
     gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-        $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_extended.gpkg $tempHucDataDir/flows_grid_boolean.tif
+        $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg $tempHucDataDir/flows_grid_boolean.tif
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
@@ -227,11 +227,11 @@ echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
     $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 
-## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
-    rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
-fi
+# ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# if [ "$levelpaths_exist" = "1" ]; then
+#     echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
+#     rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
+# fi
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
@@ -239,13 +239,13 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 
-## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
-    mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-        -fel $tempHucDataDir/dem_burned_filled.tif \
-        -p $tempHucDataDir/flowdir_d8_burned_filled.tif
-fi
+# ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# if [ "$levelpaths_exist" = "1" ]; then
+#     echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
+#     mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+#         -fel $tempHucDataDir/dem_burned_filled.tif \
+#         -p $tempHucDataDir/flowdir_d8_burned_filled.tif
+# fi
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
