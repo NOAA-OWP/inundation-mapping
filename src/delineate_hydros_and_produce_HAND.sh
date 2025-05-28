@@ -126,7 +126,7 @@ if [ "$current_branch_id" != "$branch_zero_id" ] ; then
         -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
         -co $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
         -ro $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
-        -po $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
+        -po $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg
 fi
 
 ## RASTERIZE REACH CATCHMENTS ##
@@ -193,7 +193,7 @@ fi
 
 ## POLYGONIZE REACH WATERSHEDS ##
 echo -e $startDiv"Polygonize Reach Watersheds $hucNumber $current_branch_id"
-gdal_polygonize.py -q -8 -f GPKG $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
+gdal_polygonize.py -q -8 -overwrite -f GPKG $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg catchments HydroID
 
 ## PROCESS CATCHMENTS AND MODEL STREAMS STEP 1 ##

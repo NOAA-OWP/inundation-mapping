@@ -63,6 +63,8 @@ def combine_catchments(ids: list, layers: list, field: str = "HydroID") -> gpd.G
             from_node = combined_features['From_Node'].iloc[0]
         if 'To_Node' in layer_columns:
             to_node = combined_features['To_Node'].iloc[-1]
+        if 'LakeID' in layer_columns:
+            lake_id = combined_features['LakeID'].min()
 
         combined_features = combined_features.dissolve(aggfunc='sum')
 
@@ -76,6 +78,8 @@ def combine_catchments(ids: list, layers: list, field: str = "HydroID") -> gpd.G
             combined_features['From_Node'] = from_node
         if 'To_Node' in layer_columns:
             combined_features['To_Node'] = to_node
+        if 'LakeID' in layer_columns:
+            combined_features['LakeID'] = lake_id
 
         out.append(pd.concat([other_features, combined_features], ignore_index=True))
 
