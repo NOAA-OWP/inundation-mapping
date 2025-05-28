@@ -88,10 +88,10 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
     """
     skip = 0
     for row in df.itertuples():
-        print(f'{row.HydroID}, skip: {skip}, count: {row.count}')
+        # print(f'{row.HydroID}, skip: {skip}, count: {row.count}')
         if skip > 0:
             skip -= 1
-            print(f'\tSkipping {row.HydroID}, skip: {skip}')
+            # print(f'\tSkipping {row.HydroID}, skip: {skip}')
             continue
 
         # Get areas of the first reach
@@ -125,7 +125,7 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
         area_prop = min(area_left_prop, area_right_prop)
 
         for i in range(row.count):
-            print(f'\t\trow.count: {row.count}, skip: {skip}, i: {i}')
+            # print(f'\t\trow.count: {row.count}, skip: {skip}, i: {i}')
             next_id = reaches.loc[reaches['HydroID'] == next_id, 'NextDownID'].item()
 
             # Compute combined area ratio
@@ -145,7 +145,7 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
 
             # Add next catchment if catchments are more balanced (bilateral)
             skip += 1
-            print(f'\tnext_area_prop: {next_area_prop}, area_prop: {area_prop}, skip: {skip}')
+            # print(f'\tnext_area_prop: {next_area_prop}, area_prop: {area_prop}, skip: {skip}')
             if (next_area_prop > area_prop) or (area_total < 500000):
                 ids_to_combine.append(next_id)
                 area_left += next_area_left
@@ -153,10 +153,10 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
                 area_total += next_area_total
                 area_prop = next_area_prop
 
-                print(f'\tDissolving {ids_to_combine}')
+                # print(f'\tDissolving {ids_to_combine}')
 
             else:
-                print(f'\tStop dissolving {ids_to_combine} at {next_id}')
+                # print(f'\tStop dissolving {ids_to_combine} at {next_id}')
                 break
 
         catchments_copy, reaches_copy = combine_catchments(
@@ -167,7 +167,12 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
 
 
 def dissolve_unilateral_catchments(
-    catchments_filename: str, reaches_filename: str, catchments_out: str, reaches_out: str
+    catchments_filename: str,
+    reaches_filename: str,
+    split_points_filename: str,
+    catchments_out: str,
+    reaches_out: str,
+    split_points_out: str,
 ):
     """
     Dissolves catchments where adjacent catchments are "unilateral", i.e., they only capture one side of the floodplain. This function dissolves adjacent catchments if they have missing the floodplain on opposite sides of the river.
@@ -398,6 +403,12 @@ def dissolve_unilateral_catchments(
         sequences_odd_df, data_dissolved, reaches, catchments_copy, reaches_copy
     )
 
+    # Update split_point ids
+    split_points = gpd.read_file(split_points_filename)
+    split_points = gpd.sjoin(split_points, catchments_copy)
+    split_points['id'] = split_points['HydroID']
+    split_points[['id', 'geometry']].to_file(split_points_out, driver='GPKG', mode='w')
+
     catchments_copy.to_file(catchments_out, layer=catchments_layername, driver='GPKG', mode='w')
     reaches_copy.to_file(reaches_out, layer=reaches_layername, driver='GPKG', mode='w')
 
@@ -409,8 +420,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Assess bilateral catchments.")
     parser.add_argument('-c', '--catchments-filename', type=str, help='Path to catchments file')
     parser.add_argument('-r', '--reaches-filename', type=str, help='Path to reaches file')
+    parser.add_argument('-p', '--split-points-filename', type=str, help='Path to split points file')
     parser.add_argument('-co', '--catchments-out', type=str, help='Path to output catchments file')
     parser.add_argument('-ro', '--reaches-out', type=str, help='Path to output reaches file')
+    parser.add_argument('-po', '--split-points-out', type=str, help='Path to output split points file')
     args = parser.parse_args()
 
     dissolve_unilateral_catchments(**vars(args))

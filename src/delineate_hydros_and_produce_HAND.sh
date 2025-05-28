@@ -123,8 +123,10 @@ if [ "$current_branch_id" != "$branch_zero_id" ] ; then
     $srcDir/dissolve_unilateral_catchments.py \
         -c $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
         -r $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
+        -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
         -co $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.gpkg \
-        -ro $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg
+        -ro $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
+        -po $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
 fi
 
 ## RASTERIZE REACH CATCHMENTS ##
