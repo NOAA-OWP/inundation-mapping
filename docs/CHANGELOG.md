@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.7.x.x - 2025-05-28 - [PR#1541](https://github.com/NOAA-OWP/inundation-mapping/pull/1541)
+
+Fixes AK lake bugs to be able to use the new pre_clip data.
+
+### Changes
+`src/bash_variables.env`: Uses new pre_clip data
+`src/split_flows.py`: Makes sure it works for AK HUCs
+
+
+<br/><br/>
+
 ## v4.7.4.6 - 2025-05-22 - [PR#1533](https://github.com/NOAA-OWP/inundation-mapping/pull/1533)
 
 Hotfix to address issue caused by a different Slope attribute name in the NWM flowpath data (`nwm_subset_streams_levelPaths.gpkg`). The Alaska hydrofabric uses `So` attribute name whereas the CONUS hydrofabric uses `Slope` for the channel slope attribute name. Also included an additional fix to address a separate issue with missing channel and overbank roughness values in the input roughness file (AK featureids are not included in the current file).

@@ -255,14 +255,14 @@ def split_flows(
         if len(lakes) > 0:
             print('Splitting stream segments at ' + str(len(lakes)) + ' waterbodies...')
 
-           # Determine the lake id column
+            # Determine the lake id column
             if 'newID' in lakes.columns:
                 lake_id_column = 'newID'
             elif 'wb_id' in lakes.columns:
-                lake_id_column = 'wb_id'   # Alaska HUCs
+                lake_id_column = 'wb_id'  # Alaska HUCs
             else:
                 print("No 'newID' or 'wb_id' column found in lake file")
-                sys.exit(1) # Exit with a generic error code
+                sys.exit(1)  # Exit with a generic error code
 
             # Create splits at lake boundaries
             lakes = lakes.filter(items=[lake_id_column, 'geometry'])
