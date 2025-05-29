@@ -1,15 +1,6 @@
 # List of files for branches to delete
 # Use comment to allow list the file
 # Use curly braces to denote branch_id
-agree_binary_bufgrid.tif
-agree_bufgrid.tif
-agree_bufgrid_allo.tif
-agree_bufgrid_dist.tif
-agree_bufgrid_zerod.tif
-agree_smogrid.tif
-agree_smogrid_allo.tif
-agree_smogrid_dist.tif
-agree_smogrid_zerod.tif
 backpool_stats.csv
 bridge_elev_diff_meters_{}.tif
 catch_list_{}.txt
@@ -27,6 +18,7 @@ demDerived_streamPixels_{}.tif
 demDerived_streamPixels_ids_{}.tif
 demDerived_streamPixels_ids_{}_allo.tif
 demDerived_streamPixels_ids_{}_dist.tif
+dem_adjusted_{}.tif
 dem_burned_{}.tif
 dem_burned_filled_{}.tif
 dem_lateral_thalweg_adj_{}.tif
