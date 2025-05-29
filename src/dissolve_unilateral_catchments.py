@@ -64,11 +64,12 @@ def combine_catchments(ids: list, layers: list, field: str = "HydroID") -> gpd.G
         if 'To_Node' in layer_columns:
             to_node = combined_features['To_Node'].iloc[-1]
         if 'LakeID' in layer_columns:
-            lake_id = combined_features['LakeID'].min()
+            lake_id = combined_features['LakeID'].max()
 
         combined_features = combined_features.dissolve(aggfunc='sum')
 
         combined_features[field] = ids[0]
+        combined_features['HydroIDs'] = ','.join(ids)
 
         if 'NextDownID' in layer_columns:
             combined_features['NextDownID'] = NextDownID
@@ -399,6 +400,12 @@ def dissolve_unilateral_catchments(
         on=['HydroID', 'side'],
         how='left',
     )
+
+    catchments_copy['HydroIDs'] = catchments_copy['HydroID'].astype(str)
+    reaches_copy['HydroIDs'] = reaches_copy['HydroID'].astype(str)
+
+    catchments_copy['area'] = catchments_copy.geometry.area
+    reaches_copy['length'] = reaches_copy.geometry.length
 
     catchments_copy, reaches_copy = find_and_combine_sequences(
         sequences_even_df, data_dissolved, reaches, catchments_copy, reaches_copy
