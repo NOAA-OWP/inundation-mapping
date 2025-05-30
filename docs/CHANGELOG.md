@@ -5,7 +5,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 This PR has two functions out of necessity for running LoFI operationally:
 
-1. Optimize the runtime performance and memory consumption of the inundation routine.
+1. Optimize the runtime performance and memory consumption of the inundation routine. NOTE that this includes a change to the units of the REM, which are now in millimeters instead of meters.
 2. Implement methods that are used to compute the Likelihood of Flood Inundation routine.
 
 ### Additions
