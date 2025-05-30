@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## V4.6.2.0 - 2025-05-06 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
+## v4.8.0.0 - 2025-05-30 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
 
 This PR has two functions out of necessity for running LoFI operationally:
 
