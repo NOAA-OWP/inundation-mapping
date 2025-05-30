@@ -605,6 +605,7 @@ if __name__ == '__main__':
             executor_dict = {}
 
             for test_case_class in all_test_cases:
+
                 if not os.path.exists(test_case_class.fim_dir):
                     continue
 
