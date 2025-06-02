@@ -2,10 +2,15 @@
 
 import glob
 import inspect
+import logging
 import os
 import re
-from concurrent.futures import as_completed
+import sys
+import threading
+import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
+from multiprocessing import Manager
 from os.path import splitext
 from pathlib import Path
 
@@ -19,6 +24,156 @@ import utils.shared_variables as sv
 
 
 gp.options.io_engine = "pyogrio"
+
+
+def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
+    """
+    Creates and returns a logger that logs to the specified file.
+    """
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(level)
+
+    # Prevent duplicate handlers if already exists
+    if not logger.handlers:
+        file_handler = logging.FileHandler(log_file_path)
+        file_handler.setLevel(level)
+
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        file_handler.setFormatter(formatter)
+
+        logger.addHandler(file_handler)
+        logger.propagate = False  # avoid logging to root logger too
+
+    return logger
+
+
+def run_with_mp(
+    task_function,
+    tasks_args_list,
+    file_logger,
+    max_workers=4,
+    task_id_key=None,  # must be one of the keys in the args list
+    exit_on_failure=True,
+    show_progress=True,
+):
+    '''
+    Run a set of tasks in parallel using multiprocessing with robust logging and error handling.
+
+    NOTES:
+    This simple setup is using a shared log file and it is ok for now assuming that:
+        - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work
+        - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
+        - if we encounter a case that this does not work correctly, then we can improve it by creating one log file per task and combining them afterward.”
+
+    - Use try/except in both the task function and this wrapper:
+        • The task function should handle known/expected errors and always return True or False.
+        • This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
+        • No more try/except inside helper functions inside task function. Let them fail and task_function exception handles them.
+        • Inside helper functions feel free to log any information. but No need to raise errors.
+        • The only exception is that when we really need to address a special case like API limits and wait and retry.
+    - Inside your task function or helpers, log live messages using screen_queue.put(msg).
+    - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
+    - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
+        - Do not use any print statements after start of multiprocessing in the task function or inside its helper functions. Instead use screen_queue.put().
+        - use file_logger.info() to log the message in the log file
+    '''
+
+    screen_queue = (
+        Manager().Queue()
+    )  # creates a process-safe Queue that allows subprocesses to put() messages into it.
+
+    # Background thread to print logs without interrupting tqdm
+    def log_worker(queue):
+        while True:
+            msg = queue.get()
+            if msg == "DONE":  # this must match the last message passed to screen_queue
+                break
+            tqdm.write(msg)
+
+    screen_queue_thread = threading.Thread(
+        target=log_worker, args=(screen_queue,)
+    )  # this (from the main process)) reads screen_queues and prints on screen.
+    screen_queue_thread.start()
+
+    results = {}
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        future_to_id = {}
+        for i, task_kwargs in enumerate(tasks_args_list):  # for each dictionary of keyword arguments (kwargs)
+            task_id = f"Task-{i}"
+            if task_id_key:
+                task_id = task_kwargs.get(
+                    task_id_key, task_id
+                )  # this make a unique id (e.g. HUC number) for the task
+
+            # also pass the loggers and task id
+            kwargs_updated = task_kwargs.copy()
+            kwargs_updated["file_logger"] = file_logger
+            kwargs_updated["screen_queue"] = screen_queue
+            kwargs_updated["task_id"] = task_id
+
+            future = executor.submit(
+                task_function, **kwargs_updated
+            )  # submits tasks to workers in parallel. IMMEDIATELY after submitting (not after finishing the subprocess job) we get back a Future object, which is like a order number to track your requested food in a restaurant while waiting).
+            future_to_id[future] = task_id
+
+        # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below
+        # Setup tqdm progress bar
+        pbar = tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") if show_progress else None
+        # with tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") as pbar:
+        for future in as_completed(future_to_id):
+            task_id = future_to_id[future]
+            try:
+                # note that try/except here only worries about running and catching catastrophic errors. Specifc errors must be addressed inside the task function
+                # note that the try except inside task function always return (which is result here) True or False
+                result = future.result()
+                results[task_id] = result
+                if result:
+                    if show_progress:
+                        tqdm.write(
+                            f"✅ success for {task_id}"
+                        )  # do not use print otherwise a new updated bar is created after each print line
+                    else:
+                        print(f"✅ success for {task_id}")
+                    file_logger.info(f"✅ success for {task_id}")
+                else:
+                    if show_progress:
+                        tqdm.write(f"❌ Error reported for {task_id}.")
+                    else:
+                        print(f"❌ Error reported for {task_id}.")
+                    file_logger.info(f"❌ Error reported for {task_id}.")
+
+            except Exception as ex:
+                error_msg = f"❌ Error for {task_id}: {ex}"
+                traceback_msg = traceback.format_exc()
+
+                if show_progress:
+                    tqdm.write(error_msg)
+                else:
+                    print(error_msg)
+                file_logger.error(error_msg)
+                file_logger.error(traceback_msg)
+
+                results[task_id] = None
+
+                if exit_on_failure:
+                    dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                    final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
+                    file_logger.critical(final_msg)
+                    executor.shutdown(
+                        wait=False
+                    )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
+                    sys.exit(1)
+
+            if pbar:
+                pbar.update(1)  # ✅ Progress update for each completed task
+        if pbar:
+            pbar.close()
+
+    screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+    screen_queue_thread.join()  # official closure of thread
+    return results
 
 
 def getDriver(fileName):
@@ -407,7 +562,7 @@ class FIM_Helpers:
         total_hours, rem_seconds = divmod(rem_seconds, 60 * 60)
         total_mins, seconds = divmod(rem_seconds, 60)
 
-        time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
+        time_fmt = f"{total_days:02d} days {total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
 
         duration_msg = "Duration: " + time_fmt
         print(duration_msg)
