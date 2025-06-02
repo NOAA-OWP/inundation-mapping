@@ -80,7 +80,7 @@ def mask_dem(
             levelpath_levees = list(levee_levelpaths[levee_id_attribute])
 
             if len(levelpath_levees) > 0:
-                leveed = gpd.read_file(nld_filename)
+                leveed = gpd.read_file(nld_filename, engine='fiona')
 
                 # Get geometries of levee protected areas associated with levelpath
                 geoms = [
@@ -93,8 +93,8 @@ def mask_dem(
                     dem_masked, _ = mask(dem, geoms, invert=True)
 
             # Mask levee-protected areas not protected against level path
-            catchments = gpd.read_file(catchments_filename)
-            leveed = gpd.read_file(nld_filename)
+            catchments = gpd.read_file(catchments_filename, engine='fiona')
+            leveed = gpd.read_file(nld_filename, engine='fiona')
 
             leveed_area_catchments = gpd.overlay(catchments, leveed, how="union")
 
