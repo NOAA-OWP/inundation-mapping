@@ -368,19 +368,20 @@ def make_version_comparison_tables(
             pd.Categorical(np.select(conditions, choices_change, default='ERROR'))
         )
         compare_sites_df[change_description_col] = pd.Series(
-            pd.Categorical(
-                np.select(
-                    conditions,
-                    choices_change_description,
-                    default=default_error_message,
-                )
-            )
+            pd.Categorical(np.select(conditions, choices_change_description, default=default_error_message))
         )
 
         # Reorder columns and exclude the unnecessary ones
         compare_sites_df = compare_sites_df[
-            ['site_id', change_col, change_description_col, old_catfim_version_col, 
-             old_catfim_status_col, new_catfim_version_col, new_catfim_status_col]
+            [
+                'site_id',
+                change_col,
+                change_description_col,
+                old_catfim_version_col,
+                old_catfim_status_col,
+                new_catfim_version_col,
+                new_catfim_status_col,
+            ]
         ]
 
         # Rename status columns
@@ -403,6 +404,7 @@ def make_version_comparison_tables(
         compare_sites_df.to_csv(comparison_table_save_path, index=False)
 
         print(f'\nSaved comparison table to {comparison_table_save_path}')
+
 
 # Read CatFIM library, remove intervals, and convert it to a gdf
 def read_format_catfim_library(catfim_library_filepath):
@@ -533,37 +535,52 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
 
             read_gpkg_end_time = datetime.now(timezone.utc)
             gpkg_time_duration = read_gpkg_end_time - read_gpkg_start_time
-            print(f"Time elapsed while reading in the CatFIM libraries: {str(gpkg_time_duration).split('.')[0]}")
+            print(
+                f"Time elapsed while reading in the CatFIM libraries: {str(gpkg_time_duration).split('.')[0]}"
+            )
             print()
 
             id_col, mag_col = 'ahps_lid', 'magnitude'
 
             # Initialize empty GeoDataFrames for removed and added geometries
-            removed_geom = gpd.GeoDataFrame(columns=[id_col, mag_col, 'geometry', 'removed_area_percent'], crs=after_gdf.crs)
-            added_geom = gpd.GeoDataFrame(columns=[id_col, mag_col, 'geometry', 'added_area_percent'], crs=after_gdf.crs)
+            removed_geom = gpd.GeoDataFrame(
+                columns=[id_col, mag_col, 'geometry', 'removed_area_percent'], crs=after_gdf.crs
+            )
+            added_geom = gpd.GeoDataFrame(
+                columns=[id_col, mag_col, 'geometry', 'added_area_percent'], crs=after_gdf.crs
+            )
 
             print(f'Comparing {len(before_gdf)} before geometries to {len(after_gdf)} after geometries.')
 
             # Make a dataframe with all the lids and magnitudes in after_gdf and before_gdf
             combined_lids_gdf = pd.concat(
-                [before_gdf[[id_col, mag_col]].drop_duplicates(), after_gdf[[id_col, mag_col]].drop_duplicates()]
+                [
+                    before_gdf[[id_col, mag_col]].drop_duplicates(),
+                    after_gdf[[id_col, mag_col]].drop_duplicates(),
+                ]
             )
             combined_lids_gdf = combined_lids_gdf.drop_duplicates()
             combined_lids_gdf = combined_lids_gdf.reset_index(drop=True)
             print(f'Found {len(combined_lids_gdf)} unique lid/magnitude combinations.')
 
-            debug_mode = False # TODO: Add debug mode as command line argument
+            debug_mode = False  # TODO: Add debug mode as command line argument
 
             debug_iterations = 100
-            print(f'Debug mode: Only processing {debug_iterations} site/magnitude combinations.') if debug_mode == True else None
+            (
+                print(f'Debug mode: Only processing {debug_iterations} site/magnitude combinations.')
+                if debug_mode == True
+                else None
+            )
 
-            for i, (lid, magnitude) in enumerate(combined_lids_gdf[[id_col, mag_col]].itertuples(index=False)):
+            for i, (lid, magnitude) in enumerate(
+                combined_lids_gdf[[id_col, mag_col]].itertuples(index=False)
+            ):
 
                 # Debug mode: Only run 100 site/magnitude combinations
                 if debug_mode == True:
                     if i >= debug_iterations:
                         break
-                
+
                 # Normal mode: Print progress every 100 iterations
                 else:
                     if i % 100 == 0:
@@ -584,25 +601,36 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
 
                     if not removed.is_empty:
                         # Calculate % of the previous area that was removed
-                        removed_area_percent = round((removed.area/before_union.area)*100, 2)
+                        removed_area_percent = round((removed.area / before_union.area) * 100, 2)
 
                         removed_gdf = gpd.GeoDataFrame(
-                            {id_col: [lid], mag_col: [magnitude], 'geometry': [removed], 'removed_area_percent': [removed_area_percent]}, crs=removed_geom.crs
+                            {
+                                id_col: [lid],
+                                mag_col: [magnitude],
+                                'geometry': [removed],
+                                'removed_area_percent': [removed_area_percent],
+                            },
+                            crs=removed_geom.crs,
                         )
-                        
+
                         removed_gdf_cleaned = remove_polygon_shards(
                             removed_gdf, id_col, mag_col, minimum_area_threshold=800
                         )
                         removed_geom = pd.concat([removed_geom, removed_gdf_cleaned])
 
-
                     if not added.is_empty:
 
-                        # Calculate % of the current area that is new 
-                        added_area_percent = round((added.area/after_union.area)*100, 2)
+                        # Calculate % of the current area that is new
+                        added_area_percent = round((added.area / after_union.area) * 100, 2)
 
                         added_gdf = gpd.GeoDataFrame(
-                            {id_col: [lid], mag_col: [magnitude], 'geometry': [added], 'added_area_percent': [added_area_percent]}, crs=added_geom.crs
+                            {
+                                id_col: [lid],
+                                mag_col: [magnitude],
+                                'geometry': [added],
+                                'added_area_percent': [added_area_percent],
+                            },
+                            crs=added_geom.crs,
                         )
                         added_gdf_cleaned = remove_polygon_shards(
                             added_gdf, id_col, mag_col, minimum_area_threshold=800
@@ -614,31 +642,52 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             comparison_table_df = pd.read_csv(comparison_table_save_path)
 
             # Pivot table so there's a column per magnitude
-            def pivot_and_join_percent_change(areal_comparison, input_table_df, value_column_name, column_suffix):
+            def pivot_and_join_percent_change(
+                areal_comparison, input_table_df, value_column_name, column_suffix
+            ):
 
-                areal_comparison_pivot_df = areal_comparison[[id_col, mag_col, value_column_name]].pivot(index=id_col, columns=mag_col, values=value_column_name).reset_index()
+                areal_comparison_pivot_df = (
+                    areal_comparison[[id_col, mag_col, value_column_name]]
+                    .pivot(index=id_col, columns=mag_col, values=value_column_name)
+                    .reset_index()
+                )
 
-                areal_comparison_pivot_df = areal_comparison_pivot_df.rename(columns={'action': 'action' + column_suffix, 
-                                        'minor': 'minor' + column_suffix, 
-                                        'moderate': 'moderate' + column_suffix, 
-                                        'major': 'major' + column_suffix, 
-                                        'record': 'record' + column_suffix
-                                    })
-                
+                areal_comparison_pivot_df = areal_comparison_pivot_df.rename(
+                    columns={
+                        'action': 'action' + column_suffix,
+                        'minor': 'minor' + column_suffix,
+                        'moderate': 'moderate' + column_suffix,
+                        'major': 'major' + column_suffix,
+                        'record': 'record' + column_suffix,
+                    }
+                )
+
                 # Join to comparison table
-                joined_table_df = pd.merge(input_table_df, areal_comparison_pivot_df, left_on='site_id', right_on = id_col, how='left')
+                joined_table_df = pd.merge(
+                    input_table_df, areal_comparison_pivot_df, left_on='site_id', right_on=id_col, how='left'
+                )
 
                 # Move geometry to the last column
                 geometry = joined_table_df.pop('geometry')
                 joined_table_df.insert(len(joined_table_df.columns), 'geometry', geometry)
 
                 return joined_table_df
-    
+
         # Run for added geom
-        comparison_table_df = pivot_and_join_percent_change(added_geom, comparison_table_df, value_column_name = 'added_area_percent', column_suffix = '_gained_coverage_%')
+        comparison_table_df = pivot_and_join_percent_change(
+            added_geom,
+            comparison_table_df,
+            value_column_name='added_area_percent',
+            column_suffix='_gained_coverage_%',
+        )
 
         # Run for removed geom
-        comparison_table_df = pivot_and_join_percent_change(removed_geom, comparison_table_df, value_column_name = 'removed_area_percent', column_suffix = '_lost_coverage_%')
+        comparison_table_df = pivot_and_join_percent_change(
+            removed_geom,
+            comparison_table_df,
+            value_column_name='removed_area_percent',
+            column_suffix='_lost_coverage_%',
+        )
 
         # Remove aphs_lid_x and aphs_lid_y columns if they exist
         existing_cols = comparison_table_df.columns.intersection(['ahps_lid_x', 'ahps_lid_y'])
@@ -659,7 +708,6 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         compare_sites_gdf.to_file(comparison_gpkg_save_path, layer='points', driver='GPKG')
 
         print(f'Saved comparison site GPKG to {comparison_gpkg_save_path}')
-
 
         # Add back in the metadata columns
         removed_geom = removed_geom.merge(
@@ -688,7 +736,6 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             # Save the added geom data as a csv as well
             added_geom.to_csv(gained_coverage_gpkg_save_path.replace('.gpkg', '.csv'), index=False)
             print(f'Saved gained coverage CSV to {gained_coverage_gpkg_save_path.replace(".gpkg", ".csv")}')
-            
 
         if len(removed_geom) == 0:
             print('No lost coverage detected, not saving a lost coverage GPKG.')
@@ -699,11 +746,12 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             # Save the removed geom data as a csv as well
             removed_geom.to_csv(lost_coverage_gpkg_save_path.replace('.gpkg', '.csv'), index=False)
             print(f'Saved lost coverage CSV to {lost_coverage_gpkg_save_path.replace(".gpkg", ".csv")}')
-    
+
     except Exception as e:
         print('ERROR: Generate spatial difference maps failed.')
         print(traceback.format_exc())
         sys.exit(f'ERROR: {e}')
+
 
 # Main function for catfim_site_tracking
 def main(path_list, output_save_filepath, keep_differences_only, generate_geopackages):
