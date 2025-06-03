@@ -1212,8 +1212,10 @@ class StreamNetwork(gpd.GeoDataFrame):
 
             # Check if the levelpath outlet is external
             if not len(temp_df.merge(self_in_wbd, left_on='to', right_on='ID')) == len(temp_df):
-                outlet_id = self_in_wbd.loc[self_in_wbd['to'] == outlet.ID, 'ID'].values[0]
-                self = add_outlet_segments(self, self_ref, outlet_id, outlet)
+                outlet_stream = self_in_wbd.loc[self_in_wbd['to'] == outlet.ID, 'ID']
+                if not outlet_stream.empty:
+                    outlet_id = outlet_stream.values[0]
+                    self = add_outlet_segments(self, self_ref, outlet_id, outlet)
 
         # merges each multi-line string to a singular linestring
         for lpid, row in tqdm(
@@ -1325,8 +1327,8 @@ class StreamNetwork(gpd.GeoDataFrame):
         if out_vector_files is not None:
             # base_file_path,extension = splitext(out_vector_files)
 
-            if verbose:
-                print("Writing dissolved branches ...")
+            # if verbose:
+            #     print("Writing dissolved branches ...")
 
             # for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
             # out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
@@ -1335,7 +1337,8 @@ class StreamNetwork(gpd.GeoDataFrame):
             # current_stream_network = StreamNetwork(self.loc[bid_indices,:])
 
             # current_stream_network.write(out_vector_file,index=False)
-            self.write(out_vector_files, index=False)
+            # Save the output only in "select_branches_intersecting_huc" function, where we ensure the level path intersects the huc.
+            # self.write(out_vector_files, index=False)
 
             return self
 
