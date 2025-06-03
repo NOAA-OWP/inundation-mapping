@@ -764,7 +764,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
         # filter by hucs we are using
         huc8 = huc8[huc8['HUC8'].isin(huc_list)]
 
-    huc8.sort_values(by='HUC8', ascending=True, inplace=True)
+    huc8 = huc8.sort_values(by='HUC8', ascending=True)
 
     # Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
     crs_lookup = {'NAD27': 'EPSG:4267', 'NAD83': 'EPSG:4269', 'WGS84': 'EPSG:4326'}

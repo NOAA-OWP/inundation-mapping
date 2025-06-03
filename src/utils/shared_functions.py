@@ -381,7 +381,7 @@ class FIM_Helpers:
 
     # -----------------------------------------------------------
     @staticmethod
-    def print_date_time_duration(start_dt, end_dt):
+    def print_date_time_duration(start_dt, end_dt, print_dur_msg=True):
         '''
         Process:
         -------
@@ -410,7 +410,8 @@ class FIM_Helpers:
         time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
 
         duration_msg = "Duration: " + time_fmt
-        print(duration_msg)
+        if print_dur_msg:
+            print(duration_msg)
 
         return duration_msg
 
