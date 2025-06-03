@@ -328,6 +328,9 @@ def get_sample_data(
     ## osm bridges
     __copy_file(os.environ["osm_bridges"], output_root_folder, input_root, bucket_path)
 
+    ## slope data
+    __copy_file(os.environ["iris_sword_slope"], output_root_folder, input_root, bucket_path)
+
     for huc in hucs:
         huc2Identifier = huc[:2]
 
