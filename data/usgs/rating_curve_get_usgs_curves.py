@@ -110,6 +110,7 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
         feature_id = site.get('identifiers').get('nwm_feature_id')
         usgs_code = site.get('identifiers').get('usgs_site_code')
         nws_lid = site.get('identifiers').get('nws_lid')
+        logging.info(f"Processing flow data for lid: {nws_lid}")        
 
         # thresholds only provided for valid nws_lid.
         if nws_lid == 'Bogus_ID' or nws_lid is None:
@@ -142,7 +143,7 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
                 all_data = pd.concat([all_data, data], ignore_index=True)
 
     # Write usgs stage discharge data, used by Sierra tests (rating_curve_comparison.py)
-    print("Writing for USGS discharge data for each usgs stage (ie. action, minor, etc)")
+    logging.info("Writing for USGS discharge data for each usgs stage (ie. action, minor, etc)")
     if not all_data.empty:
         usgs_discharge_file_name = os.path.join(output_dir, f'usgs_stage_discharge_cms_{file_date_append}.csv')
         final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
