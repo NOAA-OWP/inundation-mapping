@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2025-06-03 - [PR#1546](https://github.com/NOAA-OWP/inundation-mapping/pull/1546)
+
+Adds files to branch deny list to be removed on file cleanup.
+
+### Changes
+
+- `config/deny_branches.lst`: Added `flows_grid_boolean_euclidean_distance_{}.tif`, `gw_catchments_pixels_{}.gpkg`, and `nwm_subset_streams_levelPaths_extended_{}.gpkg` to the branch-level deny list.
+
+<br/><br/>
+
 ## v4.8.0.0 - 2025-05-30 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
 
 This PR has two functions out of necessity for running LoFI operationally:
@@ -33,6 +43,10 @@ This PR has two functions out of necessity for running LoFI operationally:
 - `tools/overlapping_inundation.py` : Allow for flexible datatypes, threads, and improved throughput.
 - `tools/run_test_case.py`: Added multi threads per worker and gms_workers to routine.
 - `tools/shared_functions.py` :  Added new encoding to account for hits in the candidate and a nodata value in the benchmark.
+
+<br/><br/>
+
+
 ## v4.7.4.6 - 2025-05-22 - [PR#1533](https://github.com/NOAA-OWP/inundation-mapping/pull/1533)
 
 Hotfix to address issue caused by a different Slope attribute name in the NWM flowpath data (`nwm_subset_streams_levelPaths.gpkg`). The Alaska hydrofabric uses `So` attribute name whereas the CONUS hydrofabric uses `Slope` for the channel slope attribute name. Also included an additional fix to address a separate issue with missing channel and overbank roughness values in the input roughness file (AK featureids are not included in the current file).
