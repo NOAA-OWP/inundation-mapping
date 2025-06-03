@@ -221,7 +221,7 @@ def generate_rating_curve_metrics(args):
                 var_name='recurr_interval',
                 value_name='discharge_cms',
             )
- 
+
             # Append usgs stage discharge data (already set up in format similar to nwm_recurr_intervals_all)
             cat_fim = pd.read_csv(usgs_stage_file, dtype={'feature_id': str})
             nwm_recurr_intervals_all = pd.concat([nwm_recurr_intervals_all, cat_fim])
