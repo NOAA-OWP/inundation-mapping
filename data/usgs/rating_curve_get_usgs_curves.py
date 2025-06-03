@@ -104,8 +104,14 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
 
     # For each site in metadata
     all_data = pd.DataFrame()
+    num_sites = len(metadata)
+    logging.info(f"Number of sites to process: {num_sites}")
+    for i in range(num_sites):
+        site = metadata[i]
+        # Print progress every 50 sites
+        if i % 50 == 0:
+            logging.info(f"Processing site {i+1}/{num_sites}, {round(((i+1)/num_sites)*100, 2)}%")
 
-    for site in metadata:
         # Get the feature_id and usgs_site_code
         feature_id = site.get('identifiers').get('nwm_feature_id')
         usgs_code = site.get('identifiers').get('usgs_site_code')
@@ -335,12 +341,14 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
         # For each site in metadata_list
         # for metadata in metadata_list:
+        num_sites = len(metadata_list)
+        logging.info(f"Number of sites to process: {num_sites}")
         for i in range(len(metadata_list)):
             metadata = metadata_list[i]
 
             # Print progress every 50 sites
             if i % 50 == 0:
-                logging.info(f"Processing site {i}/{len(metadata_list)}, {round((i/len(metadata_list))*100, 2)}%")
+                logging.info(f"Processing site {i+1}/{num_sites}, {round(((i+1)/num_sites)*100, 2)}%")
 
             # Get datum information for site (only need usgs_data)
             ___, usgs = get_datum(metadata)
@@ -523,17 +531,18 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
             dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
             logging.info(f"usgs guage files created: {dt_string} (UTC)")
+            logging.info("=============")
             
             # Write out flow files for each threshold across all sites
             start_dt = datetime.now(timezone.utc)
             dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")    
-            logging.info(f"Creating stage discharge values started: {dt_string} (UTC)")
+            logging.info(f"Getting stage discharge values - started: {dt_string} (UTC)")
             
             write_categorical_flow_files(metadata_list, output_dir, file_date_append)
             
             dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
             dur_msg = fh.print_date_time_duration(start_dt, datetime.now(timezone.utc), False)    
-            logging.info(f"Creating stage discharge values done: {dt_string} (UTC)")
+            logging.info(f"Getting stage discharge values - done: {dt_string} (UTC)")
             logging.info(dur_msg)
             logging.info("=============")
 
