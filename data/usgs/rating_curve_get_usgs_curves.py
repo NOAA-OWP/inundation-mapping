@@ -278,13 +278,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
         # Otherwise, if a list of sites is passed, retrieve sites from WRDS.
         else:
 
-            # TODO: Jun 2, 2025: if you send in more than one site code, it fails
-            # It attempts to call WRDS URL with more than one code instead of calling
-            # for each code, then concatenation them.
-            # Error: Message: Bad Request
-            # api/location/v3.0/metadata/usgs_site_code/04228500%2C04228502/ (notice.. I tried for two codes)
-            # We can fix this on a future release.
-
             # Define arguments to retrieve metadata and then get metadata from WRDS
             select_by = 'usgs_site_code'
             selector = list_of_gage_sites
