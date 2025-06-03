@@ -5,6 +5,7 @@ import json
 import sys
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from numpy import unique
 from rasterstats import zonal_stats
@@ -49,9 +50,21 @@ def add_crosswalk(
 
     input_catchments = input_catchments.dissolve(by='HydroID').reset_index()
 
-    input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id', 'Slope': 'SLOPE_HFAB'})
+    # Rename ID column
+    input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
     if input_nwmflows.feature_id.dtype != 'int':
         input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+
+    # Handle variable slope column name (AK uses So, CONUS uses Slope)
+    if 'Slope' in input_nwmflows.columns:
+        input_nwmflows = input_nwmflows.rename(columns={'Slope': 'SLOPE_HFAB'})
+    elif 'So' in input_nwmflows.columns:
+        input_nwmflows = input_nwmflows.rename(columns={'So': 'SLOPE_HFAB'})
+    else:
+        input_nwmflows['SLOPE_HFAB'] = np.nan
+        print(
+            f"WARNING: could not find a 'Slope' or 'So' attribute in the NWM hydrofabric at {input_nwmflows_fileName} – setting SLOPE_HFAB to n/a"
+        )
 
     # Merge IRIS-SWORD slope data with NWM flows
     input_nwmflows = input_nwmflows.merge(
@@ -403,6 +416,8 @@ def add_crosswalk(
 
     if output_hydro_table.HydroID.dtype != 'str':
         output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
+
+    output_hydro_table['HydroID Int16'] = output_hydro_table['HydroID'].apply(lambda x: str(int(x[4:])))
     output_hydro_table[FIM_ID] = output_hydro_table.loc[:, 'HydroID'].apply(lambda x: str(x)[0:4])
 
     if input_huc[FIM_ID].dtype != 'str':

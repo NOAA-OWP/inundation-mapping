@@ -134,29 +134,23 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
         src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
         src_df['Discharge (m3s-1)'] = (
             src_df['WetArea (m2)']
-            * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-            * pow(src_df['SLOPE'], 0.5)
+            * src_df['HydraulicRadius (m)'] ** (2.0 / 3)
+            * src_df['SLOPE'] ** 0.5
             / src_df['ManningN']
         )
         # Force zero stage to have zero discharge
-        src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
-        # # Force zero "Number of the cells" to have zero discharge ...
-        # cond_q = src_df['Number of Cells'] == 0
-        # src_df.loc[cond_q, ['Discharge (m3s-1)']] = 0
-        # src_df.loc[cond_q, ['BedArea (m2)']] = 0
-        # src_df.loc[cond_q, ['Volume (m3)']] = 0
-        # src_df.loc[cond_q, ['WettedPerimeter (m)']] = 0
-        # src_df.loc[cond_q, ['WetArea (m2)']] = 0
-        # src_df.loc[cond_q, ['HydraulicRadius (m)']] = 0
-
-        # Calculate number of adjusted HydroIDs
-        # count = len(src_df.loc[(src_df['Stage'] == 0) & (src_df['Bathymetry_source'] == 'USACE eHydro')])
+        src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
+        cond_q = src_df['Number of Cells'] == 0
+        src_df.loc[cond_q, 'Discharge (m3s-1)'] = 0
+        src_df.loc[cond_q, 'BedArea (m2)'] = 0
+        src_df.loc[cond_q, 'Volume (m3)'] = 0
+        src_df.loc[cond_q, 'WettedPerimeter (m)'] = 0
+        src_df.loc[cond_q, 'WetArea (m2)'] = 0
+        src_df.loc[cond_q, 'HydraulicRadius (m)'] = 0
 
         # Write src back to file
         # src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
         src_df.to_csv(src, index=False)
-        # log_text += f'    Successfully recalculated {count} HydroIDs\n'
-        # print(src_df.head(), src_df.shape)
 
     return log_text
 
@@ -224,10 +218,16 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
     aib_bathy_data_df['Bathymetry_source'] = "AI_Based"
 
     # Excluding streams with order lower than desired order (default = 4)
+    # Assign 0 to numeric columns
     aib_bathy_data_df.loc[
-        aib_bathy_data_df["order_"] < strm_order,
-        ["missing_xs_area_m2", "missing_wet_perimeter_m", "Bathymetry_source"],
+        aib_bathy_data_df["order_"] < strm_order, ["missing_xs_area_m2", "missing_wet_perimeter_m"]
     ] = 0
+
+    # Assign a string to the string column
+    aib_bathy_data_df.loc[aib_bathy_data_df["order_"] < strm_order, "Bathymetry_source"] = (
+        "No Bathymetry Applied"
+    )
+
     aib_df0 = aib_bathy_data_df[
         ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
     ]
@@ -276,40 +276,47 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
             src_df['Discharge (m3s-1)'] = (
                 src_df['WetArea (m2)']
-                * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-                * pow(src_df['SLOPE'], 0.5)
+                * src_df['HydraulicRadius (m)'] ** (2.0 / 3)
+                * src_df['SLOPE'] ** 0.5
                 / src_df['ManningN']
             )
             # Force zero stage to have zero discharge
-            src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+            src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
-            # # Force zero "Number of the cells" to have zero discharge ...
-            # cond_q = src_df['Number of Cells'] == 0
-            # src_df.loc[cond_q, ['Discharge (m3s-1)']] = 0
-            # src_df.loc[cond_q, ['BedArea (m2)']] = 0
-            # src_df.loc[cond_q, ['Volume (m3)']] = 0
-            # src_df.loc[cond_q, ['WettedPerimeter (m)']] = 0
-            # src_df.loc[cond_q, ['WetArea (m2)']] = 0
-            # src_df.loc[cond_q, ['HydraulicRadius (m)']] = 0
+            # Force zero "Number of the cells" to have zero discharge ...
+            cond_q = src_df['Number of Cells'] == 0
+            src_df.loc[cond_q, 'Discharge (m3s-1)'] = 0
+            src_df.loc[cond_q, 'BedArea (m2)'] = 0
+            src_df.loc[cond_q, 'Volume (m3)'] = 0
+            src_df.loc[cond_q, 'WettedPerimeter (m)'] = 0
+            src_df.loc[cond_q, 'WetArea (m2)'] = 0
+            src_df.loc[cond_q, 'HydraulicRadius (m)'] = 0
 
-            # # Write src back to file
-            # src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
+            # Write src back to file
+            src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
             src_df.to_csv(src, index=False)
 
         else:
-            src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
-            # checked
+            # src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
+            # # checked
 
-            src_df.loc[src_df["Bathymetry_source_x"].isna(), ["missing_xs_area_m2_x"]] = src_df[
-                "missing_xs_area_m2_y"
-            ]
-            src_df.loc[src_df["Bathymetry_source_x"].isna(), ["missing_wet_perimeter_m_x"]] = src_df[
-                "missing_wet_perimeter_m_y"
-            ]
-            src_df.loc[src_df["Bathymetry_source_x"].isna(), ["Bathymetry_source_x"]] = src_df[
-                "Bathymetry_source_y"
-            ]
+            # src_df.loc[src_df["Bathymetry_source_x"].isna(), ["missing_xs_area_m2_x"]] = src_df[
+            #     "missing_xs_area_m2_y"
+            # ]
+            # src_df.loc[src_df["Bathymetry_source_x"].isna(), ["missing_wet_perimeter_m_x"]] = src_df[
+            #     "missing_wet_perimeter_m_y"
+            # ]
+            # src_df.loc[src_df["Bathymetry_source_x"].isna(), ["Bathymetry_source_x"]] = src_df[
+            #     "Bathymetry_source_y"
+            # ]
             # checked
+            src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
+
+            mask = src_df["Bathymetry_source_x"].isna()
+
+            src_df.loc[mask, "missing_xs_area_m2_x"] = src_df.loc[mask, "missing_xs_area_m2_y"]
+            src_df.loc[mask, "missing_wet_perimeter_m_x"] = src_df.loc[mask, "missing_wet_perimeter_m_y"]
+            src_df.loc[mask, "Bathymetry_source_x"] = src_df.loc[mask, "Bathymetry_source_y"]
 
             src_df.drop(
                 columns=["missing_xs_area_m2_y", "missing_wet_perimeter_m_y", "Bathymetry_source_y"],
@@ -324,57 +331,47 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
 
             # Add missing hydraulic geometry into base parameters
             Volume_m3 = src_df['Volume (m3)'] + (src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000))
-            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["Volume (m3)"]] = Volume_m3
-            # src_df['Volume (m3)'] = src_df['Volume (m3)'] + (
-            #     src_df['missing_xs_area_m2'] * (src_df['LENGTHKM'] * 1000))
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", "Volume (m3)"] = Volume_m3
 
             BedArea_m2 = src_df['BedArea (m2)'] + (
                 src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000)
             )
-            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["BedArea (m2)"]] = BedArea_m2
-            # src_df['BedArea (m2)'] = src_df['BedArea (m2)'] + (
-            #     src_df['missing_wet_perimeter_m'] * (src_df['LENGTHKM'] * 1000))
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", "BedArea (m2)"] = BedArea_m2
 
             # Recalc discharge with adjusted geometries
             WettedPerimeter_m = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
-            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["WettedPerimeter (m)"]] = WettedPerimeter_m
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", "WettedPerimeter (m)"] = WettedPerimeter_m
             # src_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)'] + src_df['missing_wet_perimeter_m']
             Wetarea_m2 = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
-            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["WetArea (m2)"]] = Wetarea_m2
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", "WetArea (m2)"] = Wetarea_m2
             # src_df['WetArea (m2)'] = src_df['WetArea (m2)'] + src_df['missing_xs_area_m2']
             HydraulicRadius_m = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
-            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["HydraulicRadius (m)"]] = HydraulicRadius_m
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", "HydraulicRadius (m)"] = HydraulicRadius_m
             # src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
             src_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)'].fillna(0)
 
-            dicharge_cms = (
+            discharge_cms = (
                 src_df['WetArea (m2)']
-                * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-                * pow(src_df['SLOPE'], 0.5)
+                * src_df['HydraulicRadius (m)'] ** (2.0 / 3)
+                * src_df['SLOPE'] ** 0.5
                 / src_df['ManningN']
             )
-            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", ["Discharge (m3s-1)"]] = dicharge_cms
-            # src_df['Discharge (m3s-1)'] = (
-            #     src_df['WetArea (m2)']
-            #     * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-            #     * pow(src_df['SLOPE'], 0.5)
-            #     / src_df['ManningN']
-            # )
+            src_df.loc[src_df["Bathymetry_source"] == "AI_Based", "Discharge (m3s-1)"] = discharge_cms
 
             # Force zero stage to have zero discharge
-            src_df.loc[src_df['Stage'] == 0, ['Discharge (m3s-1)']] = 0
+            src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
             # Force zero "Number of the cells" to have zero discharge ...
             cond_q = src_df['Number of Cells'] == 0
-            src_df.loc[cond_q, ['Discharge (m3s-1)']] = 0
-            src_df.loc[cond_q, ['BedArea (m2)']] = 0
-            src_df.loc[cond_q, ['Volume (m3)']] = 0
-            src_df.loc[cond_q, ['WettedPerimeter (m)']] = 0
-            src_df.loc[cond_q, ['WetArea (m2)']] = 0
-            src_df.loc[cond_q, ['HydraulicRadius (m)']] = 0
+            src_df.loc[cond_q, 'Discharge (m3s-1)'] = 0
+            src_df.loc[cond_q, 'BedArea (m2)'] = 0
+            src_df.loc[cond_q, 'Volume (m3)'] = 0
+            src_df.loc[cond_q, 'WettedPerimeter (m)'] = 0
+            src_df.loc[cond_q, 'WetArea (m2)'] = 0
+            src_df.loc[cond_q, 'HydraulicRadius (m)'] = 0
 
             # Write src back to file
-            # src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
+            src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
             src_df.to_csv(src, index=False)
 
     return log_text
