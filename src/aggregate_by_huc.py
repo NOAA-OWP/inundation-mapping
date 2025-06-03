@@ -258,6 +258,8 @@ class HucDirectory(object):
 
                 if not self.agg_hydrotable.empty:
                     self.agg_hydrotable.to_csv(hydrotable_file, index=False)
+                
+                    # TODO: Jun 2025: Rename poorly named columns like SurfaceArea (m2)
 
                     # Streamline inundation downstream
                     dtype = {
@@ -267,6 +269,7 @@ class HucDirectory(object):
                         "HydroID": str,
                         "stage": float,
                         "discharge_cms": float,
+                        "SurfaceArea (m2)": int,
                         "LakeID": int,
                     }
                     htable_req_cols = [
@@ -276,11 +279,19 @@ class HucDirectory(object):
                         "HydroID",
                         "stage",
                         "discharge_cms",
+                        "SurfaceArea (m2)",
                         "LakeID",
+                        "Bathymetry_source",
                     ]
                     temp_df = self.agg_hydrotable.reset_index()
                     temp_df = temp_df[htable_req_cols].astype(dtype)
                     temp_df.to_feather(hydrotable_file.replace('.csv', '.feather'))
+
+                    temp_df = temp_df.sort_values(['HydroID', 'feature_id', 'branch_id', 'discharge_cms'])
+                    temp_df = temp_df.set_index(['HydroID', 'feature_id'])
+                    temp_df.to_parquet(hydrotable_file.replace('.csv', '.parquet'),
+                                compression='zstd', index=True, write_page_checksum=True,
+                                write_page_index=True)
 
             if src_cross_flag:
                 src_crosswalk_file = join(self.huc_dir_path, 'src_full_crosswalked.csv')
