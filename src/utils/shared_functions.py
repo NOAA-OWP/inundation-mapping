@@ -407,6 +407,9 @@ class FIM_Helpers:
         total_hours, rem_seconds = divmod(rem_seconds, 60 * 60)
         total_mins, seconds = divmod(rem_seconds, 60)
 
+        if total_days > 0:
+            total_hours = (total_days * 24) + total_hours
+
         time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
 
         duration_msg = "Duration: " + time_fmt

@@ -270,7 +270,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
         # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
         start_dt = datetime.now(timezone.utc)
-        logging.info(f"Getting metadata: {dt_string} (UTC)")
+        logging.info(f"Retrieving metadata: {dt_string} (UTC)")
         if list_of_gage_sites == ['all']:
             logging.info('Getting metadata for all sites')
             sites_gdf, metadata_list = get_all_active_usgs_sites()
@@ -327,7 +327,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
         dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         dur_msg = fh.print_date_time_duration(start_dt, datetime.now(timezone.utc), False)
-        logging.info(f"Getting metadata done: {dt_string} (UTC)")
+        logging.info(f"Retrieving metadata complete: {dt_string} (UTC)")
         logging.info(dur_msg)
         logging.info("=============")
 
@@ -342,12 +342,15 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
         # for metadata in metadata_list:
         num_sites = len(metadata_list)
         logging.info(f"Number of sites to process: {num_sites}")
+        print("-- Note: some locations will be skipped")
+        
+        # TODO: This part needs MP, as is, it takes appx 21 hours
         for i in range(len(metadata_list)):
             metadata = metadata_list[i]
 
             # Print progress every 50 sites
             if i % 50 == 0:
-                logging.info(f"Processing site {i+1}/{num_sites}, {round(((i+1)/num_sites)*100, 2)}%")
+                logging.info(f"--- Processing site {i+1}/{num_sites}, {round(((i+1)/num_sites)*100, 2)}%")
 
             # Get datum information for site (only need usgs_data)
             ___, usgs = get_datum(metadata)
@@ -366,7 +369,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
             # If no rating curve was returned, skip site.
             if curve.empty:
-                logging.info(f'{location_ids}: Removed because it has no rating curve')
+                logging.warning(f'{location_ids}: Removed because it has no rating curve')
                 continue
 
             # If the site is in PR, VI, or HI, keep datum in LMSL (local mean sea level)
@@ -388,15 +391,19 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
             else:
                 if usgs['vcs'] == 'NGVD29':
 
+                    # TODO: Jun 5, 2025: temp commented out the sleep system
+                    # Commenting it out has not yet been tested. In a future release
+                    # test this and remove it possible. (inc arg)
+                    
                     # To prevent time-out errors
-                    time.sleep(sleep_time)
+                    # time.sleep(sleep_time)
 
                     # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
                     datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous')
 
                     # If datum API failed, print message and skip site.
                     if datum_adj_ft is None:
-                        logging.info(f'ERROR: {location_ids}: Removed because datum adjustment failed!!')
+                        logging.warning(f'ERROR: {location_ids}: Removed because datum adjustment failed!!')
                         continue
 
                     # If datum adjustment succeeded, calculate datum in NAVD88
@@ -409,13 +416,13 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
                 elif usgs['vcs'] == 'LMSL':
                     # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site.
-                    logging.info(f'{location_ids}: Removed because LMSL datum found outside of PR, VI, or HI')
+                    logging.warning(f'{location_ids}: Removed because LMSL datum found outside of PR, VI, or HI')
                     continue
 
                 else:
                     # If the site has an unrecognized datum, skip site.
                     datum_name = usgs['vcs']
-                    logging.info(f'{location_ids}: Removed due to unknown datum ({datum_name})')
+                    logging.warning(f'{location_ids}: Removed due to unknown datum ({datum_name})')
                     continue
 
             # Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
@@ -428,23 +435,21 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
             # Append all rating curves to a dataframe
             all_rating_curves = pd.concat([all_rating_curves, curve])
 
-        end_time = datetime.now(timezone.utc)
         dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-        dur_msg = fh.print_date_time_duration(start_dt, end_time, False)
-        logging.info(f"Processing metadata done: {dt_string} (UTC)")
+        dur_msg = fh.print_date_time_duration(start_dt, datetime.now(timezone.utc), False)
+        logging.info(f"Processing metadata complete: {dt_string} (UTC)")
         logging.info(dur_msg)
         logging.info("=============")
 
         # Error out with messages if no rating curves made it past the datum checks
         if len(all_rating_curves) == 0:
-            logging.info('ERROR: No rating curves to compile.')
+            logging.error('ERROR: No rating curves to compile.')
             sys.exit()
 
         # Add mainstems attribute to acceptable sites
         start_dt = datetime.now(timezone.utc)
         dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         logging.info(f"Attributing mainstems sites started: {dt_string} (UTC)")
-
         # Rename columns and add attribute indicating if rating curve exists
         sites_gdf.rename(
             columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True
@@ -457,7 +462,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
         # Import mainstems segments to be used in run_by_unit.sh
         ms_df = gpd.read_file(NWM_FLOWS_MS)
-        ms_segs = ms_df.ID.astype(str).to_list()
+        ms_segs = ms_df.ID.astype(str).to_list()  # Yes.. required
 
         # Populate mainstems attribute field
         sites_gdf['mainstem'] = 'no'
@@ -515,8 +520,8 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
         # Filter out all_rating_curves by list
         all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
 
-        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         dur_msg = fh.print_date_time_duration(start_dt, datetime.now(timezone.utc), False)
+        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         logging.info(f"Attributing mainstems sites done: {dt_string} (UTC)")
         logging.info(dur_msg)
         logging.info("=============")
@@ -548,7 +553,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
             dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
             dur_msg = fh.print_date_time_duration(start_dt, datetime.now(timezone.utc), False)
-            logging.info(f"Getting stage discharge values - done: {dt_string} (UTC)")
+            logging.info(f"Getting stage discharge values - complete: {dt_string} (UTC)")
             logging.info(dur_msg)
             logging.info("=============")
 
