@@ -74,6 +74,9 @@ def main(flow_csv_path, fim_output_dir, output_gpkg_path, depth_calc=False):
         sys.exit(1)
 
     crosswalk_df = pd.read_csv(crosswalk_path, dtype={'huc8': str, 'branch_id': str})
+    # Add this line to ensure huc8 has 8 characters with leading zeros if needed
+    crosswalk_df['huc8'] = crosswalk_df['huc8'].apply(lambda x: x.zfill(8) if len(x) == 7 else x)
+
     merged_df = crosswalk_df.merge(flow_df, on='feature_id', how='left').drop_duplicates(
         subset=['feature_id', 'huc8', 'branch_id']
     )

@@ -76,18 +76,36 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
         np.int32
     )  # can also try int16, int32, uint8, uint16, float32, float64, int8
 
-    # Log how many flooded pixels this threshold affects
-    num_pixels = np.count_nonzero(combined_mask)
-    # logger.info(f"[Branch {branch_id}] Threshold {true_rem:.4f} - flooded pixels: {num_pixels}")
+    # Bounding box for valid (flooded) pixels
+    valid_indices = np.argwhere(combined_mask > 0)
+    if valid_indices.size == 0:
+        logger.info(f"[Branch {branch_id}] Threshold {true_rem:.4f} has no flooded pixels.")
+        return []
+
+    min_row, min_col = valid_indices.min(axis=0)
+    max_row, max_col = valid_indices.max(axis=0) + 1
+    window = (slice(min_row, max_row), slice(min_col, max_col))
+
+    combined_crop = combined_mask[window]
+    mask_crop = combined_crop > 0
+
+    # Calculate adjusted transform for the window
+    transform_crop = rasterio.transform.from_origin(
+        transform.c + min_col * transform.a, transform.f + min_row * transform.e, transform.a, -transform.e
+    )
 
     features = []
-
     rasterize_start = time.time()
+
     try:
-        # Run polygonization only for values > 0 (flooded regions)
-        for geom, value in shapes(combined_mask, mask=None, transform=transform):
+        for geom, value in shapes(combined_crop, mask=mask_crop, transform=transform_crop):
             if value > 0:
                 geom_shape = shape(geom)
+
+                # Skip one pixel polygons (for faster processing) - 150 sq meters
+                if geom_shape.area < 150:
+                    continue
+
                 catchment_id = int(value)
                 discharge_cms, volume_m3 = interpolate_discharge(true_rem, catchment_id, htable_df)
 
@@ -111,8 +129,8 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
     total_time = time.time() - threshold_start
 
     logger.info(
-        f"[Branch {branch_id}] Threshold {true_rem:.4f} processed: {num_pixels} flooded pixels --> {len(features)} polygons | "
-        f"rasterize time: {rasterize_time:.2f}s | total: {total_time:.2f}s"
+        f"[Branch {branch_id}] Threshold {true_rem:.4f} processed: {valid_indices.shape[0]} flooded pixels --> "
+        f"{len(features)} polygons | rasterize time: {rasterize_time:.2f}s | total: {total_time:.2f}s"
     )
 
     return features
@@ -194,10 +212,28 @@ def process_branch(branch_path, branch_id, log_dir):
         logger.info(f"[Branch {branch_id}] Dropping {num_invalid} invalid geometries.")
         gdf = gdf[gdf.is_valid]
 
-        catchment_gdf = gpd.read_file(catchment_gpkg_path)
-        catchment_gdf = catchment_gdf.drop(columns=['geometry', 'distance'])
+        # Subset and deduplicate htable for join (retain one row per HydroID)
+        htable_df_sub = htable_df[
+            [
+                'HydroID',
+                'feature_id',
+                'SLOPE',
+                'HUC',
+                'subdiv_applied',
+                'channel_n',
+                'overbank_n',
+                'obs_source',
+                'calb_coef_final',
+                'calb_applied',
+            ]
+        ].drop_duplicates(subset='HydroID')
 
-        gdf = gdf.merge(catchment_gdf, left_on="catchment_id", right_on="HydroID", how="left")
+        gdf = gdf.merge(htable_df_sub, left_on='catchment_id', right_on='HydroID', how='left')
+
+        ## Replaced below with variables from htable
+        # catchment_gdf = gpd.read_file(catchment_gpkg_path)
+        # catchment_gdf = catchment_gdf.drop(columns=['geometry', 'distance'])
+        # gdf = gdf.merge(catchment_gdf, left_on="catchment_id", right_on="HydroID", how="left")
 
     with timed_step(f"[Branch {branch_id}] Saving output", logger):
         gdf = gdf.set_geometry("geometry")
