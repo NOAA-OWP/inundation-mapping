@@ -16,23 +16,19 @@ from rasterstats import zonal_stats
 
 def process_roads_fimpact(
     hand_grid_raster: str, osm_road_vector: str, catchments_path: str, output_path: str
-) -> gpd.GeoDataFrame:
+) -> None:
     """
-    Processes road impacts within a HUC region using the FIMpact framework.
+    Processes road impacts within a HUC region using the FIMpact framework and  saves the result to a csv file.
 
     Parameters:
     - source_hand_raster (str): REQUIRED. Path to the source HAND raster file
     - osm_road_vector (str): REQUIRED. Path to a GeoPackage (GPKG) file containing the splitted road centerline vectors.
     - catchments (srr): REQUIRED. Path to HAND catchment
-    - output_path (str): REQUIRED. Path where the output GeoPackage (GPKG) file will be saved.
+    - output_path (str): REQUIRED. Path where the output CSV file will be saved.
 
-    Returns:
-    - gpd.GeoDataFrame: A GeoDataFrame containing processed road impact data.
     """
     # get branch id from output file passed from fim pipeline
     branch_id = Path(output_path).parent.name
-
-    catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'order_', 'geometry'])
 
     # read hand grid
     with rasterio.open(hand_grid_raster, 'r') as hand_grid:
@@ -42,13 +38,25 @@ def process_roads_fimpact(
     # read roads data
     roads_gdf = gpd.read_file(osm_road_vector)
 
+    # read HAND catchments to split the roads segments for each intersected HYDROIDs/feature_ids.
+    # this is different than bridges, because a road can exists within multiple HydroID/hydroTable and
+    # we need to consider threshold hand for all intersected HydroID.
+    catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'order_', 'geometry'])
+
+    # possible that feature id and hydro id be as type float. first make them int and then str
+    catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
+    catchments_df['HydroID'] = catchments_df['HydroID'].astype(int).astype(str)
+
     # split the roads based on HAND catchments
     roads_gdf_splitted = gpd.overlay(roads_gdf, catchments_df, how="intersection")
 
     if not roads_gdf_splitted.empty:
-        # Get median of hand values for each bridge since using min would catch random hand-cells with zero value and the entire road is reported as inundated always
+        roads_gdf_splitted['branch'] = branch_id
+
+        # Get 25 percentile of hand values for each splitted road since using min would catch random hand-cells with
+        # zero value and the entire road is always reported as inundated.
         # when we got lidar data for roads, then we can use min which provides more conservative/safe results
-        selected_stat = "percentile_25"  # "median"
+        selected_stat = "percentile_25"
         stats = zonal_stats(
             roads_gdf_splitted['geometry'],
             hand_grid_array,
@@ -60,9 +68,11 @@ def process_roads_fimpact(
 
         roads_gdf_splitted.loc[:, 'threshold_hand'] = [x.get(selected_stat) for x in stats]
 
-        roads_gdf_splitted['branch'] = branch_id
-        roads_gdf_splitted.to_file(os.path.splitext(output_path)[0] + ".gpkg")
-        roads_gdf_splitted.drop(columns=['geometry'], inplace=True)
+        # make sure to record ids as str for csv output file
+        cols_to_str = ['osmid', 'huc8', 'catchment_id', 'HydroID', 'feature_id', 'branch']
+        roads_gdf_splitted[cols_to_str] = roads_gdf_splitted[cols_to_str].astype(str)
+
+        roads_gdf_splitted = roads_gdf_splitted.drop(columns='geometry')
 
         roads_gdf_splitted.to_csv(output_path, index=False)
     else:

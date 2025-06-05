@@ -164,17 +164,17 @@ class HucDirectory(object):
         self.agg_bridge_pnts = gpd.GeoDataFrame(columns=list(self.bridge_dtypes.keys()))
 
         self.road_dtypes = {
-            'osmid': int,
+            'osmid': str,
             'highway': str,
             'name': str,
             'huc8': str,
             'catchment_id': str,
             'osmid_catchid': str,
-            'HydroID': int,
-            'feature_id': int,
+            'HydroID': str,
+            'feature_id': str,
             'order_': str,
-            'threshold_hand': float,
             'branch': str,
+            'threshold_hand': float,
             'threshold_discharge': float,
             'threshold_hand_ft': float,
             'threshold_discharge_cfs': float,
@@ -243,30 +243,33 @@ class HucDirectory(object):
         self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
 
     def aggregate_road_fimpacts(self, branch_path, branch_id):
-        road_filename = join(branch_path, f'osm_roads_fimpact_{branch_id}.gpkg')
-        if not os.path.isfile(road_filename):
+        fimpact_filename = join(branch_path, f'osm_roads_fimpact_{branch_id}.csv')
+        if not os.path.isfile(fimpact_filename):
             return
 
-        roads_df_splitted = gpd.read_file(road_filename)
-        if roads_df_splitted.empty:
+        fimpact_df_splitted = pd.read_csv(fimpact_filename)
+        if fimpact_df_splitted.empty:
             return
 
         hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
         hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
 
-        roads_df_splitted['threshold_discharge'] = roads_df_splitted.apply(
+        fimpact_df_splitted['threshold_discharge'] = fimpact_df_splitted.apply(
             lambda row: flow_lookup(row.threshold_hand, row.HydroID, hydrotable), axis=1
         )
 
-        min_thresholds = roads_df_splitted.loc[
-            roads_df_splitted.groupby(['osmid_catchid', 'feature_id'])['threshold_discharge'].idxmin()
+        # for each osmid_catchid and each feature_id, keep a single record for the minimum threshold discharge
+        fimpact_df_splitted_min_q = fimpact_df_splitted.loc[
+            fimpact_df_splitted.groupby(['osmid_catchid', 'feature_id'])['threshold_discharge'].idxmin()
         ]
 
         # Convert stages and dischrages to ft and cfs respectively
-        min_thresholds['threshold_hand_ft'] = min_thresholds['threshold_hand'] * 3.28084
-        min_thresholds['threshold_discharge_cfs'] = min_thresholds['threshold_discharge'] * 35.3147
+        fimpact_df_splitted_min_q['threshold_hand_ft'] = fimpact_df_splitted_min_q['threshold_hand'] * 3.28084
+        fimpact_df_splitted_min_q['threshold_discharge_cfs'] = (
+            fimpact_df_splitted_min_q['threshold_discharge'] * 35.3147
+        )
 
-        self.agg_road_fimpact = pd.concat([self.agg_road_fimpact, min_thresholds])
+        self.agg_road_fimpact = pd.concat([self.agg_road_fimpact, fimpact_df_splitted_min_q])
 
     def agg_function(
         self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id

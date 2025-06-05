@@ -19,12 +19,10 @@ def road_risk_status(
     containing inundated roads based on forcasted discharge compared to threshold discharge (for inundation).
 
     Args:
-        fim_run_dir (str):    Path to FIM outputs were written by
-                                    fim_pipeline.
+        fim_run_dir (str):    Path to FIM outputs were written by fim_pipeline.
         flow_file (str):      Path to flow file to be used for inundation.
-                                    feature_ids in flow_file should be present in supplied HUC.
         output_file_path (str):             Path to output geopackage file.
-        limit_hucs (list):    Optional. If specified, only the bridges in these HUCs will be processed.
+        limit_hucs (list):    Optional. If specified, only the roads in these HUCs will be processed.
 
     Example usage:
     python /foss_fim/tools/road_inundation.py \
@@ -34,7 +32,7 @@ def road_risk_status(
         -u 12090301 02020005
     """
 
-    # Check that hydrofabric_dir exists
+    # Check that fim run directory exists
     if not os.path.exists(fim_run_dir):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fim_run_dir)
 
@@ -42,9 +40,8 @@ def road_risk_status(
     entries = [d for d in os.listdir(fim_run_dir) if re.match(r'^\d{8}$', d)]
     hucs = []
     for entry in entries:
-        # create the full path of the entry
         full_path = os.path.join(fim_run_dir, entry)
-        # check if the netry is a directory
+
         if os.path.isdir(full_path):
             hucs.append(entry)
 
@@ -52,9 +49,8 @@ def road_risk_status(
     if not os.path.exists(flow_file):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), flow_file)
 
-    # Read the flow_file
-    dtype_dict = {'feature_id': str}
-    flow_file_data = pd.read_csv(flow_file, dtype=dtype_dict)
+    # Read the flow_file. make sure feaure id is str for consistency
+    flow_file_data = pd.read_csv(flow_file, dtype={'feature_id': str})
 
     # Initialize an empty list to hold GeoDataFrames
     fimpact_gdfs_list = []
@@ -74,19 +70,21 @@ def road_risk_status(
         if not os.path.exists(fimpact_path) or not os.path.exists(roads_path):
             print(f"No FIMpact data in HUC {huc}. Skipping...")
             continue
-        # Open the roads fimpact
-        fimpact_df = pd.read_csv(fimpact_path)
-        fimpact_df['huc8'] = fimpact_df['huc8'].astype(str).str.zfill(8)
 
-        roads_gdf = gpd.read_file(roads_path)[['osmid_catchid', 'huc8', 'geometry']]
-        roads_gdf['huc8'] = roads_gdf['huc8'].astype(str).str.zfill(8)
+        # Open the roads fimpact, making sure the ids are read as str
+        cols_to_str = ['osmid', 'huc8', 'catchment_id', 'HydroID', 'feature_id', 'branch']
+        dtype_dict = {col: str for col in cols_to_str}
+
+        fimpact_df = pd.read_csv(fimpact_path, dtype=dtype_dict)
+
+        # open roads geometry
+        roads_gdf = gpd.read_file(roads_path)[['osmid_catchid', 'geometry']]
 
         # merge to get geometry of roads and add it to fimpact
-        # there are duplicates of roads segments only because they were in multiple hucs
-        print(len(roads_gdf))
-        fimpact_gdf = fimpact_df.merge(roads_gdf, on=['osmid_catchid', 'huc8'])
-        print(len(fimpact_gdf))
-        exit()
+        # No need to worry for huc numbers since for each huc iteration, we should not have any duplicated road with multiple hucs
+        # and it is ok (good) to have multiple records for a osmid_catchid if they are from different hucs runs. This is what we want
+        fimpact_gdf = fimpact_df.merge(roads_gdf, on='osmid_catchid', how='left')
+
         fimpact_gdf = gpd.GeoDataFrame(fimpact_gdf, geometry='geometry', crs=roads_gdf.crs)
 
         # Reproject to EPSG:4326
@@ -96,12 +94,8 @@ def road_risk_status(
     # Concatenate all GeoDataFrame into a single GeoDataFrame
     fimpact_gdfs = gpd.GeoDataFrame(pd.concat(fimpact_gdfs_list, ignore_index=True))
 
-    # make sure feature ids dtype are consistent
-    fimpact_gdfs.feature_id = fimpact_gdfs.feature_id.astype(int)
-    flow_file_data.feature_id = flow_file_data.feature_id.astype(int)
-
     # Find the common feature_id between flow_file and bridge_points
-    fimpact_gdfs_merged = fimpact_gdfs.merge(flow_file_data, on='feature_id', how='inner')
+    fimpact_gdfs_merged = fimpact_gdfs.merge(flow_file_data, on='feature_id')
 
     # define inundation status
     def assign_inundation_status(row):
@@ -110,7 +104,7 @@ def road_risk_status(
         else:
             return 'not_inundated'
 
-    # Apply risk_class function to each row
+    # Apply inundation status to each row
     fimpact_gdfs_merged['inundation_status'] = fimpact_gdfs_merged.apply(assign_inundation_status, axis=1)
 
     # change the name of the given flow
@@ -125,6 +119,12 @@ def road_risk_status(
 
 
 if __name__ == "__main__":
+    # sample usage
+    # python foss_fim/tools/road_inundation.py
+    # -y outputs/roads/test2_05030104
+    # -o outputs/roads/test2_05030104/inundation.gpkg
+    # -f outputs/20240506T1338Z_ana_past_14day_max_high_flow_magnitude.csv
+
     # Parse arguments
     parser = argparse.ArgumentParser(description="Detect which road are inundated by a specified flow file.")
     parser.add_argument(
@@ -151,7 +151,6 @@ if __name__ == "__main__":
 
     start = timer()
 
-    # Extract to dictionary and run
     road_risk_status(**vars(parser.parse_args()))
 
     print(f"Completed in {round((timer() - start)/60, 2)} minutes.")
