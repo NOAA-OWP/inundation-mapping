@@ -100,12 +100,16 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
             continue
 
         # Get areas of the first reach
-        area_left = data_dissolved[
-            (data_dissolved['HydroID'] == row.HydroID) & (data_dissolved['side'] == 'left')
-        ]['area'].values[0]
-        area_right = data_dissolved[
-            (data_dissolved['HydroID'] == row.HydroID) & (data_dissolved['side'] == 'right')
-        ]['area'].values[0]
+        left_criteria = (data_dissolved['HydroID'] == row.HydroID) & (data_dissolved['side'] == 'left')
+        right_criteria = (data_dissolved['HydroID'] == row.HydroID) & (data_dissolved['side'] == 'right')
+
+        if not left_criteria.any() or not right_criteria.any():
+            # If one side is missing, skip this reach
+            # print(f'\tSkipping {row.HydroID} because one side is missing')
+            continue
+
+        area_left = data_dissolved[left_criteria]['area'].values[0]
+        area_right = data_dissolved[right_criteria]['area'].values[0]
 
         # Get ID of the next reach
         next_id = reaches.loc[reaches['HydroID'] == row.HydroID, 'NextDownID'].item()
@@ -113,12 +117,16 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
         ids_to_combine = [row.HydroID, next_id]
 
         # Compute combined area ratio
-        next_area_left = data_dissolved[
-            (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'left')
-        ]['area'].values[0]
-        next_area_right = data_dissolved[
-            (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'right')
-        ]['area'].values[0]
+        left_criteria = (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'left')
+        right_criteria = (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'right')
+
+        if not left_criteria.any() or not right_criteria.any():
+            # If one side is missing, skip this reach
+            # print(f'\tSkipping {next_id} because one side is missing')
+            continue
+
+        next_area_left = data_dissolved[left_criteria]['area'].values[0]
+        next_area_right = data_dissolved[right_criteria]['area'].values[0]
 
         area_left += next_area_left
         area_right += next_area_right
@@ -134,12 +142,16 @@ def find_and_combine_sequences(df, data_dissolved, reaches, catchments_copy, rea
             next_id = reaches.loc[reaches['HydroID'] == next_id, 'NextDownID'].item()
 
             # Compute combined area ratio
-            next_area_left = data_dissolved[
-                (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'left')
-            ]['area'].values[0]
-            next_area_right = data_dissolved[
-                (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'right')
-            ]['area'].values[0]
+            left_criteria = (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'left')
+            right_criteria = (data_dissolved['HydroID'] == next_id) & (data_dissolved['side'] == 'right')
+
+            if not left_criteria.any() or not right_criteria.any():
+                # If one side is missing, stop dissolving
+                # print(f'\t\tSkipping {next_id} because one side is missing')
+                continue
+
+            next_area_left = data_dissolved[left_criteria]['area'].values[0]
+            next_area_right = data_dissolved[right_criteria]['area'].values[0]
 
             next_area_total = next_area_left + next_area_right
 
@@ -330,8 +342,8 @@ def dissolve_unilateral_catchments(
     data_left = data_dissolved[data_dissolved['side'] == 'left']
     data_right = data_dissolved[data_dissolved['side'] == 'right']
 
-    # data_left.to_file('/outputs/v4.7.4.0/11070203/branches/2093000005/catchments_split_left.gpkg', driver='GPKG')
-    # data_right.to_file('/outputs/v4.7.4.0/11070203/branches/2093000005/catchments_split_right.gpkg', driver='GPKG')
+    # data_left.to_file('/outputs/dev-dissolve-unilateral-catchments/07110001/branches/5018000027/catchments_split_left.gpkg', driver='GPKG')
+    # data_right.to_file('/outputs/dev-dissolve-unilateral-catchments/07110001/branches/5018000027/catchments_split_right.gpkg', driver='GPKG')
 
     temp_left = data_left[
         ((data_left['area_prop'] < 0.1) & (data_left['area_total'] < 1000000))
