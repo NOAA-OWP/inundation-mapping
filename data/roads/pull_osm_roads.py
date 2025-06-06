@@ -350,7 +350,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Download OSM roads for all HUCs')
 
     parser.add_argument(
-        '-p', '--preclip_dir', help='REQUIRED: folder path where preclip data are located.', required=True
+        '-p',
+        '--preclip_dir',
+        help='REQUIRED: folder path where the most recent preclip data are located.',
+        required=True,
     )
 
     parser.add_argument('-o', '--output_dir', help='REQUIRED: folder path for output.', required=True)
