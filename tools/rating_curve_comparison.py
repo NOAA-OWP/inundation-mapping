@@ -24,6 +24,7 @@ import seaborn as sns
 from rasterio import features as riofeatures
 from rasterio import plot as rioplot
 from shapely.geometry import Polygon
+from tools_shared_functions import filter_usgs_by_acceptance_criteria
 
 
 gpd.options.io_engine = "pyogrio"
@@ -92,6 +93,7 @@ def generate_rating_curve_metrics(args):
     huc = args[8]
     alt_plot = args[9]
     single_plot = args[10]
+    location_ids_to_keep = args[11]
 
     logging.info("Generating rating curve metrics for huc: " + str(huc))
     elev_table = pd.read_csv(
@@ -104,7 +106,10 @@ def generate_rating_curve_metrics(args):
     elev_table = elev_table[elev_table['location_id'].apply(lambda x: str(x).isdigit())]
 
     # Read in the USGS gages rating curve database csv
-    usgs_gages = pd.read_csv(usgs_gages_filename, dtype={'location_id': object, 'feature_id': object})
+    usgs_gages_unfiltered = pd.read_csv(usgs_gages_filename, dtype={'location_id': object, 'feature_id': object})
+
+    # Filter USGS gages by location ID based on acceptable site types
+    usgs_gages = usgs_gages_unfiltered[usgs_gages_unfiltered['location_id'].isin(location_ids_to_keep)]
 
     # Aggregate FIM4 hydroTables
     if not elev_table.empty:
@@ -223,7 +228,7 @@ def generate_rating_curve_metrics(args):
             )
 
             # Append usgs stage discharge data (already set up in format similar to nwm_recurr_intervals_all)
-            cat_fim = pd.read_csv(usgs_stage_file, dtype={'feature_id': str})
+            cat_fim = pd.read_csv(usgs_stage_file, dtype={'feature_id': str})  # TODO: Do we need to add acceptance criteria filtering here?
             nwm_recurr_intervals_all = pd.concat([nwm_recurr_intervals_all, cat_fim])
 
             # Convert discharge to cfs and filter
@@ -1091,7 +1096,11 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     Merges the output dataframe from aggregate_metrics() with the usgs gages GIS data
     '''
     # Load in the usgs_gages geopackage
-    usgs_gages = gpd.read_file(gages_gpkg_filepath, engine='fiona')
+    usgs_gages_unfiltered = gpd.read_file(gages_gpkg_filepath, engine='fiona')
+
+    # Filter all_rating_curves according to acceptance criteria
+    usgs_gages = filter_usgs_by_acceptance_criteria(usgs_gages_unfiltered)
+
     # Merge the stats for all of the recurrance intervals/thresholds
     usgs_gages = usgs_gages.merge(agg_recurr_stats_table, on='location_id')
     # Load in the rating curves file
@@ -1355,6 +1364,19 @@ if __name__ == '__main__':
             rc_comparison_plot_filename = join(plots_dir, f"FIM-USGS_rating_curve_comparison_{huc}.png")
 
             if isfile(elev_table_filename):
+                # Filter and aggregate all of the individual huc elev_tables into one aggregate
+                #      for accessing all data in one csv
+                read_elev_table = pd.read_csv(
+                    elev_table_filename,
+                    dtype={'location_id': str, 'HydroID': str, 'huc': str, 'feature_id': int},
+                )
+                read_elev_table['huc'] = huc
+
+                # Filter all_rating_curves according to acceptance criteria
+                acceptable_elev_table = filter_usgs_by_acceptance_criteria(read_elev_table)
+                
+                location_ids_to_keep = acceptable_elev_table['location_id'].drop_duplicates().tolist()
+
                 procs_list.append(
                     [
                         elev_table_filename,
@@ -1368,16 +1390,12 @@ if __name__ == '__main__':
                         huc,
                         alt_plot,
                         single_plot,
+                        location_ids_to_keep,
                     ]
                 )
-                # Aggregate all of the individual huc elev_tables into one aggregate
-                #      for accessing all data in one csv
-                read_elev_table = pd.read_csv(
-                    elev_table_filename,
-                    dtype={'location_id': str, 'HydroID': str, 'huc': str, 'feature_id': int},
-                )
-                read_elev_table['huc'] = huc
-                merged_elev_table.append(read_elev_table)
+
+                merged_elev_table.append(acceptable_elev_table)
+
 
         # Output a concatenated elev_table to_csv
         if merged_elev_table:
