@@ -11,7 +11,7 @@ import pandas as pd
 from src_roughness_optimization import update_rating_curve
 from utils.shared_functions import check_file_age, concat_huc_csv
 from utils.shared_variables import USGS_CALB_TRACE_DIST
-
+from tools.tools_shared_functions import filter_usgs_by_acceptance_criteria
 
 '''
 The script ingests a USGS rating curve csv and a NWM flow recurrence interval database.
@@ -49,10 +49,13 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_elev_df, nwm_recurr_filep
     print('Reading USGS rating curve from csv...')
     log_text = 'Processing database for USGS flow/WSE at NWM flow recur intervals...\n'
     col_usgs = ["location_id", "flow", "stage", "elevation_navd88"]
-    usgs_rc_df = pd.read_csv(
+    usgs_rc_df_unfiltered = pd.read_csv(
         usgs_rc_filepath, dtype={'location_id': object}, usecols=col_usgs
     )  # , nrows=30000)
     print('Duration (read usgs_rc_csv): {}'.format(dt.datetime.now() - start_time))
+
+    # Filter USGS rating curves based on the acceptance criteria
+    usgs_rc_df = filter_usgs_by_acceptance_criteria(usgs_rc_df_unfiltered)
 
     # convert WSE navd88 values to meters
     usgs_rc_df['elevation_navd88_m'] = usgs_rc_df['elevation_navd88'] / 3.28084
