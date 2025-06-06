@@ -31,6 +31,8 @@ from tools_shared_functions import (
 from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
+# TODO: Jun 2025: Change this to have a path to the config via an arg. 
+# See rating_curve_get_usgs_curves for an example
 def get_env_paths():
     load_dotenv()
     # import variables from .env file
