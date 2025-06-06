@@ -228,7 +228,7 @@ def generate_rating_curve_metrics(args):
             )
 
             # Append usgs stage discharge data (already set up in format similar to nwm_recurr_intervals_all)
-            cat_fim = pd.read_csv(usgs_stage_file, dtype={'feature_id': str})
+            cat_fim = pd.read_csv(usgs_stage_file, dtype={'feature_id': str})  # TODO: Do we need to add acceptance criteria filtering here?
             nwm_recurr_intervals_all = pd.concat([nwm_recurr_intervals_all, cat_fim])
 
             # Convert discharge to cfs and filter
