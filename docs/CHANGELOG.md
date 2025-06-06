@@ -1,6 +1,35 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-06-06 - [PR#1543](https://github.com/NOAA-OWP/inundation-mapping/pull/1543)
+
+This PR addresses the issue #1385 and includes the following enhancements:
+
+- Ingests OSM roads as a new input data for FIM.
+
+- Integrates roads data into the FIM pipeline to process roads flood impacts (FIMpact)
+
+- Develops a new tool to identify inundated roads for a given flood event
+
+Note that pulling OSM data requires a new Python package called `overpy`, which can be installed via pip. **The updated pre-clipped dataset with new osm roads data has been prepared here:  `inputs/pre_clip_huc8/20250606/`**.
+
+
+
+### Additions
+
+- data/roads/pull_osm_roads.py
+- src/process_roads_fimpact.py
+- tools/road_inundation.py
+
+### Changes
+- src/aggregate_by_huc.py
+- src/delineate_hydros_and_produce_HAND.sh
+- src/bash_variables.env
+- fim_post_processing.sh
+
+<br/><br/>
+
+
 ## v4.8.0.0 - 2025-05-30 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
 
 This PR has two functions out of necessity for running LoFI operationally:
