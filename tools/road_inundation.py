@@ -122,7 +122,7 @@ if __name__ == "__main__":
     # sample usage
     # python foss_fim/tools/road_inundation.py
     # -y outputs/roads/test2_05030104
-    # -o outputs/roads/test2_05030104/inundation.gpkg
+    # -o outputs/roads/test2_05030104/roads_inundation.gpkg
     # -f outputs/20240506T1338Z_ana_past_14day_max_high_flow_magnitude.csv
 
     # Parse arguments

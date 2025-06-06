@@ -68,6 +68,9 @@ def process_roads_fimpact(
 
         roads_gdf_splitted.loc[:, 'threshold_hand'] = [x.get(selected_stat) for x in stats]
 
+        # it is possible that roads cross areas of a HAND with nan data (levee), so make sure to remove those Nan threshold hands
+        roads_gdf_splitted = roads_gdf_splitted.dropna(subset=['threshold_hand'])
+
         # make sure to record ids as str for csv output file
         cols_to_str = ['osmid', 'huc8', 'catchment_id', 'HydroID', 'feature_id', 'branch']
         roads_gdf_splitted[cols_to_str] = roads_gdf_splitted[cols_to_str].astype(str)
@@ -120,11 +123,3 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
 
     process_roads_fimpact(**args)
-
-    '''
-    for inundation:
-        possibility of one road with multilple feature id comining from dfferent branchs
-            - if at least one of the branches inundated that osmid_catchid, we flag the entire road segment as inundated.
-
-    save a new gpkg for only inundated roads
-    '''
