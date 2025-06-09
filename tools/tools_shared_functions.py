@@ -92,9 +92,7 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
 
 def filter_usgs_by_acceptance_criteria(input_df):
     '''
-    This function filters a USGS daatframe according the acceptance criteria.
-
-    
+    This function filters a USGS dataframe according the acceptance criteria.
     
     '''
     input_df['acceptable_codes'] = (
@@ -103,12 +101,10 @@ def filter_usgs_by_acceptance_criteria(input_df):
         & input_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
         & input_df['usgs_data_site_type'].isin(acceptable_site_type_list)
     )
-    
     input_df = input_df.astype({'usgs_data_alt_accuracy_code': float})
     input_df['acceptable_alt_error'] = np.where(
         input_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
     )
-    
     output_df = input_df[(input_df['acceptable_codes'] == True) & (input_df['acceptable_alt_error'] == True)]
 
     return output_df
