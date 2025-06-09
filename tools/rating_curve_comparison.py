@@ -1135,7 +1135,7 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     sns.countplot(ax=ax[1, 1], y='mean_y_diff_ft', data=usgs_gages)
     sns.boxplot(
         ax=ax[0, 1],
-        data=usgs_gages[['2', '5', '10', '25', '50', '100', 'action', 'minor', 'moderate', 'major']],
+        data=usgs_gages[['2', '5', '10', '25', '50', 'action', 'minor', 'moderate', 'major']],
     )
     ax[0, 1].set(ylim=(-12, 12))
 
@@ -1172,7 +1172,7 @@ def calculate_rc_diff(rc):
         .pivot(index='location_id', columns='recurr_interval', values='yhat_minus_y')
     )
     # Reorder columns
-    rc_unmelt = rc_unmelt[['2', '5', '10', '25', '50', '100', 'action', 'minor', 'moderate', 'major']]
+    rc_unmelt = rc_unmelt[['2', '5', '10', '25', '50', 'action', 'minor', 'moderate', 'major']]
 
     return rc_unmelt
 
@@ -1205,7 +1205,7 @@ def evaluate_results(sierra_results=[], labels=[], save_location=''):
     assert len(sierra_results) == len(labels), "Each Sierra Test results must also have a label"
 
     # Define recurrence intervals to plot
-    recurr_intervals = ("2", "5", "10", "25", "50", "100", "action", "minor", "moderate", "major")
+    recurr_intervals = ("2", "5", "10", "25", "50", "action", "minor", "moderate", "major")
 
     # Assign labels to the input sierra test result dataframes
     for df, label in zip(sierra_results, labels):
