@@ -228,7 +228,7 @@ def generate_rating_curve_metrics(args):
             )
 
             # Append usgs stage discharge data (already set up in format similar to nwm_recurr_intervals_all)
-            cat_fim = pd.read_csv(usgs_stage_file, dtype={'feature_id': str})  # TODO: Do we need to add acceptance criteria filtering here?
+            cat_fim = pd.read_csv(usgs_stage_file, dtype={'feature_id': str})
             nwm_recurr_intervals_all = pd.concat([nwm_recurr_intervals_all, cat_fim])
 
             # Convert discharge to cfs and filter
@@ -240,6 +240,7 @@ def generate_rating_curve_metrics(args):
             # Identify unique gages
             usgs_crosswalk = hydrotable.filter(items=['location_id', 'feature_id']).drop_duplicates()
             usgs_crosswalk = usgs_crosswalk.dropna(subset=['location_id'])
+            # TODO: Add location_id filtering here? ED
 
             nwm_recurr_data_table = pd.DataFrame()
             # usgs_recurr_data = pd.DataFrame()
