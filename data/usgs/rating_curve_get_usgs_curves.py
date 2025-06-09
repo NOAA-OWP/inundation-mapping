@@ -104,12 +104,15 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # For each site in metadata
+    # Remove sites that have value of None for the nws_lid
+    metadata_trimmed = [site for site in metadata if site.get('identifiers').get('nws_lid') != None]
+
+    # For each site in metadata_trimmed
     all_data = pd.DataFrame()
-    num_sites = len(metadata)
+    num_sites = len(metadata_trimmed)
     logging.info(f"Number of sites to process: {num_sites}")
     for i in range(num_sites):
-        site = metadata[i]
+        site = metadata_trimmed[i]
         # Print progress every 50 sites
         if i % 50 == 0:
             logging.info(f"Processing site {i+1}/{num_sites}, {round(((i+1)/num_sites)*100, 2)}%")
@@ -121,7 +124,7 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
         logging.info(f"Processing flow data for lid: {nws_lid}")
 
         # thresholds only provided for valid nws_lid.
-        if nws_lid == 'Bogus_ID' or nws_lid is None:
+        if nws_lid == 'Bogus_ID' or nws_lid is None: # TODO: Remove, should be unnecessary
             continue
 
         # if invalid feature_id skip to next site
