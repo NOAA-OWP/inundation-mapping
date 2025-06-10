@@ -36,8 +36,9 @@ gpd.options.io_engine = "pyogrio"
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
     running script outside of business hours seems to be most consistent way
     to avoid API errors. Currently configured to get rating curve data within
-    CONUS. Tidal API call may need to be modified to get datum conversions for
-    AK, HI, PR/VI.
+    CONUS. 
+    
+    Tidal API call may need to be modified to get datum conversions for AK.
 '''
 
 
@@ -180,7 +181,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
     Returns rating curves, for a set of sites, adjusted to elevation NAVD.
     Currently configured to get rating curve data within CONUS. Tidal API
-    call may need to be modified to get datum conversions for AK, HI, PR/VI.
+    call may need to be modified to get datum conversions for AK.
     Workflow as follows:
         1a. If 'all' option passed, get metadata for all acceptable USGS sites.
         1b. If a list of sites passed, get metadata for all sites supplied by user.
