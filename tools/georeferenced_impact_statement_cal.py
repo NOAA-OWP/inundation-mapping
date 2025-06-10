@@ -31,6 +31,20 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
     branch_list = hydrotable_huc['branch_id'].unique().tolist()
     branch_folder = os.listdir(huc_path)
     all_df = []
+    # Read in USGS data
+    USGS_ACCEPTABLE_GAGES_PATH = os.getenv('usgs_acceptable_gages_path')
+    usgs_nwslid_unfiltered = pd.read_csv(USGS_ACCEPTABLE_GAGES_PATH)
+
+    USGS_RATING_CURVE_CSV_PATH = os.getenv('usgs_rating_curve_csv')
+    usgs_rating_unfiltered = pd.read_csv(USGS_RATING_CURVE_CSV_PATH)
+
+    # Filter USGS sites based on acceptance criteria
+    usgs_nwslid = filter_usgs_by_acceptance_criteria(usgs_nwslid_unfiltered)
+    location_ids_to_keep = usgs_nwslid['location_id'].drop_duplicates().tolist()
+
+    # Only keep rating curves from acceptable sites
+    usgs_rating = usgs_rating_unfiltered[usgs_rating_unfiltered['location_id'].isin(location_ids_to_keep)]
+    
     for branch_folder in os.listdir(huc_path):
         branch_path = os.path.join(huc_path, branch_folder)
         if os.path.isdir(branch_path):
@@ -169,20 +183,6 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
                         if pd.notna(polygon[flow_col].iloc[0]):
                             discharge_obs = polygon[flow_col].iloc[0] * 0.028316847
                         else:
-                            # Read in USGS data
-                            USGS_ACCEPTABLE_GAGES_PATH = os.getenv('usgs_acceptable_gages_path')
-                            usgs_nwslid_unfiltered = pd.read_csv(USGS_ACCEPTABLE_GAGES_PATH)
-
-                            USGS_RATING_CURVE_CSV_PATH = os.getenv('usgs_rating_curve_csv')
-                            usgs_rating_unfiltered = pd.read_csv(USGS_RATING_CURVE_CSV_PATH)
-
-                            # Filter USGS sites based on acceptance criteria
-                            usgs_nwslid = filter_usgs_by_acceptance_criteria(usgs_nwslid_unfiltered)
-                            location_ids_to_keep = usgs_nwslid['location_id'].drop_duplicates().tolist()
-
-                            # Only keep rating curves from acceptable sites
-                            usgs_rating = usgs_rating_unfiltered[usgs_rating_unfiltered['location_id'].isin(location_ids_to_keep)]
-
                             loc_id = usgs_nwslid.loc[usgs_nwslid['nws_lid'] == NWSLID, 'location_id'].values[
                                 0
                             ]
