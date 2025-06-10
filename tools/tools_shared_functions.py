@@ -93,6 +93,23 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
 def filter_usgs_by_acceptance_criteria(input_df):
     '''
     This function filters a USGS dataframe according the acceptance criteria.
+
+    Parameters
+    ----------
+    input_df: pd.DataFrame
+        Dataframe of USGS data to be filtered. Must contain the following columns:
+        - usgs_data_coord_accuracy_code
+        - usgs_data_coord_method_code
+        - usgs_data_alt_method_code
+        - usgs_data_site_type
+        - usgs_data_alt_accuracy_code
+
+    Returns
+    -------
+    output_df: pd.DataFrame
+        Filtered DataFrame of USGS data that meets the acceptance criteria.
+
+    # TODO: Could add an option to adjust which acceptable codes are used, but for now this is hardcoded.
     
     '''
     input_df['acceptable_codes'] = (
@@ -113,17 +130,25 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
     '''
     This function is used in CatFIM to mask out lakes from inundated tifs.
 
-    Inputs:
+    Parameters
+    ----------
+    input_array: xarray DataArray
+        DataArray with inundation values that need lakes removed
+    huc: str
+        HUC8 id (string), needed to get the correct lakes file
+    raster_src: rasterio DatasetReader
+        src from a raster that should be uses for getting the correct raster dimensions
+    fim_run_dir: str
+        path to the fim run directory where the lakes shapefile is located
 
-    input_array: inundation TIF that needs lakes removed (called summed_array for stage-based)
-    huc: HUC8 id (string), needed to get the correct lakes file
-    raster_src: src from a raster that should be uses for getting the correct raster dimensions
-    fim_run_dir: path to the fim run directory where the lakes shapefile is located
 
-    Outputs:
+    Returns
+    -------
+    masked_array: xarray 
+        DataArray with lakes masked out
+    mask_status: string, 
+        status of whether lake shapefile was available
 
-    masked_array: same array as before, but with lakes masked out and the dimensions of raster_src
-    mask_status: string, status of whether lake shapefile was available
 
     '''
 
