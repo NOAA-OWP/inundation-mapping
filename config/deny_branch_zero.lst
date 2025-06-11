@@ -42,6 +42,7 @@ gw_catchments_reaches_{}.gpkg
 gw_catchments_reaches_{}.tif
 gw_catchments_reaches_filtered_addedAttributes_{}.gpkg
 #gw_catchments_reaches_filtered_addedAttributes_{}.tif
+gw_catchments_reaches_filtered_addedAttributes_{}_int32.tif
 #gw_catchments_reaches_filtered_addedAttributes_crosswalked_{}.gpkg
 headwaters_{}.tif
 #hydroTable_{}.csv
@@ -55,6 +56,7 @@ nwm_subset_streams_levelPaths_dissolved_headwaters_{}.gpkg
 #osm_bridge_centroids_{}.gpkg
 rem_{}.tif
 #rem_zeroed_masked_{}.tif
+rem_zeroed_masked_{}_float32.tif
 slopes_d8_dem_meters_{}.tif
 slopes_d8_dem_meters_masked_{}.tif
 sn_catchments_reaches_{}.tif

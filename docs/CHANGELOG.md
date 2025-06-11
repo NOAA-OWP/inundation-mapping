@@ -9,6 +9,48 @@ Fixes AK lake bugs to be able to use the new pre_clip data.
 `src/bash_variables.env`: Uses new pre_clip data
 `src/split_flows.py`: Makes sure it works for AK HUCs
 
+## v4.8.1.0 - 2025-06-10 - [PR#1552]([https://github.com/NOAA-OWP/inundation-mapping/pull/1552])
+
+This PR only focuses on adding the global optimized manning N as an input file to the bash_variables.env.
+
+### Changes
+- `src`
+   `vmann_input_file=${inputsDir}/rating_curve/variable_roughness/mannings_global_optz.csv`
+
+<br/><br/>
+
+## v4.8.0.0 - 2025-05-30 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206)
+
+This PR has two functions out of necessity for running LoFI operationally:
+
+1. Optimize the runtime performance and memory consumption of the inundation routine. NOTE that this includes a change to the units of the REM, which are now in millimeters instead of meters.
+2. Implement methods that are used to compute the Likelihood of Flood Inundation routine.
+
+### Additions
+- `tools/convert_to_int16.py`: Converts the `rem_zero_masked_*.tif` and `gw_catchments_reaches_filtered_addedAttributes_*.tif` files from float32 and int32 respectively to int16.
+- `tools/probabilistic_bayesian_update.py` : Update the roughness and slope adjustment likelihood distributions of FIM inputs.
+- `tools/probabilistic_distribution_parameters.py` : Calculates retrospective record of NWM via linear moment estimation.
+- `tools/probabilistic_generate_metric_response_surfaces.py` : Generates aerial gridded metric response surfaces for each set of input parameters.
+- `tools/probabilistic_inundation` : Produces Likelihood of Flood Inundation extents given varied streamflow, roughness, and slope adjustment.
+- `tools/probabilistic_version.py` : Signifies the version of LoFI currently in the repository.
+
+### Changes
+- `config/deny_branch_zero.lst` : Added new outputs to delete `rem_zero_masked_*_float32.tif` and `gw_catchments_reaches_filtered_addedAttributes_*_int32.tif`
+- `config/deny_branches.lst` : Added new outputs to delete `rem_zero_masked_*_float32.tif` and `gw_catchments_reaches_filtered_addedAttributes_*_int32.tif`
+- `src_adjust_spatial_obs.py` : Changed sampling gw_catchments and rem to match new datatypes.
+- `src/add_crosswalk.py` : Add hydroid int16 crosswalk. 
+- `src/delineate_hydros_and_produce_HAND.sh` : Add convert to int16 script at end.
+- `src/mask_dem.py` : Changed geopandas engine to fiona to avoid segmentation faults.
+- `src/utils/shared_functions.py` : Add days to output from `print_date_time_duration`.
+- `src/subdiv_chan_obank_src.py` : Allow to run subdivision on a single HUC08.
+- `tools/aggregate_by_huc.py` : Output a feather file alongside the csv hydrotable for faster IO.
+- `tools/inundation.py` : Changed numba optimization routine to minimize copying, support windowed operations, and support int16.
+- `tools/inundate_gms.py` : Include mechanism for multiple gms workers.
+- `tools/inundate_mosaic_wrapper.py`: Allow for multiple workers and threads.
+- `tools/mosaic_inundation.py` : Adjusted routine to allow for multiple threads in overlapping inundation and optimized masking.
+- `tools/overlapping_inundation.py` : Allow for flexible datatypes, threads, and improved throughput.
+- `tools/run_test_case.py`: Added multi threads per worker and gms_workers to routine.
+- `tools/shared_functions.py` :  Added new encoding to account for hits in the candidate and a nodata value in the benchmark.
 
 <br/><br/>
 
