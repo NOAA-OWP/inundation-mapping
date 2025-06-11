@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.8.___ - 2025-06-__ - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
+
+Updates the CatFIM site comparison tool to make the outputs better suited to be loaded into HydroVis. Add % change calculations to site change outputs. 
+
+### Changes
+- `/tools/catfim/catfim_sites_compare.py`
+  - Change version column naming conventions
+  - Saving the gained and lost coverage data as a CSV
+  - Add "_sites" to site tbale filenames.
+  - Added percent area change calculations for inundated area comparisons.
+
+<br/><br/>
+
 ## v4.8.1.0 - 2025-06-10 - [PR#1552]([https://github.com/NOAA-OWP/inundation-mapping/pull/1552])
 
 This PR only focuses on adding the global optimized manning N as an input file to the bash_variables.env.
