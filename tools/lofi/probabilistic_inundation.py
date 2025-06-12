@@ -182,7 +182,7 @@ def generate_streamflow_percentiles(
     streamflow_expon_values = np.hstack(values).ravel()
 
     # Check to see if all values are the same, if so grab the first, otherwise get their point percent functions
-    if not np.all(streamflow_expon_values == streamflow_expon_values[0]):
+    if not np.allclose(streamflow_expon_values, streamflow_expon_values[0]):
         # Generate 10000 random values from distribution
         trunc_expon = truncexpon(
             *truncexpon.fit(streamflow_expon_values, loc=np.min(streamflow_expon_values))
