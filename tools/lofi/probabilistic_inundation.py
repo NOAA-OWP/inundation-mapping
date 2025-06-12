@@ -634,7 +634,7 @@ def inundate_probabilistic(
 
         wrst.write(merged, window=window, indexes=1)
 
-    executor = ThreadPoolExecutor(max_workers=1)
+    executor = ThreadPoolExecutor(max_workers=num_threads)
 
     def __data_generator(datasets, percentiles, windows, wrst):
         for window in windows:
