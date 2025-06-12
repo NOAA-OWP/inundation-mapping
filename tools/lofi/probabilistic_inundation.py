@@ -277,7 +277,7 @@ def get_subdivided_src(
     )  # drop these cols (in case subdiv was previously performed)
     df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)'] / df_src['LENGTHKM'] / 1000
     df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)'] / df_src['WettedPerimeter_chan (m)']
-    df_src['HydraulicRadius_chan (m)'].fillna(0, inplace=True)
+    df_src['HydraulicRadius_chan (m)'] = df_src['HydraulicRadius_chan (m)'].fillna(0)
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
         * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
@@ -285,7 +285,7 @@ def get_subdivided_src(
         / df_src['channel_n']
     )
     df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
-    df_src['Velocity_chan (m/s)'].fillna(0, inplace=True)
+    df_src['Velocity_chan (m/s)'] = df_src['Velocity_chan (m/s)'].fillna(0)
 
     # Calculate discharge (overbank) using Manning's equation
     df_src = df_src.drop(
@@ -301,7 +301,7 @@ def get_subdivided_src(
     df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)'] / df_src['LENGTHKM'] / 1000
     df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
     df_src = df_src.replace([np.inf, -np.inf], np.nan)  # need to replace inf instances (divide by 0)
-    df_src['HydraulicRadius_obank (m)'].fillna(0, inplace=True)
+    df_src['HydraulicRadius_obank (m)'] = df_src['HydraulicRadius_obank (m)'].fillna(0)
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
         * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
@@ -309,7 +309,7 @@ def get_subdivided_src(
         / df_src['overbank_n']
     )
     df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
-    df_src['Velocity_obank (m/s)'].fillna(0, inplace=True)
+    df_src['Velocity_obank (m/s)'] = df_src['Velocity_obank (m/s)'].fillna(0)
 
     # Calcuate the total of the subdivided discharge (channel + overbank)
     df_src = df_src.drop(
@@ -444,7 +444,7 @@ def inundate_probabilistic(
 
     parameters_df = pd.read_csv(parameters)
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
-    params_weibull.set_index('feature_id', inplace=True)
+    params_weibull = params_weibull.set_index('feature_id')
 
     # Fim outputs directory
     fim_outputs_dir = outputs_dir
