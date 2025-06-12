@@ -16,7 +16,7 @@ from shapely.geometry import shape
 
 # Set scale factor for converting float elevation to integer
 SCALE_FACTOR = 1000
-INT_NODATA_VALUE = 65535  # max of uint16 for no data handling
+INT_NODATA_VALUE = 32767  # max of int16 for no data handling
 
 # Setup logger
 logger = logging.getLogger("flood_processing")
@@ -51,7 +51,7 @@ def timed_step(step_name, logger=None):
 
 # Function to interpolate discharge based on stage value and HydroID
 def interpolate_discharge(rem_value, hydro_id, htable_df):
-    src_data = htable_df[htable_df['HydroID'] == hydro_id]
+    src_data = htable_df[htable_df['HydroID_join'] == hydro_id]
 
     if len(src_data) > 1:
         discharge = np.interp(rem_value, src_data['stage'], src_data['discharge_cms'])
@@ -72,9 +72,11 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
     mask = (elevation < threshold) & (elevation != INT_NODATA_VALUE)
 
     # Pre-mask: assign catchment_id only where flooded, else set to 0
-    combined_mask = np.where(mask, catchment_ids, 0).astype(
-        np.int32
-    )  # can also try int16, int32, uint8, uint16, float32, float64, int8
+    if catchment_ids.dtype == 'int32':
+        combined_mask = np.where(mask, catchment_ids, 0).astype(np.int32)
+        # can also try int16, int32, uint8, uint16, float32, float64, int8
+    else:
+        combined_mask = np.where(mask, catchment_ids, 0).astype(np.int16)
 
     # Bounding box for valid (flooded) pixels
     valid_indices = np.argwhere(combined_mask > 0)
@@ -151,6 +153,7 @@ def process_branch(branch_path, branch_id, log_dir):
         catchment_raster_path = os.path.join(
             branch_path, f'gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif'
         )
+        # no longer using catchment poly --> can remove this later
         catchment_gpkg_path = os.path.join(
             branch_path, f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch_id}.gpkg'
         )
@@ -174,8 +177,15 @@ def process_branch(branch_path, branch_id, log_dir):
             catchment_ids = catch_src.read(1)
             transform = elev_src.transform
 
-            mask_invalid = (elev_data > 25.1) | (elev_data == elev_src.nodata)
-            elevation = np.floor(elev_data * SCALE_FACTOR).astype(np.uint16)
+            # Check if the elevation raster is float32 before applying the scale factor
+            # pre HAND 4.8 rem values are meters; 4.8+ rem values are millimeters
+            if elev_src.dtypes[0] == "float32":
+                mask_invalid = (elev_data > 25.1) | (elev_data == elev_src.nodata)
+                elevation = np.floor(elev_data * SCALE_FACTOR).astype(np.int16)
+            else:
+                mask_invalid = (elev_data > 25001) | (elev_data == elev_src.nodata)
+                elevation = elev_data.astype(np.int16)
+
             elevation[mask_invalid] = INT_NODATA_VALUE
 
     with timed_step(f"[Branch {branch_id}] Generating features", logger):
@@ -189,11 +199,20 @@ def process_branch(branch_path, branch_id, log_dir):
         high_range = np.arange(12.192, 25.0, 0.1524)  # 0.5ft for 40-82ft (uncommon extreme inundation)
         thresholds = (np.concatenate((low_range, mid_range, high_range)) * SCALE_FACTOR).astype(np.uint16)
 
+        foot_range = np.arange(0.3048, 25.0, 0.3048) * SCALE_FACTOR
+        thresholds = foot_range.astype(np.uint16)
+
+        if catchment_ids.dtype == 'int16':
+            htable_df["HydroID_join"] = htable_df["HydroID"].astype(str).str[-4:].astype(np.int16)
+        else:
+            htable_df["HydroID_join"] = htable_df["HydroID"]
+        htable_df_interp = htable_df[['HydroID_join', 'stage', 'discharge_cms', 'Volume (m3)']]
+
         all_features = []
         with ThreadPoolExecutor() as executor:
             for threshold_features in executor.map(
                 lambda thr: polygonize_combined_rasters(
-                    elevation, catchment_ids, transform, thr, branch_id, htable_df, logger
+                    elevation, catchment_ids, transform, thr, branch_id, htable_df_interp, logger
                 ),
                 thresholds,
             ):
@@ -216,9 +235,11 @@ def process_branch(branch_path, branch_id, log_dir):
         htable_df_sub = htable_df[
             [
                 'HydroID',
+                'HydroID_join',
                 'feature_id',
                 'SLOPE',
                 'HUC',
+                'Bathymetry_source',
                 'subdiv_applied',
                 'channel_n',
                 'overbank_n',
@@ -228,8 +249,7 @@ def process_branch(branch_path, branch_id, log_dir):
             ]
         ].drop_duplicates(subset='HydroID')
 
-        gdf = gdf.merge(htable_df_sub, left_on='catchment_id', right_on='HydroID', how='left')
-
+        gdf = gdf.merge(htable_df_sub, left_on='catchment_id', right_on='HydroID_join', how='left')
         ## Replaced below with variables from htable
         # catchment_gdf = gpd.read_file(catchment_gpkg_path)
         # catchment_gdf = catchment_gdf.drop(columns=['geometry', 'distance'])
