@@ -168,19 +168,10 @@ def generate_streamflow_percentiles(
     scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6) * 10000
 
     # Create data to fit truncated exponential distribution
-    values = []
-
-    for value, scale in zip(np.squeeze(ensemble_forecast.values), scaled_likelihoods):
-        if np.isnan(value):
-            value = 0
-
-        if np.isnan(scale):
-            scale = 1
-
-        values.append(np.repeat(value, int(scale)))
-
-    streamflow_expon_values = np.hstack(values).ravel()
-
+    ef_values = np.where(np.isnan(ensemble_forecast.values), 0, ensemble_forecast.values)
+    sl_values = np.where(np.isnan(scaled_likelihoods), 1, scaled_likelihoods).astype(int)
+    streamflow_expon_values = np.repeat(ef_values.ravel(), sl_values.ravel())
+    
     # Check to see if all values are the same, if so grab the first, otherwise get their point percent functions
     if not np.allclose(streamflow_expon_values, streamflow_expon_values[0]):
         # Generate 10000 random values from distribution
