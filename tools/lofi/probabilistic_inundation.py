@@ -162,7 +162,7 @@ def generate_streamflow_percentiles(
             '10': float(ensemble_forecast.sel({'member': '1'})),
         }
 
-    likelihoods = np.array([1 - r.cdf(x) for x in ensemble_forecast.values])
+    likelihoods = 1 - r.cdf(ensemble_forecast.values)
 
     # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
     scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6) * 10000
