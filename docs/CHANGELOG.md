@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-05-20 - [PR#1511](https://github.com/NOAA-OWP/inundation-mapping/pull/1511)
+## v4.8.x.x - 2025-05-20 - [PR#1511](https://github.com/NOAA-OWP/inundation-mapping/pull/1511)
 
 This PR updates the bathymetry preprocessing and adjustment workflow to be able to process and incorporate bathymetric data from sources other than eHydro bathymetric surveys.
 
@@ -10,7 +10,9 @@ This PR updates the bathymetry preprocessing and adjustment workflow to be able 
 - `/data/bathymetry/preprocess_bathymetry.py`: Added capability to preprocess OHRFC sourced bathymetry data.
 - `/src/bathymetric_adjustment.py`: Added function to use OHRFC data for adjustment when both OHRFC and eHydro data are available for the same feature id.
 - `/src/bash_variables.env`: New input file including eHydro and OHRFC bathymetric adjustment data.
-## v4.8.0.0 - 2025-05-30 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
+
+<br/><br/>
+
 ## v4.8.1.0 - 2025-06-10 - [PR#1552]([https://github.com/NOAA-OWP/inundation-mapping/pull/1552])
 
 This PR only focuses on adding the global optimized manning N as an input file to the bash_variables.env.
