@@ -148,7 +148,7 @@ def generate_streamflow_percentiles(
     ef_values = np.where(np.isnan(ensemble_forecast.values), 0, ensemble_forecast.values)
     sl_values = np.where(np.isnan(scaled_likelihoods), 1, scaled_likelihoods).astype(int)
     streamflow_expon_values = np.repeat(ef_values.ravel(), sl_values.ravel())
-    
+
     # Check to see if all values are the same, if so grab the first, otherwise get their point percent functions
     if not np.allclose(streamflow_expon_values, streamflow_expon_values[0]):
         # Generate 10000 random values from distribution
@@ -162,7 +162,7 @@ def generate_streamflow_percentiles(
             '50': max(0, trunc_expon.ppf(0.5)),
             '25': max(0, trunc_expon.ppf(0.75)),
             '10': max(0, trunc_expon.ppf(0.9)),
-            'feature_id': feature
+            'feature_id': feature,
         }
 
     else:
@@ -665,6 +665,7 @@ def inundate_probabilistic(
         ds.close()
 
     if output_vector is True:
+
         def _make_geometry(shapes):
             for p, v in shapes:
                 yield shape(p), v
