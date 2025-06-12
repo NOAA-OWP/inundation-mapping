@@ -107,26 +107,26 @@ def generate_streamflow_percentiles(
     # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
     if 'nbm' in ensemble_forecast.coords['member']:
         rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'nbm'})))
-        rv['feature_id'] = int(feature)
+        rv['feature_id'] = feature
         return rv
 
     if 'da' in ensemble_forecast.coords['member']:
         rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'da'})))
-        rv['feature_id'] = int(feature)
+        rv['feature_id'] = feature
         return rv
 
     if 'short' in ensemble_forecast.coords['member']:
         rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'short'})))
-        rv['feature_id'] = int(feature)
+        rv['feature_id'] = feature
         return rv
 
     # If there is no feature in the NWM parameters file
-    if int(feature) not in params_weibull.index:
+    if feature not in params_weibull.index:
         rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
-        rv['feature_id'] = int(feature)
+        rv['feature_id'] = feature
         return rv
     else:
-        parameters = params_weibull.loc[int(feature)]
+        parameters = params_weibull.loc[feature]
 
     # Create probability distribution
     params = ast.literal_eval(parameters['parameters'])
@@ -136,7 +136,7 @@ def generate_streamflow_percentiles(
 
     except Exception:
         rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
-        rv['feature_id'] = int(feature)
+        rv['feature_id'] = feature
         return rv
 
     likelihoods = 1 - r.cdf(ensemble_forecast.values)
@@ -162,12 +162,12 @@ def generate_streamflow_percentiles(
             '50': max(0, trunc_expon.ppf(0.5)),
             '25': max(0, trunc_expon.ppf(0.75)),
             '10': max(0, trunc_expon.ppf(0.9)),
-            'feature_id': int(feature),
+            'feature_id': feature
         }
 
     else:
         rv = dict.fromkeys(dkeys, max(0, streamflow_expon_values[0]))
-        rv['feature_id'] = int(feature)
+        rv['feature_id'] = feature
         return rv
 
 
