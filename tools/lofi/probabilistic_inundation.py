@@ -665,18 +665,14 @@ def inundate_probabilistic(
         ds.close()
 
     if output_vector is True:
+        def _make_geometry(shapes):
+            for p, v in shapes:
+                yield shape(p), v
+
         with rasterio.open(out_rast, 'r') as rst:
             shapes = rasterio.features.shapes(rst.read(1), mask=None, transform=rst.transform)
-
-            polygons = []
-            for geom, value in shapes:
-                polygon = shape(geom)
-                polygons.append((polygon, value))
-
-            data = []
-            for polygon, value in polygons:
-                data.append({'geometry': polygon, 'value': value})
-            gdf = gpd.GeoDataFrame(data, crs=raster_crs)
+            gdf = gpd.GeoDataFrame(_make_geometry(shapes), columns=['geometry', 'value'], crs=raster_crs)
+            gdf = gdf.set_geometry('geometry')
             gdf.to_file(os.path.join(base_output_path, output_file_name))
 
     for file in percentile_files:
