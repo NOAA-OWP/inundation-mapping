@@ -143,7 +143,7 @@ l_echo "$COUNTER" > "$COUNTER_FILE"
 # Check if the counter is greater than one
 if [ "$COUNTER" -gt 1 ]; then
     # Execute the Python file
-    l_echo "Updating hydroTable & scr_full_crosswalked for branches"
+    l_echo $startDiv"Updating hydroTable & scr_full_crosswalked for branches"
     python3 $srcDir/update_htable_src.py -d $outputDestDir
     Tcount
 else
@@ -267,18 +267,6 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
     Tcount
 fi
 
-## AGGREGATE BRANCH TABLES ##
-l_echo $startDiv"Aggregating branch hydrotables"
-
-Tstart
-python3 $srcDir/aggregate_by_huc.py \
-    -fim $outputDestDir \
-    -i $fim_inputs \
-    -htable \
-    -bridge \
-    -j $jobLimit
-Tcount
-
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
@@ -289,6 +277,18 @@ if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
         -calb_file $man_calb_file
     Tcount
 fi
+
+
+## AGGREGATE BRANCH TABLES ##
+l_echo $startDiv"Aggregating branch hydrotables"
+Tstart
+python3 $srcDir/aggregate_by_huc.py \
+    -fim $outputDestDir \
+    -i $fim_inputs \
+    -htable \
+    -bridge \
+    -j $jobLimit
+Tcount
 
 
 l_echo $startDiv"Combining crosswalk tables"
