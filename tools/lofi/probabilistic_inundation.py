@@ -102,47 +102,29 @@ def generate_streamflow_percentiles(
         "weibull_min": weibull_min,
     }
 
+    dkeys = ['90', '75', '50', '25', '10']
+
     # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
     if 'nbm' in ensemble_forecast.coords['member']:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '75': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '50': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '25': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '10': float(ensemble_forecast.sel({'member': 'nbm'})),
-        }
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'nbm'})))
+        rv['feature_id'] = int(feature)
+        return rv
 
     if 'da' in ensemble_forecast.coords['member']:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'da'})),
-            '75': float(ensemble_forecast.sel({'member': 'da'})),
-            '50': float(ensemble_forecast.sel({'member': 'da'})),
-            '25': float(ensemble_forecast.sel({'member': 'da'})),
-            '10': float(ensemble_forecast.sel({'member': 'da'})),
-        }
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'da'})))
+        rv['feature_id'] = int(feature)
+        return rv
 
     if 'short' in ensemble_forecast.coords['member']:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'short'})),
-            '75': float(ensemble_forecast.sel({'member': 'short'})),
-            '50': float(ensemble_forecast.sel({'member': 'short'})),
-            '25': float(ensemble_forecast.sel({'member': 'short'})),
-            '10': float(ensemble_forecast.sel({'member': 'short'})),
-        }
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'short'})))
+        rv['feature_id'] = int(feature)
+        return rv
 
     # If there is no feature in the NWM parameters file
     if int(feature) not in params_weibull.index:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': '1'})),
-            '75': float(ensemble_forecast.sel({'member': '1'})),
-            '50': float(ensemble_forecast.sel({'member': '1'})),
-            '25': float(ensemble_forecast.sel({'member': '1'})),
-            '10': float(ensemble_forecast.sel({'member': '1'})),
-        }
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
+        rv['feature_id'] = int(feature)
+        return rv
     else:
         parameters = params_weibull.loc[int(feature)]
 
@@ -153,14 +135,9 @@ def generate_streamflow_percentiles(
         r = dist_dict[parameters['distribution_name']](**params)
 
     except Exception:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': '1'})),
-            '75': float(ensemble_forecast.sel({'member': '1'})),
-            '50': float(ensemble_forecast.sel({'member': '1'})),
-            '25': float(ensemble_forecast.sel({'member': '1'})),
-            '10': float(ensemble_forecast.sel({'member': '1'})),
-        }
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
+        rv['feature_id'] = int(feature)
+        return rv
 
     likelihoods = 1 - r.cdf(ensemble_forecast.values)
 
@@ -180,23 +157,18 @@ def generate_streamflow_percentiles(
         )
 
         return {
+            '90': max(0, trunc_expon.ppf(0.1)),
+            '75': max(0, trunc_expon.ppf(0.25)),
+            '50': max(0, trunc_expon.ppf(0.5)),
+            '25': max(0, trunc_expon.ppf(0.75)),
+            '10': max(0, trunc_expon.ppf(0.9)),
             'feature_id': int(feature),
-            '90': np.max([0, trunc_expon.ppf(0.1)]),
-            '75': np.max([0, trunc_expon.ppf(0.25)]),
-            '50': np.max([0, trunc_expon.ppf(0.5)]),
-            '25': np.max([0, trunc_expon.ppf(0.75)]),
-            '10': np.max([0, trunc_expon.ppf(0.9)]),
         }
 
     else:
-        return {
-            'feature_id': int(feature),
-            '90': np.max([0, streamflow_expon_values[0]]),
-            '75': np.max([0, streamflow_expon_values[0]]),
-            '50': np.max([0, streamflow_expon_values[0]]),
-            '25': np.max([0, streamflow_expon_values[0]]),
-            '10': np.max([0, streamflow_expon_values[0]]),
-        }
+        rv = dict.fromkeys(dkeys, max(0, streamflow_expon_values[0]))
+        rv['feature_id'] = int(feature)
+        return rv
 
 
 def get_subdivided_src(
