@@ -463,7 +463,7 @@ def inundate_probabilistic(
     features = ensembles.coords['feature_id']
 
     # For each feature in the provided ensembles
-    with ThreadPoolExecutor(max_workers=1) as executor:
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
 
         # Get max streamflow for every feature up to forecast time
         if aggregate_forecasts == "max_to_forecast":
