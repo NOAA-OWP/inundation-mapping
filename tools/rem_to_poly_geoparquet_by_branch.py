@@ -138,9 +138,9 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
     return features
 
 
-def process_branch(branch_path, branch_id, log_dir):
+def process_branch(branch_path, branch_id, log_dir, huc_id):
     branch_start = time.time()
-    branch_log_path = os.path.join(log_dir, f"branch_{branch_id}.log")
+    branch_log_path = os.path.join(log_dir, f"{huc_id}_{branch_id}.log")
     file_handler = logging.FileHandler(branch_log_path, mode='w')
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
@@ -199,7 +199,7 @@ def process_branch(branch_path, branch_id, log_dir):
         high_range = np.arange(12.192, 25.0, 0.1524)  # 0.5ft for 40-82ft (uncommon extreme inundation)
         thresholds = (np.concatenate((low_range, mid_range, high_range)) * SCALE_FACTOR).astype(np.uint16)
 
-        foot_range = np.arange(0.3048, 25.0, 0.3048) * SCALE_FACTOR
+        foot_range = np.arange(0.6096, 25.0, 0.3048) * SCALE_FACTOR
         thresholds = foot_range.astype(np.uint16)
 
         if catchment_ids.dtype == 'int16':
@@ -276,10 +276,11 @@ def main(fim_output_dir):
     for root, dirs, files in os.walk(fim_output_dir):
         if 'branches' in dirs:
             branches_dir = os.path.join(root, 'branches')
+            huc_id = os.path.basename(root)
             for branch_id in os.listdir(branches_dir):
                 branch_path = os.path.join(branches_dir, branch_id)
                 if os.path.isdir(branch_path):
-                    branches_dirs.append((branch_path, branch_id, log_dir))
+                    branches_dirs.append((branch_path, branch_id, log_dir, huc_id))
 
     with Pool() as pool:
         pool.starmap(process_branch, branches_dirs)
