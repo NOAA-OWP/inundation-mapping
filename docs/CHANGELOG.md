@@ -1,13 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.7.x.x - 2025-05-28 - [PR#1541](https://github.com/NOAA-OWP/inundation-mapping/pull/1541)
+## v4.8.3.0 - 2025-06-13 - [PR#1541](https://github.com/NOAA-OWP/inundation-mapping/pull/1541)
 
 Fixes AK lake bugs to be able to use the new pre_clip data.
 
 ### Changes
 `src/bash_variables.env`: Uses new pre_clip data
 `src/split_flows.py`: Makes sure it works for AK HUCs
+
+<br/><br/>
 
 ## v4.8.2.0 - 2025-06-13 - [PR#1546]([https://github.com/NOAA-OWP/inundation-mapping/pull/1546])
 
