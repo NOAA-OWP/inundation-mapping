@@ -16,10 +16,292 @@ Updates the function that downloads USGS rating curves so that it does not apply
 - `tools/tools_shared_functions.py`: Created the `filter_usgs_by_acceptance_criteria` function. 
 - `src/utils/shared_functions.py`: Updated `print_current_date_time` and `print_date_time_duration` functions so they can handle multiday processes.
 - `data/nws/preprocess_ahps_nws.py`, `data/usgs/preprocess_ahps_usgs.py`,  `tools/eval_plots.py`, `tools/fimr_to_benchmark.py`, and `tools/generate_nws_lid.py`: Updated comments.
+## v4.8.1.0 - 2025-06-10 - [PR#1552]([https://github.com/NOAA-OWP/inundation-mapping/pull/1552])
+
+This PR only focuses on adding the global optimized manning N as an input file to the bash_variables.env.
+
+### Changes
+- `src`
+   `vmann_input_file=${inputsDir}/rating_curve/variable_roughness/mannings_global_optz.csv`
+
+<br/><br/>
+
+## v4.8.0.0 - 2025-05-30 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206)
+
+This PR has two functions out of necessity for running LoFI operationally:
+
+1. Optimize the runtime performance and memory consumption of the inundation routine. NOTE that this includes a change to the units of the REM, which are now in millimeters instead of meters.
+2. Implement methods that are used to compute the Likelihood of Flood Inundation routine.
+
+### Additions
+- `tools/convert_to_int16.py`: Converts the `rem_zero_masked_*.tif` and `gw_catchments_reaches_filtered_addedAttributes_*.tif` files from float32 and int32 respectively to int16.
+- `tools/probabilistic_bayesian_update.py` : Update the roughness and slope adjustment likelihood distributions of FIM inputs.
+- `tools/probabilistic_distribution_parameters.py` : Calculates retrospective record of NWM via linear moment estimation.
+- `tools/probabilistic_generate_metric_response_surfaces.py` : Generates aerial gridded metric response surfaces for each set of input parameters.
+- `tools/probabilistic_inundation` : Produces Likelihood of Flood Inundation extents given varied streamflow, roughness, and slope adjustment.
+- `tools/probabilistic_version.py` : Signifies the version of LoFI currently in the repository.
+
+### Changes
+- `config/deny_branch_zero.lst` : Added new outputs to delete `rem_zero_masked_*_float32.tif` and `gw_catchments_reaches_filtered_addedAttributes_*_int32.tif`
+- `config/deny_branches.lst` : Added new outputs to delete `rem_zero_masked_*_float32.tif` and `gw_catchments_reaches_filtered_addedAttributes_*_int32.tif`
+- `src_adjust_spatial_obs.py` : Changed sampling gw_catchments and rem to match new datatypes.
+- `src/add_crosswalk.py` : Add hydroid int16 crosswalk. 
+- `src/delineate_hydros_and_produce_HAND.sh` : Add convert to int16 script at end.
+- `src/mask_dem.py` : Changed geopandas engine to fiona to avoid segmentation faults.
+- `src/utils/shared_functions.py` : Add days to output from `print_date_time_duration`.
+- `src/subdiv_chan_obank_src.py` : Allow to run subdivision on a single HUC08.
+- `tools/aggregate_by_huc.py` : Output a feather file alongside the csv hydrotable for faster IO.
+- `tools/inundation.py` : Changed numba optimization routine to minimize copying, support windowed operations, and support int16.
+- `tools/inundate_gms.py` : Include mechanism for multiple gms workers.
+- `tools/inundate_mosaic_wrapper.py`: Allow for multiple workers and threads.
+- `tools/mosaic_inundation.py` : Adjusted routine to allow for multiple threads in overlapping inundation and optimized masking.
+- `tools/overlapping_inundation.py` : Allow for flexible datatypes, threads, and improved throughput.
+- `tools/run_test_case.py`: Added multi threads per worker and gms_workers to routine.
+- `tools/shared_functions.py` :  Added new encoding to account for hits in the candidate and a nodata value in the benchmark.
+
+<br/><br/>
+
+## v4.7.4.6 - 2025-05-22 - [PR#1533](https://github.com/NOAA-OWP/inundation-mapping/pull/1533)
+
+Hotfix to address issue caused by a different Slope attribute name in the NWM flowpath data (`nwm_subset_streams_levelPaths.gpkg`). The Alaska hydrofabric uses `So` attribute name whereas the CONUS hydrofabric uses `Slope` for the channel slope attribute name. Also included an additional fix to address a separate issue with missing channel and overbank roughness values in the input roughness file (AK featureids are not included in the current file).
+
+### Changes
+`src/add_crosswalk.py`: New logic to check for different channel slope attribute names
+`src/subdiv_chan_obank_src.py`: New logic to address feature_ids that we do not specify channel and overbank roughness values in the input file (`vmann_input_file`). Currently we do not have optimized roughness values for AK hucs, so the code now sets missing channel_n values = 0.06 and missing overbank_n values = 0.12.
+
+
+<br/><br/>
+
+## v4.7.4.5 - 2025-05-22 - [PR#1531](https://github.com/NOAA-OWP/inundation-mapping/pull/1531)
+
+In the post processes logs, some lines showed duration but not the section it was giving for a duration. You ended up with stacked duration lines in the post proc logs.
+
+### Changes
+- `fim_post_processing.sh`: as described above
 
 <br/><br/>
 
 
+## v4.7.4.4 - 2025-05-22 - [PR#1527](https://github.com/NOAA-OWP/inundation-mapping/pull/1527)
+
+When branches fails, and you run post-processing a second time, it triggers the update_htable_src.py script. However, that script does not know when the branch failed and was erroring out when a file did not exist.
+
+### Changes
+- `src`
+    - `udpate_htable_src.py`:  Skips if key branch files do not exist
+    - `aggregate_by_huc.py`: Added a comment
+
+<br/><br/>
+
+
+## v4.7.4.3 - 2025-05-22 - [PR#1529](https://github.com/NOAA-OWP/inundation-mapping/pull/1529)
+
+This PR fixes SVD errors in the nonmopnotonic script.
+
+### Changes
+- `src/`
+    - `bathymetric_adjustment.py`
+    - `nonmonotonic_src_adjustment.py`
+    - `filter_longitudinal_flow.py`
+
+<br/><br/>
+
+## v4.7.4.2 - 2025-05-22 - [PR#1526](https://github.com/NOAA-OWP/inundation-mapping/pull/1526)
+
+Fix for external levelpath intersecting WBD, an erroneous situation based on the geographic inaccuracy between the NWM streams and the WBD layers.
+
+### Changes
+
+- `src/stream_branches.py`: Ignore external levelpaths that intersect the WBD.
+
+<br/><br/>
+
+
+## v4.7.4.1 - 2025-05-22 - [PR#1530](https://github.com/NOAA-OWP/inundation-mapping/pull/1530)
+
+Selects appropriate GPKG layer when reading NFHL data to use the dissolved 100- and 500-year floodplains.
+This PR also fixes issue #1523.
+
+### Changes
+
+- `src/adjust_floodplains.py`: Added `layer='combined'` when reading NFHL data.
+- `src/stream_branches.py`: Prune branches that failed.
+
+<br/><br/>
+
+
+## v4.7.4.0 - 2025-05-16 - [PR#1481](https://github.com/NOAA-OWP/inundation-mapping/pull/1481)
+
+Adjusts the elevations in branch floodplains by subtracting an additional amount from the DEM based on distance from the levelpath stream line so streams are more likely to flow directly towards the levelpath in order to address the catchment boundary issue.
+
+### Additions
+
+- `config/params_template.env`: Adds floodplain parameters for `distance_threshold`, `z_factor`, and `slope_exponent`.
+- `data/nwm/fix_nwm_streams.py`: Fixes stream segments that were digitized in reverse order
+- `src/adjust_floodplains.py`: Computes subtraction raster based on distance (restricted to FEMA NFHL 500-year flood hazard zone if available) from levelpath, then subtracts that raster from the DEM
+
+### Changes
+
+- `.pre-commit-config.yaml`: Updated versions
+- `config/deny_branches.lst`: Added new DEM file and removed AGREE files
+- `src/`
+    - `bash_variables.env`: Updated path to flow file
+    - `derive_level_paths.py`: Added call to extend branches
+    - `run_by_branch.sh`: Added `adjust_floodplains.py`, moved pit filling and flowdir after `adjust_floodplains.py`, and edited some filenames
+    - `run_unit_wb.sh`: Edited some filenames
+    - `src_adjust_spatial_obs.py`: Fixed to not error if file is does not exist
+    - `stream_branches.py`:  Added method to extend all levelpaths to HUC outlet
+
+<br/><br/>
+
+
+## v4.7.3.0 - 2025-05-16 - [PR#1496](https://github.com/NOAA-OWP/inundation-mapping/pull/1496)
+
+This focuses on filtering discharge and hydraulic properties of NWM reaches and updating synthetic rating curves accordingly for each Hydro-ID.
+
+### Addition
+
+The following scripts are added where the discharge is filtered across the reaches for minimum values and Gaussian fluctuations, and synthetic rating curves are accordingly updated.
+
+- `src/`
+    - `filter_longitudinal_flow.py`
+    - `nonmonotonic_src_adjustment.py`
+
+### Changes
+
+- `config/`
+    - `params_template.env`
+- `fim_post_processing.sh`
+
+<br/><br/>
+
+
+## v4.7.2.0 - 2025-05-16 - [PR#1505](https://github.com/NOAA-OWP/inundation-mapping/pull/1505)
+
+Adding new functionality to ingest external data sources for channel slope values used in the SRC calcuations (Manning's equation). We are now ingesting slope values calculated from IRIS-SWORD (CIROH research - publication pending) as well as the NWM hydrofabric slope values (based on the NHD VAA data). The discharge calculation in the SRC is now implementing these slope values using a prioritization scheme (1-IRIS/SWORD, 2-NWM hydrofabric, 3-DEM rise/run calc).
+
+### Changes
+- `src/add_crosswalk.py`: updates to populate/rename the `SLOPE_RISE_RUN`, `SLOPE_HFAB`, `SLOPE_IRIS_SWORD` variables and include the data in the `src_full_crosswalked` and `hydrotable` csv files. This is also where the prioritazation scheme is coded - will define `SLOPE` using first available data (1-IRIS/SWORD, 2-NWM hydrofabric, 3-DEM rise/run calc).
+- `src/bash_variables.env`: added new input file path for `iris_sword_slope` parquet file (view readme in the input data dir for more info)
+- `src/delineate_hydros_and_produce_HAND.sh`: added new -i argument input (IRIS SWORD file)  to `add_crosswalk.py`
+- `src/identify_src_bankfull.py`: updated to remove hard coded process of removing some attributes in the src_full_crosswalked csv files (this is now handled in the `update_htable_src.py`)
+- `src/update_htable_src.py`: updated to specify which columns to preserve in the src_full_crosswalk csv files rather than preserving set number of columns.
+
+<br/><br/>
+
+
+## v4.7.1.0 - 2025-05-15 - [PR#1495](https://github.com/NOAA-OWP/inundation-mapping/pull/1495)
+
+This focuses on adjusting thalweg notches by healing hydro-conditioning before SRC calculation (Hydraulic) for GMS branches and updating synthetic rating curves in bathymetric_adjustment routing for each Hydro-ID.
+
+The following scripts has been updated where thalweg notches adjusted and synthetic rating curves updated.
+
+  
+### Changes
+
+- `src/`
+    - `bash_variables.env`: Updated for a new input path for new AI-Based bathymetry data from HydroVIS. The new dataset is stored here: /fim-data/inputs/bathymetry/ml_auxiliary_data.parquet
+    - `delineate_hydros_and_produce_HAND.sh`
+    - `bathymetric_adjustment.py`
+
+- `config/`
+    - `params_template.env`
+- `fim_post_processing.sh`
+
+<br/><br/>
+
+
+## v4.7.0.0 - 2025-05-16 - [PR#1499](https://github.com/NOAA-OWP/inundation-mapping/pull/1499)
+
+This focuses on adjusting nonmonotonic SRCs for GMS branches by updating discharge and other hydraulic variables for each Hydro-ID where the stage is within `in-channel`.
+
+The following scripts have been updated/added to adjust synthetic rating curves.
+
+### Addition
+
+- `src/`
+    - `nonmonotonic_src_adjustment.py`
+
+### Changes
+
+- `config/`
+    - `params_template.env`
+- `fim_post_processing.sh`
+
+<br/><br/>
+
+
+## v4.6.2.1 - 2025-05-16 - [PR#1515](https://github.com/NOAA-OWP/inundation-mapping/pull/1515)
+
+Modified the script to skip HUC8s without FEMA data.
+
+### Changes
+
+`data/nfhl/download_fema_nfhl.py` : Updated for areas without FEMA data.
+
+<br/><br/>
+
+
+## v4.6.2.0 - 2025-05-16 - [PR#1502](https://github.com/NOAA-OWP/inundation-mapping/pull/1502)
+
+This PR introduces a multiprocessing utility that can be reused across different workflows and projects.
+
+### Key features:
+- Parallel Task Execution: Uses `ProcessPoolExecutor` to run a set of independent tasks in parallel, with configurable number of workers.
+- Robust Logging:
+  - File-based logging using a centralized `file_logger` for recording of individual task results and errors.
+  - Screen output via a multiprocessing-safe `screen_queue`, printed by a dedicated background thread without interrupting the main progress bar.
+  - Task functions always receive three additional arguments of `file_logger`, `screen_queue`, and `task_id` that allow logging for each individual task.
+- Progress Monitoring: Displays real-time progress using `tqdm`, with success or failure messages for each task.
+
+### Changes
+- src/utils/shared_functions.py ... Introduces two new functions that enable multiprocessing across the codebase
+- data/bridges/make_dem_dif_for_bridges.py ... Provides an example of how to use the new multiprocessing framework instead of the previous code
+
+<br/><br/>
+
+
+## v4.6.1.14 - 2025-05-16 - [PR#1510](https://github.com/NOAA-OWP/inundation-mapping/pull/1510)
+
+This PR closes issues #1473 and #1483.
+
+This PR refactors the pre-clipping tool and introduces 9 new optional arguments that allow selective copying of existing pre-clipped vector 
+layers instead of regenerating them. This enhancement significantly reduces runtime, especially when only specific datasets such as OSM roads 
+or bridges need to be updated.
+
+
+### Additional Fixes and Enhancements
+
+* The tool now supports both CONUS and Alaska HUCs with automatic CRS handling, eliminating the need to run the code separately for each region. 
+It can now process a combination of CONUS and Alaska HUCs in a single run. 
+* A bug affecting lake generation in Alaska was identified and fixed. Previously, Alaska lakes had been omitted due to this bug.
+* After providing Alaska lakes, another bug in `src/stream_branches.py` was handled.
+
+
+### Changes
+- data/wbd/generate_pre_clip_fim_huc8.py
+- data/wbd/clip_vectors_to_wbd.py
+- src/stream_branches.py   ...  Fixed a bug for Alaska lakes based on new pre-clipped data
+- src/bash_variables.env   ...  Added the paths to newly generated OSM roads for both CONUS and Alaska
+
+<br/><br/>
+
+
+## v4.6.1.13 - 2025-05-16 - [PR#1501](https://github.com/NOAA-OWP/inundation-mapping/pull/1501)
+
+Update by Dependabot for updating the h11 package.
+
+<br/><br/>
+
+
+## v4.6.1.12 - 2025-05-16 - [PR#1512](https://github.com/NOAA-OWP/inundation-mapping/issues/1512)
+
+Updates the stage-based CatFIM USGS site filtration code so removed sites have clear status message listing what acceptance criteria they didn't meet.
+
+### Changes
+- `inundation-mapping/tools/catfim/generate_categorical_fim.py`: Updated `__create_acceptable_usgs_elev_df()` function to produce a descriptive `usgs_exclusion_status` column instead of just filtering out the sites that don't meet the acceptance criteria. Updated the `__adj_dem_evalation_val()` function to use the `usgs_exclusion_status` column to filter out sites that should be excluded and provide a more descriptive message for the excluded sites, where available.
+
+<br/><br/>
 
 
 ## v4.6.1.11 - 2025-05-01 - [PR#1494](https://github.com/NOAA-OWP/inundation-mapping/pull/1494)

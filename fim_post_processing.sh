@@ -171,10 +171,10 @@ Tcount
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
 if [ "$bathymetry_adjust" = "True" ]; then
-    echo -e $startDiv"Performing Bathymetry Adjustment routine"
+    l_echo $startDiv"Performing Bathymetry Adjustment routine"
+    Tstart
     # Run bathymetry adjustment routine
     aibathy_toggle=${ai_toggle} #:-0}
-    Tstart
     python3 $srcDir/bathymetric_adjustment.py \
         -fim_dir $outputDestDir \
         -bathy_ehydro $bathy_file_ehydro \
@@ -207,6 +207,28 @@ if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; the
         -fim_dir $outputDestDir \
         -mann $vmann_input_file \
         -j $jobLimit
+    Tcount
+fi
+
+## RUN NONMONOTONIC SRC ADJUSTMENT ROUTINE ##
+if [ "$nonmonotonic_src_adjustment" = "True" ]; then
+    l_echo $startDiv"Performing Nonmonotonic SRC Adjustment routine"
+    # Run Nonmonotonic SRCs Adjustment routine -flows $bankfull_flows_file \
+    Tstart
+    python3 $srcDir/nonmonotonic_src_adjustment.py \
+        -fim_dir $outputDestDir \
+        -j $jobLimit
+    Tcount
+fi
+
+## RUN LONGITUDINAL FILTER ROUTINE ##
+if [ "$logitudinal_filter" = "True" ]; then
+    l_echo $startDiv"Performing longitudinal discharge adjustment routine"
+    Tstart
+    python3 $srcDir/longitudinal_flow_adjustment.py \
+        -fim_dir $outputDestDir \
+        -j $jobLimit \
+
     Tcount
 fi
 
