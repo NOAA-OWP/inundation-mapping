@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.6.____ - 2025-06-13 - [PR#1516](https://github.com/NOAA-OWP/inundation-mapping/pull/1516)
+## v4.8.4.0 - 2025-06-13 - [PR#1516](https://github.com/NOAA-OWP/inundation-mapping/pull/1516)
 
 Updates the function that downloads USGS rating curves so that it does not apply the acceptance criteria filtering. Updates the scripts that use the USGS data so they have filtering where the data is read in. This change wil create a new set of USGS data outputs to use in FIM. 
 
@@ -16,6 +16,9 @@ Updates the function that downloads USGS rating curves so that it does not apply
 - `tools/tools_shared_functions.py`: Created the `filter_usgs_by_acceptance_criteria` function. 
 - `src/utils/shared_functions.py`: Updated `print_current_date_time` and `print_date_time_duration` functions so they can handle multiday processes.
 - `data/nws/preprocess_ahps_nws.py`, `data/usgs/preprocess_ahps_usgs.py`,  `tools/eval_plots.py`, `tools/fimr_to_benchmark.py`, and `tools/generate_nws_lid.py`: Updated comments.
+
+<br/><br/>
+
 ## v4.8.3.0 - 2025-06-13 - [PR#1541](https://github.com/NOAA-OWP/inundation-mapping/pull/1541)
 
 Fixes AK lake bugs to be able to use the new pre_clip data.
