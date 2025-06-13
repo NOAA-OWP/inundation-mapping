@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import glob
 import os
+import shutil
 
 import numpy as np
 import pandas as pd
@@ -59,7 +61,7 @@ def manual_calibration(fim_directory: str, calibration_file: str):
     values greater than 1 decrease the discharge value (and increase
     inundation).
 
-    The original rating curve is saved with a suffix of '_pre-manual'
+    The original rating curve is saved with a suffix of '_pre_manual_calib'
     before the new rating curve is written.
 
     Parameters
@@ -89,10 +91,16 @@ def manual_calibration(fim_directory: str, calibration_file: str):
     fim_inputs_hucs = fim_inputs['HUC'].unique()
 
     # Read manual calibration table
+
     if os.path.exists(calibration_file):
         manual_calib_df = pd.read_csv(
-            calibration_file, dtype={'HUC8': str, 'feature_id': int, 'calb_coef_manual': float}
+            calibration_file,
+            dtype={'HUC8': str, 'feature_id': int, 'calb_coef_manual': float},
+            index_col=False,
         )
+
+        if "Unnamed: 0" in manual_calib_df:
+            manual_calib_df = manual_calib_df.drop("Unnamed: 0", axis=1)
 
         if manual_calib_df['calb_coef_manual'].min() >= 0:
             # Find HUCs with manual calibration coefficients
@@ -100,33 +108,57 @@ def manual_calibration(fim_directory: str, calibration_file: str):
             hucs = np.intersect1d(fim_inputs_hucs, calib_hucs)
 
             for huc in hucs:
-                print(f'Updating hydrotable for {huc}')
+                if huc in calib_hucs:
+                    print(f'Updating hydrotable for {huc}')
 
-                # Read hydrotable
-                htable_file = os.path.join(fim_directory, huc, 'hydrotable.csv')
-                htable_file_split = os.path.splitext(htable_file)
-                htable_file_original = htable_file_split[0] + '_pre-manual' + htable_file_split[1]
+                    huc_branches_dir = os.path.join(fim_directory, huc, 'branches')
 
-                if not os.path.exists(htable_file_original):
-                    # Save a copy of the original hydrotable
-                    os.rename(htable_file, htable_file_original)
+                    # Yes... Upper case T
+                    ht_branch_files = list(
+                        glob.glob(os.path.join(huc_branches_dir, '**/hydroTable_*.csv'), recursive=True)
+                    )
+                    ht_branch_files.sort()
 
-                df_htable = pd.read_csv(htable_file_original, dtype=htable_dtypes)
+                    for ht_file in ht_branch_files:
 
-                df_htable = df_htable.rename(columns={'discharge_cms': 'postcalb_discharge_cms'})
+                        # Note: Saving a copy messes with other code which just looks for hydrotable_*.csv
+                        pre_calib_ht_file = ht_file.replace("hydroTable_", "htable_pre_manual_calib_")
+                        shutil.copyfile(ht_file, pre_calib_ht_file)
 
-                df_htable = df_htable.merge(manual_calib_df, how='left', on='feature_id')
-                df_htable.drop(columns=['HUC8'], inplace=True)
+                        # htable_file_split = os.path.splitext(ht_file)
+                        # htable_file_original = htable_file_split[0] + 'htable_pre_manual_calib' + htable_file_split[1]
+                        # # Save a copy of the original hydrotable
+                        # os.rename(ht_file, htable_file_original)
 
-                # Calculate new discharge_cms with manual calibration coefficient
-                df_htable['discharge_cms'] = np.where(
-                    df_htable['calb_coef_manual'].isnull(),
-                    df_htable['postcalb_discharge_cms'],
-                    df_htable['postcalb_discharge_cms'] / df_htable['calb_coef_manual'],
-                )
+                        # Read the branch hydrotable
+                        df_htable = pd.read_csv(ht_file, dtype=htable_dtypes, index_col=False)
 
-                # Write new hydroTable.csv rating curve (overwrites the previous file)
-                df_htable.to_csv(htable_file, index=False)
+                        # covers a legacy column, now renamed
+                        if "postcalb_discharge_cms" in df_htable:
+                            df_htable = df_htable.drop("postcalb_discharge_cms", axis=1)
+
+                        # Needed in case this is run a second time.
+                        if "calb_coef_manual" in df_htable:
+                            df_htable = df_htable.drop("calb_coef_manual", axis=1)
+
+                        # TODO: Jun 2025: By product of a bug in add_crosswalk.ph
+                        if "HydroID Int16" in df_htable:
+                            df_htable = df_htable.drop("HydroID Int16", axis=1)
+
+                        # make a backup of the discharge_cms column
+                        df_htable['pre_manual_calb_discharge_cms'] = df_htable['discharge_cms']
+                        df_htable = df_htable.merge(manual_calib_df, how='left', on='feature_id')
+                        df_htable.drop(columns=['HUC8'], inplace=True)
+
+                        # Calculate new discharge_cms with manual calibration coefficient
+                        df_htable['discharge_cms'] = np.where(
+                            df_htable['calb_coef_manual'].isnull(),
+                            df_htable['pre_manual_calb_discharge_cms'],
+                            df_htable['pre_manual_calb_discharge_cms'] / df_htable['calb_coef_manual'],
+                        )
+
+                        # Write new hydroTable.csv rating curve (overwrites the previous file)
+                        df_htable.to_csv(ht_file, index=False)
 
         else:
             raise ValueError(
