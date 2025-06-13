@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-06-03 - [PR#1546](https://github.com/NOAA-OWP/inundation-mapping/pull/1546)
+## v4.8.1.1 - 2025-06-13 - [PR#1545](https://github.com/NOAA-OWP/inundation-mapping/pull/1545)
 
 Adds files to branch deny list to be removed on file cleanup.
 
