@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.8.x.x - 2025-06-12 - [PR#1546]([https://github.com/NOAA-OWP/inundation-mapping/pull/1546])
+## v4.8.2.0 - 2025-06-13 - [PR#1546]([https://github.com/NOAA-OWP/inundation-mapping/pull/1546])
 
 Add a feature where the HUC level hydrotable also creates a parquet version, with key indexes, sorting and compression. Initially this will be used by HydroVIS only but future FIM versions will be updated to use this.
 
@@ -17,6 +17,9 @@ A small bug with src_manual_calibration was fixed.  It was running after aggrega
 
 ### Removals
 - `config\deny_branch_unittests.lst`:  Long since deprecated.
+
+<br/><br/>
+
 ## v4.8.1.2 - 2025-06-13 - [PR#1511](https://github.com/NOAA-OWP/inundation-mapping/pull/1511)
 
 This PR updates the bathymetry preprocessing and adjustment workflow to be able to process and incorporate bathymetric data from sources other than eHydro bathymetric surveys.
