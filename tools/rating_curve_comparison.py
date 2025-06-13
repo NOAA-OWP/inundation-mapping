@@ -106,7 +106,9 @@ def generate_rating_curve_metrics(args):
     elev_table = elev_table[elev_table['location_id'].apply(lambda x: str(x).isdigit())]
 
     # Read in the USGS gages rating curve database csv
-    usgs_gages_unfiltered = pd.read_csv(usgs_gages_filename, dtype={'location_id': object, 'feature_id': object})
+    usgs_gages_unfiltered = pd.read_csv(
+        usgs_gages_filename, dtype={'location_id': object, 'feature_id': object}
+    )
 
     # Filter USGS gages by location ID based on acceptable site types
     usgs_gages = usgs_gages_unfiltered[usgs_gages_unfiltered['location_id'].isin(location_ids_to_keep)]
@@ -1134,8 +1136,7 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     sns.countplot(ax=ax[1, 0], y='mean_abs_y_diff_ft', data=usgs_gages)
     sns.countplot(ax=ax[1, 1], y='mean_y_diff_ft', data=usgs_gages)
     sns.boxplot(
-        ax=ax[0, 1],
-        data=usgs_gages[['2', '5', '10', '25', '50', 'action', 'minor', 'moderate', 'major']],
+        ax=ax[0, 1], data=usgs_gages[['2', '5', '10', '25', '50', 'action', 'minor', 'moderate', 'major']]
     )
     ax[0, 1].set(ylim=(-12, 12))
 
@@ -1375,7 +1376,7 @@ if __name__ == '__main__':
 
                 # Filter all_rating_curves according to acceptance criteria
                 acceptable_elev_table = filter_usgs_by_acceptance_criteria(read_elev_table)
-                
+
                 location_ids_to_keep = acceptable_elev_table['location_id'].drop_duplicates().tolist()
 
                 procs_list.append(
@@ -1396,7 +1397,6 @@ if __name__ == '__main__':
                 )
 
                 merged_elev_table.append(acceptable_elev_table)
-
 
         # Output a concatenated elev_table to_csv
         if merged_elev_table:

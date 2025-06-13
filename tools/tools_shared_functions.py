@@ -27,9 +27,6 @@ from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
 from shapely.geometry import MultiPolygon, Polygon, shape
-from urllib3.exceptions import InsecureRequestWarning
-from urllib3.util.retry import Retry
-
 from tools_shared_variables import (
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
@@ -37,11 +34,14 @@ from tools_shared_variables import (
     acceptable_coord_method_code_list,
     acceptable_site_type_list,
 )
+from urllib3.exceptions import InsecureRequestWarning
+from urllib3.util.retry import Retry
+
 
 gpd.options.io_engine = "pyogrio"
 
 
-# TODO: Jun 2025: Change this to have a path to the config via an arg. 
+# TODO: Jun 2025: Change this to have a path to the config via an arg.
 # See rating_curve_get_usgs_curves for an example
 def get_env_paths():
     load_dotenv()
@@ -91,6 +91,7 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
 
     return filtered_segments
 
+
 def filter_usgs_by_acceptance_criteria(input_df):
     '''
     This function filters a USGS dataframe according the acceptance criteria.
@@ -111,7 +112,7 @@ def filter_usgs_by_acceptance_criteria(input_df):
         Filtered DataFrame of USGS data that meets the acceptance criteria.
 
     # TODO: Could add an option to adjust which acceptable codes are used, but for now this is hardcoded.
-    
+
     '''
     input_df['acceptable_codes'] = (
         input_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
@@ -126,6 +127,7 @@ def filter_usgs_by_acceptance_criteria(input_df):
     output_df = input_df[(input_df['acceptable_codes'] == True) & (input_df['acceptable_alt_error'] == True)]
 
     return output_df
+
 
 def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
     '''
@@ -145,9 +147,9 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
 
     Returns
     -------
-    masked_array: xarray 
+    masked_array: xarray
         DataArray with lakes masked out
-    mask_status: string, 
+    mask_status: string,
         status of whether lake shapefile was available
 
 

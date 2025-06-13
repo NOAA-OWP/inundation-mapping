@@ -9,9 +9,10 @@ import geopandas as gpd
 import pandas as pd
 
 from src_roughness_optimization import update_rating_curve
+from tools.tools_shared_functions import filter_usgs_by_acceptance_criteria
 from utils.shared_functions import check_file_age, concat_huc_csv
 from utils.shared_variables import USGS_CALB_TRACE_DIST
-from tools.tools_shared_functions import filter_usgs_by_acceptance_criteria
+
 
 '''
 The script ingests a USGS rating curve csv and a NWM flow recurrence interval database.
@@ -44,7 +45,9 @@ Outputs
 '''
 
 
-def create_usgs_rating_database(usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir):
+def create_usgs_rating_database(
+    usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
+):
     start_time = dt.datetime.now()
     print('Reading USGS rating curve from csv...')
     log_text = 'Processing database for USGS flow/WSE at NWM flow recur intervals...\n'
@@ -54,14 +57,14 @@ def create_usgs_rating_database(usgs_rc_filepath, usgs_sites_filepath, usgs_elev
     )  # , nrows=30000)
     print('Duration (read usgs_rc_csv): {}'.format(dt.datetime.now() - start_time))
 
-    # Read in and filter acceptable sites file 
+    # Read in and filter acceptable sites file
     # acceptable_sites_path = "/data/inputs/usgs_gages/acceptable_sites_for_rating_curves_20250603.csv" # TODO: Make an input variable
 
     acceptable_sites = pd.read_csv(usgs_sites_filepath)
     acceptable_sites_filt = filter_usgs_by_acceptance_criteria(acceptable_sites)
     location_ids_to_keep = acceptable_sites_filt['location_id'].drop_duplicates().tolist()
 
-    #rm acceptable_sites_filt, acceptable_sites 
+    # rm acceptable_sites_filt, acceptable_sites
 
     # Only keep rating curves from acceptable sites
     usgs_rc_df = usgs_rc_df[usgs_rc_df['location_id'].isin(location_ids_to_keep)]
@@ -468,7 +471,9 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
     #     )
 
 
-def run_prep(run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number):
+def run_prep(
+    run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+):
     # Check input args are valid
     assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
@@ -478,7 +483,7 @@ def run_prep(run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath
     # usgs_elev_df = pd.read_csv(
     #     usgs_elev_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int}
     # )
-    csv_name = 'usgs_elev_table.csv' # TODO: Get this from a variable?
+    csv_name = 'usgs_elev_table.csv'  # TODO: Get this from a variable?
 
     available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
@@ -519,7 +524,9 @@ def run_prep(run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath
     else:
         print('This may take a few minutes...')
         log_file.write("starting create usgs rating db\n")
-        usgs_df = create_usgs_rating_database(usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir)
+        usgs_df = create_usgs_rating_database(
+            usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
+        )
 
         # Create huc proc_list for multiprocessing and execute the update_rating_curve function
         branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file)
@@ -547,7 +554,7 @@ if __name__ == '__main__':
         '-usgs_sites',
         '--usgs-sites',
         help='Path to USGS acceptable sites for rating curves file',
-        required=True
+        required=True,
     )
     parser.add_argument(
         '-nwm_recur',
@@ -575,4 +582,6 @@ if __name__ == '__main__':
     job_number = int(args['job_number'])
 
     # Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number)
+    run_prep(
+        run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+    )

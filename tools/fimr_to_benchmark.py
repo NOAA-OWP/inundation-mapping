@@ -16,7 +16,7 @@ from tools_shared_functions import get_metadata
 gpd.options.io_engine = "pyogrio"
 
 
-# TODO: Jun 2025: Change this to have a path to the config via an arg. 
+# TODO: Jun 2025: Change this to have a path to the config via an arg.
 # See rating_curve_get_usgs_curves for an example
 load_dotenv()
 

@@ -24,7 +24,7 @@ gpd.options.io_engine = "pyogrio"
 
 # Get variables from .env file.
 
-# TODO: Jun 2025: Change this to have a path to the config via an arg. 
+# TODO: Jun 2025: Change this to have a path to the config via an arg.
 # See rating_curve_get_usgs_curves for an example
 load_dotenv()
 WBD_LAYER = os.getenv("WBD_LAYER")

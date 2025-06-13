@@ -36,8 +36,8 @@ gpd.options.io_engine = "pyogrio"
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
     running script outside of business hours seems to be most consistent way
     to avoid API errors. Currently configured to get rating curve data within
-    CONUS. 
-    
+    CONUS.
+
     Tidal API call may need to be modified to get datum conversions for AK.
 '''
 
@@ -126,7 +126,7 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
         logging.info(f"Processing flow data for lid: {nws_lid}")
 
         # thresholds only provided for valid nws_lid.
-        if nws_lid == 'Bogus_ID' or nws_lid is None: # TODO: Remove, should be unnecessary
+        if nws_lid == 'Bogus_ID' or nws_lid is None:  # TODO: Remove, should be unnecessary
             continue
 
         # if invalid feature_id skip to next site
@@ -348,7 +348,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
         num_sites = len(metadata_list)
         logging.info(f"Number of sites to process: {num_sites}")
         print("-- Note: some locations will be skipped")
-        
+
         # TODO: This part needs MP, as is, it takes appx 21 hours
         for i in range(len(metadata_list)):
             metadata = metadata_list[i]
@@ -399,7 +399,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
                     # TODO: Jun 5, 2025: temp commented out the sleep system
                     # Commenting it out has not yet been tested. In a future release
                     # test this and remove it possible. (inc arg)
-                    
+
                     # To prevent time-out errors
                     # time.sleep(sleep_time)
 
@@ -421,7 +421,9 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
                 elif usgs['vcs'] == 'LMSL':
                     # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site.
-                    logging.warning(f'{location_ids}: Removed because LMSL datum found outside of PR, VI, or HI')
+                    logging.warning(
+                        f'{location_ids}: Removed because LMSL datum found outside of PR, VI, or HI'
+                    )
                     continue
 
                 else:

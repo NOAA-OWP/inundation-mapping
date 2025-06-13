@@ -9,11 +9,11 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from dotenv import load_dotenv
 from rasterio.mask import mask
-
 from tools_shared_functions import filter_usgs_by_acceptance_criteria
 
-from dotenv import load_dotenv
+
 load_dotenv('/foss_fim/src/bash_variables.env')
 
 
@@ -44,7 +44,7 @@ def process_impact_statement(huc_path, impact_statement_dir, NWSLID, huc):
 
     # Only keep rating curves from acceptable sites
     usgs_rating = usgs_rating_unfiltered[usgs_rating_unfiltered['location_id'].isin(location_ids_to_keep)]
-    
+
     for branch_folder in os.listdir(huc_path):
         branch_path = os.path.join(huc_path, branch_folder)
         if os.path.isdir(branch_path):
