@@ -27,6 +27,13 @@ from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
 from shapely.geometry import MultiPolygon, Polygon, shape
+from tools_shared_variables import (
+    acceptable_alt_acc_thresh,
+    acceptable_alt_meth_code_list,
+    acceptable_coord_acc_code_list,
+    acceptable_coord_method_code_list,
+    acceptable_site_type_list,
+)
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
@@ -34,6 +41,8 @@ from urllib3.util.retry import Retry
 gpd.options.io_engine = "pyogrio"
 
 
+# TODO: Jun 2025: Change this to have a path to the config via an arg.
+# See rating_curve_get_usgs_curves for an example
 def get_env_paths():
     load_dotenv()
     # import variables from .env file
@@ -83,21 +92,66 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     return filtered_segments
 
 
+def filter_usgs_by_acceptance_criteria(input_df):
+    '''
+    This function filters a USGS dataframe according the acceptance criteria.
+
+    Parameters
+    ----------
+    input_df: pd.DataFrame
+        Dataframe of USGS data to be filtered. Must contain the following columns:
+        - usgs_data_coord_accuracy_code
+        - usgs_data_coord_method_code
+        - usgs_data_alt_method_code
+        - usgs_data_site_type
+        - usgs_data_alt_accuracy_code
+
+    Returns
+    -------
+    output_df: pd.DataFrame
+        Filtered DataFrame of USGS data that meets the acceptance criteria.
+
+    # TODO: Could add an option to adjust which acceptable codes are used, but for now this is hardcoded.
+
+    '''
+    input_df['acceptable_codes'] = (
+        input_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+        & input_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+        & input_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+        & input_df['usgs_data_site_type'].isin(acceptable_site_type_list)
+    )
+    input_df = input_df.astype({'usgs_data_alt_accuracy_code': float})
+    input_df['acceptable_alt_error'] = np.where(
+        input_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
+    )
+    output_df = input_df[(input_df['acceptable_codes'] == True) & (input_df['acceptable_alt_error'] == True)]
+
+    return output_df
+
+
 def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
     '''
     This function is used in CatFIM to mask out lakes from inundated tifs.
 
-    Inputs:
+    Parameters
+    ----------
+    input_array: xarray DataArray
+        DataArray with inundation values that need lakes removed
+    huc: str
+        HUC8 id (string), needed to get the correct lakes file
+    raster_src: rasterio DatasetReader
+        src from a raster that should be uses for getting the correct raster dimensions
+    fim_run_dir: str
+        path to the fim run directory where the lakes shapefile is located
 
-    input_array: inundation TIF that needs lakes removed (called summed_array for stage-based)
-    huc: HUC8 id (string), needed to get the correct lakes file
-    raster_src: src from a raster that should be uses for getting the correct raster dimensions
-    fim_run_dir: path to the fim run directory where the lakes shapefile is located
 
-    Outputs:
+    Returns
+    -------
+    masked_array: xarray
+        DataArray with lakes masked out
+    mask_status: string,
+        status of whether lake shapefile was available
 
-    masked_array: same array as before, but with lakes masked out and the dimensions of raster_src
-    mask_status: string, status of whether lake shapefile was available
 
     '''
 
@@ -776,7 +830,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
         # filter by hucs we are using
         huc8 = huc8[huc8['HUC8'].isin(huc_list)]
 
-    huc8.sort_values(by='HUC8', ascending=True, inplace=True)
+    huc8 = huc8.sort_values(by='HUC8', ascending=True)
 
     # Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
     crs_lookup = {'NAD27': 'EPSG:4267', 'NAD83': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
@@ -1208,6 +1262,7 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
     in NAD27 crs. If input lat/lon are not NAD27 then these coords are
     reprojected to NAD27 and the reproject coords are used to get adjustment.
     There appears to be an issue when region is not in contiguous US.
+    TODO: Test outside of CONUS and resolve if needed.
 
     Parameters
     ----------
