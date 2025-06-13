@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 from rasterio.features import shapes
+from scipy.ndimage import label
 from shapely.geometry import shape
 
 
@@ -91,6 +92,19 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
     combined_crop = combined_mask[window]
     mask_crop = combined_crop > 0
 
+    # Label connected regions (connected pixels > 0)
+    labeled, num_features = label(mask_crop)
+
+    # Count pixels in each connected region (label)
+    pixel_counts = np.bincount(labeled.ravel())
+
+    # Build a mask of labels that have enough area (e.g., > 5 pixels)
+    min_pixels = 3  # adjust based on cell size and minimum area threshold
+    valid_labels = np.where(pixel_counts >= min_pixels)[0]
+
+    # Mask out small components
+    filtered_mask = np.isin(labeled, valid_labels) & (combined_crop > 0)
+
     # Calculate adjusted transform for the window
     transform_crop = rasterio.transform.from_origin(
         transform.c + min_col * transform.a, transform.f + min_row * transform.e, transform.a, -transform.e
@@ -100,13 +114,9 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
     rasterize_start = time.time()
 
     try:
-        for geom, value in shapes(combined_crop, mask=mask_crop, transform=transform_crop):
+        for geom, value in shapes(combined_crop, mask=filtered_mask, transform=transform_crop):
             if value > 0:
                 geom_shape = shape(geom)
-
-                # Skip one pixel polygons (for faster processing) - 150 sq meters
-                if geom_shape.area < 150:
-                    continue
 
                 catchment_id = int(value)
                 discharge_cms, volume_m3 = interpolate_discharge(true_rem, catchment_id, htable_df)
