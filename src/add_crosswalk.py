@@ -417,6 +417,7 @@ def add_crosswalk(
     if output_hydro_table.HydroID.dtype != 'str':
         output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
 
+    # TODO: Jun 2025: Why do we have this column? Likely a bug
     output_hydro_table['HydroID Int16'] = output_hydro_table['HydroID'].apply(lambda x: str(int(x[4:])))
     output_hydro_table[FIM_ID] = output_hydro_table.loc[:, 'HydroID'].apply(lambda x: str(x)[0:4])
 
