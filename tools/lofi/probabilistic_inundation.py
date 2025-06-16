@@ -865,7 +865,6 @@ if __name__ == '__main__':
         "--output_raster",
         help="OPTIONAL: Whether to keep final raster output",
         action='store_true',
-        default=True,
         required=False,
     )
 
