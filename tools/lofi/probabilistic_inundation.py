@@ -882,7 +882,7 @@ if __name__ == '__main__':
         required=False,
     )
 
-    parser.add_argument("l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
+    parser.add_argument("-l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
 
     parser.add_argument(
         "-a",
