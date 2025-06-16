@@ -264,7 +264,7 @@ def get_subdivided_src(
     df_src['channel_n'] = channel_manning
     df_src['overbank_n'] = overbank_manning
 
-    df_src['subdiv_applied'] = np.where(df_src['Stage_bankfull'].isnull(), False, True)  # creat
+    df_src['subdiv_applied'] = ~df_src['Stage_bankfull'].isnull()  # creat
 
     # Subdivide Manning Eq --------------------------------------------------------------------------------
 
