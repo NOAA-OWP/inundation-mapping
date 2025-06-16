@@ -846,7 +846,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "-pd",
         "--posterior_dist",
-        help="OPTIONAL: HUCs to process probabilistic inundation",
+        help="OPTIONAL: Path to posterior distribution configuration file",
         required=False,
     )
 
