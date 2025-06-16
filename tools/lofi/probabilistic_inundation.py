@@ -853,7 +853,6 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-",
         "--overwrite",
         default=False,
         help="OPTIONAL: Whether to overwrite existing output",
