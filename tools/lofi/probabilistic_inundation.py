@@ -876,22 +876,34 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-q", "--quiet", default=True, help="OPTIONAL: Whether to be verbose or not", required=False
+        "-q",
+        "--quiet",
+        default=True,
+        help="OPTIONAL: Whether to be verbose or not",
+        required=False
     )
 
     parser.add_argument(
-        "-j", "--num_jobs", type=int, help="REQUIRED: Number of jobs to process HUCs", required=True
+        "-j",
+        "--num_jobs",
+        type=int,
+        help="REQUIRED: Number of jobs to process HUCs",
+        required=True
     )
 
     parser.add_argument(
-        "-t", "--num_threads", type=int, help="REQUIRED: Number of threads to process HUCs", required=True
+        "-t",
+        "--num_threads",
+        type=int,
+        help="REQUIRED: Number of threads to process HUCs",
+        required=True
     )
 
     parser.add_argument(
         "-w",
         "--windowed",
         action='store_true',
-        help="REQUIRED: Number of threads to process HUCs",
+        help="OPTIONAL: Number of threads to process HUCs",
         required=False,
     )
 
