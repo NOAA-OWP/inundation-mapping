@@ -504,7 +504,7 @@ def inundate_probabilistic(
                 future = executor.submit(
                     generate_streamflow_percentiles,
                     feature=feat,
-                    ensemble_forecast=ensemble_forecast.copy(),
+                    ensemble_forecast=ensemble_forecast,
                     params_weibull=params_weibull,
                 )
                 executor_dict[future] = feat
