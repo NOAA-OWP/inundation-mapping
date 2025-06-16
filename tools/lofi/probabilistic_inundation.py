@@ -621,44 +621,17 @@ def inundate_probabilistic(
     raster_crs = datasets[0].crs
     profile.update(dtype=np.int8)
 
-    def merge_percentiles(
-        ds: list, percentiles: list, window: rasterio.windows.Window, wrst=rasterio.io.DatasetWriter
-    ):
-        arrays = []
-        for d, p in zip(ds, percentiles):
-            data = d.read(1, window=window)
-            data[np.where(data > 0)] = np.int8(p)
-            arrays.append(data)
-
-        merged = np.max(arrays, axis=0)
-
-        wrst.write(merged, window=window, indexes=1)
-
-    executor = ThreadPoolExecutor(max_workers=num_threads)
-
-    def __data_generator(datasets, percentiles, windows, wrst):
-        for window in windows:
-            yield datasets, percentiles, window, wrst
-
-    def _vprint(message, verbose):
-        if verbose:
-            print(message)
-
     out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
     with rasterio.open(out_rast, "w+", **profile) as write_rst:
-        dgen = __data_generator(datasets, list(percentiles.keys()), windows, write_rst)
-        results = {executor.submit(merge_percentiles, *wg): 1 for wg in dgen}
+        for window in windows:
+            arrays = []
+            for d, p in zip(datasets, percentiles.keys()):
+                data = d.read(1, window=window)
+                data[data > 0] = np.int8(p)
+                arrays.append(data)
 
-        for future in as_completed(results):
-            try:
-                future.result()
-            except Exception as exc:
-                _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
-            else:
-                if results[future] is not None:
-                    _vprint("... {} complete".format(results[future]), not quiet)
-                else:
-                    _vprint("... complete", not quiet)
+            merged = np.max(arrays, axis=0)
+            write_rst.write(merged, window=window, indexes=1)
 
     # Close datasets
     for ds in datasets:
