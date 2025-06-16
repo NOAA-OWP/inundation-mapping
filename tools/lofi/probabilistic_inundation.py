@@ -801,10 +801,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run probabilistic inundation on selected HUCs")
 
     parser.add_argument(
-        "-e", "--ensembles", help="REQUIRED: Location of ensembles NetCDF file", required=True
+        "-e",
+        "--ensembles",
+        help="REQUIRED: Location of ensembles NetCDF file",
+        required=True
     )
 
-    parser.add_argument("-p", "--parameters", help='REQUIRED: Location of parameters CSV file', required=True)
+    parser.add_argument(
+        "-p",
+        "--parameters",
+        help='REQUIRED: Location of parameters CSV file',
+        required=True
+    )
 
     parser.add_argument(
         "-hd",
@@ -814,11 +822,18 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-od", "--outputs_dir", help="REQUIRED: Directory with fim outputs and hydrofabric", required=True
+        "-od",
+        "--outputs_dir",
+        help="REQUIRED: Directory with fim outputs and hydrofabric",
+        required=True
     )
 
     parser.add_argument(
-        "-hc", "--hucs", nargs="*", help="REQUIRED: HUCs to process probabilistic inundation", required=True
+        "-hc",
+        "--hucs",
+        nargs="*",
+        help="REQUIRED: HUCs to process probabilistic inundation",
+        required=True
     )
 
     parser.add_argument(
