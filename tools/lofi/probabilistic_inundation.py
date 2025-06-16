@@ -5,7 +5,7 @@ import shutil
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from glob import glob
+from glob import iglob
 from typing import Dict, Optional, Tuple, Union
 
 import geopandas as gpd
@@ -554,6 +554,10 @@ def inundate_probabilistic(
     os.makedirs(htable_output_path, exist_ok=True)
     os.makedirs(flow_path, exist_ok=True)
 
+     # Find the original hydrotable
+    all_branches = iglob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
+    all_branches = list(map(os.path.basename, all_branches))
+
     # Apply inundation map to each percentile
     for percentile, val in percentiles.items():
         channel_n = channel_dist.ppf(1 - int(percentile) / 100)
@@ -568,10 +572,6 @@ def inundate_probabilistic(
         # Skip if the file exists
         if os.path.exists(final_inundation_path) and not overwrite:
             continue
-
-        # Open the original hydrotable
-        all_branches = glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
-        all_branches = [x.split('/')[-1] for x in all_branches]
 
         htable_output_file = "htable_{0}.feather"
         for branch in all_branches:
