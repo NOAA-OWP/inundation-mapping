@@ -622,7 +622,7 @@ def inundate_probabilistic(
     profile.update(dtype=np.int8)
 
     out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
-    with rasterio.open(out_rast, "w+", **profile) as write_rst:
+    with rasterio.open(out_rast, "w+", **profile, compress='DEFLATE', tiled=True) as write_rst:
         for window in windows:
             arrays = []
             for d, p in zip(datasets, percentiles.keys()):
