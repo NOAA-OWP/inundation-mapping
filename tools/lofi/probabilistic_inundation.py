@@ -886,17 +886,17 @@ if __name__ == '__main__':
     parser.add_argument(
         "-j",
         "--num_jobs",
+        default=1,
         type=int,
         help="REQUIRED: Number of jobs to process HUCs",
-        required=True
     )
 
     parser.add_argument(
         "-t",
         "--num_threads",
+        default=1,
         type=int,
         help="REQUIRED: Number of threads to process HUCs",
-        required=True
     )
 
     parser.add_argument(
