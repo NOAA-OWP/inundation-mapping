@@ -537,13 +537,12 @@ def inundate_probabilistic(
     output_file_name = os.path.basename(mosaic_prob_output_name)
     base_output_path = os.path.join(fim_outputs_dir, str(huc))
     src_output_path = os.path.join(base_output_path, 'srcs')
-    htable_output_path = os.path.join(base_output_path, 'srcs')
+    htable_output_path = src_output_path
     flow_path = os.path.join(base_output_path, 'flows')
 
     # Create directories if they do not exist
     os.makedirs(base_output_path, exist_ok=True)
     os.makedirs(src_output_path, exist_ok=True)
-    os.makedirs(htable_output_path, exist_ok=True)
     os.makedirs(flow_path, exist_ok=True)
 
     # Find the original hydrotable
