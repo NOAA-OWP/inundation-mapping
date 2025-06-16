@@ -920,14 +920,20 @@ if __name__ == '__main__':
         required=False,
     )
 
-    parser.add_argument("-l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
+    parser.add_argument(
+        "l",
+        "--log_file",
+        type=str,
+        help="OPTIONAL: Filepath for log file",
+        required=False
+    )
 
     parser.add_argument(
         "-a",
         "--aggregate_forecasts",
         type=str,
-        help='OPTIONAL: Method to aggregate forecasts.  Options are max_to_forecast, '
-        'timeslice_max_of_any_feature_id, timeslice_max_sum',
+        help=('OPTIONAL: Method to aggregate forecasts.  Options are max_to_forecast, '
+        'timeslice_max_of_any_feature_id, timeslice_max_sum'),
     )
 
     args = vars(parser.parse_args())
