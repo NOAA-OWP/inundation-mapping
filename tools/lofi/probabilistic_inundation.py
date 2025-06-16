@@ -541,25 +541,24 @@ def inundate_probabilistic(
         posterior_dist=posterior_dist, huc=huc
     )
 
+    # Make directories if they do not exist
+    output_file_name = mosaic_prob_output_name.split('/')[-1]
+    base_output_path = os.path.join(fim_outputs_dir, str(huc))
+    src_output_path = os.path.join(base_output_path, 'srcs')
+    htable_output_path = os.path.join(base_output_path, 'srcs')
+    flow_path = os.path.join(base_output_path, 'flows')
+
+    # Create directories if they do not exist
+    os.makedirs(base_output_path, exist_ok=True)
+    os.makedirs(src_output_path, exist_ok=True)
+    os.makedirs(htable_output_path, exist_ok=True)
+    os.makedirs(flow_path, exist_ok=True)
+
     # Apply inundation map to each percentile
     for percentile, val in percentiles.items():
-
         channel_n = channel_dist.ppf(1 - int(percentile) / 100)
         overbank_n = obank_dist.ppf(1 - int(percentile) / 100)
         slope_adj = slope_dist.ppf(int(percentile) / 100)
-
-        # Make directories if they do not exist
-        output_file_name = mosaic_prob_output_name.split('/')[-1]
-        base_output_path = os.path.join(fim_outputs_dir, str(huc))
-        src_output_path = os.path.join(base_output_path, 'srcs')
-        htable_output_path = os.path.join(base_output_path, 'srcs')
-        flow_path = os.path.join(base_output_path, 'flows')
-
-        # Create directories if they do not exist
-        os.makedirs(base_output_path, exist_ok=True)
-        os.makedirs(src_output_path, exist_ok=True)
-        os.makedirs(htable_output_path, exist_ok=True)
-        os.makedirs(flow_path, exist_ok=True)
 
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
