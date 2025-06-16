@@ -51,7 +51,6 @@ def get_fim_probability_distributions(
     """
 
     if posterior_dist is None:
-
         # Default weibull likelihood for channel manning roughness
         channel_dist = weibull_min(c=1.5, scale=0.0367, loc=0.032)
 
@@ -62,7 +61,6 @@ def get_fim_probability_distributions(
         slope_dist = weibull_min(c=4, scale=0.95 / 10, loc=-0.0867)
 
     else:
-
         raise NotImplementedError("Currently not implemented")
 
     return channel_dist, obank_dist, slope_dist
@@ -464,17 +462,14 @@ def inundate_probabilistic(
 
     # For each feature in the provided ensembles
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-
         # Get max streamflow for every feature up to forecast time
         if aggregate_forecasts == "max_to_forecast":
-
             sel_forecast = ensembles.sel({'time': slice(reference_time, forecast_time)}).max('time')[
                 'streamflow'
             ]
 
         # Timeslice representing the max streamflow for any feature id in time up to forecast time
         elif aggregate_forecasts == "timeslice_max_of_any_feature_id":
-
             sel_forecast = ensembles['streamflow'].isel(
                 {
                     'time': ensembles['streamflow']
@@ -486,7 +481,6 @@ def inundate_probabilistic(
 
         # Timeslice representing the max sum of streamflow for all feature ids in time up to forecast time
         elif aggregate_forecasts == "timeslice_max_sum":
-
             sel_forecast = ensembles['streamflow'].isel(
                 {
                     'time': ensembles['streamflow']
@@ -498,13 +492,11 @@ def inundate_probabilistic(
 
         # Timeslice at forecast time
         else:
-
             sel_forecast = ensembles.sel({'time': forecast_time})['streamflow']
 
         # Generate streamflow likelihoods for each feature
         executor_dict = {}
         for feat in features:
-
             feat = feat if isinstance(feat, int) else int(feat)
             ensemble_forecast = sel_forecast.sel({'feature_id': feat})
 
@@ -554,7 +546,7 @@ def inundate_probabilistic(
     os.makedirs(htable_output_path, exist_ok=True)
     os.makedirs(flow_path, exist_ok=True)
 
-     # Find the original hydrotable
+    # Find the original hydrotable
     all_branches = iglob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
     all_branches = list(map(os.path.basename, all_branches))
 
@@ -781,7 +773,6 @@ def inundate_hucs(
 
 
 if __name__ == '__main__':
-
     """
     Example Usage:
 
@@ -800,18 +791,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run probabilistic inundation on selected HUCs")
 
     parser.add_argument(
-        "-e",
-        "--ensembles",
-        help="REQUIRED: Location of ensembles NetCDF file",
-        required=True
+        "-e", "--ensembles", help="REQUIRED: Location of ensembles NetCDF file", required=True
     )
 
-    parser.add_argument(
-        "-p",
-        "--parameters",
-        help='REQUIRED: Location of parameters CSV file',
-        required=True
-    )
+    parser.add_argument("-p", "--parameters", help='REQUIRED: Location of parameters CSV file', required=True)
 
     parser.add_argument(
         "-hd",
@@ -821,18 +804,11 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-od",
-        "--outputs_dir",
-        help="REQUIRED: Directory with fim outputs and hydrofabric",
-        required=True
+        "-od", "--outputs_dir", help="REQUIRED: Directory with fim outputs and hydrofabric", required=True
     )
 
     parser.add_argument(
-        "-hc",
-        "--hucs",
-        nargs="*",
-        help="REQUIRED: HUCs to process probabilistic inundation",
-        required=True
+        "-hc", "--hucs", nargs="*", help="REQUIRED: HUCs to process probabilistic inundation", required=True
     )
 
     parser.add_argument(
@@ -888,27 +864,14 @@ if __name__ == '__main__':
         required=False,
     )
 
+    parser.add_argument("-q", "--quiet", action='store_true', help="OPTIONAL: Whether to be verbose or not")
+
     parser.add_argument(
-        "-q",
-        "--quiet",
-        action='store_true',
-        help="OPTIONAL: Whether to be verbose or not",
+        "-j", "--num_jobs", default=1, type=int, help="REQUIRED: Number of jobs to process HUCs"
     )
 
     parser.add_argument(
-        "-j",
-        "--num_jobs",
-        default=1,
-        type=int,
-        help="REQUIRED: Number of jobs to process HUCs",
-    )
-
-    parser.add_argument(
-        "-t",
-        "--num_threads",
-        default=1,
-        type=int,
-        help="REQUIRED: Number of threads to process HUCs",
+        "-t", "--num_threads", default=1, type=int, help="REQUIRED: Number of threads to process HUCs"
     )
 
     parser.add_argument(
@@ -919,20 +882,16 @@ if __name__ == '__main__':
         required=False,
     )
 
-    parser.add_argument(
-        "l",
-        "--log_file",
-        type=str,
-        help="OPTIONAL: Filepath for log file",
-        required=False
-    )
+    parser.add_argument("l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
 
     parser.add_argument(
         "-a",
         "--aggregate_forecasts",
         type=str,
-        help=('OPTIONAL: Method to aggregate forecasts.  Options are max_to_forecast, '
-        'timeslice_max_of_any_feature_id, timeslice_max_sum'),
+        help=(
+            'OPTIONAL: Method to aggregate forecasts.  Options are max_to_forecast, '
+            'timeslice_max_of_any_feature_id, timeslice_max_sum'
+        ),
     )
 
     args = vars(parser.parse_args())
