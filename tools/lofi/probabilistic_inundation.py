@@ -903,7 +903,7 @@ if __name__ == '__main__':
         "-w",
         "--windowed",
         action='store_true',
-        help="OPTIONAL: Number of threads to process HUCs",
+        help="OPTIONAL: Whether to run inundation in windowed mode for memory conservation ",
         required=False,
     )
 
