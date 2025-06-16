@@ -831,7 +831,6 @@ if __name__ == '__main__':
     parser.add_argument(
         "-pd",
         "--posterior_dist",
-        nargs="*",
         help="OPTIONAL: HUCs to process probabilistic inundation",
         required=False,
     )
