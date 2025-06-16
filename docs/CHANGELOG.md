@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2025-06-16 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
+
+Decided to make a separate PR to incorporate both the depbot requests [PR 1550. (Bump requests from 2.32.3 to 2.32.4)](https://github.com/NOAA-OWP/inundation-mapping/pull/1550) and an up and coming python package for the new roads system.
+
+### Changes
+- `Pipfile`, `Pipfile.lock`: as described.
+
+<br/><br/>
+
 ## v4.8.4.0 - 2025-06-13 - [PR#1516](https://github.com/NOAA-OWP/inundation-mapping/pull/1516)
 
 Updates the function that downloads USGS rating curves so that it does not apply the acceptance criteria filtering. Updates the scripts that use the USGS data so they have filtering where the data is read in. This change wil create a new set of USGS data outputs to use in FIM. 
