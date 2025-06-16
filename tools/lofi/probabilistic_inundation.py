@@ -878,9 +878,8 @@ if __name__ == '__main__':
     parser.add_argument(
         "-q",
         "--quiet",
-        default=True,
+        action='store_true',
         help="OPTIONAL: Whether to be verbose or not",
-        required=False
     )
 
     parser.add_argument(
