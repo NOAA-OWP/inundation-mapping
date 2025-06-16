@@ -937,11 +937,4 @@ if __name__ == '__main__':
     )
 
     args = vars(parser.parse_args())
-
-    try:
-        # Catch all exceptions through the script if it came
-        # from command line.
-        inundate_hucs(**args)
-
-    except Exception:
-        print("The following error has occured:\n", traceback.format_exc())
+    inundate_hucs(**args)
