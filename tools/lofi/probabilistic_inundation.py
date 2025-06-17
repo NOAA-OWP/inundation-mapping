@@ -609,10 +609,10 @@ def inundate_probabilistic(
     windows = [windows for _, windows in datasets[0].block_windows()]
     profile = datasets[0].profile
     raster_crs = datasets[0].crs
-    profile.update(dtype=np.int8)
+    profile.update(dtype=np.int8, tiled=True, compress=profile.get('compress', 'DEFLATE'))
 
     out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
-    with rasterio.open(out_rast, "w+", **profile, compress='DEFLATE', tiled=True) as write_rst:
+    with rasterio.open(out_rast, "w+", **profile) as write_rst:
         for window in windows:
             arrays = []
             for d, p in zip(datasets, percentiles.keys()):
