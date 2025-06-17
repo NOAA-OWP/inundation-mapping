@@ -1,6 +1,30 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2025-06-17 - [PR#1554]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
+
+Some minor tweaks that should help performance of lofi.
+
+Performance enhancements:
+* Vectorized `generate_streamflow_percentiles`
+* Removed unnecessary copies
+* Reduced unnecessary iterations over collections
+
+Bug fixes:
+* Properly compare floats
+* Remove threading when writing dataset
+* Exit non-zero when exception is raised
+* Cleanup defaults in cli
+
+User facing:
+* Create compressed and tiled GeoTiff rasters
+
+### Changes
+- `tools/lofi/`
+   `probabilistic_inundation.py`: as described
+
+<br/><br/>
+
 ## v4.8.1.0 - 2025-06-10 - [PR#1552]([https://github.com/NOAA-OWP/inundation-mapping/pull/1552])
 
 This PR only focuses on adding the global optimized manning N as an input file to the bash_variables.env.
