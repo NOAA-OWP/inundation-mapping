@@ -1,12 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2025-06-17 - [PR#1554]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
-## TEMP placeholder for incoming lofi changes from Ryan G's fork
+Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
 
+### Changes
+- `tools/lofi/`
+   `probabilistic_inundation.py`: as described
 
 <br/><br/>
-
 
 ## v4.8.4.0 - 2025-06-13 - [PR#1516](https://github.com/NOAA-OWP/inundation-mapping/pull/1516)
 
