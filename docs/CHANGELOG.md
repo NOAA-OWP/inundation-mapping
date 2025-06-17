@@ -79,6 +79,11 @@ Adds files to branch deny list to be removed on file cleanup.
 
 <br/><br/>
 
+## V4.6.2.0 - 2025-05-06 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
+
+This PR has two functions out of necessity for running LoFI operationally:
+
+1. Optimize the runtime performance and memory consumption of the inundation routine.
 ## v4.8.1.0 - 2025-06-10 - [PR#1552]([https://github.com/NOAA-OWP/inundation-mapping/pull/1552])
 
 This PR only focuses on adding the global optimized manning N as an input file to the bash_variables.env.

@@ -31,14 +31,14 @@ from tqdm import tqdm
 
 
 def get_fim_probability_distributions(
-    posterior_dist: Optional[str] = None, huc: Optional[int] = None
+    posterior_dist: Optional[Union[str, pd.DataFrame]] = None, huc: Optional[int] = None
 ) -> Tuple[gamma, gamma, gamma]:
     """
     Gets either bayesian updated distributions or default distributions for respective huc
 
     Parameters
     ---------
-    posterior_dist : Optional[str], default = None
+    posterior_dist : Optional[Union[str, pd.DataFrame]], default = None
         Name of csv file that has posterior distribution parameters
     huc: Optional[int], default = None
         Huc to get distribution for if posterior_dist is not None
@@ -61,7 +61,23 @@ def get_fim_probability_distributions(
         slope_dist = weibull_min(c=4, scale=0.95 / 10, loc=-0.0867)
 
     else:
-        raise NotImplementedError("Currently not implemented")
+        variables = ['channel_manning_roughness', 'overbank_manning_roughness', 'slope_adjustment']
+        dist_params = ['c', 'scale', 'loc']
+
+        if isinstance(posterior_dist, str):
+            posterior_df = pd.read_csv(posterior_dist)
+        else:
+            posterior_df = posterior_dist
+
+        if huc is not None:
+            posterior_df = posterior_df[posterior_df['huc'] == huc]
+
+        dist = []
+        for variable in variables:
+            dist_args = {key: value for key, value in zip(dist_params, posterior_df.loc[variable].values)}
+            dist.append(weibull_min(**dist_args))
+
+        channel_dist, obank_dist, slope_dist = tuple(dist)
 
     return channel_dist, obank_dist, slope_dist
 
@@ -229,7 +245,6 @@ def get_subdivided_src(
     )
 
     # Subdivide Geometry ----------------------------------------------------------------------------------
-
     df_src['Volume_chan (m3)'] = np.where(
         df_src['Stage'] <= df_src['Stage_bankfull'],
         df_src['Volume (m3)'],
@@ -260,14 +275,11 @@ def get_subdivided_src(
     df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)'] / df_src['LENGTHKM'] / 1000
 
     # Subdivide Geometry ----------------------------------------------------------------------------------
-
     df_src['channel_n'] = channel_manning
     df_src['overbank_n'] = overbank_manning
-
     df_src['subdiv_applied'] = ~df_src['Stage_bankfull'].isnull()  # creat
 
     # Subdivide Manning Eq --------------------------------------------------------------------------------
-
     df_src = df_src.drop(
         ['WetArea_chan (m2)', 'HydraulicRadius_chan (m)', 'Discharge_chan (m3s-1)', 'Velocity_chan (m/s)'],
         axis=1,
@@ -625,8 +637,9 @@ def inundate_probabilistic(
             write_rst.write(data_buf, window=window, indexes=1)
 
     # Close datasets
-    for ds in datasets:
+    for ds, p in zip(datasets, percentiles.keys()):
         ds.close()
+        os.remove(p)
 
     if output_vector is True:
 
@@ -647,6 +660,7 @@ def inundate_probabilistic(
         os.remove(out_rast)
 
     # Remove SRC path and flow path
+    print(src_output_path, flow_path)
     shutil.rmtree(src_output_path)
     shutil.rmtree(flow_path)
 

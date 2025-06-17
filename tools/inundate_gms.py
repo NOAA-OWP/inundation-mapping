@@ -12,6 +12,7 @@ from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_functions import s3_and_local_isfile, s3_and_local_path_exists
 
 
 def Inundate_gms(
@@ -253,7 +254,7 @@ def __inundate_gms_generator(
         else:
 
             df_type = "csv"
-            if os.path.exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
+            if s3_and_local_path_exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
                 df_type = "feather"
             else:
@@ -273,7 +274,7 @@ def __inundate_gms_generator(
             else:
                 hydro_table_all = pd.read_csv(hydro_table_huc, dtype=dtype, usecols=htable_req_cols)
 
-            if os.path.isfile(hydro_table_huc):
+            if s3_and_local_isfile(hydro_table_huc):
 
                 hydro_table_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
                 hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
