@@ -15,6 +15,7 @@ from os.path import splitext
 from pathlib import Path
 
 import fiona
+import fsspec
 import geopandas as gp
 import numpy as np
 import pandas as pd
@@ -24,6 +25,7 @@ import utils.shared_variables as sv
 
 
 gp.options.io_engine = "pyogrio"
+FS_S3 = fsspec.filesystem('s3')
 
 
 def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
@@ -321,6 +323,18 @@ def progress_bar_handler(executor_dict, desc):
             future.result()
         except Exception as exc:
             print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
+
+
+def s3_and_local_path_exists(path: str) -> bool:
+    if not os.path.exists(path) and not FS_S3.exists(path):
+        return False
+    return True
+
+
+def s3_and_local_isfile(path: str) -> bool:
+    if not os.path.isfile(path) and not FS_S3.isfile(path):
+        return False
+    return True
 
 
 # #####################################

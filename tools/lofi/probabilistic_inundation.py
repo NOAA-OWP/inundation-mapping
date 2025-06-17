@@ -5,7 +5,7 @@ import shutil
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from glob import glob
+from glob import iglob
 from typing import Dict, Optional, Tuple, Union
 
 import geopandas as gpd
@@ -118,49 +118,31 @@ def generate_streamflow_percentiles(
         "weibull_min": weibull_min,
     }
 
+    dkeys = ['90', '75', '50', '25', '10']
+
     # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
     if 'nbm' in ensemble_forecast.coords['member']:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '75': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '50': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '25': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '10': float(ensemble_forecast.sel({'member': 'nbm'})),
-        }
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'nbm'})))
+        rv['feature_id'] = feature
+        return rv
 
     if 'da' in ensemble_forecast.coords['member']:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'da'})),
-            '75': float(ensemble_forecast.sel({'member': 'da'})),
-            '50': float(ensemble_forecast.sel({'member': 'da'})),
-            '25': float(ensemble_forecast.sel({'member': 'da'})),
-            '10': float(ensemble_forecast.sel({'member': 'da'})),
-        }
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'da'})))
+        rv['feature_id'] = feature
+        return rv
 
     if 'short' in ensemble_forecast.coords['member']:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'short'})),
-            '75': float(ensemble_forecast.sel({'member': 'short'})),
-            '50': float(ensemble_forecast.sel({'member': 'short'})),
-            '25': float(ensemble_forecast.sel({'member': 'short'})),
-            '10': float(ensemble_forecast.sel({'member': 'short'})),
-        }
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'short'})))
+        rv['feature_id'] = feature
+        return rv
 
     # If there is no feature in the NWM parameters file
-    if int(feature) not in params_weibull.index:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': '1'})),
-            '75': float(ensemble_forecast.sel({'member': '1'})),
-            '50': float(ensemble_forecast.sel({'member': '1'})),
-            '25': float(ensemble_forecast.sel({'member': '1'})),
-            '10': float(ensemble_forecast.sel({'member': '1'})),
-        }
+    if feature not in params_weibull.index:
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
+        rv['feature_id'] = feature
+        return rv
     else:
-        parameters = params_weibull.loc[int(feature)]
+        parameters = params_weibull.loc[feature]
 
     # Create probability distribution
     params = ast.literal_eval(parameters['parameters'])
@@ -169,59 +151,43 @@ def generate_streamflow_percentiles(
         r = dist_dict[parameters['distribution_name']](**params)
 
     except Exception:
-        return {
-            'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': '1'})),
-            '75': float(ensemble_forecast.sel({'member': '1'})),
-            '50': float(ensemble_forecast.sel({'member': '1'})),
-            '25': float(ensemble_forecast.sel({'member': '1'})),
-            '10': float(ensemble_forecast.sel({'member': '1'})),
-        }
 
-    likelihoods = np.array([1 - r.cdf(x) for x in ensemble_forecast.values])
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
+        rv['feature_id'] = feature
+        return rv
+
+    likelihoods = 1 - r.cdf(ensemble_forecast.values)
 
     # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
     scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6) * 10000
 
     # Create data to fit truncated exponential distribution
-    values = []
 
-    for value, scale in zip(np.squeeze(ensemble_forecast.values), scaled_likelihoods):
-        if np.isnan(value):
-            value = 0
-
-        if np.isnan(scale):
-            scale = 1
-
-        values.append(np.repeat(value, int(scale)))
-
-    streamflow_expon_values = np.hstack(values).ravel()
+    ef_values = np.where(np.isnan(ensemble_forecast.values), 0, ensemble_forecast.values)
+    sl_values = np.where(np.isnan(scaled_likelihoods), 1, scaled_likelihoods).astype(int)
+    streamflow_expon_values = np.repeat(ef_values.ravel(), sl_values.ravel())
 
     # Check to see if all values are the same, if so grab the first, otherwise get their point percent functions
-    if not np.all(streamflow_expon_values == streamflow_expon_values[0]):
+    if not np.allclose(streamflow_expon_values, streamflow_expon_values[0]):
+
         # Generate 10000 random values from distribution
         trunc_expon = truncexpon(
             *truncexpon.fit(streamflow_expon_values, loc=np.min(streamflow_expon_values))
         )
 
         return {
-            'feature_id': int(feature),
-            '90': np.max([0, trunc_expon.ppf(0.1)]),
-            '75': np.max([0, trunc_expon.ppf(0.25)]),
-            '50': np.max([0, trunc_expon.ppf(0.5)]),
-            '25': np.max([0, trunc_expon.ppf(0.75)]),
-            '10': np.max([0, trunc_expon.ppf(0.9)]),
+            '90': max(0, trunc_expon.ppf(0.1)),
+            '75': max(0, trunc_expon.ppf(0.25)),
+            '50': max(0, trunc_expon.ppf(0.5)),
+            '25': max(0, trunc_expon.ppf(0.75)),
+            '10': max(0, trunc_expon.ppf(0.9)),
+            'feature_id': feature,
         }
 
     else:
-        return {
-            'feature_id': int(feature),
-            '90': np.max([0, streamflow_expon_values[0]]),
-            '75': np.max([0, streamflow_expon_values[0]]),
-            '50': np.max([0, streamflow_expon_values[0]]),
-            '25': np.max([0, streamflow_expon_values[0]]),
-            '10': np.max([0, streamflow_expon_values[0]]),
-        }
+        rv = dict.fromkeys(dkeys, max(0, streamflow_expon_values[0]))
+        rv['feature_id'] = feature
+        return rv
 
 
 def get_subdivided_src(
@@ -284,7 +250,6 @@ def get_subdivided_src(
     )
 
     # Subdivide Geometry ----------------------------------------------------------------------------------
-
     df_src['Volume_chan (m3)'] = np.where(
         df_src['Stage'] <= df_src['Stage_bankfull'],
         df_src['Volume (m3)'],
@@ -315,14 +280,11 @@ def get_subdivided_src(
     df_src['WettedPerimeter_obank (m)'] = df_src['BedArea_obank (m2)'] / df_src['LENGTHKM'] / 1000
 
     # Subdivide Geometry ----------------------------------------------------------------------------------
-
     df_src['channel_n'] = channel_manning
     df_src['overbank_n'] = overbank_manning
-
-    df_src['subdiv_applied'] = np.where(df_src['Stage_bankfull'].isnull(), False, True)  # creat
+    df_src['subdiv_applied'] = ~df_src['Stage_bankfull'].isnull()  # creat
 
     # Subdivide Manning Eq --------------------------------------------------------------------------------
-
     df_src = df_src.drop(
         ['WetArea_chan (m2)', 'HydraulicRadius_chan (m)', 'Discharge_chan (m3s-1)', 'Velocity_chan (m/s)'],
         axis=1,
@@ -330,7 +292,7 @@ def get_subdivided_src(
     )  # drop these cols (in case subdiv was previously performed)
     df_src['WetArea_chan (m2)'] = df_src['Volume_chan (m3)'] / df_src['LENGTHKM'] / 1000
     df_src['HydraulicRadius_chan (m)'] = df_src['WetArea_chan (m2)'] / df_src['WettedPerimeter_chan (m)']
-    df_src['HydraulicRadius_chan (m)'].fillna(0, inplace=True)
+    df_src['HydraulicRadius_chan (m)'] = df_src['HydraulicRadius_chan (m)'].fillna(0)
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
         * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
@@ -338,7 +300,7 @@ def get_subdivided_src(
         / df_src['channel_n']
     )
     df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
-    df_src['Velocity_chan (m/s)'].fillna(0, inplace=True)
+    df_src['Velocity_chan (m/s)'] = df_src['Velocity_chan (m/s)'].fillna(0)
 
     # Calculate discharge (overbank) using Manning's equation
     df_src = df_src.drop(
@@ -354,7 +316,8 @@ def get_subdivided_src(
     df_src['WetArea_obank (m2)'] = df_src['Volume_obank (m3)'] / df_src['LENGTHKM'] / 1000
     df_src['HydraulicRadius_obank (m)'] = df_src['WetArea_obank (m2)'] / df_src['WettedPerimeter_obank (m)']
     df_src = df_src.replace([np.inf, -np.inf], np.nan)  # need to replace inf instances (divide by 0)
-    df_src['HydraulicRadius_obank (m)'].fillna(0, inplace=True)
+    df_src['HydraulicRadius_obank (m)'] = df_src['HydraulicRadius_obank (m)'].fillna(0)
+
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
         * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
@@ -362,7 +325,7 @@ def get_subdivided_src(
         / df_src['overbank_n']
     )
     df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']
-    df_src['Velocity_obank (m/s)'].fillna(0, inplace=True)
+    df_src['Velocity_obank (m/s)'] = df_src['Velocity_obank (m/s)'].fillna(0)
 
     # Calcuate the total of the subdivided discharge (channel + overbank)
     df_src = df_src.drop(
@@ -497,7 +460,7 @@ def inundate_probabilistic(
 
     parameters_df = pd.read_csv(parameters)
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
-    params_weibull.set_index('feature_id', inplace=True)
+    params_weibull = params_weibull.set_index('feature_id')
 
     # Fim outputs directory
     fim_outputs_dir = outputs_dir
@@ -516,18 +479,15 @@ def inundate_probabilistic(
     features = ensembles.coords['feature_id']
 
     # For each feature in the provided ensembles
-    with ThreadPoolExecutor(max_workers=1) as executor:
-
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
         # Get max streamflow for every feature up to forecast time
         if aggregate_forecasts == "max_to_forecast":
-
             sel_forecast = ensembles.sel({'time': slice(reference_time, forecast_time)}).max('time')[
                 'streamflow'
             ]
 
         # Timeslice representing the max streamflow for any feature id in time up to forecast time
         elif aggregate_forecasts == "timeslice_max_of_any_feature_id":
-
             sel_forecast = ensembles['streamflow'].isel(
                 {
                     'time': ensembles['streamflow']
@@ -539,7 +499,6 @@ def inundate_probabilistic(
 
         # Timeslice representing the max sum of streamflow for all feature ids in time up to forecast time
         elif aggregate_forecasts == "timeslice_max_sum":
-
             sel_forecast = ensembles['streamflow'].isel(
                 {
                     'time': ensembles['streamflow']
@@ -551,13 +510,11 @@ def inundate_probabilistic(
 
         # Timeslice at forecast time
         else:
-
             sel_forecast = ensembles.sel({'time': forecast_time})['streamflow']
 
         # Generate streamflow likelihoods for each feature
         executor_dict = {}
         for feat in features:
-
             feat = feat if isinstance(feat, int) else int(feat)
             ensemble_forecast = sel_forecast.sel({'feature_id': feat})
 
@@ -565,7 +522,7 @@ def inundate_probabilistic(
                 future = executor.submit(
                     generate_streamflow_percentiles,
                     feature=feat,
-                    ensemble_forecast=ensemble_forecast.copy(),
+                    ensemble_forecast=ensemble_forecast,
                     params_weibull=params_weibull,
                 )
                 executor_dict[future] = feat
@@ -594,25 +551,27 @@ def inundate_probabilistic(
         posterior_dist=posterior_dist, huc=huc
     )
 
+    # Make directories if they do not exist
+    output_file_name = os.path.basename(mosaic_prob_output_name)
+    base_output_path = os.path.join(fim_outputs_dir, str(huc))
+    src_output_path = os.path.join(base_output_path, 'srcs')
+    htable_output_path = src_output_path
+    flow_path = os.path.join(base_output_path, 'flows')
+
+    # Create directories if they do not exist
+    os.makedirs(base_output_path, exist_ok=True)
+    os.makedirs(src_output_path, exist_ok=True)
+    os.makedirs(flow_path, exist_ok=True)
+
+    # Find the original hydrotable
+    all_branches = iglob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
+    all_branches = list(map(os.path.basename, all_branches))
+
     # Apply inundation map to each percentile
     for percentile, val in percentiles.items():
-
         channel_n = channel_dist.ppf(1 - int(percentile) / 100)
         overbank_n = obank_dist.ppf(1 - int(percentile) / 100)
         slope_adj = slope_dist.ppf(int(percentile) / 100)
-
-        # Make directories if they do not exist
-        output_file_name = mosaic_prob_output_name.split('/')[-1]
-        base_output_path = os.path.join(fim_outputs_dir, str(huc))
-        src_output_path = os.path.join(base_output_path, 'srcs')
-        htable_output_path = os.path.join(base_output_path, 'srcs')
-        flow_path = os.path.join(base_output_path, 'flows')
-
-        # Create directories if they do not exist
-        os.makedirs(base_output_path, exist_ok=True)
-        os.makedirs(src_output_path, exist_ok=True)
-        os.makedirs(htable_output_path, exist_ok=True)
-        os.makedirs(flow_path, exist_ok=True)
 
         # Establish directory to save the final mosaiced inundation
         final_inundation_path = os.path.join(
@@ -622,10 +581,6 @@ def inundate_probabilistic(
         # Skip if the file exists
         if os.path.exists(final_inundation_path) and not overwrite:
             continue
-
-        # Open the original hydrotable
-        all_branches = glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
-        all_branches = [x.split('/')[-1] for x in all_branches]
 
         htable_output_file = "htable_{0}.feather"
         for branch in all_branches:
@@ -664,7 +619,7 @@ def inundate_probabilistic(
 
     # percentiles
     percentile_files = [
-        f'{base_output_path}/extent_{file}_v10_day{day}_hour{hour}.tif' for file in list(percentiles.keys())
+        f'{base_output_path}/extent_{file}_v10_day{day}_hour{hour}.tif' for file in percentiles.keys()
     ]
 
     # For every percentile inundation map convert values to percentile
@@ -672,64 +627,35 @@ def inundate_probabilistic(
     windows = [windows for _, windows in datasets[0].block_windows()]
     profile = datasets[0].profile
     raster_crs = datasets[0].crs
-    profile.update(dtype=np.int8)
 
-    def merge_percentiles(
-        ds: list, percentiles: list, window: rasterio.windows.Window, wrst=rasterio.io.DatasetWriter
-    ):
-        arrays = []
-        for d, p in zip(ds, percentiles):
-            data = d.read(1, window=window)
-            data[np.where(data > 0)] = np.int8(p)
-            arrays.append(data)
-
-        merged = np.max(arrays, axis=0)
-
-        wrst.write(merged, window=window, indexes=1)
-
-    executor = ThreadPoolExecutor(max_workers=1)
-
-    def __data_generator(datasets, percentiles, windows, wrst):
-        for window in windows:
-            yield datasets, percentiles, window, wrst
-
-    def _vprint(message, verbose):
-        if verbose:
-            print(message)
+    profile.update(dtype=np.int8, compress='DEFLATE', tiled=True)
 
     out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
     with rasterio.open(out_rast, "w+", **profile) as write_rst:
-        dgen = __data_generator(datasets, list(percentiles.keys()), windows, write_rst)
-        results = {executor.submit(merge_percentiles, *wg): 1 for wg in dgen}
+        for window in windows:
+            arrays = []
+            for d, p in zip(datasets, percentiles.keys()):
+                data = d.read(1, window=window)
+                data[data > 0] = np.int8(p)
+                arrays.append(data)
 
-        for future in as_completed(results):
-            try:
-                future.result()
-            except Exception as exc:
-                _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
-            else:
-                if results[future] is not None:
-                    _vprint("... {} complete".format(results[future]), not quiet)
-                else:
-                    _vprint("... complete", not quiet)
+            merged = np.max(arrays, axis=0)
+            write_rst.write(merged, window=window, indexes=1)
 
     # Close datasets
     for ds in datasets:
         ds.close()
 
     if output_vector is True:
+
+        def _make_geometry(shapes):
+            for p, v in shapes:
+                yield shape(p), v
+
         with rasterio.open(out_rast, 'r') as rst:
             shapes = rasterio.features.shapes(rst.read(1), mask=None, transform=rst.transform)
-
-            polygons = []
-            for geom, value in shapes:
-                polygon = shape(geom)
-                polygons.append((polygon, value))
-
-            data = []
-            for polygon, value in polygons:
-                data.append({'geometry': polygon, 'value': value})
-            gdf = gpd.GeoDataFrame(data, crs=raster_crs)
+            gdf = gpd.GeoDataFrame(_make_geometry(shapes), columns=['geometry', 'value'], crs=raster_crs)
+            gdf = gdf.set_geometry('geometry')
             gdf.to_file(os.path.join(base_output_path, output_file_name))
 
     for file in percentile_files:
@@ -865,7 +791,6 @@ def inundate_hucs(
 
 
 if __name__ == '__main__':
-
     """
     Example Usage:
 
@@ -914,8 +839,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "-pd",
         "--posterior_dist",
-        nargs="*",
-        help="OPTIONAL: HUCs to process probabilistic inundation",
+        help="OPTIONAL: Path to posterior distribution configuration file",
         required=False,
     )
 
@@ -936,9 +860,8 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-",
         "--overwrite",
-        default=False,
+        action='store_true',
         help="OPTIONAL: Whether to overwrite existing output",
         required=False,
     )
@@ -948,7 +871,6 @@ if __name__ == '__main__':
         "--output_raster",
         help="OPTIONAL: Whether to keep final raster output",
         action='store_true',
-        default=True,
         required=False,
     )
 
@@ -960,23 +882,21 @@ if __name__ == '__main__':
         required=False,
     )
 
+    parser.add_argument("-q", "--quiet", action='store_true', help="OPTIONAL: Whether to be verbose or not")
+
     parser.add_argument(
-        "-q", "--quiet", default=True, help="OPTIONAL: Whether to be verbose or not", required=False
+        "-j", "--num_jobs", default=1, type=int, help="REQUIRED: Number of jobs to process HUCs"
     )
 
     parser.add_argument(
-        "-j", "--num_jobs", type=int, help="REQUIRED: Number of jobs to process HUCs", required=True
-    )
-
-    parser.add_argument(
-        "-t", "--num_threads", type=int, help="REQUIRED: Number of threads to process HUCs", required=True
+        "-t", "--num_threads", default=1, type=int, help="REQUIRED: Number of threads to process HUCs"
     )
 
     parser.add_argument(
         "-w",
         "--windowed",
         action='store_true',
-        help="REQUIRED: Number of threads to process HUCs",
+        help="OPTIONAL: Whether to run inundation in windowed mode for memory conservation ",
         required=False,
     )
 
@@ -986,16 +906,11 @@ if __name__ == '__main__':
         "-a",
         "--aggregate_forecasts",
         type=str,
-        help='OPTIONAL: Method to aggregate forecasts.  Options are max_to_forecast, '
-        'timeslice_max_of_any_feature_id, timeslice_max_sum',
+        help=(
+            'OPTIONAL: Method to aggregate forecasts.  Options are max_to_forecast, '
+            'timeslice_max_of_any_feature_id, timeslice_max_sum'
+        ),
     )
 
     args = vars(parser.parse_args())
-
-    try:
-        # Catch all exceptions through the script if it came
-        # from command line.
-        inundate_hucs(**args)
-
-    except Exception:
-        print("The following error has occured:\n", traceback.format_exc())
+    inundate_hucs(**args)

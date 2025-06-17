@@ -26,6 +26,7 @@ def get_fim_probability_distributions() -> Tuple[weibull_min, weibull_min, weibu
     obank_dist = weibull_min(c=2, scale=0.035, loc=0.09)
 
     # Default weibull likelihood for slope adjustment
+
     slope_dist = weibull_min(c=4, scale=0.95 / 10, loc=-0.0867)
 
     return channel_dist, obank_dist, slope_dist
@@ -111,8 +112,6 @@ def bayesian_update_for_overbank_manning_roughness(data: Union[list, np.array]) 
     """
     rng = 0
     loc = 0.05
-
-    print(data)
 
     # Distribution for the scale point estimate
     def g_dist(
