@@ -12,6 +12,9 @@ Updates the CatFIM site comparison tool to make the outputs better suited to be 
   - Saving the gained and lost coverage data as a CSV
   - Add "_sites" to site tbale filenames.
   - Added percent area change calculations for inundated area comparisons.
+  
+<br/><br/>
+  
 ## v4.8.4.0 - 2025-06-13 - [PR#1516](https://github.com/NOAA-OWP/inundation-mapping/pull/1516)
 
 Updates the function that downloads USGS rating curves so that it does not apply the acceptance criteria filtering. Updates the scripts that use the USGS data so they have filtering where the data is read in. This change wil create a new set of USGS data outputs to use in FIM. 
