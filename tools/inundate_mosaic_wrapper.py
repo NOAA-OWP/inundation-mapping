@@ -9,7 +9,7 @@ from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
 
 from utils.shared_functions import FIM_Helpers as fh
-from utils.shared_functions import s3_and_local_path_exists
+from utils.shared_functions import s3_or_local_path_exists
 from utils.shared_variables import elev_raster_ndv
 
 
@@ -99,7 +99,7 @@ def produce_mosaicked_inundation(
             os.makedirs(parent_dir)
 
     # Check that hydrofabric_dir exists
-    if not s3_and_local_path_exists(hydrofabric_dir):
+    if not s3_or_local_path_exists(hydrofabric_dir):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
 
     # If the "hucs" argument is really one huc, convert it to a list
@@ -108,7 +108,7 @@ def produce_mosaicked_inundation(
 
     # Check that huc folder exists in the hydrofabric_dir.
     for huc in hucs:
-        if not s3_and_local_path_exists(os.path.join(hydrofabric_dir, huc)):
+        if not s3_or_local_path_exists(os.path.join(hydrofabric_dir, huc)):
             raise FileNotFoundError(
                 (errno.ENOENT, os.strerror(errno.ENOENT), os.path.join(hydrofabric_dir, huc))
             )

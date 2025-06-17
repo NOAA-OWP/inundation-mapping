@@ -325,7 +325,7 @@ def progress_bar_handler(executor_dict, desc):
             print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
 
 
-def s3_and_local_path_exists(path: str) -> bool:
+def s3_or_local_path_exists(path: str) -> bool:
     """
     Checks existence of path for local or s3 path
 
@@ -344,7 +344,7 @@ def s3_and_local_path_exists(path: str) -> bool:
     return True
 
 
-def s3_and_local_isfile(path: str) -> bool:
+def s3_or_local_isfile(path: str) -> bool:
     """
     Checks if path is a file for the case of a local or s3 path
 
