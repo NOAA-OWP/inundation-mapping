@@ -255,9 +255,18 @@ def split_flows(
         if len(lakes) > 0:
             print('Splitting stream segments at ' + str(len(lakes)) + ' waterbodies...')
 
+            # Determine the lake id column
+            if 'newID' in lakes.columns:
+                lake_id_column = 'newID'
+            elif 'wb_id' in lakes.columns:
+                lake_id_column = 'wb_id'  # Alaska HUCs
+            else:
+                print("No 'newID' or 'wb_id' column found in lake file")
+                sys.exit(1)  # Exit with a generic error code
+
             # Create splits at lake boundaries
-            lakes = lakes.filter(items=['newID', 'geometry'])
-            lakes = lakes.set_index('newID')
+            lakes = lakes.filter(items=[lake_id_column, 'geometry'])
+            lakes = lakes.set_index(lake_id_column)
             flows = (
                 gpd.overlay(flows, lakes, how='union', keep_geom_type=True)
                 .explode(index_parts=True)
@@ -380,7 +389,7 @@ def split_flows(
         split_flows_gdf = gpd.sjoin(
             split_flows_gdf, lakes_buffer, how='left', predicate='within'
         )  # Note: Options include intersects, within, contains, crosses
-        split_flows_gdf = split_flows_gdf.rename(columns={"newID": "LakeID"}).fillna(-999)
+        split_flows_gdf = split_flows_gdf.rename(columns={lake_id_column: "LakeID"}).fillna(-999)
     else:
         split_flows_gdf['LakeID'] = -999
 

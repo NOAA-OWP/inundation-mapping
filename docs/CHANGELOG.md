@@ -12,6 +12,71 @@ Updates the CatFIM site comparison tool to make the outputs better suited to be 
   - Saving the gained and lost coverage data as a CSV
   - Add "_sites" to site tbale filenames.
   - Added percent area change calculations for inundated area comparisons.
+## v4.8.4.0 - 2025-06-13 - [PR#1516](https://github.com/NOAA-OWP/inundation-mapping/pull/1516)
+
+Updates the function that downloads USGS rating curves so that it does not apply the acceptance criteria filtering. Updates the scripts that use the USGS data so they have filtering where the data is read in. This change wil create a new set of USGS data outputs to use in FIM. 
+
+### Changes
+- `data/usgs/rating_curve_get_usgs_curves.py`: Adds elapsed time messaging, improves code spacing and comments, improves docstring and adds run command examples, fixes the site list functionality that was previously deprecated. Removes acceptance criteria (other than for site type). 
+- `src/bash_variables.env`: Updated to point to new USGS data.
+- `tools/georeferenced_impact_statement_cal.py`: Implemented acceptance criteria filtration of USGS data.
+- `src/src_adjust_usgs_rating_trace.py`:  Implemented acceptance criteria filtration of USGS data.
+- `tools/rating_curve_comparison.py`:  Implemented acceptance criteria filtration of USGS data.
+- `src/src_adjust_usgs_rating_trace.py`:  Implemented acceptance criteria filtration of USGS data and added an additional USGS input to facilitate filtration.
+- `fim_post_processing.sh`: Updated to have an additional USGS file input where it runs src_adjust_usgs_rating_trace.
+- `tools/tools_shared_functions.py`: Created the `filter_usgs_by_acceptance_criteria` function. 
+- `src/utils/shared_functions.py`: Updated `print_current_date_time` and `print_date_time_duration` functions so they can handle multiday processes.
+- `data/nws/preprocess_ahps_nws.py`, `data/usgs/preprocess_ahps_usgs.py`,  `tools/eval_plots.py`, `tools/fimr_to_benchmark.py`, and `tools/generate_nws_lid.py`: Updated comments.
+
+<br/><br/>
+
+## v4.8.3.0 - 2025-06-13 - [PR#1541](https://github.com/NOAA-OWP/inundation-mapping/pull/1541)
+
+Fixes AK lake bugs to be able to use the new pre_clip data.
+
+### Changes
+`src/bash_variables.env`: Uses new pre_clip data
+`src/split_flows.py`: Makes sure it works for AK HUCs
+
+<br/><br/>
+
+## v4.8.2.0 - 2025-06-13 - [PR#1546]([https://github.com/NOAA-OWP/inundation-mapping/pull/1546])
+
+Add a feature where the HUC level hydrotable also creates a parquet version, with key indexes, sorting and compression. Initially this will be used by HydroVIS only but future FIM versions will be updated to use this.
+
+A small bug with src_manual_calibration was fixed.  It was running after aggregate_by_huc and was updating only the HUC level hydrotable. But, many tools use the branch level which would not have the calibration adjustment. There were also a few other misc bugs in it including it not accurately working when post processing was run a second time.  Now, src_manual_calibration update the branch level hydrotables only, then aggregrate_by_huc is run after this calibration. Note: At this time src_manual_calibration is only updating HUC 12040104.
+
+### Changes
+- `src`
+    - `add_crosswalk.py`, `update_htable_src.py`:  Updated a few comments
+    - `aggregate_by_huc.py`:  as described above
+    - `src_manual_calibration.py`:  as described above
+- `fim_post_processing.sh`: moved aggregate_by_huc to be after src_manual_calibration.
+
+### Removals
+- `config\deny_branch_unittests.lst`:  Long since deprecated.
+
+<br/><br/>
+
+## v4.8.1.2 - 2025-06-13 - [PR#1511](https://github.com/NOAA-OWP/inundation-mapping/pull/1511)
+
+This PR updates the bathymetry preprocessing and adjustment workflow to be able to process and incorporate bathymetric data from sources other than eHydro bathymetric surveys.
+
+### Changes
+
+- `/data/bathymetry/preprocess_bathymetry.py`: Added capability to preprocess OHRFC sourced bathymetry data.
+- `/src/bathymetric_adjustment.py`: Added function to use OHRFC data for adjustment when both OHRFC and eHydro data are available for the same feature id.
+- `/src/bash_variables.env`: New input file including eHydro and OHRFC bathymetric adjustment data.
+
+<br/><br/>
+
+## v4.8.1.1 - 2025-06-13 - [PR#1545](https://github.com/NOAA-OWP/inundation-mapping/pull/1545)
+
+Adds files to branch deny list to be removed on file cleanup.
+
+### Changes
+
+- `config/deny_branches.lst`: Added `flows_grid_boolean_euclidean_distance_{}.tif`, `gw_catchments_pixels_{}.gpkg`, and `nwm_subset_streams_levelPaths_extended_{}.gpkg` to the branch-level deny list.
 
 <br/><br/>
 
@@ -59,6 +124,7 @@ This PR has two functions out of necessity for running LoFI operationally:
 - `tools/shared_functions.py` :  Added new encoding to account for hits in the candidate and a nodata value in the benchmark.
 
 <br/><br/>
+
 
 ## v4.7.4.6 - 2025-05-22 - [PR#1533](https://github.com/NOAA-OWP/inundation-mapping/pull/1533)
 
