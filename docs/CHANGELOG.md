@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2025-03-06 - [PR#1452](https://github.com/NOAA-OWP/inundation-mapping/pull/1452)
+## v4.x.x.x - 2025-03-06 - [PR#1452](https://github.com/NOAA-OWP/inundation-mapping/pull/1452)
 Updates `data/get_sample_data.py` for changes in input data resulting from the addition of lidar bridge elevation.
 
 ### Changes
@@ -11,8 +11,7 @@ Updates `data/get_sample_data.py` for changes in input data resulting from the a
 
 <br/><br/>
 
-## v? - 2025-03-04 - [PR#1406](https://github.com/NOAA-OWP/inundation-mapping/pull/1406)
-## v4.8.0.0 - 2025-05-30 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
+
 ## v4.8.4.0 - 2025-06-13 - [PR#1516](https://github.com/NOAA-OWP/inundation-mapping/pull/1516)
 
 Updates the function that downloads USGS rating curves so that it does not apply the acceptance criteria filtering. Updates the scripts that use the USGS data so they have filtering where the data is read in. This change wil create a new set of USGS data outputs to use in FIM. 
