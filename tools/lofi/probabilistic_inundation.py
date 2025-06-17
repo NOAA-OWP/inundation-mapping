@@ -626,20 +626,14 @@ def inundate_probabilistic(
     out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
     with rasterio.open(out_rast, "w+", **profile) as write_rst:
         for window in windows:
-            data_buf = None
-            for d, p in zip(datasets, percentiles.keys()):
+            arrays = []
+            for d, p in zip(datasets, percentiles):
                 data = d.read(1, window=window)
-                if data_buf is None:
-                    data[data > 0] = int(p)
-                    data_buf = data
-                else:
-                    np.max(data_buf, int(p), where=data > 0, out=data_buf)
-            write_rst.write(data_buf, window=window, indexes=1)
+                data[np.where(data > 0)] = np.int8(p)
+                arrays.append(data)
 
-    # Close datasets
-    for ds, p in zip(datasets, percentiles.keys()):
-        ds.close()
-        os.remove(p)
+            merged = np.max(arrays, axis=0)
+            write_rst.write(merged, window=window, indexes=1)
 
     if output_vector is True:
 

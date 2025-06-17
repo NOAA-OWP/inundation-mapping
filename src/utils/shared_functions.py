@@ -326,12 +326,38 @@ def progress_bar_handler(executor_dict, desc):
 
 
 def s3_and_local_path_exists(path: str) -> bool:
+    """
+    Checks existence of path for local or s3 path
+
+    Parameters
+    ----------
+    path: str
+        Path to check existence of
+
+    Returns
+    -------
+    bool
+        Path exists or does not exist
+    """
     if not os.path.exists(path) and not FS_S3.exists(path):
         return False
     return True
 
 
 def s3_and_local_isfile(path: str) -> bool:
+    """
+    Checks if path is a file for the case of a local or s3 path
+
+    Parameters
+    ----------
+    path: str
+        Path to check existence of
+
+    Returns
+    -------
+    bool
+        Path is a file or is not a file
+    """
     if not os.path.isfile(path) and not FS_S3.isfile(path):
         return False
     return True
