@@ -377,10 +377,8 @@ def s3_or_local_glob(path: str) -> list:
     list
         Paths and directories associated with glob operation
     """
-    if 's3://' in path:
-        return FS_S3.glob(path)
-    else:
-        return glob.iglob(path)
+    fs, pth = fsspec.url_to_fs(path)
+    return fs.glob(pth)
 
 
 # #####################################
