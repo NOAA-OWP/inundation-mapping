@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 import os
 import re
 import shutil
 import subprocess
+import traceback
+
+from datetime import datetime, timezone
 
 import boto3
 from dotenv import load_dotenv
+
+from utils.shared_functions import FIM_Helpers as fh
 
 
 def get_sample_data(
@@ -115,7 +121,8 @@ def get_sample_data(
         output_path = os.path.split(output_file)[0]
 
         if not os.path.exists(os.path.join(output_path, basename)):
-            print(f"Copying {os.path.join(input_path, basename)} to {output_path}")
+            input_file = os.path.join(input_path, basename)
+            logging.info(f"... Copying {input_file} to {output_path}")
             os.makedirs(output_path, exist_ok=True)
             if use_s3:
                 try:
@@ -123,19 +130,20 @@ def get_sample_data(
                         bucket, os.path.join(input_path, basename), os.path.join(output_path, basename)
                     )
                 except Exception as e:
-                    print(f"Error downloading {os.path.join(input_path, basename)}: {e}")
+                    logging.error(f"... Error downloading {os.path.join(input_path, basename)}: {e}")
                     if not os.listdir(output_path):
                         os.rmdir(output_path)
             else:
-                if os.path.exists(os.path.join(output_path, basename)):
-                    shutil.copy2(os.path.join(input_path, basename), output_path)
+                if os.path.exists(input_file):
+                    shutil.copy2(input_file, output_path)
                 else:
-                    print(f"{os.path.join(input_path, basename)} does not exist.")
+                    logging.warning(f"{input_file} does not exist."
+                                    " Note: Not all HUCs may have this file.")
 
             return os.path.join(output_path, basename)
 
         else:
-            print(f"{os.path.join(output_path, basename)} already exists.")
+            logging.info(f"{os.path.join(output_path, basename)} already exists.")
 
     def __copy_folder(input_path: str, output_path: str, input_root: str = None, bucket_path: str = None):
         """
@@ -156,17 +164,19 @@ def get_sample_data(
             if input_root[-1] != '/':
                 input_root = input_root + '/'
 
-                # Strip bucket path if use_s3 is True
+            # # Strip bucket path if use_s3 is True
             if use_s3:
                 input_dir = input_path.removeprefix(bucket_path)[1:]
-
-            output_path = os.path.join(output_path, input_dir.removeprefix(input_root))
+            else:
+                input_dir = input_path.removeprefix(input_root)
+            
+            output_path = os.path.join(output_path, input_dir)
 
         if use_s3:
-            print(f"Downloading {input_path} to {output_path}")
+            logging.info(f"Downloading folder: {input_path} to {output_path}")
             download_s3_folder(bucket, input_path, output_path)
         else:
-            print(f"Copying {input_path} to {output_path}")
+            logging.info(f"Copying folder: {input_path} to {output_path}")
             shutil.copytree(input_path, output_path, dirs_exist_ok=True)
 
     def download_s3_folder(bucket_name: str, s3_folder: str, local_dir: str = None):
@@ -224,6 +234,25 @@ def get_sample_data(
         command.extend(dem_list)
         subprocess.call(command)
 
+    # =======================
+    # Main Logic Body
+    # TODO: Jun 2025
+    # Add: 
+    #   - input_fema_flood_hazard_zones
+    #   - man_calb_file  (applies to only one HUC for now)
+
+    if not os.path.exists(output_root_folder):
+        os.makedirs(output_root_folder, exist_ok=True)
+
+    # -------------------
+    # setup logs
+    overall_start_time = datetime.now(timezone.utc)
+    # print(f"Downloading to {target_output_folder_path}")
+    __setup_logger(output_root_folder, "get_sample_data")
+    logging.info(f"Starting gettng sample data")
+    logging.info(f"Start time: {overall_start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    logging.info(f"Copying files/folders from {data_path} to {output_root_folder}")
+
     if use_s3:
         if not aws_access_key_id or not aws_secret_access_key:
             raise ValueError('AWS access key ID and secret access key are required when using S3')
@@ -251,9 +280,12 @@ def get_sample_data(
 
     # Set inputsDir for the bash scripts
     os.environ['inputsDir'] = input_path
+    root_dir = os.path.split(input_path)[0]    
 
     load_dotenv('/foss_fim/src/bash_variables.env')
 
+    # -------------------
+    # TODO: Do we want to move away from using these global variables?
     INPUT_DEM_DOMAIN = os.environ["input_DEM_domain"]
     INPUT_DEM_DOMAIN_ALASKA = os.environ["input_DEM_domain_Alaska"]
     INPUT_DEM = os.environ['input_DEM']
@@ -268,11 +300,11 @@ def get_sample_data(
     INPUT_WBD_GDB_ALASKA = os.environ["input_WBD_gdb_Alaska"]
     NWM_RECUR_FILE = os.environ["nwm_recur_file"]
     INPUT_CALIB_POINTS_DIR = os.environ["input_calib_points_dir"]
-    INPUT_BRIDGE_ELEV_DIFF = os.environ["input_bridge_elev_diff"]
-    INPUT_BRIDGE_ELEV_DIFF_ALASKA = os.environ["input_bridge_elev_diff_alaska"]
-    root_dir = os.path.split(input_path)[0]
+    # INPUT_BRIDGE_ELEV_DIFF = os.environ["input_bridge_elev_diff"]
+    #INPUT_BRIDGE_ELEV_DIFF_ALASKA = os.environ["input_bridge_elev_diff_alaska"]
 
-    ## test_cases
+    ## validation data (not huc specifi)
+    logging.info(f"Downloading validation data (alpha test) files, if applicable")
     validation_hucs = {}
     orgs = ['ble', 'nws', 'usgs', 'ras2fim']
     for org in orgs:
@@ -285,12 +317,9 @@ def get_sample_data(
 
     # Copy WBD (needed for post-processing)
     __copy_file(os.environ["input_WBD_gdb"], output_root_folder, input_root, bucket_path)
+
     ## ahps_sites
     __copy_file(os.environ["nws_lid"], output_root_folder, input_root, bucket_path)
-
-    ## bathymetry_adjustment
-    __copy_file(os.environ["bathy_file_ehydro"], output_root_folder, input_root, bucket_path)
-    __copy_file(os.environ["bathy_file_aibased"], output_root_folder, input_root, bucket_path)
 
     ## huc_lists
     __copy_folder(os.path.join(input_path, 'huc_lists'), output_root_folder, input_root, bucket_path)
@@ -304,6 +333,13 @@ def get_sample_data(
     ## rating_curve
     __copy_file(os.environ["bankfull_flows_file"], output_root_folder, input_root, bucket_path)
 
+    ## bathymetry_adjustment and calibration files
+    __copy_file(os.environ["bathy_file_ehydro"], output_root_folder, input_root, bucket_path)
+    __copy_file(os.environ["bathy_file_aibased"], output_root_folder, input_root, bucket_path)
+    __copy_file(os.environ["mannN_file_aibased"], output_root_folder, input_root, bucket_path)
+    __copy_file(os.environ["vmann_input_file"], output_root_folder, input_root, bucket_path)
+    __copy_file(os.environ["iris_sword_slope"], output_root_folder, input_root, bucket_path) 
+
     ## recurr_flows
     __copy_file(NWM_RECUR_FILE, output_root_folder, input_root, bucket_path)
 
@@ -316,49 +352,76 @@ def get_sample_data(
             bucket_path,
         )
 
-    __copy_file(os.environ["vmann_input_file"], output_root_folder, input_root, bucket_path)
-
     ## usgs_gages
     __copy_file(
         os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder, input_root, bucket_path
     )
-
     __copy_file(os.environ["usgs_rating_curve_csv"], output_root_folder, input_root, bucket_path)
+    __copy_file(os.environ["usgs_acceptable_gages_path"], output_root_folder, input_root, bucket_path)    
 
-    ## osm bridges
-    __copy_file(os.environ["osm_bridges"], output_root_folder, input_root, bucket_path)
+    ## ras2fim
+    ras2fim_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
+    __copy_file(
+        os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_csv_filename"]),
+        output_root_folder,
+        input_root,
+        bucket_path,
+    )
 
-    ## slope data
-    __copy_file(os.environ["iris_sword_slope"], output_root_folder, input_root, bucket_path)
+    # ---------------
+    # TODO: check this for multiple hucs being submitted at one time.    
+
+    # This part has inputs that are specific to AK or CONUS
+    # If we get more than one CONUS or one AK, there will be some duplication in coping (for now, fix later)
+    # Not all VRTs are required. Depends if AK or CONUS has dems or bridge dem diffs.
+    # if the vrt_file values are empty, no need to make a new vrt for it.
+    conus_dem_vrt_file = ""
+    alaska_dem_vrt_file = ""
+
+    # Some vrts may stay empty, if the HUC doesn't have a file (ie.. a huc without bridge data)
+    alaska_bridge_vrt_file = ""  # if this stay empty, then no possible ak bridge dem diffs and no vrt needed
+    conus_bridge_vrt_file = ""  # if this stay empty, then no possible ak bridge dem diffs and no vrt needed
 
     for huc in hucs:
         huc2Identifier = huc[:2]
 
         # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
         if huc2Identifier == '19':
-            input_LANDSEA = INPUT_LANDSEA_ALASKA
-            input_DEM = INPUT_DEM_ALASKA
+            alaska_dem_vrt_file = INPUT_DEM_ALASKA
             input_DEM_domain = INPUT_DEM_DOMAIN_ALASKA
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC8_{huc}_dem.tif')
             input_NWM_lakes = INPUT_NWM_LAKES_ALASKA
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA
-            input_bridge_elev_diff = INPUT_BRIDGE_ELEV_DIFF_ALASKA
-            input_DEM_diff = os.path.join(
-                os.path.split(input_bridge_elev_diff)[0], f'HUC8_{huc}_dem_diff.tif'
-            )
+            input_LANDSEA = INPUT_LANDSEA_ALASKA
 
+            # Why do we copy it here? fix it?
             __copy_file(INPUT_WBD_GDB_ALASKA, output_root_folder, input_root, bucket_path)
 
+            # Need to make our own vrt for dem diff
+            # This will the name of the rebuilt vrt
+            alaska_bridge_vrt_file = os.environ["input_bridge_elev_diff_alaska"]
+            input_DEM_diff_tifs = os.path.join(
+                 os.path.split(alaska_bridge_vrt_file)[0], f'HUC8_{huc}_dem_diff.tif'
+            )
+            __copy_file(input_DEM_diff_tifs, output_root_folder, input_root, bucket_path)
+            input_osm_bridges = os.environ["osm_bridges_alaska"]
+            input_osm_roads = os.environ["osm_roads_alaska"]
+
         else:
-            input_DEM = INPUT_DEM
+            conus_dem_vrt_file = INPUT_DEM
             input_DEM_domain = INPUT_DEM_DOMAIN
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC6_{huc[:6]}_dem.tif')
+
             input_NWM_lakes = INPUT_NWM_LAKES
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS
-            input_bridge_elev_diff = INPUT_BRIDGE_ELEV_DIFF
-            input_DEM_diff = os.path.join(
-                os.path.split(input_bridge_elev_diff)[0], f'HUC6_{huc[:6]}_dem_diff.tif'
+
+            conus_bridge_vrt_file = os.environ["input_bridge_elev_diff"]
+            input_DEM_diff_tifs = os.path.join(
+                os.path.split(conus_bridge_vrt_file)[0], f'HUC6_{huc[:6]}_dem_diff.tif'
             )
+            __copy_file(input_DEM_diff_tifs, output_root_folder, input_root, bucket_path)            
+            input_osm_bridges = os.environ["osm_bridges"]
+            input_osm_roads = os.environ["osm_roads"]
 
             # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
             if huc2Identifier == "04":
@@ -366,17 +429,18 @@ def get_sample_data(
             else:
                 input_LANDSEA = INPUT_LANDSEA
 
-        ## landsea mask
-        __copy_file(input_LANDSEA, output_root_folder, input_root, bucket_path)
-
-        # dem
+        # Copying files that are specific to AK or CONUS
+        # Yes.. many might be copied more than once if more than one huc exists in CONUS or AK
+        # dems
         __copy_file(input_DEM_domain, output_root_folder, input_root, bucket_path)
         __copy_file(input_DEM_file, output_root_folder, input_root, bucket_path)
-        __copy_file(input_DEM_diff, output_root_folder, input_root, bucket_path)
 
         # lakes
         ## nwm_hydrofabric
         __copy_file(input_NWM_lakes, output_root_folder, input_root, bucket_path)
+
+        ## landsea mask
+        __copy_file(input_LANDSEA, output_root_folder, input_root, bucket_path)
 
         ## nld_vectors
         __copy_file(input_NLD_levee_protected_areas, output_root_folder, input_root, bucket_path)
@@ -388,34 +452,15 @@ def get_sample_data(
             bucket_path,
         )
 
-        ## ras2fim
-        ras2fim_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
-        __copy_file(
-            os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_csv_filename"]),
-            output_root_folder,
-            input_root,
-            bucket_path,
-        )
-        __copy_file(
-            os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_gpkg_filename"]),
-            output_root_folder,
-            input_root,
-            bucket_path,
-        )
-
-        __copy_file(
-            os.path.join(os.environ["ras2fim_input_dir"], huc, os.environ["ras_rating_curve_gpkg_filename"]),
-            output_root_folder,
-            input_root,
-            bucket_path,
-        )
+        # bridge and road data
+        __copy_file(input_osm_bridges, output_root_folder, input_root, bucket_path)
+        __copy_file(input_osm_roads, output_root_folder, input_root, bucket_path)
 
         ## pre_clip_huc8
         __copy_folder(
             os.path.join(os.environ["pre_clip_huc_dir"], huc), output_root_folder, input_root, bucket_path
         )
 
-        ## validation data
         for org in orgs:
             if huc in validation_hucs[org]:
                 if use_s3:
@@ -423,15 +468,61 @@ def get_sample_data(
                 else:
                     __copy_validation_data(org, huc, data_path, output_root_folder)
 
-    # create VRTs
-    print('Creating DEM VRT')
-    __create_vrt(input_DEM, use_s3, bucket_path)
 
-    print('Creating DEM diff VRT')
-    __create_vrt(input_bridge_elev_diff, use_s3, bucket_path)
+    # create DEM VRTs
+    # We may not necesarily need vrts for everyone. ie) not all HUCs have bridges
+    # we not have any AK or maybe AK and CONUS
+    if conus_dem_vrt_file != "":
+        logging.info(f"Creating CONUS DEM vrt file")
+        __create_vrt(conus_dem_vrt_file, use_s3, bucket_path)
+
+    if alaska_dem_vrt_file != "":
+        logging.info(f"Creating Alaska DEM vrt file")
+        __create_vrt(alaska_dem_vrt_file, use_s3, bucket_path)
+
+    # Bridge dem diff vrts
+    if conus_bridge_vrt_file != "":
+        logging.info(f"Creating CONUS Bridge DEM Diff vrt file")
+        __create_vrt(conus_bridge_vrt_file, use_s3, bucket_path)
+
+    if alaska_bridge_vrt_file != "":
+        logging.info(f"Creating Alaska Bridge DEM Diff vrt file")
+        __create_vrt(alaska_bridge_vrt_file, use_s3, bucket_path)
+
+
+    logging.info("==========================================================")
+    end_time = datetime.now(timezone.utc)
+    logging.info("-- Starting gettng sample data completed")
+    logging.info(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    logging.info(fh.print_date_time_duration(overall_start_time, end_time, False))
+
+
+def __setup_logger(output_folder_path, prepend_file_name):
+
+    start_time = datetime.now(timezone.utc)
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"{prepend_file_name}-{file_dt_string}.log"
+
+    log_file_path = os.path.join(output_folder_path, log_file_name)
+
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+
+    logger = logging.getLogger()
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    logger.setLevel(logging.DEBUG)
 
 
 if __name__ == '__main__':
+
+    """
+    Sample Usage:
+    python /foss_fim/data/get_sample_data.py -u 03100204 -i /data -o /outputs/sample-data
+    """
+
     parser = argparse.ArgumentParser(description='Create input data for the flood inundation model')
     parser.add_argument('-u', '--hucs', nargs='+', help='HUC to process')
     parser.add_argument('-i', '--data-path', help='Path to the input data')
@@ -445,4 +536,3 @@ if __name__ == '__main__':
 
     get_sample_data(**vars(args))
 
-    # python /foss_fim/data/get_sample_data.py -u 03100204 -i /data -o /outputs/sample-data
