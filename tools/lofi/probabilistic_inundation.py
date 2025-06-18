@@ -29,6 +29,8 @@ from scipy.stats import (
 from shapely.geometry import shape
 from tqdm import tqdm
 
+from utils.shared_functions import s3_or_local_glob
+
 
 def get_fim_probability_distributions(
     posterior_dist: Optional[Union[str, pd.DataFrame]] = None, huc: Optional[int] = None
@@ -558,7 +560,7 @@ def inundate_probabilistic(
     os.makedirs(flow_path, exist_ok=True)
 
     # Find the original hydrotable
-    all_branches = iglob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
+    all_branches = s3_or_local_glob(os.path.join(hydrofabric_dir, huc, "branches", "*"))
     all_branches = list(map(os.path.basename, all_branches))
 
     # Apply inundation map to each percentile

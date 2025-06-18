@@ -363,6 +363,26 @@ def s3_or_local_isfile(path: str) -> bool:
     return True
 
 
+def s3_or_local_glob(path: str) -> list:
+    """
+    Returns glob list in the case of a local or s3 path
+
+    Parameters
+    ----------
+    path: str
+        Path to run glob operation on
+
+    Returns
+    -------
+    list
+        Paths and directories associated with glob operation
+    """
+    if 's3://' in path:
+        return FS_S3.glob(path)
+    else:
+        return glob.iglob(path)
+
+
 # #####################################
 class FIM_Helpers:
     # -----------------------------------------------------------
