@@ -211,14 +211,6 @@ def acquire_and_preprocess_3dep_dems(
     else:
         logging.info("polygonize skipped")
 
-    if len(failed_paths) > 0:
-        logging.error(f"Errors exist. Skipping making vrt file.")
-    else:
-        # now make a vrt file from all generated diff raster files
-        logging.info("---------------------")
-        logging.info('Making a vrt files')
-        create_vrt_file(target_output_folder_path, 'seemless_dem.vrt')
-
     logging.info("==========================================================")
     end_time = datetime.now(timezone.utc)
     logging.info("-- Acquire and process USGS DEM Completed")
@@ -326,7 +318,6 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
     logging.info("-- Downloading USGS DEM Completed")
     logging.info(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
     logging.info(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False))
-    print("==========================================================")
 
     return failed_paths
 

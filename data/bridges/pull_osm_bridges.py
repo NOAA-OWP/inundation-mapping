@@ -488,7 +488,7 @@ if __name__ == "__main__":
     Sample usage (min params):
         python3 /foss_fim/data/bridges/pull_osm_bridges.py
             -w /data/inputs/wbd/WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg
-            -p /data/inputs/osm/bridges/20250129/
+            -p /data/inputs/osm/bridges/bridge_data/20250207/
             -j 10
             -lh '01010002 12090301'
 

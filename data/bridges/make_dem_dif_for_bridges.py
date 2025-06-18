@@ -279,18 +279,18 @@ if __name__ == "__main__":
     #   This code needs to be run twice: once for conus and once for Alaska :
 
     #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/20250207/alaska_osm_bridges.gpkg
-    #    -l /data/inputs/osm/bridges/20250207/alaska_osm_lidar_rasters/lidar_osm_rasters/
-    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20250320/
-    #    -o /data/inputs/osm/bridges/20250323/10m_dem_diffs/alaska/
-    #    -j 30
+    #    -i /data/inputs/osm/bridges/bridge_data/20250207/alaska_osm_bridges.gpkg
+    #    -l /data/inputs/osm/bridges/lidar_data/20250323/alaska_osm_lidar_rasters/lidar_osm_rasters/
+    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20250616/
+    #    -o /data/inputs/osm/bridges/lidar_data/20250617/10m_dem_diffs/alaska/
+    #    -j 20
 
     #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/20250207/conus_osm_bridges.gpkg
-    #    -l /data/inputs/osm/bridges/20250207/conus_osm_lidar_rasters/lidar_osm_rasters/
-    #    -d /data/inputs/dems/3dep_dems/10m_5070/20250320/
-    #    -o /data/inputs/osm/bridges/20250323/10m_dem_diffs/conus/
-    #    -j 30
+    #    -i /data/inputs/osm/bridges/bridge_data/20250207/conus_osm_bridges.gpkg
+    #    -l /data/inputs/osm/bridges/lidar_data/20250323/conus_osm_lidar_rasters/lidar_osm_rasters/
+    #    -d /data/inputs/dems/3dep_dems/10m_5070/20250616/
+    #    -o /data/inputs/osm/bridges/lidar_data/20250617/10m_dem_diffs/conus/
+    #    -j 20
 
     ###############################
     #
