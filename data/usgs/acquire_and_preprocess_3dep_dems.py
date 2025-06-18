@@ -13,9 +13,9 @@ from datetime import datetime, timezone
 import geopandas as gpd
 import pandas as pd
 
-from data.create_vrt_file import create_vrt_file
 import utils.shared_functions as sf
 import utils.shared_validators as val
+from data.create_vrt_file import create_vrt_file
 from utils.shared_functions import FIM_Helpers as fh
 
 
@@ -288,7 +288,7 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
                             rtn_dic = future.result()
                             if rtn_dic["success"] == "False":
                                 failed_paths.append(rtn_dic["basic_file_name"])
-                       
+
             except Exception as ex:
                 summary = traceback.StackSummary.extract(traceback.walk_stack(None))
                 logging.critical(f"*** {ex}")
@@ -300,11 +300,13 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
                 sys.exit(1)
 
         # Send the executor to the progress bar and wait for all tasks to finish
+        # TODO: fix progress bar
         sf.progress_bar_handler(executor_dict, "Downloading USGG 3Dep Dems")
 
     if len(failed_paths) > 0:
-        logging.info("Some dem downloads have failed. Here are files that need review for errors:"
-                    f" {failed_paths}")
+        logging.info(
+            "Some dem downloads have failed. Here are files that need review for errors:" f" {failed_paths}"
+        )
 
     end_time = datetime.now(timezone.utc)
     logging.info("-- Downloading USGS DEM Completed")
@@ -318,35 +320,35 @@ def download_usgs_dem_file(
     extent_file, output_folder_path, download_url, target_projection, base_cmd, repair
 ):
     '''
-    Process:
-    ----------
-        Downloads just one dem file from USGS. This is setup as a method
-        to allow for multi-processing.
+        Process:
+        ----------
+            Downloads just one dem file from USGS. This is setup as a method
+            to allow for multi-processing.
 
 
-    Parameters:
-    ----------
-        - extent_file (str)
-             When the dem is downloaded, it is clipped against this extent (.gkpg) file.
-        - output_folder_path (str)
-             Location of where the output file will be stored
-        - download_url (str)
-             URL for the USGS download site (note: Should include '/vsicurl/' at the
-             front of the URL)
-        - target_projection (str)
-            ie) EPSG:5070 or EPSG:2276, etc
-        - base_cmd (str)
-             The basic GDAL command with string formatting wholes for key values.
-        - repair (bool)
-             If True, and the file does not exist or is too small (under 10mb),
-             it will attempt to download.
+        Parameters:
+        ----------
+            - extent_file (str)
+                 When the dem is downloaded, it is clipped against this extent (.gkpg) file.
+            - output_folder_path (str)
+                 Location of where the output file will be stored
+            - download_url (str)
+                 URL for the USGS download site (note: Should include '/vsicurl/' at the
+                 front of the URL)
+            - target_projection (str)
+                ie) EPSG:5070 or EPSG:2276, etc
+            - base_cmd (str)
+                 The basic GDAL command with string formatting wholes for key values.
+            - repair (bool)
+                 If True, and the file does not exist or is too small (under 10mb),
+                 it will attempt to download.
 
-    Returns:
-    ----------
-        A dictionary  object with args of:
-            "success":  ("True" / "False" or "Skipped")
-            "basic_file_name":  "{basic_file_name} or "skipped"
-}
+        Returns:
+        ----------
+            A dictionary  object with args of:
+                "success":  ("True" / "False" or "Skipped")
+                "basic_file_name":  "{basic_file_name} or "skipped"
+    }
     '''
 
     basic_file_name = os.path.basename(extent_file).split('.')[0]
@@ -354,10 +356,7 @@ def download_usgs_dem_file(
     target_path_raw = os.path.join(output_folder_path, target_file_name_raw)
 
     # Yes.. use string bool
-    rtn_dic = {
-        "success": "False",
-        "basic_file_name" : basic_file_name
-    }
+    rtn_dic = {"success": "False", "basic_file_name": basic_file_name}
 
     # It does happen where the final output size can be very small (or all no-data)
     # which is related to to the spatial extents of the dem and the vrt combined.
@@ -494,7 +493,6 @@ def polygonize(target_output_folder_path):
     else:
         logging.info(f" - Polygonizing -- {dem_domain_file} - Complete")
 
-
     end_time = datetime.now(timezone.utc)
     logging.info(f"Polygonization end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
     logging.info(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False))
@@ -557,7 +555,7 @@ if __name__ == '__main__':
         is named named "HUC8_12090301", then the output file name will be "HUC8_12090301_dem.tif"
         Or depends what file name you sent in for the boundary: ie) HUC6_120903 becomes HUC6_120903_dem.tif
 
-    
+
     FIM uses vrt's primariy for DEMs but this tool only downloads and preps the DEMs but does
     not create the vrt. That is done using the create_vrt_file.py tool.
 
@@ -572,11 +570,12 @@ if __name__ == '__main__':
     ++++++++++++++++++++++++++++++++++++++++++++
     '''
 
-    parser = argparse.ArgumentParser(description='Acquires and preprocesses USGS 3Dep dems'
-                                     '... Note. It we give it too many jobs and with each making'
-                                     ' and call to the internet based on our limited EC2 pipe,'
-                                     ' some can fail. It is suggested to keep job numbers low.'
-                                     )
+    parser = argparse.ArgumentParser(
+        description='Acquires and preprocesses USGS 3Dep dems'
+        '... Note. It we give it too many jobs and with each making'
+        ' and call to the internet based on our limited EC2 pipe,'
+        ' some can fail. It is suggested to keep job numbers low.'
+    )
 
     parser.add_argument(
         '-e',
