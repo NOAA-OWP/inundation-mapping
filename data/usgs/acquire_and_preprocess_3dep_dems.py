@@ -163,8 +163,6 @@ def acquire_and_preprocess_3dep_dems(
     # setup logs
     overall_start_time = datetime.now(timezone.utc)
     fh.print_start_header('Acquire and process USGS DEM Started', overall_start_time)
-
-    # print(f"Downloading to {target_output_folder_path}")
     __setup_logger(target_output_folder_path)
     logging.info(f"Downloading to {target_output_folder_path}")
 
@@ -173,9 +171,7 @@ def acquire_and_preprocess_3dep_dems(
 
     # Get the WBD .gpkg files (or clip extent)
     extent_file_names_raw = fh.get_file_names(extent_file_path, 'gpkg')
-    msg = f"Extent files coming from {extent_file_path}"
-    # print(msg)
-    logging.info(msg)
+    logging.info(f"Extent files coming from {extent_file_path}")
 
     # If a HUC list is specified, only keep the specified HUCs
     lst_hucs = lst_hucs.split()
@@ -295,9 +291,6 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
                        
             except Exception as ex:
                 summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-                # print(f"*** {ex}")
-                # print(''.join(summary.format()))
-
                 logging.critical(f"*** {ex}")
                 logging.critical(''.join(summary.format()))
 
@@ -310,10 +303,9 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
         sf.progress_bar_handler(executor_dict, "Downloading USGG 3Dep Dems")
 
     if len(failed_paths) > 0:
-        msg = f"Some dem downloads have failed. Here are files that need review for errors: {failed_paths}"
-        logging.info(msg)
+        logging.info("Some dem downloads have failed. Here are files that need review for errors:"
+                    f" {failed_paths}")
 
-    # print("-- Downloading USGS DEMs Completed")
     end_time = datetime.now(timezone.utc)
     logging.info("-- Downloading USGS DEM Completed")
     logging.info(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
@@ -376,7 +368,6 @@ def download_usgs_dem_file(
             os.remove(target_path_raw)
         else:
             msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
-            # print(msg)
             logging.info(msg)
             rtn_dic["success"] = "Skipped"
             return rtn_dic
@@ -384,9 +375,7 @@ def download_usgs_dem_file(
     start_time = datetime.now(timezone.utc)
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
 
-    msg = f" - Downloading -- {target_file_name_raw} - Started: {file_dt_string}"
-    # print(msg)
-    logging.info(msg)
+    logging.info(f" - Downloading -- {target_file_name_raw} - Started: {file_dt_string}")
 
     cmd = base_cmd.format(download_url, target_path_raw, extent_file, target_projection)
     # print(f"cmd is {cmd}")
@@ -404,26 +393,20 @@ def download_usgs_dem_file(
             universal_newlines=True,
         )
 
-        msg = process.stdout
-        #print(msg)
-        logging.info(msg)
+        logging.info(process.stdout)
 
         if process.stderr != "":
             if "ERROR" in process.stderr.upper():
                 msg = f" - Downloading -- {target_file_name_raw}" f"  ERROR -- details: ({process.stderr})"
-                #print(msg)
                 logging.error(msg)
                 os.remove(target_path_raw)
                 rtn_dic["success"] = "False"
         else:
-            msg = f" - Downloading -- {target_file_name_raw} - Complete"
-            #print(msg)
-            logging.info(msg)
+            logging.info(f" - Downloading -- {target_file_name_raw} - Complete")
             rtn_dic["success"] = "True"
+
     except Exception:
-        msg = "An exception occurred while downloading files."
-        #print(msg)
-        #print(traceback.format_exc())
+        logging.critical("An exception occurred while downloading files.")
         logging.critical(traceback.format_exc())
 
         # TODO: sys.exit from within an MP does not work. It stops this MP but not the parent
@@ -446,7 +429,6 @@ def polygonize(target_output_folder_path):
 
     logging.info("==========================================================")
     msg = f" - Polygonizing -- {dem_domain_file} - Started (be patient, it can take a while)"
-    #print(msg)
     logging.info(msg)
 
     start_time = datetime.now(timezone.utc)
@@ -508,13 +490,9 @@ def polygonize(target_output_folder_path):
     dem_dissolved.to_file(dem_domain_file, driver='GPKG', engine='fiona')
 
     if not os.path.exists(dem_domain_file):
-        msg = f" - Polygonizing -- {dem_domain_file} - Failed"
-        #print(msg)
-        logging.error(msg)
+        logging.error(f" - Polygonizing -- {dem_domain_file} - Failed")
     else:
-        msg = f" - Polygonizing -- {dem_domain_file} - Complete"
-        #print(msg)
-        logging.info(msg)
+        logging.info(f" - Polygonizing -- {dem_domain_file} - Complete")
 
 
     end_time = datetime.now(timezone.utc)
