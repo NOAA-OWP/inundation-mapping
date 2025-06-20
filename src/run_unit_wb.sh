@@ -211,16 +211,16 @@ python3 $srcDir/agreedem.py \
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
-    python3 $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
-        -d $tempHucDataDir/dem_meters.tif \
-        -w $tempHucDataDir \
-        -o $tempHucDataDir/dem_burned.tif \
-        -b $agree_DEM_buffer \
-        -sm 10 \
-        -sh 1000
-fi
+# if [ "$levelpaths_exist" = "1" ]; then
+#     echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
+#     python3 $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
+#         -d $tempHucDataDir/dem_meters.tif \
+#         -w $tempHucDataDir \
+#         -o $tempHucDataDir/dem_burned.tif \
+#         -b $agree_DEM_buffer \
+#         -sm 10 \
+#         -sh 1000
+# fi
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
