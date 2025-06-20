@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-06-18 - [PR#1564](https://github.com/NOAA-OWP/inundation-mapping/pull/1564)
+## v4.8.6.0 - 2025-06-20 - [PR#1564](https://github.com/NOAA-OWP/inundation-mapping/pull/1564)
 
 Added more logging to the acquire dem script, plus logic to stop attempting polygon creation if there are HUC download fails. Also added feature to help visibility of downloads.
 
@@ -14,7 +14,10 @@ Added more logging to the acquire dem script, plus logic to stop attempting poly
          - `acquire_and_preprocess_3dep_dems.py`: as described
  - `src`
      - `bash_variables.env`: Update for pathing for new dems and bridge dem diffs for both AK and CONUS. 
-## v4.8.5.0 - 2025-06-18 - [PR#1559](https://github.com/NOAA-OWP/inundation-mapping/pull/1559)
+
+<br/><br/>
+
+## v4.8.5.0 - 2025-06-20 - [PR#1559](https://github.com/NOAA-OWP/inundation-mapping/pull/1559)
 
 This PR fixes the issue with dropped GMS catchments. The agreedem.py script now runs separately for each branch instead of at the unit level for all levelpaths at once.
 
