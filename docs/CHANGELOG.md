@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-06-20 - [PR#1570](https://github.com/NOAA-OWP/inundation-mapping/pull/1570)
+
+This PR fixes issue #1560 and #1544.
+
+### Changes
+- `fim_post_processing.sh`: Added timestamp to post-processing.log file.
+- `src/heal_bridges_osm.py`: Removed bridge points with threshold_hand = 0.
+<br/><br/>
+
 ## v4.8.6.0 - 2025-06-20 - [PR#1564](https://github.com/NOAA-OWP/inundation-mapping/pull/1564)
 
 Added more logging to the acquire dem script, plus logic to stop attempting polygon creation if there are HUC download fails. Also added feature to help visibility of downloads.
