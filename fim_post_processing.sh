@@ -246,18 +246,23 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     Tcount
 fi
 
+
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ RAS2FIM CROSS SECTION RATING CURVES ##
-if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
-    Tstart
-    l_echo $startDiv"Performing SRC adjustments using ras2fim rating curve database"
-    # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
-    python3 $srcDir/src_adjust_ras2fim_rating.py \
-        -run_dir $outputDestDir \
-        -ras_input $ras2fim_input_dir \
-        -ras_rc $ras_rating_curve_csv_filename \
-        -nwm_recur $nwm_recur_file \
-        -j $jobLimit
-    Tcount
+## Sometimes when sample datasets are created and it is not an applicable huc, it does not even
+## create the ras2fim inputs dir
+if [ -d $ras2fim_input_dir ]; then
+    if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
+        Tstart
+        l_echo $startDiv"Performing SRC adjustments using ras2fim rating curve database"
+        # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
+        python3 $srcDir/src_adjust_ras2fim_rating.py \
+            -run_dir $outputDestDir \
+            -ras_input $ras2fim_input_dir \
+            -ras_rc $ras_rating_curve_csv_filename \
+            -nwm_recur $nwm_recur_file \
+            -j $jobLimit
+        Tcount
+    fi
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINTS (.parquet files) ##

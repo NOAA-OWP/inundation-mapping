@@ -236,10 +236,6 @@ def get_sample_data(
 
     # =======================
     # Main Logic Body
-    # TODO: Jun 2025
-    # Add: 
-    #   - input_fema_flood_hazard_zones
-    #   - man_calb_file  (applies to only one HUC for now)
 
     if not os.path.exists(output_root_folder):
         os.makedirs(output_root_folder, exist_ok=True)
@@ -301,9 +297,12 @@ def get_sample_data(
     NWM_RECUR_FILE = os.environ["nwm_recur_file"]
     INPUT_CALIB_POINTS_DIR = os.environ["input_calib_points_dir"]
     # INPUT_BRIDGE_ELEV_DIFF = os.environ["input_bridge_elev_diff"]
-    #INPUT_BRIDGE_ELEV_DIFF_ALASKA = os.environ["input_bridge_elev_diff_alaska"]
+    # INPUT_BRIDGE_ELEV_DIFF_ALASKA = os.environ["input_bridge_elev_diff_alaska"]
 
-    ## validation data (not huc specifi)
+    ## ===============================
+    ## Not HUC specific files or specific to either CONUS or AK
+
+    ## validation data (not huc specific)
     logging.info(f"Downloading validation data (alpha test) files, if applicable")
     validation_hucs = {}
     orgs = ['ble', 'nws', 'usgs', 'ras2fim']
@@ -338,7 +337,8 @@ def get_sample_data(
     __copy_file(os.environ["bathy_file_aibased"], output_root_folder, input_root, bucket_path)
     __copy_file(os.environ["mannN_file_aibased"], output_root_folder, input_root, bucket_path)
     __copy_file(os.environ["vmann_input_file"], output_root_folder, input_root, bucket_path)
-    __copy_file(os.environ["iris_sword_slope"], output_root_folder, input_root, bucket_path) 
+    __copy_file(os.environ["iris_sword_slope"], output_root_folder, input_root, bucket_path)
+    __copy_file(os.environ["man_calb_file"], output_root_folder, input_root, bucket_path)
 
     ## recurr_flows
     __copy_file(NWM_RECUR_FILE, output_root_folder, input_root, bucket_path)
@@ -352,21 +352,17 @@ def get_sample_data(
             bucket_path,
         )
 
+    # ++++++++++++++++++++++
+    # TODO: Jun 18, 2025: Fix coming for hardcoded usgs_gages.gpkg file
+    # ++++++++++++++++++++++
+
+
     ## usgs_gages
     __copy_file(
         os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder, input_root, bucket_path
     )
     __copy_file(os.environ["usgs_rating_curve_csv"], output_root_folder, input_root, bucket_path)
     __copy_file(os.environ["usgs_acceptable_gages_path"], output_root_folder, input_root, bucket_path)    
-
-    ## ras2fim
-    ras2fim_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
-    __copy_file(
-        os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_csv_filename"]),
-        output_root_folder,
-        input_root,
-        bucket_path,
-    )
 
     # ---------------
     # TODO: check this for multiple hucs being submitted at one time.    
@@ -375,49 +371,49 @@ def get_sample_data(
     # If we get more than one CONUS or one AK, there will be some duplication in coping (for now, fix later)
     # Not all VRTs are required. Depends if AK or CONUS has dems or bridge dem diffs.
     # if the vrt_file values are empty, no need to make a new vrt for it.
-    conus_dem_vrt_file = ""
-    alaska_dem_vrt_file = ""
+    dem_vrt_file_conus = ""
+    dem_vrt_file_alaska = ""
 
     # Some vrts may stay empty, if the HUC doesn't have a file (ie.. a huc without bridge data)
-    alaska_bridge_vrt_file = ""  # if this stay empty, then no possible ak bridge dem diffs and no vrt needed
-    conus_bridge_vrt_file = ""  # if this stay empty, then no possible ak bridge dem diffs and no vrt needed
+    bridge_dem_dif_vrt_file_conus = ""
+    bridge_dem_dif_vrt_file_alaska = ""
 
     for huc in hucs:
         huc2Identifier = huc[:2]
 
         # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
         if huc2Identifier == '19':
-            alaska_dem_vrt_file = INPUT_DEM_ALASKA
+            dem_vrt_file_alaska = INPUT_DEM_ALASKA
             input_DEM_domain = INPUT_DEM_DOMAIN_ALASKA
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC8_{huc}_dem.tif')
             input_NWM_lakes = INPUT_NWM_LAKES_ALASKA
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA
             input_LANDSEA = INPUT_LANDSEA_ALASKA
 
-            # Why do we copy it here? fix it?
+            # only copy if we need an AK WBD (yes. possible overwriting)
             __copy_file(INPUT_WBD_GDB_ALASKA, output_root_folder, input_root, bucket_path)
 
             # Need to make our own vrt for dem diff
             # This will the name of the rebuilt vrt
-            alaska_bridge_vrt_file = os.environ["input_bridge_elev_diff_alaska"]
+            bridge_dem_dif_vrt_file_alaska = os.environ["input_bridge_elev_diff_alaska"]
             input_DEM_diff_tifs = os.path.join(
-                 os.path.split(alaska_bridge_vrt_file)[0], f'HUC8_{huc}_dem_diff.tif'
+                 os.path.split(bridge_dem_dif_vrt_file_alaska)[0], f'HUC8_{huc}_dem_diff.tif'
             )
             __copy_file(input_DEM_diff_tifs, output_root_folder, input_root, bucket_path)
             input_osm_bridges = os.environ["osm_bridges_alaska"]
             input_osm_roads = os.environ["osm_roads_alaska"]
 
         else:
-            conus_dem_vrt_file = INPUT_DEM
+            dem_vrt_file_conus = INPUT_DEM
             input_DEM_domain = INPUT_DEM_DOMAIN
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC6_{huc[:6]}_dem.tif')
 
             input_NWM_lakes = INPUT_NWM_LAKES
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS
 
-            conus_bridge_vrt_file = os.environ["input_bridge_elev_diff"]
+            bridge_dem_dif_vrt_file_conus = os.environ["input_bridge_elev_diff"]
             input_DEM_diff_tifs = os.path.join(
-                os.path.split(conus_bridge_vrt_file)[0], f'HUC6_{huc[:6]}_dem_diff.tif'
+                os.path.split(bridge_dem_dif_vrt_file_conus)[0], f'HUC6_{huc[:6]}_dem_diff.tif'
             )
             __copy_file(input_DEM_diff_tifs, output_root_folder, input_root, bucket_path)            
             input_osm_bridges = os.environ["osm_bridges"]
@@ -428,6 +424,9 @@ def get_sample_data(
                 input_LANDSEA = INPUT_GL_BOUNDARIES
             else:
                 input_LANDSEA = INPUT_LANDSEA
+
+        ## ===============================
+        ## Not HUC specific files, but specific to either CONUS or AK
 
         # Copying files that are specific to AK or CONUS
         # Yes.. many might be copied more than once if more than one huc exists in CONUS or AK
@@ -445,6 +444,12 @@ def get_sample_data(
         ## nld_vectors
         __copy_file(input_NLD_levee_protected_areas, output_root_folder, input_root, bucket_path)
 
+        # bridge and road data
+        __copy_file(input_osm_bridges, output_root_folder, input_root, bucket_path)
+        __copy_file(input_osm_roads, output_root_folder, input_root, bucket_path)
+
+        ## ===============================
+        ## HUC specific files
         __copy_file(
             os.path.join(INPUT_CALIB_POINTS_DIR, f'{huc}.parquet'),
             output_root_folder,
@@ -452,9 +457,12 @@ def get_sample_data(
             bucket_path,
         )
 
-        # bridge and road data
-        __copy_file(input_osm_bridges, output_root_folder, input_root, bucket_path)
-        __copy_file(input_osm_roads, output_root_folder, input_root, bucket_path)
+        __copy_file(
+            os.path.join(os.environ["input_fema_flood_hazard_zones"], f'nfhl_{huc}.gpkg'),
+            output_root_folder,
+            input_root,
+            bucket_path,
+        )
 
         ## pre_clip_huc8
         __copy_folder(
@@ -468,26 +476,42 @@ def get_sample_data(
                 else:
                     __copy_validation_data(org, huc, data_path, output_root_folder)
 
+        ## ras2fim
+        ras2fim_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
+        # we do not want it to create an empty dir
+        if os.path.exists(ras2fim_input_dir):
+            __copy_file(
+                os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_csv_filename"]),
+                output_root_folder,
+                input_root,
+                bucket_path,
+            )
+            __copy_file(
+                os.path.join(ras2fim_input_dir, os.environ["ras_rating_curve_gpkg_filename"]),
+                output_root_folder,
+                input_root,
+                bucket_path,
+            )
 
     # create DEM VRTs
     # We may not necesarily need vrts for everyone. ie) not all HUCs have bridges
     # we not have any AK or maybe AK and CONUS
-    if conus_dem_vrt_file != "":
+    if dem_vrt_file_conus != "":
         logging.info(f"Creating CONUS DEM vrt file")
-        __create_vrt(conus_dem_vrt_file, use_s3, bucket_path)
+        __create_vrt(dem_vrt_file_conus, use_s3, bucket_path)
 
-    if alaska_dem_vrt_file != "":
+    if dem_vrt_file_alaska != "":
         logging.info(f"Creating Alaska DEM vrt file")
-        __create_vrt(alaska_dem_vrt_file, use_s3, bucket_path)
+        __create_vrt(dem_vrt_file_alaska, use_s3, bucket_path)
 
     # Bridge dem diff vrts
-    if conus_bridge_vrt_file != "":
+    if bridge_dem_dif_vrt_file_conus != "":
         logging.info(f"Creating CONUS Bridge DEM Diff vrt file")
-        __create_vrt(conus_bridge_vrt_file, use_s3, bucket_path)
+        __create_vrt(bridge_dem_dif_vrt_file_conus, use_s3, bucket_path)
 
-    if alaska_bridge_vrt_file != "":
+    if bridge_dem_dif_vrt_file_alaska != "":
         logging.info(f"Creating Alaska Bridge DEM Diff vrt file")
-        __create_vrt(alaska_bridge_vrt_file, use_s3, bucket_path)
+        __create_vrt(bridge_dem_dif_vrt_file_alaska, use_s3, bucket_path)
 
 
     logging.info("==========================================================")
