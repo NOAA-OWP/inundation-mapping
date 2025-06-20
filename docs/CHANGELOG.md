@@ -10,6 +10,12 @@ Note: This PR does not address the issue of some catchments not being updated du
 ### Changes
 - `src/run_by_branch.sh` : Added agreedem step.
 - `src/run_unit_wb.sh` : Prevented `agreede.py` from running.
+## v4.8.4.1 - 2025-06-20 - [PR#1558](https://github.com/NOAA-OWP/inundation-mapping/pull/1558)
+
+Hotfix to remove unrealistic slope values from either SWORD or Hfab. Closes #1555 
+
+### Changes
+- `src/add_crosswalk.py`: added new logic to check for slope values outside an acceptable range (SLOPE_MIN = 9.999e-7 & SLOPE_MAX = 0.5)
 
 <br/><br/>
 
