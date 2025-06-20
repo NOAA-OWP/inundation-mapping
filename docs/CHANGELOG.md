@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.4.x - 2025-06-16 - [PR#1558](https://github.com/NOAA-OWP/inundation-mapping/pull/1558)
+## v4.8.4.1 - 2025-06-20 - [PR#1558](https://github.com/NOAA-OWP/inundation-mapping/pull/1558)
 
 Hotfix to remove unrealistic slope values from either SWORD or Hfab. Closes #1555 
 
