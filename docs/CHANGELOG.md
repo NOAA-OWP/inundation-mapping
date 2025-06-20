@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.4.1 - 2025-06-20 - [PR#1558](https://github.com/NOAA-OWP/inundation-mapping/pull/1558)
+
+Hotfix to remove unrealistic slope values from either SWORD or Hfab. Closes #1555 
+
+### Changes
+- `src/add_crosswalk.py`: added new logic to check for slope values outside an acceptable range (SLOPE_MIN = 9.999e-7 & SLOPE_MAX = 0.5)
+
+<br/><br/>
+
 ## v4.8.4.0 - 2025-06-13 - [PR#1516](https://github.com/NOAA-OWP/inundation-mapping/pull/1516)
 
 Updates the function that downloads USGS rating curves so that it does not apply the acceptance criteria filtering. Updates the scripts that use the USGS data so they have filtering where the data is read in. This change wil create a new set of USGS data outputs to use in FIM. 
