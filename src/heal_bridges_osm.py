@@ -157,7 +157,7 @@ def process_bridges_in_huc(
     osm_gdf = osm_gdf.drop(columns='centroid_geometry')
 
     # Join the bridge points to the HAND catchments to get the HydroID and feature_id
-    osm_gdf = osm_gdf.loc[osm_gdf.threshold_hand >= 0]
+    osm_gdf = osm_gdf.loc[osm_gdf.threshold_hand > 0]
     catchments_df = gpd.read_file(catchments)
 
     osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
