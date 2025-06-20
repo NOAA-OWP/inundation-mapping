@@ -35,6 +35,12 @@ Hotfix to remove unrealistic slope values from either SWORD or Hfab. Closes #155
 
 ### Changes
 - `src/add_crosswalk.py`: added new logic to check for slope values outside an acceptable range (SLOPE_MIN = 9.999e-7 & SLOPE_MAX = 0.5)
+## v4.x.x.x - 2025-06-16 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
+
+Decided to make a separate PR to incorporate both the depbot requests [PR 1550. (Bump requests from 2.32.3 to 2.32.4)](https://github.com/NOAA-OWP/inundation-mapping/pull/1550) and an up and coming python package for the new roads system.
+
+### Changes
+- `Pipfile`, `Pipfile.lock`: as described.
 
 <br/><br/>
 
