@@ -424,8 +424,8 @@ if __name__ == "__main__":
     #
     # Sample usage:  (using a the conda enviro specifically for this step)
     # python make_rasters_using_lidar.py
-    #  -i C:\some_path\Lidar_bridges\20250207\conus_osm_bridges.gpkg
-    #  -o C:\some_path\Lidar_bridges\20250207\conus_osm_lidar_rasters\
+    #  -i /data/inputs/osm/bridges/bridge_lines/20250207/conus_osm_bridges.gpkg
+    #  -o /data/inputs/osm/bridges/lidar_data/20250323/conus_osm_lidar_rasters/
     #  -jl 30
     #  -jr 30
     #  -b 1.5

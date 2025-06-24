@@ -11,6 +11,62 @@ Updates `data/get_sample_data.py` for changes in input data resulting from the a
 
 <br/><br/>
 
+## v4.8.6.1 - 2025-06-20 - [PR#1569](https://github.com/NOAA-OWP/inundation-mapping/pull/1569)
+
+Change `run_unit_wb.sh` to remove the hardcoded path and file name for `usgs_gages.gpkg` to now be a path and file name driven by bash_variables. This allows for newer versions of the usgs_gage file which is now available.
+
+HOWEVER: While it now retrieves the right versioned actual usgs_gage_20250603.gpkg, when it copies it into the HUC processing folder, it renames it back to  usgs_gage.gpkg. 
+
+Note: The same problem exists in get_sample_data.py but that will be addressed separately.
+
+### IMPORTANT: This is the version used for the next full FIM 6 production hand dataset release.
+
+### Changes
+- `src`
+    - `bash_variables.env`: as described.
+    - `run_unit_wb.sh`: as described.
+    - `src_adjust_ussgs_rating_trace.py`:  Updated comments
+    
+### Removals
+- `data/aws/push-hv-data-support-files.sh`: Long since deprecated, out of date and no longer used.
+<br/><br/>
+
+## v4.8.6.0 - 2025-06-20 - [PR#1564](https://github.com/NOAA-OWP/inundation-mapping/pull/1564)
+
+Added more logging to the acquire dem script, plus logic to stop attempting polygon creation if there are HUC download fails. Also added feature to help visibility of downloads.
+
+### Changes
+
+- `data`
+    - `bridges`
+        -  `make_dem_dif_for_bridges.py`, `pull_osm_bridges.py`:  Update sample usage text
+    -  ` usgs`
+         - `acquire_and_preprocess_3dep_dems.py`: as described
+ - `src`
+     - `bash_variables.env`: Update for pathing for new dems and bridge dem diffs for both AK and CONUS. 
+
+<br/><br/>
+
+## v4.8.5.0 - 2025-06-20 - [PR#1559](https://github.com/NOAA-OWP/inundation-mapping/pull/1559)
+
+This PR fixes the issue with dropped GMS catchments. The agreedem.py script now runs separately for each branch instead of at the unit level for all levelpaths at once.
+
+Note: This PR does not address the issue of some catchments not being updated during the floodplain adjustment step. see this issue #1553.
+
+### Changes
+- `src/run_by_branch.sh` : Added agreedem step.
+- `src/run_unit_wb.sh` : Prevented `agreede.py` from running.
+
+<br/><br/>
+
+## v4.8.4.1 - 2025-06-20 - [PR#1558](https://github.com/NOAA-OWP/inundation-mapping/pull/1558)
+
+Hotfix to remove unrealistic slope values from either SWORD or Hfab. Closes #1555 
+
+### Changes
+- `src/add_crosswalk.py`: added new logic to check for slope values outside an acceptable range (SLOPE_MIN = 9.999e-7 & SLOPE_MAX = 0.5)
+
+<br/><br/>
 
 ## v4.8.4.0 - 2025-06-13 - [PR#1516](https://github.com/NOAA-OWP/inundation-mapping/pull/1516)
 
