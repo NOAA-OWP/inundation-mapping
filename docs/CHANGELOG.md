@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.8.x.x - 2025-06-16 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
+## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
 
 Decided to make a separate PR to incorporate multiple PR and changes including:
 - [PR 1550. (DepBot bump requests from 2.32.3 to 2.32.4)](https://github.com/NOAA-OWP/inundation-mapping/pull/1550) 
@@ -11,6 +11,7 @@ Decided to make a separate PR to incorporate multiple PR and changes including:
 
 ### Changes
 - `Pipfile`, `Pipfile.lock`: as described.
+- `src/utils/shared_functions.py`: added a comment
 <br/><br/>
 
 ## v4.8.6.1 - 2025-06-20 - [PR#1569](https://github.com/NOAA-OWP/inundation-mapping/pull/1569)
