@@ -268,19 +268,6 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
     Tcount
 fi
 
-## AGGREGATE BRANCH TABLES ##
-l_echo $startDiv"Aggregating branch hydrotables"
-
-Tstart
-python3 $srcDir/aggregate_by_huc.py \
-    -fim $outputDestDir \
-    -i $fim_inputs \
-    -htable \
-    -bridge \
-    -road \
-    -j $jobLimit
-Tcount
-
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
@@ -301,6 +288,7 @@ python3 $srcDir/aggregate_by_huc.py \
     -i $fim_inputs \
     -htable \
     -bridge \
+    -road \
     -j $jobLimit
 Tcount
 
