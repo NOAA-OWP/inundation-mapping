@@ -33,27 +33,26 @@ from utils.shared_functions import s3_or_local_glob
 
 
 def get_fim_probability_distributions(
-    posterior_dist: Optional[str] = None, huc: Optional[int] = None
-) -> Tuple[gamma, gamma, gamma]:
+    posterior_dist: Optional[Union[str, pd.DataFrame]] = None, huc: Optional[int] = None
+) -> Tuple[weibull_min, weibull_min, weibull_min]:
     """
     Gets either bayesian updated distributions or default distributions for respective huc
 
     Parameters
     ---------
-    posterior_dist : Optional[str], default = None
+    posterior_dist : Optional[Union[str, pd.DataFrame]], default = None
         Name of csv file that has posterior distribution parameters
     huc: Optional[int], default = None
         Huc to get distribution for if posterior_dist is not None
 
     Returns
     -------
-    Tuple[gamma, gamma, gamma]
-        Gamma distributions for channel Manning roughness, overbank Manning roughness, and slope adjustment
+    Tuple[weibull_min, wibull_min, weibull_min]
+        Weibull distributions for channel Manning roughness, overbank Manning roughness, and slope adjustment
 
     """
 
     if posterior_dist is None:
-
         # Default weibull likelihood for channel manning roughness
         channel_dist = weibull_min(c=1.5, scale=0.0367, loc=0.032)
 
@@ -64,8 +63,24 @@ def get_fim_probability_distributions(
         slope_dist = weibull_min(c=4, scale=0.95 / 10, loc=-0.0867)
 
     else:
+        variables = ['channel_manning_roughness', 'overbank_manning_roughness', 'slope_adjustment']
+        dist_params = ['c', 'scale', 'loc']
 
-        raise NotImplementedError("Currently not implemented")
+        if isinstance(posterior_dist, str):
+            posterior_df = pd.read_csv(posterior_dist)
+            posterior_df = posterior_df.set_index('parameter_name')
+        else:
+            posterior_df = posterior_dist
+
+        if huc is not None and 'huc' in posterior_df.columns:
+            posterior_df = posterior_df[posterior_df['huc'] == huc]
+
+        dist = []
+        for variable in variables:
+            dist_args = {key: value for key, value in zip(dist_params, posterior_df.loc[variable].values)}
+            dist.append(weibull_min(**dist_args))
+
+        channel_dist, obank_dist, slope_dist = tuple(dist)
 
     return channel_dist, obank_dist, slope_dist
 

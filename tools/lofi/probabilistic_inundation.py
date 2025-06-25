@@ -34,7 +34,7 @@ from utils.shared_functions import s3_or_local_glob
 
 def get_fim_probability_distributions(
     posterior_dist: Optional[Union[str, pd.DataFrame]] = None, huc: Optional[int] = None
-) -> Tuple[gamma, gamma, gamma]:
+) -> Tuple[weibull_min, weibull_min, weibull_min]:
     """
     Gets either bayesian updated distributions or default distributions for respective huc
 
@@ -47,8 +47,8 @@ def get_fim_probability_distributions(
 
     Returns
     -------
-    Tuple[gamma, gamma, gamma]
-        Gamma distributions for channel Manning roughness, overbank Manning roughness, and slope adjustment
+    Tuple[weibull_min, wibull_min, weibull_min]
+        Weibull distributions for channel Manning roughness, overbank Manning roughness, and slope adjustment
 
     """
 
@@ -452,7 +452,7 @@ def inundate_probabilistic(
         raise ValueError("Either output_raster or output_vector must be set to True")
 
     # Load datasets
-    ensembles = xr.open_dataset(ensembles)
+    ensembles = xr.open_dataset(ensembles, engine="h5netcdf")
 
     parameters_df = pd.read_csv(parameters)
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
@@ -683,10 +683,10 @@ def progress_bar_handler(executor_dict, verbose, desc) -> list:
     for future in tqdm(
         as_completed(executor_dict), total=len(executor_dict), disable=(not verbose), desc=desc
     ):
-        try:
-            results.append(future.result())
-        except Exception as exc:
-            print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
+        # try:
+        results.append(future.result())
+        # except Exception as exc:
+        #     print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
 
     return results
 

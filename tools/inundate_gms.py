@@ -253,13 +253,6 @@ def __inundate_gms_generator(
             hydro_table_branch = hydro_table_df.format(branch_id)
         else:
 
-            df_type = "csv"
-            if s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
-                hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
-                df_type = "feather"
-            else:
-                hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
-
             dtype = {
                 "HUC": str,
                 "branch_id": int,
@@ -269,10 +262,15 @@ def __inundate_gms_generator(
                 "discharge_cms": float,
                 "LakeID": int,
             }
-            if df_type == "feather":
+
+            if s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
+                hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
                 hydro_table_all = pd.read_feather(hydro_table_huc)
-            else:
+            elif s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.csv")):
+                hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
                 hydro_table_all = pd.read_csv(hydro_table_huc, dtype=dtype, usecols=htable_req_cols)
+            else:
+                hydro_table_huc = None
 
             if s3_or_local_isfile(hydro_table_huc):
 
