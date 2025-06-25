@@ -319,11 +319,9 @@ def get_sample_data(
     __copy_file(os.environ["vmann_input_file"], output_root_folder, input_root, bucket_path)
 
     ## usgs_gages
-    __copy_file(
-        os.path.join(input_path, 'usgs_gages', 'usgs_gages.gpkg'), output_root_folder, input_root, bucket_path
-    )
-
+    __copy_file(os.environ["usgs_gages_file"], output_root_folder, input_root, bucket_path)
     __copy_file(os.environ["usgs_rating_curve_csv"], output_root_folder, input_root, bucket_path)
+    __copy_file(os.environ["usgs_acceptable_gages_path"], output_root_folder, input_root, bucket_path)
 
     ## osm bridges
     __copy_file(os.environ["osm_bridges"], output_root_folder, input_root, bucket_path)
