@@ -256,12 +256,12 @@ def __inundate_gms_generator(
 
             if os.path.exists(
                 os.path.join(huc_dir, "hydrotable.feather")
-            ):  # Quicker reads # TODO: Replace with s3_or_local_path_exists
+            ):  # Quicker reads  # TODO: Replace with s3_or_local_path_exists
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
                 hydro_table_all = pd.read_feather(hydro_table_huc)
             elif os.path.exists(
                 os.path.join(huc_dir, "hydrotable.csv")
-            ): # TODO: Replace with s3_or_local_path_exists
+            ):  # TODO: Replace with s3_or_local_path_exists
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
                 hydro_table_all = pd.read_csv(hydro_table_huc, dtype=dtype, usecols=htable_req_cols)
             else:
