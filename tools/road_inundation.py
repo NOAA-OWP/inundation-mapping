@@ -7,7 +7,40 @@ import re
 from timeit import default_timer as timer
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
+
+
+def stage_lookup(flows, discharge_array, stage_array):
+    return np.interp(flows, discharge_array, stage_array)
+
+
+def get_evaluated_stage(fimpact_df, fim_run_dir, huc):
+    # Ensure the column exists before assignment
+    fimpact_df['evaluated_stage'] = np.nan
+
+    # Loop over each unique branch
+    for branch_id in fimpact_df['branch'].unique():
+        # Load hydrotable once for the branch
+        hydrotable_filename = os.path.join(
+            fim_run_dir, str(huc), 'branches', str(branch_id), f'hydroTable_{branch_id}.csv'
+        )
+        hydrotable_df = pd.read_csv(
+            hydrotable_filename,
+            dtype={'HydroID': str, 'stage': float, 'discharge_cms': float},
+            usecols=['HydroID', 'discharge_cms', 'stage'],
+        )
+
+        # Subset fimpact_df for this branch
+        branch_df = fimpact_df[fimpact_df['branch'] == branch_id]
+
+        # Interpolate for each row in this subset
+        for _, row in branch_df.iterrows():
+            single_hydro = hydrotable_df[hydrotable_df.HydroID == row.HydroID]
+            evaluated_stage = stage_lookup(
+                row.evaluated_discharge, single_hydro['discharge_cms'], single_hydro['stage']
+            )
+            fimpact_df.at[row.name, 'evaluated_stage'] = evaluated_stage
 
 
 def road_risk_status(
@@ -77,6 +110,23 @@ def road_risk_status(
 
         fimpact_df = pd.read_csv(fimpact_path, dtype=dtype_dict)
 
+        # read hydroTable and find the stage corresponding to given discharge
+        # subtract that from threshold_hand...this is called flood_depth
+        # so when we report the inundated roads, we also report the case with maximum flood depth
+        # add given discharge
+        fimpact_df = fimpact_df.merge(flow_file_data, on='feature_id')
+
+        # change the name of the given flow to evaluated discharge
+        fimpact_df.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
+
+        # selected the inundated records
+        fimpact_df = fimpact_df[fimpact_df['evaluated_discharge'] > fimpact_df['threshold_discharge']]
+
+        # add evaluated stage. For performance, read hydrotable of each branch once for all records in that branch
+        get_evaluated_stage(fimpact_df, fim_run_dir, huc)
+
+        fimpact_df['flood_depth'] = fimpact_df['evaluated_stage'] - fimpact_df['threshold_hand']
+
         # open roads geometry
         roads_gdf = gpd.read_file(roads_path)[['osmid_catchid', 'geometry']]
 
@@ -89,33 +139,15 @@ def road_risk_status(
 
         # Reproject to EPSG:4326
         fimpact_gdf = fimpact_gdf.to_crs('epsg:4326')
+
         fimpact_gdfs_list.append(fimpact_gdf)
 
     # Concatenate all GeoDataFrame into a single GeoDataFrame
     fimpact_gdfs = gpd.GeoDataFrame(pd.concat(fimpact_gdfs_list, ignore_index=True))
 
-    # Find the common feature_id between flow_file and bridge_points
-    fimpact_gdfs_merged = fimpact_gdfs.merge(flow_file_data, on='feature_id')
+    fimpact_gdfs = fimpact_gdfs.loc[fimpact_gdfs.groupby(['osmid_catchid'])['flood_depth'].idxmax()]
 
-    # define inundation status
-    def assign_inundation_status(row):
-        if row['discharge'] > row['threshold_discharge']:
-            return 'inundated'
-        else:
-            return 'not_inundated'
-
-    # Apply inundation status to each row
-    fimpact_gdfs_merged['inundation_status'] = fimpact_gdfs_merged.apply(assign_inundation_status, axis=1)
-
-    # change the name of the given flow
-    fimpact_gdfs_merged.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
-
-    # make a new file for roads that at least have one inundated status
-    inundated_roads_gdf = fimpact_gdfs_merged[fimpact_gdfs_merged['inundation_status'] == 'inundated']
-
-    inundated_roads_gdf = inundated_roads_gdf.drop_duplicates(subset='geometry')
-
-    inundated_roads_gdf.to_file(output_file_path, driver="GPKG", engine='fiona')
+    fimpact_gdfs.to_file(output_file_path, driver="GPKG", engine='fiona')
 
 
 if __name__ == "__main__":
@@ -123,7 +155,7 @@ if __name__ == "__main__":
     # python foss_fim/tools/road_inundation.py
     # -y outputs/roads/test2_05030104
     # -o outputs/roads/test2_05030104/roads_inundation.gpkg
-    # -f outputs/20240506T1338Z_ana_past_14day_max_high_flow_magnitude.csv
+    # -f data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_50_0_cms.csv
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Detect which road are inundated by a specified flow file.")

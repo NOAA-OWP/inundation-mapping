@@ -247,29 +247,27 @@ class HucDirectory(object):
         if not os.path.isfile(fimpact_filename):
             return
 
-        fimpact_df_splitted = pd.read_csv(fimpact_filename)
-        if fimpact_df_splitted.empty:
+        fimpact_df = pd.read_csv(fimpact_filename)
+        if fimpact_df.empty:
             return
 
         hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
         hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
 
-        fimpact_df_splitted['threshold_discharge'] = fimpact_df_splitted.apply(
-            lambda row: flow_lookup(row.threshold_hand, row.HydroID, hydrotable), axis=1
-        )
+        # make sure to remove any road with threshold hand greater than 25m (the max available in HydroTable)
+        # these roads are assumed to be non-inundated. so no need to process them further.
+        fimpact_df = fimpact_df[fimpact_df['threshold_hand'] < 25]
 
-        # for each osmid_catchid and each feature_id, keep a single record for the minimum threshold discharge
-        fimpact_df_splitted_min_q = fimpact_df_splitted.loc[
-            fimpact_df_splitted.groupby(['osmid_catchid', 'feature_id'])['threshold_discharge'].idxmin()
-        ]
+        if not fimpact_df.empty:
+            fimpact_df['threshold_discharge'] = fimpact_df.apply(
+                lambda row: flow_lookup(row.threshold_hand, row.HydroID, hydrotable), axis=1
+            )
 
-        # Convert stages and dischrages to ft and cfs respectively
-        fimpact_df_splitted_min_q['threshold_hand_ft'] = fimpact_df_splitted_min_q['threshold_hand'] * 3.28084
-        fimpact_df_splitted_min_q['threshold_discharge_cfs'] = (
-            fimpact_df_splitted_min_q['threshold_discharge'] * 35.3147
-        )
+            # Convert stages and dischrages to ft and cfs respectively
+            fimpact_df['threshold_hand_ft'] = fimpact_df['threshold_hand'] * 3.28084
+            fimpact_df['threshold_discharge_cfs'] = fimpact_df['threshold_discharge'] * 35.3147
 
-        self.agg_road_fimpact = pd.concat([self.agg_road_fimpact, fimpact_df_splitted_min_q])
+            self.agg_road_fimpact = pd.concat([self.agg_road_fimpact, fimpact_df])
 
     def agg_function(
         self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id
