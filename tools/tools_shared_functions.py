@@ -1255,21 +1255,22 @@ def convert_latlon_datum(lat, lon, src_crs, dest_crs):
 #######################################################################
 # Function to get conversion adjustment NGVD to NAVD in FEET
 #######################################################################
-def ngvd_to_navd_ft(datum_info, region='contiguous'):
+def ngvd_to_navd_ft(datum_info):
     '''
     Given the lat/lon, retrieve the adjustment from NGVD29 to NAVD88 in feet.
     Uses NOAA tidal API to get conversion factor. Requires that lat/lon is
     in NAD27 crs. If input lat/lon are not NAD27 then these coords are
     reprojected to NAD27 and the reproject coords are used to get adjustment.
     There appears to be an issue when region is not in contiguous US.
-    TODO: Test outside of CONUS and resolve if needed.
 
     Parameters
     ----------
-    lat : FLOAT
-        Latitude.
-    lon : FLOAT
-        Longitude.
+    datum_info : DICT
+        Dictionary containing site information. Must contain the following keys:
+        - 'crs': CRS of lat/lon (e.g. 'NAD27', 'NAD83', 'WGS84').
+        - 'state': State of site (e.g. 'Alaska', 'California').
+        - 'lat': Latitude of site.
+        - 'lon': Longitude of site.
 
     Returns
     -------
@@ -1290,9 +1291,21 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
 
     # Define parameters. Hard code most parameters to convert NGVD to NAVD.
     params = {}
-    params['lat'] = lat
-    params['lon'] = lon
+
+    # Define region-specific parameters
+    if datum_info['state'] == 'Alaska':
+        region = 'AK'
+        geoid = 'geoid12b'
+        params['s_v_geoid'] = geoid # Source geoid (region-specific)
+        params['t_v_geoid'] = geoid # Target geoid (region-specific)
+    else:
+        # For CONUS, use default geoid
+        region = 'contiguous'
+
     params['region'] = region
+
+    params['s_x'] = lon # source x, longitude
+    params['s_y'] = lat # source y, latitude
     params['s_h_frame'] = 'NAD27'  # Source CRS
     params['s_v_frame'] = 'NGVD29'  # Source vertical coord datum
     params['s_vertical_unit'] = 'm'  # Source vertical units
