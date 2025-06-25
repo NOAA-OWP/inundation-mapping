@@ -253,11 +253,6 @@ def __inundate_gms_generator(
         else:
 
             df_type = "csv"
-            # if os.path.exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
-            #     hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
-            #     df_type = "feather"
-            # else:
-            #     hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
 
             if os.path.exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads # TODO: Replace with s3_or_local_path_exists
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
