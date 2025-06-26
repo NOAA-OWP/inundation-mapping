@@ -9,6 +9,8 @@ This PR fixes issue #1560 and #1544.
 - `fim_post_processing.sh`: Added timestamp to post-processing.log file.
 - `src/heal_bridges_osm.py`: Removed bridge points with threshold_hand = 0.
 
+<br/><br/>
+
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
 
 Decided to make a separate PR to incorporate multiple PR and changes including:
