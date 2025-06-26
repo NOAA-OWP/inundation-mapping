@@ -386,6 +386,13 @@ def get_sample_data(
             bucket_path,
         )
 
+        __copy_file(
+            os.path.join(os.environ["input_fema_flood_hazard_zones"], f"nfhl_{huc}.gpkg"),
+            output_root_folder,
+            input_root,
+            bucket_path,
+        )
+
         ## ras2fim
         ras2fim_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
         __copy_file(
