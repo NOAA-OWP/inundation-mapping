@@ -8,6 +8,37 @@ This PR fixes issue #1560 and #1544.
 ### Changes
 - `fim_post_processing.sh`: Added timestamp to post-processing.log file.
 - `src/heal_bridges_osm.py`: Removed bridge points with threshold_hand = 0.
+
+## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
+
+Decided to make a separate PR to incorporate multiple PR and changes including:
+- [PR 1550. (DepBot bump requests from 2.32.3 to 2.32.4)](https://github.com/NOAA-OWP/inundation-mapping/pull/1550) 
+- [PR 1567. (DepBot bump urllib3 from 2.3.0 to 2.5.0)](https://github.com/NOAA-OWP/inundation-mapping/pull/1567)
+- Add overpy for an up and coming python package for the new roads system.
+
+### Changes
+- `Pipfile`, `Pipfile.lock`: as described.
+- `src/utils/shared_functions.py`: added a comment
+<br/><br/>
+
+## v4.8.6.1 - 2025-06-20 - [PR#1569](https://github.com/NOAA-OWP/inundation-mapping/pull/1569)
+
+Change `run_unit_wb.sh` to remove the hardcoded path and file name for `usgs_gages.gpkg` to now be a path and file name driven by bash_variables. This allows for newer versions of the usgs_gage file which is now available.
+
+HOWEVER: While it now retrieves the right versioned actual usgs_gage_20250603.gpkg, when it copies it into the HUC processing folder, it renames it back to  usgs_gage.gpkg. 
+
+Note: The same problem exists in get_sample_data.py but that will be addressed separately.
+
+### IMPORTANT: This is the version used for the next full FIM 6 production hand dataset release.
+
+### Changes
+- `src`
+    - `bash_variables.env`: as described.
+    - `run_unit_wb.sh`: as described.
+    - `src_adjust_ussgs_rating_trace.py`:  Updated comments
+    
+### Removals
+- `data/aws/push-hv-data-support-files.sh`: Long since deprecated, out of date and no longer used.
 <br/><br/>
 
 ## v4.8.6.0 - 2025-06-20 - [PR#1564](https://github.com/NOAA-OWP/inundation-mapping/pull/1564)
