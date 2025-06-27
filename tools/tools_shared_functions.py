@@ -1325,12 +1325,12 @@ def ngvd_to_navd_ft(datum_info):
 
     # Run Vdatum with region-specific parameters
     if datum_info['state'] == 'Alaska':
-        params['s_v_geoid'] = 'geoid12b' # Source geoid (AK-specific)
-        params['t_v_geoid'] = 'geoid12b' # Target geoid (AK-specific)
+        params['s_v_geoid'] = 'geoid12b'  # Source geoid (AK-specific)
+        params['t_v_geoid'] = 'geoid12b'  # Target geoid (AK-specific)
 
         response, success = run_vdatum_for_region(params, 'AK')
 
-        if success == False: # If AK region fails, try running calling API with SEAK region
+        if success is False:  # If AK region fails, try running calling API with SEAK region
             response, success = run_vdatum_for_region(params, 'SEAK')
 
     else:
@@ -1338,7 +1338,7 @@ def ngvd_to_navd_ft(datum_info):
         response, success = run_vdatum_for_region(params, 'contiguous')
 
     # Get adjustment in feet if Vdatum API call is successful
-    if success == True: 
+    if success is True: 
         results = response.json()
         # Get adjustment in meters (NGVD29 to NAVD88)
         adjustment = results['t_z']
