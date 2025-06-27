@@ -1291,8 +1291,8 @@ def ngvd_to_navd_ft(datum_info):
 
     # Define parameters. Hard code most parameters to convert NGVD to NAVD.
     params = {}
-    params['s_x'] = lon # source x, longitude
-    params['s_y'] = lat # source y, latitude
+    params['s_x'] = lon  # source x, longitude
+    params['s_y'] = lat  # source y, latitude
     params['s_h_frame'] = 'NAD27'  # Source CRS
     params['s_v_frame'] = 'NGVD29'  # Source vertical coord datum
     params['s_vertical_unit'] = 'm'  # Source vertical units
@@ -1330,7 +1330,7 @@ def ngvd_to_navd_ft(datum_info):
 
         response, success = run_vdatum_for_region(params, 'AK')
 
-        if success is False:  # If AK region fails, try running calling API with SEAK region
+        if success == False:  # If AK region fails, try running calling API with SEAK region
             response, success = run_vdatum_for_region(params, 'SEAK')
 
     else:
@@ -1338,7 +1338,7 @@ def ngvd_to_navd_ft(datum_info):
         response, success = run_vdatum_for_region(params, 'contiguous')
 
     # Get adjustment in feet if Vdatum API call is successful
-    if success is True: 
+    if success == True:
         results = response.json()
         # Get adjustment in meters (NGVD29 to NAVD88)
         adjustment = results['t_z']
