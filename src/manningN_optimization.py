@@ -671,7 +671,7 @@ def partial_optimization_huc(
                 obj_func_partial,
                 bounds,
                 popsize=popusize,
-                init=initial_population,   # 'latinhypercube',
+                init=initial_population,  # 'latinhypercube',
                 callback=early_stopper,
                 constraints=(cons,),
                 maxiter=15,
