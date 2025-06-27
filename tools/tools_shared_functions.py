@@ -1319,7 +1319,7 @@ def ngvd_to_navd_ft(datum_info):
         if response.status_code == 200:
             results = response.json()
             success = 't_z' in results
-        else: 
+        else:
             success = False
         return response, success
 
