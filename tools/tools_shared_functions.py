@@ -1291,19 +1291,6 @@ def ngvd_to_navd_ft(datum_info):
 
     # Define parameters. Hard code most parameters to convert NGVD to NAVD.
     params = {}
-
-    # Define region-specific parameters
-    if datum_info['state'] == 'Alaska':
-        region = 'AK'
-        geoid = 'geoid12b'
-        params['s_v_geoid'] = geoid # Source geoid (region-specific)
-        params['t_v_geoid'] = geoid # Target geoid (region-specific)
-    else:
-        # For CONUS, use default geoid
-        region = 'contiguous'
-
-    params['region'] = region
-
     params['s_x'] = lon # source x, longitude
     params['s_y'] = lat # source y, latitude
     params['s_h_frame'] = 'NAD27'  # Source CRS
@@ -1313,26 +1300,55 @@ def ngvd_to_navd_ft(datum_info):
     params['t_v_frame'] = 'NAVD88'  # Target vertical datum
     params['tar_vertical_unit'] = 'm'  # Target vertical height
 
-    # Suppress Insecure Request Warning
-    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    # Run API for a given region
+    def run_vdatum_for_region(params, region):
+        params['region'] = region
 
-    # Call the API
-    session = requests.Session()
-    retry = Retry(connect=3, backoff_factor=0.5)
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount('http://', adapter)
+        # Suppress Insecure Request Warning
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-    response = session.get(datum_url, params=params, verify=False)
+        # Call the API
+        session = requests.Session()
+        retry = Retry(connect=3, backoff_factor=0.5)
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
 
-    # If successful get the navd adjustment
-    if response.status_code == 200:
+        response = session.get(datum_url, params=params, verify=False)
+
+        # Check whether API call was successfull
+        if response.status_code == 200:
+            results = response.json()
+            success = 't_z' in results
+        else: 
+            success = False
+        return response, success
+
+    # Run Vdatum with region-specific parameters
+    if datum_info['state'] == 'Alaska':
+        params['s_v_geoid'] = 'geoid12b' # Source geoid (AK-specific)
+        params['t_v_geoid'] = 'geoid12b' # Target geoid (AK-specific)
+
+        response, success = run_vdatum_for_region(params, 'AK')
+
+        if success == False: # If AK region fails, try running calling API with SEAK region
+            response, success = run_vdatum_for_region(params, 'SEAK')
+
+    else:
+        # For CONUS, use default geoid
+        response, success = run_vdatum_for_region(params, 'contiguous')
+
+    # Get adjustment in feet if Vdatum API call is successful
+    if success == True: 
         results = response.json()
         # Get adjustment in meters (NGVD29 to NAVD88)
         adjustment = results['t_z']
         # convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084, 2)
     else:
+        message = results['message']
+        print(f'VDatum error occurred: {message}')
         adjustment_ft = None
+
     return adjustment_ft
 
 
