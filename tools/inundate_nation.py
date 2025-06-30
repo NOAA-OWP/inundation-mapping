@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import re
 import shutil
+from collections import defaultdict
 from datetime import datetime
 from multiprocessing import Pool
 
@@ -211,22 +212,39 @@ def create_bool_rasters(args):
 
 
 def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
-    rasters_to_mosaic = []
+    crs_groups = defaultdict(list)
+
+    # Group rasters by CRS
     for rasfile in os.listdir(output_bool_dir):
         if rasfile.endswith('.tif') and "extent" in rasfile:
-            p = output_bool_dir + os.sep + rasfile
-            rasters_to_mosaic.append(p)
+            path = os.path.join(output_bool_dir, rasfile)
+            try:
+                with rasterio.open(path) as src:
+                    crs = src.crs
+                    if crs:
+                        crs_groups[crs.to_epsg()].append(path)
+                    else:
+                        logging.warning(f"Raster has no CRS: {path}")
+            except Exception as e:
+                logging.warning(f"Could not read raster {path}: {e}")
 
-    output_mosaic_vrt = os.path.join(output_bool_dir, fim_version_tag + "_merged.vrt")
-    logging.info("Creating virtual raster: " + output_mosaic_vrt)
-    vrt_file = build_vrt(output_mosaic_vrt, rasters_to_mosaic)
+    # Process each group by CRS
+    for epsg_code, raster_list in crs_groups.items():
+        logging.info(f"Creating mosaic for EPSG:{epsg_code} with {len(raster_list)} rasters")
 
-    output_mosaic_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")
-    logging.info("Building raster mosaic: " + output_mosaic_raster)
-    logging.info("Using " + str(threads) + " threads for parallelizing")
-    print("Note: This step can take a number of hours if processing 100s of hucs")
-    copy(vrt_file, output_mosaic_raster)
-    vrt_file = None
+        output_mosaic_vrt = os.path.join(output_bool_dir, f"{fim_version_tag}_EPSG{epsg_code}_merged.vrt")
+        output_mosaic_raster = os.path.join(output_dir, f"{fim_version_tag}_EPSG{epsg_code}_mosaic.tif")
+
+        logging.info(f"Building VRT: {output_mosaic_vrt}")
+        vrt_file = build_vrt(output_mosaic_vrt, raster_list)
+
+        logging.info(f"Building raster mosaic: {output_mosaic_raster}")
+        logging.info(f"Using {threads} threads for parallelizing")
+
+        copy(vrt_file, output_mosaic_raster)
+
+        logging.info(f"Mosaic for EPSG:{epsg_code} completed and saved to {output_mosaic_raster}")
+        vrt_file = None
 
 
 def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):
