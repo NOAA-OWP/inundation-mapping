@@ -279,10 +279,11 @@ def get_subdivided_src(
         errors='ignore',
     )
 
-    df_htable = pd.read_csv(
-        os.path.join(hydrofabric_dir, huc, 'branches', branch, f"hydroTable_{branch}.csv"),
-        dtype={'HUC': str, 'last_updated': object, 'submitter': object, 'obs_source': object},
+    df_htable = pd.read_parquet(
+        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"), filters=[('branch_id', '==', int(branch))]
     )
+    df_htable = df_htable.reset_index()
+    df_htable = df_htable.astype({'HUC': str, 'HydroID': int})
 
     # Subdivide Geometry ----------------------------------------------------------------------------------
 
@@ -496,7 +497,7 @@ def inundate_probabilistic(
     # Load datasets
     ensembles = xr.open_dataset(ensembles)
 
-    parameters_df = pd.read_csv(parameters)
+    parameters_df = pd.read_parquet(parameters, filters=[('huc08', '==', int(huc))])
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
     params_weibull.set_index('feature_id', inplace=True)
 
