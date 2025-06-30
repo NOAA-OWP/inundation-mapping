@@ -130,14 +130,14 @@ def generate_streamflow_percentiles(
             '10': float(ensemble_forecast.sel({'member': 'nbm'})),
         }
 
-    if 'da' in ensemble_forecast.coords['member']:
+    if 'noda' in ensemble_forecast.coords['member']:
         return {
             'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'da'})),
-            '75': float(ensemble_forecast.sel({'member': 'da'})),
-            '50': float(ensemble_forecast.sel({'member': 'da'})),
-            '25': float(ensemble_forecast.sel({'member': 'da'})),
-            '10': float(ensemble_forecast.sel({'member': 'da'})),
+            '90': float(ensemble_forecast.sel({'member': 'noda'})),
+            '75': float(ensemble_forecast.sel({'member': 'noda'})),
+            '50': float(ensemble_forecast.sel({'member': 'noda'})),
+            '25': float(ensemble_forecast.sel({'member': 'noda'})),
+            '10': float(ensemble_forecast.sel({'member': 'noda'})),
         }
 
     if 'short' in ensemble_forecast.coords['member']:
@@ -495,7 +495,7 @@ def inundate_probabilistic(
         raise ValueError("Either output_raster or output_vector must be set to True")
 
     # Load datasets
-    ensembles = xr.open_dataset(ensembles)
+    ensembles = xr.open_dataset(ensembles, engine='h5netcdf')
 
     parameters_df = pd.read_parquet(parameters, filters=[('huc08', '==', int(huc))])
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']

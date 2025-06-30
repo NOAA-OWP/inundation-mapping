@@ -126,8 +126,8 @@ def generate_streamflow_percentiles(
         rv['feature_id'] = feature
         return rv
 
-    if 'da' in ensemble_forecast.coords['member']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'da'})))
+    if 'noda' in ensemble_forecast.coords['member']:
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'noda'})))
         rv['feature_id'] = feature
         return rv
 
