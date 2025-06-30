@@ -17,7 +17,7 @@ from rasterstats import zonal_stats
 def min_hand_excluding_zero(values):
     # Convert to unmasked array and drop 0 and masked/nodata
     # return np.nan if on NoData Hand to be able to filter them later
-    data = np.ma.filled(values, np.nan)  # Convert masked to nan
+    data = np.ma.filled(values.astype(float), np.nan)  # Convert masked to nan
     valid = data[(data != 0) & (~np.isnan(data))]
     return float(np.min(valid)) if valid.size > 0 else np.nan
 
@@ -58,6 +58,11 @@ def process_roads_fimpact(
     # split the roads based on HAND catchments
     roads_gdf_splitted = gpd.overlay(roads_gdf, catchments_df, how="intersection")
 
+    # zonal stats does not like the lines input if it is jagged (can happenen  because
+    # of overlaying with catchment boundaries) and can yield wrong results.
+    # threfore, we explode the lines to make sure all segments are single linestring.
+    roads_gdf_splitted = roads_gdf_splitted.explode(index_parts=True).reset_index(drop=True)
+
     if not roads_gdf_splitted.empty:
         roads_gdf_splitted['branch'] = branch_id
 
@@ -72,18 +77,26 @@ def process_roads_fimpact(
             add_stats={"min_ex0": min_hand_excluding_zero},
         )
 
-        # need to report roads in three risk levels based on depth.
-        # we do not care about the length of inundated roads.
+        # we do not care about the length of inundated roads... just the min hand anywhere along the length
         roads_gdf_splitted.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
 
         # it is possible that roads cross areas of a HAND with nan data (levee), so make sure to remove those Nan threshold hands
         roads_gdf_splitted = roads_gdf_splitted.dropna(subset=['threshold_hand'])
 
+        # TODO remove below 3 lines which is only or debugging
+        # base, _ = os.path.splitext(output_path)
+        # temp_output_path = f"{base}_temp.gpkg"
+        # roads_gdf_splitted.to_file(temp_output_path)
+
+        roads_gdf_splitted = roads_gdf_splitted.drop(columns='geometry')
+
+        # group by segment id, hydroid, and report the min of threshold hand to remove extra exploded road segments in each hydroid
+        min_idx = roads_gdf_splitted.groupby(['osmid_catchid', 'HydroID'])['threshold_hand'].idxmin()
+        roads_gdf_splitted = roads_gdf_splitted.loc[min_idx].reset_index(drop=True)
+
         # make sure to record ids as str for csv output file
         cols_to_str = ['osmid', 'huc8', 'catchment_id', 'HydroID', 'feature_id', 'branch']
         roads_gdf_splitted[cols_to_str] = roads_gdf_splitted[cols_to_str].astype(str)
-
-        roads_gdf_splitted = roads_gdf_splitted.drop(columns='geometry')
 
         roads_gdf_splitted.to_csv(output_path, index=False)
     else:
