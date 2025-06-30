@@ -99,7 +99,7 @@ def road_risk_status(
             continue
 
         # Open the roads fimpact, making sure the ids are read as str
-        cols_to_str = ['osmid', 'huc8', 'catchment_id', 'HydroID', 'feature_id', 'branch']
+        cols_to_str = ['osmid', 'huc8', 'HydroID', 'feature_id', 'branch']
         dtype_dict = {col: str for col in cols_to_str}
 
         fimpact_df = pd.read_csv(fimpact_path, dtype=dtype_dict)

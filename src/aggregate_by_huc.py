@@ -168,7 +168,6 @@ class HucDirectory(object):
             'highway': str,
             'name': str,
             'huc8': str,
-            'catchment_id': str,
             'osmid_catchid': str,
             'HydroID': str,
             'feature_id': str,

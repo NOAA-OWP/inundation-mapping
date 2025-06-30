@@ -46,6 +46,10 @@ def process_roads_fimpact(
     # read roads data
     roads_gdf = gpd.read_file(osm_road_vector)
 
+    # remove this extra id
+    if 'catchment_id' in roads_gdf.columns:
+        roads_gdf = roads_gdf.drop(columns=['catchment_id'])
+
     # read HAND catchments to split the roads segments for each intersected HYDROIDs/feature_ids.
     # this is different than bridges, because a road can exists within multiple HydroID/hydroTable and
     # we need to consider threshold hand for all intersected HydroID.
@@ -91,7 +95,7 @@ def process_roads_fimpact(
         roads_gdf_splitted = roads_gdf_splitted.loc[min_idx]
 
         # make sure to record ids as str for csv output file
-        cols_to_str = ['osmid', 'huc8', 'catchment_id', 'HydroID', 'feature_id', 'branch']
+        cols_to_str = ['osmid', 'huc8', 'HydroID', 'feature_id', 'branch']
         roads_gdf_splitted[cols_to_str] = roads_gdf_splitted[cols_to_str].astype(str)
 
         roads_gdf_splitted.to_csv(output_path, index=False)
