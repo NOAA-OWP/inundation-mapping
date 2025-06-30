@@ -497,7 +497,7 @@ def inundate_probabilistic(
     # Load datasets
     ensembles = xr.open_dataset(ensembles, engine='h5netcdf')
 
-    parameters_df = pd.read_parquet(parameters, filters=[('huc08', '==', int(huc))])
+    parameters_df = pd.read_parquet(parameters)
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
     params_weibull.set_index('feature_id', inplace=True)
 

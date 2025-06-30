@@ -241,10 +241,11 @@ def get_subdivided_src(
         errors='ignore',
     )
 
-    df_htable = pd.read_csv(
-        os.path.join(hydrofabric_dir, huc, 'branches', branch, f"hydroTable_{branch}.csv"),
-        dtype={'HUC': str, 'last_updated': object, 'submitter': object, 'obs_source': object},
+    df_htable = pd.read_parquet(
+        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"), filters=[('branch_id', '==', int(branch))]
     )
+    df_htable = df_htable.reset_index()
+    df_htable = df_htable.astype({'HUC': str, 'HydroID': int})
 
     # Subdivide Geometry ----------------------------------------------------------------------------------
     df_src['Volume_chan (m3)'] = np.where(
@@ -454,7 +455,7 @@ def inundate_probabilistic(
     # Load datasets
     ensembles = xr.open_dataset(ensembles, engine="h5netcdf")
 
-    parameters_df = pd.read_csv(parameters)
+    parameters_df = pd.read_parquet(parameters)
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
     params_weibull = params_weibull.set_index('feature_id')
 
@@ -475,7 +476,7 @@ def inundate_probabilistic(
     features = ensembles.coords['feature_id']
 
     # For each feature in the provided ensembles
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
         # Get max streamflow for every feature up to forecast time
         if aggregate_forecasts == "max_to_forecast":
             sel_forecast = ensembles.sel({'time': slice(reference_time, forecast_time)}).max('time')[

@@ -3,16 +3,14 @@ import os
 import ssl
 import time
 import warnings
-from typing import List, Union
+from datetime import datetime
+from typing import List
 
 import geopandas as gpd
 import requests
 import xarray as xr
 from tqdm.notebook import tqdm
 
-
-warnings.filterwarnings("ignore")
-ssl.SSLContext.verify_mode = property(lambda self: ssl.CERT_NONE, lambda self, newval: None)
 
 gfs_url = (
     'https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwm/v3.0/nwm.{0}'
@@ -37,33 +35,36 @@ short_url = (
 )
 
 
-def try_again(url: str, tries: int = 0) -> Union[xr.Dataset, None]:
+def try_again(url: str, tries: int = 0) -> xr.Dataset:
     """
     Utility to attempt a download recursively until max tries are exceeded
 
     Parameters
     ----------
     url : str
-        Url to NOMADS service
+        Url to NOMADS service.
     tries : int
-        Number of attempts to download files
+        Number of attempts to download files.
 
     Returns
     -------
-
+    Union xr.Dataset
+        A forecast file from NOMADS service.
 
     """
+    ssl.SSLContext.verify_mode = property(lambda self: ssl.CERT_NONE, lambda self, newval: None)
+
     if tries < 5:
         try:
             content = requests.get(url)
-            ds = xr.open_dataset(io.BytesIO(content.content))
+            ds = xr.open_dataset(io.BytesIO(content.content), engine="h5netcdf")
             return ds
 
         except (ValueError, OSError):
             tries = tries + 1
             try_again(url, tries)
     else:
-        return None
+        raise ValueError("Max tries to download exceeded")
 
 
 def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_path: str, output_name: str):
@@ -73,10 +74,19 @@ def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_
     Parameters
     ----------
     dt : str
-        Date time string to get nomad ensembles
-    ens_type
+        Date time string to get nomad ensembles.
+    ens_type : str
+        An ensemble type from the following list, "gfs", "nbm", "short", "noda".
+    feature_ids : List[int]
+        Feature IDs to get from the ensemble files.
+    output_path : str
+        Path to save ensemble files.
+    output_name : str
+        Name of final processed ensemble file.
+
     """
 
+    print("Process initialized:", time.localtime())
     master_lists = []
 
     with warnings.catch_warnings():
@@ -146,10 +156,25 @@ def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_
 
         concat_datasets(final_list, ens_type, output_path, output_name)
 
-        print(time.localtime())
+        print("Process complete:", time.localtime())
 
 
-def concat_datasets(ds_list, ens_type, output_path, output_name):
+def concat_datasets(ds_list: List[xr.Dataset], ens_type: str, output_path: str, output_name: str):
+    """
+    Expand dimensions for members and output final concatenated dataset.
+
+    Parameters
+    ----------
+    ds_list : List[xr.Dataset]
+       Datasets to process and concatenate to final dataset.
+    ens_type : str
+       An ensemble type from the following list, "gfs", "nbm", "short", "noda"
+    output_path : str
+       Path to save ensemble files.
+    output_name : str
+       Name of final processed ensemble file.
+
+    """
     tots = []
 
     if ens_type == "gfs":
@@ -176,8 +201,15 @@ def concat_datasets(ds_list, ens_type, output_path, output_name):
 
 if __name__ == '__main__':
 
+    huc = "05110005"
+    dt = datetime.now().strftime('%Y%m%d')
     # Getting feature ids from hydrofabric stream network
-    huc = '18100100'
-    streams = gpd.read_file(f'../../outputs/{huc}/nwm_subset_streams.gpkg')
+    streams = gpd.read_file(f'../../outputs/fim_outputs_test/{huc}/nwm_subset_streams.gpkg')
 
-    get_nomads_ensembles()
+    get_nomads_ensembles(
+        dt=dt,
+        ens_type='nbm',
+        feature_ids=streams['ID'].unique,
+        output_path="./ensembles",
+        output_name=f"{huc}_ensembles.nc",
+    )
