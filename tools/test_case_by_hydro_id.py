@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import shutil
 import sys
 import traceback
 import warnings
@@ -13,6 +14,7 @@ from pixel_counter import zonal_stats
 from run_test_case import Test_Case
 from shapely.validation import make_valid
 from tools_shared_functions import compute_stats_from_contingency_table
+from tqdm import tqdm
 
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
@@ -21,14 +23,14 @@ from utils.shared_variables import VIZ_PROJECTION
 warnings.filterwarnings("ignore", category=FutureWarning, module="gdal")
 gpd.options.io_engine = "pyogrio"
 
-
 # global RLOG
 FLOG = fl.FIM_logger()  # the non mp version
 
 """
 This module uses zonal stats to subdivide alpha metrics by each HAND catchment.
 The output is a vector geopackage and is also known as the "FIM Performance" layer
-when loaded into HydroVIS.
+when loaded into HydroVIS. At the time of this commit, it takes approximately
+20 to 32 hours to complete.
 
 """
 
@@ -241,8 +243,7 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
     # easier to filter by one huc for debugging purposes
     # debug_test_hucs = ["12090301", "07100007", "19020302"]
     # tqdm will likely not work with all of the printd
-    for idx, test_case_class in enumerate(all_test_cases):
-        FLOG.lprint(f"Processing {test_case_class.test_id} ({idx+1} of {num_test_cases})")
+    for test_case_class in tqdm(all_test_cases, desc=f'Running {len(all_test_cases)} test cases'):
         if not os.path.exists(test_case_class.fim_dir):
             FLOG.warning(f'{test_case_class.fim_dir} does not exist')
             missing_hucs.append(test_case_class.huc)
@@ -254,6 +255,7 @@ def catchment_zonal_stats(benchmark_category, version, output_file_name):
         #     print(f"skipped {huc}")
         #     continue
 
+        FLOG.lprint(f"Processing {test_case_class.test_id}")
         test_case_processing_start = datetime.now(timezone.utc)
 
         agreement_dict = test_case_class.get_current_agreements()
