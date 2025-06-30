@@ -30,7 +30,7 @@ def process_roads_fimpact(
 
     Parameters:
     - source_hand_raster (str): REQUIRED. Path to the source HAND raster file
-    - osm_road_vector (str): REQUIRED. Path to a GeoPackage (GPKG) file containing the splitted road centerline vectors.
+    - osm_road_vector (str): REQUIRED. Path to a GeoPackage (GPKG) file containing the road segments.
     - catchments (srr): REQUIRED. Path to HAND catchment
     - output_path (str): REQUIRED. Path where the output CSV file will be saved.
 
@@ -55,10 +55,10 @@ def process_roads_fimpact(
     catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
     catchments_df['HydroID'] = catchments_df['HydroID'].astype(int).astype(str)
 
-    # split the roads based on HAND catchments
+    # further split the roads based on HAND catchments
     roads_gdf_splitted = gpd.overlay(roads_gdf, catchments_df, how="intersection")
 
-    # zonal stats does not like the lines input if it is jagged (can happenen  because
+    # zonal stats does not like the lines input if it is jagged (can happenen because
     # of overlaying with catchment boundaries) and can yield wrong results.
     # threfore, we explode the lines to make sure all segments are single linestring.
     roads_gdf_splitted = roads_gdf_splitted.explode(index_parts=True).reset_index(drop=True)
@@ -83,11 +83,7 @@ def process_roads_fimpact(
         # it is possible that roads cross areas of a HAND with nan data (levee), so make sure to remove those Nan threshold hands
         roads_gdf_splitted = roads_gdf_splitted.dropna(subset=['threshold_hand'])
 
-        # TODO remove below 3 lines which is only or debugging
-        # base, _ = os.path.splitext(output_path)
-        # temp_output_path = f"{base}_temp.gpkg"
-        # roads_gdf_splitted.to_file(temp_output_path)
-
+        # no need to save geometry --helpful to save disc size
         roads_gdf_splitted = roads_gdf_splitted.drop(columns='geometry')
 
         # group by segment id, hydroid, and report the min of threshold hand to remove extra exploded road segments in each hydroid
@@ -106,14 +102,13 @@ def process_roads_fimpact(
 
 
 if __name__ == "__main__":
-    # note that we do not apply any buffer for roads since especially it can catch min HAND from neighboring catchment.
     '''
     Sample usage :
         python foss_fim/src/process_roads_fimpact.py
         -g outputs/roads/02050206/branches/0/rem_zeroed_masked_0.tif
         -c outputs/roads/02050206/branches/0/gw_catchments_reaches_filtered_addedAttributes_crosswalked_0.gpkg
         -r outputs/roads/02050206/osm_roads_subset.gpkg
-        -o outputs/roads/02050206/branches/0/test_osm_roads_fimpact_0.csv
+        -o outputs/roads/02050206/branches/0/osm_roads_fimpact_0.csv
 
     '''
 
@@ -133,12 +128,12 @@ if __name__ == "__main__":
     parser.add_argument(
         '-c',
         '--catchments_path',
-        help='REQUIRED: Path and file name of the catchments geopackage',
+        help='REQUIRED: Path and file name of the HAND catchments geopackage',
         required=True,
     )
 
     parser.add_argument(
-        '-o', '--output_path', help='REQUIRED: Path where the output GPKG file will be saved', required=True
+        '-o', '--output_path', help='REQUIRED: Path where the output csv file will be saved', required=True
     )
 
     args = vars(parser.parse_args())

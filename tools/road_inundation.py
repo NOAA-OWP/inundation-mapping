@@ -47,22 +47,16 @@ def road_risk_status(
     fim_run_dir: str, flow_file: str, output_file_path: str, limit_hucs: list = []
 ) -> gpd.GeoDataFrame:
     """
-    This function detect which roads are inundated by a specified flow file. The function requires a flow file (expected to follow
-    the schema used by 'inundation_mosaic_wrapper') with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
-    containing inundated roads based on forcasted discharge compared to threshold discharge (for inundation).
+    This function detect which roads are inundated by a specified flow file and calculated the flood depth.
+    The function requires a flow file (expected to follow the schema used by 'inundation_mosaic_wrapper')
+    with data organized by 'feature_id' and 'discharge' in cms. The output includes a geopackage
+    containing inundated roads with their maximum flood depth.
 
     Args:
         fim_run_dir (str):    Path to FIM outputs were written by fim_pipeline.
-        flow_file (str):      Path to flow file to be used for inundation.
+        flow_file (str):      Path to csv flow file to be used for inundation.
         output_file_path (str):             Path to output geopackage file.
         limit_hucs (list):    Optional. If specified, only the roads in these HUCs will be processed.
-
-    Example usage:
-    python /foss_fim/tools/road_inundation.py \
-        -y /data/previous_fim/fim_4_5_2_0 \
-        -f /data/ble_huc_12090301_flows_100yr.csv \
-        -o /home/user/Documents/bridges/inundated_roads.gpkg \
-        -u 12090301 02020005
     """
 
     # Check that fim run directory exists
@@ -168,7 +162,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-f",
         "--flow_file",
-        help='Discharges in CMS as CSV file. "feature_id" and "discharge" columns MUST be supplied.',
+        help='Discharges in CMS as CSV file. "feature_id" and "discharge" columns must be supplied.',
         required=True,
         type=str,
     )
