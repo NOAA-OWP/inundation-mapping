@@ -92,7 +92,7 @@ def process_roads_fimpact(
 
         # group by segment id, hydroid, and report the min of threshold hand to remove extra exploded road segments in each hydroid
         min_idx = roads_gdf_splitted.groupby(['osmid_catchid', 'HydroID'])['threshold_hand'].idxmin()
-        roads_gdf_splitted = roads_gdf_splitted.loc[min_idx].reset_index(drop=True)
+        roads_gdf_splitted = roads_gdf_splitted.loc[min_idx]
 
         # make sure to record ids as str for csv output file
         cols_to_str = ['osmid', 'huc8', 'catchment_id', 'HydroID', 'feature_id', 'branch']
