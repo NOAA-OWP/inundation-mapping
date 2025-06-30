@@ -11,7 +11,7 @@ This PR addresses the issue #1385 and includes the following enhancements:
 
 - Develops a new tool to identify inundated roads for a given flood event
 
-Note that pulling OSM data requires a new Python package called `overpy`, which can be installed via pip. **The updated pre-clipped dataset with new osm roads data has been prepared here:  `inputs/pre_clip_huc8/20250606/`**.
+**The updated pre-clipped dataset with new osm roads data has been prepared here:  `inputs/pre_clip_huc8/20250606/`**.
 
 
 
