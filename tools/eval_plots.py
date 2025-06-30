@@ -18,6 +18,7 @@ from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
 
 from utils.shared_variables import VIZ_PROJECTION
 
+
 gpd.options.io_engine = "pyogrio"
 
 
@@ -945,16 +946,16 @@ def convert_shapes_to_csv(workspace):
 
 #######################################################################
 if __name__ == '__main__':
-    
+
     """
     This script has two main uses. The most common use is part of the "alpha test" system via
     synthesize_test_cases.py. This set can be run in any environment.
-    
+
     The second usage is called FIM Performance mode and talks to the WRDS API to get some nwm metadata.
     This results the script needing to be run in the OWP environments with the valid URL to WRDS.
     This creates FIM Performance files of fim_performance_points.csv and fim_performance_polys.csv
     which are used by HV.
-    
+
     Usage for FIM Performance mode. The example for output data is based on the filtered hand output
     normally used in OWP servers by catfim.  Any valid HAND dataset can be used and the filtered
     "catfim" output version has all of the files needed by both CatFIM and this script.
@@ -963,7 +964,7 @@ if __name__ == '__main__':
         -w /data/fim_performance/${fim_version} -v ${fim_version} -sp -i
 
     """
-    
+
     # Parse arguments
     parser = argparse.ArgumentParser(
         description='Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)'

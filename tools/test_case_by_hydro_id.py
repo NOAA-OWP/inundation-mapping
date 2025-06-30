@@ -28,7 +28,7 @@ FLOG = fl.FIM_logger()  # the non mp version
 """
 This module uses zonal stats to subdivide alpha metrics by each HAND catchment.
 The output is a vector geopackage and is also known as the "FIM Performance" layer
-when loaded into HydroVIS. 
+when loaded into HydroVIS.
 
 """
 
