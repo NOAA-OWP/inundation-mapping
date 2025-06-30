@@ -228,23 +228,26 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
             except Exception as e:
                 logging.warning(f"Could not read raster {path}: {e}")
 
-    # Process each group by CRS
+    # Build VRTs and mosaics for each group
     for epsg_code, raster_list in crs_groups.items():
-        logging.info(f"Creating mosaic for EPSG:{epsg_code} with {len(raster_list)} rasters")
+        output_mosaic_name = f"{fim_version_tag}_EPSG{epsg_code}_mosaic.tif"
+        output_mosaic_raster = os.path.join(output_dir, output_mosaic_name)
 
-        output_mosaic_vrt = os.path.join(output_bool_dir, f"{fim_version_tag}_EPSG{epsg_code}_merged.vrt")
-        output_mosaic_raster = os.path.join(output_dir, f"{fim_version_tag}_EPSG{epsg_code}_mosaic.tif")
+        if len(raster_list) == 1:
+            # Just copy the raster
+            logging.info(f"Only one raster found for EPSG:{epsg_code}, skipping VRT creation.")
+            shutil.copyfile(raster_list[0], output_mosaic_raster)
+            logging.info(f"Copied {raster_list[0]} to {output_mosaic_raster}")
+        else:
+            output_mosaic_vrt = os.path.join(output_bool_dir, f"{fim_version_tag}_EPSG{epsg_code}_merged.vrt")
+            logging.info(f"Building VRT: {output_mosaic_vrt}")
+            vrt_file = build_vrt(output_mosaic_vrt, raster_list)
 
-        logging.info(f"Building VRT: {output_mosaic_vrt}")
-        vrt_file = build_vrt(output_mosaic_vrt, raster_list)
-
-        logging.info(f"Building raster mosaic: {output_mosaic_raster}")
-        logging.info(f"Using {threads} threads for parallelizing")
-
-        copy(vrt_file, output_mosaic_raster)
-
-        logging.info(f"Mosaic for EPSG:{epsg_code} completed and saved to {output_mosaic_raster}")
-        vrt_file = None
+            logging.info(f"Building raster mosaic: {output_mosaic_raster}")
+            logging.info(f"Using {threads} threads for parallelizing")
+            copy(vrt_file, output_mosaic_raster)
+            logging.info(f"Mosaic for EPSG:{epsg_code} completed and saved to {output_mosaic_raster}")
+            vrt_file = None
 
 
 def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):
