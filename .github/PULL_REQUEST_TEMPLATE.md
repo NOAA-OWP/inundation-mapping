@@ -6,22 +6,34 @@
 
 ### Removals
 
+---------------------------------------------------------------
 ### Testing
+Generally, you do not copy this part into the ChangeLog. These are some quick notes on what you did test or what the reviewer to know for their tests.
 
 
+---------------------------------------------------------------
 ### Deployment Plan (For developer use)
+- **Does the change impact inputs, docker or python packages?**
+    - [ ] Yes
+    - [ ] No
+- Has new or updated python packages or Dockerfile changes?
+    - [ ] Yes
+- Require new or adjusted data inputs? Does it have a way to version (folder or file dates?)
+    - [ ] Yes
+- If new or updated data sets, has the FIM code been updated and tested with the new/adjusted data (a test against subset is fine)?
+    - [ ] Yes
+- Require new pre-clip set?
+    - [ ] Yes
+- If applicable, has a deployment plan be created with the DevOps team? including what was run already, what needs to be copied to all 4/5 enviros, from where, what still needs to be run at scale, etc. Any notes are helpful.
+    - [ ] Yes
+    - [ ] I will shortly. :)
 
-_How does the changes affect the product?_
-- [ ] Code only?
-- [ ] If applicable, has a deployment plan be created with the deployment person/team?
-- [ ] Require new or adjusted data inputs? Does it have start, end and duration code (in UTC)?
-- [ ] If new or updated data sets, has the FIM code been updated and tested with the new/adjusted data (subset is fine, but must be a subset of the new data)?
-- [ ] Require new pre-clip set?
-- [ ] Has new or updated python packages?
+**Notes to DevOps Team:**
 
+---------------------------------------------------------------
 ### Issuer Checklist (For developer use)
 
-_You may update this checklist before and/or after creating the PR. If you're unsure about any of them, please ask, we're here to help! These items are what we are going to look for before merging your code._
+You may update this checklist before and/or after creating the PR. If you're unsure about any of them, please ask, we're here to help! These items are what we are going to look for before merging your code.
 
 - [ ] Informative and human-readable title, using the format: `[_pt] PR: <description>`
 - [ ] Links are provided if this PR resolves an issue, or depends on another other PR
@@ -35,6 +47,7 @@ _You may update this checklist before and/or after creating the PR. If you're un
 - [ ] [CHANGELOG](/docs/CHANGELOG.md) updated with template version number, e.g. `4.x.x.x`
 - [ ] Add yourself as an [assignee](https://docs.github.com/en/issues/tracking-your-work-with-issues/assigning-issues-and-pull-requests-to-other-github-users) in the PR  as well as the FIM Technical Lead
 
+---------------------------------------------------------------
 ### Merge Checklist (For Technical Lead use only)
 
 - [ ] Update [CHANGELOG](/docs/CHANGELOG.md) with latest version number and merge date
