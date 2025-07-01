@@ -15,6 +15,11 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
+# Define acceptable slope range
+SLOPE_MIN = 9.999e-7
+SLOPE_MAX = 0.5
+
+
 def add_crosswalk(
     input_catchments_fileName,
     input_flows_fileName,
@@ -271,12 +276,20 @@ def add_crosswalk(
         right_on='HydroID',
     )
 
-    # Merge 'SLOPE_RISE_RUN' and 'SLOPE_HFAB' into 'SLOPE'
-    input_src_base['SLOPE'] = (
-        input_src_base['SLOPE_IRIS_SWORD']
-        .combine_first(input_src_base['SLOPE_HFAB'])
-        .combine_first(input_src_base['SLOPE_RISE_RUN'])
+    # masks for valid slope values (also only using SWORD for orders >=4)
+    sword_mask = (input_src_base['order_'] >= 4) & (
+        (input_src_base['SLOPE_IRIS_SWORD'] >= SLOPE_MIN) & (input_src_base['SLOPE_IRIS_SWORD'] <= SLOPE_MAX)
     )
+
+    hfab_mask = (input_src_base['SLOPE_HFAB'] >= SLOPE_MIN) & (input_src_base['SLOPE_HFAB'] <= SLOPE_MAX)
+
+    # Apply masks to filter out invalid slope values
+    sword_slope = input_src_base['SLOPE_IRIS_SWORD'].where(sword_mask)
+    hfab_slope = input_src_base['SLOPE_HFAB'].where(hfab_mask)
+
+    # Assign SLOPE values with priority: IRIS_SWORD then HFAB then RISE_RUN
+    input_src_base['SLOPE'] = input_src_base['SLOPE_RISE_RUN']
+    input_src_base['SLOPE'] = sword_slope.combine_first(hfab_slope).combine_first(input_src_base['SLOPE'])
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
@@ -416,6 +429,9 @@ def add_crosswalk(
 
     if output_hydro_table.HydroID.dtype != 'str':
         output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
+
+    # TODO: Jun 2025: Why do we have this column? Likely a bug
+    output_hydro_table['HydroID Int16'] = output_hydro_table['HydroID'].apply(lambda x: str(int(x[4:])))
     output_hydro_table[FIM_ID] = output_hydro_table.loc[:, 'HydroID'].apply(lambda x: str(x)[0:4])
 
     if input_huc[FIM_ID].dtype != 'str':

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+
 import datetime as dt
+import gc
 import json
 import logging
 import os
@@ -19,20 +21,28 @@ import rioxarray as rxr
 import urllib3
 import xarray as xr
 from dotenv import load_dotenv
-from geocube.api.core import make_geocube
 from gval import CatStats
 from rasterio import features
 from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from shapely.geometry import MultiPolygon, Polygon, shape
+from tools_shared_variables import (
+    acceptable_alt_acc_thresh,
+    acceptable_alt_meth_code_list,
+    acceptable_coord_acc_code_list,
+    acceptable_coord_method_code_list,
+    acceptable_site_type_list,
+)
+from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
 
 gpd.options.io_engine = "pyogrio"
 
 
+# TODO: Jun 2025: Change this to have a path to the config via an arg.
+# See rating_curve_get_usgs_curves for an example
 def get_env_paths():
     load_dotenv()
     # import variables from .env file
@@ -82,21 +92,66 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     return filtered_segments
 
 
+def filter_usgs_by_acceptance_criteria(input_df):
+    '''
+    This function filters a USGS dataframe according the acceptance criteria.
+
+    Parameters
+    ----------
+    input_df: pd.DataFrame
+        Dataframe of USGS data to be filtered. Must contain the following columns:
+        - usgs_data_coord_accuracy_code
+        - usgs_data_coord_method_code
+        - usgs_data_alt_method_code
+        - usgs_data_site_type
+        - usgs_data_alt_accuracy_code
+
+    Returns
+    -------
+    output_df: pd.DataFrame
+        Filtered DataFrame of USGS data that meets the acceptance criteria.
+
+    # TODO: Could add an option to adjust which acceptable codes are used, but for now this is hardcoded.
+
+    '''
+    input_df['acceptable_codes'] = (
+        input_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+        & input_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+        & input_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+        & input_df['usgs_data_site_type'].isin(acceptable_site_type_list)
+    )
+    input_df = input_df.astype({'usgs_data_alt_accuracy_code': float})
+    input_df['acceptable_alt_error'] = np.where(
+        input_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
+    )
+    output_df = input_df[(input_df['acceptable_codes'] == True) & (input_df['acceptable_alt_error'] == True)]
+
+    return output_df
+
+
 def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
     '''
     This function is used in CatFIM to mask out lakes from inundated tifs.
 
-    Inputs:
+    Parameters
+    ----------
+    input_array: xarray DataArray
+        DataArray with inundation values that need lakes removed
+    huc: str
+        HUC8 id (string), needed to get the correct lakes file
+    raster_src: rasterio DatasetReader
+        src from a raster that should be uses for getting the correct raster dimensions
+    fim_run_dir: str
+        path to the fim run directory where the lakes shapefile is located
 
-    input_array: inundation TIF that needs lakes removed (called summed_array for stage-based)
-    huc: HUC8 id (string), needed to get the correct lakes file
-    raster_src: src from a raster that should be uses for getting the correct raster dimensions
-    fim_run_dir: path to the fim run directory where the lakes shapefile is located
 
-    Outputs:
+    Returns
+    -------
+    masked_array: xarray
+        DataArray with lakes masked out
+    mask_status: string,
+        status of whether lake shapefile was available
 
-    masked_array: same array as before, but with lakes masked out and the dimensions of raster_src
-    mask_status: string, status of whether lake shapefile was available
 
     '''
 
@@ -454,7 +509,7 @@ def get_stats_table_from_binary_rasters(
         (0, 10): 10,
         (1, 0): 2,
         (1, 1): 3,
-        (1, 10): 10,
+        (1, 10): 5,
         (4, 0): 4,
         (4, 1): 4,
         (4, 10): 10,
@@ -480,6 +535,7 @@ def get_stats_table_from_binary_rasters(
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
                     del poly_all
+                    gc.collect()
                     continue
 
                 # Project layer to reference crs.
@@ -494,16 +550,21 @@ def get_stats_table_from_binary_rasters(
                     all_masks_df = poly_all_proj
 
                 del poly_all, poly_all_proj
+                gc.collect()
 
     stats_table_dictionary = {}  # Initialize empty dictionary.
 
     c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
+
     del candidate_raster, benchmark_raster
+    gc.collect()
 
     agreement_map = c_aligned.gval.compute_agreement_map(
         b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
     )
+
     del c_aligned, b_aligned
+    gc.collect()
 
     agreement_map_og = agreement_map.copy()
     agreement_map.rio.write_nodata(4, inplace=True)
@@ -526,8 +587,10 @@ def get_stats_table_from_binary_rasters(
     # Only write the agreement raster if user-specified.
     if agreement_raster != None:
         agreement_map_write = agreement_map.rio.write_nodata(10, encoded=True)
-        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.int32, driver="COG")
+        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.uint8, driver="COG")
+
         del agreement_map_write
+        gc.collect()
 
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
@@ -556,6 +619,7 @@ def get_stats_table_from_binary_rasters(
     )
 
     del crosstab_table, metrics_table
+    gc.collect()
 
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
     if mask_dict != {}:
@@ -573,6 +637,7 @@ def get_stats_table_from_binary_rasters(
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
                     del poly_all
+                    gc.collect()
                     continue
 
                 poly_all_proj = poly_all.to_crs(agreement_map.rio.crs)
@@ -605,8 +670,9 @@ def get_stats_table_from_binary_rasters(
                         os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
                     )
                     agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
-                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.int32, driver="COG")
+                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.uint8, driver="COG")
                     del agreement_map_write
+                    gc.collect()
 
                 # Update stats table dictionary
                 stats_table_dictionary.update(
@@ -618,11 +684,11 @@ def get_stats_table_from_binary_rasters(
                         )
                     }
                 )
-                del agreement_map_include
-
-                del poly_all, poly_all_proj, metrics_table, crosstab_table
+                del agreement_map_include, poly_all, poly_all_proj, metrics_table, crosstab_table
+                gc.collect()
 
     del agreement_map
+    gc.collect()
 
     return stats_table_dictionary
 
@@ -764,7 +830,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
         # filter by hucs we are using
         huc8 = huc8[huc8['HUC8'].isin(huc_list)]
 
-    huc8.sort_values(by='HUC8', ascending=True, inplace=True)
+    huc8 = huc8.sort_values(by='HUC8', ascending=True)
 
     # Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
     crs_lookup = {'NAD27': 'EPSG:4267', 'NAD83': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
@@ -1196,6 +1262,7 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
     in NAD27 crs. If input lat/lon are not NAD27 then these coords are
     reprojected to NAD27 and the reproject coords are used to get adjustment.
     There appears to be an issue when region is not in contiguous US.
+    TODO: Test outside of CONUS and resolve if needed.
 
     Parameters
     ----------
@@ -1659,7 +1726,7 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
     for idx, wind in agreement_raster.block_windows(1):
         window_data = agreement_raster.read(1, window=wind)
         values, counts = np.unique(window_data, return_counts=True)
-        for val, cts in values_counts:
+        for val, cts in zip(values, counts):
             totals[val] += cts
 
     results = dict()
