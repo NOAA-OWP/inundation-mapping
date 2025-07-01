@@ -1,6 +1,13 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-07-01 - [PR#1584](https://github.com/NOAA-OWP/inundation-mapping/pull/1584)
+Just a few minor tweaks:
+- removed tqdm in favor of an (x of y) output line. Why? when you add print lines inside a for loop with tqdm, the progress bar repaints over and over after each print line. Also added some sorting to the for loop for easier progress tracking.
+
+### Changes
+- `tools\test_case_by_hydroid.py`: as described
+<br/><br/>
 
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
 
