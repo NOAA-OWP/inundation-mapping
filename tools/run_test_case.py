@@ -360,6 +360,7 @@ class Test_Case(Benchmark):
                     num_threads=8,
                     num_workers=gms_workers,
                     windowed=True,
+                    gms_multi_process=True,
                 )
 
             # FIM v3 and before
