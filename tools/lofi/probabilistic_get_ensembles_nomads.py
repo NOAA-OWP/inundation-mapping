@@ -74,7 +74,7 @@ def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_
     Parameters
     ----------
     dt : str
-        Date time string to get nomad ensembles.
+        Date time string to get nomad forecast data, needs to be today's date or yesterday's date.
     ens_type : str
         An ensemble type from the following list, "gfs", "nbm", "short", "noda".
     feature_ids : List[int]
@@ -88,6 +88,8 @@ def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_
 
     print("Process initialized:", time.localtime())
     master_lists = []
+
+    os.makedirs(output_path, exist_ok=True)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -195,8 +197,7 @@ def concat_datasets(ds_list: List[xr.Dataset], ens_type: str, output_path: str, 
     concat_tot = xr.concat(tots, dim="member")
     concat_tot = concat_tot.drop_vars('crs').interpolate_na(dim='time')
 
-    os.makedirs(output_path, exist_ok=True)
-    concat_tot.to_netcdf(f'{output_path}/{output_name}.nc')
+    concat_tot.to_netcdf(f'{output_path}/{output_name}')
 
 
 if __name__ == '__main__':
@@ -208,8 +209,8 @@ if __name__ == '__main__':
 
     get_nomads_ensembles(
         dt=dt,
-        ens_type='nbm',
-        feature_ids=streams['ID'].unique,
-        output_path="./ensembles",
-        output_name=f"{huc}_ensembles.nc",
+        ens_type='gfs',
+        feature_ids=streams['ID'].unique(),
+        output_path="../../ensembles",
+        output_name=f"{huc}_ensembles_nomads.nc",
     )
