@@ -170,7 +170,7 @@ def run_inundation(args):
         huc_list,
         forecast,
         inundation_raster=inundation_raster,
-        num_workers=job_number,
+        num_threads=job_number,
         remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,
