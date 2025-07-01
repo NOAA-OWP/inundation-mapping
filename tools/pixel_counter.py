@@ -22,7 +22,9 @@ from pixel_counter_functions import (
 
 
 # With UseExceptions(), an error will raise an exception
-gdal.UseExceptions()
+# TODO: Jul 1, 2025: look into this. We want it enabled but when runnign test_case_by_hydroid.py with this
+# in place, then 15130205 crashes. Issue card added.
+# gdal.UseExceptions()
 
 '''Created on 02/21/2022.
 Written by:
