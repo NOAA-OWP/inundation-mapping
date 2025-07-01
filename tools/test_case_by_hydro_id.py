@@ -19,9 +19,6 @@ import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
 
-# from tqdm import tqdm
-
-
 warnings.filterwarnings("ignore", category=FutureWarning, module="gdal")
 gpd.options.io_engine = "pyogrio"
 
