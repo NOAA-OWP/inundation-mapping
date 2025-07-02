@@ -375,6 +375,14 @@ if __name__ == '__main__':
         action='store_true',
     )
     parser.add_argument(
+        '-p',
+        '--precalb-option',
+        help='Using this argument will use the precalb_discharge_cms in hydrotable. ',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
         '-e',
         '--model',
         help='Denotes model used. Options: [FR, MS, or GMS]. '
@@ -498,6 +506,7 @@ if __name__ == '__main__':
     master_metrics_csv = args['master_metrics_csv']
     fr_run_dir = args['fr_run_dir']
     calibrated = args['calibrated']
+    precalb_option = args['precalb_option']
     model = args['model']
     verbose = bool(args['verbose'])
     gms_verbose = bool(args['gms_verbose'])
@@ -618,6 +627,7 @@ if __name__ == '__main__':
                     'overwrite': overwrite,
                     'verbose': gms_verbose if model == 'GMS' else verbose,
                     'gms_workers': job_number_branch,
+                    'precalb_option': precalb_option,
                 }
 
                 try:
@@ -656,6 +666,7 @@ if __name__ == '__main__':
                         'mask_type': 'huc',
                         'verbose': verbose,
                         'overwrite': overwrite,
+                        'precalb_option': precalb_option,
                     }
                     try:
                         future = executor.submit(test_case_class.alpha_test, **alpha_test_args)

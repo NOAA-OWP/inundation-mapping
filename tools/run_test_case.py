@@ -192,6 +192,7 @@ class Test_Case(Benchmark):
         overwrite=True,
         verbose=False,
         gms_workers=1,
+        precalb_option=False,
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
 
@@ -277,7 +278,12 @@ class Test_Case(Benchmark):
                 ]:  # instance will be the lid for AHPS sites and '' for other sites
                     # For each site, inundate the REM and compute aggreement raster with stats
                     self._inundate_and_compute(
-                        magnitude, instance, model=model, verbose=verbose, gms_workers=gms_workers
+                        magnitude,
+                        instance,
+                        model=model,
+                        verbose=verbose,
+                        gms_workers=gms_workers,
+                        precalb_option=precalb_option,
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -297,7 +303,7 @@ class Test_Case(Benchmark):
             sys.exit(1)
 
     def _inundate_and_compute(
-        self, magnitude, lid, compute_only=False, model='', verbose=False, gms_workers=1
+        self, magnitude, lid, precalb_option, compute_only=False, model='', verbose=False, gms_workers=1
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
@@ -359,6 +365,7 @@ class Test_Case(Benchmark):
                     verbose=verbose,
                     num_threads=8,
                     num_workers=gms_workers,
+                    precalb_option=precalb_option,
                     windowed=True,
                 )
 
@@ -408,6 +415,7 @@ class Test_Case(Benchmark):
         magnitude,
         calibrated,
         model,
+        precalb_option=False,
         archive_results=False,
         mask_type='huc',
         inclusion_area='',
@@ -429,6 +437,7 @@ class Test_Case(Benchmark):
             overwrite,
             verbose,
             gms_workers,
+            precalb_option,
         )
 
     def composite(self, version_2, calibrated=False, overwrite=True, verbose=False):

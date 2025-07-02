@@ -47,6 +47,7 @@ def inundate(
     depths: Optional[str] = None,
     src_table: Optional[str] = None,
     quiet: Optional[bool] = False,
+    precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
 ) -> Tuple[List[str], List[str], List[str]]:
     """
@@ -93,6 +94,8 @@ def inundate(
         Table to subset main hydrotable.
     quiet : Optional[bool], default=False
         Quiet output.
+    precalb_option : Optional[bool], default=False
+        Whether to use precalb discharge in hydrotable. If True, will use precalb_discharge_cms column
     windowed : Optional[bool], default=False
         Memory efficient operation to process inundation
 
@@ -175,7 +178,9 @@ def inundate(
 
     # catchment stages dictionary
     if hydro_table is not None:
-        catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(hydro_table, forecast, subset_hucs)
+        catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
+            hydro_table, forecast, subset_hucs, precalb_option
+        )
     else:
         raise TypeError("Pass hydro table csv")
 
@@ -567,7 +572,10 @@ def __append_huc_code_to_file_name(fileName: str, hucCode: str) -> str:
 
 
 def __subset_hydroTable_to_forecast(
-    hydroTable: Union[str, pd.DataFrame], forecast: Union[str, pd.DataFrame], subset_hucs=None
+    hydroTable: Union[str, pd.DataFrame],
+    forecast: Union[str, pd.DataFrame],
+    subset_hucs=None,
+    precalb_option: bool = False,
 ) -> Tuple[typed.Dict, List[str]]:
     """
     Subset hydrotable with forecast
@@ -588,7 +596,15 @@ def __subset_hydroTable_to_forecast(
 
     """
     if isinstance(hydroTable, str):
-        htable_req_cols = ['HUC', 'feature_id', 'HydroID', 'stage', 'discharge_cms', 'LakeID']
+        htable_req_cols = [
+            'HUC',
+            'feature_id',
+            'HydroID',
+            'stage',
+            'precalb_discharge_cms',
+            'discharge_cms',
+            'LakeID',
+        ]
         file_ext = hydroTable.split('.')[-1]
         if file_ext == 'csv':
             hydroTable = pd.read_csv(
@@ -598,6 +614,7 @@ def __subset_hydroTable_to_forecast(
                     'feature_id': str,
                     'HydroID': str,
                     'stage': float,
+                    'precalb_discharge_cms': float,
                     'discharge_cms': float,
                     'LakeID': int,
                     'last_updated': object,
@@ -683,11 +700,18 @@ def __subset_hydroTable_to_forecast(
 
         # interpolate stages
         for hid, sub_table in hydroTable.groupby(level='HydroID'):
-            interpolated_stage = np.interp(
-                sub_table.loc[:, 'discharge'].unique(),
-                sub_table.loc[:, 'discharge_cms'],
-                sub_table.loc[:, 'stage'],
-            )
+            if precalb_option:
+                interpolated_stage = np.interp(
+                    sub_table.loc[:, 'discharge'].unique(),
+                    sub_table.loc[:, 'precalb_discharge_cms'],
+                    sub_table.loc[:, 'stage'],
+                )
+            else:
+                interpolated_stage = np.interp(
+                    sub_table.loc[:, 'discharge'].unique(),
+                    sub_table.loc[:, 'discharge_cms'],
+                    sub_table.loc[:, 'stage'],
+                )
 
             # add this interpolated stage to catchment stages dict
             h = round(interpolated_stage[0], 4)
