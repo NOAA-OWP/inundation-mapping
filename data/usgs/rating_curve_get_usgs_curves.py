@@ -38,7 +38,7 @@ This script calls the NOAA Tidal API for datum conversions. Experience shows tha
     to avoid API errors. Currently configured to get rating curve data within
     CONUS.
 
-    Tidal API call may need to be modified to get datum conversions for AK.
+    Tidal API call may need to be modified to get datum conversions for AK. # TODO: Alaska updates?
 '''
 
 
@@ -181,7 +181,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
     Returns rating curves, for a set of sites, adjusted to elevation NAVD.
     Currently configured to get rating curve data within CONUS. Tidal API
-    call may need to be modified to get datum conversions for AK.
+    call may need to be modified to get datum conversions for AK (TODO: AK ).
     Workflow as follows:
         1a. If 'all' option passed, get metadata for all acceptable USGS sites.
         1b. If a list of sites passed, get metadata for all sites supplied by user.
@@ -377,7 +377,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
                 logging.warning(f'{location_ids}: Removed because it has no rating curve')
                 continue
 
-            # If the site is in PR, VI, or HI, keep datum in LMSL (local mean sea level)
+            # If the site is in PR, VI, or HI, keep datum in LMSL (local mean sea level) # TODO: Add similar logic for AK?
             # because our 3DEP dems are also in LMSL for these areas.
             if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
                 if usgs['vcs'] == 'LMSL':
@@ -404,7 +404,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
                     # time.sleep(sleep_time)
 
                     # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
-                    datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous')
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs)
 
                     # If datum API failed, print message and skip site.
                     if datum_adj_ft is None:
