@@ -450,6 +450,12 @@ def generate_flows(
     time_duration = end_dt - start_dt
     FLOG.lprint(f"Retrieving metadata - Duration: {str(time_duration).split('.')[0]}")
 
+    FLOG.lprint("+++++++++++++++++++")
+    FLOG.lprint(f"all_meta_lists is {all_meta_lists}")
+
+    FLOG.lprint("+++++++++++++++++++")
+    
+    
     print("")
 
     # Assign HUCs to all sites using a spatial join of the FIM 4 HUC layer.
@@ -461,18 +467,30 @@ def generate_flows(
 
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
 
+    FLOG.lprint("***********************")
+    FLOG.lprint("Pre udpates")
+    FLOG.lprint(f"huc_dictionary is {huc_dictionary}")
+    FLOG.lprint(f"out_gdf is {out_gdf}")
+    FLOG.lprint("***********************")
+
+
     # FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}")  # TEMP DEBUG
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.astype({'metadata_sources': str})
 
+    FLOG.lprint("Post updates")
+
+    FLOG.lprint(f"huc_dictionary is {huc_dictionary}")
+    FLOG.lprint(f"out_gdf is {out_gdf}")
+
+    FLOG.lprint("+++++++++++++")
+    FLOG.lprint("Start Flow Generation")
+
     end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt
     FLOG.lprint(f"End aggregate_wbd_hucs - Duration: {str(time_duration).split('.')[0]}")
-
-    FLOG.lprint("")
-    FLOG.lprint("Start Flow Generation")
 
     # It this is stage-based, it returns all of these objects here, but if it continues
     # (aka. Flow based), then it returns only nws_lid_layer (created later in this function)
@@ -720,6 +738,10 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
                 duplicate_meta_list.append(site)
 
             else:
+                # debug
+                # if nws_lid.upper() not in ['PNTA3', 'PWBA3']:
+                #     continue
+
                 # Unique/unseen LID that's not None
                 unique_lids.append(nws_lid)
                 output_meta_list.append(site)
