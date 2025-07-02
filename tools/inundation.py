@@ -685,7 +685,7 @@ def __subset_hydroTable_to_forecast(
         for hid, sub_table in hydroTable.groupby(level='HydroID'):
             interpolated_stage = np.interp(
                 sub_table.loc[:, 'discharge'].unique(),
-                sub_table.loc[:, 'discharge_cms'],
+                sub_table.loc[:, 'precalb_discharge_cms'],
                 sub_table.loc[:, 'stage'],
             )
 
