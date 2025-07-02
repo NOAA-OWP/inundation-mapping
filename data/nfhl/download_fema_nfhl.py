@@ -49,6 +49,57 @@ def load_wbd(huc_list):
     return wbd_conus, wbd_alaska
 
 
+def process_nfhl(
+    nfhl_layer: gpd.GeoDataFrame,
+    nfhl_label: str,
+    huc: str,
+    out_file: str,
+    file_logger,
+    fill_holes: bool = None,
+):
+    """
+    Process NFHL layer and save to GPKG
+
+    Parameters
+    ----------
+    nfhl_layer : GeoDataFrame
+        The NFHL layer to process
+    nfhl_label : str
+        The label for the NFHL layer
+    huc : str
+        The HUC8 code
+    out_file : str
+        The output file path
+    file_logger : logging.Logger
+        Logger for file output
+    fill_holes : bool
+        Whether to fill holes in the geometries (default is None, which means no filling)
+    """
+    file_logger.info(f"Processing NFHL layer: {nfhl_label} for HUC {huc}")
+
+    if not nfhl_layer.empty:
+        nfhl_dissolved = nfhl_layer.dissolve()
+        nfhl_exploded = nfhl_dissolved.explode().reset_index(drop=True)
+
+        if fill_holes:
+            new_geoms = [
+                Polygon(geom.exterior)
+                for geom in nfhl_exploded.geometry
+                if geom is not None and geom.is_valid
+            ]
+            nfhl_exploded.geometry = new_geoms
+
+        nfhl_exploded = nfhl_exploded[~nfhl_exploded.geometry.isna()]
+        nfhl_final = nfhl_exploded.dissolve().reset_index(drop=True)
+        nfhl_final = nfhl_final.dropna(axis=1, how='all')
+
+        # Save layer to GPKG
+        nfhl_final.to_file(out_file, layer=nfhl_label, index=False, driver='GPKG')
+
+    else:
+        file_logger.warning(f"No {nfhl_label} zones for HUC {huc}")
+
+
 def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logger, screen_queue, task_id):
     """
     Download the NFHL flood hazard zones for a given HUC8
@@ -124,7 +175,6 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
 
                 geometry = str(geometry)
 
-                nfhl_query_url = "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/20/query"
                 # Filter for 100-year (A, V zones): FLD_ZONE LIKE 'A%' OR FLD_ZONE LIKE 'V%'
                 # and 500-year (X): FLD_ZONE LIKE 'X' AND ZONE_SUBTY = '0.2 PCT ANNUAL CHANCE FLOOD HAZARD'
                 where_clause = (
@@ -135,14 +185,28 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
                 with open(os.devnull, 'w') as devnull:
                     with redirect_stdout(devnull), redirect_stderr(devnull):
                         nfhl_df = ESRI_REST.query(
-                            nfhl_query_url,
+                            "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/20/query",
                             f="json",
                             where=where_clause,
                             returnGeometry="true",
                             outFields="*",
                             outSR=str(geometryCRS),
                             geometryType=geometryType,
-                            geometry=str(geometry),
+                            geometry=geometry,
+                            resultRecordCount=100,
+                            geometryPrecision=1,
+                            maxAllowableOffset=1,
+                        )
+
+                        nfhl_availability_df = ESRI_REST.query(
+                            "https://hazards.fema.gov/arcgis/rest/services/FIRMette/NFHLREST_FIRMette/MapServer/0/query",
+                            f="json",
+                            where="1=1",
+                            returnGeometry="true",
+                            outFields="*",
+                            outSR=str(geometryCRS),
+                            geometryType=geometryType,
+                            geometry=geometry,
                             resultRecordCount=100,
                             geometryPrecision=1,
                             maxAllowableOffset=1,
@@ -151,6 +215,10 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
                 if nfhl_df.empty:
                     file_logger.error(f"No NFHL data retrieved for HUC {huc}")
                     return False
+                if nfhl_availability_df.empty:
+                    file_logger.error(f"No NFHL availability data retrieved for HUC {huc}")
+                    return False
+
                 # Clean the geometries to remove self-intersections
                 nfhl_df['geometry'] = nfhl_df['geometry'].make_valid()
                 nfhl_df = gpd.clip(nfhl_df, polygon)
@@ -159,46 +227,32 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
                 nfhl_df = nfhl_df[nfhl_df.geom_type.isin(['Polygon', 'MultiPolygon'])]
                 # Explode multipolygon geometries to single polygons
                 nfhl_df = nfhl_df.explode(index_parts=True).reset_index(drop=True)
+
                 # Save 100-year data
                 nfhl_100 = nfhl_df[nfhl_df['FLD_ZONE'].str.startswith(('A', 'V'))]
-                if not nfhl_100.empty:
-                    nfhl_100_dissolved = nfhl_100.dissolve()
-                    nfhl_100_exploded = nfhl_100_dissolved.explode().reset_index(drop=True)
-                    new_geoms_100 = [
-                        Polygon(geom.exterior)
-                        for geom in nfhl_100_exploded.geometry
-                        if geom is not None and geom.is_valid
-                    ]
-                    nfhl_100_exploded.geometry = new_geoms_100
-                    nfhl_100_exploded = nfhl_100_exploded[~nfhl_100_exploded.geometry.isna()]
-                    nfhl_100_final = nfhl_100_exploded.dissolve().reset_index(drop=True)
-                    nfhl_100_final = nfhl_100_final.dropna(axis=1, how='all')
-                    # Save to GPKG as '100_year' layer
-                    nfhl_100_final.to_file(out_file, layer='100_year', index=False, driver='GPKG')
-                else:
-                    file_logger.warning(f"No 100-year zones for HUC {huc}")
+                process_nfhl(nfhl_100, '100_year', huc, out_file, file_logger, fill_holes=True)
 
                 # Save 500-year data
                 nfhl_500 = nfhl_df[
                     (nfhl_df['FLD_ZONE'] == 'X')
                     & (nfhl_df['ZONE_SUBTY'] == '0.2 PCT ANNUAL CHANCE FLOOD HAZARD')
                 ]
-                if not nfhl_500.empty:
-                    nfhl_500_dissolved = nfhl_500.dissolve()
-                    nfhl_500_exploded = nfhl_500_dissolved.explode().reset_index(drop=True)
-                    new_geoms_500 = [
-                        Polygon(geom.exterior)
-                        for geom in nfhl_500_exploded.geometry
-                        if geom is not None and geom.is_valid
-                    ]
-                    nfhl_500_exploded.geometry = new_geoms_500
-                    nfhl_500_exploded = nfhl_500_exploded[~nfhl_500_exploded.geometry.isna()]
-                    nfhl_500_final = nfhl_500_exploded.dissolve().reset_index(drop=True)
-                    nfhl_500_final = nfhl_500_final.dropna(axis=1, how='all')
-                    # Save to GPKG as '500_year' layer
-                    nfhl_500_final.to_file(out_file, layer='500_year', index=False, driver='GPKG')
-                else:
-                    file_logger.warning(f"No 500-year zones for HUC {huc}")
+                process_nfhl(nfhl_500, '500_year', huc, out_file, file_logger, fill_holes=True)
+
+                # Clean the geometries to remove self-intersections
+                nfhl_availability_df['geometry'] = nfhl_availability_df['geometry'].make_valid()
+                # nfhl_availability_df = gpd.clip(nfhl_availability_df, polygon)
+                # Filter polygons and multipolygons
+                # print(nfhl_df.geom_type.value_counts())
+                nfhl_availability_df = nfhl_availability_df[
+                    nfhl_availability_df.geom_type.isin(['Polygon', 'MultiPolygon'])
+                ]
+                # Explode multipolygon geometries to single polygons
+                nfhl_availability_df = nfhl_availability_df.explode(index_parts=True).reset_index(drop=True)
+                process_nfhl(
+                    nfhl_availability_df, 'availability', huc, out_file, file_logger, fill_holes=False
+                )
+
                 # Process combined 100-year and 500-year zones
                 nfhl_df_dissolved = nfhl_df.dissolve()
                 nfhl_df_exploded = nfhl_df_dissolved.explode().reset_index(drop=True)
@@ -213,7 +267,7 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
                 nfhl_df = nfhl_df.dropna(axis=1, how='all')
                 # Save to GPKG as 'combined' layer
                 if nfhl_df.empty:
-                    file_logger.error(f"No NFHL data retrieved for HUC {huc}")
+                    file_logger.error(f"No NFHL data for HUC {huc}")
                     return False
                 nfhl_df.to_file(out_file, layer='combined', index=False, driver='GPKG')
                 return True
