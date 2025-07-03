@@ -431,9 +431,10 @@ def generate_flows(
     start_dt = datetime.now(timezone.utc)
 
     # Open NWM flows geopackages
+    # TODO: Jul 2025: These shoudl be changed to a bash_variable or something other than
+    # hardcoding. Granted.. we don't have new ones but might someday
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
-
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
 
@@ -450,10 +451,10 @@ def generate_flows(
     time_duration = end_dt - start_dt
     FLOG.lprint(f"Retrieving metadata - Duration: {str(time_duration).split('.')[0]}")
 
-    FLOG.lprint("+++++++++++++++++++")
-    FLOG.lprint(f"all_meta_lists is {all_meta_lists}")
+    # FLOG.lprint("+++++++++++++++++++")
+    # FLOG.lprint(f"all_meta_lists is {all_meta_lists}")
 
-    FLOG.lprint("+++++++++++++++++++")
+    # FLOG.lprint("+++++++++++++++++++")
     
     
     print("")
@@ -467,23 +468,11 @@ def generate_flows(
 
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
 
-    FLOG.lprint("***********************")
-    FLOG.lprint("Pre udpates")
-    FLOG.lprint(f"huc_dictionary is {huc_dictionary}")
-    FLOG.lprint(f"out_gdf is {out_gdf}")
-    FLOG.lprint("***********************")
-
-
     # FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}")  # TEMP DEBUG
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.astype({'metadata_sources': str})
-
-    FLOG.lprint("Post updates")
-
-    FLOG.lprint(f"huc_dictionary is {huc_dictionary}")
-    FLOG.lprint(f"out_gdf is {out_gdf}")
 
     FLOG.lprint("+++++++++++++")
     FLOG.lprint("Start Flow Generation")

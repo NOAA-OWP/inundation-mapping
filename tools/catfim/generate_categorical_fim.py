@@ -1395,7 +1395,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
             if 'HTTPSConnectionPool' in ex:
                 time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                 try:
-                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
                 except Exception:
                     msg = ':NOAA VDatum adjustment error, possible API issue'
                     all_messages.append(lid + msg)
