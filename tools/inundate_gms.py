@@ -113,7 +113,6 @@ def Inundate_gms(
     # start up process pool
     # better results with Process pool
     if multi_process is True:
-        print("Multi process")
         executor = ProcessPoolExecutor(max_workers=num_workers)
     else:
         executor = ThreadPoolExecutor(max_workers=num_workers)
