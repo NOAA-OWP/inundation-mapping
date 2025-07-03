@@ -337,14 +337,14 @@ def produce_inundated_branch_tif(
 
         # The catchment_array has hydroid that have had the first 4 chars cut off
         # we need to the same for the hydroid's from the hydroid_list
-        # clipped_hydroid_list = [str(x[-4:]) for x in hydroid_list] 
+        # clipped_hydroid_list = [str(x[-4:]) for x in hydroid_list]
         clipped_hydroid_list = []
         for i in hydroid_list:
             clipped_str = str(i)[-4:]
             clipped_hydroid_list.append(int(clipped_str))
 
         hydroid_mask = np.isin(catchments_array, clipped_hydroid_list)
-        
+
         # MP_LOG.trace(f"max of hydroid_mask {np.max(hydroid_mask)}")
 
         target_catchments_array = np.where(
