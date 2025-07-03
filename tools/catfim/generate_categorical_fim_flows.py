@@ -6,7 +6,6 @@ import glob
 import os
 import pickle
 import random
-import shutil
 import sys
 import time
 import traceback
@@ -33,7 +32,6 @@ from utils.shared_variables import VIZ_PROJECTION
 
 # TODO: Aug 2024: This script was upgraded significantly with lots of misc TODO's embedded.
 # Lots of inline documenation needs updating as well
-
 
 # will become global once initiallized
 FLOG = fl.FIM_logger()
@@ -453,16 +451,13 @@ def generate_flows(
 
     # FLOG.lprint("+++++++++++++++++++")
     # FLOG.lprint(f"all_meta_lists is {all_meta_lists}")
-
     # FLOG.lprint("+++++++++++++++++++")
-    
-    
+  
     print("")
 
     # Assign HUCs to all sites using a spatial join of the FIM 4 HUC layer.
     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     # of all sites used later in script.
-
     FLOG.lprint("Start aggregate_wbd_hucs")
     start_dt = datetime.now(timezone.utc)
 
@@ -503,7 +498,6 @@ def generate_flows(
 
     # pulls out the parent log file and replaces it with the child prefix
     # catfim if coming from generate_categorical_fim.py
-
     child_log_file_prefix = FLOG.MP_calc_prefix_name(log_output_file, "MP_process_gen_flows")
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:

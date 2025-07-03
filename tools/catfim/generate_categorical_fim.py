@@ -623,8 +623,8 @@ def iterate_through_huc_stage_based(
                 )
 
                 # temp debug
-                MP_LOG.lprint(f"thresholds are {thresholds}")
-                MP_LOG.lprint(f"flows are {flows}")
+                # MP_LOG.lprint(f"thresholds are {thresholds}")
+                # MP_LOG.lprint(f"flows are {flows}")
 
                 if thresholds is None or len(thresholds) == 0:
                     msg = ':Error getting thresholds from WRDS API'
@@ -645,26 +645,6 @@ def iterate_through_huc_stage_based(
                 stage_values_df, valid_stage_names, stage_warning_msg, err_msg = __calc_stage_values(
                     categories, thresholds
                 )
-
-                MP_LOG.trace(
-                    f"{huc_lid_id}:" f" stage values (pre-processed) are {stage_values_df.values.tolist()}"
-                )
-
-
-
-                # TEMP Rob debug
-                MP_LOG.trace(
-                    f"{huc_lid_id}:" f" valid_stage_names are {valid_stage_names}"
-                )
-                MP_LOG.trace(
-                    f"{huc_lid_id}:" f" stage_warning_msg are {stage_warning_msg}"
-                )
-                MP_LOG.trace(
-                    f"{huc_lid_id}:" f" err_msg are {err_msg}"
-                )                                
-
-
-
 
                 if err_msg != "":
                     # The error message is already formatted correctly
@@ -812,9 +792,6 @@ def iterate_through_huc_stage_based(
                     # a formatted stage value and a possible "i" to show it is an interval file
                     category_key = __calculate_category_key(category, stage_value, False)
                     
-                    MP_LOG.trace(f"category key is {category_key}")
-                    MP_LOG.trace(f"logs paths are {MP_LOG.LOG_FILE_PATH} and child prefix {child_log_file_prefix}")
-
                     # These are the up to 5 magnitudes being inundated at their stage value
                     (messages, hand_stage, datum_adj_wse, datum_adj_wse_m) = produce_stage_based_lid_tifs(
                         stage_value,
@@ -871,14 +848,9 @@ def iterate_through_huc_stage_based(
                     (stage_values_df["stage_value"] != -1) & (stage_values_df["stage_name"] != 'record')
                 ]
 
-                # Rob:
-                # Do we have a problem here. for 15050302, pnta, we should have an action rec
-                
                 non_rec_stage_values_df = non_rec_stage_values_df_unsorted.sort_values(
                     by='stage_value'
                 ).reset_index()
-
-                MP_LOG.trace(f"non_rec_stage_values_df is {non_rec_stage_values_df}")
 
                 # +++++++++++++++++++++++++++++
                 # Creating interval tifs (if applicable)
@@ -970,12 +942,8 @@ def iterate_through_huc_stage_based(
 
                 # for threshold in categories:  (threshold and category are somewhat interchangeable)
                 # some may have failed inundation, which we will rectify later
-                MP_LOG.trace(f"{huc_lid_id}: updating threshhold values")
-
                 for threshold in valid_stage_names:
-
                     try:
-
                         # we don't know if the magnitude/stage can be mapped yes it hasn't been inundated
                         line_df = pd.DataFrame(
                             {
@@ -1541,7 +1509,6 @@ def __calculate_category_key(category, stage_value, is_interval_stage):
 
     # The "i" in the end means it is an interval
     # Now we are action_24.0ft or action_24.6ft or action_24.65ft or action_24.0fti
-
     if is_interval_stage == True:
         category_key += "i"
 

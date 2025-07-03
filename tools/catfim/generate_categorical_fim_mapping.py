@@ -256,7 +256,7 @@ def produce_stage_based_lid_tifs(
         summed_masked_array = summed_masked_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
             dst.write(summed_masked_array, 1)
-            MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
+            # MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
 
         # For space reasons, we need to delete all of the intermediary files such as:
         #    Stage: grmn3_action_extent_0.tif, grmn3_action_extent_1933000003.tif. The give aways are a number before
@@ -377,9 +377,9 @@ def produce_inundated_branch_tif(
             # output_tif = os.path.join(
             #     lid_directory, lid + '_' + category_key + '_extent_' + huc + '_' + branch + '.tif'
             # )
-            # # # File may or may not exist
-            # # if os.path.exists(output_tif):
-            MP_LOG.lprint(f" +++ Branch output_tif is {output_tif}")
+            # File may or may not exist
+            # if os.path.exists(output_tif):
+            # MP_LOG.lprint(f" +++ Branch output_tif is {output_tif}")
             with rasterio.Env():
                 profile = rem_src.profile
                 profile.update(dtype=rasterio.uint8)
