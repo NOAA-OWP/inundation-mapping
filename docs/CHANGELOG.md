@@ -22,7 +22,7 @@ This update corrects the coordinate input values and adds a check for whether th
 - `data/usgs/rating_curve_get_usgs_curves.py`:  Updated `ngvd_to_navd_ft()` inputs.
 
 #### Note: This does trigger a need to download new usgs_rating curves (rating_curve_get_usgs_curves.py), but we will do that after this PR is merged due to time constraints. We can make adjustments if needed later.   However, the fixes here are needed for CatFIM as well.
-<br/><br/>
+<br/>
 
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
 
