@@ -476,72 +476,52 @@ def inundate_probabilistic(
     features = ensembles.coords['feature_id']
 
     # For each feature in the provided ensembles
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        # Get max streamflow for every feature up to forecast time
-        if aggregate_forecasts == "max_to_forecast":
-            sel_forecast = ensembles.sel({'time': slice(reference_time, forecast_time)}).max('time')[
-                'streamflow'
-            ]
 
-        # Timeslice representing the max streamflow for any feature id in time up to forecast time
-        elif aggregate_forecasts == "timeslice_max_of_any_feature_id":
-            sel_forecast = ensembles['streamflow'].isel(
-                {
-                    'time': ensembles['streamflow']
-                    .sel({'time': slice(reference_time, forecast_time)})
-                    .max(['feature_id', 'member'], skipna=True)
-                    .argmax()
-                }
-            )
+    # Get max streamflow for every feature up to forecast time
+    if aggregate_forecasts == "max_to_forecast":
+        sel_forecast = ensembles.sel({'time': slice(reference_time, forecast_time)}).max('time')['streamflow']
 
-        # Timeslice representing the max sum of streamflow for all feature ids in time up to forecast time
-        elif aggregate_forecasts == "timeslice_max_sum":
-            sel_forecast = ensembles['streamflow'].isel(
-                {
-                    'time': ensembles['streamflow']
-                    .sel({'time': slice(reference_time, forecast_time)})
-                    .sum(['feature_id', 'member'], skipna=True)
-                    .argmax()
-                }
-            )
-
-        # Timeslice at forecast time
-        else:
-            sel_forecast = ensembles.sel({'time': forecast_time})['streamflow']
-
-        # Generate streamflow likelihoods for each feature
-        executor_dict = {}
-        for feat in features:
-            feat = feat if isinstance(feat, int) else int(feat)
-            ensemble_forecast = sel_forecast.sel({'feature_id': feat})
-
-            try:
-                future = executor.submit(
-                    generate_streamflow_percentiles,
-                    feature=feat,
-                    ensemble_forecast=ensemble_forecast,
-                    params_weibull=params_weibull,
-                )
-                executor_dict[future] = feat
-
-            except Exception as ex:
-                print("Something went wrong")
-                print(f"*** {ex}")
-                traceback.print_exc()
-                sys.exit(1)
-
-        # Send the executor to the progress bar and wait for all MS tasks to finish
-        results = progress_bar_handler(
-            executor_dict, not quiet, f"Running streamflow percentiles with {num_threads} workers"
+    # Timeslice representing the max streamflow for any feature id in time up to forecast time
+    elif aggregate_forecasts == "timeslice_max_of_any_feature_id":
+        sel_forecast = ensembles['streamflow'].isel(
+            {
+                'time': ensembles['streamflow']
+                .sel({'time': slice(reference_time, forecast_time)})
+                .max(['feature_id', 'member'], skipna=True)
+                .argmax()
+            }
         )
 
-        for res in results:
-            percentile_values['feature_id'].append(res['feature_id'])
-            percentile_values['90'].append(res['90'])
-            percentile_values['75'].append(res['75'])
-            percentile_values['50'].append(res['50'])
-            percentile_values['25'].append(res['25'])
-            percentile_values['10'].append(res['10'])
+    # Timeslice representing the max sum of streamflow for all feature ids in time up to forecast time
+    elif aggregate_forecasts == "timeslice_max_sum":
+        sel_forecast = ensembles['streamflow'].isel(
+            {
+                'time': ensembles['streamflow']
+                .sel({'time': slice(reference_time, forecast_time)})
+                .sum(['feature_id', 'member'], skipna=True)
+                .argmax()
+            }
+        )
+
+    # Timeslice at forecast time
+    else:
+        sel_forecast = ensembles.sel({'time': forecast_time})['streamflow']
+
+    # Generate streamflow likelihoods for each feature
+    for feat in features:
+        feat = feat if isinstance(feat, int) else int(feat)
+        ensemble_forecast = sel_forecast.sel({'feature_id': feat})
+
+        res = generate_streamflow_percentiles(
+            feature=feat, ensemble_forecast=ensemble_forecast, params_weibull=params_weibull
+        )
+
+        percentile_values['feature_id'].append(res['feature_id'])
+        percentile_values['90'].append(res['90'])
+        percentile_values['75'].append(res['75'])
+        percentile_values['50'].append(res['50'])
+        percentile_values['25'].append(res['25'])
+        percentile_values['10'].append(res['10'])
 
     ensembles.close()
     channel_dist, obank_dist, slope_dist = get_fim_probability_distributions(

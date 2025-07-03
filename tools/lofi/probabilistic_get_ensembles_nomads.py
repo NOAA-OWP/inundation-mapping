@@ -1,3 +1,4 @@
+import gc
 import io
 import os
 import ssl
@@ -100,8 +101,11 @@ def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_
                 url = noda_url.format(dt, ('00' + str(x))[-3:])
                 ds = try_again(url)
                 if ds is not None:
-                    ds = ds.sel({'feature_id': feature_ids})
-                    ds.to_netcdf(os.path.join(output_path, f'no_da_{x}.nc'))
+                    ds = (
+                        ds.sel({'feature_id': feature_ids})
+                        .drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff', 'nudge', 'velocity'])
+                        .copy()
+                    )
                     ds_lists.append(ds)
             master_lists.append(ds_lists)
 
@@ -113,8 +117,11 @@ def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_
                 url = nbm_url.format(dt, ('00' + str(x))[-3:])
                 ds = try_again(url)
                 if ds is not None:
-                    ds = ds.sel({'feature_id': feature_ids})
-                    ds.to_netcdf(os.path.join(output_path, f'nbm_{x}.nc'))
+                    ds = (
+                        ds.sel({'feature_id': feature_ids})
+                        .drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff', 'nudge', 'velocity'])
+                        .copy()
+                    )
                     ds_lists.append(ds)
             master_lists.append(ds_lists)
 
@@ -126,8 +133,11 @@ def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_
                 url = short_url.format(dt, ('00' + str(x))[-3:])
                 ds = try_again(url)
                 if ds is not None:
-                    ds = ds.sel({'feature_id': feature_ids})
-                    ds.to_netcdf(os.path.join(output_path, f'srf_{x}.nc'))
+                    ds = (
+                        ds.sel({'feature_id': feature_ids})
+                        .drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff', 'nudge', 'velocity'])
+                        .copy()
+                    )
                     ds_lists.append(ds)
             master_lists.append(ds_lists)
 
@@ -140,8 +150,11 @@ def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_
                     url = gfs_url.format(dt, idx, ('00' + str(x))[-3:])
                     ds = try_again(url)
                     if ds is not None:
-                        ds = ds.sel({'feature_id': feature_ids})
-                        ds.to_netcdf(os.path.join(output_path, f'gfs_{idx}_{x}.nc'))
+                        ds = (
+                            ds.sel({'feature_id': feature_ids})
+                            .drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff', 'nudge', 'velocity'])
+                            .copy()
+                        )
                         ds_lists.append(ds)
                 master_lists.append(ds_lists)
 
@@ -183,15 +196,13 @@ def concat_datasets(ds_list: List[xr.Dataset], ens_type: str, output_path: str, 
 
         for x, ds in zip(['1', '2', '3', '4', '5', '6'], ds_list):
             tmp = ds.assign_coords({'member': x})
-            try:
-                tmp = tmp.drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff'])
-            except ValueError:
-                print('Variables do not exist to drop')
+
             tots.append(tmp.expand_dims(dim={'member': 1}))
 
     else:
         ds = ds_list[0]
         tmp = ds.assign_coords({'member': ens_type})
+
         tots.append(tmp.expand_dims(dim={'member': 1}))
 
     concat_tot = xr.concat(tots, dim="member")
@@ -212,5 +223,5 @@ if __name__ == '__main__':
         ens_type='gfs',
         feature_ids=streams['ID'].unique(),
         output_path="../../ensembles",
-        output_name=f"{huc}_ensembles_nomads.nc",
+        output_name=f"{huc}_ensembles_nomads_gfs.nc",
     )
