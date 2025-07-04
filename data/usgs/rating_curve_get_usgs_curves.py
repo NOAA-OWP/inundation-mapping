@@ -41,6 +41,7 @@ This script calls the NOAA Tidal API for datum conversions. Experience shows tha
     Tidal API call may need to be modified to get datum conversions for AK. # TODO: Alaska updates?
 '''
 
+
 def get_all_active_usgs_sites():
     '''
     Compile a list of all active usgs gage sites.
@@ -231,7 +232,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     sleep_time: FLOAT
         Amount of time to rest between API calls. The Tidal API appears to
         error out more during business hours. Increasing sleep_time may help.
-        TODO: Jul 4, 2025: Likely not needed anymore, 
+        TODO: Jul 4, 2025: Likely not needed anymore,
            will test at 0 to ensure it is no longer needed
     Returns
     -------
