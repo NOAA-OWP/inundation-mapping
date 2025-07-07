@@ -591,7 +591,6 @@ def inundate_probabilistic(
             num_threads=num_threads,
             windowed=windowed,
             log_file=log_file,
-            nodata=0,
         )
 
     # percentiles
@@ -604,7 +603,8 @@ def inundate_probabilistic(
     windows = [windows for _, windows in datasets[0].block_windows()]
     profile = datasets[0].profile
     raster_crs = datasets[0].crs
-    profile.update(dtype=np.int8, tiled=True, compress=profile.get('compress', 'DEFLATE'))
+    nodata = profile['nodata']
+    profile.update(dtype=np.int8, nodata=127, tiled=True, compress=profile.get('compress', 'DEFLATE'))
 
     out_rast = os.path.join(base_output_path, output_file_name.replace(".gpkg", ".tif"))
     with rasterio.open(out_rast, "w+", **profile) as write_rst:
@@ -612,7 +612,10 @@ def inundate_probabilistic(
             arrays = []
             for d, p in zip(datasets, percentiles):
                 data = d.read(1, window=window)
+                nodata_mask = np.where(data == nodata)
                 data[np.where(data > 0)] = np.int8(p)
+                data[np.where(data < 0)] = 0
+                data[nodata_mask] = 127
                 arrays.append(data)
 
             merged = np.max(arrays, axis=0)
@@ -637,7 +640,6 @@ def inundate_probabilistic(
         os.remove(out_rast)
 
     # Remove SRC path and flow path
-    print(src_output_path, flow_path)
     shutil.rmtree(src_output_path)
     shutil.rmtree(flow_path)
 
