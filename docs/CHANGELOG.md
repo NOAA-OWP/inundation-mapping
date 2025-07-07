@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.x.x.x - 2025-07-07 - [PR#1588](https://github.com/NOAA-OWP/inundation-mapping/pull/1588)
+
+Adds NFHL availability to floodplain adjustment outside of areas covered by NFHL floodplain data.
+
+### Changes
+
+- `data/nfhl/download_fema_nfhl.py`: Adds NFHL availability to download queue.
+- `src/adjust_floodplains.py`: Modifies to use NFHL availability where floodplain data is not available.
+<br/><br/>
+
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
 
 Decided to make a separate PR to incorporate multiple PR and changes including:
