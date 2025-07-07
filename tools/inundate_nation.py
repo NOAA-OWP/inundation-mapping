@@ -27,7 +27,9 @@ from utils.shared_functions import FIM_Helpers as fh
 # TODO: Nov 2023, Logging system appears to be not working correctly.
 
 
-def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number):
+def inundate_nation(
+    fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number, thread_number
+):
     assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
     if job_number > available_cores:
@@ -81,7 +83,9 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
     huc_list.sort()
 
     logging.info(f"Inundation mosaic wrapper outputs will saved here: {magnitude_output_dir}")
-    run_inundation([fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number])
+    run_inundation(
+        [fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number, thread_number]
+    )
 
     # Perform mosaic operation
     if inc_mosaic:
@@ -114,7 +118,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             logging.info(msg)
 
         # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, job_number)
+        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, thread_number)
 
         # now cleanup the temp bool directory
         shutil.rmtree(output_bool_dir, ignore_errors=True)
@@ -148,6 +152,7 @@ def run_inundation(args):
     magnitude_output_dir = args[3]
     forecast = args[4]
     job_number = args[5]
+    thread_number = args[6]
 
     # Define file paths for use in inundate().
 
@@ -170,9 +175,11 @@ def run_inundation(args):
         forecast,
         inundation_raster=inundation_raster,
         num_workers=job_number,
+        num_threads=thread_number,
         remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,
+        gms_multi_process=True,
     )
 
 
@@ -272,6 +279,7 @@ if __name__ == "__main__":
         -f /data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_10_0_cms.csv
         -s
         -j 10
+        -t 8
     outputs become /data/inundation_review/inundate_nation/100_0_fim_4_0_9_2_mosiac.tif (.log, etc)
 
     python3 /foss_fim/tools/inundate_nation.py
@@ -280,6 +288,7 @@ if __name__ == "__main__":
         -f /data/inputs/rating_curve/bankfull_flows/nwm3_high_water_threshold_cms.csv
         -s
         -j 10
+        -t 8
     outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
 
     If run on UCS2, you can map docker as -v /dev_fim_share../:/data -v /local...outputs:/outputs
@@ -348,6 +357,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument('-j', '--job-number', help='The number of jobs', required=False, default=1, type=int)
+
+    parser.add_argument(
+        '-t', '--thread-number', help='The number of threads', required=False, default=1, type=int
+    )
 
     args = vars(parser.parse_args())
 
