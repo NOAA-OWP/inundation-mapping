@@ -1181,8 +1181,12 @@ class StreamNetwork(gpd.GeoDataFrame):
         outflows = sjoin[sjoin['to'].isin(self_not_in_wbd['ID'])]
 
         if outflows.empty:
-            self.write(out_vector_files, index=False)
-            return self
+            # Alternate method -- when there are no segments downstream of any outlets
+            outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
+
+            if outflows.empty:
+                self.write(out_vector_files, index=False)
+                return self
 
         # ensure the new stream order has the order from it's highest child
         max_stream_order = (
