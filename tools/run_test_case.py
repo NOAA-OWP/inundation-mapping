@@ -192,6 +192,7 @@ class Test_Case(Benchmark):
         overwrite=True,
         verbose=False,
         gms_workers=1,
+        threads=8,
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
 
@@ -213,6 +214,8 @@ class Test_Case(Benchmark):
             If True, prints out all pertinent data.
         gms_workers : int
             Number of worker processes assigned to GMS processing.
+        threads : int
+            Number of threads assigned to GMS processing.
         '''
 
         try:
@@ -277,7 +280,12 @@ class Test_Case(Benchmark):
                 ]:  # instance will be the lid for AHPS sites and '' for other sites
                     # For each site, inundate the REM and compute aggreement raster with stats
                     self._inundate_and_compute(
-                        magnitude, instance, model=model, verbose=verbose, gms_workers=gms_workers
+                        magnitude,
+                        instance,
+                        model=model,
+                        verbose=verbose,
+                        gms_workers=gms_workers,
+                        threads=threads,
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -417,6 +425,7 @@ class Test_Case(Benchmark):
         overwrite=True,
         verbose=False,
         gms_workers=1,
+        threads=8,
     ):
         '''Class method for instantiating the test_case class and running alpha_test directly'''
 
@@ -430,6 +439,7 @@ class Test_Case(Benchmark):
             overwrite,
             verbose,
             gms_workers,
+            threads,
         )
 
     def composite(self, version_2, calibrated=False, overwrite=True, verbose=False):
