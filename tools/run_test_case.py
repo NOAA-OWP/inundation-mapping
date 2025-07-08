@@ -297,7 +297,7 @@ class Test_Case(Benchmark):
             sys.exit(1)
 
     def _inundate_and_compute(
-        self, magnitude, lid, compute_only=False, model='', verbose=False, gms_workers=1
+        self, magnitude, lid, compute_only=False, model='', verbose=False, gms_workers=1, threads=8
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
@@ -357,7 +357,7 @@ class Test_Case(Benchmark):
                     inundation_raster=predicted_raster_path,
                     mask=os.path.join(self.fim_dir, "wbd.gpkg"),
                     verbose=verbose,
-                    num_threads=8,
+                    num_threads=threads,
                     num_workers=gms_workers,
                     windowed=True,
                     gms_multi_process=True,
