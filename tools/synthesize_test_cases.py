@@ -404,15 +404,6 @@ if __name__ == '__main__':
         type=int,
     )
     parser.add_argument(
-        '-jb',
-        '--job-number-branch',
-        help='Number of processes to use for Branch scale operations. HUC and Batch job numbers should '
-        'multiply to no more than one less than the CPU count of the machine.',
-        required=False,
-        default=1,
-        type=int,
-    )
-    parser.add_argument(
         '-tb',
         '--thread-number-branch',
         help='Number of threads to use for Branch scale operations. HUC and Batch job numbers should '
