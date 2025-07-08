@@ -63,6 +63,17 @@ def road_risk_status(
     if not os.path.exists(fim_run_dir):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fim_run_dir)
 
+    # Check if file has .gpkg extension
+    if not output_file_path.lower().endswith('.gpkg'):
+        raise ValueError("Output file must have a .gpkg extension.")
+
+    # confirm existence of output directory
+    output_dir = os.path.dirname(output_file_path)
+
+    # Create the directory if it doesn't exist
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     # Get the list of all hucs in the directory
     entries = [d for d in os.listdir(fim_run_dir) if re.match(r'^\d{8}$', d)]
     hucs = []
