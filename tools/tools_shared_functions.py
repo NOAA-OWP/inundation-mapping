@@ -713,7 +713,7 @@ def get_metadata(
     metadata_url : STR
         metadata base URL.
     select_by : STR
-        Location search option. Options include: 'state', TODO: add options
+        Location search option. Options include: 'state', 'nws_lid' (only one site)
     selector : LIST
         Value to match location data against. Supplied as a LIST.
     must_include : STR, optional
@@ -733,9 +733,9 @@ def get_metadata(
     '''
 
     # Format selector variable in case multiple selectors supplied
-    format_selector = '%2C'.join(selector)
+    # format_selector = '%2C'.join(selector) # Was causing error if NWS_LID was used
     # Define the url
-    url = f'{metadata_url}/{select_by}/{format_selector}/'
+    url = f'{metadata_url}/{select_by}/{selector}/'
     # Assign optional parameters to a dictionary
     params = {}
     params['must_include'] = must_include
@@ -782,6 +782,7 @@ def get_metadata(
         metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
     else:
         # if request was not succesful, print error message.
+        # TODO: Output this as a status string because the print is getting suppressed
         print(f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}')
         # Return empty outputs
         metadata_list = []
