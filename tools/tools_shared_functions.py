@@ -1056,6 +1056,8 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         Dictionary of stages at each threshold.
     flows : DICT
         Dictionary of flows at each threshold.
+    threshold_count : INT
+        Number of thresholds available for the site.
 
     '''
     params = {}
@@ -1079,6 +1081,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         thresholds_json = response.json()
         # Get metadata
         thresholds_info = thresholds_json['value_set']
+        threshold_count = thresholds_json['_metrics']['threshold_count']
         # Initialize stages/flows dictionaries
         stages = {}
         flows = {}
@@ -1115,7 +1118,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
                 stages['units'] = threshold_data.get('metadata').get('stage_units')
                 flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
-        return stages, flows
+        return stages, flows, threshold_count
     else:
         print("WRDS response error: ")
 

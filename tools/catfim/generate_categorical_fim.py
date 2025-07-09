@@ -618,7 +618,7 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
-                thresholds, flows = get_thresholds(
+                thresholds, flows, threshold_count = get_thresholds(
                     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
                 )
 
@@ -626,6 +626,16 @@ def iterate_through_huc_stage_based(
                 # MP_LOG.lprint(f"thresholds are {thresholds}")
                 # MP_LOG.lprint(f"flows are {flows}")
 
+                # If no thresholds are found, write message and exit.
+                # Many sites that used to have 'Error getting thresholds from WRDS API' should now
+                # have this more descriptive status message
+                if threshold_count == 0:
+                    msg = ':No thresholds found on WRDS API'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+
+                # If there are no thresholds but the threshold_count is greater than 0 or NA (unlikely). 
+                # write message and exit.
                 if thresholds is None or len(thresholds) == 0:
                     msg = ':Error getting thresholds from WRDS API'
                     all_messages.append(lid + msg)
@@ -633,8 +643,10 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Check if stages are supplied, if not write message and exit.
+                # This message will occur if some thresholds are supplied, but not for the 
+                # categories we use (such as  “low” or “bankfull”)
                 if all(thresholds.get(category, None) is None for category in categories):
-                    msg = ':Missing all threshold stage data'
+                    msg = ':No thresholds for required categories found on WRDS API'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue

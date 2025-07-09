@@ -145,7 +145,7 @@ def generate_flows_for_huc(
 
             # for Stage based, is uses stage values from threshold data supplied by WRDS
             # but here (for flow), it uses the values from the flows data from WRDS
-            stages, flows = get_thresholds(
+            stages, flows, threshold_count = get_thresholds(
                 threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
             )
 
