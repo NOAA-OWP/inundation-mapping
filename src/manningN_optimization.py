@@ -411,7 +411,7 @@ def create_master_metrics_df(fim_version, huc):
 
 
 # *********************************************************
-def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat):
+def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir):
     """
     This function
     """
@@ -430,43 +430,57 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
         version=fim_version,
         archive=archive_results,
         benchmark_categories=benchmark_category,  # [benchmark_category]
+        output_dir = output_dir
     )
-    # print(all_test_cases)
+    # print(hydroTable_all)
     model = "GMS"
     # job_number_huc = 1
     overwrite = True
     verbose = False
     calibrated = False
+    for test_case_class in all_test_cases:
+        if test_case_class is not None:
+            # print(test_case_class)
+            # if not os.path.exists(test_case_class['fim_dir']):
+            #     continue
+            alpha_test(test_case_dic = test_case_class,
+                       hydroTable_all = hydroTable_all,
+                       calibrated = calibrated,
+                       model = model,
+                       mask_type = 'huc',
+                       overwrite = overwrite,
+                       verbose = verbose,
+                       gms_workers = job_number_branch
+                       )
     # job_number_branch = 6
     # Set up multiprocessor
-    with ProcessPoolExecutor(max_workers=1) as executor:  # job_number_huc
-        # Loop through all test cases,
-        # build the alpha test arguments,
-        # and submit them to the process pool
-        executor_dict = {}
-        for test_case_class in all_test_cases:
-            # print(test_case_class)
-            if test_case_class is not None:
-                if not os.path.exists(test_case_class['fim_dir']):
-                    continue
-                alpha_test_args = {
-                    'test_case_dic': test_case_class,
-                    'hydroTable_all': hydroTable_all,
-                    'calibrated': calibrated,
-                    'model': model,
-                    'mask_type': 'huc',
-                    'overwrite': overwrite,
-                    'verbose': verbose,
-                    'gms_workers': job_number_branch,
-                }
-                try:
-                    future = executor.submit(alpha_test, **alpha_test_args)
+    # with ProcessPoolExecutor(max_workers=1) as executor:  # job_number_huc
+    #     # Loop through all test cases,
+    #     # build the alpha test arguments,
+    #     # and submit them to the process pool
+    #     executor_dict = {}
+    #     for test_case_class in all_test_cases:
+    #         if test_case_class is not None:
+    #             if not os.path.exists(test_case_class['fim_dir']):
+    #                 continue
+    #             alpha_test_args = {
+    #                 'test_case_dic': test_case_class,
+    #                 'hydroTable_all': hydroTable_all,
+    #                 'calibrated': calibrated,
+    #                 'model': model,
+    #                 'mask_type': 'huc',
+    #                 'overwrite': overwrite,
+    #                 'verbose': verbose,
+    #                 'gms_workers': job_number_branch,
+    #             }
+    #             try:
+    #                 future = executor.submit(alpha_test, **alpha_test_args)
 
-                    executor_dict[future] = test_case_class['test_id']
-                except Exception as ex:
-                    print(f"*** {ex}")
-                    traceback.print_exc()
-                    sys.exit(1)
+    #                 executor_dict[future] = test_case_class['test_id']
+    #             except Exception as ex:
+    #                 print(f"*** {ex}")
+    #                 traceback.print_exc()
+    #                 sys.exit(1)
 
         # # Send the executor to the progress bar and wait for all MS tasks to finish
         # progress_bar_handler(
@@ -539,11 +553,12 @@ def objective_function(
     )
 
     hydroTable_all = reformat_hydroTable_for_alpha_test(updated_hydroTables_ls)
+    output_dir = os.path.dirname(os.path.dirname(fim_dir))
 
     if bench_cat == 'ahps':
 
         benchmark_cat = ['nws', 'usgs']  # ['ble', 'nws', 'usgs']
-        metrics_df = synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat)
+        metrics_df = synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir)
 
         # AHPS sites
         fn_count_all = np.sum(metrics_df['false_negatives_count'])
@@ -552,11 +567,18 @@ def objective_function(
     else:
         # BLE sites/ ras sites
         benchmark_cat = ['ble']  # ['ble', 'nws', 'usgs']
-        metrics_df = synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat)
+        metrics_df = synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir)
         fn_count_100 = metrics_df['false_negatives_count'][metrics_df['magnitude'] == '100yr']
         fp_count_100 = metrics_df['false_positives_count'][metrics_df['magnitude'] == '100yr']
         loss_mannN = fn_count_100[1] + fp_count_100[1]
 
+    # benchmark_cat = ['nws', 'usgs']  # ['ble', 'nws', 'usgs']
+    # metrics_df = synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir)
+    # # AHPS sites
+    # fn_count_all = np.sum(metrics_df['false_negatives_count'])
+    # fp_count_all = np.sum(metrics_df['false_positives_count'])
+    # loss_mannN = fn_count_all + fp_count_all
+    
     print(f'Current loss: {loss_mannN}')
     print("")
 

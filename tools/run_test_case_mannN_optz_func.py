@@ -3,7 +3,6 @@
 import errno
 import json
 import os
-import re
 import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -32,7 +31,7 @@ from utils.shared_functions import FIM_Helpers as fh
 
 # *******************************************************
 # def list_all_test_cases(huc, version, archive, benchmark_categories=[]):
-def list_all_test_cases(huc, version, archive, benchmark_categories):
+def list_all_test_cases(huc, version, archive, benchmark_categories, output_dir):
     """Returns a complete list of all benchmark category test cases as classes.
 
     Parameters
@@ -54,13 +53,13 @@ def list_all_test_cases(huc, version, archive, benchmark_categories):
     for bench_cat in benchmark_categories:
 
         test_id = f'{huc}_{bench_cat}'
-        test_case_list.append(Test_Case(test_id, version, archive, huc))
+        test_case_list.append(Test_Case(test_id, version, archive, huc, output_dir))
 
     return test_case_list
 
 
 # *********************************************************
-def Test_Case(test_id, version, archive, huc):
+def Test_Case(test_id, version, archive, huc, output_dir):
     """Class that handles test cases, specifically running the alpha test.
 
     Parameters
@@ -81,7 +80,7 @@ def Test_Case(test_id, version, archive, huc):
     huc_unused, benchmark_cat = test_id.split('_')
     is_ahps = True if benchmark_cat in AHPS_BENCHMARK_CATEGORIES else False
     # FIM run directory path - uses HUC 8
-    fim_dir = os.path.join(PREVIOUS_FIM_DIR if archive else OUTPUTS_DIR, version, huc)
+    fim_dir = os.path.join(PREVIOUS_FIM_DIR if archive else output_dir, version, huc)
     # Test case directory path
     dir_tc = os.path.join(
         TEST_CASES_DIR,
