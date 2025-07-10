@@ -72,35 +72,39 @@ def adjust_floodplains(
     branch_polys = gpd.read_file(branch_polygons)
     branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 
-    nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
-
     # Use NFHL flood hazard zones only if availability layer is present
-    if os.path.exists(fema_flood_zones_file) and 'availability' in nfhl_layers:
+    if os.path.exists(fema_flood_zones_file):
+        nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
 
-        distance_mask = np.zeros_like(distance)
+        if 'availability' in nfhl_layers:
+            distance_mask = np.zeros_like(distance)
 
-        fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer='combined')
+            fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer='combined')
 
-        # Clip the FEMA flood zones to the branch polygon
-        fema_flood_zones_clipped = gpd.clip(fema_flood_zones, branch_poly)
+            # Clip the FEMA flood zones to the branch polygon
+            fema_flood_zones_clipped = gpd.clip(fema_flood_zones, branch_poly)
 
-        # Mask the distance raster with fema_flood_zones_clipped
-        for geom in fema_flood_zones_clipped.geometry:
-            mask = features.geometry_mask(
-                [geom], out_shape=distance.shape, transform=src.transform, invert=True
-            )
-            distance_mask[mask] = 1
-        distance_grid = np.where(distance_mask == 1, distance, np.nan)
+            # Mask the distance raster with fema_flood_zones_clipped
+            for geom in fema_flood_zones_clipped.geometry:
+                mask = features.geometry_mask(
+                    [geom], out_shape=distance.shape, transform=src.transform, invert=True
+                )
+                distance_mask[mask] = 1
+            distance_grid = np.where(distance_mask == 1, distance, np.nan)
 
-        # Fill in areas outside the FEMA flood zone availability
-        fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
-        fema_flood_zones_availability_clipped = gpd.clip(fema_flood_zones_availability, branch_poly)
-        for geom in fema_flood_zones_availability_clipped.geometry:
-            mask = features.geometry_mask(
-                [geom], out_shape=distance.shape, transform=src.transform, invert=False
-            )
-            distance_mask[mask] = 1
-        distance_grid = np.where(distance_mask == 1, distance, distance_grid)
+            # Fill in areas outside the FEMA flood zone availability
+            fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
+            fema_flood_zones_availability_clipped = gpd.clip(fema_flood_zones_availability, branch_poly)
+            for geom in fema_flood_zones_availability_clipped.geometry:
+                mask = features.geometry_mask(
+                    [geom], out_shape=distance.shape, transform=src.transform, invert=False
+                )
+                distance_mask[mask] = 1
+            distance_grid = np.where(distance_mask == 1, distance, distance_grid)
+
+    else:
+        # If the FEMA flood zones file does not exist, use the distance raster as is
+        distance_grid = distance
 
     # Limit the distance to the mean + 1 std
     distance = np.where(distance_grid <= distance_threshold, distance_grid, np.nan)
