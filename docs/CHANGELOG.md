@@ -4,7 +4,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.x.x.x - 2025-07-07 - [PR#1588](https://github.com/NOAA-OWP/inundation-mapping/pull/1588)
 
-Adds NFHL `availability` layer to floodplain adjustment outside of areas covered by NFHL floodplain data. If `availability` is missing, the NFHL flood hazard layer is not used and the default adjustment distance (3000 meters from the stream line) is used. Resolves #1553.
+Adds NFHL `availability` layer to floodplain adjustment outside of areas covered by NFHL floodplain data. If `availability` is missing, the NFHL flood hazard layer is not used and the default adjustment distance (3000 meters from the stream line) is used.
 
 ### Changes
 
