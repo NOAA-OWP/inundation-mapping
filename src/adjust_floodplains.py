@@ -72,7 +72,11 @@ def adjust_floodplains(
     branch_polys = gpd.read_file(branch_polygons)
     branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 
-    if os.path.exists(fema_flood_zones_file):
+    nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
+
+    # Use NFHL flood hazard zones only if availability layer is present
+    if os.path.exists(fema_flood_zones_file) and 'availability' in nfhl_layers:
+
         distance_mask = np.zeros_like(distance)
 
         fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer='combined')
