@@ -4,12 +4,13 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.x.x.x - 2025-07-07 - [PR#1588](https://github.com/NOAA-OWP/inundation-mapping/pull/1588)
 
-Adds NFHL availability to floodplain adjustment outside of areas covered by NFHL floodplain data.
+Adds NFHL `availability` layer to floodplain adjustment outside of areas covered by NFHL floodplain data. If `availability` is missing, the NFHL flood hazard layer is not used and the default adjustment distance (3000 meters from the stream line) is used. Resolves #1553.
 
 ### Changes
 
-- `data/nfhl/download_fema_nfhl.py`: Adds NFHL availability to download queue.
-- `src/adjust_floodplains.py`: Modifies to use NFHL availability where floodplain data is not available.
+- `data/nfhl/download_fema_nfhl.py`: Adds NFHL `availability` layer to download queue.
+- `src/adjust_floodplains.py`: Modifies to use NFHL `availability` where floodplain data exists but doesn't have coverage.
+
 <br/><br/>
 
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
