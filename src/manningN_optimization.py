@@ -430,7 +430,7 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
         version=fim_version,
         archive=archive_results,
         benchmark_categories=benchmark_category,  # [benchmark_category]
-        output_dir = output_dir
+        output_dir=output_dir,
     )
     # print(hydroTable_all)
     model = "GMS"
@@ -443,15 +443,16 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
             # print(test_case_class)
             # if not os.path.exists(test_case_class['fim_dir']):
             #     continue
-            alpha_test(test_case_dic = test_case_class,
-                       hydroTable_all = hydroTable_all,
-                       calibrated = calibrated,
-                       model = model,
-                       mask_type = 'huc',
-                       overwrite = overwrite,
-                       verbose = verbose,
-                       gms_workers = job_number_branch
-                       )
+            alpha_test(
+                test_case_dic=test_case_class,
+                hydroTable_all=hydroTable_all,
+                calibrated=calibrated,
+                model=model,
+                mask_type='huc',
+                overwrite=overwrite,
+                verbose=verbose,
+                gms_workers=job_number_branch,
+            )
     # job_number_branch = 6
     # Set up multiprocessor
     # with ProcessPoolExecutor(max_workers=1) as executor:  # job_number_huc
@@ -482,10 +483,10 @@ def synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, b
     #                 traceback.print_exc()
     #                 sys.exit(1)
 
-        # # Send the executor to the progress bar and wait for all MS tasks to finish
-        # progress_bar_handler(
-        #     executor_dict, True, f"Running {model} alpha test cases with {job_number_huc} workers"
-        # )
+    # # Send the executor to the progress bar and wait for all MS tasks to finish
+    # progress_bar_handler(
+    #     executor_dict, True, f"Running {model} alpha test cases with {job_number_huc} workers"
+    # )
     metrics_df = create_master_metrics_df(fim_version, huc)
 
     print("=" * 40)
@@ -558,7 +559,9 @@ def objective_function(
     if bench_cat == 'ahps':
 
         benchmark_cat = ['nws', 'usgs']  # ['ble', 'nws', 'usgs']
-        metrics_df = synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir)
+        metrics_df = synthesize_test_cases(
+            huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir
+        )
 
         # AHPS sites
         fn_count_all = np.sum(metrics_df['false_negatives_count'])
@@ -567,7 +570,9 @@ def objective_function(
     else:
         # BLE sites/ ras sites
         benchmark_cat = ['ble']  # ['ble', 'nws', 'usgs']
-        metrics_df = synthesize_test_cases(huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir)
+        metrics_df = synthesize_test_cases(
+            huc, fim_version, hydroTable_all, job_number_branch, benchmark_cat, output_dir
+        )
         fn_count_100 = metrics_df['false_negatives_count'][metrics_df['magnitude'] == '100yr']
         fp_count_100 = metrics_df['false_positives_count'][metrics_df['magnitude'] == '100yr']
         loss_mannN = fn_count_100[1] + fp_count_100[1]
@@ -578,7 +583,7 @@ def objective_function(
     # fn_count_all = np.sum(metrics_df['false_negatives_count'])
     # fp_count_all = np.sum(metrics_df['false_positives_count'])
     # loss_mannN = fn_count_all + fp_count_all
-    
+
     print(f'Current loss: {loss_mannN}')
     print("")
 
