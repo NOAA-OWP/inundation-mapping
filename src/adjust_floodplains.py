@@ -72,6 +72,8 @@ def adjust_floodplains(
     branch_polys = gpd.read_file(branch_polygons)
     branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 
+    distance_grid = distance.copy()
+
     # Use NFHL flood hazard zones only if availability layer is present
     if os.path.exists(fema_flood_zones_file):
         nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
@@ -101,10 +103,6 @@ def adjust_floodplains(
                 )
                 distance_mask[mask] = 1
             distance_grid = np.where(distance_mask == 1, distance, distance_grid)
-
-    else:
-        # If the FEMA flood zones file does not exist, use the distance raster as is
-        distance_grid = distance
 
     # Limit the distance to the mean + 1 std
     distance = np.where(distance_grid <= distance_threshold, distance_grid, np.nan)
