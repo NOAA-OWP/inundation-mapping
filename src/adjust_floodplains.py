@@ -104,7 +104,7 @@ def adjust_floodplains(
                 distance_mask[mask] = 1
             distance_grid = np.where(distance_mask == 1, distance, distance_grid)
 
-    # Limit the distance to the mean + 1 std
+    # Limit the distance to the distance threshold
     distance = np.where(distance_grid <= distance_threshold, distance_grid, np.nan)
 
     # Save distance raster
