@@ -170,6 +170,9 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     wbd = gpd.read_file(os.path.join(huc_directory, wbd_filename))
     wbd_buffer = gpd.read_file(os.path.join(huc_directory, wbd_buffer_filename))
 
+    if 'shape_Length' in wbd.columns:
+        wbd = wbd.drop(columns=['shape_Length'])
+
     # for copying, use shutil.copy2 to preserve the orignal files timestamps
     if copying_flags['copy_levee_protected_areas']:
         src = os.path.join(copy_from_dir, huc, output_filenames['levee_protected_areas'])
@@ -386,8 +389,34 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
         nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
 
-        nwm_streams_outlets = nwm_streams[~nwm_streams['to'].isin(nwm_streams['ID'])]
-        nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
+        # nonoutlets = nwm_streams['to'].isin(nwm_streams['ID'])
+        # nwm_streams_outlets = nwm_streams[~nonoutlets]
+        # nwm_streams_nonoutlets = nwm_streams[nonoutlets]
+
+        # Select only the streams that are outlet
+        streams_crossing_wbd = gpd.sjoin(nwm_streams, wbd, predicate='crosses')
+        streams_in_wbd = gpd.sjoin(nwm_streams, wbd, predicate='intersects')
+
+        if streams_crossing_wbd.empty:
+            logging.warning("No streams intersect the WBD. Cannot extend outlet streams.")
+            return nwm_streams
+
+        # Filter streams that are outlets
+        outlets = streams_crossing_wbd[~streams_crossing_wbd['to'].isin(streams_in_wbd['ID'])]
+
+        # Find all stream IDs downstream of the outlets
+        outlet_ids = set()
+        for outlet_id in set(outlets['ID']):
+            outlet_ids.add(outlet_id)
+            downstream_segments = nwm_streams[
+                nwm_streams['ID'] == nwm_streams.loc[nwm_streams['ID'] == outlet_id, 'to'].values[0]
+            ]
+            while not downstream_segments.empty:
+                outlet_ids.add(downstream_segments['ID'].values[0])
+                downstream_segments = nwm_streams[nwm_streams['ID'].isin(downstream_segments['to'])]
+        # Filter the original streams to keep only those that are downstream of the outlets
+        nwm_streams_outlets = nwm_streams[nwm_streams['ID'].isin(outlet_ids)]
+        nwm_streams_nonoutlets = nwm_streams[~nwm_streams['ID'].isin(outlet_ids)]
 
         if len(nwm_streams) > 0:
             # Address issue where NWM streams exit the HUC boundary and then re-enter, creating a MultiLineString
