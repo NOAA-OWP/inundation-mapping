@@ -310,15 +310,23 @@ echo "---- Started: `date -u`"
 echo "............................................"
 
 run_script_with_args() {
-    local cur_key="$1"
+    local input_cur_key="$1"
+
+    # trim spaces of the end if any
+    cur_key="${input_cur_key%%*([[:space:]])}"    
     #cmd="./get_s3_folder.sh"
     # cmd="get_s3_folder.sh"
-    cmd=" -src $s3_source_path -n $cur_key -lt $temp_trg_path"
-    cmd+=" -st $s3_target_root -c $stats_folder -log $log_folder"
-    cmd+=" -sap $src_aws_profile_name -tap $trg_aws_profile_name"
-    # echo "$cmd"
-    bash get_s3_folder.sh $cmd
-    sleep 1
+
+    # Sometimes we get a bad key such as a key with a blank string
+    # this happens the list being loaded might have extra blank lines
+    if [ "$cur_key" != "" ]; then
+        cmd=" -src $s3_source_path -n $cur_key -lt $temp_trg_path"
+        cmd+=" -st $s3_target_root -c $stats_folder -log $log_folder"
+        cmd+=" -sap $src_aws_profile_name -tap $trg_aws_profile_name"
+        # echo "$cmd"
+        bash get_s3_folder.sh $cmd
+        sleep 1
+    fi
 }
 
 # so the parallel can see the args
@@ -343,10 +351,10 @@ echo "Overall processing duration (in percent minutes) : $overall_list_download_
 echo "-- scanning for files for warnings and errors"
 file_name_date=$(date +"%Y%m%d_%H%M")
 error_file_path="$error_folder_name/errors_${file_name_date}.log"
-find $log_folder -maxdepth 1 -type f -exec grep -iHn "error" {} +  > $error_file_path
+find $log_folder -maxdepth 1 -type f -exec grep -iHn "error" {} +  > $error_file_path &
 
 warning_file_path="$error_folder_name/warnings_${file_name_date}.log"
-find $log_folder -maxdepth 1 -type f -exec grep -iHn "warning" {} +  > $warning_file_path
+find $log_folder -maxdepth 1 -type f -exec grep -iHn "warning" {} +  > $warning_file_path &
 
 echo "======================= End of loading model collection folders ========================="
 echo

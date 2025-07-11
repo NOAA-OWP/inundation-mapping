@@ -195,6 +195,8 @@ if [ "$log_folder" = "" ]; then
     exit 22
 fi
   
+# trim spaces of the end if any
+key_name="${key_name%%*([[:space:]])}"    
 
 # TODO: Lots more validation such as extensions, valid s3 paths, etc
 
