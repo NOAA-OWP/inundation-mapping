@@ -389,10 +389,6 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
         nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
 
-        # nonoutlets = nwm_streams['to'].isin(nwm_streams['ID'])
-        # nwm_streams_outlets = nwm_streams[~nonoutlets]
-        # nwm_streams_nonoutlets = nwm_streams[nonoutlets]
-
         # Select only the streams that are outlet
         streams_crossing_wbd = gpd.sjoin(nwm_streams, wbd, predicate='crosses')
         streams_in_wbd = gpd.sjoin(nwm_streams, wbd, predicate='intersects')
