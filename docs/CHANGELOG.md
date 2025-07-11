@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.6.3 - 2025-07-11 - [PR#1587](https://github.com/NOAA-OWP/inundation-mapping/pull/1587)
+
+Add gms processing back to inundation_gms routine.  
+
+### Changes
+- `tools`
+  - `inundate_gms.py`: Add multi_process argument, when set to True use processes instead of threads.
+  - `inundate_mosaic_wrapper.py`: Add gms_multi_process argument to dictate use of threads or processes in inundate_gms.py.
+  - `inundation.py`: Remove prange from numba operation.
+  - `run_test_case.py`: Run inundate_gms with processes for run_test_cases and add threading.
+  - `synthesize_test_cases.py`: Add a threads argument for branches.
+  - `inundation_nation.py`: Run inundate_gms with processes and include threads argument.
+<br/><br/>
+
 
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
 
