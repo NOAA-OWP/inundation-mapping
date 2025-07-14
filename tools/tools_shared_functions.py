@@ -1261,7 +1261,6 @@ def ngvd_to_navd_ft(datum_info):
     Uses NOAA tidal API to get conversion factor. Requires that lat/lon is
     in NAD27 crs. If input lat/lon are not NAD27 then these coords are
     reprojected to NAD27 and the reproject coords are used to get adjustment.
-    There appears to be an issue when region is not in contiguous US.
 
     Parameters
     ----------
