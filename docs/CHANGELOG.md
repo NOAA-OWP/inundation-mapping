@@ -1,9 +1,9 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-07-02 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
+## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
-Resolves Issue #1551.
+Resolves #1551.
 
 This pull requests updates the ngvd_to_navd_ft() function which uses the Vdatum API to convert elevation from NGVD29 to NAVD88 in feet.
 
