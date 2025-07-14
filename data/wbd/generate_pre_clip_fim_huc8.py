@@ -366,7 +366,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
             input_WBD_filename = input_WBD_gdb
             dem_domain = input_DEM_domain
 
-        # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
+        # Define the landsea waterbody mask using either Great Lakes or Ocean polygon input #
         if huc2Identifier == "04":
             input_LANDSEA = f"{input_GL_boundaries}"
         elif huc2Identifier == "19":
