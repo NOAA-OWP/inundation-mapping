@@ -794,7 +794,8 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
         print('    -k flag used -- Keeping only sites with status changes in the comparison tables')
     if generate_geopackages == True:
         print(
-            '    -g flag used -- Generating spatial difference maps and site GPKGs (takes about 90 mins per comparison)'
+            '    -g flag used -- Generating spatial difference maps and site GPKGs '
+            ' (takes about 60 to 90 mins per comparison depending on server)'
         )
     print(f'    -o -- Output save path: {output_save_filepath}')
 
