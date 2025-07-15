@@ -240,7 +240,7 @@ def run_bayesian_updates(
         DataFrame containing shape, scale, and location parameters
     """
 
-    parameter_names = ["channel_mannning_roughness", "overbank_manning_roughness", "slope_adjustment"]
+    parameter_names = ["channel_manning_roughness", "overbank_manning_roughness", "slope_adjustment"]
 
     # Apply transformations
     channel_manning_data = channel_manning_data * 100

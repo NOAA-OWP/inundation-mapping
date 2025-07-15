@@ -485,7 +485,8 @@ def merge_data(
 
     window_data[(window_data == nan_tile)] = nodata
 
-    rst.write_band(1, window_data, window=final_window)
+    with lock:
+        rst.write_band(1, window_data, window=final_window)
     del window_data
 
 
