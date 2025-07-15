@@ -586,11 +586,12 @@ def inundate_probabilistic(
             hydro_table_df=os.path.join(htable_output_path, htable_output_file),
             inundation_raster=final_inundation_path,
             mask=mask_path,
-            verbose=True,
+            verbose=not quiet,
             num_workers=num_jobs,
             num_threads=num_threads,
             windowed=windowed,
             log_file=log_file,
+            remove_intermediate=False,
         )
 
     # percentiles
@@ -633,8 +634,8 @@ def inundate_probabilistic(
             gdf = gdf.set_geometry('geometry')
             gdf.to_file(os.path.join(base_output_path, output_file_name))
 
-    for file in percentile_files:
-        os.remove(file)
+    # for file in percentile_files:
+    #     os.remove(file)
 
     if output_raster is False:
         os.remove(out_rast)
