@@ -1,9 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
-Resolves #1551.
+## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+
+Removes NWM streams that intersect the ocean/lake mask.
+
+### Changes
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Removes NWM streams that intersect the ocean/lake mask.
+    - `generate_pre_clip_fim_huc8.py`: Corrects a spelling error.
+- `src/bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date.
+
+<br/><br/>
+
+
+## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
 This pull requests updates the ngvd_to_navd_ft() function which uses the Vdatum API to convert elevation from NGVD29 to NAVD88 in feet.
 
