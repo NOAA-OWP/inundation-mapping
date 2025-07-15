@@ -442,7 +442,8 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
 
             sites_gdf.at[ind, 'mapped'] = 'yes'
             # Mapped should be "yes", and "Good",
-            if status_val == "":
+            if status_val == "": # PREVIOUS
+            # if status_val is None or status_val == "": # TEMP DEBUG
                 sites_gdf.at[ind, 'status'] = 'Good'
             elif status_val.startswith("---") == True:  # warning not an error
                 sites_gdf.at[ind, 'mapped'] = 'yes'
@@ -633,6 +634,7 @@ def iterate_through_huc_stage_based(
                     msg = ':No thresholds found on WRDS API'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
+                    continue
 
                 # If there are no thresholds but the threshold_count is greater than 0 or NA (unlikely). 
                 # write message and exit.
