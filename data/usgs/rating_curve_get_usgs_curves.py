@@ -68,10 +68,6 @@ def get_all_active_usgs_sites():
     )
     # Get a geospatial layer (gdf) for all acceptable sites
     print("Aggregating WBD HUCs...")
-    # print('test print') # TEMP DEBUG
-    # print("Metadata list: ", metadata_list)  # TEMP DEBUG
-    # print("Metadata df: ", metadata_df)  # TEMP DEBUG
-    # print(Path(WBD_LAYER)) ## TEMP DEBUG
     dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
 
     # # Get a list of all sites in gdf
@@ -324,8 +320,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
 
             # Get a geospatial layer (gdf) for all acceptable sites
             logging.info("Aggregating WBD HUCs...")
-            print("Aggregating WBD HUCs... - metadata list: ", metadata_list)  # TEMP DEBUG
-            print("Metadata df: ", metadata_df)  # TEMP DEBUG
             _, sites_gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
             if not sites_gdf.empty:
                 # Get a list of all sites in gdf
