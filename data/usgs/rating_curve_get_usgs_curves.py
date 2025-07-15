@@ -35,10 +35,7 @@ gpd.options.io_engine = "pyogrio"
 '''
 This script calls the NOAA Tidal API for datum conversions. Experience shows that
     running script outside of business hours seems to be most consistent way
-    to avoid API errors. Currently configured to get rating curve data within
-    CONUS.
-
-    Tidal API call may need to be modified to get datum conversions for AK.
+    to avoid API errors.
 '''
 
 
