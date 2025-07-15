@@ -442,7 +442,6 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
 
             sites_gdf.at[ind, 'mapped'] = 'yes'
             # Mapped should be "yes", and "Good",
-            # if status_val is None or status_val == "": # TEMP DEBUG - workaround?
             if status_val == "":
                 sites_gdf.at[ind, 'status'] = 'Good'
             elif status_val.startswith("---") == True:  # warning not an error

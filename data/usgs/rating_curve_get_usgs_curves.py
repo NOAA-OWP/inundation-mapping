@@ -177,7 +177,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     '''
 
     Returns rating curves, for a set of sites, adjusted to elevation NAVD.
-    Currently configured to get rating curve data within CONUS.
     Workflow as follows:
         1a. If 'all' option passed, get metadata for all acceptable USGS sites.
         1b. If a list of sites passed, get metadata for all sites supplied by user.
