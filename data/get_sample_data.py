@@ -254,22 +254,6 @@ def get_sample_data(
 
     load_dotenv('/foss_fim/src/bash_variables.env')
 
-    INPUT_DEM_DOMAIN = os.environ["input_DEM_domain"]
-    INPUT_DEM_DOMAIN_ALASKA = os.environ["input_DEM_domain_Alaska"]
-    INPUT_DEM = os.environ['input_DEM']
-    INPUT_DEM_ALASKA = os.environ['input_DEM_Alaska']
-    INPUT_LANDSEA = os.environ['input_landsea']
-    INPUT_LANDSEA_ALASKA = os.environ['input_landsea_Alaska']
-    INPUT_NLD_LEVEE_PROTECTED_AREAS = os.environ["input_nld_levee_protected_areas"]
-    INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA = os.environ["input_nld_levee_protected_areas_Alaska"]
-    INPUT_NWM_LAKES = os.environ['input_nwm_lakes']
-    INPUT_NWM_LAKES_ALASKA = os.environ['input_nwm_lakes_Alaska']
-    INPUT_GL_BOUNDARIES = os.environ["input_GL_boundaries"]
-    INPUT_WBD_GDB_ALASKA = os.environ["input_WBD_gdb_Alaska"]
-    NWM_RECUR_FILE = os.environ["nwm_recur_file"]
-    INPUT_CALIB_POINTS_DIR = os.environ["input_calib_points_dir"]
-    INPUT_BRIDGE_ELEV_DIFF = os.environ["input_bridge_elev_diff"]
-    INPUT_BRIDGE_ELEV_DIFF_ALASKA = os.environ["input_bridge_elev_diff_alaska"]
     root_dir = os.path.split(input_path)[0]
 
     ## test_cases
@@ -305,12 +289,14 @@ def get_sample_data(
     __copy_file(os.environ["bankfull_flows_file"], output_root_folder, input_root, bucket_path)
 
     ## recurr_flows
-    __copy_file(NWM_RECUR_FILE, output_root_folder, input_root, bucket_path)
+    __copy_file(os.environ["nwm_recur_file"], output_root_folder, input_root, bucket_path)
 
     recurr_intervals = ['2', '5', '10', '25', '50']
     for recurr_interval in recurr_intervals:
         __copy_file(
-            os.path.join(os.path.split(NWM_RECUR_FILE)[0], f'nwm3_17C_recurr_{recurr_interval}_0_cms.csv'),
+            os.path.join(
+                os.path.split(os.environ["nwm_recur_file"])[0], f'nwm3_17C_recurr_{recurr_interval}_0_cms.csv'
+            ),
             output_root_folder,
             input_root,
             bucket_path,
@@ -323,9 +309,6 @@ def get_sample_data(
     __copy_file(os.environ["usgs_rating_curve_csv"], output_root_folder, input_root, bucket_path)
     __copy_file(os.environ["usgs_acceptable_gages_path"], output_root_folder, input_root, bucket_path)
 
-    ## osm bridges
-    __copy_file(os.environ["osm_bridges"], output_root_folder, input_root, bucket_path)
-
     ## slope data
     __copy_file(os.environ["iris_sword_slope"], output_root_folder, input_root, bucket_path)
 
@@ -334,35 +317,41 @@ def get_sample_data(
 
         # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
         if huc2Identifier == '19':
-            input_LANDSEA = INPUT_LANDSEA_ALASKA
-            input_DEM = INPUT_DEM_ALASKA
-            input_DEM_domain = INPUT_DEM_DOMAIN_ALASKA
+            input_LANDSEA = os.environ['input_landsea_Alaska']
+            input_DEM = os.environ['input_DEM_Alaska']
+            input_DEM_domain = os.environ["input_DEM_domain_Alaska"]
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC8_{huc}_dem.tif')
-            input_NWM_lakes = INPUT_NWM_LAKES_ALASKA
-            input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA
-            input_bridge_elev_diff = INPUT_BRIDGE_ELEV_DIFF_ALASKA
+            input_NWM_lakes = os.environ['input_nwm_lakes_Alaska']
+            input_NLD_levee_protected_areas = os.environ["input_nld_levee_protected_areas_Alaska"]
+            input_bridge_elev_diff = os.environ["input_bridge_elev_diff_alaska"]
             input_DEM_diff = os.path.join(
                 os.path.split(input_bridge_elev_diff)[0], f'HUC8_{huc}_dem_diff.tif'
             )
 
-            __copy_file(INPUT_WBD_GDB_ALASKA, output_root_folder, input_root, bucket_path)
+            osm_bridges = os.environ["osm_bridges_alaska"]
+            osm_roads = os.environ["osm_roads_alaska"]
+
+            __copy_file(os.environ["input_WBD_gdb_Alaska"], output_root_folder, input_root, bucket_path)
 
         else:
-            input_DEM = INPUT_DEM
-            input_DEM_domain = INPUT_DEM_DOMAIN
+            input_DEM = os.environ['input_DEM']
+            input_DEM_domain = os.environ["input_DEM_domain"]
             input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC6_{huc[:6]}_dem.tif')
-            input_NWM_lakes = INPUT_NWM_LAKES
-            input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS
-            input_bridge_elev_diff = INPUT_BRIDGE_ELEV_DIFF
+            input_NWM_lakes = os.environ['input_nwm_lakes']
+            input_NLD_levee_protected_areas = os.environ["input_nld_levee_protected_areas"]
+            input_bridge_elev_diff = os.environ["input_bridge_elev_diff"]
             input_DEM_diff = os.path.join(
                 os.path.split(input_bridge_elev_diff)[0], f'HUC6_{huc[:6]}_dem_diff.tif'
             )
 
+            osm_bridges = os.environ["osm_bridges"]
+            osm_roads = os.environ["osm_roads"]
+
             # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
             if huc2Identifier == "04":
-                input_LANDSEA = INPUT_GL_BOUNDARIES
+                input_LANDSEA = os.environ["input_GL_boundaries"]
             else:
-                input_LANDSEA = INPUT_LANDSEA
+                input_LANDSEA = os.environ['input_landsea']
 
         ## landsea mask
         __copy_file(input_LANDSEA, output_root_folder, input_root, bucket_path)
@@ -379,8 +368,12 @@ def get_sample_data(
         ## nld_vectors
         __copy_file(input_NLD_levee_protected_areas, output_root_folder, input_root, bucket_path)
 
+        ## osm bridges and roads
+        __copy_file(osm_bridges, output_root_folder, input_root, bucket_path)
+        __copy_file(osm_roads, output_root_folder, input_root, bucket_path)
+
         __copy_file(
-            os.path.join(INPUT_CALIB_POINTS_DIR, f'{huc}.parquet'),
+            os.path.join(os.environ["input_calib_points_dir"], f'{huc}.parquet'),
             output_root_folder,
             input_root,
             bucket_path,
