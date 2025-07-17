@@ -30,8 +30,6 @@ This PR addresses the issue #1385 and includes the following enhancements:
 <br/><br/>
 
 
-## v4.8.0.0 - 2025-05-30 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
-
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
 
 Decided to make a separate PR to incorporate multiple PR and changes including:
