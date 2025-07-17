@@ -544,9 +544,15 @@ if __name__ == '__main__':
         Always we need to add --copy_from_dir followed by path to the previous preclips results
         In addition, we can add one or multiple of above 8 arguments:
 
-        python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py -u /data/inputs/huc_lists/included_huc8_withAlaska.lst -n outputs/preclips/test6_2/ -o
-        --copy_from_dir data/inputs/pre_clip_huc8/20250218/
-        --copy_nwm_catchments --copy_levee_lines_burned --copy_levee_lines --copy_nwm_streams_headwater
+        python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py \
+            -u /data/inputs/huc_lists/included_huc8_withAlaska.lst \
+            -n outputs/preclips/test6_2/ \
+            -o \
+            --copy_from_dir data/inputs/pre_clip_huc8/20250218/ \
+            --copy_nwm_catchments \
+            --copy_levee_lines_burned \
+            --copy_levee_lines \
+            --copy_nwm_streams_headwater
     '''
 
     parser = argparse.ArgumentParser(
