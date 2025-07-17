@@ -386,9 +386,13 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
         if len(file_name_segs) <= 1:
             continue
         ahps_id = file_name_segs[1]
-        if len(ahps_id) == 5:  # yes, we assume the ahps in the second arg
-            if ahps_id not in ahps_ids_with_gpkgs:
-                ahps_ids_with_gpkgs.append(ahps_id)
+
+        # if len(ahps_id) == 5: 7/17/25 - Removed this logic
+        # because LID lengths above 5 characters are probably
+        # invalid but we are not checking that here.
+
+        if ahps_id not in ahps_ids_with_gpkgs:
+            ahps_ids_with_gpkgs.append(ahps_id)
 
     return ahps_ids_with_gpkgs
 
@@ -421,7 +425,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
     try:
 
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
-
+        FLOG.lprint(f"Valid AHPS IDs with GPKG files: {valid_ahps_ids}") ## TEMP DEBUG
         if len(valid_ahps_ids) == 0:
             FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
             sys.exit(1)
@@ -432,11 +436,20 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
             status_val = row['status']
 
             if ahps_id not in valid_ahps_ids:
+
                 sites_gdf.at[ind, 'mapped'] = 'no'
+                FLOG.warning(f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found.")
+
 
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
-                    FLOG.warning(f"Mapped status was changed to no for {ahps_id}. No inundation files exist")
+
+                else:
+                    if status_val.startswith("---") == True:
+                        status_val = status_val[3:]  # remove the "---" from the status
+
+                    sites_gdf.at[ind, 'status'] = status_val + ', site resulted with no valid inundated files'
+
                 continue
                 # It is safe to assume a status message for invalid ones already exist
 
@@ -606,7 +619,7 @@ def iterate_through_huc_stage_based(
                     reason = found_restrict_lid.iloc[
                         0, found_restrict_lid.columns.get_loc("restricted_reason")
                     ]
-                    msg = ': Restricted Site - ' + reason
+                    msg = ':Restricted Site - ' + reason
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -1218,20 +1231,22 @@ def load_restricted_sites(is_stage_based):
 
     # There are enough conditions and a low number of rows that it is easier to
     # test / change them via a for loop
-    indexs_for_recs_to_be_removed_from_list = []
+    # indexs_for_recs_to_be_removed_from_list = [] -> Removed 7/17/25
 
     # Clean up dataframe
     for ind, row in df_restricted_sites.iterrows():
         nws_lid = row['nws_lid']
         restricted_reason = row['restricted_reason']
 
-        if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
-            FLOG.warning(
-                f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
-                " and has dropped from processing"
-            )
-            indexs_for_recs_to_be_removed_from_list.append(ind)
-            continue
+        # if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file 
+        # (7/17/25) Removed this logic becuase it was preventing sites with more or
+        # less than 5 character LIDs from being filtered out. 
+        #     FLOG.warning(
+        #         f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
+        #         " and has dropped from processing"
+        #     )
+        #     indexs_for_recs_to_be_removed_from_list.append(ind)
+        #     continue
 
         if restricted_reason == "":
             restricted_reason = "From the ahps_restricted_sites,"
@@ -1242,9 +1257,11 @@ def load_restricted_sites(is_stage_based):
     # end loop
 
     # Invalid records in CSV (not dropping, just completely invalid recs from the csv)
-    # Could be just blank rows from the csv
-    if len(indexs_for_recs_to_be_removed_from_list) > 0:
-        df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
+    # Could be just blank rows from the csv 
+    # (7/17/25) Removed this logic becuase it was preventing sites with more or
+    # less than 5 character LIDs from being filtered out. 
+    # if len(indexs_for_recs_to_be_removed_from_list) > 0:
+    #     df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
 
     # Filter df_restricted_sites by CatFIM type
     if is_stage_based == True:  # Keep rows where 'catfim_type' is either 'stage' or 'both'

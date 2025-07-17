@@ -233,7 +233,7 @@ def generate_flows_for_huc(
 
                 else:
                     if missing_wrds_data_msg == "":
-                        missing_wrds_data_msg = f":---Missing flow data for {category}"
+                        missing_wrds_data_msg = f":---Missing flow data for {category}" # TEMP DEBUG should we just remove the ---?
                     else:
                         missing_wrds_data_msg += f"; {category}"
 
