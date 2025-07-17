@@ -141,7 +141,7 @@ COUNTER=$((COUNTER + 1))
 l_echo "$COUNTER" > "$COUNTER_FILE"
 
 # Check if the counter is greater than one
-if [ "$COUNTER" -gt 1 ]; then
+if [ "$COUNTER" -gt 0 ]; then
     # Execute the Python file
     l_echo $startDiv"Updating hydroTable & scr_full_crosswalked for branches"
     python3 $srcDir/update_htable_src.py -d $outputDestDir

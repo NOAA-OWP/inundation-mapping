@@ -30,7 +30,6 @@ def process_branch(sub_branch_path, branch):
         'order_',
         'SLOPE_HFAB',
         'SLOPE_IRIS_SWORD',
-        'SLOPE',
         'TopWidth (m)',
         'WettedPerimeter (m)',
         'WetArea (m2)',
@@ -79,6 +78,23 @@ def process_branch(sub_branch_path, branch):
     # Update src_full
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
+
+    # Temporary slope replacement to address issues with hfab slope values
+    # To-do: this logic will need to be updated either in the existing add_crosswalk.py logic
+    # or moved into a seperate script in fim_post_processing.sh
+    # masks for valid slope values (also only using SWORD for orders >=4)
+    # Define acceptable slope range
+    SLOPE_MIN = 9.999e-7
+    SLOPE_MAX = 0.5
+    input_src_full['order_'] = input_src_full['order_'].astype(int)
+    sword_mask = (input_src_full['order_'] >= 4) & (
+        (input_src_full['SLOPE_IRIS_SWORD'] >= SLOPE_MIN) & (input_src_full['SLOPE_IRIS_SWORD'] <= SLOPE_MAX)
+    )
+    # Apply masks to filter out invalid slope values
+    sword_slope = input_src_full['SLOPE_IRIS_SWORD'].where(sword_mask)
+    # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
+    input_src_full['SLOPE'] = sword_slope.combine_first(input_src_full['SLOPE_RISE_RUN'])
+
     input_src_full['SLOPE'] = input_src_full['SLOPE'].astype(float)
     input_src_full['Volume (m3)'] = input_src_base['Volume (m3)']
     input_src_full['BedArea (m2)'] = input_src_base['BedArea (m2)']
