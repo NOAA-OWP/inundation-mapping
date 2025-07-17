@@ -233,7 +233,7 @@ def generate_flows_for_huc(
 
                 else:
                     if missing_wrds_data_msg == "":
-                        missing_wrds_data_msg = f":---Missing flow data for {category}" # TEMP DEBUG should we just remove the ---?
+                        missing_wrds_data_msg = f":---Missing flow data for {category}"
                     else:
                         missing_wrds_data_msg += f"; {category}"
 
@@ -463,7 +463,6 @@ def generate_flows(
 
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
 
-    # FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}")  # TEMP DEBUG
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')

@@ -425,7 +425,6 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
     try:
 
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
-        FLOG.lprint(f"Valid AHPS IDs with GPKG files: {valid_ahps_ids}") ## TEMP DEBUG
         if len(valid_ahps_ids) == 0:
             FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
             sys.exit(1)
