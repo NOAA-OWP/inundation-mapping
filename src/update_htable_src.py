@@ -88,12 +88,25 @@ def process_branch(sub_branch_path, branch):
     SLOPE_MAX = 0.5
     input_src_full['order_'] = input_src_full['order_'].astype(int)
     sword_mask = (input_src_full['order_'] >= 4) & (
-        (input_src_full['SLOPE_IRIS_SWORD'] >= SLOPE_MIN) & (input_src_full['SLOPE_IRIS_SWORD'] <= SLOPE_MAX)
+        (input_src_full['SLOPE_IRIS_SWORD'].astype(float) >= SLOPE_MIN)
+        & (input_src_full['SLOPE_IRIS_SWORD'].astype(float) <= SLOPE_MAX)
     )
     # Apply masks to filter out invalid slope values
     sword_slope = input_src_full['SLOPE_IRIS_SWORD'].where(sword_mask)
     # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
     input_src_full['SLOPE'] = sword_slope.combine_first(input_src_full['SLOPE_RISE_RUN'])
+
+    # More temp updates to update the slope values in the hydroTable.csv
+    input_hydro_table['order_'] = input_hydro_table['order_'].astype(int)
+    sword_mask = (input_hydro_table['order_'] >= 4) & (
+        (input_hydro_table['SLOPE_IRIS_SWORD'].astype(float) >= SLOPE_MIN)
+        & (input_hydro_table['SLOPE_IRIS_SWORD'].astype(float) <= SLOPE_MAX)
+    )
+    # Apply masks to filter out invalid slope values
+    sword_slope = input_hydro_table['SLOPE_IRIS_SWORD'].where(sword_mask)
+    # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
+    input_hydro_table['SLOPE'] = sword_slope.combine_first(input_hydro_table['SLOPE_RISE_RUN'])
+    input_hydro_table['SLOPE'] = input_hydro_table['SLOPE'].astype(float)
 
     input_src_full['SLOPE'] = input_src_full['SLOPE'].astype(float)
     input_src_full['Volume (m3)'] = input_src_base['Volume (m3)']
