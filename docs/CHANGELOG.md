@@ -27,8 +27,7 @@ Misc cleanup
  - `tools`
      - `adjust_rc_with_feedback_py`
  
-
-<br/><br/>
+<br/>
 
 
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
