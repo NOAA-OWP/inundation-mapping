@@ -30,6 +30,30 @@ Misc cleanup
 
 <br/><br/>
 
+
+## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
+
+Updates the CatFIM site comparison tool to make the outputs better suited to be loaded into HydroVis. Add % change calculations to site change outputs. 
+
+### Changes
+- `/tools/catfim/catfim_sites_compare.py`
+  - Change version column naming conventions
+  - Saving the gained and lost coverage data as a CSV
+  - Add "_sites" to site tbale filenames.
+  - Added percent area change calculations for inundated area comparisons.
+  
+<br/><br/>
+  
+
+## v4.8.7.0 - 2025-07-18 - [PR#1597](https://github.com/NOAA-OWP/inundation-mapping/pull/1597)
+
+Removing the hydrofabric slope values for now due to issues with erroneous values and insufficient handling in FIM workflow. Logic will now use SWORD where available and valid and then fill in all remaining values with the HAND terrain calculated rise/run slope. NOTE: the 4.8.6.1 BED outputs will be updated using the feature branch "temp_hotfix_src_slope" --> this temp feature branch is functionally equivalent to the code changes in this pull request but makes the changes in post-processing rather than in add_crosswalk.py. 
+
+### Changes
+`src/add_crosswalk.py`: updated logic to no longer use the hydrofabric provided (SLOPE_HFAB) data when determining the SRC `SLOPE` values for each hydroid.
+<br/><br/>
+
+
 ## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
 Resolves #1551.
