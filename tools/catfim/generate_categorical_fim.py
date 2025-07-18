@@ -1356,10 +1356,9 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     datum_adj_ft = 0.0
     crs = datum_data.get('crs')
     if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
-        # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously
-        #   removed otherwise the region needs changed.
+        # Get the datum adjustment to convert NGVD to NAVD.
         try:
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
         except Exception as ex:
             MP_LOG.error(f"ERROR: {huc_lid_id}: ngvd_to_navd_ft")
             MP_LOG.error(traceback.format_exc())

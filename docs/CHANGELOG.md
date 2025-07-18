@@ -1,6 +1,37 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.7.0 - 2025-07-18 - [PR#1597](https://github.com/NOAA-OWP/inundation-mapping/pull/1597)
+
+Removing the hydrofabric slope values for now due to issues with erroneous values and insufficient handling in FIM workflow. Logic will now use SWORD where available and valid and then fill in all remaining values with the HAND terrain calculated rise/run slope. NOTE: the 4.8.6.1 BED outputs will be updated using the feature branch "temp_hotfix_src_slope" --> this temp feature branch is functionally equivalent to the code changes in this pull request but makes the changes in post-processing rather than in add_crosswalk.py. 
+
+### Changes
+`src/add_crosswalk.py`: updated logic to no longer use the hydrofabric provided (SLOPE_HFAB) data when determining the SRC `SLOPE` values for each hydroid.
+<br/><br/>
+
+
+## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
+
+Resolves #1551.
+
+This pull requests updates the ngvd_to_navd_ft() function which uses the Vdatum API to convert elevation from NGVD29 to NAVD88 in feet.
+
+Previously, this function would only run for the contiguous US and it produced a conversion value of -1.04 ft for every single site. This is due to the coordinates being fed incorrectly into the API (using 'lat' and 'lon' parameters rather than the correct 's_x' and 's_y'). 
+
+The value of -1.04 that was being produced was essentially a default value (which we know because when we comment out the coordinate inputs, we also just get the value of -1.04). 
+
+This update corrects the coordinate input values and adds a check for whether the site is in Alaska. If the site is in Alaska, it is provided with the correct geoid. 
+
+### Changes
+
+- `tools/tools_shared_functions.py`: Updated vertical datum conversion function (`ngvd_to_navd_ft()`) to fix input coordinate error and made it able to run in Alaska (as well as CONUS).
+- `tools/catfim/generate_categorical_fim.py`:  Updated `ngvd_to_navd_ft()` inputs.
+- `data/nws/preprocess_ahps_nws.py`: Updated `ngvd_to_navd_ft()` inputs.
+- `data/usgs/preprocess_ahps_usgs.py`: Updated `ngvd_to_navd_ft()` inputs.
+- `data/usgs/rating_curve_get_usgs_curves.py`:  Updated `ngvd_to_navd_ft()` inputs.
+
+#### Note: This does trigger a need to download new usgs_rating curves (rating_curve_get_usgs_curves.py), but we will do that after this PR is merged due to time constraints. We can make adjustments if needed later.   However, the fixes here are needed for CatFIM as well.
+<br/>
 
 ## v4.8.___ - 2025-06-__ - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
