@@ -4,14 +4,17 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
 
-Removes NWM streams that intersect the ocean/lake mask.
+Clips NWM streams at the land/sea mask.
 
 ### Changes
 
 - `data/wbd/`
-    - `clip_vectors_to_wbd.py`: Removes NWM streams that intersect the ocean/lake mask.
-    - `generate_pre_clip_fim_huc8.py`: Corrects a spelling error.
-- `src/bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date.
+    - `clip_vectors_to_wbd.py`: Clips NWM streams at the land/sea mask
+    - `generate_pre_clip_fim_huc8.py`: Corrects a spelling error
+- `src/`
+    - `agreedem.py`: Check if `smogrid` is nodata and exits if so
+    - `bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date
+    - `run_by_branch.sh`: Formatting
 
 <br/><br/>
 
