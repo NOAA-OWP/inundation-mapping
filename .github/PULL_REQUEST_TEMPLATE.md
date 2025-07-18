@@ -10,37 +10,42 @@
 ### Testing
 Generally, you do not copy this part into the ChangeLog. These are some quick notes on what you did test and/or notes for the reviewer to help with their review testing.
 
-
 ---------------------------------------------------------------
 ### Deployment Plan (For FIM developers use)
 - **Does the change impact inputs, docker or python packages?**
     - [ ] Yes
-    - [x] No  (f no.. skip the rest of the Deployment Plan section)
+    - [ ] No  (f no.. skip the rest of the Deployment Plan section)
     
-**From here down, please work with the DevOps team and do not just go ahead and do it without some co-ordination.**
+-  **If you are not a FIM dev team member:  Please let us know what you need and we can help with it.**
 
-- Has new or updated python packages, PipFile, Pipefile.lock or Dockerfile changes?  DevOps can help or take care of it if you want. Just need to know if it is required.
-    - [ ] Yes
-    - [ ] No
-- Require new or adjusted data inputs? Does it have a way to version (folder or file dates)?
-    - [ ] No
-    - [ ] Yes
-        -  Require new pre-clip set or any other data reloads, such as DEMS, osm, etc. ie.. pre-requisite re-data upstream of your input  changes.
-            - [ ] Yes
-            - [ ] No
-        -  Has the inputs been copied/exist in all five enviros:
-           If you are a FIM Dev team member: Copy where you can, assign where you not, and it is your responsibility to ensure it is done. Please ensure it is completed before the PR is merged.  If you are not a FIM Dev team member, just let us know.
-              - [ ] FIM EFS  
-              - [ ] FIM S3
-              - [ ] ESIP
-              - [ ] Dev1
-              - [ ] UCS2
-            Please do not remove older version unless it is at least two versions ago. Let DevOps know if you are unsure or want help.
-- If new or updated data sets, has the FIM code, including the full pipeline, been updated and tested with the new/adjusted data? You can dev test against subsets if you like.
+-  **If you are a FIM Dev team member:** 
+    -  Please work with the DevOps team and do not just go ahead and do it without some co-ordination.
+    -  Copy where you can, assign where you can not, and it is your responsibility to ensure it is done. Please ensure it is completed before the PR is merged. 
+    
+    - Has new or updated python packages, PipFile, Pipefile.lock or Dockerfile changes?  DevOps can help or take care of it if you want. Just need to know if it is required.
+       - [ ] Yes
+       - [ ] No
+    - Require new or adjusted data inputs? Does it have a way to version (folder or file dates)?
+       - [ ] No
+       - [ ] Yes
+           -  Require new pre-clip set or any other data reloads, such as DEMS, osm, etc. ie.. pre-requisite re-data upstream of your input  changes.
+                - [ ] Yes
+                - [ ] No
+           -  Has the inputs been copied/exist in all five enviros:
+                 - [ ] FIM EFS  
+                 - [ ] FIM S3
+                 - [ ] ESIP
+                 - [ ] Dev1
+                 - [ ] UCS2
+            
+- Please use caution in removing older version unless it is at least two versions ago.  Confirm with DevOps if cleanup might be involved.
+
+- If new or updated data sets, has the FIM code, including running fim_pipeline.sh, been updated and tested with the new/adjusted data? You can dev test against subsets if you like.
     - [ ] Yes
 
-#### **Notes to DevOps Team or others:** 
+### Notes to DevOps Team or others:
 Please add any notes that are helpful for us to make sure it is all done correctly. Do not put actual server names or full true paths, just shortcut paths like 'efs..../inputs/,  or 'dev1....inputs', etc.
+
 
 
 ---------------------------------------------------------------

@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.8.x.x - 2025-07-18 - [PR#1580](https://github.com/NOAA-OWP/inundation-mapping/pull/1580)
 
-Opportunistically updating eval_plots when running it as part of fim_performance production output, and not part of the synthesize_test_case usage of eval_plots. See closes [1202](https://github.com/NOAA-OWP/inundation-mapping/issues/1202). 
+Opportunistically updating eval_plots when running it as part of fim_performance production output, and not part of the synthesize_test_case usage of eval_plots.
 
 Misc cleanup 
 - get rid of a gdal warning
@@ -16,6 +16,8 @@ Misc cleanup
     
 ![image](https://github.com/user-attachments/assets/94b7ce10-1fe6-47c1-817d-c07cbf7af1a1)
 
+- `.github\PULL_REQUEST_TEMPLATE.MD`: Updates. This PR reflects those changes, mostly for Input / DevOps questions.
+
 ### Removals
 
 - `src`
@@ -24,7 +26,7 @@ Misc cleanup
     - `reset_mannings.py`
  - `tools`
      - `adjust_rc_with_feedback_py`
- - `.github\PULL_REQUEST_TEMPLATE.MD`: Updates. This PR reflects those changes, mostly for Input / DevOps questions.
+ 
 
 <br/><br/>
 
