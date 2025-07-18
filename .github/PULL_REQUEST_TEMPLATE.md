@@ -8,27 +8,40 @@
 
 ---------------------------------------------------------------
 ### Testing
-Generally, you do not copy this part into the ChangeLog. These are some quick notes on what you did test or what the reviewer to know for their tests.
+Generally, you do not copy this part into the ChangeLog. These are some quick notes on what you did test and/or notes for the reviewer to help with their review testing.
 
 
 ---------------------------------------------------------------
-### Deployment Plan (For developer use)
+### Deployment Plan (For FIM developers use)
 - **Does the change impact inputs, docker or python packages?**
     - [ ] Yes
-    - [ ] No
-- Has new or updated python packages or Dockerfile changes?
-    - [ ] Yes
-- Require new or adjusted data inputs? Does it have a way to version (folder or file dates?)
-    - [ ] Yes
-- If new or updated data sets, has the FIM code been updated and tested with the new/adjusted data (a test against subset is fine)?
-    - [ ] Yes
-- Require new pre-clip set?
-    - [ ] Yes
-- If applicable, has a deployment plan be created with the DevOps team? including what was run already, what needs to be copied to all 4/5 enviros, from where, what still needs to be run at scale, etc. Any notes are helpful.
-    - [ ] Yes
-    - [ ] I will shortly. :)
+    - [x] No  (f no.. skip the rest of the Deployment Plan section)
+    
+**From here down, please work with the DevOps team and do not just go ahead and do it without some co-ordination.**
 
-**Notes to DevOps Team:**
+- Has new or updated python packages, PipFile, Pipefile.lock or Dockerfile changes?  DevOps can help or take care of it if you want. Just need to know if it is required.
+    - [ ] Yes
+    - [ ] No
+- Require new or adjusted data inputs? Does it have a way to version (folder or file dates)?
+    - [ ] No
+    - [ ] Yes
+        -  Require new pre-clip set or any other data reloads, such as DEMS, osm, etc. ie.. pre-requisite re-data upstream of your input  changes.
+            - [ ] Yes
+            - [ ] No
+        -  Has the inputs been copied/exist in all five enviros:
+           If you are a FIM Dev team member: Copy where you can, assign where you not, and it is your responsibility to ensure it is done. Please ensure it is completed before the PR is merged.  If you are not a FIM Dev team member, just let us know.
+              - [ ] FIM EFS  
+              - [ ] FIM S3
+              - [ ] ESIP
+              - [ ] Dev1
+              - [ ] UCS2
+            Please do not remove older version unless it is at least two versions ago. Let DevOps know if you are unsure or want help.
+- If new or updated data sets, has the FIM code, including the full pipeline, been updated and tested with the new/adjusted data? You can dev test against subsets if you like.
+    - [ ] Yes
+
+#### **Notes to DevOps Team or others:** 
+Please add any notes that are helpful for us to make sure it is all done correctly. Do not put actual server names or full true paths, just shortcut paths like 'efs..../inputs/,  or 'dev1....inputs', etc.
+
 
 ---------------------------------------------------------------
 ### Issuer Checklist (For developer use)
