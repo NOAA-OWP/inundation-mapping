@@ -64,12 +64,12 @@ Outputs:
 - Output GPKGs (produced if option -g flag was used):
     - <product_id>_<version_1>_vs_<version_2>_lost_coverage.gpkg
         Columns:
-            site_id, magnitude, geometry_before, Change, Change Description,
+            site_id, magnitude, geometry_before, change, change_description,
             <version_1>_status, <version_2>_status, nws_data_wfo, nws_data_rfc, HUC8, name, states
     - <product_id>_<version_1>_vs_<version_2>_gained_coverage.gpkg
         Columns:
-            site_id, magnitude, geometry_after, Change, Change Description,
-            <version_1>_status, <version_2>_status, nws_data_wfo, nws_data_rfc, HUC8, name, states
+            site_id, magnitude, geometry_after, change, change_description,
+            <version_1>_status, <version_2>_status, nws_data_wfo, nws_data_rfc, HUC8, name, states # TODO: Add percent change column name
     - <product_id>_<version_1>_vs_<version_2>.gpkg
         Columns:
             site_id, Change, Change Description,
@@ -270,7 +270,7 @@ def make_version_comparison_tables(
 
     sorted_versions = sorted(version_id_list, key=version_key)
 
-    # Iterate through versions (minus the last one) to calculate the Change and Change_Description columns
+    # Iterate through versions (minus the last one) to calculate the change and change_description columns
     for i in range(len(sorted_versions) - 1):
 
         old_version_id = sorted_versions[i]
@@ -310,8 +310,8 @@ def make_version_comparison_tables(
         compare_sites_df[new_catfim_version_col] = new_version_id
 
         # Initialize new columns with default values
-        change_col = 'Change'
-        change_description_col = 'Change_Description'
+        change_col = 'change'
+        change_description_col = 'change_description'
         default_error_message = 'ERROR - Site was unable to be categorized, check status columns manually.'
         compare_sites_df[change_col] = 'ERROR'
         compare_sites_df[change_description_col] = default_error_message
@@ -678,7 +678,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             added_geom,
             comparison_table_df,
             value_column_name='added_area_percent',
-            column_suffix='_gained_coverage_%',
+            column_suffix='_gained_coverage_percent',
         )
 
         # Run for removed geom
@@ -686,7 +686,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             removed_geom,
             comparison_table_df,
             value_column_name='removed_area_percent',
-            column_suffix='_lost_coverage_%',
+            column_suffix='_lost_coverage_percent',
         )
 
         # Remove aphs_lid_x and aphs_lid_y columns if they exist
