@@ -391,7 +391,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         if os.path.exists(input_LANDSEA):
             logging.info(f"Clipping NWM Streams for {huc} to land areas")
             landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
-            nwm_streams = nwm_streams[~nwm_streams.intersects(landsea.unary_union)]
+            nwm_streams = nwm_streams.overlay(landsea, how='difference')
         else:
             logging.info(f"No landsea file provided, using all NWM streams for {huc}")
 
