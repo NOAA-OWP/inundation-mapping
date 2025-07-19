@@ -1148,17 +1148,19 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
         if usgs_gages[cols_to_plot].notna().any().any():
             data_is_plottable = True
     if data_is_plottable:
-        sns.boxplot(
-            ax=ax[0, 1], data=usgs_gages[cols_to_plot]
-        )
+        sns.boxplot(ax=ax[0, 1], data=usgs_gages[cols_to_plot])
         ax[0, 1].set(ylim=(-12, 12))
     else:
         logging.warning("Cannot create a boxplot because no data is available.")
-        ax[0, 1].text(0.5, 0.5, 'No data for boxplot',
-                      horizontalalignment='center',
-                      verticalalignment='center',
-                      transform=ax[0, 1].transAxes)
-        ax[0,1].set_yticks([])
+        ax[0, 1].text(
+            0.5,
+            0.5,
+            'No data for boxplot',
+            horizontalalignment='center',
+            verticalalignment='center',
+            transform=ax[0, 1].transAxes,
+        )
+        ax[0, 1].set_yticks([])
         ax[0, 1].set_xticks([])
     fig.tight_layout()
     fig.savefig(join(output_dir, f'{output_gpkg}_summary_plots.png'.replace('.gpkg', '')))
@@ -1194,7 +1196,7 @@ def calculate_rc_diff(rc):
     )
     # Define columns that are expected in the final output
     expected_cols = ['2', '5', '10', '25', '50', 'action', 'minor', 'moderate', 'major']
-    
+
     # Check if the column exists. If not, add it and fill with NaN
     # This prevents a KeyError if a HUC is missing certain recurrence intervals.
     for col in expected_cols:
@@ -1264,10 +1266,11 @@ def evaluate_results(sierra_results=[], labels=[], save_location=''):
     ax.set_title('Sierra Test Results Comparison')
     plt.savefig(save_location)
 
+
 def generate_version_comparison(old_stats_path, new_stats_path, output_path, old_label, new_label):
     """
     Generates a 2x2 comparison plots for two FIM versions.
-    
+
     Args:
         old_stats_path (str): path to the statistics file for the old version.
         new_stats_path (str): path to the statistics file for the new version.
@@ -1275,7 +1278,7 @@ def generate_version_comparison(old_stats_path, new_stats_path, output_path, old
         old_label (str): label for the old version (e.g., 'FIMv5')
         new_label (str): label for the new version (e.g., 'FIMv6')
     """
-    
+
     logging.info('Generating evaluation plots...')
     try:
         old_stats = pd.read_csv(old_stats_path, dtype={'location_id': str})
@@ -1285,21 +1288,21 @@ def generate_version_comparison(old_stats_path, new_stats_path, output_path, old
         return
     # Metrics to compare
     metrics = ['nrmse', 'mean_abs_y_diff_ft', 'percent_bias']
-    
+
     comparison_df = pd.merge(
         old_stats[['location_id'] + metrics],
         new_stats[['location_id'] + metrics],
         on='location_id',
-        suffixes=('_old', '_new')
+        suffixes=('_old', '_new'),
     )
     comparison_df = comparison_df.replace([float('inf'), -float('inf')], pd.NA)
     comparison_df = comparison_df.dropna(subset=['nrmse_old', 'nrmse_new'])
-    
+
     logging.info(f"found {len(comparison_df)} common gages to compare.")
     if len(comparison_df) == 0:
         logging.warning('No common gages found between the two versions.')
         return
-    
+
     fig, axes = plt.subplots(2, 2, figsize=(16, 14))
     fig.suptitle(f"FIM Version Comparison: {old_label} vs. {new_label}", fontsize=16, y=0.95)
     # Scatter plot for NRMSE
@@ -1322,7 +1325,9 @@ def generate_version_comparison(old_stats_path, new_stats_path, output_path, old
     nrmse_melted = comparison_df.melt(
         id_vars='location_id', value_vars=['nrmse_old', 'nrmse_new'], var_name='version', value_name='nrmse'
     )
-    nrmse_melted['version'] = nrmse_melted['version'].replace({'nrmse_old': old_label, 'nrmse_new': new_label})
+    nrmse_melted['version'] = nrmse_melted['version'].replace(
+        {'nrmse_old': old_label, 'nrmse_new': new_label}
+    )
     sns.boxplot(data=nrmse_melted, x='version', y='nrmse', ax=ax2)
     ax2.set_title('NRMSE Distribution', fontsize=14)
     ax2.set_xlabel('')
@@ -1330,13 +1335,18 @@ def generate_version_comparison(old_stats_path, new_stats_path, output_path, old
     ax2.grid(axis='y')
     max_lim2 = comparison_df['nrmse_new'].quantile(0.75) + 10
     ax2.set_ylim(0, max_lim2)
-    
+
     # Boxplot for mean absolute error
     ax3 = axes[1, 0]
     mae_melted = comparison_df.melt(
-        id_vars='location_id', value_vars=['mean_abs_y_diff_ft_old', 'mean_abs_y_diff_ft_new'], var_name='version', value_name='mae'
+        id_vars='location_id',
+        value_vars=['mean_abs_y_diff_ft_old', 'mean_abs_y_diff_ft_new'],
+        var_name='version',
+        value_name='mae',
     )
-    mae_melted['version'] = mae_melted['version'].replace({'mean_abs_y_diff_ft_old': old_label, 'mean_abs_y_diff_ft_new': new_label})
+    mae_melted['version'] = mae_melted['version'].replace(
+        {'mean_abs_y_diff_ft_old': old_label, 'mean_abs_y_diff_ft_new': new_label}
+    )
     sns.boxplot(data=mae_melted, x='version', y='mae', ax=ax3)
     ax3.set_title('Mean Absolute Error Distribution', fontsize=14)
     ax3.set_xlabel('')
@@ -1348,9 +1358,14 @@ def generate_version_comparison(old_stats_path, new_stats_path, output_path, old
     # Boxplot for percent bias
     ax4 = axes[1, 1]
     bias_melted = comparison_df.melt(
-        id_vars='location_id', value_vars=['percent_bias_old', 'percent_bias_new'], var_name='version', value_name='bias'
+        id_vars='location_id',
+        value_vars=['percent_bias_old', 'percent_bias_new'],
+        var_name='version',
+        value_name='bias',
     )
-    bias_melted['version'] = bias_melted['version'].replace({'percent_bias_old': old_label, 'percent_bias_new': new_label})
+    bias_melted['version'] = bias_melted['version'].replace(
+        {'percent_bias_old': old_label, 'percent_bias_new': new_label}
+    )
     sns.boxplot(data=bias_melted, x='version', y='bias', ax=ax4)
     ax4.set_title('Percent Bias Distribution', fontsize=14)
     ax4.set_xlabel('')
@@ -1358,11 +1373,12 @@ def generate_version_comparison(old_stats_path, new_stats_path, output_path, old
     ax4.grid(axis='y')
     max_lim4 = bias_melted['bias'].quantile(0.75) + 10
     ax4.set_ylim(0, max_lim4)
-    
+
     # Save
-    plt.tight_layout(rect=[0, 0.3, 1, 0.93])    
+    plt.tight_layout(rect=[0, 0.3, 1, 0.93])
     plt.savefig(output_path, dpi=150)
     plt.close()
+
 
 if __name__ == '__main__':
 
@@ -1584,7 +1600,8 @@ if __name__ == '__main__':
         if args['compare_plots']:
             # The stats for the current run are aggregated in the output_dir
             current_stats_filename = os.path.join(
-                output_dir, f"agg_nwm_recurr_flow_elev_stats_{'_'.join(stat_groups) if stat_groups else 'location_id'}.csv"
+                output_dir,
+                f"agg_nwm_recurr_flow_elev_stats_{'_'.join(stat_groups) if stat_groups else 'location_id'}.csv",
             )
             # Unpach arguments
             other_version_csv = args['compare_plots'][0]
@@ -1592,17 +1609,19 @@ if __name__ == '__main__':
             current_version_label = args['compare_plots'][2]
             # Define output path
             plots_output_path = os.path.join(output_dir, 'FIM_Comparison_Stats.png')
-            
+
             if os.path.exists(current_stats_filename):
                 generate_version_comparison(
                     old_stats_path=other_version_csv,
                     new_stats_path=current_stats_filename,
                     output_path=plots_output_path,
                     old_label=other_version_label,
-                    new_label=current_version_label
+                    new_label=current_version_label,
                 )
             else:
-                logging.error(f"Could not find current stats file to generate comparison plots: {current_stats_filename}")
+                logging.error(
+                    f"Could not find current stats file to generate comparison plots: {current_stats_filename}"
+                )
     except Exception:
         logging.info("-- Exception")
         print("")
