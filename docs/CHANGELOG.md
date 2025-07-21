@@ -22,7 +22,6 @@ Updates the CatFIM site comparison tool to make the outputs better suited to be 
   
 <br/><br/>
   
-
 ## v4.8.7.0 - 2025-07-18 - [PR#1597](https://github.com/NOAA-OWP/inundation-mapping/pull/1597)
 
 Removing the hydrofabric slope values for now due to issues with erroneous values and insufficient handling in FIM workflow. Logic will now use SWORD where available and valid and then fill in all remaining values with the HAND terrain calculated rise/run slope. NOTE: the 4.8.6.1 BED outputs will be updated using the feature branch "temp_hotfix_src_slope" --> this temp feature branch is functionally equivalent to the code changes in this pull request but makes the changes in post-processing rather than in add_crosswalk.py. 
