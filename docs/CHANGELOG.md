@@ -36,7 +36,24 @@ Removing the hydrofabric slope values for now due to issues with erroneous value
 
 ## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
-Resolves #1551.
+## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+
+Clips NWM streams at the land/sea mask.
+
+### Changes
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Clips NWM streams at the land/sea mask
+    - `generate_pre_clip_fim_huc8.py`: Corrects a spelling error
+- `src/`
+    - `agreedem.py`: Check if `smogrid` is nodata and exits if so
+    - `bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date
+    - `run_by_branch.sh`: Formatting
+
+<br/><br/>
+
+
+## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
 This pull requests updates the ngvd_to_navd_ft() function which uses the Vdatum API to convert elevation from NGVD29 to NAVD88 in feet.
 
