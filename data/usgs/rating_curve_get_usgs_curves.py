@@ -134,7 +134,9 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
             continue
 
         # Get the stages and flows
-        stages, flows, threshold_count = get_thresholds(threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all')
+        stages, flows, threshold_count = get_thresholds(
+            threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
+        )
 
         # For each flood category
         for category in ['action', 'minor', 'moderate', 'major']:

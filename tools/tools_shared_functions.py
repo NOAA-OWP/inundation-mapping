@@ -870,7 +870,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             site_gdf = site_gdf.to_crs(huc8.crs)
             # Append site geodataframe to metadata geodataframe
             metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index=True)
-    
 
     # Trim metadata to only have certain fields.
     if not retain_attributes:

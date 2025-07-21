@@ -437,8 +437,9 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
             if ahps_id not in valid_ahps_ids:
 
                 sites_gdf.at[ind, 'mapped'] = 'no'
-                FLOG.warning(f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found.")
-
+                FLOG.warning(
+                    f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found."
+                )
 
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
@@ -647,7 +648,7 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
-                # If there are no thresholds but the threshold_count is greater than 0 or NA (unlikely). 
+                # If there are no thresholds but the threshold_count is greater than 0 or NA (unlikely).
                 # write message and exit.
                 if thresholds is None or len(thresholds) == 0:
                     msg = ':Error getting thresholds from WRDS API'
@@ -656,7 +657,7 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Check if stages are supplied, if not write message and exit.
-                # This message will occur if some thresholds are supplied, but not for the 
+                # This message will occur if some thresholds are supplied, but not for the
                 # categories we use (such as  “low” or “bankfull”)
                 if all(thresholds.get(category, None) is None for category in categories):
                     msg = ':No thresholds for required categories found on WRDS API'
@@ -1237,9 +1238,9 @@ def load_restricted_sites(is_stage_based):
         nws_lid = row['nws_lid']
         restricted_reason = row['restricted_reason']
 
-        # if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file 
+        # if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
         # (7/17/25) Removed this logic becuase it was preventing sites with more or
-        # less than 5 character LIDs from being filtered out. 
+        # less than 5 character LIDs from being filtered out.
         #     FLOG.warning(
         #         f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
         #         " and has dropped from processing"
@@ -1256,9 +1257,9 @@ def load_restricted_sites(is_stage_based):
     # end loop
 
     # Invalid records in CSV (not dropping, just completely invalid recs from the csv)
-    # Could be just blank rows from the csv 
+    # Could be just blank rows from the csv
     # (7/17/25) Removed this logic becuase it was preventing sites with more or
-    # less than 5 character LIDs from being filtered out. 
+    # less than 5 character LIDs from being filtered out.
     # if len(indexs_for_recs_to_be_removed_from_list) > 0:
     #     df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
 
