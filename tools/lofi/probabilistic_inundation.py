@@ -620,7 +620,7 @@ def inundate_probabilistic(
                 arrays.append(data)
 
             merged = np.max(arrays, axis=0)
-            merged[np.where(merged == -10000)] = 127
+            merged[merged == -10000] = 127
             write_rst.write(merged, window=window, indexes=1)
 
     if output_vector is True:
