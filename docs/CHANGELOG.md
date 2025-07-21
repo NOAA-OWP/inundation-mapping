@@ -1,14 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.____ - 2025-____ - [PR#1573](https://github.com/NOAA-OWP/inundation-mapping/pull/1573)
+## v4.8.7.2 - 2025-____ - [PR#1573](https://github.com/NOAA-OWP/inundation-mapping/pull/1573)
 
 In the recent tests of the CatFIM code, the processing errored out during the Inundate_gms() processing. This update resolves the error by re-implementing the branch hydrotable functionality and updating the input parameters for the inundate_gms() function in the CatFIM code.
 
 ### Changes
 - `tools/inundate_gms.py`: Re-implement functionality to use branch hydrotables (rather than HUC hydrotables) inside `__inundate_gms_generator()`.
 - `tools/catfim/generate_categorical_fim_mapping.py`: Update inputs to the `Inundate_gms()` function.
-
+<br/>
 
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
@@ -22,7 +22,7 @@ Updates the CatFIM site comparison tool to make the outputs better suited to be 
   - Added percent area change calculations for inundated area comparisons.
   
 <br/><br/>
-  
+
 
 ## v4.8.7.0 - 2025-07-18 - [PR#1597](https://github.com/NOAA-OWP/inundation-mapping/pull/1597)
 
