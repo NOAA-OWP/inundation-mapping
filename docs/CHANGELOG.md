@@ -32,7 +32,6 @@ Updates the CatFIM site comparison tool to make the outputs better suited to be 
   - Added percent area change calculations for inundated area comparisons.
   
 <br/><br/>
-  
 
 ## v4.8.7.0 - 2025-07-18 - [PR#1597](https://github.com/NOAA-OWP/inundation-mapping/pull/1597)
 
