@@ -2,6 +2,16 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.8.7.2 - 2025-07-22 - [PR#1605]([https://github.com/NOAA-OWP/inundation-mapping/pull/1605])
+
+Addresses bug related to the `location_id` data type that is read in from the `acceptable_sites` csv file in `src/src_adjusts_usgs_rating_trace.py`. A previous code change updated this script and added the `acceptable_sites` input and it needs to be modified to specify the data type as "object" to ensure the leading zero is appropriately captured (the pandas default for the "location_id" is dtype=int). Closes #1605 
+
+### Changes
+`src/src_adjust_usgs_rating_trace.py`: Added `dtype={'location_id': object}` to the acceptable_sites csv file read
+  
+<br/><br/>
+
+
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
 Updates the CatFIM site comparison tool to make the outputs better suited to be loaded into HydroVis. Add % change calculations to site change outputs. 
