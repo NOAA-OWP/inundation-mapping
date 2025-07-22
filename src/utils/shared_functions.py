@@ -183,6 +183,9 @@ def getDriver(fileName):
     return driver
 
 
+# #################################
+# Possibly deprecated - Jun 23, 2025 - No scripts are calling this
+# if that changes, please remove this comment
 def pull_file(url, full_pulled_filepath):
     """
     This helper function pulls a file and saves it to a specified path.
@@ -536,7 +539,7 @@ class FIM_Helpers:
 
     # -----------------------------------------------------------
     @staticmethod
-    def print_date_time_duration(start_dt, end_dt):
+    def print_date_time_duration(start_dt, end_dt, print_dur_msg=True):
         '''
         Process:
         -------
@@ -562,10 +565,14 @@ class FIM_Helpers:
         total_hours, rem_seconds = divmod(rem_seconds, 60 * 60)
         total_mins, seconds = divmod(rem_seconds, 60)
 
-        time_fmt = f"{total_days:02d} days {total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
+        if total_days > 0:
+            total_hours = (total_days * 24) + total_hours
+
+        time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
 
         duration_msg = "Duration: " + time_fmt
-        print(duration_msg)
+        if print_dur_msg:
+            print(duration_msg)
 
         return duration_msg
 

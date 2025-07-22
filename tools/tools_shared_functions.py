@@ -27,6 +27,13 @@ from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
 from shapely.geometry import MultiPolygon, Polygon, shape
+from tools_shared_variables import (
+    acceptable_alt_acc_thresh,
+    acceptable_alt_meth_code_list,
+    acceptable_coord_acc_code_list,
+    acceptable_coord_method_code_list,
+    acceptable_site_type_list,
+)
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
@@ -34,6 +41,8 @@ from urllib3.util.retry import Retry
 gpd.options.io_engine = "pyogrio"
 
 
+# TODO: Jun 2025: Change this to have a path to the config via an arg.
+# See rating_curve_get_usgs_curves for an example
 def get_env_paths():
     load_dotenv()
     # import variables from .env file
@@ -83,21 +92,66 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     return filtered_segments
 
 
+def filter_usgs_by_acceptance_criteria(input_df):
+    '''
+    This function filters a USGS dataframe according the acceptance criteria.
+
+    Parameters
+    ----------
+    input_df: pd.DataFrame
+        Dataframe of USGS data to be filtered. Must contain the following columns:
+        - usgs_data_coord_accuracy_code
+        - usgs_data_coord_method_code
+        - usgs_data_alt_method_code
+        - usgs_data_site_type
+        - usgs_data_alt_accuracy_code
+
+    Returns
+    -------
+    output_df: pd.DataFrame
+        Filtered DataFrame of USGS data that meets the acceptance criteria.
+
+    # TODO: Could add an option to adjust which acceptable codes are used, but for now this is hardcoded.
+
+    '''
+    input_df['acceptable_codes'] = (
+        input_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+        & input_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+        & input_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+        & input_df['usgs_data_site_type'].isin(acceptable_site_type_list)
+    )
+    input_df = input_df.astype({'usgs_data_alt_accuracy_code': float})
+    input_df['acceptable_alt_error'] = np.where(
+        input_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
+    )
+    output_df = input_df[(input_df['acceptable_codes'] == True) & (input_df['acceptable_alt_error'] == True)]
+
+    return output_df
+
+
 def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
     '''
     This function is used in CatFIM to mask out lakes from inundated tifs.
 
-    Inputs:
+    Parameters
+    ----------
+    input_array: xarray DataArray
+        DataArray with inundation values that need lakes removed
+    huc: str
+        HUC8 id (string), needed to get the correct lakes file
+    raster_src: rasterio DatasetReader
+        src from a raster that should be uses for getting the correct raster dimensions
+    fim_run_dir: str
+        path to the fim run directory where the lakes shapefile is located
 
-    input_array: inundation TIF that needs lakes removed (called summed_array for stage-based)
-    huc: HUC8 id (string), needed to get the correct lakes file
-    raster_src: src from a raster that should be uses for getting the correct raster dimensions
-    fim_run_dir: path to the fim run directory where the lakes shapefile is located
 
-    Outputs:
+    Returns
+    -------
+    masked_array: xarray
+        DataArray with lakes masked out
+    mask_status: string,
+        status of whether lake shapefile was available
 
-    masked_array: same array as before, but with lakes masked out and the dimensions of raster_src
-    mask_status: string, status of whether lake shapefile was available
 
     '''
 
@@ -776,7 +830,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
         # filter by hucs we are using
         huc8 = huc8[huc8['HUC8'].isin(huc_list)]
 
-    huc8.sort_values(by='HUC8', ascending=True, inplace=True)
+    huc8 = huc8.sort_values(by='HUC8', ascending=True)
 
     # Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
     crs_lookup = {'NAD27': 'EPSG:4267', 'NAD83': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
@@ -1201,20 +1255,21 @@ def convert_latlon_datum(lat, lon, src_crs, dest_crs):
 #######################################################################
 # Function to get conversion adjustment NGVD to NAVD in FEET
 #######################################################################
-def ngvd_to_navd_ft(datum_info, region='contiguous'):
+def ngvd_to_navd_ft(datum_info):
     '''
     Given the lat/lon, retrieve the adjustment from NGVD29 to NAVD88 in feet.
     Uses NOAA tidal API to get conversion factor. Requires that lat/lon is
     in NAD27 crs. If input lat/lon are not NAD27 then these coords are
     reprojected to NAD27 and the reproject coords are used to get adjustment.
-    There appears to be an issue when region is not in contiguous US.
 
     Parameters
     ----------
-    lat : FLOAT
-        Latitude.
-    lon : FLOAT
-        Longitude.
+    datum_info : DICT
+        Dictionary containing site information. Must contain the following keys:
+        - 'crs': CRS of lat/lon (e.g. 'NAD27', 'NAD83', 'WGS84').
+        - 'state': State of site (e.g. 'Alaska', 'California').
+        - 'lat': Latitude of site.
+        - 'lon': Longitude of site.
 
     Returns
     -------
@@ -1235,9 +1290,8 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
 
     # Define parameters. Hard code most parameters to convert NGVD to NAVD.
     params = {}
-    params['lat'] = lat
-    params['lon'] = lon
-    params['region'] = region
+    params['s_x'] = lon  # source x, longitude
+    params['s_y'] = lat  # source y, latitude
     params['s_h_frame'] = 'NAD27'  # Source CRS
     params['s_v_frame'] = 'NGVD29'  # Source vertical coord datum
     params['s_vertical_unit'] = 'm'  # Source vertical units
@@ -1245,26 +1299,55 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
     params['t_v_frame'] = 'NAVD88'  # Target vertical datum
     params['tar_vertical_unit'] = 'm'  # Target vertical height
 
-    # Suppress Insecure Request Warning
-    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    # Run API for a given region
+    def run_vdatum_for_region(params, region):
+        params['region'] = region
 
-    # Call the API
-    session = requests.Session()
-    retry = Retry(connect=3, backoff_factor=0.5)
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount('http://', adapter)
+        # Suppress Insecure Request Warning
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-    response = session.get(datum_url, params=params, verify=False)
+        # Call the API
+        session = requests.Session()
+        retry = Retry(connect=3, backoff_factor=0.5)
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
 
-    # If successful get the navd adjustment
-    if response.status_code == 200:
+        response = session.get(datum_url, params=params, verify=False)
+
+        # Check whether API call was successfull
+        if response.status_code == 200:
+            results = response.json()
+            success = 't_z' in results
+        else:
+            success = False
+        return response, success
+
+    # Run Vdatum with region-specific parameters
+    if datum_info['state'] == 'Alaska':
+        params['s_v_geoid'] = 'geoid12b'  # Source geoid (AK-specific)
+        params['t_v_geoid'] = 'geoid12b'  # Target geoid (AK-specific)
+
+        response, success = run_vdatum_for_region(params, 'AK')
+
+        if success == False:  # If AK region fails, try running calling API with SEAK region
+            response, success = run_vdatum_for_region(params, 'SEAK')
+
+    else:
+        # For CONUS, use default geoid
+        response, success = run_vdatum_for_region(params, 'contiguous')
+
+    # Get adjustment in feet if Vdatum API call is successful
+    if success == True:
         results = response.json()
         # Get adjustment in meters (NGVD29 to NAVD88)
         adjustment = results['t_z']
         # convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084, 2)
     else:
+        message = results['message']
+        print(f'VDatum error occurred: {message}')
         adjustment_ft = None
+
     return adjustment_ft
 
 

@@ -31,6 +31,8 @@ from tools_shared_functions import (
 from utils.shared_variables import PREP_PROJECTION, VIZ_PROJECTION
 
 
+# TODO: Jun 2025: Change this to have a path to the config via an arg.
+# See rating_curve_get_usgs_curves for an example
 def get_env_paths():
     load_dotenv()
     # import variables from .env file
@@ -177,8 +179,8 @@ def preprocess_nws(source_dir, destination, reference_raster):
 
         # Adjust datum to NAVD88 if needed
         if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929']:
-            # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously removed otherwise the region needs changed.
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+            # Get the datum adjustment to convert NGVD to NAVD.
+            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
             datum88 = round(datum + datum_adj_ft, 2)
         else:
             datum88 = datum
