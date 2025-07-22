@@ -185,6 +185,9 @@ def getDriver(fileName):
     return driver
 
 
+# #################################
+# Possibly deprecated - Jun 23, 2025 - No scripts are calling this
+# if that changes, please remove this comment
 def pull_file(url, full_pulled_filepath):
     """
     This helper function pulls a file and saves it to a specified path.
