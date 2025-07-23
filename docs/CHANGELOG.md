@@ -2,6 +2,17 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
+## v4.x.x.x - 2025-07-23 - [PR#1608]([https://github.com/NOAA-OWP/inundation-mapping/pull/1608])
+
+Changes files to use `fiona` as the I/O engine when reading files with `gpd.read_file()`. The issue was originally documented in #1376 and fixed in #1490, but two more files are fixed here.
+
+### Changes
+
+- `src/`
+    - `mask_dem.py` and `mitigate_branch_outlet_backpool.py`: Added `engine='fiona'` to `gpd.read_file()`. Also removed an unnecessary file read in `mask_dem.py`.
+    
+<br/><br/>
+
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
 Updates the CatFIM site comparison tool to make the outputs better suited to be loaded into HydroVis. Add % change calculations to site change outputs. 
