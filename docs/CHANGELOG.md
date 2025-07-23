@@ -4,7 +4,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.x.x.x - 2025-07-23 - [PR#1608]([https://github.com/NOAA-OWP/inundation-mapping/pull/1608])
 
-Changes files to use `fiona` as the I/O engine when reading files with `gpd.read_file()`. The issue was originally documented in #1376 and fixed in #1490, but two more files are fixed here.
+Changes files to use `fiona` as the I/O engine when reading files with `gpd.read_file()` to avoid segmentation faults. The issue was originally documented in #1376 and fixed in #1490, but two more files are fixed here.
 
 ### Changes
 
