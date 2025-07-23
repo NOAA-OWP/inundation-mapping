@@ -2,10 +2,7 @@ import argparse
 import ast
 import os
 import shutil
-import sys
-import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from glob import iglob
+from concurrent.futures import as_completed
 from typing import Dict, Optional, Tuple, Union
 
 import geopandas as gpd
@@ -890,4 +887,5 @@ if __name__ == '__main__':
     )
 
     args = vars(parser.parse_args())
+
     inundate_hucs(**args)

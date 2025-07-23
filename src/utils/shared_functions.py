@@ -25,7 +25,11 @@ import utils.shared_variables as sv
 
 
 gp.options.io_engine = "pyogrio"
-FS_S3 = fsspec.filesystem('s3')
+
+try:
+    FS_S3 = fsspec.filesystem('s3')
+except (IOError, PermissionError):
+    FS_S3 = None
 
 
 def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
@@ -342,7 +346,7 @@ def s3_or_local_path_exists(path: str) -> bool:
     bool
         Path exists or does not exist
     """
-    if not os.path.exists(path) and not FS_S3.exists(path):
+    if not os.path.exists(path) and FS_S3 is not None and not FS_S3.exists(path):
         return False
     return True
 
@@ -361,7 +365,7 @@ def s3_or_local_isfile(path: str) -> bool:
     bool
         Path is a file or is not a file
     """
-    if not os.path.isfile(path) and not FS_S3.isfile(path):
+    if not os.path.isfile(path) and FS_S3 is not None and not FS_S3.isfile(path):
         return False
     return True
 
