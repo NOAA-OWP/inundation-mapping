@@ -11,7 +11,7 @@ import rasterio as rio
 from rasterio.mask import mask
 
 
-gpd.options.io_engine = "pyogrio"
+# gpd.options.io_engine = "pyogrio"
 
 
 def mask_dem(
@@ -71,7 +71,9 @@ def mask_dem(
 
         elif os.path.exists(levee_levelpaths):
             # Mask levee-protected areas protected against level path
-            levee_levelpaths = pd.read_csv(levee_levelpaths)
+            catchments = gpd.read_file(catchments_filename, engine='fiona')
+            levee_levelpaths = pd.read_csv(levee_levelpaths, engine='fiona')
+            leveed = gpd.read_file(nld_filename, engine='fiona')
 
             # Select levees associated with branch
             levee_levelpaths = levee_levelpaths[levee_levelpaths[branch_id_attribute] == branch_id]
@@ -80,8 +82,6 @@ def mask_dem(
             levelpath_levees = list(levee_levelpaths[levee_id_attribute])
 
             if len(levelpath_levees) > 0:
-                leveed = gpd.read_file(nld_filename, engine='fiona')
-
                 # Get geometries of levee protected areas associated with levelpath
                 geoms = [
                     feature['geometry']
@@ -93,9 +93,6 @@ def mask_dem(
                     dem_masked, _ = mask(dem, geoms, invert=True)
 
             # Mask levee-protected areas not protected against level path
-            catchments = gpd.read_file(catchments_filename, engine='fiona')
-            leveed = gpd.read_file(nld_filename, engine='fiona')
-
             leveed_area_catchments = gpd.overlay(catchments, leveed, how="union")
 
             # Select levee catchments not associated with level path
