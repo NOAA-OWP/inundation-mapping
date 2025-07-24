@@ -1,13 +1,22 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-06-17 - [PR#1554]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
+## v4.8.7.2 - 2025-07-24 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
 
+### Additions
+- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Getting ensembles from NOMADS
+- `tools/lofi/probabilistic_get_ensembles_nomads.py`: Getting ensembles from Google Cloud Service
+
 ### Changes
-- `tools/lofi/`
-   `probabilistic_inundation.py`: as described
+- `src/utils/shared_functions.py`: Added S3 or local methods for glob, is file, and file exists.
+- `tools/inundate_gms.py`: Add S3 read capabilities.
+- `tools/inundate_mosaic_wrapper`: Add S3 read capabilities.
+- `tools/overlapping_inundation.py`: Add thread lock to writes.
+- `tools/inundation.py`: Check for missing inundation raster.
+- `tools/lofi/probabilistic_bayesian_update`: Add data conversions and correct location parameters.
+- `tools/lofi/probabilistic_inundation.py`: Performance enhancements.
 
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
