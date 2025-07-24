@@ -292,7 +292,7 @@ def get_subdivided_src(
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
         * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
-        * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        * pow(np.max([df_src['SLOPE_RISE_RUN'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
         / df_src['channel_n']
     )
     df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
