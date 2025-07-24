@@ -72,7 +72,7 @@ def mask_dem(
         elif os.path.exists(levee_levelpaths):
             # Mask levee-protected areas protected against level path
             catchments = gpd.read_file(catchments_filename, engine='fiona')
-            levee_levelpaths = pd.read_csv(levee_levelpaths, engine='fiona')
+            levee_levelpaths = pd.read_csv(levee_levelpaths)
             leveed = gpd.read_file(nld_filename, engine='fiona')
 
             # Select levees associated with branch
