@@ -610,7 +610,7 @@ def inundate_probabilistic(
             for d, p in zip(datasets, percentiles):
                 data = d.read(1, window=window)
                 nodata_mask = data == nodata
-                data = np.where(data > 0, np.int8(p), 0)
+                data = np.where(data > 0, p, 0)
                 data[nodata_mask] = -10000
                 arrays.append(data)
 
@@ -620,6 +620,8 @@ def inundate_probabilistic(
 
     if output_vector is True:
 
+        out_vec = os.path.join(base_output_path, output_file_name.replace(".tif", ".gpkg"))
+
         def _make_geometry(shapes):
             for p, v in shapes:
                 yield shape(p), v
@@ -628,7 +630,7 @@ def inundate_probabilistic(
             shapes = rasterio.features.shapes(rst.read(1), mask=None, transform=rst.transform)
             gdf = gpd.GeoDataFrame(_make_geometry(shapes), columns=['geometry', 'value'], crs=raster_crs)
             gdf = gdf.set_geometry('geometry')
-            gdf.to_file(os.path.join(base_output_path, output_file_name))
+            gdf.to_file(out_vec)
 
     for file in percentile_files:
         os.remove(file)
