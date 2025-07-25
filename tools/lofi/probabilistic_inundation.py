@@ -610,7 +610,7 @@ def inundate_probabilistic(
             for d, p in zip(datasets, percentiles):
                 data = d.read(1, window=window)
                 nodata_mask = data == nodata
-                data = np.where(data > 0, p, 0)
+                data = np.where(data > 0, int(p), 0)
                 data[nodata_mask] = -10000
                 arrays.append(data)
 
