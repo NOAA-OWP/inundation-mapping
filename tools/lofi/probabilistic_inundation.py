@@ -506,8 +506,7 @@ def inundate_probabilistic(
         sel_forecast = ensembles.sel({'time': forecast_time})['streamflow']
 
     # Generate streamflow likelihoods for each feature
-    for feat in features:
-        feat = feat if isinstance(feat, int) else int(feat)
+    for feat in map(int, features):
         ensemble_forecast = sel_forecast.sel({'feature_id': feat})
 
         res = generate_streamflow_percentiles(
@@ -610,9 +609,8 @@ def inundate_probabilistic(
             arrays = []
             for d, p in zip(datasets, percentiles):
                 data = d.read(1, window=window)
-                nodata_mask = np.where(data == nodata)
-                data[np.where(data > 0)] = np.int8(p)
-                data[np.where(data < 0)] = 0
+                nodata_mask = data == nodata
+                data = np.where(data > 0, np.int8(p), 0)
                 data[nodata_mask] = -10000
                 arrays.append(data)
 
