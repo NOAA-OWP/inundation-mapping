@@ -134,7 +134,9 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
             continue
 
         # Get the stages and flows
-        stages, flows = get_thresholds(threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all')
+        stages, flows, threshold_count = get_thresholds(
+            threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
+        )
 
         # For each flood category
         for category in ['action', 'minor', 'moderate', 'major']:
@@ -622,7 +624,6 @@ def __setup_logger(output_folder_path):
 if __name__ == '__main__':
     '''
     Retrieve USGS rating curves adjusted to elevation (NAVD88).
-    Currently configured to get rating curves within CONUS. # TODO: Check whether this is still true. Update if needed.
     Recommend running outside of business hours to reduce API related errors.
     If error occurs try increasing sleep time (from default of 1).
 
