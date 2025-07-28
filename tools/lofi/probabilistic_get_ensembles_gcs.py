@@ -1,15 +1,11 @@
 import gc
 import os
-from datetime import datetime, timedelta
-from glob import glob
-from itertools import product
-from typing import List, Union
+from datetime import datetime
+from typing import List
 
 import gcsfs
 import geopandas as gpd
 import numpy as np
-import pandas as pd
-import requests
 import xarray as xr
 from tqdm.notebook import tqdm
 

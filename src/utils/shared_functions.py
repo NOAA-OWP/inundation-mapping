@@ -15,10 +15,10 @@ from os.path import splitext
 from pathlib import Path
 
 import fiona
-import fsspec
 import geopandas as gp
 import numpy as np
 import pandas as pd
+from fsspec.core import url_to_fs
 from tqdm import tqdm
 
 import utils.shared_variables as sv
@@ -341,7 +341,7 @@ def s3_or_local_path_exists(path: str) -> bool:
     bool
         Path exists or does not exist
     """
-    fs, pth = fsspec.url_to_fs(path)
+    fs, pth = url_to_fs(path)
     return fs.exists(pth)
 
 
@@ -359,7 +359,7 @@ def s3_or_local_isfile(path: str) -> bool:
     bool
         Path is a file or is not a file
     """
-    fs, pth = fsspec.url_to_fs(path)
+    fs, pth = url_to_fs(path)
     return fs.isfile(pth)
 
 
@@ -377,7 +377,7 @@ def s3_or_local_glob(path: str) -> list:
     list
         Paths and directories associated with glob operation
     """
-    fs, pth = fsspec.url_to_fs(path)
+    fs, pth = url_to_fs(path)
     return fs.glob(pth)
 
 

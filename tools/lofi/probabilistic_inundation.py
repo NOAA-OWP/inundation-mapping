@@ -701,7 +701,7 @@ def inundate_hucs(
     ensembles: str
         Location of nws ensemble NetCDF file
     parameters: str
-        Location of parameter CSV file
+        Location of parameter parquet file
     hydrofabric_dir: str
         Directory with the hydrofabric directories
     outputs_dir: str
