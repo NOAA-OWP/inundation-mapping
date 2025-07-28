@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.7.2 - 2025-07-24 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
+## v4.8.7.4 - 2025-07-24 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
 
@@ -10,6 +10,7 @@ Some minor tweaks that should help the performance of lofi. Also included are a 
 - `tools/lofi/probabilistic_get_ensembles_nomads.py`: Getting ensembles from Google Cloud Service
 
 ### Changes
+- `Pipfile & Pipfile.lock`:  Added gcsfs dependency for getting NWM data off of the Google Cloud Service.
 - `src/utils/shared_functions.py`: Added S3 or local methods for glob, is file, and file exists.
 - `tools/inundate_gms.py`: Add S3 read capabilities.
 - `tools/inundate_mosaic_wrapper`: Add S3 read capabilities.
@@ -17,6 +18,35 @@ Some minor tweaks that should help the performance of lofi. Also included are a 
 - `tools/inundation.py`: Check for missing inundation raster.
 - `tools/lofi/probabilistic_bayesian_update`: Add data conversions and correct location parameters.
 - `tools/lofi/probabilistic_inundation.py`: Performance enhancements.
+
+<br/><br/>
+
+## v4.8.7.3 - 2025-07-28 - [PR#1573](https://github.com/NOAA-OWP/inundation-mapping/pull/1573)
+
+In the recent tests of the CatFIM code, the processing errored out during the Inundate_gms() processing. This update resolves the error by re-implementing the branch hydrotable functionality and updating the input parameters for the inundate_gms() function in the CatFIM code.
+
+### Changes
+- `tools/inundate_gms.py`: Re-implement functionality to use branch hydrotables (rather than HUC hydrotables) inside `__inundate_gms_generator()`.
+- `tools/catfim/generate_categorical_fim_mapping.py`: Updated output of `get_thresholds()` function. Removed logic that disregarded LIDs with more or fewer characters than 5 in certain site filtration sections. Fixed '---' bug by adding logic to remove that prefix if the site is not on the `valid_ahps_ids` (in other words, not mapped). Add improved status messaging for when sites are not found on the WRDS API (which uses the new `threshold_count` variable). 
+- `tools/catfim/generate_categorical_fim_mapping.py`:  Fixed HAND gage elevation so they are correctly working in millimeters rather than meters and being saved as `uint16` rather than `uint8`.
+- `tools/catfim/generate_categorical_fim_flows.py`: Updated output of `get_thresholds()` function.
+- `tools/tools_shared_functions.py`: Updated `get_thresholds()` function to output the number of thresholds found for the site.
+- `data/nws/preprocess_ahps_nws.py`: Updated output of `get_thresholds()` function.
+- `data/usgs/preprocess_ahps_usgs.py`: Updated output of `get_thresholds()` function.
+- `data/usgs/rating_curve_get_usgs_curves.py`: Updated output of `get_thresholds()` function.
+- `tools/catfim/ahps_restricted_sites.csv`: Added site BOCC2AJM to restricted sites.
+
+<br/><br/>
+
+## v4.8.7.2 - 2025-07-28 - [PR#1605]([https://github.com/NOAA-OWP/inundation-mapping/pull/1605])
+
+Addresses bug related to the `location_id` data type that is read in from the `acceptable_sites` csv file in `src/src_adjusts_usgs_rating_trace.py`. A previous code change updated this script and added the `acceptable_sites` input and it needs to be modified to specify the data type as "object" to ensure the leading zero is appropriately captured (the pandas default for the "location_id" is dtype=int). Closes #1605 
+
+### Changes
+`src/src_adjust_usgs_rating_trace.py`: Added `dtype={'location_id': object}` to the acceptable_sites csv file read
+  
+<br/><br/>
+
 
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
@@ -30,7 +60,7 @@ Updates the CatFIM site comparison tool to make the outputs better suited to be 
   - Added percent area change calculations for inundated area comparisons.
   
 <br/><br/>
-  
+
 
 ## v4.8.7.0 - 2025-07-18 - [PR#1597](https://github.com/NOAA-OWP/inundation-mapping/pull/1597)
 
