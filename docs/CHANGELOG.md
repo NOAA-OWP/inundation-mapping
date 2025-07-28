@@ -7,7 +7,14 @@ In the recent tests of the CatFIM code, the processing errored out during the In
 
 ### Changes
 - `tools/inundate_gms.py`: Re-implement functionality to use branch hydrotables (rather than HUC hydrotables) inside `__inundate_gms_generator()`.
-- `tools/catfim/generate_categorical_fim_mapping.py`: Update inputs to the `Inundate_gms()` function.
+- `tools/catfim/generate_categorical_fim_mapping.py`: Updated output of `get_thresholds()` function. Removed logic that disregarded LIDs with more or fewer characters than 5 in certain site filtration sections. Fixed '---' bug by adding logic to remove that prefix if the site is not on the `valid_ahps_ids` (in other words, not mapped). Add improved status messaging for when sites are not found on the WRDS API (which uses the new `threshold_count` variable). 
+- `tools/catfim/generate_categorical_fim_mapping.py`:  Fixed HAND gage elevation so they are correctly working in millimeters rather than meters and being saved as `uint16` rather than `uint8`.
+- `tools/catfim/generate_categorical_fim_flows.py`: Updated output of `get_thresholds()` function.
+- `tools/tools_shared_functions.py`: Updated `get_thresholds()` function to output the number of thresholds found for the site.
+- `data/nws/preprocess_ahps_nws.py`: Updated output of `get_thresholds()` function.
+- `data/usgs/preprocess_ahps_usgs.py`: Updated output of `get_thresholds()` function.
+- `data/usgs/rating_curve_get_usgs_curves.py`: Updated output of `get_thresholds()` function.
+- `tools/catfim/ahps_restricted_sites.csv`: Added site BOCC2AJM to restricted sites.
 <br/>
 
 ## v4.8.7.2 - 2025-07-28 - [PR#1605]([https://github.com/NOAA-OWP/inundation-mapping/pull/1605])
