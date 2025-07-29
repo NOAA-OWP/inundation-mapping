@@ -6,11 +6,9 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
 
 ### Additions
-- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Getting ensembles from NOMADS
-- `tools/lofi/probabilistic_get_ensembles_nomads.py`: Getting ensembles from Google Cloud Service
+- `tools/lofi/probabilistic_get_ensembles_nomads.py`: Getting ensembles from NOMADS.
 
 ### Changes
-- `Pipfile & Pipfile.lock`:  Added gcsfs dependency for getting NWM data off of the Google Cloud Service.
 - `src/utils/shared_functions.py`: Added S3 or local methods for glob, is file, and file exists.
 - `tools/inundate_gms.py`: Add S3 read capabilities.
 - `tools/inundate_mosaic_wrapper`: Add S3 read capabilities.
