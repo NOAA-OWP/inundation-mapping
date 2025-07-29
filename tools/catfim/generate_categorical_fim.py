@@ -386,9 +386,13 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
         if len(file_name_segs) <= 1:
             continue
         ahps_id = file_name_segs[1]
-        if len(ahps_id) == 5:  # yes, we assume the ahps in the second arg
-            if ahps_id not in ahps_ids_with_gpkgs:
-                ahps_ids_with_gpkgs.append(ahps_id)
+
+        # if len(ahps_id) == 5: 7/17/25 - Removed this logic
+        # because LID lengths above 5 characters are probably
+        # invalid but we are not checking that here.
+
+        if ahps_id not in ahps_ids_with_gpkgs:
+            ahps_ids_with_gpkgs.append(ahps_id)
 
     return ahps_ids_with_gpkgs
 
@@ -421,7 +425,6 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
     try:
 
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
-
         if len(valid_ahps_ids) == 0:
             FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
             sys.exit(1)
@@ -432,11 +435,21 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
             status_val = row['status']
 
             if ahps_id not in valid_ahps_ids:
+
                 sites_gdf.at[ind, 'mapped'] = 'no'
+                FLOG.warning(
+                    f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found."
+                )
 
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
-                    FLOG.warning(f"Mapped status was changed to no for {ahps_id}. No inundation files exist")
+
+                else:
+                    if status_val.startswith("---") == True:
+                        status_val = status_val[3:]  # remove the "---" from the status
+
+                    sites_gdf.at[ind, 'status'] = status_val + ', site resulted with no valid inundated files'
+
                 continue
                 # It is safe to assume a status message for invalid ones already exist
 
@@ -579,8 +592,8 @@ def iterate_through_huc_stage_based(
             for lid in nws_lids:
 
                 # debugging
-                # if lid.upper() not in ['ALWP1','ILTP1', 'JRSP1']:
-                #   continue
+                # if lid.upper() not in ['PNTA3', 'PWBA3']:
+                #    continue
 
                 # TODO: Oct 2024, yes. this is goofy but temporary
                 # Some lids will add a status message but are allowed to continue.
@@ -606,7 +619,7 @@ def iterate_through_huc_stage_based(
                     reason = found_restrict_lid.iloc[
                         0, found_restrict_lid.columns.get_loc("restricted_reason")
                     ]
-                    msg = ': Restricted Site - ' + reason
+                    msg = ':Restricted Site - ' + reason
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -618,13 +631,25 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
-                thresholds, flows = get_thresholds(
+                thresholds, flows, threshold_count = get_thresholds(
                     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
                 )
 
+                # temp debug
                 # MP_LOG.lprint(f"thresholds are {thresholds}")
                 # MP_LOG.lprint(f"flows are {flows}")
 
+                # If no thresholds are found, write message and exit.
+                # Many sites that used to have 'Error getting thresholds from WRDS API' should now
+                # have this more descriptive status message
+                if threshold_count == 0:
+                    msg = ':No thresholds found on WRDS API'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
+
+                # If there are no thresholds but the threshold_count is greater than 0 or NA (unlikely).
+                # write message and exit.
                 if thresholds is None or len(thresholds) == 0:
                     msg = ':Error getting thresholds from WRDS API'
                     all_messages.append(lid + msg)
@@ -632,8 +657,10 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Check if stages are supplied, if not write message and exit.
+                # This message will occur if some thresholds are supplied, but not for the
+                # categories we use (such as  “low” or “bankfull”)
                 if all(thresholds.get(category, None) is None for category in categories):
-                    msg = ':Missing all threshold stage data'
+                    msg = ':No thresholds for required categories found on WRDS API'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -643,10 +670,6 @@ def iterate_through_huc_stage_based(
                 # Hold the warning_msg to the end
                 stage_values_df, valid_stage_names, stage_warning_msg, err_msg = __calc_stage_values(
                     categories, thresholds
-                )
-
-                MP_LOG.trace(
-                    f"{huc_lid_id}:" f" stage values (pre-processed) are {stage_values_df.values.tolist()}"
                 )
 
                 if err_msg != "":
@@ -706,6 +729,7 @@ def iterate_through_huc_stage_based(
                 datum_adj_ft, datum_messages = __adjust_datum_ft(flows, metadata, lid, huc_lid_id)
                 all_messages = all_messages + datum_messages
                 if datum_adj_ft is None:
+                    MP_LOG.warning(f"{huc_lid_id}: datum_adj_ft is None")
                     continue
 
                 # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
@@ -854,8 +878,6 @@ def iterate_through_huc_stage_based(
                     by='stage_value'
                 ).reset_index()
 
-                # MP_LOG.trace(f"non_rec_stage_values_df is {non_rec_stage_values_df}")
-
                 # +++++++++++++++++++++++++++++
                 # Creating interval tifs (if applicable)
 
@@ -946,12 +968,8 @@ def iterate_through_huc_stage_based(
 
                 # for threshold in categories:  (threshold and category are somewhat interchangeable)
                 # some may have failed inundation, which we will rectify later
-                MP_LOG.trace(f"{huc_lid_id}: updating threshhold values")
-
                 for threshold in valid_stage_names:
-
                     try:
-
                         # we don't know if the magnitude/stage can be mapped yes it hasn't been inundated
                         line_df = pd.DataFrame(
                             {
@@ -1213,20 +1231,22 @@ def load_restricted_sites(is_stage_based):
 
     # There are enough conditions and a low number of rows that it is easier to
     # test / change them via a for loop
-    indexs_for_recs_to_be_removed_from_list = []
+    # indexs_for_recs_to_be_removed_from_list = [] -> Removed 7/17/25
 
     # Clean up dataframe
     for ind, row in df_restricted_sites.iterrows():
         nws_lid = row['nws_lid']
         restricted_reason = row['restricted_reason']
 
-        if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
-            FLOG.warning(
-                f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
-                " and has dropped from processing"
-            )
-            indexs_for_recs_to_be_removed_from_list.append(ind)
-            continue
+        # if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
+        # (7/17/25) Removed this logic becuase it was preventing sites with more or
+        # less than 5 character LIDs from being filtered out.
+        #     FLOG.warning(
+        #         f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
+        #         " and has dropped from processing"
+        #     )
+        #     indexs_for_recs_to_be_removed_from_list.append(ind)
+        #     continue
 
         if restricted_reason == "":
             restricted_reason = "From the ahps_restricted_sites,"
@@ -1238,8 +1258,10 @@ def load_restricted_sites(is_stage_based):
 
     # Invalid records in CSV (not dropping, just completely invalid recs from the csv)
     # Could be just blank rows from the csv
-    if len(indexs_for_recs_to_be_removed_from_list) > 0:
-        df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
+    # (7/17/25) Removed this logic becuase it was preventing sites with more or
+    # less than 5 character LIDs from being filtered out.
+    # if len(indexs_for_recs_to_be_removed_from_list) > 0:
+    #     df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
 
     # Filter df_restricted_sites by CatFIM type
     if is_stage_based == True:  # Keep rows where 'catfim_type' is either 'stage' or 'both'
@@ -1356,10 +1378,9 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     datum_adj_ft = 0.0
     crs = datum_data.get('crs')
     if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
-        # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously
-        #   removed otherwise the region needs changed.
+        # Get the datum adjustment to convert NGVD to NAVD.
         try:
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
         except Exception as ex:
             MP_LOG.error(f"ERROR: {huc_lid_id}: ngvd_to_navd_ft")
             MP_LOG.error(traceback.format_exc())
@@ -1371,7 +1392,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
             if 'HTTPSConnectionPool' in ex:
                 time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                 try:
-                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
                 except Exception:
                     msg = ':NOAA VDatum adjustment error, possible API issue'
                     all_messages.append(lid + msg)
@@ -1517,7 +1538,6 @@ def __calculate_category_key(category, stage_value, is_interval_stage):
 
     # The "i" in the end means it is an interval
     # Now we are action_24.0ft or action_24.6ft or action_24.65ft or action_24.0fti
-
     if is_interval_stage == True:
         category_key += "i"
 

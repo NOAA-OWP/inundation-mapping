@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import datetime as dt
 import gc
 import json
@@ -713,7 +712,7 @@ def get_metadata(
     metadata_url : STR
         metadata base URL.
     select_by : STR
-        Location search option. Options include: 'state', TODO: add options
+        Location search option. Options include: 'state', TODO: test 'nws_lid'
     selector : LIST
         Value to match location data against. Supplied as a LIST.
     must_include : STR, optional
@@ -782,6 +781,7 @@ def get_metadata(
         metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
     else:
         # if request was not succesful, print error message.
+        # TODO: Output this as a status string because the print is getting suppressed
         print(f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}')
         # Return empty outputs
         metadata_list = []
@@ -1056,6 +1056,8 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         Dictionary of stages at each threshold.
     flows : DICT
         Dictionary of flows at each threshold.
+    threshold_count : INT
+        Number of thresholds available for the site.
 
     '''
     params = {}
@@ -1079,6 +1081,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         thresholds_json = response.json()
         # Get metadata
         thresholds_info = thresholds_json['value_set']
+        threshold_count = thresholds_json['_metrics']['threshold_count']
         # Initialize stages/flows dictionaries
         stages = {}
         flows = {}
@@ -1115,7 +1118,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
                 stages['units'] = threshold_data.get('metadata').get('stage_units')
                 flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
-        return stages, flows
+        return stages, flows, threshold_count
     else:
         print("WRDS response error: ")
 
@@ -1255,7 +1258,7 @@ def convert_latlon_datum(lat, lon, src_crs, dest_crs):
 #######################################################################
 # Function to get conversion adjustment NGVD to NAVD in FEET
 #######################################################################
-def ngvd_to_navd_ft(datum_info, region='contiguous'):
+def ngvd_to_navd_ft(datum_info):
     '''
     Given the lat/lon, retrieve the adjustment from NGVD29 to NAVD88 in feet.
     Uses NOAA tidal API to get conversion factor. Requires that lat/lon is
@@ -1266,10 +1269,12 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
 
     Parameters
     ----------
-    lat : FLOAT
-        Latitude.
-    lon : FLOAT
-        Longitude.
+    datum_info : DICT
+        Dictionary containing site information. Must contain the following keys:
+        - 'crs': CRS of lat/lon (e.g. 'NAD27', 'NAD83', 'WGS84').
+        - 'state': State of site (e.g. 'Alaska', 'California').
+        - 'lat': Latitude of site.
+        - 'lon': Longitude of site.
 
     Returns
     -------
@@ -1290,9 +1295,8 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
 
     # Define parameters. Hard code most parameters to convert NGVD to NAVD.
     params = {}
-    params['lat'] = lat
-    params['lon'] = lon
-    params['region'] = region
+    params['s_x'] = lon  # source x, longitude
+    params['s_y'] = lat  # source y, latitude
     params['s_h_frame'] = 'NAD27'  # Source CRS
     params['s_v_frame'] = 'NGVD29'  # Source vertical coord datum
     params['s_vertical_unit'] = 'm'  # Source vertical units
@@ -1300,26 +1304,55 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
     params['t_v_frame'] = 'NAVD88'  # Target vertical datum
     params['tar_vertical_unit'] = 'm'  # Target vertical height
 
-    # Suppress Insecure Request Warning
-    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    # Run API for a given region
+    def run_vdatum_for_region(params, region):
+        params['region'] = region
 
-    # Call the API
-    session = requests.Session()
-    retry = Retry(connect=3, backoff_factor=0.5)
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount('http://', adapter)
+        # Suppress Insecure Request Warning
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-    response = session.get(datum_url, params=params, verify=False)
+        # Call the API
+        session = requests.Session()
+        retry = Retry(connect=3, backoff_factor=0.5)
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
 
-    # If successful get the navd adjustment
-    if response.status_code == 200:
+        response = session.get(datum_url, params=params, verify=False)
+
+        # Check whether API call was successfull
+        if response.status_code == 200:
+            results = response.json()
+            success = 't_z' in results
+        else:
+            success = False
+        return response, success
+
+    # Run Vdatum with region-specific parameters
+    if datum_info['state'] == 'Alaska':
+        params['s_v_geoid'] = 'geoid12b'  # Source geoid (AK-specific)
+        params['t_v_geoid'] = 'geoid12b'  # Target geoid (AK-specific)
+
+        response, success = run_vdatum_for_region(params, 'AK')
+
+        if success == False:  # If AK region fails, try running calling API with SEAK region
+            response, success = run_vdatum_for_region(params, 'SEAK')
+
+    else:
+        # For CONUS, use default geoid
+        response, success = run_vdatum_for_region(params, 'contiguous')
+
+    # Get adjustment in feet if Vdatum API call is successful
+    if success == True:
         results = response.json()
         # Get adjustment in meters (NGVD29 to NAVD88)
         adjustment = results['t_z']
         # convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084, 2)
     else:
+        message = results['message']
+        print(f'VDatum error occurred: {message}')
         adjustment_ft = None
+
     return adjustment_ft
 
 
