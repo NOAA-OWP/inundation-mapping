@@ -12,6 +12,79 @@ Adds NFHL `availability` layer to floodplain adjustment outside of areas covered
 - `src/adjust_floodplains.py`: Modifies to use NFHL `availability` where floodplain data exists but doesn't have coverage.
 
 <br/><br/>
+## v4.8.8.2 - 2025-07-30 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+
+Clips NWM streams at the land/sea mask.
+
+### Changes
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Clips NWM streams at the land/sea mask
+    - `generate_pre_clip_fim_huc8.py`: Corrects a spelling error
+- `src/`
+    - `agreedem.py`: Check if `smogrid` is nodata and exits if so
+    - `bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date
+    - `run_by_branch.sh`: Formatting
+<br/>
+
+## v4.8.8.1 - 2025-07-30 - [PR#1591](https://github.com/NOAA-OWP/inundation-mapping/pull/1591)
+
+Clipping of NWM streams below the HUC can cause issues if a stream exits and re-enters the DEM. The buffering causes the outlet to not extend to the edge of the DEM even if the ultimate outlet does. This results in "reverse flow" during the pit-filling operation which causes flat areas in the filled DEM and the loss of catchments as the DEM-derived reaches deviate from the NWM streams. Removing the clipping of the outlet streams anywhere below the HUC corrects the DEM so that the pit-filling produces the correct result.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Removes clipping from streams below HUC
+<br/>
+
+## v4.8.8.0 - 2025-07-30 - [PR#1543](https://github.com/NOAA-OWP/inundation-mapping/pull/1543)
+
+This PR addresses the issue #1385 and includes the following enhancements:
+
+- Ingests OSM roads as a new input data for FIM.
+
+- Integrates roads data into the FIM pipeline to process roads flood impacts (FIMpact)
+
+- Develops a new tool to identify inundated roads for a given flood event
+
+### Additions
+
+- data/roads/pull_osm_roads.py
+- src/process_roads_fimpact.py
+- tools/road_inundation.py
+
+### Changes
+- src/aggregate_by_huc.py
+- src/delineate_hydros_and_produce_HAND.sh
+- src/bash_variables.env
+- fim_post_processing.sh
+<br/>
+
+## v4.8.7.3 - 2025-07-28 - [PR#1573](https://github.com/NOAA-OWP/inundation-mapping/pull/1573)
+
+In the recent tests of the CatFIM code, the processing errored out during the Inundate_gms() processing. This update resolves the error by re-implementing the branch hydrotable functionality and updating the input parameters for the inundate_gms() function in the CatFIM code.
+
+### Changes
+- `tools/inundate_gms.py`: Re-implement functionality to use branch hydrotables (rather than HUC hydrotables) inside `__inundate_gms_generator()`.
+- `tools/catfim/generate_categorical_fim_mapping.py`: Updated output of `get_thresholds()` function. Removed logic that disregarded LIDs with more or fewer characters than 5 in certain site filtration sections. Fixed '---' bug by adding logic to remove that prefix if the site is not on the `valid_ahps_ids` (in other words, not mapped). Add improved status messaging for when sites are not found on the WRDS API (which uses the new `threshold_count` variable). 
+- `tools/catfim/generate_categorical_fim_mapping.py`:  Fixed HAND gage elevation so they are correctly working in millimeters rather than meters and being saved as `uint16` rather than `uint8`.
+- `tools/catfim/generate_categorical_fim_flows.py`: Updated output of `get_thresholds()` function.
+- `tools/tools_shared_functions.py`: Updated `get_thresholds()` function to output the number of thresholds found for the site.
+- `data/nws/preprocess_ahps_nws.py`: Updated output of `get_thresholds()` function.
+- `data/usgs/preprocess_ahps_usgs.py`: Updated output of `get_thresholds()` function.
+- `data/usgs/rating_curve_get_usgs_curves.py`: Updated output of `get_thresholds()` function.
+- `tools/catfim/ahps_restricted_sites.csv`: Added site BOCC2AJM to restricted sites.
+<br/>
+
+## v4.8.7.2 - 2025-07-28 - [PR#1605]([https://github.com/NOAA-OWP/inundation-mapping/pull/1605])
+
+Addresses bug related to the `location_id` data type that is read in from the `acceptable_sites` csv file in `src/src_adjusts_usgs_rating_trace.py`. A previous code change updated this script and added the `acceptable_sites` input and it needs to be modified to specify the data type as "object" to ensure the leading zero is appropriately captured (the pandas default for the "location_id" is dtype=int). Closes #1605 
+
+### Changes
+`src/src_adjust_usgs_rating_trace.py`: Added `dtype={'location_id': object}` to the acceptable_sites csv file read
+  
+<br/><br/>
+
+
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
 Updates the CatFIM site comparison tool to make the outputs better suited to be loaded into HydroVis. Add % change calculations to site change outputs. 
@@ -24,7 +97,7 @@ Updates the CatFIM site comparison tool to make the outputs better suited to be 
   - Added percent area change calculations for inundated area comparisons.
   
 <br/><br/>
-  
+
 
 ## v4.8.7.0 - 2025-07-18 - [PR#1597](https://github.com/NOAA-OWP/inundation-mapping/pull/1597)
 
@@ -37,7 +110,24 @@ Removing the hydrofabric slope values for now due to issues with erroneous value
 
 ## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
-Resolves #1551.
+## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+
+Clips NWM streams at the land/sea mask.
+
+### Changes
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Clips NWM streams at the land/sea mask
+    - `generate_pre_clip_fim_huc8.py`: Corrects a spelling error
+- `src/`
+    - `agreedem.py`: Check if `smogrid` is nodata and exits if so
+    - `bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date
+    - `run_by_branch.sh`: Formatting
+
+<br/><br/>
+
+
+## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
 This pull requests updates the ngvd_to_navd_ft() function which uses the Vdatum API to convert elevation from NGVD29 to NAVD88 in feet.
 
@@ -56,7 +146,8 @@ This update corrects the coordinate input values and adds a check for whether th
 - `data/usgs/rating_curve_get_usgs_curves.py`:  Updated `ngvd_to_navd_ft()` inputs.
 
 #### Note: This does trigger a need to download new usgs_rating curves (rating_curve_get_usgs_curves.py), but we will do that after this PR is merged due to time constraints. We can make adjustments if needed later.   However, the fixes here are needed for CatFIM as well.
-<br/>
+<br/><br/>
+
 
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
 
