@@ -1172,13 +1172,17 @@ class StreamNetwork(gpd.GeoDataFrame):
         self_in_wbd = gpd.sjoin(self, wbd)
         self_in_wbd = self_in_wbd.drop('index_right', axis=1)
 
-        # Find downstream segments outside of WBD
-        self_not_in_wbd = self_ref[~self_ref['ID'].isin(self_in_wbd['ID'])]
+        # # Find downstream segments outside of WBD
+        # self_not_in_wbd = self_ref[~self_ref['ID'].isin(self_in_wbd['ID'])]
 
         # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
         sjoin = gpd.sjoin(self_in_wbd, wbd, predicate='crosses')  # this finds both inflows and outflows
 
-        outflows = sjoin[sjoin['to'].isin(self_not_in_wbd['ID'])]
+        outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
+
+        # if outflows.empty:
+        #     # Alternate method -- when there are no segments downstream of any outlets
+        #     outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
 
         if outflows.empty:
             self.write(out_vector_files, index=False)
@@ -1231,30 +1235,28 @@ class StreamNetwork(gpd.GeoDataFrame):
                     merged_line = list(merged_line.geoms)[0]
                     self.loc[lpid, "geometry"] = merged_line
 
-        self = StreamNetwork(
-            self,
-            branch_id_attribute=branch_id_attribute,
-            attribute_excluded=attribute_excluded,
-            values_excluded=values_excluded,
-        )
+        # self = StreamNetwork(
+        #     self,
+        #     branch_id_attribute=branch_id_attribute,
+        #     attribute_excluded=attribute_excluded,
+        #     values_excluded=values_excluded,
+        # )
 
-        # merges each multi-line string to a singular linestring
-        for lpid, row in tqdm(
-            self.iterrows(), total=len(self), disable=(not verbose), desc="Merging mult-part geoms"
-        ):
-            if isinstance(row.geometry, MultiLineString):
-                merged_line = linemerge(row.geometry)
+        # # merges each multi-line string to a singular linestring
+        # for lpid, row in tqdm(
+        #     self.iterrows(), total=len(self), disable=(not verbose), desc="Merging mult-part geoms"
+        # ):
+        #     if isinstance(row.geometry, MultiLineString):
+        #         merged_line = linemerge(row.geometry)
 
-                # self.loc[lpid,'geometry'] = merged_line
-                try:
-                    self.loc[lpid, "geometry"] = merged_line
-                except ValueError:
-                    merged_line = list(merged_line.geoms)[0]
-                    self.loc[lpid, "geometry"] = merged_line
+        #         # self.loc[lpid,'geometry'] = merged_line
+        #         try:
+        #             self.loc[lpid, "geometry"] = merged_line
+        #         except ValueError:
+        #             merged_line = list(merged_line.geoms)[0]
+        #             self.loc[lpid, "geometry"] = merged_line
 
-        if out_vector_files is not None and not self_not_in_wbd.empty:
-            self.write(out_vector_files, index=False)
-        else:
+        if isinstance(self, gpd.GeoDataFrame):
             # self[branch_id_attribute] = bids
             self = StreamNetwork(
                 self,
@@ -1263,13 +1265,10 @@ class StreamNetwork(gpd.GeoDataFrame):
                 values_excluded=values_excluded,
             )
 
-            if out_vector_files is not None:
-                if verbose:
-                    print("Writing dissolved branches ...")
+        if verbose:
+            print("Writing dissolved branches ...")
 
-                self.write(out_vector_files, index=False)
-
-            self.write(out_vector_files, index=False)
+        self.write(out_vector_files, index=False)
 
         return self
 
