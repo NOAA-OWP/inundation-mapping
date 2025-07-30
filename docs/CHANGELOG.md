@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-07-29 - [PR#1577](https://github.com/NOAA-OWP/inundation-mapping/pull/1577)
+## v4.8.9.0 - 2025-07-30 - [PR#1577](https://github.com/NOAA-OWP/inundation-mapping/pull/1577)
 
 This PR focuses on Manning roughness optimization scripts. In earlier versions of FIM (FIM v5 or earlier), global default values of 0.06 for in-channel (channel_n) and 0.12 for overbank (overbank_n) coefficients have been assigned to the Manning equation to estimate discharge for each stage along a synthetic rating curve (SRC). This PR introduces two Python scripts of /src/manningN_optimization.py and tools/run_test_case_mannN_optz_func.py, for each HUC8 for which we have the benchmark data. Applied benchmark data comprises:
 
@@ -27,7 +27,6 @@ Closes #1519
 ### Additions
    - `/tools/manningN_optimization.py`: Main script that optimizes Manning’s roughness coefficients for each HUC8
    - `/tools/run_test_case_mannN_optz_func.py`: Contains required functions for manningN_optimization.py
-
 
 <br/>
 
