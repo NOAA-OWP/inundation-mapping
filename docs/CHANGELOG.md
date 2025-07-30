@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## vx.x.x.x - 2025-06-30 - [PR#1543](https://github.com/NOAA-OWP/inundation-mapping/pull/1543)
+## v4.8.8.0 - 2025-07-30 - [PR#1543](https://github.com/NOAA-OWP/inundation-mapping/pull/1543)
 
 This PR addresses the issue #1385 and includes the following enhancements:
 
@@ -10,10 +10,6 @@ This PR addresses the issue #1385 and includes the following enhancements:
 - Integrates roads data into the FIM pipeline to process roads flood impacts (FIMpact)
 
 - Develops a new tool to identify inundated roads for a given flood event
-
-**The updated pre-clipped dataset with new osm roads data has been prepared here:  `inputs/pre_clip_huc8/20250606/`**.
-
-
 
 ### Additions
 
@@ -26,6 +22,7 @@ This PR addresses the issue #1385 and includes the following enhancements:
 - src/delineate_hydros_and_produce_HAND.sh
 - src/bash_variables.env
 - fim_post_processing.sh
+<br/>
 
 ## v4.8.7.3 - 2025-07-28 - [PR#1573](https://github.com/NOAA-OWP/inundation-mapping/pull/1573)
 
