@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-07-18 - [PR#1580](https://github.com/NOAA-OWP/inundation-mapping/pull/1580)
+## v4.8.8.8 - 2025-07-30 - [PR#1580](https://github.com/NOAA-OWP/inundation-mapping/pull/1580)
 
 Opportunistically updating eval_plots when running it as part of fim_performance production output, and not part of the synthesize_test_case usage of eval_plots.
 
@@ -26,7 +26,8 @@ Misc cleanup
     - `reset_mannings.py`
  - `tools`
      - `adjust_rc_with_feedback_py`
- 
+<br/>
+
 ## v4.8.8.7 - 2025-07-30 - [PR#1584](https://github.com/NOAA-OWP/inundation-mapping/pull/1584)
 Just a few minor tweaks:
 - removed tqdm in favor of an (x of y) output line. Why? when you add print lines inside a for loop with tqdm, the progress bar repaints over and over after each print line. Also added some sorting to the for loop for easier progress tracking.
