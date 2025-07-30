@@ -289,6 +289,7 @@ python3 $srcDir/aggregate_by_huc.py \
     -i $fim_inputs \
     -htable \
     -bridge \
+    -road \
     -j $jobLimit
 Tcount
 
