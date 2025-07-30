@@ -70,8 +70,8 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"
 $srcDir/clip_rasters_to_branches.py -d $current_branch_id \
     -b $tempHucDataDir/branch_polygons.gpkg \
     -i $branch_id_attribute \
-    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/dem_burned.tif $tempHucDataDir/bridge_elev_diff_meters.tif \
-    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/dem_burned.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters.tif
+    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/bridge_elev_diff_meters.tif \
+    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters.tif
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"
@@ -85,6 +85,16 @@ gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES"
     -ts $ncols $nrows $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_extended_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif
 
+## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
+echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
+python3 $srcDir/agreedem.py -r $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
+    -d $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+    -w $tempCurrentBranchDataDir \
+    -o $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+    -b $agree_DEM_buffer \
+    -sm 10 \
+    -sh 1000
+    
 ## ADJUST FLOODPLAINS ##
 echo -e $startDiv"Adjust floodplains $hucNumber $current_branch_id"
 echo -e $tempHucDataDir/branch_polygons.gpkg

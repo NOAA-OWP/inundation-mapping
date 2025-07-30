@@ -18,6 +18,7 @@ import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
+from fsspec.core import url_to_fs
 from tqdm import tqdm
 
 import utils.shared_variables as sv
@@ -183,6 +184,9 @@ def getDriver(fileName):
     return driver
 
 
+# #################################
+# Possibly deprecated - Jun 23, 2025 - No scripts are calling this
+# if that changes, please remove this comment
 def pull_file(url, full_pulled_filepath):
     """
     This helper function pulls a file and saves it to a specified path.
@@ -321,6 +325,60 @@ def progress_bar_handler(executor_dict, desc):
             future.result()
         except Exception as exc:
             print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
+
+
+def s3_or_local_path_exists(path: str) -> bool:
+    """
+    Checks existence of path for local or s3 path
+
+    Parameters
+    ----------
+    path: str
+        Path to check existence of
+
+    Returns
+    -------
+    bool
+        Path exists or does not exist
+    """
+    fs, pth = url_to_fs(path)
+    return fs.exists(pth)
+
+
+def s3_or_local_isfile(path: str) -> bool:
+    """
+    Checks if path is a file for the case of a local or s3 path
+
+    Parameters
+    ----------
+    path: str
+        Path to check existence of
+
+    Returns
+    -------
+    bool
+        Path is a file or is not a file
+    """
+    fs, pth = url_to_fs(path)
+    return fs.isfile(pth)
+
+
+def s3_or_local_glob(path: str) -> list:
+    """
+    Returns glob list in the case of a local or s3 path
+
+    Parameters
+    ----------
+    path: str
+        Path to run glob operation on
+
+    Returns
+    -------
+    list
+        Paths and directories associated with glob operation
+    """
+    fs, pth = url_to_fs(path)
+    return fs.glob(pth)
 
 
 # #####################################
@@ -536,7 +594,7 @@ class FIM_Helpers:
 
     # -----------------------------------------------------------
     @staticmethod
-    def print_date_time_duration(start_dt, end_dt):
+    def print_date_time_duration(start_dt, end_dt, print_dur_msg=True):
         '''
         Process:
         -------
@@ -562,10 +620,14 @@ class FIM_Helpers:
         total_hours, rem_seconds = divmod(rem_seconds, 60 * 60)
         total_mins, seconds = divmod(rem_seconds, 60)
 
-        time_fmt = f"{total_days:02d} days {total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
+        if total_days > 0:
+            total_hours = (total_days * 24) + total_hours
+
+        time_fmt = f"{total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
 
         duration_msg = "Duration: " + time_fmt
-        print(duration_msg)
+        if print_dur_msg:
+            print(duration_msg)
 
         return duration_msg
 

@@ -86,7 +86,8 @@ source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
 # Tell the system the name and location of the post processing log
-log_file_name=$outputDestDir/logs/post_proc.log
+timestamp=$(date +"%Y_%m_%d-%H_%M_%S")
+log_file_name=$outputDestDir/logs/post_proc_${timestamp}.log
 Set_log_file_path $log_file_name
 
 l_echo ""
@@ -143,7 +144,7 @@ l_echo "$COUNTER" > "$COUNTER_FILE"
 # Check if the counter is greater than one
 if [ "$COUNTER" -gt 1 ]; then
     # Execute the Python file
-    l_echo "Updating hydroTable & scr_full_crosswalked for branches"
+    l_echo $startDiv"Updating hydroTable & scr_full_crosswalked for branches"
     python3 $srcDir/update_htable_src.py -d $outputDestDir
     Tcount
 else
@@ -240,6 +241,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     python3 $srcDir/src_adjust_usgs_rating_trace.py \
         -run_dir $outputDestDir \
         -usgs_rc $usgs_rating_curve_csv \
+        -usgs_sites $usgs_acceptable_gages_path \
         -nwm_recur $nwm_recur_file \
         -j $jobLimit
     Tcount
@@ -267,18 +269,6 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
     Tcount
 fi
 
-## AGGREGATE BRANCH TABLES ##
-l_echo $startDiv"Aggregating branch hydrotables"
-
-Tstart
-python3 $srcDir/aggregate_by_huc.py \
-    -fim $outputDestDir \
-    -i $fim_inputs \
-    -htable \
-    -bridge \
-    -j $jobLimit
-Tcount
-
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
@@ -289,6 +279,19 @@ if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
         -calb_file $man_calb_file
     Tcount
 fi
+
+
+## AGGREGATE BRANCH TABLES ##
+l_echo $startDiv"Aggregating branch hydrotables"
+Tstart
+python3 $srcDir/aggregate_by_huc.py \
+    -fim $outputDestDir \
+    -i $fim_inputs \
+    -htable \
+    -bridge \
+    -road \
+    -j $jobLimit
+Tcount
 
 
 l_echo $startDiv"Combining crosswalk tables"

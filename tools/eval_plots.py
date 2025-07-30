@@ -22,12 +22,6 @@ from utils.shared_variables import VIZ_PROJECTION
 gpd.options.io_engine = "pyogrio"
 
 
-# Get variables from .env file.
-load_dotenv()
-WBD_LAYER = os.getenv("WBD_LAYER")
-API_BASE_URL = os.getenv("API_BASE_URL")
-
-
 #########################################################################
 # Create boxplot
 #########################################################################
@@ -420,11 +414,11 @@ def filter_dataframe(dataframe, unique_field):
 
     This script will filter out the sites (or hucs) which are not consistently
     found for all versions for a given magnitude. For example, an AHPS
-    lid site must have output for all 3 versions (fim1, fim2, fim3) for
-    a given magnitude (eg action) otherwise that lid is filtered out.
+    lid site must have output for all 3 versions (fim_4_4_0_0, hand_4_5_2_11 and
+    hand_4_8_6_1) for  a given magnitude (eg action) otherwise that lid is filtered out.
     Likewise for a BLE a huc must have output for all 3 versions
-    (fim1, fim2, fim3) for a given magnitude (eg 100yr) otherwise it is
-    filtered out.
+    (fim_4_4_0_0, hand_4_5_2_11 and hand_4_8_6_1) for a given magnitude (eg 100yr)
+    otherwise it is filtered out.
 
     Parameters
     ----------
@@ -484,7 +478,6 @@ def eval_plots(
     versions=[],
     stats=['CSI', 'FAR', 'TPR', 'PND', 'MCC', 'EQUITABLE_THREAT_SCORE'],
     spatial=False,
-    fim_1_ms=False,
     site_barplots=False,
 ):
     '''
@@ -497,8 +490,8 @@ def eval_plots(
         <benchmark source>_<configuration>_common_sites.csv: this csv
             contains the unique sites (e.g usgs/nws: nws_lid; ble: huc08)
             considered for aggregation/plots for each magnitude. The selected
-            sites occur in all versions analyzed. For example, if FIM 1,
-            FIM 2, FIM 3.0.0.3 were versions analyzed, the common sites
+            sites occur in all versions analyzed. For example, if hand_4_5_2_11 and
+            hand_4_8_6_1 were versions analyzed, the common sites
             would be those that had data for ALL versions. This
             analysis is then redone for each magnitude. As such, the number
             of sites may vary with magnitude. The number of sites for each
@@ -535,7 +528,6 @@ def eval_plots(
             metrics contained in attribute table.
 
 
-
     Parameters
     ----------
     metrics_csv : STRING
@@ -547,9 +539,7 @@ def eval_plots(
     versions: LIST
         A list of versions to be aggregated/plotted. Uses the "startswith"
         approach. Versions should be supplied in the order they are to
-        be plotted. For example: ['fim_', 'fb']; This will evaluate all
-        versions that start with fim_ (e.g. fim_1, fim_2, fim_3) and any
-        feature branch that starts with "fb". To esbalish version order,
+        be plotted. To establish version order,
         the fim versions are naturally sorted and then fb versions
         (naturally sorted) are appended. These versions are also used to
         filter the input metric csv as only these versions are retained
@@ -567,10 +557,6 @@ def eval_plots(
         passes the extent files generated during creation of nws/usgs ahps
         preprocessing, the actual maps and flows used for evaluation are
         appended to the ahps shapefile output.
-    fim_1_ms: BOOL
-        Default is false. If True then fim_1 rows are duplicated with
-        extent_config set to MS. This allows for FIM 1 to be included
-        in MS plots/stats (helpful for nws/usgs ahps comparisons).
     site_barplots: BOOL
         Default is false. If True then barplots for each individual site are
         created. An 'individual' directory with subdirectories of each site
@@ -587,15 +573,6 @@ def eval_plots(
 
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metrics_csv, dtype={'huc': str})
-
-    # fim_1_ms flag enables FIM 1 to be shown on MS plots/stats
-    if fim_1_ms:
-        # Query FIM 1 rows based on version beginning with "fim_1"
-        fim_1_rows = csv_df.query('version.str.startswith("fim_1")').copy()
-        # Set extent configuration to MS (instead of FR)
-        fim_1_rows['extent_config'] = 'MS'
-        # Append duplicate FIM 1 rows to original dataframe
-        csv_df = pd.concat([csv_df, fim_1_rows], ignore_index=True)
 
     # If versions are supplied then filter out
     if versions:
@@ -969,6 +946,25 @@ def convert_shapes_to_csv(workspace):
 
 #######################################################################
 if __name__ == '__main__':
+
+    """
+    This script has two main uses. The most common use is part of the "alpha test" system via
+    synthesize_test_cases.py. This set can be run in any environment.
+
+    The second usage is called FIM Performance mode and talks to the WRDS API to get some nwm metadata.
+    This results the script needing to be run in the OWP environments with the valid URL to WRDS.
+    This creates FIM Performance files of fim_performance_points.csv and fim_performance_polys.csv
+    which are used by HV.
+
+    Usage for FIM Performance mode. The example for output data is based on the filtered hand output
+    normally used in OWP servers by catfim.  Any valid HAND dataset can be used and the filtered
+    "catfim" output version has all of the files needed by both CatFIM and this script.
+    fim_version="hand_4_6_1_4" ; python /foss_fim/tools/eval_plots.py \
+        -m /outputs/${fim_version}_catfim/${fim_version}_metrics.csv \
+        -w /data/fim_performance/${fim_version} -v ${fim_version} -sp -i
+
+    """
+
     # Parse arguments
     parser = argparse.ArgumentParser(
         description='Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)'
@@ -1003,18 +999,18 @@ if __name__ == '__main__':
         required=False,
     )
     parser.add_argument(
-        '-f',
-        '--fim_1_ms',
-        help='If enabled fim_1 rows will be duplicated and extent config assigned "ms" so that '
-        'fim_1 can be shown on mainstems plots/stats',
-        action='store_true',
-        required=False,
-    )
-    parser.add_argument(
         '-i',
         '--site_plots',
         help='If enabled individual barplots for each site are created.',
         action='store_true',
+        required=False,
+    )
+    parser.add_argument(
+        '-e',
+        '--env_file',
+        help='OPTIONAl: Docker mount path to the script environment file.'
+        ' Defaults to /data/config/fim_enviro_values.env.',
+        default="/data/config/fim_enviro_values.env",
         required=False,
     )
 
@@ -1027,13 +1023,25 @@ if __name__ == '__main__':
     v = args['versions']
     s = args['stats']
     sp = args['spatial']
-    f = args['fim_1_ms']
     i = args['site_plots']
+
+    load_dotenv(args['env_file'])
+
+    API_BASE_URL = os.getenv('API_BASE_URL')
+    if API_BASE_URL is None:
+        raise ValueError(
+            'API base url not found. '
+            'Ensure inundation_mapping/tools/ has an .env file with the following info: '
+            'API_BASE_URL, WBD_LAYER, NWM_FLOWS_MS, '
+            'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
+        )
+    WBD_LAYER = os.getenv("WBD_LAYER")
+    API_BASE_URL = os.getenv("API_BASE_URL")
 
     # Run eval_plots function
     print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
     print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
-    eval_plots(metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, fim_1_ms=f, site_barplots=i)
+    eval_plots(metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, site_barplots=i)
 
     # Convert output shapefiles to CSV
     print("Converting to CSVs...")
