@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.8.6 - 2025-07-30 - [PR#1570](https://github.com/NOAA-OWP/inundation-mapping/pull/1570)
+
+This PR fixes issue #1560 and #1544.
+
+This covers a fix for adding a date/time stamp to a post proc log. When you first run pipeline, it does make the post proc log file with a date/time stamp. When you run just post processing a second time, you now have two post proc logs to compare which was the desired effect. However, if you run fim-pipeline again with the overwrite flag, the first post proc log file disappears. This is also desired. When you run fim-pipeline with overwrite, it removes the entire log folder when it starts.
+
+For the centroid file, zero values will no longer show up in the threshold columns. Those records are dropped if threshold values are in place.
+
+### Changes
+- `fim_post_processing.sh`: Added timestamp to post-processing.log file.
+- `src/heal_bridges_osm.py`: Removed bridge points with threshold_hand = 0.
+
+<br/>
+
 ## v4.8.8.5 - 2025-07-30 - [PR#1587](https://github.com/NOAA-OWP/inundation-mapping/pull/1587)
 
 Add gms processing back to inundation_gms routine.  
