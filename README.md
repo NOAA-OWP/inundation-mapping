@@ -202,19 +202,15 @@ When you execute `docker build` from the `Installation` section above, all of th
 
 While very rare, you may want to add more dependencies. You can follow the following steps:
 
-- From inside your docker container, run the following command from your root directory in your docker container :
+- From inside your docker container, run the following command from your root directory in your docker container:
     ```bash
     pipenv install <your package name> --dev
     ```
     The `--dev` flag adds development dependencies, omit it if you want to add a production dependency.
 
-    This will automatically update the Pipfile in the root of your docker container directory. If the environment looks goods after adding dependencies, lock it with:
+    This will automatically update `Pipfile` and `Pipfile.lock` in the root of your docker container directory.
 
-    ```bash
-    pipenv lock
-    ```
-
-    This will update the `Pipfile.lock`. Copy the new updated `Pipfile` and `Pipfile.lock` in the FIM source directory and include both in your git commits. The docker image installs the environment from the lock file.
+    Copy the updated `Pipfile` and `Pipfile.lock` in the FIM source directory and include both in your git commits (with the example volume mounts above, this could be accomplished by `cp Pipfile* /foss_fim/`). Then you will need to create a new docker image (see Build Docker Image in the [Installation](#installation) section above). The docker image installs the environment from the lock file.
 
 
 **Make sure you test it heavily including create new docker images and that it continues to work with the code.**
