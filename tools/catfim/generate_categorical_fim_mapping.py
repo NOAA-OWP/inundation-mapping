@@ -492,7 +492,8 @@ def run_catfim_inundation(
                         # print(f"magnitude_flows_csv is {magnitude_flows_csv}")
                         tif_name = ahps_id + '_' + magnitude + '_extent.tif'
                         output_extent_tif = os.path.join(huc_site_mapping_dir, tif_name)
-
+                        if not os.path.exists(output_extent_tif): ## TEMP DEBUG
+                            FLOG.trace(f"{huc}: {ahps_id} - {output_extent_tif} does not exist.")  ## TEMP DEBUG
                         FLOG.trace(f"Begin inundation for {tif_name}")
                         try:
                             executor.submit(
@@ -560,6 +561,7 @@ def run_inundation(
     # This is setting up logging for this function to go up to the parent\
     MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
     # MP_LOG.trace(locals())
+    MP_LOG.lprint(f"Inside run_inundation() for {huc} : {ahps_site} : {magnitude}") ## TEMP DEBUG
 
     huc_dir = os.path.join(fim_run_dir, huc)
     # Why all high number for job_number_inundate? Inundate_gms has to create inundation for each
@@ -652,6 +654,8 @@ def post_process_huc(
 
         # Loop through ahps sites
         attributes_dir = os.path.join(output_catfim_dir, 'attributes')
+        MP_LOG.lprint(f'ahps dir list is {ahps_dir_list}') ## TEMP DEBUG
+        MP_LOG.trace(f'length of ahps_dir_list is {len(ahps_dir_list)}') ## TEMP DEBUG
 
         for ahps_lid in ahps_dir_list:
             tifs_to_reformat_list = []

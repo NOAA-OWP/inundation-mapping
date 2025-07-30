@@ -379,20 +379,24 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
     ahps_ids_with_gpkgs = []
     # gpkg_file_names =
     file_pattern = os.path.join(output_mapping_dir, "gpkg") + '/*.gpkg'
-    # print(file_pattern)
+    # print(file_pattern) ## TEMP DEBUG
     for file_path in glob.glob(file_pattern):
         file_name = os.path.basename(file_path)
         file_name_segs = file_name.split("_")
         if len(file_name_segs) <= 1:
             continue
         ahps_id = file_name_segs[1]
-
-        # if len(ahps_id) == 5: 7/17/25 - Removed this logic
+        # print(file_name) ## TEMP DEBUG
+        # if len(ahps_id) == 5: # 7/17/25 - Removed this logic
         # because LID lengths above 5 characters are probably
         # invalid but we are not checking that here.
 
         if ahps_id not in ahps_ids_with_gpkgs:
+            # print('appending {}'.format(ahps_id)) ## TEMP DEBUG
             ahps_ids_with_gpkgs.append(ahps_id)
+        else:
+            print('not appending {}'.format(ahps_id)) ## TEMP DEBUG
+            print(file_name) ## TEMP DEBUG
 
     return ahps_ids_with_gpkgs
 
@@ -425,6 +429,9 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
     try:
 
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
+        # valid_ahps_ids = get_list_ahps_with_library_gpkgs(os.path.join(output_mapping_dir, "gpkg")) # TEMP DEBUG
+
+        MP_LOG.lprint(f"len valid_ahps_ids: {len(valid_ahps_ids)}") ## TEMP DEBUG
         if len(valid_ahps_ids) == 0:
             FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
             sys.exit(1)
@@ -435,24 +442,29 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
             status_val = row['status']
 
             if ahps_id not in valid_ahps_ids:
+                # MP_LOG.lprint(f"{ahps_id} not in valid_ahps_ids, setting mapped to no") ## TEMP DEBUG
+
 
                 sites_gdf.at[ind, 'mapped'] = 'no'
-                FLOG.warning(
-                    f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found."
-                )
+                # FLOG.warning(
+                #     f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found."
+                # )
 
                 if status_val is None or status_val == "" or status_val == "Good":
+                    # MP_LOG.lprint(f"{ahps_id} status val is None, NA, or Good") ## TEMP DEBUG
+
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
+                    FLOG.warning(f"Mapped status was changed to no for {ahps_id}. No inundation files exist")
+                # else:
+                #     if status_val.startswith("---") == True:
+                #         status_val = status_val[3:]  # remove the "---" from the status
 
-                else:
-                    if status_val.startswith("---") == True:
-                        status_val = status_val[3:]  # remove the "---" from the status
-
-                    sites_gdf.at[ind, 'status'] = status_val + ', site resulted with no valid inundated files'
+                #     sites_gdf.at[ind, 'status'] = status_val + ', site resulted with no valid inundated files'
 
                 continue
                 # It is safe to assume a status message for invalid ones already exist
 
+            # MP_LOG.lprint(f"{ahps_id} is in valid_ahps_ids, setting mapped to yes") ## TEMP DEBUG
             sites_gdf.at[ind, 'mapped'] = 'yes'
             # Mapped should be "yes", and "Good",
             if status_val == "":
