@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.6.3 - 2025-07-11 - [PR#1587](https://github.com/NOAA-OWP/inundation-mapping/pull/1587)
+## v4.8.8.5 - 2025-07-30 - [PR#1587](https://github.com/NOAA-OWP/inundation-mapping/pull/1587)
 
 Add gms processing back to inundation_gms routine.  
 
@@ -13,6 +13,8 @@ Add gms processing back to inundation_gms routine.
   - `run_test_case.py`: Run inundate_gms with processes for run_test_cases and add threading.
   - `synthesize_test_cases.py`: Add a threads argument for branches.
   - `inundation_nation.py`: Run inundate_gms with processes and include threads argument.
+<br/>
+
 ## v4.8.8.4 - 2025-07-30 - [PR#1590](https://github.com/NOAA-OWP/inundation-mapping/pull/1590)
 
 Significant updates including adding multi-proc, add/update output files, and add more flexibility for re-use. It is designed for Ripple, but could easily be adapted for other data sources if necessary down the road.
@@ -30,7 +32,7 @@ See [PR#1590](https://github.com/NOAA-OWP/inundation-mapping/pull/1590) for more
    
 ### Renaming
 -  Was: `hecras_boundaries.ipynb`, now `hecras_processing.ipynb`
-<br/><br/>
+<br/>
 
 ## v4.8.8.3 - 2025-07-30 - [PR#1588](https://github.com/NOAA-OWP/inundation-mapping/pull/1588)
 
