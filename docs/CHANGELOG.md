@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.8.8.1 - 2025-07-30 - [PR#1591](https://github.com/NOAA-OWP/inundation-mapping/pull/1591)
+
+Clipping of NWM streams below the HUC can cause issues if a stream exits and re-enters the DEM. The buffering causes the outlet to not extend to the edge of the DEM even if the ultimate outlet does. This results in "reverse flow" during the pit-filling operation which causes flat areas in the filled DEM and the loss of catchments as the DEM-derived reaches deviate from the NWM streams. Removing the clipping of the outlet streams anywhere below the HUC corrects the DEM so that the pit-filling produces the correct result.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Removes clipping from streams below HUC
+<br/>
+
 ## v4.8.8.0 - 2025-07-30 - [PR#1543](https://github.com/NOAA-OWP/inundation-mapping/pull/1543)
 
 This PR addresses the issue #1385 and includes the following enhancements:
@@ -75,7 +85,24 @@ Removing the hydrofabric slope values for now due to issues with erroneous value
 
 ## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
-Resolves #1551.
+## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+
+Clips NWM streams at the land/sea mask.
+
+### Changes
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Clips NWM streams at the land/sea mask
+    - `generate_pre_clip_fim_huc8.py`: Corrects a spelling error
+- `src/`
+    - `agreedem.py`: Check if `smogrid` is nodata and exits if so
+    - `bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date
+    - `run_by_branch.sh`: Formatting
+
+<br/><br/>
+
+
+## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
 This pull requests updates the ngvd_to_navd_ft() function which uses the Vdatum API to convert elevation from NGVD29 to NAVD88 in feet.
 
