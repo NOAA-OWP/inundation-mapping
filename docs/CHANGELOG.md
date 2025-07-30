@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+## v4.8.8.2 - 2025-07-30 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
 
 Clips NWM streams at the land/sea mask.
 
@@ -15,6 +15,7 @@ Clips NWM streams at the land/sea mask.
     - `agreedem.py`: Check if `smogrid` is nodata and exits if so
     - `bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date
     - `run_by_branch.sh`: Formatting
+<br/>
 
 ## v4.8.8.1 - 2025-07-30 - [PR#1591](https://github.com/NOAA-OWP/inundation-mapping/pull/1591)
 
