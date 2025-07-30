@@ -1,6 +1,33 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.8.8 - 2025-07-30 - [PR#1580](https://github.com/NOAA-OWP/inundation-mapping/pull/1580)
+
+Opportunistically updating eval_plots when running it as part of fim_performance production output, and not part of the synthesize_test_case usage of eval_plots.
+
+Misc cleanup 
+- get rid of a gdal warning
+- Removing some old invalid or unused files (confirmed with team)
+
+### Changes
+- `tools`
+    - `eval_plots.py`:  Changed to look for explicit config env file via arg
+    - `pixel_counter.py`:  Added a line that stops a gdal warning of: 
+    
+![image](https://github.com/user-attachments/assets/94b7ce10-1fe6-47c1-817d-c07cbf7af1a1)
+
+- `.github\PULL_REQUEST_TEMPLATE.MD`: Updates. This PR reflects those changes, mostly for Input / DevOps questions.
+
+### Removals
+
+- `src`
+    - `aggregate_fim_outputs.py`
+    - `finalize_srcs.py`
+    - `reset_mannings.py`
+ - `tools`
+     - `adjust_rc_with_feedback_py`
+<br/>
+
 ## v4.8.8.7 - 2025-07-30 - [PR#1584](https://github.com/NOAA-OWP/inundation-mapping/pull/1584)
 Just a few minor tweaks:
 - removed tqdm in favor of an (x of y) output line. Why? when you add print lines inside a for loop with tqdm, the progress bar repaints over and over after each print line. Also added some sorting to the for loop for easier progress tracking.
