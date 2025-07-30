@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-06-20 - [PR#1570](https://github.com/NOAA-OWP/inundation-mapping/pull/1570)
+## v4.8.8.6 - 2025-07-30 - [PR#1570](https://github.com/NOAA-OWP/inundation-mapping/pull/1570)
 
 This PR fixes issue #1560 and #1544.
 
@@ -13,7 +13,8 @@ For the centroid file, zero values will no longer show up in the threshold colum
 - `fim_post_processing.sh`: Added timestamp to post-processing.log file.
 - `src/heal_bridges_osm.py`: Removed bridge points with threshold_hand = 0.
 
-<br/><br/>
+<br/>
+
 ## v4.8.8.5 - 2025-07-30 - [PR#1587](https://github.com/NOAA-OWP/inundation-mapping/pull/1587)
 
 Add gms processing back to inundation_gms routine.  
