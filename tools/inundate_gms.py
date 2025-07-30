@@ -27,6 +27,7 @@ def Inundate_gms(
     log_file: Optional[str] = None,
     output_fileNames: Optional[str] = None,
     windowed: Optional[bool] = False,
+    multi_process: Optional[bool] = False,
 ) -> pd.DataFrame:
     """
     Run inundation using the Generalized Mainstem methodology
@@ -55,6 +56,8 @@ def Inundate_gms(
         Name of file to output filenames from gms inundation routine
     windowed: Optional[bool], default = False
         Whether to use window memory optimization
+    multi_process: Optional[bool], default = False
+        Whether to use process pool, otherwise use thread pool
 
     Returns
     -------
@@ -110,7 +113,10 @@ def Inundate_gms(
 
     # start up process pool
     # better results with Process pool
-    executor = ThreadPoolExecutor(max_workers=num_workers)
+    if multi_process is True:
+        executor = ProcessPoolExecutor(max_workers=num_workers)
+    else:
+        executor = ThreadPoolExecutor(max_workers=num_workers)
 
     # collect output filenames
     inundation_raster_fileNames = [None] * number_of_branches
