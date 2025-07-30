@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-07-11 - [PR#1590](https://github.com/NOAA-OWP/inundation-mapping/pull/1590)
+## v4.8.8.4 - 2025-07-30 - [PR#1590](https://github.com/NOAA-OWP/inundation-mapping/pull/1590)
 
 Significant updates including adding multi-proc, add/update output files, and add more flexibility for re-use. It is designed for Ripple, but could easily be adapted for other data sources if necessary down the road.
 
