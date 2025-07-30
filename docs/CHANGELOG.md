@@ -1,6 +1,35 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.9.0 - 2025-07-30 - [PR#1577](https://github.com/NOAA-OWP/inundation-mapping/pull/1577)
+
+This PR focuses on Manning roughness optimization scripts. In earlier versions of FIM (FIM v5 or earlier), global default values of 0.06 for in-channel (channel_n) and 0.12 for overbank (overbank_n) coefficients have been assigned to the Manning equation to estimate discharge for each stage along a synthetic rating curve (SRC). This PR introduces two Python scripts of /src/manningN_optimization.py and tools/run_test_case_mannN_optz_func.py, for each HUC8 for which we have the benchmark data. Applied benchmark data comprises:
+
+100-year flood inundation extends for Base Level Engineering (BLE) sites.
+Action, minor, moderate, and major flood stage extends (where available) for Advanced Hydrologic Prediction Service (AHPS) sites.
+The algorithm iteratively updates Manning coefficients to minimize false negatives and false positives in inundated grid cells during each optimization cycle. The objective functions are defined as follows:
+
+    - OBF_BLE = Minimize (false_negatives_count_100y+false_positives_count_100y)
+    - OBF_AHPS = Minimize (false_negatives_count_action+false_positives_count_action+
+        false_negatives_count_minor+false_positives_count_minor+
+        false_negatives_count_moderate+ false_positives_count_moderate+
+        false_negatives_count_major+false_positives_count_major)
+
+The optimization algorithm is subject to several constraints, including:
+
+    - overbank_n>channel_n
+    - 0.006<channel_n<0.15
+    - 0.018<overbank_n<0.2
+
+The optimization algorithm employs a differential evolution approach, initialized with a population of 15 pairs of in-channel (channel_n) and overbank (overbank_n) Manning’s roughness coefficients.
+Closes #1519
+
+### Additions
+   - `/tools/manningN_optimization.py`: Main script that optimizes Manning’s roughness coefficients for each HUC8
+   - `/tools/run_test_case_mannN_optz_func.py`: Contains required functions for manningN_optimization.py
+
+<br/>
+
 ## v4.8.8.8 - 2025-07-30 - [PR#1580](https://github.com/NOAA-OWP/inundation-mapping/pull/1580)
 
 Opportunistically updating eval_plots when running it as part of fim_performance production output, and not part of the synthesize_test_case usage of eval_plots.
@@ -229,6 +258,7 @@ This update corrects the coordinate input values and adds a check for whether th
 
 #### Note: This does trigger a need to download new usgs_rating curves (rating_curve_get_usgs_curves.py), but we will do that after this PR is merged due to time constraints. We can make adjustments if needed later.   However, the fixes here are needed for CatFIM as well.
 <br/><br/>
+
 
 
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
