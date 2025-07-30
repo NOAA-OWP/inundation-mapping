@@ -31,6 +31,7 @@ def produce_mosaicked_inundation(
     windowed: Optional[bool] = False,
     log_file: Optional[str] = None,
     nodata: Optional[int] = elev_raster_ndv,
+    gms_multi_process: Optional[bool] = False,
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
@@ -77,6 +78,8 @@ def produce_mosaicked_inundation(
         File path for log file
     nodata : Optional[int], default=elev_raster_ndv
         Nodata to pass to the mosaic_inundation function
+    gms_multi_process : Optional[bool], default=False
+        Use processes for parallel processing instead of threads
     """
 
     # Check that inundation_raster or depths_raster is supplied
@@ -137,6 +140,7 @@ def produce_mosaicked_inundation(
         verbose=verbose,
         windowed=windowed,
         log_file=log_file,
+        multi_process=gms_multi_process,
     )
 
     # Write map file if designated

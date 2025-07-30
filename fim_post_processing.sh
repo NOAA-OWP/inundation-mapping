@@ -86,7 +86,8 @@ source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
 # Tell the system the name and location of the post processing log
-log_file_name=$outputDestDir/logs/post_proc.log
+timestamp=$(date +"%Y_%m_%d-%H_%M_%S")
+log_file_name=$outputDestDir/logs/post_proc_${timestamp}.log
 Set_log_file_path $log_file_name
 
 l_echo ""
@@ -288,6 +289,7 @@ python3 $srcDir/aggregate_by_huc.py \
     -i $fim_inputs \
     -htable \
     -bridge \
+    -road \
     -j $jobLimit
 Tcount
 
