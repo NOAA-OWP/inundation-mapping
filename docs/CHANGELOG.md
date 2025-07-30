@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.8.4 - 2025-07-30 - [PR#1590](https://github.com/NOAA-OWP/inundation-mapping/pull/1590)
+
+Significant updates including adding multi-proc, add/update output files, and add more flexibility for re-use. It is designed for Ripple, but could easily be adapted for other data sources if necessary down the road.
+
+See [PR#1590](https://github.com/NOAA-OWP/inundation-mapping/pull/1590) for more details.
+
+### Additions
+ - 'data/ripple/ripple_shared_tools.sh`:  pulls out functions and values that the two ripple data processing scripts can use.
+ 
+### Changes
+- `data/ripple`
+    - `get_s3_folder.sh`: Updated from earlier version. Downloads from ripple source, calcs some metrics and re-uploads it to our FiM S3 buckets. One MC (model collection) folder at a time.
+    - `get_s3_folders_from_list.sh`:  A wrapper to get_s3_folder to download in bulk. This now has multi-processing capacity to speed it up significantly. It is now only limited by network speeds.
+    - `hecras_processing.ipynb`:  Upgraded to make the three output files.  Note: Renamed from hecras_boundaries.ipynb
+   
+### Renaming
+-  Was: `hecras_boundaries.ipynb`, now `hecras_processing.ipynb`
+<br/><br/>
 
 ## v4.8.8.3 - 2025-07-30 - [PR#1588](https://github.com/NOAA-OWP/inundation-mapping/pull/1588)
 
