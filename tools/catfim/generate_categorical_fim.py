@@ -394,9 +394,9 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
         if ahps_id not in ahps_ids_with_gpkgs:
             # print('appending {}'.format(ahps_id)) ## TEMP DEBUG
             ahps_ids_with_gpkgs.append(ahps_id)
-        else:
-            print('not appending {}'.format(ahps_id)) ## TEMP DEBUG
-            print(file_name) ## TEMP DEBUG
+        # else:
+        #     print('not appending {}'.format(ahps_id)) ## TEMP DEBUG
+        #     print(file_name) ## TEMP DEBUG
 
     return ahps_ids_with_gpkgs
 
@@ -431,7 +431,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
         # valid_ahps_ids = get_list_ahps_with_library_gpkgs(os.path.join(output_mapping_dir, "gpkg")) # TEMP DEBUG
 
-        MP_LOG.lprint(f"len valid_ahps_ids: {len(valid_ahps_ids)}") ## TEMP DEBUG
+        # MP_LOG.lprint(f"len valid_ahps_ids: {len(valid_ahps_ids)}") ## TEMP DEBUG
         if len(valid_ahps_ids) == 0:
             FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
             sys.exit(1)
@@ -443,7 +443,6 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
 
             if ahps_id not in valid_ahps_ids:
                 # MP_LOG.lprint(f"{ahps_id} not in valid_ahps_ids, setting mapped to no") ## TEMP DEBUG
-
 
                 sites_gdf.at[ind, 'mapped'] = 'no'
                 # FLOG.warning(
