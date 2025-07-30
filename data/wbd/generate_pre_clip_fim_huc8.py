@@ -227,7 +227,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
             logging.info(f" - {layer}")
     else:
         logging.info(
-            "You have requested for all layers to be copied. No need to use this tol for a simple copying!"
+            "You have requested for all layers to be copied. No need to use this tool for a simple copying!"
         )
         sys.exit(0)
 
@@ -284,7 +284,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
 
     if len(failed_HUCs_list) > 0:
         logging.info("\n+++++++++++++++++++")
-        logging.info("HUCs that failed to proccess are: ")
+        logging.info("HUCs that failed to process are: ")
         huc_error_msg = "  -- "
         for huc in failed_HUCs_list:
             huc_error_msg += f"{huc}, "
@@ -293,7 +293,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
         print(
             "\n\nOften you can just create a new huc list with the fails, re-run to a"
             " temp directory and recheck if errors still exists. Sometimes multi-prod can create"
-            " contention errors.\nFor each HUC that is sucessful, you can just copy it back"
+            " contention errors.\nFor each HUC that is successful, you can just copy it back"
             " into the original full pre-clip folder.\n"
         )
 
@@ -348,7 +348,6 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
     logging.info(f"Start Processing {huc}")
 
     try:
-
         huc_directory = os.path.join(outputs_dir, huc)
 
         # SET VARIABLES AND FILE INPUTS #
