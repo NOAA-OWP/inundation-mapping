@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.8.0 - 2025-07-30 - [PR#1543](https://github.com/NOAA-OWP/inundation-mapping/pull/1543)
+
+This PR addresses the issue #1385 and includes the following enhancements:
+
+- Ingests OSM roads as a new input data for FIM.
+
+- Integrates roads data into the FIM pipeline to process roads flood impacts (FIMpact)
+
+- Develops a new tool to identify inundated roads for a given flood event
+
+### Additions
+
+- data/roads/pull_osm_roads.py
+- src/process_roads_fimpact.py
+- tools/road_inundation.py
+
+### Changes
+- src/aggregate_by_huc.py
+- src/delineate_hydros_and_produce_HAND.sh
+- src/bash_variables.env
+- fim_post_processing.sh
+<br/>
+
 ## v4.8.7.3 - 2025-07-28 - [PR#1573](https://github.com/NOAA-OWP/inundation-mapping/pull/1573)
 
 In the recent tests of the CatFIM code, the processing errored out during the Inundate_gms() processing. This update resolves the error by re-implementing the branch hydrotable functionality and updating the input parameters for the inundate_gms() function in the CatFIM code.
