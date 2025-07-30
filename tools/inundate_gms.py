@@ -12,6 +12,7 @@ from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
 
 
 def Inundate_gms(
@@ -257,6 +258,7 @@ def __inundate_gms_generator(
         elif isinstance(hydro_table_df, str):
             hydro_table_branch = hydro_table_df.format(branch_id)
         else:
+
             dtype = {
                 "HUC": str,
                 "branch_id": int,
@@ -267,23 +269,16 @@ def __inundate_gms_generator(
                 "LakeID": int,
             }
 
-            if os.path.exists(
-                os.path.join(huc_dir, "hydrotable.feather")
-            ):  # Quicker reads # TODO: Replace with s3_or_local_path_exists
+            if s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
                 hydro_table_all = pd.read_feather(hydro_table_huc)
-            elif os.path.exists(
-                os.path.join(huc_dir, "hydrotable.csv")
-            ):  # TODO: Replace with s3_or_local_path_exists
+            elif s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.csv")):
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
                 hydro_table_all = pd.read_csv(hydro_table_huc, dtype=dtype, usecols=htable_req_cols)
             else:
                 hydro_table_huc = None
 
-            if hydro_table_huc is not None and os.path.isfile(
-                hydro_table_huc
-            ):  # TODO: Replace with s3_or_local_is_file
-
+            if hydro_table_huc is not None and s3_or_local_isfile(hydro_table_huc):
                 hydro_table_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
                 hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
             else:

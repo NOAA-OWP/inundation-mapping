@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
+
+Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
+
+### Additions
+- `tools/lofi/probabilistic_get_ensembles_nomads.py`: Getting ensembles from NOMADS.
+
+### Changes
+- `src/utils/shared_functions.py`: Added S3 or local methods for glob, is file, and file exists.
+- `tools/inundate_gms.py`: Add S3 read capabilities.
+- `tools/inundate_mosaic_wrapper`: Add S3 read capabilities.
+- `tools/overlapping_inundation.py`: Add thread lock to writes.
+- `tools/inundation.py`: Check for missing inundation raster.
+- `tools/lofi/probabilistic_bayesian_update`: Add data conversions and correct location parameters.
+- `tools/lofi/probabilistic_inundation.py`: Performance enhancements.
+
+<br/>
+
 ## v4.8.9.0 - 2025-07-30 - [PR#1577](https://github.com/NOAA-OWP/inundation-mapping/pull/1577)
 
 This PR focuses on Manning roughness optimization scripts. In earlier versions of FIM (FIM v5 or earlier), global default values of 0.06 for in-channel (channel_n) and 0.12 for overbank (overbank_n) coefficients have been assigned to the Manning equation to estimate discharge for each stage along a synthetic rating curve (SRC). This PR introduces two Python scripts of /src/manningN_optimization.py and tools/run_test_case_mannN_optz_func.py, for each HUC8 for which we have the benchmark data. Applied benchmark data comprises:
@@ -183,7 +201,8 @@ In the recent tests of the CatFIM code, the processing errored out during the In
 - `data/usgs/preprocess_ahps_usgs.py`: Updated output of `get_thresholds()` function.
 - `data/usgs/rating_curve_get_usgs_curves.py`: Updated output of `get_thresholds()` function.
 - `tools/catfim/ahps_restricted_sites.csv`: Added site BOCC2AJM to restricted sites.
-<br/>
+
+<br/><br/>
 
 ## v4.8.7.2 - 2025-07-28 - [PR#1605]([https://github.com/NOAA-OWP/inundation-mapping/pull/1605])
 
@@ -398,6 +417,11 @@ Adds files to branch deny list to be removed on file cleanup.
 
 <br/><br/>
 
+## V4.6.2.0 - 2025-05-06 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
+
+This PR has two functions out of necessity for running LoFI operationally:
+
+1. Optimize the runtime performance and memory consumption of the inundation routine.
 ## v4.8.1.0 - 2025-06-10 - [PR#1552]([https://github.com/NOAA-OWP/inundation-mapping/pull/1552])
 
 This PR only focuses on adding the global optimized manning N as an input file to the bash_variables.env.

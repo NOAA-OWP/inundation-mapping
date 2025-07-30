@@ -193,7 +193,7 @@ def inundate(
         depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
         inundation_rst = (
             rasterio.open(inundation_raster, "w+", **inundation_profile)
-            if (inundation_profile is not None)
+            if (inundation_raster is not None and inundation_profile is not None)
             else None
         )
 
