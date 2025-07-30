@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.7.4 - 2025-07-24 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
+## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
 
@@ -17,7 +17,8 @@ Some minor tweaks that should help the performance of lofi. Also included are a 
 - `tools/lofi/probabilistic_bayesian_update`: Add data conversions and correct location parameters.
 - `tools/lofi/probabilistic_inundation.py`: Performance enhancements.
 
-<br/><br/>
+<br/>
+
 ## v4.8.9.0 - 2025-07-30 - [PR#1577](https://github.com/NOAA-OWP/inundation-mapping/pull/1577)
 
 This PR focuses on Manning roughness optimization scripts. In earlier versions of FIM (FIM v5 or earlier), global default values of 0.06 for in-channel (channel_n) and 0.12 for overbank (overbank_n) coefficients have been assigned to the Manning equation to estimate discharge for each stage along a synthetic rating curve (SRC). This PR introduces two Python scripts of /src/manningN_optimization.py and tools/run_test_case_mannN_optz_func.py, for each HUC8 for which we have the benchmark data. Applied benchmark data comprises:
