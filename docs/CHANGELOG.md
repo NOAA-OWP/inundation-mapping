@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.8.7 - 2025-07-30 - [PR#1584](https://github.com/NOAA-OWP/inundation-mapping/pull/1584)
+Just a few minor tweaks:
+- removed tqdm in favor of an (x of y) output line. Why? when you add print lines inside a for loop with tqdm, the progress bar repaints over and over after each print line. Also added some sorting to the for loop for easier progress tracking.
+
+### Changes
+- `tools\test_case_by_hydroid.py`: as described
+<br/>
+
 ## v4.8.8.6 - 2025-07-30 - [PR#1570](https://github.com/NOAA-OWP/inundation-mapping/pull/1570)
 
 This PR fixes issue #1560 and #1544.
@@ -143,6 +151,7 @@ Updates the CatFIM site comparison tool to make the outputs better suited to be 
   - Added percent area change calculations for inundated area comparisons.
   
 <br/><br/>
+  
 
 
 ## v4.8.7.0 - 2025-07-18 - [PR#1597](https://github.com/NOAA-OWP/inundation-mapping/pull/1597)
