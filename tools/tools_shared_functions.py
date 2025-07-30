@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import datetime as dt
 import gc
 import json
@@ -713,7 +712,7 @@ def get_metadata(
     metadata_url : STR
         metadata base URL.
     select_by : STR
-        Location search option. Options include: 'state', TODO: add options
+        Location search option. Options include: 'state', TODO: test 'nws_lid'
     selector : LIST
         Value to match location data against. Supplied as a LIST.
     must_include : STR, optional
@@ -782,6 +781,7 @@ def get_metadata(
         metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
     else:
         # if request was not succesful, print error message.
+        # TODO: Output this as a status string because the print is getting suppressed
         print(f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}')
         # Return empty outputs
         metadata_list = []
@@ -1056,6 +1056,8 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         Dictionary of stages at each threshold.
     flows : DICT
         Dictionary of flows at each threshold.
+    threshold_count : INT
+        Number of thresholds available for the site.
 
     '''
     params = {}
@@ -1079,6 +1081,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         thresholds_json = response.json()
         # Get metadata
         thresholds_info = thresholds_json['value_set']
+        threshold_count = thresholds_json['_metrics']['threshold_count']
         # Initialize stages/flows dictionaries
         stages = {}
         flows = {}
@@ -1115,7 +1118,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
                 stages['units'] = threshold_data.get('metadata').get('stage_units')
                 flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
-        return stages, flows
+        return stages, flows, threshold_count
     else:
         print("WRDS response error: ")
 
@@ -1261,6 +1264,8 @@ def ngvd_to_navd_ft(datum_info):
     Uses NOAA tidal API to get conversion factor. Requires that lat/lon is
     in NAD27 crs. If input lat/lon are not NAD27 then these coords are
     reprojected to NAD27 and the reproject coords are used to get adjustment.
+    There appears to be an issue when region is not in contiguous US.
+    TODO: Test outside of CONUS and resolve if needed.
 
     Parameters
     ----------
