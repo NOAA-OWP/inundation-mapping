@@ -31,7 +31,7 @@ usage_msg()
 {
     echo "This tool downloads just one folder path {-s/-n}
 
-    Sample Usage:  sh get_s3_folder.sh
+    Sample Usage:  ./get_s3_folder.sh
                 -s 's3://(somebucket)/ripple/30_pcnt_domain/collections'
                 -n 'mip_03170004'
                 -t '/home/your/output/ripple/fim_30'
@@ -39,6 +39,9 @@ usage_msg()
                 -c 'ripple_download_stats.csv'
 
                 # NOTE: for now.. Leave off all starting and trailing slashes.
+                
+                Also, pathing does not like tilde's in them. 
+                ie) ~/temp won't work but /home/some-user/temp will
 
     REQUIRED:
       -s/--s3_source_path      : Full s3 bucket and common prefix.
@@ -131,7 +134,16 @@ if [ "$stats_file" = "" ]; then
     exit 22
 fi
 
-# echo $log_file
+# if the log_file does not have a path.. add it.
+if [[ "$log_file" != */* ]]; then
+    log_file="${trg_path}/$log_file"
+fi
+
+# if the log_file does not have a path.. add it.
+if [[ "$stats_file" != */* ]]; then
+    stats_file="${trg_path}/$stats_file"
+fi
+
 
 # TODO: Lots more validation such as extensions, valid s3 paths, etc
 
@@ -157,7 +169,7 @@ formatted_Date( ){
 s3_uri="$s3_source_path/$key_name"
 trg="$trg_path/$key_name"
 
-fc_name_split=(${key_name//_/ })
+IFS='_' read -r -a fc_name_split <<< $key_name
 collection_source="${fc_name_split[0]}"
 huc="${fc_name_split[1]}"
 
@@ -167,6 +179,8 @@ line_lead="$(formatted_Date): ${key_name} --"
 msg="${line_lead} Processing started for $key_name"
 echo -e $msg ; echo "$msg" >> ${log_file}
 msg="${line_lead} From $s3_uri to $trg"
+echo -e $msg ; echo "$msg" >> ${log_file}
+msg="For HUC $huc, source $collection_source"
 echo -e $msg ; echo "$msg" >> ${log_file}
 
 # Check if FC folder already exist
@@ -237,6 +251,9 @@ msg+="; Extent folder count = $folder_count"
 msg="${line_lead} ${msg}"
 echo -e $msg ; echo "$msg" >> ${log_file}
 
+echo ""
+echo "Log file written to ${log_file}"
+
 # Now build up the stats line for the log
 # This one is a simple csv
 
@@ -249,6 +266,7 @@ echo -e $msg ; echo "$msg" >> ${log_file}
 # Add header only if empty
 stats_header="feature_collection_name,source,huc,num_features,download_size_in_mib,download_dur_in_mins_perc,date_downloaded"
 stats_download_date=$(date +"%Y%m%d_%H%M%S")
+echo "Stats file written to $stats_file"
 if [ ! -e "$stats_file" ]; then
     echo "$stats_header" >> ${stats_file}
 fi
@@ -260,3 +278,4 @@ echo "$stats" >> ${stats_file}
 
 msg="${line_lead} Feature Collection processing complete: Duration (in percent minutes) = $dur mins"
 echo -e $msg ; echo "$msg" >> ${log_file}
+echo ""

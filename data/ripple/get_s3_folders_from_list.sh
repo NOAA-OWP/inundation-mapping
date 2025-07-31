@@ -78,7 +78,7 @@
 # *****************************************
 
 # *** Remember:  You can always daisy change bash commands together with a semi-colon (one big line).
-#    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_1.txt' ; sh
+#    ie) ./get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_1.txt' ; ./
 #          get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_2.txt' ; etc
 #
 
@@ -88,12 +88,17 @@ usage_msg()
     echo "This takes a single S3 folder key name (not full s3 folder path), then use
     the incoming single, multiple or txt file with list of the s3 folder key names.
  
-    Sample Usage:  sh get_s3_folder_from_list.sh
+    Sample Usage:  ./get_s3_folders_from_list.sh
                 -s 's3://(somebucket)/ripple/30_pcnt_domain/collections'
                 -list 'mip_03170004' (or multiple or file. See notes below)
                 -t '/home/your-user/output/ripple/fim_30'
 
              or -list '/home/your-user/ripple/fim_30_collection_names.txt'
+
+            Note:
+                Also, pathing does not like tilde's in them. 
+                ie) ~/temp won't work but /home/some-user/temp will
+
 
     # NOTE: for now.. Leave off all starting and trailing slashes.
 
@@ -117,13 +122,13 @@ usage_msg()
                                    ie) s3://(somebucket)/ripple/30_pcnt_domain/collections/mip_03170004
 
       -t/--trg_path            : Root local folder path for downloads.
-                                   ie) ~/fim_30
+                                   ie) /home-your-user/fim_30
 
     OPTIONS:
       -h/--help                 : Print usage statement.
 
     NOTE: You can always daisy change bash commands together with a semi-colon, one big line.
-    ie) sh get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_1.txt' ; sh
+    ie) ./get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_1.txt' ; sh
      get_s3_folder_from_list.sh {your args} -list '/home/your-user/ripple/names_set_2.txt' ;  etc
     "
 }

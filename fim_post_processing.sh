@@ -143,7 +143,7 @@ l_echo "$COUNTER" > "$COUNTER_FILE"
 # Check if the counter is greater than one
 if [ "$COUNTER" -gt 1 ]; then
     # Execute the Python file
-    l_echo "Updating hydroTable & scr_full_crosswalked for branches"
+    l_echo $startDiv"Updating hydroTable & scr_full_crosswalked for branches"
     python3 $srcDir/update_htable_src.py -d $outputDestDir
     Tcount
 else
@@ -171,10 +171,10 @@ Tcount
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
 if [ "$bathymetry_adjust" = "True" ]; then
-    echo -e $startDiv"Performing Bathymetry Adjustment routine"
+    l_echo $startDiv"Performing Bathymetry Adjustment routine"
+    Tstart
     # Run bathymetry adjustment routine
     aibathy_toggle=${ai_toggle} #:-0}
-    Tstart
     python3 $srcDir/bathymetric_adjustment.py \
         -fim_dir $outputDestDir \
         -bathy_ehydro $bathy_file_ehydro \
@@ -210,6 +210,28 @@ if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; the
     Tcount
 fi
 
+## RUN NONMONOTONIC SRC ADJUSTMENT ROUTINE ##
+if [ "$nonmonotonic_src_adjustment" = "True" ]; then
+    l_echo $startDiv"Performing Nonmonotonic SRC Adjustment routine"
+    # Run Nonmonotonic SRCs Adjustment routine -flows $bankfull_flows_file \
+    Tstart
+    python3 $srcDir/nonmonotonic_src_adjustment.py \
+        -fim_dir $outputDestDir \
+        -j $jobLimit
+    Tcount
+fi
+
+## RUN LONGITUDINAL FILTER ROUTINE ##
+if [ "$logitudinal_filter" = "True" ]; then
+    l_echo $startDiv"Performing longitudinal discharge adjustment routine"
+    Tstart
+    python3 $srcDir/longitudinal_flow_adjustment.py \
+        -fim_dir $outputDestDir \
+        -j $jobLimit \
+
+    Tcount
+fi
+
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
 if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
     Tstart
@@ -218,6 +240,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
     python3 $srcDir/src_adjust_usgs_rating_trace.py \
         -run_dir $outputDestDir \
         -usgs_rc $usgs_rating_curve_csv \
+        -usgs_sites $usgs_acceptable_gages_path \
         -nwm_recur $nwm_recur_file \
         -j $jobLimit
     Tcount
@@ -245,18 +268,6 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [
     Tcount
 fi
 
-## AGGREGATE BRANCH TABLES ##
-l_echo $startDiv"Aggregating branch hydrotables"
-
-Tstart
-python3 $srcDir/aggregate_by_huc.py \
-    -fim $outputDestDir \
-    -i $fim_inputs \
-    -htable \
-    -bridge \
-    -j $jobLimit
-Tcount
-
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
@@ -267,6 +278,18 @@ if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
         -calb_file $man_calb_file
     Tcount
 fi
+
+
+## AGGREGATE BRANCH TABLES ##
+l_echo $startDiv"Aggregating branch hydrotables"
+Tstart
+python3 $srcDir/aggregate_by_huc.py \
+    -fim $outputDestDir \
+    -i $fim_inputs \
+    -htable \
+    -bridge \
+    -j $jobLimit
+Tcount
 
 
 l_echo $startDiv"Combining crosswalk tables"

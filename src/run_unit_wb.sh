@@ -51,9 +51,15 @@ cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 # Copy necessary files from $inputsDir into $tempHucDataDir to avoid File System Collisions
 # For buffer_stream_branches.py
 cp $huc_input_DEM_domain $tempHucDataDir
+
+# TODO: Jun 2025: This should use the bash_variable, but rename as it is copied. ie:
+# cp $nws_lid $tempHucDataDir/nws_lid.gpkg
 # For usgs_gage_unit_setup.py
 cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
-cp $inputsDir/usgs_gages/usgs_gages.gpkg $tempHucDataDir
+
+# Renamed to usgs_gages.gpkg while being copied
+cp $usgs_gages_file $tempHucDataDir/usgs_gages.gpkg
+
 # Check if the $hucNumber directory exists in the ras2fim $inputsDir
 if [ -d "$ras2fim_input_dir/$hucNumber" ]; then
     ras_rating_gpkg="$ras2fim_input_dir/$hucNumber/$ras_rating_curve_gpkg_filename"
@@ -80,7 +86,7 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
     -r "ID" \
     -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
     -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
-    -de $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_extended.gpkg \
+    -de $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg \
     -e $tempHucDataDir/nwm_headwaters.gpkg \
     -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
     -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg \
@@ -186,7 +192,7 @@ if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
     gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-        $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_extended.gpkg $tempHucDataDir/flows_grid_boolean.tif
+        $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg $tempHucDataDir/flows_grid_boolean.tif
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
@@ -211,27 +217,27 @@ python3 $srcDir/agreedem.py \
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
-    python3 $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
-        -d $tempHucDataDir/dem_meters.tif \
-        -w $tempHucDataDir \
-        -o $tempHucDataDir/dem_burned.tif \
-        -b $agree_DEM_buffer \
-        -sm 10 \
-        -sh 1000
-fi
+# if [ "$levelpaths_exist" = "1" ]; then
+#     echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
+#     python3 $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
+#         -d $tempHucDataDir/dem_meters.tif \
+#         -w $tempHucDataDir \
+#         -o $tempHucDataDir/dem_burned.tif \
+#         -b $agree_DEM_buffer \
+#         -sm 10 \
+#         -sh 1000
+# fi
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
     $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 
-## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
-    rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
-fi
+# ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# if [ "$levelpaths_exist" = "1" ]; then
+#     echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
+#     rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
+# fi
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
@@ -239,13 +245,13 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 
-## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
-    mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-        -fel $tempHucDataDir/dem_burned_filled.tif \
-        -p $tempHucDataDir/flowdir_d8_burned_filled.tif
-fi
+# ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# if [ "$levelpaths_exist" = "1" ]; then
+#     echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
+#     mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+#         -fel $tempHucDataDir/dem_burned_filled.tif \
+#         -p $tempHucDataDir/flowdir_d8_burned_filled.tif
+# fi
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
@@ -270,6 +276,7 @@ export nrows=$nrows
 $srcDir/delineate_hydros_and_produce_HAND.sh "unit"
 
 ## CREATE USGS GAGES FILE
+## Note: the usgs_gages.gpkg was renamed during coping into the unit folder
 if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     python3 $srcDir/usgs_gage_unit_setup.py \

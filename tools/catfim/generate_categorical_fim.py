@@ -386,9 +386,13 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
         if len(file_name_segs) <= 1:
             continue
         ahps_id = file_name_segs[1]
-        if len(ahps_id) == 5:  # yes, we assume the ahps in the second arg
-            if ahps_id not in ahps_ids_with_gpkgs:
-                ahps_ids_with_gpkgs.append(ahps_id)
+
+        # if len(ahps_id) == 5: 7/17/25 - Removed this logic
+        # because LID lengths above 5 characters are probably
+        # invalid but we are not checking that here.
+
+        if ahps_id not in ahps_ids_with_gpkgs:
+            ahps_ids_with_gpkgs.append(ahps_id)
 
     return ahps_ids_with_gpkgs
 
@@ -421,7 +425,6 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
     try:
 
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
-
         if len(valid_ahps_ids) == 0:
             FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
             sys.exit(1)
@@ -432,11 +435,21 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
             status_val = row['status']
 
             if ahps_id not in valid_ahps_ids:
+
                 sites_gdf.at[ind, 'mapped'] = 'no'
+                FLOG.warning(
+                    f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found."
+                )
 
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
-                    FLOG.warning(f"Mapped status was changed to no for {ahps_id}. No inundation files exist")
+
+                else:
+                    if status_val.startswith("---") == True:
+                        status_val = status_val[3:]  # remove the "---" from the status
+
+                    sites_gdf.at[ind, 'status'] = status_val + ', site resulted with no valid inundated files'
+
                 continue
                 # It is safe to assume a status message for invalid ones already exist
 
@@ -579,8 +592,8 @@ def iterate_through_huc_stage_based(
             for lid in nws_lids:
 
                 # debugging
-                # if lid.upper() not in ['ALWP1','ILTP1', 'JRSP1']:
-                #   continue
+                # if lid.upper() not in ['PNTA3', 'PWBA3']:
+                #    continue
 
                 # TODO: Oct 2024, yes. this is goofy but temporary
                 # Some lids will add a status message but are allowed to continue.
@@ -606,7 +619,7 @@ def iterate_through_huc_stage_based(
                     reason = found_restrict_lid.iloc[
                         0, found_restrict_lid.columns.get_loc("restricted_reason")
                     ]
-                    msg = ': Restricted Site - ' + reason
+                    msg = ':Restricted Site - ' + reason
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -618,13 +631,25 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
-                thresholds, flows = get_thresholds(
+                thresholds, flows, threshold_count = get_thresholds(
                     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
                 )
 
+                # temp debug
                 # MP_LOG.lprint(f"thresholds are {thresholds}")
                 # MP_LOG.lprint(f"flows are {flows}")
 
+                # If no thresholds are found, write message and exit.
+                # Many sites that used to have 'Error getting thresholds from WRDS API' should now
+                # have this more descriptive status message
+                if threshold_count == 0:
+                    msg = ':No thresholds found on WRDS API'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
+
+                # If there are no thresholds but the threshold_count is greater than 0 or NA (unlikely).
+                # write message and exit.
                 if thresholds is None or len(thresholds) == 0:
                     msg = ':Error getting thresholds from WRDS API'
                     all_messages.append(lid + msg)
@@ -632,8 +657,10 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Check if stages are supplied, if not write message and exit.
+                # This message will occur if some thresholds are supplied, but not for the
+                # categories we use (such as  “low” or “bankfull”)
                 if all(thresholds.get(category, None) is None for category in categories):
-                    msg = ':Missing all threshold stage data'
+                    msg = ':No thresholds for required categories found on WRDS API'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -645,10 +672,6 @@ def iterate_through_huc_stage_based(
                     categories, thresholds
                 )
 
-                MP_LOG.trace(
-                    f"{huc_lid_id}:" f" stage values (pre-processed) are {stage_values_df.values.tolist()}"
-                )
-
                 if err_msg != "":
                     # The error message is already formatted correctly
                     all_messages.append(lid + err_msg)
@@ -657,8 +680,9 @@ def iterate_through_huc_stage_based(
 
                 # Look for acceptable elevs
                 acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
+
                 if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
-                    msg = ":Unable to find gage data"
+                    msg = ":Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -686,18 +710,8 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
-                # Filter out sites that don't have "good" data
+                # Filter out sites that don't have "good" data ## TODO: USGS Gage Method: It doens't seem like the below error messages are performing as expected....
                 try:
-                    ## Removed this part to relax coordinate accuracy requirements
-                    # if not metadata['usgs_data']['coord_accuracy_code'] in acceptable_coord_acc_code_list:
-                    #     MP_LOG.warning(
-                    #         f"\t{huc_lid_id}: {metadata['usgs_data']['coord_accuracy_code']} "
-                    #         "Not in acceptable coord acc codes"
-                    #     )
-                    #     continue
-                    # if not metadata['usgs_data']['coord_method_code'] in acceptable_coord_method_code_list:
-                    #     MP_LOG.warning(f"\t{huc_lid_id}: Not in acceptable coord method codes")
-                    #     continue
                     if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
                         MP_LOG.warning(f"{huc_lid_id}: Not in acceptable alt method codes")
                         continue
@@ -715,6 +729,7 @@ def iterate_through_huc_stage_based(
                 datum_adj_ft, datum_messages = __adjust_datum_ft(flows, metadata, lid, huc_lid_id)
                 all_messages = all_messages + datum_messages
                 if datum_adj_ft is None:
+                    MP_LOG.warning(f"{huc_lid_id}: datum_adj_ft is None")
                     continue
 
                 # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
@@ -863,8 +878,6 @@ def iterate_through_huc_stage_based(
                     by='stage_value'
                 ).reset_index()
 
-                # MP_LOG.trace(f"non_rec_stage_values_df is {non_rec_stage_values_df}")
-
                 # +++++++++++++++++++++++++++++
                 # Creating interval tifs (if applicable)
 
@@ -955,12 +968,8 @@ def iterate_through_huc_stage_based(
 
                 # for threshold in categories:  (threshold and category are somewhat interchangeable)
                 # some may have failed inundation, which we will rectify later
-                MP_LOG.trace(f"{huc_lid_id}: updating threshhold values")
-
                 for threshold in valid_stage_names:
-
                     try:
-
                         # we don't know if the magnitude/stage can be mapped yes it hasn't been inundated
                         line_df = pd.DataFrame(
                             {
@@ -1222,20 +1231,22 @@ def load_restricted_sites(is_stage_based):
 
     # There are enough conditions and a low number of rows that it is easier to
     # test / change them via a for loop
-    indexs_for_recs_to_be_removed_from_list = []
+    # indexs_for_recs_to_be_removed_from_list = [] -> Removed 7/17/25
 
     # Clean up dataframe
     for ind, row in df_restricted_sites.iterrows():
         nws_lid = row['nws_lid']
         restricted_reason = row['restricted_reason']
 
-        if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
-            FLOG.warning(
-                f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
-                " and has dropped from processing"
-            )
-            indexs_for_recs_to_be_removed_from_list.append(ind)
-            continue
+        # if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
+        # (7/17/25) Removed this logic becuase it was preventing sites with more or
+        # less than 5 character LIDs from being filtered out.
+        #     FLOG.warning(
+        #         f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
+        #         " and has dropped from processing"
+        #     )
+        #     indexs_for_recs_to_be_removed_from_list.append(ind)
+        #     continue
 
         if restricted_reason == "":
             restricted_reason = "From the ahps_restricted_sites,"
@@ -1247,8 +1258,10 @@ def load_restricted_sites(is_stage_based):
 
     # Invalid records in CSV (not dropping, just completely invalid recs from the csv)
     # Could be just blank rows from the csv
-    if len(indexs_for_recs_to_be_removed_from_list) > 0:
-        df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
+    # (7/17/25) Removed this logic becuase it was preventing sites with more or
+    # less than 5 character LIDs from being filtered out.
+    # if len(indexs_for_recs_to_be_removed_from_list) > 0:
+    #     df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
 
     # Filter df_restricted_sites by CatFIM type
     if is_stage_based == True:  # Keep rows where 'catfim_type' is either 'stage' or 'both'
@@ -1365,10 +1378,9 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     datum_adj_ft = 0.0
     crs = datum_data.get('crs')
     if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
-        # Get the datum adjustment to convert NGVD to NAVD. Sites not in contiguous US are previously
-        #   removed otherwise the region needs changed.
+        # Get the datum adjustment to convert NGVD to NAVD.
         try:
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
         except Exception as ex:
             MP_LOG.error(f"ERROR: {huc_lid_id}: ngvd_to_navd_ft")
             MP_LOG.error(traceback.format_exc())
@@ -1380,7 +1392,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
             if 'HTTPSConnectionPool' in ex:
                 time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                 try:
-                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
                 except Exception:
                     msg = ':NOAA VDatum adjustment error, possible API issue'
                     all_messages.append(lid + msg)
@@ -1397,28 +1409,41 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
     acceptable_usgs_elev_df = None
     try:
-        # Drop columns that offend acceptance criteria
-        usgs_elev_df['acceptable_codes'] = (
-            # usgs_elev_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-            # & usgs_elev_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
-            usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
-            & usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list)
+        acceptable_msg = ''
+        unacceptable_alt_meth_msg = 'Unacceptable USGS data altitude method: '
+        unacceptable_site_type_msg = 'Unacceptable USGS site type: '
+        unacceptable_alt_acc_msg = 'Unacceptable USGS altitude accuracy threshold: '
+
+        # Create columns for whether the USGS data meets each criterion
+        msg1 = np.where(
+            usgs_elev_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list),
+            acceptable_msg,
+            unacceptable_alt_meth_msg + usgs_elev_df['usgs_data_alt_method_code'].astype(str) + ', ',
+        )
+        msg2 = np.where(
+            usgs_elev_df['usgs_data_site_type'].isin(acceptable_site_type_list),
+            acceptable_msg,
+            unacceptable_site_type_msg + usgs_elev_df['usgs_data_site_type'].astype(str) + ', ',
+        )
+        msg3 = np.where(
+            usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh,
+            acceptable_msg,
+            unacceptable_alt_acc_msg + usgs_elev_df['usgs_data_alt_accuracy_code'].astype(str) + ', ',
         )
 
-        usgs_elev_df = usgs_elev_df.astype({'usgs_data_alt_accuracy_code': float})
-        usgs_elev_df['acceptable_alt_error'] = np.where(
-            usgs_elev_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
+        status_df = pd.DataFrame({'msg1': msg1, 'msg2': msg2, 'msg3': msg3})
+
+        # Create detailed USGS exclusion status
+        usgs_elev_df['usgs_exclusion_status'] = status_df['msg1'] + status_df['msg2'] + status_df['msg3']
+
+        # If it doesn't have anything for the exclusion criteria, set the usgs_exclusion_status to acceptable
+        # CatFIM will only be processed for sites with a usgs_exclusion_status of 'acceptable'
+        usgs_elev_df['usgs_exclusion_status'] = usgs_elev_df['usgs_exclusion_status'].replace(
+            '', 'acceptable'
         )
 
-        acceptable_usgs_elev_df = usgs_elev_df[
-            (usgs_elev_df['acceptable_codes'] == True) & (usgs_elev_df['acceptable_alt_error'] == True)
-        ]
-
-        # # TEMP DEBUG Record row difference and write it to a CSV or something
-        # label = 'Old code' ## TEMP DEBUG
-        # num_potential_rows = usgs_elev_df.shape[0]
-        # num_acceptable_rows = acceptable_usgs_elev_df.shape[0]
-        # out_message = f'{label}: kept {num_acceptable_rows} rows out of {num_potential_rows} available rows.'
+        # Copy df to de-fragment and rename
+        acceptable_usgs_elev_df = usgs_elev_df.copy()
 
     except Exception:
         # Not sure any of the sites actually have those USGS-related
@@ -1440,29 +1465,42 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
     lid_usgs_elev = 0
     all_messages = []
     try:
-        matching_rows = acceptable_usgs_elev_df.loc[
-            acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
-        ]
+        # Check for USGS elevation data that matches the LID
+        matching_rows = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper()]
 
+        # Check if the site is not in the usgs table in our data
         if len(matching_rows) == 0:
-            msg = ':Gage not in HAND usgs gage records'
+            # msg = ':Gage not in HAND usgs gage records' # prev error message (deprecated May 2025)
+            msg = ':Gage not in HAND usgs gage records, likely due to exclusion criteria'
             all_messages.append(lid + msg)
             MP_LOG.warning(huc_lid_id + msg)
             return lid_usgs_elev, all_messages
 
-        # It means there are two level paths, use the one that is not 0
-        # There will never be more than two
+        # It means there are two level paths, use the one that is not 0 (there will never be more than two)
         if len(matching_rows) == 2:
-            lid_usgs_elev = acceptable_usgs_elev_df.loc[
+            # Get the site that does not have a levpa_id of zero and matches the LID
+            lid_info = acceptable_usgs_elev_df.loc[
                 (acceptable_usgs_elev_df['nws_lid'] == lid.upper())
-                & (acceptable_usgs_elev_df['levpa_id'] != 0),
-                'dem_adj_elevation',
-            ].values[0]
-        else:
-            lid_usgs_elev = acceptable_usgs_elev_df.loc[
-                acceptable_usgs_elev_df['nws_lid'] == lid.upper(), 'dem_adj_elevation'
-            ].values[0]
+                & (acceptable_usgs_elev_df['levpa_id'] != 0)
+            ]
 
+        else:
+            # Get the site that matches the LID
+            lid_info = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper()]
+
+        # Get elevation and exclusion status
+        lid_usgs_elev = lid_info['dem_adj_elevation'].values[0]
+        usgs_exclusion_status = lid_info['usgs_exclusion_status'].values[0]
+
+        # If there is an exclusion status other than 'acceptable,' return the status
+        # Uses [:-2] to exclude the last comma and space in the string
+        if usgs_exclusion_status != 'acceptable':
+            msg = ':Gage excluded due to the following criteria -- ' + usgs_exclusion_status[:-2]
+            all_messages.append(lid + msg)
+            MP_LOG.warning(huc_lid_id + msg)
+            return lid_usgs_elev, all_messages
+
+        # Check whether DEM adjusted elevation is 0 or not set
         if lid_usgs_elev == 0:
             msg = ':DEM adjusted elevation is 0 or not set'
             all_messages.append(lid + msg)
@@ -1500,7 +1538,6 @@ def __calculate_category_key(category, stage_value, is_interval_stage):
 
     # The "i" in the end means it is an interval
     # Now we are action_24.0ft or action_24.6ft or action_24.65ft or action_24.0fti
-
     if is_interval_stage == True:
         category_key += "i"
 
@@ -1625,7 +1662,6 @@ def generate_stage_based_categorical_fim(
     all_csv_df = pd.DataFrame()
     refined_csv_files_list = []
     for csv_file in attrib_csv_files:
-
         full_csv_path = os.path.join(attributes_dir, csv_file)
         # HUC has to be read in as string to preserve leading zeros.
         try:
@@ -1637,10 +1673,9 @@ def generate_stage_based_categorical_fim(
             FLOG.error(f"ERROR: loading csv {full_csv_path}")
             FLOG.error(traceback.format_exc())
             pass
-
     # Write to file
     if len(all_csv_df) == 0:
-        raise Exception("no csv files found")
+        raise Exception(f"no csv files found - missing attribute CSVs in {attributes_dir}")
 
     all_csv_df.to_csv(os.path.join(attributes_dir, 'nws_lid_attributes.csv'), index=False)
 
@@ -1649,7 +1684,6 @@ def generate_stage_based_categorical_fim(
 
     # Preprocess the out_gdf GeoDataFrame. Reproject and reformat fields.
 
-    # TODO: Accomodate AK projection?   Yes.. and Alaska and CONUS should all end up as the same projection output
     # epsg:5070, we really want 3857 out for all outputs
     sites_gdf = sites_gdf.to_crs(VIZ_PROJECTION)
     sites_gdf.rename(

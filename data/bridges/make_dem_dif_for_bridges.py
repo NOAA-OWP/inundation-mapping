@@ -6,9 +6,7 @@ import sys
 
 # import time
 import traceback
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
-from multiprocessing import Pool
 
 import geopandas as gpd
 import numpy as np
@@ -21,9 +19,8 @@ from rasterio.features import rasterize
 from rasterio.merge import merge
 from shapely.geometry import Point
 
-import utils.shared_functions as sf
 from data.create_vrt_file import create_vrt_file
-from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
 """
@@ -44,7 +41,7 @@ def identify_bridges_with_lidar(OSM_bridge_lines_gdf, lidar_tif_dir):
     return OSM_bridge_lines_gdf
 
 
-def rasters_to_point(tif_paths):
+def rasters_to_point(tif_paths, file_logger, screen_queue, task_id):
     gdf_list = []
     for tif_file in tif_paths:
         with rasterio.open(tif_file) as src:
@@ -71,13 +68,25 @@ def rasters_to_point(tif_paths):
         gdf_list.append(gdf)
 
     combined_gdf = gpd.GeoDataFrame(pd.concat(gdf_list, ignore_index=True))
+    file_logger.info(f"{len(combined_gdf)} points for {task_id}")
+    screen_queue.put(f"{len(combined_gdf)} points for {task_id}")
     return combined_gdf
 
 
-def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice, output_diff_path):
+def make_one_diff(
+    dem_file,
+    OSM_bridge_lines_gdf,
+    lidar_tif_dir,
+    HUC,
+    HUC_choice,
+    output_diff_path,
+    file_logger,
+    screen_queue,
+    task_id,
+):
 
     try:
-        print(f"Start processing {HUC}")
+        screen_queue.put(f"Start processing {task_id}")
         HUC_lidar_tif_osmids = OSM_bridge_lines_gdf[
             (OSM_bridge_lines_gdf['huc%d' % HUC_choice] == HUC)
             & (OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y')
@@ -85,10 +94,10 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
         HUC_lidar_tif_paths = [os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC_lidar_tif_osmids]
 
         if HUC_lidar_tif_paths:
-            logging.info(
+            file_logger.info(
                 'working on HUC%d %s with %d osm rasters: ' % (HUC_choice, str(HUC), len(HUC_lidar_tif_paths))
             )
-            HUC_lidar_points_gdf = rasters_to_point(HUC_lidar_tif_paths)
+            HUC_lidar_points_gdf = rasters_to_point(HUC_lidar_tif_paths, file_logger, screen_queue, task_id)
 
             temp_buffer = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['osmid'].isin(HUC_lidar_tif_osmids)]
 
@@ -136,8 +145,10 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
                 dst.write(updated_raster, 1)
 
         else:
-            print('Making a diff raster file only with values of zero for HUC%d:' % HUC_choice + str(HUC))
-            logging.info(
+            screen_queue.put(
+                'Making a diff raster file only with values of zero for HUC%d:' % HUC_choice + str(HUC)
+            )
+            file_logger.info(
                 'Making a diff raster file only with values of zero for HUC%d:' % HUC_choice + str(HUC)
             )
 
@@ -153,26 +164,23 @@ def make_one_diff(dem_file, OSM_bridge_lines_gdf, lidar_tif_dir, HUC, HUC_choice
             raster_meta.update({'compress': 'lzw'})  # Update metadata to compress
             with rasterio.open(output_diff_path, 'w', **raster_meta) as dst:
                 dst.write(updated_raster, 1)
-        print(f"End of processing {HUC}")
+        screen_queue.put(f"End of processing {task_id}")
+        return True
 
-    except Exception:
-        print('something is wrong for HUC: %s' % str(HUC))
-        logging.critical('something is wrong for HUC: ' + str(HUC))
-        print(traceback.format_exc())
-        logging.critical(traceback.format_exc())
+    except Exception as e:
+        file_logger.error(f"❌ Exception in HUC {task_id}: {str(e)}")
+        file_logger.error(traceback.format_exc())
+        return False
 
 
 def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number_jobs):
-    # start time and setup logs
     start_time = datetime.now(timezone.utc)
-    dt_string = start_time.strftime("%m/%d/%Y %H:%M:%S")
-    fh.print_start_header('Making HUC elev difference rasters', start_time)
-
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    __setup_logger(output_dir)
-    logging.info(f"Saving results in {output_dir}")
+    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_path = os.path.join(output_dir, f"DEM_diff_rasters-{file_dt_string}.log")
+    file_logger = setup_mp_file_logger(log_file_path)
 
     try:
         print('Reading osm bridge lines...')
@@ -190,21 +198,20 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
             os.path.splitext(os.path.basename(path))[0].split('_')[1] for path in available_dif_files
         ]
 
-        with ProcessPoolExecutor(max_workers=number_jobs) as executor:
-            executor_dict = {}
+        tasks_args_list = []
+        for dem_file in dem_files:
+            # prepare path for output diff file
+            base_name, extension = os.path.splitext(os.path.basename(dem_file))
+            output_diff_file_name = f"{base_name}_diff{extension}"
+            output_diff_path = os.path.join(output_dir, output_diff_file_name)
+            HUC = base_name.split('_')[1]
 
-            for dem_file in dem_files:
-                # prepare path for output diff file
-                base_name, extension = os.path.splitext(os.path.basename(dem_file))
-                output_diff_file_name = f"{base_name}_diff{extension}"
-                output_diff_path = os.path.join(output_dir, output_diff_file_name)
-                HUC = base_name.split('_')[1]
+            HUC_choice = len(HUC)  # this is usually 8 or 6
 
-                HUC_choice = len(HUC)  # this is usually 8 or 6
+            if HUC not in base_names_no_ext:
 
-                if HUC not in base_names_no_ext:
-
-                    make_one_diff_args = {
+                tasks_args_list.append(
+                    {
                         'dem_file': dem_file,
                         'OSM_bridge_lines_gdf': OSM_bridge_lines_gdf,
                         'lidar_tif_dir': lidar_tif_dir,
@@ -212,74 +219,57 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
                         'HUC_choice': HUC_choice,
                         'output_diff_path': output_diff_path,
                     }
+                )
 
-                    try:
-                        future = executor.submit(make_one_diff, **make_one_diff_args)
-                        executor_dict[future] = dem_file
-                    except Exception as ex:
-                        msg = f"*** Error processing HUC {HUC} : Details: {ex}"
-                        print(msg)
-                        logging.critical(msg)
-                        print(traceback.format_exc())
-                        logging.critical(traceback.format_exc())
-                        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-                        print(f"*** Program aborted time: {dt_string}")
-                        logging.critical(f"*** Program aborted time: {dt_string}")
-                        executor.shutdown(wait=False)
-                        sys.exit(1)  # TODO: figure out why it won't actually terminate
+        # now start the multiprocessing
+        mp_results = run_with_mp(
+            task_function=make_one_diff,
+            tasks_args_list=tasks_args_list,
+            file_logger=file_logger,
+            max_workers=number_jobs,
+            task_id_key="HUC",  # must be one of the task arg keys. used for status report
+            exit_on_failure=False,
+            show_progress=True,
+        )
 
-            # Send the executor to the progress bar and wait for all tasks to finish
-            # sf.progress_bar_handler(executor_dict, "Making HUC8/6 Diff Raster files")
+        print('multiprocessing tasks finished!')
+        # only report if all succeeded or the failed ones
+        failed_keys = [k for k, v in mp_results.items() if not v]
+
+        if not failed_keys:
+            file_logger.info("✅ All multiprocessing tasks Succeeded")
+            print("✅ All multiprocessing tasks Succeeded")
+        else:
+            file_logger.info(f"❌ {len(failed_keys)} failed:")
+            print(f"❌ {len(failed_keys)} failed:")
+            for k in failed_keys:
+                file_logger.info(f"  - {k}")
+                print(f"  - {k}")
 
         # save with new info (with existence of lidar data or not)
         print('saving the osm bridge lines with info for existence of lidar rasters or not.')
-        logging.info('saving the osm bridge lines with info for existence of lidar rasters or not')
+        file_logger.info('saving the osm bridge lines with info for existence of lidar rasters or not')
         base, ext = os.path.splitext(os.path.basename(OSM_bridge_file))
         OSM_bridge_lines_gdf.to_file(os.path.join(output_dir, f"{base}_modified{ext}"))
 
         # now make a vrt file from all generated diff raster files
         print("==================")
         print('Making a vrt files from all diff raster files.')
-        logging.info('Making a vrt files from all diff raster files')
+        file_logger.info('Making a vrt files from all diff raster files')
         create_vrt_file(output_dir, 'bridge_elev_diff.vrt')
 
         # Record run time
         end_time = datetime.now(timezone.utc)
         tot_run_time = end_time - start_time
-        fh.print_end_header('Making HUC dem diff rasters complete', start_time, end_time)
-        logging.info('TOTAL RUN TIME: ' + str(tot_run_time))
-        # logging.info(fh.print_date_time_duration(start_time, end_time))
+        print('TOTAL RUN TIME: ' + str(tot_run_time))
+        file_logger.info('TOTAL RUN TIME: ' + str(tot_run_time))
 
     except Exception as ex:
-        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         msg = f"*** An error occured while making dem diffs : Details: {ex}"
-        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         print(msg)
-
-        print(msg)
-        logging.critical(msg)
+        file_logger.critical(msg)
         print(traceback.format_exc())
-        logging.critical(traceback.format_exc())
-
-
-def __setup_logger(output_folder_path):
-    start_time = datetime.now(timezone.utc)
-    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_name = f"DEM_diff_rasters-{file_dt_string}.log"
-
-    log_file_path = os.path.join(output_folder_path, log_file_name)
-
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(logging.INFO)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
-
-    logger = logging.getLogger()
-    logger.addHandler(file_handler)
-    logger.setLevel(logging.DEBUG)
-
-    logging.info(f'Started (UTC): {start_time.strftime("%m/%d/%Y %H:%M:%S")}')
-    logging.info("----------------")
+        file_logger.critical(traceback.format_exc())
 
 
 if __name__ == "__main__":
@@ -289,18 +279,18 @@ if __name__ == "__main__":
     #   This code needs to be run twice: once for conus and once for Alaska :
 
     #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/20250207/alaska_osm_bridges.gpkg
-    #    -l /data/inputs/osm/bridges/20250207/alaska_osm_lidar_rasters/lidar_osm_rasters/
-    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20250320/
-    #    -o /data/inputs/osm/bridges/20250323/10m_dem_diffs/alaska/
-    #    -j 30
+    #    -i /data/inputs/osm/bridges/bridge_data/20250207/alaska_osm_bridges.gpkg
+    #    -l /data/inputs/osm/bridges/lidar_data/20250323/alaska_osm_lidar_rasters/lidar_osm_rasters/
+    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20250616/
+    #    -o /data/inputs/osm/bridges/DEM_Diffs/20250617/alaska/
+    #    -j 20
 
     #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/20250207/conus_osm_bridges.gpkg
-    #    -l /data/inputs/osm/bridges/20250207/conus_osm_lidar_rasters/lidar_osm_rasters/
-    #    -d /data/inputs/dems/3dep_dems/10m_5070/20250320/
-    #    -o /data/inputs/osm/bridges/20250323/10m_dem_diffs/conus/
-    #    -j 30
+    #    -i /data/inputs/osm/bridges/bridge_data/20250207/conus_osm_bridges.gpkg
+    #    -l /data/inputs/osm/bridges/lidar_data/20250323/conus_osm_lidar_rasters/lidar_osm_rasters/
+    #    -d /data/inputs/dems/3dep_dems/10m_5070/20250616/
+    #    -o /data/inputs/osm/bridges/DEM_Diffs/20250617/conus/
+    #    -j 20
 
     ###############################
     #
