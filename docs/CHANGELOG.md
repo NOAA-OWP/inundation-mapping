@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-06-09 - [PR#1549](https://github.com/NOAA-OWP/inundation-mapping/pull/1549)
+
+Unilateral catchments i.e., catchments that only capture one side of the floodplain, are identified and adjacent, sequential catchments that are on alternating sides (left, right) are dissolved. Attributes of dissolved catchments are updated.
+
+### Additions
+
+- `src/dissolve_unilateral_catchments.py`: identify and dissolve unilateral catchments
+
+### Changes
+
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`: integrates `dissolve_unilateral_catchments`
+    - `mitigate_branch_outlet_backpool.py`: accommodate `MultiLineString`s
+    
+<br/><br/>
+
+
+## v4.8.0.0 - 2025-05-30 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
