@@ -704,7 +704,7 @@ def post_process_huc(
                 #      masm1_major_20.6_extent.tif  (non-interval, float)
                 #      masm1_major_20.0ft_extent.tif (interval)
                 # If flow based, the file name looks like this: masm1_action_extent.tif
-                MP_LOG.trace(f".. Tif to Process = {tif_to_process}")
+                # MP_LOG.trace(f".. Tif to Process = {tif_to_process}")
                 try:
 
                     tif_file_name = os.path.basename(tif_to_process)
@@ -935,7 +935,7 @@ def reformat_inundation_maps(
         MP_LOG.trace(
             f"{huc} : {ahps_lid} : {magnitude} -- Start reformat_inundation_maps" " (tif extent to gpkg poly)"
         )
-        MP_LOG.trace(F"tif to process is {tif_to_process}")
+        # MP_LOG.trace(F"tif to process is {tif_to_process}")
 
         # Convert raster to shapes
         with rasterio.open(tif_to_process) as src:

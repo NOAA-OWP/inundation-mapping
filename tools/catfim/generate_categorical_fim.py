@@ -438,7 +438,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
 
                 sites_gdf.at[ind, 'mapped'] = 'no'
                 FLOG.warning(
-                    f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found."
+                    f"{ahps_id} - No inundation GPKGs found, mapped status set to no"
                 )
 
                 if status_val is None or status_val == "" or status_val == "Good":
@@ -447,8 +447,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
                 else:
                     if status_val.startswith("---") == True:
                         status_val = status_val[3:]  # remove the "---" from the status
-
-                    sites_gdf.at[ind, 'status'] = status_val + ', site resulted with no valid inundated files'
+                    # sites_gdf.at[ind, 'status'] = status_val + ', site resulted with no valid inundated files'
 
                 continue
                 # It is safe to assume a status message for invalid ones already exist
