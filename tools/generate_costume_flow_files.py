@@ -1,7 +1,9 @@
+import argparse
 import csv
 import math
+
 import requests
-import argparse
+
 
 # Constants
 mile_to_km = 1.60934
@@ -9,10 +11,11 @@ cfs_to_cms = 0.0283168
 Earth_radius_km = 6371
 NWPS_API = "https://api.water.noaa.gov/nwps/v1/reaches/{feature_id}"
 
+
 def haversine_distance(lat1, lon1, lat2, lon2):
     """
     Calculate the great-cirle ditance between two points on the earth.
-    
+
     Args:
         lat1, lon1: latitude and longitude of point 1 (in degrees).
         lat2, lon2: latitude and longitude of point 2 (in degrees).
@@ -22,10 +25,11 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(math.radians, [lat1, lon1, lat2, lon2])
     dlon = lon2_rad - lon1_rad
     dlat = lat2_rad - lat1_rad
-    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     distance = Earth_radius_km * c
     return distance
+
 
 def create_fim_flow_file(start_feature_id, flow, distance, output_path):
     """
@@ -38,7 +42,6 @@ def create_fim_flow_file(start_feature_id, flow, distance, output_path):
 
     print("Starting downstream trace...")
 
-
     while current_feature_id and total_distance < distance:
         response = requests.get(NWPS_API.format(feature_id=current_feature_id))
         response.raise_for_status()
@@ -50,12 +53,13 @@ def create_fim_flow_file(start_feature_id, flow, distance, output_path):
 
         current_coords = {'lat': data.get('latitude'), 'lon': data.get('longitude')}
         if not all(current_coords.values()):
-            print(f"Warning: Missing lat/lon for reach {reach_id_str}. Cannot calculate distance for this segment.")
+            print(
+                f"Warning: Missing lat/lon for reach {reach_id_str}. Cannot calculate distance for this segment."
+            )
             segment_distance = 0.0
         elif previous_coords:
             segment_distance = haversine_distance(
-                previous_coords['lat'], previous_coords['lon'],
-                current_coords['lat'], current_coords['lon']
+                previous_coords['lat'], previous_coords['lon'], current_coords['lat'], current_coords['lon']
             )
             total_distance += segment_distance
         else:
@@ -79,11 +83,11 @@ def create_fim_flow_file(start_feature_id, flow, distance, output_path):
 if __name__ == "__main__":
     """
     Example usage:
-    python3 /foss_fim/tools/generate_costum_flow_files.py 
+    python3 /foss_fim/tools/generate_costume_flow_files.py
     -feature_id 23021904
     -cfs 20000
     -mile 10
-    -o /output/costum_flows.csv
+    -o /output/costume_flows.csv
     """
     parser = argparse.ArgumentParser(description="Generate a FIM flow file by tracing downstream reaches.")
     parser.add_argument("-feature_id", type=int, required=True, help="Starting reach feature ID (integer)")
@@ -96,21 +100,18 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", required=True, help="Path to output CSV file")
 
     args = parser.parse_args()
-    
+
     # Handle flow and distance unit
     if args.cms is not None:
         flow = args.cms
     else:
         flow = args.cfs * cfs_to_cms
-    
+
     if args.km is not None:
-        distance = args.km 
+        distance = args.km
     else:
         distance = args.mile * mile_to_km
 
     create_fim_flow_file(
-        start_feature_id=args.feature_id,
-        flow=flow,
-        distance=distance,
-        output_path=args.output
+        start_feature_id=args.feature_id, flow=flow, distance=distance, output_path=args.output
     )
