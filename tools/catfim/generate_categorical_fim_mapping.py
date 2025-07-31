@@ -577,6 +577,7 @@ def run_inundation(
             verbose=False,
             log_file=None,
             output_fileNames=None,
+            multi_process=True,
         )
 
         MP_LOG.trace(f"Mosaicking for {huc} : {ahps_site} : {magnitude}")
