@@ -26,7 +26,8 @@ def get_fim_probability_distributions() -> Tuple[weibull_min, weibull_min, weibu
     obank_dist = weibull_min(c=2, scale=0.035, loc=0.09)
 
     # Default weibull likelihood for slope adjustment
-    slope_dist = weibull_min(c=3.1, scale=0.095, loc=-0.01)
+
+    slope_dist = weibull_min(c=4, scale=0.95 / 10, loc=-0.0867)
 
     return channel_dist, obank_dist, slope_dist
 
@@ -47,7 +48,7 @@ def bayesian_update_for_channel_manning_roughness(data: Union[list, np.array]) -
 
     """
     rng = 0
-    loc = 2
+    loc = 0.02
 
     # Distribution for the scale point estimate
     def g_dist(
@@ -88,10 +89,10 @@ def bayesian_update_for_channel_manning_roughness(data: Union[list, np.array]) -
     # Summarize and get shape and scale estimate
     az.summary(trace, hdi_prob=0.90)
 
-    updated_scale = trace.mean()['posterior']['Posterior Scale Estimate']
-    updated_shape = trace.mean()['posterior']['Posterior Shape Estimate']
+    updated_scale = float(trace.mean()['posterior']['Posterior Scale Estimate']) / 100
+    updated_shape = float(trace.mean()['posterior']['Posterior Shape Estimate'])
 
-    return updated_shape, updated_scale / 100, loc
+    return updated_shape, updated_scale, loc
 
 
 def bayesian_update_for_overbank_manning_roughness(data: Union[list, np.array]) -> Tuple[float, float, float]:
@@ -110,7 +111,7 @@ def bayesian_update_for_overbank_manning_roughness(data: Union[list, np.array]) 
 
     """
     rng = 0
-    loc = 5
+    loc = 0.05
 
     # Distribution for the scale point estimate
     def g_dist(
@@ -148,10 +149,10 @@ def bayesian_update_for_overbank_manning_roughness(data: Union[list, np.array]) 
     # Summarize and get shape and scale estimate
     az.summary(trace, hdi_prob=0.90)
 
-    updated_scale = trace.mean()['posterior']['custom_dist']
-    updated_shape = trace.mean()['posterior']['shape']
+    updated_scale = float(trace.mean()['posterior']['custom_dist']) / 100
+    updated_shape = float(trace.mean()['posterior']['shape'])
 
-    return updated_shape, updated_scale / 100, loc
+    return updated_shape, updated_scale, loc
 
 
 def bayesian_update_for_slope_adjustment(data: Union[list, np.array]) -> Tuple[float, float, float]:
@@ -170,7 +171,7 @@ def bayesian_update_for_slope_adjustment(data: Union[list, np.array]) -> Tuple[f
 
     """
     rng = 0
-    loc = -0.1
+    loc = -0.0867
 
     # Distribution for the scale point estimate
     def g_dist(
@@ -209,10 +210,10 @@ def bayesian_update_for_slope_adjustment(data: Union[list, np.array]) -> Tuple[f
     # Summarize and get shape and scale estimate
     az.summary(trace, hdi_prob=0.90)
 
-    updated_scale = trace.mean()['posterior']['custom_dist']
-    updated_shape = trace.mean()['posterior']['shape']
+    updated_scale = float(trace.mean()['posterior']['custom_dist']) / 10
+    updated_shape = float(trace.mean()['posterior']['shape'])
 
-    return updated_shape, updated_scale / 100, loc
+    return updated_shape, updated_scale, loc
 
 
 def run_bayesian_updates(
@@ -239,7 +240,12 @@ def run_bayesian_updates(
         DataFrame containing shape, scale, and location parameters
     """
 
-    parameter_names = ["channel_mannning_roughness", "overbank_manning_roughness", "slope_adjustment"]
+    parameter_names = ["channel_manning_roughness", "overbank_manning_roughness", "slope_adjustment"]
+
+    # Apply transformations
+    channel_manning_data = channel_manning_data * 100
+    overbank_manning_data = overbank_manning_data * 100
+    slope_adjustment_data = np.interp(slope_adjustment_data, [-0.1, 0, 0.1], [0.852, 1.648, 2.5])
 
     n_shp, n_scale, n_loc = bayesian_update_for_channel_manning_roughness(channel_manning_data)
     on_shp, on_scale, on_loc = bayesian_update_for_overbank_manning_roughness(overbank_manning_data)
@@ -248,7 +254,7 @@ def run_bayesian_updates(
     posterior_distribution_parameters = pd.DataFrame(
         {
             "parameter_name": parameter_names,
-            "shape": [n_shp, n_scale, slp_shp],
+            "shape": [n_shp, on_shp, slp_shp],
             "scale": [n_scale, on_scale, slp_scale],
             "loc": [n_loc, on_loc, slp_loc],
         }
@@ -264,7 +270,7 @@ if __name__ == "__main__":
     overbank_manning_data = [15, 14, 12, 13, 11, 10, 11, 12, 15, 14, 14, 14, 13]
 
     # Scaled by 100 translated where 0 is represented by approx 1.75
-    slope_adjustment_data = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+    slope_adjustment_data = [2.5] * 13
 
     df = run_bayesian_updates(
         channel_manning_data=channel_manning_data,
