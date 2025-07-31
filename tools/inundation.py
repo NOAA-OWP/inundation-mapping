@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 import xarray as xr
-from numba import njit, prange, typed, types
+from numba import njit, typed, types
 from rasterio.mask import mask
 from shapely.geometry import shape
 
@@ -193,7 +193,7 @@ def inundate(
         depth_rst = rasterio.open(depths, "w+", **depths_profile) if depths is not None else None
         inundation_rst = (
             rasterio.open(inundation_raster, "w+", **inundation_profile)
-            if (inundation_profile is not None)
+            if (inundation_raster is not None and inundation_profile is not None)
             else None
         )
 
@@ -303,7 +303,7 @@ def __inundate_in_huc(
     return inundation_raster, depths, None
 
 
-@njit(nogil=True, fastmath=True, parallel=True, cache=True)
+@njit(nogil=True, fastmath=True, cache=True)
 def __go_fast_mapping(
     rem: np.ndarray, catchments: np.ndarray, catchment_stages_dict: typed.Dict, x: int, y: int, nodata_c: int
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -332,8 +332,8 @@ def __go_fast_mapping(
 
     """
     # Iterate through each latitude and longitude
-    for i in prange(y):
-        for j in prange(x):
+    for i in range(y):
+        for j in range(x):
             # If catchments are nodata
             if catchments[i, j] != nodata_c:
                 # catchments in stage dict
