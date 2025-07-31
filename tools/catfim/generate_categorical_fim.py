@@ -437,9 +437,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
             if ahps_id not in valid_ahps_ids:
 
                 sites_gdf.at[ind, 'mapped'] = 'no'
-                FLOG.warning(
-                    f"{ahps_id} - No inundation GPKGs found, mapped status set to no"
-                )
+                FLOG.warning(f"{ahps_id} - No inundation GPKGs found, mapped status set to no")
 
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
