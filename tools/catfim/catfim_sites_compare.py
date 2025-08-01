@@ -10,12 +10,15 @@ from datetime import datetime, timezone
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from pyproj import CRS
 from shapely import wkt
 from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import cascaded_union, unary_union
 
 
 pd.options.mode.chained_assignment = None  # default='warn'
+
+HAND_CRS = CRS('EPSG:3857')
 
 # import utils.fim_logger as fl
 # FLOG = fl.FIM_logger()  # the non mp version
@@ -433,7 +436,7 @@ def read_format_catfim_library(catfim_library_filepath):
     return library_gdf
 
 
-def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
+def remove_polygon_shards(lid, magnitude, input_gdf, id_col, mag_col, minimum_area_threshold, output_folder_path):
     '''
     Inputs:
     - input_gdf (GeoDataFrame)
@@ -446,20 +449,97 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     '''
 
     # Turn multipolygon into multiple polygons
-    cleaned_gdf = input_gdf.explode()
+    # cleaned_gdf = input_gdf.explode()
 
-    # Calculate area and remove polygon segments smaller than threshold (sq m)
-    cleaned_gdf['area'] = cleaned_gdf.area
-    cleaned_gdf = cleaned_gdf[cleaned_gdf['area'] > minimum_area_threshold]
+    # # Calculate area and remove polygon segments smaller than threshold (sq m)
+    # cleaned_gdf['area'] = cleaned_gdf.area
+    # cleaned_gdf = cleaned_gdf[cleaned_gdf['area'] > minimum_area_threshold]
 
-    # Condense back into a multipolygon
-    cleaned_gdf = cleaned_gdf.dissolve(by=[id_col, mag_col])
+    # # Condense back into a multipolygon
+    # cleaned_gdf = cleaned_gdf.dissolve(by=[id_col, mag_col])
 
-    # Remove area column
-    cleaned_gdf.drop('area', axis=1, inplace=True)
-    cleaned_gdf = cleaned_gdf.reset_index()
+    # # Remove area column
+    # cleaned_gdf.drop('area', axis=1, inplace=True)
+    # cleaned_gdf = cleaned_gdf.reset_index()
 
-    return cleaned_gdf
+    ####
+    
+    # print(f"input_gdf len is {len(input_gdf)}")
+    # print(input_gdf.columns.tolist())
+    # print("------------------")
+
+    print(f"Lid is {lid} and mag is {magnitude}")
+    print(f"input_gdf len is {len(input_gdf)}")
+
+    cleaned_gdf_dis = input_gdf.dissolve()
+    cleaned_gdf_exp = cleaned_gdf_dis.explode(index_parts=True).reset_index(drop=True)
+    
+    # print(f"cleaned_gdf len is {len(cleaned_gdf_exp)}")
+    # print(cleaned_gdf_exp.columns.tolist())
+    # print("------------------")
+    
+    cleaned_gdf_exp['area'] = cleaned_gdf_exp.area
+
+    cleaned_gdf_cleaned = [
+        Polygon(geom.exterior)
+        for geom in cleaned_gdf_exp.geometry
+        if geom is not None and geom.is_valid
+    ]    
+            
+    cleaned_gdf_exp.geometry = cleaned_gdf_cleaned    
+    
+    # still one layer after this
+    # print(f"cleaned_gdf_cleaned len is {len(cleaned_gdf_cleaned)}")   
+    # print(cleaned_gdf_cleaned.columns.tolist())
+    # print("------------------")
+    # test_file_name = os.path.join(output_folder_path, "rob_test.gpkg")
+    # cleaned_gdf_exp.to_file(test_file_name, driver='GPKG', engine='fiona')        
+    # sys.exit()
+    
+    
+    # in theory there can't be any na in here
+    cleaned_gdf_exp = cleaned_gdf_exp[~cleaned_gdf_exp.geometry.isna()]    
+    
+    cleaned_gdf_final = cleaned_gdf_exp[cleaned_gdf_exp['area'] > minimum_area_threshold]
+
+    # TODO HERE    
+    if len(cleaned_gdf_final) == 0:
+        return None
+
+    # print(f"cleaned_gdf_final (post filtering) len is {len(cleaned_gdf_final)}")
+    # print(cleaned_gdf_final.columns.tolist())
+    # print("------------------")
+    # still one layer after this
+    # test_file_name = os.path.join(output_folder_path, "rob_test.gpkg")
+    # cleaned_gdf_exp.to_file(test_file_name, driver='GPKG', engine='fiona')        
+    # sys.exit()
+    
+    print(f"type of cleaned_gdf_final (1) is {type(cleaned_gdf_final)}")
+    
+    cleaned_gdf_final = cleaned_gdf_final.dissolve().reset_index(drop=True)            
+    
+    print(f"type of cleaned_gdf_final (2) is {type(cleaned_gdf_final)}")    
+    
+    cleaned_gdf_final = cleaned_gdf_final.dropna(axis=1, how='all')          
+    print(f"type of cleaned_gdf_final (3) is {type(cleaned_gdf_final)}")
+        
+    # try adding crs here
+    # it made it through most sites, then suddenly, just one turned into a dataframe versus a geodataframe
+    cleaned_gdf_final.set_crs(crs=HAND_CRS, inplace=True)
+
+    print(f"cleaned_gdf_final after dissolve len is {len(cleaned_gdf_final)}")
+    print(f"type of cleaned_gdf_final (4) is {type(cleaned_gdf_final)}")
+    # print(cleaned_gdf_final.columns.tolist())
+    print("------------------")
+    # still one layer after this (qgis and arc)
+    test_file_name = os.path.join(output_folder_path, "rob_test.gpkg")
+    cleaned_gdf_final.to_file(test_file_name, driver='GPKG', engine='fiona')        
+
+    sys.exit()
+    # print(f"type of cleaned_gdf_final is {type(cleaned_gdf_final)}")
+
+    # return cleaned_gdf
+    return cleaned_gdf_final
 
 
 # Calculate difference between CatFIM libraries of subsequent versions
@@ -581,10 +661,15 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                     if i >= debug_iterations:
                         break
 
+
+                if not (lid == 'wmnd1' and magnitude == "record"):
+                    continue
+
+# TEMP TURN OFF, screen output max's for now
                 # Normal mode: Print progress every 100 iterations
-                else:
-                    if i % 100 == 0:
-                        print(f'Processed {i} of {len(combined_lids_gdf)} geometries.')
+                # else:
+                #     if i % 100 == 0:
+                #         print(f'Processed {i} of {len(combined_lids_gdf)} geometries.')
 
                 # Filter polygons by 'ahps_lid' and 'magnitude'
                 before_polygons = before_gdf[(before_gdf[id_col] == lid) & (before_gdf[mag_col] == magnitude)]
@@ -614,9 +699,15 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                         )
 
                         removed_gdf_cleaned = remove_polygon_shards(
-                            removed_gdf, id_col, mag_col, minimum_area_threshold=800
+                            lid, magnitude, removed_gdf, id_col, mag_col, 800, output_save_filepath
                         )
+
+                        if removed_gdf_cleaned is None:
+                            continue
+                        
                         removed_geom = pd.concat([removed_geom, removed_gdf_cleaned])
+
+                        # the problem appears to be in concat, which makes perfect sense
 
                     if not added.is_empty:
 
@@ -633,8 +724,12 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                             crs=added_geom.crs,
                         )
                         added_gdf_cleaned = remove_polygon_shards(
-                            added_gdf, id_col, mag_col, minimum_area_threshold=800
+                            lid, magnitude, added_gdf, id_col, mag_col, 800, output_save_filepath
                         )
+                        
+                        if added_gdf_cleaned is None:
+                            continue
+                        
                         added_geom = pd.concat([added_geom, added_gdf_cleaned])
 
             # Read in the comparison table so we can add the % changes and re-save it
@@ -673,6 +768,20 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
 
                 return joined_table_df
 
+        # do we need antoher explode and dissolve here?  probably
+        # Discovered that at this point, overlapping geometries are possible
+        # do the removed one first to prove the theory
+        # print(f"removed_geom type is {type(removed_geom)}")    
+        removed_exp = removed_geom.explode()
+        removed_geom_dis_gdf = removed_exp.dissolve().reset_index(drop=True)
+        removed_geom_dis_gdf.set_crs(HAND_CRS, inplace=True)          
+        
+        # QGIS happy (one layer), but Arc is not happy (multipe layers in arc)
+        # so the concat of geopandas layers is what is makign it unhappy
+        test_file_name = os.path.join(output_save_filepath, "rob_test.gpkg")
+        removed_geom_dis_gdf.to_file(test_file_name, driver='GPKG', engine='fiona')      
+        # sys.exit()
+        
         # Run for added geom
         comparison_table_df = pivot_and_join_percent_change(
             added_geom,
@@ -681,6 +790,11 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             column_suffix='_gained_coverage_%',
         )
 
+        # test for remove, before pivot = qgis good, arc not
+        # so the prob is before pivot as I watching the removed layer only
+        # test_file_name = os.path.join(output_save_filepath, "rob_test.gpkg")
+        # removed_geom.to_file(test_file_name, driver='GPKG', engine='fiona')        
+        # sys.exit()
         # Run for removed geom
         comparison_table_df = pivot_and_join_percent_change(
             removed_geom,
@@ -701,11 +815,16 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         comparison_table_df['geometry'] = comparison_table_df['geometry'].apply(wkt.loads)
 
         compare_sites_gdf = gpd.GeoDataFrame(comparison_table_df, geometry='geometry')
+        
+        # cleaned_gdf_final.set_crs(crs=HAND_CRS, inplace=True)
+        
+        
         compare_sites_gdf = compare_sites_gdf.set_crs('epsg:3857')  # web mercator, the viz projection
 
         # Save the sites GDF as a GeoPackage
         comparison_gpkg_save_path = comparison_table_save_path.replace('.csv', '.gpkg')
-        compare_sites_gdf.to_file(comparison_gpkg_save_path, layer='points', driver='GPKG')
+        # compare_sites_gdf.to_file(comparison_gpkg_save_path, layer='points', driver='GPKG')
+        compare_sites_gdf.to_file(comparison_gpkg_save_path, layer='points', driver='GPKG', engine='fiona')
 
         print(f'Saved comparison site GPKG to {comparison_gpkg_save_path}')
 
@@ -722,15 +841,16 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         )
 
         # Set the CRS
-        web_mercator_crs = 'epsg:3857'
-        added_geom = added_geom.set_crs(web_mercator_crs)  # web mercator, the viz projection
-        removed_geom = removed_geom.set_crs(web_mercator_crs)  # web mercator, the viz projection
+        # Check this.. likelyk not needed
+        # web_mercator_crs = 'epsg:3857'
+        added_geom = added_geom.set_crs(HAND_CRS)  # web mercator, the viz projection
+        removed_geom = removed_geom.set_crs(HAND_CRS)  # web mercator, the viz projection
 
         # Save the added and removed geometries to GPKGs and CSVs
         if len(added_geom) == 0:
             print('No gained coverage detected, not saving a gained coverage GPKG.')
         else:
-            added_geom.to_file(gained_coverage_gpkg_save_path, layer='gained_coverage', driver='GPKG')
+            added_geom.to_file(gained_coverage_gpkg_save_path, layer='gained_coverage', driver='GPKG', engine='fiona')
             print(f'Saved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
 
             # Save the added geom data as a csv as well
@@ -740,7 +860,10 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         if len(removed_geom) == 0:
             print('No lost coverage detected, not saving a lost coverage GPKG.')
         else:
+            # when using fiona, it saves the two layers and not the single defined layer
+            # removed_geom.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG', engine='fiona')
             removed_geom.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG')
+            
             print(f'Saved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
 
             # Save the removed geom data as a csv as well
