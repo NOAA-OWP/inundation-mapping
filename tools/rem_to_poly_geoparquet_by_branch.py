@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import rasterio
 from rasterio.features import shapes
-from scipy.ndimage import label
+from scipy.ndimage import find_objects, label
 from shapely.geometry import shape
 
 
@@ -95,15 +95,18 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
     # Label connected regions (connected pixels > 0)
     labeled, num_features = label(mask_crop)
 
-    # Count pixels in each connected region (label)
-    pixel_counts = np.bincount(labeled.ravel())
+    # Get bounding boxes (slices) for each component
+    slices = find_objects(labeled)
 
-    # Build a mask of labels that have enough area (e.g., > 5 pixels)
-    min_pixels = 3  # adjust based on cell size and minimum area threshold
-    valid_labels = np.where(pixel_counts >= min_pixels)[0]
+    min_pixels = 3
+    valid_labels = set()
+    for i, sl in enumerate(slices, start=1):  # labels start at 1
+        region = labeled[sl] == i
+        if np.count_nonzero(region) >= min_pixels:
+            valid_labels.add(i)
 
-    # Mask out small components
-    filtered_mask = np.isin(labeled, valid_labels) & (combined_crop > 0)
+    # Mask only valid components
+    filtered_mask = np.isin(labeled, list(valid_labels)) & (combined_crop > 0)
 
     # Calculate adjusted transform for the window
     transform_crop = rasterio.transform.from_origin(
