@@ -256,18 +256,6 @@ def __inundate_gms_generator(
         catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
-        # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
-        htable_req_cols = [
-            "HUC",
-            "branch_id",
-            "feature_id",
-            "HydroID",
-            "stage",
-            "precalb_discharge_cms",
-            "discharge_cms",
-            "LakeID",
-        ]
-
         if isinstance(hydro_table_df, pd.DataFrame):
             hydro_table_all = hydro_table_df.set_index(["HUC", "feature_id", "HydroID"], inplace=False)
             hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
@@ -294,6 +282,17 @@ def __inundate_gms_generator(
                 hydro_table_all = pd.read_feather(hydro_table_huc)
             elif s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.csv")):
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
+                # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
+                htable_req_cols = [
+                    "HUC",
+                    "branch_id",
+                    "feature_id",
+                    "HydroID",
+                    "stage",
+                    "precalb_discharge_cms",
+                    "discharge_cms",
+                    "LakeID",
+                ]
                 hydro_table_all = pd.read_csv(hydro_table_huc, dtype=dtype, usecols=htable_req_cols)
             else:
                 hydro_table_huc = None
