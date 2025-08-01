@@ -6,7 +6,6 @@ import glob
 import os
 import pickle
 import random
-import shutil
 import sys
 import time
 import traceback
@@ -33,7 +32,6 @@ from utils.shared_variables import VIZ_PROJECTION
 
 # TODO: Aug 2024: This script was upgraded significantly with lots of misc TODO's embedded.
 # Lots of inline documenation needs updating as well
-
 
 # will become global once initiallized
 FLOG = fl.FIM_logger()
@@ -147,7 +145,7 @@ def generate_flows_for_huc(
 
             # for Stage based, is uses stage values from threshold data supplied by WRDS
             # but here (for flow), it uses the values from the flows data from WRDS
-            stages, flows = get_thresholds(
+            stages, flows, threshold_count = get_thresholds(
                 threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
             )
 
@@ -431,9 +429,10 @@ def generate_flows(
     start_dt = datetime.now(timezone.utc)
 
     # Open NWM flows geopackages
+    # TODO: Jul 2025: These shoudl be changed to a bash_variable or something other than
+    # hardcoding. Granted.. we don't have new ones but might someday
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
-
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
 
@@ -450,29 +449,31 @@ def generate_flows(
     time_duration = end_dt - start_dt
     FLOG.lprint(f"Retrieving metadata - Duration: {str(time_duration).split('.')[0]}")
 
+    # FLOG.lprint("+++++++++++++++++++")
+    # FLOG.lprint(f"all_meta_lists is {all_meta_lists}")
+    # FLOG.lprint("+++++++++++++++++++")
+
     print("")
 
     # Assign HUCs to all sites using a spatial join of the FIM 4 HUC layer.
     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
     # of all sites used later in script.
-
     FLOG.lprint("Start aggregate_wbd_hucs")
     start_dt = datetime.now(timezone.utc)
 
     huc_dictionary, out_gdf = aggregate_wbd_hucs(all_meta_lists, WBD_LAYER, True, lst_hucs)
 
-    # FLOG.lprint(f"WBD LAYER USED: {WBD_LAYER}")  # TEMP DEBUG
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.astype({'metadata_sources': str})
 
+    FLOG.lprint("+++++++++++++")
+    FLOG.lprint("Start Flow Generation")
+
     end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt
     FLOG.lprint(f"End aggregate_wbd_hucs - Duration: {str(time_duration).split('.')[0]}")
-
-    FLOG.lprint("")
-    FLOG.lprint("Start Flow Generation")
 
     # It this is stage-based, it returns all of these objects here, but if it continues
     # (aka. Flow based), then it returns only nws_lid_layer (created later in this function)
@@ -496,7 +497,6 @@ def generate_flows(
 
     # pulls out the parent log file and replaces it with the child prefix
     # catfim if coming from generate_categorical_fim.py
-
     child_log_file_prefix = FLOG.MP_calc_prefix_name(log_output_file, "MP_process_gen_flows")
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
@@ -720,6 +720,10 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
                 duplicate_meta_list.append(site)
 
             else:
+                # debug
+                # if nws_lid.upper() not in ['PNTA3', 'PWBA3']:
+                #     continue
+
                 # Unique/unseen LID that's not None
                 unique_lids.append(nws_lid)
                 output_meta_list.append(site)

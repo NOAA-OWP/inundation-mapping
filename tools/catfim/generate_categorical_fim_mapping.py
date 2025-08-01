@@ -72,9 +72,8 @@ def produce_stage_based_lid_tifs(
     datum_adj_wse_m = datum_adj_wse * 0.3048  # Convert ft to m
 
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
-    hand_stage = datum_adj_wse_m - lid_usgs_elev
-
-    # TODO: see what happens if this is returned with tj
+    hand_stage_m = datum_adj_wse_m - lid_usgs_elev
+    hand_stage = round(hand_stage_m * 1000)  # convert to mm to match HAND
 
     # If no segments, write message and exit out
     if not segments or len(segments) == 0:
@@ -247,7 +246,8 @@ def produce_stage_based_lid_tifs(
             summed_array = summed_array + remaining_raster_array
 
         # Mask out the lakes from the inundation array
-        summed_masked_array = mask_out_lakes(summed_array, huc, zero_branch_src)
+        summed_masked_array, mask_status = mask_out_lakes(summed_array, huc, zero_branch_src, fim_dir)
+        MP_LOG.lprint(mask_status)
 
         del zero_branch_array, summed_array  # Clean up
 
@@ -256,7 +256,7 @@ def produce_stage_based_lid_tifs(
         summed_masked_array = summed_masked_array.astype('uint8')
         with rasterio.open(output_tif, 'w', **profile) as dst:
             dst.write(summed_masked_array, 1)
-            MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
+            # MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
 
         # For space reasons, we need to delete all of the intermediary files such as:
         #    Stage: grmn3_action_extent_0.tif, grmn3_action_extent_1933000003.tif. The give aways are a number before
@@ -330,18 +330,34 @@ def produce_inundated_branch_tif(
         #   are <= to hand_stage and the catchments value is in the hydroid_list.
 
         reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
-            'uint8'
+            'int16'
         )
 
-        hydroid_mask = np.isin(catchments_array, hydroid_list)
+        # MP_LOG.trace(f"min of reclass_rem_array (min is {np.min(reclass_rem_array)} and max is {np.max(reclass_rem_array)}")
+
+        # The catchment_array has hydroid that have had the first 4 chars cut off
+        # we need to the same for the hydroid's from the hydroid_list
+        # clipped_hydroid_list = [str(x[-4:]) for x in hydroid_list]
+        clipped_hydroid_list = []
+        for i in hydroid_list:
+            clipped_str = str(i)[-4:]
+            clipped_hydroid_list.append(int(clipped_str))
+
+        hydroid_mask = np.isin(catchments_array, clipped_hydroid_list)
+
+        # MP_LOG.trace(f"max of hydroid_mask {np.max(hydroid_mask)}")
 
         target_catchments_array = np.where(
             ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
-        ).astype('uint8')
+        ).astype('int16')
+
+        # MP_LOG.trace(f"min of target_catchments_array (min is {np.min(target_catchments_array)} and max is {np.max(target_catchments_array)}")
 
         masked_reclass_rem_array = np.where(
             ((reclass_rem_array >= 1) & (target_catchments_array >= 1)), 1, 0
-        ).astype('uint8')
+        ).astype('int16')
+
+        # MP_LOG.trace(f"min of masked_reclass_rem_array (min is {np.min(masked_reclass_rem_array)} and max is {np.max(masked_reclass_rem_array)}")
 
         # change it all to either 1 or 0 (one being inundated)
         # masked_reclass_rem_array[np.where(masked_reclass_rem_array <= 0)] = 0
@@ -361,9 +377,9 @@ def produce_inundated_branch_tif(
             # output_tif = os.path.join(
             #     lid_directory, lid + '_' + category_key + '_extent_' + huc + '_' + branch + '.tif'
             # )
-            # # # File may or may not exist
-            # # if os.path.exists(output_tif):
-            MP_LOG.lprint(f" +++ Branch output_tif is {output_tif}")
+            # File may or may not exist
+            # if os.path.exists(output_tif):
+            # MP_LOG.lprint(f" +++ Branch output_tif is {output_tif}")
             with rasterio.Env():
                 profile = rem_src.profile
                 profile.update(dtype=rasterio.uint8)
@@ -375,7 +391,7 @@ def produce_inundated_branch_tif(
                 with rasterio.open(output_tif, 'w', **profile) as dst:
                     # dst.nodata = 0
                     dst.write(masked_reclass_rem_array, 1)
-        # else:
+        # else:  # commented out as there are so many of these
         #     MP_LOG.trace(f"{file_name} : inundation was all zero cells")
 
     except Exception:
@@ -554,9 +570,9 @@ def run_inundation(
             hydrofabric_dir=fim_run_dir,
             forecast=magnitude_flows_csv,
             num_workers=job_number_inundate,
+            hydro_table_df=None,
             hucs=huc,
             inundation_raster=output_extent_tif,
-            inundation_polygon=None,
             depths_raster=None,
             verbose=False,
             log_file=None,
@@ -583,7 +599,9 @@ def run_inundation(
         # TODO: Update to only run if lake detected?
         with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
             output_extent_array = output_extent_src.read(1)
-            output_extent_array_masked = mask_out_lakes(output_extent_array, huc, output_extent_src)
+            output_extent_array_masked, mask_status = mask_out_lakes(
+                output_extent_array, huc, output_extent_src, fim_run_dir
+            )
             output_extent_src.write(output_extent_array_masked, 1)
 
         MP_LOG.trace(f"Lake masking complete for {huc} : {ahps_site} : {magnitude}")
@@ -929,9 +947,20 @@ def reformat_inundation_maps(
             for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
         )
 
+        list_results = list(results)
+
+        # Check whether any shapes were found in the inundated tifs
+        # If not, log a message and return
+        if len(list_results) == 0:
+            MP_LOG.error(
+                f"{huc} : {ahps_lid} : {magnitude} - No values above zero in inundated tif, "
+                "so zero inundated shapes were found. See GitHub issue #1491 for details."
+            )
+            return
+
         # Convert list of shapes to polygon
         # lots of polys
-        extent_poly = gpd.GeoDataFrame.from_features(list(results), crs=src.crs)
+        extent_poly = gpd.GeoDataFrame.from_features(list_results, crs=src.crs)
 
         # Dissolve polygons
         extent_poly_diss = extent_poly.dissolve(by='extent')

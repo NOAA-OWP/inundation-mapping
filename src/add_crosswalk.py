@@ -5,6 +5,7 @@ import json
 import sys
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from numpy import unique
 from rasterstats import zonal_stats
@@ -14,7 +15,9 @@ from utils.shared_functions import getDriver
 from utils.shared_variables import FIM_ID
 
 
-# TODO - Feb 17, 2023 - We want to explore using FR methodology as branch zero
+# Define acceptable slope range
+SLOPE_MIN = 9.999e-7
+SLOPE_MAX = 0.5
 
 
 def add_crosswalk(
@@ -34,19 +37,44 @@ def add_crosswalk(
     min_catchment_area,
     min_stream_length,
     huc_id,
+    iris_sword_slope,
 ):
-    input_catchments = gpd.read_file(input_catchments_fileName, engine="pyogrio", use_arrow=True)
-    input_flows = gpd.read_file(input_flows_fileName, engine="pyogrio", use_arrow=True)
-    input_huc = gpd.read_file(input_huc_fileName, engine="pyogrio", use_arrow=True)
-    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine="pyogrio", use_arrow=True)
+    # These HUC-level geopackages are being read using the fiona engine because
+    # the pyogrio + arrow engine was giving random segmentation faults that
+    # we think may be due to many branches trying to read the same GPKG.
+    # See issue #1376 for details.
+    input_catchments = gpd.read_file(input_catchments_fileName, engine='fiona')
+    input_flows = gpd.read_file(input_flows_fileName, engine='fiona')
+    input_huc = gpd.read_file(input_huc_fileName, engine='fiona')
+    input_nwmflows = gpd.read_file(input_nwmflows_fileName, engine='fiona')
+    iris_df = pd.read_parquet(iris_sword_slope).rename(
+        columns={'slope_iris_sword': 'SLOPE_IRIS_SWORD', 'id': 'feature_id'}
+    )
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
     input_catchments = input_catchments.dissolve(by='HydroID').reset_index()
 
+    # Rename ID column
     input_nwmflows = input_nwmflows.rename(columns={'ID': 'feature_id'})
     if input_nwmflows.feature_id.dtype != 'int':
         input_nwmflows.feature_id = input_nwmflows.feature_id.astype(int)
+
+    # Handle variable slope column name (AK uses So, CONUS uses Slope)
+    if 'Slope' in input_nwmflows.columns:
+        input_nwmflows = input_nwmflows.rename(columns={'Slope': 'SLOPE_HFAB'})
+    elif 'So' in input_nwmflows.columns:
+        input_nwmflows = input_nwmflows.rename(columns={'So': 'SLOPE_HFAB'})
+    else:
+        input_nwmflows['SLOPE_HFAB'] = np.nan
+        print(
+            f"WARNING: could not find a 'Slope' or 'So' attribute in the NWM hydrofabric at {input_nwmflows_fileName} – setting SLOPE_HFAB to n/a"
+        )
+
+    # Merge IRIS-SWORD slope data with NWM flows
+    input_nwmflows = input_nwmflows.merge(
+        iris_df[['feature_id', 'SLOPE_IRIS_SWORD']], on='feature_id', how='left'
+    )
     input_nwmflows = input_nwmflows.set_index('feature_id')
 
     # Get stream midpoint
@@ -70,7 +98,7 @@ def add_crosswalk(
     crosswalk.loc[crosswalk['distance'] > 100.0, 'feature_id'] = pd.NA
 
     crosswalk = crosswalk.filter(items=['HydroID', 'feature_id', 'distance'])
-    crosswalk = crosswalk.merge(input_nwmflows[['order_']], on='feature_id')
+    crosswalk = crosswalk.merge(input_nwmflows[['order_', 'SLOPE_HFAB', 'SLOPE_IRIS_SWORD']], on='feature_id')
 
     del input_nwmflows
 
@@ -237,12 +265,30 @@ def add_crosswalk(
 
     # calculate src_full
     input_src_base = pd.read_csv(input_srcbase_fileName, dtype=object)
+    input_src_base = input_src_base.rename(columns={' SLOPE': 'SLOPE_RISE_RUN'})
+
     if input_src_base.CatchId.dtype != 'int':
         input_src_base.CatchId = input_src_base.CatchId.astype(int)
 
     input_src_base = input_src_base.merge(
-        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
+        output_flows[['ManningN', 'HydroID', 'NextDownID', 'order_', 'SLOPE_HFAB', 'SLOPE_IRIS_SWORD']],
+        left_on='CatchId',
+        right_on='HydroID',
     )
+
+    # masks for valid slope values (also only using SWORD for orders >=4)
+    sword_mask = (input_src_base['order_'] >= 4) & (
+        (input_src_base['SLOPE_IRIS_SWORD'] >= SLOPE_MIN) & (input_src_base['SLOPE_IRIS_SWORD'] <= SLOPE_MAX)
+    )
+
+    # hfab_mask = (input_src_base['SLOPE_HFAB'] >= SLOPE_MIN) & (input_src_base['SLOPE_HFAB'] <= SLOPE_MAX)
+
+    # Apply masks to filter out invalid slope values
+    sword_slope = input_src_base['SLOPE_IRIS_SWORD'].where(sword_mask)
+    # hfab_slope = input_src_base['SLOPE_HFAB'].where(hfab_mask)
+
+    # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
+    input_src_base['SLOPE'] = sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN'])
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
@@ -344,6 +390,9 @@ def add_crosswalk(
             'HydraulicRadius (m)',
             'WetArea (m2)',
             'Volume (m3)',
+            'SLOPE_HFAB',
+            'SLOPE_IRIS_SWORD',
+            'SLOPE_RISE_RUN',
             'SLOPE',
             'ManningN',
             'Stage',
@@ -379,6 +428,9 @@ def add_crosswalk(
 
     if output_hydro_table.HydroID.dtype != 'str':
         output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
+
+    # TODO: Jun 2025: Why do we have this column? Likely a bug
+    output_hydro_table['HydroID Int16'] = output_hydro_table['HydroID'].apply(lambda x: str(int(x[4:])))
     output_hydro_table[FIM_ID] = output_hydro_table.loc[:, 'HydroID'].apply(lambda x: str(x)[0:4])
 
     if input_huc[FIM_ID].dtype != 'str':
@@ -467,6 +519,9 @@ if __name__ == '__main__':
     )
     parser.add_argument("-e", "--min-catchment-area", help="Minimum catchment area", required=True)
     parser.add_argument("-g", "--min-stream-length", help="Minimum stream length", required=True)
+    parser.add_argument(
+        "-i", "--iris-sword-slope", help="Channel slope data from IRIS-SWORD database", required=True
+    )
 
     args = vars(parser.parse_args())
 

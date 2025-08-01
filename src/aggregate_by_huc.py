@@ -252,12 +252,64 @@ class HucDirectory(object):
                     self.agg_usgs_elev_table.to_csv(usgs_elev_table_file, index=False)
 
             if hydro_table_flag:
+
                 hydrotable_file = join(self.huc_dir_path, 'hydrotable.csv')
                 if os.path.isfile(hydrotable_file):
                     os.remove(hydrotable_file)
 
                 if not self.agg_hydrotable.empty:
                     self.agg_hydrotable.to_csv(hydrotable_file, index=False)
+
+                    # TODO: Jun 2025: Rename poorly named columns like SurfaceArea (m2)
+                    # and go though all tools removing csv orfeather in favour of parquet
+                    # (keep an eye on LoFI/Prob code)
+
+                    # Streamline inundation downstream
+                    # some columns like Bathymetry_source are always string even on load of the files
+                    # but we cast some to make sure (notice feature_id and huc for example?)
+                    # TODO: Jun 2025: branch_id should become string for consistency
+                    dtype = {
+                        "HUC": str,
+                        "branch_id": int,
+                        "feature_id": str,
+                        "HydroID": str,
+                        "stage": float,
+                        "discharge_cms": float,
+                        "SurfaceArea (m2)": int,
+                        "LakeID": int,
+                    }
+                    htable_req_cols = [
+                        "HUC",
+                        "branch_id",
+                        "feature_id",
+                        "HydroID",
+                        "stage",
+                        "discharge_cms",
+                        "SurfaceArea (m2)",
+                        "LakeID",
+                        "Bathymetry_source",
+                    ]
+                    temp_df = self.agg_hydrotable.reset_index()
+                    temp_df = temp_df[htable_req_cols].astype(dtype)
+                    temp_df.to_feather(hydrotable_file.replace('.csv', '.feather'))
+
+                    # Note: with using the hydroid and feature_id as indexes which has huge performance
+                    # gains, especially for HydroVIS, it will change a bit of how we work and view that data.
+                    # We will end using a lot more df.query commands instead of loc and iloc.
+                    # Note: Indexes are not columns and you cant use them quite the same way. Watch for
+                    # datatypes above.
+                    # example usage:
+                    #       Good:       df.query("feature_id == '10926557'")
+                    #       Won't work: df.loc[df["feature_id"] == '10926557']
+                    temp_df = temp_df.sort_values(['HydroID', 'feature_id', 'discharge_cms'])
+                    temp_df = temp_df.set_index(['HydroID', 'feature_id'])
+                    temp_df.to_parquet(
+                        hydrotable_file.replace('.csv', '.parquet'),
+                        compression='zstd',
+                        index=True,
+                        write_page_checksum=True,
+                        write_page_index=True,
+                    )
 
             if src_cross_flag:
                 src_crosswalk_file = join(self.huc_dir_path, 'src_full_crosswalked.csv')
@@ -377,6 +429,9 @@ def aggregate_by_huc(
     assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
 
     # -------------------
+    # TODO: May 19, 2025: It is good to keep this in, but it needs to happen at the top of both fim_pipeline and post
+    # post processing. Currently, you run pipeline, you don't find out until here when this problem exists and
+    # it aborts here.
     # Validation
     total_cpus_available = os.cpu_count() - 2
     if num_job_workers > total_cpus_available:

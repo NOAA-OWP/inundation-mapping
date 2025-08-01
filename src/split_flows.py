@@ -147,7 +147,7 @@ def split_flows(
     toMetersConversion = 1e-3
 
     # Read in flows data and check for relevant streams within HUC boundary
-    flows = gpd.read_file(flows_filename)
+    flows = gpd.read_file(flows_filename, engine='fiona')
     flows_crs = flows.crs
     if len(flows) == 0:
         # Note: This is not an exception, but a custom exit code that can be trapped
@@ -155,11 +155,14 @@ def split_flows(
         sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
     # Read in and format other data
-    wbd8 = gpd.read_file(wbd8_clp_filename)
+    # These HUC-level geopackages are being read using the fiona engine because
+    # the pyogrio + arrow engine was giving random segmentation faults that
+    # we think may be due to many branches trying to read the same GPKG
+    wbd8 = gpd.read_file(wbd8_clp_filename, engine='fiona')
     dem = rasterio.open(dem_filename, 'r')
 
     if isfile(lakes_filename):
-        lakes = gpd.read_file(lakes_filename)
+        lakes = gpd.read_file(lakes_filename, engine='fiona')
     else:
         lakes = None
 
@@ -182,7 +185,7 @@ def split_flows(
     print('Trimming DEM stream to NWM branch terminus...')
 
     # Read in nwm lines, explode to ensure linestrings are the only geometry
-    nwm_streams = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
+    nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
 
     # If it's NOT branch 0: Dissolve levelpath
     if 'levpa_id' in nwm_streams.columns:
@@ -252,9 +255,18 @@ def split_flows(
         if len(lakes) > 0:
             print('Splitting stream segments at ' + str(len(lakes)) + ' waterbodies...')
 
+            # Determine the lake id column
+            if 'newID' in lakes.columns:
+                lake_id_column = 'newID'
+            elif 'wb_id' in lakes.columns:
+                lake_id_column = 'wb_id'  # Alaska HUCs
+            else:
+                print("No 'newID' or 'wb_id' column found in lake file")
+                sys.exit(1)  # Exit with a generic error code
+
             # Create splits at lake boundaries
-            lakes = lakes.filter(items=['newID', 'geometry'])
-            lakes = lakes.set_index('newID')
+            lakes = lakes.filter(items=[lake_id_column, 'geometry'])
+            lakes = lakes.set_index(lake_id_column)
             flows = (
                 gpd.overlay(flows, lakes, how='union', keep_geom_type=True)
                 .explode(index_parts=True)
@@ -377,7 +389,7 @@ def split_flows(
         split_flows_gdf = gpd.sjoin(
             split_flows_gdf, lakes_buffer, how='left', predicate='within'
         )  # Note: Options include intersects, within, contains, crosses
-        split_flows_gdf = split_flows_gdf.rename(columns={"newID": "LakeID"}).fillna(-999)
+        split_flows_gdf = split_flows_gdf.rename(columns={lake_id_column: "LakeID"}).fillna(-999)
     else:
         split_flows_gdf['LakeID'] = -999
 

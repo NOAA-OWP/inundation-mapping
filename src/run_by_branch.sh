@@ -50,8 +50,8 @@ ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id"
     $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg \
     $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg
 ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
-    $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_extended_$current_branch_id.gpkg \
-    $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved_extended.gpkg
+    $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_extended_$current_branch_id.gpkg \
+    $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg
 echo -e "Querying NWM catchments ..."
 ogr2ogr -f GPKG -t_srs $huc_CRS -where $branch_id_attribute="$current_branch_id" \
     $tempCurrentBranchDataDir/nwm_catchments_proj_subset_levelPaths_$current_branch_id.gpkg \
@@ -70,22 +70,56 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $current_branch_id"
 $srcDir/clip_rasters_to_branches.py -d $current_branch_id \
     -b $tempHucDataDir/branch_polygons.gpkg \
     -i $branch_id_attribute \
-    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/flowdir_d8_burned_filled.tif $tempHucDataDir/bridge_elev_diff_meters.tif \
-    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters.tif
-
+    -r $tempHucDataDir/dem_meters.tif $tempHucDataDir/bridge_elev_diff_meters.tif \
+    -c $tempCurrentBranchDataDir/dem_meters.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters.tif
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $current_branch_id"
 read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
 <<<$($srcDir/getRasterInfoNative.py -r $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif)
 
-
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"
 gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax \
-    -ts $ncols $nrows $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_extended_$current_branch_id.gpkg \
+    -ts $ncols $nrows $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_extended_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif
+
+## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
+echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
+python3 $srcDir/agreedem.py -r $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
+    -d $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+    -w $tempCurrentBranchDataDir \
+    -o $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+    -b $agree_DEM_buffer \
+    -sm 10 \
+    -sh 1000
+## ADJUST FLOODPLAINS ##
+echo -e $startDiv"Adjust floodplains $hucNumber $current_branch_id"
+echo -e $tempHucDataDir/branch_polygons.gpkg
+
+$srcDir/adjust_floodplains.py \
+    -i $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
+    -e $tempCurrentBranchDataDir/flows_grid_boolean_euclidean_distance_$current_branch_id.tif \
+    -d $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+    -o $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+    -t $floodplain_distance_threshold \
+    -s $floodplain_slope_exponent \
+    -z $floodplain_z_factor \
+    -p $tempHucDataDir/branch_polygons.gpkg \
+    -b $current_branch_id \
+    -f $input_fema_flood_hazard_zones/nfhl_$hucNumber.gpkg
+
+## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
+echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"
+rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+    $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif
+
+## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
+echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
+mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+    -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"
