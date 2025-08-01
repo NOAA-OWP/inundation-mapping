@@ -15,7 +15,6 @@ NWPS_API = "https://api.water.noaa.gov/nwps/v1/reaches/{feature_id}"
 def haversine_distance(lat1, lon1, lat2, lon2):
     """
     Calculate the great-cirle ditance between two points on the earth.
-
     Args:
         lat1, lon1: latitude and longitude of point 1 (in degrees).
         lat2, lon2: latitude and longitude of point 2 (in degrees).
@@ -41,8 +40,10 @@ def create_fim_flow_file(start_feature_id, flow, distance, output_path):
     previous_coords = None
 
     print("Starting downstream trace...")
+    print('======================================')
 
-    while current_feature_id and total_distance < distance:
+    reach_count = 0
+    while current_feature_id and total_distance <= distance:
         response = requests.get(NWPS_API.format(feature_id=current_feature_id))
         response.raise_for_status()
         data = response.json()
@@ -50,6 +51,7 @@ def create_fim_flow_file(start_feature_id, flow, distance, output_path):
         reach_id_str = data.get('reachId')
 
         reaches_to_write.append({'feature_id': int(reach_id_str), 'discharge': flow})
+        reach_count += 1
 
         current_coords = {'lat': data.get('latitude'), 'lon': data.get('longitude')}
         if not all(current_coords.values()):
@@ -65,19 +67,24 @@ def create_fim_flow_file(start_feature_id, flow, distance, output_path):
         else:
             segment_distance = 0.0
         previous_coords = current_coords
+        
+        print(f"Processed reach {reach_id_str}, distance: {segment_distance:.2f} km, Total: {total_distance:.2f} km")
 
         downstream_list = data.get('route', {}).get('downstream', [])
         if downstream_list:
             current_feature_id = int(downstream_list[0]['reachId'])
         else:
             current_feature_id = None
+    
+    print("======================================")
+    print(f"Trace complete: {reach_count} reaches.")
 
-        # Write to csv
-        with open(output_path, 'w', newline='') as csvfile:
-            fieldnames = ['feature_id', 'discharge']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(reaches_to_write)
+    # Write to csv
+    with open(output_path, 'w', newline='') as csvfile:
+        fieldnames = ['feature_id', 'discharge']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(reaches_to_write)
 
 
 if __name__ == "__main__":
@@ -90,7 +97,9 @@ if __name__ == "__main__":
     -o /output/costume_flows.csv
     """
     parser = argparse.ArgumentParser(description="Generate a FIM flow file by tracing downstream reaches.")
-    parser.add_argument("-feature_id", type=int, required=True, help="Starting reach feature ID (integer)")
+    id_group = parser.add_mutually_exclusive_group(required=True)
+    id_group.add_argument("-feature_id", type=int, help="Starting reach feature ID (integer)")
+    id_group.add_argument("-gage", help= "The gauge's unique identifier, LID or USGS ID. Example: ANAW1 or 13334300")
     flow_group = parser.add_mutually_exclusive_group(required=True)
     flow_group.add_argument("-cms", type=float, help="Flow value in cms")
     flow_group.add_argument("-cfs", type=float, help="Flow value in cfs")
@@ -101,6 +110,17 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Handel feature_id and LID or USGS ID
+    if args.feature_id is not None:
+        start_feature_id = args.feature_id 
+    else:
+        NWPS_API_gage = "https://api.water.noaa.gov/nwps/v1/gauges/{gage_id}"
+        response_gage = requests.get(NWPS_API_gage.format(gage_id=args.gage))
+        response_gage.raise_for_status()
+        data_gage = response_gage.json()
+        reach_id_str = data_gage.get('reachId')
+        start_feature_id = int(reach_id_str)
+        
     # Handle flow and distance unit
     if args.cms is not None:
         flow = args.cms
@@ -113,5 +133,5 @@ if __name__ == "__main__":
         distance = args.mile * mile_to_km
 
     create_fim_flow_file(
-        start_feature_id=args.feature_id, flow=flow, distance=distance, output_path=args.output
+        start_feature_id=start_feature_id, flow=flow, distance=distance, output_path=args.output
     )
