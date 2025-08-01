@@ -9,6 +9,7 @@ from inundate_gms import Inundate_gms
 from mosaic_inundation import Mosaic_inundation
 
 from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_functions import s3_or_local_path_exists
 from utils.shared_variables import elev_raster_ndv
 
 
@@ -32,6 +33,7 @@ def produce_mosaicked_inundation(
     windowed: Optional[bool] = False,
     log_file: Optional[str] = None,
     nodata: Optional[int] = elev_raster_ndv,
+    gms_multi_process: Optional[bool] = False,
 ):
     """
     This function calls Inundate_gms and Mosaic_inundation to produce inundation maps.
@@ -80,6 +82,8 @@ def produce_mosaicked_inundation(
         File path for log file
     nodata : Optional[int], default=elev_raster_ndv
         Nodata to pass to the mosaic_inundation function
+    gms_multi_process : Optional[bool], default=False
+        Use processes for parallel processing instead of threads
     """
 
     # Check that inundation_raster or depths_raster is supplied
@@ -101,7 +105,7 @@ def produce_mosaicked_inundation(
             os.makedirs(parent_dir)
 
     # Check that hydrofabric_dir exists
-    if not os.path.exists(hydrofabric_dir):
+    if not s3_or_local_path_exists(hydrofabric_dir):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), hydrofabric_dir)
 
     # If the "hucs" argument is really one huc, convert it to a list
@@ -110,7 +114,7 @@ def produce_mosaicked_inundation(
 
     # Check that huc folder exists in the hydrofabric_dir.
     for huc in hucs:
-        if not os.path.exists(os.path.join(hydrofabric_dir, huc)):
+        if not s3_or_local_path_exists(os.path.join(hydrofabric_dir, huc)):
             raise FileNotFoundError(
                 (errno.ENOENT, os.strerror(errno.ENOENT), os.path.join(hydrofabric_dir, huc))
             )
@@ -141,6 +145,7 @@ def produce_mosaicked_inundation(
         precalb_option=precalb_option,
         windowed=windowed,
         log_file=log_file,
+        multi_process=gms_multi_process,
     )
 
     # Write map file if designated

@@ -58,9 +58,10 @@ def create_usgs_rating_database(
     print('Duration (read usgs_rc_csv): {}'.format(dt.datetime.now() - start_time))
 
     # Read in and filter acceptable sites file
-    # acceptable_sites_path = "/data/inputs/usgs_gages/acceptable_sites_for_rating_curves_20250603.csv" # TODO: Make an input variable
+    # acceptable_sites_path = "/data/inputs/usgs_gages/acceptable_sites_for_rating_curves_20250603.csv"
+    # TODO: Make an input variable
 
-    acceptable_sites = pd.read_csv(usgs_sites_filepath)
+    acceptable_sites = pd.read_csv(usgs_sites_filepath, dtype={'location_id': object})
     acceptable_sites_filt = filter_usgs_by_acceptance_criteria(acceptable_sites)
     location_ids_to_keep = acceptable_sites_filt['location_id'].drop_duplicates().tolist()
 

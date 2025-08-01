@@ -193,6 +193,7 @@ class Test_Case(Benchmark):
         verbose=False,
         gms_workers=1,
         precalb_option=False,
+        threads=8,
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
 
@@ -214,6 +215,8 @@ class Test_Case(Benchmark):
             If True, prints out all pertinent data.
         gms_workers : int
             Number of worker processes assigned to GMS processing.
+        threads : int
+            Number of threads assigned to GMS processing.
         '''
 
         try:
@@ -284,6 +287,7 @@ class Test_Case(Benchmark):
                         verbose=verbose,
                         gms_workers=gms_workers,
                         precalb_option=precalb_option,
+                        threads=threads,
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -303,7 +307,15 @@ class Test_Case(Benchmark):
             sys.exit(1)
 
     def _inundate_and_compute(
-        self, magnitude, lid, precalb_option, compute_only=False, model='', verbose=False, gms_workers=1
+        self,
+        magnitude,
+        lid,
+        precalb_option,
+        compute_only=False,
+        model='',
+        verbose=False,
+        gms_workers=1,
+        threads=8,
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
@@ -363,10 +375,11 @@ class Test_Case(Benchmark):
                     inundation_raster=predicted_raster_path,
                     mask=os.path.join(self.fim_dir, "wbd.gpkg"),
                     verbose=verbose,
-                    num_threads=8,
+                    num_threads=threads,
                     num_workers=gms_workers,
                     precalb_option=precalb_option,
                     windowed=True,
+                    gms_multi_process=True,
                 )
 
             # FIM v3 and before
@@ -424,6 +437,7 @@ class Test_Case(Benchmark):
         overwrite=True,
         verbose=False,
         gms_workers=1,
+        threads=8,
     ):
         '''Class method for instantiating the test_case class and running alpha_test directly'''
 
@@ -438,6 +452,7 @@ class Test_Case(Benchmark):
             verbose,
             gms_workers,
             precalb_option,
+            threads,
         )
 
     def composite(self, version_2, calibrated=False, overwrite=True, verbose=False):
