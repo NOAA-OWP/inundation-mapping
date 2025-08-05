@@ -201,14 +201,14 @@ def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
 
 # -------------------------------------------------------
 # Correcting nonmonotonic SRC
-def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
+def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
     """Function for correcting nonmonotonic synthetic rating curves.
     For GMS branches, it will correct each hydroID SRC in serial based
     that shows nonmonotonic behavior within in-channel stages.
 
         Parameters
         ----------
-        fim_dir : str
+        huc_dir : str
             Directory path for fim_pipeline output.
         huc : str
             HUC-8 string.
@@ -220,13 +220,13 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
     """
     log_text = f'Processing nonmonotonic SRCs for HUC {huc}\n'
 
-    fim_huc_dir = join(fim_dir, huc)
+    # fim_huc_dir = join(fim_dir, huc)
     # Get src_full from each branch
     src_all_branch_paths = []
-    branches = os.listdir(join(fim_huc_dir, 'branches'))
+    branches = os.listdir(join(huc_dir, 'branches'))
     for branch in branches:
         if int(branch) > 0:  # Just for GMS branches
-            src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
+            src_full = join(huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
             if os.path.isfile(src_full):
                 src_all_branch_paths.append(src_full)
 
@@ -331,7 +331,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         # Reporting in the log file
         log_text += f'Adjusting Nonmonotonic hydroTable for HUC {huc} Branch {branch}'
 
-        ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
+        ht_branch_path = join(huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
         ht_df = pd.read_csv(ht_branch_path, low_memory=False)
         ht_df = ht_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
         ht_df[cols_int] = ht_df[cols_int].astype(int)
@@ -362,7 +362,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
 
 # --------------------------------------------------------
 # Apply nonmonotonic src adjustment
-def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path):  # bankfull_flows_file,
+def apply_nonmonotonic_src_adjustment(huc_dir, huc, strm_order, log_file_path):  # bankfull_flows_file,
     """
     Function for applying nonmonotonic SRC adjustment to synthetic rating curves.
 
@@ -383,7 +383,7 @@ def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path): 
         msg = f"Correcting rating curve for nonmonotonic SRC for HUC : {huc}\n"
         log_text += msg
         print(msg)
-        log_text += correct_nonmonotonic_src(fim_dir, huc, strm_order)  # bankfull_flows_file
+        log_text += correct_nonmonotonic_src(huc_dir, huc, strm_order)  # bankfull_flows_file
 
     except Exception:
         log_text += f"An error has occurred while processing nonmonotonic SRC for huc {huc}\n"
@@ -397,7 +397,7 @@ def apply_nonmonotonic_src_adjustment(fim_dir, huc, strm_order, log_file_path): 
 
 
 # -------------------------------------------------------
-def process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs):  # bankfull_flows_file,
+def process_nonmonotonic_src_adjustment(huc_dir, strm_order, number_of_jobs):  # bankfull_flows_file,
     """
     Function for correcting nonmonotonic synthetic rating curves using Multi-Proc function
     for each HUC8. For GMS branches, it will correct each hydroID SRC in serial based that
@@ -405,8 +405,8 @@ def process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs):  #
 
         Parameters
         ----------
-        fim_dir : str
-            Directory path for fim_pipeline output.
+        huc_dir : str
+            Directory path for huc output.
         strm_order : int
             stream order on or higher for which you want to apply nonmonotonic SRC adjustment.
             default = 4
@@ -414,7 +414,10 @@ def process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs):  #
             Number of CPU cores to parallelize HUC processing.
     """
     # Set up log file
-    log_file_path = os.path.join(fim_dir, 'logs', 'nonmonotonic_src_adjustment' + '.log')
+    log_dir = os.path.join(huc_dir, "logs", "src_optimization")
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+    log_file_path = os.path.join(log_dir, 'nonmonotonic_src_adjustment.log')
     print(f'Writing progress to log file here: {log_file_path}')
     print('This may take a few minutes...')
     ## Create a time var to log run time
@@ -429,20 +432,22 @@ def process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs):  #
     log_text = ""
 
     # Find HUCs to apply nonmonotonic SRC adjustment
-    fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
+    # fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
+    hucNumber = os.path.basename(os.path.normpath(huc_dir))
+
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         # Loop through all hucs, build the arguments, and submit them to the process pool
         futures = {}
-        for huc in fim_hucs:
-            args = {
-                'fim_dir': fim_dir,
-                'huc': huc,
-                'strm_order': strm_order,
-                # 'bankfull_flows_file': bankfull_flows_file,
-                'log_file_path': log_file_path,
-            }
-            future = executor.submit(apply_nonmonotonic_src_adjustment, **args)
-            futures[future] = future
+        # for huc in fim_hucs:
+        args = {
+            'huc_dir': huc_dir,
+            'huc': hucNumber,
+            'strm_order': strm_order,
+            # 'bankfull_flows_file': bankfull_flows_file,
+            'log_file_path': log_file_path,
+        }
+        future = executor.submit(apply_nonmonotonic_src_adjustment, **args)
+        futures[future] = future
 
         for future in as_completed(futures):
             if future is not None:
@@ -477,7 +482,7 @@ if __name__ == '__main__':
         -j $jobLimit -sor 4
     """
     parser = ArgumentParser(description="nonmonotonic SRC Adjustment")
-    parser.add_argument('-fim_dir', '--fim-dir', help='Path to FIM output dir', required=True, type=str)
+    parser.add_argument('-huc_dir', '--huc_dir', help='Path to FIM output dir', required=True, type=str)
     parser.add_argument(
         '-sor',
         '--strm_order',
@@ -503,9 +508,9 @@ if __name__ == '__main__':
     )
     args = vars(parser.parse_args())
 
-    fim_dir = args['fim_dir']
+    huc_dir = args['huc_dir']
     strm_order = args['strm_order']
     #  bankfull_flows_file = args['bankfull_flows_file']
     number_of_jobs = args['number_of_jobs']
 
-    process_nonmonotonic_src_adjustment(fim_dir, strm_order, number_of_jobs)  # bankfull_flows_file,
+    process_nonmonotonic_src_adjustment(huc_dir, strm_order, number_of_jobs)  # bankfull_flows_file,

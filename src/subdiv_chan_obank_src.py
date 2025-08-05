@@ -382,22 +382,26 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
 
 
 def run_prep(
-    fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option, process_huc=None
+    huc_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option, process_huc=None
 ):
     procs_list = []
 
-    print(f"Writing progress to log file here: {fim_dir}/logs/subdiv_src_{output_suffix}.log")
+    print(f"Writing progress to log file here: {huc_dir}/logs/subdiv_src_{output_suffix}.log")
     print('This may take a few minutes...')
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
 
     ## initiate log file
-    log_file = open(join(fim_dir, 'logs', 'subdiv_src_' + output_suffix + '.log'), "w")
+    log_dir = os.path.join(huc_dir, "logs", "src_optimization")
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+
+    log_file = open(join(log_dir, 'subdiv_src_' + output_suffix + '.log'), "w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
     ## Check that the input fim_dir exists
-    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
+    # assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
     ## Check that the manning's roughness input filepath exists and then read to dataframe
     assert os.path.isfile(mann_n_table), 'Can not find the input roughness/feature_id file: ' + str(
         mann_n_table
@@ -419,15 +423,18 @@ def run_prep(
 
         if process_huc is None:
             ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-            huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
-            huc_list.sort()  # sort huc_list for helping track progress in future print statments
+            # huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
+            # huc_list.sort()  # sort huc_list for helping track progress in future print statments
+            
+            hucNumber = os.path.basename(os.path.normpath(huc_dir))
+            huc_list=[hucNumber]
         else:
             huc_list = [process_huc]
         for huc in huc_list:
             # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
             if process_huc is None or huc in process_huc:
                 if re.match(r'\d{8}', huc):
-                    huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
+                    huc_branches_dir = os.path.join(huc_dir, 'branches')
                     for branch_id in os.listdir(huc_branches_dir):
                         branch_dir = os.path.join(huc_branches_dir, branch_id)
                         in_src_bankfull_filename = join(
@@ -488,7 +495,7 @@ if __name__ == '__main__':
         "component. Impliment user provided Manning's n values for in-channel vs. overbank flow. "
         "Recalculate Manning's eq for discharge"
     )
-    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument('-huc_dir', '--huc_dir', help='FIM output dir', required=True, type=str)
     parser.add_argument(
         '-mann',
         '--mann-n-table',
@@ -531,11 +538,11 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    fim_dir = args['fim_dir']
+    huc_dir = args['huc_dir']
     mann_n_table = args['mann_n_table']
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
 
-    run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option)
+    run_prep(huc_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option)

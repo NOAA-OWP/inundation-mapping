@@ -23,9 +23,10 @@ ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
 class HucDirectory(object):
-    def __init__(self, fim_directory, huc_id, limit_branches=[]):
-        self.fim_directory = fim_directory
-        self.huc_dir_path = join(fim_directory, huc_id)
+    def __init__(self, huc_dir, limit_branches=[]):
+        # self.fim_directory = fim_directory
+        # self.huc_dir_path = join(fim_directory, huc_id)
+        self.huc_dir_path=huc_dir
         self.limit_branches = limit_branches
 
         self.usgs_dtypes = {
@@ -190,7 +191,7 @@ class HucDirectory(object):
             for branch in os.listdir(join(self.huc_dir_path, 'branches')):
                 yield (branch, join(self.huc_dir_path, 'branches', branch))
 
-    def usgs_elev_table(self, branch_path):
+    def aggregate_usgs_elev_table(self, branch_path):
         usgs_elev_filename = join(branch_path, 'usgs_elev_table.csv')
         if not os.path.isfile(usgs_elev_filename):
             return
@@ -217,7 +218,7 @@ class HucDirectory(object):
         src_cross['branch_id'] = branch_id
         self.agg_src_cross = pd.concat([self.agg_src_cross, src_cross])
 
-    def ras_elev_table(self, branch_path):
+    def aggregate_ras_elev_table(self, branch_path):
         ras_elev_filename = join(branch_path, 'ras_elev_table.csv')
         if not os.path.isfile(ras_elev_filename):
             return
@@ -275,9 +276,9 @@ class HucDirectory(object):
             # try catch and its own log file output in error only.
             for branch_id, branch_path in self.iter_branches():
                 if usgs_elev_flag:
-                    self.usgs_elev_table(branch_path)
+                    self.aggregate_usgs_elev_table(branch_path)
                 if ras_elev_flag:
-                    self.ras_elev_table(branch_path)
+                    self.aggregate_ras_elev_table(branch_path)
 
                 ## Other aggregate funtions can go here
                 if hydro_table_flag:
@@ -475,8 +476,7 @@ def log_error(
 
 
 def aggregate_by_huc(
-    fim_directory,
-    fim_inputs,
+    huc_dir,
     usgs_elev_flag,
     hydro_table_flag,
     src_cross_flag,
@@ -485,7 +485,7 @@ def aggregate_by_huc(
     road_flag,
     num_job_workers,
 ):
-    assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
+    assert os.path.isdir(huc_dir), f'{huc_dir} is not a valid directory'
 
     # -------------------
     # TODO: May 19, 2025: It is good to keep this in, but it needs to happen at the top of both fim_pipeline and post
@@ -501,11 +501,12 @@ def aggregate_by_huc(
             ' values accordingly.'
         )
 
+    '''
     # create log folder, might end up empty but at least create the folder
     # Yes.. this is duplicate in the log function
-    log_folder = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
+    log_folder = os.path.join(huc_dir, "logs", "agg_by_huc_errors")
     if os.path.exists(log_folder) is False:
-        os.mkdir(log_folder)
+        os.makedirs(log_folder)
     else:
         # empty only ones with this type (we want to keep others that
         # might have been called with different types. aka.. once for -elev
@@ -526,10 +527,14 @@ def aggregate_by_huc(
         filelist = glob.glob(os.path.join(log_folder, f"*{agg_type}*"))
         for f in filelist:
             os.remove(f)
+    '''
 
     start_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     print(f"started: {dt_string}")
+
+    # get hucnumber
+    hucNumber = os.path.basename(os.path.normpath(huc_dir))
 
     # Set up multiprocessor
     with ProcessPoolExecutor(max_workers=num_job_workers) as executor:
@@ -537,6 +542,7 @@ def aggregate_by_huc(
         executor_dict = {}
 
         try:
+            ''' #commened by Ali
             if fim_inputs:
                 fim_inputs_csv = pd.read_csv(fim_inputs, header=None, names=['huc', 'levpa_id'], dtype=str)
                 huc_list = fim_inputs_csv.huc.unique()
@@ -570,37 +576,37 @@ def aggregate_by_huc(
                 for huc_id in huc_list_sorted:
                     if huc_id.isnumeric() is False:
                         continue
-
-                    huc_dir = HucDirectory(fim_directory, huc_id)
-
-                    args_agg = {
-                        'usgs_elev_flag': usgs_elev_flag,
-                        'hydro_table_flag': hydro_table_flag,
-                        'src_cross_flag': src_cross_flag,
-                        'ras_elev_flag': ras_elev_flag,
-                        'bridge_flag': bridge_flag,
-                        'road_flag': road_flag,
-                        'huc_id': huc_id,
-                    }
-                    future = executor.submit(huc_dir.agg_function, **args_agg)
-                    executor_dict[future] = huc_id
+        
+            '''
+            huc_dir = HucDirectory(huc_dir)
+            args_agg = {
+                'usgs_elev_flag': usgs_elev_flag,
+                'hydro_table_flag': hydro_table_flag,
+                'src_cross_flag': src_cross_flag,
+                'ras_elev_flag': ras_elev_flag,
+                'bridge_flag': bridge_flag,
+                'road_flag': road_flag,
+                'huc_id': hucNumber,
+            }
+            future = executor.submit(huc_dir.agg_function, **args_agg)
+            executor_dict[future] = hucNumber
 
         except Exception:
             errMsg = (
                 "--------------------------------------"
-                f"\n huc_id {huc_id} has an error - outside multi proc\n"
+                f"\n huc_id {hucNumber} has an error - outside multi proc\n"
             )
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
             log_error(
-                fim_directory,
+                huc_dir,
                 usgs_elev_flag,
                 hydro_table_flag,
                 src_cross_flag,
                 ras_elev_flag,
                 bridge_flag,
                 road_flag,
-                huc_id,
+                hucNumber,
                 errMsg,
             )
             # sys.exit(1)
@@ -624,8 +630,8 @@ if __name__ == '__main__':
     # in post processing.
 
     parser = argparse.ArgumentParser(description='Aggregates usgs_elev_table.csv at the HUC level')
-    parser.add_argument('-fim', '--fim_directory', help='Input FIM Directory', required=True)
-    parser.add_argument('-i', '--fim_inputs', help='Input fim_inputs CSV file', required=False)
+    parser.add_argument('-huc_dir', '--huc_dir', help='HUC Directory', required=True)
+    # parser.add_argument('-i', '--hucNumber', help='hucNumber to be postprocessed', required=False)
     parser.add_argument(
         '-elev',
         '--usgs_elev_flag',

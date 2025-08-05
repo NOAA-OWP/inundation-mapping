@@ -51,7 +51,7 @@ htable_dtypes = {
 }
 
 
-def manual_calibration(fim_directory: str, calibration_file: str):
+def manual_calibration(huc_dir: str, calibration_file: str):
     """
     Perform manual calibration.
 
@@ -66,8 +66,8 @@ def manual_calibration(fim_directory: str, calibration_file: str):
 
     Parameters
     ----------
-    fim_directory : str
-        Path to the parent directory of FIM-required datasets.
+    huc_dir : str
+        Path to a huc output directory.
     calibration_file : str
         Path to the manual calibration file. This file should be a CSV
         with the following columns:
@@ -80,15 +80,16 @@ def manual_calibration(fim_directory: str, calibration_file: str):
                 feature_id combination.
     """
 
-    # Get list of HUCs
-    fim_inputs = pd.read_csv(
-        os.path.join(fim_directory, 'fim_inputs.csv'),
-        header=None,
-        names=['HUC', 'branch_id'],
-        dtype={'HUC': str, 'branch_id': int},
-    )
+    # # Get list of HUCs
+    # fim_inputs = pd.read_csv(
+    #     os.path.join(fim_directory, 'fim_inputs.csv'),
+    #     header=None,
+    #     names=['HUC', 'branch_id'],
+    #     dtype={'HUC': str, 'branch_id': int},
+    # )
 
-    fim_inputs_hucs = fim_inputs['HUC'].unique()
+    # fim_inputs_hucs = fim_inputs['HUC'].unique()
+    hucNumber = os.path.basename(os.path.normpath(huc_dir))
 
     # Read manual calibration table
 
@@ -105,13 +106,13 @@ def manual_calibration(fim_directory: str, calibration_file: str):
         if manual_calib_df['calb_coef_manual'].min() >= 0:
             # Find HUCs with manual calibration coefficients
             calib_hucs = manual_calib_df['HUC8'].unique()
-            hucs = np.intersect1d(fim_inputs_hucs, calib_hucs)
+            hucs = np.intersect1d(np.array([hucNumber]), calib_hucs)
 
             for huc in hucs:
                 if huc in calib_hucs:
                     print(f'Updating hydrotable for {huc}')
 
-                    huc_branches_dir = os.path.join(fim_directory, huc, 'branches')
+                    huc_branches_dir = os.path.join(huc_dir, 'branches')
 
                     # Yes... Upper case T
                     ht_branch_files = list(
@@ -176,7 +177,7 @@ if __name__ == '__main__':
     ## Parse arguments.
     parser = argparse.ArgumentParser(description='Manually calibrate rating curve')
     parser.add_argument(
-        '-fim_dir', '--fim-directory', help='Parent directory of FIM-required datasets.', required=True
+        '-huc_dir', '--huc_dir', help='Parent directory of FIM-required datasets.', required=True
     )
     parser.add_argument(
         '-calb_file', '--calibration-file', help='Path to manual calibration file', required=True
@@ -184,11 +185,11 @@ if __name__ == '__main__':
 
     # args = parser.parse_args()
     args = vars(parser.parse_args())
-    fim_directory = args['fim_directory']
+    huc_dir = args['huc_dir']
     calibration_file = args['calibration_file']
 
-    manual_calibration(fim_directory, calibration_file)
+    manual_calibration(huc_dir, calibration_file)
 
     # Usage example:
-    # python /foss_fim/src/src_manual_calibration.py -fim_dir /outputs/dev-manual-calibration \
+    # python /foss_fim/src/src_manual_calibration.py -huc_dir /outputs/dev-manual-calibration \
     # -calb_file /data/inputs/rating_curve/manual_calibration_coefficients.csv

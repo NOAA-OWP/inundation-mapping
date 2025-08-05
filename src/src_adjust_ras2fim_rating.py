@@ -199,7 +199,7 @@ def create_ras2fim_rating_database(huc_ras_input_file, ras_elev_df, nwm_recurr_f
     return final_df
 
 
-def branch_proc_list(ras_df, huc_run_dir, debug_outputs_option, log_file):
+def branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file):
     procs_list = []  # Initialize list for mulitprocessing.
 
     # loop through all unique level paths that have a ras2fim data points
@@ -213,7 +213,7 @@ def branch_proc_list(ras_df, huc_run_dir, debug_outputs_option, log_file):
             # Define paths to branch HAND data.
             # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
             # Assumes outputs are for HUC8 (not HUC6)
-            branch_dir = os.path.join(huc_run_dir, 'branches', branch_id)
+            branch_dir = os.path.join(huc_dir, 'branches', branch_id)
             hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
             catchments_path = os.path.join(
                 branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
@@ -305,9 +305,9 @@ def branch_proc_list(ras_df, huc_run_dir, debug_outputs_option, log_file):
     #     )
 
 
-def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number):
+def run_prep(huc_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number):
     ## Check input args are valid
-    assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
+    # assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
     available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
@@ -319,7 +319,7 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
         )
 
     ## Create output dir for log and ras2fim rc database
-    log_dir = os.path.join(run_dir, "logs", "src_optimization")
+    log_dir = os.path.join(huc_dir, "logs", "src_optimization")
     print("Log file output here: " + str(log_dir))
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
@@ -331,24 +331,26 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    hucs_with_data = find_matching_subdirectories(run_dir, ras_input_dir)
+    # TODO since we already copied the ras2fim data, if available, into tempHucDataDir, we can just check the availablity
+    current_huc_parent= os.path.dirname(os.path.normpath(huc_dir))
+    hucs_with_data = find_matching_subdirectories(current_huc_parent, ras_input_dir)
+
     if len(hucs_with_data) == 0:
         print('ALERT: Did not find any HUCs with ras2fim data to perform adjustments')
         log_file.write('ALERT: Did not find any HUCs with ras2fim data to perform adjustments\n')
         return
 
-    log_file.write('RAS2FIM data available and will perform SRC adjustments for hucs:\n')
+    log_file.write('RAS2FIM data available and will perform SRC adjustments for huc:\n')
     log_file.write(str(hucs_with_data))
     log_file.write('\n#########################################################\n\n')
     for huc in hucs_with_data:
-        huc_run_dir = os.path.join(run_dir, huc)
-        huc_ras_input_file = os.path.join(huc_run_dir, ras_rc_filepath)
-        ## Create an aggregate dataframe with all ras_elev_table.csv entries for hucs in fim_dir
-        print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv files...')
+        # huc_run_dir = os.path.join(run_dir, huc)
+        huc_ras_input_file = os.path.join(huc_dir, ras_rc_filepath)
+        print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv file...')
         csv_elev = 'ras_elev_table.csv'  # file name to search for ras location data (in the huc/branch dirs)
         # ras_elev_df = concat_huc_csv(huc_run_dir, csv_elev)
         ras_elev_df = pd.read_csv(
-            os.path.join(huc_run_dir, 'ras_elev_table.csv'),
+            os.path.join(huc_dir, 'ras_elev_table.csv'),
             dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
         )
 
@@ -358,13 +360,13 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
 
         if ras_elev_df is None:
             warn_err = (
-                'WARNING: ras_elev_df not created - check that ' + csv_elev + ' files exist in fim_dir!'
+                'WARNING: ras_elev_df not created - check that ' + csv_elev + ' files exist in huc_dir!'
             )
             print(warn_err)
             log_file.write(warn_err)
 
         elif ras_elev_df.empty:
-            warn_err = 'WARNING: ras_elev_df is empty - check that ' + csv_elev + ' files exist in fim_dir!'
+            warn_err = 'WARNING: ras_elev_df is empty - check that ' + csv_elev + ' files exist in huc_dir!'
             print(warn_err)
             log_file.write(warn_err)
 
@@ -376,7 +378,7 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
             )
 
             ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
-            branch_proc_list(ras_df, huc_run_dir, debug_outputs_option, log_file)
+            branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file)
 
     ## Record run time and close log file
     log_file.write('#########################################################\n\n')
@@ -394,7 +396,7 @@ if __name__ == '__main__':
         description='Adjusts rating curve with database of RAS2FIM reach average rating curves'
         '(calculated WSE/flow).'
     )
-    parser.add_argument('-run_dir', '--run-dir', help='Parent directory of FIM run.', required=True)
+    parser.add_argument('-huc_dir', '--huc_dir', help='directory of a HUC run.', required=True)
     parser.add_argument(
         '-ras_input', '--ras2fim-dir', help='Path to RAS2FIM rating curve input directory', required=True
     )
@@ -422,7 +424,7 @@ if __name__ == '__main__':
 
     ## Assign variables from arguments.
     args = vars(parser.parse_args())
-    run_dir = args['run_dir']
+    huc_dir = args['huc_dir']
     ras_input_dir = args['ras2fim_dir']
     ras_rc_filepath = args['ras2fim_ratings']
     nwm_recurr_filepath = args['nwm_recur']
@@ -430,4 +432,4 @@ if __name__ == '__main__':
     job_number = int(args['job_number'])
 
     ## Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number)
+    run_prep(huc_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number)

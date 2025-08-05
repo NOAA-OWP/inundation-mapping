@@ -86,6 +86,10 @@ def create_usgs_rating_database(
     # (removes ahps lide entries that aren't associated with USGS gage)
     cross_df = cross_df[cross_df.location_id.notnull()]
 
+    # TODO what to do if this is empty for a HUC?
+    # if cross_df.empty: ?
+
+
     # convert usgs flow from cfs to cms
     usgs_rc_df['discharge_cms'] = usgs_rc_df.flow / 35.3147
     usgs_rc_df = usgs_rc_df.drop(columns=["flow"])
@@ -186,7 +190,7 @@ def create_usgs_rating_database(
         log_text += 'Warning: Large variance (>10%) between NWM flow and closest USGS flow -->\n'
         log_text += calc_df[calc_df['check_variance'] > 0.1].to_string() + '\n'
         final_df = final_df[final_df['check_variance'] < 0.1]
-        final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id']
+        final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id'].astype(str)
         # Get datestamp from usgs rating curve file to use as coll_time attribute in hydroTable.csv
         datestamp = check_file_age(usgs_rc_filepath)
         final_df['coll_time'] = str(datestamp)[:15]
@@ -279,7 +283,7 @@ def trace_network(df, start_id):
     return trace_up, trace_down
 
 
-def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
+def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file):
     procs_list = []  # Initialize list for mulitprocessing.
 
     # loop through all unique level paths that have a USGS gage
@@ -295,7 +299,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             # Define paths to branch HAND data.
             # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
             # Assumes outputs are for HUC8 (not HUC6)
-            branch_dir = os.path.join(run_dir, huc, 'branches', branch_id)
+            branch_dir = os.path.join(huc_dir, 'branches', branch_id)
             hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
             catchments_path = os.path.join(
                 branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
@@ -473,13 +477,12 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
 
 
 def run_prep(
-    run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+    huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
 ):
     # Check input args are valid
-    assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
+    # assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
-    # Create an aggregate dataframe with all usgs_elev_table.csv entries for hucs in fim_dir
-    print('Reading USGS gage HAND elevation from usgs_elev_table.csv files...')
+    print('Reading USGS gage HAND elevation from usgs_elev_table.csv file...')
     # usgs_elev_file = os.path.join(branch_dir,'usgs_elev_table.csv')
     # usgs_elev_df = pd.read_csv(
     #     usgs_elev_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int}
@@ -496,8 +499,7 @@ def run_prep(
         )
 
     # Create output dir for log and usgs rc database
-    log_dir = os.path.join(run_dir, "logs", "src_optimization")
-    print("Log file output here: " + str(log_dir))
+    log_dir = os.path.join(huc_dir, "logs", "src_optimization")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
 
@@ -508,17 +510,18 @@ def run_prep(
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    usgs_elev_df = concat_huc_csv(run_dir, csv_name)
+    # usgs_elev_df = concat_huc_csv(run_dir, csv_name)
+    usgs_elev_df=pd.read_csv(os.path.join(huc_dir,csv_name ))
 
     if usgs_elev_df is None:
         warn_err = (
-            'WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in fim_dir!'
+            'WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in huc_dir!'
         )
         print(warn_err)
         log_file.write(warn_err)
 
     elif usgs_elev_df.empty:
-        warn_err = 'WARNING: usgs_elev_df is empty - check that usgs_elev_table.csv files exist in fim_dir!'
+        warn_err = 'WARNING: usgs_elev_df is empty - check that usgs_elev_table.csv files exist in huc_dir!'
         print(warn_err)
         log_file.write(warn_err)
 
@@ -530,7 +533,7 @@ def run_prep(
         )
 
         # Create huc proc_list for multiprocessing and execute the update_rating_curve function
-        branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file)
+        branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file)
 
     # Record run time and close log file
     log_file.write('########################################################\n\n')
@@ -547,7 +550,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Adjusts rating curve with database of USGS rating curve (calculated WSE/flow).'
     )
-    parser.add_argument('-run_dir', '--run-dir', help='Parent directory of FIM run.', required=True)
+    parser.add_argument('-huc_dir', '--huc_dir', help='directory of a HUC run', required=True)
     parser.add_argument(
         '-usgs_rc', '--usgs-ratings', help='Path to USGS rating curve csv file', required=True
     )
@@ -575,7 +578,7 @@ if __name__ == '__main__':
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
-    run_dir = args['run_dir']
+    huc_dir = args['huc_dir']
     usgs_rc_filepath = args['usgs_ratings']
     usgs_sites_filepath = args['usgs_sites']
     nwm_recurr_filepath = args['nwm_recur']
@@ -584,5 +587,5 @@ if __name__ == '__main__':
 
     # Prepare/check inputs, create log file, and spin up the proc list
     run_prep(
-        run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+        huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
     )

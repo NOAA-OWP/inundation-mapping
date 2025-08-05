@@ -101,7 +101,7 @@ def filter_voi(voi_array):
 
 
 # -------------------------------------------------------
-def filter_longitudinal_discharge_jitters(fim_dir, huc):
+def filter_longitudinal_discharge_jitters(huc_dir, huc):
     """
     Function for smoothing longitudinal jitters in any variables
     of interest along a stream in synthetic rating curves.
@@ -120,11 +120,11 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
     """
     log_text = f'Filtering Longitudinal Flow Fluctuation for HUC8: {huc}\n'
-    fim_huc_dir = join(fim_dir, huc)
+    # fim_huc_dir = join(fim_dir, huc)
 
     # if int(branch) == 0:
-    src_full_0 = join(fim_huc_dir, 'branches', str(0), 'src_full_crosswalked_0.csv')
-    ht_0_path = join(fim_huc_dir, 'branches', str(0), 'hydroTable_0.csv')
+    src_full_0 = join(huc_dir, 'branches', str(0), 'src_full_crosswalked_0.csv')
+    ht_0_path = join(huc_dir, 'branches', str(0), 'hydroTable_0.csv')
 
     if os.path.isfile(src_full_0) and os.path.isfile(ht_0_path):
         src_0_df = pd.read_csv(src_full_0, low_memory=False)
@@ -146,12 +146,12 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
     # Get src_full, hydrotable and catchment from each branch
     src_all_branches_path = []
     cathment_gpkg_path = []
-    branches = os.listdir(join(fim_huc_dir, 'branches'))
+    branches = os.listdir(join(huc_dir, 'branches'))
     for branch in branches:
         if int(branch) > 0:  # Just for GMS branches
-            src_full = join(fim_huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
+            src_full = join(huc_dir, 'branches', str(branch), f'src_full_crosswalked_{branch}.csv')
             cathment_gpkg = join(
-                fim_huc_dir,
+                huc_dir,
                 'branches',
                 str(branch),
                 f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg',
@@ -329,7 +329,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             # log_text += f'Successfully recalculated discharge for HUC {huc} branch {branch}'
 
         log_text += f'Adjusting hydroTable for longitudinal filter for HUC {huc} Branch {branch}'
-        ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
+        ht_branch_path = join(huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
         ht_df = pd.read_csv(ht_branch_path, low_memory=False)
 
         # updating discharge_cms column
@@ -346,7 +346,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
 # --------------------------------------------------------
 # Apply longitudinal dischage adjustment
-def apply_longitudinal_dischage_adjustment(fim_dir, huc, log_file_path):  # bankfull_flows_file,
+def apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path):  # bankfull_flows_file,
     """
     Function for applying longitudinal dischage adjustment to synthetic rating curves.
 
@@ -366,7 +366,7 @@ def apply_longitudinal_dischage_adjustment(fim_dir, huc, log_file_path):  # bank
         msg = f"Correcting rating curve for longitudinal discharge ajustment SRC for HUC : {huc}\n"
         log_text += msg
         print(msg)
-        log_text += filter_longitudinal_discharge_jitters(fim_dir, huc)  # bankfull_flows_file
+        log_text += filter_longitudinal_discharge_jitters(huc_dir, huc)  # bankfull_flows_file
 
     except Exception:
         log_text += f"An error has occurred while processing longitudinal adjustment for huc {huc}\n"
@@ -380,7 +380,7 @@ def apply_longitudinal_dischage_adjustment(fim_dir, huc, log_file_path):  # bank
 
 
 # -------------------------------------------------------
-def process_longitudinal_flow_adjustment(fim_dir, number_of_jobs):
+def process_longitudinal_flow_adjustment(huc_dir, number_of_jobs):
     """
     Function for correcting synthetic rating curves using Multi-Proc approach.
     It will correct each branch's SRCs in serial based on the HydroIDs.
@@ -394,7 +394,10 @@ def process_longitudinal_flow_adjustment(fim_dir, number_of_jobs):
 
     """
     # Set up log file
-    log_file_path = os.path.join(fim_dir, 'logs', 'longitudinal_filter' + '.log')
+    log_dir = os.path.join(huc_dir, "logs", "src_optimization")
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+    log_file_path = os.path.join(log_dir, 'longitudinal_filter.log')
     print(f'Writing progress to log file here: {log_file_path}')
     print('This may take a few minutes...')
     ## Create a time var to log run time
@@ -409,18 +412,20 @@ def process_longitudinal_flow_adjustment(fim_dir, number_of_jobs):
     log_text = ""
 
     # Find applicable HUCs to apply longitudinal filter
-    fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
+    # fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
 
-    msg = f"Applying longitudinal discharge adjustment on {len(fim_hucs)} HUCs: {fim_hucs}\n"
+    msg = f"Applying longitudinal discharge adjustment" # on {len(fim_hucs)} HUCs: {fim_hucs}\n"
     log_text += msg
+
+    hucNumber = os.path.basename(os.path.normpath(huc_dir))
 
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         # Loop through all hucs, build the arguments, and submit them to the process pool
         futures = {}
-        for huc in fim_hucs:
-            args = {'fim_dir': fim_dir, 'huc': huc, 'log_file_path': log_file_path}
-            future = executor.submit(apply_longitudinal_dischage_adjustment, **args)
-            futures[future] = future
+        # for huc in fim_hucs:
+        args = {'huc_dir': huc_dir, 'huc': hucNumber, 'log_file_path': log_file_path}
+        future = executor.submit(apply_longitudinal_dischage_adjustment, **args)
+        futures[future] = future
 
         for future in as_completed(futures):
             if future is not None:
@@ -440,7 +445,7 @@ if __name__ == '__main__':
     """
     Parameters
     ----------
-    fim_dir : str
+    huc_dir : str
         Directory path for fim_pipeline output. Log file will be placed in
         fim_dir/logs/longitudinal_filter.log.
     number_of_jobs : int
@@ -453,7 +458,7 @@ if __name__ == '__main__':
         -j $jobLimit
     """
     parser = ArgumentParser(description="Longitudinal depth/flow filter")
-    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument('-huc_dir', '--huc_dir', help='FIM output dir', required=True, type=str)
     parser.add_argument(
         '-j',
         '--number-of-jobs',
@@ -465,7 +470,7 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    fim_dir = args['fim_dir']
+    huc_dir = args['huc_dir']
     number_of_jobs = args['number_of_jobs']
 
-    process_longitudinal_flow_adjustment(fim_dir, number_of_jobs)
+    process_longitudinal_flow_adjustment(huc_dir, number_of_jobs)

@@ -108,18 +108,24 @@ def process_branch(sub_branch_path, branch):
 
 
 # TODO: May 16, 2025: add mp and glob to speed this way up
-def reset_hydro_and_src(fim_dir):
-    hucs = [h for h in os.listdir(fim_dir) if re.match(r'^\d{8}$', h)]
-    for huc_folder in hucs:
-        huc_path = os.path.join(fim_dir, huc_folder)
-        if os.path.isdir(huc_path):
-            for branch_folder in os.listdir(huc_path):
-                branch_path = os.path.join(huc_path, branch_folder)
-                if os.path.isdir(branch_path):
-                    for branch in os.listdir(branch_path):
-                        sub_branch_path = os.path.join(branch_path, branch)
-                        if os.path.isdir(sub_branch_path):
-                            process_branch(sub_branch_path, branch)
+def reset_hydro_and_src(huc_path):
+    # hucs = [h for h in os.listdir(fim_dir) if re.match(r'^\d{8}$', h)]
+    # for huc_folder in hucs:
+    #     huc_path = os.path.join(fim_dir, huc_folder)
+    #     if os.path.isdir(huc_path):
+    #         for branch_folder in os.listdir(huc_path):
+    #             branch_path = os.path.join(huc_path, branch_folder)
+    #             if os.path.isdir(branch_path):
+    #                 for branch in os.listdir(branch_path):
+    #                     sub_branch_path = os.path.join(branch_path, branch)
+    #                     if os.path.isdir(sub_branch_path):
+    #                         process_branch(sub_branch_path, branch)        
+
+    branches_path = os.path.join(huc_path, 'branches')
+    branch_nos=[branch_no for branch_no in os.listdir(branches_path) if os.path.isdir(os.path.join(huc_path,'branches', branch_no))]
+    for branch_no in branch_nos:
+        sub_branch_path=os.path.join(branches_path, branch_no)
+        process_branch(sub_branch_path, branch_no)
 
 
 # Example usage:

@@ -211,7 +211,7 @@ def find_hucs_with_points(points_file_dir, fim_out_huc_list):
     return hucs_wpoints
 
 
-def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_file):
+def ingest_points_layer(huc_dir, job_number, debug_outputs_option, log_file):
     '''
     The function obtains all points within a given huc, locates the corresponding FIM output files
     for each huc (confirms all necessary files exist), and then passes a proc list of
@@ -233,17 +233,19 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     - log_file:             where stdout/stderr will be logged
     '''
 
-    print("Finding all fim_output hucs that contain calibration points...")
-    fim_out_huc_list = [
-        item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item))
-    ]
+    hucNumber = os.path.basename(os.path.normpath(huc_dir))
+    fim_out_huc_list=[hucNumber]
+    # print("Finding all fim_output hucs that contain calibration points...")
+    # fim_out_huc_list = [
+    #     item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item))
+    # ]
 
     # Remove logs, unit_errors, and branch_errors folders if they exist in <fim_directory>
-    fim_out_huc_list.remove('logs')
-    if 'unit_errors' in fim_out_huc_list:
-        fim_out_huc_list.remove('unit_errors')
-    if 'branch_errors' in fim_out_huc_list:
-        fim_out_huc_list.remove('branch_errors')
+    # fim_out_huc_list.remove('logs')
+    # if 'unit_errors' in fim_out_huc_list:
+    #     fim_out_huc_list.remove('unit_errors')
+    # if 'branch_errors' in fim_out_huc_list:
+    #     fim_out_huc_list.remove('branch_errors')
 
     ## Record run time and close log file
     run_time_start = dt.datetime.now()
@@ -276,7 +278,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     huc_list.sort()
     ## Define paths to relevant HUC HAND data.
     for huc in huc_list:
-        huc_branches_dir = os.path.join(fim_directory, huc, 'branches')
+        huc_branches_dir = os.path.join(huc_dir, 'branches')
         water_edge_df = find_points_in_huc(huc)
         print(f"{len(water_edge_df)} points found in " + str(huc))
         log_file.write(f"{len(water_edge_df)} points found in " + str(huc) + '\n')
@@ -286,7 +288,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
         water_edge_df['Y'] = water_edge_df['geometry'].y
 
         ## Check to make sure the HUC directory exists in the current fim_directory
-        if not os.path.exists(os.path.join(fim_directory, huc)):
+        if not os.path.exists(huc_dir):
             log_file.write(
                 "FIM Directory for huc: "
                 + str(huc)
@@ -295,12 +297,12 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
 
         ## Intermediate output for debugging
         if debug_outputs_option:
-            huc_debug_pts_out = os.path.join(fim_directory, huc, 'debug_water_edge_df_' + huc + '.csv')
+            huc_debug_pts_out = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.csv')
             water_edge_df.to_csv(huc_debug_pts_out)
-            huc_debug_pts_out_gpkg = os.path.join(fim_directory, huc, 'export_water_edge_df_' + huc + '.gpkg')
+            huc_debug_pts_out_gpkg = os.path.join(huc_dir, 'export_water_edge_df_' + huc + '.gpkg')
             water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
             # write parquet file using ".to_parquet() method"
-            parquet_filepath = os.path.join(fim_directory, huc, 'debug_water_edge_df_' + huc + '.parquet')
+            parquet_filepath = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.parquet')
             water_edge_df.to_parquet(parquet_filepath, index=False)
 
         for branch_id in os.listdir(huc_branches_dir):
@@ -383,7 +385,7 @@ def ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_fil
     log_file.write('#########################################################\n')
 
 
-def run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number):
+def run_prep(huc_dir, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number):
     '''
     Main function to call the processing functions defined above, with validation, logging, and timing
 
@@ -393,9 +395,9 @@ def run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM
         - ds_thresh_override value is different than defualy and warn user
     '''
 
-    assert os.path.isdir(fim_directory), 'ERROR: could not find the input fim_dir location: ' + str(
-        fim_directory
-    )
+    # assert os.path.isdir(fim_directory), 'ERROR: could not find the input fim_dir location: ' + str(
+    #     fim_directory
+    # )
 
     available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
@@ -417,7 +419,7 @@ def run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM
         DOWNSTREAM_THRESHOLD = float(ds_thresh_override)
 
     ## Create output dir for log file
-    output_dir = os.path.join(fim_directory, "logs", "src_optimization")
+    output_dir = os.path.join(huc_dir, "logs", "src_optimization")
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
 
@@ -444,7 +446,7 @@ def run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM
     log_file.write('#########################################################\n\n')
     log_file.write('START TIME: ' + str(begin_time) + '\n')
 
-    ingest_points_layer(fim_directory, job_number, debug_outputs_option, log_file)
+    ingest_points_layer(huc_dir, job_number, debug_outputs_option, log_file)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()
@@ -462,7 +464,7 @@ if __name__ == '__main__':
         'containing points of known water boundary.'
     )
     parser.add_argument(
-        '-fim_dir', '--fim-directory', help='Parent directory of FIM-required datasets.', required=True
+        '-huc_dir', '--huc_dir', help='directory of a HUC output directory.', required=True
     )
     parser.add_argument(
         '-debug',
@@ -485,9 +487,9 @@ if __name__ == '__main__':
 
     ## Assign variables from arguments.
     args = vars(parser.parse_args())
-    fim_directory = args['fim_directory']
+    huc_dir = args['huc_dir']
     debug_outputs_option = args['extra_outputs']
     ds_thresh_override = args['downstream_thresh']
     job_number = args['job_number']
 
-    run_prep(fim_directory, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number)
+    run_prep(huc_dir, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number)

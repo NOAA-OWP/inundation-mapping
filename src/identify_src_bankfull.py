@@ -298,7 +298,7 @@ def multi_process(src_bankfull_lookup, procs_list, log_file, number_of_jobs, ver
     log_file.writelines(["%s\n" % item for item in map_output])
 
 
-def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_option):
+def run_prep(huc_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_option):
     procs_list = []
 
     ## Print message to user and initiate run clock
@@ -306,7 +306,7 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     print('This may take a few minutes...')
 
     ## Check that the input fim_dir exists
-    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
+    # assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
     ## Check that the bankfull flow filepath exists and read to dataframe
     assert os.path.isfile(bankfull_flow_filepath), 'ERROR: Can not find the input bankfull flow file: ' + str(
         bankfull_flow_filepath
@@ -315,18 +315,27 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
     ## initiate log file
-    log_file = open(join(fim_dir, 'logs', 'log_bankfull_indentify.log'), "w")
+    log_dir = os.path.join(huc_dir, "logs", "src_optimization")
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+
+    log_file = open(join(log_dir, 'log_bankfull_indentify.log'), "w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
     df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
-    huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
-    huc_list.sort()  # sort huc_list for helping track progress in future print statments
+    # huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
+    # huc_list.sort()  # sort huc_list for helping track progress in future print statments
+    
+    # get hucnumber
+    hucNumber = os.path.basename(os.path.normpath(huc_dir))
+    huc_list=[hucNumber]
+
     huc_pass_list = []
     for huc in huc_list:
         # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
         if re.match(r'\d{8}', huc):
-            huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
+            huc_branches_dir = os.path.join(huc_dir, 'branches')
             for branch_id in os.listdir(huc_branches_dir):
                 branch_dir = os.path.join(huc_branches_dir, branch_id)
                 src_orig_full_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
@@ -368,7 +377,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Identify bankfull stage for each hydroid synthetic rating curve'
     )
-    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument('-huc_dir', '--huc_dir', help='huc run directory', required=True, type=str)
     parser.add_argument(
         '-flows',
         '--bankfull-flow-input',
@@ -404,11 +413,11 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    fim_dir = args['fim_dir']
+    huc_dir = args['huc_dir']
     bankfull_flow_filepath = args['bankfull_flow_input']
     number_of_jobs = args['number_of_jobs']
     verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
 
     ## Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_option)
+    run_prep(huc_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_option)
