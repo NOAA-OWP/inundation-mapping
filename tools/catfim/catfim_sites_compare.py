@@ -436,6 +436,40 @@ def read_format_catfim_library(catfim_library_filepath):
     return library_gdf
 
 
+# Pivot table so there's a column per magnitude
+def pivot_and_join_percent_change(
+    areal_comparison, input_table_df, value_column_name, column_suffix
+):
+
+    areal_comparison_pivot_df = (
+        areal_comparison[['ahps_lid', 'magnitude', value_column_name]]
+        .pivot(index='ahps_lid', columns='magnitude', values=value_column_name)
+        .reset_index()
+    )
+
+    areal_comparison_pivot_df = areal_comparison_pivot_df.rename(
+        columns={
+            'action': 'action' + column_suffix,
+            'minor': 'minor' + column_suffix,
+            'moderate': 'moderate' + column_suffix,
+            'major': 'major' + column_suffix,
+            'record': 'record' + column_suffix,
+        }
+    )
+
+    # Join to comparison table
+    joined_table_df = pd.merge(
+        input_table_df, areal_comparison_pivot_df, left_on='site_id', right_on='ahps_lid', how='left'
+    )
+
+    # Move geometry to the last column
+    geometry = joined_table_df.pop('geometry')
+    joined_table_df.insert(len(joined_table_df.columns), 'geometry', geometry)
+
+    return joined_table_df
+
+
+
 def remove_polygon_shards(lid, magnitude, input_gdf, id_col, mag_col, minimum_area_threshold, output_folder_path):
     '''
     Inputs:
@@ -498,13 +532,13 @@ def remove_polygon_shards(lid, magnitude, input_gdf, id_col, mag_col, minimum_ar
     
     
     # in theory there can't be any na in here
-    cleaned_gdf_exp = cleaned_gdf_exp[~cleaned_gdf_exp.geometry.isna()]    
+    # cleaned_gdf_exp = cleaned_gdf_exp[~cleaned_gdf_exp.geometry.isna()]    
     
-    cleaned_gdf_final = cleaned_gdf_exp[cleaned_gdf_exp['area'] > minimum_area_threshold]
+    # cleaned_gdf_final = cleaned_gdf_exp[cleaned_gdf_exp['area'] > minimum_area_threshold]
 
     # TODO HERE    
-    if len(cleaned_gdf_final) == 0:
-        return None
+    # if len(cleaned_gdf_final) == 0:
+    #     return None
 
     # print(f"cleaned_gdf_final (post filtering) len is {len(cleaned_gdf_final)}")
     # print(cleaned_gdf_final.columns.tolist())
@@ -514,28 +548,21 @@ def remove_polygon_shards(lid, magnitude, input_gdf, id_col, mag_col, minimum_ar
     # cleaned_gdf_exp.to_file(test_file_name, driver='GPKG', engine='fiona')        
     # sys.exit()
     
-    print(f"type of cleaned_gdf_final (1) is {type(cleaned_gdf_final)}")
-    
-    cleaned_gdf_final = cleaned_gdf_final.dissolve().reset_index(drop=True)            
-    
-    print(f"type of cleaned_gdf_final (2) is {type(cleaned_gdf_final)}")    
-    
+    cleaned_gdf_final = cleaned_gdf_exp.dissolve().reset_index(drop=True)            
     cleaned_gdf_final = cleaned_gdf_final.dropna(axis=1, how='all')          
-    print(f"type of cleaned_gdf_final (3) is {type(cleaned_gdf_final)}")
         
     # try adding crs here
     # it made it through most sites, then suddenly, just one turned into a dataframe versus a geodataframe
-    cleaned_gdf_final.set_crs(crs=HAND_CRS, inplace=True)
+    cleaned_gdf_final.set_crs(crs="epsg:3857", inplace=True)
 
     print(f"cleaned_gdf_final after dissolve len is {len(cleaned_gdf_final)}")
-    print(f"type of cleaned_gdf_final (4) is {type(cleaned_gdf_final)}")
-    # print(cleaned_gdf_final.columns.tolist())
+    print(cleaned_gdf_final.columns.tolist())
     print("------------------")
     # still one layer after this (qgis and arc)
-    test_file_name = os.path.join(output_folder_path, "rob_test.gpkg")
-    cleaned_gdf_final.to_file(test_file_name, driver='GPKG', engine='fiona')        
+    # test_file_name = os.path.join(output_folder_path, "rob_test.gpkg")
+    # cleaned_gdf_final.to_file(test_file_name, driver='GPKG', engine='fiona')        
 
-    sys.exit()
+    # sys.exit()
     # print(f"type of cleaned_gdf_final is {type(cleaned_gdf_final)}")
 
     # return cleaned_gdf
@@ -578,6 +605,8 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         # Put versions in order
         sorted_versions = sorted(version_id_list, key=lambda version: list(map(int, version.split('_'))))
 
+        added_geom = None
+        removed_geom = None
         # Iterate through versions (minus the last one) to calculate site change
         for i in range(len(sorted_versions) - 1):
 
@@ -662,8 +691,8 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                         break
 
 
-                if not (lid == 'wmnd1' and magnitude == "record"):
-                    continue
+                # if not (lid == 'wmnd1' and magnitude == "record"):
+                #     continue
 
 # TEMP TURN OFF, screen output max's for now
                 # Normal mode: Print progress every 100 iterations
@@ -705,7 +734,10 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                         if removed_gdf_cleaned is None:
                             continue
                         
-                        removed_geom = pd.concat([removed_geom, removed_gdf_cleaned])
+                        if removed_geom is None:
+                            removed_geom = removed_gdf_cleaned
+                        else:
+                            removed_geom = pd.concat([removed_geom, removed_gdf_cleaned])
 
                         # the problem appears to be in concat, which makes perfect sense
 
@@ -729,57 +761,28 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                         
                         if added_gdf_cleaned is None:
                             continue
-                        
-                        added_geom = pd.concat([added_geom, added_gdf_cleaned])
+                        if added_geom is None:
+                             added_geom = added_gdf_cleaned
+                        else:
+                            added_geom = pd.concat([added_geom, added_gdf_cleaned])
 
             # Read in the comparison table so we can add the % changes and re-save it
             comparison_table_save_path = os.path.join(output_save_filepath, f'{comparison_id}_sites.csv')
             comparison_table_df = pd.read_csv(comparison_table_save_path)
 
-            # Pivot table so there's a column per magnitude
-            def pivot_and_join_percent_change(
-                areal_comparison, input_table_df, value_column_name, column_suffix
-            ):
-
-                areal_comparison_pivot_df = (
-                    areal_comparison[[id_col, mag_col, value_column_name]]
-                    .pivot(index=id_col, columns=mag_col, values=value_column_name)
-                    .reset_index()
-                )
-
-                areal_comparison_pivot_df = areal_comparison_pivot_df.rename(
-                    columns={
-                        'action': 'action' + column_suffix,
-                        'minor': 'minor' + column_suffix,
-                        'moderate': 'moderate' + column_suffix,
-                        'major': 'major' + column_suffix,
-                        'record': 'record' + column_suffix,
-                    }
-                )
-
-                # Join to comparison table
-                joined_table_df = pd.merge(
-                    input_table_df, areal_comparison_pivot_df, left_on='site_id', right_on=id_col, how='left'
-                )
-
-                # Move geometry to the last column
-                geometry = joined_table_df.pop('geometry')
-                joined_table_df.insert(len(joined_table_df.columns), 'geometry', geometry)
-
-                return joined_table_df
 
         # do we need antoher explode and dissolve here?  probably
         # Discovered that at this point, overlapping geometries are possible
         # do the removed one first to prove the theory
         # print(f"removed_geom type is {type(removed_geom)}")    
-        removed_exp = removed_geom.explode()
-        removed_geom_dis_gdf = removed_exp.dissolve().reset_index(drop=True)
-        removed_geom_dis_gdf.set_crs(HAND_CRS, inplace=True)          
+        # removed_exp = removed_geom.explode()
+        # removed_geom_dis_gdf = removed_exp.dissolve().reset_index(drop=True)
+        # removed_geom_dis_gdf.set_crs(HAND_CRS, inplace=True)          
         
         # QGIS happy (one layer), but Arc is not happy (multipe layers in arc)
         # so the concat of geopandas layers is what is makign it unhappy
-        test_file_name = os.path.join(output_save_filepath, "rob_test.gpkg")
-        removed_geom_dis_gdf.to_file(test_file_name, driver='GPKG', engine='fiona')      
+        # test_file_name = os.path.join(output_save_filepath, "rob_test.gpkg")
+        # removed_geom_dis_gdf.to_file(test_file_name, driver='GPKG', engine='fiona')      
         # sys.exit()
         
         # Run for added geom
