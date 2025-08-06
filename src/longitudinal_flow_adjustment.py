@@ -122,27 +122,6 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
     log_text = f'Filtering Longitudinal Flow Fluctuation for HUC8: {huc}\n'
     fim_huc_dir = join(fim_dir, huc)
 
-    # if int(branch) == 0:
-    src_full_0 = join(fim_huc_dir, 'branches', str(0), 'src_full_crosswalked_0.csv')
-    ht_0_path = join(fim_huc_dir, 'branches', str(0), 'hydroTable_0.csv')
-
-    if os.path.isfile(src_full_0) and os.path.isfile(ht_0_path):
-        src_0_df = pd.read_csv(src_full_0, low_memory=False)
-        ht_0_df = pd.read_csv(ht_0_path, low_memory=False)
-
-        src_0_df.loc[src_0_df['Bathymetry_source'] == str(0), 'Bathymetry_source'] = 'No Bathymetry Applied'
-        src_0_df.loc[src_0_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
-        src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].fillna('No Bathymetry Applied')
-        ht_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source']
-
-        # Save updated branch 0 ht and src tables
-        src_0_df = src_0_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
-        src_0_df.to_csv(src_full_0, index=False)
-        ht_0_df = ht_0_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
-        ht_0_df.to_csv(ht_0_path, index=False)
-    else:
-        print("Files do not exist: src_full_crosswalked_0.csv and hydroTable_0.csv")
-
     # Get src_full, hydrotable and catchment from each branch
     src_all_branches_path = []
     cathment_gpkg_path = []
@@ -179,9 +158,6 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
         Q0_mask = src_df['Discharge (m3s-1)'] == 0
         nocell0_mask = src_df['Number of Cells'] == 0
 
-        # num_headwaters = len(
-        #     catchment_gdf.loc[~catchment_gdf.HydroID.isin(catchment_gdf.NextDownID.astype(int)), "HydroID"]
-        # )
         headwaters_rows = catchment_gdf.loc[
             ~catchment_gdf.HydroID.isin(catchment_gdf.NextDownID.astype(int)),
         ]
@@ -208,17 +184,17 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
         # Makes a logitudinal dataframes of variables of interests
         keys = [
-            'Discharge (m3s-1)',
             'BedArea (m2)',
             'Volume (m3)',
             'SurfaceArea (m2)',
             'WetArea (m2)',
             'HydraulicRadius (m)',
+            'Discharge (m3s-1)',
         ]
         original_all_voi = {}
         filtered_all_voi = {}
         if len(hydroid_chain_mhws) > 0:
-            for ikey in range(len(keys[0:1])):  # Just apply to discharge
+            for ikey in range(len(keys[0:3])):  # [0:1] apply to all parameters, discharge
                 voi2smooth_mhws = []
                 filtered_voi_mhws = []
                 for hydroid_chain in hydroid_chain_mhws:
@@ -264,7 +240,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             # Defining a lake_discharge dataframe
             Q_lake_hydroID = src_df[['HydroID', 'LakeID', 'Stage', 'Discharge (m3s-1)']]
             # mask_src = (src_df['LakeID'] < 0)
-            for jkey in range(len(keys[0:1])):  # Just apply to discharge
+            for jkey in range(len(keys[0:3])):  # Apply to discharge parameteres
                 # Reshaping variables of interest (voi) to be included in src
                 filtered_voi = filtered_all_voi[keys[jkey]].drop('long_position', axis=1)
                 reshaped_filtered_voi = filtered_voi.reset_index().melt(
@@ -285,19 +261,19 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
                 mask_src = (src_df[f'Filtered_{keys[jkey]}'].notna()) & (src_df['LakeID'] < 0)
                 src_df.loc[mask_src, keys[jkey]] = src_df.loc[mask_src, f'Filtered_{keys[jkey]}']
 
-            # # Recalculating discharge variables
-            # src_df['WettedPerimeter (m)'] = src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
-            # src_df['WetArea (m2)'] = src_df['Volume (m3)'] / src_df['LENGTHKM'] / 1000
-            # src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
-            # src_df['HydraulicRadius (m)'].fillna(0, inplace=True)
+            # Recalculating discharge variables
+            src_df['WettedPerimeter (m)'] = src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
+            src_df['WetArea (m2)'] = src_df['Volume (m3)'] / src_df['LENGTHKM'] / 1000
+            src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
+            src_df['HydraulicRadius (m)'].fillna(0, inplace=True)
 
-            # # Recalculating the discharge
-            # src_df['Discharge (m3s-1)'] = (
-            #     src_df['WetArea (m2)']
-            #     * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-            #     * pow(src_df['SLOPE'], 0.5)
-            #     / src_df['ManningN']
-            # )
+            # Recalculating the discharge
+            src_df['Discharge (m3s-1)'] = (
+                src_df['WetArea (m2)']
+                * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
+                * pow(src_df['SLOPE'], 0.5)
+                / src_df['ManningN']
+            )
             # Refining Discharge for lake hydroIDs with the original Q
             # Merge with src_df
             src_df_merged = src_df.merge(
@@ -310,13 +286,13 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
             # Set Hydraulic properties of original stages with discharge = 0 back to 0
             src_df.loc[Q0_mask, 'Discharge (m3s-1)'] = 0
-            # src_df.loc[Q0_mask, 'Volume (m3)'] = 0
-            # src_df.loc[Q0_mask, 'WettedPerimeter (m)'] = 0
-            # src_df.loc[Q0_mask, 'WetArea (m2)'] = 0
-            # src_df.loc[Q0_mask, 'HydraulicRadius (m)'] = 0
-            # src_df.loc[Q0_mask, 'BedArea (m2)'] = 0
+            src_df.loc[Q0_mask, 'Volume (m3)'] = 0
+            src_df.loc[Q0_mask, 'WettedPerimeter (m)'] = 0
+            src_df.loc[Q0_mask, 'WetArea (m2)'] = 0
+            src_df.loc[Q0_mask, 'HydraulicRadius (m)'] = 0
+            src_df.loc[Q0_mask, 'BedArea (m2)'] = 0
 
-            # Set cahnnel properties of original stages with Number of Cells = 0 back to 0
+            # Set channel properties of original stages with Number of Cells = 0 back to 0
             src_df.loc[nocell0_mask, 'Number of Cells'] = 0
             src_df.loc[nocell0_mask, 'SurfaceArea (m2)'] = 0
             src_df.loc[nocell0_mask, 'TopWidth (m)'] = 0
@@ -328,15 +304,15 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             src_df.to_csv(src_all_branches_path[isrc], index=False)
             # log_text += f'Successfully recalculated discharge for HUC {huc} branch {branch}'
 
-        log_text += f'Adjusting hydroTable for longitudinal filter for HUC {huc} Branch {branch}'
-        ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
-        ht_df = pd.read_csv(ht_branch_path, low_memory=False)
+        # log_text += f'Adjusting hydroTable for longitudinal filter for HUC {huc} Branch {branch}'
+        # ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
+        # ht_df = pd.read_csv(ht_branch_path, low_memory=False)
 
-        # updating discharge_cms column
-        ht_df['discharge_cms'] = src_df['Discharge (m3s-1)']
+        # # updating discharge_cms column
+        # ht_df['discharge_cms'] = src_df['Discharge (m3s-1)']
 
-        # Write ht back to file
-        ht_df.to_csv(ht_branch_path, index=False)
+        # # Write ht back to file
+        # ht_df.to_csv(ht_branch_path, index=False)
 
     log_text += f'Successfully recalculated discharge for HUC {huc}\n'
     print(f'Successfully recalculated discharges for HUC {huc}\n')
