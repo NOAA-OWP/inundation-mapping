@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # This script may move to before subdivision routine.
 # Consider it after FIM6.0 release
-# Note: This routine does not Update any in-channel or over-bank variablesin SRCs and HTs. 
+# Note: This routine does not Update any in-channel or over-bank variablesin SRCs and HTs.
 
 import datetime as dt
 import os
@@ -192,7 +192,7 @@ def correct_thalweg_notches(fim_dir, huc, stage_interval):
 
         # Force zero stage to have zero discharge
         src_df3.loc[src_df3['Stage'] == 0, 'Discharge (m3s-1)'] = 0
-        
+
         # Write src back to file
         src_df = src_df3.copy()
         src_df.to_csv(src, index=False)
@@ -262,7 +262,7 @@ def apply_thalweg_notches_adjustment(fim_dir, huc, stage_interval, log_file_path
 
 
 # -------------------------------------------------------
-def process_thalweg_notches_adjustment(fim_dir, number_of_jobs): #stage_interval, 
+def process_thalweg_notches_adjustment(fim_dir, number_of_jobs):  # stage_interval,
     """
     Function for correcting thalweg notches in synthetic rating curves using Multi-Proc function
     for each HUC8. For GMS branches, it will correct each hydroID SRC in serial based that
@@ -364,4 +364,4 @@ if __name__ == '__main__':
     # stage_interval = args['stage_interval']
     number_of_jobs = args['number_of_jobs']
 
-    process_thalweg_notches_adjustment(fim_dir, number_of_jobs) # stage_interval, 
+    process_thalweg_notches_adjustment(fim_dir, number_of_jobs)  # stage_interval,
