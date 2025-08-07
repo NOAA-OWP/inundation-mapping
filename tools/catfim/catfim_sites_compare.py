@@ -10,12 +10,15 @@ from datetime import datetime, timezone
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from pyproj import CRS
 from shapely import wkt
 from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import cascaded_union, unary_union
 
 
 pd.options.mode.chained_assignment = None  # default='warn'
+
+HAND_CRS = CRS('EPSG:3857')
 
 # import utils.fim_logger as fl
 # FLOG = fl.FIM_logger()  # the non mp version
@@ -428,7 +431,7 @@ def read_format_catfim_library(catfim_library_filepath):
 
     # Create a GeoDataFrame from the DataFrame
     library_gdf = gpd.GeoDataFrame(library_table, geometry='geometry')
-    library_gdf = library_gdf.set_crs('epsg:3857')  # web mercator, the viz projection
+    library_gdf = library_gdf.set_crs(HAND_CRS)
 
     return library_gdf
 
@@ -599,7 +602,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             combined_lids_gdf = combined_lids_gdf.reset_index(drop=True)
             print(f'Found {len(combined_lids_gdf)} unique lid/magnitude combinations.')
 
-            debug_mode = False  # TODO: Add debug mode as command line argument
+            debug_mode = True  # TODO: Add debug mode as command line argument
 
             debug_iterations = 100
             (
@@ -652,7 +655,12 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                         removed_gdf_cleaned = remove_polygon_shards(
                             removed_gdf, id_col, mag_col, minimum_area_threshold=800
                         )
-                        removed_geom = pd.concat([removed_geom, removed_gdf_cleaned])
+
+                        # If removed_gdf_cleaned is None, skip to the next iteration
+                        if removed_gdf_cleaned is None:
+                            continue
+                        else:
+                            removed_geom = pd.concat([removed_geom, removed_gdf_cleaned])
 
                     if not added.is_empty:
 
@@ -671,7 +679,12 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                         added_gdf_cleaned = remove_polygon_shards(
                             added_gdf, id_col, mag_col, minimum_area_threshold=800
                         )
-                        added_geom = pd.concat([added_geom, added_gdf_cleaned])
+
+                        # If added_gdf_cleaned is None, skip to the next iteration
+                        if added_gdf_cleaned is None:
+                            continue
+                        else:
+                            added_geom = pd.concat([added_geom, added_gdf_cleaned])
 
             # Read in the comparison table so we can add the % changes and re-save it
             comparison_table_save_path = os.path.join(output_save_filepath, f'{comparison_id}_sites.csv')
@@ -682,7 +695,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             added_geom,
             comparison_table_df,
             value_column_name='added_area_percent',
-            column_suffix='_gained_coverage_%',
+            column_suffix='_gained_coverage_percent',
         )
 
         # Run for removed geom
@@ -690,7 +703,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             removed_geom,
             comparison_table_df,
             value_column_name='removed_area_percent',
-            column_suffix='_lost_coverage_%',
+            column_suffix='_lost_coverage_percent',
         )
 
         # Remove aphs_lid_x and aphs_lid_y columns if they exist
@@ -705,7 +718,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         comparison_table_df['geometry'] = comparison_table_df['geometry'].apply(wkt.loads)
 
         compare_sites_gdf = gpd.GeoDataFrame(comparison_table_df, geometry='geometry')
-        compare_sites_gdf = compare_sites_gdf.set_crs('epsg:3857')  # web mercator, the viz projection
+        compare_sites_gdf = compare_sites_gdf.set_crs(HAND_CRS)
 
         # Save the sites GDF as a GeoPackage
         comparison_gpkg_save_path = comparison_table_save_path.replace('.csv', '.gpkg')
@@ -726,9 +739,8 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
         )
 
         # Set the CRS
-        web_mercator_crs = 'epsg:3857'
-        added_geom = added_geom.set_crs(web_mercator_crs)  # web mercator, the viz projection
-        removed_geom = removed_geom.set_crs(web_mercator_crs)  # web mercator, the viz projection
+        added_geom = added_geom.set_crs(HAND_CRS)
+        removed_geom = removed_geom.set_crs(HAND_CRS)
 
         # Save the added and removed geometries to GPKGs and CSVs
         if len(added_geom) == 0:
