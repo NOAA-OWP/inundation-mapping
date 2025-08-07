@@ -464,6 +464,39 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
 
     return cleaned_gdf
 
+# Pivot table so there's a column per magnitude
+def pivot_and_join_percent_change(
+    areal_comparison, input_table_df, value_column_name, column_suffix
+):
+    # Hardcode column names for id and magnitude
+    id_col, mag_col = 'ahps_lid', 'magnitude'
+
+    areal_comparison_pivot_df = (
+        areal_comparison[[id_col, mag_col, value_column_name]]
+        .pivot(index=id_col, columns=mag_col, values=value_column_name)
+        .reset_index()
+    )
+
+    areal_comparison_pivot_df = areal_comparison_pivot_df.rename(
+        columns={
+            'action': 'action' + column_suffix,
+            'minor': 'minor' + column_suffix,
+            'moderate': 'moderate' + column_suffix,
+            'major': 'major' + column_suffix,
+            'record': 'record' + column_suffix,
+        }
+    )
+
+    # Join to comparison table
+    joined_table_df = pd.merge(
+        input_table_df, areal_comparison_pivot_df, left_on='site_id', right_on=id_col, how='left'
+    )
+
+    # Move geometry to the last column
+    geometry = joined_table_df.pop('geometry')
+    joined_table_df.insert(len(joined_table_df.columns), 'geometry', geometry)
+
+    return joined_table_df
 
 # Calculate difference between CatFIM libraries of subsequent versions
 def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_list, output_save_filepath):
@@ -643,38 +676,6 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             # Read in the comparison table so we can add the % changes and re-save it
             comparison_table_save_path = os.path.join(output_save_filepath, f'{comparison_id}_sites.csv')
             comparison_table_df = pd.read_csv(comparison_table_save_path)
-
-            # Pivot table so there's a column per magnitude
-            def pivot_and_join_percent_change(
-                areal_comparison, input_table_df, value_column_name, column_suffix
-            ):
-
-                areal_comparison_pivot_df = (
-                    areal_comparison[[id_col, mag_col, value_column_name]]
-                    .pivot(index=id_col, columns=mag_col, values=value_column_name)
-                    .reset_index()
-                )
-
-                areal_comparison_pivot_df = areal_comparison_pivot_df.rename(
-                    columns={
-                        'action': 'action' + column_suffix,
-                        'minor': 'minor' + column_suffix,
-                        'moderate': 'moderate' + column_suffix,
-                        'major': 'major' + column_suffix,
-                        'record': 'record' + column_suffix,
-                    }
-                )
-
-                # Join to comparison table
-                joined_table_df = pd.merge(
-                    input_table_df, areal_comparison_pivot_df, left_on='site_id', right_on=id_col, how='left'
-                )
-
-                # Move geometry to the last column
-                geometry = joined_table_df.pop('geometry')
-                joined_table_df.insert(len(joined_table_df.columns), 'geometry', geometry)
-
-                return joined_table_df
 
         # Run for added geom
         comparison_table_df = pivot_and_join_percent_change(
