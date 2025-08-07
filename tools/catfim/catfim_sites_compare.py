@@ -747,7 +747,9 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             print('No gained coverage detected, not saving a gained coverage GPKG.')
         else:
             # Move geometry to the last column
-            added_geom = added_geom[[col for col in added_geom.columns if col != 'geometry'] + ['geometry']]
+            added_geom = added_geom[
+                [col for col in added_geom.columns if col != 'geometry'] + ['geometry']
+                ]
 
             added_geom.to_file(gained_coverage_gpkg_save_path, layer='gained_coverage', driver='GPKG')
             print(f'Saved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
@@ -760,7 +762,9 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             print('No lost coverage detected, not saving a lost coverage GPKG.')
         else:
             # Move geometry to the last column
-            removed_geom = removed_geom[[col for col in removed_geom.columns if col != 'geometry'] + ['geometry']]
+            removed_geom = removed_geom[
+                [col for col in removed_geom.columns if col != 'geometry'] + ['geometry']
+                ]
 
             removed_geom.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG')
             print(f'Saved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
