@@ -602,7 +602,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             combined_lids_gdf = combined_lids_gdf.reset_index(drop=True)
             print(f'Found {len(combined_lids_gdf)} unique lid/magnitude combinations.')
 
-            debug_mode = True  # TODO: Add debug mode as command line argument
+            debug_mode = False  # TODO: Add debug mode as command line argument
 
             debug_iterations = 100
             (
