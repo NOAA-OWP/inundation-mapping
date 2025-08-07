@@ -468,9 +468,7 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     return cleaned_gdf
 
 # Pivot table so there's a column per magnitude
-def pivot_and_join_percent_change(
-    areal_comparison, input_table_df, value_column_name, column_suffix
-):
+def pivot_and_join_percent_change(areal_comparison, input_table_df, value_column_name, column_suffix):
     # Hardcode column names for id and magnitude
     id_col, mag_col = 'ahps_lid', 'magnitude'
 
