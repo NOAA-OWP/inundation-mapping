@@ -455,6 +455,9 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     # Condense back into a multipolygon
     cleaned_gdf = cleaned_gdf.dissolve(by=[id_col, mag_col])
 
+    # Simplify the multipolygon
+    cleaned_gdf['geometry'] = cleaned_gdf['geometry'].simplify(tolerance=5)
+
     # Remove area column
     cleaned_gdf.drop('area', axis=1, inplace=True)
     cleaned_gdf = cleaned_gdf.reset_index()
