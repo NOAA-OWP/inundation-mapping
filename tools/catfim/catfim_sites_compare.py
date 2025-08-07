@@ -762,7 +762,7 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             # Move geometry to the last column
             removed_geom = removed_geom[
                 [col for col in removed_geom.columns if col != 'geometry'] + ['geometry']
-                ]
+            ]
 
             removed_geom.to_file(lost_coverage_gpkg_save_path, layer='lost_coverage', driver='GPKG')
             print(f'Saved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
