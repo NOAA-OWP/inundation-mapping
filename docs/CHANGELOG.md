@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.___ - 2025-______ - [PR#1622]([https://github.com/NOAA-OWP/inundation-mapping/pull/1622])
+
+Fixes an error that was causing the CatFIM site compare outputs to not load correctly in ArcGIS Pro. The geopackages could be brought into ArcGIS Pro but a data error would occur when trying to open the attribute table because the geometry columns had too much data un them.
+
+This update also cleans up a few structural aspects of the code. 
+
+### Changes
+- `tools/catfim/catfim_sites_compare.py`: Added code to simplify the added and removed geometries so they don't overload the ArcGIS Pro memory. Moved `pivot_and_join_percent_change()` function out of other function. Improved CRS handling. Took the `%` character out of column headers. Moved the `geometry` column to the last column of the gained and lost coverage geopackages.
+
+<br/>
+
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
