@@ -467,6 +467,7 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
 
     return cleaned_gdf
 
+
 # Pivot table so there's a column per magnitude
 def pivot_and_join_percent_change(areal_comparison, input_table_df, value_column_name, column_suffix):
     # Hardcode column names for id and magnitude
@@ -498,6 +499,7 @@ def pivot_and_join_percent_change(areal_comparison, input_table_df, value_column
     joined_table_df.insert(len(joined_table_df.columns), 'geometry', geometry)
 
     return joined_table_df
+
 
 # Calculate difference between CatFIM libraries of subsequent versions
 def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_list, output_save_filepath):
