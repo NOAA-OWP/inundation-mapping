@@ -30,23 +30,32 @@ def load_wbd(huc_list):
     load_dotenv(f'{srcDir}/bash_variables.env')
     input_WBD_gdb = os.getenv('input_WBD_gdb')
     input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # alaska
+    input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # alaska
     wbd_conus = None
     wbd_alaska = None
+    wbd_guam = None
     # Check if any huc8 is in AK
     has_alaska = any(huc.startswith('19') for huc in huc_list)
+    has_guam = any(huc == '22010000' for huc in huc_list)
 
     # Load conus wbd if needed
     if any(not huc.startswith('19') for huc in huc_list):
         if os.path.exists(input_WBD_gdb):
             wbd_conus = gpd.read_file(input_WBD_gdb)
-        else:
-            return None, None
+        # else:
+        #     return None, None
+
     # Load AK wbd if needed
     if has_alaska and os.path.exists(input_WBD_gdb_Alaska):
         wbd_alaska = gpd.read_file(input_WBD_gdb_Alaska)
-    elif has_alaska:
-        return None, None
-    return wbd_conus, wbd_alaska
+    # elif has_alaska:
+    #     return None, None
+
+    # Load Guam wbd if needed
+    if has_guam and os.path.exists(input_WBD_gdb_Guam):
+        wbd_guam = gpd.read_file(input_WBD_gdb_Guam)
+
+    return wbd_conus, wbd_alaska, wbd_guam
 
 
 def process_nfhl(
@@ -100,7 +109,9 @@ def process_nfhl(
         file_logger.warning(f"No {nfhl_label} zones for HUC {huc}")
 
 
-def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logger, screen_queue, task_id):
+def download_nfhl(
+    huc, out_file, wbd_conus, wbd_alaska, wbd_guam, geometry_type, file_logger, screen_queue, task_id
+):
     """
     Download the NFHL flood hazard zones for a given HUC8
 
@@ -114,6 +125,8 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
         wbd for conus
     wbd_alaska : GeoDataFrame
         wbd for alaska
+    wbd_guam : GeoDataFrame
+        wbd for guam
     geometry_type: str
         the geometry Type for the query
     file_logger : logging.Logger
@@ -129,11 +142,21 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
     try:
         DEFAULT_FIM_PROJECTION_CRS = 5070
         ALASKA_CRS = 3338  # alaska
+        GUAM_CRS = 6637
 
         # Select approporiate wbd and crs
         is_alaska = huc.startswith('19')
-        wbd = wbd_alaska if is_alaska else wbd_conus
-        geometryCRS = ALASKA_CRS if is_alaska else DEFAULT_FIM_PROJECTION_CRS
+        is_guam = huc == '22010000'
+
+        if is_alaska:
+            wbd = wbd_alaska
+            geometryCRS = ALASKA_CRS
+        elif is_guam:
+            wbd = wbd_guam
+            geometryCRS = GUAM_CRS
+        else:
+            wbd = wbd_conus
+            geometryCRS = DEFAULT_FIM_PROJECTION_CRS
 
         if wbd is None:
             file_logger.error(f'No wbd available for huc {huc}')
@@ -338,7 +361,7 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
         print("")
 
         # Load wbd
-        wbd_conus, wbd_alaska = load_wbd(huc_list)
+        wbd_conus, wbd_alaska, wbd_guam = load_wbd(huc_list)
 
         # Tasks argument list
         huc_list = sorted(huc_list)
@@ -355,6 +378,7 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
                     "out_file": os.path.join(output_folder, f"nfhl_{huc}.gpkg"),
                     "wbd_conus": wbd_conus,
                     "wbd_alaska": wbd_alaska,
+                    "wbd_guam": wbd_guam,
                     "geometry_type": geometryType,
                 }
             )

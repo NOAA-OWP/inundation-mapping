@@ -156,6 +156,18 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         osm_roads = os.getenv('osm_roads_alaska')
         huc_CRS = os.getenv('ALASKA_CRS')
         input_LANDSEA = os.getenv('input_landsea_Alaska')
+    elif huc == '22010000':  # Guam
+        nwm_lakes = os.getenv('input_nhd_lakes_Guam')
+        nwm_catchments = os.getenv('input_nwm_catchments_Guam')
+        nld_lines = os.getenv('input_NLD_Guam')
+        nld_lines_preprocessed = os.getenv('input_levees_preprocessed_Guam')
+        nwm_streams = os.getenv('input_nhd_flows_Guam')
+        nwm_headwaters = os.getenv('input_nwm_headwaters_Guam')
+        levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Guam')
+        osm_bridges = os.getenv('osm_bridges_guam')
+        osm_roads = os.getenv('osm_roads_guam')
+        huc_CRS = os.getenv('GUAM_CRS')
+        input_LANDSEA = os.getenv('input_landsea_Guam')
     else:
         nwm_lakes = os.getenv('input_nwm_lakes')
         nwm_catchments = os.getenv('input_nwm_catchments')
@@ -291,21 +303,22 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     else:
         # Find intersecting nwm_catchments
         logging.info(f"Clipping nwm_catchments for {huc}.")
-        nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
+        if os.path.exists(nwm_catchments):
+            nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
 
-        if len(nwm_catchments) > 0:
-            nwm_catchments.to_file(
-                os.path.join(huc_directory, output_filenames['nwm_catchments']),
-                driver='GPKG',
-                index=False,
-                crs=huc_CRS,
-                engine="fiona",
-            )
-        else:
-            logging.info("No NWM catchments within HUC " + str(huc) + " boundaries.")
-            sys.exit(0)
+            if len(nwm_catchments) > 0:
+                nwm_catchments.to_file(
+                    os.path.join(huc_directory, output_filenames['nwm_catchments']),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
+            else:
+                logging.info("No NWM catchments within HUC " + str(huc) + " boundaries.")
+                sys.exit(0)
 
-        del nwm_catchments
+            del nwm_catchments
 
     if copying_flags['copy_osm_bridges']:
         src = os.path.join(copy_from_dir, huc, output_filenames['osm_bridges'])
@@ -318,21 +331,21 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     else:
         # Subset OSM (Open Street Map) bridges
         logging.info(f"Clipping OSM Bridges for {huc}")
+        if os.path.exists(osm_bridges):
+            subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
+            if subset_osm_bridges_gdb.empty:
+                print("-- No applicable bridges for this HUC")
+                logging.info("-- No applicable bridges for this HUC")
+            else:
+                subset_osm_bridges_gdb.to_file(
+                    os.path.join(huc_directory, output_filenames['osm_bridges']),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
 
-        subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
-        if subset_osm_bridges_gdb.empty:
-            print("-- No applicable bridges for this HUC")
-            logging.info("-- No applicable bridges for this HUC")
-        else:
-            subset_osm_bridges_gdb.to_file(
-                os.path.join(huc_directory, output_filenames['osm_bridges']),
-                driver='GPKG',
-                index=False,
-                crs=huc_CRS,
-                engine="fiona",
-            )
-
-        del subset_osm_bridges_gdb
+            del subset_osm_bridges_gdb
 
     if copying_flags['copy_osm_roads']:
         src = os.path.join(copy_from_dir, huc, output_filenames['osm_roads'])
@@ -345,21 +358,21 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     else:
         # Subset OSM (Open Street Map) roads
         logging.info(f"Clipping OSM roads for {huc}")
+        if os.path.exists(osm_roads):
+            subset_osm_roads_gdb = gpd.read_file(osm_roads, mask=wbd_buffer, engine="fiona")
+            if subset_osm_roads_gdb.empty:
+                print("-- No applicable roads for this HUC")
+                logging.info("-- No applicable roads for this HUC")
+            else:
+                subset_osm_roads_gdb.to_file(
+                    os.path.join(huc_directory, output_filenames['osm_roads']),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
 
-        subset_osm_roads_gdb = gpd.read_file(osm_roads, mask=wbd_buffer, engine="fiona")
-        if subset_osm_roads_gdb.empty:
-            print("-- No applicable roads for this HUC")
-            logging.info("-- No applicable roads for this HUC")
-        else:
-            subset_osm_roads_gdb.to_file(
-                os.path.join(huc_directory, output_filenames['osm_roads']),
-                driver='GPKG',
-                index=False,
-                crs=huc_CRS,
-                engine="fiona",
-            )
-
-        del subset_osm_roads_gdb
+            del subset_osm_roads_gdb
 
     if copying_flags['copy_nwm_streams_headwater']:
         for vector_item in ['wbd_streams_buffer', 'nwm_streams', 'nwm_headwaters']:
@@ -469,22 +482,23 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
         # Subset NWM headwaters
         logging.info(f"Clipping NWM Headwater Points for {huc}")
-        nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
+        if os.path.exists(nwm_headwaters):
+            nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
 
-        if len(nwm_headwaters) > 0:
-            nwm_headwaters.to_file(
-                os.path.join(huc_directory, output_filenames['nwm_headwaters']),
-                driver='GPKG',
-                index=False,
-                crs=huc_CRS,
-                engine="fiona",
-            )
-        else:
-            print("No headwater point(s) within HUC " + str(huc) + " boundaries.")
-            logging.info("No headwater point(s) within HUC " + str(huc) + " boundaries.")
-            sys.exit(0)
+            if len(nwm_headwaters) > 0:
+                nwm_headwaters.to_file(
+                    os.path.join(huc_directory, output_filenames['nwm_headwaters']),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
+            else:
+                print("No headwater point(s) within HUC " + str(huc) + " boundaries.")
+                logging.info("No headwater point(s) within HUC " + str(huc) + " boundaries.")
+                sys.exit(0)
 
-        del nwm_headwaters
+            del nwm_headwaters
 
 
 if __name__ == '__main__':

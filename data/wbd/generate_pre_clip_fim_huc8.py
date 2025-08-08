@@ -56,15 +56,19 @@ load_dotenv(f'{projectDir}/config/params_template.env')
 # Variables from src/bash_variables.env
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')  # alaska
+GUAM_CRS = os.getenv('GUAM_CRS')  # Guam
 
 input_WBD_gdb = os.getenv('input_WBD_gdb')
 input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # alaska
+input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # alaska
 
 input_DEM_domain = os.getenv('input_DEM_domain')
 input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # alaska
+input_DEM_domain_Guam = os.getenv('input_DEM_domain_Guam')  # Guam
 
 input_landsea = os.getenv('input_landsea')
 input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # alaska
+input_landsea_Guam = os.getenv('input_landsea_Guam')  # Guam
 
 
 input_GL_boundaries = os.getenv('input_GL_boundaries')
@@ -360,6 +364,10 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
             huc_CRS = ALASKA_CRS
             input_WBD_filename = input_WBD_gdb_Alaska
             dem_domain = input_DEM_domain_Alaska
+        elif huc == '22010000':  # Guam
+            huc_CRS = GUAM_CRS
+            input_WBD_filename = input_WBD_gdb_Guam
+            dem_domain = input_DEM_domain_Guam
         else:
             huc_CRS = DEFAULT_FIM_PROJECTION_CRS
             input_WBD_filename = input_WBD_gdb
@@ -370,6 +378,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
             input_LANDSEA = f"{input_GL_boundaries}"
         elif huc2Identifier == "19":
             input_LANDSEA = input_landsea_Alaska
+        elif huc == '22010000':
+            input_LANDSEA = input_landsea_Guam
         else:
             input_LANDSEA = input_landsea
 
