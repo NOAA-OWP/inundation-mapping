@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.11.0 - 2025-08-11 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
+
+Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.
+
+### Additions
+- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Retrieves NWM data from Google Cloud Service and output NetCDF file.
+
+### Changes
+- `Pipfile`: Add gcsfs dependency.
+- `Pipfile.lock`: Add gcsfs dependency.
+
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
