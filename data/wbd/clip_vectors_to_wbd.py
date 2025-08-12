@@ -48,7 +48,11 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
     levelpath_outlets_columns = [x for x in levelpath_outlets.columns]
 
     # Select streams that intersect the WBD but not the WBD buffer
-    levelpath_outlets = levelpath_outlets.sjoin(wbd)[levelpath_outlets_columns]
+    # levelpath_outlets = levelpath_outlets.sjoin(wbd)[levelpath_outlets_columns]
+    levelpath_outlets = levelpath_outlets.sjoin(wbd)
+    if 'OBJECTID_left' in levelpath_outlets.columns:
+        levelpath_outlets.rename(columns={'OBJECTID_left': 'OBJECTID'}, inplace=True)
+    levelpath_outlets = levelpath_outlets[levelpath_outlets_columns]
 
     wbd_boundary = wbd.copy()
     wbd_boundary['geometry'] = wbd_boundary.geometry.boundary
@@ -162,7 +166,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         nld_lines = os.getenv('input_NLD_Guam')
         nld_lines_preprocessed = os.getenv('input_levees_preprocessed_Guam')
         nwm_streams = os.getenv('input_nhd_flows_Guam')
-        nwm_headwaters = os.getenv('input_nwm_headwaters_Guam')
+        nwm_headwaters = os.getenv('input_nhd_headwaters_Guam')
         levee_protected_areas = os.getenv('input_nld_levee_protected_areas_Guam')
         osm_bridges = os.getenv('osm_bridges_guam')
         osm_roads = os.getenv('osm_roads_guam')
@@ -482,23 +486,22 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
         # Subset NWM headwaters
         logging.info(f"Clipping NWM Headwater Points for {huc}")
-        if os.path.exists(nwm_headwaters):
-            nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
+        nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
 
-            if len(nwm_headwaters) > 0:
-                nwm_headwaters.to_file(
-                    os.path.join(huc_directory, output_filenames['nwm_headwaters']),
-                    driver='GPKG',
-                    index=False,
-                    crs=huc_CRS,
-                    engine="fiona",
-                )
-            else:
-                print("No headwater point(s) within HUC " + str(huc) + " boundaries.")
-                logging.info("No headwater point(s) within HUC " + str(huc) + " boundaries.")
-                sys.exit(0)
+        if len(nwm_headwaters) > 0:
+            nwm_headwaters.to_file(
+                os.path.join(huc_directory, output_filenames['nwm_headwaters']),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+        else:
+            print("No headwater point(s) within HUC " + str(huc) + " boundaries.")
+            logging.info("No headwater point(s) within HUC " + str(huc) + " boundaries.")
+            sys.exit(0)
 
-            del nwm_headwaters
+        del nwm_headwaters
 
 
 if __name__ == '__main__':
