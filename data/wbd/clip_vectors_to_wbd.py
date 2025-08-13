@@ -44,15 +44,16 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
 
     # Select only the streams that are outlets
     levelpath_outlets = streams[streams['to'] == 0]
-
-    levelpath_outlets_columns = [x for x in levelpath_outlets.columns]
+    if 'index_right' in levelpath_outlets.columns:
+        levelpath_outlets = levelpath_outlets.drop(columns=['index_right'])
+    # levelpath_outlets_columns = [x for x in levelpath_outlets.columns]
 
     # Select streams that intersect the WBD but not the WBD buffer
     # levelpath_outlets = levelpath_outlets.sjoin(wbd)[levelpath_outlets_columns]
     levelpath_outlets = levelpath_outlets.sjoin(wbd)
-    if 'OBJECTID_left' in levelpath_outlets.columns:
-        levelpath_outlets.rename(columns={'OBJECTID_left': 'OBJECTID'}, inplace=True)
-    levelpath_outlets = levelpath_outlets[levelpath_outlets_columns]
+    if 'index_right' in levelpath_outlets.columns:
+        levelpath_outlets = levelpath_outlets.drop(columns=['index_right'])
+    # levelpath_outlets = levelpath_outlets[levelpath_outlets_columns]
 
     wbd_boundary = wbd.copy()
     wbd_boundary['geometry'] = wbd_boundary.geometry.boundary
@@ -407,6 +408,8 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         # Subset nwm streams
         logging.info(f"Clipping NWM Streams for {huc}")
         nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
+        if 'index_right' in nwm_streams.columns:
+            nwm_streams = nwm_streams.drop(columns=['index_right'])
 
         if os.path.exists(input_LANDSEA):
             logging.info(f"Clipping NWM Streams for {huc} to land areas")
