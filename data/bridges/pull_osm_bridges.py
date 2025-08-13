@@ -28,6 +28,7 @@ srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
+GUAM_CRS = 6637
 
 
 # Save all OSM bridge features by HUC8 to a specified folder location.
@@ -200,6 +201,8 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 
         if str(huc_num).startswith('19'):
             gdf1 = gdf1.to_crs(ALASKA_CRS)
+        elif str(huc_num) == '22010000': 
+            gdf1 = gdf1.to_crs(GUAM_CRS)
         else:
             gdf1 = gdf1.to_crs(DEFAULT_FIM_PROJECTION_CRS)
 
@@ -291,9 +294,24 @@ def combine_huc_features(output_dir):
 
         alaska_all_bridges_gdf.to_file(alaska_osm_bridge_file, driver="GPKG", engine='fiona')
 
+    # Guam
+    guam_bridge_file_names = list(Path(output_dir).glob("huc_22*_osm_bridges.gpkg"))
+    if guam_bridge_file_names:
+        guam_all_bridges_gdf_raw = pd.concat(
+            [gpd.read_file(gpkg) for gpkg in guam_bridge_file_names], ignore_index=True
+        )
+        guam_all_bridges_gdf = guam_all_bridges_gdf_raw[cols_to_keep]
+        guam_all_bridges_gdf["osmid"] = guam_all_bridges_gdf["osmid"].astype(str)
+
+        guam_osm_bridge_file = os.path.join(output_dir, "guam_osm_bridges.gpkg")
+
+        logging.info(f"Writing Guam bridge lines: {guam_osm_bridge_file}")
+
+        guam_all_bridges_gdf.to_file(guam_osm_bridge_file, driver="GPKG", engine='fiona')
+
     # Rest of Conus
     conus_bridge_file_names = list(Path(output_dir).glob("huc_*_osm_bridges.gpkg"))
-    conus_bridge_file_names = [file for file in conus_bridge_file_names if not file.name.startswith("huc_19")]
+    conus_bridge_file_names = [file for file in conus_bridge_file_names if not (file.name.startswith("huc_19") or file.name.startswith("huc_22"))]
     if conus_bridge_file_names:
         conus_all_bridges_gdf_raw = pd.concat(
             [gpd.read_file(gpkg) for gpkg in conus_bridge_file_names], ignore_index=True

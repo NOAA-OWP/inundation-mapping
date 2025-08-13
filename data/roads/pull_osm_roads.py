@@ -23,39 +23,27 @@ srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
+GUAM_CRS = 6637
 
 
 def combine_hucs(output_dir):
-    # identify Alaska vs CONUS HUCs
-    all_files = list(Path(output_dir).glob("roads_*.gpkg"))
-    alaska_files = [f for f in all_files if f.name.startswith("roads_19")]
-    conus_files = [f for f in all_files if not f.name.startswith("roads_19")]
+    # identify Alaska vs CONUS vs Guam HUCs
+    files = list(Path(output_dir).glob("roads_*.gpkg"))
 
-    # Alaska
-    if alaska_files:
-        alaska_all_roads_gdf = pd.concat([gpd.read_file(gpkg) for gpkg in alaska_files], ignore_index=True)
-        alaska_all_roads_gdf["osmid"] = alaska_all_roads_gdf["osmid"].astype(str)
-        alaska_all_roads_gdf.to_file(
-            os.path.join(output_dir, "alaska_osm_roads.gpkg"), driver="GPKG", engine='fiona'
-        )
-        print("Compiled Alaska road lines!")
+    regions = {
+        "alaska": [f for f in files if f.name.startswith("roads_19")],
+        "guam":   [f for f in files if f.name.startswith("roads_22")],
+        "conus":  [f for f in files if not (f.name.startswith("roads_19") or f.name.startswith("roads_22"))],
+    }
 
-        # remove individual huc files
-        for file in alaska_files:
-            file.unlink()
-
-    # conus
-    if conus_files:
-        conus_all_roads_gdf = pd.concat([gpd.read_file(gpkg) for gpkg in conus_files], ignore_index=True)
-        conus_all_roads_gdf["osmid"] = conus_all_roads_gdf["osmid"].astype(str)
-        conus_all_roads_gdf.to_file(
-            os.path.join(output_dir, "conus_osm_roads.gpkg"), driver="GPKG", engine='fiona'
-        )
-        print("Compiled conus road lines!")
-
-        # remove individual huc files
-        for file in conus_files:
-            file.unlink()
+    for region, flist in regions.items():
+        if not flist:
+            continue
+        gdf = pd.concat([gpd.read_file(f) for f in flist], ignore_index=True)
+        gdf["osmid"] = gdf["osmid"].astype(str)
+        gdf.to_file(os.path.join(output_dir, f"{region}_osm_roads.gpkg"), driver="GPKG", engine="fiona")
+        print(f"Compiled {region.title()} road lines!")
+        [f.unlink() for f in flist]
 
 
 def split_bbox(minx, miny, maxx, maxy, num_splits=4):
@@ -186,6 +174,10 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
         if str(HUC_no).startswith('19'):
             gdf_roads = gdf_roads.to_crs(ALASKA_CRS)
+        
+        elif str(HUC_no) == '22010000': 
+            gdf_roads = gdf_roads.to_crs(GUAM_CRS)
+
         else:
             gdf_roads = gdf_roads.to_crs(DEFAULT_FIM_PROJECTION_CRS)
 
@@ -286,13 +278,21 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs):
         if os.path.isdir(os.path.join(preclip_dir, huc)) and len(huc) == 8
     ]
 
+    huc_numbers=['22010000']
+
     tasks_args_list = []
     for HUC_no in huc_numbers:
+        if HUC_no == '22010000': # for guam it is possible that does not exist and generally not needed
+            split_boundary_path=""
+        else:
+            split_boundary_path = os.path.join(preclip_dir, HUC_no, "nwm_catchments_proj_subset.gpkg")
+
+
         tasks_args_list.append(
             {
                 "HUC_no": HUC_no,
                 "huc_boundary_path": os.path.join(preclip_dir, HUC_no, 'wbd.gpkg'),
-                "split_boundary_path": os.path.join(preclip_dir, HUC_no, "nwm_catchments_proj_subset.gpkg"),
+                "split_boundary_path": split_boundary_path,
                 "output_dir": output_dir,
             }
         )
