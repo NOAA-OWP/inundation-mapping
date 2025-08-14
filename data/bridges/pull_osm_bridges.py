@@ -28,7 +28,7 @@ srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
-GUAM_CRS = 6637
+GUAM_CRS = os.getenv('GUAM_CRS')
 
 
 # Save all OSM bridge features by HUC8 to a specified folder location.
