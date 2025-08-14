@@ -277,9 +277,7 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs):
         for huc in os.listdir(preclip_dir)
         if os.path.isdir(os.path.join(preclip_dir, huc)) and len(huc) == 8
     ]
-
-    huc_numbers=['22010000']
-
+    
     tasks_args_list = []
     for HUC_no in huc_numbers:
         if HUC_no == '22010000': # for guam it is possible that does not exist and generally not needed
