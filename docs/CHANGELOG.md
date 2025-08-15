@@ -1,6 +1,218 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
+
+Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
+
+### Additions
+- `tools/lofi/probabilistic_get_ensembles_nomads.py`: Getting ensembles from NOMADS.
+
+### Changes
+- `src/utils/shared_functions.py`: Added S3 or local methods for glob, is file, and file exists.
+- `tools/inundate_gms.py`: Add S3 read capabilities.
+- `tools/inundate_mosaic_wrapper`: Add S3 read capabilities.
+- `tools/overlapping_inundation.py`: Add thread lock to writes.
+- `tools/inundation.py`: Check for missing inundation raster.
+- `tools/lofi/probabilistic_bayesian_update`: Add data conversions and correct location parameters.
+- `tools/lofi/probabilistic_inundation.py`: Performance enhancements.
+
+<br/>
+
+## v4.8.9.0 - 2025-07-30 - [PR#1577](https://github.com/NOAA-OWP/inundation-mapping/pull/1577)
+
+This PR focuses on Manning roughness optimization scripts. In earlier versions of FIM (FIM v5 or earlier), global default values of 0.06 for in-channel (channel_n) and 0.12 for overbank (overbank_n) coefficients have been assigned to the Manning equation to estimate discharge for each stage along a synthetic rating curve (SRC). This PR introduces two Python scripts of /src/manningN_optimization.py and tools/run_test_case_mannN_optz_func.py, for each HUC8 for which we have the benchmark data. Applied benchmark data comprises:
+
+100-year flood inundation extends for Base Level Engineering (BLE) sites.
+Action, minor, moderate, and major flood stage extends (where available) for Advanced Hydrologic Prediction Service (AHPS) sites.
+The algorithm iteratively updates Manning coefficients to minimize false negatives and false positives in inundated grid cells during each optimization cycle. The objective functions are defined as follows:
+
+    - OBF_BLE = Minimize (false_negatives_count_100y+false_positives_count_100y)
+    - OBF_AHPS = Minimize (false_negatives_count_action+false_positives_count_action+
+        false_negatives_count_minor+false_positives_count_minor+
+        false_negatives_count_moderate+ false_positives_count_moderate+
+        false_negatives_count_major+false_positives_count_major)
+
+The optimization algorithm is subject to several constraints, including:
+
+    - overbank_n>channel_n
+    - 0.006<channel_n<0.15
+    - 0.018<overbank_n<0.2
+
+The optimization algorithm employs a differential evolution approach, initialized with a population of 15 pairs of in-channel (channel_n) and overbank (overbank_n) Manning’s roughness coefficients.
+Closes #1519
+
+### Additions
+   - `/tools/manningN_optimization.py`: Main script that optimizes Manning’s roughness coefficients for each HUC8
+   - `/tools/run_test_case_mannN_optz_func.py`: Contains required functions for manningN_optimization.py
+
+<br/>
+
+## v4.8.8.8 - 2025-07-30 - [PR#1580](https://github.com/NOAA-OWP/inundation-mapping/pull/1580)
+
+Opportunistically updating eval_plots when running it as part of fim_performance production output, and not part of the synthesize_test_case usage of eval_plots.
+
+Misc cleanup 
+- get rid of a gdal warning
+- Removing some old invalid or unused files (confirmed with team)
+
+### Changes
+- `tools`
+    - `eval_plots.py`:  Changed to look for explicit config env file via arg
+    - `pixel_counter.py`:  Added a line that stops a gdal warning of: 
+    
+![image](https://github.com/user-attachments/assets/94b7ce10-1fe6-47c1-817d-c07cbf7af1a1)
+
+- `.github\PULL_REQUEST_TEMPLATE.MD`: Updates. This PR reflects those changes, mostly for Input / DevOps questions.
+
+### Removals
+
+- `src`
+    - `aggregate_fim_outputs.py`
+    - `finalize_srcs.py`
+    - `reset_mannings.py`
+ - `tools`
+     - `adjust_rc_with_feedback_py`
+<br/>
+
+## v4.8.8.7 - 2025-07-30 - [PR#1584](https://github.com/NOAA-OWP/inundation-mapping/pull/1584)
+Just a few minor tweaks:
+- removed tqdm in favor of an (x of y) output line. Why? when you add print lines inside a for loop with tqdm, the progress bar repaints over and over after each print line. Also added some sorting to the for loop for easier progress tracking.
+
+### Changes
+- `tools\test_case_by_hydroid.py`: as described
+<br/>
+
+## v4.8.8.6 - 2025-07-30 - [PR#1570](https://github.com/NOAA-OWP/inundation-mapping/pull/1570)
+
+This PR fixes issue #1560 and #1544.
+
+This covers a fix for adding a date/time stamp to a post proc log. When you first run pipeline, it does make the post proc log file with a date/time stamp. When you run just post processing a second time, you now have two post proc logs to compare which was the desired effect. However, if you run fim-pipeline again with the overwrite flag, the first post proc log file disappears. This is also desired. When you run fim-pipeline with overwrite, it removes the entire log folder when it starts.
+
+For the centroid file, zero values will no longer show up in the threshold columns. Those records are dropped if threshold values are in place.
+
+### Changes
+- `fim_post_processing.sh`: Added timestamp to post-processing.log file.
+- `src/heal_bridges_osm.py`: Removed bridge points with threshold_hand = 0.
+
+<br/>
+
+## v4.8.8.5 - 2025-07-30 - [PR#1587](https://github.com/NOAA-OWP/inundation-mapping/pull/1587)
+
+Add gms processing back to inundation_gms routine.  
+
+### Changes
+- `tools`
+  - `inundate_gms.py`: Add multi_process argument, when set to True use processes instead of threads.
+  - `inundate_mosaic_wrapper.py`: Add gms_multi_process argument to dictate use of threads or processes in inundate_gms.py.
+  - `inundation.py`: Remove prange from numba operation.
+  - `run_test_case.py`: Run inundate_gms with processes for run_test_cases and add threading.
+  - `synthesize_test_cases.py`: Add a threads argument for branches.
+  - `inundation_nation.py`: Run inundate_gms with processes and include threads argument.
+<br/>
+
+## v4.8.8.4 - 2025-07-30 - [PR#1590](https://github.com/NOAA-OWP/inundation-mapping/pull/1590)
+
+Significant updates including adding multi-proc, add/update output files, and add more flexibility for re-use. It is designed for Ripple, but could easily be adapted for other data sources if necessary down the road.
+
+See [PR#1590](https://github.com/NOAA-OWP/inundation-mapping/pull/1590) for more details.
+
+### Additions
+ - 'data/ripple/ripple_shared_tools.sh`:  pulls out functions and values that the two ripple data processing scripts can use.
+ 
+### Changes
+- `data/ripple`
+    - `get_s3_folder.sh`: Updated from earlier version. Downloads from ripple source, calcs some metrics and re-uploads it to our FiM S3 buckets. One MC (model collection) folder at a time.
+    - `get_s3_folders_from_list.sh`:  A wrapper to get_s3_folder to download in bulk. This now has multi-processing capacity to speed it up significantly. It is now only limited by network speeds.
+    - `hecras_processing.ipynb`:  Upgraded to make the three output files.  Note: Renamed from hecras_boundaries.ipynb
+   
+### Renaming
+-  Was: `hecras_boundaries.ipynb`, now `hecras_processing.ipynb`
+<br/>
+
+## v4.8.8.3 - 2025-07-30 - [PR#1588](https://github.com/NOAA-OWP/inundation-mapping/pull/1588)
+
+Adds NFHL `availability` layer to floodplain adjustment outside of areas covered by NFHL floodplain data. If `availability` is missing, the NFHL flood hazard layer is not used and the default adjustment distance (3000 meters from the stream line) is used.
+
+### Changes
+
+- `data/nfhl/download_fema_nfhl.py`: Adds NFHL `availability` layer to download queue.
+- `src/adjust_floodplains.py`: Modifies to use NFHL `availability` where floodplain data exists but doesn't have coverage.
+
+<br/>
+## v4.8.8.2 - 2025-07-30 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+
+Clips NWM streams at the land/sea mask.
+
+### Changes
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Clips NWM streams at the land/sea mask
+    - `generate_pre_clip_fim_huc8.py`: Corrects a spelling error
+- `src/`
+    - `agreedem.py`: Check if `smogrid` is nodata and exits if so
+    - `bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date
+    - `run_by_branch.sh`: Formatting
+<br/>
+
+## v4.8.8.1 - 2025-07-30 - [PR#1591](https://github.com/NOAA-OWP/inundation-mapping/pull/1591)
+
+Clipping of NWM streams below the HUC can cause issues if a stream exits and re-enters the DEM. The buffering causes the outlet to not extend to the edge of the DEM even if the ultimate outlet does. This results in "reverse flow" during the pit-filling operation which causes flat areas in the filled DEM and the loss of catchments as the DEM-derived reaches deviate from the NWM streams. Removing the clipping of the outlet streams anywhere below the HUC corrects the DEM so that the pit-filling produces the correct result.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Removes clipping from streams below HUC
+<br/>
+
+## v4.8.8.0 - 2025-07-30 - [PR#1543](https://github.com/NOAA-OWP/inundation-mapping/pull/1543)
+
+This PR addresses the issue #1385 and includes the following enhancements:
+
+- Ingests OSM roads as a new input data for FIM.
+
+- Integrates roads data into the FIM pipeline to process roads flood impacts (FIMpact)
+
+- Develops a new tool to identify inundated roads for a given flood event
+
+### Additions
+
+- data/roads/pull_osm_roads.py
+- src/process_roads_fimpact.py
+- tools/road_inundation.py
+
+### Changes
+- src/aggregate_by_huc.py
+- src/delineate_hydros_and_produce_HAND.sh
+- src/bash_variables.env
+- fim_post_processing.sh
+<br/>
+
+## v4.8.7.3 - 2025-07-28 - [PR#1573](https://github.com/NOAA-OWP/inundation-mapping/pull/1573)
+
+In the recent tests of the CatFIM code, the processing errored out during the Inundate_gms() processing. This update resolves the error by re-implementing the branch hydrotable functionality and updating the input parameters for the inundate_gms() function in the CatFIM code.
+
+### Changes
+- `tools/inundate_gms.py`: Re-implement functionality to use branch hydrotables (rather than HUC hydrotables) inside `__inundate_gms_generator()`.
+- `tools/catfim/generate_categorical_fim_mapping.py`: Updated output of `get_thresholds()` function. Removed logic that disregarded LIDs with more or fewer characters than 5 in certain site filtration sections. Fixed '---' bug by adding logic to remove that prefix if the site is not on the `valid_ahps_ids` (in other words, not mapped). Add improved status messaging for when sites are not found on the WRDS API (which uses the new `threshold_count` variable). 
+- `tools/catfim/generate_categorical_fim_mapping.py`:  Fixed HAND gage elevation so they are correctly working in millimeters rather than meters and being saved as `uint16` rather than `uint8`.
+- `tools/catfim/generate_categorical_fim_flows.py`: Updated output of `get_thresholds()` function.
+- `tools/tools_shared_functions.py`: Updated `get_thresholds()` function to output the number of thresholds found for the site.
+- `data/nws/preprocess_ahps_nws.py`: Updated output of `get_thresholds()` function.
+- `data/usgs/preprocess_ahps_usgs.py`: Updated output of `get_thresholds()` function.
+- `data/usgs/rating_curve_get_usgs_curves.py`: Updated output of `get_thresholds()` function.
+- `tools/catfim/ahps_restricted_sites.csv`: Added site BOCC2AJM to restricted sites.
+
+<br/><br/>
+
+## v4.8.7.2 - 2025-07-28 - [PR#1605]([https://github.com/NOAA-OWP/inundation-mapping/pull/1605])
+
+Addresses bug related to the `location_id` data type that is read in from the `acceptable_sites` csv file in `src/src_adjusts_usgs_rating_trace.py`. A previous code change updated this script and added the `acceptable_sites` input and it needs to be modified to specify the data type as "object" to ensure the leading zero is appropriately captured (the pandas default for the "location_id" is dtype=int). Closes #1605 
+
+### Changes
+`src/src_adjust_usgs_rating_trace.py`: Added `dtype={'location_id': object}` to the acceptable_sites csv file read
+  
+<br/><br/>
+
 
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
@@ -16,6 +228,7 @@ Updates the CatFIM site comparison tool to make the outputs better suited to be 
 <br/><br/>
   
 
+
 ## v4.8.7.0 - 2025-07-18 - [PR#1597](https://github.com/NOAA-OWP/inundation-mapping/pull/1597)
 
 Removing the hydrofabric slope values for now due to issues with erroneous values and insufficient handling in FIM workflow. Logic will now use SWORD where available and valid and then fill in all remaining values with the HAND terrain calculated rise/run slope. NOTE: the 4.8.6.1 BED outputs will be updated using the feature branch "temp_hotfix_src_slope" --> this temp feature branch is functionally equivalent to the code changes in this pull request but makes the changes in post-processing rather than in add_crosswalk.py. 
@@ -27,7 +240,24 @@ Removing the hydrofabric slope values for now due to issues with erroneous value
 
 ## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
-Resolves #1551.
+## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+
+Clips NWM streams at the land/sea mask.
+
+### Changes
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Clips NWM streams at the land/sea mask
+    - `generate_pre_clip_fim_huc8.py`: Corrects a spelling error
+- `src/`
+    - `agreedem.py`: Check if `smogrid` is nodata and exits if so
+    - `bash_variables.env`: Updates `pre_clip_huc_dir` with new folder date
+    - `run_by_branch.sh`: Formatting
+
+<br/><br/>
+
+
+## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
 
 This pull requests updates the ngvd_to_navd_ft() function which uses the Vdatum API to convert elevation from NGVD29 to NAVD88 in feet.
 
@@ -46,7 +276,9 @@ This update corrects the coordinate input values and adds a check for whether th
 - `data/usgs/rating_curve_get_usgs_curves.py`:  Updated `ngvd_to_navd_ft()` inputs.
 
 #### Note: This does trigger a need to download new usgs_rating curves (rating_curve_get_usgs_curves.py), but we will do that after this PR is merged due to time constraints. We can make adjustments if needed later.   However, the fixes here are needed for CatFIM as well.
-<br/>
+<br/><br/>
+
+
 
 ## v4.8.6.2 - 2025-06-24 - [PR#1556](https://github.com/NOAA-OWP/inundation-mapping/pull/1556)
 
@@ -185,6 +417,11 @@ Adds files to branch deny list to be removed on file cleanup.
 
 <br/><br/>
 
+## V4.6.2.0 - 2025-05-06 - [PR#1206](https://github.com/NOAA-OWP/inundation-mapping/pull/1206) 
+
+This PR has two functions out of necessity for running LoFI operationally:
+
+1. Optimize the runtime performance and memory consumption of the inundation routine.
 ## v4.8.1.0 - 2025-06-10 - [PR#1552]([https://github.com/NOAA-OWP/inundation-mapping/pull/1552])
 
 This PR only focuses on adding the global optimized manning N as an input file to the bash_variables.env.

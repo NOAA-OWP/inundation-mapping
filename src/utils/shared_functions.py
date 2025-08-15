@@ -18,6 +18,7 @@ import fiona
 import geopandas as gp
 import numpy as np
 import pandas as pd
+from fsspec.core import url_to_fs
 from tqdm import tqdm
 
 import utils.shared_variables as sv
@@ -324,6 +325,60 @@ def progress_bar_handler(executor_dict, desc):
             future.result()
         except Exception as exc:
             print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
+
+
+def s3_or_local_path_exists(path: str) -> bool:
+    """
+    Checks existence of path for local or s3 path
+
+    Parameters
+    ----------
+    path: str
+        Path to check existence of
+
+    Returns
+    -------
+    bool
+        Path exists or does not exist
+    """
+    fs, pth = url_to_fs(path)
+    return fs.exists(pth)
+
+
+def s3_or_local_isfile(path: str) -> bool:
+    """
+    Checks if path is a file for the case of a local or s3 path
+
+    Parameters
+    ----------
+    path: str
+        Path to check existence of
+
+    Returns
+    -------
+    bool
+        Path is a file or is not a file
+    """
+    fs, pth = url_to_fs(path)
+    return fs.isfile(pth)
+
+
+def s3_or_local_glob(path: str) -> list:
+    """
+    Returns glob list in the case of a local or s3 path
+
+    Parameters
+    ----------
+    path: str
+        Path to run glob operation on
+
+    Returns
+    -------
+    list
+        Paths and directories associated with glob operation
+    """
+    fs, pth = url_to_fs(path)
+    return fs.glob(pth)
 
 
 # #####################################
