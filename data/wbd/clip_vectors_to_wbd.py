@@ -194,8 +194,9 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     wbd = gpd.read_file(os.path.join(huc_directory, wbd_filename))
     wbd_buffer = gpd.read_file(os.path.join(huc_directory, wbd_buffer_filename))
 
-    if 'shape_Length' in wbd.columns:
-        wbd = wbd.drop(columns=['shape_Length'])
+    wbd = wbd[['HUC8', 'fimid', 'geometry']]
+    # if 'shape_Length' in wbd.columns:
+    #     wbd = wbd.drop(columns=['shape_Length', 'areasqkm'])
 
     # for copying, use shutil.copy2 to preserve the orignal files timestamps
     if copying_flags['copy_levee_protected_areas']:

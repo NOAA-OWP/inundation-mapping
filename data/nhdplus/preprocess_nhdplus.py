@@ -8,6 +8,7 @@ import rasterio as rio
 from osgeo import gdal
 
 from data.create_vrt_file import create_vrt_file
+from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
 from data.usgs.acquire_and_preprocess_3dep_dems import polygonize
 from src.derive_headwaters import findHeadWaterPoints
 
@@ -150,6 +151,27 @@ WBD = WBD.rename(columns={'HUC_8': 'HUC8'})
 WBD = WBD.dissolve(by='HUC8')
 WBD = WBD.to_crs(epsg=target_crs_number)
 WBD.to_file(f'/data/inputs/wbd/WBD_{target_name}.gpkg', layer='WBDHU8', driver='GPKG')
+
+
+# Preprocess NLD data
+levee_files = [
+    '/data/inputs/nld_vectors/System_Routes_NLDFS_6637_250808.gpkg',
+    '/data/inputs/nld_vectors/Leveed_Areas_NLDFS_6637_250808.gpkg',
+]
+for levee_file in levee_files:
+    levees = gpd.read_file(levee_file)
+    levees = levees.to_crs(epsg=target_crs_number)
+    levees = levees.rename(columns={'systemId': 'SYSTEM_ID'})
+    columns_to_drop = ['floodofRecordFlow', 'name']
+    # Drop columns_to_drop if they exist
+    levees = levees.drop(columns=[col for col in columns_to_drop if col in levees.columns])
+    levees.to_file(levee_file, driver='GPKG')
+
+# download_nfhl_wrapper(
+#     huc_list=huc,
+#     output_folder=f"/data/inputs/fema/nfhl/{region}",
+#     num_processes=14
+# )
 
 # # Extract and reproject ocean mask from /data/inputs/landsea/water_polygons_us.gpkg
 # water_polygons = gpd.read_file('/data/inputs/landsea/water_polygons_us.gpkg')
