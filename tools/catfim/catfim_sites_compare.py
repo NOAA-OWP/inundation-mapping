@@ -462,7 +462,7 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
 
     if len(cleaned_gdf) == 0:
         return None
-    
+
 
     cleaned_gdf.reset_index(inplace=True, drop=True)
 
