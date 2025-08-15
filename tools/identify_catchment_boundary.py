@@ -13,7 +13,7 @@ from rasterio import features
 
 
 def catchment_boundary_errors(
-    hydrofabric_dir, huc, inundation_file, inundation_type, output, catchment_file, min_error_length
+    hydrofabric_dir, huc, inundation_file, output, inundation_type, min_error_length
 ):
     """
     This function compares inundation extent to catchment extents to identify catchment boundary
@@ -26,22 +26,14 @@ def catchment_boundary_errors(
         huc (str):              The HUC for which to check for catchment boundary issues.
         inundation_file (str):  Full path to inundation file(s). Raster (encoded by positive and negative HydroIDs)
                                 or vector.
-        inundation_type (str):  Type of input inundation. Either 'tif' or 'gpkg'
         output (str):           Path to output location for catchment boundary geopackage.
-        catchment_file  (str):  Optional path to a pre-merged catchment file. Default None.
+        inundation_type (str):  Type of input inundation. Either 'tif' or 'gpkg'. Default tif.
         min_error_length (int): Minimum length for output error lines. Default 100 meters.
     """
 
     print(f'Processing HUC: {huc} now.')
     # Get branch names for input HUC
     dirs = [x[1] for x in os.walk(f"{hydrofabric_dir}/{huc}/branches")][0]
-
-    ## Read HUC Catchments
-    # if catchment_file is not None:
-    #     catchments = gpd.read_file(catchment_file, columns = ["HydroID", "feature_id", "branch_id","huc8", "geometry"],
-    #                                engine = "pyogrio")
-    #     catchments = catchments.loc[catchments["huc8"] == huc]
-    # else:
 
     # Merge all catchment geopackages into one file
     catchments = gpd.GeoDataFrame()
@@ -70,11 +62,13 @@ def catchment_boundary_errors(
         inund_poly = gpd.GeoDataFrame.from_features(results)
 
     if inundation_type == "gpkg":
-        catchments = catchments.to_crs(crs="EPSG:3857")
-        inund_poly = gpd.read_file(
-            inundation_file, columns=["hydro_id", "feature_id", "huc8", "geometry"], engine="pyogrio"
-        )
-        inund_poly = inund_poly.loc[inund_poly["huc8"] == int(huc)]
+        inund_poly = gpd.read_file(inundation_file, engine="pyogrio")
+        # For Hydrovis Outputs
+        # catchments = catchments.to_crs(crs="EPSG:3857")
+        # inund_poly = gpd.read_file(
+        #     inundation_file, columns=["hydro_id", "feature_id", "huc8", "geometry"], engine="pyogrio"
+        # )
+        # inund_poly = inund_poly.loc[inund_poly["huc8"] == int(huc)]
         inund_poly = inund_poly.dissolve()
 
     # Get boundary lines for inundation
@@ -143,14 +137,7 @@ def catchment_boundary_errors(
 
 
 def multi_process_catchment_boundaries(
-    hydrofabric_dir,
-    hucs,
-    inundation_dir,
-    inundation_type,
-    output,
-    catchment_file,
-    min_error_length,
-    job_number,
+    hydrofabric_dir, hucs, inundation_dir, output, inundation_type, min_error_length, job_number
 ):
     with ProcessPoolExecutor(max_workers=job_number) as executor:
         executor_dict = {}
@@ -167,7 +154,6 @@ def multi_process_catchment_boundaries(
                 "inundation_file": inundation_file,
                 "inundation_type": inundation_type,
                 "output": output,
-                "catchment_file": catchment_file,
                 "min_error_length": min_error_length,
             }
             try:
@@ -204,22 +190,14 @@ if __name__ == "__main__":
         "-i", "--inundation_dir", help="Path to inundation directory.", required=True, default=None, type=str
     )
     parser.add_argument(
-        "-t",
-        "--inundation_type",
-        help="Inundation file type, either tif or gpkg",
-        required=True,
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
         "-o", "--output", help="Output geopackage location.", required=True, default=None, type=str
     )
     parser.add_argument(
-        "-c",
-        "--catchment_file",
-        help="Optional path to pre-merged catchment file.",
+        "-t",
+        "--inundation_type",
+        help="Inundation file type, either tif or gpkg",
         required=False,
-        default=None,
+        default="tif",
         type=str,
     )
     parser.add_argument(

@@ -1,5 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+## v4.8.x.x - 2025-08-15 - [PR#1628]([https://github.com/NOAA-OWP/inundation-mapping/pull/1628])
+
+This PR updates the catchment boundary issue tool to be more efficient in the processing of each individual HUC for identifying catchment boundary issues and adds multiprocessing by HUC for better scalability to large HUC inputs.
+
+### Changes
+
+- Updates to `/tools/identify_catchment_boundary.py` to improve computational efficiency.
+
+<br/>
 
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
