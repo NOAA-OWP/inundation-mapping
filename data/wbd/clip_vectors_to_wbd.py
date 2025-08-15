@@ -408,8 +408,8 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         # Subset nwm streams
         logging.info(f"Clipping NWM Streams for {huc}")
         nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
-        if 'index_right' in nwm_streams.columns:
-            nwm_streams = nwm_streams.drop(columns=['index_right'])
+        # if 'index_right' in nwm_streams.columns:
+        #     nwm_streams = nwm_streams.drop(columns=['index_right'])
 
         if os.path.exists(input_LANDSEA):
             logging.info(f"Clipping NWM Streams for {huc} to land areas")
@@ -424,7 +424,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             sys.exit(0)
 
         # NWM can have duplicate records, but appear to always be identical duplicates
-        nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
+        nwm_streams = nwm_streams.drop_duplicates(subset="ID", keep="first")
 
         nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
 
