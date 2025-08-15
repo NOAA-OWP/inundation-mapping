@@ -463,6 +463,7 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     if len(cleaned_gdf) == 0:
         return None
     
+
     cleaned_gdf.reset_index(inplace=True, drop=True)
 
     # Condense back into a multipolygon
@@ -485,13 +486,15 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
 
     return cleaned_gdf
 
+
 # Counts the number of verticies in a one-line GDF. This is primarily a debugging tool.
 def count_verticies(gdf):
     total_vertices = 0
     if len(gdf) != 1:
         raise Exception(
             "This function is really designed for just one return value, so sending in a"
-            " gdf with more than one rec will not work.")
+            " gdf with more than one rec will not work."
+        )
 
     # Testing for the word "MultiPolygon" first because testing for "Polygon"
     # returns all records (Polygons and MultiPolygons).
@@ -512,7 +515,8 @@ def count_verticies(gdf):
 
     else:
         raise Exception(
-            "Unable to count vertices for GDF with geometry type " + gdf.iloc[0]['geometry'].geom_type)
+            "Unable to count vertices for GDF with geometry type " + gdf.iloc[0]['geometry'].geom_type
+        )
 
     # print(f"Geom type is {gdf.geometry.geom_type}")  # DEBUG
     # print(f'Total vertices: {total_vertices}')  # DEBUG
@@ -802,7 +806,7 @@ def generate_spatial_difference_maps(
 
             added_geom.to_file(
                 gained_coverage_gpkg_save_path, index=False, layer='gained_coverage', driver='GPKG'
-                )
+            )
             print(f'Saved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
 
             # Save the added geom data as a csv as well
@@ -819,7 +823,7 @@ def generate_spatial_difference_maps(
 
             removed_geom.to_file(
                 lost_coverage_gpkg_save_path, index=False, layer='lost_coverage', driver='GPKG'
-                )
+            )
             print(f'Saved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
 
             # Save the removed geom data as a csv as well
@@ -877,7 +881,7 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
             '    -g flag used -- Generating spatial difference maps and site GPKGs '
             ' (takes about 60 to 90 mins per comparison depending on server)'
         )
-    if debug_mode == True: 
+    if debug_mode == True:
         print('    -d flag used -- Debug mode in use. Only processing 100 polygons.')
     print(f'    -o -- Output save path: {output_save_filepath}')
 
