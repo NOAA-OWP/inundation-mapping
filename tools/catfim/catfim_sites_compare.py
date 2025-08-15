@@ -489,8 +489,9 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
 def count_verticies(gdf):
     total_vertices = 0
     if len(gdf) != 1:
-        raise Exception("This function is really designed for just one return value, so sending in a"
-                        " gdf with more than one rec will not work")
+        raise Exception(
+            "This function is really designed for just one return value, so sending in a"
+            " gdf with more than one rec will not work.")
 
     # Testing for the word "MultiPolygon" first because testing for "Polygon"
     # returns all records (Polygons and MultiPolygons).
@@ -510,8 +511,8 @@ def count_verticies(gdf):
             total_vertices += len(interior_ring.coords) - 1
 
     else:
-        raise Exception("Unable to count vertices for GDF with geometry type " +
-                        gdf.iloc[0]['geometry'].geom_type)
+        raise Exception(
+            "Unable to count vertices for GDF with geometry type " + gdf.iloc[0]['geometry'].geom_type)
 
     # print(f"Geom type is {gdf.geometry.geom_type}")  # DEBUG
     # print(f'Total vertices: {total_vertices}')  # DEBUG
@@ -553,7 +554,9 @@ def pivot_and_join_percent_change(areal_comparison, input_table_df, value_column
 
 
 # Calculate difference between CatFIM libraries of subsequent versions
-def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_list, output_save_filepath, debug_mode):
+def generate_spatial_difference_maps(
+    sorted_path_list, product_id, version_id_list, output_save_filepath, debug_mode
+):
     '''
     Inputs:
     - sorted_path_list (list of strings)
@@ -652,13 +655,6 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             combined_lids_gdf = combined_lids_gdf.drop_duplicates()
             combined_lids_gdf = combined_lids_gdf.reset_index(drop=True)
             print(f'Found {len(combined_lids_gdf)} unique lid/magnitude combinations.')
-
-            # debug_mode = True  # TODO: Remove after testing command line argument
-            # (
-            #     print(f'Debug mode: Only processing {debug_iterations} site/magnitude combinations.')
-            #     if debug_mode == True
-            #     else None
-            # )
 
             debug_iterations = 100
 
@@ -804,7 +800,9 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             # Move geometry to the last column
             added_geom = added_geom[[col for col in added_geom.columns if col != 'geometry'] + ['geometry']]
 
-            added_geom.to_file(gained_coverage_gpkg_save_path, index=False, layer='gained_coverage', driver='GPKG')
+            added_geom.to_file(
+                gained_coverage_gpkg_save_path, index=False, layer='gained_coverage', driver='GPKG'
+                )
             print(f'Saved gained coverage GPKG to {gained_coverage_gpkg_save_path}')
 
             # Save the added geom data as a csv as well
@@ -819,7 +817,9 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
                 [col for col in removed_geom.columns if col != 'geometry'] + ['geometry']
             ]
 
-            removed_geom.to_file(lost_coverage_gpkg_save_path, index=False, layer='lost_coverage', driver='GPKG')
+            removed_geom.to_file(
+                lost_coverage_gpkg_save_path, index=False, layer='lost_coverage', driver='GPKG'
+                )
             print(f'Saved lost coverage GPKG to {lost_coverage_gpkg_save_path}')
 
             # Save the removed geom data as a csv as well
@@ -878,9 +878,7 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
             ' (takes about 60 to 90 mins per comparison depending on server)'
         )
     if debug_mode == True: 
-        print(
-            '    -d flag used -- Debug mode in use. Only processing 100 polygons.'
-        )
+        print('    -d flag used -- Debug mode in use. Only processing 100 polygons.')
     print(f'    -o -- Output save path: {output_save_filepath}')
 
     # Separate path list into flow- and stage-based lists
@@ -939,7 +937,7 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
             # Generate spatial difference maps for stage-based
             if generate_geopackages == True:
                 generate_spatial_difference_maps(
-                    stage_path_list, product_id, version_id_list, output_save_filepath, debug_mode,
+                    stage_path_list, product_id, version_id_list, output_save_filepath, debug_mode
                 )
 
         else:
@@ -976,7 +974,7 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
             # Generate spatial difference maps for flow-based
             if generate_geopackages == True:
                 generate_spatial_difference_maps(
-                    flow_path_list, product_id, version_id_list, output_save_filepath, debug_mode,
+                    flow_path_list, product_id, version_id_list, output_save_filepath, debug_mode
                 )
 
         else:
