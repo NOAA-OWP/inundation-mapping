@@ -28,6 +28,13 @@ if [ $huc2Identifier -eq 19 ]; then
     dem_domain_filename=DEM_Domain.gpkg
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
+elif [ $hucNumber -eq 22010000 ]; then
+    huc_CRS=$ALASKA_CRS
+    huc_input_DEM_domain=$input_DEM_domain_Guam
+    input_DEM=$input_DEM_Guam
+    dem_domain_filename=DEM_Domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff_guam
+
 else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain

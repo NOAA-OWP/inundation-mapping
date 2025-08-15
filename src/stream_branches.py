@@ -1155,18 +1155,17 @@ class StreamNetwork(gpd.GeoDataFrame):
             self = self.loc[exclude_indices, :]
 
         wbd = gpd.read_file(wbd)
-        wbd = wbd.drop(
-            columns=[
-                'shape_Length',
-                'metasourceid',
-                'sourcedatadesc',
-                'sourceoriginator',
-                'sourcefeatureid',
-                'loaddate',
-                'referencegnis_ids',
-            ],
-            axis=1,
-        )
+        for col in [
+            'shape_Length',
+            'metasourceid',
+            'sourcedatadesc',
+            'sourceoriginator',
+            'sourcefeatureid',
+            'loaddate',
+            'referencegnis_ids',
+        ]:
+            if col in wbd.columns:
+                wbd = wbd.drop(columns=[col], axis=1)
 
         # Filter segments that are in the HUC
         self_in_wbd = gpd.sjoin(self, wbd)

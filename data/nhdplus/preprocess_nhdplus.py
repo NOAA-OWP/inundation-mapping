@@ -3,13 +3,14 @@
 import os
 import sys
 
-from acquire_and_preprocess_3dep_dems import polygonize
-
 import geopandas as gpd
-from osgeo import gdal
 import rasterio as rio
+from osgeo import gdal
 
-sys.path.append('/foss_fim/data/usgs')
+from data.create_vrt_file import create_vrt_file
+from data.usgs.acquire_and_preprocess_3dep_dems import polygonize
+from src.derive_headwaters import findHeadWaterPoints
+
 
 region = 'Guam'
 region_code = '22GU'
@@ -20,12 +21,23 @@ huc = '22010000'
 target_crs_number = '6637'
 target_name = f"{region}_{target_crs_number}"
 target_folder = f'/data/inputs/nhdplus/{target_name}'
-target_dem_folder = '/data/inputs/dems/3dep_dems/10m_{region}'
+target_dem_folder = f'/data/inputs/dems/3dep_dems/10m_{region}'
+
+os.makedirs(target_dem_folder, exist_ok=True)
+
+# Datasets downloaded from https://www.epa.gov/waterdata/nhdplus-guam-data-vector-processing-unit-22g and saved to /data/inputs/nhdplus/NHDPlus{region_code}/
+NHDPlus_urls = [
+    f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NEDSnapshot_01.7z',
+    f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NHDPlusAttributes_02.7z',
+    f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NHDPlusCatchment_01.7z',
+    f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NHDSnapshot_01.7z',
+    f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_WBDSnapshot_02.7z',
+]
 
 # Reproject rasters
 rasters_list = [
-    f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDPlusFdrFac{region_number}/fdr',
-    f'/data/inputs/nhdplus/NHDPlus{region_code}/NEDSnapshot/Ned{region_number}/elev_cm',
+    # f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDPlusFdrFac{region_number}/fdr',
+    f'/data/inputs/nhdplus/NHDPlus{region_code}/NEDSnapshot/Ned{region_number}/elev_cm'
 ]
 
 # Define the target CRS
@@ -74,20 +86,24 @@ with rio.open(os.path.join(target_folder, f'elev_cm_{target_name}.tif'), 'r+') a
     with rio.open(os.path.join(target_dem_folder, f'HUC8_{huc}_dem.tif'), 'w', **meta) as dst:
         dst.write(elevation_data, 1)
 
+create_vrt_file(target_dem_folder, 'hand_seamless_3dep_dems.vrt')
+
 # Create DEM_Domain.gpkg
 polygonize(target_dem_folder)
 
 # Extract and reproject NHDPlus streams
 nhd_flowline = f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDSnapshot/Hydrography/NHDFlowline.shp'
-NHDFlowline = gpd.read_file(nhd_flowline)
 if not os.path.exists(nhd_flowline):
     sys.exit(f"NHDFlowline file {nhd_flowline} does not exist. Exiting...")
-NHDFlowline = NHDFlowline.to_crs(epsg=6637)
+NHDFlowline = gpd.read_file(nhd_flowline)
+NHDFlowline = NHDFlowline.to_crs(epsg=target_crs_number)
 NHDFlowline = NHDFlowline[NHDFlowline['FCode'] != 56600]  # Remove Coastlines
 
 # Add ['ID', 'to', order_'] attributes from NHDPlus
-PlusFlow_dbf = gpd.read_file('/data/inputs/nhdplus/NHDPlus22GU/NHDPlusAttributes/PlusFlow.dbf')
-PlusFlowlineVAA_dbf = gpd.read_file('/data/inputs/nhdplus/NHDPlus22GU/NHDPlusAttributes/PlusFlowlineVAA.dbf')
+PlusFlow_dbf = gpd.read_file(f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDPlusAttributes/PlusFlow.dbf')
+PlusFlowlineVAA_dbf = gpd.read_file(
+    f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDPlusAttributes/PlusFlowlineVAA.dbf'
+)
 
 NHDFlowline = NHDFlowline.merge(
     PlusFlow_dbf[['FROMCOMID', 'TOCOMID']], left_on='ComID', right_on='FROMCOMID', how='left'
@@ -95,16 +111,48 @@ NHDFlowline = NHDFlowline.merge(
 NHDFlowline = NHDFlowline.merge(PlusFlowlineVAA_dbf[['ComID', 'StreamOrde']], on='ComID', how='left')
 NHDFlowline = NHDFlowline.rename(columns={'ComID': 'ID', 'TOCOMID': 'to', 'StreamOrde': 'order_'})
 
-NHDFlowline.to_file(
-    os.path.join(target_folder, f'NHDFlowline_{target_name}.gpkg'), layer='NHDFlowline', driver='GPKG'
+# Derive headwater points
+headwater_points = findHeadWaterPoints(NHDFlowline)
+headwater_points.to_file(
+    os.path.join(target_folder, f'NHDFlowline_headwaters_{target_name}.gpkg'), driver='GPKG'
 )
 
+# Extract and reproject NHDPlus waterbodies
+nhd_waterbody = f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDSnapshot/Hydrography/NHDWaterbody.shp'
+if not os.path.exists(nhd_waterbody):
+    sys.exit(f"NHDWaterbody file {nhd_waterbody} does not exist. Exiting...")
+NHDWaterbody = gpd.read_file(nhd_waterbody)
+NHDWaterbody = NHDWaterbody.rename(columns={'ComID': 'LakeID'})
+NHDWaterbody = NHDWaterbody.to_crs(epsg=target_crs_number)
+NHDWaterbody.to_file(f'/data/inputs/nhdplus/{target_name}/NHDWaterbody_{target_name}.gpkg', driver='GPKG')
+
+NHDFlowline = NHDFlowline.sjoin(NHDWaterbody, how='left', predicate='intersects')
+NHDFlowline = NHDFlowline.rename(columns={'LakeID': 'Lake'})
+NHDFlowline['Lake'] = NHDFlowline['Lake'].fillna(-9999).astype(int)
+
+NHDFlowline.to_file(os.path.join(target_folder, f'NHDFlowline_{target_name}.gpkg'), driver='GPKG')
+
 # Extract and reproject NHDPlus catchments
-nhd_catchment = '/data/inputs/nhdplus/NHDPlus22GU/NHDPlusCatchment/Catchment.shp'
+nhd_catchment = f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDPlusCatchment/Catchment.shp'
 if not os.path.exists(nhd_catchment):
     sys.exit(f"NHDCatchment file {nhd_catchment} does not exist. Exiting...")
 NHDCatchment = gpd.read_file(nhd_catchment)
-NHDCatchment = NHDCatchment.to_crs(epsg=6637)
-NHDCatchment.to_file(
-    f'/data/inputs/nhdplus/Guam_6637/NHDCatchment_{target_name}.gpkg', layer='NHDCatchment', driver='GPKG'
-)
+NHDCatchment = NHDCatchment.rename(columns={'FeatureID': 'ID'})
+NHDCatchment = NHDCatchment.to_crs(epsg=target_crs_number)
+NHDCatchment.to_file(f'/data/inputs/nhdplus/{target_name}/NHDCatchment_{target_name}.gpkg', driver='GPKG')
+
+# Extract and reproject WBD
+wbd = f'/data/inputs/nhdplus/NHDPlus{region_code}/WBDSnapshot/WBD/WBD_Subwatershed.shp'
+if not os.path.exists(wbd):
+    sys.exit(f"WBD file {wbd} does not exist. Exiting...")
+WBD = gpd.read_file(wbd, columns=['HUC_8'])
+WBD = WBD.rename(columns={'HUC_8': 'HUC8'})
+WBD = WBD.dissolve(by='HUC8')
+WBD = WBD.to_crs(epsg=target_crs_number)
+WBD.to_file(f'/data/inputs/wbd/WBD_{target_name}.gpkg', layer='WBDHU8', driver='GPKG')
+
+# # Extract and reproject ocean mask from /data/inputs/landsea/water_polygons_us.gpkg
+# water_polygons = gpd.read_file('/data/inputs/landsea/water_polygons_us.gpkg')
+# water_polygons = water_polygons.to_crs(epsg=target_crs_number)
+# water_polygons = water_polygons[water_polygons['fid'] == 463]  # 463 for Guam
+# water_polygons.to_file(os.path.join(target_folder, f'water_polygons_{target_name}.gpkg'), driver='GPKG')
