@@ -14,7 +14,6 @@ gpd.options.io_engine = "pyogrio"
 def findHeadWaterPoints(flows):
     flows = flows.explode(index_parts=True)
     headwater_points = []
-    outlet_points = []
     starting_points = set()
     end_points = set()
     for i, g in enumerate(flows.geometry):
@@ -28,23 +27,16 @@ def findHeadWaterPoints(flows):
 
         # line_points = np.append(line_points,g_points)
 
-    for sp in starting_points:
+    for i, sp in enumerate(starting_points):
         # print(sp)
         if sp not in end_points:
             headwater_points += [sp]
-
-    for ep in end_points:
-        if ep not in starting_points:
-            outlet_points += [ep]
 
     # print(headwater_points)
     headwater_points_geometries = [Point(*hwp) for hwp in headwater_points]
     hw_gdf = gpd.GeoDataFrame({'geometry': headwater_points_geometries}, crs=flows.crs, geometry='geometry')
 
-    outlet_points_geometries = [Point(*op) for op in outlet_points]
-    outlet_gdf = gpd.GeoDataFrame({'geometry': outlet_points_geometries}, crs=flows.crs, geometry='geometry')
-
-    return hw_gdf, outlet_gdf
+    return hw_gdf
 
 
 if __name__ == '__main__':
@@ -65,22 +57,13 @@ if __name__ == '__main__':
         '-o', '--output-headwaters', help='Output headwaters points', required=False, type=str, default=None
     )
 
-    parser.add_argument(
-        '-n', '--output-outlets', help='Output outlets points', required=False, type=str, default=None
-    )
-
     args = vars(parser.parse_args())
 
     flows = gpd.read_file(args['input_flows'], layer=args['input_flows_layer'])
 
-    hw_gdf, outlet_gdf = findHeadWaterPoints(flows)
+    hw_gdf = findHeadWaterPoints(flows)
 
     output_headwaters = args['output_headwaters']
 
     if output_headwaters is not None:
         hw_gdf.to_file(args['output_headwaters'], driver=getDriver(args['output_headwaters']), engine='fiona')
-
-    output_outlets = args['output_outlets']
-
-    if output_outlets is not None:
-        outlet_gdf.to_file(args['output_outlets'], driver=getDriver(args['output_outlets']), engine='fiona')
