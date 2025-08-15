@@ -448,9 +448,10 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     - cleaned_gdf (GeoDataFrame): cleaned GeoDataFrame with polygons larger than the threshold
     '''
 
-    total_vertices = count_verticies(input_gdf)
-    input_gdf['vertex_count_pre_filters'] = total_vertices
-    print(f"verticy count before area threshold and simplify is {total_vertices}")
+    # Check initial vertex count (for debugging)
+    # total_vertices = count_verticies(input_gdf)
+    # input_gdf['vertex_count_pre_filters'] = total_vertices
+    # print(f"verticy count before area threshold and simplify is {total_vertices}")
 
     # Turn multipolygon into multiple polygons
     cleaned_gdf = input_gdf.explode()
@@ -470,9 +471,13 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
     # Simplify the multipolygon
     cleaned_gdf['geometry'] = cleaned_gdf['geometry'].simplify(tolerance=5)
 
+    # Count verticies after simplification
     total_vertices = count_verticies(cleaned_gdf)
-    cleaned_gdf['vertex_count_post_filters'] = total_vertices
-    print(f"verticy count before area threshold and after simplify is {total_vertices}")
+    cleaned_gdf['vertex_count'] = total_vertices
+
+    # Add vertex count to the cleaned GeoDataFrame for debugging
+    # cleaned_gdf['vertex_count_post_filters'] = total_vertices
+    # print(f"Vertex count before area threshold and after simplify is {total_vertices}")
 
     # Remove area column
     cleaned_gdf.drop('area', axis=1, inplace=True)
@@ -480,32 +485,36 @@ def remove_polygon_shards(input_gdf, id_col, mag_col, minimum_area_threshold):
 
     return cleaned_gdf
 
-# Counts the number of verticies. This is a debugging tool primarily
+# Counts the number of verticies in a one-line GDF. This is primarily a debugging tool.
 def count_verticies(gdf):
     total_vertices = 0
     if len(gdf) != 1:
         raise Exception("This function is really designed for just one return value, so sending in a"
                         " gdf with more than one rec will not work")
 
-    # print(f" geom type is {gdf.geometry.geom_type}")
-    # Most are coming in as multipolygon, and works in the for loop
-    # but if the type is polygon, it breaks, shapely.get_parts isn't working either
-    # Have to test for the word "MultiPolygon", so it is first. Otherwise it would be just "Polygon" which would
-    # get Polygons and MultiPolygons.
+    # Testing for the word "MultiPolygon" first because testing for "Polygon"
+    # returns all records (Polygons and MultiPolygons).
+
+    # If the geometry is a MultiPolygon, iterate through each polygon
     if 'MultiPolygon' in gdf.iloc[0]['geometry'].geom_type:
         for polygon in gdf.iloc[0]['geometry'].geoms:
-        # for part in shapely.get_parts(gdf): # fails: ERROR: Generate spatial difference maps failed.
             total_vertices += len(polygon.exterior.coords) - 1
-            # Count vertices in interior rings (if any)
             for interior_ring in polygon.interiors:
                 total_vertices += len(interior_ring.coords) - 1
 
-    else: # Polygon in gdf.iloc[0]['geometry'].geom_type:
-        # Can not do the MP test inside the for polygon loops
-        # gdf.iloc[0]['geometry'].geoms is for MP's
-        # gdf.iloc[0]['geometry'] for single polygons in the geometry
-        poly = gdf.iloc[0]['geometry']
-        return len(poly.exterior.coords) - 1
+    # Otherwise, assume it is a Polygon
+    elif 'Polygon' in gdf.iloc[0]['geometry'].geom_type:
+        polygon = gdf.iloc[0]['geometry']
+        total_vertices += len(polygon.exterior.coords) - 1
+        for interior_ring in polygon.interiors:
+            total_vertices += len(interior_ring.coords) - 1
+
+    else:
+        raise Exception("Unable to count vertices for GDF with geometry type " +
+                        gdf.iloc[0]['geometry'].geom_type)
+
+    # print(f"Geom type is {gdf.geometry.geom_type}")  # DEBUG
+    # print(f'Total vertices: {total_vertices}')  # DEBUG
 
     return total_vertices
 
@@ -544,7 +553,7 @@ def pivot_and_join_percent_change(areal_comparison, input_table_df, value_column
 
 
 # Calculate difference between CatFIM libraries of subsequent versions
-def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_list, output_save_filepath):
+def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_list, output_save_filepath, debug_mode):
     '''
     Inputs:
     - sorted_path_list (list of strings)
@@ -644,14 +653,14 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
             combined_lids_gdf = combined_lids_gdf.reset_index(drop=True)
             print(f'Found {len(combined_lids_gdf)} unique lid/magnitude combinations.')
 
-            debug_mode = False  # TODO: Add debug mode as command line argument
+            # debug_mode = True  # TODO: Remove after testing command line argument
+            # (
+            #     print(f'Debug mode: Only processing {debug_iterations} site/magnitude combinations.')
+            #     if debug_mode == True
+            #     else None
+            # )
 
             debug_iterations = 100
-            (
-                print(f'Debug mode: Only processing {debug_iterations} site/magnitude combinations.')
-                if debug_mode == True
-                else None
-            )
 
             for i, (lid, magnitude) in enumerate(
                 combined_lids_gdf[[id_col, mag_col]].itertuples(index=False)
@@ -824,13 +833,14 @@ def generate_spatial_difference_maps(sorted_path_list, product_id, version_id_li
 
 
 # Main function for catfim_site_tracking
-def main(path_list, output_save_filepath, keep_differences_only, generate_geopackages):
+def main(path_list, output_save_filepath, keep_differences_only, generate_geopackages, debug_mode):
     '''
     Inputs
     - path_list (space-delimited list)
     - output_save_filepath (string)
     - keep_differences_only (True or False)
     - generate_geopackages (True or False)
+    - debug_mode (True or False)
 
     Outputs
     - CSVs and GPKGs saved to the output_save_filepath
@@ -866,6 +876,10 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
         print(
             '    -g flag used -- Generating spatial difference maps and site GPKGs '
             ' (takes about 60 to 90 mins per comparison depending on server)'
+        )
+    if debug_mode == True: 
+        print(
+            '    -d flag used -- Debug mode in use. Only processing 100 polygons.'
         )
     print(f'    -o -- Output save path: {output_save_filepath}')
 
@@ -925,7 +939,7 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
             # Generate spatial difference maps for stage-based
             if generate_geopackages == True:
                 generate_spatial_difference_maps(
-                    stage_path_list, product_id, version_id_list, output_save_filepath
+                    stage_path_list, product_id, version_id_list, output_save_filepath, debug_mode,
                 )
 
         else:
@@ -962,7 +976,7 @@ def main(path_list, output_save_filepath, keep_differences_only, generate_geopac
             # Generate spatial difference maps for flow-based
             if generate_geopackages == True:
                 generate_spatial_difference_maps(
-                    flow_path_list, product_id, version_id_list, output_save_filepath
+                    flow_path_list, product_id, version_id_list, output_save_filepath, debug_mode,
                 )
 
         else:
@@ -1026,6 +1040,14 @@ if __name__ == '__main__':
         '-g',
         '--generate-geopackages',
         help='OPTIONAL: Option to generate spatial difference maps and a points geopackage for the version comparisons.',
+        required=False,
+        action="store_true",
+    )
+
+    parser.add_argument(
+        '-d',
+        '--debug-mode',
+        help='OPTIONAL: Debug mode. Will only iterate through 100 records while generating geopackages.',
         required=False,
         action="store_true",
     )
