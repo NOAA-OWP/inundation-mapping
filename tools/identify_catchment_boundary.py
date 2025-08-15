@@ -16,7 +16,7 @@ def catchment_boundary_errors(
     hydrofabric_dir, huc, inundation_file, inundation_type, output, catchment_file, min_error_length
 ):
     """
-    This function compares output inundation raster extent to catchment extents to identify catchment boundary
+    This function compares inundation extent to catchment extents to identify catchment boundary
     issues. The output of this function is a geopackage of lines that identifys sections of inundation with catchment
     boundary issues present.
 
@@ -28,7 +28,7 @@ def catchment_boundary_errors(
                                 or vector.
         inundation_type (str):  Type of input inundation. Either 'tif' or 'gpkg'
         output (str):           Path to output location for catchment boundary geopackage.
-        catchment_file  (str):  Optional path to a pre-merged catchment file. None.
+        catchment_file  (str):  Optional path to a pre-merged catchment file. Default None.
         min_error_length (int): Minimum length for output error lines. Default 100 meters.
     """
 
@@ -42,7 +42,7 @@ def catchment_boundary_errors(
     #                                engine = "pyogrio")
     #     catchments = catchments.loc[catchments["huc8"] == huc]
     # else:
-    print("merge catchments")
+
     # Merge all catchment geopackages into one file
     catchments = gpd.GeoDataFrame()
     for d in dirs:
@@ -55,9 +55,10 @@ def catchment_boundary_errors(
         catchments = pd.concat([catchments, branch_catchments], ignore_index=True)
 
     ## Read HUC Inundation
+    # print("Reading inundation")
     if inundation_type == "tif":
         # Vectorize inundation
-        print(inundation_file)
+        print("Inundation file: ", inundation_file)
         with rasterio.open(inundation_file) as src:
             affine = src.transform
             band = src.read(1)
@@ -69,7 +70,6 @@ def catchment_boundary_errors(
         inund_poly = gpd.GeoDataFrame.from_features(results)
 
     if inundation_type == "gpkg":
-        print("read inundation")
         catchments = catchments.to_crs(crs="EPSG:3857")
         inund_poly = gpd.read_file(
             inundation_file, columns=["hydro_id", "feature_id", "huc8", "geometry"], engine="pyogrio"
@@ -77,7 +77,6 @@ def catchment_boundary_errors(
         inund_poly = inund_poly.loc[inund_poly["huc8"] == int(huc)]
         inund_poly = inund_poly.dissolve()
 
-    print("find intersections")
     # Get boundary lines for inundation
     inundation_boundary = inund_poly.boundary
     inundation_boundary = inundation_boundary.set_crs(catchments.boundary.crs, allow_override=True)
@@ -87,6 +86,7 @@ def catchment_boundary_errors(
     catchment_boundary_df = catchments.assign(geometry=catchments.boundary.normalize())
 
     # Find intersecting lines
+    # print("find intersections")
     intersect = gpd.overlay(
         catchment_boundary_df[["geometry"]],
         inundation_boundary_df[["geometry"]],
@@ -99,7 +99,7 @@ def catchment_boundary_errors(
     if len(intersections) < 1:
         print(f"No catchment boundary issues detected in HUC: {huc}")
     else:
-        print("process intersections")
+        # print("process intersections")
         # Dissolve geometries into one large multilinestring
         intersections = intersections.dissolve()
 
@@ -112,7 +112,7 @@ def catchment_boundary_errors(
             intersections_explode["geometry"].length >= min_error_length
         ]
         num_catchment_boundary_lines = len(error_lines_final)
-        print("join attributes")
+
         # Link errors to HydroID, feature_id, and branch_id
         spatial_join = gpd.sjoin(
             error_lines_final,
@@ -155,11 +155,11 @@ def multi_process_catchment_boundaries(
     with ProcessPoolExecutor(max_workers=job_number) as executor:
         executor_dict = {}
         inundation_files = os.listdir(f"{inundation_dir}")
-        if os.path.isdir(str(hucs)) == True:
-            huc_list = pd.read_csv(hucs, dtype=str, header=None)
+        if os.path.exists(str(hucs[0])) == True:
+            huc_list = pd.read_csv(hucs[0], dtype=str, header=None)
             hucs = list(huc_list[0].unique())
         for huc in hucs:
-            file = [x for x in inundation_files if huc in x and x.endswith(".{inundation_type}")][0]
+            file = [x for x in inundation_files if huc in x and x.endswith(f".{inundation_type}")][0]
             inundation_file = f"{inundation_dir}/{file}"
             catchment_boundary_args = {
                 "hydrofabric_dir": hydrofabric_dir,
@@ -233,7 +233,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-jh',
         '--job_number',
-        help='Number of jobs to use per HUC processed.',
+        help='Number of jobs to use to process input HUCs.',
         required=False,
         type=int,
         default=1,
