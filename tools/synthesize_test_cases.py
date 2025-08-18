@@ -404,6 +404,15 @@ if __name__ == '__main__':
         type=int,
     )
     parser.add_argument(
+        '-tb',
+        '--thread-number-branch',
+        help='Number of threads to use for Branch scale operations. HUC and Batch job numbers should '
+        'multiply to no more than one less than the CPU count of the machine.',
+        required=False,
+        default=1,
+        type=int,
+    )
+    parser.add_argument(
         '-s',
         '--special-string',
         help='Add a special name to the end of the branch.',
@@ -491,6 +500,7 @@ if __name__ == '__main__':
     fim_version = args['fim_version']
     job_number_huc = args['job_number_huc']
     job_number_branch = args['job_number_branch']
+    thread_number_branch = args['thread_number_branch']
     special_string = args['special_string']
     benchmark_category = args['benchmark_category']
     overwrite = args['overwrite']
@@ -618,6 +628,7 @@ if __name__ == '__main__':
                     'overwrite': overwrite,
                     'verbose': gms_verbose if model == 'GMS' else verbose,
                     'gms_workers': job_number_branch,
+                    'threads': thread_number_branch,
                 }
 
                 try:

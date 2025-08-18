@@ -38,7 +38,7 @@ This script calls the NOAA Tidal API for datum conversions. Experience shows tha
     to avoid API errors. Currently configured to get rating curve data within
     CONUS.
 
-    Tidal API call may need to be modified to get datum conversions for AK.
+    Tidal API call may need to be modified to get datum conversions for AK. # TODO: Alaska updates?
 '''
 
 
@@ -134,7 +134,9 @@ def write_categorical_flow_files(metadata, output_dir, file_date_append):
             continue
 
         # Get the stages and flows
-        stages, flows = get_thresholds(threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all')
+        stages, flows, threshold_count = get_thresholds(
+            threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
+        )
 
         # For each flood category
         for category in ['action', 'minor', 'moderate', 'major']:
@@ -180,8 +182,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     '''
 
     Returns rating curves, for a set of sites, adjusted to elevation NAVD.
-    Currently configured to get rating curve data within CONUS. Tidal API
-    call may need to be modified to get datum conversions for AK.
+    Currently configured to get rating curve data within CONUS.
     Workflow as follows:
         1a. If 'all' option passed, get metadata for all acceptable USGS sites.
         1b. If a list of sites passed, get metadata for all sites supplied by user.
@@ -190,7 +191,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
         4.  Get rating curve for each site individually
         5.  Convert rating curve to absolute elevation (NAVD) and store in DataFrame
         6.  Append all rating curves to a master DataFrame.
-
 
     Outputs, if an output_dir is specified, are:
         Note: All files have today's date appended.
@@ -233,7 +233,8 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
     sleep_time: FLOAT
         Amount of time to rest between API calls. The Tidal API appears to
         error out more during business hours. Increasing sleep_time may help.
-
+        TODO: Jul 4, 2025: Likely not needed anymore,
+           will test at 0 to ensure it is no longer needed
     Returns
     -------
     all_rating_curves : Pandas DataFrame
@@ -403,8 +404,8 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, output_dir=False, sleep_ti
                     # To prevent time-out errors
                     # time.sleep(sleep_time)
 
-                    # Get the datum adjustment to convert NGVD to NAVD. Region needs changed if not in CONUS.
-                    datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs, region='contiguous')
+                    # Get the datum adjustment to convert NGVD to NAVD.
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info=usgs)
 
                     # If datum API failed, print message and skip site.
                     if datum_adj_ft is None:
@@ -623,7 +624,6 @@ def __setup_logger(output_folder_path):
 if __name__ == '__main__':
     '''
     Retrieve USGS rating curves adjusted to elevation (NAVD88).
-    Currently configured to get rating curves within CONUS. # TODO: Check whether this is still true. Update if needed.
     Recommend running outside of business hours to reduce API related errors.
     If error occurs try increasing sleep time (from default of 1).
 
@@ -631,23 +631,24 @@ if __name__ == '__main__':
     -l, --list_of_gage_sites: REQUIRED. Gage sites to process. Can be a space-delineated list of
                                 gage sites, a CSV (one site per line), or use “all” to get all USGS
                                 gage sites. Use numerical USGS site codes not NWS LIDS.
-    -o, --output_dir:          OPTIONAL. Directory to save outputs.
+    -o, --output_dir:         OPTIONAL. Directory to save outputs.
     -t, --sleep_timer:        OPTIONAL. Length of time to rest between datum API calls. Defaults to 1.
 
     Example usage:
 
     Download all sites to outputs folder
-        /foss_fim/data/usgs/rating_curve_get_usgs_curves.py -l 'all' -w '/outputs'
+        /foss_fim/data/usgs/rating_curve_get_usgs_curves.py -l 'all' -o '/data/inputs/usgs_gages/'
 
     Download certain sites to outputs folder
-        /foss_fim/data/usgs/rating_curve_get_usgs_curves.py -l '04228500 04228502' -w '/outputs'
+        /foss_fim/data/usgs/rating_curve_get_usgs_curves.py -l '04228500 04228502' -o '/data/inputs/usgs_gages'
 
     '''
 
     # Parse arguments
+    # TODO: Check whether this is still true. Update if needed.
     parser = argparse.ArgumentParser(
         description='Retrieve USGS rating curves adjusted to elevation (NAVD88).\n'
-        'Currently configured to get rating curves within CONUS.\n'  # TODO: Check whether this is still true. Update if needed.
+        'Currently configured to get rating curves within CONUS.\n'
         'Recommend running outside of business hours to reduce API related errors.\n'
         'If error occurs try increasing sleep time (from default of 1).'
     )
@@ -671,7 +672,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-e',
         '--env-file',
-        help='OPTIONAL: Docker mount path to the environment file. ie) data/config/fim_enviro_values.env',
+        help='OPTIONAL: Docker mount path to the environment file.'
+        'default = /data/config/fim_enviro_values.env',
         required=False,
         default='/data/config/fim_enviro_values.env',
     )
