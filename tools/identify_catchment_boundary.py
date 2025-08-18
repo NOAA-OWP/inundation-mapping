@@ -180,17 +180,27 @@ if __name__ == "__main__":
     parser.add_argument(
         "-u",
         "--hucs",
-        help="List of HUCs to run, space delimited or path to file",
+        help="List of HUCs to run, space delimited or path to .csv file.",
         required=True,
         default="",
         type=str,
         nargs="+",
     )
     parser.add_argument(
-        "-i", "--inundation_dir", help="Path to inundation directory.", required=True, default=None, type=str
+        "-i",
+        "--inundation_dir",
+        help="Path to directory containing an inundation file for each HUC run. File name must include the HUC number",
+        required=True,
+        default=None,
+        type=str,
     )
     parser.add_argument(
-        "-o", "--output", help="Output geopackage location.", required=True, default=None, type=str
+        "-o",
+        "--output",
+        help="Path to output geopackage location and base filename.",
+        required=True,
+        default=None,
+        type=str,
     )
     parser.add_argument(
         "-t",
