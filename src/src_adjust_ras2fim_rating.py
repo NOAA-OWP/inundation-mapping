@@ -347,9 +347,10 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
         print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv files (if applicable)...')
         # file name to search for ras location data (in the huc/branch dirs)
         csv_elev = os.path.join(huc_run_dir, 'ras_elev_table.csv')
-        if not os.exists(csv_elev):  # possible it has a folder but not the files in it
+        if not os.path.exists(csv_elev):  # possible it has a folder but not the files in it
             warn_err = ('WARNING: ras_elev_table.csv did not exist - check that'
-                        f' {csv_elev} files exist in fim_dir!')
+                        f' {csv_elev} files exist in fim_dir! Note: It could be correct if this script is'
+                        ' being run as part of the get_sample_data system which does copy all ras2fim folders.')
             print(warn_err)
             log_file.write(warn_err)
             continue
