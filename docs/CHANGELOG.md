@@ -8,6 +8,10 @@ Updates `data/get_sample_data.py` for changes in input data resulting from the a
 
 - `data/get_sample_data.py`: Updated input files and creates a VRT for bridge elevation diff.
 - `fim_post_processing.sh`: Used WBD environment variable instead of hardcoding
+
+<br/>
+
+
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
