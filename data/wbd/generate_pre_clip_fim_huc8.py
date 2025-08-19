@@ -396,6 +396,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
         wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
 
         dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+
+        wbd = gpd.clip(wbd, dem_domain_gdf)
         wbd_buffer = gpd.clip(wbd_buffer, dem_domain_gdf)
 
         # Clip landsea before saving wbd and wbd_buffer

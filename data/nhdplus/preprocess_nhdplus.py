@@ -97,8 +97,9 @@ nhd_flowline = f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDSnapshot/Hydrograp
 if not os.path.exists(nhd_flowline):
     sys.exit(f"NHDFlowline file {nhd_flowline} does not exist. Exiting...")
 NHDFlowline = gpd.read_file(nhd_flowline)
+NHDFlowline_geometry = NHDFlowline.force_2d()
+NHDFlowline.geometry = NHDFlowline_geometry
 NHDFlowline = NHDFlowline.to_crs(epsg=target_crs_number)
-NHDFlowline = NHDFlowline[NHDFlowline['FCode'] != 56600]  # Remove Coastlines
 
 # Add ['ID', 'to', order_'] attributes from NHDPlus
 PlusFlow_dbf = gpd.read_file(f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDPlusAttributes/PlusFlow.dbf')
@@ -111,6 +112,13 @@ NHDFlowline = NHDFlowline.merge(
 )
 NHDFlowline = NHDFlowline.merge(PlusFlowlineVAA_dbf[['ComID', 'StreamOrde']], on='ComID', how='left')
 NHDFlowline = NHDFlowline.rename(columns={'ComID': 'ID', 'TOCOMID': 'to', 'StreamOrde': 'order_'})
+
+# Set 'to' attribute for Coastline outlets
+coastline_ids = NHDFlowline[NHDFlowline['FCode'] == 56600]['ID'].tolist()  # Find Coastline IDs
+NHDFlowline.loc[NHDFlowline['to'].isin(coastline_ids), 'to'] = (
+    0  # Set 'to' = 0 for NHDFlowlines that flow to Coastline (FCode == 56600)
+)
+NHDFlowline = NHDFlowline[NHDFlowline['FCode'] != 56600]  # Remove Coastlines
 
 # Derive headwater points
 headwater_points = findHeadWaterPoints(NHDFlowline)
@@ -125,6 +133,7 @@ if not os.path.exists(nhd_waterbody):
 NHDWaterbody = gpd.read_file(nhd_waterbody)
 NHDWaterbody = NHDWaterbody.rename(columns={'ComID': 'LakeID'})
 NHDWaterbody = NHDWaterbody.to_crs(epsg=target_crs_number)
+NHDWaterbody = NHDWaterbody[['LakeID', 'geometry']]
 NHDWaterbody.to_file(f'/data/inputs/nhdplus/{target_name}/NHDWaterbody_{target_name}.gpkg', driver='GPKG')
 
 NHDFlowline = NHDFlowline.sjoin(NHDWaterbody, how='left', predicate='intersects')

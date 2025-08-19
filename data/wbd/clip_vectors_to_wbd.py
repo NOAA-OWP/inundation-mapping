@@ -73,8 +73,7 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
 
     for index, row in levelpath_outlets.iterrows():
         coords = [(coords) for coords in list(row['geometry'].coords)]
-        last_coord = coords[-1]
-        levelpath_outlets.at[index, 'last'] = Point(last_coord)
+        levelpath_outlets.at[index, 'last'] = Point(coords[-1])
 
     wbd_buffered['geometry'] = wbd_buffered.geometry.boundary
     wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
@@ -85,11 +84,8 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
         nearest_point = nearest_points(levelpath_geom, wbd_buffered)
         nearest_point_wbd = nearest_points(levelpath_geom, wbd_boundary.geometry)
 
-        levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
-        levelpath_outlets.at[index, 'nearest_point_wbd'] = nearest_point_wbd[1].iloc[0]
-
-        levelpath_outlets_nearest_points = levelpath_outlets.at[index, 'nearest_point']
-        levelpath_outlets_nearest_points_wbd = levelpath_outlets.at[index, 'nearest_point_wbd']
+        levelpath_outlets_nearest_points = nearest_point[1]['geometry'].iloc[0]
+        levelpath_outlets_nearest_points_wbd = nearest_point_wbd[1].iloc[0]
 
         if isinstance(levelpath_outlets_nearest_points, pd.Series):
             levelpath_outlets_nearest_points = levelpath_outlets_nearest_points.iloc[-1]
@@ -432,7 +428,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         # Select only the streams that are outlet
         if 'index_right' in nwm_streams.columns:
             nwm_streams = nwm_streams.drop(columns=['index_right'])
-        streams_crossing_wbd = gpd.sjoin(nwm_streams, wbd, predicate='crosses')
+        streams_crossing_wbd = gpd.sjoin(nwm_streams, gpd.GeoDataFrame(geometry=wbd.geometry.boundary))
         streams_in_wbd = gpd.sjoin(nwm_streams, wbd, predicate='intersects')
 
         if streams_crossing_wbd.empty:
