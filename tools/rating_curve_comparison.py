@@ -118,7 +118,7 @@ def generate_rating_curve_metrics(args):
         hydrotable = pd.DataFrame()
         for branch in elev_table.levpa_id.unique():
             # Skip branch 0 (process only GMS branches)
-            # if branch == 0:
+            # if branch == '0':
             #     continue
             branch_elev_table = elev_table.loc[elev_table.levpa_id == branch].copy()
             # branch_elev_table = elev_table.loc[(elev_table.levpa_id == branch) & (elev_table.location_id.notnull())].copy()
