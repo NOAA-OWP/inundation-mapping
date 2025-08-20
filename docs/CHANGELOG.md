@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-08-20 - [PR#1603]([https://github.com/NOAA-OWP/inundation-mapping/pull/1603])
+
+This PR fixes issue with box plot generation and introduces a new function to compare two FIM outputs.
+
+### Changes
+`tools/rating_curve_comparison.py` : changes as described above.
+
+<br/>
+
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
