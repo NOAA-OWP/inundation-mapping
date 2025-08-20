@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-08-20 - [PR#1633]([https://github.com/NOAA-OWP/inundation-mapping/pull/1633])
+
+In this PR, the Great Salt Lake was incorporated into the waterbody mask. In addition, mainstem stream endpoints were adjusted to the nearest landsea boundary, ensuring that NSM streams connect to the DEM/waterbody edge and preventing dropped catchments.
+
+### Changes
+`data/wbd/clip_vectors_to_wbd.py`: Snap levelpath endpoints (mainstem only) to the nearest landsea boundary.
+`src/bash_variables.env`: Update landsea file.
+
+<br/>
+
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
