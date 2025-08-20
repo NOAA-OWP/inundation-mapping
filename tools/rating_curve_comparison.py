@@ -1391,6 +1391,15 @@ if __name__ == '__main__':
         -flows /data/inputs/rating_curve/nwm_recur_flows/
         -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
         -j 40
+    
+    ** Note: To generate the comparison plots, run the script on the first version. For the second vrsion, run it as follows:
+        -fim_dir data/previous_fim/hand_4_8_7_2/
+        -output_dir data/fim_performance/hand_4_8_7_2/rating_curve_comparison/
+        -gages /data/inputs/usgs_gages/usgs_rating_curves_{date}.csv
+        -flows /data/inputs/rating_curve/nwm_recur_flows/
+        -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
+        -comp data/fim_performance/hand_4_5_8_0/rating_curve_comparison/agg_nwm_recurr_flow_elev_stats_location_id.csv "FIM5" "FIM6"
+        -j 40       
     """
 
     parser = argparse.ArgumentParser(
