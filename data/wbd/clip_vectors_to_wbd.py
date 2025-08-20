@@ -143,6 +143,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
     dem_cellsize = float(os.getenv('res'))
 
+    # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
     if huc[:2] == '19':
         nwm_lakes = os.getenv('input_nwm_lakes_Alaska')
         nwm_catchments = os.getenv('input_nwm_catchments_Alaska')
@@ -154,6 +155,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         osm_bridges = os.getenv('osm_bridges_alaska')
         osm_roads = os.getenv('osm_roads_alaska')
         huc_CRS = os.getenv('ALASKA_CRS')
+        input_LANDSEA = os.getenv('input_landsea_Alaska')
     else:
         nwm_lakes = os.getenv('input_nwm_lakes')
         nwm_catchments = os.getenv('input_nwm_catchments')
@@ -166,9 +168,17 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         osm_roads = os.getenv('osm_roads')
         huc_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 
+        if huc[:2] == "04":
+            input_LANDSEA = os.getenv('input_GL_boundaries')
+        else:
+            input_LANDSEA = os.getenv('input_landsea')
+
     # read wbd and wbd_buffered that are needed for clipping
     wbd = gpd.read_file(os.path.join(huc_directory, wbd_filename))
     wbd_buffer = gpd.read_file(os.path.join(huc_directory, wbd_buffer_filename))
+
+    if 'shape_Length' in wbd.columns:
+        wbd = wbd.drop(columns=['shape_Length'])
 
     # for copying, use shutil.copy2 to preserve the orignal files timestamps
     if copying_flags['copy_levee_protected_areas']:
@@ -381,13 +391,47 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         logging.info(f"Clipping NWM Streams for {huc}")
         nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
 
+        if os.path.exists(input_LANDSEA):
+            logging.info(f"Clipping NWM Streams for {huc} to land areas")
+            landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
+            nwm_streams = nwm_streams.overlay(landsea, how='difference')
+        else:
+            logging.info(f"No landsea file provided, using all NWM streams for {huc}")
+
+        if nwm_streams.empty:
+            print("No NWM stream segments within HUC " + str(huc) + " boundaries.")
+            logging.info("No NWM stream segments within HUC " + str(huc) + " boundaries.")
+            sys.exit(0)
+
         # NWM can have duplicate records, but appear to always be identical duplicates
         nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
 
         nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
 
-        nwm_streams_outlets = nwm_streams[~nwm_streams['to'].isin(nwm_streams['ID'])]
-        nwm_streams_nonoutlets = nwm_streams[nwm_streams['to'].isin(nwm_streams['ID'])]
+        # Select only the streams that are outlet
+        streams_crossing_wbd = gpd.sjoin(nwm_streams, wbd, predicate='crosses')
+        streams_in_wbd = gpd.sjoin(nwm_streams, wbd, predicate='intersects')
+
+        if streams_crossing_wbd.empty:
+            logging.warning("No streams intersect the WBD. Cannot extend outlet streams.")
+            return nwm_streams
+
+        # Filter streams that are outlets
+        outlets = streams_crossing_wbd[~streams_crossing_wbd['to'].isin(streams_in_wbd['ID'])]
+
+        # Find all stream IDs downstream of the outlets
+        outlet_ids = set()
+        for outlet_id in set(outlets['ID']):
+            outlet_ids.add(outlet_id)
+            downstream_segments = nwm_streams[
+                nwm_streams['ID'] == nwm_streams.loc[nwm_streams['ID'] == outlet_id, 'to'].values[0]
+            ]
+            while not downstream_segments.empty:
+                outlet_ids.add(downstream_segments['ID'].values[0])
+                downstream_segments = nwm_streams[nwm_streams['ID'].isin(downstream_segments['to'])]
+        # Filter the original streams to keep only those that are downstream of the outlets
+        nwm_streams_outlets = nwm_streams[nwm_streams['ID'].isin(outlet_ids)]
+        nwm_streams_nonoutlets = nwm_streams[~nwm_streams['ID'].isin(outlet_ids)]
 
         if len(nwm_streams) > 0:
             # Address issue where NWM streams exit the HUC boundary and then re-enter, creating a MultiLineString
@@ -447,7 +491,7 @@ if __name__ == '__main__':
     '''
     sample usage:
 
-    python subset_vectors.py \
+    python clip_vectors_to_wbd.py \
     --huc 21020001 \
     --wbd_filename wbd.gpkg \
     --wbd_buffer_filename wbd_buffered.gpkg \
@@ -461,8 +505,8 @@ if __name__ == '__main__':
             "copy_levee_protected_areas": false,
             "copy_osm_bridges": false,
                 "copy_osm_roads": false}'
-
     '''
+
     parser = argparse.ArgumentParser(description='Subset vector layers')
 
     parser.add_argument('--huc', type=str, required=True, help='HUC number (e.g., "03180004")')
