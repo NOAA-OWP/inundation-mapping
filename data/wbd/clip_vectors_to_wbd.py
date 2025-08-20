@@ -37,7 +37,7 @@ output_filenames = {
 }
 
 
-def extend_outlet_streams(streams, wbd_buffered, wbd):
+def extend_outlet_streams(streams, wbd_buffered, wbd, landsea):
     """
     Extend outlet streams to nearest buffered WBD boundary
     """
@@ -101,6 +101,20 @@ def extend_outlet_streams(streams, wbd_buffered, wbd):
             )
         else:
             errors += 1
+
+        # Snap levelpath endpoints (mainstem only) to the nearest landsea boundary
+        # if they are within 10 km, ensuring outlets align with the landsea.
+        if landsea is not None:
+            landsea_union = landsea.geometry.unary_union
+            levelpath_outlets = levelpath_outlets[levelpath_outlets['mainstem'] == 1]
+            for index, row in levelpath_outlets.iterrows():
+                endpoint = Point(row['geometry'].coords[-1])
+                nearest_point_landsea = nearest_points(endpoint, landsea_union)[1]
+                distance = endpoint.distance(nearest_point_landsea)
+                if distance <= 10000:
+                    coords = list(row['geometry'].coords)
+                    coords[-1] = nearest_point_landsea.coords[0]
+                    levelpath_outlets.at[index, 'geometry'] = LineString(coords)
 
     levelpath_outlets = gpd.GeoDataFrame(data=levelpath_outlets, geometry='geometry')
     levelpath_outlets = levelpath_outlets.drop(columns=['last', 'nearest_point', 'nearest_point_wbd'])
@@ -406,7 +420,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         # NWM can have duplicate records, but appear to always be identical duplicates
         nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
 
-        nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
+        nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd, landsea)
 
         # Select only the streams that are outlet
         streams_crossing_wbd = gpd.sjoin(nwm_streams, wbd, predicate='crosses')
