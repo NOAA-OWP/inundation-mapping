@@ -316,4 +316,5 @@ if [ $huc2Identifier -ne 19 ]; then
     echo -e $startDiv"Convert GW Catchments and REM to Int16 $hucNumber $current_branch_id"
     python3 $toolsDir/convert_to_int16.py \
         -b $tempCurrentBranchDataDir
+fi
 
