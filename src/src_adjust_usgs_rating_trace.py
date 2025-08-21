@@ -86,7 +86,7 @@ def create_usgs_rating_database(
     # (removes ahps lide entries that aren't associated with USGS gage)
     cross_df = cross_df[cross_df.location_id.notnull()]
 
-    # TODO what to do if this is empty for a HUC?
+    # TODO what to do if this is empty for a HUC? 
     # if cross_df.empty: ?
 
 
@@ -511,7 +511,7 @@ def run_prep(
     log_file.write('#########################################################\n\n')
 
     # usgs_elev_df = concat_huc_csv(run_dir, csv_name)
-    usgs_elev_df=pd.read_csv(os.path.join(huc_dir,csv_name ))
+    usgs_elev_df=pd.read_csv(os.path.join(huc_dir,csv_name ) , dtype={'location_id': object, 'levpa_id':object})
 
     if usgs_elev_df is None:
         warn_err = (
