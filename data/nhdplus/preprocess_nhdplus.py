@@ -19,6 +19,8 @@ region_number = '22a'
 
 huc = '22010000'
 
+output_nodata = -999999
+
 target_crs_number = '6637'
 target_name = f"{region}_{target_crs_number}"
 target_folder = f'/data/inputs/nhdplus/{target_name}'
@@ -76,11 +78,10 @@ with rio.open(os.path.join(target_folder, f'elev_cm_{target_name}.tif'), 'r+') a
     elevation_data = dem.read(1).astype(rio.float32)
     elevation_data = elevation_data / 100.0
 
-    nodata = -9999.0
-    elevation_data[elevation_data < nodata] = nodata
+    elevation_data[elevation_data < -999] = output_nodata
 
     meta = dem.meta
-    meta.update({'dtype': rio.float32, 'nodata': nodata})
+    meta.update({'dtype': rio.float32, 'nodata': output_nodata})
     print(meta)
 
     # Convert from cm to m
