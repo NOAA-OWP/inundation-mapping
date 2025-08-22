@@ -13,18 +13,35 @@ from data.usgs.acquire_and_preprocess_3dep_dems import polygonize
 from src.derive_headwaters import findHeadWaterPoints
 
 
-region = 'Guam'
-region_code = '22GU'
-region_number = '22a'
+region = 'AmericanSamoa'
+if region == 'Guam':
+    region_code = '22GU'
+    region_number = '22a'
+    huc = '22010000'
+    target_crs_number = '6637'
+    rasters_list = [
+        # f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDPlusFdrFac{region_number}/fdr',
+        f'/data/inputs/nhdplus/NHDPlus{region_code}/NEDSnapshot/Ned{region_number}/elev_cm'
+    ]
+    nhd_path = f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDSnapshot/Hydrography'
+elif region == 'AmericanSamoa':
+    region_code = '22AS'
+    region_number = '22c'
+    huc = '22030001'
+    target_crs_number = '32702'
+    rasters_list = [
+        # f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDPlusFdrFac{region_number}/fdr',
+        f'/data/inputs/nhdplus/NHDPlus{region_code}/NEDSnapshot/ned{region_number}/elev_cm'
+    ]
+    nhd_path = f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDSnapshot/hydrography'
 
-huc = '22010000'
+nhd_flowline = os.path.join(nhd_path, 'NHDFlowline.shp')
+nhd_waterbody = os.path.join(nhd_path, 'NHDWaterbody.shp')
 
-output_nodata = -999999
-
-target_crs_number = '6637'
 target_name = f"{region}_{target_crs_number}"
 target_folder = f'/data/inputs/nhdplus/{target_name}'
 target_dem_folder = f'/data/inputs/dems/3dep_dems/10m_{region}'
+output_nodata = -999999
 
 os.makedirs(target_dem_folder, exist_ok=True)
 
@@ -37,12 +54,6 @@ NHDPlus_urls = [
     f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_WBDSnapshot_02.7z',
 ]
 
-# Reproject rasters
-rasters_list = [
-    # f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDPlusFdrFac{region_number}/fdr',
-    f'/data/inputs/nhdplus/NHDPlus{region_code}/NEDSnapshot/Ned{region_number}/elev_cm'
-]
-
 # Define the target CRS
 target_crs = f"EPSG:{target_crs_number}"
 
@@ -53,7 +64,9 @@ if not os.path.exists(target_folder):
 
 for raster in rasters_list:
     if not os.path.exists(raster):
-        sys.exit(f"Input raster {raster} does not exist. Exiting...")
+        sys.exit(
+            f"Input raster {raster} does not exist. Exiting..."
+        )  # /data/inputs/nhdplus/NHDPlus22AS/NEDSnapshot/ned22c/
 
     # Define input and output file paths
     output_raster_path = os.path.join(
@@ -94,7 +107,6 @@ create_vrt_file(target_dem_folder, 'hand_seamless_3dep_dems.vrt')
 polygonize(target_dem_folder)
 
 # Extract and reproject NHDPlus streams
-nhd_flowline = f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDSnapshot/Hydrography/NHDFlowline.shp'
 if not os.path.exists(nhd_flowline):
     sys.exit(f"NHDFlowline file {nhd_flowline} does not exist. Exiting...")
 NHDFlowline = gpd.read_file(nhd_flowline)
@@ -128,7 +140,6 @@ headwater_points.to_file(
 )
 
 # Extract and reproject NHDPlus waterbodies
-nhd_waterbody = f'/data/inputs/nhdplus/NHDPlus{region_code}/NHDSnapshot/Hydrography/NHDWaterbody.shp'
 if not os.path.exists(nhd_waterbody):
     sys.exit(f"NHDWaterbody file {nhd_waterbody} does not exist. Exiting...")
 NHDWaterbody = gpd.read_file(nhd_waterbody)

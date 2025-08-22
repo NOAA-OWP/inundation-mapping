@@ -169,6 +169,18 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         osm_roads = os.getenv('osm_roads_guam')
         huc_CRS = os.getenv('GUAM_CRS')
         input_LANDSEA = os.getenv('input_landsea_Guam')
+    elif huc == '22030001':  # American Samoa
+        nwm_lakes = os.getenv('input_nhd_lakes_AmericanSamoa')
+        nwm_catchments = os.getenv('input_nwm_catchments_AmericanSamoa')
+        nld_lines = os.getenv('input_NLD_AmericanSamoa')
+        nld_lines_preprocessed = os.getenv('input_levees_preprocessed_AmericanSamoa')
+        nwm_streams = os.getenv('input_nhd_flows_AmericanSamoa')
+        nwm_headwaters = os.getenv('input_nhd_headwaters_AmericanSamoa')
+        levee_protected_areas = os.getenv('input_nld_levee_protected_areas_AmericanSamoa')
+        osm_bridges = os.getenv('osm_bridges_americansamoa')
+        osm_roads = os.getenv('osm_roads_americansamoa')
+        huc_CRS = os.getenv('AMERICAN_SAMOA_CRS')
+        input_LANDSEA = os.getenv('input_landsea_AmericanSamoa')
     else:
         nwm_lakes = os.getenv('input_nwm_lakes')
         nwm_catchments = os.getenv('input_nwm_catchments')
@@ -207,16 +219,17 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     else:
         # TODO investigate this old comment : Clip levee-protected areas polygons for future masking ocean areas (where applicable)
         logging.info(f"Clipping levee-protected areas for {huc}")
-        levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
-        if not levee_protected_areas.empty:
-            levee_protected_areas.to_file(
-                os.path.join(huc_directory, output_filenames['levee_protected_areas']),
-                driver='GPKG',
-                index=False,
-                crs=huc_CRS,
-                engine="fiona",
-            )
-        del levee_protected_areas
+        if levee_protected_areas and os.path.exists(levee_protected_areas):
+            levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
+            if not levee_protected_areas.empty:
+                levee_protected_areas.to_file(
+                    os.path.join(huc_directory, output_filenames['levee_protected_areas']),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
+            del levee_protected_areas
 
     if copying_flags['copy_nwm_lakes']:
         src = os.path.join(copy_from_dir, huc, output_filenames['nwm_lakes'])
@@ -261,16 +274,17 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     else:
         # Find intersecting levee lines
         logging.info(f"Clipping NLD levee lines for {huc}")
-        nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
-        if not nld_lines.empty:
-            nld_lines.to_file(
-                os.path.join(huc_directory, output_filenames['levee_lines']),
-                driver='GPKG',
-                index=False,
-                crs=huc_CRS,
-                engine="fiona",
-            )
-        del nld_lines
+        if nld_lines and os.path.exists(nld_lines):
+            nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
+            if not nld_lines.empty:
+                nld_lines.to_file(
+                    os.path.join(huc_directory, output_filenames['levee_lines']),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
+            del nld_lines
 
     if copying_flags['copy_levee_lines_burned']:
         src = os.path.join(copy_from_dir, huc, output_filenames['levee_lines_burned'])
@@ -283,16 +297,17 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     else:
         # Preprocessed levee lines for burning
         logging.info(f"Clipping levee_lines_burned for {huc}.")
-        nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer, engine="fiona")
-        if not nld_lines_preprocessed.empty:
-            nld_lines_preprocessed.to_file(
-                os.path.join(huc_directory, output_filenames['levee_lines_burned']),
-                driver='GPKG',
-                index=False,
-                crs=huc_CRS,
-                engine="fiona",
-            )
-        del nld_lines_preprocessed
+        if nld_lines_preprocessed and os.path.exists(nld_lines_preprocessed):
+            nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer, engine="fiona")
+            if not nld_lines_preprocessed.empty:
+                nld_lines_preprocessed.to_file(
+                    os.path.join(huc_directory, output_filenames['levee_lines_burned']),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
+            del nld_lines_preprocessed
 
     if copying_flags['copy_nwm_catchments']:
         src = os.path.join(copy_from_dir, huc, output_filenames['nwm_catchments'])
