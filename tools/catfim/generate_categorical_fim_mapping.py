@@ -316,77 +316,57 @@ def produce_inundated_branch_tif(
         file_name = lid + '_' + category_key + '_extent_' + huc + '_' + branch
         output_tif = os.path.join(lid_directory, file_name + '.tif')
 
-        # MP_LOG.lprint("+++++++++++++++++++++++")
-        # MP_LOG.lprint(f"... At the start of producing a tif for {file_name}")
-        # MP_LOG.trace(locals())
-        # MP_LOG.lprint(f"output_tif is {output_tif} (if it is valid)")
-        # MP_LOG.trace("+++++++++++++++++++++++")
-
-        # both of these have a nodata value of 0 (well.. not by the image but by cell values)
+        # Open the REM and Catchments rasters (both have a nodata value of 0)
         rem_src = rasterio.open(rem_path)
         catchments_src = rasterio.open(catchments_path)
         rem_array = rem_src.read(1)
         catchments_array = catchments_src.read(1)
 
-        # TEMP: look at a catchment and rem from the same branch.
-        # Then look at a stage based 4.4.0.0 for this huc and see if we can figure out the
-        # intended results. Are we trying for a image that makes all values below the hand stage
-        # value to be a value (kinda like a 1 and 0 ?)
-
         # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
         #   are <= to hand_stage and the catchments value is in the hydroid_list.
-
         reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
             'int16'
         )
 
-        # MP_LOG.trace(f"min of reclass_rem_array (min is {np.min(reclass_rem_array)} and max is {np.max(reclass_rem_array)}")
-
         # The catchment_array has hydroid that have had the first 4 chars cut off
         # we need to the same for the hydroid's from the hydroid_list
-        # clipped_hydroid_list = [str(x[-4:]) for x in hydroid_list]
         clipped_hydroid_list = []
         for i in hydroid_list:
             clipped_str = str(i)[-4:]
             clipped_hydroid_list.append(int(clipped_str))
 
+        # Create a mask of the catchments_array where the values are in the clipped_hydroid_list
         hydroid_mask = np.isin(catchments_array, clipped_hydroid_list)
 
-        # MP_LOG.trace(f"max of hydroid_mask {np.max(hydroid_mask)}")
-
+        # Create a target array where the catchments_array is not nodata and the hydroid_mask is True
         target_catchments_array = np.where(
             ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
         ).astype('int16')
 
-        # MP_LOG.trace(f"min of target_catchments_array (min is {np.min(target_catchments_array)} and max is {np.max(target_catchments_array)}")
-
+        # Mask the reclass_rem_array with the target_catchments_array
         masked_reclass_rem_array = np.where(
             ((reclass_rem_array >= 1) & (target_catchments_array >= 1)), 1, 0
         ).astype('int16')
 
-        # MP_LOG.trace(f"min of masked_reclass_rem_array (min is {np.min(masked_reclass_rem_array)} and max is {np.max(masked_reclass_rem_array)}")
+        ## Debugging:
 
-        # change it all to either 1 or 0 (one being inundated)
+        # Change it all to either 1 or 0 (one being inundated)
         # masked_reclass_rem_array[np.where(masked_reclass_rem_array <= 0)] = 0
         # masked_reclass_rem_array[np.where(masked_reclass_rem_array > 0)] = 1
 
         # Save resulting array to new tif with appropriate name. ie) brdc1_record_extent_18060005.tif
         # to our mapping/huc/lid site
-        # No cells were inundated which is common. Lots of branches don't inundate as they are out of the extent area
-        is_all_zero = np.all(masked_reclass_rem_array == 0)
 
+        # MP_LOG.trace(f"min of reclass_rem_array (min is {np.min(reclass_rem_array)} and max is {np.max(reclass_rem_array)}")
+        # MP_LOG.trace(f"max of hydroid_mask {np.max(hydroid_mask)}")
+        # MP_LOG.trace(f"min of target_catchments_array (min is {np.min(target_catchments_array)} and max is {np.max(target_catchments_array)}")
+        # MP_LOG.trace(f"min of masked_reclass_rem_array (min is {np.min(masked_reclass_rem_array)} and max is {np.max(masked_reclass_rem_array)}")
         # MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
 
-        # if not is_all_zero:
-        # if is_all_zero == False: # this logic didn't let ANY files get saved
-        #    'is False' means that the object does not exist and not that it really equals the value of False
+        # Check if no cells were inundated (branches don't inundate as they are out of the extent area)
+        is_all_zero = np.all(masked_reclass_rem_array == 0)
+
         if is_all_zero == False:
-            # output_tif = os.path.join(
-            #     lid_directory, lid + '_' + category_key + '_extent_' + huc + '_' + branch + '.tif'
-            # )
-            # File may or may not exist
-            # if os.path.exists(output_tif):
-            # MP_LOG.lprint(f" +++ Branch output_tif is {output_tif}")
             with rasterio.Env():
                 profile = rem_src.profile
                 profile.update(dtype=rasterio.uint8)
@@ -396,14 +376,7 @@ def produce_inundated_branch_tif(
                 # masked_reclass_rem_array[masked_reclass_rem_array == profile["nodata"]] = 0
 
                 with rasterio.open(output_tif, 'w', **profile) as dst:
-                    # dst.nodata = 0
                     dst.write(masked_reclass_rem_array, 1)
-        
-        elif is_all_zero == True:
-            # Print the 
-        
-        # else:  # commented out as there are so many of these
-        #     MP_LOG.trace(f"{file_name} : inundation was all zero cells")
 
     except Exception:
         MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage")
