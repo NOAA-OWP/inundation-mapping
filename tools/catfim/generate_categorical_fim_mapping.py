@@ -75,6 +75,13 @@ def produce_stage_based_lid_tifs(
     hand_stage_m = datum_adj_wse_m - lid_usgs_elev
     hand_stage = round(hand_stage_m * 1000)  # convert to mm to match HAND
 
+    # If hand_stage is negative, write message and exit out
+    if hand_stage < 0:
+        msg = f":negative hand stage ({hand_stage} mm), no inundation"
+        messages.append(lid + msg)
+        MP_LOG.warning(huc_lid_cat_id + msg)
+        return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+
     # If no segments, write message and exit out
     if not segments or len(segments) == 0:
         msg = ':missing nwm segments'
@@ -391,6 +398,10 @@ def produce_inundated_branch_tif(
                 with rasterio.open(output_tif, 'w', **profile) as dst:
                     # dst.nodata = 0
                     dst.write(masked_reclass_rem_array, 1)
+        
+        elif is_all_zero == True:
+            # Print the 
+        
         # else:  # commented out as there are so many of these
         #     MP_LOG.trace(f"{file_name} : inundation was all zero cells")
 

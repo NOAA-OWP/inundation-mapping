@@ -756,6 +756,12 @@ def iterate_through_huc_stage_based(
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
+                elif abs(elevation_diff) > 5:
+                    diff_rounded = round(elevation_diff, 1)
+                    msg = f':Moderate discrepancy ({diff_rounded} ft) in elevation estimates from gage and HAND'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    # We are not continuing, just a warning
 
                 # This function sometimes is called within a MP but sometimes not.
                 # So, we might have an MP inside an MP
