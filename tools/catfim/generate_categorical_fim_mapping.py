@@ -77,8 +77,8 @@ def produce_stage_based_lid_tifs(
 
     # If hand_stage is negative, write message and exit out
     if hand_stage < 0:
-        msg = f":negative hand stage ({hand_stage} mm), no inundation"
-        messages.append(lid + msg)
+        msg = f": Negative hand stage ({hand_stage} mm), no inundation"
+        # messages.append(lid + msg)
         MP_LOG.warning(huc_lid_cat_id + msg)
         return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
 

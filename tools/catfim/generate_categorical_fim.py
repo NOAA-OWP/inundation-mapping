@@ -591,8 +591,8 @@ def iterate_through_huc_stage_based(
 
             for lid in nws_lids:
 
-                # debugging
-                # if lid.upper() not in ['PNTA3', 'PWBA3']:
+                # # Debugging mode:
+                # if lid.upper() not in ['PACI1']:
                 #    continue
 
                 # TODO: Oct 2024, yes. this is goofy but temporary
@@ -804,8 +804,10 @@ def iterate_through_huc_stage_based(
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
                 # This are not interval values
+
+                negative_hand_stage = False # initialize value
+
                 for idx, stage_row in stage_values_df.iterrows():
-                    # MP_LOG.lprint(f"{huc_lid_id}: Magnitude is {category}")
                     # Pull stage value and confirm it's valid, then process
 
                     category = stage_row['stage_name']
@@ -814,6 +816,10 @@ def iterate_through_huc_stage_based(
                     # messages already included in the stage_warning_msg above
                     if stage_value == -1:
                         continue
+
+                    if negative_hand_stage == True:
+                        MP_LOG.lprint(f"{huc_lid_id}: Skipping remaining stages because a negative hand stage was already found")
+                        continue  # no need to keep going if we already have a negative hand stage
 
                     MP_LOG.trace(f"About to create tifs for {huc_lid_id} : {category} : {stage_value}")
 
@@ -843,10 +849,13 @@ def iterate_through_huc_stage_based(
                         child_log_file_prefix,
                     )
 
-                    # If we get a message back, then something went wrong with the site adn we need to
+                    # If we get a message back, then something went wrong with the site and we need to
                     # remove it as a valid site
-
                     all_messages += messages
+
+                    # Mark site as invalid if any stage results in a negative hand stage value
+                    if hand_stage < 0:                    
+                        negative_hand_stage = True
 
                     # Extra metadata for alternative CatFIM technique.
                     # TODO Revisit because branches complicate things
@@ -868,8 +877,17 @@ def iterate_through_huc_stage_based(
                         mapping_lid_directory, lid + '_' + category_key + '_extent.tif'
                     )
                     if os.path.exists(stage_file_name) == False:
-                        # somethign failed and we didn't get a rolled up extent file, so we need to reject the stage
+                        # something failed and we didn't get a rolled up extent file, so we need to reject the stage
                         stage_values_df.at[idx, 'stage_value'] = -1
+
+                # If any stage resulted in a negative hand stage value, mark site as invalid.
+                # because this indicates that there is an elevation disparity that will
+                # likely result in bad mapping.
+                if negative_hand_stage == True:
+                    msg = ': One or more stages resulted in a negative hand stage value'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
 
                 # So, we might have an MP inside an MP
                 # let's merge what we have at this point, before we go into another MP
