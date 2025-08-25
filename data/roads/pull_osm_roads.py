@@ -24,16 +24,18 @@ load_dotenv(f'{srcDir}/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 GUAM_CRS = os.getenv('GUAM_CRS')
+AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
 
 def combine_hucs(output_dir):
-    # identify Alaska vs CONUS vs Guam HUCs
+    # identify Alaska vs CONUS vs Guam vs Samoa HUCs
     files = list(Path(output_dir).glob("roads_*.gpkg"))
 
     regions = {
         "alaska": [f for f in files if f.name.startswith("roads_19")],
-        "guam":   [f for f in files if f.name.startswith("roads_22")],
-        "conus":  [f for f in files if not (f.name.startswith("roads_19") or f.name.startswith("roads_22"))],
+        "guam":   [f for f in files if f.name.startswith("roads_22010000")],
+        "samoa":   [f for f in files if f.name.startswith("roads_22030001")],
+        "conus":  [f for f in files if not (f.name.startswith("roads_19") or f.name.startswith("roads_22010000") or f.name.startswith("roads_22030001"))],
     }
 
     for region, flist in regions.items():
@@ -178,6 +180,9 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
         elif str(HUC_no) == '22010000': 
             gdf_roads = gdf_roads.to_crs(GUAM_CRS)
 
+        elif str(HUC_no) == '22030001': 
+            gdf_roads = gdf_roads.to_crs(AMERICAN_SAMOA_CRS)
+
         else:
             gdf_roads = gdf_roads.to_crs(DEFAULT_FIM_PROJECTION_CRS)
 
@@ -280,7 +285,7 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs):
     
     tasks_args_list = []
     for HUC_no in huc_numbers:
-        if HUC_no == '22010000': # for guam it is possible that does not exist and generally not needed
+        if HUC_no in ('22010000' ,'22030001'): # for guam and samoa it is possible that does not exist and generally not needed
             split_boundary_path=""
         else:
             split_boundary_path = os.path.join(preclip_dir, HUC_no, "nwm_catchments_proj_subset.gpkg")
@@ -319,7 +324,7 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs):
             file_logger.info(f"  - {k}")
             print(f"  - {k}")
 
-    # now combine all hucs into two files one for CONUS and one for Alaska roads
+    # now combine all hucs into dedicated files for CONUS,  Alaska, Guam, and Samoa roads
     combine_hucs(output_dir)
 
     # Record run time

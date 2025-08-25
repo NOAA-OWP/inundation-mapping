@@ -29,6 +29,7 @@ load_dotenv(f'{srcDir}/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 GUAM_CRS = os.getenv('GUAM_CRS')
+AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
 
 # Save all OSM bridge features by HUC8 to a specified folder location.
@@ -203,6 +204,8 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             gdf1 = gdf1.to_crs(ALASKA_CRS)
         elif str(huc_num) == '22010000': 
             gdf1 = gdf1.to_crs(GUAM_CRS)
+        elif str(huc_num) == '22030001': 
+            gdf1 = gdf1.to_crs(AMERICAN_SAMOA_CRS)
         else:
             gdf1 = gdf1.to_crs(DEFAULT_FIM_PROJECTION_CRS)
 
@@ -280,13 +283,15 @@ def combine_huc_features(output_dir):
     cols_to_keep = ['osmid', 'name', 'bridge_type', 'huc8', 'huc10', 'geometry']
 
     # Bucket files by region
-    buckets = {"alaska": [], "guam": [], "conus": []}
+    buckets = {"alaska": [], "guam": [], "samoa": [], "conus": []}
     for f in Path(output_dir).glob("huc_*_osm_bridges.gpkg"):
         n = f.name
         if n.startswith("huc_19"):
             buckets["alaska"].append(f)
-        elif n.startswith("huc_22"):
+        elif n.startswith("huc_22010000"): 
             buckets["guam"].append(f)
+        elif n.startswith("huc_22030001"): 
+            buckets["samoa"].append(f)
         else:
             buckets["conus"].append(f)
 
