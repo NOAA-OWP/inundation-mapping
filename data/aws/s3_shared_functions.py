@@ -17,144 +17,131 @@ from botocore.client import ClientError
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 #import shared_variables as sv
 
+'''
+Note: you may already know this but S3 does not have a concept of "folders", but
+uses a similar system using "prefixes".  When the word "folder" is used here, it 
+is translated to a pattern of "prefixes" that S3 can use.
 
-# Note: you may already know this but S3 does not have a concept of "folders", but
-# uses a similar system using "prefixes".  When the word "folder" is used here, it 
-# is translated to a pattern of "prefixes" that S3 can use.
+Jun 2025: This was created from a file in the ras2fim repo / also named s3_shared_functions.
 
-# Jun 2025: This was created from a file in the ras2fim repo / also named s3_shared_functions.
-# It has a wide number of additional tools such as:
-#   - deleting S3 folders
-#   - uploading individual files
-#   - upload folders
-#   - moving folder in S3
-#   - downloading folders from a list
-#   - downloading files from a list
-#   - getting a list of files in an S3 folder
-#   - getting a list of folder in an s3 folder
-#   - getting a folder size
-# While msot of it is ras2fim specific, it is easily adjusted to be more generic for FIM to use
-# if/as needed down the road.
+In that repo, it also contains code that can (which likely need slight mods):
+  - upload files(s), folder(s)
+  - delete files/folders
+  - move files/folders  (note: ras2fim has it wrong that you have to manually copy then delete)
+  - file(s) search with wildcard
+  - get folder sizes
+
+'''
 
 # -------------------------------------------------
-def is_valid_s3_folder(s3_client, bucket_name, s3_prefix):
-    """
-    Process:
-    Input:
-        - s3_prefix: eg. inputs/fema  (from s3://some_bucket/inputs/fema)
-    Returns two strings:
-        (success) True / False,
-        (err msg if any) -- (some message, but only in error)
-                options coming back are:
-                - "bad credentials"
-                - "no such bucket"
-                - "folder not found"
-        But can throw an error when catastrophic
-        Reason for sending back "key error strings", is so that the caller and print, log
-        etc.
-    """
-    is_success = False
-    return_msg = ""
+def create_boto3_s3_client(aws_access_key = "", 
+                            aws_secret_access_key = "", 
+                            aws_region = "",
+                            aws_session_token = ""):
+    
+    '''
+    There are a number of ways a client can be created and it depends on various combinations.
+    All of the arg above are optional as if they are using implicit aws cred such as an saved
+    credentials files, or IAM permissions to the logged in user or server. They also might 
+    submit explicit credentials such as access key, secret access key, region. The session token
+    can also be optional as it again is based on how the permissioxn are setup.
 
-    try:
-        # If the bucket is incorrect, it will throw an exception that already makes sense
-        # Don't need pagination as MaxKeys = 2 as prefix will likely won't trigger more than 1000 rec
-        s3_objs = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=s3_prefix, MaxKeys=2, Delimiter="/")
+    There are number of ways to authenticate. Sometimes you can even submit explicit access
+    key and secret key but it can fail if you have certain types (but not all) of implied 
+    authorization.
+    
+    Note: session tokens are temp access keys
+    '''
+    s3_client = None
 
-        # print(s3_objs)
-        if s3_objs["KeyCount"] > 0:
-            return_msg = "folder not found"
+    # You can create a client with no credentials which means it is implicit, either by an 
+    # an AWS credentials file, "EXPORT" commands, or authentication of the logged in user or server
+
+    if (aws_access_key == "" and aws_secret_access_key == "" and 
+        aws_region == "" and aws_session_token == ""):
+        s3_client = boto3.client("s3")
+
+    # It is possible to add (or need to add) a region only.
+    elif (aws_access_key == "" and aws_secret_access_key == "" and 
+        aws_region != "" and aws_session_token == ""):
+        s3_client = boto3.client("s3", aws_region = aws_region)
+
+    elif (aws_access_key != "" and aws_secret_access_key == "") or (
+        aws_access_key == "" and aws_secret_access_key != ""):
+        raise Exception("Error: You submitted a value to either the AWS access key or AWS secret key"
+                        " but the other (access key or secret key) does not exist. Both must exist"
+                        " or neither exist, depending on which AWS authentication system you are using"
+                        " (explicit creds, implied via .crendentials file, implicit user or server"
+                        " authorization, session exports, etc)")
+    
+    elif aws_access_key != "" and aws_secret_access_key != "" and aws_region == "":
+        raise Exception("Error: When submitting an AWS access key and secret key, you must also provide"
+                        " an AWS region value which has not be provided")
+    
+    elif aws_access_key != "" and aws_secret_access_key != "" and aws_region != "":
+        if aws_session_token != "":
+            s3_client = boto3.client("s3",
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_access_key,
+                aws_region = aws_region,
+                aws_session_token=aws_session_token)
         else:
-            is_success = True
+            s3_client = boto3.client("s3",
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_access_key,
+                aws_region = aws_region)
 
-    except botocore.exceptions.NoCredentialsError:
-        return_msg = "bad credentials"
-
-    except s3_client.exceptions.NoSuchBucket:
-        return_msg = "no such bucket"
-
-    # other exceptions can be passed through
-    return is_success, return_msg
-
-
-# # -------------------------------------------------
-# def is_valid_s3_file(s3_full_file_path):
-#     """
-#     Process:  This will throw exceptions for all errors
-#     Input:
-#         - s3_full_file_path: eg. s3://some_bucket/inputs/my_file.csv
-#     Output:
-#         True/False (exists)
-#     """
-
-#     file_exists = False
-
-#     s3_full_file_path = s3_full_file_path.replace("\\", "/")
-
-#     if s3_full_file_path.endswith("/"):
-#         raise Exception("s3 file path is invalid as it ends with as forward slash")
-
-#     s3_full_file_path = s3_full_file_path.replace("S3://", "s3://")
-
-#     logging.info(f"Validating s3 file of {s3_full_file_path}")
-
-#     bucket_name, s3_file_path = parse_bucket_and_folder_name(s3_full_file_path)
-
-#     try:
-#         if does_s3_bucket_exist(bucket_name) is False:
-#             raise ValueError(f"s3 bucket of {bucket_name} does not appear to exist")
-
-#         client = boto3.client("s3")
-
-#         result = client.list_objects_v2(Bucket=bucket_name, Prefix=s3_file_path)
-
-#         if 'Contents' in result:
-#             file_exists = True
-
-#     except botocore.exceptions.NoCredentialsError:
-#         logging.critical("** Credentials not available. Try aws configure")
-#     except Exception:
-#         logging.critical("An error has occurred with talking with S3")
-#         logging.critical(traceback.format_exc())
-
-#     return file_exists
+    # in case some combination slipped through for error checking
+    if s3_client is None:
+        raise Exception("Somethign went wrong with the values or combination of values " \
+        "submitted for AWS authenication")
+            
+    return s3_client
 
 
 # -------------------------------------------------
-def does_s3_bucket_exist(s3_client, bucket_name):
+def get_descriptive_error_msg(error_code):
 
-    """
-    Process:
-        - The calling function and decide if to stop, abort, etc
-        - catastropic errors will be thrown, this catches bad credentials too
+    msg = ""
 
-    Returns two string of:
-      (success) True / False,
-      (err msg if any) -- (some message, but only in error)
-            options coming back are:
-             - "bad credentials"
-             - "no such bucket"
-        Reason for sending back "key error strings", is so that the caller and print, log
-        etc.
-    """
+    if (error_code == 0):
+        raise Exception("0 (zero) is not an error")
 
-    is_success = False
-    return_msg = ""
+    # We are including the most common AWS errors mostly based around permissions.
+    if error_code == 1000:  # bad credentials or NoCredentialsError
+        msg = "ERROR: Bad AWS Credentials: There are a number of ways this can fail. You may be missing"
+        " or have invalid aws access key, aws secret access key or aws region values (case-sensitive)."
+        " It is also possible that you may have used implicit aws credentials using a default"
+        " aws credentials file which may be out of sync."
+        " Note: It is possible it has expired. Check your arg values, ensure it has"
+        " quotes around the arg value or check with your aws bucket owner."
 
-    try:
-        s3_client.head_bucket(Bucket=bucket_name)
-        # resp = client.head_bucket(Bucket=bucket_name)
-        # print(resp)
-        is_success = True  # no exception?  means it exist
+    elif error_code == 1001:  # error while validating AWS Creds
+        msg = "ERROR: Undefined Error: An unknown internal error has occured while validate the aws credentials."
+        " Please review your AWS credential information in case that it the issue (case-sensitive)."
 
-    except botocore.exceptions.NoCredentialsError:
-        return_msg = "bad credentials"
+    elif error_code == 1002:  # AWS NoAuthTokenError
+        msg = "ERROR: AWS Auth Token Error: Part of the authorization process to talk to AWS often, but not"
+        " always, uses AWS Authorization Tokens. Depending on how you are using AWS authenication, such as"
+        " AWS Access Key / AWS Secret Key, aws credentials file, there is an error. Review your AWS"
+        " credentials arguments, file, system, other (case-sensitive)."
 
-    except s3_client.exceptions.NoSuchBucket:
-        return_msg = "no such bucket"
+    elif error_code == 1003:  # AWS NoRegionError, UnknownRegionError, InvalidRegionError
+        msg = "ERROR: AWS No Region Value Defined: An aws region value, such as 'us-east-1', needs to be defined,"
+        " is missing or is invalid (case-sensitive). Review your AWS credentials arguments, file, system, other."
 
-    # other exceptions can be passed through
-    return is_success, return_msg
+    elif error_code == 1050:  # No such bucket
+        msg = "ERROR: no such bucket: The aws bucket name does not exist."
+        " Please check the spelling (case-sensitive) or with the aws bucket owner."
+
+    elif error_code == 1051:  # Folder not found
+        msg = "ERROR: Folder not found: The aws folder name (key) does not exist."
+        " Please check the spelling (case-sensitive) or pathing."
+
+    else:
+        raise Exception("Error: Unknown error code submitted")
+
+    return msg
 
 
 # -------------------------------------------------
@@ -185,151 +172,237 @@ def parse_bucket_and_folder_name(s3_full_folder_path):
 
 
 # -------------------------------------------------
-# def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
-#     """
-#     Process:
-#         - Note: The boto3.client must be already instantated and passed in
-#         - The s3_file_key is the bucket relative file path to the file name
-#         - File may or may not exist in S3
-#     Inputs:
-#         - s3_client: my_client = boto3.client(profile, creds, whatever)
-#         - bucket_name: ie) hand_data_bucket
-#         - s3_file_key: bucket relative file path to the file name (ie. /inputs/fema/12090301.gpkg) 
-#           (as in s3://hand_data_bucket/inputs/fema/12090301.gpkg)
-#         - target_file_path: e.g . /data/inputs/fema/12090301.gpkg
-#     Returns:
-#         - True if file exists and was downloaded, False if not
-#     """
+def does_s3_bucket_exist(s3_client, bucket_name):
 
-#     does_file_exist = False
-#     try:
-#         # Does not return anythign but will throw and exception if it does not exist
-#         s3_client.download_file(bucket_name, s3_file_key, target_file_path)
-#         does_file_exist = True
-#     except ClientError as e:
-#         does_file_exist = False
+    """
+    Process:
+        - Helps validate the client as well
+        - The calling function and decide if to stop, abort, etc
+        - catastropic errors will be thrown, this catches bad credentials too
+
+    Return:
+      (success) True / False (bucket exists)
+      return_code (int): return 0 if successful, otherwise returns an error code
+      Can also throw exceptions.
+    """
+
+    if s3_client == None:
+        raise Exception("S3 Client not initiated")
+
+    try:
+        s3_client.head_bucket(Bucket=bucket_name)
+        # resp = client.head_bucket(Bucket=bucket_name)
+        # print(resp)
+        is_success = True  # no exception?  means it exist
+        return_code = 0
+
+    except botocore.exceptions.NoCredentialsError:
+        is_success = False
+        return_code = 1000
+
+    except botocore.exceptions.ClientError:
+        is_success = False
+        return_code = 1001
+
+    except botocore.exceptions.NoAuthTokenError:
+        is_success = False
+        return_code = 1002
+
+    except (botocore.exceptions.NoRegionError,
+            botocore.exceptions.InvalidRegionError,
+            botocore.exceptions.UnknownRegionError):
+        is_success = False
+        return_code = 1003
+
+    except s3_client.exceptions.NoSuchBucket:
+        is_success = False
+        return_code = 1050
+
+    # should throw anything else (communcation error, accessdenied, etc )
+
+    # other exceptions can be passed through
+    return is_success, return_code
+
+
+# -------------------------------------------------
+def is_valid_s3_folder(s3_client, bucket_name, s3_prefix_folder_path):
+    """
+    Process:
+    Input:
+        - s3_prefix_folder_path: eg. inputs/fema  (from s3://some_bucket/inputs/fema)
+    Returns two strings:
+        (success) True / False,
+        (err code if any) -- (some message, but only in error)
+                options coming back are:
+                - "1000 (bad or no credentials"
+                - "1050 (no such bucket)"
+                - "1003 (region issues)"
+        But can throw an error when catastrophic
+        To get more user friendly info for the code, you can call get_error_msg_description
+        etc.
+    """
+    # validate the connection and credentials as well
+    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    if not is_success:
+        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
+
+    # If the bucket is incorrect, it will throw an exception that already makes sense
+    # Don't need pagination as MaxKeys = 2 as prefix will likely won't trigger more than 1000 rec
+    s3_objs = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=s3_prefix_folder_path, MaxKeys=2, Delimiter="/")
+
+    # print(s3_objs)
+    if s3_objs["KeyCount"] > 0:
+        is_success = False
+        return_code = 1051  # folder does not exist. Don't auto raise an exception
+    else:
+        return_code = 0
+        is_success = True
+
+    # other exceptions can be passed through
+    return is_success, return_code
+
+
+# -------------------------------------------------
+def is_valid_s3_file(s3_client, bucket_name, s3_file_path):
+    """
+    Process:  This will throw exceptions for all errors
+    Input:
+        - s3_file_path: eg. /inputs/my_file.csv
+    Output:
+    Returns two strings:
+        (success) True / False,
+        (err code if any) -- (some message, but only in error)
+                options coming back are:
+                - "1000 (bad or no credentials"
+                - "1050 (no such bucket)"
+                - "1003 (region issues)"
+        But can throw an error when catastrophic
+        To get more user friendly info for the code, you can call get_error_msg_description
+        etc.
+    """
+
+    file_exists = False
+
+    s3_full_file_path = s3_full_file_path.replace("\\", "/")
+
+    bucket_name, s3_file_path = parse_bucket_and_folder_name(s3_full_file_path)
+
+    # validate the connection and credentials as well
+    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    if not is_success:
+        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
+
+    result = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=s3_file_path)
+
+    if 'Contents' in result:
+        file_exists = True
+
+    return file_exists, 0
+
+
+# -------------------------------------------------
+def get_folder_list(s3_client, bucket_name, s3_src_folder_path):
+    """
+    Process:
+        - Uses a S3 paginator to get a list of folders in the child dir below the 
+          s3_src_folder_path
+          Only folder names with some file or folders under it will be found (an aws
+          thing as it is not really folders but prefix keys).
+          List will be not be a recursive search.
+    Inputs:
+        - bucket_name: e.g mys3bucket_name
+        - s3_src_folder_path: e.g. test_cases/ble/12090301 (case-sensitive)
+    Output
+        - a list of the full path (if s3, without the bucket name)
+            test_cases/ble/12090301/some_folder
+    """
+
+    # TODO: Add flag to allow for optional recursive and possibly wildcards
+
+    s3_src_folder_path = s3_src_folder_path.replace("\\", "/")
+
+    if not s3_src_folder_path.endswith("/"):
+        s3_src_folder_path += "/"
+
+    # validate the connection and credentials as well
+    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    if not is_success:
+        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
+
+    s3_items = []
+
+    default_kwargs = {"Bucket": bucket_name, "Prefix": s3_src_folder_path, "Delimiter": "/"}
+
+    next_token = ""
+
+    while next_token is not None:
+        updated_kwargs = default_kwargs.copy()
+        if next_token != "":
+            updated_kwargs["ContinuationToken"] = next_token
+
+        # will limit to 1000 objects - hence tokens
+        response = s3_client.list_objects_v2(**updated_kwargs)
+        if response.get("KeyCount") == 0:
+            next_token = response.get("NextContinuationToken")
+            continue
+
+        prefix_recs = response.get("CommonPrefixes")
+        if prefix_recs is None:
+            next_token = response.get("NextContinuationToken")
+            continue
+
+        # TODO: ensure this is not recusive
+        for result in prefix_recs:
+            prefix = result.get("Prefix")
+            prefix_adj = prefix.replace(s3_src_folder_path, "")
+            if prefix_adj.endswith("/"):
+                prefix_adj = prefix_adj[:-1]
+            if prefix_adj != "":  # empty.. likely the parent folder itself.
+
+                item = f"{s3_src_folder_path}{prefix_adj}"
+                s3_items.append(item)
+
+        next_token = response.get("NextContinuationToken")
+
+    return s3_items
+
+
+# -------------------------------------------------
+def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
+    """
+    Process:
+        - Note: The boto3.client must be already instantated and passed in
+        - The s3_file_key is the bucket relative file path to the file name
+        - File may or may not exist in S3
+    Inputs:
+        - s3_client: my_client = boto3.client(profile, creds, whatever)
+        - bucket_name: ie) hand_data_bucket
+        - s3_file_key: bucket relative file path to the file name (ie. /inputs/fema/12090301.gpkg) 
+          (as in s3://hand_data_bucket/inputs/fema/12090301.gpkg)
+        - target_file_path: e.g . /data/inputs/fema/12090301.gpkg
+    Returns:
+        - True if file exists and was downloaded, False if not
+    """
+
+    # validate the connection and credentials as well
+    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    if not is_success:
+        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
+
+    does_file_exist = False
+    try:
+        # Does not return anythign but will throw and exception if it does not exist
+        s3_client.download_file(bucket_name, s3_file_key, target_file_path)
+        does_file_exist = True
+    except ClientError as e:
+        does_file_exist = False
     
-#     return does_file_exist
-
-
-# -------------------------------------------------
-# def download_folders(list_folders, is_verbose=True):
-#     """
-#     Process:
-#         - The s3 pathing values needs to be case-sensitive.
-#         - This method is multi-threaded (not multi-proc) for performance.
-#         - If the local_folders_already exist, it will not pre-clean the folders so it is
-#           encouraged to pre-delete the child folders if required.
-#         - all recursive files/folders will be included
-
-#     Inputs:
-#         - list_folders. List of dictionary objects
-#             - schema is:
-#                 - "s3_src_folder": e.g. s3://{somebucket}/inputs/test_cases/xyz
-#                 - "target_local_folder": e.g. /data/inputs/test_cases/xyz
-#                     all downloaded files and folders will be under this folder.
-#         - is_verbose: Each folder being downloaded will be logged (console and/or file) automatically
-#               If this flag is true, it will do the same for files under the folder.
-#     Output
-#         - A list of dictionary objects will have three keys.
-#             - "s3_src_folder": the input 
-#             - "download_success" as either
-#                 the string value of 'True' or 'False'
-#             - "error_details" - why did it fail
-#           encouraged to pre-delete the child folders if required.
-
-#         We leave it to the calling function to decide if it an error or not
-
-#         Catastrophic errors wil be thrown as applicable.
-#     """
-#     rtn_threads = []
-#     rtn_download_details = []
-
-#     try:
-#         max_num_threads = 20
-#         num_list_folders = len(list_folders)
-#         if num_list_folders == 0:
-#             raise Exception("No folders were identified for downloaded")
-
-#         # MT not used at this parent level, given to child download_single_folder
-#         if num_list_folders < max_num_threads:
-#             fn_partial_download_single_folder = partial(
-#                 download_single_folder, num_of_workers=max_num_threads, is_verbose=True
-#             )
-
-#             num_completed = 0
-#             for download_args in list_folders:
-#                 download_args["s3_src_folder"] = download_args["s3_src_folder"].replace("\\", "/")
-
-#                 item = {
-#                     "bucket_name": download_args["bucket_name"],
-#                     "folder_id": download_args["folder_id"],
-#                     "s3_src_folder": download_args["s3_src_folder"],
-#                     "target_local_folder": download_args["target_local_folder"],
-#                 }
-#                 rtn_threads.append(fn_partial_download_single_folder(**item))
-#                 num_completed += 1
-#                 RLOG.lprint(f"--- {num_completed} of {num_list_folders} folders completed")
-
-#         else:  # we use MT here and NOT in the child download_single_folder
-#             num_workers = num_list_folders
-#             if num_workers > max_num_threads:
-#                 num_workers = max_num_threads
-
-#             # only 1 worker for each child single folder
-#             fn_partial_download_single_folder = partial(
-#                 download_single_folder, num_of_workers=1, is_verbose=False
-#             )
-
-#             with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-#                 futures_dict = []
-
-#                 for download_args in list_folders:
-#                     item = {
-#                         "bucket_name": download_args["bucket_name"],
-#                         "folder_id": download_args["folder_id"],
-#                         "s3_src_folder": download_args["s3_src_folder"],
-#                         "target_local_folder": download_args["target_local_folder"],
-#                     }
-#                     futures_dict.append(executor.submit(fn_partial_download_single_folder, **item))
-
-#                 for future_result in futures.as_completed(futures_dict):
-#                     if future_result is not None:
-#                         future_exception = future_result.exception()
-#                         if future_exception:
-#                             RLOG.error(future_exception)
-#                         else:
-#                             result = future_result.result()
-#                             rtn_threads.append(result)
-
-#         for result in rtn_threads:
-#             # err_msg might be empty
-#             item = {
-#                 "folder_id": result['folder_id'],
-#                 "download_success": result['is_success'],
-#                 "error_details": result['err_msg'],
-#             }
-
-#             rtn_download_details.append(item)
-
-#         return rtn_download_details
-
-#     except botocore.exceptions.NoCredentialsError:
-#         print("-----------------")
-#         RLOG.critical(
-#             "** Credentials not available for the submitted bucket. Try aws configure or review AWS "
-#             "permissions options"
-#         )
-#         sys.exit(1)
-
-#     except Exception as ex:
-#         print("-----------------")
-#         RLOG.critical("** Error downloading folders from S3:")
-#         RLOG.critical(traceback.format_exc())
-#         raise ex
+    return does_file_exist
 
 # -------------------------------------------------
-def download_s3_folder(s3_client, bucket_name, s3_src_path, target_local_folder):
+# TODO: Consider adding multi-threading. Might have to check how MT affects the s3_client. 
+# ie.. client collisions?
+def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
     """
     Process:
         - Note: The boto3.client must be already instantated and passed in
@@ -339,7 +412,7 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, target_local_folder)
     Inputs:
         - s3_client: my_client = boto3.client(profile, creds, whatever)
         - s3_src_path: e.g. /inputs/fema (from s3://{some_bucket}/inputs/fema)
-        - target_local_folder: e.g . /data/inputs/fema
+        - trg_folder_path: e.g . /data/inputs/fema
 
     Returns:
         - True or False (did a least one file download successfully)
@@ -349,7 +422,9 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, target_local_folder)
     """
 
     # This also validates that the bucket exists
-    # bucket_name, s3_prefix_path = parse_bucket_and_folder_name(s3_client, s3_src_path)
+    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    if not is_success:
+        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
 
     paginator = s3_client.get_paginator('list_objects_v2')
     operation_parameters = {'Bucket': bucket_name,
@@ -357,7 +432,7 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, target_local_folder)
                             'Delimiter': '/'}
     page_iterator = paginator.paginate(**operation_parameters)
 
-    files_exist = False
+    min_one_file_downloaded = False
     for page in page_iterator:
         if 'Contents' in page:
             # Iterate over each object and download it
@@ -365,10 +440,10 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, target_local_folder)
                 s3_key = obj['Key']
                 if s3_key[-1] != "/": # if it was a folder (ending in a slash, we skip it)
                     rel_path = os.path.relpath(s3_key, s3_src_path)
-                    local_file_path = os.path.join(target_local_folder, rel_path)
+                    local_file_path = os.path.join(trg_folder_path, rel_path)
 
                     os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
                     s3_client.download_file(bucket_name, s3_key, local_file_path)
-                    files_exist = True
+                    min_one_file_downloaded = True
 
-    return files_exist
+    return min_one_file_downloaded
