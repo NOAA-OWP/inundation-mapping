@@ -761,8 +761,8 @@ def iterate_through_huc_stage_based(
                     msg = (
                         f':Moderate discrepancy ({diff_rounded} ft) in elevation estimates from gage and HAND'
                     )
-                    all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
+                    # all_messages.append(lid + msg) # just print as a warning for now (not appending to message)
                     # We are not continuing, just a warning
 
                 # This function sometimes is called within a MP but sometimes not.
@@ -820,8 +820,8 @@ def iterate_through_huc_stage_based(
                         continue
 
                     if negative_hand_stage == True:
-                        MP_LOG.lprint(
-                            f"{huc_lid_id}: {category} : {stage_value} Skipping remaining stages because a negative hand stage was already found"
+                        MP_LOG.lprint(  # eventually we can remove this, but it's helpful for now since it's new
+                            f"{huc_lid_id}: {category} : {stage_value} Skipping remaining stages because a negative hand stage was found"
                         )
                         continue  # no need to keep going if we already have a negative hand stage
 
@@ -888,7 +888,7 @@ def iterate_through_huc_stage_based(
                 # because this indicates that there is an elevation disparity that will
                 # likely result in bad mapping.
                 if negative_hand_stage == True:
-                    msg = ': One or more stages resulted in a negative hand stage value'
+                    msg = ':One or more stages resulted in a negative hand stage value'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -1061,7 +1061,7 @@ def iterate_through_huc_stage_based(
 
                     if stage_warning_msg == "":  # does not mean the lid is good.
                         all_messages.append(lid + ':Good')
-                    else:  # we will leave the ":---" on it for now if it is does have a warnning message
+                    else:  # we will leave the ":---" on it for now if it is does have a warning message
                         all_messages.append(lid + stage_warning_msg)
                         MP_LOG.warning(huc_lid_id + stage_warning_msg)
                 else:
