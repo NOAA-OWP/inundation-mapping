@@ -758,7 +758,9 @@ def iterate_through_huc_stage_based(
                     continue
                 elif abs(elevation_diff) > 5:
                     diff_rounded = round(elevation_diff, 1)
-                    msg = f':Moderate discrepancy ({diff_rounded} ft) in elevation estimates from gage and HAND'
+                    msg = (
+                        f':Moderate discrepancy ({diff_rounded} ft) in elevation estimates from gage and HAND'
+                    )
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     # We are not continuing, just a warning
@@ -805,7 +807,7 @@ def iterate_through_huc_stage_based(
                 # cyle through on the stages that are valid
                 # This are not interval values
 
-                negative_hand_stage = False # initialize value
+                negative_hand_stage = False  # initialize value
 
                 for idx, stage_row in stage_values_df.iterrows():
                     # Pull stage value and confirm it's valid, then process
@@ -818,7 +820,9 @@ def iterate_through_huc_stage_based(
                         continue
 
                     if negative_hand_stage == True:
-                        MP_LOG.lprint(f"{huc_lid_id}: Skipping remaining stages because a negative hand stage was already found")
+                        MP_LOG.lprint(
+                            f"{huc_lid_id}: Skipping remaining stages because a negative hand stage was already found"
+                        )
                         continue  # no need to keep going if we already have a negative hand stage
 
                     MP_LOG.trace(f"About to create tifs for {huc_lid_id} : {category} : {stage_value}")
@@ -854,7 +858,7 @@ def iterate_through_huc_stage_based(
                     all_messages += messages
 
                     # Mark site as invalid if any stage results in a negative hand stage value
-                    if hand_stage < 0:                    
+                    if hand_stage < 0:
                         negative_hand_stage = True
 
                     # Extra metadata for alternative CatFIM technique.
