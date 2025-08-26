@@ -6,7 +6,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 This tool generates a custom flow file for a specific FIM scenario. Given a flow value and either a feature ID or a LID/USGS gage ID, it traces downstream along NWM streamlines and applies the input flow to each segment within the specified distance.
 
 ### Additions
-- `-tools/generate_costume_flow_files.py`
+- `-tools/generate_custom_flow_files.py`
 
 <br/>
 
