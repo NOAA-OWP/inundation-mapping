@@ -27,11 +27,49 @@ import utils.shared_variables as sv
 gp.options.io_engine = "pyogrio"
 
 
+# This one is a standard Python logger, not meant for multi-proc
+def setup_file_logger(
+    output_log_folder_path, prepend_log_file_name, screen_level=logging.INFO, file_level=logging.DEBUG
+):
+
+    # This writes to both the screen and the file level at the same time.
+    start_time = datetime.now(timezone.utc)
+    file_dt_string = start_time.strftime("%Y%m%d-%H%M_%S")
+    os.makedirs(output_log_folder_path, exist_ok=True)
+
+    # basic screen handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(screen_level)  # no formatter
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s : %(message)s")
+
+    # basic file handler
+    log_file_name = f"{prepend_log_file_name}-{file_dt_string}.log"
+    log_file_path = os.path.join(output_log_folder_path, log_file_name)
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(file_level)
+    file_handler.setFormatter(formatter)
+
+    # error file handler
+    err_log_file_name = f"{prepend_log_file_name}-error-{file_dt_string}.log"
+    err_log_file_path = os.path.join(output_log_folder_path, err_log_file_name)
+    err_file_handler = logging.FileHandler(err_log_file_path)
+    err_file_handler.setLevel(logging.ERROR)
+    err_file_handler.setFormatter(formatter)
+
+    # order matters here
+    logger = logging.getLogger()
+    logger.addHandler(err_file_handler)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    logger.setLevel(screen_level)
+
+
+# This one is more designed to be for multi-proc as it has logger names
 def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
     """
     Creates and returns a logger that logs to the specified file.
     """
-    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
     logger = logging.getLogger(logger_name)
     logger.setLevel(level)

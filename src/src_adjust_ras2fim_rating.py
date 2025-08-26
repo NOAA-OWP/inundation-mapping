@@ -348,17 +348,18 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
         # file name to search for ras location data (in the huc/branch dirs)
         csv_elev = os.path.join(huc_run_dir, 'ras_elev_table.csv')
         if not os.path.exists(csv_elev):  # possible it has a folder but not the files in it
-            warn_err = ('WARNING: ras_elev_table.csv did not exist - check that'
-                        f' {csv_elev} files exist in fim_dir! Note: It could be correct if this script is'
-                        ' being run as part of the get_sample_data system which does copy all ras2fim folders.')
+            warn_err = (
+                'WARNING: ras_elev_table.csv did not exist - check that'
+                f' {csv_elev} files exist in fim_dir! Note: It could be correct if this script is'
+                ' being run as part of the get_sample_data system which does copy all ras2fim folders.'
+            )
             print(warn_err)
             log_file.write(warn_err)
             continue
 
-
         # ras_elev_df = concat_huc_csv(huc_run_dir, csv_elev)
-        ras_elev_df = pd.read_csv(csv_elev,
-            dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
+        ras_elev_df = pd.read_csv(
+            csv_elev, dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object}
         )
 
         ## Create an aggregate dataframe with all ras2fim rating curve csv files

@@ -22,6 +22,8 @@ from pathlib import Path
 # collisions but it is rare.
 
 
+# Aug 2025: The FIM_Logger version of this class might be deprecated in favour
+# of logging methods in shared_functions.
 class FIM_logger:
     CUSTOM_LOG_FILES_PATHS = {}
     LOG_SYSTEM_IS_SETUP = False
