@@ -92,11 +92,11 @@ def create_fim_flow_file(start_feature_id, flow, distance, output_path):
 if __name__ == "__main__":
     """
     Example usage:
-    python3 /foss_fim/tools/generate_costume_flow_files.py
+    python3 /foss_fim/tools/generate_custom_flow_files.py
     -feature_id 23021904
     -cfs 20000
     -mile 10
-    -o /output/costume_flows.csv
+    -o /output/custom_flows.csv
     """
     parser = argparse.ArgumentParser(description="Generate a FIM flow file by tracing downstream reaches.")
     id_group = parser.add_mutually_exclusive_group(required=True)
