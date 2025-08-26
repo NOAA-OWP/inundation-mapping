@@ -821,7 +821,7 @@ def iterate_through_huc_stage_based(
 
                     if negative_hand_stage == True:
                         MP_LOG.lprint(
-                            f"{huc_lid_id}: Skipping remaining stages because a negative hand stage was already found"
+                            f"{huc_lid_id}: {category} : {stage_value} Skipping remaining stages because a negative hand stage was already found"
                         )
                         continue  # no need to keep going if we already have a negative hand stage
 
