@@ -48,14 +48,14 @@ def extract_longitudinal_variables(src_df, hydroid, stage):
     if src.LakeID.iloc[0] > 0:
         return [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
     else:
-        bedArea = round(np.interp(stage, src.Stage, src['BedArea (m2)']), 2)
+        surfacearea = round(np.interp(stage, src.Stage, src['SurfaceArea (m2)']), 2)        
         volume = round(np.interp(stage, src.Stage, src['Volume (m3)']), 2)
-        surfacearea = round(np.interp(stage, src.Stage, src['SurfaceArea (m2)']), 2)
+        bedArea = round(np.interp(stage, src.Stage, src['BedArea (m2)']), 2)
         wetarea = round(np.interp(stage, src.Stage, src['WetArea (m2)']), 2)
         hydraulicRadius = round(np.interp(stage, src.Stage, src['HydraulicRadius (m)']), 3)
         flow = round(np.interp(stage, src.Stage, src['Discharge (m3s-1)']), 2)
 
-    voi_hid_stage = [flow, bedArea, volume, surfacearea, wetarea, hydraulicRadius]
+    voi_hid_stage = [surfacearea, volume, bedArea, wetarea, hydraulicRadius, flow]
 
     return voi_hid_stage
 
@@ -82,6 +82,29 @@ def min_ignore_zeros(lst):
 
 
 # -------------------------------------------------------
+def low_percentile_ignore_zeros(lst):
+    """
+    Function to calculate the lowest 10th percentile of non-zero values.
+    
+    Parameters
+    ----------
+    lst : array-like (e.g., numpy array or list)
+    
+    Returns
+    ----------
+    low_10_percentile : float
+        The 10th percentile of the non-zero values in the list.
+        Returns 0 if no non-zero values exist.
+    """
+    arr = np.array(lst)
+    nonzero = arr[arr > 0]
+    if nonzero.size > 0:
+        return np.percentile(nonzero, 10)
+    else:
+        return 0
+
+
+# -------------------------------------------------------
 def filter_voi(voi_array):
     """
     Function for a gaussian and minimum filtering on an array.
@@ -95,8 +118,9 @@ def filter_voi(voi_array):
         gfilter
 
     """
-    minfilter = generic_filter(voi_array, min_ignore_zeros, size=4)
-    gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2, radius=2)
+    minfilter = generic_filter(voi_array, low_percentile_ignore_zeros, size=4)
+    # Values for Fim 6.0: sigma = 2; radius = 2; mathematically suggested raduis = 2-3 * sigma
+    gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=1.5, radius=3)
     return gfilter
 
 
@@ -141,6 +165,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
                 cathment_gpkg_path.append(cathment_gpkg)
 
     # Longitudinally adjust srcs for WSE
+    # huc_q_check = []
     for isrc in range(len(src_all_branches_path)):  # 5
 
         branch = re.search(r'branches/(\d{10}|0)/', src_all_branches_path[isrc]).group()[9:-1]
@@ -150,9 +175,13 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
         catchment_gdf0 = gpd.read_file(cathment_gpkg_path[isrc])
         catchment_gdf = catchment_gdf0.drop_duplicates(subset=['HydroID'], keep='first')
         lakeID_df = catchment_gdf[['HydroID', 'LakeID']].drop_duplicates(subset=['HydroID'])
+        # Read src tables
         src_df = pd.read_csv(src_all_branches_path[isrc], low_memory=False)
         src_df = src_df.merge(lakeID_df, on='HydroID', how='inner')  # validate='many_to_one'
         stages = [round(num, 4) for num in src_df['Stage'][0:84]]
+
+        # Find the BedArea and SurfaceArea relation
+        a_coef, b_coef = np.polyfit(src_df['SurfaceArea (m2)'], src_df['BedArea (m2)'], 1)
 
         # Defining stages with discharge = 0 and Number of Cells = 0 for later masking
         Q0_mask = src_df['Discharge (m3s-1)'] == 0
@@ -167,8 +196,10 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
         # Build hydroid chain first
         hydroid_chain_mhws = []
         for headwater in headwaters:
+
             hydroid_chain = [headwater]
             nexthydroid = headwater
+            
             # While loop to create the list of hydroids
             while catchment_gdf.HydroID.isin([nexthydroid]).any():
                 # print(nexthydroid)
@@ -184,9 +215,9 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
         # Makes a logitudinal dataframes of variables of interests
         keys = [
-            'BedArea (m2)',
-            'Volume (m3)',
             'SurfaceArea (m2)',
+            'Volume (m3)',
+            'BedArea (m2)',
             'WetArea (m2)',
             'HydraulicRadius (m)',
             'Discharge (m3s-1)',
@@ -194,7 +225,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
         original_all_voi = {}
         filtered_all_voi = {}
         if len(hydroid_chain_mhws) > 0:
-            for ikey in range(len(keys[0:3])):  # [0:1] apply to all parameters, discharge
+            for ikey in range(len(keys[0:2])):  # [0:1] apply to all parameters, discharge
                 voi2smooth_mhws = []
                 filtered_voi_mhws = []
                 for hydroid_chain in hydroid_chain_mhws:
@@ -240,7 +271,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             # Defining a lake_discharge dataframe
             Q_lake_hydroID = src_df[['HydroID', 'LakeID', 'Stage', 'Discharge (m3s-1)']]
             # mask_src = (src_df['LakeID'] < 0)
-            for jkey in range(len(keys[0:3])):  # Apply to discharge parameteres
+            for jkey in range(len(keys[0:2])):  # Apply to discharge parameteres
                 # Reshaping variables of interest (voi) to be included in src
                 filtered_voi = filtered_all_voi[keys[jkey]].drop('long_position', axis=1)
                 reshaped_filtered_voi = filtered_voi.reset_index().melt(
@@ -262,6 +293,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
                 src_df.loc[mask_src, keys[jkey]] = src_df.loc[mask_src, f'Filtered_{keys[jkey]}']
 
             # Recalculating discharge variables
+            src_df['BedArea (m2)'] = a_coef * src_df['SurfaceArea (m2)'] + b_coef
             src_df['WettedPerimeter (m)'] = src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
             src_df['WetArea (m2)'] = src_df['Volume (m3)'] / src_df['LENGTHKM'] / 1000
             src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
@@ -300,19 +332,58 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             # Set nans to 0
             src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
+            # # Check the nonmonotonic (reverse rating curve)
+            # hydroid_chain_q_check = []            
+            # for hydroid_chain in hydroid_chain_mhws:
+
+            #     branch_order = src_df.loc[src_df['HydroID'] == hydroid_chain[0], 'order_'].iloc[0]
+
+            #     hydroid_q_check = []
+            #     hydroid_chain_len = 0
+            #     branch_slope = 0
+            #     for nexthydroid in hydroid_chain[:-1]:
+                    
+            #         # Len of streams
+            #         hydroid_len = src_df.loc[src_df['HydroID'] == nexthydroid, 'LENGTHKM'].iloc[0]
+            #         hydroid_chain_len += hydroid_len
+
+            #         # slope of streams
+            #         hydroid_slp = src_df.loc[src_df['HydroID'] == nexthydroid, 'SLOPE'].iloc[0]
+            #         branch_slope += hydroid_slp
+
+            #         # Check q of each hydroid in a stream
+            #         hydroid_q1 = src_df.loc[src_df['HydroID'] == nexthydroid, 'Discharge (m3s-1)'].iloc[1]
+            #         hydroid_qm = src_df.loc[src_df['HydroID'] == nexthydroid, 'Discharge (m3s-1)'].iloc[40]
+            #         hydroid_ql = src_df.loc[src_df['HydroID'] == nexthydroid, 'Discharge (m3s-1)'].iloc[-1]
+            #         hydroid_q = [hydroid_q1, hydroid_qm, hydroid_ql]
+            #         hydroid_q_check.append(hydroid_q)
+                
+            #     avg_branch_slope = branch_slope / len(hydroid_chain)
+
+            #     indicator = {
+            #         'branch': branch,
+            #         'branch_order': branch_order,
+            #         'hydroid_chain_len': hydroid_chain_len,
+            #         'avg_branch_slope': avg_branch_slope,
+            #         'hydroid_chain': hydroid_chain,
+            #         'hydroid_q_check': hydroid_q_check
+            #         }
+            #     # print(indicator)
+            #     print(f'branch: {branch}')
+            #     print(f'branch_order: {branch_order}')
+            #     print(f'hydroid_chain_len: {hydroid_chain_len}')
+            #     print(f'avg_branch_slope: {avg_branch_slope}')
+            #     print(f'hydroid_chain: {hydroid_chain}')
+            #     print(f'hydroid_q_check: {hydroid_q_check}')
+
+            #     hydroid_chain_q_check.append(indicator)
+
+            # huc_q_check.append(hydroid_chain_q_check)
+
+
             # Write src back to file
             src_df.to_csv(src_all_branches_path[isrc], index=False)
             # log_text += f'Successfully recalculated discharge for HUC {huc} branch {branch}'
-
-        # log_text += f'Adjusting hydroTable for longitudinal filter for HUC {huc} Branch {branch}'
-        # ht_branch_path = join(fim_huc_dir, 'branches', str(branch), f'hydroTable_{branch}.csv')
-        # ht_df = pd.read_csv(ht_branch_path, low_memory=False)
-
-        # # updating discharge_cms column
-        # ht_df['discharge_cms'] = src_df['Discharge (m3s-1)']
-
-        # # Write ht back to file
-        # ht_df.to_csv(ht_branch_path, index=False)
 
     log_text += f'Successfully recalculated discharge for HUC {huc}\n'
     print(f'Successfully recalculated discharges for HUC {huc}\n')

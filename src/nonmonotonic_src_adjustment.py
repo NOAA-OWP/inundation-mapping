@@ -137,7 +137,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
     cols_int = ['Number of Cells', 'SurfaceArea (m2)', 'HydroID', 'NextDownID', 'order_', 'feature_id']
 
     # Update parameters for nonmonotonic SRC
-    for src in src_all_branch_paths:
+    for src in src_all_branch_paths: #[4:5]
         src_name = os.path.basename(src)
         branch = src_name.split(".")[0].split("_")[-1]
         log_text += f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}\n'
