@@ -753,11 +753,12 @@ def iterate_through_huc_stage_based(
                 elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
                 diff_rounded = round(elevation_diff, 2)
 
-                # Log elevation difference warnings (for now, maybe remove later)
-                if elevation_diff > 0:
+                if elevation_diff > 0:  # Log elevation difference warnings (for now, maybe remove later)
                     MP_LOG.lprint(f"{huc_lid_id}: USGS elev is higher than HAND elev by {diff_rounded} ft")
                 elif elevation_diff < 0:
-                    MP_LOG.lprint(f"{huc_lid_id}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft")
+                    MP_LOG.lprint(
+                        f"{huc_lid_id}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft"
+                    )
 
                 if abs(elevation_diff) > 10:
                     msg = ':Large discrepancy in elevation estimates from gage and HAND'
