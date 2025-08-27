@@ -153,8 +153,6 @@ def produce_mosaicked_inundation(
 
     fh.vprint("Mosaicking extent...", verbose)
 
-    print(nodata)
-
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
         if mosaic_attribute == "inundation_rasters":

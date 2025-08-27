@@ -2,6 +2,7 @@
 
 ## Level is equal to the parent script: 'unit' or 'branch'
 level=$1
+huc2Identifier=${hucNumber:0:2}
 
 if [ "$level" = "branch" ]; then
     b_arg=$tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_$current_branch_id.gpkg
@@ -311,7 +312,9 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -z $current_branch_id
 fi
 
-if [ $huc2Identifier -ne 19 ]; then
+if [ $huc2Identifier -eq 19 ]; then
+    echo -e "Skipping Int16 Conversion for Alaska HUC"
+else
     ## CONVERSION TO INT16 ##
     echo -e $startDiv"Convert GW Catchments and REM to Int16 $hucNumber $current_branch_id"
     python3 $toolsDir/convert_to_int16.py \
