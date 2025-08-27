@@ -822,7 +822,9 @@ def iterate_through_huc_stage_based(
                     if stage_value == -1:  # messages already included in the stage_warning_msg above
                         continue
 
-                    if negative_hand_stage == True:  # if we already had a negative hand stage, skip remaining stages
+                    if (
+                        negative_hand_stage == True
+                    ):  # if we already had a negative hand stage, skip remaining stages
                         continue
 
                     MP_LOG.trace(f"About to create tifs for {huc_lid_id} : {category} : {stage_value}")

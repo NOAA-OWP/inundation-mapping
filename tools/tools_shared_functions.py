@@ -159,7 +159,9 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
 
     if not os.path.exists(preclip_lakes_path):
         # If the lakes shapefile does not exist, return the input array without masking
-        mask_status = f'No lakes shapefile found at {preclip_lakes_path}, returning original array without lake masking'
+        mask_status = (
+            f'No lakes shapefile found at {preclip_lakes_path}, returning original array without lake masking'
+        )
         return input_array, mask_status
     else:
         # Read in the lakes shapefile
