@@ -11,7 +11,7 @@ Improves the error handling in stage-based CatFIM for instances where the hand_s
 - `tools/catfim/generate_categorical_fim.py`: Added a message that warns when the elevation difference is greater than 5 ft. Added functionality to abort site processing if a negative stage value is encountered. Made the logging more streamlined.
 - `tools/catfim/generate_categorical_fim_mapping.py`:  Added code to exit out of processing when a negative stage value is encountered. Cleaned up vestigial debugging statements.
 - `tools/tools_shared_functions.py`: Improved output logging of `mask_out_lakes()` function.
-
+<br/>
 
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
