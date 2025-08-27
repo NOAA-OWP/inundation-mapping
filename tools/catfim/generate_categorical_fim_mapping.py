@@ -77,7 +77,7 @@ def produce_stage_based_lid_tifs(
 
     # If hand_stage is negative, write message and exit out
     if hand_stage < 0:
-        msg = f": Negative hand stage ({hand_stage} mm), no inundation"
+        msg = f": Negative hand stage ({hand_stage} mm) detected, no inundation possible"
         # messages.append(lid + msg)
         MP_LOG.warning(huc_lid_cat_id + msg)
         return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
@@ -254,7 +254,7 @@ def produce_stage_based_lid_tifs(
 
         # Mask out the lakes from the inundation array
         summed_masked_array, mask_status = mask_out_lakes(summed_array, huc, zero_branch_src, fim_dir)
-        MP_LOG.lprint(mask_status)
+        MP_LOG.trace(f"{huc_lid_cat_id}: {mask_status}")
 
         del zero_branch_array, summed_array  # Clean up
 

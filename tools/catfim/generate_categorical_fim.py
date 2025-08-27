@@ -433,23 +433,18 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
         for ind, row in sites_gdf.iterrows():
             ahps_id = row['ahps_lid']
             status_val = row['status']
-
+            # If the ahps_id is not in the valid list, then mapped should be "no" and status updated
             if ahps_id not in valid_ahps_ids:
-
                 sites_gdf.at[ind, 'mapped'] = 'no'
                 FLOG.warning(
-                    f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found."
+                    f"{ahps_id} : Mapped status was changed to no because no inundation GPKGs found."
                 )
-
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
-
                 else:
                     if status_val.startswith("---") == True:
                         status_val = status_val[3:]  # remove the "---" from the status
-
-                    sites_gdf.at[ind, 'status'] = status_val + ', site resulted with no valid inundated files'
-
+                    sites_gdf.at[ind, 'status'] = status_val
                 continue
                 # It is safe to assume a status message for invalid ones already exist
 
@@ -753,7 +748,8 @@ def iterate_through_huc_stage_based(
                 elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
                 diff_rounded = round(elevation_diff, 2)
 
-                if elevation_diff > 0:  # Log elevation difference warnings (for now, maybe remove later)
+                # Log elevation difference information - not an error, just for reference (maybe remove later)
+                if elevation_diff > 0:
                     MP_LOG.lprint(f"{huc_lid_id}: USGS elev is higher than HAND elev by {diff_rounded} ft")
                 elif elevation_diff < 0:
                     MP_LOG.lprint(
@@ -823,15 +819,11 @@ def iterate_through_huc_stage_based(
                     category = stage_row['stage_name']
                     stage_value = stage_row['stage_value']
 
-                    # messages already included in the stage_warning_msg above
-                    if stage_value == -1:
+                    if stage_value == -1:  # messages already included in the stage_warning_msg above
                         continue
 
-                    if negative_hand_stage == True:
-                        MP_LOG.lprint(  # eventually we can remove this, but it's helpful for now since it's new
-                            f"{huc_lid_id}: {category} : {stage_value} Skipping remaining stages because a negative hand stage was found"
-                        )
-                        continue  # no need to keep going if we already have a negative hand stage
+                    if negative_hand_stage == True:  # if we already had a negative hand stage, skip remaining stages
+                        continue
 
                     MP_LOG.trace(f"About to create tifs for {huc_lid_id} : {category} : {stage_value}")
 
@@ -896,7 +888,7 @@ def iterate_through_huc_stage_based(
                 # because this indicates that there is an elevation disparity that will
                 # likely result in bad mapping.
                 if negative_hand_stage == True:
-                    msg = ':One or more stages resulted in a negative hand stage value'
+                    msg = ': Discrepancy in elevation estimates from gage and HAND caused negative HAND stage value'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -1991,7 +1983,7 @@ if __name__ == '__main__':
         help='OPTIONAL: The version of the HAND data outputs that was used to run the product.'
         ' This value is included in the output gpkgs and csvs in a field named model_version.'
         ' If you put in a value here, we will change dots to underscores only.'
-        ' This shoudl be a HAND version number only and not include the word HAND_'
+        ' This should be a HAND version number only and not include the word HAND_'
         ' ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank',
         required=False,
         default="",
