@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.X.X.X - 2025-08-27 - [PR#1621]([https://github.com/NOAA-OWP/inundation-mapping/pull/1621])
+
+This PR focuses on the position of three scripts in the post-processing and updating the longitudinal filtering parameters. First, a new script has been written to address the thalweg notch adjustment, separated from the nonmonotonic adjustment script. Second, the post-processing has been changed in a way that `thalweg_notches_adjustment` and `logitudinal_flow_adjustment` will be run before `bathymetry_adjustment`. Then, `nonmonotonic_adjustment` will be run after the `src_subdivision` section. The second purpose of this PR is to update the `longitudinal_adjustment` parameters and replace the minimum filter with the lowest 10-percentile of the discharge on the rating curve. 
+
+### Additions
+- `src/`
+    - `thalweg_notches_adjustment.py`
+
+### Changes
+- `fim_post_processing.sh`
+- `src/`
+    - `longitudinal_flow_adjustment.py`
+    - `nonmonotonic_src_adjustment.py`
+- `config/`
+    - `params_template.env`
+
+<br/>
+
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
