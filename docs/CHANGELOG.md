@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.___ - 2025-_____ - [PR#1636]([https://github.com/NOAA-OWP/inundation-mapping/pull/1636])
+
+Improves the error handling in stage-based CatFIM for instances where the hand_stage variable is negative and/or there is an elevation disparity that is moderate (5-10 ft) but not high enough to filter out the site completely. These updates catch and flag when there is a negative stage value and prevents further processing of that site.
+
+### Changes
+- `tools/catfim/README.md`: Updated documentation about CatFIM run commands and added information about CatFIM site compare. 
+- `tools/catfim/ahps_restricted_sites.csv`: Adjusted formatting.
+- `tools/catfim/generate_categorical_fim.py`: Added a message that warns when the elevation difference is greater than 5 ft. Added functionality to abort site processing if a negative stage value is encountered. Made the logging more streamlined.
+- `tools/catfim/generate_categorical_fim_mapping.py`:  Added code to exit out of processing when a negative stage value is encountered. Cleaned up vestigial debugging statements.
+- `tools/tools_shared_functions.py`: Improved output logging of `mask_out_lakes()` function.
+
+
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
 Some minor tweaks that should help the performance of lofi. Also included are a handful of small bugfixes and some cleanup of the CLI defaults.
