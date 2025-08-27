@@ -391,6 +391,17 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         logging.info(f"Clipping NWM Streams for {huc}")
         nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
 
+        # NWM can have duplicate records, but appear to always be identical duplicates
+        nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
+
+        nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
+
+        # Select only the streams that are outlet
+        streams_crossing_wbd = gpd.sjoin(nwm_streams, wbd, predicate='crosses')
+        if streams_crossing_wbd.empty:
+            logging.warning("No streams intersect the WBD. Cannot extend outlet streams.")
+            return nwm_streams
+
         if os.path.exists(input_LANDSEA):
             logging.info(f"Clipping NWM Streams for {huc} to land areas")
             landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
@@ -403,21 +414,17 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             logging.info("No NWM stream segments within HUC " + str(huc) + " boundaries.")
             sys.exit(0)
 
-        # NWM can have duplicate records, but appear to always be identical duplicates
-        nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
-
-        nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
-
-        # Select only the streams that are outlet
-        streams_crossing_wbd = gpd.sjoin(nwm_streams, wbd, predicate='crosses')
-        streams_in_wbd = gpd.sjoin(nwm_streams, wbd, predicate='intersects')
-
-        if streams_crossing_wbd.empty:
-            logging.warning("No streams intersect the WBD. Cannot extend outlet streams.")
-            return nwm_streams
-
         # Filter streams that are outlets
-        outlets = streams_crossing_wbd[~streams_crossing_wbd['to'].isin(streams_in_wbd['ID'])]
+        outlets = streams_crossing_wbd[streams_crossing_wbd['to'] == 0]
+        outlets.to_file(
+            os.path.join(
+                huc_directory, os.path.splitext(output_filenames['nwm_streams'])[0] + '_outlets.gpkg'
+            ),
+            driver='GPKG',
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
+        )
 
         # Find all stream IDs downstream of the outlets
         outlet_ids = set()
@@ -431,6 +438,17 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
                 downstream_segments = nwm_streams[nwm_streams['ID'].isin(downstream_segments['to'])]
         # Filter the original streams to keep only those that are downstream of the outlets
         nwm_streams_outlets = nwm_streams[nwm_streams['ID'].isin(outlet_ids)]
+        nwm_streams_outlets.to_file(
+            os.path.join(
+                huc_directory,
+                os.path.splitext(output_filenames['nwm_streams'])[0] + '_outlets_downstream.gpkg',
+            ),
+            driver='GPKG',
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
+        )
+
         nwm_streams_nonoutlets = nwm_streams[~nwm_streams['ID'].isin(outlet_ids)]
 
         if len(nwm_streams) > 0:

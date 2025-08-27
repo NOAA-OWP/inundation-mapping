@@ -1154,6 +1154,13 @@ class StreamNetwork(gpd.GeoDataFrame):
             exclude_indices = [False if i in values_excluded else True for i in self[attribute_excluded]]
             self = self.loc[exclude_indices, :]
 
+        outflows = gpd.read_file(
+            os.path.join(os.path.dirname(out_vector_files), 'nwm_subset_streams_outlets.gpkg')
+        )
+
+        # Attach levpa_id to outflows based on ID
+        outflows = outflows.merge(self_ref[['ID', branch_id_attribute]], on='ID', how='left')
+
         wbd = gpd.read_file(wbd)
         wbd = wbd.drop(
             columns=[
@@ -1176,9 +1183,9 @@ class StreamNetwork(gpd.GeoDataFrame):
         # self_not_in_wbd = self_ref[~self_ref['ID'].isin(self_in_wbd['ID'])]
 
         # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
-        sjoin = gpd.sjoin(self_in_wbd, wbd, predicate='crosses')  # this finds both inflows and outflows
-
-        outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
+        # sjoin = gpd.sjoin(self_in_wbd, wbd, predicate='crosses')  # this finds both inflows and outflows
+        # outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
+        # outflows = outlets[~outlets['ID'].isin(self_in_wbd['ID'])]
 
         # if outflows.empty:
         #     # Alternate method -- when there are no segments downstream of any outlets
