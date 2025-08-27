@@ -48,7 +48,7 @@ def extract_longitudinal_variables(src_df, hydroid, stage):
     if src.LakeID.iloc[0] > 0:
         return [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
     else:
-        surfacearea = round(np.interp(stage, src.Stage, src['SurfaceArea (m2)']), 2)        
+        surfacearea = round(np.interp(stage, src.Stage, src['SurfaceArea (m2)']), 2)
         volume = round(np.interp(stage, src.Stage, src['Volume (m3)']), 2)
         bedArea = round(np.interp(stage, src.Stage, src['BedArea (m2)']), 2)
         wetarea = round(np.interp(stage, src.Stage, src['WetArea (m2)']), 2)
@@ -85,11 +85,11 @@ def min_ignore_zeros(lst):
 def low_percentile_ignore_zeros(lst):
     """
     Function to calculate the lowest 10th percentile of non-zero values.
-    
+
     Parameters
     ----------
     lst : array-like (e.g., numpy array or list)
-    
+
     Returns
     ----------
     low_10_percentile : float
@@ -199,7 +199,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
             hydroid_chain = [headwater]
             nexthydroid = headwater
-            
+
             # While loop to create the list of hydroids
             while catchment_gdf.HydroID.isin([nexthydroid]).any():
                 # print(nexthydroid)
@@ -333,7 +333,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
             # # Check the nonmonotonic (reverse rating curve)
-            # hydroid_chain_q_check = []            
+            # hydroid_chain_q_check = []
             # for hydroid_chain in hydroid_chain_mhws:
 
             #     branch_order = src_df.loc[src_df['HydroID'] == hydroid_chain[0], 'order_'].iloc[0]
@@ -342,7 +342,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             #     hydroid_chain_len = 0
             #     branch_slope = 0
             #     for nexthydroid in hydroid_chain[:-1]:
-                    
+
             #         # Len of streams
             #         hydroid_len = src_df.loc[src_df['HydroID'] == nexthydroid, 'LENGTHKM'].iloc[0]
             #         hydroid_chain_len += hydroid_len
@@ -357,7 +357,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             #         hydroid_ql = src_df.loc[src_df['HydroID'] == nexthydroid, 'Discharge (m3s-1)'].iloc[-1]
             #         hydroid_q = [hydroid_q1, hydroid_qm, hydroid_ql]
             #         hydroid_q_check.append(hydroid_q)
-                
+
             #     avg_branch_slope = branch_slope / len(hydroid_chain)
 
             #     indicator = {
@@ -379,7 +379,6 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             #     hydroid_chain_q_check.append(indicator)
 
             # huc_q_check.append(hydroid_chain_q_check)
-
 
             # Write src back to file
             src_df.to_csv(src_all_branches_path[isrc], index=False)
