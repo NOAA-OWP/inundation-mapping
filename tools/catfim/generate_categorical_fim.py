@@ -751,13 +751,20 @@ def iterate_through_huc_stage_based(
                 # Check for large discrepancies between the elevation values from WRDS and HAND.
                 #   Otherwise this causes bad mapping.
                 elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
+                diff_rounded = round(elevation_diff, 2)
+
+                # Log elevation difference warnings (for now, maybe remove later)
+                if elevation_diff > 0:
+                    MP_LOG.lprint(f"{huc_lid_id}: USGS elev is higher than HAND elev by {diff_rounded} ft")
+                elif elevation_diff < 0:
+                    MP_LOG.lprint(f"{huc_lid_id}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft")
+
                 if abs(elevation_diff) > 10:
                     msg = ':Large discrepancy in elevation estimates from gage and HAND'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
                 elif abs(elevation_diff) > 5:
-                    diff_rounded = round(elevation_diff, 1)
                     msg = (
                         f':Moderate discrepancy ({diff_rounded} ft) in elevation estimates from gage and HAND'
                     )
