@@ -34,6 +34,7 @@ ONDN6,Inundation issues,stage
 PEPN6,Pool elevation thresholds. Disabled at request of MARFC.,stage
 PRXQ9,Outside U.S.,both
 QUTG1,Stage thresholds seem to be based on sea level and not channel thalweg,stage
+QBYQ2,Outside U.S.,both
 RCYF1,Out of Service,both
 RWBW3,Historical gauge,both
 SMSV2,Point not in AHPS,both
