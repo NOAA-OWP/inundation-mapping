@@ -149,17 +149,17 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_pa
 
     log_text = ''
     if not os.path.exists(path_ripple_reaches):
-        log_text = +merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_dir)
+        log_text += merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_dir)
 
     print(f'Merging nwm_streams_ripple.gpkg with metrics database for HUC {huc}\n')
-    log_text = +f'Merging nwm_streams_ripple.gpkg with metrics database for HUC {huc}\n'
+    log_text += f'Merging nwm_streams_ripple.gpkg with metrics database for HUC {huc}\n'
 
     # Read metrics database
     dataset_dir = os.path.join(metrix_dir, ripple_model_path)  # , 'submodels')
     db_paths = list(Path(dataset_dir).rglob("*.db"))
     if len(db_paths) == 0:
         print(f'{ripple_model_path} does not have any metrics database\n')
-        log_text = +'{ripple_model_path} does not have any metrics database\n'
+        log_text += '{ripple_model_path} does not have any metrics database\n'
 
     else:
         model_metrix_ls = []
@@ -260,7 +260,7 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
 
         # ripple_models[rmi] = 'mip_05130202'
         huc = re.search(r'\d+', ripple_models[rmi]).group(0)
-        log_text = +f'Start analyzing ripple collections for HUC {huc}\n'
+        log_text += f'Start analyzing ripple collections for HUC {huc}\n'
 
         # Read metrics geopackage
         path_ripple_collection = os.path.join(metrix_dir, ripple_models[rmi], pre_clip_huc_dir)
@@ -272,7 +272,7 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
             corr_matrix, log_text_m = merge_ripple_reaches_sourcemodels_with_metrix_db(
                 metrix_dir, ripple_models[rmi], pre_clip_huc_dir
             )
-            log_text = +log_text_m
+            log_text += log_text_m
             model_metrix_corr_ls.append(corr_matrix)
 
         ripple_reaches_metrix_gdf_d = gpd.read_file(path_ripple_reaches)
@@ -384,14 +384,14 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
 
     log_text = ''
     if not os.path.exists(path_ripple_streams):
-        log_text = +create_ripple_STREAMS_gdf_csv(metrix_dir)
+        log_text += create_ripple_STREAMS_gdf_csv(metrix_dir)
 
     else:
-        log_text = +'Ripple streams matrics csv file already exists ...\n'
+        log_text += 'Ripple streams matrics csv file already exists ...\n'
         print('Ripple streams matrics csv file already exists ...\n')
 
     print('Start creating the black list ...\n')
-    log_text = +'Start creating the black list ...\n'
+    log_text += 'Start creating the black list ...\n'
 
     ripple_streams_metrix_df_geo = gpd.read_file(path_ripple_streams)
     ripple_streams_metrix_df = ripple_streams_metrix_df_geo.drop(columns=['geometry'])  # drop_duplicates()
