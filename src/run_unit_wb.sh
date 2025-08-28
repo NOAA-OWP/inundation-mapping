@@ -126,7 +126,7 @@ $srcDir/buffer_stream_branches.py \
     -i $branch_id_attribute \
     -d $branch_buffer_distance_meters \
     -b $tempHucDataDir/branch_polygons.gpkg \
-    -w $tempHucDataDir/wbd.gpkg
+    -w $tempHucDataDir/wbd_buffered.gpkg
 
 ## CREATE BRANCHID LIST FILE
 echo -e $startDiv"Create list file of branch ids for $hucNumber"
