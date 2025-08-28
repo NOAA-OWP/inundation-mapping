@@ -66,7 +66,7 @@ def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_regi
             and aws_region != ""
             and aws_session_token == ""
         ):
-            s3_client = boto3.client("s3", aws_region=aws_region)
+            s3_client = boto3.client("s3", region_name=aws_region)
 
         elif (aws_access_key != "" and aws_secret_access_key == "") or (
             aws_access_key == "" and aws_secret_access_key != ""
@@ -91,7 +91,7 @@ def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_regi
                     "s3",
                     aws_access_key_id=aws_access_key,
                     aws_secret_access_key=aws_secret_access_key,
-                    aws_region=aws_region,
+                    region_name=aws_region,
                     aws_session_token=aws_session_token,
                 )
             else:
@@ -99,8 +99,17 @@ def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_regi
                     "s3",
                     aws_access_key_id=aws_access_key,
                     aws_secret_access_key=aws_secret_access_key,
-                    aws_region=aws_region,
+                    region_name=aws_region,
                 )
+        # validate if the client is fully valid as it is 
+        # possible to get client who is not fully authenticated or have correct perms
+        if s3_client is None:
+            raise Exception("Error: Something when wrong creating the ocmmuncation path to AWS")
+        
+        response = s3_client.list_buckets()
+        if len(response['Buckets']) == 0:
+            raise Exception("The provided credentials are valid but does not have permission" \
+                            " to access any buckets.")
 
     except botocore.exceptions.NoCredentialsError:
         is_success = False
@@ -444,6 +453,11 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
     does_file_exist = False
     # strip leading slash if exists
     s3_file_key = s3_file_key.lstrip("/")
+
+    # the target must start with a slash
+    if not target_file_path.startswith("/"):
+        target_file_path = "/" + target_file_path
+
     try:
         # Does not return anythign but will throw and exception if it does not exist
         s3_client.download_file(bucket_name, s3_file_key, target_file_path)
@@ -481,21 +495,31 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
     if not is_success:
         raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
 
-    s3_src_path = s3_src_path.strip("/")
+    # both src and target can not start with a slash but must finish with a slash
+    if s3_src_path.startswith("/"):
+        s3_src_path = s3_src_path[1:]
+
+    if trg_folder_path.startswith("/"):
+        trg_folder_path = trg_folder_path[1:]
+
+    if not s3_src_path.endswith("/"):
+        s3_src_path += "/"
+
+    if not trg_folder_path.endswith("/"):
+        trg_folder_path += "/"
 
     paginator = s3_client.get_paginator('list_objects_v2')
-    operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path, 'Delimiter': '/'}
-    page_iterator = paginator.paginate(**operation_parameters)
+    pages = paginator.paginate(Bucket=bucket_name, Prefix=s3_src_path)
 
     min_one_file_downloaded = False
-    for page in page_iterator:
+    for page in pages:
         if 'Contents' in page:
             # Iterate over each object and download it
             for obj in page['Contents']:
                 s3_key = obj['Key']
                 if s3_key[-1] != "/":  # if it was a folder (ending in a slash, we skip it)
                     rel_path = os.path.relpath(s3_key, s3_src_path)
-                    local_file_path = os.path.join(trg_folder_path, rel_path)
+                    local_file_path = "/" + os.path.join(trg_folder_path, rel_path)
 
                     os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
                     s3_client.download_file(bucket_name, s3_key, local_file_path)

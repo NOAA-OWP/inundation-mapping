@@ -47,27 +47,34 @@ def duration_system(hydrofabric_dir, output_csv_file):
     # Get the list of all hucs in the directory
     entries = [d for d in os.listdir(dir_path) if re.match(r'^\d{8}$', d)]
     hucs = []
-    for entry in entries:
+    for entry in entries:  # Should be a huc id
         # create the full path of the entry
         full_path = os.path.join(dir_path, entry)
         # check if the netry is a directory
         if os.path.isdir(full_path):
-            hucs.append(entry)
+            # check if the processing time file is there as the huc may have errored
+            # out earlier.
+
+            # pull the huc off the end of the path
+            txt_file = f'processing_time_{entry}.txt'
+            txt_path = os.path.join(full_path, txt_file)
+            # Check if the text file exist, if not. .the huc likely errored out
+            if os.path.exists(txt_path):
+                hucs.append(entry)
+            else:
+                print(f"Warning: Missing {txt_file} for HUC {entry}." \
+                      " HUC may have errored out earlier. Please check this.")
 
     all_rows = []
-    for huc in hucs:
+    for huc in hucs:  # we know the file is there
         txt_file = f'processing_time_{huc}.txt'
         txt_path = os.path.join(dir_path, huc, txt_file)
-        # Check if the text file exist
-        if os.path.exists(txt_path):
-            # Read the txt file
-            with open(txt_path, 'r') as file:
-                txt_content = file.readline().strip().split(',')
-                all_rows.append(txt_content)
-            # Remove all text files
-            # os.remove(txt_path)
-        else:
-            print(f"Warning: Missing {txt_file} for HUC {huc}")
+        # Read the txt file
+        with open(txt_path, 'r') as file:
+            txt_content = file.readline().strip().split(',')
+            all_rows.append(txt_content)
+        # Remove all text files
+        # os.remove(txt_path)
 
     column_names = [
         "HUC8",
