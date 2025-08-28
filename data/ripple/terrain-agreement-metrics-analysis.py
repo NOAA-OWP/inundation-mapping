@@ -365,8 +365,8 @@ def create_ripple_STREAMS_gdf_csv(nwm_stream_dir, metrix_dir):
 # ***************************************************************
 def process_ripple_STREAMS_create_blackList(metrix_dir, nwm_stream_dir):
 
-    path_ripple_streams = os.path.join(metrix_dir, f'metrix_streams_ripple_submodels_conus.csv')
-    path_ripple_reaches = os.path.join(metrix_dir, f'metrix_reaches_ripple_submodels_conus.csv')
+    path_ripple_streams = os.path.join(metrix_dir, 'metrix_streams_ripple_submodels_conus.csv')
+    path_ripple_reaches = os.path.join(metrix_dir, 'metrix_reaches_ripple_submodels_conus.csv')
 
     if not os.path.exists(path_ripple_streams):
         create_ripple_STREAMS_gdf_csv(nwm_stream_dir, metrix_dir)
@@ -576,13 +576,13 @@ def apply_ripple_streams_blacklist(metrix_dir, nwm_stream_dir, log_file_path):  
     """
     log_text = ""
     try:
-        msg = f"processing ripple STREAMS and create a black list"
+        msg = "processing ripple STREAMS and create a black list"
         log_text += msg
         print(msg)
         log_text += process_ripple_STREAMS_create_blackList(metrix_dir, nwm_stream_dir)
 
     except Exception:
-        log_text += f"An error has occurred while processing ripple STREAMS"
+        log_text += "An error has occurred while processing ripple STREAMS"
         log_text += traceback.format_exc()
 
     try:
@@ -593,21 +593,21 @@ def apply_ripple_streams_blacklist(metrix_dir, nwm_stream_dir, log_file_path):  
 
 
 # -------------------------------------------------------
-def process_log_create_blacklist(fim_dir, number_of_jobs):
+def log_create_blacklist(metrix_dir, nwm_stream_dir):
     """
     Function for correcting synthetic rating curves using Multi-Proc approach.
     It will correct each branch's SRCs in serial based on the HydroIDs.
 
         Parameters
         ----------
-        fim_dir : str
-            Directory path for fim_pipeline output.
-        number_of_jobs : int
-            Number of CPU cores to parallelize HUC processing.
+        metrix-dir : str
+            Directory path for saved ripple matrics.
+        nwm_stream_dir : str
+            Directory path for NWM streams.
 
     """
     # Set up log file
-    log_file_path = os.path.join(fim_dir, 'logs', 'longitudinal_filter' + '.log')
+    log_file_path = os.path.join(metrix_dir, 'logs', 'process_ripple_STREAMS' + '.log')
     print(f'Writing progress to log file here: {log_file_path}')
     print('This may take a few minutes...')
     ## Create a time var to log run time
@@ -621,26 +621,10 @@ def process_log_create_blacklist(fim_dir, number_of_jobs):
     # Let log_text build up starting here until the bottom.
     log_text = ""
 
-    # Find applicable HUCs to apply longitudinal filter
-    fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
-
-    msg = f"Applying longitudinal discharge adjustment on {len(fim_hucs)} HUCs: {fim_hucs}\n"
+    msg = "Creating a black list of ripple streams\n"
     log_text += msg
 
-    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-        # Loop through all hucs, build the arguments, and submit them to the process pool
-        futures = {}
-        for huc in fim_hucs:
-            args = {'fim_dir': fim_dir, 'huc': huc, 'log_file_path': log_file_path}
-            future = executor.submit(
-                apply_ripple_streams_blacklist(metrix_dir, nwm_stream_dir, log_file_path), **args
-            )
-            futures[future] = future
-
-        for future in as_completed(futures):
-            if future is not None:
-                if future.exception():
-                    raise future.exception()
+    apply_ripple_streams_blacklist(metrix_dir, nwm_stream_dir, log_file_path)
 
     ## Record run time and close log file
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -655,35 +639,25 @@ if __name__ == '__main__':
     """
     Parameters
     ----------
-    fim_dir : str
-        Directory path for fim_pipeline output. Log file will be placed in
-        fim_dir/logs/longitudinal_filter.log.
-    number_of_jobs : int
-        Optional. Number of CPU cores to parallelize HUC processing. Defaults to 1.
+    metrix-dir : str
+        Directory path for saved ripple matrics.
+    nwm_stream_dir : str
+        Directory path for NWM streams.
 
-    Sample Usage
-    ----------
-    python3 /foss_fim/src/filter_longitudinal_flow.py
-        -fim_dir /outputs/fim_run_dir
-        -j $jobLimit
     """
-    parser = ArgumentParser(description="Longitudinal depth/flow filter")
-    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
+    parser = ArgumentParser(description="Process Ripple Streams and Create a Black List")
     parser.add_argument(
-        '-j',
-        '--number-of-jobs',
-        help='OPTIONAL: number of workers (default=1)',
-        required=False,
-        default=1,
-        type=int,
+        '-metrix_dir', '--metrix-dir', help='saved ripple matrics dir', required=True, type=str
     )
+    parser.add_argument('-nwm_stream_dir', '--nwm-stream-dir', help='nwm stream dir', required=True, type=str)
 
     args = vars(parser.parse_args())
 
-    fim_dir = args['fim_dir']
-    number_of_jobs = args['number_of_jobs']
+    metrix_dir = args['metrix_dir']
+    nwm_stream_dir = args['nwm_stream_dir']
 
-    process_longitudinal_flow_adjustment(fim_dir, number_of_jobs)
+    log_create_blacklist(metrix_dir, nwm_stream_dir)
+
 
 # # ***************************************************************
 # def plot_ripple_matrix(metrix_dir, ripple_reaches_metrix_gdf, ripple_model_path):
