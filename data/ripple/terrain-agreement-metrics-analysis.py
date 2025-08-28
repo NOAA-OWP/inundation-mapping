@@ -75,6 +75,9 @@ def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_d
 
     huc = re.search(r'\d+', ripple_model_path.group(0))
 
+    print(f'Merging nwm_streams with ripple.gpkg for HUC {huc}\n')
+    log_text = f'Merging nwm_streams with ripple.gpkg for HUC {huc}\n'
+
     nwm_stream_gpkg = os.path.join(pre_clip_huc_dir, huc, 'nwm_subset_streams.gpkg')
     ripple_gpkg = os.path.join(metrix_dir, ripple_model_path, 'ripple.gpkg')
 
@@ -129,6 +132,8 @@ def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_d
             if not os.path.exists(path_ripple_reaches):
                 ripple_reaches_gdf.to_file(path_ripple_reaches, driver="GPKG")
 
+    return log_text
+
 
 # ***************************************************************
 def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_path, pre_clip_huc_dir):
@@ -142,14 +147,19 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_pa
         path_ripple_collection, f'ripple_reaches_order_sourcemodels_{huc}.gpkg'
     )
 
+    log_text = ''
     if not os.path.exists(path_ripple_reaches):
-        merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_dir)
+        log_text = +merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_dir)
+
+    print(f'Merging nwm_streams_ripple.gpkg with metrics database for HUC {huc}\n')
+    log_text = +f'Merging nwm_streams_ripple.gpkg with metrics database for HUC {huc}\n'
 
     # Read metrics database
     dataset_dir = os.path.join(metrix_dir, ripple_model_path)  # , 'submodels')
     db_paths = list(Path(dataset_dir).rglob("*.db"))
     if len(db_paths) == 0:
-        print(f'{ripple_model_path} does not have any metrics database')
+        print(f'{ripple_model_path} does not have any metrics database\n')
+        log_text = +'{ripple_model_path} does not have any metrics database\n'
 
     else:
         model_metrix_ls = []
@@ -228,7 +238,7 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_pa
             if not os.path.exists(path_t0_save_corr):
                 corr_matrix.to_csv(path_t0_save_corr)
 
-    return corr_matrix
+    return corr_matrix, log_text
 
 
 # ***************************************************************
@@ -236,6 +246,9 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
 
     ripple_models = [d for d in os.listdir(metrix_dir) if os.path.isdir(os.path.join(metrix_dir, d))]
     ripple_models.sort()
+
+    print(f'{len(ripple_models)} ripple collections have been found to analyze.\n')
+    log_text = f'{len(ripple_models)} ripple collections have been found to analyze.\n'
 
     pre_clip_huc_dir = os.getenv('pre_clip_huc_dir')
 
@@ -247,6 +260,7 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
 
         # ripple_models[rmi] = 'mip_05130202'
         huc = re.search(r'\d+', ripple_models[rmi]).group(0)
+        log_text = +f'Start analyzing ripple collections for HUC {huc}\n'
 
         # Read metrics geopackage
         path_ripple_collection = os.path.join(metrix_dir, ripple_models[rmi], pre_clip_huc_dir)
@@ -255,81 +269,77 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
         )
 
         if not os.path.exists(path_ripple_reaches):
-            corr_matrix = merge_ripple_reaches_sourcemodels_with_metrix_db(
+            corr_matrix, log_text_m = merge_ripple_reaches_sourcemodels_with_metrix_db(
                 metrix_dir, ripple_models[rmi], pre_clip_huc_dir
             )
+            log_text = +log_text_m
             model_metrix_corr_ls.append(corr_matrix)
 
-        else:
-            ripple_reaches_metrix_gdf_d = gpd.read_file(path_ripple_reaches)
-            ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf_d.drop_duplicates()
+        ripple_reaches_metrix_gdf_d = gpd.read_file(path_ripple_reaches)
+        ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf_d.drop_duplicates()
 
-            ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf.replace('', np.nan)
-            ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf.dropna(subset=['avg_inundation_overlap'])
-            # print(ripple_reaches_metrix_gdf[~ripple_reaches_metrix_gdf['model_id'].isna()])
+        ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf.replace('', np.nan)
+        ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf.dropna(subset=['avg_inundation_overlap'])
+        # print(ripple_reaches_metrix_gdf[~ripple_reaches_metrix_gdf['model_id'].isna()])
 
-            ripple_reaches_metrix_df = ripple_reaches_metrix_gdf.drop(columns=['geometry'])
-            metrix_reaches_conus_ls.append(ripple_reaches_metrix_df)
+        ripple_reaches_metrix_df = ripple_reaches_metrix_gdf.drop(columns=['geometry'])
+        metrix_reaches_conus_ls.append(ripple_reaches_metrix_df)
 
-            # Averaging by source models/streams
-            # grouped_avg = gdf.groupby('col10')[['col1', 'col2', 'col3']].mean().reset_index()
-            # Identify numeric columns
-            numeric_cols = ripple_reaches_metrix_gdf.select_dtypes(include='number').columns.tolist()
+        # Averaging by source models/streams
+        # grouped_avg = gdf.groupby('col10')[['col1', 'col2', 'col3']].mean().reset_index()
+        # Identify numeric columns
+        numeric_cols = ripple_reaches_metrix_gdf.select_dtypes(include='number').columns.tolist()
 
-            # Specify which numeric columns get 'max'
-            max_cols = ['feature_id', 'nwm_to_id', 'order_']
+        # Specify which numeric columns get 'max'
+        max_cols = ['feature_id', 'nwm_to_id', 'order_']
 
-            # Columns to average = numeric columns excluding col1 and col2
-            mean_cols = [col for col in numeric_cols if col not in max_cols]
+        # Columns to average = numeric columns excluding col1 and col2
+        mean_cols = [col for col in numeric_cols if col not in max_cols]
 
-            # Identify non-numeric columns (excluding geometry)
-            # non_numeric_cols = ripple_reaches_metrix_gdf.select_dtypes(exclude='number').columns.tolist()
-            non_numeric_cols = ['collection_id']
-            # Remove geometry column if present (geometry handled automatically)
-            non_numeric_cols = [
-                col for col in non_numeric_cols if col != ripple_reaches_metrix_gdf.geometry.name
-            ]
+        # Identify non-numeric columns (excluding geometry)
+        # non_numeric_cols = ripple_reaches_metrix_gdf.select_dtypes(exclude='number').columns.tolist()
+        non_numeric_cols = ['collection_id']
+        # Remove geometry column if present (geometry handled automatically)
+        non_numeric_cols = [col for col in non_numeric_cols if col != ripple_reaches_metrix_gdf.geometry.name]
 
-            # Build the aggfunc dictionary
-            aggfunc = {col: 'max' for col in max_cols}
-            aggfunc.update({col: 'mean' for col in mean_cols})
-            aggfunc.update({col: 'first' for col in non_numeric_cols})
+        # Build the aggfunc dictionary
+        aggfunc = {col: 'max' for col in max_cols}
+        aggfunc.update({col: 'mean' for col in mean_cols})
+        aggfunc.update({col: 'first' for col in non_numeric_cols})
 
-            # Now dissolve with this aggregation
-            metrix_streams_gdf = ripple_reaches_metrix_gdf.dissolve(
-                by='model_id', aggfunc=aggfunc
-            ).reset_index()
-            metrix_streams_gdf['huc'] = [huc] * len(metrix_streams_gdf)
-            # metrix_streams_gdf.loc[:, 'huc'] = huc
+        # Now dissolve with this aggregation
+        metrix_streams_gdf = ripple_reaches_metrix_gdf.dissolve(by='model_id', aggfunc=aggfunc).reset_index()
+        metrix_streams_gdf['huc'] = [huc] * len(metrix_streams_gdf)
+        # metrix_streams_gdf.loc[:, 'huc'] = huc
 
-            # Move the geometry to the end
-            # List all columns except geometry
-            first_cols = ['huc', 'collection_id', 'model_id']
+        # Move the geometry to the end
+        # List all columns except geometry
+        first_cols = ['huc', 'collection_id', 'model_id']
 
-            # Make a list of remaining columns, excluding these and geometry
-            remaining_cols = [
-                col
-                for col in metrix_streams_gdf.columns
-                if col not in first_cols and col != metrix_streams_gdf.geometry.name
-            ]
-            # Append geometry column at the end
-            new_order = first_cols + remaining_cols + [metrix_streams_gdf.geometry.name]
+        # Make a list of remaining columns, excluding these and geometry
+        remaining_cols = [
+            col
+            for col in metrix_streams_gdf.columns
+            if col not in first_cols and col != metrix_streams_gdf.geometry.name
+        ]
+        # Append geometry column at the end
+        new_order = first_cols + remaining_cols + [metrix_streams_gdf.geometry.name]
 
-            # Reorder the GeoDataFrame
-            metrix_streams_gdf = metrix_streams_gdf[new_order]
-            metrix_streams_gdf = metrix_streams_gdf.replace('', np.nan)
-            metrix_streams_gdf = metrix_streams_gdf.dropna(subset=['avg_inundation_overlap'])
+        # Reorder the GeoDataFrame
+        metrix_streams_gdf = metrix_streams_gdf[new_order]
+        metrix_streams_gdf = metrix_streams_gdf.replace('', np.nan)
+        metrix_streams_gdf = metrix_streams_gdf.dropna(subset=['avg_inundation_overlap'])
 
-            # print(metrix_streams_gdf)
-            # Save the gdf
-            path_streams_metrix = os.path.join(metrix_dir, ripple_models[rmi], f'streams_metrix_{huc}.gpkg')
-            if not os.path.exists(path_streams_metrix):
-                metrix_streams_gdf.to_file(path_streams_metrix)
+        # print(metrix_streams_gdf)
+        # Save the gdf
+        path_streams_metrix = os.path.join(metrix_dir, ripple_models[rmi], f'streams_metrix_{huc}.gpkg')
+        if not os.path.exists(path_streams_metrix):
+            metrix_streams_gdf.to_file(path_streams_metrix)
 
-            metrix_streams_conus_gpkg_ls.append(metrix_streams_gdf)
+        metrix_streams_conus_gpkg_ls.append(metrix_streams_gdf)
 
-            metrix_streams_df = metrix_streams_gdf.drop(columns=['geometry'])
-            metrix_streams_conus_ls.append(metrix_streams_df)
+        metrix_streams_df = metrix_streams_gdf.drop(columns=['geometry'])
+        metrix_streams_conus_ls.append(metrix_streams_df)
 
     # Save correlation matrix conus wise in csv format
     model_metrix_corr_df = pd.concat(model_metrix_corr_ls, ignore_index=False)
@@ -363,6 +373,8 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
     if not os.path.exists(path_metrix_streams_conus):
         metrix_streams_conus.to_csv(path_metrix_streams_conus, index=False)
 
+    return log_text
+
 
 # ***************************************************************
 def process_ripple_STREAMS_create_blackList(metrix_dir):
@@ -370,149 +382,152 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
     path_ripple_streams = os.path.join(metrix_dir, 'metrix_streams_ripple_submodels_conus.csv')
     path_ripple_reaches = os.path.join(metrix_dir, 'metrix_reaches_ripple_submodels_conus.csv')
 
+    log_text = ''
     if not os.path.exists(path_ripple_streams):
-        create_ripple_STREAMS_gdf_csv(metrix_dir)
+        log_text = +create_ripple_STREAMS_gdf_csv(metrix_dir)
 
     else:
-        ripple_streams_metrix_df_geo = gpd.read_file(path_ripple_streams)
-        ripple_streams_metrix_df = ripple_streams_metrix_df_geo.drop(
-            columns=['geometry']
-        )  # drop_duplicates()
-        ripple_streams_metrix_df = ripple_streams_metrix_df.replace('', np.nan)
-        ripple_streams_metrix_df = ripple_streams_metrix_df.dropna(subset=['avg_inundation_overlap'])
-        # print(ripple_streams_metrix_df_d[ripple_streams_metrix_df_d['model_id'].isna()])
+        log_text = +'Ripple streams matrics csv file already exists ...\n'
+        print('Ripple streams matrics csv file already exists ...\n')
 
-        numeric_columns = [
-            'order_',
-            'avg_inundation_overlap',
-            'avg_flow_area_overlap',
-            'avg_top_width_agreement',
-            'avg_flow_area_agreement',
-            'avg_hydraulic_radius_agreement',
-            'avg_r_squared',
-            'avg_spectral_angle',
-            'avg_spectral_correlation',
-            'avg_correlation',
-            'avg_max_cross_correlation',
-            'avg_thalweg_elevation_difference',
-        ]
-        ripple_streams_metrix_df[numeric_columns] = ripple_streams_metrix_df[numeric_columns].apply(
-            pd.to_numeric, errors='coerce'
-        )
-        # feature_ids with low inundation_overlap metric
-        mask1 = (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] >= 100) | (
-            ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -50
-        )
-        outlier_fid_thalweg_elev_diff = ripple_streams_metrix_df[mask1]
+    print('Start creating the black list ...\n')
+    log_text = +'Start creating the black list ...\n'
 
-        mask2 = ripple_streams_metrix_df['avg_inundation_overlap'] <= 0.3
-        low_inundation_overlap = ripple_streams_metrix_df[mask2]
+    ripple_streams_metrix_df_geo = gpd.read_file(path_ripple_streams)
+    ripple_streams_metrix_df = ripple_streams_metrix_df_geo.drop(columns=['geometry'])  # drop_duplicates()
+    ripple_streams_metrix_df = ripple_streams_metrix_df.replace('', np.nan)
+    ripple_streams_metrix_df = ripple_streams_metrix_df.dropna(subset=['avg_inundation_overlap'])
+    # print(ripple_streams_metrix_df_d[ripple_streams_metrix_df_d['model_id'].isna()])
 
-        mask3 = (
-            (ripple_streams_metrix_df['order_'] <= 3)
-            & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.55)
-            & (ripple_streams_metrix_df['avg_r_squared'] < 0.6)
-        )
-        low_r2_1 = ripple_streams_metrix_df[mask3]
+    numeric_columns = [
+        'order_',
+        'avg_inundation_overlap',
+        'avg_flow_area_overlap',
+        'avg_top_width_agreement',
+        'avg_flow_area_agreement',
+        'avg_hydraulic_radius_agreement',
+        'avg_r_squared',
+        'avg_spectral_angle',
+        'avg_spectral_correlation',
+        'avg_correlation',
+        'avg_max_cross_correlation',
+        'avg_thalweg_elevation_difference',
+    ]
+    ripple_streams_metrix_df[numeric_columns] = ripple_streams_metrix_df[numeric_columns].apply(
+        pd.to_numeric, errors='coerce'
+    )
+    # feature_ids with low inundation_overlap metric
+    mask1 = (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] >= 100) | (
+        ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -50
+    )
+    outlier_fid_thalweg_elev_diff = ripple_streams_metrix_df[mask1]
 
-        mask4 = (
-            (ripple_streams_metrix_df['order_'] >= 4)
-            & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.5)
-            & (ripple_streams_metrix_df['avg_r_squared'] < 0.52)
-        )
-        low_r2_2 = ripple_streams_metrix_df[mask4]
+    mask2 = ripple_streams_metrix_df['avg_inundation_overlap'] <= 0.3
+    low_inundation_overlap = ripple_streams_metrix_df[mask2]
 
-        # avg_inundation_overlap < = 0.4 and
-        # avg_hydraulic_radius_agreement < 0.52
-        mask5 = (
-            (ripple_streams_metrix_df['order_'] <= 3)
-            & (ripple_streams_metrix_df['avg_inundation_overlap'] <= 0.5)
-            & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] <= 0.52)
-        )
-        outlier_fid_hr_fim_1 = ripple_streams_metrix_df[mask5]
-        mask6 = (
-            (ripple_streams_metrix_df['order_'] >= 4)
-            & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.4)
-            & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] < 0.45)
-        )
-        outlier_fid_hr_fim_2 = ripple_streams_metrix_df[mask6]
+    mask3 = (
+        (ripple_streams_metrix_df['order_'] <= 3)
+        & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.55)
+        & (ripple_streams_metrix_df['avg_r_squared'] < 0.6)
+    )
+    low_r2_1 = ripple_streams_metrix_df[mask3]
 
-        # avg_inundation_overlap < = 0.45 and
-        # avg_hydraulic_radius_agreement < 0.5 and
-        # avg_thalweg_elevation_difference < -4.2
-        mask7 = (
-            (ripple_streams_metrix_df['order_'] <= 3)
-            & (ripple_streams_metrix_df['avg_inundation_overlap'] <= 0.45)
-            & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] <= 0.52)
-            & (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -4.2)
-        )
-        outlier_fid_thalweg_hr_fim1 = ripple_streams_metrix_df[mask7]
-        mask8 = (
-            (ripple_streams_metrix_df['order_'] >= 4)
-            & (ripple_streams_metrix_df['avg_inundation_overlap'] <= 0.40)
-            & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] <= 0.5)
-            & (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -10)
-        )
-        outlier_fid_thalweg_hr_fim2 = ripple_streams_metrix_df[mask8]
+    mask4 = (
+        (ripple_streams_metrix_df['order_'] >= 4)
+        & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.5)
+        & (ripple_streams_metrix_df['avg_r_squared'] < 0.52)
+    )
+    low_r2_2 = ripple_streams_metrix_df[mask4]
 
-        # avg_inundation_overlap < = 0.6 and
-        # avg_hydraulic_radius_agreement < 0.6 and
-        # avg_thalweg_elevation_difference < -10
-        mask9 = (
-            (ripple_streams_metrix_df['order_'] < 3)
-            & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.55)
-            & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] < 0.6)
-            & (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -10)
-        )
-        outlier_fid_thalweg_hr_fim3 = ripple_streams_metrix_df[mask9]
+    # avg_inundation_overlap < = 0.4 and
+    # avg_hydraulic_radius_agreement < 0.52
+    mask5 = (
+        (ripple_streams_metrix_df['order_'] <= 3)
+        & (ripple_streams_metrix_df['avg_inundation_overlap'] <= 0.5)
+        & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] <= 0.52)
+    )
+    outlier_fid_hr_fim_1 = ripple_streams_metrix_df[mask5]
+    mask6 = (
+        (ripple_streams_metrix_df['order_'] >= 4)
+        & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.4)
+        & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] < 0.45)
+    )
+    outlier_fid_hr_fim_2 = ripple_streams_metrix_df[mask6]
 
-        mask10 = (
-            (ripple_streams_metrix_df['order_'] >= 3)
-            & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.51)
-            & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] < 0.55)
-            & (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -45)
-        )
-        outlier_fid_thalweg_hr_fim4 = ripple_streams_metrix_df[mask10]
+    # avg_inundation_overlap < = 0.45 and
+    # avg_hydraulic_radius_agreement < 0.5 and
+    # avg_thalweg_elevation_difference < -4.2
+    mask7 = (
+        (ripple_streams_metrix_df['order_'] <= 3)
+        & (ripple_streams_metrix_df['avg_inundation_overlap'] <= 0.45)
+        & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] <= 0.52)
+        & (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -4.2)
+    )
+    outlier_fid_thalweg_hr_fim1 = ripple_streams_metrix_df[mask7]
+    mask8 = (
+        (ripple_streams_metrix_df['order_'] >= 4)
+        & (ripple_streams_metrix_df['avg_inundation_overlap'] <= 0.40)
+        & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] <= 0.5)
+        & (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -10)
+    )
+    outlier_fid_thalweg_hr_fim2 = ripple_streams_metrix_df[mask8]
 
-        outlier_streams_conus_df = pd.concat(
-            [
-                outlier_fid_thalweg_elev_diff,
-                low_inundation_overlap,
-                low_r2_1,
-                low_r2_2,
-                outlier_fid_hr_fim_1,
-                outlier_fid_hr_fim_2,
-                outlier_fid_thalweg_hr_fim1,
-                outlier_fid_thalweg_hr_fim2,
-                outlier_fid_thalweg_hr_fim3,
-                outlier_fid_thalweg_hr_fim4,
-            ],
-            axis=0,
-            ignore_index=True,
-        )
+    # avg_inundation_overlap < = 0.6 and
+    # avg_hydraulic_radius_agreement < 0.6 and
+    # avg_thalweg_elevation_difference < -10
+    mask9 = (
+        (ripple_streams_metrix_df['order_'] < 3)
+        & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.55)
+        & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] < 0.6)
+        & (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -10)
+    )
+    outlier_fid_thalweg_hr_fim3 = ripple_streams_metrix_df[mask9]
 
-        col_to_front = [
-            'huc',
-            'collection_id',
-            'model_id',
-            'feature_id',
-            'order_',
-            'avg_inundation_overlap',
-            'avg_thalweg_elevation_difference',
-            'avg_hydraulic_radius_agreement',
-            'avg_r_squared',
-            'avg_spectral_angle',
-        ]
-        cols_rearranged = col_to_front + [
-            c for c in outlier_streams_conus_df.columns if c not in col_to_front
-        ]
-        outlier_streams_conus_df_d = outlier_streams_conus_df[cols_rearranged]
-        outlier_streams_conus_df = outlier_streams_conus_df_d.drop_duplicates()
+    mask10 = (
+        (ripple_streams_metrix_df['order_'] >= 3)
+        & (ripple_streams_metrix_df['avg_inundation_overlap'] < 0.51)
+        & (ripple_streams_metrix_df['avg_hydraulic_radius_agreement'] < 0.55)
+        & (ripple_streams_metrix_df['avg_thalweg_elevation_difference'] <= -45)
+    )
+    outlier_fid_thalweg_hr_fim4 = ripple_streams_metrix_df[mask10]
 
-        num_outlier_streams_conus = len(outlier_streams_conus_df)
-        print(num_outlier_streams_conus)
-        path_outlier_streams_conus = os.path.join(metrix_dir, 'outlier_streams_conus3.csv')
-        outlier_streams_conus_df.to_csv(path_outlier_streams_conus)
+    outlier_streams_conus_df = pd.concat(
+        [
+            outlier_fid_thalweg_elev_diff,
+            low_inundation_overlap,
+            low_r2_1,
+            low_r2_2,
+            outlier_fid_hr_fim_1,
+            outlier_fid_hr_fim_2,
+            outlier_fid_thalweg_hr_fim1,
+            outlier_fid_thalweg_hr_fim2,
+            outlier_fid_thalweg_hr_fim3,
+            outlier_fid_thalweg_hr_fim4,
+        ],
+        axis=0,
+        ignore_index=True,
+    )
+
+    col_to_front = [
+        'huc',
+        'collection_id',
+        'model_id',
+        'feature_id',
+        'order_',
+        'avg_inundation_overlap',
+        'avg_thalweg_elevation_difference',
+        'avg_hydraulic_radius_agreement',
+        'avg_r_squared',
+        'avg_spectral_angle',
+    ]
+    cols_rearranged = col_to_front + [c for c in outlier_streams_conus_df.columns if c not in col_to_front]
+    outlier_streams_conus_df_d = outlier_streams_conus_df[cols_rearranged]
+    outlier_streams_conus_df = outlier_streams_conus_df_d.drop_duplicates()
+
+    num_outlier_streams_conus = len(outlier_streams_conus_df)
+    print(num_outlier_streams_conus)
+    path_outlier_streams_conus = os.path.join(metrix_dir, 'outlier_streams_conus3.csv')
+    outlier_streams_conus_df.to_csv(path_outlier_streams_conus)
 
     if os.path.exists(path_ripple_reaches):
         ripple_reaches_metrix_df_geo = gpd.read_file(path_ripple_reaches)
@@ -557,6 +572,8 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
     outlier_reaches_conus_df = outlier_reaches_conus_df.dropna(subset=['inundation_overlap'])
     path_outlier_reaches_conus = os.path.join(metrix_dir, 'outlier_reaches_conus3.csv')
     outlier_reaches_conus_df.to_csv(path_outlier_reaches_conus)
+
+    return log_text
 
 
 # --------------------------------------------------------
@@ -641,11 +658,16 @@ if __name__ == '__main__':
     metrix-dir : str
         Directory path for saved ripple matrics.
 
+    Sample usage:
+
+    python3 /data/ripple/terrain-agreement-metrics-analysis.py
+    -md /outputs/NGWPC-tasks/terrain-agreements/test_pr/metrix_dir1/
+
+    Note: You need to connect to the FIM docker to run this code.
+
     """
     parser = ArgumentParser(description="Process Ripple Streams and Create a Black List")
-    parser.add_argument(
-        '-metrix_dir', '--metrix-dir', help='saved ripple matrics dir', required=True, type=str
-    )
+    parser.add_argument('-md', '--metrix-dir', help='saved ripple matrics dir', required=True, type=str)
     args = vars(parser.parse_args())
 
     metrix_dir = args['metrix_dir']
