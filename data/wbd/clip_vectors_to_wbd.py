@@ -37,7 +37,7 @@ output_filenames = {
 }
 
 
-def extend_outlet_streams(streams, wbd_buffered, wbd, landsea):
+def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
     """
     Extend outlet streams to nearest buffered WBD boundary
     """
@@ -408,61 +408,65 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         # NWM can have duplicate records, but appear to always be identical duplicates
         nwm_streams.drop_duplicates(subset="ID", keep="first", inplace=True)
 
-        nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
-
-        # Select only the streams that are outlet
-        streams_crossing_wbd = gpd.sjoin(nwm_streams, wbd, predicate='crosses')
-        if streams_crossing_wbd.empty:
-            logging.warning("No streams intersect the WBD. Cannot extend outlet streams.")
-            return nwm_streams
+        streams_in_wbd = gpd.sjoin(nwm_streams, wbd)
+        ids_in_wbd = set(streams_in_wbd['ID'])
+        if 'index_right' in streams_in_wbd.columns:
+            streams_in_wbd = streams_in_wbd.drop(columns=['index_right'])
 
         if os.path.exists(input_LANDSEA):
-            logging.info(f"Clipping NWM Streams for {huc} to land areas")
             landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
-            nwm_streams = nwm_streams.overlay(landsea, how='difference')
+            nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd, landsea)
         else:
             logging.info(f"No landsea file provided, using all NWM streams for {huc}")
+            nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
 
         if nwm_streams.empty:
             print("No NWM stream segments within HUC " + str(huc) + " boundaries.")
             logging.info("No NWM stream segments within HUC " + str(huc) + " boundaries.")
             sys.exit(0)
 
-        # Filter streams that are outlets
-        outlets = streams_crossing_wbd[streams_crossing_wbd['to'] == 0]
-        outlets.to_file(
-            os.path.join(
-                huc_directory, os.path.splitext(output_filenames['nwm_streams'])[0] + '_outlets.gpkg'
-            ),
-            driver='GPKG',
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
+        # Select only the streams that are outlet
+
+        outlets = gpd.sjoin(nwm_streams, gpd.GeoDataFrame(geometry=wbd.boundary)).drop(
+            columns=['index_right']
         )
+        outlets = outlets[~outlets['to'].isin(streams_in_wbd['ID'])]
+
+        if outlets.empty:
+            logging.warning("No streams intersect the WBD. Cannot extend outlet streams.")
+            return nwm_streams
+
+        if os.path.exists(input_LANDSEA):
+            logging.info(f"Clipping NWM Streams for {huc} to land areas")
+            nwm_streams = nwm_streams.overlay(landsea, how='difference')
 
         # Find all stream IDs downstream of the outlets
         outlet_ids = set()
         for outlet_id in set(outlets['ID']):
-            outlet_ids.add(outlet_id)
+            skip = False
+            temp_list = [outlet_id]
+            # outlet_ids.add(outlet_id)
             downstream_segments = nwm_streams[
                 nwm_streams['ID'] == nwm_streams.loc[nwm_streams['ID'] == outlet_id, 'to'].values[0]
             ]
             while not downstream_segments.empty:
-                outlet_ids.add(downstream_segments['ID'].values[0])
+                temp_id = downstream_segments['ID'].values[0]
+
+                if temp_id in ids_in_wbd:
+                    # Ignore if downstream segment is within WBD
+                    skip = True
+                    break
+
+                # outlet_ids.add(downstream_segments['ID'].values[0])
+                temp_list.append(temp_id)
                 downstream_segments = nwm_streams[nwm_streams['ID'].isin(downstream_segments['to'])]
+
+            if skip:
+                continue
+            outlet_ids.update(temp_list)
+
         # Filter the original streams to keep only those that are downstream of the outlets
         nwm_streams_outlets = nwm_streams[nwm_streams['ID'].isin(outlet_ids)]
-        nwm_streams_outlets.to_file(
-            os.path.join(
-                huc_directory,
-                os.path.splitext(output_filenames['nwm_streams'])[0] + '_outlets_downstream.gpkg',
-            ),
-            driver='GPKG',
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
-
         nwm_streams_nonoutlets = nwm_streams[~nwm_streams['ID'].isin(outlet_ids)]
 
         if len(nwm_streams) > 0:

@@ -377,7 +377,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
 
         # Read the input layer from the input WBD file using sql to be more efficient
         sql = f"SELECT * FROM \"{input_NHD_WBHD_layer}\" WHERE HUC8 = '{huc}'"
-        wbd = gpd.read_file(input_WBD_filename, sql=sql)
+        wbd = gpd.read_file(input_WBD_filename, sql=sql, columns=['HUC8', 'fimid', 'fossid', 'geometry'])
 
         wbd = wbd.to_crs(huc_CRS)
 
