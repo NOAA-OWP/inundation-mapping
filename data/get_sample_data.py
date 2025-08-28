@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -102,7 +103,13 @@ def get_sample_data(
     sf.setup_file_logger(TRG_ROOT_PATH, "get_sample_data")
     logging.info("Starting getting sample data")
     logging.info(f"Start time: {overall_start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+
+    print("********")
     logging.info(f"Copying files/folders from {src_data_path} to {output_root_folder}")
+
+    print("Note: Some files / folders are very large and can take a number of minutes")
+    print("********")
+    time.sleep(5)  # let them have 5 seconds to read the message which also allows them time to look at pathing
 
     load_dotenv('/foss_fim/src/bash_variables.env')
 
@@ -122,7 +129,7 @@ def get_sample_data(
         logging.info("+++ Getting data applicable to all CONUS and its HUCs")
         get_CONUS_region_data(huc)
 
-    logging.info("+++ Getting benchmark validation data where applicable to huc provided")
+    logging.info("+++ Getting benchmark validation data where huc applicable")
     get_validation_data(huc)
 
     logging.info("==========================================================")
@@ -134,6 +141,9 @@ def get_sample_data(
 
 # for data that is not specific to CONUS or AK
 def get_HAND_region_data():
+
+    __copy_folder('/data/inputs/huc_lists')
+
     __copy_file(os.environ["bathy_file_ehydro"])
     __copy_file(os.environ["bathy_file_aibased"])
     __copy_file(os.environ["mannN_file_aibased"])
@@ -146,6 +156,14 @@ def get_HAND_region_data():
 
     __copy_file(os.environ["nwm_recur_file"])
 
+    # and also the specific interval files
+    recurr_intervals = ['2', '5', '10', '25', '50']
+    for recurr_interval in recurr_intervals:
+        cp_file = os.path.join(
+            os.path.split(os.environ["nwm_recur_file"])[0], f'nwm3_17C_recurr_{recurr_interval}_0_cms.csv'
+        )
+        __copy_file(cp_file)
+
     __copy_file(os.environ["usgs_gages_file"])
     __copy_file(os.environ["usgs_rating_curve_csv"])
     __copy_file(os.environ["usgs_acceptable_gages_path"])
@@ -155,22 +173,36 @@ def get_HAND_region_data():
 def get_AK_region_data(huc):
 
     # ---------------------
-    # not really CONUS but huc specific, but this is a CONUS huc
+    # not specifically for this specific region but huc specific
     __copy_folder(os.path.join(os.environ["pre_clip_huc_dir"], huc))
     __copy_file(os.path.join(os.environ["input_fema_flood_hazard_zones"], f'nfhl_{huc}.gpkg'))
     __copy_file(os.path.join(os.environ["input_calib_points_dir"], f'{huc}.parquet'))
 
-    # ---------------------
-    # CONUS data but not huc specific
+    # ----------------
+    # huc DEM
+    __copy_file(os.environ["input_DEM_domain_Alaska"])  # DEM_Domain.gpkg
 
-    # __copy_file(os.environ["input_DEM_Alaska"])
-    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them
+    # specific DEM for the HUC
+    huc_DEM_domain_dir = os.path.split(os.environ["input_DEM_Alaska"])[0]
+    huc_DEM_file = os.path.join(huc_DEM_domain_dir, f'HUC8_{huc}_dem.tif')
+    __copy_file(huc_DEM_file)
+
+    # __copy_file(os.environ["input_DEM_Alaska"])  # dem vrt
+    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them    
     __create_vrt(os.environ["input_DEM_Alaska"])
+    
+    # ----------------
+    # huc bridge DEM
+    huc_bridge_DEM_diff_dir = os.path.split(os.environ["input_bridge_elev_diff_alaska"])[0]
+    huc_bridge_DEM_file = os.path.join(huc_bridge_DEM_diff_dir, f'HUC8_{huc}_dem_diff.tif')
+    __copy_file(huc_bridge_DEM_file)
 
-    # __copy_file(os.environ["input_DEM_domain_Alaska"])
+    # __copy_file(os.environ["input_bridge_elev_diff_alaska"])
     # for now.. rebuild our own custom vrt. If other dems already exist, it will include them    
     __create_vrt(os.environ["input_bridge_elev_diff_alaska"])
 
+    # ---------------------
+    # data but not huc specific
     __copy_file(os.environ["osm_bridges_alaska"])
     __copy_file(os.environ["osm_roads_alaska"])
 
@@ -183,46 +215,40 @@ def get_AK_region_data(huc):
     __copy_file(os.environ["input_levees_preprocessed_Alaska"])
     __copy_file(os.environ["input_nld_levee_protected_areas_Alaska"])
 
+    print("\n #### The catchments file is big and will take a few mins #### ")
     __copy_file(os.environ["input_nwm_catchments"])
     __copy_file(os.environ["input_nwm_flows_Alaska"])
     __copy_file(os.environ["input_nwm_headwaters_Alaska"])
     __copy_file(os.environ["input_nwm_lakes_Alaska"])
-    
-    # Not needed by anyone other than CONUS
-    __copy_file(os.environ["input_GL_boundaries"])
-    __copy_file(os.environ["man_calb_file"])  # houston
-
-    __copy_file(os.environ["ras_rating_curve_csv_filename"])
-    __copy_file(os.environ["ras_rating_curve_gpkg_filename"])
-
 
 
 # for data that is specific to CONUS
 def get_CONUS_region_data(huc):
 
     # ---------------------
-    # not really CONUS but huc specific, but this is a CONUS huc
-    __copy_folder(os.path.join(os.environ["pre_clip_huc_dir"], huc))
-    __copy_file(os.path.join(os.environ["input_fema_flood_hazard_zones"], f'nfhl_{huc}.gpkg'))
-    __copy_file(os.path.join(os.environ["input_calib_points_dir"], f'{huc}.parquet'))
-    
-    ras2fim_huc_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
-    # we do not want it to create an empty dir if the huc is not applicable
-    if os.path.exists(ras2fim_huc_input_dir):
-        __copy_file(
-            os.path.join(ras2fim_huc_input_dir, os.environ["ras_rating_curve_csv_filename"]))
-        __copy_file(
-            os.path.join(ras2fim_huc_input_dir, os.environ["ras_rating_curve_gpkg_filename"]))
-        __copy_folder(os.path.join(os.environ["ras2fim_input_dir"], huc))        
+    # some of files/folders in this section are not specifically for this specific region but huc specific
 
-    # ---------------------
-    # CONUS data but not huc specific
-    # __copy_file(os.environ["input_DEM"])
+    __copy_folder(os.path.join(os.environ["pre_clip_huc_dir"], huc))
+    
+    # ----------------
+    # huc DEM
+    __copy_file(os.environ["input_DEM_domain"])  # DEM_Domain.gpkg
+
+    # specific DEM for the HUC
+    huc_DEM_domain_dir = os.path.split(os.environ["input_DEM"])[0]
+    huc_DEM_file = os.path.join(huc_DEM_domain_dir, f'HUC6_{huc[:6]}_dem.tif')
+    __copy_file(huc_DEM_file)
+
+    # __copy_file(os.environ["input_DEM"])  # dem vrt
     # for now.. rebuild our own custom vrt. If other dems already exist, it will include them    
     __create_vrt(os.environ["input_DEM"])
-
-    __copy_file(os.environ["input_DEM_domain"])
     
+    # ----------------
+    # huc bridge DEM
+    huc_bridge_DEM_diff_dir = os.path.split(os.environ["input_bridge_elev_diff"])[0]
+    huc_bridge_DEM_file = os.path.join(huc_bridge_DEM_diff_dir, f'HUC6_{huc[:6]}_dem_diff.tif')
+    __copy_file(huc_bridge_DEM_file)
+
     # __copy_file(os.environ["input_bridge_elev_diff"])
     # for now.. rebuild our own custom vrt. If other dems already exist, it will include them    
     __create_vrt(os.environ["input_bridge_elev_diff"])
@@ -239,19 +265,38 @@ def get_CONUS_region_data(huc):
     __copy_file(os.environ["input_levees_preprocessed"])
     __copy_file(os.environ["input_nld_levee_protected_areas"])
 
+    print("\n #### The catchments file is big and will take a few mins #### ")
     __copy_file(os.environ["input_nwm_catchments"])
+
     __copy_file(os.environ["input_nwm_flows"])
     __copy_file(os.environ["input_nwm_headwaters"])
     __copy_file(os.environ["input_nwm_lakes"])
     
     # Not needed by anyone other than CONUS
     __copy_file(os.environ["input_GL_boundaries"])
+    
+    __copy_file(os.path.join(os.environ["input_fema_flood_hazard_zones"], f'nfhl_{huc}.gpkg'))
+
+    __copy_file(os.path.join(os.environ["input_calib_points_dir"], f'{huc}.parquet'))
+
+    ras2fim_huc_input_dir = os.path.join(os.environ["ras2fim_input_dir"], huc)
+    # we do not want it to create an empty dir if the huc is not applicable
+    # covers the files inside of it (if ..rating_curve_table.csv and ..rating_curve_points.gpkg)
+    if os.path.exists(ras2fim_huc_input_dir):
+        __copy_folder(os.path.join(os.environ["ras2fim_input_dir"], huc))        
+
+    # Not needed by anyone other than CONUS
     __copy_file(os.environ["man_calb_file"])  # houston
 
 
 def get_validation_data(huc):
 
     validation_data_orgs = ['ble', 'nws', 'usgs', 'ras2fim']  # Do not include IFC
+
+
+    # TODO: validation data not ocming in from S3, why?
+
+
 
     for org in validation_data_orgs:
         # For each HUC, most do not have any benchmark data and of those who do,
@@ -262,6 +307,7 @@ def get_validation_data(huc):
             if s3_sf.does_s3_folder_exist(S3_CLIENT, S3_BUCKET_NAME, huc_valication_path):
                 __copy_folder(huc_valication_path)
         else:
+            # huc_valication_path = f'{SRC_ROOT_PATH}huc_valication_path'
             if os.path.exists(huc_valication_path):
                 __copy_folder(huc_valication_path)
 
@@ -301,7 +347,11 @@ def __copy_file(src_file_path):
 
     # Most input paths come from bash_variables which start as /data/
     # but in S3, that may not be true
-    if SRC_ROOT_PATH != "/data/":
+    # if SRC_ROOT_PATH != "/data/":
+    #     src_file_path = src_file_path.replace("/data/", SRC_ROOT_PATH)
+
+    # compensates for inputs coming from bash_variables as /data/
+    if USE_S3 and src_file_path.startswith("/data/"):
         src_file_path = src_file_path.replace("/data/", SRC_ROOT_PATH)
 
     trg_file_path = src_file_path.replace(SRC_ROOT_PATH, TRG_ROOT_PATH)
@@ -323,8 +373,12 @@ def __copy_file(src_file_path):
 
     else:  # source is local
         logging.info(f"Copying file: {src_file_path} to {trg_file_path}")
+        buffer_size = 20 * 1024 * 1024  # 20 MiB, up from the default of 1 MiB
         if os.path.isfile(src_file_path):
-            shutil.copy2(src_file_path, trg_file_path)
+            # This is much faster than .copy(), .copy2(), or copyfile()
+            with open(src_file_path, 'rb') as fsrc:
+                with open(trg_file_path, 'wb') as fdst:
+                    shutil.copyfileobj(fsrc, fdst, length=buffer_size)            
         else:
             logging.warning("... Skipping file copy, file does not exist")
 
@@ -363,11 +417,17 @@ def __copy_folder(src_folder_path):
         src_folder_path += "/"
 
     # Most input paths come from bash_variables which start as /data/
-    # but in S3, that may not be true
-    if SRC_ROOT_PATH != "/data/":
+    # but in S3, that may not be true, also adjusts for s3 pathing where applicable
+    # if SRC_ROOT_PATH != "/data/":
+    #     src_folder_path = src_folder_path.replace("/data/", SRC_ROOT_PATH)
+
+    # compensates for inputs coming from bash_variables as /data/
+    if USE_S3 and src_folder_path.startswith("/data/"):
         src_folder_path = src_folder_path.replace("/data/", SRC_ROOT_PATH)
 
     trg_folder_path = src_folder_path.replace(SRC_ROOT_PATH, TRG_ROOT_PATH)
+    if not os.path.exists(trg_folder_path):
+        os.makedirs(trg_folder_path, exist_ok=True)
 
     if USE_S3:  # for src only, not target
         logging.info(f"Downloading folder: s3://{S3_BUCKET_NAME}{src_folder_path} to {trg_folder_path}")
@@ -402,14 +462,19 @@ def __create_vrt(src_vrt_file_path):
     if not src_vrt_file_path.startswith("/"):
         src_vrt_file_path = "/" + src_vrt_file_path
 
+    # compensates for inputs coming from bash_variables as /data/
+    if USE_S3 and src_vrt_file_path.startswith("/data/"):
+        src_vrt_file_path = src_vrt_file_path.replace("/data/", SRC_ROOT_PATH)
+
     trg_file_path = src_vrt_file_path.replace(SRC_ROOT_PATH, TRG_ROOT_PATH)
 
     command = ['gdalbuildvrt', trg_file_path]
     dem_dirname = os.path.dirname(trg_file_path)
 
     dem_list = [os.path.join(dem_dirname, x) for x in os.listdir(dem_dirname) if x.endswith(".tif")]
-    command.extend(dem_list)
-    subprocess.call(command)
+    if len(dem_list) > 0:
+        command.extend(dem_list)
+        subprocess.call(command)
     
 # It is possible that some of these values relating to authenication can be empty
 # and still be allowed to create a valid client. See s3_shared_functions.create_boto3_s3_client
@@ -543,7 +608,7 @@ if __name__ == '__main__':
     ie) -v ~/sample_tests_1/:/data
     """
     parser = argparse.ArgumentParser(description='Create input data for the flood inundation model')
-    parser.add_argument('-u', '--hucs', default='', help='HUC to process', required=True)
+    parser.add_argument('-u', '--huc', default='', help='HUC to process', required=True)
     parser.add_argument(
         '-i',
         '--src-data-path',

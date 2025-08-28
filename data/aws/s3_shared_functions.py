@@ -297,7 +297,13 @@ def does_s3_folder_exist(s3_client, bucket_name, s3_prefix_folder_path):
         raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
 
     # strip starting and ending slashes
-    s3_prefix_folder_path = s3_prefix_folder_path.strip("/")
+    # s3_prefix_folder_path = s3_prefix_folder_path.strip("/")
+
+    # must have a slash on the end only
+    # strip leading slash if exists
+    s3_prefix_folder_path = s3_prefix_folder_path.lstrip("/")
+    if not s3_prefix_folder_path.endswith("/"):
+        s3_prefix_folder_path += "/"
 
     # If the bucket is incorrect, it will throw an exception that already makes sense
     # Don't need pagination as MaxKeys = 2 as prefix will likely won't trigger more than 1000 rec
@@ -306,7 +312,7 @@ def does_s3_folder_exist(s3_client, bucket_name, s3_prefix_folder_path):
     )
 
     # print(s3_objs)
-    if s3_objs["KeyCount"] > 0:
+    if s3_objs["KeyCount"] == 0:
         is_success = False
         return_code = 1051  # folder does not exist. Don't auto raise an exception
     else:
@@ -382,8 +388,8 @@ def get_folder_list(s3_client, bucket_name, s3_src_folder_path):
 
     s3_src_folder_path = s3_src_folder_path.replace("\\", "/")
 
-    # strip start / ending slashes if exist
-    s3_src_folder_path = s3_src_folder_path.strip("/")
+    # strip leading slash if exists
+    s3_src_folder_path = s3_src_folder_path.lstrip("/")
 
     # validate the connection and credentials as well
     is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
@@ -458,6 +464,11 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
     if not target_file_path.startswith("/"):
         target_file_path = "/" + target_file_path
 
+    # The target folder must pre-exist
+    trg_dir = os.path.dirname(target_file_path)
+    if not os.path.exists(trg_dir):
+        os.makedirs(trg_dir, exist_ok=True)
+
     try:
         # Does not return anythign but will throw and exception if it does not exist
         s3_client.download_file(bucket_name, s3_file_key, target_file_path)
@@ -495,21 +506,24 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
     if not is_success:
         raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
 
-    # both src and target can not start with a slash but must finish with a slash
-    if s3_src_path.startswith("/"):
-        s3_src_path = s3_src_path[1:]
-
-    if trg_folder_path.startswith("/"):
-        trg_folder_path = trg_folder_path[1:]
+    # both src must have a slash on the end only
+    # strip leading slash if exists
+    s3_src_path = s3_src_path.lstrip("/")
 
     if not s3_src_path.endswith("/"):
         s3_src_path += "/"
 
+    # s3_src_path = s3_src_path.strip("/")
+
+    # target must have a slash on the end only
+    # strip leading slash if exists
+    trg_folder_path = trg_folder_path.lstrip("/")
     if not trg_folder_path.endswith("/"):
         trg_folder_path += "/"
 
+    operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path, 'Delimiter': '/'}
     paginator = s3_client.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=bucket_name, Prefix=s3_src_path)
+    pages = paginator.paginate(**operation_parameters)
 
     min_one_file_downloaded = False
     for page in pages:

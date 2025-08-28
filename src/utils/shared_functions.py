@@ -29,40 +29,42 @@ gp.options.io_engine = "pyogrio"
 
 # This one is a standard Python logger, not meant for multi-proc
 def setup_file_logger(
-    output_log_folder_path, prepend_log_file_name, screen_level=logging.INFO, file_level=logging.DEBUG
-):
+    output_log_folder_path, prepend_log_file_name):
 
     # This writes to both the screen and the file level at the same time.
     start_time = datetime.now(timezone.utc)
     file_dt_string = start_time.strftime("%Y%m%d-%H%M_%S")
     os.makedirs(output_log_folder_path, exist_ok=True)
 
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    # logger.propagate = False # Prevent propagation to the root logger
+
     # basic screen handler
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(screen_level)  # no formatter
+    console_handler.setLevel(logging.INFO)
+    # no formatter
 
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s : %(message)s")
+    # # # error file handler
+    # # err_log_file_name = f"{prepend_log_file_name}-error-{file_dt_string}.log"
+    # # err_log_file_path = os.path.join(output_log_folder_path, err_log_file_name)
+    # # err_file_handler = logging.FileHandler(err_log_file_path)
+    # # err_file_handler.setLevel(logging.ERROR)
+    # # err_file_handler.setFormatter(formatter)
 
-    # basic file handler
+    # # basic file handler
     log_file_name = f"{prepend_log_file_name}-{file_dt_string}.log"
     log_file_path = os.path.join(output_log_folder_path, log_file_name)
     file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(file_level)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s : %(message)s")
     file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.DEBUG)
 
-    # error file handler
-    err_log_file_name = f"{prepend_log_file_name}-error-{file_dt_string}.log"
-    err_log_file_path = os.path.join(output_log_folder_path, err_log_file_name)
-    err_file_handler = logging.FileHandler(err_log_file_path)
-    err_file_handler.setLevel(logging.ERROR)
-    err_file_handler.setFormatter(formatter)
-
+    logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
-    logger = logging.getLogger()
-    logger.addHandler(err_file_handler)
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    logger.setLevel(screen_level)
+    logger.addHandler(file_handler)    
+    logger.addHandler(console_handler)    
+
 
 
 # This one is more designed to be for multi-proc as it has logger names
