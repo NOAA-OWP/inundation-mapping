@@ -71,11 +71,11 @@ def count_num_models_reaches_metrix(metrix_dir):
 
 
 # ***************************************************************
-def merge_nwm_streams_with_ripples(metrix_dir, nwm_stream_dir, ripple_model_path):
+def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_dir):
 
     huc = re.search(r'\d+', ripple_model_path.group(0))
 
-    nwm_stream_gpkg = os.path.join(nwm_stream_dir, 'nwm_subset_streams.gpkg')
+    nwm_stream_gpkg = os.path.join(pre_clip_huc_dir, huc, 'nwm_subset_streams.gpkg')
     ripple_gpkg = os.path.join(metrix_dir, ripple_model_path, 'ripple.gpkg')
 
     # Read ripple geopackage
@@ -131,7 +131,7 @@ def merge_nwm_streams_with_ripples(metrix_dir, nwm_stream_dir, ripple_model_path
 
 
 # ***************************************************************
-def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, nwm_stream_dir, ripple_model_path):
+def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_path, pre_clip_huc_dir):
 
     # ripple_models[rmi] = 'mip_05130202'
     huc = re.search(r'\d+', ripple_model_path).group(0)
@@ -143,7 +143,7 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, nwm_stream_dir,
     )
 
     if not os.path.exists(path_ripple_reaches):
-        merge_nwm_streams_with_ripples(metrix_dir, nwm_stream_dir, ripple_model_path)
+        merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_dir)
 
     # Read metrics database
     dataset_dir = os.path.join(metrix_dir, ripple_model_path)  # , 'submodels')
@@ -232,10 +232,12 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, nwm_stream_dir,
 
 
 # ***************************************************************
-def create_ripple_STREAMS_gdf_csv(nwm_stream_dir, metrix_dir):
+def create_ripple_STREAMS_gdf_csv(metrix_dir):
 
     ripple_models = [d for d in os.listdir(metrix_dir) if os.path.isdir(os.path.join(metrix_dir, d))]
     ripple_models.sort()
+
+    pre_clip_huc_dir = os.getenv('pre_clip_huc_dir')
 
     model_metrix_corr_ls = []
     metrix_streams_conus_ls = []
@@ -247,14 +249,14 @@ def create_ripple_STREAMS_gdf_csv(nwm_stream_dir, metrix_dir):
         huc = re.search(r'\d+', ripple_models[rmi]).group(0)
 
         # Read metrics geopackage
-        path_ripple_collection = os.path.join(metrix_dir, ripple_models[rmi])
+        path_ripple_collection = os.path.join(metrix_dir, ripple_models[rmi], pre_clip_huc_dir)
         path_ripple_reaches = os.path.join(
             path_ripple_collection, f'ripple_reaches_order_source_models_metrix_{huc}.gpkg'
         )
 
         if not os.path.exists(path_ripple_reaches):
             corr_matrix = merge_ripple_reaches_sourcemodels_with_metrix_db(
-                metrix_dir, nwm_stream_dir, ripple_models[rmi]
+                metrix_dir, ripple_models[rmi], pre_clip_huc_dir
             )
             model_metrix_corr_ls.append(corr_matrix)
 
@@ -363,13 +365,13 @@ def create_ripple_STREAMS_gdf_csv(nwm_stream_dir, metrix_dir):
 
 
 # ***************************************************************
-def process_ripple_STREAMS_create_blackList(metrix_dir, nwm_stream_dir):
+def process_ripple_STREAMS_create_blackList(metrix_dir):
 
     path_ripple_streams = os.path.join(metrix_dir, 'metrix_streams_ripple_submodels_conus.csv')
     path_ripple_reaches = os.path.join(metrix_dir, 'metrix_reaches_ripple_submodels_conus.csv')
 
     if not os.path.exists(path_ripple_streams):
-        create_ripple_STREAMS_gdf_csv(nwm_stream_dir, metrix_dir)
+        create_ripple_STREAMS_gdf_csv(metrix_dir)
 
     else:
         ripple_streams_metrix_df_geo = gpd.read_file(path_ripple_streams)
@@ -559,7 +561,7 @@ def process_ripple_STREAMS_create_blackList(metrix_dir, nwm_stream_dir):
 
 # --------------------------------------------------------
 # Apply longitudinal dischage adjustment
-def apply_ripple_streams_blacklist(metrix_dir, nwm_stream_dir, log_file_path):  # bankfull_flows_file,
+def apply_ripple_streams_blacklist(metrix_dir, log_file_path):  # bankfull_flows_file,
     """
     Function for processing ripple STREAMS and create a black list of bad models.
 
@@ -568,7 +570,6 @@ def apply_ripple_streams_blacklist(metrix_dir, nwm_stream_dir, log_file_path):  
         Parameters
         ----------
         metrix_dir: str
-        nwm_stream_dir: str
 
         Returns
         ----------
@@ -579,7 +580,7 @@ def apply_ripple_streams_blacklist(metrix_dir, nwm_stream_dir, log_file_path):  
         msg = "processing ripple STREAMS and create a black list"
         log_text += msg
         print(msg)
-        log_text += process_ripple_STREAMS_create_blackList(metrix_dir, nwm_stream_dir)
+        log_text += process_ripple_STREAMS_create_blackList(metrix_dir)
 
     except Exception:
         log_text += "An error has occurred while processing ripple STREAMS"
@@ -593,7 +594,7 @@ def apply_ripple_streams_blacklist(metrix_dir, nwm_stream_dir, log_file_path):  
 
 
 # -------------------------------------------------------
-def log_create_blacklist(metrix_dir, nwm_stream_dir):
+def log_create_blacklist(metrix_dir):
     """
     Function for correcting synthetic rating curves using Multi-Proc approach.
     It will correct each branch's SRCs in serial based on the HydroIDs.
@@ -602,8 +603,6 @@ def log_create_blacklist(metrix_dir, nwm_stream_dir):
         ----------
         metrix-dir : str
             Directory path for saved ripple matrics.
-        nwm_stream_dir : str
-            Directory path for NWM streams.
 
     """
     # Set up log file
@@ -624,7 +623,7 @@ def log_create_blacklist(metrix_dir, nwm_stream_dir):
     msg = "Creating a black list of ripple streams\n"
     log_text += msg
 
-    apply_ripple_streams_blacklist(metrix_dir, nwm_stream_dir, log_file_path)
+    apply_ripple_streams_blacklist(metrix_dir, log_file_path)
 
     ## Record run time and close log file
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -641,22 +640,17 @@ if __name__ == '__main__':
     ----------
     metrix-dir : str
         Directory path for saved ripple matrics.
-    nwm_stream_dir : str
-        Directory path for NWM streams.
 
     """
     parser = ArgumentParser(description="Process Ripple Streams and Create a Black List")
     parser.add_argument(
         '-metrix_dir', '--metrix-dir', help='saved ripple matrics dir', required=True, type=str
     )
-    parser.add_argument('-nwm_stream_dir', '--nwm-stream-dir', help='nwm stream dir', required=True, type=str)
-
     args = vars(parser.parse_args())
 
     metrix_dir = args['metrix_dir']
-    nwm_stream_dir = args['nwm_stream_dir']
 
-    log_create_blacklist(metrix_dir, nwm_stream_dir)
+    log_create_blacklist(metrix_dir)
 
 
 # # ***************************************************************
