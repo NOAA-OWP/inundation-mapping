@@ -68,7 +68,7 @@ def count_num_models_reaches_metrix(metrix_dir):
 
     num_models_metrix_df = num_models_metrix_df.fillna(0)
     path_num_models_metrix = os.path.join(metrix_dir, 'num_models_metrix.csv')
-    num_models_metrix_df.to_csv(path_num_models_metrix)
+    num_models_metrix_df.to_csv(path_num_models_metrix, index=False)
 
 
 # ***************************************************************
@@ -193,7 +193,7 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_na
 
         path_metrix_table_huc = os.path.join(dataset_dir, f'ripple_reaches_sourcemodels_metrics_{huc}.csv')
         if not os.path.exists(path_metrix_table_huc):
-            model_metrix_df.to_csv(path_metrix_table_huc)
+            model_metrix_df.to_csv(path_metrix_table_huc, index=False)
 
         if os.path.exists(path_ripple_reaches) and os.path.exists(path_metrix_table_huc):
 
@@ -237,7 +237,7 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_na
             cov_matrix = ripple_reaches_metrix_gdf[corr_columns].cov().round(4)
             path_t0_save_cov = os.path.join(metrix_dir, ripple_model_name, f'ripple_reaches_cov_{huc}.csv')
             if not os.path.exists(path_t0_save_cov):
-                cov_matrix.to_csv(path_t0_save_cov)
+                cov_matrix.to_csv(path_t0_save_cov, index=False)
 
             # Correlation of metrics
             corr_matrix = ripple_reaches_metrix_gdf[corr_columns].corr().round(4)
@@ -255,7 +255,7 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_na
             # print(corr_matrix)
             path_t0_save_corr = os.path.join(path_ripple_collection, f'ripple_reaches_order_corr_{huc}.csv')
             if not os.path.exists(path_t0_save_corr):
-                corr_matrix.to_csv(path_t0_save_corr)
+                corr_matrix.to_csv(path_t0_save_corr, index=False)
 
     return corr_matrix, log_text
 
@@ -366,7 +366,7 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
     # Save correlation matrix conus wise in csv format
     model_metrix_corr_df = pd.concat(model_metrix_corr_ls, ignore_index=False)
     model_metrix_corr_path = os.path.join(metrix_dir, 'model_metrix_corr_new.csv')
-    model_metrix_corr_df.to_csv(model_metrix_corr_path)
+    model_metrix_corr_df.to_csv(model_metrix_corr_path, index=False)
 
     # Save reaches matrix conus wise in csv format
     metrix_reaches_conus_df = pd.concat(metrix_reaches_conus_ls, axis=0, ignore_index=True)
@@ -551,7 +551,7 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
     log_text += f'Number of the outlier Ripple models is {num_outlier_streams_conus}\n'
 
     path_outlier_streams_conus = os.path.join(metrix_dir, 'outlier_streams_conus.csv')
-    outlier_streams_conus_df.to_csv(path_outlier_streams_conus)
+    outlier_streams_conus_df.to_csv(path_outlier_streams_conus, index=False)
 
     if os.path.exists(path_ripple_reaches):
         ripple_reaches_metrix_df = gpd.read_file(path_ripple_reaches)
@@ -595,7 +595,7 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
     )
     outlier_reaches_conus_df = outlier_reaches_conus_df.dropna(subset=['inundation_overlap'])
     path_outlier_reaches_conus = os.path.join(metrix_dir, 'outlier_reaches_conus.csv')
-    outlier_reaches_conus_df.to_csv(path_outlier_reaches_conus)
+    outlier_reaches_conus_df.to_csv(path_outlier_reaches_conus, index=False)
 
     log_text += 'Successfully created a blacklist of the Ripple models from the provided collections. \n'
     print('Successfully created a blacklist of the Ripple models from the provided collections. \n')
