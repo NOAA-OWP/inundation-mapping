@@ -1,13 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-08-20 - [PR#1633]([https://github.com/NOAA-OWP/inundation-mapping/pull/1633])
+## v4.8.x.x - 2025-08-29 - [PR#1639]([https://github.com/NOAA-OWP/inundation-mapping/pull/1639])
 
-In this PR, the Great Salt Lake was incorporated into the waterbody mask. In addition, mainstem stream endpoints were adjusted to the nearest landsea boundary, ensuring that NSM streams connect to the DEM/waterbody edge and preventing dropped catchments.
+Catchments were being dropped due to a number of confounding reasons. Previously `crosses` was used to identify outlets as stream lines that intersected the HUC boundary, in order to extend the levelpaths downstream of the outlet(s). However, some recent and proposed changes including clipping streams to the landsea mask and extending streams by snapping to the WBD caused the `crosses` method to fail to identify some HUC outlets, so these levelpaths were not extended downstream, creating levelpaths that did not flow to the edge of the DEM based on the buffered branch polygons, and resulting in reverse flow issues and dropped catchments. Some additional bug fixes and improvements include clipping the branch polygons to the clipped WBD (clipped to the DEM domain and the landsea mask), the Great Salt Lake was incorporated into the waterbody mask, and mainstem stream endpoints were adjusted to the nearest landsea boundary within 10 km, ensuring that NSM streams connect to the DEM/waterbody edge and preventing dropped catchments.
 
 ### Changes
-`data/wbd/clip_vectors_to_wbd.py`: Snap levelpath endpoints (mainstem only) to the nearest landsea boundary.
-`src/bash_variables.env`: Update landsea file.
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Updates method to determine outlets and ignores outlets that re-enter the HUC due to faulty data and snap levelpath endpoints (mainstem only) to the nearest landsea boundary
+    - `generate_pre_clip_fim_huc8.py`: Filters WBD columns to be read.
+- `src/`
+    - `bash_variables.env`: Updates landsea mask to include Great Salt Lake
+    - `buffer_stream_branches.py`: Clips branch polygons to WBD rather than DEM domain
+    - `run_unit_wb.sh`: Updates arguments for `buffer_stream_branches.py` to pass WBD instead of DEM domain for clipping
+    - `stream_branches.py`: Uses WBD boundary intersection to find outlets
 
 <br/>
 
