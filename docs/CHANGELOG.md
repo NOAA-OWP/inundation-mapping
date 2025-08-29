@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.___ - 2025-______ - [PR#1622]([https://github.com/NOAA-OWP/inundation-mapping/pull/1622])
+## v4.8.10.1 - 2025-08-29 - [PR#1622]([https://github.com/NOAA-OWP/inundation-mapping/pull/1622])
 
 Fixes an error that was causing the CatFIM site compare outputs to not load correctly in ArcGIS Pro. The geopackages could be brought into ArcGIS Pro but a data error would occur when trying to open the attribute table because the geometry columns had too much data un them.
 
