@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
+
+Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.
+
+### Additions
+- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Retrieves NWM data from Google Cloud Service and output NetCDF file.
+
+### Changes
+- `Pipfile`: Add gcsfs dependency.
+- `Pipfile.lock`: Add gcsfs dependency.
+<br/>
+
 ## v4.8.10.2 - 2025-08-29 - [PR#1636]([https://github.com/NOAA-OWP/inundation-mapping/pull/1636])
 
 Improves the error handling in stage-based CatFIM for instances where the hand_stage variable is negative and/or there is an elevation disparity that is moderate (5-10 ft) but not high enough to filter out the site completely. These updates catch and flag when there is a negative stage value and prevents further processing of that site.
