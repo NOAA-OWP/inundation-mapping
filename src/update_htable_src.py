@@ -134,7 +134,7 @@ if __name__ == '__main__':
     '''
     Sample usage (min params):
         python3 src/update_htable_src.py
-            -d /data/previous_fim/fim_4_5_2_0
+            -huc_dir /data/previous_fim/fim_4_5_2_0
     '''
 
     # TODO: May 16, 2025
@@ -143,8 +143,8 @@ if __name__ == '__main__':
     # Make sure log file name has a datetime stamp it in, in case it is run a second time.
 
     parser = argparse.ArgumentParser(description='Update hydrotable and src files.')
-    parser.add_argument('-d', '--fim_dir', help='Directory path for fim_pipeline output.', required=True)
+    parser.add_argument('-huc_dir', '--huc_dir', help='Directory path for fim output for a HUC.', required=True)
 
     args = parser.parse_args()
 
-    reset_hydro_and_src(args.fim_dir)
+    reset_hydro_and_src(args.huc_dir)

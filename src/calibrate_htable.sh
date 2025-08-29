@@ -1,69 +1,45 @@
 
-## RUN UPDATE HYDROTABLE AND SRC ##
 hucNumber=$1
+manual_postproces=$2
 
-echo -e ""
-echo -e"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-echo -e "---- Start of HUC post_processing for $hucNumber"
-echo -e "---- Started: `date -u`"
-echo ""
+source $outputDestDir/params.env
+source $srcDir/bash_variables.env
+source $srcDir/bash_functions.env
 
+
+l_echo ""
+l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+if [ "${manual_postproces,,}" = "true" ]; then
+    l_echo "---- Manual postprcessing for HUC $hucNumber"
+else
+    l_echo "---- Start of post_processing for HUC $hucNumber"
+fi
+l_echo "---- Started: `date -u`"
+l_echo ""
 
 
 # TODO  this may need to revise. This will be applied for branches parallel
 if [ "$jobLimit" = "" ]; then jobLimit=1; fi
 
-# Tstart
-# COUNTER_FILE="${tempHucDataDir}/post_processing_attempt.txt"
-# # Function to clean up
-# cleanup() {
-#     if [ "$SUCCESS" = true ]; then
-#         if [ -f "$COUNTER_FILE" ]; then
-#             COUNTER=$(cat "$COUNTER_FILE")
-#             if [ "$COUNTER" -eq 1 ]; then
-#                 echo -e "Counter is 1. Removing the counter file."
-#                 rm "$COUNTER_FILE"
-#             fi
-#         fi
-#     fi
-# }
 
-# # Set up trap to call cleanup on EXIT, ERR, and INT (interrupt signal)
-# trap cleanup EXIT ERR INT
-# # Initialize the counter file if it doesn't exist
-# if [ ! -f "$COUNTER_FILE" ]; then
-#     echo 0 > "$COUNTER_FILE"
-# fi
-
-# # Read the current counter value
-# COUNTER=$(cat "$COUNTER_FILE")
-
-# # Increment the counter
-# COUNTER=$((COUNTER + 1))
-
-# # Save the new counter value
-# echo -e "$COUNTER" > "$COUNTER_FILE"
-
-# Check if the counter is greater than one
-# if [ "$COUNTER" -gt 1 ]; then
-#     # Execute the Python file
-#     echo -e $startDiv"Updating hydroTable & scr_full_crosswalked for branches"
-#     python3 $srcDir/update_htable_src.py -d $tempHucDataDir
-#     Tcount
-# else
-#     echo -e "Execution count is $COUNTER, not executing the update_htable_src.py file."
-# fi
+# Check if it is a manual postprocessing or not
+if [ "${manual_postproces,,}" = "true" ]; then
+    l_echo $startDiv"Reseting hydroTable & scr_full_crosswalked for branches"
+    Tstart
+    python3 $srcDir/update_htable_src.py -huc_dir $tempHucDataDir
+    Tcount
+fi
 
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-echo -e $startDiv"Processing usgs & ras2fim elev table aggregation"
+l_echo $startDiv"Processing usgs & ras2fim elev table aggregation"
 Tstart
 python3 $srcDir/aggregate_by_huc.py -huc_dir $tempHucDataDir -elev -ras -j $jobLimit
 Tcount
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
 if [ "$bathymetry_adjust" = "True" ]; then
-    echo -e $startDiv"Performing Bathymetry Adjustment routine"
+    l_echo $startDiv"Performing Bathymetry Adjustment routine"
     Tstart
     # Run bathymetry adjustment routine
     aibathy_toggle=${ai_toggle} #:-0}
@@ -78,7 +54,7 @@ fi
 
 ## RUN SYNTHETIC RATING CURVE BANKFULL ESTIMATION ROUTINE ##
 if [ "$src_bankfull_toggle" = "True" ]; then
-    echo -e $startDiv"Estimating bankfull stage in SRCs"
+    l_echo $startDiv"Estimating bankfull stage in SRCs"
     Tstart
     # Run SRC bankfull estimation routine routine
     python3 $srcDir/identify_src_bankfull.py \
@@ -90,7 +66,7 @@ fi
 
 ## RUN SYNTHETIC RATING SUBDIVISION ROUTINE ##
 if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; then
-    echo -e $startDiv"Performing SRC channel/overbank subdivision routine"
+    l_echo $startDiv"Performing SRC channel/overbank subdivision routine"
     # Run SRC Subdivision & Variable Roughness routine
     Tstart
     python3 $srcDir/subdiv_chan_obank_src.py \
@@ -102,7 +78,7 @@ fi
 
 ## RUN NONMONOTONIC SRC ADJUSTMENT ROUTINE ##
 if [ "$nonmonotonic_src_adjustment" = "True" ]; then
-    echo -e $startDiv"Performing Nonmonotonic SRC Adjustment routine"
+    l_echo $startDiv"Performing Nonmonotonic SRC Adjustment routine"
     # Run Nonmonotonic SRCs Adjustment routine -flows $bankfull_flows_file \
     Tstart
     python3 $srcDir/nonmonotonic_src_adjustment.py \
@@ -113,7 +89,7 @@ fi
 
 ## RUN LONGITUDINAL FILTER ROUTINE ##
 if [ "$logitudinal_filter" = "True" ]; then
-    echo -e $startDiv"Performing longitudinal discharge adjustment routine"
+    l_echo $startDiv"Performing longitudinal discharge adjustment routine"
     Tstart
     python3 $srcDir/longitudinal_flow_adjustment.py \
         -huc_dir $tempHucDataDir \
@@ -125,7 +101,7 @@ fi
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
 if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
     Tstart
-    echo -e $startDiv"Performing SRC adjustments using USGS rating curve database"
+    l_echo $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow values)
     python3 $srcDir/src_adjust_usgs_rating_trace.py \
         -huc_dir $tempHucDataDir \
@@ -139,7 +115,7 @@ fi
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ RAS2FIM CROSS SECTION RATING CURVES ##
 if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
     Tstart
-    echo -e $startDiv"Performing SRC adjustments using ras2fim rating curve database"
+    l_echo $startDiv"Performing SRC adjustments using ras2fim rating curve database"
     # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
     python3 $srcDir/src_adjust_ras2fim_rating.py \
         -huc_dir $tempHucDataDir \
@@ -153,7 +129,7 @@ fi
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINTS (.parquet files) ##
 if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [ "$skipcal" = "0" ]; then
     Tstart
-    echo -e $startDiv"Performing SRC adjustments using benchmark point .parquet files"
+    l_echo $startDiv"Performing SRC adjustments using benchmark point .parquet files"
     python3 $srcDir/src_adjust_spatial_obs.py -huc_dir $tempHucDataDir -j $jobLimit
     Tcount
 fi
@@ -161,7 +137,7 @@ fi
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
-    echo -e $startDiv"Performing manual calibration"
+    l_echo $startDiv"Performing manual calibration"
     Tstart
     python3 $srcDir/src_manual_calibration.py \
         -huc_dir $tempHucDataDir \
@@ -171,13 +147,49 @@ fi
 
 
 ## AGGREGATE BRANCH TABLES ##
-echo -e $startDiv"Aggregating branch hydrotables"
+l_echo $startDiv"Aggregating branch hydrotables"
 Tstart
 python3 $srcDir/aggregate_by_huc.py \
     -huc_dir $tempHucDataDir \
     -htable \
     -bridge \
     -j $jobLimit
+Tcount
+
+
+
+l_echo $startDiv"Scanning logs for errors and warnings..."
+echo "Results will be saved inside log folder of each HUC."
+Tstart
+    out_name="huc_errors_from_logs.log"
+    outpath="$tempHucDataDir/logs/$out_name"
+
+    # Always delete old file if it exists
+    [ -f "$outpath" ] && rm -f "$outpath"
+
+    # Run grep into a temporary file
+    grep -H -R -i -n "error" --exclude="$out_name" --exclude="$out_name.tmp" "$tempHucDataDir/logs/" > "$outpath".tmp
+
+    # Only keep the file if it's non-empty
+    if [ -s "$outpath".tmp ]; then
+        mv "$outpath".tmp "$outpath"
+    else
+        rm -f "$outpath".tmp
+    fi
+    l_echo "error scan done"
+
+    # repreat the workflow for warning files
+
+    out_name="huc_warnings_from_logs.log"
+    outpath="$tempHucDataDir/logs/$out_name"
+    [ -f "$outpath" ] && rm -f "$outpath"
+    grep -H -R -i -n "warning" --exclude="$out_name" --exclude="$out_name.tmp" "$tempHucDataDir/logs/" > "$outpath".tmp
+    if [ -s "$outpath".tmp ]; then
+        mv "$outpath".tmp "$outpath"
+    else
+        rm -f "$outpath".tmp
+    fi
+    l_echo "warning scan done"
 Tcount
 
 

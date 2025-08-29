@@ -427,12 +427,13 @@ class HucDirectory(object):
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
             log_error(
-                self.fim_directory,
+                self.huc_dir_path,
                 usgs_elev_flag,
                 hydro_table_flag,
                 src_cross_flag,
                 ras_elev_flag,
                 bridge_flag,
+                road_flag,
                 huc_id,
                 errMsg,
             )
@@ -442,7 +443,7 @@ class HucDirectory(object):
 # This is done independantly in each worker and does not attempt to write to a shared file
 # as those can collide with multi proc
 def log_error(
-    fim_directory,
+    huc_directory,
     usgs_elev_flag,
     hydro_table_flag,
     src_cross_flag,
@@ -467,8 +468,11 @@ def log_error(
         file_name += "_road"
     file_name += "_error.log"
 
-    log_path = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
-    file_path = os.path.join(log_path, file_name)
+    log_dir = os.path.join(huc_directory, "logs", "agg_by_huc_errors")
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+    
+    file_path = os.path.join(log_dir, file_name)
 
     f = open(file_path, "a")
     f.write(errMsg)
@@ -542,42 +546,6 @@ def aggregate_by_huc(
         executor_dict = {}
 
         try:
-            ''' #commened by Ali
-            if fim_inputs:
-                fim_inputs_csv = pd.read_csv(fim_inputs, header=None, names=['huc', 'levpa_id'], dtype=str)
-                huc_list = fim_inputs_csv.huc.unique()
-
-                # with multi proc, it won't be 100% in order as different hucs
-                # process faster, but it does help a little
-                huc_list_sorted = sorted(huc_list)
-                for huc_id in huc_list_sorted:
-                    branches = fim_inputs_csv.loc[fim_inputs_csv.huc == huc_id, 'levpa_id'].tolist()
-                    huc_dir = HucDirectory(fim_directory, huc_id, limit_branches=branches)
-
-                    args_agg = {
-                        'usgs_elev_flag': usgs_elev_flag,
-                        'hydro_table_flag': hydro_table_flag,
-                        'src_cross_flag': src_cross_flag,
-                        'ras_elev_flag': ras_elev_flag,
-                        'bridge_flag': bridge_flag,
-                        'road_flag': road_flag,
-                        'huc_id': huc_id,
-                    }
-
-                    future = executor.submit(huc_dir.agg_function, **args_agg)
-                    executor_dict[future] = huc_id
-
-            else:
-                huc_list = [d for d in os.listdir(fim_directory) if re.match(r'\d{8}', d)]
-
-                # with multi proc, it won't be 100% in order as different hucs
-                # process faster, but it does help a little
-                huc_list_sorted = sorted(huc_list)
-                for huc_id in huc_list_sorted:
-                    if huc_id.isnumeric() is False:
-                        continue
-        
-            '''
             huc_dir = HucDirectory(huc_dir)
             args_agg = {
                 'usgs_elev_flag': usgs_elev_flag,
