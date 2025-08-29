@@ -80,11 +80,8 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
         nearest_point = nearest_points(levelpath_geom, wbd_buffered)
         nearest_point_wbd = nearest_points(levelpath_geom, wbd_boundary.geometry)
 
-        levelpath_outlets.at[index, 'nearest_point'] = nearest_point[1]['geometry'].iloc[0]
-        levelpath_outlets.at[index, 'nearest_point_wbd'] = nearest_point_wbd[1].iloc[0]
-
-        levelpath_outlets_nearest_points = levelpath_outlets.at[index, 'nearest_point']
-        levelpath_outlets_nearest_points_wbd = levelpath_outlets.at[index, 'nearest_point_wbd']
+        levelpath_outlets_nearest_points = nearest_point[1]['geometry'].iloc[0]
+        levelpath_outlets_nearest_points_wbd = nearest_point_wbd[1].iloc[0]
 
         if isinstance(levelpath_outlets_nearest_points, pd.Series):
             levelpath_outlets_nearest_points = levelpath_outlets_nearest_points.iloc[-1]
