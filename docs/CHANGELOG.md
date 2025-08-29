@@ -11,6 +11,15 @@ Improves the error handling in stage-based CatFIM for instances where the hand_s
 - `tools/catfim/generate_categorical_fim.py`: Added a message that warns when the elevation difference is greater than 5 ft. Added functionality to abort site processing if a negative stage value is encountered. Made the logging more streamlined.
 - `tools/catfim/generate_categorical_fim_mapping.py`:  Added code to exit out of processing when a negative stage value is encountered. Cleaned up vestigial debugging statements.
 - `tools/tools_shared_functions.py`: Improved output logging of `mask_out_lakes()` function.
+## v4.8.10.1 - 2025-08-29 - [PR#1622]([https://github.com/NOAA-OWP/inundation-mapping/pull/1622])
+
+Fixes an error that was causing the CatFIM site compare outputs to not load correctly in ArcGIS Pro. The geopackages could be brought into ArcGIS Pro but a data error would occur when trying to open the attribute table because the geometry columns had too much data un them.
+
+This update also cleans up a few structural aspects of the code. 
+
+### Changes
+- `tools/catfim/catfim_sites_compare.py`: Added code to simplify the added and removed geometries so they don't overload the ArcGIS Pro memory. Moved `pivot_and_join_percent_change()` function out of other function. Improved CRS handling. Took the `%` character out of column headers. Moved the `geometry` column to the last column of the gained and lost coverage geopackages.
+
 <br/>
 
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
