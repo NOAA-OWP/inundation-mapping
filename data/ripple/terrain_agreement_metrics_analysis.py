@@ -309,6 +309,7 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
 
         # Averaging by source models/streams
         # grouped_avg = gdf.groupby('col10')[['col1', 'col2', 'col3']].mean().reset_index()
+        
         # Identify numeric columns
         numeric_cols = ripple_reaches_metrix_gdf.select_dtypes(include='number').columns.tolist()
 
