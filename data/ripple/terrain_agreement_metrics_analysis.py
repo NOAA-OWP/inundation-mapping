@@ -12,6 +12,7 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 
 
 # import matplotlib.pyplot as plt
@@ -71,15 +72,20 @@ def count_num_models_reaches_metrix(metrix_dir):
 
 
 # ***************************************************************
-def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_dir):
+def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_name):
 
-    huc = re.search(r'\d+', ripple_model_path.group(0))
+    srcDir = os.getenv('srcDir')
+    load_dotenv(f'{srcDir}/bash_variables.env')
+    pre_clip_huc_dir = os.getenv("pre_clip_huc_dir")
+
+    huc = str(re.search(r'\d+', ripple_model_name).group(0))
+    print(pre_clip_huc_dir)
 
     print(f'Merging nwm_streams with ripple.gpkg for HUC {huc}\n')
     log_text = f'Merging nwm_streams with ripple.gpkg for HUC {huc}\n'
 
     nwm_stream_gpkg = os.path.join(pre_clip_huc_dir, huc, 'nwm_subset_streams.gpkg')
-    ripple_gpkg = os.path.join(metrix_dir, ripple_model_path, 'ripple.gpkg')
+    ripple_gpkg = os.path.join(metrix_dir, ripple_model_name, 'ripple.gpkg')
 
     # Read ripple geopackage
     if os.path.exists(ripple_gpkg):
@@ -122,12 +128,12 @@ def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_d
 
             # Assign collection_id
             ripple_reaches_gdf['collection_id'] = np.where(
-                ripple_reaches_gdf['model_id'].notna(), ripple_model_path, None
+                ripple_reaches_gdf['model_id'].notna(), ripple_model_name, None
             )
 
             # Save as a new GeoPackage
             path_ripple_reaches = os.path.join(
-                metrix_dir, ripple_model_path, f'ripple_reaches_order_sourcemodels_{huc}.gpkg'
+                metrix_dir, ripple_model_name, f'ripple_reaches_order_sourcemodels_{huc}.gpkg'
             )
             if not os.path.exists(path_ripple_reaches):
                 ripple_reaches_gdf.to_file(path_ripple_reaches, driver="GPKG")
@@ -136,30 +142,30 @@ def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_d
 
 
 # ***************************************************************
-def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_path, pre_clip_huc_dir):
+def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_name):
 
     # ripple_models[rmi] = 'mip_05130202'
-    huc = re.search(r'\d+', ripple_model_path).group(0)
+    huc = re.search(r'\d+', ripple_model_name).group(0)
 
     # Read metrics geopackage
-    path_ripple_collection = os.path.join(metrix_dir, ripple_model_path)
+    path_ripple_collection = os.path.join(metrix_dir, ripple_model_name)
     path_ripple_reaches = os.path.join(
         path_ripple_collection, f'ripple_reaches_order_sourcemodels_{huc}.gpkg'
     )
 
     log_text = ''
     if not os.path.exists(path_ripple_reaches):
-        log_text += merge_nwm_streams_with_ripples(metrix_dir, ripple_model_path, pre_clip_huc_dir)
+        log_text += merge_nwm_streams_with_ripples(metrix_dir, ripple_model_name)
 
     print(f'Merging nwm_streams_ripple.gpkg with metrics database for HUC {huc}\n')
     log_text += f'Merging nwm_streams_ripple.gpkg with metrics database for HUC {huc}\n'
 
     # Read metrics database
-    dataset_dir = os.path.join(metrix_dir, ripple_model_path)  # , 'submodels')
+    dataset_dir = os.path.join(metrix_dir, ripple_model_name)  # , 'submodels')
     db_paths = list(Path(dataset_dir).rglob("*.db"))
     if len(db_paths) == 0:
-        print(f'{ripple_model_path} does not have any metrics database\n')
-        log_text += '{ripple_model_path} does not have any metrics database\n'
+        print(f'{ripple_model_name} does not have any metrics database\n')
+        log_text += '{ripple_model_name} does not have any metrics database\n'
 
     else:
         model_metrix_ls = []
@@ -215,14 +221,27 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_pa
             # print(ripple_reaches_metrix_gdf[~ripple_reaches_metrix_gdf['model_id'].isna()])
 
             # Covariance of metrics
-            cov_matrix = ripple_reaches_metrix_gdf.cov().round(4)
-            path_t0_save_cov = os.path.join(metrix_dir, ripple_model_path, f'ripple_reaches_cov_{huc}.csv')
+            corr_columns = [
+                'avg_inundation_overlap',
+                'avg_flow_area_overlap',
+                'avg_top_width_agreement',
+                'avg_flow_area_agreement',
+                'avg_hydraulic_radius_agreement',
+                'avg_r_squared',
+                'avg_spectral_angle',
+                'avg_spectral_correlation',
+                'avg_correlation',
+                'avg_max_cross_correlation',
+                'avg_thalweg_elevation_difference',
+            ]
+            cov_matrix = ripple_reaches_metrix_gdf[corr_columns].cov().round(4)
+            path_t0_save_cov = os.path.join(metrix_dir, ripple_model_name, f'ripple_reaches_cov_{huc}.csv')
             if not os.path.exists(path_t0_save_cov):
                 cov_matrix.to_csv(path_t0_save_cov)
 
             # Correlation of metrics
-            corr_matrix = ripple_reaches_metrix_gdf[ripple_reaches_metrix_gdf.columns[3:-1]].corr().round(4)
-            corr_matrix['ripple_model'] = ripple_model_path
+            corr_matrix = ripple_reaches_metrix_gdf[corr_columns].corr().round(4)
+            corr_matrix['ripple_model'] = ripple_model_name
             corr_matrix['HUC'] = huc
 
             cols_to_move = ['HUC', 'ripple_model']
@@ -250,8 +269,6 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
     print(f'{len(ripple_models)} ripple collections have been found to analyze.\n')
     log_text = f'{len(ripple_models)} ripple collections have been found to analyze.\n'
 
-    pre_clip_huc_dir = os.getenv('pre_clip_huc_dir')
-
     model_metrix_corr_ls = []
     metrix_streams_conus_ls = []
     metrix_streams_conus_gpkg_ls = []
@@ -263,16 +280,21 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
         log_text += f'Start analyzing ripple collections for HUC {huc}\n'
 
         # Read metrics geopackage
-        path_ripple_collection = os.path.join(metrix_dir, ripple_models[rmi], pre_clip_huc_dir)
+        path_ripple_collection = os.path.join(metrix_dir, ripple_models[rmi])
         path_ripple_reaches = os.path.join(
             path_ripple_collection, f'ripple_reaches_order_source_models_metrix_{huc}.gpkg'
         )
 
         if not os.path.exists(path_ripple_reaches):
             corr_matrix, log_text_m = merge_ripple_reaches_sourcemodels_with_metrix_db(
-                metrix_dir, ripple_models[rmi], pre_clip_huc_dir
+                metrix_dir, ripple_models[rmi]
             )
             log_text += log_text_m
+            model_metrix_corr_ls.append(corr_matrix)
+
+        else:
+            corr_matrix_path = os.path.join(path_ripple_collection, f'ripple_reaches_order_corr_{huc}.csv')
+            corr_matrix = pd.read_csv(corr_matrix_path)
             model_metrix_corr_ls.append(corr_matrix)
 
         ripple_reaches_metrix_gdf_d = gpd.read_file(path_ripple_reaches)
@@ -393,8 +415,8 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
     print('Start creating the black list ...\n')
     log_text += 'Start creating the black list ...\n'
 
-    ripple_streams_metrix_df_geo = gpd.read_file(path_ripple_streams)
-    ripple_streams_metrix_df = ripple_streams_metrix_df_geo.drop(columns=['geometry'])  # drop_duplicates()
+    ripple_streams_metrix_df = gpd.read_file(path_ripple_streams)
+    # ripple_streams_metrix_df = ripple_streams_metrix_df_geo.drop(columns=['geometry'])  # drop_duplicates()
     ripple_streams_metrix_df = ripple_streams_metrix_df.replace('', np.nan)
     ripple_streams_metrix_df = ripple_streams_metrix_df.dropna(subset=['avg_inundation_overlap'])
     # print(ripple_streams_metrix_df_d[ripple_streams_metrix_df_d['model_id'].isna()])
@@ -525,15 +547,17 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
     outlier_streams_conus_df = outlier_streams_conus_df_d.drop_duplicates()
 
     num_outlier_streams_conus = len(outlier_streams_conus_df)
-    print(num_outlier_streams_conus)
-    path_outlier_streams_conus = os.path.join(metrix_dir, 'outlier_streams_conus3.csv')
+    print(f'Number of the outlier Ripple models is {num_outlier_streams_conus}\n')
+    log_text += f'Number of the outlier Ripple models is {num_outlier_streams_conus}\n'
+
+    path_outlier_streams_conus = os.path.join(metrix_dir, 'outlier_streams_conus.csv')
     outlier_streams_conus_df.to_csv(path_outlier_streams_conus)
 
     if os.path.exists(path_ripple_reaches):
-        ripple_reaches_metrix_df_geo = gpd.read_file(path_ripple_reaches)
-        ripple_reaches_metrix_df = ripple_reaches_metrix_df_geo.drop(
-            columns=['geometry']
-        )  # drop_duplicates()
+        ripple_reaches_metrix_df = gpd.read_file(path_ripple_reaches)
+        # ripple_reaches_metrix_df = ripple_reaches_metrix_df_geo.drop(
+        #     columns=['geometry']
+        # )  # drop_duplicates()
         ripple_streams_metrix_df = ripple_streams_metrix_df.replace('', np.nan)
         ripple_reaches_metrix_df = ripple_reaches_metrix_df.dropna(subset=['avg_inundation_overlap'])
 
@@ -570,8 +594,11 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
         '', np.nan
     )
     outlier_reaches_conus_df = outlier_reaches_conus_df.dropna(subset=['inundation_overlap'])
-    path_outlier_reaches_conus = os.path.join(metrix_dir, 'outlier_reaches_conus3.csv')
+    path_outlier_reaches_conus = os.path.join(metrix_dir, 'outlier_reaches_conus.csv')
     outlier_reaches_conus_df.to_csv(path_outlier_reaches_conus)
+
+    log_text += 'Successfully created a blacklist of the Ripple models from the provided collections. \n'
+    print('Successfully created a blacklist of the Ripple models from the provided collections. \n')
 
     return log_text
 
@@ -594,7 +621,7 @@ def apply_ripple_streams_blacklist(metrix_dir, log_file_path):  # bankfull_flows
     """
     log_text = ""
     try:
-        msg = "processing ripple STREAMS and create a black list"
+        msg = "Processing ripple STREAMS and create a black list\n"
         log_text += msg
         print(msg)
         log_text += process_ripple_STREAMS_create_blackList(metrix_dir)
@@ -623,13 +650,14 @@ def log_create_blacklist(metrix_dir):
 
     """
     # Set up log file
-    log_file_path = os.path.join(metrix_dir, 'logs', 'process_ripple_STREAMS' + '.log')
+    log_file_path = os.path.join(metrix_dir, 'process_ripple_STREAMS' + '.log')
     print(f'Writing progress to log file here: {log_file_path}')
     print('This may take a few minutes...')
     ## Create a time var to log run time
     begin_time = dt.datetime.now(dt.timezone.utc)
 
     ## Initiate log file
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
     with open(log_file_path, "w") as log_file:
         log_file.write('START TIME: ' + str(begin_time) + '\n')
         log_file.write('#########################################################\n\n')
@@ -676,9 +704,9 @@ if __name__ == '__main__':
 
 
 # # ***************************************************************
-# def plot_ripple_matrix(metrix_dir, ripple_reaches_metrix_gdf, ripple_model_path):
+# def plot_ripple_matrix(metrix_dir, ripple_reaches_metrix_gdf, ripple_model_name):
 
-#     huc = re.search(r'\d+', ripple_model_path).group(0)
+#     huc = re.search(r'\d+', ripple_model_name).group(0)
 
 #     # Plotting
 #     cols = ripple_reaches_metrix_gdf.columns.tolist()[-12:-1]
@@ -712,7 +740,7 @@ if __name__ == '__main__':
 #             # Adjust tick label font size for clarity
 #             ax.tick_params(axis='both', which='major', labelsize=6)
 
-#     fig.suptitle(ripple_model_path, fontsize=20, y=1.02)
+#     fig.suptitle(ripple_model_name, fontsize=20, y=1.02)
 #     plt.tight_layout()
 #     # plt.show()
 #     path_t0_save_fig = os.path.join(metrix_dir, f'scatterplot_metrix_{huc}.png')
