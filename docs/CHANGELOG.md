@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.10.2 - 2025-08-29 - [PR#1636]([https://github.com/NOAA-OWP/inundation-mapping/pull/1636])
+
+Improves the error handling in stage-based CatFIM for instances where the hand_stage variable is negative and/or there is an elevation disparity that is moderate (5-10 ft) but not high enough to filter out the site completely. These updates catch and flag when there is a negative stage value and prevents further processing of that site.
+
+### Changes
+- `tools/catfim/README.md`: Updated documentation about CatFIM run commands and added information about CatFIM site compare. 
+- `tools/catfim/ahps_restricted_sites.csv`: Adjusted formatting.
+- `tools/catfim/generate_categorical_fim.py`: Added a message that warns when the elevation difference is greater than 5 ft. Added functionality to abort site processing if a negative stage value is encountered. Made the logging more streamlined.
+- `tools/catfim/generate_categorical_fim_mapping.py`:  Added code to exit out of processing when a negative stage value is encountered. Cleaned up vestigial debugging statements.
+- `tools/tools_shared_functions.py`: Improved output logging of `mask_out_lakes()` function.
+<br/>
+
 ## v4.8.10.1 - 2025-08-29 - [PR#1622]([https://github.com/NOAA-OWP/inundation-mapping/pull/1622])
 
 Fixes an error that was causing the CatFIM site compare outputs to not load correctly in ArcGIS Pro. The geopackages could be brought into ArcGIS Pro but a data error would occur when trying to open the attribute table because the geometry columns had too much data un them.
