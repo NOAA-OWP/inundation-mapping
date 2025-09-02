@@ -865,9 +865,11 @@ def eval_plots(
             # Join spatial data to metric data
             gdf['nws_lid'] = gdf['nws_lid'].str.lower()
             joined = gdf.merge(all_ahps_datasets, on='nws_lid')
-            # Project to VIZ projection and write to file
+            # Project to VIZ projection and write to file  (the csv is for HV, the gpkg is for debugging)
             joined = joined.to_crs(VIZ_PROJECTION)
-            joined.to_file(Path(workspace) / 'fim_performance_points.shp', engine='fiona')
+            points_file_name = os.path.join(workspace, 'fim_performance_points.gpkg')
+            joined.to_file(points_file_name, driver="GPKG", engine='fiona')
+            joined.to_csv(points_file_name.replace(".gpkg", ".csv"))
         else:
             print(
                 'NWS/USGS MS datasets not analyzed, no spatial data created.\n'
@@ -924,24 +926,15 @@ def eval_plots(
             wbd_with_metrics.rename(columns={'benchmark_source': 'source'}, inplace=True)
             # Project to VIZ projection
             wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
-            # Write out to file
-            wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp', engine='fiona')
+            # Write out to file (the csv is for HV, the gpkg is for debugging)
+            wbd_with_metrics_file_name = os.path.join(workspace, 'fim_performance_polys.gpkg')
+            wbd_with_metrics.to_file(wbd_with_metrics_file_name, driver="GPKG", engine='fiona')
+            wbd_with_metrics.to_csv(wbd_with_metrics_file_name.replace(".gpkg", ".csv"))
         else:
             print(
                 'BLE/IFC/RAS2FIM FR datasets not analyzed, no spatial data created.\n'
                 'To produce spatial data analyze a FR version'
             )
-
-
-def convert_shapes_to_csv(workspace):
-    # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
-    shape_list = glob.glob(os.path.join(workspace, '*.shp'))
-    for shape in shape_list:
-        gdf = gpd.read_file(shape)
-        parent_directory = os.path.split(shape)[0]
-        file_name = shape.replace('.shp', '.csv')
-        csv_output_path = os.path.join(parent_directory, file_name)
-        gdf.to_csv(csv_output_path)
 
 
 #######################################################################
@@ -1051,7 +1044,3 @@ if __name__ == '__main__':
     print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
     print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
     eval_plots(metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, site_barplots=i)
-
-    # Convert output shapefiles to CSV
-    print("Converting to CSVs...")
-    convert_shapes_to_csv(w)
