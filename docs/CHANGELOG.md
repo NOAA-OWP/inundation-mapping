@@ -1,6 +1,19 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.__._ - 2025-09-02 - [PR#1642](https://github.com/NOAA-OWP/inundation-mapping/pull/1642)
+
+Adjust eval_plot.py so it only looks for the config file when in -sp (spatial) mode. Spatial mode is used when running the tool to create FIM_performance files. In that mode, it can only run in OWP servers as it needs to talk to internal servers.
+
+Also udpated the tools to create gpkg files instead of shape file. It does continue to create csv as files as before.
+
+This update does not affect use of the tool as part of regular alpha testing.
+
+### Changes
+- `tools\eval_plots.py`: as described above.
+<br/>
+
+
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
 
 Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.
