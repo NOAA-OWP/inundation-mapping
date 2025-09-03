@@ -152,8 +152,6 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
     """
 
-    dem_cellsize = float(os.getenv('res'))
-
     # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
     if huc[:2] == '19':
         nwm_lakes = os.getenv('input_nwm_lakes_Alaska')
@@ -384,18 +382,8 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
                 logging.warning(f"Missing file: {vector_item} for {huc} not found at {src}.")
 
     else:
-        # first Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
-        logging.info(f"Create stream buffer for {huc}")
-        wbd_streams_buffer = wbd_buffer.copy()
-        wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(-8 * dem_cellsize, resolution=32)
-
-        wbd_streams_buffer = wbd_streams_buffer[['geometry']]
-        wbd_streams_buffer.to_file(
-            os.path.join(huc_directory, output_filenames['wbd_streams_buffer']),
-            driver='GPKG',
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
+        wbd_streams_buffer = gpd.read_file(
+            os.path.join(huc_directory, output_filenames['wbd_streams_buffer'])
         )
 
         # Subset nwm streams

@@ -388,6 +388,22 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
         dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
         wbd_buffer = gpd.clip(wbd_buffer, dem_domain_gdf)
 
+        # first Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
+        logging.info(f"Create stream buffer for {huc}")
+        wbd_streams_buffer = wbd_buffer.copy()
+        wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(
+            -8 * float(os.getenv('res')), resolution=32
+        )
+
+        wbd_streams_buffer = wbd_streams_buffer[['geometry']]
+        wbd_streams_buffer.to_file(
+            os.path.join(huc_directory, 'wbd_buffered_streams.gpkg'),
+            driver='GPKG',
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
+        )
+
         # Clip landsea before saving wbd and wbd_buffer
         logging.info(f"Clip ocean water polygon for {huc}")
         landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
