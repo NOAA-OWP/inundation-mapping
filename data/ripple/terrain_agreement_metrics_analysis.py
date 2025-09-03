@@ -194,7 +194,7 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_na
 
             ripple_reaches_submod_gdf_d = gpd.read_file(path_ripple_reaches)
             ripple_reaches_submod_gdf = ripple_reaches_submod_gdf_d.drop_duplicates()
-            
+
             # Merge ripple_reaches_gdf with model_metrix_df
             ripple_reaches_metrix_gdf = ripple_reaches_submod_gdf.merge(
                 model_metrix_df, on='feature_id', how='left'
@@ -593,7 +593,7 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
 
 
 # --------------------------------------------------------
-# Apply longitudinal dischage adjustment
+# Apply ripple_streams_blacklist function on metrix_dir
 def apply_ripple_streams_blacklist(metrix_dir, log_file_path):  # bankfull_flows_file,
     """
     Function for processing ripple STREAMS and create a black list of bad models.
