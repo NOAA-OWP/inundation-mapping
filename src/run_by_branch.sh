@@ -18,6 +18,8 @@ if [ $huc2Identifier -eq 19 ]; then
     huc_CRS=$ALASKA_CRS
 elif [ $hucNumber -eq 22010000 ]; then
     huc_CRS=$GUAM_CRS
+elif [ $hucNumber -eq 22030001 ]; then
+    huc_CRS=$AMERICAN_SAMOA_CRS
 else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
 fi
