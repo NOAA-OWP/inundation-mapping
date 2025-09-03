@@ -1,16 +1,38 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-03-06 - [PR#1452](https://github.com/NOAA-OWP/inundation-mapping/pull/1452)
+## v4.8.x.x - 2025-09-03 - [PR#1452](https://github.com/NOAA-OWP/inundation-mapping/pull/1452)
 Updates `data/get_sample_data.py` for changes in input data resulting from the addition of lidar bridge elevation.
+
+This also includes the latest new input types such as roads and fema.
+
+Other changes including:
+- Updating a partial AWS communication system, but major upgrades to it to allow for near tasks where our python scripts wanting to talk to S3. 
+- Small adjustments to our git PR template.
+- Fix a hardcoded pathing to the wbd.
+- Fix bug for the duration calc tool for hucs that fail to process.
+- Adjustment to the src/srct_adjust_ras2fim_rating.py which fails when running get_samples when it hits a huc that has no ras2fim processing data.
+- Add a new standardized shared logger basic function which handles screen and file at the same time.
+
+### Added
+- `data\aws\s3_shared_functions.py`:  A collection of functions to talk to AWS S3 buckets.
 
 ### Changes
 
-- `data/get_sample_data.py`: Updated input files and creates a VRT for bridge elevation diff.
-- `fim_post_processing.sh`: Used WBD environment variable instead of hardcoding
+- `.github/PULL_REQUEST_TEMPLATE.md`
+- `data`
+    - `get_sample_data.py`: Updated input files and creates a VRT for bridge elevation diff.
+    - `aws`
+        - `aws_base.py`:  Marked as deprecated.
+        - `s3.py`: Marked as deprecated.
 
+- `fim_post_processing.sh`: Used WBD environment variable instead of hardcoding.
+- `src`
+    - `duration_system.py`:  Fix bug for the duration calc tool for hucs that fail to process.
+    - `src/src_adjust_ras2fim_rating.py`:  Fix bug related to sample_data when a huc does not have any ras2fim data plus remove tests for maximum cpu.s
+    - `fim_logger.py`:  Marked as deprecated.
+    - `shared_functions`: Added a new function to setup a logger for a file for both screen and file.
 <br/>
-
 
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
 
