@@ -67,7 +67,8 @@ def get_sample_data(
 
     # strip off the "inputs" dir if they submitted that as well
     # we always want the data path to be the parent level of "inputs"
-    if src_data_path.endswith("inputs/") or src_data_path.endswith("inputs"):
+    src_data_path = src_data_path.rstrip("/")
+    if src_data_path.endswith("inputs"):
         src_data_path = src_data_path.replace("inputs", "")
 
     # we come out of here with src_root_dir being used versus src_data_path
@@ -293,11 +294,6 @@ def get_validation_data(huc):
 
     validation_data_orgs = ['ble', 'nws', 'usgs', 'ras2fim']  # Do not include IFC
 
-
-    # TODO: validation data not ocming in from S3, why?
-
-
-
     for org in validation_data_orgs:
         # For each HUC, most do not have any benchmark data and of those who do,
         #    most do not have all orgs (ble, usgs.. etc)
@@ -356,8 +352,10 @@ def __copy_file(src_file_path):
 
     trg_file_path = src_file_path.replace(SRC_ROOT_PATH, TRG_ROOT_PATH)
 
+    # This can result in empty folder if no files were actualy found for it
+    # but we will let it make the empty folder as it might help find problems
+    # if they exists with file downloads
     trg_dir_path = os.path.dirname(trg_file_path) + "/"
-
     # will overwrite always
     if not os.path.exists(trg_dir_path):
         os.makedirs(trg_dir_path, exist_ok=True)
@@ -425,6 +423,9 @@ def __copy_folder(src_folder_path):
     if USE_S3 and src_folder_path.startswith("/data/"):
         src_folder_path = src_folder_path.replace("/data/", SRC_ROOT_PATH)
 
+    # This can result in empty folder if no files were actualy found for it
+    # but we will let it make the empty folder as it might help find problems
+    # if they exists with file downloads
     trg_folder_path = src_folder_path.replace(SRC_ROOT_PATH, TRG_ROOT_PATH)
     if not os.path.exists(trg_folder_path):
         os.makedirs(trg_folder_path, exist_ok=True)

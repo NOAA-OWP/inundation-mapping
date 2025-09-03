@@ -513,21 +513,22 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
     if not s3_src_path.endswith("/"):
         s3_src_path += "/"
 
-    # s3_src_path = s3_src_path.strip("/")
-
     # target must have a slash on the end only
     # strip leading slash if exists
     trg_folder_path = trg_folder_path.lstrip("/")
     if not trg_folder_path.endswith("/"):
         trg_folder_path += "/"
 
-    operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path, 'Delimiter': '/'}
+    # operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path, 'Delimiter': '/'}
+    # if you add the delimiter of '/' it will get files at that level only and not recursive
+    operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path}
     paginator = s3_client.get_paginator('list_objects_v2')
     pages = paginator.paginate(**operation_parameters)
 
     min_one_file_downloaded = False
     for page in pages:
         if 'Contents' in page:
+        
             # Iterate over each object and download it
             for obj in page['Contents']:
                 s3_key = obj['Key']
