@@ -676,7 +676,6 @@ if __name__ == '__main__':
         Directory path for saved ripple matrics.
 
     Sample usage:
-
     python3 /data/ripple/terrain_agreement_metrics_analysis.py
     -md /outputs/NGWPC-tasks/terrain-agreements/test_pr/metrix_dir1/
 
