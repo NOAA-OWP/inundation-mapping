@@ -240,11 +240,11 @@ def preprocess_region(
 
     download_nfhl_wrapper(huc_list=[huc], output_folder=f"{inputs_dir}/fema/nfhl/{region}", num_processes=14)
 
-    # Extract and reproject ocean mask from /data/inputs/landsea/water_polygons_us.gpkg
-    water_polygons = gpd.read_file(f'{inputs_dir}/landsea/water_polygons_us.gpkg')
-    water_polygons = water_polygons.to_crs(epsg=target_crs_number)
-    water_polygons = water_polygons[water_polygons['fid'] == water_polygons_fid]
-    water_polygons.to_file(os.path.join(target_folder, f'water_polygons_{target_name}.gpkg'), driver='GPKG')
+    # # Extract and reproject ocean mask from /data/inputs/landsea/water_polygons_us.gpkg
+    # water_polygons = gpd.read_file(f'{inputs_dir}/landsea/water_polygons_us.gpkg')
+    # water_polygons = water_polygons.to_crs(epsg=target_crs_number)
+    # water_polygons = water_polygons[water_polygons['fid'] == water_polygons_fid]
+    # water_polygons.to_file(os.path.join(target_folder, f'water_polygons_{target_name}.gpkg'), driver='GPKG')
 
 
 if __name__ == "__main__":
