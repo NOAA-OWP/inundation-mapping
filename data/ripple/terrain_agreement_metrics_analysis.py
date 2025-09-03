@@ -52,7 +52,6 @@ def count_num_models_reaches_metrix(metrix_dir):
 
             ripple_reaches_metrix_gdf_d = gpd.read_file(path_ripple_reaches_metrix)
             ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf_d.drop_duplicates()
-            # print(ripple_reaches_metrix_gdf[~ripple_reaches_metrix_gdf['model_id'].isna()])
 
             # Counting number of models/feature-ids that have metrics
             num_rows_not_nan = ripple_reaches_metrix_gdf['avg_inundation_overlap'].notna().sum()
@@ -79,7 +78,6 @@ def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_name):
     pre_clip_huc_dir = os.getenv("pre_clip_huc_dir")
 
     huc = str(re.search(r'\d+', ripple_model_name).group(0))
-    print(pre_clip_huc_dir)
 
     print(f'Merging nwm_streams with ripple.gpkg for HUC {huc}\n')
     log_text = f'Merging nwm_streams with ripple.gpkg for HUC {huc}\n'
@@ -91,7 +89,6 @@ def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_name):
     if os.path.exists(ripple_gpkg):
         ## List all layers in the GeoPackage
         # layers = fiona.listlayers(ripple_gpkg)
-        # print(layers)  # Find the correct layer name for your shapefile
 
         # Read just "reaches" layer
         layer_name1 = "reaches"
@@ -144,7 +141,6 @@ def merge_nwm_streams_with_ripples(metrix_dir, ripple_model_name):
 # ***************************************************************
 def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_name):
 
-    # ripple_models[rmi] = 'mip_05130202'
     huc = re.search(r'\d+', ripple_model_name).group(0)
 
     # Read metrics geopackage
@@ -177,7 +173,6 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_na
             conn2 = sqlite3.connect(dbpi)
             cursor2 = conn2.cursor()
             cursor2.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            # print(cursor.fetchall())  # This prints a list of table names
 
             # Read a table or SQL query into a DataFrame
             mm_df = pd.read_sql_query("SELECT * FROM model_metrics", conn2)
@@ -199,8 +194,8 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_na
 
             ripple_reaches_submod_gdf_d = gpd.read_file(path_ripple_reaches)
             ripple_reaches_submod_gdf = ripple_reaches_submod_gdf_d.drop_duplicates()
+            
             # Merge ripple_reaches_gdf with model_metrix_df
-
             ripple_reaches_metrix_gdf = ripple_reaches_submod_gdf.merge(
                 model_metrix_df, on='feature_id', how='left'
             )
@@ -218,7 +213,6 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_na
             )
             if not os.path.exists(path_ripple_reaches_metrix):
                 ripple_reaches_metrix_gdf.to_file(path_ripple_reaches_metrix)
-            # print(ripple_reaches_metrix_gdf[~ripple_reaches_metrix_gdf['model_id'].isna()])
 
             # Covariance of metrics
             corr_columns = [
@@ -251,8 +245,6 @@ def merge_ripple_reaches_sourcemodels_with_metrix_db(metrix_dir, ripple_model_na
             # Reorder the dataframe
             corr_matrix = corr_matrix[new_order]
 
-            # model_metrix_corr_ls.append(corr_matrix)
-            # print(corr_matrix)
             path_t0_save_corr = os.path.join(path_ripple_collection, f'ripple_reaches_order_corr_{huc}.csv')
             if not os.path.exists(path_t0_save_corr):
                 corr_matrix.to_csv(path_t0_save_corr, index=False)
@@ -302,7 +294,6 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
 
         ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf.replace('', np.nan)
         ripple_reaches_metrix_gdf = ripple_reaches_metrix_gdf.dropna(subset=['avg_inundation_overlap'])
-        # print(ripple_reaches_metrix_gdf[~ripple_reaches_metrix_gdf['model_id'].isna()])
 
         ripple_reaches_metrix_df = ripple_reaches_metrix_gdf.drop(columns=['geometry'])
         metrix_reaches_conus_ls.append(ripple_reaches_metrix_df)
@@ -333,7 +324,6 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
         # Now dissolve with this aggregation
         metrix_streams_gdf = ripple_reaches_metrix_gdf.dissolve(by='model_id', aggfunc=aggfunc).reset_index()
         metrix_streams_gdf['huc'] = [huc] * len(metrix_streams_gdf)
-        # metrix_streams_gdf.loc[:, 'huc'] = huc
 
         # Move the geometry to the end
         # List all columns except geometry
@@ -353,7 +343,6 @@ def create_ripple_STREAMS_gdf_csv(metrix_dir):
         metrix_streams_gdf = metrix_streams_gdf.replace('', np.nan)
         metrix_streams_gdf = metrix_streams_gdf.dropna(subset=['avg_inundation_overlap'])
 
-        # print(metrix_streams_gdf)
         # Save the gdf
         path_streams_metrix = os.path.join(metrix_dir, ripple_models[rmi], f'streams_metrix_{huc}.gpkg')
         if not os.path.exists(path_streams_metrix):
@@ -417,10 +406,9 @@ def process_ripple_STREAMS_create_blackList(metrix_dir):
     log_text += 'Start creating the black list ...\n'
 
     ripple_streams_metrix_df = gpd.read_file(path_ripple_streams)
-    # ripple_streams_metrix_df = ripple_streams_metrix_df_geo.drop(columns=['geometry'])  # drop_duplicates()
+    # ripple_streams_metrix_df = ripple_streams_metrix_df_geo.drop(columns=['geometry'])
     ripple_streams_metrix_df = ripple_streams_metrix_df.replace('', np.nan)
     ripple_streams_metrix_df = ripple_streams_metrix_df.dropna(subset=['avg_inundation_overlap'])
-    # print(ripple_streams_metrix_df_d[ripple_streams_metrix_df_d['model_id'].isna()])
 
     numeric_columns = [
         'order_',
@@ -689,7 +677,7 @@ if __name__ == '__main__':
 
     Sample usage:
 
-    python3 /data/ripple/terrain-agreement-metrics-analysis.py
+    python3 /data/ripple/terrain_agreement_metrics_analysis.py
     -md /outputs/NGWPC-tasks/terrain-agreements/test_pr/metrix_dir1/
 
     Note: You need to connect to the FIM docker to run this code.
@@ -702,48 +690,3 @@ if __name__ == '__main__':
     metrix_dir = args['metrix_dir']
 
     log_create_blacklist(metrix_dir)
-
-
-# # ***************************************************************
-# def plot_ripple_matrix(metrix_dir, ripple_reaches_metrix_gdf, ripple_model_name):
-
-#     huc = re.search(r'\d+', ripple_model_name).group(0)
-
-#     # Plotting
-#     cols = ripple_reaches_metrix_gdf.columns.tolist()[-12:-1]
-
-#     # We want a 10x10 grid for pairs of columns where column i != column j
-#     fig, axes = plt.subplots(10, 10, figsize=(20, 20),
-#                             sharex=False, sharey=False)
-#     colors = ['#FF0000', '#FF8C00', "#615303", '#32CD32', "#0FE7E0", '#0000FF', '#9400D3',
-#         "#DC148FB2", "#FD078A", '#D2691E', '#228B22', '#1E90FF', '#9370DB', '#B22222', '#FF6347']
-#     for i in range(10):
-#         for j in range(10):
-#             ax = axes[i, j]
-
-#             # Columns for X and Y axes
-#             x_col = cols[i]
-#             y_col = cols[j+1]  # shifted by 1 to get other columns if needed
-
-#             # Filter rows where both columns are non-NaN
-#             valid = ripple_reaches_metrix_gdf[[x_col, y_col]].dropna()
-
-#             # Scatter plot only if columns are different
-#             if x_col != y_col:
-#                 ax.scatter(valid[x_col], valid[y_col], s=5, alpha=0.5, color=colors[rmi])
-#                 ax.set_xlabel(x_col, fontsize=8)
-#                 ax.set_ylabel(y_col, fontsize=8)
-#             else:
-#                 # ax.text(0.5, 0.5, 'Same column', ha='center', va='center')
-#                 # ax.axis('off')
-#                 ax.set_visible(False)  # hides axis and everything inside
-
-#             # Adjust tick label font size for clarity
-#             ax.tick_params(axis='both', which='major', labelsize=6)
-
-#     fig.suptitle(ripple_model_name, fontsize=20, y=1.02)
-#     plt.tight_layout()
-#     # plt.show()
-#     path_t0_save_fig = os.path.join(metrix_dir, f'scatterplot_metrix_{huc}.png')
-#     if not os.path.exists(path_t0_save_fig):
-#         plt.savefig(path_t0_save_fig)
