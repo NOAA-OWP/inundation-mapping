@@ -72,6 +72,7 @@ def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=loggi
     """
     Creates and returns a logger that logs to the specified file.
     """
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
     logger = logging.getLogger(logger_name)
     logger.setLevel(level)
