@@ -328,9 +328,11 @@ def produce_inundated_branch_tif(
 
         # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
         #   are <= to hand_stage and the catchments value is in the hydroid_list.
+        is_alaska = str(huc)[:2] == '19'
+        output_dtype = 'uint8' if is_alaska else 'int16'
 
         reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
-            'int16'
+            output_dtype
         )
 
         # MP_LOG.trace(f"min of reclass_rem_array (min is {np.min(reclass_rem_array)} and max is {np.max(reclass_rem_array)}")
@@ -340,7 +342,7 @@ def produce_inundated_branch_tif(
         # clipped_hydroid_list = [str(x[-4:]) for x in hydroid_list]
         clipped_hydroid_list = []
         for i in hydroid_list:
-            clipped_str = str(i)[-4:]
+            clipped_str = str(i) if is_alaska else str(i)[-4:]
             clipped_hydroid_list.append(int(clipped_str))
 
         hydroid_mask = np.isin(catchments_array, clipped_hydroid_list)
@@ -349,13 +351,13 @@ def produce_inundated_branch_tif(
 
         target_catchments_array = np.where(
             ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
-        ).astype('int16')
+        ).astype(output_dtype)
 
         # MP_LOG.trace(f"min of target_catchments_array (min is {np.min(target_catchments_array)} and max is {np.max(target_catchments_array)}")
 
         masked_reclass_rem_array = np.where(
             ((reclass_rem_array >= 1) & (target_catchments_array >= 1)), 1, 0
-        ).astype('int16')
+        ).astype(output_dtype)
 
         # MP_LOG.trace(f"min of masked_reclass_rem_array (min is {np.min(masked_reclass_rem_array)} and max is {np.max(masked_reclass_rem_array)}")
 
