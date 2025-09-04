@@ -411,10 +411,13 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             sys.exit(0)
 
         # Select only the streams that are outlet
-
         outlets = gpd.sjoin(nwm_streams, gpd.GeoDataFrame(geometry=wbd.boundary)).drop(
             columns=['index_right']
         )
+
+        outlet_ids = set(outlets['ID'].to_list() + nwm_streams[nwm_streams['to'] == 0]['ID'].to_list())
+        outlets = nwm_streams[nwm_streams['ID'].isin(outlet_ids)]
+
         outlets = outlets[~outlets['to'].isin(streams_in_wbd['ID'])]
 
         if outlets.empty:
