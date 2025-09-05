@@ -1,7 +1,7 @@
 import argparse
 import csv
 import math
-
+import sys
 import requests
 
 
@@ -10,6 +10,7 @@ mile_to_km = 1.60934
 cfs_to_cms = 0.0283168
 Earth_radius_km = 6371
 NWPS_API = "https://api.water.noaa.gov/nwps/v1/reaches/{feature_id}"
+NWPS_API_gage = "https://api.water.noaa.gov/nwps/v1/gauges/{gage_id}"
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -30,7 +31,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return distance
 
 
-def create_fim_flow_file(start_feature_id, flow, distance, output_path):
+def trace_downstream(start_feature_id, flow, distance):
     """
     Trace down the NWM stream and creates a flow file.
     """
@@ -77,36 +78,62 @@ def create_fim_flow_file(start_feature_id, flow, distance, output_path):
             current_feature_id = int(downstream_list[0]['reachId'])
         else:
             current_feature_id = None
+    return reaches_to_write
 
-    print("======================================")
-    print(f"Trace complete: {reach_count} reaches.")
-
-    # Write to csv
-    with open(output_path, 'w', newline='') as csvfile:
-        fieldnames = ['feature_id', 'discharge']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(reaches_to_write)
+def get_feature_id_from_gage(gage_id):
+    try:
+        response_gage = requests.get(NWPS_API_gage.format(gage_id=gage_id))
+        response_gage.raise_for_status()
+        data_gage = response_gage.json()
+        reach_id_str = data_gage.get('reachId')
+        return int(reach_id_str)
+    except Exception as exc:
+        raise RuntimeError(f"failed to resolve gage {gage_id} to a reach: {exc}")
+def parse_list(values):
+    out=[]
+    if not values:
+        return out
+    for v in values:
+        for part in str(v).split(','):
+            part = part.strip()
+            if part:
+                out.append(part)
+    return out
 
 
 if __name__ == "__main__":
     """
     Example usage:
+    Example1:
     python3 /foss_fim/tools/generate_custom_flow_files.py
     -feature_id 23021904
     -cfs 20000
     -mile 10
     -o /output/custom_flows.csv
+
+    Example2:
+    python3 /foss_fim/tools/generate_custom_flow_files.py
+    -feature_id 24228229,6129039
+    -cfs 20000 25000
+    -mile 10
+    -o /output/custom_flows.csv
+
+    Example3:
+    python3 /foss_fim/tools/generate_custom_flow_files.py
+    -gage ANAW1 13324300
+    -cms 120 50
+    -mile 10
+    -o /output/custom_flows.csv    
     """
     parser = argparse.ArgumentParser(description="Generate a FIM flow file by tracing downstream reaches.")
     id_group = parser.add_mutually_exclusive_group(required=True)
-    id_group.add_argument("-feature_id", type=int, help="Starting reach feature ID (integer)")
+    id_group.add_argument("-feature_id", nargs='+', type=str, help="Starting reach feature ID(s) (integer or comma-separated)")
     id_group.add_argument(
-        "-gage", help="The gauge's unique identifier, LID or USGS ID. Example: ANAW1 or 13334300"
+        "-gage",nargs='+', type=str, help="The gauge, LID or USGS ID(s). Example: ANAW1 or 13334300"
     )
     flow_group = parser.add_mutually_exclusive_group(required=True)
-    flow_group.add_argument("-cms", type=float, help="Flow value in cms")
-    flow_group.add_argument("-cfs", type=float, help="Flow value in cfs")
+    flow_group.add_argument("-cms", type=float,nargs='+', help="Flow value in cms")
+    flow_group.add_argument("-cfs", type=float,nargs='+', help="Flow value in cfs")
     distance_group = parser.add_mutually_exclusive_group(required=True)
     distance_group.add_argument("-mile", type=float, help="Target downstream distance in mile")
     distance_group.add_argument("-km", type=float, help="Target downstream distance in km")
@@ -115,27 +142,45 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Handel feature_id and LID or USGS ID
-    if args.feature_id is not None:
-        start_feature_id = args.feature_id
+    start_feature_id = []
+    if args.feature_id:
+        raw_feature_ids = parse_list(args.feature_id)
+        start_feature_id = [int(x) for x in raw_feature_ids]
     else:
-        NWPS_API_gage = "https://api.water.noaa.gov/nwps/v1/gauges/{gage_id}"
-        response_gage = requests.get(NWPS_API_gage.format(gage_id=args.gage))
-        response_gage.raise_for_status()
-        data_gage = response_gage.json()
-        reach_id_str = data_gage.get('reachId')
-        start_feature_id = int(reach_id_str)
+        raw_gages = parse_list(args.gage)
+        for g in raw_gages:
+            fid = get_feature_id_from_gage(g)
+            print(f"Gage {g} -> start feature_id {fid}")
+            start_feature_id.append(fid)
 
     # Handle flow and distance unit
     if args.cms is not None:
-        flow = args.cms
+        flow = list(args.cms)
     else:
-        flow = args.cfs * cfs_to_cms
+        flow = [q * cfs_to_cms for q in args.cfs]
+    
+    # If a single flow given, use it for all sites
+    if len(flow) == 1 and len(start_feature_id) > 1:
+        flow = flow * len(start_feature_id)
+    if len(flow) != len(start_feature_id):
+        print('Error: number of flows must be 1 or equal to number of start sites/feature_ids')
+        sys.exit(1)
 
     if args.km is not None:
         distance = args.km
     else:
         distance = args.mile * mile_to_km
 
-    create_fim_flow_file(
-        start_feature_id=start_feature_id, flow=flow, distance=distance, output_path=args.output
-    )
+    # collect rows
+    all_row = []
+    for site , flow_val in zip(start_feature_id, flow):
+        rows = trace_downstream(start_feature_id=site, flow=flow_val, distance=distance)
+        all_row.extend(rows)
+    
+    # save as a csv
+    with open(args.output, 'w', newline='') as csvfile:
+        fieldnames = ['feature_id', 'discharge']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(all_row)
+
