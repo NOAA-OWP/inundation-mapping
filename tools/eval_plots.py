@@ -574,6 +574,9 @@ def eval_plots(
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metrics_csv, dtype={'huc': str})
 
+    # Ensure all HUC values are 8 characters long with leading zeros if needed
+    csv_df['huc'] = csv_df['huc'].str.zfill(8)
+
     # If versions are supplied then filter out
     if versions:
         # Filter out versions based on supplied version list
