@@ -2,6 +2,7 @@ import argparse
 import csv
 import math
 import sys
+
 import requests
 
 
@@ -80,6 +81,7 @@ def trace_downstream(start_feature_id, flow, distance):
             current_feature_id = None
     return reaches_to_write
 
+
 def get_feature_id_from_gage(gage_id):
     try:
         response_gage = requests.get(NWPS_API_gage.format(gage_id=gage_id))
@@ -89,8 +91,10 @@ def get_feature_id_from_gage(gage_id):
         return int(reach_id_str)
     except Exception as exc:
         raise RuntimeError(f"failed to resolve gage {gage_id} to a reach: {exc}")
+
+
 def parse_list(values):
-    out=[]
+    out = []
     if not values:
         return out
     for v in values:
@@ -123,17 +127,19 @@ if __name__ == "__main__":
     -gage ANAW1 13324300
     -cms 120 50
     -mile 10
-    -o /output/custom_flows.csv    
+    -o /output/custom_flows.csv
     """
     parser = argparse.ArgumentParser(description="Generate a FIM flow file by tracing downstream reaches.")
     id_group = parser.add_mutually_exclusive_group(required=True)
-    id_group.add_argument("-feature_id", nargs='+', type=str, help="Starting reach feature ID(s) (integer or comma-separated)")
     id_group.add_argument(
-        "-gage",nargs='+', type=str, help="The gauge, LID or USGS ID(s). Example: ANAW1 or 13334300"
+        "-feature_id", nargs='+', type=str, help="Starting reach feature ID(s) (integer or comma-separated)"
+    )
+    id_group.add_argument(
+        "-gage", nargs='+', type=str, help="The gauge, LID or USGS ID(s). Example: ANAW1 or 13334300"
     )
     flow_group = parser.add_mutually_exclusive_group(required=True)
-    flow_group.add_argument("-cms", type=float,nargs='+', help="Flow value in cms")
-    flow_group.add_argument("-cfs", type=float,nargs='+', help="Flow value in cfs")
+    flow_group.add_argument("-cms", type=float, nargs='+', help="Flow value in cms")
+    flow_group.add_argument("-cfs", type=float, nargs='+', help="Flow value in cfs")
     distance_group = parser.add_mutually_exclusive_group(required=True)
     distance_group.add_argument("-mile", type=float, help="Target downstream distance in mile")
     distance_group.add_argument("-km", type=float, help="Target downstream distance in km")
@@ -158,7 +164,7 @@ if __name__ == "__main__":
         flow = list(args.cms)
     else:
         flow = [q * cfs_to_cms for q in args.cfs]
-    
+
     # If a single flow given, use it for all sites
     if len(flow) == 1 and len(start_feature_id) > 1:
         flow = flow * len(start_feature_id)
@@ -173,14 +179,13 @@ if __name__ == "__main__":
 
     # collect rows
     all_row = []
-    for site , flow_val in zip(start_feature_id, flow):
+    for site, flow_val in zip(start_feature_id, flow):
         rows = trace_downstream(start_feature_id=site, flow=flow_val, distance=distance)
         all_row.extend(rows)
-    
+
     # save as a csv
     with open(args.output, 'w', newline='') as csvfile:
         fieldnames = ['feature_id', 'discharge']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(all_row)
-
