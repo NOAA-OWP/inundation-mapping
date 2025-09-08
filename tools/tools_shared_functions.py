@@ -1382,7 +1382,7 @@ def get_rating_curve(rating_curve_url, location_ids):
     # Define DataFrame to contain all returned curves.
     all_curves = pd.DataFrame()
 
-    print(location_ids)
+    # print(location_ids)
     # Define call to retrieve all rating curve information from WRDS.
     joined_location_ids = '%2C'.join(location_ids)
     url = f'{rating_curve_url}/{joined_location_ids}'

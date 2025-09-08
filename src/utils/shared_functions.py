@@ -8,7 +8,7 @@ import re
 import sys
 import threading
 import traceback
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed, Future
 from datetime import datetime, timezone
 from multiprocessing import Manager
 from os.path import splitext
@@ -27,6 +27,46 @@ import utils.shared_variables as sv
 gp.options.io_engine = "pyogrio"
 
 
+# This one is a standard Python logger, not meant for multi-proc
+def setup_file_logger(
+    output_log_folder_path, prepend_log_file_name):
+
+    # This writes to both the screen and the file level at the same time.
+    start_time = datetime.now(timezone.utc)
+    file_dt_string = start_time.strftime("%Y%m%d_%H%M")
+    os.makedirs(output_log_folder_path, exist_ok=True)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    # logger.propagate = False # Prevent propagation to the root logger
+
+    # basic screen handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    # no formatter
+
+    # # # error file handler
+    # # err_log_file_name = f"{prepend_log_file_name}-error-{file_dt_string}.log"
+    # # err_log_file_path = os.path.join(output_log_folder_path, err_log_file_name)
+    # # err_file_handler = logging.FileHandler(err_log_file_path)
+    # # err_file_handler.setLevel(logging.ERROR)
+    # # err_file_handler.setFormatter(formatter)
+
+    # # basic file handler
+    log_file_name = f"{prepend_log_file_name}-{file_dt_string}.log"
+    log_file_path = os.path.join(output_log_folder_path, log_file_name)
+    file_handler = logging.FileHandler(log_file_path)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s : %(message)s")
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.DEBUG)
+
+    logger.handlers.clear()  # reset the custom logger settings below
+    # order matters here
+    logger.addHandler(file_handler)    
+    logger.addHandler(console_handler)    
+
+
+# This one is more designed to be for multi-proc as it has logger names
 def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
     """
     Creates and returns a logger that logs to the specified file.
@@ -81,69 +121,87 @@ def run_with_mp(
         - use file_logger.info() to log the message in the log file
     '''
 
-    screen_queue = (
-        Manager().Queue()
-    )  # creates a process-safe Queue that allows subprocesses to put() messages into it.
+    # abort_process = False
 
-    # Background thread to print logs without interrupting tqdm
-    def log_worker(queue):
-        while True:
-            msg = queue.get()
-            if msg == "DONE":  # this must match the last message passed to screen_queue
-                break
-            tqdm.write(msg)
+    try:
+        screen_queue = (
+            Manager().Queue()
+        )  # creates a process-safe Queue that allows subprocesses to put() messages into it.
 
-    screen_queue_thread = threading.Thread(
-        target=log_worker, args=(screen_queue,)
-    )  # this (from the main process)) reads screen_queues and prints on screen.
-    screen_queue_thread.start()
+        # Background thread to print logs without interrupting tqdm
+        def log_worker(queue):
+            while True:
+                msg = queue.get()
+                if msg == "DONE":  # this must match the last message passed to screen_queue
+                    break
+                tqdm.write(msg)
 
-    results = {}
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        future_to_id = {}
-        for i, task_kwargs in enumerate(tasks_args_list):  # for each dictionary of keyword arguments (kwargs)
-            task_id = f"Task-{i}"
-            if task_id_key:
-                task_id = task_kwargs.get(
-                    task_id_key, task_id
-                )  # this make a unique id (e.g. HUC number) for the task
+        screen_queue_thread = threading.Thread(
+            target=log_worker, args=(screen_queue,)
+        )  # this (from the main process)) reads screen_queues and prints on screen.
+        # screen_queue_thread.daemon = True
+        screen_queue_thread.start()
 
-            # also pass the loggers and task id
-            kwargs_updated = task_kwargs.copy()
-            kwargs_updated["file_logger"] = file_logger
-            kwargs_updated["screen_queue"] = screen_queue
-            kwargs_updated["task_id"] = task_id
+        results = {}
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            future_to_id = {}
+            # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below
+            # Setup tqdm progress bar
+            pbar = tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") if show_progress else None
+            # with tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") as pbar:
+            try:        
+                for i, task_kwargs in enumerate(tasks_args_list):  # for each dictionary of keyword arguments (kwargs)
+                    task_id = f"Task-{i}"
+                    if task_id_key:
+                        task_id = task_kwargs.get(
+                            task_id_key, task_id
+                        )  # this make a unique id (e.g. HUC number) for the task
 
-            future = executor.submit(
-                task_function, **kwargs_updated
-            )  # submits tasks to workers in parallel. IMMEDIATELY after submitting (not after finishing the subprocess job) we get back a Future object, which is like a order number to track your requested food in a restaurant while waiting).
-            future_to_id[future] = task_id
+                    # also pass the loggers and task id
+                    kwargs_updated = task_kwargs.copy()
+                    kwargs_updated["file_logger"] = file_logger
+                    kwargs_updated["screen_queue"] = screen_queue
+                    kwargs_updated["task_id"] = task_id
 
-        # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below
-        # Setup tqdm progress bar
-        pbar = tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") if show_progress else None
-        # with tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") as pbar:
-        for future in as_completed(future_to_id):
-            task_id = future_to_id[future]
-            try:
-                # note that try/except here only worries about running and catching catastrophic errors. Specifc errors must be addressed inside the task function
-                # note that the try except inside task function always return (which is result here) True or False
-                result = future.result()
-                results[task_id] = result
-                if result:
-                    if show_progress:
-                        tqdm.write(
-                            f"✅ success for {task_id}"
-                        )  # do not use print otherwise a new updated bar is created after each print line
+                    future = executor.submit(
+                        task_function, **kwargs_updated
+                    )  # submits tasks to workers in parallel. IMMEDIATELY after submitting (not after finishing the subprocess job) we get back a Future object, which is like a order number to track your requested food in a restaurant while waiting).
+                    future_to_id[future] = task_id
+
+                for future in as_completed(future_to_id):
+                    task_id = future_to_id[future]
+                    
+                    # file_logger.info(f"usgs location_id (usgs_site_code) id of {task_id} is back from processing")
+                    # note that try/except here only worries about running and catching catastrophic errors. Specifc errors must be addressed inside the task function
+                    # note that the try except inside task function always return (which is result here) True or False
+                    
+                    # This tool assumes that something is always returned
+                    result = future.result()
+
+                    if result is not None:
+                        if show_progress:
+                            # tqdm.write(
+                            #     f"✅ success for {task_id}"
+                            # )  # do not use print otherwise a new updated bar is created after each print line
+                            file_logger.info(f"✅ success for {task_id}")
+                        else:
+                            # print(f"✅ success for {task_id}")
+                            file_logger.info(f"✅ success for {task_id}")
                     else:
-                        print(f"✅ success for {task_id}")
-                    file_logger.info(f"✅ success for {task_id}")
-                else:
-                    if show_progress:
-                        tqdm.write(f"❌ Error reported for {task_id}.")
-                    else:
-                        print(f"❌ Error reported for {task_id}.")
-                    file_logger.info(f"❌ Error reported for {task_id}.")
+                        if show_progress:
+                            tqdm.write(f"❌ Error or Warning reported for {task_id}.")
+                        else:
+                            # print(f"❌ Error or Warning reported for {task_id}.")
+                            file_logger.info(f"❌ Error or Warning reported for {task_id}.")
+                    
+                    results[task_id] = result
+
+                    if pbar:
+                        # print("task bar being updated")
+                        pbar.update(1)  # ✅ Progress update for each completed task
+
+                if pbar:  # close once all of them come back but only if there are no errors
+                    pbar.close()
 
             except Exception as ex:
                 error_msg = f"❌ Error for {task_id}: {ex}"
@@ -159,21 +217,50 @@ def run_with_mp(
                 results[task_id] = None
 
                 if exit_on_failure:
+                    print("++++++++++++")
                     dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                     final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
                     file_logger.critical(final_msg)
+                    print(final_msg, flush=True)
+                    
+                    # if pbar:  # TQDM can hang even though it is an exception as it was caught
+                    #     pbar.close()
+
+                    file_logger.info("Process pool shutting down")
+                    print("Process pool shutting down. This may take a while depending on how many jobs.", flush=True)
+                    print("", flush=True)
                     executor.shutdown(
-                        wait=False
+                        wait=False, cancel_futures=True
                     )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
-                    sys.exit(1)
+                    # sys.exit(1)  Can not exit here as there is a thread in play and it is super hard to officially kill
+                    # Python threads are not meant to be explictly aborted, just skip further processing, then 
+                    # sys.exit(1) after you manually close the thread
+                    # Tried to manually close the thread here, but other things were holding on and
+                    # making the process hang, not truly killing the program.
 
-            if pbar:
-                pbar.update(1)  # ✅ Progress update for each completed task
-        if pbar:
-            pbar.close()
+                    screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+                    screen_queue_thread.join()  # official closure of thread
 
-    screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-    screen_queue_thread.join()  # official closure of thread
+                    # throw it again to help shut down objects like the queues
+                    raise Exception("Shutting down. Cleaning up caches and objects....")
+                                  
+                    # abort_process = True                
+                else:  # keep going even if one MP submit fails
+                    if pbar:
+                        pbar.update(1)  # ✅ Progress update for each completed task
+
+        screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+        screen_queue_thread.join()  # official closure of thread
+
+        # if abort_process:
+        #     print("Program is shutting down", flush=True)
+        #     sys.exit(1)
+            
+    except Exception as ex2:
+        print("Still shutting down, hang in there", flush=True)
+        print(ex2, flush=True)
+        sys.exit(1)
+
     return results
 
 
