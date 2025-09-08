@@ -2,6 +2,7 @@
 import argparse
 import logging
 import os
+import shutil
 import sys
 import traceback
 from datetime import datetime, timezone
@@ -171,10 +172,19 @@ def set_global_env(env_file):
 
 # Can not use the one from Shared_functions as we need to build up a 
 # concat of dataframes
+
+
+# TODO: likely don't need usgs_site_code if we have the task id
+
+
+
 def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, file_logger, screen_queue, task_id):
     
     # Get datum information for site (only need usgs_data)
     file_logger.info(f"Getting rating curves for usgs location id of {usgs_site_code}")
+    
+    # debug... if you are in mp and want screen only, use screen_queue
+    # screen_queue.put(f"testing my mp code {usgs_site_code}")
     
     # for debugging, shut off when in real mode so it uses the progress bar.
     # screen_queue.put(f"Getting rating curves for usgs location id of {usgs_site_code}")
@@ -203,11 +213,11 @@ def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, 
     if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
         if usgs['vcs'] == 'LMSL':
             navd88_datum = usgs['datum']
-            file_logger.info(f'{location_id}: site is in PR, VI, or HI, so datum kept as LMSL')
+            file_logger.debug(f'{location_id}: site is in PR, VI, or HI, so datum kept as LMSL')
         else:
             # If the site is in PR, VI, or HI, and has a datum other than LMSL, return an error.
             datum_name = usgs['vcs']
-            message = f'{location_id}: Removed because site is located PR,'
+            message = f'{location_id}: Removed because site is located PR,' \
             f'VI, or HI but has a datum other than LMSL ({datum_name})'
             file_logger.warning(message)
             return None
@@ -234,11 +244,11 @@ def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, 
 
             # If datum adjustment succeeded, calculate datum in NAVD88
             navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
-            file_logger.info(f'{location_id}: succesfully converted NGVD29 to NAVD88')
+            file_logger.debug(f'{location_id}: succesfully converted NGVD29 to NAVD88')
 
         elif usgs['vcs'] == 'NAVD88':
             navd88_datum = usgs['datum']
-            file_logger.info(f'{location_id}: already NAVD88')
+            file_logger.debug(f'{location_id}: already NAVD88')
 
         elif usgs['vcs'] == 'LMSL':
             # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site.
@@ -261,7 +271,7 @@ def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, 
     curve['navd88_datum'] = navd88_datum
     curve['elevation_navd88'] = curve['stage'] + navd88_datum
 
-    file_logger.info(f"Done rating curves for usgs location id of {usgs_site_code}")
+    file_logger.debug(f"Done rating curves for usgs location id of {usgs_site_code}")
     
     # for debugging, shut off when in real mode so it uses the progress bar.    
     # screen_queue.put(f"Done rating curves for usgs location id of {usgs_site_code}")
@@ -285,7 +295,7 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
         # Sept 2025: Is this right? If we send in a list of sites, it does not
         # include the filter of "must_include = 'usgs_data.active'" which is used
         # when we use the "get_all_active_usgs_sites"
-        logging.info(f"Selected sites : {selector}")
+        logging.info(f"Getting metadata for selected sites : {selector}")
 
         # Since there is a limit to number characters in url, split up selector if too many sites.
         max_sites = 20  # Can we go more than 20? do we want to?
@@ -335,8 +345,84 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
     return sites_gdf, metadata_list
 
 
+def __attrib_mainstems(sites_gdf, all_rating_curves, output_dir, file_date_append):
+
+    # Add mainstems attribute to acceptable sites
+    section_start_dt = datetime.now(timezone.utc)
+    display_dt_string = section_start_dt.strftime("%m/%d/%Y %H:%M:%S")
+    logging.info(f"Attributing mainstems sites started: {display_dt_string} (UTC)")
+    # Rename columns and add attribute indicating if rating curve exists
+    sites_gdf.rename(
+        columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True
+    )
+    sites_with_data = pd.DataFrame(
+        {'location_id': all_rating_curves['location_id'].unique(), 'curve': 'yes'}
+    )
+    sites_gdf = sites_gdf.merge(sites_with_data, on='location_id', how='left')
+    sites_gdf.fillna({'curve': 'no'}, inplace=True)
+
+    # Import mainstems segments to be used in run_by_unit.sh
+    ms_df = gpd.read_file(NWM_FLOWS_MS)
+    ms_segs = ms_df.ID.astype(str).to_list()  # Yes.. required (sites_gdf.eval below)
+
+    # Populate mainstems attribute field
+    sites_gdf['mainstem'] = 'no'
+    sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
+
+    # Debugging tool
+    # sites_gdf.to_csv(os.path.join(output_dir, f'acceptable_sites_pre_{file_date_append}.csv'))
+
+    sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+    sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
+
+    display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+    # logging.info(f"Recasting... {dt_string} (UTC) ")
+
+    sites_gdf = sites_gdf.astype({'metadata_sources': str})
+
+    # TODO: Figure out if we have a use for sites_bool_flags.gpkg and add this back in if needed.
+    # # -- Filter all_rating_curves according to acceptance criteria -- #
+    # # -- We only want acceptable gages in the rating curve CSV -- #
+    # sites_gdf['acceptable_codes'] = (
+    #     sites_gdf['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+    #     & sites_gdf['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+    #     & sites_gdf['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+    #     & sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
+    # )
+    # sites_gdf = sites_gdf.astype({'usgs_data_alt_accuracy_code': float})
+    # sites_gdf['acceptable_alt_error'] = np.where(
+    #     sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
+    # )
+
+    # sites_gdf.to_file(os.path.join(output_dir, 'sites_bool_flags.gpkg'), driver='GPKG', engine='fiona')
+
+    # -- Filter out non stream sites-- #
+    # -- The other acceptance criteria will be filtered out the scripts where the data is used -- #
+    sites_gdf['acceptable_site_type'] = sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
+
+    # Filter to acceptable sites and save filtered sites file for viewing
+    acceptable_sites_gdf = sites_gdf[sites_gdf['acceptable_site_type'] == True]
+    acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
+
+    display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+    logging.info(f"Saving acceptable rating curve files... {display_dt_string} (UTC) ")
+    acceptable_sites_gdf.to_csv(
+        os.path.join(output_dir, f'acceptable_sites_for_rating_curves_{file_date_append}.csv')
+    )
+    acceptable_sites_gdf.to_file(
+        os.path.join(output_dir, f'acceptable_sites_for_rating_curves_{file_date_append}.gpkg'),
+        driver='GPKG',
+        engine='fiona',
+    )
+
+    # Make list of acceptable sites
+    acceptable_sites_list = acceptable_sites_gdf['location_id'].tolist()
+    
+    return acceptable_sites_list
+
+
 # Generate USGS rating curves
-def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir=""):
+def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
     '''
 
     Returns rating curves, for a set of sites, adjusted to elevation NAVD.
@@ -350,7 +436,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir=""):
         5.  Convert rating curve to absolute elevation (NAVD) and store in DataFrame
         6.  Append all rating curves to a master DataFrame.
 
-    Outputs, if an output_dir is specified, are:
+    Outputs:
         Note: All files have today's date appended.
 
         usgs_rating_curves_{date}.csv -- A csv containing USGS rating curve as well
@@ -386,7 +472,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir=""):
         function to filter out sites that meet certain requirements across CONUS.
 
     output_dir : STR
-        Directory, if specified, where output csv is saved. OPTIONAL, Default is False.
+        Directory, if specified, where output csv is saved.
 
     num_jobs : INT
         Number of jobs (workers) used for multi-proc.
@@ -442,44 +528,44 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir=""):
     rating_curve_url = f'{API_BASE_URL}/rating_curve'
 
     # Create output_dir directory if it doesn't exist
+    if output_dir == "":
+        raise ValueError("Output dir parameter can not be empty")
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
     overall_start_dt = datetime.now(timezone.utc)
     file_date_append = overall_start_dt.strftime("%Y%m%d")
-
-    dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-
-    # __setup_logger(output_dir)
+    file_datetime_string = overall_start_dt.strftime("%Y%m%d-%H%M")    
+    display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
     
-    # setup local default Python non MP logger (seperate from the mp logger)
-    sf.setup_file_logger(output_dir, "get_rating_curves")
+    log_file_name = f"get_rating_curves-{file_datetime_string}.log"
+    log_file_path = os.path.join(output_dir, log_file_name)    
+    sf.setup_file_logger(log_file_path)
+    # file_logger = sf.setup_mp_file_logger(log_file_path)
 
     try:
         logging.info("Retrieving new USGS rating curves")
-        logging.info(f"Started {dt_string} (UTC)")
+        logging.info(f"Started {display_dt_string} (UTC)")
         print()
         print(f"Saving results in {output_dir}")
         print()
 
         # If 'all' option passed to list of gages sites, it retrieves all sites within CONUS.
         section_start_dt = datetime.now(timezone.utc)
-        logging.info(f"Retrieving metadata: {dt_string} (UTC)")
+        logging.info(f"Retrieving metadata")
 
         # This part usually only takes a few mins (up to 8 mins(ish) )
         sites_gdf, metadata_list = __get_usgs_metadata(list_of_gage_sites, metadata_url)
 
-        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-        logging.info(f"Retrieving metadata and agg by HUCs complete: {dt_string} (UTC)")
-        logging.info(dur_msg)
-        logging.info("=============")
+        logging.info(f"Retrieving metadata and agg by HUCs complete: {display_dt_string} (UTC); {dur_msg}")
 
         # Create DataFrame to store all appended rating curves
         # print('Processing metadata...')
         section_start_dt = datetime.now(timezone.utc)
-        dt_string = section_start_dt.strftime("%m/%d/%Y %H:%M:%S")
-        logging.info(f"Processing metadata started: {dt_string} (UTC)")
+        display_dt_string = section_start_dt.strftime("%m/%d/%Y %H:%M:%S")
+        logging.info(f"Processing metadata started: {display_dt_string} (UTC)")
         all_rating_curves = pd.DataFrame()
 
         # For each site in metadata_list
@@ -492,6 +578,8 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir=""):
         # Use MP and not Threading. Why? We do a tons of WRDS calls and we 
         # don't want to overload the network pipe. Threading is best for high computational
         # and not when calling external or making multiple calls to the disks.
+        # If we need to later, we can make a seperate log per mp and roll them up togehter
+        # see FIM_logger.merge_log_files
         tasks_args_list = []
         for i in range(len(metadata_list)):
             metadata_json = metadata_list[i]
@@ -515,24 +603,33 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir=""):
         sorted_tasks_args_list = sorted(tasks_args_list, key=lambda x: ['usgs_site_code'])
                
         # setup the mp logger
-        file_dt_string = overall_start_dt.strftime("%Y%m%d-%H%M")
-        # mp_log_file_path = os.path.join(output_dir, f"get_rating_curves-mp-{file_dt_string}.log")
-        
         # TODO: test with exceptions and see if this still works with multiple loggers in place.
-        # mp_logger = sf.setup_mp_file_logger(mp_log_file_path)
-
+        # TODO: not sure but might be file collisons with many MP's trying to write to one file
+        # at the same time. For now, we will jsut let MP have its own in case it gets hung up
+        # if the MP gets hung up or throws and exception, if mp log was used script wide
+        # it can hang up the entire script as it has a reference from inside the mp to this
+        # parent script.
+        mp_log_file_path = os.path.join(output_dir, f"get_rating_curves-mp-{file_datetime_string}.log")
+        mp_logger = sf.setup_mp_file_logger(mp_log_file_path)
         list_rating_curves_dfs = sf.run_with_mp(
             task_function=__mp_get_site_rating_curve,
             tasks_args_list=sorted_tasks_args_list,
-            file_logger=logging.getLogger(),
+            # file_logger=fim_logger,
+            file_logger=mp_logger,
+            # file_logger=logging.getLogger(),
             max_workers=num_jobs,
             task_id_key='usgs_site_code',
             exit_on_failure=True,
             show_progress=True,
         )
 
-        # file_logger=mp_logger,
-
+        # Roll the mp log into the master log.
+        with open(mp_log_file_path, 'r') as src_file:
+            with open(log_file_path, 'a') as master_log_file:
+                shutil.copyfileobj(src_file, master_log_file)
+        os.remove(mp_log_file_path)
+        
+        # more processing of rating curves
         if len(list_rating_curves_dfs) == 0:
             logging.error("There are no acceptable sites. Stopping program.")
             sys.exit(1)
@@ -540,96 +637,23 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir=""):
         all_rating_curves = pd.concat(list_rating_curves_dfs)
         logging.info(f"Number of sites to processes with metadata: {len(all_rating_curves)}")
 
-        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-        logging.info(f"Processing metadata complete: {dt_string} (UTC)")
-        logging.info(dur_msg)
+        logging.info(f"Processing metadata complete: {display_dt_string} (UTC); {dur_msg}")
         logging.info("=============")
 
         # Error out with messages if no rating curves made it past the datum checks
         if len(all_rating_curves) == 0:
-            logging.error('ERROR: No rating curves to compile.')
-            sys.exit()
-
-        # Add mainstems attribute to acceptable sites
-        section_start_dt = datetime.now(timezone.utc)
-        dt_string = section_start_dt.strftime("%m/%d/%Y %H:%M:%S")
-        logging.info(f"Attributing mainstems sites started: {dt_string} (UTC)")
-        # Rename columns and add attribute indicating if rating curve exists
-        sites_gdf.rename(
-            columns={'nwm_feature_id': 'feature_id', 'usgs_site_code': 'location_id'}, inplace=True
-        )
-        sites_with_data = pd.DataFrame(
-            {'location_id': all_rating_curves['location_id'].unique(), 'curve': 'yes'}
-        )
-        sites_gdf = sites_gdf.merge(sites_with_data, on='location_id', how='left')
-        sites_gdf.fillna({'curve': 'no'}, inplace=True)
-
-        # Import mainstems segments to be used in run_by_unit.sh
-        ms_df = gpd.read_file(NWM_FLOWS_MS)
-        ms_segs = ms_df.ID.astype(str).to_list()  # Yes.. required (sites_gdf.eval below)
-
-        # Populate mainstems attribute field
-        sites_gdf['mainstem'] = 'no'
-        sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
-
-        # Debugging tool
-        # sites_gdf.to_csv(os.path.join(output_dir, f'acceptable_sites_pre_{file_date_append}.csv'))
-
-        sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-        sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
-
-        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-        logging.info(f"Recasting... {dt_string} (UTC) ")
-
-        sites_gdf = sites_gdf.astype({'metadata_sources': str})
-
-        # TODO: Figure out if we have a use for sites_bool_flags.gpkg and add this back in if needed.
-        # # -- Filter all_rating_curves according to acceptance criteria -- #
-        # # -- We only want acceptable gages in the rating curve CSV -- #
-        # sites_gdf['acceptable_codes'] = (
-        #     sites_gdf['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
-        #     & sites_gdf['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
-        #     & sites_gdf['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
-        #     & sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
-        # )
-        # sites_gdf = sites_gdf.astype({'usgs_data_alt_accuracy_code': float})
-        # sites_gdf['acceptable_alt_error'] = np.where(
-        #     sites_gdf['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
-        # )
-
-        # sites_gdf.to_file(os.path.join(output_dir, 'sites_bool_flags.gpkg'), driver='GPKG', engine='fiona')
-
-        # -- Filter out non stream sites-- #
-        # -- The other acceptance criteria will be filtered out the scripts where the data is used -- #
-        sites_gdf['acceptable_site_type'] = sites_gdf['usgs_data_site_type'].isin(acceptable_site_type_list)
-
-        # Filter to acceptable sites and save filtered sites file for viewing
-        acceptable_sites_gdf = sites_gdf[sites_gdf['acceptable_site_type'] == True]
-        acceptable_sites_gdf = acceptable_sites_gdf[acceptable_sites_gdf['curve'] == 'yes']
-
-        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-        logging.info(f"Saving acceptable rating curve files... {dt_string} (UTC) ")
-        acceptable_sites_gdf.to_csv(
-            os.path.join(output_dir, f'acceptable_sites_for_rating_curves_{file_date_append}.csv')
-        )
-        acceptable_sites_gdf.to_file(
-            os.path.join(output_dir, f'acceptable_sites_for_rating_curves_{file_date_append}.gpkg'),
-            driver='GPKG',
-            engine='fiona',
-        )
-
-        # Make list of acceptable sites
-        acceptable_sites_list = acceptable_sites_gdf['location_id'].tolist()
+            logging.error('ERROR: No rating curves to compile. Program aborting.')
+            sys.exit(1)
 
         # Filter out all_rating_curves by list
+        acceptable_sites_list = __attrib_mainstems(sites_gdf, all_rating_curves, output_dir, file_date_append)
         all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
 
         # dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-        dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-        logging.info(f"Attributing mainstems sites done: {dt_string} (UTC)")
-        # logging.info(dur_msg)
-        logging.info("=============")
+        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+        logging.info(f"Attributing mainstems sites done: {display_dt_string} (UTC)")
 
         # If output_dir is specified, write data to file.
         if output_dir:
@@ -645,14 +669,13 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir=""):
 
                 sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 
-            dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-            logging.info(f"usgs gage files created: {dt_string} (UTC)")
-            logging.info("=============")
+            display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+            logging.info(f"usgs gage files created: {display_dt_string} (UTC)")
 
             # Write out flow files for each threshold across all sites
             section_start_dt = datetime.now(timezone.utc)
-            dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-            logging.info(f"Getting stage discharge values - started: {dt_string} (UTC)")
+            display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+            logging.info(f"Getting stage discharge values - started: {display_dt_string} (UTC)")
 
 
             # TODO... ADD MP here as well
@@ -663,66 +686,22 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir=""):
             
             
 
-            dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+            display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
             dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-            logging.info(f"Getting stage discharge values - complete: {dt_string} (UTC)")
-            logging.info(dur_msg)
-            logging.info("=============")
+            logging.info(f"Getting stage discharge values - complete: {display_dt_string} (UTC); {dur_msg}")
 
         else:
             logging.info("No output_dir specified, no output files written.")
     except Exception:
         logging.critical(traceback.format_exc())
 
-    dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+    display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
     dur_msg = fh.print_date_time_duration(overall_start_dt, datetime.now(timezone.utc), False)
-    logging.info(f"Program complete: {dt_string} (UTC)")
+    logging.info(f"Program complete: {display_dt_string} (UTC)")
     logging.info(dur_msg)
     print("-------------------------------------------------------------------------")
 
     return all_rating_curves
-
-
-# def __setup_logger(output_folder_path):
-#     '''
-#     Prints to log file and screen at the same time.
-
-#     Note: This does not work well for MP if it is trying to write to a shared log file
-#     Best to let each MP create its own log, then merge at the end of each cycle
-#     '''
-#     start_time = datetime.now(timezone.utc)
-#     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-#     log_file_name = f"get_rating_curves-{file_dt_string}.log"
-
-#     log_file_path = os.path.join(output_folder_path, log_file_name)
-
-#     # Create a logger
-#     logger = logging.getLogger()
-#     logger.setLevel(logging.DEBUG)
-
-#     # Create a formatter to define the log format
-#     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
-#     # Create a file handler to write logs to a file
-#     file_handler = logging.FileHandler(log_file_path)
-#     # You can set the desired log level for file output, but can be a different level to
-#     # Whatever level you set is that level PLUS all higher levels.
-#     file_handler.setLevel(logging.INFO)
-#     file_handler.setFormatter(formatter)
-
-#     # Create a stream handler to print logs to the console
-#     console_handler = logging.StreamHandler()
-#     console_handler.setLevel(logging.INFO)
-
-#     # Add the handlers to the logger
-#     logger.addHandler(file_handler)
-#     logger.addHandler(console_handler)
-
-#     # Now you can log messages with different levels
-#     # logger.debug('This is a debug message')
-#     # logger.info('This is an info message')
-#     # logger.warning('This is a warning message')
-#     # logger.error('This is an error message')
 
 
 if __name__ == '__main__':
@@ -765,7 +744,7 @@ if __name__ == '__main__':
         '-o',
         '--output-dir',
         help='REQUIRED: Directory where all outputs will be stored.',
-        default=False,
+        default="",
         required=True,
     )
     parser.add_argument('-j', "--num-jobs",

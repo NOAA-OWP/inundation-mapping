@@ -27,14 +27,12 @@ import utils.shared_variables as sv
 gp.options.io_engine = "pyogrio"
 
 
-# This one is a standard Python logger, not meant for multi-proc
-def setup_file_logger(
-    output_log_folder_path, prepend_log_file_name):
+# This one is a standard Python logger, NOT MEANT for multi-proc
+# It prints to file and screen at the same time.
+def setup_file_logger(log_file_path):
 
-    # This writes to both the screen and the file level at the same time.
-    start_time = datetime.now(timezone.utc)
-    file_dt_string = start_time.strftime("%Y%m%d_%H%M")
-    os.makedirs(output_log_folder_path, exist_ok=True)
+    if not log_file_path.endswith(".log"):
+        raise Exception("log file name must end with .log")
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -43,47 +41,53 @@ def setup_file_logger(
     # basic screen handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
-    # no formatter
+    formatter = logging.Formatter('%(message)s')  # override the default
+    console_handler.setFormatter(formatter)
 
-    # # # error file handler
-    # # err_log_file_name = f"{prepend_log_file_name}-error-{file_dt_string}.log"
-    # # err_log_file_path = os.path.join(output_log_folder_path, err_log_file_name)
-    # # err_file_handler = logging.FileHandler(err_log_file_path)
-    # # err_file_handler.setLevel(logging.ERROR)
-    # # err_file_handler.setFormatter(formatter)
+    # formatter for files
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s : %(message)s")
+
+    # error file handler
+    error_file_name = log_file_path.replace(".log", "-errors.log")
+    err_file_handler = logging.FileHandler(error_file_name)
+    err_file_handler.setLevel(logging.ERROR)
+    err_file_handler.setFormatter(formatter)
 
     # # basic file handler
-    log_file_name = f"{prepend_log_file_name}-{file_dt_string}.log"
-    log_file_path = os.path.join(output_log_folder_path, log_file_name)
     file_handler = logging.FileHandler(log_file_path)
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s : %(message)s")
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
 
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
-    logger.addHandler(file_handler)    
+    logger.addHandler(err_file_handler)
+    logger.addHandler(file_handler)
     logger.addHandler(console_handler)    
+
+    # return logger
 
 
 # This one is more designed to be for multi-proc as it has logger names
 def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
     """
     Creates and returns a logger that logs to the specified file.
+    Prints to screen info and higher by default. The file logging 
+    is set to level of debug so it gets debug as well.
     """
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
+    # print info and higher to screen and debug only goes to file
 
     logger = logging.getLogger(logger_name)
     logger.setLevel(level)
 
     # Prevent duplicate handlers if already exists
     if not logger.handlers:
+       
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(level)
-
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
         file_handler.setFormatter(formatter)
-
         logger.addHandler(file_handler)
         logger.propagate = False  # avoid logging to root logger too
 
@@ -124,6 +128,7 @@ def run_with_mp(
     # abort_process = False
 
     try:
+        # the thread must be inside the try catch to be closed correct in system fail.
         screen_queue = (
             Manager().Queue()
         )  # creates a process-safe Queue that allows subprocesses to put() messages into it.
@@ -142,13 +147,36 @@ def run_with_mp(
         # screen_queue_thread.daemon = True
         screen_queue_thread.start()
 
+        # There are a wide number of ways a mp can die. It might be programatically
+        #   - code level exception explicity thrown
+        #   - an implicit code level exceipt
+        #   - can be a system level such as a CTRL-C
+        #   - CPU collisons, etc
+        
+        # Becuase there are multiple ways that an MP can crash, it very easy to leave either
+        #   an orphaned process (memory leak), or a thread that is still forceing the program to stay open.
+        #   It is not possible to kill an mp function already in progress short of some very, very complex
+        #   complete operating system process management (extremely not recommended).
+        #   In this case we are manageing an process pool, a memory thread, and logging. It is possible
+        #   and has happened in development that something dies and the program hangs.
+        #   One would think just a simple try/except is enough but that is not always true. 
+        #   This is why we have a bizarre exception handling system here and it works pretty well.
+        # 
+        # Also as mentioned... can not kill an mp that has already started. There is no abort a currently running
+        #   mp (threads you can but not MP's and threads come with a whole new set of challenges and only advised
+        #   for explicit reasons for our FIM applications). This tool keeps the option open to decide if the error
+        #   is logged and continues or shuts down the entire application.  Simply putting sys.exit(1) does not 
+        #   work and can often hang up the script. It all comes down to memory management, python garbage dumps,
+        #   and how objects are used (passed versus reference).
+        # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
+        #   abort and stop new ones from firing. CTRL-C a number of times from console will usually do it as well.
+        
+
         results = {}
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             future_to_id = {}
             # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below
-            # Setup tqdm progress bar
-            pbar = tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") if show_progress else None
-            # with tqdm(total=len(future_to_id), desc="Processing tasks", unit="task") as pbar:
+            pbar = tqdm(total=len(tasks_args_list), desc="Processing tasks", unit="task", disable=(not show_progress))
             try:        
                 for i, task_kwargs in enumerate(tasks_args_list):  # for each dictionary of keyword arguments (kwargs)
                     task_id = f"Task-{i}"
@@ -163,36 +191,41 @@ def run_with_mp(
                     kwargs_updated["screen_queue"] = screen_queue
                     kwargs_updated["task_id"] = task_id
 
+                    # Submits tasks to workers in parallel. IMMEDIATELY after submitting (not after finishing
+                    # the subprocess job) we get back a Future object, which is like a order number to 
+                    # track your requested food in a restaurant while waiting).
                     future = executor.submit(
                         task_function, **kwargs_updated
-                    )  # submits tasks to workers in parallel. IMMEDIATELY after submitting (not after finishing the subprocess job) we get back a Future object, which is like a order number to track your requested food in a restaurant while waiting).
+                    ) 
                     future_to_id[future] = task_id
 
                 for future in as_completed(future_to_id):
                     task_id = future_to_id[future]
                     
-                    # file_logger.info(f"usgs location_id (usgs_site_code) id of {task_id} is back from processing")
-                    # note that try/except here only worries about running and catching catastrophic errors. Specifc errors must be addressed inside the task function
-                    # note that the try except inside task function always return (which is result here) True or False
-                    
+                    # Note that try/except here only worries about running and catching catastrophic errors.
+                    # Specific errors must be addressed inside the task function.
+                                        
                     # This tool assumes that something is always returned
+                    # The result can be a T/F, or a string, dataset, list, dictionary (?), pretty much anything.
                     result = future.result()
 
                     if result is not None:
                         if show_progress:
-                            # tqdm.write(
-                            #     f"✅ success for {task_id}"
-                            # )  # do not use print otherwise a new updated bar is created after each print line
+                            tqdm.write(
+                                f"✅ success for {task_id}"
+                            )  # do not use print otherwise a new updated bar is created after each print line
                             file_logger.info(f"✅ success for {task_id}")
                         else:
                             # print(f"✅ success for {task_id}")
                             file_logger.info(f"✅ success for {task_id}")
                     else:
+                        # It is possible some mp functions will return None but not a good idea
+                        # as this will assume it is an error. 
                         if show_progress:
                             tqdm.write(f"❌ Error or Warning reported for {task_id}.")
-                        else:
-                            # print(f"❌ Error or Warning reported for {task_id}.")
-                            file_logger.info(f"❌ Error or Warning reported for {task_id}.")
+                        
+                        # print(f"❌ Error or Warning reported for {task_id}.")
+                        file_logger.error(f"❌ Error or Warning reported for {task_id}.")
                     
                     results[task_id] = result
 
@@ -233,7 +266,7 @@ def run_with_mp(
                         wait=False, cancel_futures=True
                     )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
                     # sys.exit(1)  Can not exit here as there is a thread in play and it is super hard to officially kill
-                    # Python threads are not meant to be explictly aborted, just skip further processing, then 
+                    # Python mp's are not meant to be explictly aborted, just skip further processing, then 
                     # sys.exit(1) after you manually close the thread
                     # Tried to manually close the thread here, but other things were holding on and
                     # making the process hang, not truly killing the program.
@@ -241,7 +274,9 @@ def run_with_mp(
                     screen_queue.put("DONE")  # sends the stop SIGNAL to thread
                     screen_queue_thread.join()  # official closure of thread
 
-                    # throw it again to help shut down objects like the queues
+                    # Yes.. seems weird to have this here and a new exception.
+                    # But it helps force shut down other objects like manual logging and a 
+                    # a queue.
                     raise Exception("Shutting down. Cleaning up caches and objects....")
                                   
                     # abort_process = True                
