@@ -62,9 +62,6 @@ def __get_all_active_usgs_sites():
     print("Aggregating WBD HUCs...")
     ___, gdf = tsf.aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
 
-    # # Get a list of all sites in gdf
-    # list_of_sites = gdf['identifiers_usgs_site_code'].to_list() # TODO: Removed because unused... fully remove after testing.
-
     # Rename gdf fields
     gdf.columns = gdf.columns.str.replace('identifiers_', '')
 
@@ -275,13 +272,6 @@ def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, 
     else:
         if usgs['vcs'] == 'NGVD29':
 
-            # TODO: Jun 5, 2025: temp commented out the sleep system
-            # Commenting it out has not yet been tested. In a future release
-            # test this and remove it possible. (inc arg)
-
-            # To prevent time-out errors
-            # time.sleep(sleep_time)
-
             # Get the datum adjustment to convert NGVD to NAVD.
             datum_adj_ft = tsf.ngvd_to_navd_ft(datum_info=usgs)
 
@@ -378,8 +368,6 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
         logging.info("Aggregating WBD HUCs...")
         ___, sites_gdf = tsf.aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
         if not sites_gdf.empty:
-            # Get a list of all sites in gdf
-            # list_of_sites = sites_gdf['identifiers_usgs_site_code'].to_list()  # TODO: Do we need this?
             # Rename gdf fields
             sites_gdf.columns = sites_gdf.columns.str.replace('identifiers_', '')
         else:
@@ -428,7 +416,8 @@ def __attrib_mainstems(sites_gdf, all_rating_curves, output_dir, file_date_appen
 
     sites_gdf = sites_gdf.astype({'metadata_sources': str})
 
-    # TODO: Figure out if we have a use for sites_bool_flags.gpkg and add this back in if needed.
+    # TODO: : Jun 2025: - Update Sep 9, 2025: Does not yet seem to be used.
+    # Figure out if we have a use for sites_bool_flags.gpkg and add this back in if needed.
     # # -- Filter all_rating_curves according to acceptance criteria -- #
     # # -- We only want acceptable gages in the rating curve CSV -- #
     # sites_gdf['acceptable_codes'] = (
