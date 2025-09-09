@@ -200,6 +200,8 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 def split_roads(gdf_roads, catchment_path, file_logger, screen_queue, task_id):
     huc_number = os.path.basename(os.path.dirname(catchment_path))
 
+    # raise Exception(f"testing exception for {task_id}")
+
     if not os.path.exists(catchment_path):
         # return the original roads and assign a dummy catchment id of 000
         file_logger.info(f"no catchment file for {task_id}")
@@ -238,7 +240,7 @@ def single_huc_job(
     HUC_no, huc_boundary_path, split_boundary_path, output_dir, file_logger, screen_queue, task_id
 ):
     # this is basically the task function that is passed into mp run
-    file_logger.info(f"started the process for {task_id}")
+    file_logger.debug(f"started the process for {task_id}")
     try:
         huc_gpd = gpd.read_file(huc_boundary_path)
         huc_gpd_projected = huc_gpd.to_crs(pyproj.CRS.from_string("EPSG:4326"))
@@ -265,6 +267,7 @@ def single_huc_job(
     except Exception as e:
         file_logger.error(f"❌ Exception in HUC {HUC_no}: {str(e)}")
         file_logger.error(traceback.format_exc())  # Optional: log full traceback
+        screen_queue.put(f"❌ Exception in HUC {HUC_no}: {str(e)}")
         return False
 
 
