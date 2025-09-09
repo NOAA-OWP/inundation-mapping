@@ -76,41 +76,36 @@ def __mp_get_flows_for_site(
 
     file_logger.debug(f"Processing flow data for lid: {task_id}")
 
-    try:
-        feature_id = site_data_json.get('identifiers').get('nwm_feature_id')
+    # there is no try catch as I want any errors to shut down the entire tool
+    # try:
+    feature_id = site_data_json.get('identifiers').get('nwm_feature_id')
 
-        # Get the stages and flows
-        ___, flows, ___ = tsf.get_thresholds(
-            threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
-        )
+    # Get the stages and flows
+    ___, flows, ___ = tsf.get_thresholds(
+        threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
+    )
 
-        site_flows_df = pd.DataFrame()
-        # For each flood category
-        for category in ['action', 'minor', 'moderate', 'major']:
-            # Get flow
-            flow = flows.get(category, None)
+    site_flows_df = pd.DataFrame()
+    # For each flood category
+    for category in ['action', 'minor', 'moderate', 'major']:
+        # Get flow
+        flow = flows.get(category, None)
 
-            # If flow or feature id are not valid, skip to next site
-            if flow is None:
-                continue
+        # If flow or feature id are not valid, skip to next site
+        if flow is None:
+            continue
 
-            # Otherwise, write 'guts' of a flow file and append to a master DataFrame.
-            else:
-                flow_df = tsf.flow_data([feature_id], flow, convert_to_cms=True)
-                flow_df['recurr_interval'] = category
-                flow_df['nws_lid'] = nws_lid
-                flow_df['location_id'] = usgs_site_code
-                flow_df = flow_df.rename(columns={'discharge': 'discharge_cms'})
+        # Otherwise, write 'guts' of a flow file and append to a master DataFrame.
+        else:
+            flow_df = tsf.flow_data([feature_id], flow, convert_to_cms=True)
+            flow_df['recurr_interval'] = category
+            flow_df['nws_lid'] = nws_lid
+            flow_df['location_id'] = usgs_site_code
+            flow_df = flow_df.rename(columns={'discharge': 'discharge_cms'})
 
-                site_flows_df = pd.concat([site_flows_df, flow_df], ignore_index=True)
+            site_flows_df = pd.concat([site_flows_df, flow_df], ignore_index=True)
 
-        return site_flows_df
-
-    except Exception as e:
-        file_logger.error(f"❌ Exception while processing flow data for lid: {task_id}: {str(e)}")
-        file_logger.error(traceback.format_exc())  # Optional: log full traceback
-
-    return None
+    return site_flows_df
 
 
 ##############################################################################
@@ -239,105 +234,107 @@ def __mp_get_site_rating_curve(
     metadata_json, rating_curve_url, usgs_site_code, file_logger, screen_queue, task_id
 ):
 
-    try:
-        # Get datum information for site (only need usgs_data)
-        file_logger.info(f"Getting rating curves for usgs location id of {usgs_site_code}")
+    # there is no try catch as I want any errors to shut down the entire tool
+    # try:
+    # Get datum information for site (only need usgs_data)
+    file_logger.info(f"Getting rating curves for usgs location id of {usgs_site_code}")
 
-        # debug... if you are in mp and want screen only, use screen_queue
-        # screen_queue.put(f"testing my mp code {usgs_site_code}")
+    # debug... if you are in mp and want screen only, use screen_queue
+    # screen_queue.put(f"testing my mp code {usgs_site_code}")
 
-        # for debugging, shut off when in real mode so it uses the progress bar.
-        # screen_queue.put(f"Getting rating curves for usgs location id of {usgs_site_code}")
+    # for debugging, shut off when in real mode so it uses the progress bar.
+    # screen_queue.put(f"Getting rating curves for usgs location id of {usgs_site_code}")
 
-        ___, usgs = tsf.get_datum(metadata_json)
+    ___, usgs = tsf.get_datum(metadata_json)
 
-        # Get rating curve for site
-        location_id = usgs['usgs_site_code']  # in theory we get one and exactly one here
+    # Get rating curve for site
+    location_id = usgs['usgs_site_code']  # in theory we get one and exactly one here
 
-        # # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
-        # #   datum adjustment section (region will need changed)
-        # if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']: # Removed May 2025
-        #     continue
+    # # Filter out sites that are not in contiguous US. If this section is removed be sure to test with
+    # #   datum adjustment section (region will need changed)
+    # if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']: # Removed May 2025
+    #     continue
 
-        curve = tsf.get_rating_curve(rating_curve_url, location_ids=[location_id])
+    curve = tsf.get_rating_curve(rating_curve_url, location_ids=[location_id])
 
-        # If no rating curve was returned, skip site.
-        if curve.empty:
-            file_logger.warning(f'{location_id}: Removed because it has no rating curves')
+    # If no rating curve was returned, skip site.
+    if curve.empty:
+        file_logger.warning(f'{location_id}: Removed because it has no rating curves')
+        return None
+
+    # If the site is in PR, VI, or HI, keep datum in LMSL (local mean sea level)
+    # because our 3DEP dems are also in LMSL for these areas.
+    # Sept 2025, GU and AS (Guam and American Samoa don't come in as they
+    #  fail the "must_include = 'usgs_data.active'" test.
+    if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
+        if usgs['vcs'] == 'LMSL':
+            navd88_datum = usgs['datum']
+            file_logger.debug(f'{location_id}: site is in PR, VI, or HI, so datum kept as LMSL')
+        else:
+            # If the site is in PR, VI, or HI, and has a datum other than LMSL, return an error.
+            datum_name = usgs['vcs']
+            message = (
+                f'{location_id}: Removed because site is located PR,'
+                f'VI, or HI but has a datum other than LMSL ({datum_name})'
+            )
+            file_logger.warning(message)
             return None
 
-        # If the site is in PR, VI, or HI, keep datum in LMSL (local mean sea level)
-        # because our 3DEP dems are also in LMSL for these areas.
-        # Sept 2025, GU and AS (Guam and American Samoa don't come in as they
-        #  fail the "must_include = 'usgs_data.active'" test.
-        if usgs['state'] in ['Puerto Rico', 'Virgin Islands', 'Hawaii']:
-            if usgs['vcs'] == 'LMSL':
-                navd88_datum = usgs['datum']
-                file_logger.debug(f'{location_id}: site is in PR, VI, or HI, so datum kept as LMSL')
-            else:
-                # If the site is in PR, VI, or HI, and has a datum other than LMSL, return an error.
-                datum_name = usgs['vcs']
-                message = (
-                    f'{location_id}: Removed because site is located PR,'
-                    f'VI, or HI but has a datum other than LMSL ({datum_name})'
-                )
-                file_logger.warning(message)
+    # If the state is not PR, VI, or HI, then we want to adjust the datum to NAVD88 if needed.
+    # If the datum is unknown, skip site.
+    else:
+        if usgs['vcs'] == 'NGVD29':
+
+            # Get the datum adjustment to convert NGVD to NAVD.
+            datum_adj_ft = tsf.ngvd_to_navd_ft(datum_info=usgs)
+
+            # If datum API failed, print message and skip site.
+            if datum_adj_ft is None:
+                file_logger.warning(f'{location_id}: Removed because datum adjustment failed!!')
                 return None
 
-        # If the state is not PR, VI, or HI, then we want to adjust the datum to NAVD88 if needed.
-        # If the datum is unknown, skip site.
+            # If datum adjustment succeeded, calculate datum in NAVD88
+            navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
+            file_logger.debug(f'{location_id}: succesfully converted NGVD29 to NAVD88')
+
+        elif usgs['vcs'] == 'NAVD88':
+            navd88_datum = usgs['datum']
+            file_logger.debug(f'{location_id}: already NAVD88')
+
+        elif usgs['vcs'] == 'LMSL':
+            # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site.
+            file_logger.warning(
+                f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI'
+            )
+            return None
+
         else:
-            if usgs['vcs'] == 'NGVD29':
+            # If the site has an unrecognized datum, skip site.
+            datum_name = usgs['vcs']
+            file_logger.warning(f'{location_id}: Removed due to unknown datum ({datum_name})')
+            return None
 
-                # Get the datum adjustment to convert NGVD to NAVD.
-                datum_adj_ft = tsf.ngvd_to_navd_ft(datum_info=usgs)
+    # Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
+    # If you came in looking for all sites, then "active" will be true. A filtered set, this might be True or False
+    curve['active'] = usgs['active']
+    curve['datum'] = usgs['datum']
+    curve['datum_vcs'] = usgs['vcs']
+    curve['navd88_datum'] = navd88_datum
+    curve['elevation_navd88'] = curve['stage'] + navd88_datum
 
-                # If datum API failed, print message and skip site.
-                if datum_adj_ft is None:
-                    file_logger.warning(f'{location_id}: Removed because datum adjustment failed!!')
-                    return None
+    file_logger.debug(f"Done rating curves for usgs location id of {usgs_site_code}")
 
-                # If datum adjustment succeeded, calculate datum in NAVD88
-                navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
-                file_logger.debug(f'{location_id}: succesfully converted NGVD29 to NAVD88')
+    # for debugging, shut off when in real mode so it uses the progress bar.
+    # screen_queue.put(f"Done rating curves for usgs location id of {usgs_site_code}")
 
-            elif usgs['vcs'] == 'NAVD88':
-                navd88_datum = usgs['datum']
-                file_logger.debug(f'{location_id}: already NAVD88')
+    return curve
 
-            elif usgs['vcs'] == 'LMSL':
-                # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site.
-                file_logger.warning(
-                    f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI'
-                )
-                return None
+    # I am not using the try/except here as I want the MP to shut the app down.
+    # except Exception as e:
+    #     file_logger.error(f"❌ Exception in usgs_site_code {usgs_site_code}: {str(e)}")
+    #     file_logger.error(traceback.format_exc())  # Optional: log full traceback
 
-            else:
-                # If the site has an unrecognized datum, skip site.
-                datum_name = usgs['vcs']
-                file_logger.warning(f'{location_id}: Removed due to unknown datum ({datum_name})')
-                return None
-
-        # Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
-        # If you came in looking for all sites, then "active" will be true. A filtered set, this might be True or False
-        curve['active'] = usgs['active']
-        curve['datum'] = usgs['datum']
-        curve['datum_vcs'] = usgs['vcs']
-        curve['navd88_datum'] = navd88_datum
-        curve['elevation_navd88'] = curve['stage'] + navd88_datum
-
-        file_logger.debug(f"Done rating curves for usgs location id of {usgs_site_code}")
-
-        # for debugging, shut off when in real mode so it uses the progress bar.
-        # screen_queue.put(f"Done rating curves for usgs location id of {usgs_site_code}")
-
-        return curve
-
-    except Exception as e:
-        file_logger.error(f"❌ Exception in usgs_site_code {usgs_site_code}: {str(e)}")
-        file_logger.error(traceback.format_exc())  # Optional: log full traceback
-
-    return None
+    # return None
 
 
 def __get_usgs_metadata(list_of_gage_sites, metadata_url):

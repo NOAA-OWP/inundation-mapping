@@ -150,7 +150,8 @@ def run_with_mp(
     This simple setup is using a shared log file and it is ok for now assuming that:
         - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work
         - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
-        - if we encounter a case that this does not work correctly, then we can improve it by creating one log file per task and combining them afterward.”
+        - if we encounter a case that this does not work correctly, then we can improve it by creating one
+           log file per task and combining them afterward.
 
     - Use try/except in both the task function and this wrapper:
         • The task function should handle known/expected errors and always return True or False.
@@ -163,6 +164,9 @@ def run_with_mp(
     - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
         - Do not use any print statements after start of multiprocessing in the task function or inside its helper functions. Instead use screen_queue.put().
         - use file_logger.info() to log the message in the log file
+        
+    - If you do want the child script fail to shut down the entire script, 
+        make sure it allows/throws an exception back from the child mp function.
     '''
 
     # abort_process = False
