@@ -268,7 +268,10 @@ def run_with_mp(
 
                     else:
                         # It is possible some mp functions will return None
-                        # and we will assume it is an error.
+                        # and we will assume it is an error. In this scenerio, we will assume the script
+                        # should not be shut down.
+                        # To have a child mp function the script down, let it get an exception from 
+                        # the child mp.
                         if show_progress:
                             tqdm.write(f"❌ Error or Warning reported for {task_id}.")
 
