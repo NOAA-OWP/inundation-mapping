@@ -586,7 +586,6 @@ def eval_plots(
     print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
     print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
 
-
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metrics_csv, dtype={'huc': str})
 
