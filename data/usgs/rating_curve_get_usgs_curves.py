@@ -70,11 +70,46 @@ def __get_all_active_usgs_sites():
 
     return gdf, metadata_list
 
+# We are not using the screen queue at this time but it is available for console outputs in mps
+# where we do not want it in the logs. Enforced by run_with_mp at this time.
+def __mp_get_flows_for_site(site_data_json, nws_lid, usgs_site_code, threshold_url, file_logger, screen_queue, task_id):
+
+    file_logger.debug(f"Processing flow data for lid: {task_id}")
+    
+    feature_id = site_data_json.get('identifiers').get('nwm_feature_id')
+
+    # Get the stages and flows
+    ___, flows, ___ = tsf.get_thresholds(
+        threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
+    )
+
+    site_flows_df = pd.DataFrame()
+    # For each flood category
+    for category in ['action', 'minor', 'moderate', 'major']:
+        # Get flow
+        flow = flows.get(category, None)
+
+        # If flow or feature id are not valid, skip to next site
+        if flow is None:
+            continue
+
+        # Otherwise, write 'guts' of a flow file and append to a master DataFrame.
+        else:
+            flow_df = tsf.flow_data([feature_id], flow, convert_to_cms=True)
+            flow_df['recurr_interval'] = category
+            flow_df['nws_lid'] = nws_lid
+            flow_df['location_id'] = usgs_site_code
+            flow_df = flow_df.rename(columns={'discharge': 'discharge_cms'})
+            
+            site_flows_df = pd.concat([site_flows_df, flow_df], ignore_index=True)
+            
+    return site_flows_df
+
 
 ##############################################################################
 # Generate categorical flows for each category across all sites.
 ##############################################################################
-def __write_categorical_flow_files(metadata, output_dir, file_date_append):
+def __write_categorical_flow_files(metadata_list, output_dir, file_date_append, file_datetime_string, master_log_file, num_jobs):
     '''
     Writes flow files of each category for every feature_id in the input metadata.
     Written to supply input flow files of all gage sites for each flood category.
@@ -97,68 +132,82 @@ def __write_categorical_flow_files(metadata, output_dir, file_date_append):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # # Remove sites that have value of None for the nws_lid
+    # Remove sites that have value of None for the nws_lid
     # Not required, but helps reduce the number of sites to process
     # metadata = [site for site in metadata if site.get('identifiers').get('nws_lid') != None]
 
     # For each site in metadata_trimmed
-    all_data = pd.DataFrame()
-    num_sites = len(metadata)
+    num_sites = len(metadata_list)
     logging.info(f"Number of sites to process: {num_sites}")
+
+    # we now only process them if they have nws data    
+    task_args_list = []
     for i in range(num_sites):
-        site = metadata[i]
-        # Print progress every 50 sites
-        if i % 50 == 0:
-            logging.info(f"Processing site {i+1}/{num_sites}, {round(((i+1)/num_sites)*100, 2)}%")
-
-        # Get the feature_id and usgs_site_code
-        feature_id = site.get('identifiers').get('nwm_feature_id')
-        usgs_code = site.get('identifiers').get('usgs_site_code')
-        nws_lid = site.get('identifiers').get('nws_lid')
-        logging.info(f"Processing flow data for lid: {nws_lid}")
-
+        site_data_json = metadata_list[i]
+        
+        feature_id = site_data_json.get('identifiers').get('nwm_feature_id')        
+        nws_lid = site_data_json.get('identifiers').get('nws_lid')
+        usgs_site_code = site_data_json.get('identifiers').get('usgs_site_code')
+                
         # thresholds only provided for valid nws_lid.
-        if nws_lid == 'Bogus_ID' or nws_lid is None:  # TODO: Remove, should be unnecessary
+        if nws_lid == 'Bogus_ID':  # Legacy test?
+            logging.warning("Bogus_ID value found")
+            continue
+
+        # if invalid feature_id skip to next site
+        if nws_lid is None or nws_lid == "":
+            logging.warning(f"usgs site code of {usgs_site_code} does not have a nws_lid value")
             continue
 
         # if invalid feature_id skip to next site
         if feature_id is None:
+            logging.warning(f"usgs site code of {usgs_site_code} does not have a feature id value")
             continue
 
-        # Get the stages and flows
-        ___, flows, ___ = tsf.get_thresholds(
-            threshold_url, select_by='nws_lid', selector=nws_lid, threshold='all'
+        task_args_list.append(
+            {
+                "site_data_json": site_data_json,
+                "nws_lid": nws_lid,
+                "usgs_site_code": usgs_site_code,
+                "threshold_url": threshold_url,
+            }
         )
+        
+    sorted_tasks_args_list = sorted(task_args_list, key=lambda x: ['nws_lid'])
+    
+    # Again.. we make a special mp for this set
+    mp_log_file_path = os.path.join(output_dir, f"get_rating_curves-mp-flow-{file_datetime_string}.log")
+    mp_logger = sf.setup_mp_file_logger(mp_log_file_path, logger_name="mp_flows")
+    list_flow_dfs = sf.run_with_mp(
+        task_function=__mp_get_flows_for_site,
+        tasks_args_list=sorted_tasks_args_list,
+        file_logger=mp_logger,
+        max_workers=num_jobs,
+        task_id_key='nws_lid',
+        exit_on_failure=True,
+        show_progress=True,
+    )
 
-        # For each flood category
-        for category in ['action', 'minor', 'moderate', 'major']:
-            # Get flow
-            flow = flows.get(category, None)
-
-            # If flow or feature id are not valid, skip to next site
-            if flow is None:
-                continue
-
-            # Otherwise, write 'guts' of a flow file and append to a master DataFrame.
-            else:
-                data = tsf.flow_data([feature_id], flow, convert_to_cms=True)
-                data['recurr_interval'] = category
-                data['nws_lid'] = nws_lid
-                data['location_id'] = usgs_code
-                data = data.rename(columns={'discharge': 'discharge_cms'})
-                # Append site data to master DataFrame
-                all_data = pd.concat([all_data, data], ignore_index=True)
+    # Roll the mp log into the master log.
+    with open(mp_log_file_path, 'r') as src_file:
+        with open(master_log_file, 'a') as master_log_file:
+            shutil.copyfileobj(src_file, master_log_file)
+    # for now.. let's leave the error files alone, even the mp ones            
+    os.remove(mp_log_file_path)
+    
+    # roll up the list of df's into one master df
+    all_flows_data = pd.concat(list_flow_dfs, ignore_index=True)
 
     # Write usgs stage discharge data, used by Sierra tests (rating_curve_comparison.py)
     logging.info("Writing for USGS discharge data for each usgs stage (ie. action, minor, etc)")
-    if not all_data.empty:
+    if not all_flows_data.empty:
         usgs_discharge_file_name = os.path.join(
             output_dir, f'usgs_stage_discharge_cms_{file_date_append}.csv'
         )
-        final_data = all_data[['feature_id', 'discharge_cms', 'recurr_interval']]
+        final_data = all_flows_data[['feature_id', 'discharge_cms', 'recurr_interval']]
         final_data.to_csv(usgs_discharge_file_name, index=False)
 
-    return all_data
+    return all_flows_data
 
 
 def set_global_env(env_file):
@@ -174,10 +223,9 @@ def set_global_env(env_file):
 # concat of dataframes
 
 
+# ++++++++++++++++++++++++++++++++
 # TODO: likely don't need usgs_site_code if we have the task id
-
-
-
+# Yes... usgs_site_code and task_id are redundant for now
 def __mp_get_site_rating_curve(metadata_json, rating_curve_url, usgs_site_code, file_logger, screen_queue, task_id):
     
     # Get datum information for site (only need usgs_data)
@@ -476,17 +524,10 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
 
     num_jobs : INT
         Number of jobs (workers) used for multi-proc.
-        
-    sleep_time: FLOAT
-        Amount of time to rest between API calls. The Tidal API appears to
-        error out more during business hours. Increasing sleep_time may help.
-        TODO: Jul 4, 2025: Likely not needed anymore,
-           will test at 0 to ensure it is no longer needed
+
     Returns
     -------
-    all_rating_curves : Pandas DataFrame
-        DataFrame containing USGS rating curves adjusted to elevation for
-        all input sites. Additional metadata also contained in DataFrame
+    A number of files are saved, including...
 
     '''
 
@@ -610,7 +651,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         # it can hang up the entire script as it has a reference from inside the mp to this
         # parent script.
         mp_log_file_path = os.path.join(output_dir, f"get_rating_curves-mp-{file_datetime_string}.log")
-        mp_logger = sf.setup_mp_file_logger(mp_log_file_path)
+        mp_logger = sf.setup_mp_file_logger(mp_log_file_path, logger_name="mp_rcs")
         list_rating_curves_dfs = sf.run_with_mp(
             task_function=__mp_get_site_rating_curve,
             tasks_args_list=sorted_tasks_args_list,
@@ -628,6 +669,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
             with open(log_file_path, 'a') as master_log_file:
                 shutil.copyfileobj(src_file, master_log_file)
         os.remove(mp_log_file_path)
+        # for now.. let's leave the error files alone, even the mp ones
         
         # more processing of rating curves
         if len(list_rating_curves_dfs) == 0:
@@ -654,44 +696,40 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         # dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
         display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         logging.info(f"Attributing mainstems sites done: {display_dt_string} (UTC)")
+        logging.info("=============")
 
-        # If output_dir is specified, write data to file.
-        if output_dir:
-            # Write rating curve dataframe to file
-            usgs_rating_curve_file = os.path.join(output_dir, f"usgs_rating_curves_{file_date_append}.csv")
-            all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
+        # Write rating curve dataframe to file
+        usgs_rating_curve_file = os.path.join(output_dir, f"usgs_rating_curves_{file_date_append}.csv")
+        all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
 
-            # If 'all' option specified, reproject then write out shapefile of acceptable sites.
-            # TODO: Should it also do something if 'all' isn't specified?
-            if list_of_gage_sites == ['all']:
-                sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
-                usgs_gages_file = os.path.join(output_dir, f"usgs_gages_{file_date_append}.gpkg")
+        # If 'all' option specified, reproject then write out shapefile of acceptable sites.
+        # TODO: Should it also do something if 'all' isn't specified?
+        if list_of_gage_sites == ['all']:
+            sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
+            usgs_gages_file = os.path.join(output_dir, f"usgs_gages_{file_date_append}.gpkg")
 
-                sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
+            sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 
-            display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-            logging.info(f"usgs gage files created: {display_dt_string} (UTC)")
+        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+        logging.info(f"usgs gage files created: {display_dt_string} (UTC)")
 
-            # Write out flow files for each threshold across all sites
-            section_start_dt = datetime.now(timezone.utc)
-            display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-            logging.info(f"Getting stage discharge values - started: {display_dt_string} (UTC)")
+        # Write out flow files for each threshold across all sites
+        section_start_dt = datetime.now(timezone.utc)
+        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+        logging.info(f"Getting stage discharge values - started: {display_dt_string} (UTC)")
 
 
-            # TODO... ADD MP here as well
+        # TODO... ADD MP here as well
 
-            __write_categorical_flow_files(metadata_list, output_dir, file_date_append)
-            
-            
-            
-            
+        # what do we want back here? anything?
+        __write_categorical_flow_files(metadata_list, output_dir, file_date_append, file_datetime_string, log_file_path, num_jobs)
+       
+        
 
-            display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
-            dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
-            logging.info(f"Getting stage discharge values - complete: {display_dt_string} (UTC); {dur_msg}")
+        display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+        dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
+        logging.info(f"Getting stage discharge values - complete: {display_dt_string} (UTC); {dur_msg}")
 
-        else:
-            logging.info("No output_dir specified, no output files written.")
     except Exception:
         logging.critical(traceback.format_exc())
 

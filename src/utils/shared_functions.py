@@ -28,8 +28,24 @@ gp.options.io_engine = "pyogrio"
 
 
 # This one is a standard Python logger, NOT MEANT for multi-proc
-# It prints to file and screen at the same time.
 def setup_file_logger(log_file_path):
+
+    """
+    This one is not meant to be used for MP's.
+    It prints to file and screen at the same time.
+    
+    This one is very similar to 'setup_mp_file_logger' but has a few critical differences.
+       1) It does not had a console / stream handler
+       2) It lets you continue to use the default log handler of logging.info, etc
+       3) It does not return a handler and we don't want to as we want this one to simply
+          help configure the default logging handler. There are some places were we end up using
+          both this default log handler plus a custom one which is created generally in setup_mp_file_logger
+    
+    This also has a system that detects if there is a msg with level error or critical
+    and save those values in the regular log file but also in its own error file.
+    This helps bring out errors, especially in tools that allow for a task to fail but continue on.
+    Note: The file is created automatically and if no actual errors are found, that file will be empty.
+    """
 
     if not log_file_path.endswith(".log"):
         raise Exception("log file name must end with .log")
@@ -64,29 +80,54 @@ def setup_file_logger(log_file_path):
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)    
 
-    # return logger
+    # return logger  (no)
 
 
-# This one is more designed to be for multi-proc as it has logger names
+# This one is more designed to be for multi-proc as it has logger handler names
+# Notice how it does not have a "console / stream handler"? hence, a special function for MP
 def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
     """
+    
+    This version is meant for use in MP as it makes a custom logger and does not use the default
+    logger. However, both can co-exist.
+    
+    This one appears very similar to the function above of 'setup_file_logger', but there are 
+    some critical key differences. Please read the notes in setup_file_logger for more details.
+    
     Creates and returns a logger that logs to the specified file.
     Prints to screen info and higher by default. The file logging 
     is set to level of debug so it gets debug as well.
+    
+    This also has a system that detects if there is a msg with level error or critical
+    and save those values in the regular log file but also in its own error file.
+    This helps bring out errors, especially in tools that allow for a task to fail but continue on.
+    Note: The file is created automatically and if no actual errors are found, that file will be empty.
+    
     """
+    
+    if not log_file_path.endswith(".log"):
+        raise Exception("log file name must end with .log")
+    
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
-
-    # print info and higher to screen and debug only goes to file
 
     logger = logging.getLogger(logger_name)
     logger.setLevel(level)
 
     # Prevent duplicate handlers if already exists
     if not logger.handlers:
+
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+               
+        # Order of adding handlers may be important ???
+        # error file handler
+        error_file_name = log_file_path.replace(".log", "-errors.log")
+        err_file_handler = logging.FileHandler(error_file_name)
+        err_file_handler.setLevel(logging.ERROR)
+        err_file_handler.setFormatter(formatter)
+        logger.addHandler(err_file_handler)   
        
         file_handler = logging.FileHandler(log_file_path)
-        file_handler.setLevel(level)
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
         logger.propagate = False  # avoid logging to root logger too
