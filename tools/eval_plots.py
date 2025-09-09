@@ -571,6 +571,22 @@ def eval_plots(
 
     '''
 
+    if sp:  # create the spatial files generally used for FIM Performance.
+        load_dotenv(args['env_file'])
+
+        API_BASE_URL = os.getenv('API_BASE_URL')
+        if API_BASE_URL is None:
+            raise ValueError(
+                'API base url not found. '
+                'Check your env config path or file and ensure it has a correct value for API_BASE_URL'
+            )
+        WBD_LAYER = os.getenv("WBD_LAYER")
+
+    # Run eval_plots function
+    print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
+    print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
+
+
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metrics_csv, dtype={'huc': str})
 
@@ -1010,7 +1026,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-e',
         '--env_file',
-        help='OPTIONAl: Docker mount path to the script environment file.'
+        help='OPTIONAL: Docker mount path to the script environment file.'
         ' Defaults to /data/config/fim_enviro_values.env.\n'
         ' The env file is only needed when you are using the -sp argument'
         ' which generates spatial data generally used for FIM Performance output files.',
@@ -1029,21 +1045,4 @@ if __name__ == '__main__':
     sp = args['spatial']
     i = args['site_plots']
 
-    if sp:  # create the spatial files generally used for FIM Performance.
-        load_dotenv(args['env_file'])
-
-        API_BASE_URL = os.getenv('API_BASE_URL')
-        if API_BASE_URL is None:
-            raise ValueError(
-                'API base url not found. '
-                'Ensure inundation_mapping/tools/ has an .env file with the following info: '
-                'API_BASE_URL, WBD_LAYER, NWM_FLOWS_MS, '
-                'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
-            )
-        WBD_LAYER = os.getenv("WBD_LAYER")
-        API_BASE_URL = os.getenv("API_BASE_URL")
-
-    # Run eval_plots function
-    print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
-    print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
     eval_plots(metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, site_barplots=i)
