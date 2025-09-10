@@ -6,6 +6,8 @@ import boto3
 import botocore.exceptions
 from botocore.client import ClientError
 
+import data.aws.aws_shared_functions as awssf
+
 
 '''
 Note: you may already know this but S3 does not have a concept of "folders", but
@@ -23,7 +25,8 @@ In that repo, above what we have here, it also contains code for: (likely needs 
 
 '''
 
-
+# TODO: Can likely change this to be more generic as we will eventually want more than just
+# s3 clients. aka.. maybe move to aws_shared_functions
 # -------------------------------------------------
 def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_region="", aws_session_token=""):
     '''
@@ -37,13 +40,16 @@ def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_regi
     key and secret key but it can fail if you have certain types (but not all) of implied
     authorization.
 
-    Note: session tokens are temp access keys
+    Note: session tokens are temp access keys.
+
+    This also checks to see if at least one bucket exists.
 
     Return:
-      (success) True / False (bucket exists)
-      return_code (int): return 0 if successful, otherwise returns an error code
+      - True / False (success)
+      - msg: Can be any message but likely is an error msg, which the calling code
+        can optional decide to use or not.
+      - s3_client object
       Can also throw exceptions.
-
     '''
     s3_client = None
 
@@ -71,7 +77,7 @@ def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_regi
         elif (aws_access_key != "" and aws_secret_access_key == "") or (
             aws_access_key == "" and aws_secret_access_key != ""
         ):
-            raise Exception(
+            raise ValueError(
                 "Error: You submitted a value to either the AWS access key or AWS secret key"
                 " but the other (access key or secret key) does not exist. Both must exist"
                 " or neither exist, depending on which AWS authentication system you are using"
@@ -80,7 +86,7 @@ def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_regi
             )
 
         elif aws_access_key != "" and aws_secret_access_key != "" and aws_region == "":
-            raise Exception(
+            raise ValueError(
                 "Error: When submitting an AWS access key and secret key, you must also provide"
                 " an AWS region value which has not be provided"
             )
@@ -104,37 +110,21 @@ def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_regi
         # validate if the client is fully valid as it is 
         # possible to get client who is not fully authenticated or have correct perms
         if s3_client is None:
-            raise Exception("Error: Something when wrong creating the ocmmuncation path to AWS")
+            raise Exception("Error: Something when wrong creating the communcation path to AWS."
+                            " Exact details are not always known. Please recheck your credentials,"
+                            " aws pathing, etc before trying again.")
         
         response = s3_client.list_buckets()
         if len(response['Buckets']) == 0:
-            raise Exception("The provided credentials are valid but does not have permission" \
-                            " to access any buckets.")
+            raise Exception("Part of validation for authentication is to see if any s3 buckets exist."
+                            "The provided credentials appear to be valid but no buckets were found"
+                            " or you do not have permisson to any buckets.")
 
-    except botocore.exceptions.NoCredentialsError:
-        is_success = False
-        return_code = 1000
-
-    except botocore.exceptions.ClientError:
-        is_success = False
-        return_code = 1001
-
-    except botocore.exceptions.NoAuthTokenError:
-        is_success = False
-        return_code = 1002
-
-    except (
-        botocore.exceptions.NoRegionError,
-        botocore.exceptions.InvalidRegionError,
-        botocore.exceptions.UnknownRegionError,
-    ):
-        is_success = False
-        return_code = 1003
     except Exception as ex:
-        msg = "Something went wrong with the values or combination of values "
-        "submitted for AWS authenication or creating the s3 communcation."
-        msg += f"; Details = {ex}"
-        raise Exception(msg)
+        # the aws will handle many messages and what it can not, it will
+        # re-raise, which we can further re-raise
+        error_msg = awssf.aws_exception_handler(ex)
+        return False, error_msg, None
 
     # in case some combination slipped through for error checking
     if s3_client is None:
@@ -142,56 +132,9 @@ def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_regi
             "Something went wrong with the values or combination of values "
             "submitted for AWS authenication or creating the s3 communcation."
         )
-    else:
-        is_success = True
-        return_code = 0
 
-    return is_success, return_code, s3_client
-
-
-# -------------------------------------------------
-def get_descriptive_error_msg(error_code):
-
-    msg = ""
-
-    if error_code == 0:
-        msg = "Success"
-
-    # We are including the most common AWS errors mostly based around permissions.
-    if error_code == 1000:  # bad credentials or NoCredentialsError
-        msg = "ERROR: Bad AWS Credentials: There are a number of ways this can fail. You may be missing"
-        " or have invalid aws access key, aws secret access key or aws region values (case-sensitive)."
-        " It is also possible that you may have used implicit aws credentials using a default"
-        " aws credentials file which may be out of sync."
-        " Note: It is possible it has expired. Check your arg values, ensure it has"
-        " quotes around the arg value or check with your aws bucket owner."
-
-    elif error_code == 1001:  # error while validating AWS Creds
-        msg = "ERROR: Undefined Error: An unknown internal error has occured while validate the aws credentials."
-        " Please review your AWS credential information in case that it the issue (case-sensitive)."
-
-    elif error_code == 1002:  # AWS NoAuthTokenError
-        msg = "ERROR: AWS Auth Token Error: Part of the authorization process to talk to AWS often, but not"
-        " always, uses AWS Authorization Tokens. Depending on how you are using AWS authenication, such as"
-        " AWS Access Key / AWS Secret Key, aws credentials file, there is an error. Review your AWS"
-        " credentials arguments, file, system, other (case-sensitive)."
-
-    elif error_code == 1003:  # AWS NoRegionError, UnknownRegionError, InvalidRegionError
-        msg = "ERROR: AWS No Region Value Defined: An aws region value, such as 'us-east-1', needs to be defined,"
-        " is missing or is invalid (case-sensitive). Review your AWS credentials arguments, file, system, other."
-
-    elif error_code == 1050:  # No such bucket
-        msg = "ERROR: no such bucket: The aws bucket name does not exist."
-        " Please check the spelling (case-sensitive) or with the aws bucket owner."
-
-    elif error_code == 1051:  # Folder not found
-        msg = "ERROR: Folder not found: The aws folder name (key) does not exist."
-        " Please check the spelling (case-sensitive) or pathing."
-
-    else:
-        raise Exception("Error: Unknown error code submitted")
-
-    return msg
+    # True/False (success), msg (likely an error msg), s3_client object
+    return True, "", s3_client
 
 
 # -------------------------------------------------
@@ -226,52 +169,41 @@ def does_s3_bucket_exist(s3_client, bucket_name):
         - catastropic errors will be thrown, this catches bad credentials too
 
     Return:
-      (success) True / False (bucket exists)
-      return_code (int): return 0 if successful, otherwise returns an error code
+      - (success) True / False (bucket exists)
+      - msg: Can be any message but likely is an error msg, which the calling code
+        can optional decide to use or not.
       Can also throw exceptions.
     """
 
     if s3_client is None:
-        raise Exception("S3 Client not initiated")
+        raise Exception("S3 Client not instantiated")
 
     # strip start and end slashs if exist
     bucket_name = bucket_name.strip("")
+    is_success = False
 
     try:
         s3_client.head_bucket(Bucket=bucket_name)
         # resp = client.head_bucket(Bucket=bucket_name)
         # print(resp)
         is_success = True  # no exception?  means it exist
-        return_code = 0
-
-    except botocore.exceptions.NoCredentialsError:
-        is_success = False
-        return_code = 1000
-
-    except botocore.exceptions.ClientError:
-        is_success = False
-        return_code = 1001
-
-    except botocore.exceptions.NoAuthTokenError:
-        is_success = False
-        return_code = 1002
-
-    except (
-        botocore.exceptions.NoRegionError,
-        botocore.exceptions.InvalidRegionError,
-        botocore.exceptions.UnknownRegionError,
-    ):
-        is_success = False
-        return_code = 1003
-
+        return_msg = ""
     except s3_client.exceptions.NoSuchBucket:
+        return_msg = f"S3 Bucket '{bucket_name}' does not exist."
         is_success = False
-        return_code = 1050
-
-    # should throw anything else (communcation error, accessdenied, etc )
-
-    # other exceptions can be passed through
-    return is_success, return_code
+    except botocore.exceptions.ClientError as ex:
+        error_code = int(ex.response['Error']['Code'])
+        if error_code == 404:
+            return_msg = f"Bucket '{bucket_name}' does not exist."
+        elif error_code == 403:
+            return_msg = f"Access denied to bucket '{bucket_name}'. Check permissions."
+        else:  # forward it to aws exceptions to see if it recognizes the exception
+            raise Exception(awssf.aws_exception_handler(ex))
+    except Exception as ex:
+        # in this case, we want to re-raise it
+        raise Exception(awssf.aws_exception_handler(ex))
+        
+    return is_success, return_msg
 
 
 # -------------------------------------------------
@@ -280,21 +212,15 @@ def does_s3_folder_exist(s3_client, bucket_name, s3_prefix_folder_path):
     Process:
     Input:
         - s3_prefix_folder_path: eg. inputs/fema  (from s3://some_bucket/inputs/fema)
-    Returns two strings:
+    Returns
         (success) True / False,
-        (err code if any) -- (some message, but only in error)
-                options coming back are:
-                - "1000 (bad or no credentials"
-                - "1050 (no such bucket)"
-                - "1003 (region issues)"
-        But can throw an error when catastrophic
-        To get more user friendly info for the code, you can call get_error_msg_description
-        etc.
+      Can also throw exceptions.
     """
-    # validate the connection and credentials as well
-    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    # re-validate the connection and credentials as well
+    is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
     if not is_success:
-        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
+        # In this case, we want to raise a new Exception
+        raise Exception(return_msg)
 
     # strip starting and ending slashes
     # s3_prefix_folder_path = s3_prefix_folder_path.strip("/")
@@ -314,13 +240,11 @@ def does_s3_folder_exist(s3_client, bucket_name, s3_prefix_folder_path):
     # print(s3_objs)
     if s3_objs["KeyCount"] == 0:
         is_success = False
-        return_code = 1051  # folder does not exist. Don't auto raise an exception
     else:
-        return_code = 0
         is_success = True
 
     # other exceptions can be passed through
-    return is_success, return_code
+    return is_success
 
 
 # -------------------------------------------------
@@ -334,16 +258,9 @@ def does_s3_file_exist(s3_client, bucket_name, s3_file_path):
     Input:
         - s3_file_path: eg. /inputs/my_file.csv
     Output:
-    Returns two strings:
+    Returns
         (success) True / False,
-        (err code if any) -- (some message, but only in error)
-                options coming back are:
-                - "1000 (bad or no credentials"
-                - "1050 (no such bucket)"
-                - "1003 (region issues)"
         But can throw an error when catastrophic
-        To get more user friendly info for the code, you can call get_error_msg_description
-        etc.
     """
 
     file_exists = False
@@ -354,10 +271,11 @@ def does_s3_file_exist(s3_client, bucket_name, s3_file_path):
 
     bucket_name, s3_file_path = parse_bucket_and_folder_name(s3_full_file_path)
 
-    # validate the connection and credentials as well
-    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    # re-validate the connection and credentials as well
+    is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
     if not is_success:
-        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
+        # In this case, we want to raise a new Exception
+        raise Exception(return_msg)
 
     result = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=s3_file_path)
 
@@ -385,16 +303,18 @@ def get_folder_list(s3_client, bucket_name, s3_src_folder_path):
     """
 
     # TODO: Add flag to allow for optional recursive and possibly wildcards
+    # see wildcard feature in the ras2fim s3 code.
 
     s3_src_folder_path = s3_src_folder_path.replace("\\", "/")
 
     # strip leading slash if exists
     s3_src_folder_path = s3_src_folder_path.lstrip("/")
 
-    # validate the connection and credentials as well
-    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    # re-validate the connection and credentials as well
+    is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
     if not is_success:
-        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
+        # In this case, we want to raise a new Exception
+        raise Exception(return_msg)
 
     s3_items = []
 
@@ -431,7 +351,7 @@ def get_folder_list(s3_client, bucket_name, s3_src_folder_path):
 
         next_token = response.get("NextContinuationToken")
 
-    return s3_items
+    return s3_items  # could be empty if none found
 
 
 # -------------------------------------------------
@@ -451,10 +371,11 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
         - True if file exists and was downloaded, False if not
     """
 
-    # validate the connection and credentials as well
-    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    # re-validate the connection and credentials as well
+    is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
     if not is_success:
-        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
+        # In this case, we want to raise a new Exception
+        raise Exception(return_msg)
 
     does_file_exist = False
     # strip leading slash if exists
@@ -470,11 +391,15 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
         os.makedirs(trg_dir, exist_ok=True)
 
     try:
-        # Does not return anythign but will throw and exception if it does not exist
         s3_client.download_file(bucket_name, s3_file_key, target_file_path)
         does_file_exist = True
-    except ClientError:  # usually only thrown when it is not there
-        does_file_exist = False
+    except Exception as ex:
+        msg = awssf.aws_exception_handler(ex)
+        if msg.contains("404"):  # File likely does not exist
+            does_file_exist = False
+        else:
+            # in this case, we want to raise a new exception
+            raise Exception(msg)
 
     return does_file_exist
 
@@ -501,10 +426,11 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
         Note: Exceptions can still be thrown for catastropic errors (creds, other)
     """
 
-    # This also validates that the bucket exists
-    is_success, return_code = does_s3_bucket_exist(s3_client, bucket_name)
+    # re-validate the connection and credentials as well
+    is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
     if not is_success:
-        raise Exception(f"Error: details: {get_descriptive_error_msg(return_code)}")
+        # In this case, we want to raise a new Exception
+        raise Exception(return_msg)
 
     # both src must have a slash on the end only
     # strip leading slash if exists

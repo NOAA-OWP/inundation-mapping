@@ -59,6 +59,8 @@ def get_sample_data(
     # do not let them have things like "inputs" or "test_cases"
     # Just things like /data, /data/myfim/, or foss_fim (as in s3://{somebucket}/foss_fim)
 
+    print("Starting getting sample data")
+
     # =======================
     # Validation
     
@@ -102,7 +104,6 @@ def get_sample_data(
     # setup logs
     overall_start_time = datetime.now(timezone.utc)
     sf.setup_file_logger(TRG_ROOT_PATH, "get_sample_data")
-    logging.info("Starting getting sample data")
     logging.info(f"Start time: {overall_start_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
     print("********")
@@ -492,7 +493,8 @@ def __setup_aws_values(aws_access_key_id, aws_secret_access_key, aws_region, s3_
 
     """
 
-    globals()['S3_BUCKET_NAME'], src_root_dir = s3_sf.parse_bucket_and_folder_name(s3_path)
+    bucket_name, src_root_dir = s3_sf.parse_bucket_and_folder_name(s3_path)
+    globals()['S3_BUCKET_NAME'] = bucket_name
 
     input_path = src_root_dir + "/inputs"
     test_case_path = src_root_dir + "/test_cases"
@@ -502,40 +504,40 @@ def __setup_aws_values(aws_access_key_id, aws_secret_access_key, aws_region, s3_
     # It is possible that the user might not use explicit keys, but implicit keys
     # such as the default credentials file. So do not test for keys
     # All errors are thrown as Exceptions
-    is_success, return_code, globals()['S3_CLIENT'] = s3_sf.create_boto3_s3_client(
+    is_success, return_msg, globals()['S3_CLIENT'] = s3_sf.create_boto3_s3_client(
         aws_access_key_id, aws_secret_access_key, aws_region
     )
     if not is_success:
-        raise Exception(
-            "An error has occurred. Check arguments or aws credentials." \
-            f":  Details: {s3_sf.get_descriptive_error_msg(return_code)}"
-        )
+        raise Exception(return_msg)
 
-    # This can return a return_code of non 0 which means something failed
-    # which can be that the bucket doesn't exist, folder does not exist,
-    # authenication errors or various things
-    does_folder_exist, return_code = s3_sf.does_s3_folder_exist(
+    is_success, return_msg = s3_sf.does_s3_bucket_exist(
+        globals()['S3_CLIENT'], bucket_name)
+    if not is_success:
+        logging.error(return_msg)
+        print("program aborted")
+        sys.exit(1)
+
+    # check that the "inputs" dir exists
+    print(f"Validating s3://{bucket_name}{input_path} s3 folder exists")
+    does_inputs_folder_exist = s3_sf.does_s3_folder_exist(
         S3_CLIENT, S3_BUCKET_NAME, input_path
     )
-    if not does_folder_exist:
-        # we want to handle this particular exception ourselves
-        if return_code == 1051:  # Folder not found
-            raise Exception(
-                f"The S3 folder path of {input_path} does not exist." \
-                " Please check the spelling (case-sensitive) or pathing."
-            )
-        else:
-            raise Exception(
-                "An error has occurred: " f";  Details: {s3_sf.get_descriptive_error_msg(return_code)}."
-            )
+    if not does_inputs_folder_exist:
+        msg = f"The S3 folder path of {input_path} does not exist."
+        " Please check the spelling (case-sensitive) or pathing."
+        print(msg)            
+        print("program aborted")
+        sys.exit(1)
 
-    does_testcase_folder_exist, rtn_code = s3_sf.does_s3_folder_exist(
+    # check that the "test_cases" dir exists
+    print(f"Validating s3://{bucket_name}{test_case_path} s3 folder exists")
+    does_testcase_folder_exist = s3_sf.does_s3_folder_exist(
         S3_CLIENT, S3_BUCKET_NAME, test_case_path
     )
     if not does_testcase_folder_exist:
-        # Some exception auto pass through, but some we want to manage the messages
-        # we can use the default AWS messages, or create out own.
-        print(s3_sf.get_descriptive_error_msg(rtn_code))
+        msg = f"The S3 folder path of {test_case_path} does not exist."
+        " Please check the spelling (case-sensitive) or pathing."
+        print(msg)            
         print("program aborted")
         sys.exit(1)
 

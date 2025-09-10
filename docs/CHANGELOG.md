@@ -2,6 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.8.x.x - 2025-09-03 - [PR#1452](https://github.com/NOAA-OWP/inundation-mapping/pull/1452)
+
 Updates `data/get_sample_data.py` for changes in input data resulting from the addition of lidar bridge elevation.
 
 This also includes the latest new input types such as roads and fema.
@@ -15,7 +16,11 @@ Other changes including:
 - Add a new standardized shared logger basic function which handles screen and file at the same time.
 
 ### Added
-- `data\aws\s3_shared_functions.py`:  A collection of functions to talk to AWS S3 buckets.
+- `data`
+    - `aws`
+        - `s3_shared_functions.py`:  A collection of functions to talk to AWS S3 buckets.
+        - `aws_shared_functions.py`: A collection of functions that are not specific to S3. Expecting more AWS type features in the near future.
+
 
 ### Changes
 
@@ -29,9 +34,9 @@ Other changes including:
 - `fim_post_processing.sh`: Used WBD environment variable instead of hardcoding.
 - `src`
     - `duration_system.py`:  Fix bug for the duration calc tool for hucs that fail to process.
-    - `src/src_adjust_ras2fim_rating.py`:  Fix bug related to sample_data when a huc does not have any ras2fim data plus remove tests for maximum cpu.s
     - `fim_logger.py`:  Marked as deprecated.
     - `shared_functions`: Added a new function to setup a logger for a file for both screen and file.
+    - `src_adjust_ras2fim_rating.py`:  Fix bug related to sample_data when a huc does not have any ras2fim data plus remove tests for maximum cpu test.    
 <br/>
 
 ## v4.8.10.0 - 2025-07-30 - [PR#1561]([https://github.com/NOAA-OWP/inundation-mapping/pull/1554])
