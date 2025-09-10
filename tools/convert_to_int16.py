@@ -35,10 +35,11 @@ def convert_to_int16(branch_dir: str):
         catchment = rxr.open_rasterio(c)
 
         # Check if converting data is possible
-        if (np.unique(catchment).shape[0] > 32766) | (len(str(np.max(catchment))) > 8):
+        if (np.unique(catchment).shape[0] > 32766) | (len(str(int(np.max(catchment)))) > 8):
+
             raise ValueError(
-                'Catchment raster has either more than 32766 features or has HydroIDs with more'
-                'than 8 digits.  Please adjust data accordingly before using Int16.'
+                'Catchment raster has either more than 32766 unique HydroIDs or has HydroIDs with more'
+                'than 8 digits.  Please adjust data accordingly before using Int16 conversion.'
             )
 
         if hydroid_prefix is None:
