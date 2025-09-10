@@ -28,8 +28,7 @@ gp.options.io_engine = "pyogrio"
 
 
 # This one is a standard Python logger, not meant for multi-proc
-def setup_file_logger(
-    output_log_folder_path, prepend_log_file_name):
+def setup_file_logger(output_log_folder_path, prepend_log_file_name):
 
     # This writes to both the screen and the file level at the same time.
     start_time = datetime.now(timezone.utc)
@@ -62,9 +61,8 @@ def setup_file_logger(
 
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
-    logger.addHandler(file_handler)    
-    logger.addHandler(console_handler)    
-
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
 
 # This one is more designed to be for multi-proc as it has logger names

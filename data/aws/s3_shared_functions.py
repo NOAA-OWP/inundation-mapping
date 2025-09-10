@@ -25,6 +25,7 @@ In that repo, above what we have here, it also contains code for: (likely needs 
 
 '''
 
+
 # TODO: Can likely change this to be more generic as we will eventually want more than just
 # s3 clients. aka.. maybe move to aws_shared_functions
 # -------------------------------------------------
@@ -107,18 +108,22 @@ def create_boto3_s3_client(aws_access_key="", aws_secret_access_key="", aws_regi
                     aws_secret_access_key=aws_secret_access_key,
                     region_name=aws_region,
                 )
-        # validate if the client is fully valid as it is 
+        # validate if the client is fully valid as it is
         # possible to get client who is not fully authenticated or have correct perms
         if s3_client is None:
-            raise Exception("Error: Something when wrong creating the communcation path to AWS."
-                            " Exact details are not always known. Please recheck your credentials,"
-                            " aws pathing, etc before trying again.")
-        
+            raise Exception(
+                "Error: Something when wrong creating the communcation path to AWS."
+                " Exact details are not always known. Please recheck your credentials,"
+                " aws pathing, etc before trying again."
+            )
+
         response = s3_client.list_buckets()
         if len(response['Buckets']) == 0:
-            raise Exception("Part of validation for authentication is to see if any s3 buckets exist."
-                            "The provided credentials appear to be valid but no buckets were found"
-                            " or you do not have permisson to any buckets.")
+            raise Exception(
+                "Part of validation for authentication is to see if any s3 buckets exist."
+                "The provided credentials appear to be valid but no buckets were found"
+                " or you do not have permisson to any buckets."
+            )
 
     except Exception as ex:
         # the aws will handle many messages and what it can not, it will
@@ -202,7 +207,7 @@ def does_s3_bucket_exist(s3_client, bucket_name):
     except Exception as ex:
         # in this case, we want to re-raise it
         raise Exception(awssf.aws_exception_handler(ex))
-        
+
     return is_success, return_msg
 
 
@@ -454,7 +459,7 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
     min_one_file_downloaded = False
     for page in pages:
         if 'Contents' in page:
-        
+
             # Iterate over each object and download it
             for obj in page['Contents']:
                 s3_key = obj['Key']

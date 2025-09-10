@@ -29,6 +29,7 @@ USE_S3 = False
 SRC_ROOT_PATH = ""
 TRG_ROOT_PATH = ""
 
+
 def get_sample_data(
     huc,
     src_data_path: str,
@@ -63,7 +64,7 @@ def get_sample_data(
 
     # =======================
     # Validation
-    
+
     if output_root_folder.lower().startswith("s3:"):
         raise ValueError("Sorry. The output root folder can not be an s3 path, only a local path")
 
@@ -80,7 +81,7 @@ def get_sample_data(
         # Yes.. we want the full path to make sure they add the bucket name.
         if not src_data_path.lower().startswith("s3:"):
             raise ValueError(
-                "Sorry. You have included the '-s3' (use-s3) flag, but the '-i' source data" \
+                "Sorry. You have included the '-s3' (use-s3) flag, but the '-i' source data"
                 " path does not start with s3://"
             )
 
@@ -90,9 +91,7 @@ def get_sample_data(
 
         # ie) From s3://some_bucket/hand_fim
         # Also validates input folder exists and test cases folder
-        src_data_path = __setup_aws_values(
-            aws_access_key_id, aws_secret_access_key, aws_region, s3_full_path
-        )
+        src_data_path = __setup_aws_values(aws_access_key_id, aws_secret_access_key, aws_region, s3_full_path)
 
     else:
         if not os.path.exists(src_data_path):
@@ -111,7 +110,9 @@ def get_sample_data(
 
     print("Note: Some files / folders are very large and can take a number of minutes")
     print("********")
-    time.sleep(5)  # let them have 5 seconds to read the message which also allows them time to look at pathing
+    time.sleep(
+        5
+    )  # let them have 5 seconds to read the message which also allows them time to look at pathing
 
     load_dotenv('/foss_fim/src/bash_variables.env')
 
@@ -190,9 +191,9 @@ def get_AK_region_data(huc):
     __copy_file(huc_DEM_file)
 
     # __copy_file(os.environ["input_DEM_Alaska"])  # dem vrt
-    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them    
+    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them
     __create_vrt(os.environ["input_DEM_Alaska"])
-    
+
     # ----------------
     # huc bridge DEM
     huc_bridge_DEM_diff_dir = os.path.split(os.environ["input_bridge_elev_diff_alaska"])[0]
@@ -200,7 +201,7 @@ def get_AK_region_data(huc):
     __copy_file(huc_bridge_DEM_file)
 
     # __copy_file(os.environ["input_bridge_elev_diff_alaska"])
-    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them    
+    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them
     __create_vrt(os.environ["input_bridge_elev_diff_alaska"])
 
     # ---------------------
@@ -231,7 +232,7 @@ def get_CONUS_region_data(huc):
     # some of files/folders in this section are not specifically for this specific region but huc specific
 
     __copy_folder(os.path.join(os.environ["pre_clip_huc_dir"], huc))
-    
+
     # ----------------
     # huc DEM
     __copy_file(os.environ["input_DEM_domain"])  # DEM_Domain.gpkg
@@ -242,9 +243,9 @@ def get_CONUS_region_data(huc):
     __copy_file(huc_DEM_file)
 
     # __copy_file(os.environ["input_DEM"])  # dem vrt
-    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them    
+    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them
     __create_vrt(os.environ["input_DEM"])
-    
+
     # ----------------
     # huc bridge DEM
     huc_bridge_DEM_diff_dir = os.path.split(os.environ["input_bridge_elev_diff"])[0]
@@ -252,7 +253,7 @@ def get_CONUS_region_data(huc):
     __copy_file(huc_bridge_DEM_file)
 
     # __copy_file(os.environ["input_bridge_elev_diff"])
-    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them    
+    # for now.. rebuild our own custom vrt. If other dems already exist, it will include them
     __create_vrt(os.environ["input_bridge_elev_diff"])
 
     __copy_file(os.environ["osm_bridges"])
@@ -273,10 +274,10 @@ def get_CONUS_region_data(huc):
     __copy_file(os.environ["input_nwm_flows"])
     __copy_file(os.environ["input_nwm_headwaters"])
     __copy_file(os.environ["input_nwm_lakes"])
-    
+
     # Not needed by anyone other than CONUS
     __copy_file(os.environ["input_GL_boundaries"])
-    
+
     __copy_file(os.path.join(os.environ["input_fema_flood_hazard_zones"], f'nfhl_{huc}.gpkg'))
 
     __copy_file(os.path.join(os.environ["input_calib_points_dir"], f'{huc}.parquet'))
@@ -285,7 +286,7 @@ def get_CONUS_region_data(huc):
     # we do not want it to create an empty dir if the huc is not applicable
     # covers the files inside of it (if ..rating_curve_table.csv and ..rating_curve_points.gpkg)
     if os.path.exists(ras2fim_huc_input_dir):
-        __copy_folder(os.path.join(os.environ["ras2fim_input_dir"], huc))        
+        __copy_folder(os.path.join(os.environ["ras2fim_input_dir"], huc))
 
     # Not needed by anyone other than CONUS
     __copy_file(os.environ["man_calb_file"])  # houston
@@ -328,7 +329,7 @@ def __copy_file(src_file_path):
         SRC_ROOT_PATH = /noaa_owp/fim_data/
         TRG_ROOT_PATH = /my_fim/data/
         trg_file_path becomes = /my_fim/data/inputs/osm/conus_bridge_file.gpkg
-        
+
     Parameters
     ----------
     src_file_path : str
@@ -377,7 +378,7 @@ def __copy_file(src_file_path):
             # This is much faster than .copy(), .copy2(), or copyfile()
             with open(src_file_path, 'rb') as fsrc:
                 with open(trg_file_path, 'wb') as fdst:
-                    shutil.copyfileobj(fsrc, fdst, length=buffer_size)            
+                    shutil.copyfileobj(fsrc, fdst, length=buffer_size)
         else:
             logging.warning("... Skipping file copy, file does not exist")
 
@@ -477,7 +478,8 @@ def __create_vrt(src_vrt_file_path):
     if len(dem_list) > 0:
         command.extend(dem_list)
         subprocess.call(command)
-    
+
+
 # It is possible that some of these values relating to authenication can be empty
 # and still be allowed to create a valid client. See s3_shared_functions.create_boto3_s3_client
 # for more details.
@@ -510,8 +512,7 @@ def __setup_aws_values(aws_access_key_id, aws_secret_access_key, aws_region, s3_
     if not is_success:
         raise Exception(return_msg)
 
-    is_success, return_msg = s3_sf.does_s3_bucket_exist(
-        globals()['S3_CLIENT'], bucket_name)
+    is_success, return_msg = s3_sf.does_s3_bucket_exist(globals()['S3_CLIENT'], bucket_name)
     if not is_success:
         logging.error(return_msg)
         print("program aborted")
@@ -519,25 +520,21 @@ def __setup_aws_values(aws_access_key_id, aws_secret_access_key, aws_region, s3_
 
     # check that the "inputs" dir exists
     print(f"Validating s3://{bucket_name}{input_path} s3 folder exists")
-    does_inputs_folder_exist = s3_sf.does_s3_folder_exist(
-        S3_CLIENT, S3_BUCKET_NAME, input_path
-    )
+    does_inputs_folder_exist = s3_sf.does_s3_folder_exist(S3_CLIENT, S3_BUCKET_NAME, input_path)
     if not does_inputs_folder_exist:
         msg = f"The S3 folder path of {input_path} does not exist."
         " Please check the spelling (case-sensitive) or pathing."
-        print(msg)            
+        print(msg)
         print("program aborted")
         sys.exit(1)
 
     # check that the "test_cases" dir exists
     print(f"Validating s3://{bucket_name}{test_case_path} s3 folder exists")
-    does_testcase_folder_exist = s3_sf.does_s3_folder_exist(
-        S3_CLIENT, S3_BUCKET_NAME, test_case_path
-    )
+    does_testcase_folder_exist = s3_sf.does_s3_folder_exist(S3_CLIENT, S3_BUCKET_NAME, test_case_path)
     if not does_testcase_folder_exist:
         msg = f"The S3 folder path of {test_case_path} does not exist."
         " Please check the spelling (case-sensitive) or pathing."
-        print(msg)            
+        print(msg)
         print("program aborted")
         sys.exit(1)
 
@@ -555,7 +552,7 @@ def __setup_root_paths(src_data_path, output_root_folder):
 
     if not output_root_folder.startswith("/"):
         output_root_folder = "/" + output_root_folder
-   
+
     if not output_root_folder.endswith("/"):
         output_root_folder += "/"
 
@@ -592,7 +589,7 @@ if __name__ == '__main__':
        This pattern will be true for the -o (output_path). We will automatically add folders of "inputs" under
        it. We will only add a "test_case" directory if we have benchmark data for that HUC.
 
-    Note to FIM Dev team members: 
+    Note to FIM Dev team members:
        We do have a set of special credentials you can use for internal tests. Just ask.
 
     Sample Usages:
@@ -605,7 +602,7 @@ if __name__ == '__main__':
                   -s3 -sa '{an aws access key ID} -sk '{an aws secret access key} -sr 'us-east-1'
 
     """
-    
+
     """
     CRITICAL NOTE: To test accuratly, make sure our /data docker mount is to this sample input folder
     ie) -v ~/sample_tests_1/:/data
@@ -615,8 +612,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-i',
         '--src-data-path',
-        help='Path to the source input and test_case data folders.' \
-        ' \n Please read the inline code by this argparses code to see more detailed' \
+        help='Path to the source input and test_case data folders.'
+        ' \n Please read the inline code by this argparses code to see more detailed'
         ' information on this data path usage.',
         required=True,
     )
@@ -624,13 +621,15 @@ if __name__ == '__main__':
         '-o',
         '--output-root-folder',
         help='Path to save the output data.'
-        ' \n Please read the inline code by this argparses code to see more detailed' \
+        ' \n Please read the inline code by this argparses code to see more detailed'
         ' information on the output data path usage.',
         required=True,
     )
     parser.add_argument('-s3', '--use-s3', action='store_true', help='Add flag if downloading data from S3')
     parser.add_argument('-sa', '--aws-access-key-id', help='AWS access key ID', required=False, default="")
-    parser.add_argument('-sk', '--aws-secret-access-key', help='AWS secret access key', required=False, default="")
+    parser.add_argument(
+        '-sk', '--aws-secret-access-key', help='AWS secret access key', required=False, default=""
+    )
     parser.add_argument('-sr', '--aws-region', help='AWS region (ie. us-east-1)', required=False, default="")
 
     args = parser.parse_args()

@@ -62,8 +62,10 @@ def duration_system(hydrofabric_dir, output_csv_file):
             if os.path.exists(txt_path):
                 hucs.append(entry)
             else:
-                print(f"Warning: Missing {txt_file} for HUC {entry}." \
-                      " HUC may have errored out earlier. Please check this.")
+                print(
+                    f"Warning: Missing {txt_file} for HUC {entry}."
+                    " HUC may have errored out earlier. Please check this."
+                )
 
     all_rows = []
     for huc in hucs:  # we know the file is there
