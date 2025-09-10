@@ -32,9 +32,10 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return distance
 
 
-def trace_downstream(start_feature_id, flow, distance):
+def trace_downstream(start_feature_id, flow, distance=None, stop_feature_id=None):
     """
     Trace down the NWM stream and creates a flow file.
+    Stops when the distance is exceeded or the stop_feature_id is reached.
     """
     reaches_to_write = []
     total_distance = 0.0
@@ -45,7 +46,15 @@ def trace_downstream(start_feature_id, flow, distance):
     print('======================================')
 
     reach_count = 0
-    while current_feature_id and total_distance <= distance:
+    while current_feature_id:
+        # stop if the current reach is the stop reach
+        if stop_feature_id and current_feature_id == stop_feature_id:
+            print(f"Reached stop feature_id: {stop_feature_id}")
+            break
+        if distance is not None and total_distance >= distance:
+            print(f"Reached distance limit of {distance:.2f} km.")
+            break
+
         response = requests.get(NWPS_API.format(feature_id=current_feature_id))
         response.raise_for_status()
         data = response.json()
@@ -117,15 +126,22 @@ if __name__ == "__main__":
 
     Example2:
     python3 /foss_fim/tools/generate_custom_flow_files.py
-    -feature_id 24228229,6129039
+    -feature_id 24228229,947060081
     -cfs 20000 25000
     -mile 10
     -o /output/custom_flows.csv
 
     Example3:
     python3 /foss_fim/tools/generate_custom_flow_files.py
-    -gage ANAW1 13324300
+    -gage LINK1 06869500
     -cms 120 50
+    -mile 10
+    -o /output/custom_flows.csv
+
+    Example4:
+    python3 /foss_fim/tools/generate_custom_flow_files.py
+    -gage wlsk1 link1 tsck1 ncmk1
+    -cfs 2000 3000 4000 4500
     -mile 10
     -o /output/custom_flows.csv
     """
@@ -179,9 +195,23 @@ if __name__ == "__main__":
 
     # collect rows
     all_row = []
-    for site, flow_val in zip(start_feature_id, flow):
-        rows = trace_downstream(start_feature_id=site, flow=flow_val, distance=distance)
+    num_sites = len(start_feature_id)
+    if num_sites == 0:
+        print('No start sites provided')
+        sys.exit(1)
+
+    for i in range(num_sites - 1):
+        start_id = start_feature_id[i]
+        stop_id = start_feature_id[i+1]
+        flow_val = flow[i]
+        rows = trace_downstream(start_feature_id=start_id, flow=flow_val, stop_feature_id=stop_id)
         all_row.extend(rows)
+
+    # The final trace from the last gage for the specified distance
+    last_start_id = start_feature_id[-1]
+    last_flow_val = flow[-1]
+    rows = trace_downstream(start_feature_id=last_start_id, flow=last_flow_val, distance=distance)
+    all_row.extend(rows)
 
     # save as a csv
     with open(args.output, 'w', newline='') as csvfile:
