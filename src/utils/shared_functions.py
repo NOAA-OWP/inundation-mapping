@@ -5,6 +5,7 @@ import inspect
 import logging
 import os
 import re
+import shutil
 import sys
 import threading
 import traceback
@@ -21,10 +22,22 @@ import pandas as pd
 from fsspec.core import url_to_fs
 from tqdm import tqdm
 
-import utils.shared_variables as sv
-
 
 gp.options.io_engine = "pyogrio"
+
+
+# #################################
+# log file tools
+def calc_error_log_file_path(log_file_path):
+    
+    # takes the log_file_path and creates and adjusted file name to handle errors
+    # ie) log_file_path = /data/outputs/my_log_file.log and comes back with
+    #   /data/outputs/my_log_file-errors.log
+    # This helps with error file rollup into parent logs if desired
+    if not log_file_path.endswith(".log"):
+        raise Exception("log file name must end with .log")
+    
+    return log_file_path.replace(".log", "-errors.log")
 
 
 # This one is a standard Python logger, NOT MEANT for multi-proc
@@ -63,7 +76,7 @@ def setup_file_logger(log_file_path):
     formatter = logging.Formatter("%(asctime)s - %(levelname)s : %(message)s")
 
     # error file handler
-    error_file_name = log_file_path.replace(".log", "-errors.log")
+    error_file_name = calc_error_log_file_path(log_file_path)
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
@@ -79,7 +92,7 @@ def setup_file_logger(log_file_path):
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
 
-    # return logger  (no)
+    # return logger  (don't do it :) )
 
 
 # This one is more designed to be for multi-proc as it has logger handler names
@@ -119,7 +132,7 @@ def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=loggi
 
         # Order of adding handlers may be important ???
         # error file handler
-        error_file_name = log_file_path.replace(".log", "-errors.log")
+        error_file_name = calc_error_log_file_path(log_file_path)
         err_file_handler = logging.FileHandler(error_file_name)
         err_file_handler.setLevel(logging.ERROR)
         err_file_handler.setFormatter(formatter)
@@ -133,6 +146,8 @@ def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=loggi
 
     return logger
 
+# #################################
+# Multi proc tools
 
 def run_with_mp(
     task_function,
@@ -222,6 +237,9 @@ def run_with_mp(
             pbar = tqdm(
                 total=len(tasks_args_list), desc="Processing tasks", unit="task", disable=(not show_progress)
             )
+
+            # Some mp functions might throw an exception, which means it may not get to as_completed
+            # We still need to catch that and if so, shut down the script.
             try:
                 for i, task_kwargs in enumerate(
                     tasks_args_list
@@ -251,29 +269,30 @@ def run_with_mp(
                     # Specific errors must be addressed inside the task function.
 
                     # This tool assumes that something is always returned
-                    # The result can be a T/F, or a string, dataset, list, dictionary (?), pretty much anything.
+                    # The result can be T/F a string, dataset, list, dictionary (?), pretty much anything.
+
                     result = future.result()
 
                     if result is not None:
-                        if show_progress:
-                            tqdm.write(
-                                f"✅ success for {task_id}"
-                            )  # do not use print otherwise a new updated bar is created after each print line
-                            file_logger.info(f"✅ success for {task_id}")
-                        else:
-                            # print(f"✅ success for {task_id}")
-                            file_logger.info(f"✅ success for {task_id}")
+                        # if it returns False, we will not show a success line
+                        if result is not False:
+                            if show_progress:
+                                tqdm.write(
+                                    f"✅ success for {task_id}"
+                                )  # do not use print otherwise a new updated bar is created after each print line
+                                file_logger.info(f"✅ success for {task_id}")
+                            else:
+                                # print(f"✅ success for {task_id}")
+                                file_logger.info(f"✅ success for {task_id}")
 
                         results[task_id] = result
-
-                    else:
-                        # It is possible some mp functions will return None
-                        # and we will assume it is an error.
+                        
+                    elif result is None:
                         if show_progress:
                             tqdm.write(f"❌ Error or Warning reported for {task_id}.")
-
-                        # print(f"❌ Error or Warning reported for {task_id}.")
                         file_logger.error(f"❌ Error or Warning reported for {task_id}.")
+                    # else:
+                        # returned False and it is assumed the MP handled it and its output msgs
 
                     if pbar:
                         # print("task bar being updated")
@@ -283,27 +302,22 @@ def run_with_mp(
                     pbar.close()
 
             except Exception as ex:
-                error_msg = f"❌ Error for {task_id}: {ex}"
+                error_msg = f"❌ Critical error: {ex}"
                 traceback_msg = traceback.format_exc()
 
                 if show_progress:
                     tqdm.write(error_msg)
                 else:
                     print(error_msg)
-                file_logger.error(error_msg)
-                file_logger.error(traceback_msg)
+                file_logger.critical(error_msg)
+                file_logger.critical(traceback_msg)
 
                 results[task_id] = None
 
                 if exit_on_failure:
-                    print("++++++++++++")
                     dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                     final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
                     file_logger.critical(final_msg)
-                    print(final_msg, flush=True)
-
-                    # if pbar:  # TQDM can hang even though it is an exception as it was caught
-                    #     pbar.close()
 
                     file_logger.info("Process pool shutting down")
                     print(
@@ -315,13 +329,12 @@ def run_with_mp(
                         wait=False, cancel_futures=True
                     )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
                     # sys.exit(1)  Can not exit here as there is a thread in play and it is super hard to officially kill
-                    # Python mp's are not meant to be explictly aborted, just skip further processing, then
+                    # Python mp's are not meant to be explictly shut down, just skip further processing, then
                     # sys.exit(1) after you manually close the thread
                     # Tried to manually close the thread here, but other things were holding on and
                     # making the process hang, not truly killing the program.
-
-                    screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-                    screen_queue_thread.join()  # official closure of thread
+                    # CTRL-C can trigger secondary exceptions when objects inside this page are still held 
+                    # open.
 
                     # Yes.. seems weird to have this here and a new exception.
                     # But it helps force shut down other objects like manual logging and a
@@ -336,10 +349,7 @@ def run_with_mp(
         screen_queue.put("DONE")  # sends the stop SIGNAL to thread
         screen_queue_thread.join()  # official closure of thread
 
-        # if abort_process:
-        #     print("Program is shutting down", flush=True)
-        #     sys.exit(1)
-
+    # This is primarily used when using CTRL-C to which can leave orphaned processes
     except Exception as ex2:
         print("Still shutting down, hang in there", flush=True)
         print(ex2, flush=True)
@@ -348,71 +358,33 @@ def run_with_mp(
     return results
 
 
+# #################################
+# Misc tools
+def concat_files(src_file, trg_file, remove_old_src_file=True):
+    # Sometimes we want to append log file onto another file.
+    # For example, a temp mp log file into the parent log.
+    
+    # This will not error out if the files do not exist
+    # only send back a True / False (successful)
+    
+    if not os.path.exists(src_file) or not os.path.exists(trg_file):
+        return False
+
+    with open(src_file, 'r') as src:
+        with open(trg_file, 'a') as trg:
+            shutil.copyfileobj(src, trg)
+
+    if remove_old_src_file:
+        os.remove(src_file)
+
+    return True
+
+
 def getDriver(fileName):
     driverDictionary = {'.gpkg': 'GPKG', '.geojson': 'GeoJSON', '.shp': 'ESRI Shapefile'}
     driver = driverDictionary[splitext(fileName)[1]]
 
     return driver
-
-
-# #################################
-# Possibly deprecated - Jun 23, 2025 - No scripts are calling this
-# if that changes, please remove this comment
-def pull_file(url, full_pulled_filepath):
-    """
-    This helper function pulls a file and saves it to a specified path.
-
-    Args:
-        url (str): The full URL to the file to download.
-        full_pulled_filepath (str): The full system path where the downloaded file will be saved.
-    """
-    import urllib.request
-
-    print("Pulling " + url)
-    urllib.request.urlretrieve(url, full_pulled_filepath)
-
-
-def delete_file(file_path):
-    """
-    This helper function deletes a file.
-
-    Args:
-        file_path (str): System path to a file to be deleted.
-    """
-
-    try:
-        os.remove(file_path)
-    except FileNotFoundError:
-        pass
-
-
-def run_system_command(args):
-    """
-    This helper function takes a system command and runs it. This function is designed for use
-    in multiprocessing.
-
-    Args:
-        args (list): A single-item list, the first and only item being a system command string.
-    """
-
-    # Parse system command.
-    command = args[0]
-
-    # Run system command.
-    os.system(command)
-
-
-def get_fossid_from_huc8(
-    huc8_id,
-    foss_id_attribute='fossid',
-    hucs=os.path.join(os.environ['inputsDir'], 'wbd', 'WBD_National.gpkg'),
-    hucs_layerName=None,
-):
-    hucs = fiona.open(hucs, 'r', layer=hucs_layerName)
-
-    for huc in hucs:
-        if huc['properties']['HUC8'] == huc8_id:
-            return huc['properties'][foss_id_attribute]
 
 
 ########################################################################
@@ -498,6 +470,9 @@ def progress_bar_handler(executor_dict, desc):
             print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
 
 
+########################################################################
+# TODO: Sept 2025: There is a new data/aws/s3_shared_functions.py coming in which might
+# be able to take over for these.
 def s3_or_local_path_exists(path: str) -> bool:
     """
     Checks existence of path for local or s3 path
@@ -550,7 +525,7 @@ def s3_or_local_glob(path: str) -> list:
     """
     fs, pth = url_to_fs(path)
     return fs.glob(pth)
-
+########################################################################
 
 # #####################################
 class FIM_Helpers:

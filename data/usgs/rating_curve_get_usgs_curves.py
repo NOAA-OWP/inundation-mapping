@@ -112,7 +112,7 @@ def __mp_get_flows_for_site(
 # Generate categorical flows for each category across all sites.
 ##############################################################################
 def __write_categorical_flow_files(
-    metadata_list, output_dir, file_date_append, file_datetime_string, master_log_file, num_jobs
+    metadata_list, output_dir, file_date_append, file_datetime_string, parent_log_file, num_jobs
 ):
     '''
     Writes flow files of each category for every feature_id in the input metadata.
@@ -125,9 +125,14 @@ def __write_categorical_flow_files(
     output_dir : STR
         Path to output_dir where flow files will be saved.
 
+    parent_log_file:
+        This function uses its own mp log file. This arg allows the mp logs to be
+        appended to the parent when it is done.
+        Note: For now.. any error files created anywhere are not removed.
+
     Returns
     -------
-    all_data : DataFrame
+    all_flows_data : DataFrame
         A dataframe of categorical flow for every feature ID in the input metadata.
 
     '''
@@ -193,11 +198,8 @@ def __write_categorical_flow_files(
     )
 
     # Roll the mp log into the master log.
-    with open(mp_log_file_path, 'r') as src_file:
-        with open(master_log_file, 'a') as master_log_file:
-            shutil.copyfileobj(src_file, master_log_file)
+    sf.concat_files(mp_log_file_path, parent_log_file, remove_old_src_file=True)
     # for now.. let's leave the error files alone, even the mp ones
-    os.remove(mp_log_file_path)
 
     # roll up the list of df's into one master df
     all_flows_data = pd.concat(list_flow_dfs, ignore_index=True)
@@ -528,8 +530,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
 
     num_jobs : INT
         Number of jobs (workers) used for multi-proc.
-
-
     '''
 
     # Validation
@@ -610,6 +610,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         # print('Processing metadata...')
         section_start_dt = datetime.now(timezone.utc)
         display_dt_string = section_start_dt.strftime("%m/%d/%Y %H:%M:%S")
+        logging.info("=============")        
         logging.info(f"Processing metadata started: {display_dt_string} (UTC)")
         all_rating_curves = pd.DataFrame()
 
@@ -669,10 +670,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         )
 
         # Roll the mp log into the master log.
-        with open(mp_log_file_path, 'r') as src_file:
-            with open(log_file_path, 'a') as master_log_file:
-                shutil.copyfileobj(src_file, master_log_file)
-        os.remove(mp_log_file_path)
+        sf.concat_files(mp_log_file_path, log_file_path, remove_old_src_file=True)
         # for now.. let's leave the error files alone, even the mp ones
 
         # more processing of rating curves
@@ -722,9 +720,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
         logging.info(f"Getting stage discharge values - started: {display_dt_string} (UTC)")
 
-        # TODO... ADD MP here as well
-
-        # what do we want back here? anything?
         __write_categorical_flow_files(
             metadata_list, output_dir, file_date_append, file_datetime_string, log_file_path, num_jobs
         )
