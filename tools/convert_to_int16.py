@@ -31,23 +31,15 @@ def convert_to_int16(branch_dir: str):
 
     # Iterate through each pair of gw catchments and rems
     for c, r in zip(catchments, rems):
-        rem = rxr.open_rasterio(r)
-
-        # Save original as another file to be deleted by deny list or saved
-        rem.rio.to_raster(r.replace('.tif', '_float32.tif'), compress="LZW", tiled=True)
-        nodata, crs = rem.rio.nodata, rem.rio.crs
-
-        # Preserve the second highest possible number for int16, use the highest number for nodata
-        rem.data = xr.where(rem > 32.766, 32.766, rem)
-        rem.data = xr.where(rem >= 0, np.round(rem * 1000), 32767)
-
-        rem = rem.astype(np.int16)
-        rem.rio.write_nodata(32767, inplace=True)
-        rem.rio.write_crs(crs, inplace=True)
-
-        rem.rio.to_raster(r, dtype=np.int16, compress="LZW", tiled=True)
 
         catchment = rxr.open_rasterio(c)
+
+        # Check if converting data is possible
+        if (np.unique(catchment).shape[0] > 32766) | (len(str(np.max(catchment))) > 8):
+            raise ValueError(
+                'Catchment raster has either more than 32766 features or has HydroIDs with more'
+                'than 8 digits.  Please adjust data accordingly before using Int16.'
+            )
 
         if hydroid_prefix is None:
             hydroid_prefix = str(int(np.floor(catchment.max() / 10000)))
@@ -68,6 +60,22 @@ def convert_to_int16(branch_dir: str):
         if not os.path.exists(hydroid_prefix_path):
             with open(hydroid_prefix_path, 'w') as file:
                 file.write(hydroid_prefix)
+
+        rem = rxr.open_rasterio(r)
+
+        # Save original as another file to be deleted by deny list or saved
+        rem.rio.to_raster(r.replace('.tif', '_float32.tif'), compress="LZW", tiled=True)
+        nodata, crs = rem.rio.nodata, rem.rio.crs
+
+        # Preserve the second highest possible number for int16, use the highest number for nodata
+        rem.data = xr.where(rem > 32.766, 32.766, rem)
+        rem.data = xr.where(rem >= 0, np.round(rem * 1000), 32767)
+
+        rem = rem.astype(np.int16)
+        rem.rio.write_nodata(32767, inplace=True)
+        rem.rio.write_crs(crs, inplace=True)
+
+        rem.rio.to_raster(r, dtype=np.int16, compress="LZW", tiled=True)
 
 
 if __name__ == "__main__":
