@@ -202,7 +202,7 @@ if __name__ == "__main__":
 
     for i in range(num_sites - 1):
         start_id = start_feature_id[i]
-        stop_id = start_feature_id[i+1]
+        stop_id = start_feature_id[i + 1]
         flow_val = flow[i]
         rows = trace_downstream(start_feature_id=start_id, flow=flow_val, stop_feature_id=stop_id)
         all_row.extend(rows)
