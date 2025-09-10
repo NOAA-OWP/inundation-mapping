@@ -48,6 +48,12 @@ do
         err_exists=1
         echo "***** An error has occured  *****"
         cp $branchLogFileName $outputDestDir/branch_errors
+    elif [ $code -eq 65]; then
+        echo
+        err_exists=1
+        echo "***** Branch gw_catchments raster has either too many HydroIDs or a HydroID with more than 8 digits
+        to convert to Int16 *****"
+        rm -rf $tempHucDataDir/branches/$branchId/
     fi
 done
 

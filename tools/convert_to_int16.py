@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-
 import argparse
 import os
+import sys
 import traceback
 from glob import glob
 
 import numpy as np
 import rioxarray as rxr
 import xarray as xr
+
+from utils.fim_enums import FIM_exit_codes
 
 
 def convert_to_int16(branch_dir: str):
@@ -37,10 +39,11 @@ def convert_to_int16(branch_dir: str):
         # Check if converting data is possible
         if (np.unique(catchment).shape[0] > 32766) | (len(str(int(np.max(catchment)))) > 8):
 
-            raise ValueError(
-                'Catchment raster has either more than 32766 unique HydroIDs or has HydroIDs with more'
-                'than 8 digits.  Please adjust data accordingly before using Int16 conversion.'
+            print(
+                "Catchment raster has either more than 32766 unique HydroIDs or has HydroIDs with more",
+                "than 8 digits.  Please adjust data accordingly before running Int16 data conversion.",
             )
+            sys.exit(FIM_exit_codes.CANNOT_CONVERT_HYDROIDS_TO_INT16.value)
 
         if hydroid_prefix is None:
             hydroid_prefix = str(int(np.floor(catchment.max() / 10000)))
