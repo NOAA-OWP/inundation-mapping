@@ -370,14 +370,15 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
 
 if __name__ == "__main__":
 
-    # Only need to run this code once, since it looks for all hucs (conus or alaska) from preclip folder
-
-    # TBD: Guam / Am Somoa?
+    # Only need to run this code once, since it looks for all hucs (conus, alaska, Guam, Am Somoa) from preclip folder
 
     # sample usage:
     # python foss_fim/data/roads/pull_osm_roads.py
     #     -p data/inputs/pre_clip_huc8/20250218
-    #     -o outputs/roads/test/
+    #     -o outputs/roads/test/20250910  (the FIM Dev convention is to make a folder with the date at the end)
+
+    # When using the -lh argument, make sure the hucs are in quotes, spaces between HUC numbers.
+    #    ie) '21010005 19020302'
 
     # +++++++++++++++++++++++++
     # Note: Overpass API has a system at their servers that manages the number of calls coming in from
