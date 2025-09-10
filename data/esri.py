@@ -126,7 +126,7 @@ class ESRI_REST(object):
         else:
             self.exceededTransferLimit = False
         # Read the response into a GeoDataFrame
-        sub_gdf = gpd.read_file(self.response.text)
+        sub_gdf = gpd.read_file(self.response.text, engine='fiona')
         return sub_gdf
 
     def _api_call(self, url, params=None):

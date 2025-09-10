@@ -36,9 +36,16 @@ def download_nld_lines():
 
     # Query REST service to download levee 'system routes'
     print("Downloading levee lines from the NLD...")
-    nld_url = "https://ags03.sec.usace.army.mil/server/rest/services/NLD2_PUBLIC/FeatureServer/15/query"
+    nld_url = "https://geospatial.sec.usace.army.mil/dls/rest/services/NLD/Public/FeatureServer/15/query"
     levees = ESRI_REST.query(
-        nld_url, f="json", where="1=1", returnGeometry="true", outFields="*", outSR=epsg_code, returnZ="true"
+        nld_url,
+        f="json",
+        where="1=1",
+        returnGeometry="true",
+        outFields="*",
+        outSR=epsg_code,
+        returnZ="true",
+        resultRecordCount=5000,
     )
 
     # Write levees to a single geopackage
@@ -72,11 +79,13 @@ def process_levee_lines(levee_gdf: gpd.GeoDataFrame, out_levees: str):
 
     # Filter vertices that have z-values less than the minimum from levee geometry
     tqdm.pandas(desc='Removing null elevations')
+    if 'MultiLineString' in levee_gdf.geom_type.unique():
+        levee_gdf = levee_gdf.explode()
     levee_gdf['geometry'] = levee_gdf.progress_apply(lambda row: remove_nulls(row.geometry, row.HUC2), axis=1)
     # Remove levees that have empty geometries resulting from the previous filter
     levee_gdf = levee_gdf[~levee_gdf.is_empty]
     levee_gdf.to_file(out_levees, index=False, driver='GPKG', engine='fiona')
-    print(f"Preprocessed levees written to \n{out_levees}")
+    print(f"Preprocessed levees written to \n{out_levees}\n")
 
 
 def remove_nulls(geom: LineString, huc: str):
@@ -144,7 +153,7 @@ def download_nld_poly():
     '''
     # Query REST service to download levee 'system routes'
     print("Downloading levee protected areas from the NLD...")
-    nld_area_url = "https://ags03.sec.usace.army.mil/server/rest/services/NLD2_PUBLIC/FeatureServer/14/query"
+    nld_area_url = "https://geospatial.sec.usace.army.mil/dls/rest/services/NLD/Public/FeatureServer/17/query"
     # FYI to whomever takes the time to read this code, the resultRecordCount had to be set on this query
     # because the service was returning an error that turned out to be caused by the size of the request.
     # Running the default max record count of 5000 was too large for polygons, so using resultRecordCount=2000
@@ -156,7 +165,7 @@ def download_nld_poly():
         returnGeometry="true",
         outFields="*",
         outSR=epsg_code,
-        resultRecordCount=2000,
+        resultRecordCount=1000,
     )
 
     # Write levees to a single geopackage
