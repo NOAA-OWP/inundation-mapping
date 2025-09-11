@@ -105,12 +105,12 @@ def __mp_get_flows_for_site(
 
                 site_flows_df = pd.concat([site_flows_df, flow_df], ignore_index=True)
         return site_flows_df
-    
+
     except Exception:
         file_logger.critical(f"❌ Critical error while processing {task_id}")
         file_logger.critical(traceback.format_exc())
         return 1, []  # shut the program down.
-    
+
 
 ##############################################################################
 # Generate categorical flows for each category across all sites.
@@ -307,7 +307,9 @@ def __mp_get_site_rating_curve(
 
             elif usgs['vcs'] == 'LMSL':
                 # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site.
-                file_logger.warning(f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI')
+                file_logger.warning(
+                    f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI'
+                )
                 return 2, []  # log and continue the next task
 
             else:
@@ -748,11 +750,9 @@ if __name__ == '__main__':
         python /foss_fim/data/usgs/get_usgs_rating_curves.py -l '04228500 04228502' \
             -o '/data/inputs/usgs_gages/20250921' -j 30
 
-
     **********************
     Don't worry if you see a very large number of lines showing Error or Warning reported for {usgs site id}.
     The majority of the sites are rejected for various reasons, but mostly becuase they don't have rating curves.
-    
     **********************
 
     '''

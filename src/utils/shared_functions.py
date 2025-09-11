@@ -183,7 +183,7 @@ def run_with_mp(
 
     # +++++++++++++++++++++
     ####  TASK RETURN VALUES TO THE POOL ####
-    
+
     # Different tools have different needs for how it uses it's MP functions.
 
     # This tool assumes that two things are returned: a return code, then a list (might be empty or any type of object)
@@ -191,18 +191,18 @@ def run_with_mp(
     #       0: Success and show tqdm or print success line
     #       1: Fail and the mp process function wants the entire script aborted
     #       2: Fail but don't shut down, advance the pbar AND show the tqdm / print error or warning message
-    
+
     # -  A list object. Inside that list can be anytype of object, T/F, a df, a dictionary, string anything
     #       If the list object has no items, do not not add it to the run_with_mp return results
     #       If it does, extract that first item from the list and add it to the return results.
-    
-    # Some tools like pull_osm_roads.py want a T/F returned for every mp item, so its mp process 
+
+    # Some tools like pull_osm_roads.py want a T/F returned for every mp item, so its mp process
     #    named "single_huc_job" returns:
     #            0, [True]  (meaning success and add "True" to the run_by_mp result set)
-    #            2, [False] (meaning fail don't shut down the entire process, add the value of 
+    #            2, [False] (meaning fail don't shut down the entire process, add the value of
     #                 False to the run_with_mp return results and show the tqdm / print message
-    
-    # Some tools like get_usgs_rating_curves.py have different needs. Inside its mp function, 
+
+    # Some tools like get_usgs_rating_curves.py have different needs. Inside its mp function,
     #    named "__mp___mp_get_site_rating_curve" could have three scenerios (at a min)
     #           0, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
     #           1, []  (Catestrophic fail, shut down the entire script)
@@ -210,9 +210,9 @@ def run_with_mp(
 
     # Some tools will want a value return from run_by_mp for all tasks, pass or fail.
     # Some tools only want a return values from run_by_mp with successful values
-    
+
     # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.
-    
+
     # ++++++++++++++++++++++
 
     try:
@@ -256,7 +256,7 @@ def run_with_mp(
         #   is logged and continues or shuts down the entire application.  Simply putting sys.exit(1) does not
         #   work and can often hang up the script. It all comes down to memory management, python garbage dumps,
         #   and how objects are used (passed versus reference).
-        
+
         # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
         #   abort and stop new ones from firing. CTRL-C a number of times from console will usually do it as well.
 
@@ -295,9 +295,9 @@ def run_with_mp(
                 # Catestophic errors mean we can not 100% guarantee all mp's will come back as_completed
                 for future in as_completed(future_to_id):
                     task_id = future_to_id[future]
-                    
-                    # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.                    
-                    # See notes above about return values in the 
+
+                    # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.
+                    # See notes above about return values in the
                     rtn_code, rtn_value = future.result()
 
                     if rtn_code == 0:
@@ -309,13 +309,15 @@ def run_with_mp(
                         else:
                             print(f"✅ Success for {task_id}")
                         file_logger.info(f"✅ Success for {task_id}")
-                        
+
                     elif rtn_code == 1:
                         # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
                         # throw an exception to shut down and cleanup all objects (pool, tqdm, queue)
-                        raise Exception(f"Critical Error: Abort Program from task id = {task_id}." \
-                                         " See exception details in the logs.")
-                    
+                        raise Exception(
+                            f"Critical Error: Abort Program from task id = {task_id}."
+                            " See exception details in the logs."
+                        )
+
                     elif rtn_code == 2:
                         # Fail but not shut down the pool.
                         if rtn_code == 2:  # show tqdm / print message
@@ -343,7 +345,7 @@ def run_with_mp(
             except Exception as ex:
                 # The child mp function should have it's own try/except but in case somethign slips
                 # through or they forgot to add it.
-                
+
                 error_msg = f"❌ Critical error: {ex}"
                 traceback_msg = traceback.format_exc()
                 print(error_msg)
