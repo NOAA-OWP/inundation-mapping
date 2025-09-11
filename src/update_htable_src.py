@@ -17,13 +17,13 @@ def process_branch(sub_branch_path, branch):
 
     src_full_preserve_columns = [
         'Stage',
-        'Number of Cells',
-        'SurfaceArea (m2)',
-        'BedArea (m2)',
-        'Volume (m3)',
+        # 'Number of Cells', # Read from src_base
+        # 'SurfaceArea (m2)',
+        # 'BedArea (m2)',
+        # 'Volume (m3)',
         'SLOPE_RISE_RUN',
-        'LENGTHKM',
-        'AREASQKM',
+        # 'LENGTHKM',
+        # 'AREASQKM',
         'ManningN',
         'HydroID',
         'NextDownID',
