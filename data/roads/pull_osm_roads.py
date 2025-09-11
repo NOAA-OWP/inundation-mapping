@@ -259,12 +259,12 @@ def single_huc_job(
             else:
                 file_logger.info(f"No roads within actual boundary of HUC for {task_id}")
                 screen_queue.put(f"No roads within actual boundary of HUC for {task_id}")
-        return True
+        return 0, [True]
 
     except Exception as e:
         file_logger.error(f"❌ Exception in HUC {HUC_no}: {str(e)}")
         file_logger.error(traceback.format_exc())  # Optional: log full traceback
-        return False
+        return 2, [False]
 
 
 def pull_osm_roads(preclip_dir, output_dir, number_jobs):
@@ -298,6 +298,7 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs):
         )
 
     # === Run jobs in parallel ===
+    # If a huc fails.. continue on, don't kill the program
     mp_results = run_with_mp(
         task_function=single_huc_job,
         tasks_args_list=tasks_args_list,

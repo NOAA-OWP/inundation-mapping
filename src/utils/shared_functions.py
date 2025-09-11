@@ -186,10 +186,10 @@ def run_with_mp(
     
     # Different tools have different needs for how it uses it's MP functions.
 
-    # This tool assumes that two things are returned.
+    # This tool assumes that two things are returned: a return code, then a list (might be empty or any type of object)
     # -  A status code. options are:
     #       0: Success and show tqdm or print success line
-    #       1: Fail and the mp process function wants the entire script shut down
+    #       1: Fail and the mp process function wants the entire script aborted
     #       2: Fail but don't shut down, advance the pbar AND show the tqdm / print error or warning message
     
     # -  A list object. Inside that list can be anytype of object, T/F, a df, a dictionary, string anything
