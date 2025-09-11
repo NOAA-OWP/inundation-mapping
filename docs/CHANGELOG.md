@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.3x - 2025-09-11 - [PR#1654](https://github.com/NOAA-OWP/inundation-mapping/pull/1654)
+
+Adjusted the script to source columns from `src_base` instead of `src_full` . 
+
+
+### Changes
+`dev-fix-update-hydrotable`: as described. 
+<br/>
+
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
 
 Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.
