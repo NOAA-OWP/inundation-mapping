@@ -747,10 +747,12 @@ if __name__ == '__main__':
     Example usage:
 
     Download all sites to outputs folder
-        /foss_fim/data/usgs/rating_curve_get_usgs_curves.py -l 'all' -o '/data/inputs/usgs_gages/'
+        python /foss_fim/data/usgs/get_usgs_rating_curves.py -l 'all' \
+            -o '/data/inputs/usgs_gages/20250921' -j 30
 
     Download certain sites to outputs folder
-        /foss_fim/data/usgs/rating_curve_get_usgs_curves.py -l '04228500 04228502' -o '/data/inputs/usgs_gages'
+        python /foss_fim/data/usgs/get_usgs_rating_curves.py -l '04228500 04228502' \
+            -o '/data/inputs/usgs_gages/20250921' -j 30
 
     '''
 
