@@ -17,7 +17,7 @@ gpd.options.io_engine = "pyogrio"
 
 
 # TODO: Jun 2025: Change this to have a path to the config via an arg.
-# See rating_curve_get_usgs_curves for an example
+# See get_usgs_rating_curves for an example
 load_dotenv()
 # import variables from .env file
 API_BASE_URL = os.getenv("API_BASE_URL")

@@ -304,9 +304,7 @@ def __mp_get_site_rating_curve(
 
         elif usgs['vcs'] == 'LMSL':
             # If the site has a vdatum of LMSL and is not in PR, VI or HI, skip site.
-            file_logger.warning(
-                f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI'
-            )
+            file_logger.warning(f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI')
             return None
 
         else:
@@ -609,7 +607,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         # print('Processing metadata...')
         section_start_dt = datetime.now(timezone.utc)
         display_dt_string = section_start_dt.strftime("%m/%d/%Y %H:%M:%S")
-        logging.info("=============")        
+        logging.info("=============")
         logging.info(f"Processing metadata started: {display_dt_string} (UTC)")
         all_rating_curves = pd.DataFrame()
 

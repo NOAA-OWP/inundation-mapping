@@ -29,14 +29,14 @@ gp.options.io_engine = "pyogrio"
 # #################################
 # log file tools
 def calc_error_log_file_path(log_file_path):
-    
+
     # takes the log_file_path and creates and adjusted file name to handle errors
     # ie) log_file_path = /data/outputs/my_log_file.log and comes back with
     #   /data/outputs/my_log_file-errors.log
     # This helps with error file rollup into parent logs if desired
     if not log_file_path.endswith(".log"):
         raise Exception("log file name must end with .log")
-    
+
     return log_file_path.replace(".log", "-errors.log")
 
 
@@ -146,8 +146,10 @@ def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=loggi
 
     return logger
 
+
 # #################################
 # Multi proc tools
+
 
 def run_with_mp(
     task_function,
@@ -179,8 +181,8 @@ def run_with_mp(
     - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
         - Do not use any print statements after start of multiprocessing in the task function or inside its helper functions. Instead use screen_queue.put().
         - use file_logger.info() to log the message in the log file
-        
-    - If you do want the child script fail to shut down the entire script, 
+
+    - If you do want the child script fail to shut down the entire script,
         make sure it allows/throws an exception back from the child mp function.
     '''
 
@@ -286,13 +288,13 @@ def run_with_mp(
                                 file_logger.info(f"✅ success for {task_id}")
 
                         results[task_id] = result
-                        
+
                     elif result is None:
                         if show_progress:
                             tqdm.write(f"❌ Error or Warning reported for {task_id}.")
                         file_logger.error(f"❌ Error or Warning reported for {task_id}.")
                     # else:
-                        # returned False and it is assumed the MP handled it and its output msgs
+                    # returned False and it is assumed the MP handled it and its output msgs
 
                     if pbar:
                         # print("task bar being updated")
@@ -333,7 +335,7 @@ def run_with_mp(
                     # sys.exit(1) after you manually close the thread
                     # Tried to manually close the thread here, but other things were holding on and
                     # making the process hang, not truly killing the program.
-                    # CTRL-C can trigger secondary exceptions when objects inside this page are still held 
+                    # CTRL-C can trigger secondary exceptions when objects inside this page are still held
                     # open.
 
                     # Yes.. seems weird to have this here and a new exception.
@@ -363,10 +365,10 @@ def run_with_mp(
 def concat_files(src_file, trg_file, remove_old_src_file=True):
     # Sometimes we want to append log file onto another file.
     # For example, a temp mp log file into the parent log.
-    
+
     # This will not error out if the files do not exist
     # only send back a True / False (successful)
-    
+
     if not os.path.exists(src_file) or not os.path.exists(trg_file):
         return False
 
@@ -525,7 +527,10 @@ def s3_or_local_glob(path: str) -> list:
     """
     fs, pth = url_to_fs(path)
     return fs.glob(pth)
+
+
 ########################################################################
+
 
 # #####################################
 class FIM_Helpers:
