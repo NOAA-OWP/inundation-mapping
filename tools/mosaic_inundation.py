@@ -3,13 +3,29 @@
 
 import argparse
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 from typing import Optional, Union
 
+import geopandas as gpd
+import numpy as np
 import pandas as pd
+import rasterio
+import rioxarray as rxr
+import xarray as xr
+from geocube.api.core import make_geocube
+from rasterio.features import shapes
+from rasterio.merge import merge
+from shapely.geometry import box
+from shapely.geometry.multipolygon import MultiPolygon
+from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
+
+
+gpd.options.io_engine = "pyogrio"
 
 
 def Mosaic_inundation(
@@ -183,7 +199,6 @@ def mosaic_by_unit(
     str
         File name of mosaiced output
     """
-    from rasterio.merge import merge
 
     if mosaic_output is not None:
 
@@ -210,18 +225,6 @@ def _vprint(message, verbose):
 
 
 def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=True):
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    from threading import Lock
-
-    import geopandas as gpd
-    import numpy as np
-    import rasterio
-    import rioxarray as rxr
-    import xarray as xr
-    from geocube.api.core import make_geocube
-    from shapely.geometry import box
-
-    gpd.options.io_engine = "pyogrio"
 
     if isinstance(mosaic, str):
         with rasterio.open(mosaic, 'r') as rst:
@@ -304,14 +307,6 @@ def mosaic_final_inundation_extent_to_poly(
         File type to output inundation polygon
 
     """
-    import geopandas as gpd
-    import numpy as np
-    import rasterio
-    from rasterio.features import shapes
-    from shapely.geometry.multipolygon import MultiPolygon
-    from shapely.geometry.polygon import Polygon
-
-    gpd.options.io_engine = "pyogrio"
 
     with rasterio.open(inundation_raster) as src:
         # Open inundation_raster using rasterio.
