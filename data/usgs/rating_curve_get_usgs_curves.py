@@ -2,7 +2,6 @@
 import argparse
 import logging
 import os
-import shutil
 import sys
 import traceback
 from datetime import datetime, timezone
@@ -620,12 +619,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info(f"Number of sites to process: {num_sites}")
         print("-- Note: some locations will be skipped")
 
-        # TODO: This part needs MP, as is, it takes appx 21 hours
-        # Use MP and not Threading. Why? We do a tons of WRDS calls and we
-        # don't want to overload the network pipe. Threading is best for high computational
-        # and not when calling external or making multiple calls to the disks.
-        # If we need to later, we can make a seperate log per mp and roll them up togehter
-        # see FIM_logger.merge_log_files
         tasks_args_list = []
         for i in range(len(metadata_list)):
             metadata_json = metadata_list[i]
@@ -649,7 +642,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         sorted_tasks_args_list = sorted(tasks_args_list, key=lambda x: ['usgs_site_code'])
 
         # setup the mp logger
-        # TODO: test with exceptions and see if this still works with multiple loggers in place.
         # TODO: not sure but might be file collisons with many MP's trying to write to one file
         # at the same time. For now, we will jsut let MP have its own in case it gets hung up
         # if the MP gets hung up or throws and exception, if mp log was used script wide
@@ -763,7 +755,6 @@ if __name__ == '__main__':
     '''
 
     # Parse arguments
-    # TODO: Check whether this is still true. Update if needed.
     parser = argparse.ArgumentParser(
         description='Retrieve USGS rating curves adjusted to elevation (NAVD88).\n'
         'Currently configured to get rating curves within CONUS.\n'
