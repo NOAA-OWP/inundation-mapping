@@ -149,15 +149,12 @@ def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=loggi
 
 # #################################
 # Multi proc tools
-
-
 def run_with_mp(
     task_function,
     tasks_args_list,
     file_logger,
     max_workers=4,
     task_id_key=None,  # must be one of the keys in the args list
-    exit_on_failure=True,
     show_progress=True,
 ):
     '''
@@ -171,10 +168,10 @@ def run_with_mp(
            log file per task and combining them afterward.
 
     - Use try/except in both the task function and this wrapper:
+        • Child MP process functions should always have it's own try/except to handle issues gracefully.
         • The task function should handle known/expected errors and always return True or False.
         • This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
-        • No more try/except inside helper functions inside task function. Let them fail and task_function exception handles them.
-        • Inside helper functions feel free to log any information. but No need to raise errors.
+        • Inside helper functions feel free to log any information. but no need to raise errors.
         • The only exception is that when we really need to address a special case like API limits and wait and retry.
     - Inside your task function or helpers, log live messages using screen_queue.put(msg).
     - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
@@ -182,11 +179,41 @@ def run_with_mp(
         - Do not use any print statements after start of multiprocessing in the task function or inside its helper functions. Instead use screen_queue.put().
         - use file_logger.info() to log the message in the log file
 
-    - If you do want the child script fail to shut down the entire script,
-        make sure it allows/throws an exception back from the child mp function.
     '''
 
-    # abort_process = False
+    # +++++++++++++++++++++
+    ####  TASK RETURN VALUES TO THE POOL ####
+    
+    # Different tools have different needs for how it uses it's MP functions.
+
+    # This tool assumes that two things are returned.
+    # -  A status code. options are:
+    #       0: Success and show tqdm or print success line
+    #       1: Fail and the mp process function wants the entire script shut down
+    #       2: Fail but don't shut down, advance the pbar AND show the tqdm / print error or warning message
+    
+    # -  A list object. Inside that list can be anytype of object, T/F, a df, a dictionary, string anything
+    #       If the list object has no items, do not not add it to the run_with_mp return results
+    #       If it does, extract that first item from the list and add it to the return results.
+    
+    # Some tools like pull_osm_roads.py want a T/F returned for every mp item, so its mp process 
+    #    named "single_huc_job" returns:
+    #            0, [True]  (meaning success and add "True" to the run_by_mp result set)
+    #            2, [False] (meaning fail don't shut down the entire process, add the value of 
+    #                 False to the run_with_mp return results and show the tqdm / print message
+    
+    # Some tools like get_usgs_rating_curves.py have different needs. Inside its mp function, 
+    #    named "__mp___mp_get_site_rating_curve" could have three scenerios (at a min)
+    #           0, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
+    #           1, []  (Catestrophic fail, shut down the entire script)
+    #           2, []  (Fail but there is nothing to add to the run_by_mp result set)
+
+    # Some tools will want a value return from run_by_mp for all tasks, pass or fail.
+    # Some tools only want a return values from run_by_mp with successful values
+    
+    # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.
+    
+    # ++++++++++++++++++++++
 
     try:
         # the thread must be inside the try catch to be closed correct in system fail.
@@ -229,6 +256,7 @@ def run_with_mp(
         #   is logged and continues or shuts down the entire application.  Simply putting sys.exit(1) does not
         #   work and can often hang up the script. It all comes down to memory management, python garbage dumps,
         #   and how objects are used (passed versus reference).
+        
         # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
         #   abort and stop new ones from firing. CTRL-C a number of times from console will usually do it as well.
 
@@ -264,90 +292,93 @@ def run_with_mp(
                     future = executor.submit(task_function, **kwargs_updated)
                     future_to_id[future] = task_id
 
+                # Catestophic errors mean we can not 100% guarantee all mp's will come back as_completed
                 for future in as_completed(future_to_id):
                     task_id = future_to_id[future]
+                    
+                    # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.                    
+                    # See notes above about return values in the 
+                    rtn_code, rtn_value = future.result()
 
-                    # Note that try/except here only worries about running and catching catastrophic errors.
-                    # Specific errors must be addressed inside the task function.
-
-                    # This tool assumes that something is always returned
-                    # The result can be T/F a string, dataset, list, dictionary (?), pretty much anything.
-
-                    result = future.result()
-
-                    if result is not None:
-                        # if it returns False, we will not show a success line
-                        if result is not False:
-                            if show_progress:
-                                tqdm.write(
-                                    f"✅ success for {task_id}"
-                                )  # do not use print otherwise a new updated bar is created after each print line
-                                file_logger.info(f"✅ success for {task_id}")
-                            else:
-                                # print(f"✅ success for {task_id}")
-                                file_logger.info(f"✅ success for {task_id}")
-
-                        results[task_id] = result
-
-                    elif result is None:
+                    if rtn_code == 0:
+                        # success and show tqdm or print line
                         if show_progress:
-                            tqdm.write(f"❌ Error or Warning reported for {task_id}.")
-                        file_logger.error(f"❌ Error or Warning reported for {task_id}.")
-                    # else:
-                    # returned False and it is assumed the MP handled it and its output msgs
+                            tqdm.write(
+                                f"✅ Success for {task_id}"
+                            )  # do not use print otherwise a new updated bar is created after each print line
+                        else:
+                            print(f"✅ Success for {task_id}")
+                        file_logger.info(f"✅ Success for {task_id}")
+                        
+                    elif rtn_code == 1:
+                        # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
+                        # throw an exception to shut down and cleanup all objects (pool, tqdm, queue)
+                        raise Exception(f"Critical Error: Abort Program from task id = {task_id}." \
+                                         " See exception details in the logs.")
+                    
+                    elif rtn_code == 2:
+                        # Fail but not shut down the pool.
+                        if rtn_code == 2:  # show tqdm / print message
+                            if show_progress:
+                                tqdm.write(f"❌ Error or Warning reported for {task_id}.")
+                            else:
+                                print(f"❌ Error or Warning reported for {task_id}.")
+                            file_logger.info(f"❌ Error or Warning reported for {task_id}.")
+                    else:
+                        raise Exception("Child mp task returned and invalid status code")
+
+                    if len(rtn_value) > 0:
+                        # add it to the run_with_mp results
+                        # Some mp functions will return an empty list meaning they don't
+                        # want to add anything to the run_with_mp return set.
+                        results[task_id] = rtn_value
 
                     if pbar:
                         # print("task bar being updated")
                         pbar.update(1)  # ✅ Progress update for each completed task
 
-                if pbar:  # close once all of them come back but only if there are no errors
+                if pbar:  # All mp tasks are done.
                     pbar.close()
 
             except Exception as ex:
+                # The child mp function should have it's own try/except but in case somethign slips
+                # through or they forgot to add it.
+                
                 error_msg = f"❌ Critical error: {ex}"
                 traceback_msg = traceback.format_exc()
-
-                if show_progress:
-                    tqdm.write(error_msg)
-                else:
-                    print(error_msg)
+                print(error_msg)
+                print(traceback_msg)
                 file_logger.critical(error_msg)
                 file_logger.critical(traceback_msg)
 
-                results[task_id] = None
+                dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
+                file_logger.critical(final_msg)
 
-                if exit_on_failure:
-                    dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-                    final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
-                    file_logger.critical(final_msg)
+                file_logger.info("Process pool shutting down")
+                print(
+                    "Process pool shutting down. This may take a while depending on how many jobs."
+                    " Jobs currently in progress will need to complete for this can fully shut down.",
+                    flush=True,
+                )
+                print("", flush=True)
+                executor.shutdown(
+                    wait=False, cancel_futures=True
+                )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
 
-                    file_logger.info("Process pool shutting down")
-                    print(
-                        "Process pool shutting down. This may take a while depending on how many jobs.",
-                        flush=True,
-                    )
-                    print("", flush=True)
-                    executor.shutdown(
-                        wait=False, cancel_futures=True
-                    )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
-                    # sys.exit(1)  Can not exit here as there is a thread in play and it is super hard to officially kill
-                    # Python mp's are not meant to be explictly shut down, just skip further processing, then
-                    # sys.exit(1) after you manually close the thread
-                    # Tried to manually close the thread here, but other things were holding on and
-                    # making the process hang, not truly killing the program.
-                    # CTRL-C can trigger secondary exceptions when objects inside this page are still held
-                    # open.
+                # CTRL-C can trigger secondary exceptions when objects inside this page are still held
+                # open.
 
-                    # Yes.. seems weird to have this here and a new exception.
-                    # But it helps force shut down other objects like manual logging and a
-                    # a queue.
-                    raise Exception("Shutting down. Cleaning up caches and objects....")
+                # Yes.. seems weird to have this here and a new exception.
+                # But it helps force shut down other objects like manual logging and a
+                # a queue.
+                pbar.close()  # aborts the progress bar
+                screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+                screen_queue_thread.join()  # official closure of thread
+                # re raising instead of sys.exit to help ensure all objects are cleaned up correctly
+                raise Exception("Shutting down. Cleaning up caches and objects....")
 
-                    # abort_process = True
-                else:  # keep going even if one MP submit fails
-                    if pbar:
-                        pbar.update(1)  # ✅ Progress update for each completed task
-
+        # if the pool finished correctly, shut down the remaining queue.
         screen_queue.put("DONE")  # sends the stop SIGNAL to thread
         screen_queue_thread.join()  # official closure of thread
 
@@ -361,7 +392,7 @@ def run_with_mp(
 
 
 # #################################
-# Misc tools
+# Misc tools#
 def concat_files(src_file, trg_file, remove_old_src_file=True):
     # Sometimes we want to append log file onto another file.
     # For example, a temp mp log file into the parent log.

@@ -366,7 +366,6 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
             file_logger=file_logger,
             max_workers=num_processes,
             task_id_key='huc',
-            exit_on_failure=False,
             show_progress=False,  # Disables the progress bar display
         )
         file_logger.info(f"Multiprocessing results: {results}")

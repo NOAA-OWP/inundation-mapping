@@ -304,7 +304,6 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs):
         file_logger=file_logger,
         max_workers=number_jobs,  # Overpass API does not really like more than 3 request at a time
         task_id_key="HUC_no",  # used for task id---must be one of the keys from args dict
-        exit_on_failure=False,
     )
 
     print('multiprocessing tasks finished!')
