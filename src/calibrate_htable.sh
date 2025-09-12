@@ -1,11 +1,14 @@
 
-hucNumber=$1
-manual_postproces=$2
+manual_postproces=$1
+jobBranchLimit=$2 # should allow new values for manual_fim_postprocessing.py
+
 
 source $outputDestDir/params.env
 source $srcDir/bash_variables.env
 source $srcDir/bash_functions.env
 
+#get huc number
+hucNumber=$(basename "${tempHucDataDir%/}")
 
 l_echo ""
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -17,9 +20,10 @@ fi
 l_echo "---- Started: `date -u`"
 l_echo ""
 
-
-# TODO  this may need to revise. This will be applied for branches parallel
-if [ "$jobLimit" = "" ]; then jobLimit=1; fi
+#TODO
+# change file names:
+#   update_htable_src ->  reset_hyrotable 
+#  aggregate_by_huc.py  -> combile_branches.py
 
 
 # Check if it is a manual postprocessing or not
@@ -34,7 +38,7 @@ fi
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 l_echo $startDiv"Processing usgs & ras2fim elev table aggregation"
 Tstart
-python3 $srcDir/aggregate_by_huc.py -huc_dir $tempHucDataDir -elev -ras -j $jobLimit
+python3 $srcDir/aggregate_by_huc.py -huc_dir $tempHucDataDir -elev -ras
 Tcount
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
@@ -47,7 +51,6 @@ if [ "$bathymetry_adjust" = "True" ]; then
         -huc_dir $tempHucDataDir \
         -bathy_ehydro $bathy_file_ehydro \
         -bathy_aibased $bathy_file_aibased \
-        -j $jobLimit \
         -ait $aibathy_toggle
     Tcount
 fi
@@ -60,7 +63,7 @@ if [ "$src_bankfull_toggle" = "True" ]; then
     python3 $srcDir/identify_src_bankfull.py \
         -huc_dir $tempHucDataDir \
         -flows $bankfull_flows_file \
-        -j $jobLimit
+        -jb $jobBranchLimit
     Tcount
 fi
 
@@ -72,7 +75,7 @@ if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; the
     python3 $srcDir/subdiv_chan_obank_src.py \
         -huc_dir $tempHucDataDir \
         -mann $vmann_input_file \
-        -j $jobLimit
+        -jb $jobBranchLimit
     Tcount
 fi
 
@@ -82,8 +85,7 @@ if [ "$nonmonotonic_src_adjustment" = "True" ]; then
     # Run Nonmonotonic SRCs Adjustment routine -flows $bankfull_flows_file \
     Tstart
     python3 $srcDir/nonmonotonic_src_adjustment.py \
-        -huc_dir $tempHucDataDir \
-        -j $jobLimit
+        -huc_dir $tempHucDataDir
     Tcount
 fi
 
@@ -92,14 +94,12 @@ if [ "$logitudinal_filter" = "True" ]; then
     l_echo $startDiv"Performing longitudinal discharge adjustment routine"
     Tstart
     python3 $srcDir/longitudinal_flow_adjustment.py \
-        -huc_dir $tempHucDataDir \
-        -j $jobLimit \
-
+        -huc_dir $tempHucDataDir
     Tcount
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ USGS GAGE RATING CURVES ##
-if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
+if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     Tstart
     l_echo $startDiv"Performing SRC adjustments using USGS rating curve database"
     # Run SRC Optimization routine using USGS rating curve data (WSE and flow @ NWM recur flow values)
@@ -108,12 +108,12 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
         -usgs_rc $usgs_rating_curve_csv \
         -usgs_sites $usgs_acceptable_gages_path \
         -nwm_recur $nwm_recur_file \
-        -j $jobLimit
+        -jb $jobBranchLimit 
     Tcount
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ RAS2FIM CROSS SECTION RATING CURVES ##
-if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
+if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     Tstart
     l_echo $startDiv"Performing SRC adjustments using ras2fim rating curve database"
     # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
@@ -122,15 +122,15 @@ if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ 
         -ras_input $ras2fim_input_dir \
         -ras_rc $ras_rating_curve_csv_filename \
         -nwm_recur $nwm_recur_file \
-        -j $jobLimit
+        -jb $jobBranchLimit
     Tcount
 fi
 
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINTS (.parquet files) ##
-if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [ "$skipcal" = "0" ]; then
+if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     Tstart
     l_echo $startDiv"Performing SRC adjustments using benchmark point .parquet files"
-    python3 $srcDir/src_adjust_spatial_obs.py -huc_dir $tempHucDataDir -j $jobLimit
+    python3 $srcDir/src_adjust_spatial_obs.py -huc_dir $tempHucDataDir -jb $jobBranchLimit 
     Tcount
 fi
 
@@ -152,8 +152,7 @@ Tstart
 python3 $srcDir/aggregate_by_huc.py \
     -huc_dir $tempHucDataDir \
     -htable \
-    -bridge \
-    -j $jobLimit
+    -bridge
 Tcount
 
 
@@ -176,7 +175,7 @@ Tstart
     else
         rm -f "$outpath".tmp
     fi
-    l_echo "error scan done"
+    l_echo "scan of errors done"
 
     # repreat the workflow for warning files
 
@@ -189,7 +188,7 @@ Tstart
     else
         rm -f "$outpath".tmp
     fi
-    l_echo "warning scan done"
+    l_echo "scan of warnings done"
 Tcount
 
 

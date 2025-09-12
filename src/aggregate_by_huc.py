@@ -487,23 +487,8 @@ def aggregate_by_huc(
     ras_elev_flag,
     bridge_flag,
     road_flag,
-    num_job_workers,
 ):
     assert os.path.isdir(huc_dir), f'{huc_dir} is not a valid directory'
-
-    # -------------------
-    # TODO: May 19, 2025: It is good to keep this in, but it needs to happen at the top of both fim_pipeline and post
-    # post processing. Currently, you run pipeline, you don't find out until here when this problem exists and
-    # it aborts here.
-    # Validation
-    total_cpus_available = os.cpu_count() - 2
-    if num_job_workers > total_cpus_available:
-        raise ValueError(
-            f'The number of jobs {num_job_workers}'
-            ' exceeds your machine\'s available CPU count minus two.'
-            ' Please lower the number of jobs'
-            ' values accordingly.'
-        )
 
     '''
     # create log folder, might end up empty but at least create the folder
@@ -538,32 +523,12 @@ def aggregate_by_huc(
     print(f"started: {dt_string}")
 
     # get hucnumber
-    hucNumber = os.path.basename(os.path.normpath(huc_dir))
-
-    # Set up multiprocessor
-    with ProcessPoolExecutor(max_workers=num_job_workers) as executor:
-        # Loop through applicable HUCs, build the agg_function arguments, and submit them to the process pool
-        executor_dict = {}
-
-        try:
-            huc_dir = HucDirectory(huc_dir)
-            args_agg = {
-                'usgs_elev_flag': usgs_elev_flag,
-                'hydro_table_flag': hydro_table_flag,
-                'src_cross_flag': src_cross_flag,
-                'ras_elev_flag': ras_elev_flag,
-                'bridge_flag': bridge_flag,
-                'road_flag': road_flag,
-                'huc_id': hucNumber,
-            }
-            future = executor.submit(huc_dir.agg_function, **args_agg)
-            executor_dict[future] = hucNumber
-
-        except Exception:
-            errMsg = (
-                "--------------------------------------"
-                f"\n huc_id {hucNumber} has an error - outside multi proc\n"
-            )
+    huc_id = os.path.basename(os.path.normpath(huc_dir))
+    try:
+        huc_dir_obj = HucDirectory(huc_dir)
+        huc_dir_obj.agg_function(usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id)
+    except Exception:
+            errMsg = ( "--------------------------------------" f"\n huc_id {huc_id} has an error\n")
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
             log_error(
@@ -574,13 +539,10 @@ def aggregate_by_huc(
                 ras_elev_flag,
                 bridge_flag,
                 road_flag,
-                hucNumber,
+                huc_id,
                 errMsg,
             )
-            # sys.exit(1)
-
-        # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(executor_dict, f"Running aggregate_by_huc with {num_job_workers} workers")
+    
 
     end_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
@@ -647,9 +609,6 @@ if __name__ == '__main__':
         required=False,
         default=False,
         action='store_true',
-    )
-    parser.add_argument(
-        '-j', '--num_job_workers', help='Number of processes to use', required=False, default=1, type=int
     )
 
     args = vars(parser.parse_args())

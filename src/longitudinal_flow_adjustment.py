@@ -380,7 +380,7 @@ def apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path):  # bank
 
 
 # -------------------------------------------------------
-def process_longitudinal_flow_adjustment(huc_dir, number_of_jobs):
+def process_longitudinal_flow_adjustment(huc_dir):
     """
     Function for correcting synthetic rating curves using Multi-Proc approach.
     It will correct each branch's SRCs in serial based on the HydroIDs.
@@ -389,8 +389,6 @@ def process_longitudinal_flow_adjustment(huc_dir, number_of_jobs):
         ----------
         fim_dir : str
             Directory path for fim_pipeline output.
-        number_of_jobs : int
-            Number of CPU cores to parallelize HUC processing.
 
     """
     # Set up log file
@@ -399,7 +397,6 @@ def process_longitudinal_flow_adjustment(huc_dir, number_of_jobs):
         os.makedirs(log_dir)
     log_file_path = os.path.join(log_dir, 'longitudinal_filter.log')
     print(f'Writing progress to log file here: {log_file_path}')
-    print('This may take a few minutes...')
     ## Create a time var to log run time
     begin_time = dt.datetime.now(dt.timezone.utc)
 
@@ -417,20 +414,9 @@ def process_longitudinal_flow_adjustment(huc_dir, number_of_jobs):
     msg = f"Applying longitudinal discharge adjustment" # on {len(fim_hucs)} HUCs: {fim_hucs}\n"
     log_text += msg
 
-    hucNumber = os.path.basename(os.path.normpath(huc_dir))
+    huc = os.path.basename(os.path.normpath(huc_dir))
+    apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path)
 
-    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-        # Loop through all hucs, build the arguments, and submit them to the process pool
-        futures = {}
-        # for huc in fim_hucs:
-        args = {'huc_dir': huc_dir, 'huc': hucNumber, 'log_file_path': log_file_path}
-        future = executor.submit(apply_longitudinal_dischage_adjustment, **args)
-        futures[future] = future
-
-        for future in as_completed(futures):
-            if future is not None:
-                if future.exception():
-                    raise future.exception()
 
     ## Record run time and close log file
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -448,29 +434,17 @@ if __name__ == '__main__':
     huc_dir : str
         Directory path for fim_pipeline output. Log file will be placed in
         fim_dir/logs/longitudinal_filter.log.
-    number_of_jobs : int
-        Optional. Number of CPU cores to parallelize HUC processing. Defaults to 1.
 
     Sample Usage
     ----------
     python3 /foss_fim/src/filter_longitudinal_flow.py
         -fim_dir /outputs/fim_run_dir
-        -j $jobLimit
     """
     parser = ArgumentParser(description="Longitudinal depth/flow filter")
     parser.add_argument('-huc_dir', '--huc_dir', help='FIM output dir', required=True, type=str)
-    parser.add_argument(
-        '-j',
-        '--number-of-jobs',
-        help='OPTIONAL: number of workers (default=1)',
-        required=False,
-        default=1,
-        type=int,
-    )
 
     args = vars(parser.parse_args())
 
     huc_dir = args['huc_dir']
-    number_of_jobs = args['number_of_jobs']
 
-    process_longitudinal_flow_adjustment(huc_dir, number_of_jobs)
+    process_longitudinal_flow_adjustment(huc_dir)

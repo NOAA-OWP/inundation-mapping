@@ -443,10 +443,7 @@ def process_bathy_adjustment(
     strm_order,
     bathy_file_ehydro,
     bathy_file_aibased,
-    # wbd_buffer,
-    # wbd,
     output_suffix,
-    number_of_jobs,
     ai_toggle,
     verbose,
 ):
@@ -473,8 +470,6 @@ def process_bathy_adjustment(
             "/data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg".
         output_suffix : str
             Output filename suffix.
-        number_of_jobs : int
-            Number of CPU cores to parallelize HUC processing.
         verbose : bool
             Verbose printing.
 
@@ -488,7 +483,6 @@ def process_bathy_adjustment(
     log_file_path = os.path.join(log_dir, 'bathymetric_adjustment' + output_suffix + '.log')
     
     print(f'Writing progress to log file here: {log_file_path}')
-    print('This may take a few minutes...')
     ## Create a time var to log run time
     begin_time = dt.datetime.now(dt.timezone.utc)
 
@@ -515,19 +509,6 @@ def process_bathy_adjustment(
             print(statement)
             sys.exit(0)
 
-    # Find applicable HUCs to apply ehydro bathymetric adjustment
-    # fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
-    # bathy_gdf = gpd.read_file(bathy_file_ehydro, engine="pyogrio", use_arrow=True)
-    # buffered_bathy = bathy_gdf.geometry.buffer(wbd_buffer)  # We buffer the bathymetric data to get adjacent
-    # wbd = gpd.read_file(
-    #     wbd, mask=buffered_bathy, engine="fiona"
-    # )  # HUCs that could also have bathymetric reaches included
-    # hucs_with_bathy = wbd.HUC8.to_list()
-    # hucs = [h for h in fim_hucs if h in hucs_with_bathy]
-    # hucs.sort()
-    # msg = f"Identified {len(hucs)} HUCs that have USACE eHydro bathymetric data: {hucs}\n"
-    # log_text += msg
-    # print(msg)
 
     if ai_toggle == 1:
         msg = f"AI-Based bathymetry data is applied on streams with order {strm_order} or higher\n"
@@ -535,29 +516,10 @@ def process_bathy_adjustment(
         print(msg)
 
     # get hucnumber
-    hucNumber = os.path.basename(os.path.normpath(huc_dir))
+    huc = os.path.basename(os.path.normpath(huc_dir))
 
-    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-        # Loop through all hucs, build the arguments, and submit them to the process pool
-        futures = {}
-        # for huc in fim_hucs:
-        args = {
-            'huc_dir': huc_dir,
-            'huc': hucNumber,
-            'strm_order': strm_order,
-            'bathy_file_ehydro': bathy_file_ehydro,
-            'bathy_file_aibased': bathy_file_aibased,
-            'ai_toggle': ai_toggle,
-            'verbose': verbose,
-            'log_file_path': log_file_path,
-        }
-        future = executor.submit(apply_src_adjustment_for_bathymetry, **args)
-        futures[future] = future
+    apply_src_adjustment_for_bathymetry(huc_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, ai_toggle, verbose, log_file_path)
 
-        for future in as_completed(futures):
-            if future is not None:
-                if future.exception():
-                    raise future.exception()
 
     ## Record run time and close log file
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -591,8 +553,6 @@ if __name__ == '__main__':
         "/data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg".
     output_suffix : str
         Optional. Output filename suffix. Defaults to no suffix.
-    number_of_jobs : int
-        Optional. Number of CPU cores to parallelize HUC processing. Defaults to 1.
     verbose : bool
         Optional flag for enabling verbose printing.
 
@@ -601,7 +561,7 @@ if __name__ == '__main__':
     python3 /foss_fim/src/bathymetric_adjustment.py -fim_dir /outputs/fim_run_dir
         -bathy_eHydro /data/inputs/bathymetry/bathymetric_adjustment_data.gpkg
         -bathy_aibased /data/inputs/bathymetry/ml_outputs_v1.01.parquet
-        -buffer 5000 -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg -j $jobLimit
+        -buffer 5000 -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg 
     """
     parser = ArgumentParser(description="Bathymetric Adjustment")
     parser.add_argument('-huc_dir', '--huc_dir', help='HUC Directory', required=True,  type=str)
@@ -627,20 +587,6 @@ if __name__ == '__main__':
         required=True,
         type=str,
     )
-    # parser.add_argument(
-    #     '-buffer',
-    #     '--wbd-buffer',
-    #     help="Buffer to apply to bathymetry data to find applicable HUCs",
-    #     required=True,
-    #     type=int,
-    # )
-    # parser.add_argument(
-    #     '-wbd',
-    #     '--wbd',
-    #     help="Buffer to apply to bathymetry data to find applicable HUCs",
-    #     required=True,
-    #     type=str,
-    # )
     parser.add_argument(
         '-suff',
         '--output-suffix',
@@ -648,14 +594,6 @@ if __name__ == '__main__':
         default="",
         required=False,
         type=str,
-    )
-    parser.add_argument(
-        '-j',
-        '--number-of-jobs',
-        help='OPTIONAL: number of workers (default=1)',
-        required=False,
-        default=1,
-        type=int,
     )
     parser.add_argument(
         '-ait',
@@ -680,10 +618,7 @@ if __name__ == '__main__':
     strm_order = args['strm_order']
     bathy_file_ehydro = args['bathy_file_ehydro']
     bathy_file_aibased = args['bathy_file_aibased']
-    # wbd_buffer = int(args['wbd_buffer'])
-    # wbd = args['wbd']
     output_suffix = args['output_suffix']
-    number_of_jobs = args['number_of_jobs']
     ai_toggle = args['ai_toggle']
     verbose = bool(args['verbose'])
 
@@ -692,10 +627,7 @@ if __name__ == '__main__':
         strm_order,
         bathy_file_ehydro,
         bathy_file_aibased,
-        # wbd_buffer,
-        # wbd,
         output_suffix,
-        number_of_jobs,
         ai_toggle,
         verbose,
     )

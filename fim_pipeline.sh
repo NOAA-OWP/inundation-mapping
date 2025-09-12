@@ -44,8 +44,6 @@ usage()
                         - Note: Make sure that the product of jh and jb plus 2 (jh x jb + 2)
                             does not exceed the total number of cores available.
       -o                : Overwrite outputs if they already exist.
-      -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
-                            will be skipped.
       -x                : If this param is included, the crosswalk will be evaluated.
 
 
@@ -89,7 +87,7 @@ echo "---- Started: `date -u`"
 ## LOAD AND VALIDATE INCOMING ARGUMENTS
 source $srcDir/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
-jobMaxLimit=$(( $jobHucLimit * $jobBranchLimit ))
+
 
 logFile=$outputDestDir/logs/unit/pipeline_summary_unit.log
 process_wb_file=$projectDir/fim_process_unit_wb.sh
@@ -124,7 +122,7 @@ echo "---------------------------------------------------"
 rm -df $workDir/$runName
 
 # Pipe into post processing
-. $projectDir/fim_post_processing.sh -n $runName -j $jobMaxLimit
+. $projectDir/fim_post_processing.sh -n $runName 
 
 echo
 

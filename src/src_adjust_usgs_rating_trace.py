@@ -36,7 +36,7 @@ Inputs
 - usgs_rc_filepath:     USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
 - nwm_recurr_filepath:  NWM flow recurrence interval dataset
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
-- job_number:           number of multi-processing jobs to use
+- branch_jobs:           number of multi-processing branches jobs to use
 
 Outputs
 - water_edge_median_ds: dataframe containing:
@@ -85,9 +85,6 @@ def create_usgs_rating_database(
     # filter null location_id rows from cross_df
     # (removes ahps lide entries that aren't associated with USGS gage)
     cross_df = cross_df[cross_df.location_id.notnull()]
-
-    # TODO what to do if this is empty for a HUC? 
-    # if cross_df.empty: ?
 
 
     # convert usgs flow from cfs to cms
@@ -283,22 +280,20 @@ def trace_network(df, start_id):
     return trace_up, trace_down
 
 
-def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file):
+def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file,branch_jobs):
     procs_list = []  # Initialize list for mulitprocessing.
+    huc = os.path.basename(os.path.normpath(huc_dir))
+    usgs_df['huc'] = usgs_df['huc'].astype(int).astype(str).str.zfill(8)
+    usgs_df['levpa_id'] = usgs_df['levpa_id'].astype(int).astype(str)
+    usgs_df['levpa_id'] = usgs_df['levpa_id'].astype(int).astype(str)
 
-    # loop through all unique level paths that have a USGS gage
-    # branch_huc_dict = pd.Series(usgs_df.levpa_id.values,index=usgs_df.huc).to_dict('list')
-    # branch_huc_dict = usgs_df.set_index('huc').T.to_dict('list')
     huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
-
-    for huc in sorted(
-        huc_branch_dict.keys()
-    ):  # sort huc_list for helping track progress in future print statments
-        branch_set = huc_branch_dict[huc]
+    branch_set = huc_branch_dict[huc]
+    if 1: #TODO temporary only for an easier PR review
+                
         for branch_id in branch_set:
             # Define paths to branch HAND data.
             # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
-            # Assumes outputs are for HUC8 (not HUC6)
             branch_dir = os.path.join(huc_dir, 'branches', branch_id)
             hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
             catchments_path = os.path.join(
@@ -314,7 +309,7 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file):
                 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
             )
             df = gpd.read_file(dem_reaches_path)
-            usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'].astype(int) == int(branch_id))]
+            usgs_elev = usgs_df[((usgs_df['huc'] == huc) &  (usgs_df['levpa_id'] == branch_id))]
 
             # Calculate updstream/downstream trace ()
             df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
@@ -459,44 +454,24 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file):
                 )
 
     # multiprocess all available branches
-    print(f"Calculating new SRCs for {len(procs_list)} branches using {job_number} jobs...")
-    with Pool(processes=job_number) as pool:
+    print(f"Calculating new SRCs for {len(procs_list)} branches using {branch_jobs} jobs...")
+    with Pool(processes=branch_jobs) as pool:
         log_output = pool.starmap(update_rating_curve, procs_list)
         log_file.writelines(["%s\n" % item for item in log_output])
-    # TO-DO update the error handling to properly capture issues in the multiprocessing
-    # try statement for debugging
-    # try:
-    #     with Pool(processes=job_number) as pool:
-    #         log_output = pool.starmap(update_rating_curve, procs_list)
-    #         log_file.writelines(["%s\n" % item for item in log_output])
-    # except Exception as e:
-    #     print(str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e))
-    #     log_file.write(
-    #         'ERROR!!!: HUC ' + str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e) + '\n'
-    #     )
 
 
 def run_prep(
-    huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+    huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, branch_jobs
 ):
     # Check input args are valid
     # assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
-    print('Reading USGS gage HAND elevation from usgs_elev_table.csv file...')
     # usgs_elev_file = os.path.join(branch_dir,'usgs_elev_table.csv')
     # usgs_elev_df = pd.read_csv(
     #     usgs_elev_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int}
     # )
-    csv_name = 'usgs_elev_table.csv'  # TODO: Get this from a variable?
+    huc = os.path.basename(os.path.normpath(huc_dir))
 
-    available_cores = multiprocessing.cpu_count()
-    if job_number > available_cores:
-        job_number = available_cores - 1
-        print(
-            "Provided job number exceeds the number of available cores. "
-            + str(job_number)
-            + " max jobs will be used instead."
-        )
 
     # Create output dir for log and usgs rc database
     log_dir = os.path.join(huc_dir, "logs", "src_optimization")
@@ -510,7 +485,12 @@ def run_prep(
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    # usgs_elev_df = concat_huc_csv(run_dir, csv_name)
+    csv_name = 'usgs_elev_table.csv'  # TODO: Get this from a variable?
+    if not os.path.exists(os.path.join(huc_dir,csv_name )):
+        print(f'No USGS calibration points exist for huc {huc}')
+        return
+
+    print('Reading USGS gage HAND elevation from usgs_elev_table.csv file...')
     usgs_elev_df=pd.read_csv(os.path.join(huc_dir,csv_name ) , dtype={'location_id': object, 'levpa_id':object})
 
     if usgs_elev_df is None:
@@ -533,7 +513,7 @@ def run_prep(
         )
 
         # Create huc proc_list for multiprocessing and execute the update_rating_curve function
-        branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file)
+        branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file,branch_jobs)
 
     # Record run time and close log file
     log_file.write('########################################################\n\n')
@@ -574,7 +554,7 @@ if __name__ == '__main__':
         required=False,
         action='store_true',
     )
-    parser.add_argument('-j', '--job-number', help='Number of jobs to use', required=False, default=1)
+    parser.add_argument('-jb', '--branch_jobs', help='Number of branches jobs to use', required=False, default=1)
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
@@ -583,9 +563,9 @@ if __name__ == '__main__':
     usgs_sites_filepath = args['usgs_sites']
     nwm_recurr_filepath = args['nwm_recur']
     debug_outputs_option = args['extra_outputs']
-    job_number = int(args['job_number'])
+    branch_jobs = int(args['branch_jobs'])
 
     # Prepare/check inputs, create log file, and spin up the proc list
     run_prep(
-        huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+        huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, branch_jobs
     )

@@ -397,7 +397,7 @@ def apply_nonmonotonic_src_adjustment(huc_dir, huc, strm_order, log_file_path): 
 
 
 # -------------------------------------------------------
-def process_nonmonotonic_src_adjustment(huc_dir, strm_order, number_of_jobs):  # bankfull_flows_file,
+def process_nonmonotonic_src_adjustment(huc_dir, strm_order):  # bankfull_flows_file,
     """
     Function for correcting nonmonotonic synthetic rating curves using Multi-Proc function
     for each HUC8. For GMS branches, it will correct each hydroID SRC in serial based that
@@ -410,8 +410,6 @@ def process_nonmonotonic_src_adjustment(huc_dir, strm_order, number_of_jobs):  #
         strm_order : int
             stream order on or higher for which you want to apply nonmonotonic SRC adjustment.
             default = 4
-        number_of_jobs : int
-            Number of CPU cores to parallelize HUC processing.
     """
     # Set up log file
     log_dir = os.path.join(huc_dir, "logs", "src_optimization")
@@ -419,7 +417,6 @@ def process_nonmonotonic_src_adjustment(huc_dir, strm_order, number_of_jobs):  #
         os.makedirs(log_dir)
     log_file_path = os.path.join(log_dir, 'nonmonotonic_src_adjustment.log')
     print(f'Writing progress to log file here: {log_file_path}')
-    print('This may take a few minutes...')
     ## Create a time var to log run time
     begin_time = dt.datetime.now(dt.timezone.utc)
 
@@ -431,28 +428,9 @@ def process_nonmonotonic_src_adjustment(huc_dir, strm_order, number_of_jobs):  #
     # Let log_text build up starting here until the bottom.
     log_text = ""
 
-    # Find HUCs to apply nonmonotonic SRC adjustment
-    # fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
-    hucNumber = os.path.basename(os.path.normpath(huc_dir))
+    huc = os.path.basename(os.path.normpath(huc_dir))
+    apply_nonmonotonic_src_adjustment(huc_dir, huc, strm_order, log_file_path)
 
-    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-        # Loop through all hucs, build the arguments, and submit them to the process pool
-        futures = {}
-        # for huc in fim_hucs:
-        args = {
-            'huc_dir': huc_dir,
-            'huc': hucNumber,
-            'strm_order': strm_order,
-            # 'bankfull_flows_file': bankfull_flows_file,
-            'log_file_path': log_file_path,
-        }
-        future = executor.submit(apply_nonmonotonic_src_adjustment, **args)
-        futures[future] = future
-
-        for future in as_completed(futures):
-            if future is not None:
-                if future.exception():
-                    raise future.exception()
 
     ## Record run time and close log file
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -473,13 +451,11 @@ if __name__ == '__main__':
     strm_order : int
         stream order on or higher for which you want to apply nonmonotonic SRC adjustment.
         default = 4
-    number_of_jobs : int
-        Optional. Number of CPU cores to parallelize HUC processing. Defaults to 1.
 
     Sample Usage
     ----------
     python3 /foss_fim/src/nonmonotonic_src_adjustment.py -fim_dir /outputs/fim_run_dir
-        -j $jobLimit -sor 4
+         -sor 4
     """
     parser = ArgumentParser(description="nonmonotonic SRC Adjustment")
     parser.add_argument('-huc_dir', '--huc_dir', help='Path to FIM output dir', required=True, type=str)
@@ -498,19 +474,10 @@ if __name__ == '__main__':
     #     required=True,
     #     type=str,
     # )
-    parser.add_argument(
-        '-j',
-        '--number-of-jobs',
-        help='OPTIONAL: number of workers (default=1)',
-        required=False,
-        default=1,
-        type=int,
-    )
     args = vars(parser.parse_args())
 
     huc_dir = args['huc_dir']
     strm_order = args['strm_order']
     #  bankfull_flows_file = args['bankfull_flows_file']
-    number_of_jobs = args['number_of_jobs']
 
-    process_nonmonotonic_src_adjustment(huc_dir, strm_order, number_of_jobs)  # bankfull_flows_file,
+    process_nonmonotonic_src_adjustment(huc_dir, strm_order)  # bankfull_flows_file,

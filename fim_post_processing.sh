@@ -13,10 +13,6 @@ usage()
 
     OPTIONS:
        -h/--help       : help file
-       -j/--jobLimit   : max number of concurrent jobs to run. Default 1 job at time. 1 outputs
-                         stdout and stderr to terminal and logs. With >1 outputs progress and logs the rest.
-                         Note: Not the same variable name as fim_pipeline or fim_pre_processing
-                         and can be the multiplication of jobHucLimit and jobBranchLimit
     "
     exit
 }
@@ -27,10 +23,6 @@ in
     -n|--runName)
         shift
         runName=$1
-        ;;
-    -j|--jobLimit)
-        shift
-        jobLimit=$1
         ;;
     -h|--help)
         shift
@@ -67,8 +59,6 @@ fi
 # used to run fim_post_processing.sh will be different (hence.. different job limit)    #
 #                                                                                       #
 #########################################################################################
-
-if [ "$jobLimit" = "" ]; then jobLimit=1; fi
 
 # Clean out the other post processing files before starting
 rm -rdf $outputDestDir/logs/src_optimization

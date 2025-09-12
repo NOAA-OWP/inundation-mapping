@@ -43,8 +43,6 @@ usage()
                         - Note: Make sure that the product of jh and jb plus 2 (jh x jb + 2)
                             does not exceed the total number of cores available.
       -o                : Overwrite outputs if they already exist.
-      -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
-                            will be skipped.
     "
 }
 
@@ -93,9 +91,6 @@ in
     -o)
         overwrite=1
         ;;
-    -skipcal)
-        skipcal=1
-        ;;
     -x)
         evaluateCrosswalk=1
         ;;
@@ -130,7 +125,6 @@ if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi
 if [ "$jobHucLimit" = "" ]; then jobHucLimit=1; fi
 if [ "$jobBranchLimit" = "" ]; then jobBranchLimit=1; fi
 if [ -z "$overwrite" ]; then overwrite=0; fi
-if [ -z "$skipcal" ]; then skipcal=0; fi
 if [ -z "$evaluateCrosswalk" ]; then evaluateCrosswalk=0; fi
 
 # validate and set defaults for the deny lists
@@ -244,7 +238,6 @@ echo "export deny_unit_list=$deny_unit_list" >> $args_file
 echo "export deny_branches_list=$deny_branches_list" >> $args_file
 echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
-echo "export skipcal=$skipcal" >> $args_file
 echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
 
 echo "--- Pre-processing is complete"

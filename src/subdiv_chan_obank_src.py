@@ -36,8 +36,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
         (must contain variables "feature_id", "channel_n", "overbank_n")
     file_suffix : str
         Optional: Suffix to append to the output log file
-    number_of_jobs : str
-        Number of jobs.
+    branch_jobs : str
+        Number of branch jobs.
     src_plot_option : str
         Optional (True or False): use this flag to crate src plots for all hydroids (long run time)
 """
@@ -357,22 +357,12 @@ def generate_src_plot(df_src, plt_out_dir):
         plt.close()
 
 
-def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, verbose):
-    ## Initiate multiprocessing
-    available_cores = multiprocessing.cpu_count()
-    if number_of_jobs > available_cores:
-        number_of_jobs = available_cores - 2
-        print(
-            "Provided job number exceeds the number of available cores. "
-            + str(number_of_jobs)
-            + " max jobs will be used instead."
-        )
-
+def multi_process(variable_mannings_calc, procs_list, log_file, branch_jobs, verbose):
     print(
         "Computing subdivided SRC and applying variable Manning's n to channel/overbank for "
-        f"{len(procs_list)} branches using {number_of_jobs} jobs"
+        f"{len(procs_list)} branches using {branch_jobs} jobs"
     )
-    with Pool(processes=number_of_jobs) as pool:
+    with Pool(processes=branch_jobs) as pool:
         if verbose:
             map_output = tqdm(pool.imap(variable_mannings_calc, procs_list), total=len(procs_list))
             tuple(map_output)  # fetch the lazy results
@@ -382,7 +372,7 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
 
 
 def run_prep(
-    huc_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option, process_huc=None
+    huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plot_option
 ):
     procs_list = []
 
@@ -419,21 +409,9 @@ def run_prep(
             'Missing required data column ("feature_id","channel_n", and/or "overbank_n")!!! --> ' + df_mann
         )
     else:
-        print('Running the variable_mannings_calc function...')
-
-        if process_huc is None:
-            ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-            # huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
-            # huc_list.sort()  # sort huc_list for helping track progress in future print statments
-            
-            hucNumber = os.path.basename(os.path.normpath(huc_dir))
-            huc_list=[hucNumber]
-        else:
-            huc_list = [process_huc]
-        for huc in huc_list:
-            # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-            if process_huc is None or huc in process_huc:
-                if re.match(r'\d{8}', huc):
+        print('Running the variable_mannings_calc function...') 
+        huc = os.path.basename(os.path.normpath(huc_dir))
+        if 1: #TODO temporary for PR review
                     huc_branches_dir = os.path.join(huc_dir, 'branches')
                     for branch_id in os.listdir(huc_branches_dir):
                         branch_dir = os.path.join(huc_branches_dir, branch_id)
@@ -479,7 +457,7 @@ def run_prep(
                             )
 
         ## Pass huc procs_list to multiprocessing function
-        multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, verbose)
+        multi_process(variable_mannings_calc, procs_list, log_file, branch_jobs, verbose)
 
         ## Record run time and close log file
         end_time = dt.datetime.now()
@@ -512,9 +490,9 @@ if __name__ == '__main__':
         type=str,
     )
     parser.add_argument(
-        '-j',
-        '--number-of-jobs',
-        help='OPTIONAL: number of workers (default=8)',
+        '-jb',
+        '--branch_jobs',
+        help='OPTIONAL: number of branches workers (default=8)',
         required=False,
         default=8,
         type=int,
@@ -541,8 +519,8 @@ if __name__ == '__main__':
     huc_dir = args['huc_dir']
     mann_n_table = args['mann_n_table']
     output_suffix = args['output_suffix']
-    number_of_jobs = args['number_of_jobs']
+    branch_jobs = args['branch_jobs']
     verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
 
-    run_prep(huc_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option)
+    run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plot_option)

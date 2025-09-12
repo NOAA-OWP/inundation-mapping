@@ -48,7 +48,7 @@ Inputs
 - points_layer:            .gpkg layer containing observed/truth FIM extent points and associated flow value
 - fim_directory:           fim directory containing individual HUC output dirs
 - wbd_path:                path the watershed boundary dataset layer (HUC polygon boundaries)
-- job_number:              number of multi-processing jobs to use
+- branch_jobs:              number of multi-processing branches jobs to use
 - debug_outputs_option:    optional flag to output intermediate files for reviewing/debugging
 
 Outputs
@@ -168,132 +168,38 @@ def process_points(args):
     return log_text
 
 
-def find_points_in_huc(huc_id):
-    '''
-    This function loads the .parquet file containing points attributed with the input huc id into a GDataFrame
 
-    Processing
-    - Query the <input_calib_points_dir> directory for a <HUC8>.parquet file containing calibration points.
-    - Reads points contained in .parquet file into a pandas geodataframe
+def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
+    '''
 
     Inputs
-    - huc_id:        HUC id to find in <input_calib_points_dir>
-
-    Outputs
-    - water_edge_df: geodataframe with point data
-    '''
-
-    water_edge_filepath = os.path.join(input_calib_points_dir, f'{huc_id}.parquet')
-
-    water_edge_df = gpd.read_parquet(water_edge_filepath)
-
-    return water_edge_df
-
-
-def find_hucs_with_points(points_file_dir, fim_out_huc_list):
-    '''
-    This function queries a directory with .parquet files of HUCs containing calibration points
-    (generated from /data/write_parquet_from_calib_pts.py) and returns a list of all the HUCs in
-    <fim_out_huc_list> that contain calibration point data.
-    '''
-
-    try:
-        files_in_points_file_dir = os.listdir(points_file_dir)
-    except FileNotFoundError:
-        return []
-
-    # Use list comprehension to slice .parquet off filename, and also prune non-parquet files in directory
-    hucs_in_points_file_dir = [i[:-8] for i in files_in_points_file_dir if i.endswith('.parquet')]
-
-    # Use list comprehension to only keep hucs in both the points_file_dir & fim_out_huc_list
-    hucs_wpoints = [x for x in hucs_in_points_file_dir if x in fim_out_huc_list]
-
-    return hucs_wpoints
-
-
-def ingest_points_layer(huc_dir, job_number, debug_outputs_option, log_file):
-    '''
-    The function obtains all points within a given huc, locates the corresponding FIM output files
-    for each huc (confirms all necessary files exist), and then passes a proc list of
-    huc organized data to process_points function.
-
-    Inputs
-    - fim_directory:        parent directory of fim ouputs (contains HUC directories)
-    - job_number:           number of multiprocessing jobs to use for processing hucs
+    - huc_dir:               directory of huc ouputs 
+    - branch_jobs:           number of multiprocessing branches jobs to use for processing hucs
     - debug_outputs_option: optional flag to output intermediate files
     - log_file:             where stdout/stderr will be logged
 
-    Processing
-    - Query the <input_calib_points_dir> for all unique huc ids that have calb points
-    - Loop through all HUCs with calib data and locate necessary fim output files to pass to calib workflow
-
-    - procs_list:           passes multiprocessing list of input args for process_points function input
-
     Outputs
     - log_file:             where stdout/stderr will be logged
     '''
 
-    hucNumber = os.path.basename(os.path.normpath(huc_dir))
-    fim_out_huc_list=[hucNumber]
-    # print("Finding all fim_output hucs that contain calibration points...")
-    # fim_out_huc_list = [
-    #     item for item in os.listdir(fim_directory) if os.path.isdir(os.path.join(fim_directory, item))
-    # ]
+    huc = os.path.basename(os.path.normpath(huc_dir))
 
-    # Remove logs, unit_errors, and branch_errors folders if they exist in <fim_directory>
-    # fim_out_huc_list.remove('logs')
-    # if 'unit_errors' in fim_out_huc_list:
-    #     fim_out_huc_list.remove('unit_errors')
-    # if 'branch_errors' in fim_out_huc_list:
-    #     fim_out_huc_list.remove('branch_errors')
+    # check to see if there is any parquet file for this huc
+    water_edge_filepath = os.path.join(input_calib_points_dir, f'{huc}.parquet')
+    if not os.path.exists(water_edge_filepath):
+        print(f"Water edge calibration parquet file missing for huc: {huc}")
+        log_file.write(f"Water edge calibration parquet file missing for huc: {huc}" + '\n')
+        return 
 
-    ## Record run time and close log file
-    run_time_start = dt.datetime.now()
-    log_file.write('Finding all hucs that contain calibration points...' + '\n')
-    huc_list_db = find_hucs_with_points(input_calib_points_dir, fim_out_huc_list)
-
-    run_time_end = dt.datetime.now()
-    task_run_time = run_time_end - run_time_start
-
-    log_file.write('HUC SEARCH TASK RUN TIME: ' + str(task_run_time) + '\n')
-    print(f"{len(huc_list_db)} hucs found in point file directory" + '\n')
-    log_file.write(f"{len(huc_list_db)} hucs found in point file directory" + '\n')
-    log_file.write('#########################################################\n')
-
-    # Ensure HUC id has 8 characters
-    huc_list = []
-    for huc in huc_list_db:
-        ## zfill to the appropriate scale to ensure leading zeros are present, if necessary.
-        if len(huc) == 7:
-            huc = huc.zfill(8)
-        if huc not in huc_list:
-            huc_list.append(huc)
-            log_file.write(str(huc) + '\n')
-
-    # Initialize process list for multiprocessing.
-    procs_list = []
-
-    # huc_list = ['12040103'] # Uncomment for testing
-    # Sort huc_list for helping track progress in future print statments
-    huc_list.sort()
-    ## Define paths to relevant HUC HAND data.
-    for huc in huc_list:
-        huc_branches_dir = os.path.join(huc_dir, 'branches')
-        water_edge_df = find_points_in_huc(huc)
-        print(f"{len(water_edge_df)} points found in " + str(huc))
-        log_file.write(f"{len(water_edge_df)} points found in " + str(huc) + '\n')
+    water_edge_df = gpd.read_parquet(water_edge_filepath)
+    if 1: #TODO temporary for an easier PR rview
+        print(f"{len(water_edge_df)} Water edge calibration points found in " + str(huc))
+        log_file.write(f"{len(water_edge_df)} Water edge calibration points found in " + str(huc) + '\n')
 
         ## Create X and Y location columns by extracting from geometry.
         water_edge_df['X'] = water_edge_df['geometry'].x
         water_edge_df['Y'] = water_edge_df['geometry'].y
 
-        ## Check to make sure the HUC directory exists in the current fim_directory
-        if not os.path.exists(huc_dir):
-            log_file.write(
-                "FIM Directory for huc: "
-                + str(huc)
-                + " does not exist --> skipping SRC adjustments for this HUC (obs points found)\n"
-            )
 
         ## Intermediate output for debugging
         if debug_outputs_option:
@@ -305,6 +211,8 @@ def ingest_points_layer(huc_dir, job_number, debug_outputs_option, log_file):
             parquet_filepath = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.parquet')
             water_edge_df.to_parquet(parquet_filepath, index=False)
 
+        procs_list = []
+        huc_branches_dir = os.path.join(huc_dir, 'branches')
         for branch_id in os.listdir(huc_branches_dir):
             branch_dir = os.path.join(huc_branches_dir, branch_id)
             ## Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
@@ -378,36 +286,14 @@ def ingest_points_layer(huc_dir, job_number, debug_outputs_option, log_file):
                     ]
                 )
 
-    with Pool(processes=job_number) as pool:
+    with Pool(processes=branch_jobs) as pool:
         log_output = pool.map(process_points, procs_list)
         log_file.writelines(["%s\n" % item for item in log_output])
 
     log_file.write('#########################################################\n')
 
 
-def run_prep(huc_dir, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number):
-    '''
-    Main function to call the processing functions defined above, with validation, logging, and timing
-
-    Validation:
-        - fim_directory exists
-        - job_number does not exceed available cpus.
-        - ds_thresh_override value is different than defualy and warn user
-    '''
-
-    # assert os.path.isdir(fim_directory), 'ERROR: could not find the input fim_dir location: ' + str(
-    #     fim_directory
-    # )
-
-    available_cores = multiprocessing.cpu_count()
-    if job_number > available_cores:
-        job_number = available_cores - 1
-        print(
-            "Provided job number exceeds the number of available cores. "
-            + str(job_number)
-            + " max jobs will be used instead."
-        )
-
+def run_prep(huc_dir, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, branch_jobs):
     if ds_thresh_override != DOWNSTREAM_THRESHOLD:
         print(
             'ALERT!! - Using a downstream distance threshold value ('
@@ -446,7 +332,7 @@ def run_prep(huc_dir, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRES
     log_file.write('#########################################################\n\n')
     log_file.write('START TIME: ' + str(begin_time) + '\n')
 
-    ingest_points_layer(huc_dir, job_number, debug_outputs_option, log_file)
+    ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()
@@ -482,7 +368,7 @@ if __name__ == '__main__':
         required=False,
     )
     parser.add_argument(
-        '-j', '--job-number', help='OPTIONAL: Number of jobs to use', type=int, required=False, default=2
+        '-jb', '--branch_jobs', help='OPTIONAL: Number of branches jobs to use', type=int, required=False, default=2
     )
 
     ## Assign variables from arguments.
@@ -490,6 +376,6 @@ if __name__ == '__main__':
     huc_dir = args['huc_dir']
     debug_outputs_option = args['extra_outputs']
     ds_thresh_override = args['downstream_thresh']
-    job_number = args['job_number']
+    branch_jobs = args['branch_jobs']
 
-    run_prep(huc_dir, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, job_number)
+    run_prep(huc_dir, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRESHOLD, branch_jobs)
