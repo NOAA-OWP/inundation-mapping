@@ -80,6 +80,10 @@ def process_branch(sub_branch_path, branch):
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
     input_src_full['SLOPE'] = input_src_full['SLOPE'].astype(float)
+    input_src_full['Number of Cells'] = input_src_base['Number of Cells']
+    input_src_full['SurfaceArea (m2)'] = input_src_base['SurfaceArea (m2)']
+    input_src_full['LENGTHKM'] = input_src_base['LENGTHKM']
+    input_src_full['AREASQKM'] = input_src_base['AREASQKM']
     input_src_full['Volume (m3)'] = input_src_base['Volume (m3)']
     input_src_full['BedArea (m2)'] = input_src_base['BedArea (m2)']
     input_src_full['TopWidth (m)'] = input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
