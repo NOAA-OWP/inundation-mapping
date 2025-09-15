@@ -101,7 +101,7 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
 
         # Snap levelpath endpoints (mainstem only) to the nearest landsea boundary
         # if they are within 10 km, ensuring outlets align with the landsea.
-        if landsea is not None:
+        if landsea is not None and 'mainstem' in levelpath_outlets.columns:
             landsea_union = landsea.geometry.unary_union
             levelpath_outlets = levelpath_outlets[levelpath_outlets['mainstem'] == 1]
             for index, row in levelpath_outlets.iterrows():
@@ -434,9 +434,10 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             skip = False
             temp_list = [outlet_id]
             # outlet_ids.add(outlet_id)
-            downstream_segments = nwm_streams[
-                nwm_streams['ID'] == nwm_streams.loc[nwm_streams['ID'] == outlet_id, 'to'].values[0]
-            ]
+            outlet_streams = nwm_streams.loc[nwm_streams['ID'] == outlet_id]
+            if outlet_streams.empty:
+                continue
+            downstream_segments = nwm_streams[nwm_streams['ID'] == outlet_streams['to'].values[0]]
             while not downstream_segments.empty:
                 temp_id = downstream_segments['ID'].values[0]
 

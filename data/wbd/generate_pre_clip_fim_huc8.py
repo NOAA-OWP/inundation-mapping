@@ -466,6 +466,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
                 huc_CRS,
                 '-clipsrc',
                 f'{huc_directory}/wbd_buffered.gpkg',
+                '-nlt',
+                'PROMOTE_TO_MULTI',
                 f'{huc_directory}/wbd8_clp.gpkg',
                 input_WBD_filename,
                 input_NHD_WBHD_layer,
@@ -516,7 +518,7 @@ if __name__ == '__main__':
 
     # NOTE: Super important: Make sure the bash_variables are correct before doing pre-clip.
     # It pulls a wide number of values from there.
-    # Especially if you can a diretory for a new data load.
+    # Especially if you can a directory for a new data load.
     #     ie) DEMS at data/inputs/3dep_dems/10m_5070/20240916/
     #
     # TODO below comment is not relevant anymore because especially after the May 2025 refactoring no need to run twice.
@@ -528,7 +530,7 @@ if __name__ == '__main__':
 
     '''
     Notes:
-    This tool always create the below four boundary covergae files. So no args is used for them.
+    This tool always create the below four boundary coverage files. So no args is used for them.
         - wbd.gpkg
         - wbd_buffered.gpkg
         - wbd8_clp.gpkg
@@ -622,6 +624,10 @@ if __name__ == '__main__':
         )
 
     args = vars(parser.parse_args())
+
+    if not os.path.exists(args['huc_list']):
+        print(f"Error: HUC list file {args['huc_list']} does not exist.")
+        exit(0)
 
     if args['copy_from_dir']:
         # if copy argument is not provided, set it to false (so no-copying mode)
