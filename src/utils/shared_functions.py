@@ -47,9 +47,8 @@ def setup_file_logger(log_file_path):
     It prints to file and screen at the same time.
 
     This one is very similar to 'setup_mp_file_logger' but has a few critical differences.
-       1) It does not had a console / stream handler
-       2) It lets you continue to use the default log handler of logging.info, etc
-       3) It does not return a handler and we don't want to as we want this one to simply
+       1) This one does not had a console / stream handler as it uses the system default. ie. logging.info, etc.
+       2) It does not return a handler and we don't want to as we want this one to simply
           help configure the default logging handler. There are some places were we end up using
           both this default log handler plus a custom one which is created generally in setup_mp_file_logger
 
@@ -57,6 +56,8 @@ def setup_file_logger(log_file_path):
     and save those values in the regular log file but also in its own error file.
     This helps bring out errors, especially in tools that allow for a task to fail but continue on.
     Note: The file is created automatically and if no actual errors are found, that file will be empty.
+    
+    In the end, the error log file is not removed if it is empty, just watch its file size.
     """
 
     if not log_file_path.endswith(".log"):
@@ -114,6 +115,9 @@ def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=loggi
     and save those values in the regular log file but also in its own error file.
     This helps bring out errors, especially in tools that allow for a task to fail but continue on.
     Note: The file is created automatically and if no actual errors are found, that file will be empty.
+    
+    For now.. it can leave empty error files when all is said and done and that is fine. Just watch
+    It's file size.
 
     """
 
@@ -161,7 +165,7 @@ def run_with_mp(
     Run a set of tasks in parallel using multiprocessing with robust logging and error handling.
 
     NOTES:
-    This simple setup is using a shared log file and it is ok for now assuming that:
+    This setup is using a shared log file and it is ok for now assuming that:
         - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work
         - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
         - if we encounter a case that this does not work correctly, then we can improve it by creating one
@@ -169,7 +173,6 @@ def run_with_mp(
 
     - Use try/except in both the task function and this wrapper:
         • Child MP process functions should always have it's own try/except to handle issues gracefully.
-        • The task function should handle known/expected errors and always return True or False.
         • This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
         • Inside helper functions feel free to log any information. but no need to raise errors.
         • The only exception is that when we really need to address a special case like API limits and wait and retry.
@@ -184,18 +187,23 @@ def run_with_mp(
     # +++++++++++++++++++++
     ####  TASK RETURN VALUES TO THE POOL ####
 
-    # Different tools have different needs for how it uses it's MP functions.
+    # Different tools have different needs for how it uses it's MP functions and what it returns from run_with_mp.
 
-    # This tool assumes that two things are returned: a return code, then a list (might be empty or any type of object)
+    # This tool requires that two things are returned: a return code, then a list (might be empty
+    #    or any just one list item containing any object such as a bool, string, dictionary, dataframe, etc)
+    #    If you the task is succesful and you have no specific need for anything to return, just return an empty
+    #    list. ie) [].  
+    #    Only one item inside the list can be returned and it will be extracted to add to the growing
+    #    main return set. results = {}. 
+    #    In the end, you will have a set of T/F, dictionaries, dataframes, string, etc
+    
     # -  A status code. options are:
     #       0: Success and show tqdm or print success line
-    #       1: Fail and the mp process function wants the entire script aborted
+    #       1: Fail and the entire script should be aborted
     #       2: Fail but don't shut down, advance the pbar AND show the tqdm / print error or warning message
 
-    # -  A list object. Inside that list can be anytype of object, T/F, a df, a dictionary, string anything
-    #       If the list object has no items, do not not add it to the run_with_mp return results
-    #       If it does, extract that first item from the list and add it to the return results.
-
+    # Some examples of usage:
+    
     # Some tools like pull_osm_roads.py want a T/F returned for every mp item, so its mp process
     #    named "single_huc_job" returns:
     #            0, [True]  (meaning success and add "True" to the run_by_mp result set)
@@ -207,11 +215,6 @@ def run_with_mp(
     #           0, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
     #           1, []  (Catestrophic fail, shut down the entire script)
     #           2, []  (Fail but there is nothing to add to the run_by_mp result set)
-
-    # Some tools will want a value return from run_by_mp for all tasks, pass or fail.
-    # Some tools only want a return values from run_by_mp with successful values
-
-    # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.
 
     # ++++++++++++++++++++++
 
@@ -257,8 +260,16 @@ def run_with_mp(
         #   work and can often hang up the script. It all comes down to memory management, python garbage dumps,
         #   and how objects are used (passed versus reference).
 
+        # Main point here:  You can shut down the overall MP, but you can not stop a mp task in action. You can only
+        #   send issues commands telling the code to stop and it will stop new tasks from starting. Then wait for
+        #   the wip tasks to complete. ie) If you have 20 Jobs and one kills the app, you have to wait until all
+        #   the remaining 19 tasks to finish before it fully stops and this can take a few mins.
+
         # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
-        #   abort and stop new ones from firing. CTRL-C a number of times from console will usually do it as well.
+        #   abort and stop new ones from firing. 
+        
+        # CTRL-C a number of times from console will stop the two program faster, but will leave orphaned memory
+        #    leaks.  If you do this, close your container to release the memory leaks and restart a new container.
 
         results = {}
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -292,12 +303,12 @@ def run_with_mp(
                     future = executor.submit(task_function, **kwargs_updated)
                     future_to_id[future] = task_id
 
-                # Catestophic errors mean we can not 100% guarantee all mp's will come back as_completed
+                # Catestophic errors mean we can not 100% guarantee all mp's will come back as_completed.
                 for future in as_completed(future_to_id):
                     task_id = future_to_id[future]
 
                     # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.
-                    # See notes above about return values in the
+                    # See notes above about return values.
                     rtn_code, rtn_value = future.result()
 
                     if rtn_code == 0:
@@ -329,11 +340,18 @@ def run_with_mp(
                     else:
                         raise Exception("Child mp task returned and invalid status code")
 
-                    if len(rtn_value) > 0:
+                    if len(rtn_value) == 1:
                         # add it to the run_with_mp results
                         # Some mp functions will return an empty list meaning they don't
                         # want to add anything to the run_with_mp return set.
-                        results[task_id] = rtn_value
+                        
+                        # IMPORTANT NOTE:
+                        #    This extracts the first item only.
+                        results[task_id] = rtn_value[0]
+                    if len(rtn_value > 1):
+                        raise Exception("Child mp task must return either 0 or 1 list items, and you have more"
+                                        " than one item in the return list. Consider a list or dictionary in"
+                                        " return list.")
 
                     if pbar:
                         # print("task bar being updated")
@@ -343,7 +361,7 @@ def run_with_mp(
                     pbar.close()
 
             except Exception as ex:
-                # The child mp function should have it's own try/except but in case somethign slips
+                # The child mp function should have it's own try/except but in case something slips
                 # through or they forgot to add it.
 
                 error_msg = f"❌ Critical error: {ex}"
@@ -369,7 +387,7 @@ def run_with_mp(
                 )  # tells the ProcessPoolExecutor to stop accepting new tasks. Even cancel the running tasks as soon as possible
 
                 # CTRL-C can trigger secondary exceptions when objects inside this page are still held
-                # open.
+                # open. Make sure you close and restart the docker container if you use CTRL-C to abort.
 
                 # Yes.. seems weird to have this here and a new exception.
                 # But it helps force shut down other objects like manual logging and a

@@ -28,7 +28,7 @@ This script calls the NOAA Tidal API for datum conversions. Experience shows tha
     to avoid API errors. Currently configured to get rating curve data within
     CONUS.
 
-    Tidal API call may need to be modified to get datum conversions for AK. # TODO: Alaska updates?
+    Tidal API call may need to be modified to get datum conversions for AK ??
 '''
 
 
@@ -104,7 +104,7 @@ def __mp_get_flows_for_site(
                 flow_df = flow_df.rename(columns={'discharge': 'discharge_cms'})
 
                 site_flows_df = pd.concat([site_flows_df, flow_df], ignore_index=True)
-        return site_flows_df
+        return 0, [site_flows_df]
 
     except Exception:
         file_logger.critical(f"❌ Critical error while processing {task_id}")
@@ -112,11 +112,10 @@ def __mp_get_flows_for_site(
         return 1, []  # shut the program down.
 
 
-##############################################################################
+
 # Generate categorical flows for each category across all sites.
-##############################################################################
 def __write_categorical_flow_files(
-    metadata_list, output_dir, file_date_append, file_datetime_string, parent_log_file, num_jobs
+    metadata_list, output_dir, file_datetime_string, parent_log_file, num_jobs
 ):
     '''
     Writes flow files of each category for every feature_id in the input metadata.
@@ -211,7 +210,7 @@ def __write_categorical_flow_files(
     logging.info("Writing for USGS discharge data for each usgs stage (ie. action, minor, etc)")
     if not all_flows_data.empty:
         usgs_discharge_file_name = os.path.join(
-            output_dir, f'usgs_stage_discharge_cms_{file_date_append}.csv'
+            output_dir, f'usgs_stage_discharge_cms.csv'
         )
         final_data = all_flows_data[['feature_id', 'discharge_cms', 'recurr_interval']]
         final_data.to_csv(usgs_discharge_file_name, index=False)
@@ -299,7 +298,7 @@ def __mp_get_site_rating_curve(
 
                 # If datum adjustment succeeded, calculate datum in NAVD88
                 navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
-                file_logger.debug(f'{location_id}: succesfully converted NGVD29 to NAVD88')
+                file_logger.debug(f'{location_id}: successfully converted NGVD29 to NAVD88')
 
             elif usgs['vcs'] == 'NAVD88':
                 navd88_datum = usgs['datum']
@@ -399,7 +398,7 @@ def __get_usgs_metadata(list_of_gage_sites, metadata_url):
     return sites_gdf, metadata_list
 
 
-def __attrib_mainstems(sites_gdf, all_rating_curves, output_dir, file_date_append):
+def __attrib_mainstems(sites_gdf, all_rating_curves, output_dir):
 
     # Add mainstems attribute to acceptable sites
     section_start_dt = datetime.now(timezone.utc)
@@ -420,7 +419,7 @@ def __attrib_mainstems(sites_gdf, all_rating_curves, output_dir, file_date_appen
     sites_gdf.loc[sites_gdf.eval('feature_id in @ms_segs'), 'mainstem'] = 'yes'
 
     # Debugging tool
-    # sites_gdf.to_csv(os.path.join(output_dir, f'acceptable_sites_pre_{file_date_append}.csv'))
+    # sites_gdf.to_csv(os.path.join(output_dir, f'acceptable_sites_pre.csv'))
 
     sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
     sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
@@ -458,10 +457,10 @@ def __attrib_mainstems(sites_gdf, all_rating_curves, output_dir, file_date_appen
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
     logging.info(f"Saving acceptable rating curve files... {display_dt_string} (UTC) ")
     acceptable_sites_gdf.to_csv(
-        os.path.join(output_dir, f'acceptable_sites_for_rating_curves_{file_date_append}.csv')
+        os.path.join(output_dir, f'acceptable_sites_for_rating_curves.csv')
     )
     acceptable_sites_gdf.to_file(
-        os.path.join(output_dir, f'acceptable_sites_for_rating_curves_{file_date_append}.gpkg'),
+        os.path.join(output_dir, f'acceptable_sites_for_rating_curves.gpkg'),
         driver='GPKG',
         engine='fiona',
     )
@@ -488,26 +487,27 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         6.  Append all rating curves to a master DataFrame.
 
     Outputs:
-        Note: All files have today's date appended.
+        Note: The output folder will automatically add a subfolder with today's date and 
+        add all files to it. ie)/data/inputs/usgs_curves/ (auto addes /20250912/)
 
-        usgs_rating_curves_{date}.csv -- A csv containing USGS rating curve as well
+        usgs_rating_curves.csv -- A csv containing USGS rating curve as well
         as datum adjustment and rating curve expressed as an elevation (NAVD88).
         ONLY SITES IN CONUS ARE CURRENTLY LISTED IN THIS CSV. To get
         additional sites, the Tidal API will need to be reconfigured and tested.
 
         log_{date}.csv -- A csv containing gage-specific messages.
 
-        (if all option passed) usgs_gages_{date}.gpkg -- a point layer containing ALL USGS gage sites that meet
+        (if all option passed) usgs_gages.gpkg -- a point layer containing ALL USGS gage sites that meet
         certain criteria. In the attribute table is a 'curve' column that will indicate if a rating
-        curve is provided in "usgs_rating_curves_{date}.csv"
+        curve is provided in "usgs_rating_curves.csv"
 
-        acceptable_sites_for_rating_curves_{date}.csv -- A csv containing all acceptable sites
+        acceptable_sites_for_rating_curves.csv -- A csv containing all acceptable sites
         that have a rating curve.
 
-        acceptable_sites_for_rating_curves_{date}.gpkg -- A geopackage containing all acceptable sites
+        acceptable_sites_for_rating_curves.gpkg -- A geopackage containing all acceptable sites
         that have a rating curve.
 
-        usgs_stage_discharge_cms_{date}.csv -- A csv containing the flow values for each flood category
+        usgs_stage_discharge_cms.csv -- A csv containing the flow values for each flood category
         (action, minor, moderate, major) for each site.  Used by Seirra Testing (rating_curve_comparison)
 
         TODO: deprecated as of 5/14/25... remove? or do we use this?
@@ -571,11 +571,14 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
     # Create output_dir directory if it doesn't exist
     if output_dir == "":
         raise ValueError("Output dir parameter can not be empty")
+    
+    overall_start_dt = datetime.now(timezone.utc)
+            
+    # Auto add todays date to the folder
+    output_dir = os.path.join(output_dir, overall_start_dt.strftime("%Y%m%d"))
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-    overall_start_dt = datetime.now(timezone.utc)
-    file_date_append = overall_start_dt.strftime("%Y%m%d")
     file_datetime_string = overall_start_dt.strftime("%Y%m%d-%H%M")
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
 
@@ -610,8 +613,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info(f"Processing metadata started: {display_dt_string} (UTC)")
         all_rating_curves = pd.DataFrame()
 
-        # For each site in metadata_list
-        # for metadata in metadata_list:
         num_sites = len(metadata_list)
         logging.info(f"Number of sites to process: {num_sites}")
         print("-- Note: some locations will be skipped")
@@ -619,11 +620,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         tasks_args_list = []
         for i in range(len(metadata_list)):
             metadata_json = metadata_list[i]
-
-            # DEBUG
-            # print("+++++++++++++++")
-            # print(metadata_json)
-            # print("+++++++++++++++")
 
             usgs_site_code = metadata_json['identifiers']['usgs_site_code']
             tasks_args_list.append(
@@ -638,7 +634,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         # not a great way to sort, but it is as least something
         sorted_tasks_args_list = sorted(tasks_args_list, key=lambda x: ['usgs_site_code'])
 
-        # setup the mp logger
         # TODO: not sure but might be file collisons with many MP's trying to write to one file
         # at the same time. For now, we will jsut let MP have its own in case it gets hung up
         # if the MP gets hung up or throws and exception, if mp log was used script wide
@@ -649,9 +644,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         list_rating_curves_dfs = sf.run_with_mp(
             task_function=__mp_get_site_rating_curve,
             tasks_args_list=sorted_tasks_args_list,
-            # file_logger=fim_logger,
             file_logger=mp_logger,
-            # file_logger=logging.getLogger(),
             max_workers=num_jobs,
             task_id_key='usgs_site_code',
             show_progress=True,
@@ -680,7 +673,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
             sys.exit(1)
 
         # Filter out all_rating_curves by list
-        acceptable_sites_list = __attrib_mainstems(sites_gdf, all_rating_curves, output_dir, file_date_append)
+        acceptable_sites_list = __attrib_mainstems(sites_gdf, all_rating_curves, output_dir)
         all_rating_curves = all_rating_curves[all_rating_curves['location_id'].isin(acceptable_sites_list)]
 
         # dur_msg = fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False)
@@ -689,14 +682,14 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info("=============")
 
         # Write rating curve dataframe to file
-        usgs_rating_curve_file = os.path.join(output_dir, f"usgs_rating_curves_{file_date_append}.csv")
+        usgs_rating_curve_file = os.path.join(output_dir, f"usgs_rating_curves.csv")
         all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
 
         # If 'all' option specified, reproject then write out shapefile of acceptable sites.
         # TODO: Should it also do something if 'all' isn't specified?
         if list_of_gage_sites == ['all']:
             sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
-            usgs_gages_file = os.path.join(output_dir, f"usgs_gages_{file_date_append}.gpkg")
+            usgs_gages_file = os.path.join(output_dir, f"usgs_gages.gpkg")
 
             sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 
@@ -709,7 +702,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info(f"Getting stage discharge values - started: {display_dt_string} (UTC)")
 
         __write_categorical_flow_files(
-            metadata_list, output_dir, file_date_append, file_datetime_string, log_file_path, num_jobs
+            metadata_list, output_dir, file_datetime_string, log_file_path, num_jobs
         )
 
         display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
@@ -744,11 +737,13 @@ if __name__ == '__main__':
 
     Download all sites to outputs folder
         python /foss_fim/data/usgs/get_usgs_rating_curves.py -l 'all' \
-            -o '/data/inputs/usgs_gages/20250921' -j 30
+            -o '/data/inputs/usgs_gages' -j 30
 
     Download certain sites to outputs folder
         python /foss_fim/data/usgs/get_usgs_rating_curves.py -l '04228500 04228502' \
-            -o '/data/inputs/usgs_gages/20250921' -j 30
+            -o '/data/inputs/usgs_gages' -j 30
+
+    The program will automatically add a subfolder with todays date: ie) /20250912/
 
     **********************
     Don't worry if you see a very large number of lines showing Error or Warning reported for {usgs site id}.

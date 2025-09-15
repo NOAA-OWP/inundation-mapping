@@ -1351,7 +1351,11 @@ def ngvd_to_navd_ft(datum_info):
         # convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084, 2)
     else:
-        message = results['message']
+        if response is not None:
+            results = response.json()
+            message = results['message']
+        else:
+            message = "An unknown internal error has occurred."
         print(f'VDatum error occurred: {message}')
         adjustment_ft = None
 
