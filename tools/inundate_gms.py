@@ -4,7 +4,7 @@ import argparse
 import os
 import sys
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
@@ -12,6 +12,7 @@ from inundation import NoForecastFound, hydroTableHasOnlyLakes, inundate
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
+from utils.shared_functions import s3_or_local_isfile, s3_or_local_path_exists
 
 
 def Inundate_gms(
@@ -26,6 +27,7 @@ def Inundate_gms(
     log_file: Optional[str] = None,
     output_fileNames: Optional[str] = None,
     windowed: Optional[bool] = False,
+    multi_process: Optional[bool] = False,
 ) -> pd.DataFrame:
     """
     Run inundation using the Generalized Mainstem methodology
@@ -54,6 +56,8 @@ def Inundate_gms(
         Name of file to output filenames from gms inundation routine
     windowed: Optional[bool], default = False
         Whether to use window memory optimization
+    multi_process: Optional[bool], default = False
+        Whether to use process pool, otherwise use thread pool
 
     Returns
     -------
@@ -109,7 +113,10 @@ def Inundate_gms(
 
     # start up process pool
     # better results with Process pool
-    executor = ThreadPoolExecutor(max_workers=num_workers)
+    if multi_process is True:
+        executor = ProcessPoolExecutor(max_workers=num_workers)
+    else:
+        executor = ThreadPoolExecutor(max_workers=num_workers)
 
     # collect output filenames
     inundation_raster_fileNames = [None] * number_of_branches
@@ -218,7 +225,7 @@ def __inundate_gms_generator(
     hydro_table_df: Union[str, pd.DataFrame]
         Hydrotable DataFrame.
     verbose: Optional[bool], default = False
-        Whether to qsilence output or not
+        Whether to silence output or not
     windowed: Optional[bool], default = False
         Whether to use window memory optimization
 
@@ -252,13 +259,6 @@ def __inundate_gms_generator(
             hydro_table_branch = hydro_table_df.format(branch_id)
         else:
 
-            df_type = "csv"
-            if os.path.exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
-                hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
-                df_type = "feather"
-            else:
-                hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
-
             dtype = {
                 "HUC": str,
                 "branch_id": int,
@@ -268,13 +268,17 @@ def __inundate_gms_generator(
                 "discharge_cms": float,
                 "LakeID": int,
             }
-            if df_type == "feather":
+
+            if s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
+                hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
                 hydro_table_all = pd.read_feather(hydro_table_huc)
-            else:
+            elif s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.csv")):
+                hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
                 hydro_table_all = pd.read_csv(hydro_table_huc, dtype=dtype, usecols=htable_req_cols)
+            else:
+                hydro_table_huc = None
 
-            if os.path.isfile(hydro_table_huc):
-
+            if hydro_table_huc is not None and s3_or_local_isfile(hydro_table_huc):
                 hydro_table_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
                 hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
             else:

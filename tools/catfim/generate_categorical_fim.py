@@ -386,9 +386,13 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
         if len(file_name_segs) <= 1:
             continue
         ahps_id = file_name_segs[1]
-        if len(ahps_id) == 5:  # yes, we assume the ahps in the second arg
-            if ahps_id not in ahps_ids_with_gpkgs:
-                ahps_ids_with_gpkgs.append(ahps_id)
+
+        # if len(ahps_id) == 5: 7/17/25 - Removed this logic
+        # because LID lengths above 5 characters are probably
+        # invalid but we are not checking that here.
+
+        if ahps_id not in ahps_ids_with_gpkgs:
+            ahps_ids_with_gpkgs.append(ahps_id)
 
     return ahps_ids_with_gpkgs
 
@@ -421,7 +425,6 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
     try:
 
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
-
         if len(valid_ahps_ids) == 0:
             FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
             sys.exit(1)
@@ -430,13 +433,18 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
         for ind, row in sites_gdf.iterrows():
             ahps_id = row['ahps_lid']
             status_val = row['status']
-
+            # If the ahps_id is not in the valid list, then mapped should be "no" and status updated
             if ahps_id not in valid_ahps_ids:
                 sites_gdf.at[ind, 'mapped'] = 'no'
-
+                FLOG.warning(
+                    f"{ahps_id} : Mapped status was changed to no because no inundation GPKGs found."
+                )
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
-                    FLOG.warning(f"Mapped status was changed to no for {ahps_id}. No inundation files exist")
+                else:
+                    if status_val.startswith("---") == True:
+                        status_val = status_val[3:]  # remove the "---" from the status
+                    sites_gdf.at[ind, 'status'] = status_val
                 continue
                 # It is safe to assume a status message for invalid ones already exist
 
@@ -578,9 +586,9 @@ def iterate_through_huc_stage_based(
 
             for lid in nws_lids:
 
-                # debugging
-                # if lid.upper() not in ['ALWP1','ILTP1', 'JRSP1']:
-                #   continue
+                # # Debugging mode:
+                # if lid.upper() not in ['PACI1']:
+                #    continue
 
                 # TODO: Oct 2024, yes. this is goofy but temporary
                 # Some lids will add a status message but are allowed to continue.
@@ -606,7 +614,7 @@ def iterate_through_huc_stage_based(
                     reason = found_restrict_lid.iloc[
                         0, found_restrict_lid.columns.get_loc("restricted_reason")
                     ]
-                    msg = ': Restricted Site - ' + reason
+                    msg = ':Restricted Site - ' + reason
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -618,13 +626,25 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
-                thresholds, flows = get_thresholds(
+                thresholds, flows, threshold_count = get_thresholds(
                     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
                 )
 
+                # temp debug
                 # MP_LOG.lprint(f"thresholds are {thresholds}")
                 # MP_LOG.lprint(f"flows are {flows}")
 
+                # If no thresholds are found, write message and exit.
+                # Many sites that used to have 'Error getting thresholds from WRDS API' should now
+                # have this more descriptive status message
+                if threshold_count == 0:
+                    msg = ':No thresholds found on WRDS API'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
+
+                # If there are no thresholds but the threshold_count is greater than 0 or NA (unlikely).
+                # write message and exit.
                 if thresholds is None or len(thresholds) == 0:
                     msg = ':Error getting thresholds from WRDS API'
                     all_messages.append(lid + msg)
@@ -632,8 +652,10 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Check if stages are supplied, if not write message and exit.
+                # This message will occur if some thresholds are supplied, but not for the
+                # categories we use (such as  “low” or “bankfull”)
                 if all(thresholds.get(category, None) is None for category in categories):
-                    msg = ':Missing all threshold stage data'
+                    msg = ':No thresholds for required categories found on WRDS API'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
@@ -643,10 +665,6 @@ def iterate_through_huc_stage_based(
                 # Hold the warning_msg to the end
                 stage_values_df, valid_stage_names, stage_warning_msg, err_msg = __calc_stage_values(
                     categories, thresholds
-                )
-
-                MP_LOG.trace(
-                    f"{huc_lid_id}:" f" stage values (pre-processed) are {stage_values_df.values.tolist()}"
                 )
 
                 if err_msg != "":
@@ -706,6 +724,7 @@ def iterate_through_huc_stage_based(
                 datum_adj_ft, datum_messages = __adjust_datum_ft(flows, metadata, lid, huc_lid_id)
                 all_messages = all_messages + datum_messages
                 if datum_adj_ft is None:
+                    MP_LOG.warning(f"{huc_lid_id}: datum_adj_ft is None")
                     continue
 
                 # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
@@ -727,11 +746,28 @@ def iterate_through_huc_stage_based(
                 # Check for large discrepancies between the elevation values from WRDS and HAND.
                 #   Otherwise this causes bad mapping.
                 elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
+                diff_rounded = round(elevation_diff, 2)
+
+                # Log elevation difference information - not an error, just for reference (maybe remove later)
+                if elevation_diff > 0:
+                    MP_LOG.lprint(f"{huc_lid_id}: USGS elev is higher than HAND elev by {diff_rounded} ft")
+                elif elevation_diff < 0:
+                    MP_LOG.lprint(
+                        f"{huc_lid_id}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft"
+                    )
+
                 if abs(elevation_diff) > 10:
                     msg = ':Large discrepancy in elevation estimates from gage and HAND'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
+                elif abs(elevation_diff) > 5:
+                    msg = (
+                        f':Moderate discrepancy ({diff_rounded} ft) in elevation estimates from gage and HAND'
+                    )
+                    MP_LOG.warning(huc_lid_id + msg)
+                    # all_messages.append(lid + msg) # just print as a warning for now (not appending to message)
+                    # We are not continuing, just a warning
 
                 # This function sometimes is called within a MP but sometimes not.
                 # So, we might have an MP inside an MP
@@ -774,15 +810,21 @@ def iterate_through_huc_stage_based(
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
                 # This are not interval values
+
+                negative_hand_stage = False  # initialize value
+
                 for idx, stage_row in stage_values_df.iterrows():
-                    # MP_LOG.lprint(f"{huc_lid_id}: Magnitude is {category}")
                     # Pull stage value and confirm it's valid, then process
 
                     category = stage_row['stage_name']
                     stage_value = stage_row['stage_value']
 
-                    # messages already included in the stage_warning_msg above
-                    if stage_value == -1:
+                    if stage_value == -1:  # messages already included in the stage_warning_msg above
+                        continue
+
+                    if (
+                        negative_hand_stage == True
+                    ):  # if we already had a negative hand stage, skip remaining stages
                         continue
 
                     MP_LOG.trace(f"About to create tifs for {huc_lid_id} : {category} : {stage_value}")
@@ -813,10 +855,13 @@ def iterate_through_huc_stage_based(
                         child_log_file_prefix,
                     )
 
-                    # If we get a message back, then something went wrong with the site adn we need to
+                    # If we get a message back, then something went wrong with the site and we need to
                     # remove it as a valid site
-
                     all_messages += messages
+
+                    # Mark site as invalid if any stage results in a negative hand stage value
+                    if hand_stage < 0:
+                        negative_hand_stage = True
 
                     # Extra metadata for alternative CatFIM technique.
                     # TODO Revisit because branches complicate things
@@ -838,8 +883,17 @@ def iterate_through_huc_stage_based(
                         mapping_lid_directory, lid + '_' + category_key + '_extent.tif'
                     )
                     if os.path.exists(stage_file_name) == False:
-                        # somethign failed and we didn't get a rolled up extent file, so we need to reject the stage
+                        # something failed and we didn't get a rolled up extent file, so we need to reject the stage
                         stage_values_df.at[idx, 'stage_value'] = -1
+
+                # If any stage resulted in a negative hand stage value, mark site as invalid.
+                # because this indicates that there is an elevation disparity that will
+                # likely result in bad mapping.
+                if negative_hand_stage == True:
+                    msg = ': Discrepancy in elevation estimates from gage and HAND caused negative HAND stage value'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
 
                 # So, we might have an MP inside an MP
                 # let's merge what we have at this point, before we go into another MP
@@ -853,8 +907,6 @@ def iterate_through_huc_stage_based(
                 non_rec_stage_values_df = non_rec_stage_values_df_unsorted.sort_values(
                     by='stage_value'
                 ).reset_index()
-
-                # MP_LOG.trace(f"non_rec_stage_values_df is {non_rec_stage_values_df}")
 
                 # +++++++++++++++++++++++++++++
                 # Creating interval tifs (if applicable)
@@ -946,12 +998,8 @@ def iterate_through_huc_stage_based(
 
                 # for threshold in categories:  (threshold and category are somewhat interchangeable)
                 # some may have failed inundation, which we will rectify later
-                MP_LOG.trace(f"{huc_lid_id}: updating threshhold values")
-
                 for threshold in valid_stage_names:
-
                     try:
-
                         # we don't know if the magnitude/stage can be mapped yes it hasn't been inundated
                         line_df = pd.DataFrame(
                             {
@@ -1015,7 +1063,7 @@ def iterate_through_huc_stage_based(
 
                     if stage_warning_msg == "":  # does not mean the lid is good.
                         all_messages.append(lid + ':Good')
-                    else:  # we will leave the ":---" on it for now if it is does have a warnning message
+                    else:  # we will leave the ":---" on it for now if it is does have a warning message
                         all_messages.append(lid + stage_warning_msg)
                         MP_LOG.warning(huc_lid_id + stage_warning_msg)
                 else:
@@ -1213,20 +1261,22 @@ def load_restricted_sites(is_stage_based):
 
     # There are enough conditions and a low number of rows that it is easier to
     # test / change them via a for loop
-    indexs_for_recs_to_be_removed_from_list = []
+    # indexs_for_recs_to_be_removed_from_list = [] -> Removed 7/17/25
 
     # Clean up dataframe
     for ind, row in df_restricted_sites.iterrows():
         nws_lid = row['nws_lid']
         restricted_reason = row['restricted_reason']
 
-        if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
-            FLOG.warning(
-                f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
-                " and has dropped from processing"
-            )
-            indexs_for_recs_to_be_removed_from_list.append(ind)
-            continue
+        # if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
+        # (7/17/25) Removed this logic becuase it was preventing sites with more or
+        # less than 5 character LIDs from being filtered out.
+        #     FLOG.warning(
+        #         f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
+        #         " and has dropped from processing"
+        #     )
+        #     indexs_for_recs_to_be_removed_from_list.append(ind)
+        #     continue
 
         if restricted_reason == "":
             restricted_reason = "From the ahps_restricted_sites,"
@@ -1238,8 +1288,10 @@ def load_restricted_sites(is_stage_based):
 
     # Invalid records in CSV (not dropping, just completely invalid recs from the csv)
     # Could be just blank rows from the csv
-    if len(indexs_for_recs_to_be_removed_from_list) > 0:
-        df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
+    # (7/17/25) Removed this logic becuase it was preventing sites with more or
+    # less than 5 character LIDs from being filtered out.
+    # if len(indexs_for_recs_to_be_removed_from_list) > 0:
+    #     df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
 
     # Filter df_restricted_sites by CatFIM type
     if is_stage_based == True:  # Keep rows where 'catfim_type' is either 'stage' or 'both'
@@ -1370,7 +1422,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
             if 'HTTPSConnectionPool' in ex:
                 time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                 try:
-                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data, region='contiguous')
+                    datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
                 except Exception:
                     msg = ':NOAA VDatum adjustment error, possible API issue'
                     all_messages.append(lid + msg)
@@ -1516,7 +1568,6 @@ def __calculate_category_key(category, stage_value, is_interval_stage):
 
     # The "i" in the end means it is an interval
     # Now we are action_24.0ft or action_24.6ft or action_24.65ft or action_24.0fti
-
     if is_interval_stage == True:
         category_key += "i"
 
@@ -1934,7 +1985,7 @@ if __name__ == '__main__':
         help='OPTIONAL: The version of the HAND data outputs that was used to run the product.'
         ' This value is included in the output gpkgs and csvs in a field named model_version.'
         ' If you put in a value here, we will change dots to underscores only.'
-        ' This shoudl be a HAND version number only and not include the word HAND_'
+        ' This should be a HAND version number only and not include the word HAND_'
         ' ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank',
         required=False,
         default="",
