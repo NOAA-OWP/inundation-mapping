@@ -112,7 +112,6 @@ def __mp_get_flows_for_site(
         return 1, []  # shut the program down.
 
 
-
 # Generate categorical flows for each category across all sites.
 def __write_categorical_flow_files(
     metadata_list, output_dir, file_datetime_string, parent_log_file, num_jobs
@@ -209,9 +208,7 @@ def __write_categorical_flow_files(
     # Write usgs stage discharge data, used by Sierra tests (rating_curve_comparison.py)
     logging.info("Writing for USGS discharge data for each usgs stage (ie. action, minor, etc)")
     if not all_flows_data.empty:
-        usgs_discharge_file_name = os.path.join(
-            output_dir, f'usgs_stage_discharge_cms.csv'
-        )
+        usgs_discharge_file_name = os.path.join(output_dir, 'usgs_stage_discharge_cms.csv')
         final_data = all_flows_data[['feature_id', 'discharge_cms', 'recurr_interval']]
         final_data.to_csv(usgs_discharge_file_name, index=False)
 
@@ -456,13 +453,9 @@ def __attrib_mainstems(sites_gdf, all_rating_curves, output_dir):
 
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
     logging.info(f"Saving acceptable rating curve files... {display_dt_string} (UTC) ")
-    acceptable_sites_gdf.to_csv(
-        os.path.join(output_dir, f'acceptable_sites_for_rating_curves.csv')
-    )
+    acceptable_sites_gdf.to_csv(os.path.join(output_dir, 'acceptable_sites_for_rating_curves.csv'))
     acceptable_sites_gdf.to_file(
-        os.path.join(output_dir, f'acceptable_sites_for_rating_curves.gpkg'),
-        driver='GPKG',
-        engine='fiona',
+        os.path.join(output_dir, 'acceptable_sites_for_rating_curves.gpkg'), driver='GPKG', engine='fiona'
     )
 
     # Make list of acceptable sites
@@ -487,7 +480,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         6.  Append all rating curves to a master DataFrame.
 
     Outputs:
-        Note: The output folder will automatically add a subfolder with today's date and 
+        Note: The output folder will automatically add a subfolder with today's date and
         add all files to it. ie)/data/inputs/usgs_curves/ (auto addes /20250912/)
 
         usgs_rating_curves.csv -- A csv containing USGS rating curve as well
@@ -571,9 +564,9 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
     # Create output_dir directory if it doesn't exist
     if output_dir == "":
         raise ValueError("Output dir parameter can not be empty")
-    
+
     overall_start_dt = datetime.now(timezone.utc)
-            
+
     # Auto add todays date to the folder
     output_dir = os.path.join(output_dir, overall_start_dt.strftime("%Y%m%d"))
     if not os.path.exists(output_dir):
@@ -682,14 +675,14 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         logging.info("=============")
 
         # Write rating curve dataframe to file
-        usgs_rating_curve_file = os.path.join(output_dir, f"usgs_rating_curves.csv")
+        usgs_rating_curve_file = os.path.join(output_dir, "usgs_rating_curves.csv")
         all_rating_curves.to_csv(usgs_rating_curve_file, index=False)
 
         # If 'all' option specified, reproject then write out shapefile of acceptable sites.
         # TODO: Should it also do something if 'all' isn't specified?
         if list_of_gage_sites == ['all']:
             sites_gdf = sites_gdf.to_crs(PREP_PROJECTION)
-            usgs_gages_file = os.path.join(output_dir, f"usgs_gages.gpkg")
+            usgs_gages_file = os.path.join(output_dir, "usgs_gages.gpkg")
 
             sites_gdf.to_file(usgs_gages_file, layer='usgs_gages', driver='GPKG', engine='fiona')
 

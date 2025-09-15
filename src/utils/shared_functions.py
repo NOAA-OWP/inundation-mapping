@@ -56,7 +56,7 @@ def setup_file_logger(log_file_path):
     and save those values in the regular log file but also in its own error file.
     This helps bring out errors, especially in tools that allow for a task to fail but continue on.
     Note: The file is created automatically and if no actual errors are found, that file will be empty.
-    
+
     In the end, the error log file is not removed if it is empty, just watch its file size.
     """
 
@@ -115,7 +115,7 @@ def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=loggi
     and save those values in the regular log file but also in its own error file.
     This helps bring out errors, especially in tools that allow for a task to fail but continue on.
     Note: The file is created automatically and if no actual errors are found, that file will be empty.
-    
+
     For now.. it can leave empty error files when all is said and done and that is fine. Just watch
     It's file size.
 
@@ -192,18 +192,18 @@ def run_with_mp(
     # This tool requires that two things are returned: a return code, then a list (might be empty
     #    or any just one list item containing any object such as a bool, string, dictionary, dataframe, etc)
     #    If you the task is succesful and you have no specific need for anything to return, just return an empty
-    #    list. ie) [].  
+    #    list. ie) [].
     #    Only one item inside the list can be returned and it will be extracted to add to the growing
-    #    main return set. results = {}. 
+    #    main return set. results = {}.
     #    In the end, you will have a set of T/F, dictionaries, dataframes, string, etc
-    
+
     # -  A status code. options are:
     #       0: Success and show tqdm or print success line
     #       1: Fail and the entire script should be aborted
     #       2: Fail but don't shut down, advance the pbar AND show the tqdm / print error or warning message
 
     # Some examples of usage:
-    
+
     # Some tools like pull_osm_roads.py want a T/F returned for every mp item, so its mp process
     #    named "single_huc_job" returns:
     #            0, [True]  (meaning success and add "True" to the run_by_mp result set)
@@ -266,8 +266,8 @@ def run_with_mp(
         #   the remaining 19 tasks to finish before it fully stops and this can take a few mins.
 
         # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
-        #   abort and stop new ones from firing. 
-        
+        #   abort and stop new ones from firing.
+
         # CTRL-C a number of times from console will stop the two program faster, but will leave orphaned memory
         #    leaks.  If you do this, close your container to release the memory leaks and restart a new container.
 
@@ -344,14 +344,16 @@ def run_with_mp(
                         # add it to the run_with_mp results
                         # Some mp functions will return an empty list meaning they don't
                         # want to add anything to the run_with_mp return set.
-                        
+
                         # IMPORTANT NOTE:
                         #    This extracts the first item only.
                         results[task_id] = rtn_value[0]
                     if len(rtn_value > 1):
-                        raise Exception("Child mp task must return either 0 or 1 list items, and you have more"
-                                        " than one item in the return list. Consider a list or dictionary in"
-                                        " return list.")
+                        raise Exception(
+                            "Child mp task must return either 0 or 1 list items, and you have more"
+                            " than one item in the return list. Consider a list or dictionary in"
+                            " return list."
+                        )
 
                     if pbar:
                         # print("task bar being updated")
