@@ -400,7 +400,12 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
         if os.path.exists(input_LANDSEA):
             landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
-            nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd, landsea)
+            if landsea.empty:
+                logging.info(f"Landsea file provided but no landsea area found within wbd_buffer for {huc}")
+                nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
+            else:
+                logging.info(f"Clipping NWM Streams for {huc} to land areas")
+                nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd, landsea)
         else:
             logging.info(f"No landsea file provided, using all NWM streams for {huc}")
             nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
