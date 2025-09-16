@@ -120,7 +120,7 @@ def filter_voi(voi_array):
     """
     minfilter = generic_filter(voi_array, low_percentile_ignore_zeros, size=4)
     # Values for Fim 6.0: sigma = 2; radius = 2; mathematically suggested raduis = 2-3 * sigma
-    gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2, radius=4)  # 1.5  3
+    gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=1.5, radius=3)  # 2  4
     return gfilter
 
 
@@ -271,7 +271,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             # Defining a lake_discharge dataframe
             Q_lake_hydroID = src_df[['HydroID', 'LakeID', 'Stage', 'Discharge (m3s-1)']]
             # mask_src = (src_df['LakeID'] < 0)
-            for jkey in range(len(keys[0:2])):  # Apply to discharge parameteres
+            for jkey in range(len(keys[0:2])):  # Apply to volume and surfacearea parameteres
                 # Reshaping variables of interest (voi) to be included in src
                 filtered_voi = filtered_all_voi[keys[jkey]].drop('long_position', axis=1)
                 reshaped_filtered_voi = filtered_voi.reset_index().melt(
@@ -287,7 +287,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
                     on=['HydroID', 'Stage'],
                     how='left',
                 )
-                # Update voi including SurfaceArea (m2), 'BedArea (m2)' and 'Volume (m3)' in src
+                # Update voi including SurfaceArea (m2) and 'Volume (m3)' in src
                 # Update src_df where LakeID > 0 and Stage matches
                 mask_src = (src_df[f'{keys[jkey]}_longitudinalAdjusted'].notna()) & (src_df['LakeID'] < 0)
                 src_df.loc[mask_src, keys[jkey]] = src_df.loc[mask_src, f'{keys[jkey]}_longitudinalAdjusted']
@@ -332,8 +332,12 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             # Set nans to 0
             src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
-            src_df['Discharge (m3s-1)_longitudinalAdjusted'] = src_df['Discharge (m3s-1)'].copy()
-            src_df['Volume_test'] = src_df['Volume (m3)'].copy()
+            src_df2 = src_df.copy()
+            discharge_longitudinal = src_df2['Discharge (m3s-1)']
+            src_df['Discharge (m3s-1)_longitudinalAdjusted'] = discharge_longitudinal
+
+            volume_test = src_df2['Volume (m3)']
+            src_df['Volume_test'] = volume_test
 
             # # Check the nonmonotonic (reverse rating curve)
             # hydroid_chain_q_check = []

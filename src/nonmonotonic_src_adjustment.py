@@ -190,7 +190,9 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         src_df['channel_n'] = src_df.groupby('HydroID')['channel_n'].ffill()
         src_df['overbank_n'] = src_df.groupby('HydroID')['overbank_n'].ffill()
 
-        src_df['Discharge (m3s-1)_nonmonotonicAdjusted'] = src_df['Discharge (m3s-1)'].copy()
+        src_df22 = src_df.copy()
+        discharge_nonmono = src_df22['Discharge (m3s-1)']
+        src_df['Discharge (m3s-1)_nonmonotonicAdjusted'] = discharge_nonmono
 
         src_df.to_csv(src, index=False)
 

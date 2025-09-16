@@ -156,7 +156,9 @@ def correct_thalweg_notches(fim_dir, huc, stage_interval):
 
         src_df = pd.read_csv(src, low_memory=False)
 
-        src_df['Prethalweg_Discharge (m3s-1)'] = src_df['Discharge (m3s-1)'].copy()
+        src_df1 = src_df.copy()
+        prethalweg_discharge = src_df1['Discharge (m3s-1)']
+        src_df['prethalweg_Discharge (m3s-1)'] = prethalweg_discharge
 
         src_df2 = src_df.copy()
         src_df2 = src_df2.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
@@ -195,9 +197,11 @@ def correct_thalweg_notches(fim_dir, huc, stage_interval):
         # Force zero stage to have zero discharge
         src_df3.loc[src_df3['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
-        src_df3['Discharge (m3s-1)_thalwegAdjusted'] = src_df3['Discharge (m3s-1)'].copy()
-
         # Write src back to file
+        src_df4 = src_df3.copy()
+        discharge_thalweg = src_df4['Discharge (m3s-1)']
+        src_df3['Discharge (m3s-1)_thalwegAdjusted'] = discharge_thalweg
+
         src_df = src_df3.copy()
         src_df.to_csv(src, index=False)
 

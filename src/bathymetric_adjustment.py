@@ -148,7 +148,9 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
         src_df.loc[cond_q, 'WetArea (m2)'] = 0
         src_df.loc[cond_q, 'HydraulicRadius (m)'] = 0
 
-        src_df['Discharge (m3s-1)_bathymetyAdjusted'] = src_df['Discharge (m3s-1)'].copy()
+        src_df2 = src_df.copy()
+        discharge_bathymetry = src_df2['Discharge (m3s-1)']
+        src_df['Discharge (m3s-1)_bathymetryAdjusted'] = discharge_bathymetry
 
         # Write src back to file
         # src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
@@ -297,7 +299,9 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             # Write src back to file
             src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
 
-            src_df['Discharge (m3s-1)_bathymetyAdjusted'] = src_df['Discharge (m3s-1)'].copy()
+            src_df2 = src_df.copy()
+            discharge_bathymetry = src_df2['Discharge (m3s-1)']
+            src_df['Discharge (m3s-1)_bathymetryAdjusted'] = discharge_bathymetry
 
             src_df.to_csv(src, index=False)
 
@@ -322,14 +326,25 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             src_df.loc[mask, "missing_xs_area_m2_x"] = src_df.loc[mask, "missing_xs_area_m2_y"]
             src_df.loc[mask, "missing_wet_perimeter_m_x"] = src_df.loc[mask, "missing_wet_perimeter_m_y"]
             src_df.loc[mask, "Bathymetry_source_x"] = src_df.loc[mask, "Bathymetry_source_y"]
+            src_df.loc[mask, "Discharge (m3s-1)_bathymetryAdjusted_x"] = src_df.loc[
+                mask, "Discharge (m3s-1)_bathymetryAdjusted_y"
+            ]
 
             src_df.drop(
-                columns=["missing_xs_area_m2_y", "missing_wet_perimeter_m_y", "Bathymetry_source_y"],
+                columns=[
+                    "missing_xs_area_m2_y",
+                    "missing_wet_perimeter_m_y",
+                    "Bathymetry_source_y",
+                    "Discharge (m3s-1)_bathymetryAdjusted_y",
+                ],
                 inplace=True,
             )
             src_df = src_df.rename(columns={'missing_xs_area_m2_x': 'missing_xs_area_m2'})
             src_df = src_df.rename(columns={'missing_wet_perimeter_m_x': 'missing_wet_perimeter_m'})
             src_df = src_df.rename(columns={'Bathymetry_source_x': 'Bathymetry_source'})
+            src_df = src_df.rename(
+                columns={'Discharge (m3s-1)_bathymetryAdjusted_x': 'Discharge (m3s-1)_bathymetryAdjusted'}
+            )
 
             src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
             src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
@@ -378,7 +393,9 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             # Write src back to file
             src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
 
-            src_df['Discharge (m3s-1)_bathymetyAdjusted'] = src_df['Discharge (m3s-1)'].copy()
+            src_df3 = src_df.copy()
+            discharge_bathymetry2 = src_df3['Discharge (m3s-1)']
+            src_df['Discharge (m3s-1)_bathymetryAdjusted'] = discharge_bathymetry2
 
             src_df.to_csv(src, index=False)
 
