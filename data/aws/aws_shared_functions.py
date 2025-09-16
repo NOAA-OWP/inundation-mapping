@@ -90,7 +90,7 @@ def aws_exception_handler(ex):
                 " An AWS client error has occurred which can be a wide range of possibilities. "
                 " Please review your AWS credential information in case that it the issue (case-sensitive)."
                 "\n\n Details: "
-                f"\n    Operatation: {ex.operation_name}"
+                f"\n    Operation: {ex.operation_name}"
                 f"\n    Error Code: {error_code}"
                 f"\n    Error Message: {error_message}"
             )
