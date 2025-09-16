@@ -21,7 +21,6 @@ Other changes including:
         - `s3_shared_functions.py`:  A collection of functions to talk to AWS S3 buckets.
         - `aws_shared_functions.py`: A collection of functions that are not specific to S3. Expecting more AWS type features in the near future.
 
-
 ### Changes
 
 - `.github/PULL_REQUEST_TEMPLATE.md`
@@ -36,7 +35,9 @@ Other changes including:
     - `duration_system.py`:  Fix bug for the duration calc tool for hucs that fail to process.
     - `fim_logger.py`:  Marked as deprecated.
     - `shared_functions`: Added a new function to setup a logger for a file for both screen and file.
-    - `src_adjust_ras2fim_rating.py`:  Fix bug related to sample_data when a huc does not have any ras2fim data plus remove tests for maximum cpu test.    
+    - `src_adjust_ras2fim_rating.py`:  Fix bug related to sample_data when a huc does not have any ras2fim data plus remove tests for maximum cpu test.   
+<br/>
+
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
 
 Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.

@@ -400,7 +400,7 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
         does_file_exist = True
     except Exception as ex:
         msg = awssf.aws_exception_handler(ex)
-        if msg.contains("404"):  # File likely does not exist
+        if "404" in msg:  # File likely does not exist
             does_file_exist = False
         else:
             # in this case, we want to raise a new exception
