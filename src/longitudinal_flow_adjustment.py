@@ -121,7 +121,7 @@ def filter_voi(voi_array):
     """
     minfilter = generic_filter(voi_array, low_percentile_ignore_zeros, size=4)
     # Values for Fim 6.0: sigma = 2; radius = 2; mathematically suggested raduis = 2-3 * sigma
-    gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2 radius=2)  # 2  4
+    gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2, radius=2)  # 2  4
     return gfilter
 
 
