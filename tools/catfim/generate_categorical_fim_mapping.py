@@ -73,7 +73,9 @@ def produce_stage_based_lid_tifs(
 
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
     hand_stage_m = datum_adj_wse_m - lid_usgs_elev
-    hand_stage = round(hand_stage_m * 1000)  # convert to mm to match HAND
+    hand_stage = (
+        hand_stage_m if str(huc)[:2] == '19' else round(hand_stage_m * 1000)
+    )  # convert to mm to match HAND
 
     # If hand_stage is negative, write message and exit out
     if hand_stage < 0:
@@ -326,6 +328,7 @@ def produce_inundated_branch_tif(
         #   are <= to hand_stage and the catchments value is in the hydroid_list.
 
         is_alaska = str(huc)[:2] == '19'
+
         output_dtype = 'uint8' if is_alaska else 'int16'
 
         reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
