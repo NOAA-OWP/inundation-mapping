@@ -70,11 +70,11 @@ def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
             * (srcs_df.loc[row_slice, 'SLOPE'] ** 0.5)
             / srcs_df.loc[row_slice, 'channel_n']
         )
-        srcs_df['Discharge (m3s-1)_subdiv'] = np.where(
-            srcs_df['subdiv_applied'] == True,
-            srcs_df['Discharge (m3s-1)'],
-            srcs_df['Discharge (m3s-1)_subdiv'],
-        )
+        # srcs_df['Discharge (m3s-1)_subdiv'] = np.where(
+        #     srcs_df['subdiv_applied'] == True,
+        #     srcs_df['Discharge (m3s-1)'],
+        #     srcs_df['Discharge (m3s-1)_subdiv'],
+        # )
 
     return srcs_df
 
@@ -208,7 +208,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         src_df5 = src_df22.copy()
         src_df5['Nonmonotonic_adjustment_applied'] = False
         nonmono_col = abs(discharge_nonmono - prenonmono_discharge)
-        cond_nonmono_rows = nonmono_col > 0
+        cond_nonmono_rows = nonmono_col > 0.00001
         src_df5.loc[cond_nonmono_rows, 'Nonmonotonic_adjustment_applied'] = True
 
         src_df = src_df5.copy()
