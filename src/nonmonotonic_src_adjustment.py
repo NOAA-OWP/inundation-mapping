@@ -153,9 +153,6 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
 
         src_df = pd.read_csv(src, low_memory=False)
 
-        src_df3 = src_df.copy()
-        prenonmono_discharge = src_df3['Discharge (m3s-1)']
-
         # Calculating bankfull stage
         # src_df2 = src_bankfull_lookup(src_df, bankfull_flows_file)
         src_df2 = src_df.copy()
@@ -167,6 +164,9 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
             src_df2['Discharge (m3s-1)_subdiv'],
             src_df2['Discharge (m3s-1)'],
         )
+
+        src_df3 = src_df2.copy()
+        prenonmono_discharge = src_df3['Discharge (m3s-1)']
 
         # Adjusting src tables for nonmonotonic SRCs
         src_df4 = src_df2.groupby('HydroID', group_keys=False).apply(
