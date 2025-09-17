@@ -326,25 +326,14 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             src_df.loc[mask, "missing_xs_area_m2_x"] = src_df.loc[mask, "missing_xs_area_m2_y"]
             src_df.loc[mask, "missing_wet_perimeter_m_x"] = src_df.loc[mask, "missing_wet_perimeter_m_y"]
             src_df.loc[mask, "Bathymetry_source_x"] = src_df.loc[mask, "Bathymetry_source_y"]
-            src_df.loc[mask, "Discharge (m3s-1)_bathymetryAdjusted_x"] = src_df.loc[
-                mask, "Discharge (m3s-1)_bathymetryAdjusted_y"
-            ]
 
             src_df.drop(
-                columns=[
-                    "missing_xs_area_m2_y",
-                    "missing_wet_perimeter_m_y",
-                    "Bathymetry_source_y",
-                    "Discharge (m3s-1)_bathymetryAdjusted_y",
-                ],
+                columns=["missing_xs_area_m2_y", "missing_wet_perimeter_m_y", "Bathymetry_source_y"],
                 inplace=True,
             )
             src_df = src_df.rename(columns={'missing_xs_area_m2_x': 'missing_xs_area_m2'})
             src_df = src_df.rename(columns={'missing_wet_perimeter_m_x': 'missing_wet_perimeter_m'})
             src_df = src_df.rename(columns={'Bathymetry_source_x': 'Bathymetry_source'})
-            src_df = src_df.rename(
-                columns={'Discharge (m3s-1)_bathymetryAdjusted_x': 'Discharge (m3s-1)_bathymetryAdjusted'}
-            )
 
             src_df['missing_xs_area_m2'] = src_df['missing_xs_area_m2'].fillna(0.0)
             src_df['missing_wet_perimeter_m'] = src_df['missing_wet_perimeter_m'].fillna(0.0)
@@ -678,7 +667,7 @@ if __name__ == '__main__':
         '--ai_toggle',
         help='Toggle to apply ai_based bathymetry, ait = 1',
         required=False,
-        default=0,
+        default=1,
         type=int,
     )
     parser.add_argument(

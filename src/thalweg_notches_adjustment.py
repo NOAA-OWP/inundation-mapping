@@ -19,7 +19,7 @@ import pandas as pd
 # Reseting stage column in SRCs for fixing thalweg notches
 def reset_stage(srcs_df):
 
-    stage_interval = float(os.getenv('stage_interval_meters'))
+    stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
 
     srcs_df = srcs_df.sort_values('Stage').reset_index(drop=True)
     srcs_df['Stage'] = np.array([round(i * stage_interval, 4) for i in range(len(srcs_df))])
@@ -158,7 +158,6 @@ def correct_thalweg_notches(fim_dir, huc, stage_interval):
 
         src_df1 = src_df.copy()
         prethalweg_discharge = src_df1['Discharge (m3s-1)']
-        src_df['prethalweg_Discharge (m3s-1)'] = prethalweg_discharge
 
         src_df2 = src_df.copy()
         src_df2 = src_df2.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
@@ -201,8 +200,17 @@ def correct_thalweg_notches(fim_dir, huc, stage_interval):
         src_df4 = src_df3.copy()
         discharge_thalweg = src_df4['Discharge (m3s-1)']
         src_df3['Discharge (m3s-1)_thalwegAdjusted'] = discharge_thalweg
+        src_df3['prethalweg_Discharge (m3s-1)'] = prethalweg_discharge
 
-        src_df = src_df3.copy()
+        src_df5 = src_df3.copy()
+        src_df5['Thalweg_adjustment_applied'] = False
+        thalweg_col = abs(
+            src_df5['Discharge (m3s-1)_thalwegAdjusted'] - src_df5['prethalweg_Discharge (m3s-1)']
+        )
+        cond_thalweg_rows = thalweg_col > 0
+        src_df5.loc[cond_thalweg_rows, 'Thalweg_adjustment_applied'] = True
+
+        src_df = src_df5.copy()
         src_df.to_csv(src, index=False)
 
         # # Adjusting hydro tables for thalweg notches
@@ -304,7 +312,7 @@ def process_thalweg_notches_adjustment(fim_dir, number_of_jobs):  # stage_interv
     # Find HUCs to apply thalweg notches in SRC adjustment
     fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
 
-    stage_interval = float(os.getenv('stage_interval_meters'))
+    stage_interval = 0.3048  # float(os.getenv('stage_interval_meters'))
 
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         # Loop through all hucs, build the arguments, and submit them to the process pool

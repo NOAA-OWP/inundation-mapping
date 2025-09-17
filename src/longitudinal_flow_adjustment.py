@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Please Note that this script is being only applied on ALL GMS branches, NOT on branch 0.
 
 import datetime as dt
 import os
@@ -293,7 +294,10 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
                 src_df.loc[mask_src, keys[jkey]] = src_df.loc[mask_src, f'{keys[jkey]}_longitudinalAdjusted']
 
             # Recalculating discharge variables
-            src_df['BedArea (m2)'] = a_coef * src_df['SurfaceArea (m2)'] + b_coef
+            mask_ba = src_df['LakeID'] < 0
+            bed_area_long = a_coef * src_df['SurfaceArea (m2)'] + b_coef
+            src_df.loc[mask_ba, 'BedArea (m2)'] = bed_area_long
+
             src_df['WettedPerimeter (m)'] = src_df['BedArea (m2)'] / src_df['LENGTHKM'] / 1000
             src_df['WetArea (m2)'] = src_df['Volume (m3)'] / src_df['LENGTHKM'] / 1000
             src_df['HydraulicRadius (m)'] = src_df['WetArea (m2)'] / src_df['WettedPerimeter (m)']
@@ -335,6 +339,13 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             src_df2 = src_df.copy()
             discharge_longitudinal = src_df2['Discharge (m3s-1)']
             src_df['Discharge (m3s-1)_longitudinalAdjusted'] = discharge_longitudinal
+
+            src_df['Longitudinal_adjustment_applied'] = False
+            long_col = abs(
+                src_df['Discharge (m3s-1)_thalwegAdjusted'] - src_df['Discharge (m3s-1)_longitudinalAdjusted']
+            )
+            cond_thalweg_rows = long_col > 0
+            src_df.loc[cond_thalweg_rows, 'Longitudinal_adjustment_applied'] = True
 
             volume_test = src_df2['Volume (m3)']
             src_df['Volume_test'] = volume_test

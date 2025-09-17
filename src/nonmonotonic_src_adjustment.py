@@ -116,10 +116,18 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].fillna('No Bathymetry Applied')
         ht_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source']
 
+        src_0_df['Longitudinal_adjustment_applied'] = False
+        src_0_df['Thalweg_adjustment_applied'] = False
+        src_0_df['Nonmonotonic_adjustment_applied'] = False
+
         # Save updated branch 0 ht and src tables
-        src_0_df = src_0_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
+        src_0_df = src_0_df.drop_duplicates(
+            subset=['HydroID', 'feature_id', 'Stage'], keep='first'
+        ).reset_index(drop=True)
         src_0_df.to_csv(src_full_0, index=False)
-        ht_0_df = ht_0_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
+        ht_0_df = ht_0_df.drop_duplicates(
+            subset=['HydroID', 'feature_id', 'stage'], keep='first'
+        ).reset_index(drop=True)
         ht_0_df.to_csv(ht_0_path, index=False)
     else:
         print("Files do not exist: src_full_crosswalked_0.csv and hydroTable_0.csv")
@@ -144,6 +152,9 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         print(f'Adjusting Nonmonotonic SRC for HUC {huc} Branch: {branch}')
 
         src_df = pd.read_csv(src, low_memory=False)
+
+        src_df3 = src_df.copy()
+        prenonmono_discharge = src_df3['Discharge (m3s-1)']
 
         # Calculating bankfull stage
         # src_df2 = src_bankfull_lookup(src_df, bankfull_flows_file)
@@ -192,8 +203,15 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
 
         src_df22 = src_df.copy()
         discharge_nonmono = src_df22['Discharge (m3s-1)']
-        src_df['Discharge (m3s-1)_nonmonotonicAdjusted'] = discharge_nonmono
+        src_df22['Discharge (m3s-1)_nonmonotonicAdjusted'] = discharge_nonmono
 
+        src_df5 = src_df22.copy()
+        src_df5['Nonmonotonic_adjustment_applied'] = False
+        nonmono_col = abs(discharge_nonmono - prenonmono_discharge)
+        cond_nonmono_rows = nonmono_col > 0
+        src_df5.loc[cond_nonmono_rows, 'Nonmonotonic_adjustment_applied'] = True
+
+        src_df = src_df5.copy()
         src_df.to_csv(src, index=False)
 
         # Adjusting hydro tables for nonmonotonic SRC
