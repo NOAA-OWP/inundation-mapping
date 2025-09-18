@@ -22,8 +22,8 @@ l_echo ""
 
 #TODO
 # change file names:
-#   update_htable_src ->  reset_hyrotable 
-#  aggregate_by_huc.py  -> combile_branches.py
+#   update_htable_src ->  reset_htable_src.py
+#  aggregate_by_huc.py  -> aggregate_branches_to_huc.py
 
 
 # Check if it is a manual postprocessing or not

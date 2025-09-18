@@ -93,12 +93,12 @@ def manual_postprocessing(fim_run_dir: str, limit_hucs: list = [], huc_jobs:int=
     if limit_hucs:
         hucs = [h for h in limit_hucs if h in hucs]
 
-    # as env variables, pass fim run directory (containing params.env) and src directory (containing bash_variables.env) into calibrate_htable.sh 
+    # as env variables, pass fim run directory (containing params.env) and src directory (containing bash_variables.env) into refine_htable.sh 
     env = os.environ.copy()
     env["outputDestDir"] = fim_run_dir
 
-    #create path to the target script (calibrate_htable.sh)
-    script_path = str(Path(env.get("srcDir")) / "calibrate_htable.sh")
+    #create path to the target script (refine_htable.sh)
+    script_path = str(Path(env.get("srcDir")) / "refine_htable.sh")
 
 
     tasks_args_list = []
