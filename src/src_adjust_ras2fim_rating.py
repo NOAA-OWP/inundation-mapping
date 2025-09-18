@@ -199,12 +199,12 @@ def create_ras2fim_rating_database(huc_ras_input_file, ras_elev_df, nwm_recurr_f
     return final_df
 
 
-def branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file,branch_jobs):
+def branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file, branch_jobs):
     huc = os.path.basename(os.path.normpath(huc_dir))
-    
+
     procs_list = []  # Initialize list for mulitprocessing.
 
-    if 1: #TODO temporary for an easier PR review
+    if 1:  # TODO temporary for an easier PR review
         huc_branches_dir = os.path.join(huc_dir, 'branches')
         for branch_id in os.listdir(huc_branches_dir):
             # Define paths to branch HAND data.
@@ -292,7 +292,7 @@ def branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file,branch_jobs
 
 
 def run_prep(huc_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, branch_jobs):
-    #TODO remove ras_input_dir argument which is not needed anymore
+    # TODO remove ras_input_dir argument which is not needed anymore
     ## Create output dir for log and ras2fim rc database
     log_dir = os.path.join(huc_dir, "logs", "src_optimization")
     print("Log file output here: " + str(log_dir))
@@ -307,18 +307,18 @@ def run_prep(huc_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
     log_file.write('#########################################################\n\n')
 
     # since we already copied the ras2fim data, if it's available inside tempHucDataDir, we can just check for its availablity to do the job
-    huc=os.path.basename(os.path.normpath(huc_dir))
+    huc = os.path.basename(os.path.normpath(huc_dir))
     csv_elev = 'ras_elev_table.csv'
-    ras_elev_path=os.path.join(huc_dir, csv_elev)
+    ras_elev_path = os.path.join(huc_dir, csv_elev)
 
     if not os.path.exists(ras_elev_path):
         log_file.write(f'RAS2FIM data is not available for huc {huc}.\n')
         print(f'RAS2FIM data is not available for huc {huc}.\n')
         return
-        
+
     log_file.write(f'RAS2FIM data available and will perform SRC adjustments for huc {huc}\n')
 
-    if 1: #TODO temporary for an easier PR review
+    if 1:  # TODO temporary for an easier PR review
         # huc_run_dir = os.path.join(run_dir, huc)
         huc_ras_input_file = os.path.join(huc_dir, ras_rc_filepath)
         print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv file...')
@@ -351,7 +351,7 @@ def run_prep(huc_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
             )
 
             ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
-            branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file,branch_jobs)
+            branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file, branch_jobs)
 
     ## Record run time and close log file
     log_file.write('#########################################################\n\n')
@@ -393,7 +393,9 @@ if __name__ == '__main__':
         required=False,
         action='store_true',
     )
-    parser.add_argument('-jb', '--branch_jobs', help='Number of branch jobs to use', required=False, default=1)
+    parser.add_argument(
+        '-jb', '--branch_jobs', help='Number of branch jobs to use', required=False, default=1
+    )
 
     ## Assign variables from arguments.
     args = vars(parser.parse_args())

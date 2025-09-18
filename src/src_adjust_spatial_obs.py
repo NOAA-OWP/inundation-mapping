@@ -168,12 +168,11 @@ def process_points(args):
     return log_text
 
 
-
 def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
     '''
 
     Inputs
-    - huc_dir:               directory of huc ouputs 
+    - huc_dir:               directory of huc ouputs
     - branch_jobs:           number of multiprocessing branches jobs to use for processing hucs
     - debug_outputs_option: optional flag to output intermediate files
     - log_file:             where stdout/stderr will be logged
@@ -189,17 +188,16 @@ def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
     if not os.path.exists(water_edge_filepath):
         print(f"Water edge calibration parquet file missing for huc: {huc}")
         log_file.write(f"Water edge calibration parquet file missing for huc: {huc}" + '\n')
-        return 
+        return
 
     water_edge_df = gpd.read_parquet(water_edge_filepath)
-    if 1: #TODO temporary for an easier PR rview
+    if 1:  # TODO temporary for an easier PR rview
         print(f"{len(water_edge_df)} Water edge calibration points found in " + str(huc))
         log_file.write(f"{len(water_edge_df)} Water edge calibration points found in " + str(huc) + '\n')
 
         ## Create X and Y location columns by extracting from geometry.
         water_edge_df['X'] = water_edge_df['geometry'].x
         water_edge_df['Y'] = water_edge_df['geometry'].y
-
 
         ## Intermediate output for debugging
         if debug_outputs_option:
@@ -349,9 +347,7 @@ if __name__ == '__main__':
         description=f'Adjusts rating curve based on files in {input_calib_points_dir}, '
         'containing points of known water boundary.'
     )
-    parser.add_argument(
-        '-huc_dir', '--huc_dir', help='directory of a HUC output directory.', required=True
-    )
+    parser.add_argument('-huc_dir', '--huc_dir', help='directory of a HUC output directory.', required=True)
     parser.add_argument(
         '-debug',
         '--extra-outputs',
@@ -368,7 +364,12 @@ if __name__ == '__main__':
         required=False,
     )
     parser.add_argument(
-        '-jb', '--branch_jobs', help='OPTIONAL: Number of branches jobs to use', type=int, required=False, default=2
+        '-jb',
+        '--branch_jobs',
+        help='OPTIONAL: Number of branches jobs to use',
+        type=int,
+        required=False,
+        default=2,
     )
 
     ## Assign variables from arguments.

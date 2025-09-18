@@ -431,7 +431,6 @@ def process_nonmonotonic_src_adjustment(huc_dir, strm_order):  # bankfull_flows_
     huc = os.path.basename(os.path.normpath(huc_dir))
     apply_nonmonotonic_src_adjustment(huc_dir, huc, strm_order, log_file_path)
 
-
     ## Record run time and close log file
     end_time = dt.datetime.now(dt.timezone.utc)
     log_text += 'END TIME: ' + str(end_time) + '\n'

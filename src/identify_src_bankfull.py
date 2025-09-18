@@ -315,10 +315,10 @@ def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_opt
     log_file.write('#########################################################\n\n')
 
     df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
-    
+
     # get hucnumber
     huc = os.path.basename(os.path.normpath(huc_dir))
-    if 1: #temporary for an easier PR review
+    if 1:  # temporary for an easier PR review
         if 1:
 
             huc_branches_dir = os.path.join(huc_dir, 'branches')

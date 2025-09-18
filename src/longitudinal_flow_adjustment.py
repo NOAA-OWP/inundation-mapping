@@ -411,12 +411,11 @@ def process_longitudinal_flow_adjustment(huc_dir):
     # Find applicable HUCs to apply longitudinal filter
     # fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
 
-    msg = f"Applying longitudinal discharge adjustment" # on {len(fim_hucs)} HUCs: {fim_hucs}\n"
+    msg = "Applying longitudinal discharge adjustment"  # on {len(fim_hucs)} HUCs: {fim_hucs}\n"
     log_text += msg
 
     huc = os.path.basename(os.path.normpath(huc_dir))
     apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path)
-
 
     ## Record run time and close log file
     end_time = dt.datetime.now(dt.timezone.utc)

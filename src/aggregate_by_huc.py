@@ -26,7 +26,7 @@ class HucDirectory(object):
     def __init__(self, huc_dir, limit_branches=[]):
         # self.fim_directory = fim_directory
         # self.huc_dir_path = join(fim_directory, huc_id)
-        self.huc_dir_path=huc_dir
+        self.huc_dir_path = huc_dir
         self.limit_branches = limit_branches
 
         self.usgs_dtypes = {
@@ -471,7 +471,7 @@ def log_error(
     log_dir = os.path.join(huc_directory, "logs", "agg_by_huc_errors")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
-    
+
     file_path = os.path.join(log_dir, file_name)
 
     f = open(file_path, "a")
@@ -480,13 +480,7 @@ def log_error(
 
 
 def aggregate_by_huc(
-    huc_dir,
-    usgs_elev_flag,
-    hydro_table_flag,
-    src_cross_flag,
-    ras_elev_flag,
-    bridge_flag,
-    road_flag,
+    huc_dir, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag
 ):
     assert os.path.isdir(huc_dir), f'{huc_dir} is not a valid directory'
 
@@ -526,23 +520,24 @@ def aggregate_by_huc(
     huc_id = os.path.basename(os.path.normpath(huc_dir))
     try:
         huc_dir_obj = HucDirectory(huc_dir)
-        huc_dir_obj.agg_function(usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id)
+        huc_dir_obj.agg_function(
+            usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id
+        )
     except Exception:
-            errMsg = ( "--------------------------------------" f"\n huc_id {huc_id} has an error\n")
-            errMsg = errMsg + traceback.format_exc()
-            print(errMsg, flush=True)
-            log_error(
-                huc_dir,
-                usgs_elev_flag,
-                hydro_table_flag,
-                src_cross_flag,
-                ras_elev_flag,
-                bridge_flag,
-                road_flag,
-                huc_id,
-                errMsg,
-            )
-    
+        errMsg = "--------------------------------------" f"\n huc_id {huc_id} has an error\n"
+        errMsg = errMsg + traceback.format_exc()
+        print(errMsg, flush=True)
+        log_error(
+            huc_dir,
+            usgs_elev_flag,
+            hydro_table_flag,
+            src_cross_flag,
+            ras_elev_flag,
+            bridge_flag,
+            road_flag,
+            huc_id,
+            errMsg,
+        )
 
     end_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")

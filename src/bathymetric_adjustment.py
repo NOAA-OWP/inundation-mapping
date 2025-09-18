@@ -439,13 +439,7 @@ def apply_src_adjustment_for_bathymetry(
 
 # -------------------------------------------------------
 def process_bathy_adjustment(
-    huc_dir,
-    strm_order,
-    bathy_file_ehydro,
-    bathy_file_aibased,
-    output_suffix,
-    ai_toggle,
-    verbose,
+    huc_dir, strm_order, bathy_file_ehydro, bathy_file_aibased, output_suffix, ai_toggle, verbose
 ):
     """Function for correcting synthetic rating curves. It will correct each branch's
     SRCs in serial based on the feature_ids in the input bathy_file.
@@ -479,9 +473,9 @@ def process_bathy_adjustment(
     print("Log file output here: " + str(log_dir))
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
-    
+
     log_file_path = os.path.join(log_dir, 'bathymetric_adjustment' + output_suffix + '.log')
-    
+
     print(f'Writing progress to log file here: {log_file_path}')
     ## Create a time var to log run time
     begin_time = dt.datetime.now(dt.timezone.utc)
@@ -509,7 +503,6 @@ def process_bathy_adjustment(
             print(statement)
             sys.exit(0)
 
-
     if ai_toggle == 1:
         msg = f"AI-Based bathymetry data is applied on streams with order {strm_order} or higher\n"
         log_text += msg
@@ -518,8 +511,9 @@ def process_bathy_adjustment(
     # get hucnumber
     huc = os.path.basename(os.path.normpath(huc_dir))
 
-    apply_src_adjustment_for_bathymetry(huc_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, ai_toggle, verbose, log_file_path)
-
+    apply_src_adjustment_for_bathymetry(
+        huc_dir, huc, strm_order, bathy_file_ehydro, bathy_file_aibased, ai_toggle, verbose, log_file_path
+    )
 
     ## Record run time and close log file
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -561,10 +555,10 @@ if __name__ == '__main__':
     python3 /foss_fim/src/bathymetric_adjustment.py -fim_dir /outputs/fim_run_dir
         -bathy_eHydro /data/inputs/bathymetry/bathymetric_adjustment_data.gpkg
         -bathy_aibased /data/inputs/bathymetry/ml_outputs_v1.01.parquet
-        -buffer 5000 -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg 
+        -buffer 5000 -wbd /data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg
     """
     parser = ArgumentParser(description="Bathymetric Adjustment")
-    parser.add_argument('-huc_dir', '--huc_dir', help='HUC Directory', required=True,  type=str)
+    parser.add_argument('-huc_dir', '--huc_dir', help='HUC Directory', required=True, type=str)
     parser.add_argument(
         '-sor',
         '--strm_order',
@@ -623,11 +617,5 @@ if __name__ == '__main__':
     verbose = bool(args['verbose'])
 
     process_bathy_adjustment(
-        huc_dir,
-        strm_order,
-        bathy_file_ehydro,
-        bathy_file_aibased,
-        output_suffix,
-        ai_toggle,
-        verbose,
+        huc_dir, strm_order, bathy_file_ehydro, bathy_file_aibased, output_suffix, ai_toggle, verbose
     )

@@ -123,12 +123,16 @@ def reset_hydro_and_src(huc_path):
     #                 for branch in os.listdir(branch_path):
     #                     sub_branch_path = os.path.join(branch_path, branch)
     #                     if os.path.isdir(sub_branch_path):
-    #                         process_branch(sub_branch_path, branch)        
+    #                         process_branch(sub_branch_path, branch)
 
     branches_path = os.path.join(huc_path, 'branches')
-    branch_nos=[branch_no for branch_no in os.listdir(branches_path) if os.path.isdir(os.path.join(huc_path,'branches', branch_no))]
+    branch_nos = [
+        branch_no
+        for branch_no in os.listdir(branches_path)
+        if os.path.isdir(os.path.join(huc_path, 'branches', branch_no))
+    ]
     for branch_no in branch_nos:
-        sub_branch_path=os.path.join(branches_path, branch_no)
+        sub_branch_path = os.path.join(branches_path, branch_no)
         process_branch(sub_branch_path, branch_no)
 
 
@@ -147,7 +151,9 @@ if __name__ == '__main__':
     # Make sure log file name has a datetime stamp it in, in case it is run a second time.
 
     parser = argparse.ArgumentParser(description='Update hydrotable and src files.')
-    parser.add_argument('-huc_dir', '--huc_dir', help='Directory path for fim output for a HUC.', required=True)
+    parser.add_argument(
+        '-huc_dir', '--huc_dir', help='Directory path for fim output for a HUC.', required=True
+    )
 
     args = parser.parse_args()
 
