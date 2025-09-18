@@ -1850,7 +1850,7 @@ if __name__ == '__main__':
     '''
     Sample
     python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8
-    -e /data/config/catfim.env -t /data/catfim/rob_test/docker_test_1
+    -t /data/catfim/rob_test/docker_test_1
     -me '/data/catfim/rob_test/nwm_metafile.pkl' -sb -cv "2.2" -hv "4.5.11.1" -step 2
     '''
 
@@ -1865,10 +1865,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '-e',
         '--env_file',
-        help='REQUIRED: Docker mount path to the catfim environment file. ie) data/config/catfim.env',
-        required=True,
+        help='OPTIONAL: Docker mount path to the catfim environment file.'
+         ' Defaults to: /data/config/fim_enviro_values.env',
+        default="/data/config/fim_enviro_values.env",
+        required=False,
     )
-
     parser.add_argument(
         '-jh',
         '--job_number_huc',

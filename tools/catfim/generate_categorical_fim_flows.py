@@ -756,14 +756,14 @@ if __name__ == '__main__':
         required=True,
         type=str,
     )
-
     parser.add_argument(
         '-e',
         '--env_file',
-        help='Docker mount path to the catfim environment file. ie) data/config/catfim.env',
-        required=True,
+        help='OPTIONAL: Docker mount path to the catfim environment file.'
+         ' Defaults to: data/config/fim_enviro_values.env',
+        default="/data/config/fim_enviro_values.env",
+        required=False,
     )
-
     parser.add_argument(
         '-hucs',
         '--lst_hucs',

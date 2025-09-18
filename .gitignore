@@ -16,7 +16,7 @@ config/*.swp
 .private/
 
 !tools/catfim/*.csv
-!tools/catfim/catfim.env.template
+!tools/catfim/fim_enviro_values.env.template
 !data/bridges/*.txt
 
 !**/.ipynb
