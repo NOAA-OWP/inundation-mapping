@@ -13,6 +13,9 @@ import workflows.deploy.deploy_shared_functions as dsf
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
+# WIP FILE
+
+
 ##########################
 # IMPORTANT
 # While this tool makes the most sense for helping get the right files to HV,
@@ -24,7 +27,6 @@ from src.utils.shared_functions import FIM_Helpers as fh
 '''
 This script can be used on one of two ways:
   - Deploy EFS to FIM S3
-  - Deploy EFS to HV (selected files)
   - This tool has no need to copy any ESIP files as they are non applicable to ESIP
 
 It can be used against EFS only to S3 buckets at this time.
@@ -74,8 +76,6 @@ For target HV Deployment = {0}/{1}/hand_{2}/qa_datasets/  (files and/or folders)
 S3_CLIENT = None  # boto3 client (works for both buckets)
 
 # Neither of these include their bucket names
-TRG_HV_BUCKET_NAME = ""
-TRG_HV_S3_PATH = ""  # the patch up to and including the qa_dataset path
 TRG_FIM_BUCKET_NAME = ""
 TRG_FIM_S3_PATH = ""  # including full pathing including. ie: /foss_fim_performance/hand_4_8_7_2/
 
@@ -83,7 +83,7 @@ SRC_FOLDER_PATH = ""  # likely something like /data/fim_performance/hand_4_8_7_2
 
 
 # ============================
-def deploy_fim_performance_files(deploy_type, hand_version, params_file, fim_version, src_fim_perf_root_path):
+def upload_fim_performance(deploy_type, hand_version, params_file, fim_version, src_fim_perf_root_path):
 
     # --------------
     # Validation. We are validating all variables in case the call came in from another py file
@@ -337,5 +337,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    deploy_fim_performance_files(**vars(args))
+    upload_fim_performance(**vars(args))
 

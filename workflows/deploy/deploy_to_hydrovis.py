@@ -37,14 +37,11 @@ SRC_PATH = ""
 
 
 # ============================
-def deploy_to_hydrovis(src_path, deploy_types, params_file, aws_profile_name):
-
-    # split the string on spaces
-    deploy_types = deploy_types.split()
+def deploy_to_hydrovis(src_path, deploy_type, params_file, aws_profile_name):
 
     # --------------
     # Validation. We are validating all variables in case the call came in from another py file
-    __validate_input(src_path, deploy_types, params_file)
+    __validate_input(src_path, deploy_type, params_file)
 
     # May throw exceptions or shut the program down.
     __setup_aws(aws_profile_name)
@@ -60,11 +57,11 @@ def deploy_to_hydrovis(src_path, deploy_types, params_file, aws_profile_name):
 #    logging.info(f"Copying files/folders from {SRC_FIM_FILE_PATHS} to {output_root_folder}")    
 
     # breaking this up to smaller parts for readability. Remember, we can have more than one deploy_type
-    # if 'hand' in deploy_types:
-    #     __load_hand_dataset()
+    if 'hand' in deploy_type:
+        __load_hand_dataset()
 
-    if 'fpc' in deploy_types or 'fpp' in deploy_types:
-        __load_fim_performance(deploy_types)
+    if 'fpc' in deploy_type or 'fpp' in deploy_type:
+        __load_fim_performance(deploy_type)
 
     # if 'cffb' in deploy_types or 'cffc' in deploy_types or 'cfsb' in deploy_types or 'cfsc' in deploy_types:
     #     __load_catfim_files(deploy_types)
@@ -81,7 +78,36 @@ def deploy_to_hydrovis(src_path, deploy_types, params_file, aws_profile_name):
     # logging.info(fh.print_date_time_duration(overall_start_time, end_time, False))
 
 # ============================
-# def __load_hand_dataset():
+def __load_hand_dataset():
+
+    # We filter to keep only the files we specifically want
+    # We will build up a list of files for upload as AWS can only 
+    # upload one a time.
+
+
+    # TODO: Figure out what we have for roads.
+
+    # osm_roads_fimpact.csv at huc level?
+
+    files_to_upload = []
+    file_patterns = [f"*/hydrotable.feather",
+                     f"*/hydrotable.parquet",
+                     f"*/wbd.gpkg",
+                     f"*/usgs_elev_table.csv",
+                     f"*/osm_bridge_centroids.gpkg",
+                     f"*/osm_roads_fimpact.csv",
+                     f"*/branches/*/gw_catchments_reaches_filtered_addedAttributes_*.tif",
+                     f"*/branches/*/gw_catchments_reaches_filtered_addedAttributes_crosswalk_*.gpkg",
+                     f"*/branches/*/src_full_crosswalked_*.csv",
+                     f"*/branches/*/rem_zeroed_masked_*.tif",
+                     f"crosswalk_table.csv",
+                     f"fim_inputs.csv",
+                     ]
+    
+    for pattern in file_patterns:
+        full_pattern = f"/{SRC_PATH}/{pattern}"
+        files_to_upload.extend(glob.glob(full_pattern))
+    print(f"Number of files found is {len(files_to_upload)}")
 
 
 # ============================
@@ -90,7 +116,6 @@ def __load_fim_performance(deploy_types):
     files_to_upload = []
 
     # catchments
-    # Takes appx 3.5 hours on a prod EC2, progress bar will be auto shown in s3_shared_functions
     if 'fpc' in deploy_types:
         file_name = "fim_performance_catchments.csv"
         src_file = os.path.join(SRC_PATH, file_name)
@@ -103,7 +128,7 @@ def __load_fim_performance(deploy_types):
         }
         files_to_upload.append(upload_item)
 
-    # Points is very quick
+    # Points and Polys are loaded together and are very quick
     if 'fpp' in deploy_types:
         file_name = "fim_performance_points.csv"
         src_file = os.path.join(SRC_PATH, file_name)
@@ -136,9 +161,9 @@ def __load_fim_performance(deploy_types):
         file_exists = s3_sf.upload_file(S3_CLIENT, TRG_HV_BUCKET_NAME,
                                         file['src_file'],
                                         file['trg_file'])
-        # if not file_exists:
+        if not file_exists:
             # logging.info(f"-- Skipped uploading {src_file}. File does not exist.")
-        print(f"did it work? {file_exists}")
+            print("Oh no !!!!! it wasn't there.")
 
 
 # ============================
@@ -150,7 +175,7 @@ def __load_fim_performance(deploy_types):
 
 
 # ============================
-def __validate_input(src_path, deploy_types, params_file):
+def __validate_input(src_path, deploy_type, params_file):
 
     '''
     Will return updates to variables or new variables extrapolated.
@@ -174,12 +199,11 @@ def __validate_input(src_path, deploy_types, params_file):
 
     valid_types = ['hand', 'fpc', 'fpp', 'cffb', 'cffc', 'cfsb', 'cfsc', 'rcc', 'urc']
 
-    if not isinstance(deploy_types, list) or len(deploy_types) == 0:
-        raise ValueError("The value deploy types is either not a list or is empty")
+    if not deploy_type:
+        raise ValueError("The deploy type variable is None or empty")
 
-    invalid_deploy_types = list(set(deploy_types) - set(valid_types))
-    if len(invalid_deploy_types) > 0:
-        raise ValueError(f"Some invalid deploy types have been included ({invalid_deploy_types})")
+    if not deploy_type in valid_types:
+        raise ValueError(f"'{deploy_type}' is an invalid deploy type")
 
     if not src_path:
         raise ValueError("The source path version variable is None or empty")
@@ -187,13 +211,8 @@ def __validate_input(src_path, deploy_types, params_file):
     if not os.path.exists(src_path):
         raise ValueError(f"The source path of '{src_path}' does not exist or is unreachable")
 
-    # add slashs front and back
-    if not src_path.endswith("/"):
-        src_path += "/"
-
-    if not src_path.startswith("/"):
-        src_path = "/" + src_path
-
+    # remove slashs front and back
+    src_path = src_path.strip("/")
     SRC_PATH = src_path
 
     if not params_file:
@@ -275,7 +294,7 @@ if __name__ == '__main__':
     Sample Usage (min args)
         python /foss_fim/workflows/deploy/deploy_to_hydrovis.py
             -s "/data/previous_fim/hand_4_8_7_2"
-            -types "hand fpc"  (in quotes and space delimited)
+            -dt hand
 
         examples fo src:
             - "/data/previous_fim/hand_4_8_7_2"
@@ -285,9 +304,11 @@ if __name__ == '__main__':
             - etc
 
     Notes about Types:
-       The type value(s) provided tells the script which files to pull from the src EFS
-       and where to put them in the HV bucket. Those file / folder paths are hardcoded in here
-       to make changes standardized. You can submit one or more types for uploading.
+       The type value provided tells the script which files to pull from the src EFS
+       and where to put them in the HV bucket. Those file / subfolder paths are hardcoded in here
+       to make uploads standardized. You can submit only one type for uploading at a time.
+       Some of those types will automatically upload one or multiple files / folders as 
+       applicable.
        Options are:
          - hand (HAND Bed outputs)
          - fpc  (Fim Performance Catchments)
@@ -298,7 +319,6 @@ if __name__ == '__main__':
          - cfsc (CatFIM Stage Based Compare files)
          - rcc  (Rating Curve Comparion Metrics (Sierra Tests))
          - urc  (USGS Rating Curve)
-
     '''
 
     parser = argparse.ArgumentParser(description='Copies specific files/folders to HV s3.'
@@ -309,11 +329,10 @@ if __name__ == '__main__':
                         required=True,                        
                         )
 
-    parser.add_argument('-types', '--deploy-types',
+    parser.add_argument('-dt', '--deploy-type',
                         help='REQUIRED: Type of deployment. For allowed values, see code notes',
                         required=True,
                         type=str,
-                        default=[],
                         )
 
     parser.add_argument('-p', '--params-file',
