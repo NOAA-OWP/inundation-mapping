@@ -35,6 +35,13 @@ elif [ $hucNumber -eq 22010000 ]; then
     dem_domain_filename=DEM_Domain.gpkg
     input_bridge_elev_diff=$input_bridge_elev_diff_guam
 
+elif [ $hucNumber -eq 22030001 ]; then
+    huc_CRS=$AMERICAN_SAMOA_CRS
+    huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
+    input_DEM=$input_DEM_AmericanSamoa
+    dem_domain_filename=DEM_Domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
+
 else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain

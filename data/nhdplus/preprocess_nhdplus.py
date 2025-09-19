@@ -222,29 +222,7 @@ def preprocess_region(
     WBD = WBD.to_crs(epsg=target_crs_number)
     WBD.to_file(f'{inputs_dir}/wbd/WBD_{target_name}.gpkg', layer='WBDHU8', driver='GPKG')
 
-    # # Preprocess NLD data
-    # levee_files = [
-    #     f'{inputs_dir}/nld_vectors/System_Routes_NLDFS_{target_crs_number}_{preclip_date}.gpkg',
-    #     f'{inputs_dir}/nld_vectors/Leveed_Areas_NLDFS_{target_crs_number}_{preclip_date}.gpkg',
-    # ]
-    # for levee_file in levee_files:
-    #     if not os.path.exists(levee_file):
-    #         sys.exit(f"Levee file {levee_file} does not exist. This file needs to be extracted from the NLD dataset first.")
-    #     levees = gpd.read_file(levee_file)
-    #     levees = levees.to_crs(epsg=target_crs_number)
-    #     levees = levees.rename(columns={'systemId': 'SYSTEM_ID'})
-    #     columns_to_drop = ['floodofRecordFlow', 'name']
-    #     # Drop columns_to_drop if they exist
-    #     levees = levees.drop(columns=[col for col in columns_to_drop if col in levees.columns])
-    #     levees.to_file(levee_file, driver='GPKG')
-
     download_nfhl_wrapper(huc_list=[huc], output_folder=f"{inputs_dir}/fema/nfhl/{region}", num_processes=14)
-
-    # # Extract and reproject ocean mask from /data/inputs/landsea/water_polygons_us.gpkg
-    # water_polygons = gpd.read_file(f'{inputs_dir}/landsea/water_polygons_us.gpkg')
-    # water_polygons = water_polygons.to_crs(epsg=target_crs_number)
-    # water_polygons = water_polygons[water_polygons['fid'] == water_polygons_fid]
-    # water_polygons.to_file(os.path.join(target_folder, f'water_polygons_{target_name}.gpkg'), driver='GPKG')
 
 
 if __name__ == "__main__":
