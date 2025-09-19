@@ -10,6 +10,7 @@ import requests
 mile_to_km = 1.60934
 cfs_to_cms = 0.0283168
 Earth_radius_km = 6371
+# API
 NWPS_API = "https://api.water.noaa.gov/nwps/v1/reaches/{feature_id}"
 NWPS_API_gage = "https://api.water.noaa.gov/nwps/v1/gauges/{gage_id}"
 
@@ -23,7 +24,11 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     Returns:
         Distance in km.
     """
+
+    # Convert lat and long from degrees to radians
     lat1_rad, lon1_rad, lat2_rad, lon2_rad = map(math.radians, [lat1, lon1, lat2, lon2])
+
+    # Haversine formula
     dlon = lon2_rad - lon1_rad
     dlat = lat2_rad - lat1_rad
     a = math.sin(dlat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
@@ -45,25 +50,45 @@ def trace_downstream(start_feature_id, flow, distance=None, stop_feature_id=None
     print("Starting downstream trace...")
     print('======================================')
 
+    # Initialize a counter
     reach_count = 0
+
+    # Define a maximum number of reaches to check. This prevents an infinite loop
+    # if the stop_feature_id is not actually downstream of the start_feature_id
+    max_reaches_to_check = 200
+    
+    # Loop as long as we have a valid feature_id
     while current_feature_id:
-        # stop if the current reach is the stop reach
+        # Check if we have exceeded the limit
+        reach_count += 1
+        if reach_count > max_reaches_to_check:
+            print(f"WARNING: Trace stopped after checking {max_reaches_to_check} reaches.")
+            print(f"Could not find stop_feature_id: {stop_feature_id} downstream from {start_feature_id}.")
+            break   # Exit the loop to prevent it from running forever
+
+        # Check for stop condition
+        # 1. Stop if the current reach is the stop reach
         if stop_feature_id and current_feature_id == stop_feature_id:
             print(f"Reached stop feature_id: {stop_feature_id}")
             break
+        # 2. Stop if we have traveled the target distance
         if distance is not None and total_distance >= distance:
             print(f"Reached distance limit of {distance:.2f} km.")
             break
 
+        # Make an API to get data
         response = requests.get(NWPS_API.format(feature_id=current_feature_id))
         response.raise_for_status()
         data = response.json()
 
+        # Extract the reachId (feature_id)
         reach_id_str = data.get('reachId')
 
+        # Add the current reach and its flow to our results list
         reaches_to_write.append({'feature_id': int(reach_id_str), 'discharge': flow})
         reach_count += 1
 
+        # Calculate the distance
         current_coords = {'lat': data.get('latitude'), 'lon': data.get('longitude')}
         if not all(current_coords.values()):
             print(
@@ -76,13 +101,16 @@ def trace_downstream(start_feature_id, flow, distance=None, stop_feature_id=None
             )
             total_distance += segment_distance
         else:
-            segment_distance = 0.0
+            segment_distance = 0.0 
+        
+        # Store the current coordinates for the next iteration's distance calculation
         previous_coords = current_coords
 
         print(
             f"Processed reach {reach_id_str}, distance: {segment_distance:.2f} km, Total: {total_distance:.2f} km"
         )
 
+        # Find the next reach downstream
         downstream_list = data.get('route', {}).get('downstream', [])
         if downstream_list:
             current_feature_id = int(downstream_list[0]['reachId'])
@@ -92,10 +120,14 @@ def trace_downstream(start_feature_id, flow, distance=None, stop_feature_id=None
 
 
 def get_feature_id_from_gage(gage_id):
+    """
+    Translate a gage ID into the internal feature_id used by NWM
+    """
     try:
         response_gage = requests.get(NWPS_API_gage.format(gage_id=gage_id))
         response_gage.raise_for_status()
         data_gage = response_gage.json()
+        # Extract the reachId
         reach_id_str = data_gage.get('reachId')
         return int(reach_id_str)
     except Exception as exc:
@@ -103,6 +135,9 @@ def get_feature_id_from_gage(gage_id):
 
 
 def parse_list(values):
+    """
+    Parse command line arguments that might be a mix of space-separated and comma-separated values
+    """
     out = []
     if not values:
         return out
@@ -146,6 +181,7 @@ if __name__ == "__main__":
     -o /output/custom_flows.csv
     """
     parser = argparse.ArgumentParser(description="Generate a FIM flow file by tracing downstream reaches.")
+    # Group for starting location
     id_group = parser.add_mutually_exclusive_group(required=True)
     id_group.add_argument(
         "-feature_id", nargs='+', type=str, help="Starting reach feature ID(s) (integer or comma-separated)"
@@ -153,9 +189,11 @@ if __name__ == "__main__":
     id_group.add_argument(
         "-gage", nargs='+', type=str, help="The gauge, LID or USGS ID(s). Example: ANAW1 or 13334300"
     )
+    # Group for flow value
     flow_group = parser.add_mutually_exclusive_group(required=True)
     flow_group.add_argument("-cms", type=float, nargs='+', help="Flow value in cms")
     flow_group.add_argument("-cfs", type=float, nargs='+', help="Flow value in cfs")
+    # Group for distance
     distance_group = parser.add_mutually_exclusive_group(required=True)
     distance_group.add_argument("-mile", type=float, help="Target downstream distance in mile")
     distance_group.add_argument("-km", type=float, help="Target downstream distance in km")
@@ -163,19 +201,19 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Handel feature_id and LID or USGS ID
+    # Resolve start location into a list of feature_ids
     start_feature_id = []
     if args.feature_id:
         raw_feature_ids = parse_list(args.feature_id)
         start_feature_id = [int(x) for x in raw_feature_ids]
-    else:
+    else:  # If gages were given, convert them to feature_ids
         raw_gages = parse_list(args.gage)
         for g in raw_gages:
             fid = get_feature_id_from_gage(g)
             print(f"Gage {g} -> start feature_id {fid}")
             start_feature_id.append(fid)
 
-    # Handle flow and distance unit
+    # Convert flow and distance unit
     if args.cms is not None:
         flow = list(args.cms)
     else:
@@ -184,10 +222,13 @@ if __name__ == "__main__":
     # If a single flow given, use it for all sites
     if len(flow) == 1 and len(start_feature_id) > 1:
         flow = flow * len(start_feature_id)
+    
+    # Check that the number of flows matches the number of sites
     if len(flow) != len(start_feature_id):
         print('Error: number of flows must be 1 or equal to number of start sites/feature_ids')
         sys.exit(1)
 
+    # convert distance unit
     if args.km is not None:
         distance = args.km
     else:
@@ -200,6 +241,7 @@ if __name__ == "__main__":
         print('No start sites provided')
         sys.exit(1)
 
+    # This loop runs from the first site to the second-to-last site
     for i in range(num_sites - 1):
         start_id = start_feature_id[i]
         stop_id = start_feature_id[i + 1]
