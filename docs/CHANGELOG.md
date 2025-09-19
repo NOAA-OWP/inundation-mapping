@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.10.6 - 2025-09-19 - [PR#1642](https://github.com/NOAA-OWP/inundation-mapping/pull/1642)
+
+Adjust eval_plot.py so it only looks for the config file when in -sp (spatial) mode. Spatial mode is used when running the tool to create FIM_performance files. In that mode, it can only run in OWP servers as it needs to talk to internal servers.
+
+Also updated the tools to create gpkg files instead of shape file. It does continue to create csv as files as before.  Adjustments for zero padding HUC numbers when applicable was also added.
+
+This update does not affect use of the tool as part of regular alpha testing.
+
+### Changes
+- `tools\`
+    - `eval_plots.py`: as described above including the zero padding HUC fix.
+    - `eval_plots_stackedbar.py`: zero padding HUC fix.
+<br/>
+
 ## v4.8.10.5 - 2025-09-19 - [PR#1606](https://github.com/NOAA-OWP/inundation-mapping/pull/1606)
 
 Added new optional input argument to inundate scripts and `synthesize_test_cases.py` to use the `precalb_discharge_cms` values in the hydrotable instead of the default `discharge_cms`.
