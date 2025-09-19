@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-09-08 - [PR#1648](https://github.com/NOAA-OWP/inundation-mapping/pull/1648)
+## v4.8.10.4 - 2025-09-19 - [PR#1648](https://github.com/NOAA-OWP/inundation-mapping/pull/1648)
 
 Updated pull_osm_roads to allow for a selected set of hucs for testing.
 
