@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.10.4 - 2025-09-19 - [PR#1648](https://github.com/NOAA-OWP/inundation-mapping/pull/1648)
+
+Updated pull_osm_roads to allow for a selected set of hucs for testing.
+
+### Changes
+- `data/roads/pull_osm_roads.py`: as described above.
+<br/>
+
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
 
 Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.
