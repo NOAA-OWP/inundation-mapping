@@ -33,6 +33,8 @@ inverted_mag = dict((v, k) for k, v in mag_dict.items())
 def eval_plot_stack_data_prep(metric_csv, versions=[]):
     # Load in FIM 4 CSV and select the proper version metrics
     metrics = pd.read_csv(metric_csv, dtype={"huc": str})
+    # Ensure all HUC values are 8 characters long with leading zeros if needed
+    metrics['huc'] = metrics['huc'].str.zfill(8)
     if versions:
         versions = list(versions)
         # Check to make sure requested versions are in the metrics file

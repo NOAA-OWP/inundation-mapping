@@ -192,6 +192,7 @@ class Test_Case(Benchmark):
         overwrite=True,
         verbose=False,
         gms_workers=1,
+        precalb_option=False,
         threads=8,
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
@@ -285,6 +286,7 @@ class Test_Case(Benchmark):
                         model=model,
                         verbose=verbose,
                         gms_workers=gms_workers,
+                        precalb_option=precalb_option,
                         threads=threads,
                     )
 
@@ -305,7 +307,15 @@ class Test_Case(Benchmark):
             sys.exit(1)
 
     def _inundate_and_compute(
-        self, magnitude, lid, compute_only=False, model='', verbose=False, gms_workers=1, threads=8
+        self,
+        magnitude,
+        lid,
+        precalb_option,
+        compute_only=False,
+        model='',
+        verbose=False,
+        gms_workers=1,
+        threads=8,
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
@@ -367,6 +377,7 @@ class Test_Case(Benchmark):
                     verbose=verbose,
                     num_threads=threads,
                     num_workers=gms_workers,
+                    precalb_option=precalb_option,
                     windowed=True,
                     gms_multi_process=True,
                 )
@@ -417,6 +428,7 @@ class Test_Case(Benchmark):
         magnitude,
         calibrated,
         model,
+        precalb_option=False,
         archive_results=False,
         mask_type='huc',
         inclusion_area='',
@@ -439,6 +451,7 @@ class Test_Case(Benchmark):
             overwrite,
             verbose,
             gms_workers,
+            precalb_option,
             threads,
         )
 
