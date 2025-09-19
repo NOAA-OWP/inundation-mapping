@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.10.5 - 2025-09-19 - [PR#1606](https://github.com/NOAA-OWP/inundation-mapping/pull/1606)
+
+Added new optional input argument to inundate scripts and `synthesize_test_cases.py` to use the `precalb_discharge_cms` values in the hydrotable instead of the default `discharge_cms`.
+
+### Changes
+- `tools/inundate_gms.py`: added "precalb_option", specify "precalb_discharge_cms" as an req input column and force the hydrotable input to be the csv file ("precalb_discharge_cms" is not currently one of the outputs in the feather file). Note that there is logic to fill the "precalb_discharge_cms" with "discharge_cms" when the precalb_discharge is null (this happens for hucs/branches where the calibration routines do not run - not benchmark data to calibrate to)
+- `tools/inundate_mosaic_wrapper.py`: added the "precalb_option" argument for passing to downstream functions
+- `tools/inundation.py`: added the "precalb_option" argument and added logic to use the "precalb_discharge_cms" data for interpolating the stages.
+- `tools/run_test_case.py`: added the "precalb_option" argument for passing to downstream functions
+- `tools/synthesize_test_cases.py`: added the "precalb_option" as an optional input argument and pass to the appropriate downstream functions
+<br/>
+
 ## v4.8.10.4 - 2025-09-19 - [PR#1648](https://github.com/NOAA-OWP/inundation-mapping/pull/1648)
 
 Updated pull_osm_roads to allow for a selected set of hucs for testing.
