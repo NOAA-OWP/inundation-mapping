@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.5.x.x - 2024-06-20 - [PR#1196](https://github.com/NOAA-OWP/inundation-mapping/pull/1196)
+## v4.8.10.8 - 2025-09-19 - [PR#1196](https://github.com/NOAA-OWP/inundation-mapping/pull/1196)
 
 This PR adds a new tool, which is still in progress. The tool addresses the issue #994 (but is not going to close this issue yet). 
 The tool aims to update the HAND SRC by comparing water surface elevation (WSE) between RAS2FIM and HAND. The algorithm is as below:
@@ -16,7 +16,9 @@ The tool aims to update the HAND SRC by comparing water surface elevation (WSE) 
 
 ### Additions
 - tools/adjust_wse_with_ras2fim.py
-## v4.8.10.7 - 2025-09-19 - [PR#1608](https://github.com/NOAA-OWP/inundation-mapping/pull/1608)
+<br/>
+
+## v4.8.10.7 - 2025-09-19 - [PR#1607](https://github.com/NOAA-OWP/inundation-mapping/pull/1607)
 
 Changes files to use `fiona` as the I/O engine when reading files with `gpd.read_file()` to avoid segmentation faults. The issue was originally documented in #1376 and fixed in #1490, but two more files are fixed here.
 
@@ -26,7 +28,7 @@ Changes files to use `fiona` as the I/O engine when reading files with `gpd.read
     - `mask_dem.py` and `mitigate_branch_outlet_backpool.py`: Added `engine='fiona'` to `gpd.read_file()`. Also removed an unnecessary file read in `mask_dem.py`.
 <br/>
 
-## v4.8.10.6 - 2025-09-19 - [PR#1642](https://github.com/NOAA-OWP/inundation-mapping/pull/1642)
+## v4.8.10.6 - 2025-09-19 - [PR#1643](https://github.com/NOAA-OWP/inundation-mapping/pull/1643)
 
 Adjust eval_plot.py so it only looks for the config file when in -sp (spatial) mode. Spatial mode is used when running the tool to create FIM_performance files. In that mode, it can only run in OWP servers as it needs to talk to internal servers.
 
