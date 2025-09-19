@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-09-15 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
+## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
 
 Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
 
@@ -34,6 +34,8 @@ A full new valid set of usgs_rating_curve data files was created, will be copied
 - `src\bash_variables.env`: Updated for new path for the new usgs rating curve files
 - `src\utils\shared_functions`: In addition to the updates mentioned above for `run_with_mp`, the function named `setup_mp_file_logger` was updated to make an error file to help identify errors that occur. Logging types of both error and critical now show up in the regular log, but are copied into the new "error" log files to help bring the error(s) to attention. A new function named `setup_file_logger` was added which is nearly identical to the previous existing `setup_mp_file_logger` but is for non multi-processing usages. It has a few critical differences. There is likely a way to merge them. A couple of new small logging related utility functions were also added.
 - `tools\tools_shared_functions.py`: Fixed a bug that assumed a particular https response node was returned.
+<br/>
+
 ## v4.8.11.0 - 2025-09-19 - [PR#1639]([https://github.com/NOAA-OWP/inundation-mapping/pull/1639])
 
 Catchments were being dropped due to a number of confounding reasons. Previously `crosses` was used to identify outlets as stream lines that intersected the HUC boundary, in order to extend the levelpaths downstream of the outlet(s). However, some recent and proposed changes including clipping streams to the landsea mask and extending streams by snapping to the WBD caused the `crosses` method to fail to identify some HUC outlets, so these levelpaths were not extended downstream, creating levelpaths that did not flow to the edge of the DEM based on the buffered branch polygons, and resulting in reverse flow issues and dropped catchments. Some additional bug fixes and improvements include clipping the branch polygons to the clipped WBD (clipped to the DEM domain and the landsea mask), the Great Salt Lake was incorporated into the waterbody mask, and mainstem stream endpoints were adjusted to the nearest landsea boundary within 10 km, ensuring that NSM streams connect to the DEM/waterbody edge and preventing dropped catchments.
@@ -49,6 +51,7 @@ Catchments were being dropped due to a number of confounding reasons. Previously
     - `run_unit_wb.sh`: Updates arguments for `buffer_stream_branches.py` to pass WBD instead of DEM domain for clipping
     - `stream_branches.py`: Uses WBD boundary intersection to find outlets
 <br/>
+
 ## v4.8.10.8 - 2025-09-19 - [PR#1196](https://github.com/NOAA-OWP/inundation-mapping/pull/1196)
 
 This PR adds a new tool, which is still in progress. The tool addresses the issue #994 (but is not going to close this issue yet). 
