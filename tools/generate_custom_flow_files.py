@@ -56,7 +56,7 @@ def trace_downstream(start_feature_id, flow, distance=None, stop_feature_id=None
     # Define a maximum number of reaches to check. This prevents an infinite loop
     # if the stop_feature_id is not actually downstream of the start_feature_id
     max_reaches_to_check = 200
-    
+
     # Loop as long as we have a valid feature_id
     while current_feature_id:
         # Check if we have exceeded the limit
@@ -64,7 +64,7 @@ def trace_downstream(start_feature_id, flow, distance=None, stop_feature_id=None
         if reach_count > max_reaches_to_check:
             print(f"WARNING: Trace stopped after checking {max_reaches_to_check} reaches.")
             print(f"Could not find stop_feature_id: {stop_feature_id} downstream from {start_feature_id}.")
-            break   # Exit the loop to prevent it from running forever
+            break  # Exit the loop to prevent it from running forever
 
         # Check for stop condition
         # 1. Stop if the current reach is the stop reach
@@ -101,8 +101,8 @@ def trace_downstream(start_feature_id, flow, distance=None, stop_feature_id=None
             )
             total_distance += segment_distance
         else:
-            segment_distance = 0.0 
-        
+            segment_distance = 0.0
+
         # Store the current coordinates for the next iteration's distance calculation
         previous_coords = current_coords
 
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     # If a single flow given, use it for all sites
     if len(flow) == 1 and len(start_feature_id) > 1:
         flow = flow * len(start_feature_id)
-    
+
     # Check that the number of flows matches the number of sites
     if len(flow) != len(start_feature_id):
         print('Error: number of flows must be 1 or equal to number of start sites/feature_ids')
