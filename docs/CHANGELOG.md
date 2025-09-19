@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.10.7 - 2025-09-19 - [PR#1608]([https://github.com/NOAA-OWP/inundation-mapping/pull/1608])
+
+Changes files to use `fiona` as the I/O engine when reading files with `gpd.read_file()` to avoid segmentation faults. The issue was originally documented in #1376 and fixed in #1490, but two more files are fixed here.
+
+### Changes
+
+- `src/`
+    - `mask_dem.py` and `mitigate_branch_outlet_backpool.py`: Added `engine='fiona'` to `gpd.read_file()`. Also removed an unnecessary file read in `mask_dem.py`.
+<br/>
+
 ## v4.8.10.6 - 2025-09-19 - [PR#1642](https://github.com/NOAA-OWP/inundation-mapping/pull/1642)
 
 Adjust eval_plot.py so it only looks for the config file when in -sp (spatial) mode. Spatial mode is used when running the tool to create FIM_performance files. In that mode, it can only run in OWP servers as it needs to talk to internal servers.
@@ -279,19 +289,7 @@ Addresses bug related to the `location_id` data type that is read in from the `a
 
 ### Changes
 `src/src_adjust_usgs_rating_trace.py`: Added `dtype={'location_id': object}` to the acceptable_sites csv file read
-  
-<br/><br/>
-
-
-## v4.x.x.x - 2025-07-23 - [PR#1608]([https://github.com/NOAA-OWP/inundation-mapping/pull/1608])
-
-Changes files to use `fiona` as the I/O engine when reading files with `gpd.read_file()` to avoid segmentation faults. The issue was originally documented in #1376 and fixed in #1490, but two more files are fixed here.
-
-### Changes
-
-- `src/`
-    - `mask_dem.py` and `mitigate_branch_outlet_backpool.py`: Added `engine='fiona'` to `gpd.read_file()`. Also removed an unnecessary file read in `mask_dem.py`.
-    
+ 
 <br/><br/>
 
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
