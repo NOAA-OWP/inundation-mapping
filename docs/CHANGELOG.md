@@ -11,6 +11,12 @@ Added new optional input argument to inundate scripts and `synthesize_test_cases
 - `tools/inundation.py`: added the "precalb_option" argument and added logic to use the "precalb_discharge_cms" data for interpolating the stages.
 - `tools/run_test_case.py`: added the "precalb_option" argument for passing to downstream functions
 - `tools/synthesize_test_cases.py`: added the "precalb_option" as an optional input argument and pass to the appropriate downstream functions
+## v4.8.10.4 - 2025-09-19 - [PR#1648](https://github.com/NOAA-OWP/inundation-mapping/pull/1648)
+
+Updated pull_osm_roads to allow for a selected set of hucs for testing.
+
+### Changes
+- `data/roads/pull_osm_roads.py`: as described above.
 <br/>
 
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
