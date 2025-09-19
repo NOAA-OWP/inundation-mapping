@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
+import datetime as dt
+import gc
 import json
+import logging
 import os
 import pathlib
+import traceback
 from pathlib import Path
 
 import geopandas as gpd
@@ -13,21 +17,31 @@ import rasterio.crs
 import rasterio.shutil
 import requests
 import rioxarray as rxr
+import urllib3
 import xarray as xr
 from dotenv import load_dotenv
-from geocube.api.core import make_geocube
 from gval import CatStats
 from rasterio import features
+from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from shapely.geometry import MultiPolygon, Polygon, shape
+from tools_shared_variables import (
+    acceptable_alt_acc_thresh,
+    acceptable_alt_meth_code_list,
+    acceptable_coord_acc_code_list,
+    acceptable_coord_method_code_list,
+    acceptable_site_type_list,
+)
+from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
 
 gpd.options.io_engine = "pyogrio"
 
 
+# TODO: Jun 2025: Change this to have a path to the config via an arg.
+# See rating_curve_get_usgs_curves for an example
 def get_env_paths():
     load_dotenv()
     # import variables from .env file
@@ -63,11 +77,108 @@ def filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_
     filtered_segments = []
 
     for feature_id in unfiltered_segments:
-        stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
+
+        try:
+            stream_order = nwm_flows_df.loc[nwm_flows_df['ID'] == int(feature_id), 'order_'].values[0]
+        except Exception as e:
+            print(f'WARNING: Exception occurred during filter_nwm_segments_by_stream_order():{e}')
+
         if stream_order == desired_order:
             filtered_segments.append(feature_id)
+        # else:
+        #     print(f'Stream order for {feature_id} did not match desired stream order...')
 
     return filtered_segments
+
+
+def filter_usgs_by_acceptance_criteria(input_df):
+    '''
+    This function filters a USGS dataframe according the acceptance criteria.
+
+    Parameters
+    ----------
+    input_df: pd.DataFrame
+        Dataframe of USGS data to be filtered. Must contain the following columns:
+        - usgs_data_coord_accuracy_code
+        - usgs_data_coord_method_code
+        - usgs_data_alt_method_code
+        - usgs_data_site_type
+        - usgs_data_alt_accuracy_code
+
+    Returns
+    -------
+    output_df: pd.DataFrame
+        Filtered DataFrame of USGS data that meets the acceptance criteria.
+
+    # TODO: Could add an option to adjust which acceptable codes are used, but for now this is hardcoded.
+
+    '''
+    input_df['acceptable_codes'] = (
+        input_df['usgs_data_coord_accuracy_code'].isin(acceptable_coord_acc_code_list)
+        & input_df['usgs_data_coord_method_code'].isin(acceptable_coord_method_code_list)
+        & input_df['usgs_data_alt_method_code'].isin(acceptable_alt_meth_code_list)
+        & input_df['usgs_data_site_type'].isin(acceptable_site_type_list)
+    )
+    input_df = input_df.astype({'usgs_data_alt_accuracy_code': float})
+    input_df['acceptable_alt_error'] = np.where(
+        input_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
+    )
+    output_df = input_df[(input_df['acceptable_codes'] == True) & (input_df['acceptable_alt_error'] == True)]
+
+    return output_df
+
+
+def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
+    '''
+    This function is used in CatFIM to mask out lakes from inundated tifs.
+
+    Parameters
+    ----------
+    input_array: xarray DataArray
+        DataArray with inundation values that need lakes removed
+    huc: str
+        HUC8 id (string), needed to get the correct lakes file
+    raster_src: rasterio DatasetReader
+        src from a raster that should be uses for getting the correct raster dimensions
+    fim_run_dir: str
+        path to the fim run directory where the lakes shapefile is located
+
+
+    Returns
+    -------
+    masked_array: xarray
+        DataArray with lakes masked out
+    mask_status: string,
+        status of whether lake shapefile was available
+
+
+    '''
+
+    # Read in waterbodies geopackage
+    preclip_lakes_path = os.path.join(fim_run_dir, huc, 'nwm_lakes_proj_subset.gpkg')
+
+    if not os.path.exists(preclip_lakes_path):
+        # If the lakes shapefile does not exist, return the input array without masking
+        mask_status = (
+            f'No lakes shapefile found at {preclip_lakes_path}, returning original array without lake masking'
+        )
+        return input_array, mask_status
+    else:
+        # Read in the lakes shapefile
+        preclip_lakes_gdf = gpd.read_file(preclip_lakes_path)
+
+        # Create a binary raster using the shapefile geometry
+        lake_mask = geometry_mask(
+            preclip_lakes_gdf.geometry,
+            transform=raster_src.transform,
+            invert=False,
+            out_shape=(raster_src.height, raster_src.width),
+        )
+
+        # Set values within the lake geometry to zero, masking them out of the FIM
+        masked_array = input_array * lake_mask
+        mask_status = 'Lakes shapefile available, masked out lake'
+        return masked_array, mask_status
 
 
 def check_for_regression(
@@ -399,7 +510,7 @@ def get_stats_table_from_binary_rasters(
         (0, 10): 10,
         (1, 0): 2,
         (1, 1): 3,
-        (1, 10): 10,
+        (1, 10): 5,
         (4, 0): 4,
         (4, 1): 4,
         (4, 10): 10,
@@ -425,6 +536,7 @@ def get_stats_table_from_binary_rasters(
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
                     del poly_all
+                    gc.collect()
                     continue
 
                 # Project layer to reference crs.
@@ -439,16 +551,21 @@ def get_stats_table_from_binary_rasters(
                     all_masks_df = poly_all_proj
 
                 del poly_all, poly_all_proj
+                gc.collect()
 
     stats_table_dictionary = {}  # Initialize empty dictionary.
 
     c_aligned, b_aligned = candidate_raster.gval.homogenize(benchmark_raster, target_map="candidate")
+
     del candidate_raster, benchmark_raster
+    gc.collect()
 
     agreement_map = c_aligned.gval.compute_agreement_map(
         b_aligned, comparison_function='pairing_dict', pairing_dict=pairing_dictionary
     )
+
     del c_aligned, b_aligned
+    gc.collect()
 
     agreement_map_og = agreement_map.copy()
     agreement_map.rio.write_nodata(4, inplace=True)
@@ -471,15 +588,15 @@ def get_stats_table_from_binary_rasters(
     # Only write the agreement raster if user-specified.
     if agreement_raster != None:
         agreement_map_write = agreement_map.rio.write_nodata(10, encoded=True)
-        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.int32, driver="COG")
+        agreement_map_write.rio.to_raster(agreement_raster, dtype=np.uint8, driver="COG")
+
         del agreement_map_write
+        gc.collect()
 
         # Write legend text file
         legend_txt = os.path.join(os.path.split(agreement_raster)[0], 'read_me.txt')
 
-        from datetime import datetime
-
-        now = datetime.now()
+        now = dt.datetime.now()
         current_time = now.strftime("%m/%d/%Y %H:%M:%S")
 
         with open(legend_txt, 'w') as f:
@@ -503,6 +620,7 @@ def get_stats_table_from_binary_rasters(
     )
 
     del crosstab_table, metrics_table
+    gc.collect()
 
     # After agreement_array is masked with default mask layers, check for inclusion masks in mask_dict.
     if mask_dict != {}:
@@ -520,6 +638,7 @@ def get_stats_table_from_binary_rasters(
                 # Continue to next layer if features are absent.
                 if poly_all.empty:
                     del poly_all
+                    gc.collect()
                     continue
 
                 poly_all_proj = poly_all.to_crs(agreement_map.rio.crs)
@@ -552,8 +671,9 @@ def get_stats_table_from_binary_rasters(
                         os.path.split(agreement_raster)[0], poly_handle + '_agreement.tif'
                     )
                     agreement_map_write = agreement_map_include.rio.write_nodata(10, encoded=True)
-                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.int32, driver="COG")
+                    agreement_map_write.rio.to_raster(layer_agreement_raster, dtype=np.uint8, driver="COG")
                     del agreement_map_write
+                    gc.collect()
 
                 # Update stats table dictionary
                 stats_table_dictionary.update(
@@ -565,11 +685,11 @@ def get_stats_table_from_binary_rasters(
                         )
                     }
                 )
-                del agreement_map_include
-
-                del poly_all, poly_all_proj, metrics_table, crosstab_table
+                del agreement_map_include, poly_all, poly_all_proj, metrics_table, crosstab_table
+                gc.collect()
 
     del agreement_map
+    gc.collect()
 
     return stats_table_dictionary
 
@@ -594,7 +714,7 @@ def get_metadata(
     metadata_url : STR
         metadata base URL.
     select_by : STR
-        Location search option.
+        Location search option. Options include: 'state', TODO: test 'nws_lid'
     selector : LIST
         Value to match location data against. Supplied as a LIST.
     must_include : STR, optional
@@ -660,9 +780,10 @@ def get_metadata(
             metadata.update(crosswalk_info)
         metadata_dataframe = pd.json_normalize(metadata_list)
         # Replace all periods with underscores in column names
-        metadata_dataframe.columns = metadata_dataframe.columns.str.replace('.', '_')
+        metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
     else:
         # if request was not succesful, print error message.
+        # TODO: Output this as a status string because the print is getting suppressed
         print(f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}')
         # Return empty outputs
         metadata_list = []
@@ -673,7 +794,7 @@ def get_metadata(
 ########################################################################
 # Function to assign HUC code using the WBD spatial layer using a spatial join
 ########################################################################
-def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
+def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, huc_list=list()):
     '''
     Assigns the proper FIM HUC 08 code to each site in the input DataFrame.
     Converts input DataFrame to a GeoDataFrame using lat/lon attributes
@@ -703,9 +824,16 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False):
     '''
     # Import huc8 layer as geodataframe and retain necessary columns
     print("Reading WBD...")
-    huc8 = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
+    huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     print("WBD read.")
-    huc8 = huc8[['HUC8', 'name', 'states', 'geometry']]
+    huc8 = huc8_all[['HUC8', 'name', 'states', 'geometry']]
+
+    if len(huc_list) > 0:
+        # filter by hucs we are using
+        huc8 = huc8[huc8['HUC8'].isin(huc_list)]
+
+    huc8 = huc8.sort_values(by='HUC8', ascending=True)
+
     # Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
     crs_lookup = {'NAD27': 'EPSG:4267', 'NAD83': 'EPSG:4269', 'WGS84': 'EPSG:4326'}
     # Create empty geodataframe and define CRS for potential horizontal datums
@@ -930,6 +1058,8 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         Dictionary of stages at each threshold.
     flows : DICT
         Dictionary of flows at each threshold.
+    threshold_count : INT
+        Number of thresholds available for the site.
 
     '''
     params = {}
@@ -940,6 +1070,9 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
 
     # Call the API
     session = requests.Session()
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     retry = Retry(connect=3, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
@@ -950,6 +1083,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         thresholds_json = response.json()
         # Get metadata
         thresholds_info = thresholds_json['value_set']
+        threshold_count = thresholds_json['_metrics']['threshold_count']
         # Initialize stages/flows dictionaries
         stages = {}
         flows = {}
@@ -986,7 +1120,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
                 stages['units'] = threshold_data.get('metadata').get('stage_units')
                 flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
-        return stages, flows
+        return stages, flows, threshold_count
     else:
         print("WRDS response error: ")
 
@@ -1126,20 +1260,23 @@ def convert_latlon_datum(lat, lon, src_crs, dest_crs):
 #######################################################################
 # Function to get conversion adjustment NGVD to NAVD in FEET
 #######################################################################
-def ngvd_to_navd_ft(datum_info, region='contiguous'):
+def ngvd_to_navd_ft(datum_info):
     '''
     Given the lat/lon, retrieve the adjustment from NGVD29 to NAVD88 in feet.
     Uses NOAA tidal API to get conversion factor. Requires that lat/lon is
     in NAD27 crs. If input lat/lon are not NAD27 then these coords are
     reprojected to NAD27 and the reproject coords are used to get adjustment.
     There appears to be an issue when region is not in contiguous US.
+    TODO: Test outside of CONUS and resolve if needed.
 
     Parameters
     ----------
-    lat : FLOAT
-        Latitude.
-    lon : FLOAT
-        Longitude.
+    datum_info : DICT
+        Dictionary containing site information. Must contain the following keys:
+        - 'crs': CRS of lat/lon (e.g. 'NAD27', 'NAD83', 'WGS84').
+        - 'state': State of site (e.g. 'Alaska', 'California').
+        - 'lat': Latitude of site.
+        - 'lon': Longitude of site.
 
     Returns
     -------
@@ -1160,9 +1297,8 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
 
     # Define parameters. Hard code most parameters to convert NGVD to NAVD.
     params = {}
-    params['lat'] = lat
-    params['lon'] = lon
-    params['region'] = region
+    params['s_x'] = lon  # source x, longitude
+    params['s_y'] = lat  # source y, latitude
     params['s_h_frame'] = 'NAD27'  # Source CRS
     params['s_v_frame'] = 'NGVD29'  # Source vertical coord datum
     params['s_vertical_unit'] = 'm'  # Source vertical units
@@ -1170,26 +1306,55 @@ def ngvd_to_navd_ft(datum_info, region='contiguous'):
     params['t_v_frame'] = 'NAVD88'  # Target vertical datum
     params['tar_vertical_unit'] = 'm'  # Target vertical height
 
-    # Suppress Insecure Request Warning
-    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    # Run API for a given region
+    def run_vdatum_for_region(params, region):
+        params['region'] = region
 
-    # Call the API
-    session = requests.Session()
-    retry = Retry(connect=3, backoff_factor=0.5)
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount('http://', adapter)
+        # Suppress Insecure Request Warning
+        requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-    response = session.get(datum_url, params=params, verify=False)
+        # Call the API
+        session = requests.Session()
+        retry = Retry(connect=3, backoff_factor=0.5)
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
 
-    # If successful get the navd adjustment
-    if response.status_code == 200:
+        response = session.get(datum_url, params=params, verify=False)
+
+        # Check whether API call was successfull
+        if response.status_code == 200:
+            results = response.json()
+            success = 't_z' in results
+        else:
+            success = False
+        return response, success
+
+    # Run Vdatum with region-specific parameters
+    if datum_info['state'] == 'Alaska':
+        params['s_v_geoid'] = 'geoid12b'  # Source geoid (AK-specific)
+        params['t_v_geoid'] = 'geoid12b'  # Target geoid (AK-specific)
+
+        response, success = run_vdatum_for_region(params, 'AK')
+
+        if success == False:  # If AK region fails, try running calling API with SEAK region
+            response, success = run_vdatum_for_region(params, 'SEAK')
+
+    else:
+        # For CONUS, use default geoid
+        response, success = run_vdatum_for_region(params, 'contiguous')
+
+    # Get adjustment in feet if Vdatum API call is successful
+    if success == True:
         results = response.json()
         # Get adjustment in meters (NGVD29 to NAVD88)
         adjustment = results['t_z']
         # convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084, 2)
     else:
+        message = results['message']
+        print(f'VDatum error occurred: {message}')
         adjustment_ft = None
+
     return adjustment_ft
 
 
@@ -1390,8 +1555,8 @@ def process_extent(extent, profile, output_raster=False):
     # Fill holes in extent
     poly_extent_fill_holes = MultiPolygon(Polygon(p.exterior) for p in poly_extent['geometry'])
     # loop through the filled polygons and insert the new geometry
-    for i in range(len(poly_extent_fill_holes)):
-        poly_extent.loc[i, 'geometry'] = poly_extent_fill_holes[i]
+    for i, part in enumerate(poly_extent_fill_holes.geoms):
+        poly_extent.loc[i, 'geometry'] = part
 
     # Dissolve filled holes with main map and explode
     poly_extent['dissolve_field'] = 1
@@ -1596,7 +1761,7 @@ def calculate_metrics_from_agreement_raster(agreement_raster):
     for idx, wind in agreement_raster.block_windows(1):
         window_data = agreement_raster.read(1, window=wind)
         values, counts = np.unique(window_data, return_counts=True)
-        for val, cts in values_counts:
+        for val, cts in zip(values, counts):
             totals[val] += cts
 
     results = dict()

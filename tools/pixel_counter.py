@@ -3,8 +3,6 @@
 import argparse
 import copy
 import os
-import pathlib
-import sys
 import tempfile
 
 import numpy as np
@@ -14,7 +12,6 @@ import pandas as pd
 # from types import NoneType
 from osgeo import gdal, ogr
 from osgeo.gdalconst import *
-from pandas import DataFrame
 from pixel_counter_functions import (
     get_bridge_counts,
     get_levee_counts,
@@ -23,6 +20,11 @@ from pixel_counter_functions import (
     get_nlcd_counts_inside_flood,
 )
 
+
+# With UseExceptions(), an error will raise an exception
+# TODO: Jul 1, 2025: look into this. We want it enabled but when runnign test_case_by_hydroid.py with this
+# in place, then 15130205 crashes. Issue card added.
+# gdal.UseExceptions()
 
 '''Created on 02/21/2022.
 Written by:
@@ -150,6 +152,10 @@ def zonal_stats(vector_path, raster_path_dict, nodata_value=None, global_src_ext
         if vector_path == "":
             print('No vector path provided. Continuing to next layer.')
             continue
+        if not os.path.exists(vector_path):
+            print(f'{vector_path} does not exist. Continuing to next layer.')
+            continue
+
         # Opens vector file and sets path
 
         try:

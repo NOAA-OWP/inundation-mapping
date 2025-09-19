@@ -24,12 +24,16 @@ huc2Identifier=${hucNumber:0:2}
 if [ $huc2Identifier -eq 19 ]; then
     huc_CRS=$ALASKA_CRS
     huc_input_DEM_domain=$input_DEM_domain_Alaska
+    input_DEM=$input_DEM_Alaska
     dem_domain_filename=DEM_Domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
 else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain
+    input_DEM=$input_DEM
     dem_domain_filename=HUC6_dem_domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff
 
 fi
 
@@ -47,10 +51,32 @@ cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 # Copy necessary files from $inputsDir into $tempHucDataDir to avoid File System Collisions
 # For buffer_stream_branches.py
 cp $huc_input_DEM_domain $tempHucDataDir
+
+# TODO: Jun 2025: This should use the bash_variable, but rename as it is copied. ie:
+# cp $nws_lid $tempHucDataDir/nws_lid.gpkg
 # For usgs_gage_unit_setup.py
-cp $inputsDir/usgs_gages/usgs_gages.gpkg $tempHucDataDir
-cp $ras_rating_curve_points_gpkg $tempHucDataDir
 cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
+
+# Renamed to usgs_gages.gpkg while being copied
+cp $usgs_gages_file $tempHucDataDir/usgs_gages.gpkg
+
+# Check if the $hucNumber directory exists in the ras2fim $inputsDir
+if [ -d "$ras2fim_input_dir/$hucNumber" ]; then
+    ras_rating_gpkg="$ras2fim_input_dir/$hucNumber/$ras_rating_curve_gpkg_filename"
+    ras_rating_csv="$ras2fim_input_dir/$hucNumber/$ras_rating_curve_csv_filename"
+    if [ -f "$ras_rating_gpkg" ]; then
+        cp "$ras_rating_gpkg" $tempHucDataDir
+        echo "Copied $ras_rating_gpkg to $tempHucDataDir"
+    else
+        echo "File $ras_rating_gpkg does not exist. Skipping copy."
+    fi
+    if [ -f "$ras_rating_csv" ]; then
+        cp "$ras_rating_csv" $tempHucDataDir
+        echo "Copied $ras_rating_csv to $tempHucDataDir"
+    else
+        echo "File $ras_rating_csv does not exist. Skipping copy."
+    fi
+fi
 
 ## DERIVE LEVELPATH  ##
 echo -e $startDiv"Generating Level Paths for $hucNumber"
@@ -60,6 +86,7 @@ $srcDir/derive_level_paths.py -i $tempHucDataDir/nwm_subset_streams.gpkg \
     -r "ID" \
     -o $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
     -d $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
+    -de $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg \
     -e $tempHucDataDir/nwm_headwaters.gpkg \
     -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
     -t $tempHucDataDir/nwm_catchments_proj_subset_levelPaths.gpkg \
@@ -107,6 +134,8 @@ $srcDir/generate_branch_list.py -d $tempHucDataDir/nwm_subset_streams_levelPaths
     -o $branch_list_lst_file
 
 ## CREATE BRANCH ZERO ##
+branch0_start_time=`date +%s`
+
 echo -e $startDiv"Creating branch zero for $hucNumber"
 tempCurrentBranchDataDir=$tempBranchDataDir/$branch_zero_id
 
@@ -116,16 +145,21 @@ mkdir -p $tempCurrentBranchDataDir
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
 # Note: don't need to use gdalwarp -cblend as we are using a buffered wbd
-[ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && \
-gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r bilinear -of "GTiff" \
+[ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && {
+gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res $input_DEM $tempHucDataDir/dem_meters.tif
+    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_DEM $tempHucDataDir/dem_meters.tif
 
+# Clip the bridge elevation diff raster (DEM_diff). Used 'near' to make sure neighboring cells do not get any interpolated value
+gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
+    -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
+    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_bridge_elev_diff $tempHucDataDir/bridge_elev_diff_meters.tif
+}
 
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"
-read fsize ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
-    <<<$($srcDir/getRasterInfoNative.py $tempHucDataDir/dem_meters.tif)
+read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
+    <<<$($srcDir/getRasterInfoNative.py -r $tempHucDataDir/dem_meters.tif)
 
 ## RASTERIZE NLD MULTILINES ##
 echo -e $startDiv"Rasterize all NLD multilines using zelev vertices $hucNumber $branch_zero_id"
@@ -158,7 +192,7 @@ if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
     gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-        $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg $tempHucDataDir/flows_grid_boolean.tif
+        $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg $tempHucDataDir/flows_grid_boolean.tif
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
@@ -183,27 +217,27 @@ python3 $srcDir/agreedem.py \
 ## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
 # Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
 # This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
-    python3 $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
-        -d $tempHucDataDir/dem_meters.tif \
-        -w $tempHucDataDir \
-        -o $tempHucDataDir/dem_burned.tif \
-        -b $agree_DEM_buffer \
-        -sm 10 \
-        -sh 1000
-fi
+# if [ "$levelpaths_exist" = "1" ]; then
+#     echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
+#     python3 $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
+#         -d $tempHucDataDir/dem_meters.tif \
+#         -w $tempHucDataDir \
+#         -o $tempHucDataDir/dem_burned.tif \
+#         -b $agree_DEM_buffer \
+#         -sm 10 \
+#         -sh 1000
+# fi
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
     $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 
-## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
-    rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
-fi
+# ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# if [ "$levelpaths_exist" = "1" ]; then
+#     echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
+#     rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
+# fi
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
@@ -211,17 +245,18 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 
-## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
-if [ "$levelpaths_exist" = "1" ]; then
-    echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
-    mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-        -fel $tempHucDataDir/dem_burned_filled.tif \
-        -p $tempHucDataDir/flowdir_d8_burned_filled.tif
-fi
+# ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# if [ "$levelpaths_exist" = "1" ]; then
+#     echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
+#     mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+#         -fel $tempHucDataDir/dem_burned_filled.tif \
+#         -p $tempHucDataDir/flowdir_d8_burned_filled.tif
+# fi
 
-## MAKE A COPY OF THE DEM FOR BRANCH 0
+## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
 cp $tempHucDataDir/dem_meters.tif $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif
+cp $tempHucDataDir/bridge_elev_diff_meters.tif $tempCurrentBranchDataDir/bridge_elev_diff_meters_$branch_zero_id.tif
 
 
 ## PRODUCE THE REM AND OTHER HAND FILE OUTPUTS ##
@@ -241,6 +276,7 @@ export nrows=$nrows
 $srcDir/delineate_hydros_and_produce_HAND.sh "unit"
 
 ## CREATE USGS GAGES FILE
+## Note: the usgs_gages.gpkg was renamed during coping into the unit folder
 if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     python3 $srcDir/usgs_gage_unit_setup.py \
@@ -277,6 +313,9 @@ $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branch_zero_lis
 ## Start the local csv branch list
 $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
 
+branch0=$(Calc_Time $branch0_start_time)
+branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
+
 # -------------------
 ## Processing Branches ##
 echo
@@ -295,6 +334,9 @@ else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
 
+branches=$(Calc_Time $branch_processing_start_time)
+branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
+
 ## REMOVE FILES FROM DENY LIST ##
 if [ -f $deny_unit_list ]; then
     echo -e $startDiv"Remove files $hucNumber"
@@ -305,14 +347,14 @@ if [ -f $deny_unit_list ]; then
 fi
 
 echo "---- HUC $hucNumber - branches have now been processed"
-Calc_Duration $branch_processing_start_time
-echo
-
+Calc_Duration "Duration for processing branches : " $branch_processing_start_time
+#echo
+total_branches=$(wc -l < $branch_list_csv_file)
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
-total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time)"
-echo "$total_duration_display" >> "$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv"
+total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
+echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"
-Calc_Duration $huc_start_time
+Calc_Duration "Duration for huc processing: " $huc_start_time
 echo

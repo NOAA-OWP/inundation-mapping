@@ -6,17 +6,19 @@ import multiprocessing
 import os
 import re
 import shutil
+from collections import defaultdict
 from datetime import datetime
 from multiprocessing import Pool
 
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
-from osgeo import gdal
+from rasterio.shutil import copy
+from rio_vrt import build_vrt
 
 from utils.shared_functions import FIM_Helpers as fh
 
 
-# INUN_REVIEW_DIR = r'/data/inundation_review/inundation_nwm_recurr/'
+# INUN_REVIEW_DIR = r'/data/inputs/rating_curve/nwm_recur_flows/'
 # INUN_OUTPUT_DIR = r'/data/inundation_review/inundate_nation/'
 # INPUTS_DIR = r'/data/inputs'
 # OUTPUT_BOOL_PARENT_DIR = '/data/inundation_review/inundate_nation/bool_temp/
@@ -26,7 +28,9 @@ from utils.shared_functions import FIM_Helpers as fh
 # TODO: Nov 2023, Logging system appears to be not working correctly.
 
 
-def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number):
+def inundate_nation(
+    fim_run_dir, output_dir, magnitude_key, flow_file, huc_list, inc_mosaic, job_number, thread_number
+):
     assert os.path.exists(flow_file), f"ERROR: could not find the flow file: {flow_file}"
 
     if job_number > available_cores:
@@ -80,7 +84,9 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
     huc_list.sort()
 
     logging.info(f"Inundation mosaic wrapper outputs will saved here: {magnitude_output_dir}")
-    run_inundation([fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number])
+    run_inundation(
+        [fim_run_dir, huc_list, magnitude_key, magnitude_output_dir, flow_file, job_number, thread_number]
+    )
 
     # Perform mosaic operation
     if inc_mosaic:
@@ -113,7 +119,7 @@ def inundate_nation(fim_run_dir, output_dir, magnitude_key, flow_file, huc_list,
             logging.info(msg)
 
         # Perform VRT creation and mosaic all of the huc rasters using boolean rasters
-        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, job_number)
+        vrt_raster_mosaic(output_bool_dir, output_dir, output_base_file_name, thread_number)
 
         # now cleanup the temp bool directory
         shutil.rmtree(output_bool_dir, ignore_errors=True)
@@ -147,6 +153,7 @@ def run_inundation(args):
     magnitude_output_dir = args[3]
     forecast = args[4]
     job_number = args[5]
+    thread_number = args[6]
 
     # Define file paths for use in inundate().
 
@@ -169,9 +176,11 @@ def run_inundation(args):
         forecast,
         inundation_raster=inundation_raster,
         num_workers=job_number,
+        num_threads=thread_number,
         remove_intermediate=True,
         verbose=True,
         is_mosaic_for_branches=True,
+        gms_multi_process=True,
     )
 
 
@@ -183,10 +192,11 @@ def create_bool_rasters(args):
 
     print("Calculating boolean inundate raster: " + rasfile)
     p = in_raster_dir + os.sep + rasfile
-    raster = rasterio.open(p)
-    profile = raster.profile
-    array = raster.read()
-    del raster
+
+    with rasterio.open(p) as raster:
+        profile = raster.profile
+        array = raster.read()
+
     array[array > 0] = 1
     array[array <= 0] = 0
     # And then change the band count to 1, set the
@@ -199,38 +209,52 @@ def create_bool_rasters(args):
         nodata=0,
         blockxsize=512,
         blockysize=512,
-        dtype="int8",
+        dtype="uint8",
         compress="lzw",
     )
     with rasterio.open(
         output_bool_dir + os.sep + rasfile[:-4] + '_' + fim_version + '.tif', "w", **profile
     ) as dst:
-        dst.write(array.astype(rasterio.int8))
+        dst.write(array.astype(rasterio.uint8))
 
 
 def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
-    rasters_to_mosaic = []
+    crs_groups = defaultdict(list)
+
+    # Group rasters by CRS
     for rasfile in os.listdir(output_bool_dir):
         if rasfile.endswith('.tif') and "extent" in rasfile:
-            p = output_bool_dir + os.sep + rasfile
-            rasters_to_mosaic.append(p)
+            path = os.path.join(output_bool_dir, rasfile)
+            try:
+                with rasterio.open(path) as src:
+                    crs = src.crs
+                    if crs:
+                        crs_groups[crs.to_epsg()].append(path)
+                    else:
+                        logging.warning(f"Raster has no CRS: {path}")
+            except Exception as e:
+                logging.warning(f"Could not read raster {path}: {e}")
 
-    output_mosiac_vrt = os.path.join(output_bool_dir, fim_version_tag + "_merged.vrt")
-    logging.info("Creating virtual raster: " + output_mosiac_vrt)
-    vrt = gdal.BuildVRT(output_mosiac_vrt, rasters_to_mosaic)
+    # Build VRTs and mosaics for each group
+    for epsg_code, raster_list in crs_groups.items():
+        output_mosaic_name = f"{fim_version_tag}_EPSG{epsg_code}_mosaic.tif"
+        output_mosaic_raster = os.path.join(output_dir, output_mosaic_name)
 
-    output_mosiac_raster = os.path.join(output_dir, fim_version_tag + "_mosaic.tif")
-    logging.info("Building raster mosaic: " + output_mosiac_raster)
-    logging.info("Using " + str(threads) + " threads for parallizing")
-    print("Note: This step can take a number of hours if processing 100s of hucs")
-    gdal.Translate(
-        output_mosiac_raster,
-        vrt,
-        xRes=10,
-        yRes=-10,
-        creationOptions=['COMPRESS=LZW', 'TILED=YES', 'PREDICTOR=2', 'NUM_THREADS=' + str(threads)],
-    )
-    vrt = None
+        if len(raster_list) == 1:
+            # Just copy the raster
+            logging.info(f"Only one raster found for EPSG:{epsg_code}, skipping VRT creation.")
+            shutil.copyfile(raster_list[0], output_mosaic_raster)
+            logging.info(f"Copied {raster_list[0]} to {output_mosaic_raster}")
+        else:
+            output_mosaic_vrt = os.path.join(output_bool_dir, f"{fim_version_tag}_EPSG{epsg_code}_merged.vrt")
+            logging.info(f"Building VRT: {output_mosaic_vrt}")
+            vrt_file = build_vrt(output_mosaic_vrt, raster_list)
+
+            logging.info(f"Building raster mosaic: {output_mosaic_raster}")
+            logging.info(f"Using {threads} threads for parallelizing")
+            copy(vrt_file, output_mosaic_raster)
+            logging.info(f"Mosaic for EPSG:{epsg_code} completed and saved to {output_mosaic_raster}")
+            vrt_file = None
 
 
 def __setup_logger(output_folder_path, log_file_name_key, log_level=logging.INFO):
@@ -273,17 +297,19 @@ if __name__ == "__main__":
     Sample usage:
     python3 /foss_fim/tools/inundate_nation.py
         -r /outputs/fim_4_0_9_2 -m 100_0
-        -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm21_17C_recurr_100_0_cms.csv
+        -f /data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_10_0_cms.csv
         -s
         -j 10
+        -t 8
     outputs become /data/inundation_review/inundate_nation/100_0_fim_4_0_9_2_mosiac.tif (.log, etc)
 
     python3 /foss_fim/tools/inundate_nation.py
         -r /outputs/fim_4_0_9_2
         -m hw
-        -f /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/nwm_high_water_threshold_cms.csv
+        -f /data/inputs/rating_curve/bankfull_flows/nwm3_high_water_threshold_cms.csv
         -s
         -j 10
+        -t 8
     outputs become /data/inundation_review/inundate_nation/hw_fim_4_0_9_2_mosiac.tif (.log, etc)
 
     If run on UCS2, you can map docker as -v /dev_fim_share../:/data -v /local...outputs:/outputs
@@ -329,8 +355,8 @@ if __name__ == "__main__":
         '-f',
         '--flow_file',
         help='the path and flow file to be used. '
-        'ie /data/inundation_review/inundation_nwm_recurr/nwm_recurr_flow_data/'
-        'nwm_high_water_threshold_cms.csv',
+        'ie /data/inputs/rating_curve/bankfull_flows/'
+        'nwm3_high_water_threshold_cms.csv',
         required=True,
     )
 
@@ -352,6 +378,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument('-j', '--job-number', help='The number of jobs', required=False, default=1, type=int)
+
+    parser.add_argument(
+        '-t', '--thread-number', help='The number of threads', required=False, default=1, type=int
+    )
 
     args = vars(parser.parse_args())
 

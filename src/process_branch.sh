@@ -38,6 +38,11 @@ do
         err_exists=1
         echo "***** Branch has no valid flowlines *****"
         rm -rf $tempHucDataDir/branches/$branchId/
+    elif [ $code -eq 64 ]; then
+        echo
+        err_exists=1
+        echo "***** Branch has no crosswalks *****"
+        rm -rf $tempHucDataDir/branches/$branchId/
     elif [ $code -ne 0 ]; then
         echo
         err_exists=1

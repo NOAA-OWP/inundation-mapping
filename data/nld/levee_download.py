@@ -42,7 +42,7 @@ def download_nld_lines():
     )
 
     # Write levees to a single geopackage
-    levees.to_file(nld_vector_output, index=False, driver='GPKG')
+    levees.to_file(nld_vector_output, index=False, driver='GPKG', engine='fiona')
     print(f"Levees written to file:\n{nld_vector_output}")
 
     # Spatial join to huc2
@@ -75,7 +75,7 @@ def process_levee_lines(levee_gdf: gpd.GeoDataFrame, out_levees: str):
     levee_gdf['geometry'] = levee_gdf.progress_apply(lambda row: remove_nulls(row.geometry, row.HUC2), axis=1)
     # Remove levees that have empty geometries resulting from the previous filter
     levee_gdf = levee_gdf[~levee_gdf.is_empty]
-    levee_gdf.to_file(out_levees, index=False, driver='GPKG')
+    levee_gdf.to_file(out_levees, index=False, driver='GPKG', engine='fiona')
     print(f"Preprocessed levees written to \n{out_levees}")
 
 
@@ -160,7 +160,7 @@ def download_nld_poly():
     )
 
     # Write levees to a single geopackage
-    leveed_areas.to_file(nld_protected_areas, index=False, driver='GPKG')
+    leveed_areas.to_file(nld_protected_areas, index=False, driver='GPKG', engine='fiona')
     print(f"Levees written to file:\n{nld_protected_areas}")
 
 

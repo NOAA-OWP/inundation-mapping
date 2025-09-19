@@ -6,10 +6,12 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+import geopandas as gpd
 from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
 
@@ -41,6 +43,8 @@ from utils.shared_functions import FIM_Helpers as fh
       src/bash_variables.env to the corresponding outputs_dir argument after running and testing this script.
       The newly generated data should be created in a new folder using the format <year_month_day>
              (i.e. September 26, 2023 would be 23_09_26)
+
+    Don't worry about error logs saying "Failed to auto identify EPSG: 7"
 '''
 
 srcDir = os.getenv('srcDir')
@@ -53,117 +57,97 @@ load_dotenv(f'{projectDir}/config/params_template.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')  # alaska
 
-inputsDir = os.getenv('inputsDir')
-
 input_WBD_gdb = os.getenv('input_WBD_gdb')
 input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # alaska
-
-input_DEM = os.getenv('input_DEM')
-input_DEM_Alaska = os.getenv('input_DEM_Alaska')  # alaska
 
 input_DEM_domain = os.getenv('input_DEM_domain')
 input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # alaska
 
-input_nwm_lakes = os.getenv('input_nwm_lakes')
-input_nwm_catchments = os.getenv('input_nwm_catchments')
-input_nwm_catchments_Alaska = os.getenv('input_nwm_catchments_Alaska')
+input_landsea = os.getenv('input_landsea')
+input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # alaska
 
-input_NLD = os.getenv('input_NLD')
-input_NLD_Alaska = os.getenv('input_NLD_Alaska')
-
-input_levees_preprocessed = os.getenv('input_levees_preprocessed')
-input_levees_preprocessed_Alaska = os.getenv('input_levees_preprocessed_Alaska')
 
 input_GL_boundaries = os.getenv('input_GL_boundaries')
-input_nwm_flows = os.getenv('input_nwm_flows')
-input_nwm_flows_Alaska = os.getenv('input_nwm_flows_Alaska')  # alaska
-input_nwm_headwaters = os.getenv('input_nwm_headwaters')
-input_nwm_headwaters_Alaska = os.getenv('input_nwm_headwaters_Alaska')
 
-input_nld_levee_protected_areas = os.getenv('input_nld_levee_protected_areas')
-input_nld_levee_protected_areas_Alaska = os.getenv('input_nld_levee_protected_areas_Alaska')
-
-input_osm_bridges = os.getenv('osm_bridges')
-
-# Variables from config/params_template.env
-wbd_buffer = os.getenv('wbd_buffer')
-wbd_buffer_int = int(wbd_buffer)
+wbd_buffer_distance = float(os.getenv('wbd_buffer'))
 
 
-def __setup_logger(outputs_dir, huc=None):
+LOG_FILE_PATH = ""
+
+# need this for definingparse arguments
+args_copy_options = [
+    "copy_nwm_lakes",
+    "copy_nwm_streams_headwater",
+    "copy_nwm_catchments",
+    "copy_levee_lines",
+    "copy_levee_lines_burned",
+    "copy_levee_protected_areas",
+    "copy_osm_bridges",
+    "copy_osm_roads",
+]
+
+
+def __setup_logger(outputs_dir, huc=None, is_multi_proc=False):
     '''
     Set up logging to file. Since log file includes the date, it will be overwritten if this
     script is run more than once on the same day.
     '''
+    global LOG_FILE_PATH
+
     datetime_now = dt.datetime.now(dt.timezone.utc)
-    curr_date = datetime_now.strftime("%y%my%d")
+    file_dt_string = datetime_now.strftime("%Y_%m_%d-%H_%M_%S")
 
     if huc is None:
-        log_file_name = f"generate_pre_clip_fim_huc8_{curr_date}.log"
+        log_file_name = f"generate_pre_clip_{file_dt_string}.log"
     else:
-        log_file_name = f"mp_{huc}_generate_pre_clip_fim_huc8_{curr_date}.log"
+        log_file_name = f"mp_{huc}_generate_pre_{file_dt_string}.log"
 
-    log_file_path = os.path.join(outputs_dir, log_file_name)
+    LOG_FILE_PATH = os.path.join(outputs_dir, log_file_name)
 
     if not os.path.exists(outputs_dir):
         os.mkdir(outputs_dir)
 
-    if os.path.exists(log_file_path):
-        os.remove(log_file_path)
+    if os.path.exists(LOG_FILE_PATH):
+        os.remove(LOG_FILE_PATH)
 
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(logging.INFO)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    # set up logging to file
+    logging.basicConfig(
+        filename=LOG_FILE_PATH, level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S'
+    )
 
-    logger = logging.getLogger()
-    logger.addHandler(file_handler)
-    logger.setLevel(logging.INFO)
+    # If true, console text will be displayed twice, once from the parent and the other from the MP
+    if is_multi_proc is False:
 
-    # Print start time
-    start_time_string = datetime_now.strftime("%m/%d/%Y %H:%M:%S")
-    logging.info('==========================================================================')
-    logging.info("\n generate_pre_clip_fim_huc8.py")
-    logging.info(f"\n \t Started: {start_time_string} \n")
+        # set up logging to console
+        console = logging.StreamHandler()
+        console.setLevel(logging.DEBUG)
+        # set a format which is simpler for console use
+        # add the handler to the root logger
+        logging.getLogger('').addHandler(console)
 
 
-def __merge_mp_logs(outputs_dir):
-    log_file_list = list(Path(outputs_dir).rglob("mp_*"))
+def __merge_mp_logs(log_dir, parent_log_file):
+    # Locks for all logs starting with the phrase mp*
+    log_file_list = list(Path(log_dir).rglob("mp_*"))
+
     if len(log_file_list) > 0:
         log_file_list.sort()
+    else:
+        print("No multi-proc files to merge")
+        return
 
-    log_mp_rollup_file = os.path.join(outputs_dir, "mp_merged_logs.log")
-
-    error_huc_found = False
-
-    with open(log_mp_rollup_file, 'a') as main_log:
+    with open(parent_log_file, 'a') as main_log:
         # Iterate through list
         for temp_log_file in log_file_list:
             # Open each file in read mode
             with open(temp_log_file) as infile:
-                contents = infile.read()
-                temp_upper_contents = contents.upper()
-                if "ERROR" in temp_upper_contents:
-                    print(
-                        f"\nAn error exist in file {temp_log_file}."
-                        " Check the merge logs for that huc number"
-                    )
-                    error_huc_found = True
-                main_log.write(contents)
+                main_log.write(infile.read())
             os.remove(temp_log_file)
 
-    if error_huc_found:
-        print(
-            "\n\nOften you can just create a new huc list with the fails, re-run to a"
-            " 1temp directory and recheck if errors still exists. Sometimes multi-prod can create"
-            " contention errors.\nFor each HUC that is sucessful, you can just copy it back"
-            " into the original full pre-clip folder.\n"
-        )
 
-
-def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
+def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, copying_flags, copy_from_dir):
     '''
-    The function is the main driver of the program to iterate and parallelize writing
+    The function is the main driver of the program to iterate and parallelize writing/copying
     pre-clipped HUC8 vector files.
 
     Inputs:
@@ -171,6 +155,8 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     - huc_list:                       List of Hucs to generate pre-clipped .gpkg files.
     - number_of_jobs:                 Amount of cpus used for parallelization.
     - overwrite:                      Overwrite existing HUC directories containing stage vectors.
+    - copying_flags                   A dictionary indicating which vector data to copy vs. clip
+    - copy_from_dir                   directory with pre-clipped data to copy instead of re-clipping
 
 
     Processing:
@@ -180,6 +166,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     - If HUC level output directory is existant, delete it, if not, create a new directory.
     - Parallelize the processing of .gpkg creation of the hucs_to_pre_clip_list using multiprocessing.Pool.
         (call to huc_level_clip_vectors_to_wbd)
+    - For each HUC in the list, use copying_flags to either clip new vector data or copy from existing data
 
     Outputs:
     - New directory for each HUC, which contains 10-12 .gpkg files
@@ -187,13 +174,12 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     '''
 
     # Validation
-    total_cpus_available = os.cpu_count()
+    total_cpus_available = os.cpu_count() - 2
     if number_of_jobs > total_cpus_available:
         print(
             f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -2: '
             f'{total_cpus_available - 2} will be used instead.'
         )
-        number_of_jobs = total_cpus_available - 2
 
     # Read in huc_list file and turn into a list data structure
     if os.path.exists(huc_list):
@@ -212,16 +198,45 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     __setup_logger(outputs_dir)
     start_time = dt.datetime.now(dt.timezone.utc)
 
+    logging.info("==================================")
+    logging.info(f"Starting Pre-clip based on huc list of\n    {huc_list}")
+    logging.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    logging.info("")
+
+    # report which vector data are being copied instead of a new clipping
+    copied_layers = [
+        layer.replace('copy_', '') for layer, copy_status in copying_flags.items() if copy_status
+    ]
+    clipped_layers = [
+        layer.replace('copy_', '') for layer, copy_status in copying_flags.items() if not copy_status
+    ]
+
+    if copied_layers:
+        logging.info("The following layers will be copied instead of clipping:")
+        for layer in copied_layers:
+            logging.info(f" - {layer}")
+
+    else:
+        logging.info(
+            "All vector layers will be newly clipped — no copies from previously pre-clipped data were requested."
+        )
+
+    if clipped_layers:
+        logging.info("The following layers will be newly clipped:")
+        for layer in clipped_layers:
+            logging.info(f" - {layer}")
+    else:
+        logging.info(
+            "You have requested for all layers to be copied. No need to use this tool for a simple copying!"
+        )
+        sys.exit(0)
+
     # Iterate over the huc_list argument and create a directory for each huc.
     for huc in hucs_to_pre_clip_list:
         if os.path.isdir(os.path.join(outputs_dir, huc)):
             shutil.rmtree(os.path.join(outputs_dir, huc))
             os.mkdir(os.path.join(outputs_dir, huc))
             logging.info(
-                f"\n\t Output Directory: {outputs_dir}/{huc} exists.  It will be overwritten, and the "
-                f"newly generated huc level files will be output there. \n"
-            )
-            print(
                 f"\n\t Output Directory: {outputs_dir}/{huc} exists.  It will be overwritten, and the "
                 f"newly generated huc level files will be output there. \n"
             )
@@ -232,36 +247,57 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     # Build arguments (procs_list) for each process to execute (huc_level_clip_vectors_to_wbd)
     procs_list = []
     for huc in hucs_to_pre_clip_list:
-        print(f"Generating vectors for {huc}. ")
-        procs_list.append([huc, outputs_dir])
-
-        # procs_list.append([huc, outputs_dir, wbd_alaska_file])
+        procs_list.append([huc, outputs_dir, copying_flags, copy_from_dir])
 
     # Parallelize each huc in hucs_to_parquet_list
     logging.info('Parallelizing HUC level wbd pre-clip vector creation. ')
-    print('Parallelizing HUC level wbd pre-clip vector creation. ')
-    # with Pool(processes=number_of_jobs) as pool:
-    #    pool.map(huc_level_clip_vectors_to_wbd, procs_list)
 
     # TODO: Mar 5, 2024: Python native logging does not work well with Multi-proc. We will
     # likely eventually drop in ras2fim's logging system.
     # The log files for each multi proc has tons and tons of duplicate lines crossing mp log
     # processes, but does always log correctly back to the parent log
 
+    failed_HUCs_list = []  # On return from the MP, if it returns a HUC number, that is a failed huc
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         futures = {}
         for huc in hucs_to_pre_clip_list:
-            args = {"huc": huc, "outputs_dir": outputs_dir}
+            args = {
+                "huc": huc,
+                "outputs_dir": outputs_dir,
+                "copy_from_dir": copy_from_dir,
+                "copying_flags": copying_flags,
+            }
             future = executor.submit(huc_level_clip_vectors_to_wbd, **args)
             futures[future] = future
 
         for future in as_completed(futures):
             if future is not None:
-                if future.exception():
+                if not future.exception():
+                    failed_huc = future.result()
+                    if failed_huc.lower() != "success" and failed_huc.isnumeric():
+                        failed_HUCs_list.append(failed_huc)
+                else:
                     raise future.exception()
 
     print("Merging MP log files")
-    __merge_mp_logs(outputs_dir)
+    __merge_mp_logs(outputs_dir, LOG_FILE_PATH)
+
+    if len(failed_HUCs_list) > 0:
+        logging.info("\n+++++++++++++++++++")
+        logging.info("HUCs that failed to process are: ")
+        huc_error_msg = "  -- "
+        for huc in failed_HUCs_list:
+            huc_error_msg += f"{huc}, "
+        logging.info(huc_error_msg)
+        print("  See logs for more details on each HUC fail")
+        print(
+            "\n\nOften you can just create a new huc list with the fails, re-run to a"
+            " temp directory and recheck if errors still exists. Sometimes multi-prod can create"
+            " contention errors.\nFor each HUC that is successful, you can just copy it back"
+            " into the original full pre-clip folder.\n"
+        )
+
+        logging.info("+++++++++++++++++++")
 
     # Get time metrics
     end_time = dt.datetime.now(dt.timezone.utc)
@@ -277,12 +313,12 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite):
     )
     logging.info('==========================================================================')
 
-    print("\n\t Completed writing all huc level files \n")
-    print(f"\t \t TOTAL RUN TIME: {str(time_duration).split('.')[0]}")
 
-
-def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
+def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags):
     '''
+    TODO a limitation of this additional function is that we cannot use subset_vector_layers() by itself
+    because some parts of the preclipped data are created in this function before calling subset_vector_layers().
+
     Create pre-clipped vectors at the huc level. Necessary to have this as an additional
     function for multiprocessing. This is mostly a wrapper for the subset_vector_layers() method in
     clip_vectors_to_wbd.py.
@@ -290,166 +326,120 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
     Inputs:
     - huc:                           Individual HUC to generate vector files for.
     - outputs_dir:                   Output directory to stage pre-clipped vectors.
+    - copy_from_dir (str): Directory containing pre-clipped vector data to copy from (if applicable).
+    - copying_flags (dict): Dictionary with 8 boolean flags indicating which vector layers to copy vs. clip.
 
     Processing:
-    - Define (unpack) arguments.
+
     - Define LandSea water body mask.
-    - Use subprocess.run to get the WBD for specified HUC - (ogr2ogr called to generate wbd.gpkg)
+    - Generates  wbd.gpkg and wbd_buffered.gpkg
     - Subset Vector Layers - (call subset_vector_layers function in data/wbd/clip_vectors_to_wbd.py file)
-    - Clip WBD -
-        Creation of wbd8_clp.gpkg & wbd_buffered.gpkg using the executable: "ogr2ogr .... -clipsrc ..."
+    - Clip WBD - TODO update this to use geopandas
+        Creation of wbd8_clp.gpkg using the executable: "ogr2ogr .... -clipsrc ..."
 
     Outputs:
-    - .gpkg files* dependant on HUC's WBD (*differing amount based on individual huc)
+    - .If successful, then it returns the word sudcess. If it fails, return the huc number.
     '''
 
+    in_error = False
     huc_processing_start = dt.datetime.now(dt.timezone.utc)
     # with this in Multi-proc, it needs it's own logger and unique logging file.
-    __setup_logger(outputs_dir, huc)
-    logging.info(f"Processing {huc}")
+    __setup_logger(outputs_dir, huc, True)
+    logging.info(f"Start Processing {huc}")
 
     try:
-
         huc_directory = os.path.join(outputs_dir, huc)
 
         # SET VARIABLES AND FILE INPUTS #
         hucUnitLength = len(huc)
         huc2Identifier = huc[:2]
+        input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
 
         # Check whether the HUC is in Alaska or not and assign the CRS and filenames accordingly
         if huc2Identifier == '19':
             huc_CRS = ALASKA_CRS
-            input_NHD_WBHD_layer = 'WBD_National_South_Alaska'
             input_WBD_filename = input_WBD_gdb_Alaska
-            wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National_South_Alaska.gpkg'
+            dem_domain = input_DEM_domain_Alaska
         else:
             huc_CRS = DEFAULT_FIM_PROJECTION_CRS
-            input_NHD_WBHD_layer = f"WBDHU{hucUnitLength}"
             input_WBD_filename = input_WBD_gdb
-            wbd_gpkg_path = f'{inputsDir}/wbd/WBD_National.gpkg'
+            dem_domain = input_DEM_domain
 
-        # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
+        # Define the landsea waterbody mask using either Great Lakes or Ocean polygon input #
         if huc2Identifier == "04":
             input_LANDSEA = f"{input_GL_boundaries}"
-            # print(f'Using {input_LANDSEA} for water body mask (Great Lakes)')
         elif huc2Identifier == "19":
-            input_LANDSEA = f"{inputsDir}/landsea/water_polygons_alaska.gpkg"
-            # print(f'Using {input_LANDSEA} for water body mask (Alaska)')
+            input_LANDSEA = input_landsea_Alaska
         else:
-            input_LANDSEA = f"{inputsDir}/landsea/water_polygons_us.gpkg"
+            input_LANDSEA = input_landsea
 
-        print(f"\n Get WBD {huc}")
+        logging.info(f"-- {huc} : Get WBD")
 
-        # TODO: Use Python API (osgeo.ogr) instead of using ogr2ogr executable
-        get_wbd_subprocess = subprocess.run(
-            [
-                'ogr2ogr',
-                '-f',
-                'GPKG',
-                '-t_srs',
-                huc_CRS,
-                f'{huc_directory}/wbd.gpkg',
-                input_WBD_filename,
-                input_NHD_WBHD_layer,
-                '-where',
-                f"HUC{hucUnitLength}='{huc}'",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-            universal_newlines=True,
+        # Read the input layer from the input WBD file using sql to be more efficient
+        sql = f"SELECT * FROM \"{input_NHD_WBHD_layer}\" WHERE HUC8 = '{huc}'"
+        wbd = gpd.read_file(input_WBD_filename, sql=sql)
+
+        wbd = wbd.to_crs(huc_CRS)
+
+        logging.info(f"Create wbd buffer for {huc}")
+        wbd_buffer = wbd.copy()
+        wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
+
+        dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+        wbd_buffer = gpd.clip(wbd_buffer, dem_domain_gdf)
+
+        # Clip landsea before saving wbd and wbd_buffer
+        logging.info(f"Clip ocean water polygon for {huc}")
+        landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
+
+        # some hucs do not have landsea
+        if not landsea.empty:
+            landsea.to_file(
+                os.path.join(huc_directory, "LandSea_subset.gpkg"),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+
+            # Exclude landsea area from WBD and wbd_buffer
+            wbd = wbd.overlay(landsea, how='difference')
+            wbd_buffer = wbd_buffer.overlay(landsea, how='difference')
+
+        del landsea
+
+        wbd_filename = "wbd.gpkg"
+        wbd.to_file(
+            os.path.join(huc_directory, wbd_filename),
+            layer='WBDHU8',
+            driver='GPKG',
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
         )
 
-        logging.info(f"{huc} : {get_wbd_subprocess.stdout}")
+        wbd_buffer = wbd_buffer[['geometry']]
 
-        if get_wbd_subprocess.stderr != "":
-            if "ERROR" in get_wbd_subprocess.stderr.upper():
-                msg = (
-                    f" - Creating -- {huc_directory}/wbd.gpkg"
-                    f"  ERROR -- details: ({get_wbd_subprocess.stderr})"
-                )
-                print(msg)
-                logging.info(msg)
-        else:
-            msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete \n"
-            print(msg)
-            logging.info(msg)
+        wbd_buffer_filename = "wbd_buffered.gpkg"
+        wbd_buffer.to_file(
+            os.path.join(huc_directory, wbd_buffer_filename),
+            driver='GPKG',
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
+        )
 
-        msg = f"Get Vector Layers and Subset {huc}"
-        # print(msg)
-        logging.info(msg)
+        subset_vector_layers(
+            huc=huc,
+            wbd_filename=wbd_filename,
+            wbd_buffer_filename=wbd_buffer_filename,
+            huc_directory=huc_directory,
+            copy_from_dir=copy_from_dir,
+            copying_flags=copying_flags,
+        )
 
-        # Subset Vector Layers (after determining whether it's alaska or not)
-        if huc2Identifier == '19':
-            # Yes Alaska
-            subset_vector_layers(
-                subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
-                subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
-                hucCode=huc,
-                subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
-                wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
-                wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
-                wbd_filename=f"{huc_directory}/wbd.gpkg",
-                dem_filename=input_DEM_Alaska,
-                dem_domain=input_DEM_domain_Alaska,
-                nwm_lakes=input_nwm_lakes,
-                nwm_catchments=input_nwm_catchments_Alaska,
-                subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
-                nld_lines=input_NLD_Alaska,
-                nld_lines_preprocessed=input_levees_preprocessed_Alaska,
-                landsea=input_LANDSEA,
-                nwm_streams=input_nwm_flows_Alaska,
-                subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
-                nwm_headwaters=input_nwm_headwaters_Alaska,
-                subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
-                subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
-                wbd_buffer_distance=wbd_buffer_int,
-                levee_protected_areas=input_nld_levee_protected_areas_Alaska,
-                subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-                osm_bridges=input_osm_bridges,
-                subset_osm_bridges=f"{huc_directory}/osm_bridges_subset.gpkg",
-                is_alaska=True,
-                huc_CRS=huc_CRS,  # TODO: simplify
-            )
-
-        else:
-            # Not Alaska
-            subset_vector_layers(
-                subset_nwm_lakes=f"{huc_directory}/nwm_lakes_proj_subset.gpkg",
-                subset_nwm_streams=f"{huc_directory}/nwm_subset_streams.gpkg",
-                hucCode=huc,
-                subset_nwm_headwaters=f"{huc_directory}/nwm_headwater_points_subset.gpkg",
-                wbd_buffer_filename=f"{huc_directory}/wbd_buffered.gpkg",
-                wbd_streams_buffer_filename=f"{huc_directory}/wbd_buffered_streams.gpkg",
-                wbd_filename=f"{huc_directory}/wbd.gpkg",
-                dem_filename=input_DEM,
-                dem_domain=input_DEM_domain,
-                nwm_lakes=input_nwm_lakes,
-                nwm_catchments=input_nwm_catchments,
-                subset_nwm_catchments=f"{huc_directory}/nwm_catchments_proj_subset.gpkg",
-                nld_lines=input_NLD,
-                nld_lines_preprocessed=input_levees_preprocessed,
-                landsea=input_LANDSEA,
-                nwm_streams=input_nwm_flows,
-                subset_landsea=f"{huc_directory}/LandSea_subset.gpkg",
-                nwm_headwaters=input_nwm_headwaters,
-                subset_nld_lines=f"{huc_directory}/nld_subset_levees.gpkg",
-                subset_nld_lines_preprocessed=f"{huc_directory}/3d_nld_subset_levees_burned.gpkg",
-                wbd_buffer_distance=wbd_buffer_int,
-                levee_protected_areas=input_nld_levee_protected_areas,
-                subset_levee_protected_areas=f"{huc_directory}/LeveeProtectedAreas_subset.gpkg",
-                osm_bridges=input_osm_bridges,
-                subset_osm_bridges=f"{huc_directory}/osm_bridges_subset.gpkg",
-                is_alaska=False,
-                huc_CRS=huc_CRS,  # TODO: simplify
-            )
-
-        msg = f" Completing Get Vector Layers and Subset: {huc} \n"
-        print(msg)
-        logging.info(msg)
-
-        ## Clip WBD8 ##
-        print(f" Creating WBD buffer and clip version {huc}")
+        # Clip WBD8 ##
+        logging.info(f"-- {huc} : Creating WBD buffer and clip version")
 
         clip_wbd8_subprocess = subprocess.run(
             [
@@ -461,7 +451,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
                 '-clipsrc',
                 f'{huc_directory}/wbd_buffered.gpkg',
                 f'{huc_directory}/wbd8_clp.gpkg',
-                wbd_gpkg_path,
+                input_WBD_filename,
                 input_NHD_WBHD_layer,
             ],
             stdout=subprocess.PIPE,
@@ -470,49 +460,112 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir):
             universal_newlines=True,
         )
 
-        # msg = clip_wbd8_subprocess.stdout
-        # print(f"{huc} : {msg}")
-        # logging.info(f"{huc} : {msg}")
-
-        if clip_wbd8_subprocess.stderr != "":
-            if "ERROR" in clip_wbd8_subprocess.stderr.upper():
-                msg = (
-                    f" - Creating -- {huc_directory}/wbd.gpkg"
-                    f"  ERROR -- details: ({clip_wbd8_subprocess.stderr})"
-                )
-                print(msg)
-                logging.info(msg)
+        sub_proc_stdout = clip_wbd8_subprocess.stdout
+        sub_proc_stderror = clip_wbd8_subprocess.stderr
+        if sub_proc_stderror.lower().startswith("warning") is True:
+            logging.info(f"Warning from ogr clip: {sub_proc_stderror}")
+        elif sub_proc_stderror != "":
+            raise Exception(
+                f"*** {huc} : Error WBD buffer and clip version from ogr for {huc}:"
+                f" Details: {sub_proc_stderror}\n"
+            )
         else:
-            msg = f" - Creating -- {huc_directory}/wbd.gpkg - Complete"
-            print(msg)
+            msg = f"-- {huc} : Creating WBD buffer and clip version - Complete"
+            if sub_proc_stdout != "":  # warnings?
+                msg += f": {sub_proc_stdout}"
+
             logging.info(msg)
 
+        logging.info(f"-- {huc} : Completing Get Vector Layers and Subset:\n")
+
     except Exception:
-        print(f"*** An error occurred while processing {huc}")
-        print(traceback.format_exc())
         logging.info(f"*** An error occurred while processing {huc}")
         logging.info(traceback.format_exc())
-        print()
+        logging.info("")
+        in_error = True
 
     huc_processing_end = dt.datetime.now(dt.timezone.utc)
     time_duration = huc_processing_end - huc_processing_start
-    duraton_msg = f"\t \t run time for huc {huc}: is {str(time_duration).split('.')[0]}"
-    print(duraton_msg)
+    duraton_msg = f"-- {huc} : run time is {str(time_duration).split('.')[0]}\n"
     logging.info(duraton_msg)
-    return
+
+    # if in error return the failed huc number
+    if in_error is True:
+        return huc
+    else:
+        return "Success"
 
 
 if __name__ == '__main__':
+
+    # NOTE: Super important: Make sure the bash_variables are correct before doing pre-clip.
+    # It pulls a wide number of values from there.
+    # Especially if you can a diretory for a new data load.
+    #     ie) DEMS at data/inputs/3dep_dems/10m_5070/20240916/
+    #
+    # TODO below comment is not relevant anymore because especially after the May 2025 refactoring no need to run twice.
+    # You have to run this twice, once for Alaska and once for CONUS
+    # but make sure put both results the same folder
+    # and you will need to submit the two HUC lists
+    # SouthernAlaska_HUC8.lst
+    # included_huc8.lst
+
+    '''
+    Notes:
+    This tool always create the below four boundary covergae files. So no args is used for them.
+        - wbd.gpkg
+        - wbd_buffered.gpkg
+        - wbd8_clp.gpkg
+        - LandSea_subset.gpkg ...this is used to further refine above ? clarify this
+
+    Three stream-related files below are managed using one args of -> --copy_nwm_streams_headwater
+        - wbd_buffered_streams.gpkg
+        - nwm_subset_streams.gpkg
+        - nwm_headwater_points_subset.gpkg
+
+    The following 7 files are managed independently. So, we will have 8 args for copy vs pre-clipping.
+            - "nwm_lakes_proj_subset.gpkg"       ->  --copy_nwm_lakes
+            - "nwm_catchments_proj_subset.gpkg"  ->  --copy_nwm_catchments
+            - "nld_subset_levees.gpkg"           ->  --copy_levee_lines
+            - "3d_nld_subset_levees_burned.gpkg" ->  --copy_levee_lines_burned
+            - "LeveeProtectedAreas_subset.gpkg"  ->  --copy_levee_protected_areas
+            - "osm_bridges_subset.gpkg"          ->  --copy_osm_bridges
+            - "osm_roads_subset.gpkg"            ->  --copy_osm_roads
+
+
+    Example 1:
+        simplest scenario where we preclip all vector data for requetsed HUCs (no copying):
+
+        python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py -u /data/inputs/huc_lists/included_huc8_withAlaska.lst -n outputs/preclips/test5/ -o
+
+    Example 2:
+        if you need to skip preclipping (and instead copy from previous preclips),
+        Always we need to add --copy_from_dir followed by path to the previous preclips results
+        In addition, we can add one or multiple of above 8 arguments:
+
+        python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py \
+            -u /data/inputs/huc_lists/included_huc8_withAlaska.lst \
+            -n outputs/preclips/test6_2/ \
+            -o \
+            --copy_from_dir data/inputs/pre_clip_huc8/20250218/ \
+            --copy_nwm_catchments \
+            --copy_levee_lines_burned \
+            --copy_levee_lines \
+            --copy_nwm_streams_headwater
+    '''
+
     parser = argparse.ArgumentParser(
         description='This script gets WBD layer, calls the clip_vectors_to_wbd.py script, and clips the wbd. '
         'A plethora gpkg files per huc are generated (see args to subset_vector_layers), and placed within '
         'the output directory specified as the <outputs_dir> argument.',
         usage='''
             ./generate_pre_clip_fim_huc8.py
-                -n /data/inputs/pre_clip_huc8/24_3_20
+                -n /data/inputs/pre_clip_huc8/20240927
                 -u /data/inputs/huc_lists/included_huc8_withAlaska.lst
                 -j 6
                 -o
+                --copy_from_dir data/inputs/pre_clip_huc8/20250218/
+                --copy_nwm_catchments --copy_levee_lines_burned --copy_levee_lines --copy_nwm_streams_headwater
         ''',
     )
 
@@ -520,9 +573,10 @@ if __name__ == '__main__':
         '-n',
         '--outputs_dir',
         help='Directory to output all of the HUC level .gpkg files. Use the format: '
-        '<year_month_day> (i.e. September 26, 2023 would be 23_09_26)',
+        '<year_month_day> (i.e. September 26, 2024 would be 20240926)',
     )
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
+
     parser.add_argument(
         '-j',
         '--number_of_jobs',
@@ -540,6 +594,44 @@ if __name__ == '__main__':
         action='store_true',
     )
 
+    parser.add_argument(
+        "--copy_from_dir", help="Directory to copy files from (enables selective copying)", default=None
+    )
+
+    # for any of the entered argument, arg var value is set to True.
+    # If not provided for a layer name, no key-value is created so need to handle it later
+    for copy_arg_option in args_copy_options:
+        parser.add_argument(
+            f"--{copy_arg_option}", action="store_true", help=f"{copy_arg_option} instead of clipping"
+        )
+
     args = vars(parser.parse_args())
 
-    pre_clip_hucs_from_wbd(**args)
+    if args['copy_from_dir']:
+        # if copy argument is not provided, set it to false (so no-copying mode)
+        copying_flags = {
+            copy_arg_option: args.get(f"{copy_arg_option}", False) for copy_arg_option in args_copy_options
+        }
+    else:
+        # No copy mode, nothing is copied
+        copying_flags = {copy_arg_option: False for copy_arg_option in args_copy_options}
+
+        # report if user entered one of the copy arg but not the main switch which is copy_from_dir
+        for copy_arg_option in args_copy_options:
+            if args.get(f"{copy_arg_option}", False):
+                print(f"you entered {copy_arg_option} but forgot to provide copy_from_dir. Try again.")
+                exit(0)
+
+    try:
+        pre_clip_hucs_from_wbd(
+            outputs_dir=args["outputs_dir"],
+            huc_list=args["huc_list"],
+            number_of_jobs=args["number_of_jobs"],
+            overwrite=args["overwrite"],
+            copying_flags=copying_flags,
+            copy_from_dir=args["copy_from_dir"],
+        )
+    except Exception:
+        logging.info(traceback.format_exc())
+        end_time = dt.datetime.now(dt.timezone.utc)
+        logging.info(f"   End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")

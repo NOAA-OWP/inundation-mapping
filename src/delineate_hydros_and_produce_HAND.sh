@@ -62,7 +62,7 @@ echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber $current_branch_id
 gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
     -A $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     -B $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
-    --calc="A/B" \
+    --calc="A*B" \
     --outfile="$tempCurrentBranchDataDir/flowdir_d8_burned_filled_flows_$current_branch_id.tif" \
     --NoDataValue=0
 
@@ -218,6 +218,17 @@ if  [ -f $tempCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
         --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
 fi
 
+## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
+if [ "$healed_hand_hydrocondition" = true ] && [ "$current_branch_id" != "$branch_zero_id" ] ; then
+    echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
+    gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
+        -R $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -D $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+        -T $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+        --calc="R+(D-T)" --NoDataValue=$ndv \
+        --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
+fi
+
 ## HYDRAULIC PROPERTIES ##
 echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"
 $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
@@ -226,7 +237,6 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
     -slp $tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif \
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
     -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
-
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"
@@ -242,15 +252,15 @@ python3 $srcDir/add_crosswalk.py \
     -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv \
     -w $tempHucDataDir/wbd8_clp.gpkg \
     -b $b_arg \
-    -y $tempCurrentBranchDataDir/nwm_catchments_proj_subset.tif \
+    -u $hucNumber \
     -m $manning_n \
-    -z $z_arg \
     -k $tempCurrentBranchDataDir/small_segments_$current_branch_id.csv \
     -e $min_catchment_area \
-    -g $min_stream_length
+    -g $min_stream_length \
+    -i $iris_sword_slope
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
-if [ "$healed_hand_hydrocondition" = true ]; then
+if [ "$healed_hand_hydrocondition" = true ] && [ "$current_branch_id" = "$branch_zero_id" ] ; then
     echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
     gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
         -R $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
@@ -265,13 +275,28 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
     echo -e $startDiv"Burn in bridges $hucNumber $current_branch_id"
     python3 $srcDir/heal_bridges_osm.py \
         -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -d $tempCurrentBranchDataDir/bridge_elev_diff_meters_$current_branch_id.tif \
         -s $tempHucDataDir/osm_bridges_subset.gpkg \
+        -b1 10 \
+        -b2 1.5 \
         -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
-        -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg \
-        -b 10 \
-        -r $res
+        -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg
+
+
 else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
+fi
+
+## Process roads FIMpact ##
+if  [ -f $tempHucDataDir/osm_roads_subset.gpkg ]; then
+    echo -e $startDiv"Process roads FIMpact $hucNumber $current_branch_id"
+    python3 $srcDir/process_roads_fimpact.py \
+        -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        -r $tempHucDataDir/osm_roads_subset.gpkg \
+        -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
+        -o $tempCurrentBranchDataDir/osm_roads_fimpact_$current_branch_id.csv
+else
+    echo -e $startDiv"No osm roads data for $hucNumber"
 fi
 
 ## EVALUATE CROSSWALK ##
@@ -285,3 +310,9 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -u $hucNumber \
         -z $current_branch_id
 fi
+
+## CONVERSION TO INT16 ##
+echo -e $startDiv"Convert GW Catchments and REM to Int16 $hucNumber $current_branch_id"
+python3 $toolsDir/convert_to_int16.py \
+    -b $tempCurrentBranchDataDir
+

@@ -13,5 +13,12 @@ config/**
 config/*.swp
 .vscode/
 **/.DS_Store
-**/*_pytest.py
 .private/
+
+!tools/catfim/*.csv
+!tools/catfim/catfim.env.template
+!data/bridges/*.txt
+
+!**/.ipynb
+**/.ipynb_checkpoints
+**checkpoint.ipynb

@@ -1,8 +1,0 @@
-[tool.pytest.ini_options]
-filterwarnings = [
-    "error",
-    "ignore::UserWarning",
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
-    "ignore::RuntimeWarning",
-]

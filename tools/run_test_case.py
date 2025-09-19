@@ -54,6 +54,9 @@ class Benchmark(object):
     def huc_data(self):
         '''Returns a dict of HUC8, magnitudes, and sites.'''
         huc_mags = {}
+        if not os.path.exists(self.validation_data):
+            return huc_mags
+
         for huc in os.listdir(self.validation_data):
             if not re.match(r'\d{8}', huc):
                 continue
@@ -126,19 +129,30 @@ class Test_Case(Benchmark):
         # Benchmark data path
         self.benchmark_dir = os.path.join(self.validation_data, self.huc)
 
-        # Create list of shapefile paths to use as exclusion areas.
-        self.mask_dict = {
-            'levees': {
-                'path': '/data/inputs/nld_vectors/Levee_protected_areas.gpkg',
-                'buffer': None,
-                'operation': 'exclude',
-            },
-            'waterbodies': {
-                'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
-                'buffer': None,
-                'operation': 'exclude',
-            },
-        }
+        if self.huc[:2] == '19':
+            self.mask_dict = {
+                'levees': {
+                    'path': os.getenv('input_nld_levee_protected_areas_Alaska'),
+                    'buffer': None,
+                    'operation': 'exclude',
+                },
+                'waterbodies': {
+                    # 'path': '/data/inputs/nwm_hydrofabric/nwm_lakes.gpkg',
+                    'path': os.getenv('input_nwm_lakes_Alaska'),
+                    'buffer': None,
+                    'operation': 'exclude',
+                },
+            }
+
+        else:
+            self.mask_dict = {
+                'levees': {
+                    'path': os.getenv('input_nld_levee_protected_areas'),
+                    'buffer': None,
+                    'operation': 'exclude',
+                },
+                'waterbodies': {'path': os.getenv('input_nwm_lakes'), 'buffer': None, 'operation': 'exclude'},
+            }
 
     @classmethod
     def list_all_test_cases(cls, version, archive, benchmark_categories=[]):
@@ -178,6 +192,7 @@ class Test_Case(Benchmark):
         overwrite=True,
         verbose=False,
         gms_workers=1,
+        threads=8,
     ):
         '''Compares a FIM directory with benchmark data from a variety of sources.
 
@@ -199,6 +214,8 @@ class Test_Case(Benchmark):
             If True, prints out all pertinent data.
         gms_workers : int
             Number of worker processes assigned to GMS processing.
+        threads : int
+            Number of threads assigned to GMS processing.
         '''
 
         try:
@@ -263,7 +280,12 @@ class Test_Case(Benchmark):
                 ]:  # instance will be the lid for AHPS sites and '' for other sites
                     # For each site, inundate the REM and compute aggreement raster with stats
                     self._inundate_and_compute(
-                        magnitude, instance, model=model, verbose=verbose, gms_workers=gms_workers
+                        magnitude,
+                        instance,
+                        model=model,
+                        verbose=verbose,
+                        gms_workers=gms_workers,
+                        threads=threads,
                     )
 
                 # Clean up 'total_area' outputs from AHPS sites
@@ -283,7 +305,7 @@ class Test_Case(Benchmark):
             sys.exit(1)
 
     def _inundate_and_compute(
-        self, magnitude, lid, compute_only=False, model='', verbose=False, gms_workers=1
+        self, magnitude, lid, compute_only=False, model='', verbose=False, gms_workers=1, threads=8
     ):
         '''Method for inundating and computing contingency rasters as part of the alpha_test.
         Used by both the alpha_test() and composite() methods.
@@ -335,13 +357,18 @@ class Test_Case(Benchmark):
         # Inundate REM
         if not compute_only:  # composite alpha tests don't need to be inundated
             if model == "GMS":
+
                 produce_mosaicked_inundation(
-                    os.path.dirname(self.fim_dir),
-                    self.huc,
-                    benchmark_flows,
+                    hydrofabric_dir=os.path.dirname(self.fim_dir),
+                    hucs=self.huc,
+                    flow_file=benchmark_flows,
                     inundation_raster=predicted_raster_path,
                     mask=os.path.join(self.fim_dir, "wbd.gpkg"),
                     verbose=verbose,
+                    num_threads=threads,
+                    num_workers=gms_workers,
+                    windowed=True,
+                    gms_multi_process=True,
                 )
 
             # FIM v3 and before
@@ -398,6 +425,7 @@ class Test_Case(Benchmark):
         overwrite=True,
         verbose=False,
         gms_workers=1,
+        threads=8,
     ):
         '''Class method for instantiating the test_case class and running alpha_test directly'''
 
@@ -411,6 +439,7 @@ class Test_Case(Benchmark):
             overwrite,
             verbose,
             gms_workers,
+            threads,
         )
 
     def composite(self, version_2, calibrated=False, overwrite=True, verbose=False):
@@ -528,6 +557,6 @@ class Test_Case(Benchmark):
                 continue
 
             for f in os.listdir(mag_dir):
-                if 'agreement.tif' in f:
+                if f.endswith('agreement.tif'):  # sometimes there are {xxxx}.tif.aux.xml
                     agreement_list.append(os.path.join(mag_dir, f))
         return agreement_list

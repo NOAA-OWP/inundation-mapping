@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -17,6 +16,8 @@ from utils.shared_variables import PREP_PROJECTION
 gpd.options.io_engine = "pyogrio"
 
 
+# TODO: Jun 2025: Change this to have a path to the config via an arg.
+# See rating_curve_get_usgs_curves for an example
 load_dotenv()
 # import variables from .env file
 API_BASE_URL = os.getenv("API_BASE_URL")
@@ -122,7 +123,7 @@ def generate_nws_lid(workspace):
     nws_lid_gdf.reset_index(drop=True)
     Path(workspace).mkdir(parents=True, exist_ok=True)
     nws_lid_gdf.dropna(subset=['nwm_feature_id'], inplace=True)
-    nws_lid_gdf.to_file(Path(workspace) / 'nws_lid.gpkg', driver='GPKG')
+    nws_lid_gdf.to_file(Path(workspace) / 'nws_lid.gpkg', driver='GPKG', engine='fiona')
 
 
 if __name__ == '__main__':

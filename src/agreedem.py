@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import sys
 
 import numpy as np
 import rasterio
 import whitebox
+
+from utils.fim_enums import FIM_exit_codes
 
 
 def agreedem(
@@ -50,6 +53,7 @@ def agreedem(
     # Set wbt envs
     wbt = whitebox.WhiteboxTools()
     wbt.set_verbose_mode(False)
+    wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
     # ------------------------------------------------------------------
     # 1. From Hellweger documentation: Compute the vector grid
@@ -70,6 +74,7 @@ def agreedem(
         vectallo_grid = os.path.join(workspace, 'agree_smogrid_allo.tif')
 
         # Windowed reading/calculating/writing
+        smogrid_valid = False  # Flag to check if smogrid has any data.
         with rasterio.Env():
             with rasterio.open(smo_output, 'w', **smo_profile) as raster:
                 for ji, window in elev.block_windows(1):
@@ -94,6 +99,13 @@ def agreedem(
 
                     # Write out raster
                     raster.write(smogrid_window.astype('float32'), indexes=1, window=window)
+
+                    if len(smogrid_window[smogrid_window != 0]) > 0:
+                        smogrid_valid = True
+
+        # If smogrid has no data, raise an error.
+        if not smogrid_valid:
+            sys.exit(FIM_exit_codes.NO_FLOWLINES_EXIST.value)  # will send a 61 back
 
         # ------------------------------------------------------------------
         # 3. From Hellweger documentation: Compute the vector distance grids

@@ -38,9 +38,6 @@ def accumulate_flow(
         data = src.read(1)
         nodata = src.nodata
         profile = src.profile
-        # transform = src.transform
-        # crs = src.crs
-        # latlon = crs.to_epsg() == 4326
 
     # Convert the TauDEM flow direction raster to a pyflwdir flow direction array
     temp = data.copy()
@@ -55,9 +52,13 @@ def accumulate_flow(
     temp[data == 8] = 2
     temp[data == nodata] = 247
 
+    del data
+
     temp = temp.astype(np.uint8)
 
     flw = pyflwdir.from_array(temp, ftype='d8')
+
+    del temp
 
     # Read the flow direction raster
     with rio.open(headwaters_filename) as src:
@@ -65,6 +66,8 @@ def accumulate_flow(
         nodata = src.nodata
 
     flowaccum = flw.accuflux(headwaters, nodata=nodata, direction='up')
+
+    del flw
 
     stream = np.where(flowaccum > 0, flow_accumulation_threshold, 0)
 
@@ -75,6 +78,8 @@ def accumulate_flow(
     ) as dst2:
         dst.write(flowaccum, 1)
         dst2.write(stream, 1)
+
+    del flowaccum, stream
 
 
 if __name__ == '__main__':

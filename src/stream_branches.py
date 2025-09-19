@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 from collections import deque
 from os.path import isfile, splitext
 from random import sample
@@ -15,10 +16,11 @@ from rasterio.io import DatasetReader
 from rasterio.mask import mask
 from scipy.stats import mode
 from shapely.geometry import LineString, MultiLineString, MultiPoint, Point
-from shapely.ops import linemerge
+from shapely.ops import linemerge, unary_union
 from shapely.strtree import STRtree
 from tqdm import tqdm
 
+from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import PREP_CRS
 
 
@@ -134,7 +136,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         driverDictionary = {".gpkg": "GPKG", ".geojson": "GeoJSON", ".shp": "ESRI Shapefile"}
         driver = driverDictionary[splitext(fileName)[1]]
 
-        self.to_file(fileName, driver=driver, layer=layer, index=index)
+        self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
 
     def set_index(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute
@@ -179,6 +181,22 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         self = super(gpd.GeoDataFrame, self)
         self = self.drop(labels=labels, axis=axis)
+
+        self = StreamNetwork(
+            self,
+            branch_id_attribute=branch_id_attribute,
+            attribute_excluded=attribute_excluded,
+            values_excluded=values_excluded,
+        )
+        return self
+
+    def rename(self, columns):
+        branch_id_attribute = self.branch_id_attribute
+        attribute_excluded = self.attribute_excluded
+        values_excluded = self.values_excluded
+
+        self = super(gpd.GeoDataFrame, self)
+        self = self.rename(columns=columns)
 
         self = StreamNetwork(
             self,
@@ -447,24 +465,24 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return self
 
-    def derive_inlet_points_by_feature(self, feature_attribute, outlet_linestring_index):
+    def derive_inlet_points_by_feature(self, branch_id_attribute, outlet_linestring_index):
         """Finds the upstream point of every feature in the stream network"""
 
         inlet_linestring_index = StreamNetwork.flip_inlet_outlet_linestring_index(outlet_linestring_index)
 
         feature_inlet_points_gdf = gpd.GeoDataFrame(self.copy())
 
-        self_copy = self.copy()
+        self_ref = self.copy()
 
-        for idx in self_copy.index:
-            row = self_copy.loc[[idx]]
+        for idx in self_ref.index:
+            row = self_ref.loc[[idx]]
             if row.geom_type[idx] == "MultiLineString":
                 # Convert MultiLineString to LineString
                 row = row.explode(index_parts=False)
-                row.loc[row["levpa_id"].duplicated(), "levpa_id"] = np.nan
-                row = row.dropna(subset=["levpa_id"])
+                row.loc[row[branch_id_attribute].duplicated(), branch_id_attribute] = np.nan
+                row = row.dropna(subset=[branch_id_attribute])
 
-            feature_inlet_point = Point(row.geometry[0].coords[inlet_linestring_index])
+            feature_inlet_point = Point(row.geometry[idx].coords[inlet_linestring_index])
 
             feature_inlet_points_gdf.loc[idx, "geometry"] = feature_inlet_point
 
@@ -568,7 +586,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return self
 
-    def trim_branches_in_waterbodies(self, branch_id_attribute, verbose=False):
+    def trim_branches_in_waterbodies(self, wbd, branch_id_attribute, verbose=False):
         """
         Recursively trims the reaches from the ends of the branches if they are in a
         waterbody (determined by the Lake attribute).
@@ -629,6 +647,14 @@ class StreamNetwork(gpd.GeoDataFrame):
         for branch in self[branch_id_attribute].astype(int).unique():
             tmp_self = self[self[branch_id_attribute].astype(int) == branch]
 
+            # load waterbodies
+            if isinstance(wbd, str):
+                wbd = gpd.read_file(wbd)
+
+            # trim only branches in WBD (to prevent outlet from being trimmed)
+            if isinstance(wbd, gpd.GeoDataFrame):
+                tmp_self = gpd.sjoin(tmp_self, wbd)
+
             # If entire branch is in waterbody
             if all(tmp_self.Lake.values != -9999):
                 tmp_IDs = tmp_self.From_Node.astype(int)
@@ -645,7 +671,9 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return self
 
-    def remove_branches_in_waterbodies(self, waterbodies, out_vector_files=None, verbose=False):
+    def remove_branches_in_waterbodies(
+        self, waterbodies, branch_id_attribute, out_vector_files=None, verbose=False
+    ):
         """
         Removes branches completely in waterbodies
         """
@@ -658,15 +686,20 @@ class StreamNetwork(gpd.GeoDataFrame):
             waterbodies = gpd.read_file(waterbodies)
 
         if isinstance(waterbodies, gpd.GeoDataFrame):
+            if 'OBJECTID' in waterbodies.columns:
+                waterbodies = waterbodies.drop('OBJECTID', axis=1)
+
             # Find branches in waterbodies
+            self = self.rename(columns={branch_id_attribute: "bids"})
             sjoined = gpd.sjoin(self, waterbodies, predicate="within")
             self = self.drop(sjoined.index)
+            self = self.rename(columns={"bids": branch_id_attribute})
 
-            if out_vector_files is not None:
-                if verbose:
-                    print("Writing pruned branches ...")
+            # if out_vector_files is not None:
+            #     if verbose:
+            #         print("Writing pruned branches ...")
 
-                self.write(out_vector_files, index=False)
+            # self.write(out_vector_files, index=False)
 
         return self
 
@@ -693,7 +726,9 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         if isinstance(wbd, gpd.GeoDataFrame):
             # Find branches intersecting HUC
+            self = self.rename(columns={branch_id_attribute: "bids"})
             sjoined = gpd.sjoin(self, wbd, predicate="intersects")
+            self = self.rename(columns={"bids": branch_id_attribute})
 
             self = self[self.index.isin(sjoined.index.values)]
 
@@ -707,6 +742,14 @@ class StreamNetwork(gpd.GeoDataFrame):
             if out_vector_files is not None:
                 if verbose:
                     print("Writing selected branches ...")
+
+                if self.empty:
+                    print(
+                        "Sorry, no streams exist and processing can not continue. This could be an empty file."
+                    )
+                    # sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
+                    return self
+                    # sys.exit(FIM_exit_codes.NO_BRANCH_LEVELPATHS_EXIST.value)  # will send a 63 back
 
                 self.write(out_vector_files, index=False)
 
@@ -946,6 +989,289 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         return self
 
+    def extend_branches(
+        self,
+        wbd,
+        branch_id_attribute="LevelPathI",
+        attribute_excluded="StreamOrde",
+        values_excluded=[1, 2],
+        out_vector_files=None,
+        verbose=False,
+    ) -> gpd.GeoDataFrame:
+        """
+        Extends branches downstream to the outlet, and then downstream to the end of the main levelpath,
+        to eliminate the possibility of reverse flow caused by the "bathtub" effect during the slope adjustment
+        in adjust_floodplains.py
+
+        Parameters
+        ----------
+        wbd : str
+            Path to the watershed boundary dataset
+        branch_id_attribute : str
+            Branch ID attribute
+        attribute_excluded : str
+            Attribute to exclude
+        values_excluded : list
+            Values to exclude
+        out_vector_files : str
+            Path to output vector files
+        verbose : bool
+            Verbose output
+
+        Returns
+        -------
+        GeoDataFrame
+            Extended stream network
+        """
+
+        def extend_levelpaths_to_outlet(
+            df: gpd.GeoDataFrame,
+            df_ref: gpd.GeoDataFrame,
+            outlet_id: int,
+            branch_id: int,
+            branch_id_attribute: str,
+            order: int,
+        ) -> gpd.GeoDataFrame:
+            """
+            Recursively extends levelpaths to the outlet
+
+            Parameters
+            ----------
+            df : GeoDataFrame
+                Modified stream network GeoDataFrame
+            df_ref : GeoDataFrame
+                Reference stream network GeoDataFrame
+            outlet_id : int
+                Outlet segment ID
+            branch_id : int
+                Branch ID
+            branch_id_attribute : str
+                Branch ID attribute
+            order : int
+                Stream order
+
+            Returns
+            -------
+            GeoDataFrame
+                Extended stream network GeoDataFrame
+            """
+
+            # Get downstream ID
+            to = df_ref.loc[df_ref.ID == outlet_id, 'to']
+
+            # while outlets exist
+            if to.isin(df.ID).item():
+                df_ds = df_ref.copy(deep=True)
+                df_ds = df_ds[df_ds.ID == to.values[0]]
+
+                # Keep branch_id and order of the original outlet
+                df_ds.loc[df_ds.ID == to.item(), branch_id_attribute] = branch_id
+                df_ds.loc[df_ds.ID == to.item(), 'order_'] = order
+
+                df = pd.concat([df, df_ds], ignore_index=True)
+
+                # find the next downstream segment
+                for df_ds_ID in df_ds.ID.values:
+                    # recursively extend levelpaths
+                    df = extend_levelpaths_to_outlet(
+                        df, df_ref, df_ds_ID, branch_id, branch_id_attribute, order
+                    )
+
+            return df
+
+        def add_outlet_segments(
+            self_extended: gpd.GeoDataFrame,
+            self_ref: gpd.GeoDataFrame,
+            outlet_id: int,
+            ds_outlet_tuple: tuple,
+            extended_id: int = None,
+        ) -> gpd.GeoDataFrame:
+            """
+            Recursively adds outlet segments to the stream network
+
+            Parameters
+            ----------
+            self_extended : GeoDataFrame
+                Dissolved tream network GeoDataFrame
+            self_ref : GeoDataFrame
+                Stream network GeoDataFrame
+            outlet_id : int
+                Outlet segment ID
+            ds_outlet_tuple : tuple
+                Outlet segment tuple
+            extended_id : int, optional
+                Extended segment ID, by default None
+
+            Returns
+            -------
+            GeoDataFrame
+                Stream network with outlet segments
+            """
+
+            if not extended_id:
+                extended_id = outlet_id
+
+            # add outlet segment to stream network
+            idx = (self_extended[branch_id_attribute] == outlet.levpa_id) & (self_extended['ID'] == outlet.ID)
+
+            if self_extended.loc[idx].empty:
+                idx = self_extended['ID'] == extended_id
+
+            extended_gs = gpd.GeoSeries(
+                [self_extended.loc[idx, 'geometry'].item(), ds_outlet_tuple.geometry]
+            ).line_merge()
+
+            if isinstance(extended_gs[0], MultiLineString):
+                self_extended.loc[idx, 'geometry'] = MultiLineString(
+                    [linestring for linestring in extended_gs[0].geoms] + [extended_gs[1]]
+                )
+            else:
+                self_extended.loc[idx, 'geometry'] = MultiLineString(
+                    [extended_gs[0].coords, extended_gs[1].coords]
+                )
+
+            if ds_outlet_tuple.to in self_ref.ID.values:
+                # find the next downstream segment
+                outlet_id = ds_outlet_tuple.to
+                for ds_outlet_tuple in self_ref[self_ref.ID == ds_outlet_tuple.to].itertuples():
+
+                    # recursively add outlet segments
+                    self_extended = add_outlet_segments(
+                        self_extended, self_ref, outlet_id, ds_outlet_tuple, extended_id
+                    )
+
+            return self_extended
+
+        if verbose:
+            print("Extending branches ...")
+
+        # Make a copy of the stream network for reference attributes
+        self_ref = self.copy(deep=True)
+
+        # exclude attributes and their values
+        if (attribute_excluded is not None) & (values_excluded is not None):
+            values_excluded = set(values_excluded)
+            exclude_indices = [False if i in values_excluded else True for i in self[attribute_excluded]]
+            self = self.loc[exclude_indices, :]
+
+        wbd = gpd.read_file(wbd)
+        wbd = wbd.drop(
+            columns=[
+                'shape_Length',
+                'metasourceid',
+                'sourcedatadesc',
+                'sourceoriginator',
+                'sourcefeatureid',
+                'loaddate',
+                'referencegnis_ids',
+            ],
+            axis=1,
+        )
+
+        # Filter segments that are in the HUC
+        self_in_wbd = gpd.sjoin(self, wbd)
+        self_in_wbd = self_in_wbd.drop('index_right', axis=1)
+
+        # # Find downstream segments outside of WBD
+        # self_not_in_wbd = self_ref[~self_ref['ID'].isin(self_in_wbd['ID'])]
+
+        # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
+        sjoin = gpd.sjoin(self_in_wbd, wbd, predicate='crosses')  # this finds both inflows and outflows
+
+        outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
+
+        # if outflows.empty:
+        #     # Alternate method -- when there are no segments downstream of any outlets
+        #     outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
+
+        if outflows.empty:
+            self.write(out_vector_files, index=False)
+            return self
+
+        # ensure the new stream order has the order from it's highest child
+        max_stream_order = (
+            self_ref[[branch_id_attribute, "order_"]].groupby(branch_id_attribute).max()["order_"].copy()
+        )
+
+        # Extend each levelpath to the outlet
+        for levelpath in self_in_wbd[branch_id_attribute].unique():
+            # Select segments in levelpath
+            levelpath_df = self[self[branch_id_attribute] == levelpath]
+
+            # Find levelpath outlet ('to' not in 'ID')
+            levelpath_outlet = levelpath_df[~levelpath_df.to.isin(levelpath_df.ID)]
+
+            # Get the order of the levelpath outlet
+            order = max_stream_order[max_stream_order.index == levelpath].values[0]
+
+            # Extend levelpath_outlet
+            self = extend_levelpaths_to_outlet(
+                self, self_ref, levelpath_outlet.ID.values[0], levelpath, branch_id_attribute, order
+            )
+
+        # For each outlet
+        for outlet in outflows.itertuples():
+            # Select segments in levelpath
+            temp_df = self[self[branch_id_attribute] == outlet.levpa_id]
+
+            # Check if the levelpath outlet is external
+            if not len(temp_df.merge(self_in_wbd, left_on='to', right_on='ID')) == len(temp_df):
+                outlet_stream = self_in_wbd.loc[self_in_wbd['to'] == outlet.ID, 'ID']
+                if not outlet_stream.empty:
+                    outlet_id = outlet_stream.values[0]
+                    self = add_outlet_segments(self, self_ref, outlet_id, outlet)
+
+        # merges each multi-line string to a singular linestring
+        for lpid, row in tqdm(
+            self.iterrows(), total=len(self), disable=(not verbose), desc="Merging mult-part geoms"
+        ):
+            if isinstance(row.geometry, MultiLineString):
+                merged_line = linemerge(row.geometry)
+
+                # self.loc[lpid,'geometry'] = merged_line
+                try:
+                    self.loc[lpid, "geometry"] = merged_line
+                except ValueError:
+                    merged_line = list(merged_line.geoms)[0]
+                    self.loc[lpid, "geometry"] = merged_line
+
+        # self = StreamNetwork(
+        #     self,
+        #     branch_id_attribute=branch_id_attribute,
+        #     attribute_excluded=attribute_excluded,
+        #     values_excluded=values_excluded,
+        # )
+
+        # # merges each multi-line string to a singular linestring
+        # for lpid, row in tqdm(
+        #     self.iterrows(), total=len(self), disable=(not verbose), desc="Merging mult-part geoms"
+        # ):
+        #     if isinstance(row.geometry, MultiLineString):
+        #         merged_line = linemerge(row.geometry)
+
+        #         # self.loc[lpid,'geometry'] = merged_line
+        #         try:
+        #             self.loc[lpid, "geometry"] = merged_line
+        #         except ValueError:
+        #             merged_line = list(merged_line.geoms)[0]
+        #             self.loc[lpid, "geometry"] = merged_line
+
+        if isinstance(self, gpd.GeoDataFrame):
+            # self[branch_id_attribute] = bids
+            self = StreamNetwork(
+                self,
+                branch_id_attribute=branch_id_attribute,
+                attribute_excluded=attribute_excluded,
+                values_excluded=values_excluded,
+            )
+
+        if verbose:
+            print("Writing dissolved branches ...")
+
+        self.write(out_vector_files, index=False)
+
+        return self
+
     def dissolve_by_branch(
         self,
         branch_id_attribute="LevelPathI",
@@ -1000,8 +1326,8 @@ class StreamNetwork(gpd.GeoDataFrame):
         if out_vector_files is not None:
             # base_file_path,extension = splitext(out_vector_files)
 
-            if verbose:
-                print("Writing dissolved branches ...")
+            # if verbose:
+            #     print("Writing dissolved branches ...")
 
             # for bid in tqdm(self.loc[:,branch_id_attribute],total=len(self),disable=(not verbose)):
             # out_vector_file = "{}_{}{}".format(base_file_path,bid,extension)
@@ -1010,9 +1336,10 @@ class StreamNetwork(gpd.GeoDataFrame):
             # current_stream_network = StreamNetwork(self.loc[bid_indices,:])
 
             # current_stream_network.write(out_vector_file,index=False)
-            self.write(out_vector_files, index=False)
+            # Save the output only in "select_branches_intersecting_huc" function, where we ensure the level path intersects the huc.
+            # self.write(out_vector_files, index=False)
 
-        return self
+            return self
 
     def derive_segments(self, inlets_attribute="inlet_id", reach_id_attribute="ID"):
         pass

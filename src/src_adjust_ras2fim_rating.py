@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from src_roughness_optimization import update_rating_curve
-from utils.shared_functions import check_file_age, concat_huc_csv
+from utils.shared_functions import check_file_age, concat_huc_csv, find_matching_subdirectories
 
 
 '''
@@ -47,22 +47,26 @@ Outputs
 '''
 
 
-def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_filepath, log_dir):
+def create_ras2fim_rating_database(huc_ras_input_file, ras_elev_df, nwm_recurr_filepath, log_dir):
     start_time = dt.datetime.now()
     print('Reading RAS2FIM rating curves from csv...')
     log_text = 'Processing database for RAS2FIM flow/WSE at NWM flow recur intervals...\n'
-    col_filter = ["fid_xs", "flow", "wse"]
+    # Note that we are using flow_cfs not flow_cms (error in raw data)
+    col_filter = ["fid_xs", "flow_cfs", "wse_m"]
     ras_rc_df = pd.read_csv(
-        ras_rc_filepath, dtype={'fid_xs': object}, usecols=col_filter, encoding="unicode_escape"
+        huc_ras_input_file, dtype={'fid_xs': object}, usecols=col_filter, encoding="unicode_escape"
     )  # , nrows=30000)
     ras_rc_df.rename(columns={'fid_xs': 'location_id'}, inplace=True)
     # ras_rc_df['location_id'] = ras_rc_df['feature_id'].astype(object)
-    print('Duration (read ras_rc_csv): {}'.format(dt.datetime.now() - start_time))
+    run_time = dt.datetime.now() - start_time
+    print(f"Duration (read ras_rc_csv): {str(run_time).split('.')[0]}")
 
-    # convert WSE navd88 values to meters
-    ras_rc_df.rename(
-        columns={'wse': 'wse_navd88_m', 'flow': 'discharge_cms'}, inplace=True
-    )  # assume ras2fim elevation data in feet
+    # rename WSE column
+    ras_rc_df.rename(columns={'wse_m': 'wse_navd88_m'}, inplace=True)
+
+    # Need to use the flow_cfs because there is an error in the raw flow_cms
+    ras_rc_df['discharge_cms'] = ras_rc_df['flow_cfs'] * 0.0283168
+    ras_rc_df = ras_rc_df.drop(columns=["flow_cfs"])
 
     # read in the aggregate RAS elev table csv
     start_time = dt.datetime.now()
@@ -89,7 +93,8 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
 
     # read in the NWM recurr csv file
     nwm_recur_df = pd.read_csv(nwm_recurr_filepath, dtype={'feature_id': int})
-    nwm_recur_df = nwm_recur_df.drop(columns=["Unnamed: 0"])
+    if "Unnamed: 0" in nwm_recur_df.columns:
+        nwm_recur_df = nwm_recur_df.drop(columns=["Unnamed: 0"])
     nwm_recur_df.rename(
         columns={
             '2_0_year_recurrence_flow_17C': '2_0_year',
@@ -97,21 +102,18 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
             '10_0_year_recurrence_flow_17C': '10_0_year',
             '25_0_year_recurrence_flow_17C': '25_0_year',
             '50_0_year_recurrence_flow_17C': '50_0_year',
-            '100_0_year_recurrence_flow_17C': '100_0_year',
         },
         inplace=True,
     )
 
     # convert cfs to cms (x 0.028317)
-    nwm_recur_df.loc[
-        :, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year', '100_0_year']
-    ] *= 0.028317
+    nwm_recur_df.loc[:, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year']] *= 0.028317
 
     # merge nwm recurr with ras_rc_df
     merge_df = ras_rc_df.merge(nwm_recur_df, how='left', on='feature_id')
 
     # NWM recurr intervals
-    recurr_intervals = ["2", "5", "10", "25", "50", "100"]  # "2","5","10","25","50","100"
+    recurr_intervals = ["2", "5", "10", "25", "50"]  # "2","5","10","25","50","100"
     final_df = pd.DataFrame()  # create empty dataframe to append flow interval dataframes
     for interval in recurr_intervals:
         log_text += '\n\nProcessing: ' + str(interval) + '-year NWM recurr intervals\n'
@@ -197,10 +199,10 @@ def create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_file
     return final_df
 
 
-def branch_proc_list(ras_df, run_dir, debug_outputs_option, log_file):
+def branch_proc_list(ras_df, huc_run_dir, debug_outputs_option, log_file):
     procs_list = []  # Initialize list for mulitprocessing.
 
-    # loop through all unique level paths that have a USGS gage
+    # loop through all unique level paths that have a ras2fim data points
     huc_branch_dict = ras_df.groupby('huc')['levpa_id'].apply(set).to_dict()
 
     for huc in sorted(
@@ -211,7 +213,7 @@ def branch_proc_list(ras_df, run_dir, debug_outputs_option, log_file):
             # Define paths to branch HAND data.
             # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
             # Assumes outputs are for HUC8 (not HUC6)
-            branch_dir = os.path.join(run_dir, huc, 'branches', branch_id)
+            branch_dir = os.path.join(huc_run_dir, 'branches', branch_id)
             hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
             catchments_path = os.path.join(
                 branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
@@ -303,13 +305,9 @@ def branch_proc_list(ras_df, run_dir, debug_outputs_option, log_file):
     #     )
 
 
-def run_prep(run_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number):
+def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number):
     ## Check input args are valid
     assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
-
-    ## Create an aggregate dataframe with all ras_elev_table.csv entries for hucs in fim_dir
-    print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv files...')
-    csv_name = 'ras_elev_table.csv'  # file name to search for ras location data (in the huc/branch dirs)
 
     available_cores = multiprocessing.cpu_count()
     if job_number > available_cores:
@@ -333,25 +331,52 @@ def run_prep(run_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    ras_elev_df = concat_huc_csv(run_dir, csv_name)
+    hucs_with_data = find_matching_subdirectories(run_dir, ras_input_dir)
+    if len(hucs_with_data) == 0:
+        print('ALERT: Did not find any HUCs with ras2fim data to perform adjustments')
+        log_file.write('ALERT: Did not find any HUCs with ras2fim data to perform adjustments\n')
+        return
 
-    if ras_elev_df is None:
-        warn_err = 'WARNING: ras_elev_df not created - check that ' + csv_name + ' files exist in fim_dir!'
-        print(warn_err)
-        log_file.write(warn_err)
+    log_file.write('RAS2FIM data available and will perform SRC adjustments for hucs:\n')
+    log_file.write(str(hucs_with_data))
+    log_file.write('\n#########################################################\n\n')
+    for huc in hucs_with_data:
+        huc_run_dir = os.path.join(run_dir, huc)
+        huc_ras_input_file = os.path.join(huc_run_dir, ras_rc_filepath)
+        ## Create an aggregate dataframe with all ras_elev_table.csv entries for hucs in fim_dir
+        print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv files...')
+        csv_elev = 'ras_elev_table.csv'  # file name to search for ras location data (in the huc/branch dirs)
+        # ras_elev_df = concat_huc_csv(huc_run_dir, csv_elev)
+        ras_elev_df = pd.read_csv(
+            os.path.join(huc_run_dir, 'ras_elev_table.csv'),
+            dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
+        )
 
-    elif ras_elev_df.empty:
-        warn_err = 'WARNING: ras_elev_df is empty - check that ' + csv_name + ' files exist in fim_dir!'
-        print(warn_err)
-        log_file.write(warn_err)
+        ## Create an aggregate dataframe with all ras2fim rating curve csv files
+        # print('Reading RAS2FIM rating curves csv files from the input directory...')
+        # ras_rating_df = concat_huc_csv(ras_input_dir, ras_rc_filepath)
 
-    else:
-        print('This may take a few minutes...')
-        log_file.write("starting create RAS2FIM rating db")
-        ras_df = create_ras2fim_rating_database(ras_rc_filepath, ras_elev_df, nwm_recurr_filepath, log_dir)
+        if ras_elev_df is None:
+            warn_err = (
+                'WARNING: ras_elev_df not created - check that ' + csv_elev + ' files exist in fim_dir!'
+            )
+            print(warn_err)
+            log_file.write(warn_err)
 
-        ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
-        branch_proc_list(ras_df, run_dir, debug_outputs_option, log_file)
+        elif ras_elev_df.empty:
+            warn_err = 'WARNING: ras_elev_df is empty - check that ' + csv_elev + ' files exist in fim_dir!'
+            print(warn_err)
+            log_file.write(warn_err)
+
+        else:
+            print('This may take a few minutes...')
+            log_file.write("starting create RAS2FIM rating db")
+            ras_df = create_ras2fim_rating_database(
+                huc_ras_input_file, ras_elev_df, nwm_recurr_filepath, log_dir
+            )
+
+            ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
+            branch_proc_list(ras_df, huc_run_dir, debug_outputs_option, log_file)
 
     ## Record run time and close log file
     log_file.write('#########################################################\n\n')
@@ -371,9 +396,12 @@ if __name__ == '__main__':
     )
     parser.add_argument('-run_dir', '--run-dir', help='Parent directory of FIM run.', required=True)
     parser.add_argument(
+        '-ras_input', '--ras2fim-dir', help='Path to RAS2FIM rating curve input directory', required=True
+    )
+    parser.add_argument(
         '-ras_rc',
         '--ras2fim-ratings',
-        help='Path to RAS2FIM rating curve (reach avg) csv file',
+        help='CSV file name for RAS2FIM rating curve (reach avg)',
         required=True,
     )
     parser.add_argument(
@@ -395,10 +423,11 @@ if __name__ == '__main__':
     ## Assign variables from arguments.
     args = vars(parser.parse_args())
     run_dir = args['run_dir']
+    ras_input_dir = args['ras2fim_dir']
     ras_rc_filepath = args['ras2fim_ratings']
     nwm_recurr_filepath = args['nwm_recur']
     debug_outputs_option = args['extra_outputs']
     job_number = int(args['job_number'])
 
     ## Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(run_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number)
+    run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, job_number)

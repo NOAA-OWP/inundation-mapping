@@ -1,8 +1,0 @@
-{
-    "valid_data": {
-        "fim_dir": "/data/outputs/unit_test_data"
-    },
-    "invalid_path": {
-        "fim_dir": "/data/outputs/check_errors_example_unit_tests_not_not_valid"
-    }
-}

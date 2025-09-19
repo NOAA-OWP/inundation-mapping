@@ -38,7 +38,7 @@ VIZ_PROJECTION = (
     '0.0174532925199433]],PROJECTION["Mercator_Auxiliary_Sphere"],PARAMETER["False_Easting",0.0],'
     'PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",0.0],PARAMETER["Standard_Parallel_1",0.0],'
     'PARAMETER["Auxiliary_Sphere_Type",0.0],UNIT["Meter",1.0]]'
-)
+)  # 3857
 
 # -- Data URLs-- #
 NHD_URL_PARENT = r'https://prd-tnm.s3.amazonaws.com/StagedProducts/Hydrography/NHDPlusHR/Beta/GDB/'
