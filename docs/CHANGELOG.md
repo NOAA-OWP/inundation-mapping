@@ -1,6 +1,41 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
+
+Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
+
+A couple of other minor updates were done related to this:
+- Add the new `shared_function` `run_with_mp` and `setup_mp_file_logger`.  In implementation of that system, a few updates and adjustments were added/required.
+    - It original needed child mp tasks to return either True or False. This one needed to return a dataframe. 
+    - We also found that originally it determined that the mp tasks was either True / False meaning success or fail. If fail, it optionally may want to shut down the entire script.  This script has three status: Success, Fail but continue or Fail and shut down the script. This script needed to have both options available for each task to decide if it was an "acceptable" fail or a "catastrophic" fail. A "status" return code system was added to handle the three scenarios of what each child mp task could return.
+    - Forced shutdowns of processpools and thread queues is well known to be tricky. A lot of factors can play into when and how catastrophic fails. Depending on what code objects any companies has in their code requires different strategies to handle full shut downs.  In our case, it was a bit trickier than normal because of the combination of the processpool, tqdm and the screen queue. With lots of testing and experimentation, we now have a stronger system helping reducing the risk of the app hanging, orphaned threads or memory leaks. Note: It is not perfect and never will be. CTRL-C is now handled better but it will never be perfect. As with all of our scripts, product wide, whenever you use CTRL-C to abort, and you may have to do it a number of times, you need to close your docker container and restart to fully clean it up.
+     - With the change of returns for `run_with_mp` and it's tasks, we went back to adjust all current scripts using this system and fixed them. Minor adjustments were made to all three scripts: `make_dem_difs_for_bridges.py`,  `pull_osm_roads.py` and `download_fema_nfhl.py`.  All three were stub tested to ensure their small code adjustments were fine.
+ - Another change: The file was _renamed from rating_curve_get_usgs_curves.py to get_usgs_rating_curves.py_.  Some other files had note changed to reflect the updated file name.
+ - `get_usgs_rating_curves.py` picked up a major upgrade on logging including more details of what failed, when and details to details to help show what record id's were being processed when failed.
+ - A bug was found and fixed in `tools_shared_functions.py`.
+
+A full new valid set of usgs_rating_curve data files was created, will be copied to all enviros and bash_variables.env updated to reflect the new set.
+
+### Renamed files:
+-  Was: `data\usgs\rating_curve_get_usgs_curves.py`   to  `data\usgs\get_usgs_rating_curves.py`,
+
+### Files updated related to file name change (all just note updates):
+- `data\nws\preprocess_ahps_nws.py`,   `data\usgs\preprocess_ahps_usgs.py`,  `src\src_adjust_usgs_rating_trace.py`, `tools\fimr_to_benchmark.py`, `tools\generate_nws_lid.py` and `tools\rating_curve_comparison.py`
+
+### Changes
+- `data`
+    - `bridges\make_dem_dif_for_bridges.py`:  Updated for return values to `run_with_mp` shared functions.
+    - `nflh\download_fema_nfhl.py`: Updated for return values to `run_with_mp` shared functions.
+    - `roads\pull_osm_roads.py`: Updated for return values to `run_with_mp` shared functions.
+    - `usgs\get_usgs_rating_curve.py`:  as described above.
+
+- `pyproject.toml`: Updated linting rules doc to reflect the new get_usgs_rating_curve.py file name.
+- `src\bash_variables.env`: Updated for new path for the new usgs rating curve files
+- `src\utils\shared_functions`: In addition to the updates mentioned above for `run_with_mp`, the function named `setup_mp_file_logger` was updated to make an error file to help identify errors that occur. Logging types of both error and critical now show up in the regular log, but are copied into the new "error" log files to help bring the error(s) to attention. A new function named `setup_file_logger` was added which is nearly identical to the previous existing `setup_mp_file_logger` but is for non multi-processing usages. It has a few critical differences. There is likely a way to merge them. A couple of new small logging related utility functions were also added.
+- `tools\tools_shared_functions.py`: Fixed a bug that assumed a particular https response node was returned.
+<br/>
+
 ## v4.8.11.0 - 2025-09-19 - [PR#1639]([https://github.com/NOAA-OWP/inundation-mapping/pull/1639])
 
 Catchments were being dropped due to a number of confounding reasons. Previously `crosses` was used to identify outlets as stream lines that intersected the HUC boundary, in order to extend the levelpaths downstream of the outlet(s). However, some recent and proposed changes including clipping streams to the landsea mask and extending streams by snapping to the WBD caused the `crosses` method to fail to identify some HUC outlets, so these levelpaths were not extended downstream, creating levelpaths that did not flow to the edge of the DEM based on the buffered branch polygons, and resulting in reverse flow issues and dropped catchments. Some additional bug fixes and improvements include clipping the branch polygons to the clipped WBD (clipped to the DEM domain and the landsea mask), the Great Salt Lake was incorporated into the waterbody mask, and mainstem stream endpoints were adjusted to the nearest landsea boundary within 10 km, ensuring that NSM streams connect to the DEM/waterbody edge and preventing dropped catchments.
@@ -16,6 +51,7 @@ Catchments were being dropped due to a number of confounding reasons. Previously
     - `run_unit_wb.sh`: Updates arguments for `buffer_stream_branches.py` to pass WBD instead of DEM domain for clipping
     - `stream_branches.py`: Uses WBD boundary intersection to find outlets
 <br/>
+
 ## v4.8.10.8 - 2025-09-19 - [PR#1196](https://github.com/NOAA-OWP/inundation-mapping/pull/1196)
 
 This PR adds a new tool, which is still in progress. The tool addresses the issue #994 (but is not going to close this issue yet). 
