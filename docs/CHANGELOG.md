@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-09-19 - [PR#1655](https://github.com/NOAA-OWP/inundation-mapping/pull/1655)
+
+Updates the National Levee Database (NLD) feature server URL. A new set of data were downloaded and the bash_variables file was updated with the new acquisition date.
+
+### Changes
+- `data/`
+    - `esri.py`: Use `fiona` to read file
+    - `nld/levee_download.py`: Update FeatureServer URL and handle MultiLineString data
+- `src/bash_variables.env`: Update path to levee data with new date
+
+<br/>
+
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
 
 Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.
