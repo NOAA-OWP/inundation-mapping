@@ -24,38 +24,41 @@ def load_wbd(huc_list):
         List of huc8
     Returns
     tuple
-        (wbd_conus, wbd_alaska)
+        (wbd_conus, wbd_alaska, wbd_guam, wbd_american_samoa)
     """
     srcDir = os.getenv('srcDir')
     load_dotenv(f'{srcDir}/bash_variables.env')
     input_WBD_gdb = os.getenv('input_WBD_gdb')
     input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # alaska
-    input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # alaska
+    input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # guam
+    input_WBD_gdb_AmericanSamoa = os.getenv('input_WBD_gdb_AmericanSamoa')  # american samoa
     wbd_conus = None
     wbd_alaska = None
     wbd_guam = None
+    wbd_american_samoa = None
     # Check if any huc8 is in AK
     has_alaska = any(huc.startswith('19') for huc in huc_list)
     has_guam = any(huc == '22010000' for huc in huc_list)
+    has_american_samoa = any(huc == '22030001' for huc in huc_list)
 
     # Load conus wbd if needed
     if any(not huc.startswith('19') for huc in huc_list):
         if os.path.exists(input_WBD_gdb):
             wbd_conus = gpd.read_file(input_WBD_gdb)
-        # else:
-        #     return None, None
 
     # Load AK wbd if needed
     if has_alaska and os.path.exists(input_WBD_gdb_Alaska):
         wbd_alaska = gpd.read_file(input_WBD_gdb_Alaska)
-    # elif has_alaska:
-    #     return None, None
 
     # Load Guam wbd if needed
     if has_guam and os.path.exists(input_WBD_gdb_Guam):
         wbd_guam = gpd.read_file(input_WBD_gdb_Guam)
 
-    return wbd_conus, wbd_alaska, wbd_guam
+    # Load American Samoa wbd if needed
+    if has_american_samoa and os.path.exists(input_WBD_gdb_AmericanSamoa):
+        wbd_american_samoa = gpd.read_file(input_WBD_gdb_AmericanSamoa)
+
+    return wbd_conus, wbd_alaska, wbd_guam, wbd_american_samoa
 
 
 def process_nfhl(
@@ -110,7 +113,16 @@ def process_nfhl(
 
 
 def download_nfhl(
-    huc, out_file, wbd_conus, wbd_alaska, wbd_guam, geometry_type, file_logger, screen_queue, task_id
+    huc,
+    out_file,
+    wbd_conus,
+    wbd_alaska,
+    wbd_guam,
+    wbd_american_samoa,
+    geometry_type,
+    file_logger,
+    screen_queue,
+    task_id,
 ):
     """
     Download the NFHL flood hazard zones for a given HUC8
@@ -143,10 +155,12 @@ def download_nfhl(
         DEFAULT_FIM_PROJECTION_CRS = 5070
         ALASKA_CRS = 3338  # alaska
         GUAM_CRS = 6637
+        AMERICAN_SAMOA_CRS = 32702
 
         # Select approporiate wbd and crs
         is_alaska = huc.startswith('19')
         is_guam = huc == '22010000'
+        is_american_samoa = huc == '22030001'
 
         if is_alaska:
             wbd = wbd_alaska
@@ -154,6 +168,9 @@ def download_nfhl(
         elif is_guam:
             wbd = wbd_guam
             geometryCRS = GUAM_CRS
+        elif is_american_samoa:
+            wbd = wbd_american_samoa
+            geometryCRS = AMERICAN_SAMOA_CRS
         else:
             wbd = wbd_conus
             geometryCRS = DEFAULT_FIM_PROJECTION_CRS
@@ -361,7 +378,7 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
         print("")
 
         # Load wbd
-        wbd_conus, wbd_alaska, wbd_guam = load_wbd(huc_list)
+        wbd_conus, wbd_alaska, wbd_guam, wbd_american_samoa = load_wbd(huc_list)
 
         # Tasks argument list
         huc_list = sorted(huc_list)
@@ -379,6 +396,7 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
                     "wbd_conus": wbd_conus,
                     "wbd_alaska": wbd_alaska,
                     "wbd_guam": wbd_guam,
+                    "wbd_american_samoa": wbd_american_samoa,
                     "geometry_type": geometryType,
                 }
             )
