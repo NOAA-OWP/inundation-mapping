@@ -15,6 +15,67 @@ Catchments were being dropped due to a number of confounding reasons. Previously
     - `buffer_stream_branches.py`: Clips branch polygons to WBD rather than DEM domain
     - `run_unit_wb.sh`: Updates arguments for `buffer_stream_branches.py` to pass WBD instead of DEM domain for clipping
     - `stream_branches.py`: Uses WBD boundary intersection to find outlets
+## v4.8.10.8 - 2025-09-19 - [PR#1196](https://github.com/NOAA-OWP/inundation-mapping/pull/1196)
+
+This PR adds a new tool, which is still in progress. The tool addresses the issue #994 (but is not going to close this issue yet). 
+The tool aims to update the HAND SRC by comparing water surface elevation (WSE) between RAS2FIM and HAND. The algorithm is as below:
+
+- For each RAS cross section, determine the HAND discharge adjustment (Q_Adjust):
+    - HAND minimum WSE is assumed the same as HAND Hydro-conditioned DEM
+    - RAS2FIM minimum WSE is already available from HEC-RAS runs.
+    - Calculate the difference between the minimum WSE values of RAS2FIM and HAND, and call it "WSE_base_error". This difference can address the bathymetry error in HAND SRC.  
+    - Add stage values into RAS2FIM rating curves (by subtracting DEM from WSE), and then interpolate a discharge for the "WSE_base_error". This interpolated discharge is called "Q_Adjust."
+- Calculate the median of "Q_Adjust" values for cross sections within HAND catchments.
+- Add the median "Q_Adjust" values to the flows of HAND SRC
+
+### Additions
+- tools/adjust_wse_with_ras2fim.py
+<br/>
+
+## v4.8.10.7 - 2025-09-19 - [PR#1607](https://github.com/NOAA-OWP/inundation-mapping/pull/1607)
+
+Changes files to use `fiona` as the I/O engine when reading files with `gpd.read_file()` to avoid segmentation faults. The issue was originally documented in #1376 and fixed in #1490, but two more files are fixed here.
+
+### Changes
+
+- `src/`
+    - `mask_dem.py` and `mitigate_branch_outlet_backpool.py`: Added `engine='fiona'` to `gpd.read_file()`. Also removed an unnecessary file read in `mask_dem.py`.
+<br/>
+
+## v4.8.10.6 - 2025-09-19 - [PR#1643](https://github.com/NOAA-OWP/inundation-mapping/pull/1643)
+
+Adjust eval_plot.py so it only looks for the config file when in -sp (spatial) mode. Spatial mode is used when running the tool to create FIM_performance files. In that mode, it can only run in OWP servers as it needs to talk to internal servers.
+
+Also updated the tools to create gpkg files instead of shape file. It does continue to create csv as files as before.  Adjustments for zero padding HUC numbers when applicable was also added.
+
+This update does not affect use of the tool as part of regular alpha testing.
+
+### Changes
+- `tools\`
+    - `eval_plots.py`: as described above including the zero padding HUC fix.
+    - `eval_plots_stackedbar.py`: zero padding HUC fix.
+<br/>
+
+## v4.8.10.5 - 2025-09-19 - [PR#1606](https://github.com/NOAA-OWP/inundation-mapping/pull/1606)
+
+Added new optional input argument to inundate scripts and `synthesize_test_cases.py` to use the `precalb_discharge_cms` values in the hydrotable instead of the default `discharge_cms`.
+
+### Changes
+- `tools/inundate_gms.py`: added "precalb_option", specify "precalb_discharge_cms" as an req input column and force the hydrotable input to be the csv file ("precalb_discharge_cms" is not currently one of the outputs in the feather file). Note that there is logic to fill the "precalb_discharge_cms" with "discharge_cms" when the precalb_discharge is null (this happens for hucs/branches where the calibration routines do not run - not benchmark data to calibrate to)
+- `tools/inundate_mosaic_wrapper.py`: added the "precalb_option" argument for passing to downstream functions
+- `tools/inundation.py`: added the "precalb_option" argument and added logic to use the "precalb_discharge_cms" data for interpolating the stages.
+- `tools/run_test_case.py`: added the "precalb_option" argument for passing to downstream functions
+- `tools/synthesize_test_cases.py`: added the "precalb_option" as an optional input argument and pass to the appropriate downstream functions
+<br/>
+
+## v4.8.10.4 - 2025-09-19 - [PR#1648](https://github.com/NOAA-OWP/inundation-mapping/pull/1648)
+
+Updated pull_osm_roads to allow for a selected set of hucs for testing.
+
+### Changes
+- `data/roads/pull_osm_roads.py`: as described above.
+<br/>
+
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
 
 Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.
@@ -259,9 +320,8 @@ Addresses bug related to the `location_id` data type that is read in from the `a
 
 ### Changes
 `src/src_adjust_usgs_rating_trace.py`: Added `dtype={'location_id': object}` to the acceptable_sites csv file read
-  
+ 
 <br/><br/>
-
 
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
