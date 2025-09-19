@@ -7,6 +7,38 @@ This tool generates a custom flow file for a specific FIM scenario. Given a flow
 
 ### Additions
 - `-tools/generate_custom_flow_files.py`
+## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
+
+Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.
+
+### Additions
+- `tools/lofi/probabilistic_get_ensembles_gcs.py`: Retrieves NWM data from Google Cloud Service and output NetCDF file.
+
+### Changes
+- `Pipfile`: Add gcsfs dependency.
+- `Pipfile.lock`: Add gcsfs dependency.
+<br/>
+
+## v4.8.10.2 - 2025-08-29 - [PR#1636]([https://github.com/NOAA-OWP/inundation-mapping/pull/1636])
+
+Improves the error handling in stage-based CatFIM for instances where the hand_stage variable is negative and/or there is an elevation disparity that is moderate (5-10 ft) but not high enough to filter out the site completely. These updates catch and flag when there is a negative stage value and prevents further processing of that site.
+
+### Changes
+- `tools/catfim/README.md`: Updated documentation about CatFIM run commands and added information about CatFIM site compare. 
+- `tools/catfim/ahps_restricted_sites.csv`: Adjusted formatting.
+- `tools/catfim/generate_categorical_fim.py`: Added a message that warns when the elevation difference is greater than 5 ft. Added functionality to abort site processing if a negative stage value is encountered. Made the logging more streamlined.
+- `tools/catfim/generate_categorical_fim_mapping.py`:  Added code to exit out of processing when a negative stage value is encountered. Cleaned up vestigial debugging statements.
+- `tools/tools_shared_functions.py`: Improved output logging of `mask_out_lakes()` function.
+<br/>
+
+## v4.8.10.1 - 2025-08-29 - [PR#1622]([https://github.com/NOAA-OWP/inundation-mapping/pull/1622])
+
+Fixes an error that was causing the CatFIM site compare outputs to not load correctly in ArcGIS Pro. The geopackages could be brought into ArcGIS Pro but a data error would occur when trying to open the attribute table because the geometry columns had too much data un them.
+
+This update also cleans up a few structural aspects of the code. 
+
+### Changes
+- `tools/catfim/catfim_sites_compare.py`: Added code to simplify the added and removed geometries so they don't overload the ArcGIS Pro memory. Moved `pivot_and_join_percent_change()` function out of other function. Improved CRS handling. Took the `%` character out of column headers. Moved the `geometry` column to the last column of the gained and lost coverage geopackages.
 
 <br/>
 
