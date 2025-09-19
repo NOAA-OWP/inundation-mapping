@@ -26,6 +26,7 @@ def Inundate_gms(
     verbose: Optional[bool] = False,
     log_file: Optional[str] = None,
     output_fileNames: Optional[str] = None,
+    precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
     multi_process: Optional[bool] = False,
 ) -> pd.DataFrame:
@@ -54,6 +55,8 @@ def Inundate_gms(
         Name of file to log output
     output_fileNames: Optional[str], default = None
         Name of file to output filenames from gms inundation routine
+    precalb_option: Optional[bool], default = False
+        Whether to use precalb discharge in hydrotable
     windowed: Optional[bool], default = False
         Whether to use window memory optimization
     multi_process: Optional[bool], default = False
@@ -109,6 +112,7 @@ def Inundate_gms(
         hydro_table_df,
         verbose=False,
         windowed=windowed,
+        precalb_option=precalb_option,
     )
 
     # start up process pool
@@ -205,6 +209,7 @@ def __inundate_gms_generator(
     forecast: Union[str, pd.DataFrame],
     hydro_table_df: Union[str, pd.DataFrame],
     verbose: Optional[bool] = False,
+    precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
 ) -> Tuple[dict, List[str]]:
     """
@@ -226,6 +231,8 @@ def __inundate_gms_generator(
         Hydrotable DataFrame.
     verbose: Optional[bool], default = False
         Whether to silence output or not
+    precalb_option: Optional[bool], default = False
+        Whether to use precalb discharge in hydrotable
     windowed: Optional[bool], default = False
         Whether to use window memory optimization
 
@@ -249,9 +256,6 @@ def __inundate_gms_generator(
         catchments_file_name = f"gw_catchments_reaches_filtered_addedAttributes_{branch_id}.tif"
         catchments_branch = os.path.join(branch_dir, catchments_file_name)
 
-        # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
-        htable_req_cols = ["HUC", "branch_id", "feature_id", "HydroID", "stage", "discharge_cms", "LakeID"]
-
         if isinstance(hydro_table_df, pd.DataFrame):
             hydro_table_all = hydro_table_df.set_index(["HUC", "feature_id", "HydroID"], inplace=False)
             hydro_table_branch = hydro_table_all.loc[hydro_table_all["branch_id"] == int(branch_id)]
@@ -265,18 +269,42 @@ def __inundate_gms_generator(
                 "feature_id": str,
                 "HydroID": str,
                 "stage": float,
+                "precalb_discharge_cms": float,
                 "discharge_cms": float,
                 "LakeID": int,
             }
 
-            if s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.feather")):  # Quicker reads
+            if (
+                s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.feather"))
+                and precalb_option == False
+            ):  # Quicker reads
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.feather")
                 hydro_table_all = pd.read_feather(hydro_table_huc)
             elif s3_or_local_path_exists(os.path.join(huc_dir, "hydrotable.csv")):
                 hydro_table_huc = os.path.join(huc_dir, "hydrotable.csv")
+                # FIM versions > 4.3.5 use an aggregated hydrotable file rather than individual branch hydrotables
+                htable_req_cols = [
+                    "HUC",
+                    "branch_id",
+                    "feature_id",
+                    "HydroID",
+                    "stage",
+                    "precalb_discharge_cms",
+                    "discharge_cms",
+                    "LakeID",
+                ]
                 hydro_table_all = pd.read_csv(hydro_table_huc, dtype=dtype, usecols=htable_req_cols)
             else:
                 hydro_table_huc = None
+
+            if precalb_option:
+                if "precalb_discharge_cms" not in hydro_table_all.columns:
+                    raise ValueError("Missing expected column 'precalb_discharge_cms' in hydrotable.")
+                missing_count = hydro_table_all["precalb_discharge_cms"].isna().sum()
+                if missing_count > 0:
+                    hydro_table_all["precalb_discharge_cms"].fillna(
+                        hydro_table_all["discharge_cms"], inplace=True
+                    )
 
             if hydro_table_huc is not None and s3_or_local_isfile(hydro_table_huc):
                 hydro_table_all.set_index(["HUC", "feature_id", "HydroID"], inplace=True)
@@ -319,6 +347,7 @@ def __inundate_gms_generator(
             "inundation_raster": inundation_branch_raster,
             "depths": depths_branch_raster,
             "quiet": not verbose,
+            "precalb_option": precalb_option,
             "windowed": windowed,
         }
 

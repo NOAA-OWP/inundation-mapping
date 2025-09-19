@@ -571,8 +571,26 @@ def eval_plots(
 
     '''
 
+    if sp:  # create the spatial files generally used for FIM Performance.
+        load_dotenv(args['env_file'])
+
+        API_BASE_URL = os.getenv('API_BASE_URL')
+        if API_BASE_URL is None:
+            raise ValueError(
+                'API base url not found. '
+                'Check your env config path or file and ensure it has a correct value for API_BASE_URL'
+            )
+        WBD_LAYER = os.getenv("WBD_LAYER")
+
+    # Run eval_plots function
+    print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
+    print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
+
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metrics_csv, dtype={'huc': str})
+
+    # Ensure all HUC values are 8 characters long with leading zeros if needed
+    csv_df['huc'] = csv_df['huc'].str.zfill(8)
 
     # If versions are supplied then filter out
     if versions:
@@ -865,9 +883,11 @@ def eval_plots(
             # Join spatial data to metric data
             gdf['nws_lid'] = gdf['nws_lid'].str.lower()
             joined = gdf.merge(all_ahps_datasets, on='nws_lid')
-            # Project to VIZ projection and write to file
+            # Project to VIZ projection and write to file  (the csv is for HV, the gpkg is for debugging)
             joined = joined.to_crs(VIZ_PROJECTION)
-            joined.to_file(Path(workspace) / 'fim_performance_points.shp', engine='fiona')
+            points_file_name = os.path.join(workspace, 'fim_performance_points.gpkg')
+            joined.to_file(points_file_name, driver="GPKG", engine='fiona')
+            joined.to_csv(points_file_name.replace(".gpkg", ".csv"))
         else:
             print(
                 'NWS/USGS MS datasets not analyzed, no spatial data created.\n'
@@ -924,8 +944,10 @@ def eval_plots(
             wbd_with_metrics.rename(columns={'benchmark_source': 'source'}, inplace=True)
             # Project to VIZ projection
             wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
-            # Write out to file
-            wbd_with_metrics.to_file(Path(workspace) / 'fim_performance_polys.shp', engine='fiona')
+            # Write out to file (the csv is for HV, the gpkg is for debugging)
+            wbd_with_metrics_file_name = os.path.join(workspace, 'fim_performance_polys.gpkg')
+            wbd_with_metrics.to_file(wbd_with_metrics_file_name, driver="GPKG", engine='fiona')
+            wbd_with_metrics.to_csv(wbd_with_metrics_file_name.replace(".gpkg", ".csv"))
         else:
             print(
                 'BLE/IFC/RAS2FIM FR datasets not analyzed, no spatial data created.\n'
@@ -933,34 +955,29 @@ def eval_plots(
             )
 
 
-def convert_shapes_to_csv(workspace):
-    # Convert any geopackage in the root level of output_mapping_dir to CSV and rename.
-    shape_list = glob.glob(os.path.join(workspace, '*.shp'))
-    for shape in shape_list:
-        gdf = gpd.read_file(shape)
-        parent_directory = os.path.split(shape)[0]
-        file_name = shape.replace('.shp', '.csv')
-        csv_output_path = os.path.join(parent_directory, file_name)
-        gdf.to_csv(csv_output_path)
-
-
 #######################################################################
 if __name__ == '__main__':
 
     """
-    This script has two main uses. The most common use is part of the "alpha test" system via
+    This script has two main uses.
+
+    The most common use is part of the "alpha test" system generally ran after
     synthesize_test_cases.py. This set can be run in any environment.
 
     The second usage is called FIM Performance mode and talks to the WRDS API to get some nwm metadata.
     This results the script needing to be run in the OWP environments with the valid URL to WRDS.
     This creates FIM Performance files of fim_performance_points.csv and fim_performance_polys.csv
-    which are used by HV.
+    which are used by HV.  Adding the -sp (spatial) flag creates the FIM performance output files.
+
+    If you include the -sp flag, it needs to talk to WRDS and will neeed a config file.
+    That config file is defaulted as part of the -env arg which can be overridde.
+    If you do not include the -sp flag, the config file is not needed.
 
     Usage for FIM Performance mode. The example for output data is based on the filtered hand output
     normally used in OWP servers by catfim.  Any valid HAND dataset can be used and the filtered
     "catfim" output version has all of the files needed by both CatFIM and this script.
-    fim_version="hand_4_6_1_4" ; python /foss_fim/tools/eval_plots.py \
-        -m /outputs/${fim_version}_catfim/${fim_version}_metrics.csv \
+    fim_version="hand_4_6_1_4" ; python /foss_fim/tools/eval_plots.py
+        -m /outputs/${fim_version}_catfim/${fim_version}_metrics.csv
         -w /data/fim_performance/${fim_version} -v ${fim_version} -sp -i
 
     """
@@ -1008,8 +1025,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-e',
         '--env_file',
-        help='OPTIONAl: Docker mount path to the script environment file.'
-        ' Defaults to /data/config/fim_enviro_values.env.',
+        help='OPTIONAL: Docker mount path to the script environment file.'
+        ' Defaults to /data/config/fim_enviro_values.env.\n'
+        ' The env file is only needed when you are using the -sp argument'
+        ' which generates spatial data generally used for FIM Performance output files.',
         default="/data/config/fim_enviro_values.env",
         required=False,
     )
@@ -1025,24 +1044,4 @@ if __name__ == '__main__':
     sp = args['spatial']
     i = args['site_plots']
 
-    load_dotenv(args['env_file'])
-
-    API_BASE_URL = os.getenv('API_BASE_URL')
-    if API_BASE_URL is None:
-        raise ValueError(
-            'API base url not found. '
-            'Ensure inundation_mapping/tools/ has an .env file with the following info: '
-            'API_BASE_URL, WBD_LAYER, NWM_FLOWS_MS, '
-            'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
-        )
-    WBD_LAYER = os.getenv("WBD_LAYER")
-    API_BASE_URL = os.getenv("API_BASE_URL")
-
-    # Run eval_plots function
-    print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
-    print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
     eval_plots(metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, site_barplots=i)
-
-    # Convert output shapefiles to CSV
-    print("Converting to CSVs...")
-    convert_shapes_to_csv(w)
