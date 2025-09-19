@@ -14,10 +14,10 @@ The tool aims to update the HAND SRC by comparing water surface elevation (WSE) 
 - Calculate the median of "Q_Adjust" values for cross sections within HAND catchments.
 - Add the median "Q_Adjust" values to the flows of HAND SRC
 
-
-
 ### Additions
 - tools/adjust_wse_with_ras2fim.py
+<br/>
+
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
 
 Adds gcsfs dependency to allow retrieval of NWM output from the Google Cloud Service.
