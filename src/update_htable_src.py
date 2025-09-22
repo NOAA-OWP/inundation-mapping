@@ -14,7 +14,6 @@ def process_branch(sub_branch_path, branch):
     # print(str(branch))
 
     src_full_preserve_columns = [
-        'Stage',
         'SLOPE_RISE_RUN',
         'ManningN',
         'HydroID',
@@ -65,6 +64,7 @@ def process_branch(sub_branch_path, branch):
     # Update src_full
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
+    input_src_full['Stage'] = input_src_base['Stage']
     input_src_full['SLOPE'] = input_src_full['SLOPE'].astype(float)
     input_src_full['Number of Cells'] = input_src_base['Number of Cells']
     input_src_full['SurfaceArea (m2)'] = input_src_base['SurfaceArea (m2)']
