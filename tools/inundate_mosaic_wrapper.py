@@ -29,6 +29,7 @@ def produce_mosaicked_inundation(
     verbose: Optional[bool] = False,
     is_mosaic_for_branches: Optional[bool] = False,
     num_threads: Optional[int] = 1,
+    precalb_option: Optional[bool] = False,
     windowed: Optional[bool] = False,
     log_file: Optional[str] = None,
     nodata: Optional[int] = elev_raster_ndv,
@@ -73,6 +74,8 @@ def produce_mosaicked_inundation(
         Whether the mosaic routine is for branches
     num_threads : Optional[int], default=1
         Number of threads to process
+    precalb_option : Optional[bool], default=False
+        Whether to use precalb discharge in hydrotable. If True, will use precalb_discharge_cms column
     windowed : Optional[bool], default=False
         Memory conscious creation of inundation and depth datasets
     log_file : Optional[str], default=None
@@ -139,6 +142,7 @@ def produce_mosaicked_inundation(
         inundation_raster=inundation_raster,
         depths_raster=depths_raster,
         verbose=verbose,
+        precalb_option=precalb_option,
         windowed=windowed,
         log_file=log_file,
         multi_process=gms_multi_process,
