@@ -10,20 +10,12 @@ def process_branch(sub_branch_path, branch):
     src_base_file = os.path.join(sub_branch_path, f'src_base_{branch}.csv')
     hydro_table_file = os.path.join(sub_branch_path, f'hydroTable_{branch}.csv')
     src_full_file = os.path.join(sub_branch_path, f'src_full_crosswalked_{branch}.csv')
-    input_flows_file = os.path.join(
-        sub_branch_path, f'demDerived_reaches_split_filtered_addedAttributes_crosswalked_{branch}.gpkg'
-    )
+    
     # print(str(branch))
 
     src_full_preserve_columns = [
         'Stage',
-        # 'Number of Cells', # Read from src_base
-        # 'SurfaceArea (m2)',
-        # 'BedArea (m2)',
-        # 'Volume (m3)',
         'SLOPE_RISE_RUN',
-        # 'LENGTHKM',
-        # 'AREASQKM',
         'ManningN',
         'HydroID',
         'NextDownID',
@@ -31,11 +23,6 @@ def process_branch(sub_branch_path, branch):
         'SLOPE_HFAB',
         'SLOPE_IRIS_SWORD',
         'SLOPE',
-        'TopWidth (m)',
-        'WettedPerimeter (m)',
-        'WetArea (m2)',
-        'HydraulicRadius (m)',
-        'Discharge (m3s-1)',
         'Bathymetry_source',
         'feature_id',
     ]
@@ -50,7 +37,6 @@ def process_branch(sub_branch_path, branch):
         (os.path.exists(src_base_file) is False)
         or (os.path.exists(src_full_file) is False)
         or (os.path.exists(hydro_table_file) is False)
-        or (os.path.exists(input_flows_file) is False)
     ):
         return
 
@@ -70,10 +56,10 @@ def process_branch(sub_branch_path, branch):
 
     input_src_full = pd.read_csv(src_full_file, dtype=object, usecols=available_columns)
     input_hydro_table = pd.read_csv(hydro_table_file, dtype=object)
-    input_flows = gpd.read_file(input_flows_file, engine="pyogrio", use_arrow=True)
+
 
     input_src_base = input_src_base.merge(
-        input_flows[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
+        input_src_full[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
     )
 
     # Update src_full
