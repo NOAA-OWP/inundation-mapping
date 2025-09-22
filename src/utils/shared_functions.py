@@ -348,7 +348,7 @@ def run_with_mp(
                         # IMPORTANT NOTE:
                         #    This extracts the first item only.
                         results[task_id] = rtn_value[0]
-                    if len(rtn_value > 1):
+                    if len(rtn_value) > 1:
                         raise Exception(
                             "Child mp task must return either 0 or 1 list items, and you have more"
                             " than one item in the return list. Consider a list or dictionary in"
