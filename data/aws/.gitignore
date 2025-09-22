@@ -1,2 +1,2 @@
 *.env
-!aws_creds_template.env
+!aws_params_template.env

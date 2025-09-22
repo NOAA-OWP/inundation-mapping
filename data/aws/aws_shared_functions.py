@@ -1,11 +1,154 @@
 #!/usr/bin/env python3
 
-import math
 import os
 import sys
 import threading
 
+import boto3
 import botocore.exceptions
+
+from botocore.client import Config
+
+# Note: Sep 2025: Why all of this architecture usign boto3 instead of simpler subprocess 
+# and cli?  We want more control over errors ane exceptions, plus this system can do more
+# complex things that cli can do such as wildcard, more selective recursion, etc.
+# This AWS system will also be upgraded soon handle much more than just s3, but things like
+# step functions, task definitions, execution scripts, etc. ie: tools to make simple
+# python scripts to launch UAT step function runs, then check the results and aws logs.
+
+# -------------------------------------------------
+def create_aws_client(aws_service_type_name : str, 
+                      aws_access_key_id : str = None,
+                      aws_secret_access_key : str = None,
+                      aws_session_token : str = None,
+                      aws_region : str = None,
+                      aws_config_profile_name : str = None
+                     ):
+    '''
+    Inputs:
+        - aws_service_type_names: What type of client are you creating. This code currently
+          supports only the "s3" type, but more are expected soon.
+
+        - aws_*:  See notes below about creating AWS Boto3 clients.
+    
+    Returns:
+        - True / False (success)
+
+        - error_msg: The calling code, may not want to automatically want to shut the programe
+          down based on one of these exceptions. For most exceptions, then "success" will
+          be False and an error message.  We will attempt to catch most types of common aws exceptions
+          and submit it back in a user friendly error message that can be optionally displayed to the
+          user. For some exceptions, we will just let the actual exception be raised back and not
+          part of this return error_msg.
+
+        - An AWS Boto3 client.
+          Note: One client type is good for only one service. ie) s3.
+          If you need more than one client type at the same time, you will need more than one
+          client and will call function twice.
+
+        - Can also send back an exception. See notes above talking about the error_msg return value.
+          
+    AWS Boto3 clients:
+    AWS clients can be created in a very wide array of ways to authenticate.
+    It depends on how the aws administrator setup permissions and what account has permission
+    to which services.
+    users. They can include:
+        - Explicit AWS access keys:
+            - aws_access_key_id and aws_secret_access_key: Can not have one without the other.
+        - Tokens: 
+            - If you use explicit aws access keys, sometimes, but not always you may need a temp token.
+              If you don't need to provide it, an implicit token will be created. Tokens can be set by
+              AWS admins to timeout or not, default is 12 hours timeouts.
+        - AWS regions:
+            - Sometimes an aws_region_name may need to explicitly defined but generally not. 
+              ie) us-east-1
+        - AWS Profiles:
+            - In some situations, you may choose to use an AWS config profile. This is a command
+              line option creating named aws credential profiles. Details not provided here.
+
+    '''
+
+    '''
+    TODO: Sept 2025
+    Look into this for session timeout issues if sessions are being used:
+    Refresh temporary credentials: For long-running processes, you may need to periodically 
+    refresh the temporary credentials before they expire. This involves calling assume_role
+      or get_session_token again to obtain new credentials and updating the boto3.Session object with them.
+    '''
+
+    # Validation:
+    if aws_service_type_name != 's3':
+        raise ValueError("AWS Service types values are only s3 at this time. More coming soon.")
+    
+    if aws_access_key_id is not None and aws_access_key_id != "":
+        # then the aws_secret_access_key must also exist
+        if aws_secret_access_key is None or aws_secret_access_key == "":
+            raise ValueError("The AWS Access Key ID has been submitted but the AWS Secret Access Key"
+                             " has not. Both are always used together if authenicating using this method.")
+
+    # 
+    error_msg = ""    
+    s3_client = None
+
+    try:
+        # -------------------
+        # setup session first.
+
+        session_args = {}
+
+        if aws_access_key_id is not None and aws_access_key_id != "":  # We validated above that either both or none mst exist
+            session_args['aws_access_key_id'] = aws_access_key_id
+            session_args['aws_secret_access_key'] = aws_secret_access_key
+        elif aws_config_profile_name is not None and aws_config_profile_name != "":  # Can not have a profile and explicit keys
+            session_args['profile_name'] = aws_config_profile_name
+
+        if aws_region is not None and aws_region != "":
+            session_args['region_name'] = aws_region
+    
+        if aws_session_token is not None and aws_session_token != "":
+            session_args['aws_session_token'] = aws_session_token
+
+        if len(session_args) == 0:  # It is possible.
+            session = boto3.Session()
+        else:
+            session = boto3.Session(**session_args)
+
+
+        # TODO: fix this... needs some tweaks
+        # Setup Config to manage timeouts on initial connection
+        # shorter timeout means quicker response
+        # client_config = Config(
+        #     connect_timeout=30,
+        #     read_timeout=60,
+        #     retries={"mode": "standard", 'max_attempts': 3}
+        # )
+
+        # -------------------
+        # Now the client and aws config overrides
+
+
+        if aws_service_type_name == "s3":
+            # s3_client = session.client("s3", config=client_config)
+            s3_client = session.client("s3")
+        else:
+            raise ValueError("AWS Service types values are only s3 at this time. More coming soon.")
+
+        # validate if the client is fully valid as it is
+        if s3_client is None:
+            raise Exception(
+                "Error: Something when wrong creating the communication path to AWS."
+                " Exact details are not always known. Please recheck your credentials,"
+                " aws pathing, etc before trying again."
+            )
+
+    except Exception as ex:
+        # the aws will handle many messages and what it can not, it will
+        # re-raise, which we can further re-raise
+        error_msg = aws_exception_handler(ex)
+        return False, error_msg, None
+
+    # True/False (success), no error_msg, s3_client object
+    return True, "", s3_client
 
 # -------------------------------------------------
 def aws_exception_handler(ex):
@@ -56,7 +199,7 @@ def aws_exception_handler(ex):
         (isinstance(ex, botocore.exceptions.NoRegionError))
         or (isinstance(ex, botocore.exceptions.InvalidRegionError))
         or (isinstance(ex, botocore.exceptions.UnknownRegionError))
-    ):  # 1003
+    ):
         msg = (
             "ERROR: AWS No Region Value, Invalid or Unknown Region Defined: An aws region value,"
             " such as 'us-east-1', needs to be defined, is missing or is invalid (case-sensitive)."

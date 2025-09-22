@@ -6,11 +6,13 @@ import os
 import sys
 
 from datetime import datetime, timezone
-from dotenv import load_dotenv # type: ignore
+from dotenv import load_dotenv
 
+import data.aws.aws_shared_functions as asf
 import data.aws.s3_shared_functions as s3_sf
 import workflows.deploy.deploy_shared_functions as dsf
 from src.utils.shared_functions import FIM_Helpers as fh
+
 
 '''
 Any files uploaded will overwrite files when applicable.
@@ -37,14 +39,14 @@ SRC_PATH = ""
 
 
 # ============================
-def deploy_to_hydrovis(src_path, deploy_type, params_file, aws_profile_name):
+def deploy_to_hydrovis(src_path, deploy_type, aws_params_file):
 
     # --------------
     # Validation. We are validating all variables in case the call came in from another py file
-    __validate_input(src_path, deploy_type, params_file)
+    __validate_input(src_path, deploy_type, aws_params_file)
 
     # May throw exceptions or shut the program down.
-    __setup_aws(aws_profile_name)
+    __setup_aws()
 
     # TODO: Setup logging
     # -------------------
@@ -225,7 +227,7 @@ def __validate_input(src_path, deploy_type, params_file):
 
 
 # ============================
-def __setup_aws(aws_profile_name):
+def __setup_aws():
 
     global TRG_HV_BUCKET_NAME, TRG_HV_S3_HAND_PATH, TRG_HV_S3_QA_DATASET_PATH, S3_CLIENT
     # shorthand for the os.getenv
@@ -247,7 +249,16 @@ def __setup_aws(aws_profile_name):
         TRG_HV_S3_QA_DATASET_PATH = "/" + TRG_HV_S3_QA_DATASET_PATH
 
     # setup the client and validate the bucket
-    is_success, return_msg, S3_CLIENT = s3_sf.create_s3_client(aws_profile_name)  # aws_profile_name might be empty and that is ok
+    hv_aws_access_key = os.getenv('HV_AWS_ACCESS_KEY_ID')
+    hv_aws_secret_key = os.getenv('HV_AWS_SECRET_ACCESS_KEY')
+    hv_aws_region = os.getenv('HV_AWS_REGION_NAME')
+
+    is_success, return_msg, S3_CLIENT = asf.create_aws_client(
+        aws_service_type_name = 's3',
+        aws_access_key_id = hv_aws_access_key,
+        aws_secret_access_key = hv_aws_secret_key,
+        aws_region = hv_aws_region,
+    )
 
     if not is_success:
         raise Exception(return_msg)
@@ -266,19 +277,13 @@ def __setup_aws(aws_profile_name):
 if __name__ == '__main__':
 
     '''
-    This script by default looks for a pre defined env file, but the -p file can be 
+    This script by default looks for a pre defined env file, but the -ap file can be 
     used to use a custom/test env file.
 
     SRC pathing can be from local folders (EFS or dev_fim_share)
 
-    For aws permissions, remember that permissions for the user inside the docker container
-    may not be the same permissions when you are not using docker.
-
-    The easiest way to manage aws credentials is to use the command line cmd of:
-        aws configure --profile ti-temp (or some name)
-        It will ask you for a keys
-        Then add that as an arg to this script. ie) -ap "ti-temp"
-
+    For aws permissions, point to the desired aws_params file. It has the aws authenication info.
+    
     This can handle multiple types of uploads to HV. The actual pathing is in the .env
     file and needs to be adjusted to HV target. That bucket folder needs to pre-exist.
     Generally the pattern as of Sept 2025 is:
@@ -295,6 +300,10 @@ if __name__ == '__main__':
         python /foss_fim/workflows/deploy/deploy_to_hydrovis.py
             -s "/data/previous_fim/hand_4_8_7_2"
             -dt hand
+
+        python /foss_fim/workflows/deploy/deploy_to_hydrovis.py
+            -s "/data/fim_performance/20250821"
+            -dt fpc
 
         examples fo src:
             - "/data/previous_fim/hand_4_8_7_2"
@@ -335,15 +344,10 @@ if __name__ == '__main__':
                         type=str,
                         )
 
-    parser.add_argument('-p', '--params-file',
-                        help='OPTIONAL: Path to params(config) file. Defaults to /data/config/deploy_params_dev.env',
-                        default="/data/config/deploy_params_dev.env",
+    parser.add_argument('-ap', '--aws-params-file',
+                        help='OPTIONAL: Path to params(config) file. Defaults to /data/config/aws_params_dev.env',
+                        default="/data/config/aws_params_dev.env",
                         )
-    
-    parser.add_argument('-ap', '--aws-profile-name',
-                        help='OPTIONAL: If you use an explicit aws credentials file, put that profile name here.',
-                        default="",
-                        )    
 
     args = parser.parse_args()
 

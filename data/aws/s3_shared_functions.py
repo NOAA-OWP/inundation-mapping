@@ -16,99 +16,13 @@ Note: you may already know this but S3 does not have a concept of "folders", but
 uses a similar system using "prefixes".  When the word "folder" is used here, it
 is translated to a pattern of "prefixes" that S3 can use.
 
-July 2025: This was created from a file in the ras2fim repo / also named s3_shared_functions.
-
-In that repo, above what we have here, it also contains code for: (likely needs small mods)
-  - upload files(s), folder(s)
-  - delete files/folders
-  - move files/folders  (note: ras2fim has it wrong that you have to manually copy then delete)
-  - file(s) search with wildcard
-  - get folder sizes
-
 '''
 
-
-# TODO: Can likely change this to be more generic as we will eventually want more than just
-# s3 clients. aka.. maybe move to aws_shared_functions
-# -------------------------------------------------
-def create_s3_client(aws_profile_name):
-    '''
-    There are a number of ways a client can be created and it depends on various combinations.
-    All of the arg above are optional as if they are using implicit aws cred such as an saved
-    credentials files, or IAM permissions to the logged in user or server. They also might
-    submit explicit credentials such as access key, secret access key, region. The session token
-    can also be optional as it again is based on how the permissioxn are setup.
-
-    For this tool, options for authentication are:
-        - A named aws profile name
-        - An implicit aws permissions which can come in various ways including:
-            - A server/ec2 itself having permissio
-        - A command line to add enviro variables, ie:
-            Required:
-                export AWS_ACCESS_KEY_ID="some value"
-                export AWS_SECRET_ACCESS_KEY="some value"
-            Optional (depending on enviro and connection set up by the aws admin)
-                export AWS_SESSION_TOKEN="some value"
-                export AWS_REGION="some value such as us-east-1"
-        - A loaded .env file with the same 4 arguments and names listed above
-    
-    Note: session tokens are temp access keys. In some scenarios, sessions tokens can be auto
-       created, depending on AWS admin setup.
-
-    This also checks to see if at least one bucket exists.
-
-    Return:
-      - True / False (success)
-      - msg: Can be any message but likely is an error msg, which the calling code
-        can optional decide to use or not.
-      - s3_client object
-      Can also throw exceptions.
-    '''
-    s3_client = None
-
-    try:
-
-        if aws_profile_name == "":
-            session = boto3.Session()
-        else:
-            session = boto3.Session(profile_name=aws_profile_name)
-
-        # Setup Config to manage timeouts on initial connection
-        # shorter timeout means quicker response
-        s3_config = Config(
-            connect_timeout=30,
-            read_timeout=60,
-            retries={"mode": "standard", 'max_attempts': 3}
-        )
-
-        s3_client = session.client("s3", config=s3_config)
-
-        # validate if the client is fully valid as it is
-        if s3_client is None:
-            raise Exception(
-                "Error: Something when wrong creating the communication path to AWS."
-                " Exact details are not always known. Please recheck your credentials,"
-                " aws pathing, etc before trying again."
-            )
-
-        # Make sure at least one bucket exists (covers permission)
-        response = s3_client.list_buckets()
-        if len(response['Buckets']) == 0:
-            raise Exception(
-                "Part of validation for authentication is to see if any s3 buckets exist."
-                "The provided credentials appear to be valid but no buckets were found"
-                " or you do not have permisson to any buckets."
-            )
-
-    except Exception as ex:
-        # the aws will handle many messages and what it can not, it will
-        # re-raise, which we can further re-raise
-        error_msg = awssf.aws_exception_handler(ex)
-        return False, error_msg, None
-
-    # True/False (success), msg (likely an error msg), s3_client object
-    return True, "", s3_client
-
+# Note: Sep 2025: Why all of this architecture usign boto3 instead of simpler subprocess 
+# and cli?  We want more control over errors ane exceptions, plus this system can do more
+# complex things that cli can do such as wildcard, more selective recursion, etc.
+# This AWS system will also be upgraded soon handle much more than just s3, but things like
+# step functions, task definitions, execution scripts, etc.
 
 # -------------------------------------------------
 def parse_bucket_and_folder_name(s3_full_folder_path):
@@ -378,8 +292,9 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
 
 
 # -------------------------------------------------
-# TODO: Consider adding multi-threading. Might have to check how MT affects the s3_client.
-# ie.. client collisions?
+# TODO: Add multi-threading or mp. Need to double check about the possibilty of collisions.
+# Maybe let that be done at the script level and not here as a seperate client per mp
+# is required.
 def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
 
     """
@@ -442,7 +357,9 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
 
     return min_one_file_downloaded
 
+
 # -------------------------------------------------
+# TODO: add param to optional show/hide a progress bar if applicable
 def upload_file(s3_client, bucket_name, src_file_path, trg_file_path):
 
     """
@@ -466,6 +383,10 @@ def upload_file(s3_client, bucket_name, src_file_path, trg_file_path):
     if not is_success:
         # In this case, we want to raise a new Exception
         raise Exception(return_msg)
+
+    # add a leading slash if it is not already there.
+    if not src_file_path.startswith("/"):
+        src_file_path = "/" + src_file_path
 
     if not os.path.exists(src_file_path):
         return False
@@ -494,7 +415,6 @@ def upload_file(s3_client, bucket_name, src_file_path, trg_file_path):
 
 
     except Exception as ex:
-        raise awssf.aws_exception_handler(ex)  # It manages messages and errors
+        raise awssf.aws_exception_handler(ex)  # pyright: ignore[reportGeneralTypeIssues] # It manages messages and errors
 
     return True  # file uploaded succesfully
-
