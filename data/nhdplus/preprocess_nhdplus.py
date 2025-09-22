@@ -5,6 +5,7 @@ import os
 import sys
 
 import geopandas as gpd
+import py7zr
 import rasterio as rio
 from osgeo import gdal
 
@@ -14,26 +15,17 @@ from data.usgs.acquire_and_preprocess_3dep_dems import polygonize
 from src.derive_headwaters import findHeadWaterPoints
 
 
-def preprocess_nhdplus(region: str, inputs_dir: str, preclip_date: str):
+def preprocess_nhdplus(region: str, inputs_dir: str):
     """
     Preprocess NHDPlus data for a specific region.
 
     Parameters:
         region : str
-            The region to preprocess.
+            The region to preprocess. Options are: 'AmericanSamoa', 'Guam'
         inputs_dir : str
             The directory containing input data files.
-        preclip_date : str
-            The date to use for preclipping.
 
-    # Datasets downloaded from https://www.epa.gov/waterdata/nhdplus-guam-data-vector-processing-unit-22g and saved to /data/inputs/nhdplus/NHDPlus{region_code}/
-    NHDPlus_urls = [
-        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NEDSnapshot_01.7z',
-        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NHDPlusAttributes_02.7z',
-        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NHDPlusCatchment_01.7z',
-        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NHDSnapshot_01.7z',
-        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_WBDSnapshot_02.7z',
-    ]
+    # Datasets downloaded from https://www.epa.gov/waterdata/
     """
 
     if region == 'Guam':
@@ -41,64 +33,72 @@ def preprocess_nhdplus(region: str, inputs_dir: str, preclip_date: str):
         region_number = '22a'
         huc = '22010000'
         target_crs_number = '6637'
-        dem_file = f'{inputs_dir}/nhdplus/NHDPlus{region_code}/NEDSnapshot/Ned{region_number}/elev_cm'
-        nhd_path = f'{inputs_dir}/nhdplus/NHDPlus{region_code}/NHDSnapshot/Hydrography'
-        water_polygons_fid = 463
+        nhdplus_root_raw = f'{inputs_dir}/nhdplus/'
+        dem_file = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}/NEDSnapshot/Ned{region_number}/elev_cm'
+        nhd_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}/NHDSnapshot/Hydrography'
 
     elif region == 'AmericanSamoa':
         region_code = '22AS'
         region_number = '22c'
         huc = '22030001'
         target_crs_number = '32702'
-        dem_file = f'{inputs_dir}/nhdplus/NHDPlus{region_code}/NEDSnapshot/ned{region_number}/elev_cm'
-        nhd_path = f'{inputs_dir}/nhdplus/NHDPlus{region_code}/NHDSnapshot/hydrography'
-        water_polygons_fid = 464
+        nhdplus_root_raw = f'{inputs_dir}/nhdplus/'
+        nhdplus_path = f'{nhdplus_root_raw}/NHDPlusPI/NHDPlus{region_code}'
+        dem_file = f'{nhdplus_path}/NEDSnapshot/ned{region_number}/elev_cm'
+        nhd_path = f'{nhdplus_path}/NHDSnapshot/hydrography'
+
+    os.makedirs(nhdplus_root_raw, exist_ok=True)
 
     preprocess_region(
         region,
         region_code,
+        region_number,
         huc,
         target_crs_number,
-        preclip_date,
         inputs_dir,
+        nhdplus_root_raw,
+        nhdplus_path,
         dem_file,
         nhd_path,
-        water_polygons_fid,
     )
 
 
 def preprocess_region(
     region,
     region_code,
+    region_number,
     huc,
     target_crs_number,
-    preclip_date,
     inputs_dir,
+    nhdplus_root_raw,
+    nhdplus_path,
     dem_file,
     nhd_path,
-    water_polygons_fid,
 ):
     """
     Preprocess NHDPlus data for a specific region.
 
     Parameters:
+        region : str
+            The region to preprocess. Options are: 'AmericanSamoa', 'Guam'
         region_code : str
             The region code.
-        region_number : str
-            The region number.
         huc : str
             The HUC identifier.
         target_crs_number : str
             The target CRS number.
-        rasters_list : list
-            A list of raster file paths.
+        inputs_dir : str
+            The directory containing input data files.
+        nhdplus_root : str
+            The root directory for NHDPlus data.
+        nhdplus_path : str
+            The path to the NHDPlus data.
+        dem_file : str
+            The path to the DEM file.
         nhd_path : str
             The path to the NHD data.
 
     """
-    nhd_flowline = os.path.join(nhd_path, 'NHDFlowline.shp')
-    nhd_waterbody = os.path.join(nhd_path, 'NHDWaterbody.shp')
-
     target_name = f"{region}_{target_crs_number}"
     target_folder = f'{inputs_dir}/nhdplus/{target_name}'
     target_dem_folder = f'{inputs_dir}/dems/3dep_dems/10m_{region}'
@@ -113,6 +113,44 @@ def preprocess_region(
         os.makedirs(target_folder)
         if not os.path.exists(target_folder):
             sys.exit(f"Target folder {target_folder} does not exist. Exiting...")
+
+    # Download and extract NHDPlus data
+    NHDPlus_urls = [
+        # f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus22AS/NHDPlusV21_PI_22AS_22c_NEDSnapshot_01.7z'
+        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_{region_number}_NEDSnapshot_01.7z',
+        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NHDPlusAttributes_02.7z',
+        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NHDPlusCatchment_01.7z',
+        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_NHDSnapshot_01.7z',
+        f'https://dmap-data-commons-ow.s3.amazonaws.com/NHDPlusV21/Data/NHDPlusPI/NHDPlus{region_code}/NHDPlusV21_PI_{region_code}_WBDSnapshot_02.7z',
+    ]
+
+    for url in NHDPlus_urls:
+        # archive_path = os.path.join(target_folder, os.path.basename(url))
+
+        # Download url to archive_path
+        archive_path = os.path.join(nhdplus_root_raw, os.path.basename(url))
+        if not os.path.exists(archive_path):
+            os.system(f'wget -O {archive_path} {url}')
+        else:
+            print(f"Archive '{archive_path}' already exists. Skipping download.")
+            continue
+        if not os.path.exists(archive_path):
+            sys.exit(f"Archive file {archive_path} does not exist. Exiting...")
+        print(f"Downloaded archive to '{archive_path}'")
+
+        # Extract the archive to target_folder
+        print(f"Extracting '{archive_path}' to '{nhdplus_root_raw}'...")
+
+        try:
+            with py7zr.SevenZipFile(archive_path, 'r') as archive:
+                archive.extractall(path=nhdplus_root_raw)
+            print(f"Successfully extracted '{archive_path}' to '{nhdplus_root_raw}'")
+        except py7zr.Bad7zFile:
+            print(f"Error: '{archive_path}' is not a valid 7z file.")
+        except FileNotFoundError:
+            print(f"Error: Archive file not found at '{archive_path}'.")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
 
     if not os.path.exists(dem_file):
         sys.exit(f"Input dem_file {dem_file} does not exist. Exiting...")
@@ -156,6 +194,8 @@ def preprocess_region(
     polygonize(target_dem_folder)
 
     # Extract and reproject NHDPlus streams
+    nhd_flowline = os.path.join(nhd_path, 'NHDFlowline.shp')
+
     if not os.path.exists(nhd_flowline):
         sys.exit(f"NHDFlowline file {nhd_flowline} does not exist. Exiting...")
     NHDFlowline = gpd.read_file(nhd_flowline)
@@ -164,10 +204,8 @@ def preprocess_region(
     NHDFlowline = NHDFlowline.to_crs(epsg=target_crs_number)
 
     # Add ['ID', 'to', order_'] attributes from NHDPlus
-    PlusFlow_dbf = gpd.read_file(f'{inputs_dir}/nhdplus/NHDPlus{region_code}/NHDPlusAttributes/PlusFlow.dbf')
-    PlusFlowlineVAA_dbf = gpd.read_file(
-        f'{inputs_dir}/nhdplus/NHDPlus{region_code}/NHDPlusAttributes/PlusFlowlineVAA.dbf'
-    )
+    PlusFlow_dbf = gpd.read_file(f'{nhdplus_path}/NHDPlusAttributes/PlusFlow.dbf')
+    PlusFlowlineVAA_dbf = gpd.read_file(f'{nhdplus_path}/NHDPlusAttributes/PlusFlowlineVAA.dbf')
 
     NHDFlowline = NHDFlowline.merge(
         PlusFlow_dbf[['FROMCOMID', 'TOCOMID']], left_on='ComID', right_on='FROMCOMID', how='left'
@@ -189,6 +227,7 @@ def preprocess_region(
     )
 
     # Extract and reproject NHDPlus waterbodies
+    nhd_waterbody = os.path.join(nhd_path, 'NHDWaterbody.shp')
     if not os.path.exists(nhd_waterbody):
         sys.exit(f"NHDWaterbody file {nhd_waterbody} does not exist. Exiting...")
     NHDWaterbody = gpd.read_file(nhd_waterbody)
@@ -204,7 +243,7 @@ def preprocess_region(
     NHDFlowline.to_file(os.path.join(target_folder, f'NHDFlowline_{target_name}.gpkg'), driver='GPKG')
 
     # Extract and reproject NHDPlus catchments
-    nhd_catchment = f'{inputs_dir}/nhdplus/NHDPlus{region_code}/NHDPlusCatchment/Catchment.shp'
+    nhd_catchment = f'{nhdplus_path}/NHDPlusCatchment/Catchment.shp'
     if not os.path.exists(nhd_catchment):
         sys.exit(f"NHDCatchment file {nhd_catchment} does not exist. Exiting...")
     NHDCatchment = gpd.read_file(nhd_catchment)
@@ -213,13 +252,15 @@ def preprocess_region(
     NHDCatchment.to_file(f'{inputs_dir}/nhdplus/{target_name}/NHDCatchment_{target_name}.gpkg', driver='GPKG')
 
     # Extract and reproject WBD
-    wbd = f'{inputs_dir}/nhdplus/NHDPlus{region_code}/WBDSnapshot/WBD/WBD_Subwatershed.shp'
+    wbd = f'{nhdplus_path}/WBDSnapshot/WBD/WBD_Subwatershed.shp'
     if not os.path.exists(wbd):
         sys.exit(f"WBD file {wbd} does not exist. Exiting...")
     WBD = gpd.read_file(wbd, columns=['HUC_8'])
     WBD = WBD.rename(columns={'HUC_8': 'HUC8'})
     WBD = WBD.dissolve(by='HUC8')
     WBD = WBD.to_crs(epsg=target_crs_number)
+    if not os.path.exists(f'{inputs_dir}/wbd'):
+        os.makedirs(f'{inputs_dir}/wbd')
     WBD.to_file(f'{inputs_dir}/wbd/WBD_{target_name}.gpkg', layer='WBDHU8', driver='GPKG')
 
     download_nfhl_wrapper(huc_list=[huc], output_folder=f"{inputs_dir}/fema/nfhl/{region}", num_processes=14)
@@ -237,9 +278,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "-i", "--inputs_dir", type=str, required=True, help="The directory containing input data files."
     )
-    parser.add_argument(
-        "-d", "--preclip_date", type=str, required=True, help="The date to use for preclipping."
-    )
+
     args = parser.parse_args()
+
+    if args.region not in ['AmericanSamoa', 'Guam']:
+        sys.exit("Region not recognized. Options are: 'AmericanSamoa', 'Guam'")
 
     preprocess_nhdplus(**vars(args))
