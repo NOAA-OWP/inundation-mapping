@@ -61,7 +61,7 @@ def trace_downstream(start_feature_id, flow, distance=None, stop_feature_id=None
     while current_feature_id:
         # Check if we have exceeded the limit
         reach_count += 1
-        if reach_count > max_reaches_to_check:
+        if distance is None and reach_count > max_reaches_to_check:
             print(f"WARNING: Trace stopped after checking {max_reaches_to_check} reaches.")
             print(f"Could not find stop_feature_id: {stop_feature_id} downstream from {start_feature_id}.")
             break  # Exit the loop to prevent it from running forever
