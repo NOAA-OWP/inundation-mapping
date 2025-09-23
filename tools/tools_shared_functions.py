@@ -41,7 +41,7 @@ gpd.options.io_engine = "pyogrio"
 
 
 # TODO: Jun 2025: Change this to have a path to the config via an arg.
-# See rating_curve_get_usgs_curves for an example
+# See get_usgs_reting_curves for an example
 def get_env_paths():
     load_dotenv()
     # import variables from .env file
@@ -159,7 +159,9 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
 
     if not os.path.exists(preclip_lakes_path):
         # If the lakes shapefile does not exist, return the input array without masking
-        mask_status = f'HUC {huc}: No lakes shapefile found, returning original array'
+        mask_status = (
+            f'No lakes shapefile found at {preclip_lakes_path}, returning original array without lake masking'
+        )
         return input_array, mask_status
     else:
         # Read in the lakes shapefile
@@ -175,7 +177,7 @@ def mask_out_lakes(input_array, huc, raster_src, fim_run_dir):
 
         # Set values within the lake geometry to zero, masking them out of the FIM
         masked_array = input_array * lake_mask
-        mask_status = f'HUC {huc}: Lakes shapefile available, masked out lake'
+        mask_status = 'Lakes shapefile available, masked out lake'
         return masked_array, mask_status
 
 
@@ -1349,7 +1351,11 @@ def ngvd_to_navd_ft(datum_info):
         # convert meters to feet
         adjustment_ft = round(float(adjustment) * 3.28084, 2)
     else:
-        message = results['message']
+        if response is not None:
+            results = response.json()
+            message = results['message']
+        else:
+            message = "An unknown internal error has occurred."
         print(f'VDatum error occurred: {message}')
         adjustment_ft = None
 
@@ -1380,7 +1386,7 @@ def get_rating_curve(rating_curve_url, location_ids):
     # Define DataFrame to contain all returned curves.
     all_curves = pd.DataFrame()
 
-    print(location_ids)
+    # print(location_ids)
     # Define call to retrieve all rating curve information from WRDS.
     joined_location_ids = '%2C'.join(location_ids)
     url = f'{rating_curve_url}/{joined_location_ids}'

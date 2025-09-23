@@ -38,13 +38,12 @@ def buffer_stream_branches(
             wbd = gpd.read_file(wbd)
             stream_polys.geometry = gpd.clip(stream_polys, wbd).geometry
 
-        stream_polys.write(stream_polygons_file, verbose=verbose)
+            stream_polys.write(stream_polygons_file, verbose=verbose)
 
 
 if __name__ == "__main__":
     # parse arguments
     parser = argparse.ArgumentParser(description="Generates branch polygons")
-    parser.add_argument("-w", "--wbd", help="HUC boundary file", required=True, type=str)
     parser.add_argument("-s", "--streams-file", help="Streams file to branch", required=True)
     parser.add_argument("-i", "--branch-id-attribute", help="Attribute with branch ids", required=True)
     parser.add_argument(
@@ -57,6 +56,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-b", "--stream-polygons-file", help="Branch polygons out file name", required=False, default=None
     )
+    parser.add_argument("-w", "--wbd", help="WBD file to clip to", required=False, default=None)
     parser.add_argument(
         "-v", "--verbose", help="Verbose printing", required=False, default=None, action="store_true"
     )

@@ -396,7 +396,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
 
         # Read the input layer from the input WBD file using sql to be more efficient
         sql = f"SELECT * FROM \"{input_NHD_WBHD_layer}\" WHERE HUC8 = '{huc}'"
-        wbd = gpd.read_file(input_WBD_filename, sql=sql)
+        wbd = gpd.read_file(input_WBD_filename, sql=sql, columns=['HUC8', 'fimid', 'fossid', 'geometry'])
 
         wbd = wbd.to_crs(huc_CRS)
 
@@ -408,6 +408,22 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
 
         wbd = gpd.clip(wbd, dem_domain_gdf)
         wbd_buffer = gpd.clip(wbd_buffer, dem_domain_gdf)
+
+        # first Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
+        logging.info(f"Create stream buffer for {huc}")
+        wbd_streams_buffer = wbd_buffer.copy()
+        wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(
+            -8 * float(os.getenv('res')), resolution=32
+        )
+
+        wbd_streams_buffer = wbd_streams_buffer[['geometry']]
+        wbd_streams_buffer.to_file(
+            os.path.join(huc_directory, 'wbd_buffered_streams.gpkg'),
+            driver='GPKG',
+            index=False,
+            crs=huc_CRS,
+            engine="fiona",
+        )
 
         # Clip landsea before saving wbd and wbd_buffer
         logging.info(f"Clip ocean water polygon for {huc}")
@@ -471,6 +487,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
                 huc_CRS,
                 '-clipsrc',
                 f'{huc_directory}/wbd_buffered.gpkg',
+                '-nlt',
+                'PROMOTE_TO_MULTI',
                 f'{huc_directory}/wbd8_clp.gpkg',
                 input_WBD_filename,
                 input_NHD_WBHD_layer,
@@ -521,7 +539,7 @@ if __name__ == '__main__':
 
     # NOTE: Super important: Make sure the bash_variables are correct before doing pre-clip.
     # It pulls a wide number of values from there.
-    # Especially if you can a diretory for a new data load.
+    # Especially if you can a directory for a new data load.
     #     ie) DEMS at data/inputs/3dep_dems/10m_5070/20240916/
     #
     # TODO below comment is not relevant anymore because especially after the May 2025 refactoring no need to run twice.
@@ -533,7 +551,7 @@ if __name__ == '__main__':
 
     '''
     Notes:
-    This tool always create the below four boundary covergae files. So no args is used for them.
+    This tool always create the below four boundary coverage files. So no args is used for them.
         - wbd.gpkg
         - wbd_buffered.gpkg
         - wbd8_clp.gpkg
@@ -627,6 +645,10 @@ if __name__ == '__main__':
         )
 
     args = vars(parser.parse_args())
+
+    if not os.path.exists(args['huc_list']):
+        print(f"Error: HUC list file {args['huc_list']} does not exist.")
+        exit(0)
 
     if args['copy_from_dir']:
         # if copy argument is not provided, set it to false (so no-copying mode)

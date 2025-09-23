@@ -1175,13 +1175,10 @@ class StreamNetwork(gpd.GeoDataFrame):
         # self_not_in_wbd = self_ref[~self_ref['ID'].isin(self_in_wbd['ID'])]
 
         # Find the HUC outlet(s) -- downstream segments that intersect WBD boundary
-        sjoin = gpd.sjoin(self_in_wbd, wbd, predicate='crosses')  # this finds both inflows and outflows
-
+        sjoin = gpd.sjoin(
+            self_in_wbd, gpd.GeoDataFrame(geometry=wbd.boundary)
+        )  # this finds both inflows and outflows
         outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
-
-        # if outflows.empty:
-        #     # Alternate method -- when there are no segments downstream of any outlets
-        #     outflows = sjoin[~sjoin['to'].isin(self_in_wbd['ID'])]
 
         if outflows.empty:
             self.write(out_vector_files, index=False)
