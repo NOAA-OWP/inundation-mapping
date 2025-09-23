@@ -10,7 +10,6 @@ def process_branch(sub_branch_path, branch):
     src_base_file = os.path.join(sub_branch_path, f'src_base_{branch}.csv')
     hydro_table_file = os.path.join(sub_branch_path, f'hydroTable_{branch}.csv')
     src_full_file = os.path.join(sub_branch_path, f'src_full_crosswalked_{branch}.csv')
-    
     # print(str(branch))
 
     src_full_preserve_columns = [
@@ -56,9 +55,11 @@ def process_branch(sub_branch_path, branch):
     input_src_full = pd.read_csv(src_full_file, dtype=object, usecols=available_columns)
     input_hydro_table = pd.read_csv(hydro_table_file, dtype=object)
 
-
+    src_full_unique = input_src_full.drop_duplicates(subset='HydroID')
     input_src_base = input_src_base.merge(
-        input_src_full[['ManningN', 'HydroID', 'NextDownID', 'order_']], left_on='CatchId', right_on='HydroID'
+        src_full_unique[['ManningN', 'HydroID', 'NextDownID', 'order_']],
+        left_on='CatchId',
+        right_on='HydroID',
     )
 
     # Update src_full
