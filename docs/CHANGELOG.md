@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-09-22 - [PR#1658](https://github.com/NOAA-OWP/inundation-mapping/pull/1658)
+
+Adds capability to generate HAND FIM for Guam and American Samoa using data from NHDPlus. Guam uses CRS EPSG:6637 and American Samoa uses EPSG:32702. Note that there are no levees for American Samoa.
+
+### Additions
+
+- `data/nhdplus/preprocess_nhdplus.py`: Processes NHDPlus data including filtering and reprojecting
+
+### Changes
+
+- `data/`
+    - `bridges/make_rasters_using_lidar.py`: Updates and saves list of classification results
+    - `bridges/pull_osm_bridges.py`, `get_sample_data.py`, `nfhl/download_fema_nfhl.py`, `roads/pull_osm_roads.py`, `wbd/clip_vectors_to_wbd.py`, `wbd/generate_pre_clip_fim_huc8.py`: Adds processing for Guam and American Samoa to existing scripts
+- `data/usgs/acquire_and_preprocess_3dep_dems.py` and `src/agreedem.py`: minor cleanup
+- `src/`
+    - `bash_variables.env`: Update preclip date and add paths for Guam and American Samoa files
+    - `buffer_stream_branches.py`: Clip branch polygons to WBD instead of DEM domain
+    - `check_huc_inputs.py`, `run_by_branch.sh`, `run_unit_wb.sh`: Add Guam and American Samoa HUCs
+    - `split_flows.py`: Add NHDPlus Lake field name
+    - `stream_branches.py`: Drop text metadata columns if they exist
+
+<br/>
+
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
 
 Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
