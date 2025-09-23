@@ -202,9 +202,9 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 
         if str(huc_num).startswith('19'):
             gdf1 = gdf1.to_crs(ALASKA_CRS)
-        elif str(huc_num) == '22010000': 
+        elif str(huc_num) == '22010000':
             gdf1 = gdf1.to_crs(GUAM_CRS)
-        elif str(huc_num) == '22030001': 
+        elif str(huc_num) == '22030001':
             gdf1 = gdf1.to_crs(AMERICAN_SAMOA_CRS)
         else:
             gdf1 = gdf1.to_crs(DEFAULT_FIM_PROJECTION_CRS)
@@ -288,9 +288,9 @@ def combine_huc_features(output_dir):
         n = f.name
         if n.startswith("huc_19"):
             buckets["alaska"].append(f)
-        elif n.startswith("huc_22010000"): 
+        elif n.startswith("huc_22010000"):
             buckets["guam"].append(f)
-        elif n.startswith("huc_22030001"): 
+        elif n.startswith("huc_22030001"):
             buckets["samoa"].append(f)
         else:
             buckets["conus"].append(f)
