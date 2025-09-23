@@ -8,6 +8,116 @@ Adjusted the script to source columns from `src_base` instead of `src_full` .
 
 ### Changes
 `dev-fix-update-hydrotable`: as described. 
+## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
+
+Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
+
+A couple of other minor updates were done related to this:
+- Add the new `shared_function` `run_with_mp` and `setup_mp_file_logger`.  In implementation of that system, a few updates and adjustments were added/required.
+    - It original needed child mp tasks to return either True or False. This one needed to return a dataframe. 
+    - We also found that originally it determined that the mp tasks was either True / False meaning success or fail. If fail, it optionally may want to shut down the entire script.  This script has three status: Success, Fail but continue or Fail and shut down the script. This script needed to have both options available for each task to decide if it was an "acceptable" fail or a "catastrophic" fail. A "status" return code system was added to handle the three scenarios of what each child mp task could return.
+    - Forced shutdowns of processpools and thread queues is well known to be tricky. A lot of factors can play into when and how catastrophic fails. Depending on what code objects any companies has in their code requires different strategies to handle full shut downs.  In our case, it was a bit trickier than normal because of the combination of the processpool, tqdm and the screen queue. With lots of testing and experimentation, we now have a stronger system helping reducing the risk of the app hanging, orphaned threads or memory leaks. Note: It is not perfect and never will be. CTRL-C is now handled better but it will never be perfect. As with all of our scripts, product wide, whenever you use CTRL-C to abort, and you may have to do it a number of times, you need to close your docker container and restart to fully clean it up.
+     - With the change of returns for `run_with_mp` and it's tasks, we went back to adjust all current scripts using this system and fixed them. Minor adjustments were made to all three scripts: `make_dem_difs_for_bridges.py`,  `pull_osm_roads.py` and `download_fema_nfhl.py`.  All three were stub tested to ensure their small code adjustments were fine.
+ - Another change: The file was _renamed from rating_curve_get_usgs_curves.py to get_usgs_rating_curves.py_.  Some other files had note changed to reflect the updated file name.
+ - `get_usgs_rating_curves.py` picked up a major upgrade on logging including more details of what failed, when and details to details to help show what record id's were being processed when failed.
+ - A bug was found and fixed in `tools_shared_functions.py`.
+
+A full new valid set of usgs_rating_curve data files was created, will be copied to all enviros and bash_variables.env updated to reflect the new set.
+
+### Renamed files:
+-  Was: `data\usgs\rating_curve_get_usgs_curves.py`   to  `data\usgs\get_usgs_rating_curves.py`,
+
+### Files updated related to file name change (all just note updates):
+- `data\nws\preprocess_ahps_nws.py`,   `data\usgs\preprocess_ahps_usgs.py`,  `src\src_adjust_usgs_rating_trace.py`, `tools\fimr_to_benchmark.py`, `tools\generate_nws_lid.py` and `tools\rating_curve_comparison.py`
+
+### Changes
+- `data`
+    - `bridges\make_dem_dif_for_bridges.py`:  Updated for return values to `run_with_mp` shared functions.
+    - `nflh\download_fema_nfhl.py`: Updated for return values to `run_with_mp` shared functions.
+    - `roads\pull_osm_roads.py`: Updated for return values to `run_with_mp` shared functions.
+    - `usgs\get_usgs_rating_curve.py`:  as described above.
+
+- `pyproject.toml`: Updated linting rules doc to reflect the new get_usgs_rating_curve.py file name.
+- `src\bash_variables.env`: Updated for new path for the new usgs rating curve files
+- `src\utils\shared_functions`: In addition to the updates mentioned above for `run_with_mp`, the function named `setup_mp_file_logger` was updated to make an error file to help identify errors that occur. Logging types of both error and critical now show up in the regular log, but are copied into the new "error" log files to help bring the error(s) to attention. A new function named `setup_file_logger` was added which is nearly identical to the previous existing `setup_mp_file_logger` but is for non multi-processing usages. It has a few critical differences. There is likely a way to merge them. A couple of new small logging related utility functions were also added.
+- `tools\tools_shared_functions.py`: Fixed a bug that assumed a particular https response node was returned.
+<br/>
+
+## v4.8.11.0 - 2025-09-19 - [PR#1639]([https://github.com/NOAA-OWP/inundation-mapping/pull/1639])
+
+Catchments were being dropped due to a number of confounding reasons. Previously `crosses` was used to identify outlets as stream lines that intersected the HUC boundary, in order to extend the levelpaths downstream of the outlet(s). However, some recent and proposed changes including clipping streams to the landsea mask and extending streams by snapping to the WBD caused the `crosses` method to fail to identify some HUC outlets, so these levelpaths were not extended downstream, creating levelpaths that did not flow to the edge of the DEM based on the buffered branch polygons, and resulting in reverse flow issues and dropped catchments. Some additional bug fixes and improvements include clipping the branch polygons to the clipped WBD (clipped to the DEM domain and the landsea mask), the Great Salt Lake was incorporated into the waterbody mask, and mainstem stream endpoints were adjusted to the nearest landsea boundary within 10 km, ensuring that NSM streams connect to the DEM/waterbody edge and preventing dropped catchments.
+
+### Changes
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Updates method to determine outlets and ignores outlets that re-enter the HUC due to faulty data and snap levelpath endpoints (mainstem only) to the nearest landsea boundary
+    - `generate_pre_clip_fim_huc8.py`: Filters WBD columns to be read.
+- `src/`
+    - `bash_variables.env`: Updates landsea mask to include Great Salt Lake
+    - `buffer_stream_branches.py`: Clips branch polygons to WBD rather than DEM domain
+    - `run_unit_wb.sh`: Updates arguments for `buffer_stream_branches.py` to pass WBD instead of DEM domain for clipping
+    - `stream_branches.py`: Uses WBD boundary intersection to find outlets
+<br/>
+
+## v4.8.10.8 - 2025-09-19 - [PR#1196](https://github.com/NOAA-OWP/inundation-mapping/pull/1196)
+
+This PR adds a new tool, which is still in progress. The tool addresses the issue #994 (but is not going to close this issue yet). 
+The tool aims to update the HAND SRC by comparing water surface elevation (WSE) between RAS2FIM and HAND. The algorithm is as below:
+
+- For each RAS cross section, determine the HAND discharge adjustment (Q_Adjust):
+    - HAND minimum WSE is assumed the same as HAND Hydro-conditioned DEM
+    - RAS2FIM minimum WSE is already available from HEC-RAS runs.
+    - Calculate the difference between the minimum WSE values of RAS2FIM and HAND, and call it "WSE_base_error". This difference can address the bathymetry error in HAND SRC.  
+    - Add stage values into RAS2FIM rating curves (by subtracting DEM from WSE), and then interpolate a discharge for the "WSE_base_error". This interpolated discharge is called "Q_Adjust."
+- Calculate the median of "Q_Adjust" values for cross sections within HAND catchments.
+- Add the median "Q_Adjust" values to the flows of HAND SRC
+
+### Additions
+- tools/adjust_wse_with_ras2fim.py
+<br/>
+
+## v4.8.10.7 - 2025-09-19 - [PR#1607](https://github.com/NOAA-OWP/inundation-mapping/pull/1607)
+
+Changes files to use `fiona` as the I/O engine when reading files with `gpd.read_file()` to avoid segmentation faults. The issue was originally documented in #1376 and fixed in #1490, but two more files are fixed here.
+
+### Changes
+
+- `src/`
+    - `mask_dem.py` and `mitigate_branch_outlet_backpool.py`: Added `engine='fiona'` to `gpd.read_file()`. Also removed an unnecessary file read in `mask_dem.py`.
+<br/>
+
+## v4.8.10.6 - 2025-09-19 - [PR#1643](https://github.com/NOAA-OWP/inundation-mapping/pull/1643)
+
+Adjust eval_plot.py so it only looks for the config file when in -sp (spatial) mode. Spatial mode is used when running the tool to create FIM_performance files. In that mode, it can only run in OWP servers as it needs to talk to internal servers.
+
+Also updated the tools to create gpkg files instead of shape file. It does continue to create csv as files as before.  Adjustments for zero padding HUC numbers when applicable was also added.
+
+This update does not affect use of the tool as part of regular alpha testing.
+
+### Changes
+- `tools\`
+    - `eval_plots.py`: as described above including the zero padding HUC fix.
+    - `eval_plots_stackedbar.py`: zero padding HUC fix.
+<br/>
+
+## v4.8.10.5 - 2025-09-19 - [PR#1606](https://github.com/NOAA-OWP/inundation-mapping/pull/1606)
+
+Added new optional input argument to inundate scripts and `synthesize_test_cases.py` to use the `precalb_discharge_cms` values in the hydrotable instead of the default `discharge_cms`.
+
+### Changes
+- `tools/inundate_gms.py`: added "precalb_option", specify "precalb_discharge_cms" as an req input column and force the hydrotable input to be the csv file ("precalb_discharge_cms" is not currently one of the outputs in the feather file). Note that there is logic to fill the "precalb_discharge_cms" with "discharge_cms" when the precalb_discharge is null (this happens for hucs/branches where the calibration routines do not run - not benchmark data to calibrate to)
+- `tools/inundate_mosaic_wrapper.py`: added the "precalb_option" argument for passing to downstream functions
+- `tools/inundation.py`: added the "precalb_option" argument and added logic to use the "precalb_discharge_cms" data for interpolating the stages.
+- `tools/run_test_case.py`: added the "precalb_option" argument for passing to downstream functions
+- `tools/synthesize_test_cases.py`: added the "precalb_option" as an optional input argument and pass to the appropriate downstream functions
+<br/>
+
+## v4.8.10.4 - 2025-09-19 - [PR#1648](https://github.com/NOAA-OWP/inundation-mapping/pull/1648)
+
+Updated pull_osm_roads to allow for a selected set of hucs for testing.
+
+### Changes
+- `data/roads/pull_osm_roads.py`: as described above.
 <br/>
 
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
@@ -254,9 +364,8 @@ Addresses bug related to the `location_id` data type that is read in from the `a
 
 ### Changes
 `src/src_adjust_usgs_rating_trace.py`: Added `dtype={'location_id': object}` to the acceptable_sites csv file read
-  
+ 
 <br/><br/>
-
 
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
