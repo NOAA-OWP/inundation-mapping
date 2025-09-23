@@ -292,7 +292,7 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
 
 
 # -------------------------------------------------
-# TODO: Add multi-threading or mp. Need to double check about the possibilty of collisions.
+# TODO: Add mp. Need to double check about the possibilty of collisions.
 # Maybe let that be done at the script level and not here as a seperate client per mp
 # is required.
 def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
@@ -359,8 +359,7 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
 
 
 # -------------------------------------------------
-# TODO: add param to optional show/hide a progress bar if applicable
-def upload_file(s3_client, bucket_name, src_file_path, trg_file_path):
+def upload_file(s3_client, bucket_name, src_file_path, trg_file_path, show_progress_bar=True):
 
     """
     Process:
@@ -373,6 +372,8 @@ def upload_file(s3_client, bucket_name, src_file_path, trg_file_path):
         - src_file_path: ie /data/inputs/fema/12090301.gpkg
         - trg_file_path: bucket relative file path to the file name (ie. /foss_fim/inputs/fema/12090301.gpkg)
           (as in s3://hand_data_bucket/foss_fim/inputs/fema/12090301.gpkg)
+        - show_progress_bar: Any files over 1 GiB can automatically show a progress bar
+          if this value is set to True
 
     Returns:
         - True if file exists and was uploaded, False if not
@@ -399,14 +400,14 @@ def upload_file(s3_client, bucket_name, src_file_path, trg_file_path):
 
     try:
         # Will show progress if a large file
-        show_prog_bar = False
+        is_large_file = False
         file_size_gbytes = os.path.getsize(src_file_path) / 1024 / 1024 / 1024
-        if file_size_gbytes > 1:  # GiB
+        if file_size_gbytes > 1 and show_progress_bar:  # GiB
             print(f"---- {src_file_path} is a large file (over 1 GiB), showing upload progress bar for it.")
-            show_prog_bar = True
+            is_large_file = True
 
         with open(src_file_path, "rb"):
-            if show_prog_bar:
+            if is_large_file and show_progress_bar:
                 s3_client.upload_file(src_file_path, bucket_name, trg_file_path,
                                       Callback=awssf.ProgressPercentage(src_file_path))
                 print("", flush=True)  # reset the console lines as it does not have an line break

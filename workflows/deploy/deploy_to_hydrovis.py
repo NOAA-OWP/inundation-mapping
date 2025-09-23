@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-
 import argparse
 import glob
+import logging
 import os
 import sys
+import traceback
 
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
+import src.utils.shared_functions as sf
 import data.aws.aws_shared_functions as asf
 import data.aws.s3_shared_functions as s3_sf
 import workflows.workflow_shared_functions as wsf
@@ -39,8 +41,9 @@ HV_TRG_S3_QA_DATASET_PATH = ""  # the patch up to and including the qa_dataset p
 FIM_SRC_ROOT_PATH = ""
 
 # ============================
-def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file):
+def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_path):
 
+    print("****  Deploy to HydroVIS Started   ****")
     # --------------
     # Validation. We are validating all variables in case the call came in from another py file
     # We also load a number of key variables (load env)
@@ -49,52 +52,62 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file):
     # May throw exceptions or shut the program down.
     __setup_aws(aws_creds_file)
 
-    # TODO: Setup logging
-    # -------------------
     # setup logs
-    overall_start_time = datetime.now(timezone.utc)
-    # sf.setup_file_logger(TRG_ROOT_PATH, "get_sample_data")
-    # logging.info(f"Start time: {overall_start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    overall_start_dt = datetime.now(timezone.utc)
+    file_datetime_string = overall_start_dt.strftime("%Y%m%d-%H%M")    
+    log_file_name = f"deploy_to_hydrovis-{file_datetime_string}.log"
+    log_file_path = os.path.join(log_path, log_file_name)
+    sf.setup_file_logger(log_file_path)
+    logging.info(f"Start time: {overall_start_dt.strftime('%m/%d/%Y %H:%M:%S')}")
+    logging.info(f"Logs saved to: {log_file_path}")
+    logging.info(f"Deploy types to upload: {deploy_type}")
+    logging.info(f"Loading to s3://{TRG_HV_BUCKET_NAME}{HV_TRG_S3_HAND_PATH}"
+                 f" and s3://{TRG_HV_BUCKET_NAME}{HV_TRG_S3_QA_DATASET_PATH}."
+                 " Depending on while deploy types were selected.")
+    logging.info("------------------------")
 
-    print("********")
-#    logging.info(f"Copying files/folders from {SRC_FIM_FILE_PATHS} to {output_root_folder}")    
+    try:
 
-    files_to_upload = []
+        files_to_upload = []
 
-    # breaking this up to smaller parts for readability. Remember, we can have more than one deploy_type
-    # if 'hand' in deploy_type:
-    #     __load_hand_dataset()
+        # breaking this up to smaller parts for readability. Remember, we can have more than one deploy_type
+        # if 'hand' in deploy_type:
+        #     __load_hand_dataset()
+        # TODO: It is so large, maybe let it do it's own loading with mp??
+        # using aws s3 sync takes 1 to 2 hours, but we can get that faster here
+        # with more managed mp
 
-    if 'fpc' in deploy_types or 'fpp' in deploy_types:
-        files_to_upload.extend(__load_fim_performance(deploy_types))
+        if 'fpc' in deploy_types or 'fpp' in deploy_types:
+            files_to_upload.extend(__load_fim_performance(deploy_types))
 
-    # if 'cffb' in deploy_types or 'cffc' in deploy_types or 'cfsb' in deploy_types or 'cfsc' in deploy_types:
-    #     files_to_upload.extend(__load_catfim_files(deploy_types)
+        # if 'cffb' in deploy_types or 'cffc' in deploy_types or 'cfsb' in deploy_types or 'cfsc' in deploy_types:
+        #     files_to_upload.extend(__load_catfim_files(deploy_types)
 
-    if 'rcc' in deploy_types or 'urc' in deploy_types:
-        files_to_upload.extend(__load_misc_files(deploy_types))
-    
-    # Load each file. Note: One AWS Client can only load one file at a time.
-    # TODO: Add MP so we can create mulitiple clients and load multiple at a time.
-    for file in files_to_upload:
-        # logging.info(f"-- Uploading {file['src_file']}")
-        print(f"-- Uploading {file['src_file']}")
+        if 'rcc' in deploy_types or 'urc' in deploy_types:
+            files_to_upload.extend(__load_misc_files(deploy_types))
 
-        # boto3 only allows one file at a time.
-        file_exists = s3_sf.upload_file(S3_CLIENT, TRG_HV_BUCKET_NAME,
-                                        file['src_file'],
-                                        file['trg_file'])
-        if not file_exists:
-            # logging.info(f"-- Skipped uploading {src_file}. File does not exist.")
-            print("Oh no !!!!! it wasn't there.")
+        # Load each file. Note: One AWS Client can only load one file at a time.
+        # TODO: Add MP so we can create mulitiple clients and load multiple at a time.
+        for file in files_to_upload:
+            logging.info(f"-- Uploading {file['src_file']}")
 
+            # boto3 only allows one file at a time.
+            # Upload file will tell us if the file does not exist.
+            file_exists = s3_sf.upload_file(S3_CLIENT, TRG_HV_BUCKET_NAME,
+                                            file['src_file'],
+                                            file['trg_file'])
+            if not file_exists:
+                logging.info(f"-- Skipped uploading {file['src_file']}. File does not exist.")
 
-    # logging.info("==========================================================")
+    except Exception:
+        logging.critical(traceback.format_exc())
+
+    logging.info("==========================================================")
     end_time = datetime.now(timezone.utc)
-    print("All done for now... yahoo")
-    # logging.info("-- Completed getting sample data")
-    # logging.info(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    # logging.info(fh.print_date_time_duration(overall_start_time, end_time, False))
+    logging.info("****  Completed Deploy to HydroVIS  ****")
+    logging.info(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    logging.info(fh.print_date_time_duration(overall_start_dt, end_time, False))
+
 
 # ============================
 def __load_hand_dataset():
@@ -123,6 +136,8 @@ def __load_hand_dataset():
                      f"fim_inputs.csv",
                      ]
     
+    logging.info("--- Loading HAND dataset")
+
     for pattern in file_patterns:
         full_pattern = f"/{SRC_PATH}/{pattern}"
         files_to_upload.extend(glob.glob(full_pattern))
@@ -283,6 +298,7 @@ def __validate_input(deploy_type, workflow_params_file):
 
     return deploy_types
 
+
 # ============================
 def __setup_aws(aws_creds_file):
 
@@ -348,6 +364,7 @@ if __name__ == '__main__':
 
         python /foss_fim/workflows/deploy/deploy_to_hydrovis.py
             -dt hand
+            -lp '/data/workflows/deploy/
             -wp '/data/config/workflow_params_tests.env'
 
     # For HV deployments...
@@ -402,6 +419,13 @@ if __name__ == '__main__':
                         help='OPTIONAL: Path to workflow params(config) file.\n'
                         '  Defaults to /data/config/workflow_params.env',
                         default="/data/config/workflow_params.env",
+                        )
+
+    parser.add_argument('-lp', '--log-path',
+                        help='OPTIONAL: Path to where the log file will saved.\n'
+                        '  Defaults to /data/workflows/deploy.\n'
+                        'The file name is auto-generated.',
+                        default='/data/workflows/deploy'
                         )
 
     args = parser.parse_args()
