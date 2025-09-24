@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import csv
 import glob
 import os
 import pickle
@@ -65,6 +66,8 @@ def generate_flows_for_huc(
     parent_log_output_file,
     child_log_file_prefix,
     df_restricted_sites,
+    output_catfim_dir,
+    threshold_file,
 ):
 
     try:
@@ -143,11 +146,16 @@ def generate_flows_for_huc(
             # Careful, for "all_message.append" the syntax into it must be f'{lid}: (whever messages)
             # this is gets parsed and logic used against it.
 
-            # for Stage based, is uses stage values from threshold data supplied by WRDS
-            # but here (for flow), it uses the values from the flows data from WRDS
-            stages, flows, threshold_count = get_thresholds(
-                threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-            )
+            # # TODO: Guam - insert processing for if thresholds are already downloaded (similar to NWM metafile processing)
+
+            # # for Stage based, is uses stage values from threshold data supplied by WRDS
+            # # but here (for flow), it uses the values from the flows data from WRDS
+            # stages, flows, threshold_count = get_thresholds(
+            #     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+            # )
+
+            stages, flows, threshold_count = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
+
 
             # Yes.. stages, we will handle missing flows later even though we don't use the stage here
             if stages is None or len(stages) == 0:
@@ -374,6 +382,7 @@ def generate_flows(
     nwm_metafile,
     log_output_file,
     df_restricted_sites,
+    threshold_file,
 ):
 
     # TODO; Most docstrings like this are now very outdated and need updating
@@ -429,12 +438,14 @@ def generate_flows(
     start_dt = datetime.now(timezone.utc)
 
     # Open NWM flows geopackages
-    # TODO: Jul 2025: These shoudl be changed to a bash_variable or something other than
+    # TODO: Jul 2025: These should be changed to a bash_variable or something other than
     # hardcoding. Granted.. we don't have new ones but might someday
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
+    # nwm_flows_pacific_gpkg = '' # TODO: Guam - Route this correctly r'/data/inputs/nwm_hydrofabric/nwm_flows_pacific_nwmV3_ID.gpkg'
+    # nwm_flows_pacific_df = gpd.read_file(nwm_flows_pacific_gpkg)
 
     # nwm_metafile might be an empty string
     # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
@@ -443,7 +454,7 @@ def generate_flows(
     # Filter the meta list to just HUCs in the fim run output or huc if sent in as a param
     all_meta_lists = __load_nwm_metadata(
         output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile
-    )
+    ) # TODO: Guam - will use nwm_metafile option
 
     end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt
@@ -485,7 +496,7 @@ def generate_flows(
             threshold_url,
             all_meta_lists,
             nwm_flows_df,
-            nwm_flows_alaska_df,
+            nwm_flows_alaska_df,# TODO: Guam - Add pacific islands flow df
         )
 
     # only flow based needs the "flow" dir
@@ -501,10 +512,12 @@ def generate_flows(
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
-            # nwm_flows_region_df = nwm_flows_df  # To exclude Alaska
-            nwm_flows_region_df = (
-                nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
-            )  # To include Alaska
+            if huc[:2] == '19':  # Alaska
+                nwm_flows_region_df = nwm_flows_alaska_df
+            elif huc[:2] == '22':  # Pacific Islands
+                nwm_flows_region_df = nwm_flows_df # TODO: Guam - change this to nwm_flows_pacific_df when available
+            else:  # CONUS + Hawaii + Puerto Rico
+                nwm_flows_region_df = nwm_flows_df
 
             # Deep copy that speed up Multi-Proc a little as all_meta_lists
             # is a huge object. Need to figure out how to filter that down somehow
@@ -523,6 +536,8 @@ def generate_flows(
                 log_output_file,
                 child_log_file_prefix,
                 df_restricted_sites,
+                output_catfim_dir,
+                threshold_file,
             )
     # end ProcessPoolExecutor
 
@@ -650,6 +665,68 @@ def generate_flows(
     FLOG.lprint(f"End Wrapping up flows generation Duration: {str(all_time_duration).split('.')[0]}")
     print()
 
+def __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file):
+
+    if os.path.isfile(threshold_file) == True:
+        FLOG.lprint(f"Threshold file already downloaded and exists at {threshold_file}") # TODO: Guam - this option will be used
+
+        # Read pickle file and get the stages and flows dictionary for the site
+        with open(threshold_file, 'rb') as f:
+            loaded_data = pickle.load(f)
+            site_data = loaded_data[loaded_data['nws_lid'] == lid.upper()] # TODO: Check whether we need an upper or lower case conversion
+
+        # Error if site_data is empty
+        if site_data.empty:
+            FLOG.error(f"No threshold data found for LID {lid} in the provided threshold file.")
+            return None, None, 0
+
+        # Make output dictionaries for stages and flows
+        # Assuming there's only one record per threshold_type per lid
+        stages = site_data.loc[site_data['threshold_type'] == 'stages'].to_dict(orient='records')[0]
+        del stages['threshold_type']
+        del stages['huc']
+
+        flows = site_data.loc[site_data['threshold_type'] == 'flows'].to_dict(orient='records')[0]
+        del flows['threshold_type']
+        del flows['huc']
+
+        # Print out the stages and flows for debugging
+        FLOG.lprint(f"Stages for LID {lid}: {stages}")  ## TEMP DEBUG
+        FLOG.lprint(f"Flows for LID {lid}: {flows}")  ## TEMP DEBUG
+
+        # Count how many thresholds are not None in stages
+        threshold_count = 1  ## TEMP DEBUG #sum(1 for key in stages if key in ['action', 'minor', 'moderate', 'major', 'record'] and stages[key] is not None)
+        # TODO: Guam - Decide what I want to do about the threshold count... remove or fix?
+
+    else:
+        # Get thresholds from the WRDS API
+        stages, flows, threshold_count = get_thresholds(
+            threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+        )
+
+        # Save thresholds to output_thresholds_dir (if the file of that LID doesn't already exist)
+        output_thresholds_dir = os.path.join(output_catfim_dir, "thresholds")
+        if not os.path.exists(output_thresholds_dir):
+            os.mkdir(output_thresholds_dir)
+
+        lid_thresholds_csv = os.path.join(output_thresholds_dir, f"thresholds_{lid.lower()}.csv")
+
+        if not os.path.isfile(lid_thresholds_csv):
+            thresholds = [{'threshold_type': 'stages', 'huc': huc, **stages},  # TODO: Add HUC
+                        {'threshold_type': 'flows', 'huc': huc, **flows}] # TODO: Add HUC
+
+            with open(lid_thresholds_csv, mode='w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=thresholds[1].keys())
+                writer.writeheader()
+                writer.writerows(thresholds)
+
+
+        # TODO: In CatFIM post-processing, add a functionality to append all those files together into one thresholds.pkl
+        # so we can rerun CatFIM without hitting the WRDS API (like we did with __load_nwm_metadata)
+        # Will need to double check that the memory usage isn't insane with this new idea.
+
+
+    return stages, flows, threshold_count
 
 # local script calls __load_nwm_metadata so FLOG is already setup
 def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile):
@@ -662,7 +739,7 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
     # WRDS unless we need a smaller or modified version. This one likely has all nws_lid data.
 
     if os.path.isfile(nwm_metafile) == True:
-        FLOG.lprint(f"Meta file already downloaded and exists at {nwm_metafile}")
+        FLOG.lprint(f"Meta file already downloaded and exists at {nwm_metafile}") # TODO: Guam - this option will be used
 
         with open(nwm_metafile, "rb") as p_handle:
             output_meta_list = pickle.load(p_handle)
@@ -814,6 +891,15 @@ if __name__ == '__main__':
         '-n',
         '--nwm_metafile',
         help='OPTIONAL: Path to the pre-made pickle file that already holds the nwm metadata',
+        required=False,
+        type=str,
+        default="",
+    )
+
+    parser.add_argument(
+        '-tf',
+        '--threshold-file',
+        help='OPTIONAL: Path to the pre-made pickle file that already holds the thresholds',
         required=False,
         type=str,
         default="",

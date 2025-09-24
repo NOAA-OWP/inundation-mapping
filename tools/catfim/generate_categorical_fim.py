@@ -2,6 +2,7 @@
 
 import argparse
 import glob
+import pickle
 import math
 import os
 import shutil
@@ -15,7 +16,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-from generate_categorical_fim_flows import generate_flows
+from generate_categorical_fim_flows import (
+    generate_flows,
+    __load_thresholds,
+)
 from generate_categorical_fim_mapping import (
     manage_catfim_mapping,
     post_process_cat_fim_for_viz,
@@ -88,6 +92,7 @@ def process_generate_categorical_fim(
     past_major_interval_cap,
     step_num,
     nwm_metafile,
+    threshold_file,
 ):
 
     # ================================
@@ -127,6 +132,7 @@ def process_generate_categorical_fim(
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
+    output_thresholds_dir = os.path.join(output_catfim_dir, 'thresholds')
 
     # ================================
     set_start_files_folders(
@@ -145,6 +151,7 @@ def process_generate_categorical_fim(
             raise Exception("The nwm_metadata (-me) file appears to be invalid. It is missing an extension.")
         if file_ext[1].lower() != ".pkl":
             raise Exception("The nwm_metadata (-me) file appears to be invalid. The extention is not pkl.")
+
 
     # ================================
     # Define default arguments. Modify these if necessary
@@ -202,6 +209,50 @@ def process_generate_categorical_fim(
             ' Verify that you have the correct input folder and if you used the -lh flag that it'
             ' is a valid matching HUC.'
         )
+
+
+    # ================================
+    if threshold_file != "":
+        if os.path.exists(threshold_file) == False:
+            raise Exception("The threshold input file can not be found. Please remove or fix pathing.")
+        file_ext = os.path.splitext(threshold_file)
+        if file_ext.count == 0:
+            raise Exception("The threshold input file appears to be invalid. It is missing an extension.")
+        if file_ext[1].lower() != ".pkl":
+            raise Exception("The threshold input file appears to be invalid. The extention is not pkl.")
+
+        # Read pickle file and get a list of unique HUCs
+        with open(threshold_file, 'rb') as f:
+            loaded_data = pickle.load(f)
+
+        hucs = loaded_data['huc'].unique().tolist()
+        threshold_hucs= [str(num).zfill(8) for num in hucs]        
+
+        # If a HUC list is specified, check that the HUCs in the list are also in the threshold file
+        if 'all' not in lst_hucs:
+            missing_hucs = [huc for huc in valid_ahps_hucs if huc not in threshold_hucs]
+            if missing_hucs:
+                raise Exception(
+                    f"The following HUCs from the input list are not present in the threshold file ({threshold_file}): "
+                    f"{', '.join(missing_hucs)}"
+                )
+        else:
+            # If 'all' is specified, filter valid_ahps_hucs to only those present in the threshold file and warn about dropped HUCs
+            filtered_hucs = [huc for huc in valid_ahps_hucs if huc in threshold_hucs]
+            dropped_huc_lst = list(set(valid_ahps_hucs) - set(filtered_hucs))
+            if dropped_huc_lst:
+                FLOG.warning(
+                    f"The following HUCs are present in the FIM run directory but not in the threshold file ({threshold_file}) and will be skipped: "
+                    f"{', '.join(dropped_huc_lst)}"
+                )
+            valid_ahps_hucs = filtered_hucs
+            num_hucs = len(valid_ahps_hucs)
+            if num_hucs == 0:
+                raise ValueError(
+                    f'After filtering, the number of valid HUCs compared to the output directory of {fim_run_dir} is zero.'
+                    ' Verify that you have the correct input folder and threshold file.'
+                )
+
     # End of Validation and setup
     # ================================
 
@@ -222,6 +273,11 @@ def process_generate_categorical_fim(
             FLOG.warning('Listed HUCs not available in FIM run directory:')
             FLOG.warning(dropped_huc_lst)
 
+    # Print available hucs in threshold_file  ## TEMP DEBUG
+    if threshold_file != "":  ## TEMP DEBUG
+        FLOG.lprint(f'Threshold file included with data for the following HUCs: {threshold_hucs}')  ## TEMP DEBUG
+
+    # For API usage
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
     if API_BASE_URL is None:
@@ -276,6 +332,7 @@ def process_generate_categorical_fim(
                 past_major_interval_cap,
                 nwm_metafile,
                 df_restricted_sites,
+                threshold_file,
             )
         else:
             FLOG.lprint("generate_stage_based_categorical_fim step skipped")
@@ -322,6 +379,7 @@ def process_generate_categorical_fim(
                 nwm_metafile,
                 FLOG.LOG_FILE_PATH,
                 df_restricted_sites,
+                threshold_file,
             )
             end = time.time()
             elapsed_time = (end - start) / 60
@@ -346,6 +404,35 @@ def process_generate_categorical_fim(
         else:
             FLOG.lprint("manage_catfim_mapping step skipped")
     # end if else
+
+    output_pickle_path = os.path.join(output_thresholds_dir, 'thresholds.pkl')
+    threshold_csv_files = glob.glob(os.path.join(output_thresholds_dir, "*.csv"))
+
+    # Check whether there are saved thresholds and, if so, compile them
+    if threshold_file != "":
+        FLOG.lprint(f"Skipping threshold CSV compilation because supplied threshold file was used.")
+
+    else:
+        if len(threshold_csv_files) == 0:
+            FLOG.lprint("No threshold CSV files found to compile, threshold.pkl will not be created.")
+
+        else:
+            # Compile saved thresholds data into a single file
+            all_dataframes = []
+            for file in threshold_csv_files:
+                df = pd.read_csv(file)
+                all_dataframes.append(df)
+                os.remove(file)  # Remove individual CSV after reading
+            thresholds_df = pd.concat(all_dataframes, ignore_index=True)
+
+            try:
+                with open(output_pickle_path, 'wb') as f:
+                    pickle.dump(thresholds_df, f)
+                FLOG.lprint(f"Successfully combined {len(threshold_csv_files)} CSVs into {output_pickle_path}")
+            except Exception as e:
+                FLOG.lprint(f"Error saving pickle file {output_pickle_path}: {e}")
+
+    ######
 
     FLOG.lprint("")
 
@@ -497,6 +584,7 @@ def iterate_through_huc_stage_based(
     parent_log_output_file,
     child_log_file_prefix,
     progress_stmt,
+    threshold_file,
 ):
     """_summary_
     This and its children will create stage based tifs and catfim data based on a huc
@@ -540,7 +628,7 @@ def iterate_through_huc_stage_based(
         # -- If necessary files exist, continue -- #
         # Yes, each lid gets a record no matter what, so we need some of these messages duplicated
         # per lid record
-        if not os.path.exists(usgs_elev_table):
+        if not os.path.exists(usgs_elev_table): # TODO: Guam - Will we need to add Guam to this data table? Or include this data in our manual input?
             msg = ":Internal Error: Missing key data from HUC record (usgs_elev_table missing)"
             # all_messages.append(huc + msg)
             MP_LOG.warning(huc + msg)
@@ -625,14 +713,10 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
-                # Get stages and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
-                thresholds, flows, threshold_count = get_thresholds(
-                    threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-                )
+                # Get thresholds from WRDS API or threshold file
+                thresholds, flows, threshold_count = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
 
-                # temp debug
-                # MP_LOG.lprint(f"thresholds are {thresholds}")
-                # MP_LOG.lprint(f"flows are {flows}")
+                # TODO: Simplify these status messages
 
                 # If no thresholds are found, write message and exit.
                 # Many sites that used to have 'Error getting thresholds from WRDS API' should now
@@ -660,6 +744,7 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
+
                 # Read stage values and calculate thresholds
                 # The error and warning message is already formatted correctly if applicable
                 # Hold the warning_msg to the end
@@ -670,11 +755,12 @@ def iterate_through_huc_stage_based(
                 if err_msg != "":
                     # The error message is already formatted correctly
                     all_messages.append(lid + err_msg)
-                    MP_LOG.warning(huc_lid_id + msg)
+                    MP_LOG.warning(huc_lid_id + err_msg)
                     continue
 
                 # Look for acceptable elevs
-                acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
+                acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id) 
+                # TODO: Guam - Do we need to add Guam to this data? Or have it read in this data from the manual inputs?
 
                 if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
                     msg = ":Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
@@ -682,6 +768,7 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
+                # TODO: Guam - Do we need to add Guam to this data? Or have it read in this data from the manual inputs?
                 # Get the dem_adj_elevation value from usgs_elev_table.csv.
                 # Prioritize the value that is not from branch 0.
                 lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(
@@ -1588,6 +1675,7 @@ def generate_stage_based_categorical_fim(
     past_major_interval_cap,
     nwm_metafile,
     df_restricted_sites,
+    threshold_file,
 ):
     '''
     Sep 2024,
@@ -1605,11 +1693,8 @@ def generate_stage_based_categorical_fim(
     huc_messages_dir = os.path.join(output_mapping_dir, 'huc_messages')
     os.makedirs(huc_messages_dir, exist_ok=True)
 
+
     FLOG.lprint("Starting generate_flows (Stage Based)")
-
-    # If it is stage based, generate flows returns all of these objects.
-    # If flow based, generate flows returns only
-
     # Generate flows is only using one of the incoming job number params
     # so let's multiply -jh (huc) and -jn (inundate)
     job_flows = job_number_huc * job_number_inundate
@@ -1620,7 +1705,7 @@ def generate_stage_based_categorical_fim(
     # stage based doesn't really need generated flow data
     # But for flow based, it really does use it to generate flows.
     #
-    (huc_dictionary, sites_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = (
+    (huc_dictionary, sites_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = ( # TODO: Guam - Add pacific islands flow df 
         generate_flows(
             output_catfim_dir,
             nwm_us_search,
@@ -1632,6 +1717,7 @@ def generate_stage_based_categorical_fim(
             nwm_metafile,
             str(FLOG.LOG_FILE_PATH),
             df_restricted_sites,
+            threshold_file,
         )
     )
 
@@ -1652,7 +1738,12 @@ def generate_stage_based_categorical_fim(
                 if huc in lst_hucs:
                     # FLOG.lprint(f'Generating stage based catfim for : {huc}')
 
-                    nwm_flows_region_df = nwm_flows_alaska_df if str(huc[:2]) == '19' else nwm_flows_df
+                    if huc[:2] == '19':  # Alaska
+                        nwm_flows_region_df = nwm_flows_alaska_df
+                    elif huc[:2] == '22':  # Pacific Islands
+                        nwm_flows_region_df = nwm_flows_df # TODO: Guam - change this to nwm_flows_pacific_df when available
+                    else:  # CONUS + Hawaii + Puerto Rico
+                        nwm_flows_region_df = nwm_flows_df
 
                     progress_stmt = f"index {huc_index + 1} of {num_hucs}"
                     executor.submit(
@@ -1671,6 +1762,7 @@ def generate_stage_based_categorical_fim(
                         str(FLOG.LOG_FILE_PATH),
                         child_log_file_prefix,
                         progress_stmt,
+                        threshold_file,
                     )
                     huc_index += 1
 
@@ -1706,6 +1798,8 @@ def generate_stage_based_categorical_fim(
     # Write to file
     if len(all_csv_df) == 0:
         raise Exception(f"no csv files found - missing attribute CSVs in {attributes_dir}")
+    # TODO: This error currently occurs if no sites are mapped (usually in a test). 
+    # Make a test that catches this earlier and provides a more legible error/warning message.
 
     all_csv_df.to_csv(os.path.join(attributes_dir, 'nws_lid_attributes.csv'), index=False)
 
@@ -1964,6 +2058,16 @@ if __name__ == '__main__':
         '--nwm_metafile',
         help='OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.'
         ' e.g.: /data/catfim/nwm_metafile.pkl',
+        required=False,
+        default="",
+    )
+
+    parser.add_argument(
+        '-tf',
+        '--threshold-file',
+        help='OPTIONAL: If you have a pre-existing threshold file, you can path to it here. '
+        'Providing this manual input will prevent the WRDS API from being queried for thresholds.'
+        ' e.g.: /data/catfim/threshold_file.pkl',
         required=False,
         default="",
     )

@@ -663,7 +663,7 @@ def post_process_huc(
             # There may not necessarily be an attributes.csv for this lid, depending on how flow processing went
             # lots of lids fall out in the attributes or flow steps.
             if os.path.exists(nws_lid_attributes_filename) == False:
-                MP_LOG.warning(f"{ahps_lid} has no attributes file which may perfectly fine.")
+                MP_LOG.warning(f"{ahps_lid} has no attributes file (which may be perfectly fine)")
                 continue
 
             # We are going to do an MP in MP.
