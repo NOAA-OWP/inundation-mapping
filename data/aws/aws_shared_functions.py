@@ -6,31 +6,33 @@ import threading
 
 import boto3
 import botocore.exceptions
-
 from botocore.client import Config
 
-# Note: Sep 2025: Why all of this architecture usign boto3 instead of simpler subprocess 
+
+# Note: Sep 2025: Why all of this architecture usign boto3 instead of simpler subprocess
 # and cli?  We want more control over errors ane exceptions, plus this system can do more
 # complex things that cli can do such as wildcard, more selective recursion, etc.
 # This AWS system will also be upgraded soon handle much more than just s3, but things like
 # step functions, task definitions, execution scripts, etc. ie: tools to make simple
 # python scripts to launch UAT step function runs, then check the results and aws logs.
 
+
 # -------------------------------------------------
-def create_aws_client(aws_service_type_name : str, 
-                      aws_access_key_id : str = None,
-                      aws_secret_access_key : str = None,
-                      aws_session_token : str = None,
-                      aws_region : str = None,
-                      aws_config_profile_name : str = None
-                     ):
+def create_aws_client(
+    aws_service_type_name: str,
+    aws_access_key_id: str = None,
+    aws_secret_access_key: str = None,
+    aws_session_token: str = None,
+    aws_region: str = None,
+    aws_config_profile_name: str = None,
+):
     '''
     Inputs:
         - aws_service_type_names: What type of client are you creating. This code currently
           supports only the "s3" type, but more are expected soon.
 
         - aws_*:  See notes below about creating AWS Boto3 clients.
-    
+
     Returns:
         - True / False (success)
 
@@ -47,7 +49,7 @@ def create_aws_client(aws_service_type_name : str,
           client and will call function twice.
 
         - Can also send back an exception. See notes above talking about the error_msg return value.
-          
+
     AWS Boto3 clients:
     AWS clients can be created in a very wide array of ways to authenticate.
     It depends on how the aws administrator setup permissions and what account has permission
@@ -55,12 +57,12 @@ def create_aws_client(aws_service_type_name : str,
     users. They can include:
         - Explicit AWS access keys:
             - aws_access_key_id and aws_secret_access_key: Can not have one without the other.
-        - Tokens: 
+        - Tokens:
             - If you use explicit aws access keys, sometimes, but not always you may need a temp token.
               If you don't need to provide it, an implicit token will be created. Tokens can be set by
               AWS admins to timeout or not, default is 12 hours timeouts.
         - AWS regions:
-            - Sometimes an aws_region_name may need to explicitly defined but generally not. 
+            - Sometimes an aws_region_name may need to explicitly defined but generally not.
               ie) us-east-1
         - AWS Profiles:
             - In some situations, you may choose to use an AWS config profile. This is a command
@@ -79,15 +81,17 @@ def create_aws_client(aws_service_type_name : str,
     # Validation:
     if aws_service_type_name != 's3':
         raise ValueError("AWS Service types values are only s3 at this time. More coming soon.")
-    
+
     if aws_access_key_id is not None and aws_access_key_id != "":
         # then the aws_secret_access_key must also exist
         if aws_secret_access_key is None or aws_secret_access_key == "":
-            raise ValueError("The AWS Access Key ID has been submitted but the AWS Secret Access Key"
-                             " has not. Both are always used together if authenicating using this method.")
+            raise ValueError(
+                "The AWS Access Key ID has been submitted but the AWS Secret Access Key"
+                " has not. Both are always used together if authenicating using this method."
+            )
 
-    # 
-    error_msg = ""    
+    #
+    error_msg = ""
     s3_client = None
 
     try:
@@ -96,15 +100,19 @@ def create_aws_client(aws_service_type_name : str,
 
         session_args = {}
 
-        if aws_access_key_id is not None and aws_access_key_id != "":  # We validated above that either both or none mst exist
+        if (
+            aws_access_key_id is not None and aws_access_key_id != ""
+        ):  # We validated above that either both or none mst exist
             session_args['aws_access_key_id'] = aws_access_key_id
             session_args['aws_secret_access_key'] = aws_secret_access_key
-        elif aws_config_profile_name is not None and aws_config_profile_name != "":  # Can not have a profile and explicit keys
+        elif (
+            aws_config_profile_name is not None and aws_config_profile_name != ""
+        ):  # Can not have a profile and explicit keys
             session_args['profile_name'] = aws_config_profile_name
 
         if aws_region is not None and aws_region != "":
             session_args['region_name'] = aws_region
-    
+
         if aws_session_token is not None and aws_session_token != "":
             session_args['aws_session_token'] = aws_session_token
 
@@ -112,7 +120,6 @@ def create_aws_client(aws_service_type_name : str,
             session = boto3.Session()
         else:
             session = boto3.Session(**session_args)
-
 
         # TODO: fix this... needs some tweaks
         # Setup Config to manage timeouts on initial connection
@@ -125,7 +132,6 @@ def create_aws_client(aws_service_type_name : str,
 
         # -------------------
         # Now the client and aws config overrides
-
 
         if aws_service_type_name == "s3":
             # s3_client = session.client("s3", config=client_config)
@@ -150,6 +156,7 @@ def create_aws_client(aws_service_type_name : str,
     # True/False (success), no error_msg, s3_client object
     return True, "", s3_client
 
+
 # -------------------------------------------------
 def aws_exception_handler(ex):
     """
@@ -164,9 +171,8 @@ def aws_exception_handler(ex):
     """
     msg = ""
 
-    if (
-         (isinstance(ex, botocore.exceptions.NoCredentialsError))
-         or (isinstance(ex, botocore.exceptions.PartialCredentialsError))
+    if (isinstance(ex, botocore.exceptions.NoCredentialsError)) or (
+        isinstance(ex, botocore.exceptions.PartialCredentialsError)
     ):
         msg = (
             "ERROR: Bad AWS Credentials: There are a number of ways this can fail. You may be missing"
@@ -276,6 +282,7 @@ def aws_exception_handler(ex):
 
     return msg
 
+
 # -------------------------------------------------
 # Can show upload or download progress for large files.
 class ProgressPercentage(object):
@@ -293,9 +300,5 @@ class ProgressPercentage(object):
             self._seen_so_far += mg_so_far
             percentage = (self._seen_so_far / self._size) * 100
             seen_so_far = f"{self._seen_so_far:.2f}"
-            sys.stdout.write(
-                "\r%s / %s MiB (%.2f%%)" % (
-                    seen_so_far, self._orig_size_formatted, percentage
-                )
-            )
+            sys.stdout.write("\r%s / %s MiB (%.2f%%)" % (seen_so_far, self._orig_size_formatted, percentage))
             sys.stdout.flush()

@@ -62,7 +62,7 @@ def setup_file_logger(log_file_path):
 
     if not log_file_path.endswith(".log"):
         raise Exception("log file name must end with .log")
-    
+
     log_folder = os.path.dirname(log_file_path)
     # create the paths if required.
     os.makedirs(log_folder, exist_ok=True)

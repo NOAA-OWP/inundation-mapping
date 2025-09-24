@@ -1866,7 +1866,7 @@ if __name__ == '__main__':
         '-e',
         '--env_file',
         help='OPTIONAL: Docker mount path to the catfim environment file.'
-         ' Defaults to: /data/config/fim_enviro_values.env',
+        ' Defaults to: /data/config/fim_enviro_values.env',
         default="/data/config/fim_enviro_values.env",
         required=False,
     )

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-import os
 import math
+import os
 
 import boto3
 import botocore.exceptions
-
 from botocore.client import Config
 
 import data.aws.aws_shared_functions as awssf
@@ -18,11 +17,12 @@ is translated to a pattern of "prefixes" that S3 can use.
 
 '''
 
-# Note: Sep 2025: Why all of this architecture usign boto3 instead of simpler subprocess 
+# Note: Sep 2025: Why all of this architecture usign boto3 instead of simpler subprocess
 # and cli?  We want more control over errors ane exceptions, plus this system can do more
 # complex things that cli can do such as wildcard, more selective recursion, etc.
 # This AWS system will also be upgraded soon handle much more than just s3, but things like
 # step functions, task definitions, execution scripts, etc.
+
 
 # -------------------------------------------------
 def parse_bucket_and_folder_name(s3_full_folder_path):
@@ -296,7 +296,6 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
 # Maybe let that be done at the script level and not here as a seperate client per mp
 # is required.
 def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
-
     """
     Process:
         - Note: The boto3.client must be already instantated and passed in
@@ -360,7 +359,6 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
 
 # -------------------------------------------------
 def upload_file(s3_client, bucket_name, src_file_path, trg_file_path, show_progress_bar=True):
-
     """
     Process:
         - Note: The boto3.client must be already instantated and passed in
@@ -403,19 +401,26 @@ def upload_file(s3_client, bucket_name, src_file_path, trg_file_path, show_progr
         is_large_file = False
         file_size_gbytes = os.path.getsize(src_file_path) / 1024 / 1024 / 1024
         if file_size_gbytes > 1 and show_progress_bar:  # GiB
-            print(f"---- {src_file_path} is a large file (over 1 GiB), showing upload progress bar for it.")
+            file_name = os.path.basename(src_file_path)
+            print(f"---- {file_name} is a large file (over 1 GiB), showing upload progress bar for it.")
+
             is_large_file = True
 
         with open(src_file_path, "rb"):
             if is_large_file and show_progress_bar:
-                s3_client.upload_file(src_file_path, bucket_name, trg_file_path,
-                                      Callback=awssf.ProgressPercentage(src_file_path))
+                s3_client.upload_file(
+                    src_file_path,
+                    bucket_name,
+                    trg_file_path,
+                    Callback=awssf.ProgressPercentage(src_file_path),
+                )
                 print("", flush=True)  # reset the console lines as it does not have an line break
             else:
                 s3_client.upload_file(src_file_path, bucket_name, trg_file_path)
 
-
     except Exception as ex:
-        raise awssf.aws_exception_handler(ex)  # pyright: ignore[reportGeneralTypeIssues] # It manages messages and errors
+        raise awssf.aws_exception_handler(
+            ex
+        )  # pyright: ignore[reportGeneralTypeIssues] # It manages messages and errors
 
     return True  # file uploaded succesfully
