@@ -122,6 +122,13 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
 
+## DINF FLOW DIR - BRANCH 0 (include all NWM streams) ##
+echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
+mpiexec -n $ncores_fd $taudemDir2/dinfflowdir \
+    -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
+    -slp $tempCurrentBranchDataDir/slope_dinf_burned_filled_$current_branch_id.tif \
+    -ang $tempCurrentBranchDataDir/flowdir_dinf_burned_filled_$current_branch_id.tif
+
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"
 gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \

@@ -246,6 +246,13 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 
+## DINF FLOW DIR - BRANCH 0 (include all NWM streams) ##
+echo -e $startDiv"Dinf Flow Directions on Burned DEM $hucNumber $branch_zero_id"
+mpiexec -n $ncores_fd $taudemDir2/dinfflowdir \
+    -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
+    -slp $tempCurrentBranchDataDir/slope_dinf_burned_filled_$branch_zero_id.tif \
+    -ang $tempCurrentBranchDataDir/flowdir_dinf_burned_filled_$branch_zero_id.tif
+
 # ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
 # if [ "$levelpaths_exist" = "1" ]; then
 #     echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
