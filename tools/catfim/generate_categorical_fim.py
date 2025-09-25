@@ -713,20 +713,23 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Get thresholds from WRDS API or threshold file
-                thresholds, flows, threshold_count = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
+                thresholds, flows, status_msg = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
 
-                # TODO: Simplify these status messages
+                MP_LOG.ltrace(status_msg) # TODO: Make this into a more specific site status?
+                # We need a status that says, 'API call worked but the correct thresholds were not available'
 
-                # If no thresholds are found, write message and exit.
-                # Many sites that used to have 'Error getting thresholds from WRDS API' should now
-                # have this more descriptive status message
-                if threshold_count == 0:
-                    msg = ':No thresholds found on WRDS API'
-                    all_messages.append(lid + msg)
-                    MP_LOG.warning(huc_lid_id + msg)
-                    continue
+                # Sept 2025 - Removed threshold_count functionality for now. It had the intended functionality of differentiating API errors 
+                # versus zero thresholds being available versus the incorrect thresholds being available, but I think
+                # it was actually confusing. 
+  
+                # Count the number of stages available
+                # if threshold_count == 0:
+                #     msg = ':No thresholds found on WRDS API'
+                #     all_messages.append(lid + msg)
+                #     MP_LOG.warning(huc_lid_id + msg)
+                #     continue
 
-                # If there are no thresholds but the threshold_count is greater than 0 or NA (unlikely).
+                # If there are no thresholds.
                 # write message and exit.
                 if thresholds is None or len(thresholds) == 0:
                     msg = ':Error getting thresholds from WRDS API'

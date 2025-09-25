@@ -146,7 +146,9 @@ def generate_flows_for_huc(
             # Careful, for "all_message.append" the syntax into it must be f'{lid}: (whever messages)
             # this is gets parsed and logic used against it.
 
-            stages, flows, threshold_count = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
+            stages, flows, status_msg = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
+
+            MP_LOG.trace(status_msg) # TODO: Guam - decide how I want this status communicated
 
             # Yes.. stages, we will handle missing flows later even though we don't use the stage here
             # TODO: Decide if this is still good status messaging, maybe update
@@ -714,13 +716,11 @@ def __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file
         # FLOG.lprint(f"Stages for LID {lid}: {stages}")  ## TEMP DEBUG
         # FLOG.lprint(f"Flows for LID {lid}: {flows}")  ## TEMP DEBUG
 
-        # Count how many thresholds are not None in stages
-        threshold_count = 1  ## TEMP DEBUG #sum(1 for key in stages if key in ['action', 'minor', 'moderate', 'major', 'record'] and stages[key] is not None)
-        # TODO: Guam - Decide what I want to do about the threshold count... remove or fix?
+        status_msg = 'Thresholds loaded from .pkl file.'
 
     else:
         # Get thresholds from the WRDS API
-        stages, flows, threshold_count = get_thresholds(
+        stages, flows, status_msg = get_thresholds(
             threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
         )
 
@@ -746,7 +746,7 @@ def __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file
         # Will need to double check that the memory usage isn't insane with this new idea.
 
 
-    return stages, flows, threshold_count
+    return stages, flows, status_msg
 
 # local script calls __load_nwm_metadata so FLOG is already setup
 def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile):
