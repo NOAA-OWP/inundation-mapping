@@ -378,6 +378,9 @@ def upload_file(s3_client, bucket_name, src_file_path, trg_file_path, show_progr
     """
     # Yes.. outside the try/catch
     # re-validate the connection and credentials as well
+
+    # TODO: Do we really one one per upload? humm.. optional arg maybe?
+    # thinking about small one off files versus large batches such as HV hand dataset load.
     is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
     if not is_success:
         # In this case, we want to raise a new Exception

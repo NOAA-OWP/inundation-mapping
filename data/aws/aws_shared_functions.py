@@ -73,7 +73,7 @@ def create_aws_client(
     '''
     TODO: Sept 2025
     Look into this for session timeout issues if sessions are being used:
-    Refresh temporary credentials: For long-running processes, you may need to periodically 
+    Refresh temporary credentials: For long-running processes, you may need to periodically
     refresh the temporary credentials before they expire. This involves calling assume_role
       or get_session_token again to obtain new credentials and updating the boto3.Session object with them.
     '''
