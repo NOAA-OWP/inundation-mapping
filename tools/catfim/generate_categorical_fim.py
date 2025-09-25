@@ -715,27 +715,24 @@ def iterate_through_huc_stage_based(
                 # Get thresholds from WRDS API or threshold file
                 thresholds, flows, status_msg = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
 
-                MP_LOG.ltrace(status_msg) # TODO: Make this into a more specific site status?
-                # We need a status that says, 'API call worked but the correct thresholds were not available'
+                MP_LOG.ltrace(status_msg)
 
                 # Sept 2025 - Removed threshold_count functionality for now. It had the intended functionality of differentiating API errors 
                 # versus zero thresholds being available versus the incorrect thresholds being available, but I think
                 # it was actually confusing. 
   
-                # Count the number of stages available
-                # if threshold_count == 0:
-                #     msg = ':No thresholds found on WRDS API'
-                #     all_messages.append(lid + msg)
-                #     MP_LOG.warning(huc_lid_id + msg)
-                #     continue
-
-                # If there are no thresholds.
-                # write message and exit.
+                # Update status if stage thresholds are not found
                 if thresholds is None or len(thresholds) == 0:
-                    msg = ':Error getting thresholds from WRDS API'
-                    all_messages.append(lid + msg)
-                    MP_LOG.warning(huc_lid_id + msg)
-                    continue
+                    if "WRDS response sucessful." in status_msg:
+                        msg = ':WRDS response sucessful but no stage values available'
+                        all_messages.append(lid + msg)
+                        MP_LOG.warning(huc_lid_id + msg)
+                        continue
+                    else:
+                        msg = ':Error getting stage thresholds from WRDS API'
+                        all_messages.append(lid + msg)
+                        MP_LOG.warning(huc_lid_id + msg)
+                        continue
 
                 # Check if stages are supplied, if not write message and exit.
                 # This message will occur if some thresholds are supplied, but not for the
@@ -745,7 +742,6 @@ def iterate_through_huc_stage_based(
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
-
 
                 # Read stage values and calculate thresholds
                 # The error and warning message is already formatted correctly if applicable
