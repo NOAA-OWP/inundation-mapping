@@ -148,17 +148,21 @@ def generate_flows_for_huc(
 
             stages, flows, status_msg = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
 
-            MP_LOG.trace(status_msg) # TODO: Guam - decide how I want this status communicated
+            MP_LOG.lprint(status_msg) # TEMP DEBUG
 
-            # Yes.. stages, we will handle missing flows later even though we don't use the stage here
-            # TODO: Decide if this is still good status messaging, maybe update
-            if stages is None or len(stages) == 0:
-                msg = ':Error getting stages values from WRDS API'
-                all_messages.append(lid + msg)
-                MP_LOG.warning(huc_lid_id + msg)
-                continue
+            # Update status if flows are not found
+            if flows is None or len(flows) == 0: # Changed to flows Sept' 25
+                if "WRDS response sucessful." in status_msg:
+                    msg = ':WRDS response sucessful but no flow values available'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
 
-            # MP_LOG.lprint(f"Thresholds for {huc_lid_id} are : {thresholds}")
+                else:
+                    msg = ':Error getting flows values from WRDS API'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
 
             # Check if stages are supplied, if not write message and exit.
             if all(stages.get(category, None) is None for category in categories):
