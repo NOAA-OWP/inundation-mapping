@@ -62,7 +62,7 @@ def generate_flows_for_huc(
     output_flows_dir,
     attributes_dir,
     huc_messages_dir,
-    nwm_flows_df,
+    flows_df_dict, #nwm_flows_df, # TODO: Do we need to update this to be region specific df? or the dict of dfs?
     parent_log_output_file,
     child_log_file_prefix,
     df_restricted_sites,
@@ -146,18 +146,10 @@ def generate_flows_for_huc(
             # Careful, for "all_message.append" the syntax into it must be f'{lid}: (whever messages)
             # this is gets parsed and logic used against it.
 
-            # # TODO: Guam - insert processing for if thresholds are already downloaded (similar to NWM metafile processing)
-
-            # # for Stage based, is uses stage values from threshold data supplied by WRDS
-            # # but here (for flow), it uses the values from the flows data from WRDS
-            # stages, flows, threshold_count = get_thresholds(
-            #     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-            # )
-
             stages, flows, threshold_count = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
 
-
             # Yes.. stages, we will handle missing flows later even though we don't use the stage here
+            # TODO: Decide if this is still good status messaging, maybe update
             if stages is None or len(stages) == 0:
                 msg = ':Error getting stages values from WRDS API'
                 all_messages.append(lid + msg)
@@ -200,7 +192,18 @@ def generate_flows_for_huc(
             desired_order = metadata['nwm_feature_data']['stream_order']
 
             # Filter segments to be of like stream order.
-            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
+            # TODO: Guam - test this update 
+            if huc[:4] == '2201':  # Guam
+                nwm_flows_region_df = flows_df_dict['nhd_flows_guam_df']
+            elif huc[:4] == '2203':  # American Samoa
+                nwm_flows_region_df = flows_df_dict['nhd_flows_americansamoa_df']
+            elif huc[:2] == '19':  # Alaska
+                nwm_flows_region_df = flows_df_dict['nwm_flows_alaska_df']
+            else:  # CONUS + Hawaii + Puerto Rico
+                nwm_flows_region_df = flows_df_dict['nwm_flows_df']
+            
+            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_region_df)
+            # Previous input was nwm_flows_df, but now it is region specific df (9/25/25)
 
             # If there are no segments, write message and exit out
             if not segments or len(segments) == 0:
@@ -425,8 +428,11 @@ def generate_flows(
     API_BASE_URL, WBD_LAYER = get_env_paths(env_file)
     nwm_us_search = int(nwm_us_search)
     nwm_ds_search = int(nwm_ds_search)
-    metadata_url = f'{API_BASE_URL}/metadata'
-    threshold_url = f'{API_BASE_URL}/nws_threshold'
+    # metadata_url = f'{API_BASE_URL}/metadata' ## TEMP DEBUG - TODO: Guam - add back in after testing
+    # threshold_url = f'{API_BASE_URL}/nws_threshold' ## TEMP DEBUG - TODO: Guam - add back in after testing
+
+    metadata_url = f'{API_BASE_URL}/metadataBROKEN' ## TEMP DEBUG
+    threshold_url = f'{API_BASE_URL}/nws_thresholdBROKEN' ## TEMP DEBUG
     ###################################################################
 
     # Create HUC message directory to store messages that will be read and joined after multiprocessing
@@ -438,14 +444,27 @@ def generate_flows(
     start_dt = datetime.now(timezone.utc)
 
     # Open NWM flows geopackages
-    # TODO: Jul 2025: These should be changed to a bash_variable or something other than
-    # hardcoding. Granted.. we don't have new ones but might someday
-    nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
+    # TODO: Pull from bash_variables.env once we switch from using catfim.env to bash_variables.env
+    nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg' # TODO: Get from bash_variables.env
+    nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg' # TODO: Get from bash_variables.env
+    input_nhd_flows_Guam = r'/data/inputs/nhdplus/Guam_6637/NHDFlowline_Guam_6637.gpkg' # TODO: Get from bash_variables.env
+    input_nhd_flows_AmericanSamoa = r'/data/inputs/nhdplus/AmericanSamoa_32702/NHDFlowline_AmericanSamoa_32702.gpkg' # TODO: Get from bash_variables.env
+
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
-    nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
-    # nwm_flows_pacific_gpkg = '' # TODO: Guam - Route this correctly r'/data/inputs/nwm_hydrofabric/nwm_flows_pacific_nwmV3_ID.gpkg'
-    # nwm_flows_pacific_df = gpd.read_file(nwm_flows_pacific_gpkg)
+    nhd_flows_guam_df = gpd.read_file(input_nhd_flows_Guam)
+    nhd_flows_americansamoa_df = gpd.read_file(input_nhd_flows_AmericanSamoa)
+
+    # TODO: Guam - pass this dictionary into functions instead of all four dfs
+
+    # Add the dfs to a dictionary for easy access later
+    flows_df_dict = {
+        'nwm_flows_df': nwm_flows_df,
+        'nwm_flows_alaska_df': nwm_flows_alaska_df,
+        'nhd_flows_guam_df': nhd_flows_guam_df,
+        'nhd_flows_americansamoa_df': nhd_flows_americansamoa_df
+    }
+    
 
     # nwm_metafile might be an empty string
     # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
@@ -495,8 +514,7 @@ def generate_flows(
             metadata_url,
             threshold_url,
             all_meta_lists,
-            nwm_flows_df,
-            nwm_flows_alaska_df,# TODO: Guam - Add pacific islands flow df
+            flows_df_dict,
         )
 
     # only flow based needs the "flow" dir
@@ -512,12 +530,14 @@ def generate_flows(
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
-            if huc[:2] == '19':  # Alaska
-                nwm_flows_region_df = nwm_flows_alaska_df
-            elif huc[:2] == '22':  # Pacific Islands
-                nwm_flows_region_df = nwm_flows_df # TODO: Guam - change this to nwm_flows_pacific_df when available
+            if huc[:4] == '2201':  # Guam
+                nwm_flows_region_df = flows_df_dict['nhd_flows_guam_df']
+            elif huc[:4] == '2203':  # American Samoa
+                nwm_flows_region_df = flows_df_dict['nhd_flows_americansamoa_df']
+            elif huc[:2] == '19':  # Alaska
+                nwm_flows_region_df = flows_df_dict['nwm_flows_alaska_df']
             else:  # CONUS + Hawaii + Puerto Rico
-                nwm_flows_region_df = nwm_flows_df
+                nwm_flows_region_df = flows_df_dict['nwm_flows_df']
 
             # Deep copy that speed up Multi-Proc a little as all_meta_lists
             # is a huge object. Need to figure out how to filter that down somehow
@@ -668,7 +688,7 @@ def generate_flows(
 def __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file):
 
     if os.path.isfile(threshold_file) == True:
-        FLOG.lprint(f"Threshold file already downloaded and exists at {threshold_file}") # TODO: Guam - this option will be used
+        # FLOG.lprint(f"Threshold file already downloaded and exists at {threshold_file}") # TODO: Guam - this option will be used
 
         # Read pickle file and get the stages and flows dictionary for the site
         with open(threshold_file, 'rb') as f:
@@ -690,9 +710,9 @@ def __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file
         del flows['threshold_type']
         del flows['huc']
 
-        # Print out the stages and flows for debugging
-        FLOG.lprint(f"Stages for LID {lid}: {stages}")  ## TEMP DEBUG
-        FLOG.lprint(f"Flows for LID {lid}: {flows}")  ## TEMP DEBUG
+        # # Print out the stages and flows for debugging  ## TEMP DEBUG
+        # FLOG.lprint(f"Stages for LID {lid}: {stages}")  ## TEMP DEBUG
+        # FLOG.lprint(f"Flows for LID {lid}: {flows}")  ## TEMP DEBUG
 
         # Count how many thresholds are not None in stages
         threshold_count = 1  ## TEMP DEBUG #sum(1 for key in stages if key in ['action', 'minor', 'moderate', 'major', 'record'] and stages[key] is not None)

@@ -273,9 +273,9 @@ def process_generate_categorical_fim(
             FLOG.warning('Listed HUCs not available in FIM run directory:')
             FLOG.warning(dropped_huc_lst)
 
-    # Print available hucs in threshold_file  ## TEMP DEBUG
-    if threshold_file != "":  ## TEMP DEBUG
-        FLOG.lprint(f'Threshold file included with data for the following HUCs: {threshold_hucs}')  ## TEMP DEBUG
+    # Print number of available hucs in threshold_file
+    if threshold_file != "":
+        FLOG.lprint(f'Threshold file has data for {len(threshold_hucs)} HUC(s)')
 
     # For API usage
     load_dotenv(env_file)
@@ -408,11 +408,10 @@ def process_generate_categorical_fim(
     output_pickle_path = os.path.join(output_thresholds_dir, 'thresholds.pkl')
     threshold_csv_files = glob.glob(os.path.join(output_thresholds_dir, "*.csv"))
 
-    # Check whether there are saved thresholds and, if so, compile them
     if threshold_file != "":
         FLOG.lprint(f"Skipping threshold CSV compilation because supplied threshold file was used.")
 
-    else:
+    else:  # Check whether there are saved threshold CSVs and, if so, compile them
         if len(threshold_csv_files) == 0:
             FLOG.lprint("No threshold CSV files found to compile, threshold.pkl will not be created.")
 
@@ -1705,7 +1704,7 @@ def generate_stage_based_categorical_fim(
     # stage based doesn't really need generated flow data
     # But for flow based, it really does use it to generate flows.
     #
-    (huc_dictionary, sites_gdf, ___, threshold_url, all_lists, nwm_flows_df, nwm_flows_alaska_df) = ( # TODO: Guam - Add pacific islands flow df 
+    (huc_dictionary, sites_gdf, ___, threshold_url, all_lists, flows_df_dict) = (
         generate_flows(
             output_catfim_dir,
             nwm_us_search,
@@ -1738,12 +1737,14 @@ def generate_stage_based_categorical_fim(
                 if huc in lst_hucs:
                     # FLOG.lprint(f'Generating stage based catfim for : {huc}')
 
-                    if huc[:2] == '19':  # Alaska
-                        nwm_flows_region_df = nwm_flows_alaska_df
-                    elif huc[:2] == '22':  # Pacific Islands
-                        nwm_flows_region_df = nwm_flows_df # TODO: Guam - change this to nwm_flows_pacific_df when available
+                    if huc[:4] == '2201':  # Guam
+                        nwm_flows_region_df = flows_df_dict['nhd_flows_guam_df']
+                    elif huc[:4] == '2203':  # American Samoa
+                        nwm_flows_region_df = flows_df_dict['nhd_flows_americansamoa_df']
+                    elif huc[:2] == '19':  # Alaska
+                        nwm_flows_region_df = flows_df_dict['nwm_flows_alaska_df']
                     else:  # CONUS + Hawaii + Puerto Rico
-                        nwm_flows_region_df = nwm_flows_df
+                        nwm_flows_region_df = flows_df_dict['nwm_flows_df']
 
                     progress_stmt = f"index {huc_index + 1} of {num_hucs}"
                     executor.submit(
