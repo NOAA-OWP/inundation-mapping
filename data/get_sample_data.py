@@ -102,17 +102,20 @@ def get_sample_data(
     # -------------------
     # setup logs
     overall_start_time = datetime.now(timezone.utc)
-    sf.setup_file_logger(TRG_ROOT_PATH, "get_sample_data")
+
+    file_datetime_string = overall_start_time.strftime("%Y%m%d-%H%M")
+
+    log_file_path = os.path.join(TRG_ROOT_PATH, f"get_sample_data-{file_datetime_string}.log")
+    sf.setup_file_logger(log_file_path)
     logging.info(f"Start time: {overall_start_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
     print("********")
     logging.info(f"Copying files/folders from {src_data_path} to {output_root_folder}")
-
     print("Note: Some files / folders are very large and can take a number of minutes")
+    print(f"Logs being saved to {log_file_path}")
     print("********")
-    time.sleep(
-        5
-    )  # let them have 5 seconds to read the message which also allows them time to look at pathing
+    # let them have 5 seconds to read the message which also allows them time to look at pathing
+    time.sleep(5)
 
     load_dotenv('/foss_fim/src/bash_variables.env')
 

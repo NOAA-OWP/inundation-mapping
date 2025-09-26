@@ -36,6 +36,8 @@ Other changes including:
     - `fim_logger.py`:  Marked as deprecated.
     - `shared_functions`: Added a new function to setup a logger for a file for both screen and file.
     - `src_adjust_ras2fim_rating.py`:  Fix bug related to sample_data when a huc does not have any ras2fim data plus remove tests for maximum cpu test.   
+<br/>
+
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
 
 Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
