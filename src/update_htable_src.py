@@ -2,103 +2,183 @@ import argparse
 import os
 import re
 
-import geopandas as gpd
 import pandas as pd
 
 
-def process_branch(sub_branch_path, branch):
+def process_branch(sub_branch_path, branch, huc_id):
+    
     src_base_file = os.path.join(sub_branch_path, f'src_base_{branch}.csv')
     hydro_table_file = os.path.join(sub_branch_path, f'hydroTable_{branch}.csv')
     src_full_file = os.path.join(sub_branch_path, f'src_full_crosswalked_{branch}.csv')
-    # print(str(branch))
-
-    src_full_preserve_columns = [
-        'SLOPE_RISE_RUN',
-        'ManningN',
-        'HydroID',
-        'NextDownID',
-        'order_',
-        'SLOPE_HFAB',
-        'SLOPE_IRIS_SWORD',
-        'SLOPE',
-        'Bathymetry_source',
-        'feature_id',
-    ]
+    small_segments_file = os.path.join(sub_branch_path, f'small_segments_{branch}.csv')
 
     # A branch may have failed and these files may not exist. It might be a known captured
     # branch error such as FIM codes 61, 62, etc.
     # or may be a legit new bug.
     # If any of these files are missing, skip trying to update it.
     # Don't really need to log it as the original fail is alreayd logged earlier.
-
-    if (
-        (os.path.exists(src_base_file) is False)
-        or (os.path.exists(src_full_file) is False)
-        or (os.path.exists(hydro_table_file) is False)
-    ):
+    if not all(os.path.exists(f) for f in [src_base_file, src_full_file, hydro_table_file]):
         return
 
-    input_src_base = pd.read_csv(src_base_file, dtype=object)
-    # Check available columns
-    with open(src_full_file, 'r') as f:
-        first_line = f.readline().strip()
-        actual_columns = first_line.split(',')
-    missing_columns = [col for col in src_full_preserve_columns if col not in actual_columns]
-    if missing_columns:
-        print(
-            f"Warning: The following columns are missing from the file and will be skipped: {missing_columns}"
-        )
+    # Load input files
+    input_src_base = pd.read_csv(src_base_file)
+    input_src_full = pd.read_csv(src_full_file)
+    input_hydro_table = pd.read_csv(hydro_table_file)
 
-    # Filter only available columns
-    available_columns = [col for col in src_full_preserve_columns if col in actual_columns]
+    # Clean column headers of any leading/trailing whitespace.
+    input_src_base.columns = input_src_base.columns.str.strip()
+    input_src_full.columns = input_src_full.columns.str.strip()
+    input_hydro_table.columns = input_hydro_table.columns.str.strip()
 
-    input_src_full = pd.read_csv(src_full_file, dtype=object, usecols=available_columns)
-    input_hydro_table = pd.read_csv(hydro_table_file, dtype=object)
+    # Apply data types to the clean column names
+    input_src_base['CatchId'] = input_src_base['CatchId'].astype(str)
+    id_cols = ['HydroID', 'NextDownID', 'feature_id']
+    for col in id_cols:
+        if col in input_src_full.columns:
+            input_src_full[col] = input_src_full[col].astype(str)
+    input_hydro_table['HydroID'] = input_hydro_table['HydroID'].astype(str)
 
+    # src_full unique by HydroID
     src_full_unique = input_src_full.drop_duplicates(subset='HydroID')
     input_src_base = input_src_base.merge(
         src_full_unique[['ManningN', 'HydroID', 'NextDownID', 'order_']],
-        left_on='CatchId',
-        right_on='HydroID',
+        left_on='CatchId', right_on='HydroID'
     )
-
-    # Update src_full
+    
+    # If the merge failed, input_src_base will be empty. Exit gracefully.
+    if input_src_base.empty:
+        print(f"Warning: Merge failed for branch {branch}. No matching CatchId/HydroID found. Skipping.")
+        return
+    # Base Recalculation
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
-    input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
-    input_src_full['Stage'] = input_src_base['Stage']
-    input_src_full['SLOPE'] = input_src_full['SLOPE'].astype(float)
-    input_src_full['Number of Cells'] = input_src_base['Number of Cells']
-    input_src_full['SurfaceArea (m2)'] = input_src_base['SurfaceArea (m2)']
-    input_src_full['LENGTHKM'] = input_src_base['LENGTHKM']
-    input_src_full['AREASQKM'] = input_src_base['AREASQKM']
-    input_src_full['Volume (m3)'] = input_src_base['Volume (m3)']
-    input_src_full['BedArea (m2)'] = input_src_base['BedArea (m2)']
-    input_src_full['TopWidth (m)'] = input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
-    input_src_full['WettedPerimeter (m)'] = input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 1000
-    input_src_full['WetArea (m2)'] = input_src_base['Volume (m3)'] / input_src_base['LENGTHKM'] / 1000
-    input_src_full['HydraulicRadius (m)'] = (
-        input_src_full['WetArea (m2)'] / input_src_full['WettedPerimeter (m)']
+    numeric_cols = [col for col in input_src_base.columns if col not in ['CatchId', 'HydroID', 'NextDownID']]
+    input_src_base[numeric_cols] = input_src_base[numeric_cols].apply(pd.to_numeric, errors='coerce')
+    
+    recalc_df = pd.DataFrame()
+    recalc_df['HydroID'] = input_src_base['HydroID']
+    recalc_df['Stage'] = input_src_base['Stage']
+    recalc_df['SLOPE'] = recalc_df['HydroID'].map(src_full_unique['SLOPE'].astype(float).to_dict()).fillna(0)
+    recalc_df['Number of Cells'] = input_src_base['Number of Cells']
+    recalc_df['SurfaceArea (m2)'] = input_src_base['SurfaceArea (m2)']
+    recalc_df['LENGTHKM'] = input_src_base['LENGTHKM']
+    recalc_df['AREASQKM'] = input_src_base['AREASQKM']
+    recalc_df['Volume (m3)'] = input_src_base['Volume (m3)']
+    recalc_df['ManningN'] = input_src_base['ManningN']
+    recalc_df['TopWidth (m)'] = input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
+    recalc_df['BedArea (m2)'] = input_src_base['BedArea (m2)']
+    recalc_df['WettedPerimeter (m)'] = input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 1000
+    recalc_df['WetArea (m2)'] = input_src_base['Volume (m3)'] / input_src_base['LENGTHKM'] / 1000
+    recalc_df['HydraulicRadius (m)'] = (recalc_df['WetArea (m2)'] / recalc_df['WettedPerimeter (m)'])
+    recalc_df['HydraulicRadius (m)'].fillna(0, inplace=True)
+    
+    recalc_df['Discharge (m3s-1)'] = (
+        recalc_df['WetArea (m2)']
+        * pow(recalc_df['HydraulicRadius (m)'], 2.0 / 3)
+        * pow(recalc_df['SLOPE'], 0.5) / recalc_df['ManningN']
     )
-    input_src_full['HydraulicRadius (m)'].fillna(0, inplace=True)
-    input_src_full['Discharge (m3s-1)'] = (
-        input_src_full['WetArea (m2)']
-        * pow(input_src_full['HydraulicRadius (m)'], 2.0 / 3)
-        * pow(input_src_full['SLOPE'], 0.5)
-        / input_src_base['ManningN']
-    )
-    input_src_full['Bathymetry_source'] = pd.NA
-    # input_src_full = input_src_full.iloc[:, :19]
+    recalc_df.loc[recalc_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
-    # Update hydroTable
+    # Apply Small Segment Adjustments
+    if os.path.exists(small_segments_file):
+        sml_segs = pd.read_csv(small_segments_file, dtype=str)
+        if not sml_segs.empty:
+            if huc_id.startswith('19'): # Alaska
+                print("Update rating curves for short reaches in Alaska.")
+                # Create a DataFrame with new values for discharge based on 'update_id'
+                new_values = recalc_df[recalc_df['HydroID'].isin(sml_segs['update_id'])][
+                    ['HydroID', 'Stage', 'Discharge (m3s-1)']
+                ]
+                # Merge this new values DataFrame with sml_segs on 'update_id' and 'HydroID'
+                sml_segs_with_values = sml_segs.merge(
+                    new_values, left_on='update_id', right_on='HydroID', suffixes=('', '_new')
+                )
+                sml_segs_with_values = sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']]
+                merged_recalc_df = recalc_df.merge(
+                    sml_segs_with_values[['short_id', 'Stage', 'Discharge (m3s-1)']],
+                    left_on=['HydroID', 'Stage'],
+                    right_on=['short_id', 'Stage'],
+                    suffixes=('', '_df2'),
+                )
+                merged_recalc_df = merged_recalc_df[['HydroID', 'Stage', 'Discharge (m3s-1)_df2']]
+                output_src = pd.merge(output_src, merged_recalc_df, on=['HydroID', 'Stage'], how='left')
+
+                del merged_recalc_df
+
+                recalc_df['Discharge (m3s-1)'] = recalc_df['Discharge (m3s-1)_df2'].fillna(
+                    recalc_df['Discharge (m3s-1)']
+                )
+                recalc_df = recalc_df.drop(columns=['Discharge (m3s-1)_df2'])
+            else:
+                for index, segment in sml_segs.iterrows(): # Conus
+                    short_id = segment[0]
+                    update_id = segment[1]
+                    new_values = recalc_df.loc[recalc_df['HydroID'] == update_id][
+                        ['Stage', 'Discharge (m3s-1)']
+                    ]
+
+                    for src_index, src_stage in new_values.iterrows():
+                        recalc_df.loc[
+                            (recalc_df['HydroID'] == short_id) & (recalc_df['Stage'] == src_stage[0]),
+                            ['Discharge (m3s-1)'],
+                        ] = src_stage[1]
+
+    # Update src_full & hydroTable
+
+    # Ensure data types are consistent for alignment
+    input_src_full['HydroID'] = input_src_full['HydroID'].astype(str)
+    recalc_df['HydroID'] = recalc_df['HydroID'].astype(str)
+    
+    input_src_full.set_index(['HydroID', 'Stage'], inplace=True)
+    recalc_df.set_index(['HydroID', 'Stage'], inplace=True)
+
+    # Update src_full with ALL newly calculated values, aligning on the index
+    input_src_full.update(recalc_df)
+    input_src_full.reset_index(inplace=True)
+
+    # Merge the final discharge values into the hydro table
+    input_hydro_table = input_hydro_table.merge(
+        recalc_df[['Discharge (m3s-1)']],
+        left_on=['HydroID', 'stage'],
+        right_on=['HydroID', 'Stage'],
+        how='left'
+    )
+    
+    input_hydro_table['discharge_cms'] = input_hydro_table['Discharge (m3s-1)']
+    input_hydro_table['default_discharge_cms'] = input_hydro_table['Discharge (m3s-1)']
     input_hydro_table['subdiv_discharge_cms'] = pd.NA
-    input_hydro_table['discharge_cms'] = input_hydro_table['default_discharge_cms']
+    input_hydro_table.drop(columns=['Discharge (m3s-1)'], inplace=True)
 
     # Save updated files
-    input_src_full.to_csv(src_full_file, index=False)
+    src_full_preserve_columns = [
+    'SLOPE_RISE_RUN',
+    'ManningN',
+    'HydroID',
+    'NextDownID',
+    'order_',
+    'SLOPE_HFAB',
+    'SLOPE_IRIS_SWORD',
+    'SLOPE',
+    'Bathymetry_source',
+    'feature_id',
+    'Stage',
+    'Number of Cells',
+    'SurfaceArea (m2)',
+    'LENGTHKM',
+    'AREASQKM',
+    'Volume (m3)',
+    'BedArea (m2)',
+    'TopWidth (m)',
+    'WettedPerimeter (m)',
+    'WetArea (m2)',
+    'HydraulicRadius (m)',
+    'Discharge (m3s-1)',
+    'Bathymetry_source'
+]
+    final_src_full = input_src_full[src_full_preserve_columns]
+    final_src_full.to_csv(src_full_file, index=False)
     input_hydro_table.to_csv(hydro_table_file, index=False)
 
 
-# TODO: May 16, 2025: add mp and glob to speed this way up
 def reset_hydro_and_src(fim_dir):
     hucs = [h for h in os.listdir(fim_dir) if re.match(r'^\d{8}$', h)]
     for huc_folder in hucs:
@@ -110,26 +190,12 @@ def reset_hydro_and_src(fim_dir):
                     for branch in os.listdir(branch_path):
                         sub_branch_path = os.path.join(branch_path, branch)
                         if os.path.isdir(sub_branch_path):
-                            process_branch(sub_branch_path, branch)
+                            print(f"Processing Branch: {branch}")
+                            process_branch(sub_branch_path, branch, huc_folder)
 
 
-# Example usage:
-# reset_hydro_and_src('/path/to/fim_dir')
 if __name__ == '__main__':
-    '''
-    Sample usage (min params):
-        python3 src/update_htable_src.py
-            -d /data/previous_fim/fim_4_5_2_0
-    '''
-
-    # TODO: May 16, 2025
-    # Add MP, try/except and logging to file only here
-    # We can't do prints really as it doesn't get back to bash correctly.
-    # Make sure log file name has a datetime stamp it in, in case it is run a second time.
-
     parser = argparse.ArgumentParser(description='Update hydrotable and src files.')
     parser.add_argument('-d', '--fim_dir', help='Directory path for fim_pipeline output.', required=True)
-
     args = parser.parse_args()
-
     reset_hydro_and_src(args.fim_dir)
