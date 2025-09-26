@@ -288,7 +288,9 @@ def add_crosswalk(
     # hfab_slope = input_src_base['SLOPE_HFAB'].where(hfab_mask)
 
     # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
-    input_src_base['SLOPE'] = sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN']).astype(float).round(17)
+    input_src_base['SLOPE'] = (
+        sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN']).astype(float).round(17)
+    )
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
