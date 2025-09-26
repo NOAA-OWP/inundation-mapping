@@ -6,7 +6,6 @@ import pandas as pd
 
 
 def process_branch(sub_branch_path, branch, huc_id):
-    
     src_base_file = os.path.join(sub_branch_path, f'src_base_{branch}.csv')
     hydro_table_file = os.path.join(sub_branch_path, f'hydroTable_{branch}.csv')
     src_full_file = os.path.join(sub_branch_path, f'src_full_crosswalked_{branch}.csv')
@@ -42,9 +41,10 @@ def process_branch(sub_branch_path, branch, huc_id):
     src_full_unique = input_src_full.drop_duplicates(subset='HydroID')
     input_src_base = input_src_base.merge(
         src_full_unique[['ManningN', 'HydroID', 'NextDownID', 'order_']],
-        left_on='CatchId', right_on='HydroID'
+        left_on='CatchId',
+        right_on='HydroID',
     )
-    
+
     # If the merge failed, input_src_base will be empty. Exit gracefully.
     if input_src_base.empty:
         print(f"Warning: Merge failed for branch {branch}. No matching CatchId/HydroID found. Skipping.")
@@ -53,7 +53,7 @@ def process_branch(sub_branch_path, branch, huc_id):
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     numeric_cols = [col for col in input_src_base.columns if col not in ['CatchId', 'HydroID', 'NextDownID']]
     input_src_base[numeric_cols] = input_src_base[numeric_cols].apply(pd.to_numeric, errors='coerce')
-    
+
     recalc_df = pd.DataFrame()
     recalc_df['HydroID'] = input_src_base['HydroID']
     recalc_df['Stage'] = input_src_base['Stage']
@@ -68,13 +68,14 @@ def process_branch(sub_branch_path, branch, huc_id):
     recalc_df['BedArea (m2)'] = input_src_base['BedArea (m2)']
     recalc_df['WettedPerimeter (m)'] = input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 1000
     recalc_df['WetArea (m2)'] = input_src_base['Volume (m3)'] / input_src_base['LENGTHKM'] / 1000
-    recalc_df['HydraulicRadius (m)'] = (recalc_df['WetArea (m2)'] / recalc_df['WettedPerimeter (m)'])
+    recalc_df['HydraulicRadius (m)'] = recalc_df['WetArea (m2)'] / recalc_df['WettedPerimeter (m)']
     recalc_df['HydraulicRadius (m)'].fillna(0, inplace=True)
-    
+
     recalc_df['Discharge (m3s-1)'] = (
         recalc_df['WetArea (m2)']
         * pow(recalc_df['HydraulicRadius (m)'], 2.0 / 3)
-        * pow(recalc_df['SLOPE'], 0.5) / recalc_df['ManningN']
+        * pow(recalc_df['SLOPE'], 0.5)
+        / recalc_df['ManningN']
     )
     recalc_df.loc[recalc_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
@@ -82,7 +83,7 @@ def process_branch(sub_branch_path, branch, huc_id):
     if os.path.exists(small_segments_file):
         sml_segs = pd.read_csv(small_segments_file, dtype=str)
         if not sml_segs.empty:
-            if huc_id.startswith('19'): # Alaska
+            if huc_id.startswith('19'):  # Alaska
                 print("Update rating curves for short reaches in Alaska.")
                 # Create a DataFrame with new values for discharge based on 'update_id'
                 new_values = recalc_df[recalc_df['HydroID'].isin(sml_segs['update_id'])][
@@ -100,7 +101,7 @@ def process_branch(sub_branch_path, branch, huc_id):
                     suffixes=('', '_df2'),
                 )
                 merged_recalc_df = merged_recalc_df[['HydroID', 'Stage', 'Discharge (m3s-1)_df2']]
-                output_src = pd.merge(output_src, merged_recalc_df, on=['HydroID', 'Stage'], how='left')
+                recalc_df = pd.merge(recalc_df, merged_recalc_df, on=['HydroID', 'Stage'], how='left')
 
                 del merged_recalc_df
 
@@ -109,7 +110,7 @@ def process_branch(sub_branch_path, branch, huc_id):
                 )
                 recalc_df = recalc_df.drop(columns=['Discharge (m3s-1)_df2'])
             else:
-                for index, segment in sml_segs.iterrows(): # Conus
+                for index, segment in sml_segs.iterrows():  # Conus
                     short_id = segment[0]
                     update_id = segment[1]
                     new_values = recalc_df.loc[recalc_df['HydroID'] == update_id][
@@ -127,7 +128,7 @@ def process_branch(sub_branch_path, branch, huc_id):
     # Ensure data types are consistent for alignment
     input_src_full['HydroID'] = input_src_full['HydroID'].astype(str)
     recalc_df['HydroID'] = recalc_df['HydroID'].astype(str)
-    
+
     input_src_full.set_index(['HydroID', 'Stage'], inplace=True)
     recalc_df.set_index(['HydroID', 'Stage'], inplace=True)
 
@@ -140,9 +141,9 @@ def process_branch(sub_branch_path, branch, huc_id):
         recalc_df[['Discharge (m3s-1)']],
         left_on=['HydroID', 'stage'],
         right_on=['HydroID', 'Stage'],
-        how='left'
+        how='left',
     )
-    
+
     input_hydro_table['discharge_cms'] = input_hydro_table['Discharge (m3s-1)']
     input_hydro_table['default_discharge_cms'] = input_hydro_table['Discharge (m3s-1)']
     input_hydro_table['subdiv_discharge_cms'] = pd.NA
@@ -150,30 +151,30 @@ def process_branch(sub_branch_path, branch, huc_id):
 
     # Save updated files
     src_full_preserve_columns = [
-    'SLOPE_RISE_RUN',
-    'ManningN',
-    'HydroID',
-    'NextDownID',
-    'order_',
-    'SLOPE_HFAB',
-    'SLOPE_IRIS_SWORD',
-    'SLOPE',
-    'Bathymetry_source',
-    'feature_id',
-    'Stage',
-    'Number of Cells',
-    'SurfaceArea (m2)',
-    'LENGTHKM',
-    'AREASQKM',
-    'Volume (m3)',
-    'BedArea (m2)',
-    'TopWidth (m)',
-    'WettedPerimeter (m)',
-    'WetArea (m2)',
-    'HydraulicRadius (m)',
-    'Discharge (m3s-1)',
-    'Bathymetry_source'
-]
+        'SLOPE_RISE_RUN',
+        'ManningN',
+        'HydroID',
+        'NextDownID',
+        'order_',
+        'SLOPE_HFAB',
+        'SLOPE_IRIS_SWORD',
+        'SLOPE',
+        'Bathymetry_source',
+        'feature_id',
+        'Stage',
+        'Number of Cells',
+        'SurfaceArea (m2)',
+        'LENGTHKM',
+        'AREASQKM',
+        'Volume (m3)',
+        'BedArea (m2)',
+        'TopWidth (m)',
+        'WettedPerimeter (m)',
+        'WetArea (m2)',
+        'HydraulicRadius (m)',
+        'Discharge (m3s-1)',
+        'Bathymetry_source',
+    ]
     final_src_full = input_src_full[src_full_preserve_columns]
     final_src_full.to_csv(src_full_file, index=False)
     input_hydro_table.to_csv(hydro_table_file, index=False)
