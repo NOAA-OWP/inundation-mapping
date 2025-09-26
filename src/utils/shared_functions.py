@@ -297,7 +297,8 @@ def run_with_mp(
 
                     # also pass the loggers and task id
                     kwargs_updated = task_kwargs.copy()
-                    kwargs_updated["file_logger"] = file_logger
+                    if file_logger is not None:
+                        kwargs_updated["file_logger"] = file_logger
                     kwargs_updated["screen_queue"] = screen_queue
                     kwargs_updated["task_id"] = task_id
 
@@ -309,8 +310,11 @@ def run_with_mp(
 
                 # Catestophic errors mean we can not 100% guarantee all mp's will come back as_completed.
                 for future in as_completed(future_to_id):
-                    task_id = future_to_id[future]
+                    # ignore all in progress incoming futures that were flagged after the shutdown occurred.
+                    if future.cancelled():
+                        continue
 
+                    task_id = future_to_id[future]
                     # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.
                     # See notes above about return values.
                     rtn_code, rtn_value = future.result()
@@ -323,7 +327,8 @@ def run_with_mp(
                             )  # do not use print otherwise a new updated bar is created after each print line
                         else:
                             print(f"✅ Success for {task_id}")
-                        file_logger.info(f"✅ Success for {task_id}")
+                        if file_logger is not None:
+                            file_logger.info(f"✅ Success for {task_id}")
 
                     elif rtn_code == 1:
                         # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
@@ -340,7 +345,8 @@ def run_with_mp(
                                 tqdm.write(f"❌ Error or Warning reported for {task_id}.")
                             else:
                                 print(f"❌ Error or Warning reported for {task_id}.")
-                            file_logger.info(f"❌ Error or Warning reported for {task_id}.")
+                            if file_logger is not None:                                
+                                file_logger.info(f"❌ Error or Warning reported for {task_id}.")
                     else:
                         raise Exception("Child mp task returned and invalid status code")
 
@@ -374,14 +380,15 @@ def run_with_mp(
                 traceback_msg = traceback.format_exc()
                 print(error_msg)
                 print(traceback_msg)
-                file_logger.critical(error_msg)
-                file_logger.critical(traceback_msg)
+                if file_logger is not None:
+                    file_logger.critical(error_msg)
+                    file_logger.critical(traceback_msg)
 
                 dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                 final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
-                file_logger.critical(final_msg)
-
-                file_logger.info("Process pool shutting down")
+                if file_logger is not None:
+                    file_logger.critical(final_msg)
+                    file_logger.info("Process pool shutting down")
                 print(
                     "Process pool shutting down. This may take a while depending on how many jobs."
                     " Jobs currently in progress will need to complete for this can fully shut down.",

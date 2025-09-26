@@ -8,6 +8,7 @@ import traceback
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 import data.aws.aws_shared_functions as asf
 import data.aws.s3_shared_functions as s3_sf
@@ -40,10 +41,14 @@ HV_S3_ROOT_QA_DATASETS_PATH = (
     ""  # the patch up to and including the qa_dataset path but without the bucket name.
 )
 
-
 # ============================
-def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_path):
+def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_path, num_jobs):
+
     '''
+    Notes:
+        - num_jobs is used by HAND dataset uploads at this time. Maximum number is variables and depends on how fast
+          the machines network speed is.
+    
     Valid deploy_types
         - hand (HAND Bed outputs)
         - fpc  (FIM Performance Catchments)
@@ -85,7 +90,9 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
 
     try:
 
-        qa_files_to_upload = []
+        qa_files_to_upload = []  # a list of dictionaries
+        # {"src_file": file_path, "trg_file": trg_file}
+
         has_qa_file_types = False
 
         # breaking this up to smaller parts for readability. Remember, we can have more than one deploy_type
@@ -130,26 +137,29 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
         # __load_hand_dataset will make it own s3 clients and do it's own load. The rest of the functions
         # can share one function level s3 load script.
         if 'hand' in deploy_type:
-            __load_hand_dataset(workflow_params_file)
+            __load_hand_dataset(workflow_params_file, num_jobs)
 
     except Exception:
+        print("********************************")
+        print("**** Error: Program Aborted.")
         logging.critical(traceback.format_exc())
-
-    logging.info("==========================================================")
-    end_time = datetime.now(timezone.utc)
-    logging.info("****  Completed Deploy to HydroVIS  ****")
-    print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    logging.info(fh.print_date_time_duration(overall_start_dt, end_time, False))
-    print("")
+    finally:
+        logging.info("==========================================================")
+        end_time = datetime.now(timezone.utc)
+        logging.info("****  Completed Deploy to HydroVIS  ****")
+        print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        logging.info(fh.print_date_time_duration(overall_start_dt, end_time, False))
+        print("")
 
 
 # ============================
-def __load_hand_dataset(workflow_params_file):
+def __load_hand_dataset(workflow_params_file, num_jobs):
 
     # We filter to keep only the files we specifically want
     # We will build up a list of files for upload as AWS can only
-    # upload one a time.
-    files_to_upload = []
+    # upload one a time, but for uploading we will use mp and muliple s3 clients, not he one from this page level
+    files_to_upload = []  # a list of dictionaries
+    # {"src_file": file_path, "trg_file": trg_file}
 
     logging.info("------------------------------------")
     logging.info("**** Begin loading HAND dataset into HydroVIS S3 ****")
@@ -193,28 +203,33 @@ def __load_hand_dataset(workflow_params_file):
         found_files = glob.glob(full_path_pattern)
 
         for file_path in found_files:
-            file_name = os.path.basename(file_path)
             trg_file = file_path.replace(hand_local_dataset_path, HV_S3_ROOT_HANDSET_PATH)
-            upload_item = {"file_name": file_name, "src_file": file_path, "trg_file": trg_file}
+            upload_item = {"src_file": file_path, "trg_file": trg_file}
             files_to_upload.append(upload_item)
 
         logging.info(f"--- Files found for this pattern: {len(found_files)}")
 
     print(f"--- Total number of files to be loaded to HAND dataset is {len(files_to_upload)}")
 
-    # Let's it do its own upload, instead of the generic parent deploy_to_hydrovis pattern.
-    # This set is pretty big so we will want to add MP to it
+    sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
 
-    # each mp will make its own s3 client ?? hummmmm.....
-    # TODO: research boto3 client upload python processpool
+    # Let's it do its own upload, instead of the generic parent deploy_to_hydrovis pattern.
+    # This set is pretty big so pass it to s3_shared_functions.upload_large_files,
+    # which has a form of a multi-proc inside of it. (no logging though)
+
+    s3_sf.upload_large_filesets(S3_CLIENT,
+                                HV_S3_BUCKET_NAME,
+                                sorted_files_to_upload,
+                                num_jobs)
 
     # we will skip letting s3 show a progress bar as we wil want one here instead.
-    sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
-    for file in sorted_files_to_upload:
-        logging.info(f"-- Uploading {file['src_file']}")
-        s3_sf.upload_file(
-            S3_CLIENT, HV_S3_BUCKET_NAME, file['src_file'], file['trg_file'], show_progress_bar=False
-        )
+    # sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
+    # for file in sorted_files_to_upload:
+    #     logging.info(f"-- Uploading {file['src_file']}")
+    #     s3_sf.upload_file(
+    #         S3_CLIENT, HV_S3_BUCKET_NAME, file['src_file'], file['trg_file'], show_progress_bar=False
+    #     )
+
 
     print("")
     end_time = datetime.now(timezone.utc)
@@ -238,7 +253,7 @@ def __load_fim_performance(deploy_types, workflow_params_file):
             file_path = "/" + file_path
         file_name = os.path.basename(file_path)
         trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
-        upload_item = {"file_name": file_name, "src_file": file_path, "trg_file": trg_file}
+        upload_item = {"src_file": file_path, "trg_file": trg_file}
         files_to_upload.append(upload_item)
 
     # Points and Polys are loaded together and are very quick
@@ -256,7 +271,7 @@ def __load_fim_performance(deploy_types, workflow_params_file):
             file_name = os.path.basename(file_path)
             trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
 
-            upload_item = {"file_name": file_name, "src_file": file_path, "trg_file": trg_file}
+            upload_item = {"src_file": file_path, "trg_file": trg_file}
             files_to_upload.append(upload_item)
 
     return files_to_upload
@@ -281,7 +296,7 @@ def __load_misc_files(deploy_types, workflow_params_file):
         file_name = os.path.basename(file_path)
         trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
 
-        upload_item = {"file_name": file_name, "src_file": file_path, "trg_file": trg_file}
+        upload_item = {"src_file": file_path, "trg_file": trg_file}
         files_to_upload.append(upload_item)
 
     # Latest usgs rating curve
@@ -294,7 +309,7 @@ def __load_misc_files(deploy_types, workflow_params_file):
         file_name = os.path.basename(file_path)
         trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
 
-        upload_item = {"file_name": file_name, "src_file": file_path, "trg_file": trg_file}
+        upload_item = {"src_file": file_path, "trg_file": trg_file}
         files_to_upload.append(upload_item)
 
     return files_to_upload
@@ -410,6 +425,10 @@ if __name__ == '__main__':
             -dt hand
             -lp '/data/workflows/deploy/
             -wp '/data/config/workflow_params_tests.env'
+            -j 10  ***
+
+    *** While this system does support mp, it is used only when loading HAND datasets. Also.. there is a max of how many
+        connections we can make to AWS at the same time. That number is variable and depends on your machines network speed mostly.
 
     # For HV deployments...
 
@@ -481,6 +500,7 @@ if __name__ == '__main__':
         'The file name is auto-generated.',
         default='/data/workflows/deploy',
     )
+    parser.add_argument('-j', "--num-jobs", help="OPTIONAL: Number of processes", type=int, default=1)    
 
     args = parser.parse_args()
 

@@ -16,16 +16,15 @@ from botocore.client import Config
 # step functions, task definitions, execution scripts, etc. ie: tools to make simple
 # python scripts to launch UAT step function runs, then check the results and aws logs.
 
-
 # -------------------------------------------------
-def create_aws_client(
-    aws_service_type_name: str,
+def create_aws_session(
     aws_access_key_id: str = None,
     aws_secret_access_key: str = None,
     aws_session_token: str = None,
     aws_region: str = None,
     aws_config_profile_name: str = None,
 ):
+
     '''
     Inputs:
         - aws_service_type_names: What type of client are you creating. This code currently
@@ -43,15 +42,17 @@ def create_aws_client(
           user. For some exceptions, we will just let the actual exception be raised back and not
           part of this return error_msg.
 
-        - An AWS Boto3 client.
-          Note: One client type is good for only one service. ie) s3.
-          If you need more than one client type at the same time, you will need more than one
-          client and will call function twice.
+        - An AWS Boto3 session.
+          One session can be used against multiple clients and they don't need to be the same type
+          of client. ie) 
+                s3_client = session.client('s3')
+                ec2_client = session.client('ec2')
+                lambda_client = session.client('lambda')
 
         - Can also send back an exception. See notes above talking about the error_msg return value.
 
-    AWS Boto3 clients:
-    AWS clients can be created in a very wide array of ways to authenticate.
+    AWS Boto3 Sessions:
+    AWS Sessions can be created in a very wide array of ways to authenticate.
     It depends on how the aws administrator setup permissions and what account has permission
     to which services.
     users. They can include:
@@ -68,19 +69,18 @@ def create_aws_client(
             - In some situations, you may choose to use an AWS config profile. This is a command
               line option creating named aws credential profiles. Details not provided here.
 
+    Some types of authenication create an implicit session token and do not need to automatically
+    be explicitly defined. Some AWS administrators can set where sessions never time out.
+
     '''
 
     '''
     TODO: Sept 2025
-    Look into this for session timeout issues if sessions are being used:
+    Look into this for session timeout issues, if applicable, if sessions are being used:
     Refresh temporary credentials: For long-running processes, you may need to periodically
     refresh the temporary credentials before they expire. This involves calling assume_role
       or get_session_token again to obtain new credentials and updating the boto3.Session object with them.
     '''
-
-    # Validation:
-    if aws_service_type_name != 's3':
-        raise ValueError("AWS Service types values are only s3 at this time. More coming soon.")
 
     if aws_access_key_id is not None and aws_access_key_id != "":
         # then the aws_secret_access_key must also exist
@@ -90,14 +90,10 @@ def create_aws_client(
                 " has not. Both are always used together if authenicating using this method."
             )
 
-    #
     error_msg = ""
-    s3_client = None
+    aws_session_obj = None
 
     try:
-        # -------------------
-        # setup session first.
-
         session_args = {}
 
         if (
@@ -117,30 +113,105 @@ def create_aws_client(
             session_args['aws_session_token'] = aws_session_token
 
         if len(session_args) == 0:  # It is possible.
-            session = boto3.Session()
+            aws_session_obj = boto3.Session()
         else:
-            session = boto3.Session(**session_args)
+            aws_session_obj = boto3.Session(**session_args)
+
+    except Exception as ex:
+        # the aws will handle many messages and what it can not, it will
+        # re-raise, which we can further re-raise
+        error_msg = aws_exception_handler(ex)
+        return False, error_msg, None
+
+    # True/False (success), no error_msg, s3_client object
+    return True, "", aws_session_obj
+
+
+# -------------------------------------------------
+def create_aws_client(
+    aws_service_type_name: str,
+    aws_access_key_id: str = None,
+    aws_secret_access_key: str = None,
+    aws_session_token: str = None,
+    aws_region: str = None,
+    aws_config_profile_name: str = None,
+):
+    '''
+
+    Using this tool will automatically create it's own session object. Note: Sessions objects
+    can be used for multiple clients (not even all the same type), but a client can only be
+    started based on one session. See more notes about sessions in the create_aws_session function.
+
+    If you want to make your own session and use it to make multiple clients, use other functions.
+
+    Inputs:
+        - aws_service_type_names: What type of client are you creating. This code currently
+          supports only the "s3" type, but more are expected soon.
+
+        - aws_*:  See notes below about creating AWS Boto3 clients and sessions. Some notes above
+        in the create_aws_session.
+
+    Returns:
+        - True / False (success)
+
+        - error_msg: The calling code, may not want to automatically want to shut the programe
+          down based on one of these exceptions. For most exceptions, then "success" will
+          be False and an error message.  We will attempt to catch most types of common aws exceptions
+          and submit it back in a user friendly error message that can be optionally displayed to the
+          user. For some exceptions, we will just let the actual exception be raised back and not
+          part of this return error_msg.
+
+        - An AWS Boto3 client.
+          Note: One client type is good for only one service. ie) s3.
+          If you need more than one client type at the same time, you will need more than one
+          client and will call function twice.
+          However, with this client being built on aws sessiosn, aws sessions can have multiple
+          clients and can have different types of simultaneous types. 
+
+        - Can also send back an exception. See notes above talking about the error_msg return value.
+    '''
+
+    # Validation:
+    if aws_service_type_name != 's3':
+        raise ValueError("AWS Service types values are only s3 at this time. More coming soon.")
+
+    error_msg = ""
+    aws_client_obj = None
+
+    try:
+        # -------------------
+        # setup session first. It might send back an friendly error message
+        # but can also send back an exception.
+        is_success, error_msg, aws_session_obj = create_aws_session(
+            aws_access_key_id,
+            aws_secret_access_key,
+            aws_session_token,
+            aws_region,
+            aws_config_profile_name,
+        )
+
+        if is_success is False:  # we assume an error message came back
+            return False, error_msg, None
 
         # TODO: fix this... needs some tweaks
         # Setup Config to manage timeouts on initial connection
         # shorter timeout means quicker response
-        # client_config = Config(
-        #     connect_timeout=30,
-        #     read_timeout=60,
-        #     retries={"mode": "standard", 'max_attempts': 3}
-        # )
+        client_config = Config(
+            connect_timeout=20,
+            read_timeout=900,
+            max_pool_connections=30,
+            retries={"mode": "standard", 'max_attempts': 10}
+        )
 
         # -------------------
         # Now the client and aws config overrides
-
         if aws_service_type_name == "s3":
-            # s3_client = session.client("s3", config=client_config)
-            s3_client = session.client("s3")
+            aws_client_obj = aws_session_obj.client("s3", config=client_config)
         else:
             raise ValueError("AWS Service types values are only s3 at this time. More coming soon.")
 
         # validate if the client is fully valid as it is
-        if s3_client is None:
+        if aws_client_obj is None:
             raise Exception(
                 "Error: Something when wrong creating the communication path to AWS."
                 " Exact details are not always known. Please recheck your credentials,"
@@ -154,8 +225,7 @@ def create_aws_client(
         return False, error_msg, None
 
     # True/False (success), no error_msg, s3_client object
-    return True, "", s3_client
-
+    return True, "", aws_client_obj
 
 # -------------------------------------------------
 def aws_exception_handler(ex):
@@ -278,7 +348,7 @@ def aws_exception_handler(ex):
 
     else:
         # anything left over here we will rethrow, likely not an AWS error
-        raise (ex)
+        raise ex
 
     return msg
 
