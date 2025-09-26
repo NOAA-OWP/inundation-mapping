@@ -486,31 +486,9 @@ def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
 
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
-        with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # try:
+        with futures.ThreadPoolExecutor(max_workers=num_workers, miniters=10) as executor:
             futures_dict = [executor.submit(upload_file, **arg) for arg in tasks_args_list]
 
-            #             except Exception as ex:
-            #                 # If it fails here, we always want to shut down as it woudl be a problem
-            #                 # with the call and not the actual function inside the thread.
-            #                 # That one shows up in the future as_completed.
-            #                 print("**************")
-            # #                 print(f"*** Oops.. something went very wrong trying to upload {task_args['src_file_path']}")
-            #                 # if is_submit_in_error is True:
-            #                 #     break
-
-            #                 print(traceback.format_exc())
-            #                 print("Shutting down.")
-            #                 time.sleep(1) # Let some tasks start
-            #                 # https://superfastpython.com/threadpoolexecutor-shutdown/
-            #                 executor.shutdown(wait=False, cancel_futures=True)
-            #                 print("Executor shut down, tasks that are already running will finish"
-            #                         " but new ones will be stopped.")
-            #                 # is_submit_in_error = True
-            #                 # re-raise it to help clean stuff, shutdown does not always shut down correctly. TBD
-            #                 raise Exception("Thread Aborting")
-
-            # for future in futures.as_completed(futures_dict):
             for future in tqdm(
                 futures.as_completed(futures_dict), total=len(tasks_args_list), desc="uploading files"
             ):
