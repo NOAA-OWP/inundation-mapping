@@ -3,6 +3,7 @@
 import os
 import sys
 import threading
+import traceback
 
 import boto3
 import botocore.exceptions
@@ -16,6 +17,7 @@ from botocore.client import Config
 # step functions, task definitions, execution scripts, etc. ie: tools to make simple
 # python scripts to launch UAT step function runs, then check the results and aws logs.
 
+
 # -------------------------------------------------
 def create_aws_session(
     aws_access_key_id: str = None,
@@ -24,7 +26,6 @@ def create_aws_session(
     aws_region: str = None,
     aws_config_profile_name: str = None,
 ):
-
     '''
     Inputs:
         - aws_service_type_names: What type of client are you creating. This code currently
@@ -44,7 +45,7 @@ def create_aws_session(
 
         - An AWS Boto3 session.
           One session can be used against multiple clients and they don't need to be the same type
-          of client. ie) 
+          of client. ie)
                 s3_client = session.client('s3')
                 ec2_client = session.client('ec2')
                 lambda_client = session.client('lambda')
@@ -120,7 +121,7 @@ def create_aws_session(
     except Exception as ex:
         # the aws will handle many messages and what it can not, it will
         # re-raise, which we can further re-raise
-        error_msg = aws_exception_handler(ex)
+        error_msg, type_known = aws_exception_handler(ex)
         return False, error_msg, None
 
     # True/False (success), no error_msg, s3_client object
@@ -166,7 +167,7 @@ def create_aws_client(
           If you need more than one client type at the same time, you will need more than one
           client and will call function twice.
           However, with this client being built on aws sessiosn, aws sessions can have multiple
-          clients and can have different types of simultaneous types. 
+          clients and can have different types of simultaneous types.
 
         - Can also send back an exception. See notes above talking about the error_msg return value.
     '''
@@ -183,11 +184,7 @@ def create_aws_client(
         # setup session first. It might send back an friendly error message
         # but can also send back an exception.
         is_success, error_msg, aws_session_obj = create_aws_session(
-            aws_access_key_id,
-            aws_secret_access_key,
-            aws_session_token,
-            aws_region,
-            aws_config_profile_name,
+            aws_access_key_id, aws_secret_access_key, aws_session_token, aws_region, aws_config_profile_name
         )
 
         if is_success is False:  # we assume an error message came back
@@ -200,7 +197,7 @@ def create_aws_client(
             connect_timeout=20,
             read_timeout=900,
             max_pool_connections=50,
-            retries={"mode": "standard", 'max_attempts': 10}
+            retries={"mode": "standard", 'max_attempts': 10},
         )
 
         # -------------------
@@ -221,11 +218,15 @@ def create_aws_client(
     except Exception as ex:
         # the aws will handle many messages and what it can not, it will
         # re-raise, which we can further re-raise
-        error_msg = aws_exception_handler(ex)
+        error_msg, type_known = aws_exception_handler(ex)
+        if type_known is False:
+            raise Exception(error_msg)
+
         return False, error_msg, None
 
     # True/False (success), no error_msg, s3_client object
     return True, "", aws_client_obj
+
 
 # -------------------------------------------------
 def aws_exception_handler(ex):
@@ -236,10 +237,9 @@ def aws_exception_handler(ex):
     This part will handle the ones it can and return msg's so the client can decide
     how to managed it.
 
-    A few exceptions will re-throw new exceptions.
-
     """
     msg = ""
+    type_known = True
 
     if (isinstance(ex, botocore.exceptions.NoCredentialsError)) or (
         isinstance(ex, botocore.exceptions.PartialCredentialsError)
@@ -348,9 +348,11 @@ def aws_exception_handler(ex):
 
     else:
         # anything left over here we will rethrow, likely not an AWS error
-        raise ex
+        #         raise ex
+        msg = traceback.format_exc()
+        type_known = False
 
-    return msg
+    return msg, type_known
 
 
 # -------------------------------------------------

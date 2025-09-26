@@ -42,14 +42,14 @@ HV_S3_ROOT_QA_DATASETS_PATH = (
     ""  # the patch up to and including the qa_dataset path but without the bucket name.
 )
 
+
 # ============================
 def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_path, num_jobs):
-
     '''
     Notes:
         - num_jobs is used by HAND dataset uploads at this time. Maximum number is variables and depends on how fast
           the machines network speed is.
-    
+
     Valid deploy_types
         - hand (HAND Bed outputs)
         - fpc  (FIM Performance Catchments)
@@ -213,15 +213,13 @@ def __load_hand_dataset(workflow_params_file, num_jobs):
     print(f"--- Total number of files to be loaded to HAND dataset is {len(files_to_upload)}")
 
     sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
+    logging.info("------------------------------------")
 
     # Let's it do its own upload, instead of the generic parent deploy_to_hydrovis pattern.
     # This set is pretty big so pass it to s3_shared_functions.upload_large_files,
     # which has a form of a multi-proc inside of it. (no logging though)
 
-    s3_sf.upload_large_filesets(S3_CLIENT,
-                                HV_S3_BUCKET_NAME,
-                                sorted_files_to_upload,
-                                num_jobs)
+    s3_sf.upload_large_filesets(S3_CLIENT, HV_S3_BUCKET_NAME, sorted_files_to_upload, num_jobs)
 
     # we will skip letting s3 show a progress bar as we wil want one here instead.
     # sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
@@ -230,7 +228,6 @@ def __load_hand_dataset(workflow_params_file, num_jobs):
     #     s3_sf.upload_file(
     #         S3_CLIENT, HV_S3_BUCKET_NAME, file['src_file'], file['trg_file'], show_progress_bar=False
     #     )
-
 
     print("")
     end_time = datetime.now(timezone.utc)
@@ -361,7 +358,6 @@ def __validate_input(deploy_type, all_valid_types, workflow_params_file, num_job
         "job number restart.\n Note: for OWP Staff: for the larger servers, it seems ok at 10."
         print(msg)
         time.sleep(10)  # gives them time to abort if they want.
-        
 
     return deploy_types
 
@@ -510,7 +506,7 @@ if __name__ == '__main__':
         'The file name is auto-generated.',
         default='/data/workflows/deploy',
     )
-    parser.add_argument('-j', "--num-jobs", help="OPTIONAL: Number of processes", type=int, default=1)    
+    parser.add_argument('-j', "--num-jobs", help="OPTIONAL: Number of processes", type=int, default=1)
 
     args = parser.parse_args()
 

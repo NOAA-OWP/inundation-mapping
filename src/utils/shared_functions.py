@@ -345,7 +345,7 @@ def run_with_mp(
                                 tqdm.write(f"❌ Error or Warning reported for {task_id}.")
                             else:
                                 print(f"❌ Error or Warning reported for {task_id}.")
-                            if file_logger is not None:                                
+                            if file_logger is not None:
                                 file_logger.info(f"❌ Error or Warning reported for {task_id}.")
                     else:
                         raise Exception("Child mp task returned and invalid status code")

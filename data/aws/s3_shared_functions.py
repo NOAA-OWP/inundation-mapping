@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 
 import os
-import time
 import traceback
+from concurrent import futures
 
 import botocore
-import boto3.s3.transfer as s3transfer
 import botocore.exceptions
-# from botocore.client import Config
-
-from concurrent import futures
 from tqdm import tqdm
 
 import data.aws.aws_shared_functions as awssf
 import src.utils.shared_functions as sf
+
 
 '''
 Note: you may already know this but S3 does not have a concept of "folders", but
@@ -73,7 +70,6 @@ def does_s3_bucket_exist(s3_client, bucket_name):
     # strip start and end slashs if exist
     bucket_name = bucket_name.strip("")
     is_success = False
-
     try:
         s3_client.head_bucket(Bucket=bucket_name)
         # resp = client.head_bucket(Bucket=bucket_name)
@@ -87,13 +83,21 @@ def does_s3_bucket_exist(s3_client, bucket_name):
         error_code = int(ex.response['Error']['Code'])
         if error_code == 404:
             return_msg = f"Bucket '{bucket_name}' does not exist."
+            is_success = False
         elif error_code == 403:
             return_msg = f"Access denied to bucket '{bucket_name}'. Check permissions."
+            is_success = False
         else:  # forward it to aws exceptions to see if it recognizes the exception
-            raise Exception(awssf.aws_exception_handler(ex))
+            return_msg, type_known = awssf.aws_exception_handler(ex)
+            if type_known is False:
+                raise Exception(return_msg)
+            is_success = False
+
     except Exception as ex:
-        # in this case, we want to re-raise it
-        raise Exception(awssf.aws_exception_handler(ex))
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, ___ = awssf.aws_exception_handler(ex)
+        raise Exception(return_msg)
 
     return is_success, return_msg
 
@@ -155,6 +159,8 @@ def does_s3_file_exist(s3_client, bucket_name, s3_file_path):
         But can throw an error when catastrophic
     """
 
+    # TODO: add aws_exception handling
+
     file_exists = False
 
     s3_full_file_path = s3_file_path.replace("\\", "/")
@@ -193,6 +199,8 @@ def get_folder_list(s3_client, bucket_name, s3_src_folder_path):
         - a list of the full path (if s3, without the bucket name)
             test_cases/ble/12090301/some_folder
     """
+
+    # TODO; add aws exception handling
 
     # TODO: Add flag to allow for optional recursive and possibly wildcards
     # see wildcard feature in the ras2fim s3 code.
@@ -286,20 +294,24 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
         s3_client.download_file(bucket_name, s3_file_key, target_file_path)
         does_file_exist = True
     except Exception as ex:
-        msg = awssf.aws_exception_handler(ex)
-        if "404" in msg:  # File likely does not exist
+
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, type_known = awssf.aws_exception_handler(ex)
+        if type_known is False:
+            raise Exception(return_msg)
+        elif "404" in return_msg:  # File likely does not exist
             does_file_exist = False
         else:
-            # in this case, we want to raise a new exception
-            raise Exception(msg)
+            raise Exception(return_msg)
 
     return does_file_exist
 
 
 # -------------------------------------------------
-# TODO: Add mp. Need to double check about the possibilty of collisions.
+# TODO: Add multi-theading
 # Maybe let that be done at the script level and not here as a seperate client per mp
-# is required.
+# is required. See upload_large_datasets below for examples if we choose to add this.
 def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
     """
     Process:
@@ -318,6 +330,8 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
         The calling code and decide what to do with it.
         Note: Exceptions can still be thrown for catastropic errors (creds, other)
     """
+
+    # TODO: add aws exception handling
 
     # re-validate the connection and credentials as well
     is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
@@ -363,9 +377,9 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
 
 
 # -------------------------------------------------
-def upload_file(s3_client, bucket_name, src_file_path, trg_file_path,
-                show_progress_bar=True, test_bucket_exists=True,
-                is_verbose = False):
+def upload_file(
+    s3_client, bucket_name, src_file_path, trg_file_path, show_progress_bar=True, test_bucket_exists=True
+):
     """
     Process:
         - Note: The boto3.client must be already instantated and passed in
@@ -385,9 +399,6 @@ def upload_file(s3_client, bucket_name, src_file_path, trg_file_path,
     """
     # Yes.. outside the try/catch
     # re-validate the connection and credentials as well
-
-    if is_verbose:
-        print(f's3_shared_function: uploading : {src_file_path}')
 
     # TODO: Do we really one one per upload? humm.. optional arg maybe?
     # thinking about small one off files versus large batches such as HV hand dataset load.
@@ -409,6 +420,9 @@ def upload_file(s3_client, bucket_name, src_file_path, trg_file_path,
 
     # we need to build up the full s3 path.
     # s3_trg_file_path = f"s3://{bucket_name}/{trg_file_path}"
+
+    # debug
+    # print(f"Staring upload for  {src_file_path}")
 
     try:
         # Will show progress if a large file
@@ -433,87 +447,20 @@ def upload_file(s3_client, bucket_name, src_file_path, trg_file_path,
                 s3_client.upload_file(src_file_path, bucket_name, trg_file_path)
 
     except Exception as ex:
-        # raise awssf.aws_exception_handler(
-        #     ex
-        # )  # pyright: ignore[reportGeneralTypeIssues] # It manages messages and errors
-        try:
-            # we forward the exception to aws_exception_handler
-            # If it does not know the type, it re-raised it. Hence the embedded try/except.
-            # if it does know the type, it creates a user friendly error message on what went
-            # wrong from aws objects, clients, permissions, etc.
-            print("Checking if the exception is a type of AWS exception")
-            error_msg = awssf.aws_exception_handler(ex)
-            raise Exception(error_msg)
-        except Exception as ex2:
-            # if we got here, then awssf.aws_exception_handler had an error it could not handle and re-raise
-            raise ex2
-        return False
+
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, ___ = awssf.aws_exception_handler(ex)
+        raise Exception(return_msg)
 
     return True  # file uploaded succesfully
-
-# -------------------------------------------------
-# You generally want to use this only when you have a large number of files to upload.
-# Size of each file is not relavent.
-# def upload_large_filesets(aws_session_obj, bucketname, file_list, workers=10):
-# def upload_large_filesets(s3_client, bucketname, file_list, workers=10):    
-
-#     # file_list must be a list of dictionaries
-#     # {"src_file": file_path, "trg_file": trg_file}
-
-#     # This will throw exceptions and not friendly user error messages
-#     # botocore_config = botocore.config.Config(max_pool_connections=workers)
-#     # s3client = aws_session_obj.client('s3', config=botocore_config)
-
-#     # transfer_config = s3transfer.TransferConfig(
-#     #     use_threads=True,
-#     #     max_concurrency=workers,
-#     # )
-
-#     try:
-
-#         s3t = s3transfer.create_transfer_manager(s3client, transfer_config)
-
-#         # Initialize the tqdm progress bar
-#         with tqdm(
-#             total=len(file_list), 
-#             unit='B', 
-#             unit_scale=True, 
-#             desc=f"Uploading files to S3"
-#         ) as pbar:
-#             for file in file_list:
-
-#                 # boto3 only allows one file at a time.
-#                 # Upload file will tell us if the file does not exist.
-#                 s3_sf.upload_file(
-#                     S3_CLIENT, HV_S3_BUCKET_NAME, file['src_file'], file['trg_file']
-#                 )
-            
-#             for src in file_list:
-#                 s3_client.upload_file(
-#                     src_file_path,
-#                     bucket_name,
-#                     trg_file_path,
-#                     Callback=awssf.ProgressPercentage(src_file_path),
-#                 )
-
-#                 s3t.upload(
-#                     src, bucketname, dst,
-#                     subscribers=[
-#                         s3transfer.ProgressCallbackInvoker(progress_func),
-#                     ],
-#                 )
-#             )
-
-#     finally:
-#         # s3t.shutdown()  # wait for all the upload tasks to finish
-#         pbar.close()  # aborts the progress bar
 
 
 # -------------------------------------------------
 # You generally want to use this only when you have a large number of files to upload.
 # Size of each file is not relavent.
 # This uses multi-threading and not multi-proc
-def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):    
+def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
 
     # file_list must be a list of dictionaries
     # {"src_file": file_path, "trg_file": trg_file}
@@ -521,86 +468,68 @@ def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
     # This assumes the bucket exists and the session/client are still alive and valid
     try:
         tasks_args_list = []
-        # Shared client appears to not be threadsave
+        # Shared client appears to not be threadsafe as long as I keep the job down (under 10?)
         for file_item in file_list:
-            args_item = {"s3_client": s3_client,
-                        "bucket_name": bucket_name,
-                        "src_file_path": file_item['src_file'],
-                        "trg_file_path": file_item['trg_file'],
-                        "show_progress_bar": False,
-                        "test_bucket_exists": False,
-                        "is_verbose": True
-                        }
+
+            # debugging test
+            # if i > 20:
+            #     break
+            args_item = {
+                "s3_client": s3_client,
+                "bucket_name": bucket_name,
+                "src_file_path": file_item['src_file'],
+                "trg_file_path": file_item['trg_file'],
+                "show_progress_bar": False,
+                "test_bucket_exists": False,
+            }
             tasks_args_list.append(args_item)
 
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures_dict = []
+            # try:
+            futures_dict = [executor.submit(upload_file, **arg) for arg in tasks_args_list]
 
-            for i, task_args in enumerate(tasks_args_list):
-                try:
-                    # futures_dict.append(executor.submit(upload_file, **task_args))
-                    future = executor.submit(upload_file, **task_args)
-                    print(f"Starting thread id: {i}")                    
-                    # futures_dict[future] = task_args['src_path']  # deliberate wrong
+            #             except Exception as ex:
+            #                 # If it fails here, we always want to shut down as it woudl be a problem
+            #                 # with the call and not the actual function inside the thread.
+            #                 # That one shows up in the future as_completed.
+            #                 print("**************")
+            # #                 print(f"*** Oops.. something went very wrong trying to upload {task_args['src_file_path']}")
+            #                 # if is_submit_in_error is True:
+            #                 #     break
 
-                except Exception as ex:
-                    # If it fails here, we always want to shut down as it woudl be a problem
-                    # with the call and not the actual function inside the thread.
-                    # That one shows up in the future as_completed.
-                    print("**************")
-                    print(f"*** Oops.. something went very wrong trying to upload {task_args['src_file_path']}")
-                    # if is_submit_in_error is True:
-                    #     break
+            #                 print(traceback.format_exc())
+            #                 print("Shutting down.")
+            #                 time.sleep(1) # Let some tasks start
+            #                 # https://superfastpython.com/threadpoolexecutor-shutdown/
+            #                 executor.shutdown(wait=False, cancel_futures=True)
+            #                 print("Executor shut down, tasks that are already running will finish"
+            #                         " but new ones will be stopped.")
+            #                 # is_submit_in_error = True
+            #                 # re-raise it to help clean stuff, shutdown does not always shut down correctly. TBD
+            #                 raise Exception("Thread Aborting")
 
-                    print(traceback.format_exc())
-                    print("Shuttting down.")
-                    time.sleep(1) # Let some tasks start
-                    # https://superfastpython.com/threadpoolexecutor-shutdown/
-                    executor.shutdown(wait=False, cancel_futures=True)
-                    print("Executor shut down, tasks that are already running will finish"
-                          " but new ones will be stopped.")
-                    # is_submit_in_error = True
-                    # re-raise it to help clean stuff, shutdown does not always shut down correctly. TBD
-                    raise Exception("Thread Aborting")
-
-            for future in futures.as_completed(futures_dict):
-                print("we got here")
-                print("The future is ...")
-                print(future)
-                future_input = futures_dict[future]
-                print(future_input)
-                # ignore all in progress incoming futures that were flagged after the shutdown occurred.
+            # for future in futures.as_completed(futures_dict):
+            for future in tqdm(
+                futures.as_completed(futures_dict), total=len(tasks_args_list), desc="uploading files"
+            ):
                 if future.cancelled():
                     continue
                 if future is not None:
                     future_exception = future.exception()
                     # These are exceptions from withing the function being executed
                     if future_exception:
-                        print(f"zooks: {future_exception}")
-                        # raise future_exception ?? does it want to abort? argument maybe?
-                        # supress error
-                    else:
-                        result = future.result()
-                        print(f"I am back : {result}")
+                        # reraise it
+                        raise Exception(f"zooks: future item has an exception {future_exception}")
+                    # else:  # we don't care about the result at this time.
+                    #     result = future.result()
+                    #     print(f"I am back : {result}")
                 else:
-                    print("looks good, future_result is None though, how is that possible?")
+                    print("looks good, future item is None though, how is that possible?")
 
     except Exception as ex:
-        print("+++ Error / Exception caught +++")
-        print(traceback.format_exc())
-        # might further raise an exception if it does not what it is.
-        try:
-            # we forward the exception to aws_exception_handler
-            # If it does not know the type, it re-raised it. Hence the embedded try/except.
-            # if it does know the type, it creates a user friendly error message on what went
-            # wrong from aws objects, clients, permissions, etc.
-            print("Checking if the exception is a type of AWS exception")
-            error_msg = awssf.aws_exception_handler(ex)
-            raise Exception(error_msg)
-        except Exception as ex2:
-            # if we got here, then awssf.aws_exception_handler had an error it could not handle and re-raise
-            raise ex2
-        
-
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, ___ = awssf.aws_exception_handler(ex)
+        raise Exception(return_msg)
