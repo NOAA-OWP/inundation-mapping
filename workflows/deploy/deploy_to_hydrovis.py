@@ -4,6 +4,7 @@ import glob
 import logging
 import os
 import sys
+import time
 import traceback
 from datetime import datetime, timezone
 
@@ -67,7 +68,7 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
     # --------------
     # Validation. We are validating all variables in case the call came in from another py file
     # We also load a number of key variables (load env)
-    deploy_types = __validate_input(deploy_type, all_valid_types, workflow_params_file)
+    deploy_types = __validate_input(deploy_type, all_valid_types, workflow_params_file, num_jobs)
 
     # May throw exceptions or shut the program down.
     __setup_aws(aws_creds_file)
@@ -316,7 +317,7 @@ def __load_misc_files(deploy_types, workflow_params_file):
 
 
 # ============================
-def __validate_input(deploy_type, all_valid_types, workflow_params_file):
+def __validate_input(deploy_type, all_valid_types, workflow_params_file, num_jobs):
     '''
     Will return updates to variables or new variables extrapolated.
     We are checking values more carefully for empty values as we can not assume this script
@@ -352,6 +353,15 @@ def __validate_input(deploy_type, all_valid_types, workflow_params_file):
         "HV_S3_ROOT_QA_DATASETS_PATH", workflow_params_file, validate_local_path=False
     )
     HV_S3_ROOT_QA_DATASETS_PATH = wsf.add_slashes_to_path(HV_S3_ROOT_QA_DATASETS_PATH)
+
+    if num_jobs > 10:
+        # show a warning, then sleep for a bit allowwing them to abort if they like.
+        msg = "The number of jobs you have submitted may be larger than your network connection speed.\n"
+        "This may results in S3 issuing 'Connection Pool Is Full' warnings. If this happens, lower your"
+        "job number restart.\n Note: for OWP Staff: for the larger servers, it seems ok at 10."
+        print(msg)
+        time.sleep(10)  # gives them time to abort if they want.
+        
 
     return deploy_types
 

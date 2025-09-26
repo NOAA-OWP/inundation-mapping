@@ -521,6 +521,7 @@ def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
     # This assumes the bucket exists and the session/client are still alive and valid
     try:
         tasks_args_list = []
+        # Shared client appears to not be threadsave
         for file_item in file_list:
             args_item = {"s3_client": s3_client,
                         "bucket_name": bucket_name,
