@@ -94,5 +94,5 @@ per-file-ignores = """
     tools/rating_curve_comparison.py: F821, F841
     tools/run_test_case.py: E711
     tools/tools_shared_functions.py: F821, F841, E711
-    data/usgs/rating_curve_get_usgs_curves.py: F841
+    data/usgs/get_usgs_rating_curves.py: F841
     """

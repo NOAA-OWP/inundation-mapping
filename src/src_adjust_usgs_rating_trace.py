@@ -33,7 +33,7 @@ Processing
 
 Inputs
 - branch_dir:           fim directory containing individual HUC output dirs
-- usgs_rc_filepath:     USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
+- usgs_rc_filepath:     USGS rating curve database (produced by get_usgs_rating_curves.py)
 - nwm_recurr_filepath:  NWM flow recurrence interval dataset
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
 - job_number:           number of multi-processing jobs to use
