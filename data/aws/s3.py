@@ -22,6 +22,9 @@ Later, this will be changed to aws credentials profiles (or ~/aws/credentials (f
 '''
 
 
+# Aug 22, 2025: This is largely deprecated but still usable, but most of the
+# calls to S3 shoudl be through the new s3_shared_functions.py file
+# See more recent usage via /data/get_sample_data.py
 class S3(AWS_Base):
     def put_to_bucket(self, src_folder_path, aws_target_path, whitelist_file_path=None):
         '''

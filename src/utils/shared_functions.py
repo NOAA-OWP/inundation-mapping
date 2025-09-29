@@ -96,8 +96,7 @@ def setup_file_logger(log_file_path):
     # return logger  (don't do it :) )
 
 
-# This one is more designed to be for multi-proc as it has logger handler names
-# Notice how it does not have a "console / stream handler"? hence, a special function for MP
+# This one is more designed to be for multi-proc as it has logger names
 def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
     """
 

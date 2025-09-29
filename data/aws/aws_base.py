@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 from utils.shared_functions import FIM_Helpers as fh
 
 
+# Aug 22, 2025: This is largely deprecated but still usable, but most of the
+# calls to S3 shoudl be through the new s3_shared_functions.py file
+# See more recent usage via /data/get_sample_data.py
 class AWS_Base(object):
     '''
     This class implements all common variables related when communicating to AWS

@@ -1,6 +1,43 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-09-03 - [PR#1452](https://github.com/NOAA-OWP/inundation-mapping/pull/1452)
+
+Updates `data/get_sample_data.py` for changes in input data resulting from the addition of lidar bridge elevation.
+
+This also includes the latest new input types such as roads and fema.
+
+Other changes including:
+- Updating a partial AWS communication system, but major upgrades to it to allow for near tasks where our python scripts wanting to talk to S3. 
+- Small adjustments to our git PR template.
+- Fix a hardcoded pathing to the wbd.
+- Fix bug for the duration calc tool for hucs that fail to process.
+- Adjustment to the src/srct_adjust_ras2fim_rating.py which fails when running get_samples when it hits a huc that has no ras2fim processing data.
+- Add a new standardized shared logger basic function which handles screen and file at the same time.
+
+### Added
+- `data`
+    - `aws`
+        - `s3_shared_functions.py`:  A collection of functions to talk to AWS S3 buckets.
+        - `aws_shared_functions.py`: A collection of functions that are not specific to S3. Expecting more AWS type features in the near future.
+
+### Changes
+
+- `.github/PULL_REQUEST_TEMPLATE.md`
+- `data`
+    - `get_sample_data.py`: Updated input files and creates a VRT for bridge elevation diff.
+    - `aws`
+        - `aws_base.py`:  Marked as deprecated.
+        - `s3.py`: Marked as deprecated.
+
+- `fim_post_processing.sh`: Used WBD environment variable instead of hardcoding.
+- `src`
+    - `duration_system.py`:  Fix bug for the duration calc tool for hucs that fail to process.
+    - `fim_logger.py`:  Marked as deprecated.
+    - `shared_functions`: Added a new function to setup a logger for a file for both screen and file.
+    - `src_adjust_ras2fim_rating.py`:  Fix bug related to sample_data when a huc does not have any ras2fim data plus remove tests for maximum cpu test.   
+<br/>
+
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
 
 Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
@@ -1091,6 +1128,7 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 - `data/bridges/setup_conda_for_make_rasters.txt` Provides instructions for running the _data/bridges/make_rasters_using_lidar.py_ script on a Windows machine using a Conda environment.
 
 
+
 ### Changes
 - `data/bridges/pull_osm_bridges.py` The updates include:
      - This script now generates two separate OSM bridge centerline files: one for CONUS and another for Alaska, each with its own CRS to improve accuracy.
@@ -1101,6 +1139,7 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 
 - `src/run_unit_wb.sh` Crops the DEM correction VRT file to the buffered HUC boundary and create a copy for branch 0.
 - `src/run_by_branch.sh` Clips HUC-level DEM correction rasters for branches.
+
 
 
 - `src/heal_bridges_osm.py` Now implements two distinct workflows for healing the REM at OSM bridge locations, depending on the availability of lidar data: 
@@ -1115,6 +1154,7 @@ This PR incorporates lidar-derived elevations for OSM bridges into the FIM. The 
 - `data/create_vrt_file.py`:  small updates to text and changed timezones to be UTC instead of local to match much of our other conventions. Note: Many of our files are not yet UTC, but we hope to change them as we work on related files in the future.
 
 - `.gitignore / pyproject.toml` - With the addition of the new `conda_fim_bridges_enviro.yml` and `setup_conda_for_make_rasters.txt`, our current linting system was consistantly failing linting tests. Adjustments were made to try and have linting ignore the two files.
+
 
 ### Testing
 A series of comprehensive test runs for both CONUS and Alaska were conducted to develop and validate the results. Some observations have been documented #1242.

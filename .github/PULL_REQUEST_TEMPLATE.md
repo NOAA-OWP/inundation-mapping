@@ -36,8 +36,7 @@ Generally, you do not copy this part into the ChangeLog. These are some quick no
                  - [ ] FIM S3
                  - [ ] ESIP
                  - [ ] Dev1
-                 - [ ] UCS2
-            
+                             
 - Please use caution in removing older version unless it is at least two versions ago.  Confirm with DevOps if cleanup might be involved.
 
 - If new or updated data sets, has the FIM code, including running fim_pipeline.sh, been updated and tested with the new/adjusted data? You can dev test against subsets if you like.

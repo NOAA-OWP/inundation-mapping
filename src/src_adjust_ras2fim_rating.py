@@ -309,14 +309,14 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
     ## Check input args are valid
     assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
-    available_cores = multiprocessing.cpu_count()
-    if job_number > available_cores:
-        job_number = available_cores - 1
-        print(
-            "Provided job number exceeds the number of available cores. "
-            + str(job_number)
-            + " max jobs will be used instead."
-        )
+    # available_cores = multiprocessing.cpu_count()
+    # if job_number > available_cores:
+    #     job_number = available_cores - 1
+    #     print(
+    #         "Provided job number exceeds the number of available cores. "
+    #         + str(job_number)
+    #         + " max jobs will be used instead."
+    #     )
 
     ## Create output dir for log and ras2fim rc database
     log_dir = os.path.join(run_dir, "logs", "src_optimization")
@@ -344,12 +344,22 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
         huc_run_dir = os.path.join(run_dir, huc)
         huc_ras_input_file = os.path.join(huc_run_dir, ras_rc_filepath)
         ## Create an aggregate dataframe with all ras_elev_table.csv entries for hucs in fim_dir
-        print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv files...')
-        csv_elev = 'ras_elev_table.csv'  # file name to search for ras location data (in the huc/branch dirs)
+        print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv files (if applicable)...')
+        # file name to search for ras location data (in the huc/branch dirs)
+        csv_elev = os.path.join(huc_run_dir, 'ras_elev_table.csv')
+        if not os.path.exists(csv_elev):  # possible it has a folder but not the files in it
+            warn_err = (
+                'WARNING: ras_elev_table.csv did not exist - check that'
+                f' {csv_elev} files exist in fim_dir! Note: It could be correct if this script is'
+                ' being run as part of the get_sample_data system which does copy all ras2fim folders.'
+            )
+            print(warn_err)
+            log_file.write(warn_err)
+            continue
+
         # ras_elev_df = concat_huc_csv(huc_run_dir, csv_elev)
         ras_elev_df = pd.read_csv(
-            os.path.join(huc_run_dir, 'ras_elev_table.csv'),
-            dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
+            csv_elev, dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object}
         )
 
         ## Create an aggregate dataframe with all ras2fim rating curve csv files
