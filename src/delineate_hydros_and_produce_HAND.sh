@@ -44,22 +44,25 @@ $taudemDir/areadinf \
     -wg $tempCurrentBranchDataDir/headwaters_$current_branch_id.tif \
     -nc
 
-# THRESHOLD ACCUMULATIONS ##
-echo -e $startDiv"Threshold Accumulations $hucNumber $current_branch_id"
-date -u
-Tstart
-$taudemDir/threshold \
-    -ssa $tempCurrentBranchDataDir/flowaccum_dinf_burned_filled_$current_branch_id.tif \
-    -src $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
-    -thresh 1
-Tcount
+## DINF THRESHOLD ACCUMULATIONS ##
+# echo -e $startDiv"Threshold Accumulations $hucNumber $current_branch_id"
+# date -u
+# Tstart
+# $taudemDir/threshold \
+#     -ssa $tempCurrentBranchDataDir/flowaccum_dinf_burned_filled_$current_branch_id.tif \
+#     -src $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
+#     -thresh 1
+# Tcount
+# python3 $srcDir/threshold_streams.py \
+#     -fa $tempCurrentBranchDataDir/flowaccum_dinf_burned_filled_$current_branch_id.tif \
+#     -stream $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
+#     -thresh 1
 
 ## PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ###
 echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber $current_branch_id"
 python3 $srcDir/unique_pixel_and_allocation.py \
     -s $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/demDerived_streamPixels_ids_$current_branch_id.tif
-
 
 ## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber $current_branch_id"
@@ -71,7 +74,6 @@ python3 $srcDir/adjust_thalweg_lateral.py \
     -t 50 \
     -o $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
     -th $thalweg_lateral_elev_threshold
-
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
 echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber $current_branch_id"
@@ -93,6 +95,12 @@ echo -e $startDiv"D8 Slopes from DEM $hucNumber $current_branch_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
     -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif
+
+## DINF FLOW DIR ##
+echo -e $startDiv"Dinf Flow Directions on Burned DEM $hucNumber $current_branch_id"
+mpiexec -n $ncores_fd $taudemDir2/dinfflowdir \
+    -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
+    -slp $tempCurrentBranchDataDir/slopes_dinf_dem_meters_$current_branch_id.tif
 
 ## STREAMNET FOR REACHES ##
 echo -e $startDiv"Stream Net for Reaches $hucNumber $current_branch_id"
@@ -205,13 +213,21 @@ gdal_rasterize -q -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -c
     $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif
 
+# ## MASK SLOPE TO CATCHMENTS ##
+# echo -e $startDiv"Mask to slopes to catchments $hucNumber $current_branch_id"
+# gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
+#     -A $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif \
+#     -B $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif \
+#     --calc="A*(B>0)" --NoDataValue=$ndv \
+#     --outfile=$tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif
+
 ## MASK SLOPE TO CATCHMENTS ##
 echo -e $startDiv"Mask to slopes to catchments $hucNumber $current_branch_id"
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
-    -A $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif \
+    -A $tempCurrentBranchDataDir/slopes_dinf_dem_meters_$current_branch_id.tif \
     -B $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif \
     --calc="A*(B>0)" --NoDataValue=$ndv \
-    --outfile=$tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif
+    --outfile=$tempCurrentBranchDataDir/slopes_dinf_dem_meters_masked_$current_branch_id.tif
 
 ## MAKE CATCHMENT AND STAGE FILES ##
 echo -e $startDiv"Generate Catchment List and Stage List Files $hucNumber $current_branch_id"
@@ -250,7 +266,7 @@ echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id
 $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
     -catch $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif \
     -catchlist $tempCurrentBranchDataDir/catch_list_$current_branch_id.txt \
-    -slp $tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif \
+    -slp $tempCurrentBranchDataDir/slopes_dinf_dem_meters_masked_$current_branch_id.tif \
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
     -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
 
@@ -297,8 +313,6 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
         -b2 1.5 \
         -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg
-
-
 else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
 fi

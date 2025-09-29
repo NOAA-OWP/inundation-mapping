@@ -123,7 +123,7 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
 
 ## DINF FLOW DIR - BRANCH 0 (include all NWM streams) ##
-echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
+echo -e $startDiv"Dinf Flow Directions on Burned DEM $hucNumber $current_branch_id"
 mpiexec -n $ncores_fd $taudemDir2/dinfflowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
     -slp $tempCurrentBranchDataDir/slope_dinf_burned_filled_$current_branch_id.tif \
