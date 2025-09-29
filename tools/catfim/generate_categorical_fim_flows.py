@@ -157,7 +157,6 @@ def generate_flows_for_huc(
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
-
                 else:
                     msg = ':Error getting flows values from WRDS API'
                     all_messages.append(lid + msg)
@@ -186,7 +185,7 @@ def generate_flows_for_huc(
             )
 
             # Sept 2024: Should we skip these functions that are seen in stage based? Yes
-            #    Flow doesn't need all of the evalation stuff
+            #    Flow doesn't need all of the elevation stuff
             #     acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
             #     lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(
             #     lid_altitude = metadata['usgs_data']['altitude']
