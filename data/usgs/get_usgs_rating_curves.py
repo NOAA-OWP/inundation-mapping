@@ -183,7 +183,7 @@ def __write_categorical_flow_files(
     # Again.. we make a special mp for this set
     mp_log_file_path = os.path.join(output_dir, f"get_rating_curves-mp-flow-{file_datetime_string}.log")
     mp_logger = sf.setup_mp_file_logger(mp_log_file_path, logger_name="mp_flows")
-    # We get a list of dictionaries    
+    # We get a list of dictionaries
     flow_dfs = sf.run_with_mp(
         task_function=__mp_get_flows_for_site,
         tasks_args_list=sorted_tasks_args_list,
@@ -215,7 +215,6 @@ def __write_categorical_flow_files(
         final_data.to_csv(usgs_discharge_file_name, index=False)
     else:
         logging.info("No flow data was found. Saving of usgs_stage_discharge_cms file skipped")
-
 
 
 def set_global_env(env_file):
@@ -543,7 +542,8 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         set_global_env(env_file)
 
     if list_of_gage_sites != 'all':
-        print("\n"
+        print(
+            "\n"
             "*** NOTICE: You have provide a list of specific usgs site codes to process.\nPlease note that when getting all sites,"
             " it filters to only sites that are active. But when using specific codes, it will not use the 'is active' filter.\n\n"
             "To continue, hit your enter key or CTRL-C to abort"
@@ -653,16 +653,16 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         if len(rating_curves_dfs) == 0:
             logging.error("There are no acceptable sites. Stopping program.")
             sys.exit(1)
-            
+
         # run_with_mp returns a list of dictionaries keyed with a huc. We don't care about the keys, just the values
         # which are df's
-        all_rating_curves = pd.DataFrame()        
+        all_rating_curves = pd.DataFrame()
         for i, value in enumerate(rating_curves_dfs.values()):
             if i == 0:
                 all_rating_curves = value
             else:
                 all_rating_curves = pd.concat([all_rating_curves, value])
-        
+
         logging.info(f"Number of sites to processes with metadata: {len(all_rating_curves)}")
 
         display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
