@@ -169,11 +169,15 @@ $srcDir/mitigate_branch_outlet_backpool.py \
 Tcount
 
 ## D8 REM ##
-echo -e $startDiv"D8 REM $hucNumber $current_branch_id"
-$srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif \
-    -w $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
-    -o $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
-    -t $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
+echo -e $startDiv"Dinf REM $hucNumber $current_branch_id"
+$taudemDir/dinfdistdown \
+    -ang $tempCurrentBranchDataDir/flowdir_dinf_burned_filled_$current_branch_id.tif \
+    -fel $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+    -slp $tempCurrentBranchDataDir/slopes_dinf_dem_meters_$current_branch_id.tif \
+    -src $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
+    -dd $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
+    -m ave v \
+    -nc
 
 ## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS##
 echo -e $startDiv"Bring negative values in REM to zero and mask to catchments $hucNumber $current_branch_id"
@@ -212,14 +216,6 @@ gdal_rasterize -q -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -c
     -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
     $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif
-
-# ## MASK SLOPE TO CATCHMENTS ##
-# echo -e $startDiv"Mask to slopes to catchments $hucNumber $current_branch_id"
-# gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
-#     -A $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif \
-#     -B $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif \
-#     --calc="A*(B>0)" --NoDataValue=$ndv \
-#     --outfile=$tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif
 
 ## MASK SLOPE TO CATCHMENTS ##
 echo -e $startDiv"Mask to slopes to catchments $hucNumber $current_branch_id"
