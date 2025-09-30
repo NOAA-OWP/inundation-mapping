@@ -35,6 +35,7 @@ Inputs
 - branch_dir:           fim directory containing individual HUC output dirs
 - usgs_rc_filepath:     USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
 - nwm_recurr_filepath:  NWM flow recurrence interval dataset
+- huc_level:            HUC level used (8,10, or 12)
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
 - job_number:           number of multi-processing jobs to use
 
@@ -46,7 +47,7 @@ Outputs
 
 
 def create_usgs_rating_database(
-    usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
+    usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir, huc_level
 ):
     start_time = dt.datetime.now()
     print('Reading USGS rating curve from csv...')
@@ -76,10 +77,10 @@ def create_usgs_rating_database(
     # read in the aggregate USGS elev table csv
     start_time = dt.datetime.now()
     cross_df = usgs_elev_df[
-        ["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_adj_elevation"]
+        ["location_id", "HydroID", "feature_id", "levpa_id", f"HUC{huc_level}", "dem_adj_elevation"]
     ].copy()
     cross_df = cross_df.rename(
-        columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', 'HUC8': 'huc'}
+        columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', f'HUC{huc_level}': 'huc'}
     )
 
     # filter null location_id rows from cross_df
@@ -456,24 +457,30 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
 
     # multiprocess all available branches
     print(f"Calculating new SRCs for {len(procs_list)} branches using {job_number} jobs...")
-    with Pool(processes=job_number) as pool:
-        log_output = pool.starmap(update_rating_curve, procs_list)
-        log_file.writelines(["%s\n" % item for item in log_output])
+    # with Pool(processes=job_number) as pool:
+    #    log_output = pool.starmap(update_rating_curve, procs_list)
+    #    log_file.writelines(["%s\n" % item for item in log_output])
     # TO-DO update the error handling to properly capture issues in the multiprocessing
     # try statement for debugging
-    # try:
-    #     with Pool(processes=job_number) as pool:
-    #         log_output = pool.starmap(update_rating_curve, procs_list)
-    #         log_file.writelines(["%s\n" % item for item in log_output])
-    # except Exception as e:
-    #     print(str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e))
-    #     log_file.write(
-    #         'ERROR!!!: HUC ' + str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e) + '\n'
-    #     )
+    try:
+        with Pool(processes=job_number) as pool:
+            log_output = pool.starmap(update_rating_curve, procs_list)
+            log_file.writelines(["%s\n" % item for item in log_output])
+    except Exception as e:
+        print(str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e))
+        log_file.write(
+            'ERROR!!!: HUC ' + str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e) + '\n'
+        )
 
 
 def run_prep(
-    run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+    run_dir,
+    usgs_rc_filepath,
+    usgs_sites_filepath,
+    nwm_recurr_filepath,
+    huc_level,
+    debug_outputs_option,
+    job_number,
 ):
     # Check input args are valid
     assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
@@ -508,7 +515,7 @@ def run_prep(
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    usgs_elev_df = concat_huc_csv(run_dir, csv_name)
+    usgs_elev_df = concat_huc_csv(run_dir, huc_level, csv_name)
 
     if usgs_elev_df is None:
         warn_err = (
@@ -526,7 +533,7 @@ def run_prep(
         print('This may take a few minutes...')
         log_file.write("starting create usgs rating db\n")
         usgs_df = create_usgs_rating_database(
-            usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
+            usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir, huc_level
         )
 
         # Create huc proc_list for multiprocessing and execute the update_rating_curve function
@@ -563,6 +570,7 @@ if __name__ == '__main__':
         help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',
         required=True,
     )
+    parser.add_argument('-huc_level', '--huc-level', help='HUC level to use', required=True, type=int)
     parser.add_argument(
         '-debug',
         '--extra-outputs',
@@ -579,10 +587,17 @@ if __name__ == '__main__':
     usgs_rc_filepath = args['usgs_ratings']
     usgs_sites_filepath = args['usgs_sites']
     nwm_recurr_filepath = args['nwm_recur']
+    huc_level = args['huc_level']
     debug_outputs_option = args['extra_outputs']
     job_number = int(args['job_number'])
 
     # Prepare/check inputs, create log file, and spin up the proc list
     run_prep(
-        run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+        run_dir,
+        usgs_rc_filepath,
+        usgs_sites_filepath,
+        nwm_recurr_filepath,
+        huc_level,
+        debug_outputs_option,
+        job_number,
     )

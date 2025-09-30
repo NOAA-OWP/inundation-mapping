@@ -382,7 +382,14 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
 
 
 def run_prep(
-    fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option, process_huc=None
+    fim_dir,
+    mann_n_table,
+    huc_level,
+    output_suffix,
+    number_of_jobs,
+    verbose,
+    src_plot_option,
+    process_huc=None,
 ):
     procs_list = []
 
@@ -419,14 +426,14 @@ def run_prep(
 
         if process_huc is None:
             ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-            huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
+            regex_pattern = rf'^\d{{{huc_level}}}$'
+            huc_list = [d for d in os.listdir(fim_dir) if re.match(regex_pattern, d)]
             huc_list.sort()  # sort huc_list for helping track progress in future print statments
         else:
             huc_list = [process_huc]
         for huc in huc_list:
-            # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
             if process_huc is None or huc in process_huc:
-                if re.match(r'\d{8}', huc):
+                if re.match(rf'\d{{{huc_level}}}', huc):
                     huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
                     for branch_id in os.listdir(huc_branches_dir):
                         branch_dir = os.path.join(huc_branches_dir, branch_id)
@@ -496,6 +503,7 @@ if __name__ == '__main__':
         required=True,
         type=str,
     )
+    parser.add_argument('-huc_level', '--huc-level', help='HUC level to use', required=True, type=int)
     parser.add_argument(
         '-suff',
         '--output-suffix',
@@ -533,9 +541,10 @@ if __name__ == '__main__':
 
     fim_dir = args['fim_dir']
     mann_n_table = args['mann_n_table']
+    huc_level = args['huc_level']
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
 
-    run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option)
+    run_prep(fim_dir, mann_n_table, huc_level, output_suffix, number_of_jobs, verbose, src_plot_option)

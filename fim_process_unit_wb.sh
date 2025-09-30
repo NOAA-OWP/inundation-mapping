@@ -42,20 +42,23 @@ export hucNumber=$2
 # print usage if arguments empty
 if [ "$runName" = "" ]
 then
-    echo "ERROR: Missing run time name argument (1st argument)"
+    echo "ERROR: Missing run name argument (1st argument)"
     usage
+    exit 22
 fi
 
 if [ "$hucNumber" = "" ]
 then
-    echo "ERROR: Missing hucNumber argument (2nd argument)"
+    echo "ERROR: Missing huc Number argument (2nd argument)"
     usage
+    exit 22
 fi
 
 re='^[0-9]+$'
 if ! [[ $hucNumber =~ $re ]] ; then
    echo "Error: hucNumber is not a number" >&2; exit 1
    usage
+   exit 22
 fi
 
 echo "=========================================================================="

@@ -1,10 +1,12 @@
 #!/bin/bash -e
 
-## INITIALIZE TOTAL TIME TIMER ##
-T_total_start
-
 ## SOURCE BASH FUNCTIONS
 source $srcDir/bash_functions.env
+
+# Uncomment lines below if calling process_branch.sh directly
+#source $outputDestDir/runtime_args.env
+#source $outputDestDir/params.env
+#source $srcDir/bash_variables.env
 
 ## SET VARIABLES AND FILE INPUTS ##
 hucNumber="$1"
@@ -21,7 +23,7 @@ else
 fi
 
 # Skip branch zero
-if [ $current_branch_id = $branch_zero_id ]; then
+if [[ $current_branch_id = $branch_zero_id ]]; then
     exit 0
 fi
 
@@ -154,7 +156,8 @@ if [ -f $tempHucDataDir/usgs_subset_gages.gpkg ]; then
         -dem_adj $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
         -out $tempCurrentBranchDataDir \
         -b $current_branch_id \
-        -huc_CRS $huc_CRS
+        -huc_CRS $huc_CRS \
+        -huc_number $hucNumber
 fi
 
 ## REMOVE FILES FROM DENY LIST ##

@@ -2,6 +2,7 @@
 *.swp
 *.swo
 *.swn
+slurm/slurm_outputs
 .nfs*
 __pycache__/
 config/**
@@ -13,7 +14,9 @@ config/**
 config/*.swp
 .vscode/
 **/.DS_Store
+**/*_pytest.py
 .private/
+cache/
 
 !tools/catfim/*.csv
 !tools/catfim/catfim.env.template

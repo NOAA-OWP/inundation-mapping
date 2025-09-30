@@ -80,6 +80,16 @@ rm -f $log_file_name
 args_file=$outputDestDir/runtime_args.env
 fim_inputs=$outputDestDir/fim_inputs.csv
 
+# get huc_level from the output's huc dirs
+export huc_level=$(
+  name=$(basename "$(
+    find "$outputDestDir" -maxdepth 1 -mindepth 1 -type d \
+      -regextype posix-extended -regex '.*/[0-9]+$' \
+    | sort -t/ -k2,2n \
+    | head -n1
+  )"); echo "${#name}"
+)
+
 source $args_file
 source $outputDestDir/params.env
 source $srcDir/bash_functions.env
@@ -143,8 +153,8 @@ l_echo "$COUNTER" > "$COUNTER_FILE"
 # Check if the counter is greater than one
 if [ "$COUNTER" -gt 1 ]; then
     # Execute the Python file
-    l_echo $startDiv"Updating hydroTable & scr_full_crosswalked for branches"
-    python3 $srcDir/update_htable_src.py -d $outputDestDir
+    l_echo "Updating hydroTable & src_full_crosswalked for branches"
+    python3 $srcDir/update_htable_src.py -d $outputDestDir -huc_level $huc_level
     Tcount
 else
     l_echo "Execution count is $COUNTER, not executing the update_htable_src.py file."
@@ -164,9 +174,16 @@ find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | \
     "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-l_echo $startDiv"Processing usgs & ras2fim elev table aggregation"
+l_echo $startDiv"Processing usgs, ras2fim & ripple1d elev table aggregation"
 Tstart
-python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -ras -j $jobLimit
+python3 $srcDir/aggregate_by_huc.py \
+    -fim $outputDestDir \
+    -huc_level $huc_level \
+    -i $fim_inputs \
+    -elev \
+    -ras \
+    -ripple1d \
+    -j $jobLimit
 Tcount
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
@@ -180,7 +197,8 @@ if [ "$bathymetry_adjust" = "True" ]; then
         -bathy_ehydro $bathy_file_ehydro \
         -bathy_aibased $bathy_file_aibased \
         -buffer $wbd_buffer \
-        -wbd $inputsDir/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg \
+        -wbd $input_WBD_gdb \
+        -huc_level $huc_level \
         -j $jobLimit \
         -ait $aibathy_toggle
     Tcount
@@ -194,6 +212,7 @@ if [ "$src_bankfull_toggle" = "True" ]; then
     python3 $srcDir/identify_src_bankfull.py \
         -fim_dir $outputDestDir \
         -flows $bankfull_flows_file \
+        -huc_level $huc_level \
         -j $jobLimit
     Tcount
 fi
@@ -206,6 +225,7 @@ if [ "$src_subdiv_toggle" = "True" ] && [ "$src_bankfull_toggle" = "True" ]; the
     python3 $srcDir/subdiv_chan_obank_src.py \
         -fim_dir $outputDestDir \
         -mann $vmann_input_file \
+        -huc_level $huc_level \
         -j $jobLimit
     Tcount
 fi
@@ -242,6 +262,7 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
         -usgs_rc $usgs_rating_curve_csv \
         -usgs_sites $usgs_acceptable_gages_path \
         -nwm_recur $nwm_recur_file \
+        -huc_level $huc_level \
         -j $jobLimit
     Tcount
 fi
@@ -260,11 +281,32 @@ if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ 
     Tcount
 fi
 
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ RIPPLE1d CROSS SECTION RATING CURVES ##
+if [ "$src_adjust_ripple1d" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
+    Tstart
+    l_echo $startDiv"Performing SRC adjustments using ripple1d rating curve database"
+    # Run SRC Optimization routine using ripple1d rating curve data (WSE and flow @ NWM recur flow values)
+    python3 $srcDir/src_adjust_ripple1d_rating.py \
+        -run_dir $outputDestDir \
+        -ripple1d_input $ripple1d_input_dir \
+        -ripple1d_rc $ripple1d_rating_curve_filename \
+        -nwm_recur $nwm_recur_file \
+        -huc_level $huc_level \
+        -j $jobLimit 
+    Tcount
+fi
+
 ## RUN SYNTHETIC RATING CURVE CALIBRATION W/ BENCHMARK POINTS (.parquet files) ##
-if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]  && [ "$skipcal" = "0" ]; then
+if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$skipcal" = "0" ]; then
     Tstart
     l_echo $startDiv"Performing SRC adjustments using benchmark point .parquet files"
-    python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputDestDir -j $jobLimit
+
+    if [ "$src_adjust_spatial_usgs_hwm" = "True" ]; then
+        python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputDestDir -j $jobLimit --use-usgs-hwm
+    else
+        python3 $srcDir/src_adjust_spatial_obs.py -fim_dir $outputDestDir -j $jobLimit
+    fi
+
     Tcount
 fi
 
@@ -285,6 +327,7 @@ l_echo $startDiv"Aggregating branch hydrotables"
 Tstart
 python3 $srcDir/aggregate_by_huc.py \
     -fim $outputDestDir \
+    -huc_level $huc_level \
     -i $fim_inputs \
     -htable \
     -bridge \
@@ -296,14 +339,18 @@ l_echo $startDiv"Combining crosswalk tables"
 Tstart
 python3 $toolsDir/combine_crosswalk_tables.py \
     -d $outputDestDir \
-    -o $outputDestDir/crosswalk_table.csv
+    -o $outputDestDir/crosswalk_table.csv 
 Tcount
 
 
 l_echo $startDiv"Resetting Permissions"
 Tstart
     # super slow to change chmod on the log folder. Not really manditory anyways
-    find $outputDestDir -maxdepth 1 -type f -exec chmod 777 {} +  # just root level files
+    find $outputDestDir/logs/ -type d -exec chmod -R 777 {} +
+    find $outputDestDir/branch_errors/ -type d -exec chmod -R 777 {} +
+    find $outputDestDir/unit_errors/ -type d -exec chmod -R 777 {} +
+    find $outputDestDir -type f -exec chmod 777 {} +  # just root level files
+    #find $outputDestDir -maxdepth 1 -type f -exec chmod 777 {} +  # just root level files
 Tcount
 
 
@@ -326,3 +373,5 @@ l_echo "---- End of fim_post_processing"
 l_echo "---- Ended: `date -u`"
 Calc_Duration "Post Processing Duration:" $post_proc_start_time
 echo
+
+SUCCESS=true

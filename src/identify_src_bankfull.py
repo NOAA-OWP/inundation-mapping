@@ -298,7 +298,7 @@ def multi_process(src_bankfull_lookup, procs_list, log_file, number_of_jobs, ver
     log_file.writelines(["%s\n" % item for item in map_output])
 
 
-def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_option):
+def run_prep(fim_dir, bankfull_flow_filepath, huc_level, number_of_jobs, verbose, src_plot_option):
     procs_list = []
 
     ## Print message to user and initiate run clock
@@ -320,12 +320,14 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     log_file.write('#########################################################\n\n')
 
     df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
-    huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
+
+    regex_pattern = rf'^\d{{{huc_level}}}$'
+    huc_list = [d for d in os.listdir(fim_dir) if re.match(regex_pattern, d)]
     huc_list.sort()  # sort huc_list for helping track progress in future print statments
     huc_pass_list = []
     for huc in huc_list:
         # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-        if re.match(r'\d{8}', huc):
+        if re.match(rf'\d{{{huc_level}}}', huc):
             huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
             for branch_id in os.listdir(huc_branches_dir):
                 branch_dir = os.path.join(huc_branches_dir, branch_id)
@@ -376,6 +378,7 @@ if __name__ == '__main__':
         required=True,
         type=str,
     )
+    parser.add_argument('-huc_level', '--huc-level', help='HUC level to use', required=True, type=int)
     parser.add_argument(
         '-j',
         '--number-of-jobs',
@@ -406,9 +409,10 @@ if __name__ == '__main__':
 
     fim_dir = args['fim_dir']
     bankfull_flow_filepath = args['bankfull_flow_input']
+    huc_level = args['huc_level']
     number_of_jobs = args['number_of_jobs']
     verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
 
     ## Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_option)
+    run_prep(fim_dir, bankfull_flow_filepath, huc_level, number_of_jobs, verbose, src_plot_option)

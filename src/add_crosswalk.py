@@ -53,6 +53,9 @@ def add_crosswalk(
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
 
+    # get huc column name due to HLP
+    huc_column_name = input_huc.filter(like='HUC').columns[0]
+
     input_catchments = input_catchments.dissolve(by='HydroID').reset_index()
 
     # Rename ID column
@@ -423,19 +426,31 @@ def add_crosswalk(
     output_hydro_table['precalb_discharge_cms'] = pd.NA
     output_hydro_table['calb_coef_usgs'] = pd.NA
     output_hydro_table['calb_coef_ras2fim'] = pd.NA
+    output_hydro_table['calb_coef_ripple1d'] = pd.NA
     output_hydro_table['calb_coef_spatial'] = pd.NA
     output_hydro_table['calb_coef_final'] = pd.NA
+
+    if input_huc[FIM_ID].dtype != 'str':
+        input_huc[FIM_ID] = input_huc[FIM_ID].astype(str)
+    # get max length of input_huc[FIM_ID]
+    max_FIM_ID_len = len(input_huc[FIM_ID].max())
 
     if output_hydro_table.HydroID.dtype != 'str':
         output_hydro_table.HydroID = output_hydro_table.HydroID.astype(str)
 
-    # TODO: Jun 2025: Why do we have this column? Likely a bug
-    output_hydro_table['HydroID Int16'] = output_hydro_table['HydroID'].apply(lambda x: str(int(x[4:])))
-    output_hydro_table[FIM_ID] = output_hydro_table.loc[:, 'HydroID'].apply(lambda x: str(x)[0:4])
+    ## NGWPC Version - merge v4.8.7.3
+    ## Since there are order of magnitude differences in the number of HUCs across the various levels (8, 10, 12),
+    ##      picking out the FIM ID’s from HydroID’s is HUC level dependent.
+    output_hydro_table[FIM_ID] = output_hydro_table.loc[:, 'HydroID'].apply(lambda x: str(x)[:max_FIM_ID_len])
 
-    if input_huc[FIM_ID].dtype != 'str':
-        input_huc[FIM_ID] = input_huc[FIM_ID].astype(str)
-    output_hydro_table = output_hydro_table.merge(input_huc.loc[:, [FIM_ID, 'HUC8']], how='left', on=FIM_ID)
+    ## # OWP Version - merge v4.8.7.3
+    # TODO: Jun 2025: Why do we have this column? Likely a bug
+    # output_hydro_table['HydroID Int16'] = output_hydro_table['HydroID'].apply(lambda x: str(int(x[4:])))
+    # output_hydro_table[FIM_ID] = output_hydro_table.loc[:, 'HydroID'].apply(lambda x: str(x)[0:4])
+
+    output_hydro_table = output_hydro_table.merge(
+        input_huc.loc[:, [FIM_ID, huc_column_name]], how='left', on=FIM_ID
+    )
 
     del input_huc
 
@@ -445,7 +460,7 @@ def add_crosswalk(
         output_flows.loc[:, ['HydroID', 'LakeID']], how='left', on='HydroID'
     )
     output_hydro_table['LakeID'] = output_hydro_table['LakeID'].astype(int)
-    output_hydro_table = output_hydro_table.rename(columns={'HUC8': 'HUC'})
+    output_hydro_table = output_hydro_table.rename(columns={huc_column_name: 'HUC'})
     if output_hydro_table.HUC.dtype != 'str':
         output_hydro_table.HUC = output_hydro_table.HUC.astype(str)
 
@@ -505,7 +520,7 @@ if __name__ == '__main__':
     )
     parser.add_argument("-x", "--output-crosswalk-fileName", help="Crosswalk table", required=True)
     parser.add_argument("-t", "--output-hydro-table-fileName", help="Hydrotable", required=True)
-    parser.add_argument("-w", "--input-huc-fileName", help="HUC8 boundary", required=True)
+    parser.add_argument("-w", "--input-huc-fileName", help="HUC boundary", required=True)
     parser.add_argument("-b", "--input-nwmflows-fileName", help="Subest NWM burnlines", required=True)
     parser.add_argument(
         "-m",

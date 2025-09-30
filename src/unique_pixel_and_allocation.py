@@ -29,8 +29,8 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels):
     '''
     # Set wbt envs
     wbt = whitebox.WhiteboxTools()
+    wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to verbose
     wbt.set_verbose_mode(False)
-    wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
     workspace = os.path.dirname(unique_stream_pixels)
     base = os.path.basename(unique_stream_pixels)
@@ -54,8 +54,8 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels):
     streams_profile.update(dtype='float64')
 
     # Output to raster
-    with rasterio.Env():
-        with rasterio.open(unique_stream_pixels, 'w', **streams_profile) as raster:
+    with rasterio.Env(GDAL_CACHEMAX=36000000000, GDAL_NUM_THREADS=4):
+        with rasterio.open(unique_stream_pixels, 'w', **streams_profile, BIGTIFF="YES") as raster:
             raster.write(stream_pixel_values, 1)
 
     # Compute allocation and proximity grids.
@@ -71,7 +71,7 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels):
 
     del stream_pixel_values
 
-    with rasterio.open(allocation_grid, 'w', **allocation_profile) as allocation_ds:
+    with rasterio.open(allocation_grid, 'w', **allocation_profile, BIGTIFF="YES") as allocation_ds:
         allocation_ds.write(allocation, 1)
 
     del allocation

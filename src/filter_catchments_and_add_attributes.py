@@ -10,7 +10,7 @@ from utils.fim_enums import FIM_exit_codes
 from utils.shared_variables import FIM_ID
 
 
-gpd.options.io_engine = "pyogrio"
+gpd.options.io_engine = "fiona"
 
 
 def filter_catchments_and_add_attributes(
@@ -29,8 +29,10 @@ def filter_catchments_and_add_attributes(
     wbd = gpd.read_file(wbd_filename, engine='fiona')
     input_flows = gpd.read_file(input_flows_filename, engine='fiona')
 
+    huc_level = len(huc_code)
+
     # filter segments within huc boundary
-    select_flows = tuple(map(str, map(int, wbd[wbd.HUC8.str.contains(huc_code)][FIM_ID])))
+    select_flows = tuple(map(str, map(int, wbd.query(f"HUC{huc_level} == '{huc_code}'")[FIM_ID])))
 
     del wbd
 
