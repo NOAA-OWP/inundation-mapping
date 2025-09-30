@@ -57,17 +57,27 @@ def process_branch(sub_branch_path, branch, huc_id):
     recalc_df = pd.DataFrame()
     recalc_df['HydroID'] = input_src_base['HydroID']
     recalc_df['Stage'] = input_src_base['Stage']
-    recalc_df['SLOPE'] = recalc_df['HydroID'].map(src_full_unique['SLOPE'].astype(float).to_dict()).fillna(0)
-    recalc_df['Number of Cells'] = input_src_base['Number of Cells']
-    recalc_df['SurfaceArea (m2)'] = input_src_base['SurfaceArea (m2)']
-    recalc_df['LENGTHKM'] = input_src_base['LENGTHKM']
-    recalc_df['AREASQKM'] = input_src_base['AREASQKM']
-    recalc_df['Volume (m3)'] = input_src_base['Volume (m3)']
-    recalc_df['ManningN'] = input_src_base['ManningN']
-    recalc_df['TopWidth (m)'] = input_src_base['SurfaceArea (m2)'] / input_src_base['LENGTHKM'] / 1000
-    recalc_df['BedArea (m2)'] = input_src_base['BedArea (m2)']
-    recalc_df['WettedPerimeter (m)'] = input_src_base['BedArea (m2)'] / input_src_base['LENGTHKM'] / 1000
-    recalc_df['WetArea (m2)'] = input_src_base['Volume (m3)'] / input_src_base['LENGTHKM'] / 1000
+    input_src_full['HydroID'] = input_src_full['HydroID'].astype(str)
+    recalc_df = recalc_df.merge(
+        input_src_full[['HydroID', 'Stage', 'SLOPE']], on=['HydroID', 'Stage'], how='left'
+    )
+    columns_from_src = [
+        'HydroID',
+        'Stage',
+        'Number of Cells',
+        'SurfaceArea (m2)',
+        'LENGTHKM',
+        'AREASQKM',
+        'Volume (m3)',
+        'ManningN',
+        'BedArea (m2)',
+    ]
+    keys = ['HydroID', 'Stage']
+    recalc_df = recalc_df.merge(input_src_base[columns_from_src], on=keys, how='left')
+
+    recalc_df['TopWidth (m)'] = recalc_df['SurfaceArea (m2)'] / recalc_df['LENGTHKM'] / 1000
+    recalc_df['WettedPerimeter (m)'] = recalc_df['BedArea (m2)'] / recalc_df['LENGTHKM'] / 1000
+    recalc_df['WetArea (m2)'] = recalc_df['Volume (m3)'] / recalc_df['LENGTHKM'] / 1000
     recalc_df['HydraulicRadius (m)'] = recalc_df['WetArea (m2)'] / recalc_df['WettedPerimeter (m)']
     recalc_df['HydraulicRadius (m)'].fillna(0, inplace=True)
 
@@ -135,6 +145,7 @@ def process_branch(sub_branch_path, branch, huc_id):
     # Update src_full with ALL newly calculated values, aligning on the index
     input_src_full.update(recalc_df)
     input_src_full.reset_index(inplace=True)
+    input_src_full['Bathymetry_source'] = pd.NA
 
     # Merge the final discharge values into the hydro table
     input_hydro_table = input_hydro_table.merge(
@@ -159,7 +170,6 @@ def process_branch(sub_branch_path, branch, huc_id):
         'SLOPE_HFAB',
         'SLOPE_IRIS_SWORD',
         'SLOPE',
-        'Bathymetry_source',
         'feature_id',
         'Stage',
         'Number of Cells',
