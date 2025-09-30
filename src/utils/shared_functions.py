@@ -23,26 +23,26 @@ from fsspec.core import url_to_fs
 from tqdm import tqdm
 
 
+# Registry: name -> path
+_LOGGER_REGISTRY = {}
+
 gp.options.io_engine = "pyogrio"
 
 
 # #################################
 # log file tools
-def calc_error_log_file_path(log_file_path):
-
-    # takes the log_file_path and creates and adjusted file name to handle errors
-    # ie) log_file_path = /data/outputs/my_log_file.log and comes back with
-    #   /data/outputs/my_log_file-errors.log
-    # This helps with error file rollup into parent logs if desired
-    if not log_file_path.endswith(".log"):
-        raise Exception("log file name must end with .log")
-
-    return log_file_path.replace(".log", "-errors.log")
 
 
 # This one is a standard Python logger, NOT MEANT for multi-proc
-def setup_file_logger(log_file_path):
+# def setup_file_logger(log_file_path):
+def setup_file_logger(log_file_dir, log_file_name_prefix):
     """
+
+    This creates a file name for you. I will take the log_file_name_prefix, then append a dt, then extension
+
+    ie) setup_file_logger("/ouputs/mylogs", "pull_osm_bridges")
+    The log name becomes "/outputs/mylogs/pull_osm_bridges_20250925_1842.log
+
     This one is not meant to be used for MP's.
     It prints to file and screen at the same time.
 
@@ -58,17 +58,23 @@ def setup_file_logger(log_file_path):
     Note: The file is created automatically and if no actual errors are found, that file will be empty.
 
     In the end, the error log file is not removed if it is empty, just watch its file size.
+
+    Returns the name/path of the new log file.
     """
 
-    if not log_file_path.endswith(".log"):
-        raise Exception("log file name must end with .log")
+    if log_file_dir is None or log_file_dir == "":
+        raise ValueError("log directory path can not be None or empty")
 
-    log_folder = os.path.dirname(log_file_path)
-    # create the paths if required.
-    os.makedirs(log_folder, exist_ok=True)
+    if log_file_name_prefix is None or log_file_name_prefix == "":
+        raise ValueError("log file name prefix can not be None or empty")
+
+    file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
+    log_file_path = os.path.join(log_file_dir, log_file_name)
+    print(f"Logs saved to: {log_file_path}")
 
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     # logger.propagate = False # Prevent propagation to the root logger
 
     # basic screen handler
@@ -81,7 +87,7 @@ def setup_file_logger(log_file_path):
     formatter = logging.Formatter("%(asctime)s - %(levelname)s : %(message)s")
 
     # error file handler
-    error_file_name = calc_error_log_file_path(log_file_path)
+    error_file_name = log_file_path.replace(".log", "-errors.log")
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
@@ -97,13 +103,17 @@ def setup_file_logger(log_file_path):
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
 
-    # return logger  (don't do it :) )
+    return log_file_path
 
 
 # This one is more designed to be for multi-proc as it has logger handler names
 # Notice how it does not have a "console / stream handler"? hence, a special function for MP
-def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=logging.DEBUG):
+def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEBUG):
     """
+
+    Create a logger bound by a strict bijection:
+      - Each logger_name maps to exactly one log_file_path.
+      - Each log_file_path may only be used by one logger_name.
 
     This version is meant for use in MP as it makes a custom logger and does not use the default
     logger. However, both can co-exist.
@@ -125,10 +135,30 @@ def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=loggi
 
     """
 
+    if not logger_name:
+        raise ValueError("logger_name can not be None or empty")
+
     if not log_file_path.endswith(".log"):
         raise Exception("log file name must end with .log")
 
-    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+    abs_path = os.path.abspath(log_file_path)
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+
+    # Check name -> path
+    if logger_name in _LOGGER_REGISTRY and _LOGGER_REGISTRY[logger_name] != abs_path:
+        raise ValueError(
+            f"Logger '{logger_name}' already bound to '{_LOGGER_REGISTRY[logger_name]}', cannot bind to '{abs_path}'."
+        )
+
+    # Check path -> name (reverse lookup)
+    for name, path in _LOGGER_REGISTRY.items():
+        if path == abs_path and name != logger_name:
+            raise ValueError(
+                f"Path '{abs_path}' is already bound to logger '{name}', cannot assign to '{logger_name}'."
+            )
+
+    # Register if new
+    _LOGGER_REGISTRY.setdefault(logger_name, abs_path)
 
     logger = logging.getLogger(logger_name)
     logger.setLevel(level)
@@ -140,7 +170,7 @@ def setup_mp_file_logger(log_file_path, logger_name="custom_logger", level=loggi
 
         # Order of adding handlers may be important ???
         # error file handler
-        error_file_name = calc_error_log_file_path(log_file_path)
+        error_file_name = log_file_path.replace(".log", "-errors.log")
         err_file_handler = logging.FileHandler(error_file_name)
         err_file_handler.setLevel(logging.ERROR)
         err_file_handler.setFormatter(formatter)
@@ -176,10 +206,10 @@ def run_with_mp(
            log file per task and combining them afterward.
 
     - Use try/except in both the task function and this wrapper:
-        • Child MP process functions should always have it's own try/except to handle issues gracefully.
-        • This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
-        • Inside helper functions feel free to log any information. but no need to raise errors.
-        • The only exception is that when we really need to address a special case like API limits and wait and retry.
+        " Child MP process functions should always have it's own try/except to handle issues gracefully.
+        " This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
+        " Inside helper functions feel free to log any information. but no need to raise errors.
+        " The only exception is that when we really need to address a special case like API limits and wait and retry.
     - Inside your task function or helpers, log live messages using screen_queue.put(msg).
     - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
     - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
@@ -202,23 +232,23 @@ def run_with_mp(
     #    In the end, you will have a set of T/F, dictionaries, dataframes, string, etc
 
     # -  A status code. options are:
-    #       0: Success and show tqdm or print success line
-    #       1: Fail and the entire script should be aborted
-    #       2: Fail but don't shut down, advance the pbar AND show the tqdm / print error or warning message
+    #       1: Success and show tqdm or print success line
+    #       0: Fail but don't shut down, advance the pbar AND show the tqdm / print error or warning message
+    #      -1: Critical Fail and the entire script should be aborted
 
     # Some examples of usage:
 
     # Some tools like pull_osm_roads.py want a T/F returned for every mp item, so its mp process
     #    named "single_huc_job" returns:
-    #            0, [True]  (meaning success and add "True" to the run_by_mp result set)
-    #            2, [False] (meaning fail don't shut down the entire process, add the value of
+    #            1, [True]  (meaning success and add "True" to the run_by_mp result set)
+    #            0, [False] (meaning fail don't shut down the entire process, add the value of
     #                 False to the run_with_mp return results and show the tqdm / print message
 
     # Some tools like get_usgs_rating_curves.py have different needs. Inside its mp function,
     #    named "__mp___mp_get_site_rating_curve" could have three scenerios (at a min)
-    #           0, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
-    #           1, []  (Catestrophic fail, shut down the entire script)
-    #           2, []  (Fail but there is nothing to add to the run_by_mp result set)
+    #           1, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
+    #           0, []  (Fail but there is nothing to add to the run_by_mp result set)
+    #          -1, []  (Catestrophic fail, shut down the entire script)
 
     # ++++++++++++++++++++++
 
@@ -248,7 +278,7 @@ def run_with_mp(
         #   - can be a system level such as a CTRL-C
         #   - CPU collisons, etc
 
-        # Becuase there are multiple ways that an MP can crash, it very easy to leave either
+        # Because there are multiple ways that an MP can crash, it very easy to leave either
         #   an orphaned process (memory leak), or a thread that is still forceing the program to stay open.
         #   It is not possible to kill an mp function already in progress short of some very, very complex
         #   complete operating system process management (extremely not recommended).
@@ -277,6 +307,7 @@ def run_with_mp(
 
         results = {}
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
+
             future_to_id = {}
             # up to this point, the code is run immediately--submision is done right away. Now we wait for each job to be completed and be processed as below
             pbar = tqdm(
@@ -297,8 +328,7 @@ def run_with_mp(
 
                     # also pass the loggers and task id
                     kwargs_updated = task_kwargs.copy()
-                    if file_logger is not None:
-                        kwargs_updated["file_logger"] = file_logger
+                    kwargs_updated["file_logger"] = file_logger
                     kwargs_updated["screen_queue"] = screen_queue
                     kwargs_updated["task_id"] = task_id
 
@@ -310,27 +340,30 @@ def run_with_mp(
 
                 # Catestophic errors mean we can not 100% guarantee all mp's will come back as_completed.
                 for future in as_completed(future_to_id):
-                    # ignore all in progress incoming futures that were flagged after the shutdown occurred.
-                    if future.cancelled():
-                        continue
-
                     task_id = future_to_id[future]
+
                     # The rtn_value can be T/F, a string, dataset, list, dictionary (?), pretty much anything.
                     # See notes above about return values.
                     rtn_code, rtn_value = future.result()
 
-                    if rtn_code == 0:
+                    if rtn_code == 1:  # Positive = good
                         # success and show tqdm or print line
                         if show_progress:
                             tqdm.write(
-                                f"✅ Success for {task_id}"
+                                f" Success for {task_id}"
                             )  # do not use print otherwise a new updated bar is created after each print line
                         else:
-                            print(f"✅ Success for {task_id}")
-                        if file_logger is not None:
-                            file_logger.info(f"✅ Success for {task_id}")
+                            print(f" Success for {task_id}")
+                        file_logger.info(f" Success for {task_id}")
 
-                    elif rtn_code == 1:
+                    elif rtn_code == 0:  # Fail but not shut down the pool.
+                        if show_progress:
+                            tqdm.write(f"L Error or Warning reported for {task_id}.")
+                        else:
+                            print(f"L Error or Warning reported for {task_id}.")
+                        file_logger.info(f"L Error or Warning reported for {task_id}.")
+
+                    else:  # rtn_code == -1, but really any negative int
                         # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
                         # throw an exception to shut down and cleanup all objects (pool, tqdm, queue)
                         raise Exception(
@@ -338,36 +371,13 @@ def run_with_mp(
                             " See exception details in the logs."
                         )
 
-                    elif rtn_code == 2:
-                        # Fail but not shut down the pool.
-                        if rtn_code == 2:  # show tqdm / print message
-                            if show_progress:
-                                tqdm.write(f"❌ Error or Warning reported for {task_id}.")
-                            else:
-                                print(f"❌ Error or Warning reported for {task_id}.")
-                            if file_logger is not None:
-                                file_logger.info(f"❌ Error or Warning reported for {task_id}.")
-                    else:
-                        raise Exception("Child mp task returned and invalid status code")
-
-                    if len(rtn_value) == 1:
-                        # add it to the run_with_mp results
-                        # Some mp functions will return an empty list meaning they don't
-                        # want to add anything to the run_with_mp return set.
-
-                        # IMPORTANT NOTE:
-                        #    This extracts the first item only.
-                        results[task_id] = rtn_value[0]
-                    if len(rtn_value > 1):
-                        raise Exception(
-                            "Child mp task must return either 0 or 1 list items, and you have more"
-                            " than one item in the return list. Consider a list or dictionary in"
-                            " return list."
-                        )
+                    # Some calling functions, may return a None, especially if it returned rtn_code == 0 (fail but continue)
+                    if rtn_value is not None:
+                        results[task_id] = rtn_value
 
                     if pbar:
                         # print("task bar being updated")
-                        pbar.update(1)  # ✅ Progress update for each completed task
+                        pbar.update(1)  #  Progress update for each completed task
 
                 if pbar:  # All mp tasks are done.
                     pbar.close()
@@ -376,19 +386,18 @@ def run_with_mp(
                 # The child mp function should have it's own try/except but in case something slips
                 # through or they forgot to add it.
 
-                error_msg = f"❌ Critical error: {ex}"
+                error_msg = f"L Critical error: {ex}"
                 traceback_msg = traceback.format_exc()
                 print(error_msg)
                 print(traceback_msg)
-                if file_logger is not None:
-                    file_logger.critical(error_msg)
-                    file_logger.critical(traceback_msg)
+                file_logger.critical(error_msg)
+                file_logger.critical(traceback_msg)
 
                 dt_string = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                 final_msg = f"Program aborted at {dt_string} due to error in {task_id}"
-                if file_logger is not None:
-                    file_logger.critical(final_msg)
-                    file_logger.info("Process pool shutting down")
+                file_logger.critical(final_msg)
+
+                file_logger.info("Process pool shutting down")
                 print(
                     "Process pool shutting down. This may take a while depending on how many jobs."
                     " Jobs currently in progress will need to complete for this can fully shut down.",
@@ -453,9 +462,44 @@ def getDriver(fileName):
     return driver
 
 
-########################################################################
-# Function to check the age of a file (use for flagging potentially outdated input)
-########################################################################
+# Assumes the env file has been loaded into the os.environ objects
+def get_value_from_env(arg_key, env_file_path):
+    '''
+    Notes:
+        - we don't actually load the file here as we could be loading more than once.
+    Params:
+        - arg_key is the variables in the loaded environment object
+        - validate_local_file_exists: if False, do not validate that the file exists
+             Note: not all uses of this tool will be for file paths
+             ** Only work on S3 paths at this time
+    Returns
+        - The arg_key value
+    '''
+
+    env_file_name = ""
+
+    if arg_key is None or arg_key == "":
+        raise Exception("arg key is missing or empty")
+
+    arg_value = os.environ[arg_key]
+
+    if arg_value is None or arg_value == "":
+        if env_file_path is None or env_file_path == "":
+            env_file_name = "Undefined"
+        raise ValueError(f"Env file of {env_file_name} : {arg_key} variable does not exist or empty")
+
+    return arg_value
+
+
+# Adds a starting and ending slash if not already there
+def add_slashes_to_path(file_path):
+    if not file_path.endswith("/"):
+        file_path += "/"
+    if not file_path.startswith("/"):
+        file_path = "/" + file_path
+    return file_path
+
+
 def check_file_age(file):
     '''
     Checks if file exists, determines the file age

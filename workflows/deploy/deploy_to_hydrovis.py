@@ -9,12 +9,10 @@ import traceback
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
-from tqdm import tqdm
 
 import data.aws.aws_shared_functions as asf
 import data.aws.s3_shared_functions as s3_sf
 import src.utils.shared_functions as sf
-import workflows.workflow_shared_functions as wsf
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
@@ -41,10 +39,12 @@ HV_S3_ROOT_HANDSET_PATH = ""  # The path up to and including the hand folder but
 HV_S3_ROOT_QA_DATASETS_PATH = (
     ""  # the patch up to and including the qa_dataset path but without the bucket name.
 )
+HAND_VERSION = ""
+RELEASE_FIM_PUBLIC_VERSION = ""
 
 
 # ============================
-def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_path, num_jobs):
+def deploy_to_hydrovis(deploy_type, aws_creds_file, deploy_params_file, log_path, num_jobs):
     '''
     Notes:
         - num_jobs is used by HAND dataset uploads at this time. Maximum number is variables and depends on how fast
@@ -68,20 +68,18 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
     # --------------
     # Validation. We are validating all variables in case the call came in from another py file
     # We also load a number of key variables (load env)
-    deploy_types = __validate_input(deploy_type, all_valid_types, workflow_params_file, num_jobs)
+    deploy_types = __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
 
     # May throw exceptions or shut the program down.
     __setup_aws(aws_creds_file)
 
-    # setup logs
     overall_start_dt = datetime.now(timezone.utc)
-    file_datetime_string = overall_start_dt.strftime("%Y%m%d-%H%M")
-    log_file_name = f"deploy_to_hydrovis-{file_datetime_string}.log"
-    log_file_path = os.path.join(log_path, log_file_name)
-    sf.setup_file_logger(log_file_path)
+
+    # setup logs
+    sf.setup_file_logger(log_path, "deloy_to_hydrovis")
     logging.info(f"Start time: {overall_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
-    logging.info(f"Logs saved to: {log_file_path}")
     logging.info(f"Deploy types to upload: {deploy_type}")
+
     logging.info(
         f"Loading to s3://{HV_S3_BUCKET_NAME}{HV_S3_ROOT_HANDSET_PATH}"
         f" and s3://{HV_S3_BUCKET_NAME}{HV_S3_ROOT_QA_DATASETS_PATH}."
@@ -98,7 +96,7 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
 
         # breaking this up to smaller parts for readability. Remember, we can have more than one deploy_type
         if 'fpc' in deploy_types or 'fpp' in deploy_types:
-            qa_files_to_upload.extend(__load_fim_performance(deploy_types, workflow_params_file))
+            qa_files_to_upload.extend(__load_fim_performance(deploy_types, deploy_params_file))
             has_qa_file_types = True
 
         # if 'cffb' in deploy_types or 'cffc' in deploy_types or 'cfsb' in deploy_types or 'cfsc' in deploy_types:
@@ -106,14 +104,15 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
         #     has_qa_file_types = True
 
         if 'rcc' in deploy_types or 'urc' in deploy_types:
-            qa_files_to_upload.extend(__load_misc_files(deploy_types, workflow_params_file))
+            qa_files_to_upload.extend(__load_misc_files(deploy_types, deploy_params_file))
             has_qa_file_types = True
 
+        # Upload files as per arguments going to HV QA Dataset folders
         if has_qa_file_types is True and len(qa_files_to_upload) > 0:
             logging.info("------------------------------------")
             logging.info("**** Begin loading misc HydroVIS QA dataset files into S3 ****")
             section_start_dt = datetime.now(timezone.utc)
-            print(f"Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
+            print(f"Section start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
 
             # Load each file. Note: One AWS Client can only load one file at a time.
             for file in qa_files_to_upload:
@@ -121,7 +120,7 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
 
                 # boto3 only allows one file at a time.
                 # Upload file will tell us if the file does not exist.
-                file_exists = s3_sf.upload_file(
+                file_exists, ___ = s3_sf.upload_file(
                     S3_CLIENT, HV_S3_BUCKET_NAME, file['src_file'], file['trg_file']
                 )
                 if not file_exists:
@@ -129,8 +128,10 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
 
             print("")
             end_time = datetime.now(timezone.utc)
-            logging.info("**** Completed loading misc HydroVIS QA dataset files into S3")
-            print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+            logging.info(
+                f"**** Completed loading misc HydroVIS QA dataset files into S3: {len(qa_files_to_upload)} uploaded."
+            )
+            print(f"Section end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
             logging.info(fh.print_date_time_duration(section_start_dt, end_time, False))
             logging.info("------------------------------------")
 
@@ -138,7 +139,7 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
         # __load_hand_dataset will make it own s3 clients and do it's own load. The rest of the functions
         # can share one function level s3 load script.
         if 'hand' in deploy_type:
-            __load_hand_dataset(workflow_params_file, num_jobs)
+            __load_hand_dataset(deploy_params_file, num_jobs)
 
     except Exception:
         print("********************************")
@@ -154,7 +155,7 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, workflow_params_file, log_pa
 
 
 # ============================
-def __load_hand_dataset(workflow_params_file, num_jobs):
+def __load_hand_dataset(deploy_params_file, num_jobs):
 
     # We filter to keep only the files we specifically want
     # We will build up a list of files for upload as AWS can only
@@ -165,21 +166,17 @@ def __load_hand_dataset(workflow_params_file, num_jobs):
     logging.info("------------------------------------")
     logging.info("**** Begin loading HAND dataset into HydroVIS S3 ****")
     section_start_dt = datetime.now(timezone.utc)
-    # file_datetime_string = section_start_dt.strftime("%Y%m%d-%H%M")
-    # log_file_name = f"deploy_to_hydrovis-{file_datetime_string}.log"
-    # log_file_path = os.path.join(log_path, log_file_name)
-    # sf.setup_file_logger(log_file_path)
-    print(f"Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
+    print(f"Section start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
 
-    hand_local_dataset_path = wsf.get_value_from_env(
-        'HV_HAND_DATASET_LOCAL_PATH', workflow_params_file, validate_local_path=True
+    # Probably from previous_fim
+    hand_local_dataset_path = __get_env_variable_with_versions(
+        'FIM_HAND_DATASET_LOCAL_PATH', deploy_params_file
     )
-    hand_local_dataset_path = wsf.add_slashes_to_path(hand_local_dataset_path)
+    if not os.path.exists(hand_local_dataset_path):
+        raise ValueError(f"FIM_HAND_DATASET_LOCAL_PATH of {hand_local_dataset_path} does not exist")
+    hand_local_dataset_path = sf.add_slashes_to_path(hand_local_dataset_path)
 
-    num_load_patterns = int(
-        wsf.get_value_from_env('HV_HAND_LOAD_PATTERN_COUNT', workflow_params_file, validate_local_path=False)
-    )
-
+    num_load_patterns = int(sf.get_value_from_env('HV_HAND_LOAD_PATTERN_COUNT', deploy_params_file))
     logging.info(
         f"--- Finding HAND datasets files from {hand_local_dataset_path} : {num_load_patterns} patterns"
     )
@@ -191,11 +188,9 @@ def __load_hand_dataset(workflow_params_file, num_jobs):
     # Load each cmd one at a time from the enviro, then feed it to grep to get the files we
     # want. Remember.. AWS can only download/upload one file at a time (AWS Keys versus actual
     # directories.)
-    for i in range(1, num_load_patterns):
+    for i in range(1, num_load_patterns + 1):
         load_pattern_name = f'HV_HAND_LOAD_PATTERN_{i}'
-        load_pattern = wsf.get_value_from_env(
-            load_pattern_name, workflow_params_file, validate_local_path=False
-        )
+        load_pattern = sf.get_value_from_env(load_pattern_name, deploy_params_file)
         logging.info(
             f"Getting file names for pattern {load_pattern_name} ({load_pattern}). For branch loads,"
             " this can take several minutes, hang in there (< 10 mins)"
@@ -218,16 +213,7 @@ def __load_hand_dataset(workflow_params_file, num_jobs):
     # Let's it do its own upload, instead of the generic parent deploy_to_hydrovis pattern.
     # This set is pretty big so pass it to s3_shared_functions.upload_large_files,
     # which has a form of a multi-proc inside of it. (no logging though)
-
     s3_sf.upload_large_filesets(S3_CLIENT, HV_S3_BUCKET_NAME, sorted_files_to_upload, num_jobs)
-
-    # we will skip letting s3 show a progress bar as we wil want one here instead.
-    # sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
-    # for file in sorted_files_to_upload:
-    #     logging.info(f"-- Uploading {file['src_file']}")
-    #     s3_sf.upload_file(
-    #         S3_CLIENT, HV_S3_BUCKET_NAME, file['src_file'], file['trg_file'], show_progress_bar=False
-    #     )
 
     print("")
     end_time = datetime.now(timezone.utc)
@@ -238,15 +224,13 @@ def __load_hand_dataset(workflow_params_file, num_jobs):
 
 
 # ============================
-def __load_fim_performance(deploy_types, workflow_params_file):
+def __load_fim_performance(deploy_types, deploy_params_file):
 
     files_to_upload = []
 
     # catchments
     if 'fpc' in deploy_types:
-        file_path = wsf.get_value_from_env(
-            'HV_FIM_PERF_CATCHMENTS_FILE', workflow_params_file, validate_local_path=False
-        )
+        file_path = __get_env_variable_with_versions('HV_FIM_PERF_CATCHMENTS_FILE', deploy_params_file)
         if not file_path.startswith("/"):
             file_path = "/" + file_path
         file_name = os.path.basename(file_path)
@@ -256,39 +240,40 @@ def __load_fim_performance(deploy_types, workflow_params_file):
 
     # Points and Polys are loaded together and are very quick
     if 'fpp' in deploy_types:
-        # comes in a list of paths
-        point_poly_file_arg = wsf.get_value_from_env(
-            'HV_FIM_PERF_POINTS_POLYS_FILES', workflow_params_file, validate_local_path=False
-        )
-        point_poly_files = point_poly_file_arg.split(',')
 
-        for file_path in point_poly_files:
-            # It is ok if the file is not there, we will just show it.
-            if not file_path.startswith("/"):
-                file_path = "/" + file_path
-            file_name = os.path.basename(file_path)
-            trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
+        # Polys first
+        file_path = __get_env_variable_with_versions('HV_FIM_PERF_POLYS_FILES', deploy_params_file)
+        if not file_path.startswith("/"):
+            file_path = "/" + file_path
+        file_name = os.path.basename(file_path)
+        trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
+        upload_item = {"src_file": file_path, "trg_file": trg_file}
+        files_to_upload.append(upload_item)
 
-            upload_item = {"src_file": file_path, "trg_file": trg_file}
-            files_to_upload.append(upload_item)
+        # Points first
+        file_path = __get_env_variable_with_versions('HV_FIM_PERF_POINTS_FILES', deploy_params_file)
+        if not file_path.startswith("/"):
+            file_path = "/" + file_path
+        file_name = os.path.basename(file_path)
+        trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
+        upload_item = {"src_file": file_path, "trg_file": trg_file}
+        files_to_upload.append(upload_item)
 
     return files_to_upload
 
 
 # ============================
-# def __load_catfim_files(deploy_types):
+# def __load_catfim_files(deploy_types, deploy_params_file):
 
 
 # ============================
-def __load_misc_files(deploy_types, workflow_params_file):
+def __load_misc_files(deploy_types, deploy_params_file):
 
     files_to_upload = []
 
     # rating curve comparison (Sierra test)
     if 'rcc' in deploy_types:
-        file_path = wsf.get_value_from_env(
-            'HV_RCC_NWM_RECURR_FLOW_FILE', workflow_params_file, validate_local_path=False
-        )
+        file_path = __get_env_variable_with_versions('HV_RCC_NWM_RECURR_FLOW_FILE', deploy_params_file)
         if not file_path.startswith("/"):
             file_path = "/" + file_path
         file_name = os.path.basename(file_path)
@@ -299,9 +284,7 @@ def __load_misc_files(deploy_types, workflow_params_file):
 
     # Latest usgs rating curve
     if 'urc' in deploy_types:
-        file_path = wsf.get_value_from_env(
-            'HV_URC_RATING_CURVE_FILE', workflow_params_file, validate_local_path=False
-        )
+        file_path = __get_env_variable_with_versions('HV_URC_RATING_CURVE_FILE', deploy_params_file)
         if not file_path.startswith("/"):
             file_path = "/" + file_path
         file_name = os.path.basename(file_path)
@@ -314,7 +297,19 @@ def __load_misc_files(deploy_types, workflow_params_file):
 
 
 # ============================
-def __validate_input(deploy_type, all_valid_types, workflow_params_file, num_jobs):
+def __get_env_variable_with_versions(env_var_name, deploy_params_file):
+    # This will load an enviro variable, raising an exception if it does not exist
+    # if it does exist, see if it needs subsitution in the value for either the
+    # HAND_VERSION or RELEASE_FIM_PUBLIC_VERSION as many paths have one or more of these in the value
+    # it is ok if both or neither of those values exist in then env arg
+    env_value = sf.get_value_from_env(env_var_name, deploy_params_file)
+    env_value = env_value.replace("{RELEASE_FIM_PUBLIC_VERSION}", RELEASE_FIM_PUBLIC_VERSION)
+    env_value = env_value.replace("{HAND_VERSION}", HAND_VERSION)
+    return env_value
+
+
+# ============================
+def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs):
     '''
     Will return updates to variables or new variables extrapolated.
     We are checking values more carefully for empty values as we can not assume this script
@@ -322,7 +317,7 @@ def __validate_input(deploy_type, all_valid_types, workflow_params_file, num_job
     This also sets up a bunch of key variables and paths.
     '''
 
-    global HV_S3_ROOT_HANDSET_PATH, HV_S3_ROOT_QA_DATASETS_PATH
+    global HV_S3_ROOT_HANDSET_PATH, HV_S3_ROOT_QA_DATASETS_PATH, RELEASE_FIM_PUBLIC_VERSION, HAND_VERSION
 
     if deploy_type is None or deploy_type == "":
         raise ValueError("The deploy type variable is None or empty")
@@ -332,30 +327,32 @@ def __validate_input(deploy_type, all_valid_types, workflow_params_file, num_job
     if len(invalid_types) > 0:
         raise ValueError(f"The following deployment types are invalid: {invalid_types}")
 
-    if workflow_params_file is None or workflow_params_file == "":
+    if deploy_params_file is None or deploy_params_file == "":
         raise ValueError("workflows params file variable is None or empty")
-    if not os.path.exists(workflow_params_file):
-        raise ValueError(f"params file of {workflow_params_file} can not be found. Check path and/or case.")
+    if not os.path.exists(deploy_params_file):
+        raise ValueError(f"params file of {deploy_params_file} can not be found. Check path and/or case.")
 
-    logging.info(f"loading working params file ({workflow_params_file})")
-    load_dotenv(workflow_params_file)
+    logging.info(f"loading working params file ({deploy_params_file})")
+    load_dotenv(deploy_params_file)
 
     # shorthand for the os.getenv
-    # The bucket name / load is in the aws function
-    HV_S3_ROOT_HANDSET_PATH = wsf.get_value_from_env(
-        "HV_S3_ROOT_HANDSET_PATH", workflow_params_file, validate_local_path=False
-    )
-    HV_S3_ROOT_HANDSET_PATH = wsf.add_slashes_to_path(HV_S3_ROOT_HANDSET_PATH)
-    HV_S3_ROOT_QA_DATASETS_PATH = wsf.get_value_from_env(
-        "HV_S3_ROOT_QA_DATASETS_PATH", workflow_params_file, validate_local_path=False
-    )
-    HV_S3_ROOT_QA_DATASETS_PATH = wsf.add_slashes_to_path(HV_S3_ROOT_QA_DATASETS_PATH)
+    HAND_VERSION = sf.get_value_from_env("HAND_VERSION", deploy_params_file)
+    RELEASE_FIM_PUBLIC_VERSION = sf.get_value_from_env("RELEASE_FIM_PUBLIC_VERSION", deploy_params_file)
 
-    if num_jobs > 10:
+    # The bucket name / load is in the aws function
+    HV_S3_ROOT_HANDSET_PATH = __get_env_variable_with_versions("HV_S3_ROOT_HANDSET_PATH", deploy_params_file)
+    HV_S3_ROOT_HANDSET_PATH = sf.add_slashes_to_path(HV_S3_ROOT_HANDSET_PATH)
+
+    HV_S3_ROOT_QA_DATASETS_PATH = __get_env_variable_with_versions(
+        "HV_S3_ROOT_QA_DATASETS_PATH", deploy_params_file
+    )
+    HV_S3_ROOT_QA_DATASETS_PATH = sf.add_slashes_to_path(HV_S3_ROOT_QA_DATASETS_PATH)
+
+    if num_jobs > 20:
         # show a warning, then sleep for a bit allowwing them to abort if they like.
-        msg = "The number of jobs you have submitted may be larger than your network connection speed.\n"
+        msg = "Warning: The number of jobs you have submitted may be larger than your network connection speed.\n"
         "This may results in S3 issuing 'Connection Pool Is Full' warnings. If this happens, lower your"
-        "job number restart.\n Note: for OWP Staff: for the larger servers, it seems ok at 10."
+        "job number restart.\n Note: for OWP Staff: for the larger servers, it seems ok at 20."
         print(msg)
         time.sleep(10)  # gives them time to abort if they want.
 
@@ -379,13 +376,9 @@ def __setup_aws(aws_creds_file):
     load_dotenv(aws_creds_file)
 
     # setup the client and validate the bucket
-    hv_aws_access_key = wsf.get_value_from_env(
-        "HV_AWS_ACCESS_KEY_ID", aws_creds_file, validate_local_path=False
-    )
-    hv_aws_secret_key = wsf.get_value_from_env(
-        "HV_AWS_SECRET_ACCESS_KEY", aws_creds_file, validate_local_path=False
-    )
-    hv_aws_region = wsf.get_value_from_env("HV_AWS_REGION_NAME", aws_creds_file, validate_local_path=False)
+    hv_aws_access_key = sf.get_value_from_env("HV_AWS_ACCESS_KEY_ID", aws_creds_file)
+    hv_aws_secret_key = sf.get_value_from_env("HV_AWS_SECRET_ACCESS_KEY", aws_creds_file)
+    hv_aws_region = sf.get_value_from_env("HV_AWS_REGION_NAME", aws_creds_file)
 
     is_success, return_msg, S3_CLIENT = asf.create_aws_client(
         aws_service_type_name='s3',
@@ -398,7 +391,7 @@ def __setup_aws(aws_creds_file):
         raise Exception(return_msg)
 
     # we load the bucke name from the aws file to help with git security a little.
-    HV_S3_BUCKET_NAME = wsf.get_value_from_env("HV_S3_BUCKET_NAME", aws_creds_file, validate_local_path=False)
+    HV_S3_BUCKET_NAME = sf.get_value_from_env("HV_S3_BUCKET_NAME", aws_creds_file)
     HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
 
     # validate the bucket
@@ -417,8 +410,8 @@ if __name__ == '__main__':
     '''
     This script looks for two defaulted params env file.
        - '-ac/--aws-creds-file': contains only aws credentials info such as AWS Access Keys.
-       - '-wp/--workflow-params-file': Contains an array of values which can things such as
-         variables for deployments, uploads, downloads, workflow automation values, etc
+       - '-dp/--deploy-params-file': Contains an array of values which can things such as
+         variables for deployments to HV.
 
     SRC pathing can be from local folders (EFS or dev_fim_share)
 
@@ -430,7 +423,7 @@ if __name__ == '__main__':
         python /foss_fim/workflows/deploy/deploy_to_hydrovis.py
             -dt hand
             -lp '/data/workflows/deploy/
-            -wp '/data/config/workflow_params_tests.env'
+            -dp '/data/config/deploy_params_tests.env'
             -j 10  ***
 
     *** While this system does support mp, it is used only when loading HAND datasets. Also.. there is a max of how many
@@ -446,7 +439,7 @@ if __name__ == '__main__':
        applicable.
        Options are:
          - hand (HAND Bed outputs)
-         - fpc  (Fim Performance Catchments)
+         - fpc  (FIM Performance Catchments)
          - fpp  (FIM Performance Points / Polys)
          - cffb (CatFIM Flow Based)
          - cffc (CatFIM Flow Based Compare files)
@@ -491,11 +484,10 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-wp',
-        '--workflow-params-file',
-        help='OPTIONAL: Path to workflow params(config) file.\n'
-        '  Defaults to /data/config/workflow_params.env',
-        default="/data/config/workflow_params.env",
+        '-dp',
+        '--deploy-params-file',
+        help='OPTIONAL: Path to deploy params(config) file.\n' '  Defaults to /data/config/deploy_params.env',
+        default="/data/config/hv_deploy_params.env",
     )
 
     parser.add_argument(

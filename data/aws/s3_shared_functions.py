@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+import logging
 import os
 import traceback
 from concurrent import futures
+from functools import partial
 
 import botocore
 import botocore.exceptions
@@ -24,6 +26,9 @@ is translated to a pattern of "prefixes" that S3 can use.
 # complex things that cli can do such as wildcard, more selective recursion, etc.
 # This AWS system will also be upgraded soon handle much more than just s3, but things like
 # step functions, task definitions, execution scripts, etc.
+
+
+# TODO: Add logging options in these functions
 
 
 # -------------------------------------------------
@@ -386,7 +391,8 @@ def upload_file(
         - The s3_src_path is the bucket relative file path to the file name
         - If file exists in S3, it will be overwritten
     Inputs:
-        - s3_client: my_client = boto3.client(profile, creds, whatever)
+        - s3_client: my_client = boto3.client(profile, creds, whatever). We use s3 clients as they are
+          thread safe, not all AWS object types are.
         - bucket_name: ie) hand_data_bucket
         - src_file_path: ie /data/inputs/fema/12090301.gpkg
         - trg_file_path: bucket relative file path to the file name (ie. /foss_fim/inputs/fema/12090301.gpkg)
@@ -396,6 +402,7 @@ def upload_file(
 
     Returns:
         - True if file exists and was uploaded, False if not
+        - the original src_file_path
     """
     # Yes.. outside the try/catch
     # re-validate the connection and credentials as well
@@ -453,7 +460,7 @@ def upload_file(
         return_msg, ___ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
-    return True  # file uploaded succesfully
+    return True, src_file_path  # file uploaded succesfully
 
 
 # -------------------------------------------------
@@ -461,36 +468,47 @@ def upload_file(
 # Size of each file is not relavent.
 # This uses multi-threading and not multi-proc
 def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
+    '''
+    file_list must be a list of dictionaries: {"src_file": file_path, "trg_file": trg_file}
 
-    # file_list must be a list of dictionaries
-    # {"src_file": file_path, "trg_file": trg_file}
+    '''
 
     # This assumes the bucket exists and the session/client are still alive and valid
     try:
         tasks_args_list = []
+
+        # "partials" allow you to set some of the values that are shared by all
+        # Multi-threads (or procs) so we don't have so much duplication.
+        # In this case, we had to use this for sharing the s3_client.
+        # The other two remaing args to upload_file are unique and are handled
+        # by the for loop and list of dictionaries.
+        merged_partial_upload_file = partial(
+            upload_file,
+            s3_client=s3_client,
+            bucket_name=bucket_name,
+            show_progress_bar=False,
+            test_bucket_exists=False,
+        )
         # Shared client appears to not be threadsafe as long as I keep the job down (under 10?)
-        for file_item in file_list:
+        for i, file_item in enumerate(file_list):
 
             # debugging test
             # if i > 20:
             #     break
-            args_item = {
-                "s3_client": s3_client,
-                "bucket_name": bucket_name,
-                "src_file_path": file_item['src_file'],
-                "trg_file_path": file_item['trg_file'],
-                "show_progress_bar": False,
-                "test_bucket_exists": False,
-            }
+            args_item = {"src_file_path": file_item['src_file'], "trg_file_path": file_item['trg_file']}
             tasks_args_list.append(args_item)
 
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
-        with futures.ThreadPoolExecutor(max_workers=num_workers, miniters=10) as executor:
-            futures_dict = [executor.submit(upload_file, **arg) for arg in tasks_args_list]
+        with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures_dict = [executor.submit(merged_partial_upload_file, **arg) for arg in tasks_args_list]
 
+            # adding the min intervals speeds it up so it doesn't try to repaint every tqdm loop
             for future in tqdm(
-                futures.as_completed(futures_dict), total=len(tasks_args_list), desc="uploading files"
+                futures.as_completed(futures_dict),
+                total=len(tasks_args_list),
+                desc="uploading files",
+                miniters=10,
             ):
                 if future.cancelled():
                     continue
@@ -502,9 +520,9 @@ def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
                         raise Exception(f"zooks: future item has an exception {future_exception}")
                     # else:  # we don't care about the result at this time.
                     #     result = future.result()
-                    #     print(f"I am back : {result}")
-                else:
-                    print("looks good, future item is None though, how is that possible?")
+                    #     print(result)
+                # else:
+                #     print("looks good, future item is None though, how is that possible?")
 
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import datetime as dt
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -55,7 +55,7 @@ class FIM_logger:
 
     # -------------------------------------------------
     def __get_dt(self):
-        cur_dt = dt.datetime.now()
+        cur_dt = datetime.now(timezone.utc)
         ret_dt = f"{cur_dt.strftime('%Y-%m-%d')} {cur_dt.strftime('%H:%M:%S')}"
         return ret_dt
 
@@ -63,8 +63,8 @@ class FIM_logger:
     def calc_log_name_and_path(self, output_log_dir, file_prefix):
         # setup general logger
         os.makedirs(output_log_dir, exist_ok=True)
-        start_time = dt.datetime.now(dt.timezone.utc)
-        file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+        start_time = datetime.now(timezone.utc)
+        file_dt_string = start_time.strftime("%Y%m%d-%H%M")
         log_file_name = f"{file_prefix}_{file_dt_string}.log"
         log_output_file = os.path.join(output_log_dir, log_file_name)
 
@@ -147,7 +147,7 @@ class FIM_logger:
             As this is an MP file, the parent_log_output_file may have a date in it
             The file name is calculated as such
             {file_prefix}-{currernt datetime with milli}.log()
-            ie) catfim_2024_07_09-16_30_02__012345678901.log
+            ie) catfim_20240709-1630__012345678901.log
 
             The extra file portion is added as in MultiProc, you can have dozens of processes
             and each are loggign to their own file. At then end of an MP, you call a function called merge_log_files
@@ -166,7 +166,7 @@ class FIM_logger:
 
         # random_id = random.randrange(1000000000, 99999999999)
         # this is an epoch time
-        dt_str = dt.datetime.now().strftime('%H%M%S%f')
+        dt_str = datetime.now().strftime('%H%M%S%f')
         log_file_name = f"{file_prefix}___{dt_str}.log"
         log_file_path = os.path.join(log_folder, log_file_name)
 
