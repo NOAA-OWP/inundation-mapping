@@ -1,13 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-09-22 - [PR#1660](https://github.com/NOAA-OWP/inundation-mapping/pull/1660)
+## v4.8.x.x - 2025-09-30 - [PR#1660](https://github.com/NOAA-OWP/inundation-mapping/pull/1660)
 
-The file shared_functions.py had a bug in it related to a object length check.
+The file shared_functions.py had a bug in it related to a object length check. During that processes we discovered some enhancements to logging tools and run_with_mp.  The return code system was changed now where 1 = success, 0 = fail but do not abort and -1 means fail and abort run.  
+
+This triggered changes to scripts that use the logging or run_with_mp tools for their return values from their multi-proc functions.  The change affected four data load scripts, and all were retested for correct data loading. A fifth data load script, pull_osm_bridges.py, was updated but only for a comment and was not affected by other changes in this PR.
+
+There was also a change to shared_functions.setup_file_logger. It no longer takes a full path and file name for  a log file, but two separate variables, one for the log folder, the other for a log file prefix. A date will be added automatically to the log file name.
 
 ### Changes
 
+- `data`
+    - `bridges\make_dem_dif_for_bridges.py`:  Updated call to setup_file_logger plus changes related to run_with_mp. A bit of additional error handling was also added.
+    - `bridges\pull_osm_bridges.py`:  Just a comment added
+    - `nfhl\download_fema_nfhl.py`:  Updated call to setup_file_logger plus changes related to run_with_mp.
+    - `roads\pull_osm_roads.py`:  Updated call to setup_file_logger plus changes related to run_with_mp.
 - `src\shared_functions.py`: as described.
+    - `usgs\get_usgs_rating_curve.py`:  Updated call to setup_file_logger plus changes related to run_with_mp. A bit of additional error handling was also added. A small fix for rounding was also fixed.
 <br/>
 
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
