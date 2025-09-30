@@ -575,9 +575,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
     file_datetime_string = overall_start_dt.strftime("%Y%m%d-%H%M")
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
 
-    log_file_name = f"get_rating_curves-{file_datetime_string}.log"
-    log_file_path = os.path.join(output_dir, log_file_name)
-    sf.setup_file_logger(log_file_path)
+    log_file_path = sf.setup_file_logger(output_dir, "get_rating_curves")
     # file_logger = sf.setup_mp_file_logger(log_file_path)
 
     try:

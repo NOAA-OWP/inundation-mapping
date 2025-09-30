@@ -282,10 +282,10 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
         )
         if success:  # True
             file_logger.info(f"Completed processing HUC {task_id}")
-            return 0, [True]
+            return 1, [True]
             # screen_queue.put(f"Completed processing HUC {task_id}")
         else:  # False
-            return 2, [False]
+            return 0, [False]
 
     except Exception as e:
         file_logger.error(f"Exception in HUC {task_id}: {str(e)}")
@@ -325,7 +325,8 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
     # Set up logger
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_path = os.path.join(output_folder, f"nfhl_download-{file_dt_string}.log")
-    file_logger = setup_mp_file_logger(log_file_path)
+    # file_logger = setup_mp_file_logger(log_file_path)
+    file_logger = setup_mp_file_logger(log_file_path, "nfhl_download")
 
     try:
 
