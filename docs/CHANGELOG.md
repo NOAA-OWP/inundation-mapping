@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-09-30 - [PR#1669](https://github.com/NOAA-OWP/inundation-mapping/pull/1669)
+
+The FEMA NFHL data consists of several layers. The 100- and 500-year floodplain layers are merged into a layer called 'combined'. However, if a HUC has neither 100- or 500-year floodplain layers, the `combined` layer is not produced. This missing `combined` layer causes an error in `src/adjust_floodplains.py`. This patch skips the reading of the `combined` layer if it doesn't exist.
+
+### Changes
+
+- `src/adjust_floodplains.py`: Skips reading `combined` layer if it doesn't exist in the FEMA NFHL geopackage.
+
+<br/>
+
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
 
 Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
