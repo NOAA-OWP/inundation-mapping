@@ -278,7 +278,7 @@ def run_with_mp(
         #   - can be a system level such as a CTRL-C
         #   - CPU collisons, etc
 
-        # Becuase there are multiple ways that an MP can crash, it very easy to leave either
+        # Because there are multiple ways that an MP can crash, it very easy to leave either
         #   an orphaned process (memory leak), or a thread that is still forceing the program to stay open.
         #   It is not possible to kill an mp function already in progress short of some very, very complex
         #   complete operating system process management (extremely not recommended).
@@ -371,7 +371,9 @@ def run_with_mp(
                             " See exception details in the logs."
                         )
 
-                    results[task_id] = rtn_value
+                    # Some calling functions, may return a None, especially if it returned rtn_code == 0 (fail but continue)
+                    if rtn_value is not None:
+                        results[task_id] = rtn_value
 
                     if pbar:
                         # print("task bar being updated")
