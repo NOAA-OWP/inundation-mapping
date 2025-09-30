@@ -6,7 +6,7 @@ import geopandas as gpd
 import pandas as pd
 
 
-def process_branch(sub_branch_path, branch):
+def process_branch(sub_branch_path, huc, branch):
     src_base_file = os.path.join(sub_branch_path, f'src_base_{branch}.csv')
     hydro_table_file = os.path.join(sub_branch_path, f'hydroTable_{branch}.csv')
     src_full_file = os.path.join(sub_branch_path, f'src_full_crosswalked_{branch}.csv')
@@ -44,7 +44,7 @@ def process_branch(sub_branch_path, branch):
     # branch error such as FIM codes 61, 62, etc.
     # or may be a legit new bug.
     # If any of these files are missing, skip trying to update it.
-    # Don't really need to log it as the original fail is alreayd logged earlier.
+    # Don't really need to log it as the original fail is already logged earlier.
 
     if (
         (os.path.exists(src_base_file) is False)
@@ -52,6 +52,7 @@ def process_branch(sub_branch_path, branch):
         or (os.path.exists(hydro_table_file) is False)
         or (os.path.exists(input_flows_file) is False)
     ):
+        print(f"Skipping HUC: {huc}, Branch: {branch} hydrotable update. \n")
         return
 
     input_src_base = pd.read_csv(src_base_file, dtype=object)
@@ -108,8 +109,9 @@ def process_branch(sub_branch_path, branch):
 
 
 # TODO: May 16, 2025: add mp and glob to speed this way up
-def reset_hydro_and_src(fim_dir):
-    hucs = [h for h in os.listdir(fim_dir) if re.match(r'^\d{8}$', h)]
+def reset_hydro_and_src(fim_dir, huc_level):
+    regex_pattern = rf'^\d{{{huc_level}}}$'
+    hucs = [h for h in os.listdir(fim_dir) if re.match(regex_pattern, h)]
     for huc_folder in hucs:
         huc_path = os.path.join(fim_dir, huc_folder)
         if os.path.isdir(huc_path):
@@ -119,16 +121,17 @@ def reset_hydro_and_src(fim_dir):
                     for branch in os.listdir(branch_path):
                         sub_branch_path = os.path.join(branch_path, branch)
                         if os.path.isdir(sub_branch_path):
-                            process_branch(sub_branch_path, branch)
+                            process_branch(sub_branch_path, huc_folder, branch)
 
 
 # Example usage:
-# reset_hydro_and_src('/path/to/fim_dir')
+# reset_hydro_and_src('/path/to/fim_dir', huc_level)
 if __name__ == '__main__':
     '''
     Sample usage (min params):
         python3 src/update_htable_src.py
             -d /data/previous_fim/fim_4_5_2_0
+            -huc_level 8
     '''
 
     # TODO: May 16, 2025
@@ -138,7 +141,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Update hydrotable and src files.')
     parser.add_argument('-d', '--fim_dir', help='Directory path for fim_pipeline output.', required=True)
+    parser.add_argument('-huc_level', '--huc-level', help='HUC level to use', required=True, type=int)
 
-    args = parser.parse_args()
+    args = vars(parser.parse_args())
+    fim_dir = args['fim_dir']
+    huc_level = args['huc_level']
 
-    reset_hydro_and_src(args.fim_dir)
+    reset_hydro_and_src(fim_dir, huc_level)

@@ -64,23 +64,27 @@ class build_stream_traversal_columns(object):
                     {'geometry': stream_midpoint}, crs=streams.crs, geometry='geometry'
                 )
                 stream_wbdjoin = gpd.sjoin(stream_md_gpd, wbd8, how='left', predicate='within')
-                stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "midpoint", "fimid": "HUC8id"})
+                # stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "midpoint", "fimid": "HUC8id"})
+                stream_wbdjoin = stream_wbdjoin.rename(columns={"geometry": "midpoint"})
                 streams = streams.join(stream_wbdjoin).drop(columns=['midpoint'])
 
                 streams['seqID'] = (
-                    (streams.groupby('HUC8id', dropna=False).cumcount(ascending=True) + 1)
+                    (streams.groupby('fimid', dropna=False).cumcount(ascending=True) + 1)
                     .astype('str')
                     .str.zfill(4)
                 )
-                streams = streams.loc[streams['HUC8id'].notna(), :]
-                if streams.HUC8id.dtype != 'str':
-                    streams.HUC8id = streams.HUC8id.astype(str)
+                streams = streams.loc[streams['fimid'].notna(), :]
+                if streams.fimid.dtype != 'str':
+                    streams.fimid = streams.fimid.astype(str)
                 if streams.seqID.dtype != 'str':
                     streams.seqID = streams.seqID.astype(str)
 
-                streams = streams.assign(hydro_id=lambda x: x.HUC8id + x.seqID)
+                # some fimid may end in .0, remove it
+                streams.fimid = streams.fimid.str.replace('.0', '')
+
+                streams = streams.assign(hydro_id=lambda x: x.fimid + x.seqID)
                 streams = streams.rename(columns={"hydro_id": hydro_id}).sort_values(hydro_id)
-                streams = streams.drop(columns=['HUC8id', 'seqID'])
+                streams = streams.drop(columns=['fimid', 'seqID'])
                 streams[hydro_id] = streams[hydro_id].astype(int)
                 print('Generated ' + hydro_id)
 

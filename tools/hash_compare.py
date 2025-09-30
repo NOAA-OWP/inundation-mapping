@@ -112,22 +112,25 @@ def hashfile(file):
     # Initializing the sha256() method
     sha256 = hashlib.sha256()
 
-    # Open file provided
-    with open(file, 'rb') as f:
-        while True:
-            # reading data = BUF_SIZE from the file and saving it in a variable
-            data = f.read(BUF_SIZE)
+    if os.path.exists(file):
+        # Open file provided
+        with open(file, 'rb') as f:
+            while True:
+                # reading data = BUF_SIZE from the file and saving it in a variable
+                data = f.read(BUF_SIZE)
 
-            if not data:
-                break
+                if not data:
+                    break
 
-            # Passing that data to that sh256 hash function (updating the function with that data)
-            sha256.update(data)
+                # Passing that data to that sh256 hash function (updating the function with that data)
+                sha256.update(data)
 
-    # sha256.hexdigest() hashes all the input data passed to the sha256() via sha256.update()
-    # Acts as a finalize method, after which all the input data gets hashed hexdigest()
-    # hashes the data, and returns the output in hexadecimal format
-    return sha256.hexdigest()
+        # sha256.hexdigest() hashes all the input data passed to the sha256() via sha256.update()
+        # Acts as a finalize method, after which all the input data gets hashed hexdigest()
+        # hashes the data, and returns the output in hexadecimal format
+        return sha256.hexdigest()
+    else:
+        return None
 
 
 def write_log(list_of_failed_files, file):

@@ -12,6 +12,9 @@ This software uses the Height Above Nearest Drainage (HAND) method to generate R
 
 #### Note: While we use the phrase "FIM" regularily, the phrase "HAND" is also used and is generally interchangeable. Most output folders now follow the convenction of "hand_4_x_x_x".
 
+## Computational Requirements
+A system with a minumum of 36GiB of RAM and 4 cores/threads is necessary to execute the code as is. If a system with 36GiB of RAM is not available to you, you can alter the `GDAL_CACHEMAX` value (in bytes) set in [`agreedem.py`](src/agreedem.py) & [`unique_pixel_and_allocation.py`](src/unique_pixel_and_allocation.py)
+
 ## Accessing Data through ESIP S3 Bucket
 The latest national generated HAND data and a subset of the inputs can be found in an Amazon S3 Bucket hosted by [Earth Science Information Partners (ESIP)](https://www.esipfed.org/). These data can be accessed using the AWS CLI tools. Please contact Carson Pruitt (carson.pruitt@noaa.gov) or Fernando Salas (fernando.salas@noaa.gov) if you experience issues with permissions.
 
@@ -33,11 +36,16 @@ Once you get AWS credentials, open your terminal window and type:
 ```
 aws configure --profile esip
 ```
+This still works for NGWPC without getting AWS credentials
+```
+aws configure
+```
 It will ask you for the Access key ID, Secret Access Key, Region and default language (just hit tab for that entry).
 
 With the keys in place, you can test your credentials get a list folders prior to download as well as execute other S3 cli commands:
 ```
 aws s3 ls s3://noaa-nws-owp-fim --profile esip
+aws s3 ls s3://noaa-nws-owp-fim --request-payer
 ```
 
 ### Examples
@@ -47,6 +55,22 @@ aws s3 ls s3://noaa-nws-owp-fim --profile esip
 The available inputs, test cases, and versioned FIM outputs can be found by running:
 ```
 aws s3 ls s3://noaa-nws-owp-fim/hand_fim/  --profile esip
+```
+This still works for NGWPC without getting AWS credentials
+```
+aws s3 ls s3://noaa-nws-owp-fim/hand_fim/  --request-payer
+```
+
+Download a directory of sample outputs for a single HUC8:
+```
+aws s3 sync s3://noaa-nws-owp-fim/hand_fim/outputs/hand_4_5_2_11/12090301 \
+    /your_local_folder_name/12090301 --profile esip
+```
+
+This still works for NGWPC without getting AWS credentials
+```
+aws s3 sync s3://noaa-nws-owp-fim/hand_fim/outputs/fim_4_5_2_11/12090301 \
+    /your_local_folder_name/12090301 --request-payer
 ```
 
 By adjusting pathing, you can also download entire directories such as the `hand_4_5_2_11` folder. An entire output HAND set is approximately 1.7 TB.
@@ -82,7 +106,7 @@ Git will auto create a subfolder named `inundation-mapping` where the code will 
 
 ### Installation
 1. Install Docker : [Docker](https://docs.docker.com/get-docker/)
-2. Build Docker Image : `docker build -f Dockerfile.dev -t <image_name>:<tag> <path/to/repository>`
+2. Build Docker Image : `docker build -f Dockerfile.(dev|prod) -t <image_name>:<tag> <path/to/repository>`
 3. Create FIM group on host machine:
     - Linux: `groupadd -g 1370800178 fim`
 4. Change group ownership of repo (needs to be redone when a new file occurs in the repo):

@@ -64,10 +64,10 @@ def adjust_thalweg_laterally(
         return dem_window_to_return
 
     # Open files.
-    with rasterio.open(elevation_raster) as elevation_raster_object, rasterio.open(
-        allocation_raster
+    with rasterio.open(elevation_raster, BIGTIFF="YES") as elevation_raster_object, rasterio.open(
+        allocation_raster, BIGTIFF="YES"
     ) as allocation_zone_raster_object:
-        with rasterio.open(cost_distance_raster) as cost_distance_raster_object:
+        with rasterio.open(cost_distance_raster, BIGTIFF="YES") as cost_distance_raster_object:
             meta = elevation_raster_object.meta.copy()
             meta['tiled'], meta['compress'] = True, 'lzw'
             ndv = meta['nodata']
@@ -103,8 +103,8 @@ def adjust_thalweg_laterally(
             # --------------------------------------------------------------------------------------------- #
 
         # Specify raster object metadata.
-        with rasterio.open(stream_raster) as thalweg_object, rasterio.open(
-            dem_lateral_thalweg_adj, 'w', **meta
+        with rasterio.open(stream_raster, BIGTIFF="YES") as thalweg_object, rasterio.open(
+            dem_lateral_thalweg_adj, 'w', **meta, BIGTIFF="YES"
         ) as dem_lateral_thalweg_adj_object:
             for ji, window in elevation_raster_object.block_windows(
                 1

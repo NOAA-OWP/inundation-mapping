@@ -44,12 +44,12 @@ class HucDirectory(object):
         self.agg_usgs_elev_table = pd.DataFrame(columns=list(self.usgs_dtypes.keys()))
 
         self.hydrotable_dtypes = {
-            'HydroID': int,
-            'branch_id': int,
-            'feature_id': int,
-            'NextDownID': int,
-            'order_': int,
-            'Number of Cells': int,
+            'HydroID': 'Int64',
+            'branch_id': 'Int64',
+            'feature_id': 'Int64',
+            'NextDownID': 'Int64',
+            'order_': 'Int64',
+            'Number of Cells': 'Int64',
             'SurfaceArea (m2)': float,
             'BedArea (m2)': float,
             'TopWidth (m)': float,
@@ -75,8 +75,8 @@ class HucDirectory(object):
             'calb_coef_usgs': float,
             'calb_coef_spatial': float,
             'calb_coef_final': float,
-            'HUC': int,
-            'LakeID': int,
+            'HUC': 'Int64',
+            'LakeID': 'Int64',
             'subdiv_applied': bool,
             'channel_n': float,
             'overbank_n': float,
@@ -86,11 +86,11 @@ class HucDirectory(object):
         self.agg_hydrotable = pd.DataFrame(columns=list(self.hydrotable_dtypes.keys()))
 
         self.src_crosswalked_dtypes = {
-            'branch_id': int,
-            'HydroID': int,
-            'feature_id': int,
+            'branch_id': 'Int64',
+            'HydroID': 'Int64',
+            'feature_id': 'Int64',
             'Stage': float,
-            'Number of Cells': int,
+            'Number of Cells': 'Int64',
             'SurfaceArea (m2)': float,
             'BedArea (m2)': float,
             'Volume (m3)': float,
@@ -98,8 +98,8 @@ class HucDirectory(object):
             'LENGTHKM': float,
             'AREASQKM': float,
             'ManningN': float,
-            'NextDownID': int,
-            'order_': int,
+            'NextDownID': 'Int64',
+            'order_': 'Int64',
             'TopWidth (m)': float,
             'WettedPerimeter (m)': float,
             'WetArea (m2)': float,
@@ -136,8 +136,8 @@ class HucDirectory(object):
         self.ras_dtypes = {
             'location_id': str,
             'nws_lid': str,
-            'feature_id': int,
-            'HydroID': int,
+            'feature_id': 'Int64',
+            'HydroID': 'Int64',
             'levpa_id': str,
             'dem_elevation': float,
             'dem_adj_elevation': float,
@@ -148,17 +148,34 @@ class HucDirectory(object):
         }
         self.agg_ras_elev_table = pd.DataFrame(columns=list(self.ras_dtypes.keys()))
 
+        self.ripple1d_dtypes = {
+            'location_id': str,
+            'nws_lid': str,
+            'feature_id': 'Int64',
+            'HydroID': 'Int64',
+            'levpa_id': str,
+            'dem_elevation': float,
+            'dem_adj_elevation': float,
+            'order_': str,
+            'LakeID': object,
+            'HUC8': str,
+            'HUC10': str,
+            'HUC12': str,
+            'snap_distance': float,
+        }
+        self.agg_ripple1d_elev_table = pd.DataFrame(columns=list(self.ripple1d_dtypes.keys()))
+
         self.bridge_dtypes = {
-            'osmid': int,
+            'osmid': 'Int64',
             'name': str,
             'threshold_hand': float,
             'threshold_hand_75': float,
             'has_lidar_tif': str,
-            'feature_id': int,
-            'HydroID': int,
+            'feature_id': 'Int64',
+            'HydroID': 'Int64',
             'order_': str,
             'branch': str,
-            'mainstem': int,
+            'mainstem': 'Int64',
             'geometry': object,
         }
         self.agg_bridge_pnts = gpd.GeoDataFrame(columns=list(self.bridge_dtypes.keys()))
@@ -207,14 +224,37 @@ class HucDirectory(object):
         ras_elev_table = pd.read_csv(ras_elev_filename, dtype=self.ras_dtypes)
         self.agg_ras_elev_table = pd.concat([self.agg_ras_elev_table, ras_elev_table])
 
+    def ripple1d_elev_table(self, branch_path):
+        ripple1d_elev_filename = join(branch_path, 'ripple1d_elev_table.csv')
+        if not os.path.isfile(ripple1d_elev_filename):
+            return
+
+        ripple1d_elev_table = pd.read_csv(ripple1d_elev_filename, dtype=self.ripple1d_dtypes)
+        self.agg_ripple1d_elev_table = pd.concat([self.agg_ripple1d_elev_table, ripple1d_elev_table])
+
     def aggregate_bridge_pnts(self, branch_path, branch_id):
+        ## Below is from v4.8.7.3
+        # bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.gpkg')
+        # if not os.path.isfile(bridge_filename):
+        #     return
+
+        # bridge_pnts = gpd.read_file(bridge_filename)
+        # for col, dtype in self.bridge_dtypes.items():
+        #     bridge_pnts[col] = bridge_pnts[col].astype(dtype)
+        # if bridge_pnts.empty:
+        #     return
+        # hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
+        # hydrotable = pd.read_csv(hydrotable_filename, dtype=self.hydrotable_dtypes)
+        # # Get the flows for each stage
+        # bridge_pnts = flows_from_hydrotable(bridge_pnts, hydrotable)
+        # self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
+
+        ## Below is pre v4.8.7.3 merge version
         bridge_filename = join(branch_path, f'osm_bridge_centroids_{branch_id}.gpkg')
         if not os.path.isfile(bridge_filename):
             return
 
         bridge_pnts = gpd.read_file(bridge_filename)
-        for col, dtype in self.bridge_dtypes.items():
-            bridge_pnts[col] = bridge_pnts[col].astype(dtype)
         if bridge_pnts.empty:
             return
         hydrotable_filename = join(branch_path, f'hydroTable_{branch_id}.csv')
@@ -224,7 +264,14 @@ class HucDirectory(object):
         self.agg_bridge_pnts = pd.concat([self.agg_bridge_pnts, bridge_pnts])
 
     def agg_function(
-        self, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, huc_id
+        self,
+        usgs_elev_flag,
+        hydro_table_flag,
+        src_cross_flag,
+        ras_elev_flag,
+        ripple1d_elev_flag,
+        bridge_flag,
+        huc_id,
     ):
         try:
             # try catch and its own log file output in error only.
@@ -233,6 +280,8 @@ class HucDirectory(object):
                     self.usgs_elev_table(branch_path)
                 if ras_elev_flag:
                     self.ras_elev_table(branch_path)
+                if ripple1d_elev_flag:
+                    self.ripple1d_elev_table(branch_path)
 
                 ## Other aggregate funtions can go here
                 if hydro_table_flag:
@@ -327,12 +376,22 @@ class HucDirectory(object):
                 if not self.agg_ras_elev_table.empty:
                     self.agg_ras_elev_table.to_csv(ras_elev_table_file, index=False)
 
+            if ripple1d_elev_flag:
+                ripple1d_elev_table_file = join(self.huc_dir_path, 'ripple1d_elev_table.csv')
+                if os.path.isfile(ripple1d_elev_table_file):
+                    os.remove(ripple1d_elev_table_file)
+
+                if not self.agg_ripple1d_elev_table.empty:
+                    self.agg_ripple1d_elev_table.to_csv(ripple1d_elev_table_file, index=False)
+
             if bridge_flag:
                 bridge_pnts_file = join(self.huc_dir_path, 'osm_bridge_centroids.gpkg')
                 if os.path.isfile(bridge_pnts_file):
                     os.remove(bridge_pnts_file)
 
                 if not self.agg_bridge_pnts.empty:
+                    ## Below is from v4.8.7.3
+
                     # Just making things shorter so they are easier to read
                     bridge_pnts = self.agg_bridge_pnts
                     # Use branch 0 to get the feature_id each bridge crosses
@@ -340,8 +399,13 @@ class HucDirectory(object):
                     b0 = b0.rename(columns={'feature_id': 'crossing_feature_id'})
                     bridge_pnts = bridge_pnts.merge(b0, on='osmid', how='left')
                     # Remove bridge points that have the same osmid and feature_id
-                    g = bridge_pnts.groupby(['osmid', 'feature_id'])['threshold_discharge'].transform('min')
-                    bridge_pnts = bridge_pnts.copy()[(bridge_pnts['threshold_discharge'] == g)]
+                    ## Below is from v4.8.7.3
+                    # g = bridge_pnts.groupby(['osmid', 'feature_id'])['threshold_discharge'].transform('min')
+                    # bridge_pnts = bridge_pnts.copy()[(bridge_pnts['threshold_discharge'] == g)]
+                    ## Below is pre v4.8.7.3 merge version
+                    g = bridge_pnts.groupby(['osmid', 'feature_id'])['max_discharge'].transform('min')
+                    bridge_pnts = bridge_pnts.copy()[(bridge_pnts['max_discharge'] == g)]
+
                     # Set backwater bridge sites
                     bridge_pnts['is_backwater'] = 0
                     c = bridge_pnts.groupby(['osmid'])['feature_id'].transform('count')
@@ -349,7 +413,8 @@ class HucDirectory(object):
                         (c > 1) & (bridge_pnts.feature_id != bridge_pnts.crossing_feature_id), 'is_backwater'
                     ] = 1
                     # Write file
-                    bridge_pnts = bridge_pnts.astype(self.bridge_dtypes, errors='ignore')
+                    ## Below is from v4.8.7.3
+                    # bridge_pnts = bridge_pnts.astype(self.bridge_dtypes, errors='ignore')
 
                     # Set the CRS if it is not already set
                     huc2Identifier = huc_id[:2]
@@ -376,6 +441,7 @@ class HucDirectory(object):
                 hydro_table_flag,
                 src_cross_flag,
                 ras_elev_flag,
+                ripple1d_elev_flag,
                 bridge_flag,
                 huc_id,
                 errMsg,
@@ -391,6 +457,7 @@ def log_error(
     hydro_table_flag,
     src_cross_flag,
     ras_elev_flag,
+    ripple1d_elev_flag,
     bridge_flag,
     huc_id,
     errMsg,
@@ -404,6 +471,8 @@ def log_error(
         file_name += "_src_cross"
     if ras_elev_flag:
         file_name += "_ras"
+    if ripple1d_elev_flag:
+        file_name += "_ripple1d"
     if bridge_flag:
         file_name += "_bridge"
     file_name += "_error.log"
@@ -418,11 +487,13 @@ def log_error(
 
 def aggregate_by_huc(
     fim_directory,
+    huc_level,
     fim_inputs,
     usgs_elev_flag,
     hydro_table_flag,
     src_cross_flag,
     ras_elev_flag,
+    ripple1d_elev_flag,
     bridge_flag,
     num_job_workers,
 ):
@@ -460,6 +531,8 @@ def aggregate_by_huc(
             agg_type += "_src_cross"
         if ras_elev_flag:
             agg_type += "_ras"
+        if ripple1d_elev_flag:
+            agg_type += "_ripple1d"
         if bridge_flag:
             agg_type += "_bridge"
         filelist = glob.glob(os.path.join(log_folder, f"*{agg_type}*"))
@@ -492,6 +565,7 @@ def aggregate_by_huc(
                         'hydro_table_flag': hydro_table_flag,
                         'src_cross_flag': src_cross_flag,
                         'ras_elev_flag': ras_elev_flag,
+                        'ripple1d_elev_flag': ripple1d_elev_flag,
                         'bridge_flag': bridge_flag,
                         'huc_id': huc_id,
                     }
@@ -500,7 +574,8 @@ def aggregate_by_huc(
                     executor_dict[future] = huc_id
 
             else:
-                huc_list = [d for d in os.listdir(fim_directory) if re.match(r'\d{8}', d)]
+                regex_pattern = rf'^\d{{{huc_level}}}$'
+                huc_list = [d for d in os.listdir(fim_directory) if re.match(regex_pattern, d)]
 
                 # with multi proc, it won't be 100% in order as different hucs
                 # process faster, but it does help a little
@@ -516,6 +591,7 @@ def aggregate_by_huc(
                         'hydro_table_flag': hydro_table_flag,
                         'src_cross_flag': src_cross_flag,
                         'ras_elev_flag': ras_elev_flag,
+                        'ripple1d_elev_flag': ripple1d_elev_flag,
                         'bridge_flag': bridge_flag,
                         'huc_id': huc_id,
                     }
@@ -535,6 +611,7 @@ def aggregate_by_huc(
                 hydro_table_flag,
                 src_cross_flag,
                 ras_elev_flag,
+                ripple1d_elev_flag,
                 bridge_flag,
                 huc_id,
                 errMsg,
@@ -561,6 +638,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Aggregates usgs_elev_table.csv at the HUC level')
     parser.add_argument('-fim', '--fim_directory', help='Input FIM Directory', required=True)
+    parser.add_argument('-huc_level', '--huc-level', help='HUC level to use', required=True, type=int)
     parser.add_argument('-i', '--fim_inputs', help='Input fim_inputs CSV file', required=False)
     parser.add_argument(
         '-elev',
@@ -590,6 +668,14 @@ if __name__ == '__main__':
         '-ras',
         '--ras_elev_flag',
         help='Perform aggregate on branch ras2fim elev tables',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '-ripple1d',
+        '--ripple1d_elev_flag',
+        help='Perform aggregate on branch ripple1d elev tables',
         required=False,
         default=False,
         action='store_true',

@@ -22,7 +22,7 @@ The gage location will be associated to the corresponding hydroID and attributed
 
 Processing
 - Read in RAS2FIM rating curve from csv and convert WSE navd88 values to meters
-- Read in the aggregate RAS elev table csv from the HUC fim directory (output from ras_gage_crosswalk.py)
+- Read in the aggregate RAS elev table csv from the HUC fim directory (output from usgs_gage_crosswalk.py)
 - Filter null entries and convert RAS2FIM flow from cfs to cms
 - Calculate HAND elevation value for each gage location (NAVD88 elevation - NHD DEM thalweg elevation)
 - Read in the NWM recurr csv file and convert flow to cfs
@@ -56,12 +56,12 @@ def create_ras2fim_rating_database(huc_ras_input_file, ras_elev_df, nwm_recurr_f
     ras_rc_df = pd.read_csv(
         huc_ras_input_file, dtype={'fid_xs': object}, usecols=col_filter, encoding="unicode_escape"
     )  # , nrows=30000)
-    ras_rc_df.rename(columns={'fid_xs': 'location_id'}, inplace=True)
-    # ras_rc_df['location_id'] = ras_rc_df['feature_id'].astype(object)
     run_time = dt.datetime.now() - start_time
     print(f"Duration (read ras_rc_csv): {str(run_time).split('.')[0]}")
 
-    # rename WSE column
+    # rename fid_xs & WSE columns
+    ras_rc_df.rename(columns={'fid_xs': 'location_id'}, inplace=True)
+    # ras_rc_df['location_id'] = ras_rc_df['feature_id'].astype(object)
     ras_rc_df.rename(columns={'wse_m': 'wse_navd88_m'}, inplace=True)
 
     # Need to use the flow_cfs because there is an error in the raw flow_cms
@@ -113,7 +113,7 @@ def create_ras2fim_rating_database(huc_ras_input_file, ras_elev_df, nwm_recurr_f
     merge_df = ras_rc_df.merge(nwm_recur_df, how='left', on='feature_id')
 
     # NWM recurr intervals
-    recurr_intervals = ["2", "5", "10", "25", "50"]  # "2","5","10","25","50","100"
+    recurr_intervals = ["2", "5", "10", "25", "50"]  # "2","5","10","25","50"
     final_df = pd.DataFrame()  # create empty dataframe to append flow interval dataframes
     for interval in recurr_intervals:
         log_text += '\n\nProcessing: ' + str(interval) + '-year NWM recurr intervals\n'
@@ -344,17 +344,17 @@ def run_prep(run_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
         huc_run_dir = os.path.join(run_dir, huc)
         huc_ras_input_file = os.path.join(huc_run_dir, ras_rc_filepath)
         ## Create an aggregate dataframe with all ras_elev_table.csv entries for hucs in fim_dir
-        print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv files...')
-        csv_elev = 'ras_elev_table.csv'  # file name to search for ras location data (in the huc/branch dirs)
-        # ras_elev_df = concat_huc_csv(huc_run_dir, csv_elev)
+        print(f'Reading RAS2FIM point loc HAND elevation from {huc} ras_elev_table csv files...')
+        # ras_elev_df = concat_huc_csv(huc_run_dir, 8, csv_elev)
+        csv_elev = 'ras_elev_table.csv'  # file name to search ras2fim location data (in the huc/branch dirs)
         ras_elev_df = pd.read_csv(
-            os.path.join(huc_run_dir, 'ras_elev_table.csv'),
+            os.path.join(huc_run_dir, csv_elev),
             dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
         )
 
         ## Create an aggregate dataframe with all ras2fim rating curve csv files
         # print('Reading RAS2FIM rating curves csv files from the input directory...')
-        # ras_rating_df = concat_huc_csv(ras_input_dir, ras_rc_filepath)
+        # ras_rating_df = concat_huc_csv(ras_input_dir, 8, ras_rc_filepath)
 
         if ras_elev_df is None:
             warn_err = (

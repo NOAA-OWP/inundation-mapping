@@ -28,8 +28,8 @@ def generate_branch_list_csv(huc_id, branch_id, output_branch_csv):
     if file_extension != ".csv":
         raise ValueError("The output branch csv file does not have a .csv extension")
 
-    if (len(huc_id) != 8) or (not huc_id.isnumeric()):
-        raise ValueError("The huc_id does not appear to be an eight digit number")
+    if not huc_id.isnumeric():
+        raise ValueError("The huc_id does not appear to be a numeric value")
 
     if not branch_id.isnumeric():
         raise ValueError("The branch_id does not appear to be a valid number")

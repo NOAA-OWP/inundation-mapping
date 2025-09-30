@@ -268,17 +268,21 @@ def find_matching_subdirectories(parent_folder1, parent_folder2):
     subdirs1 = {
         d
         for d in os.listdir(parent_folder1)
-        if os.path.isdir(os.path.join(parent_folder1, d)) and len(d) == 8
+        if (os.path.isdir(os.path.join(parent_folder1, d)) and len(d) == 8)
+        or (os.path.isdir(os.path.join(parent_folder1, d)) and len(d) == 12)
+        or (os.path.isdir(os.path.join(parent_folder1, d)) and len(d) == 10)
     }
 
     # List all subdirectories in the second parent folder
     subdirs2 = {
         d
         for d in os.listdir(parent_folder2)
-        if os.path.isdir(os.path.join(parent_folder2, d)) and len(d) == 8
+        if (os.path.isdir(os.path.join(parent_folder2, d)) and len(d) == 8)
+        or (os.path.isdir(os.path.join(parent_folder2, d)) and len(d) == 12)
+        or (os.path.isdir(os.path.join(parent_folder1, d)) and len(d) == 10)
     }
 
-    # Find common subdirectories with exactly 8 characters
+    # Find common subdirectories with exactly 8, 10, or 12 characters - HLP
     matching_subdirs = list(subdirs1 & subdirs2)
 
     return matching_subdirs
@@ -287,7 +291,7 @@ def find_matching_subdirectories(parent_folder1, parent_folder2):
 ########################################################################
 # Function to concatenate huc csv files to a single dataframe/csv
 ########################################################################
-def concat_huc_csv(fim_dir, csv_name):
+def concat_huc_csv(fim_dir, huc_level, csv_name):
     '''
     Checks if huc csv file exist, concatenates contents of csv
     Returns
@@ -296,18 +300,25 @@ def concat_huc_csv(fim_dir, csv_name):
     '''
 
     merged_csv = []
-    huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
+    regex_pattern = rf'^\d{{{huc_level}}}$'
+    huc_list = [d for d in os.listdir(fim_dir) if re.match(regex_pattern, d)]
     for huc in huc_list:
-        if huc != 'logs':
+        # if huc != 'logs':
+        if re.match(rf'\d{{{huc_level}}}', huc):
             csv_file = os.path.join(fim_dir, huc, str(csv_name))
             if Path(csv_file).is_file():
                 # Aggregate all of the individual huc elev_tables into one for accessing all data in one csv
                 read_csv = pd.read_csv(
                     csv_file,
-                    dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
+                    dtype={
+                        f'HUC{huc_level}': object,
+                        'location_id': object,
+                        'feature_id': int,
+                        'levpa_id': object,
+                    },
                 )
                 # Add huc field to dataframe
-                read_csv['HUC8'] = huc
+                read_csv[f'HUC{huc_level}'] = huc
                 merged_csv.append(read_csv)
 
     # Create and return a concatenated pd dataframe

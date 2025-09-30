@@ -66,6 +66,22 @@ input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # alaska
 input_landsea = os.getenv('input_landsea')
 input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # alaska
 
+input_DEM = os.getenv('input_DEM')
+input_DEM_Alaska = os.getenv('input_DEM_Alaska')  # alaska
+
+input_DEM_seamless = os.getenv('input_DEM_seamless')
+input_DEM_tiles = os.getenv('input_DEM_tiles')
+input_DEM_source = os.getenv('input_DEM_source')
+
+input_nwm_lakes = os.getenv('input_nwm_lakes')
+input_nwm_catchments = os.getenv('input_nwm_catchments')
+input_nwm_catchments_Alaska = os.getenv('input_nwm_catchments_Alaska')
+
+input_NLD = os.getenv('input_NLD')
+input_NLD_Alaska = os.getenv('input_NLD_Alaska')
+
+input_levees_preprocessed = os.getenv('input_levees_preprocessed')
+input_levees_preprocessed_Alaska = os.getenv('input_levees_preprocessed_Alaska')
 
 input_GL_boundaries = os.getenv('input_GL_boundaries')
 
@@ -85,6 +101,17 @@ args_copy_options = [
     "copy_osm_bridges",
     "copy_osm_roads",
 ]
+
+# specify input_DEM
+if input_DEM_source == 'seamless_10m':
+    input_DEM = input_DEM_seamless
+elif input_DEM_source == 'tiles_1m':
+    input_DEM = input_DEM_tiles
+else:
+    raise ValueError(
+        "The input_DEM_source variable in config/params_template.env is not set to a valid value. "
+        "Please check the variable and try again."
+    )
 
 
 def __setup_logger(outputs_dir, huc=None, is_multi_proc=False):
@@ -452,6 +479,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
                 '-clipsrc',
                 f'{huc_directory}/wbd_buffered.gpkg',
                 f'{huc_directory}/wbd8_clp.gpkg',
+                # Use below to enable HLP, post merge with v4.8.7.3
+                # f'{huc_directory}/wbd_clp.gpkg',
                 input_WBD_filename,
                 input_NHD_WBHD_layer,
             ],

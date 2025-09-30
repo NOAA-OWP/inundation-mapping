@@ -13,6 +13,12 @@ runName=$1
 hucNumber=$2
 branchId=$3
 
+# If calling this file directly, uncomment lines below: (and uncomment lines 6-8 in run_by_branch.sh)
+#tempRunDir=$workDir/$runName
+#outputDestDir=$outputsDir/$runName
+#tempHucDataDir=$outputDestDir/$hucNumber
+#tempBranchDataDir=$tempHucDataDir/branches
+
 # outputDestDir & tempHucDataDir come from fim_process_unit_wb.sh
 branchLogFileName=$outputDestDir/logs/branch/"$hucNumber"_branch_"$branchId".log
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv

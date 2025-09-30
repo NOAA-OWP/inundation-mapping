@@ -59,6 +59,7 @@ python3 $srcDir/adjust_thalweg_lateral.py \
 
 ## MASK BURNED DEM FOR STREAMS ONLY ###
 echo -e $startDiv"Mask Burned DEM for Thalweg Only $hucNumber $current_branch_id"
+# previously '--calc="A/B"' which would provide NDVs where B=0? Now should provide 0s where B=0???
 gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
     -A $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     -B $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
@@ -97,7 +98,7 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -p $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
-    -w $tempHucDataDir/wbd8_clp.gpkg \
+    -w $tempHucDataDir/wbd_clp.gpkg \
     -l $tempHucDataDir/nwm_lakes_proj_subset.gpkg \
     -n $b_arg \
     -m $max_split_distance_meters \
@@ -179,7 +180,7 @@ python3 $srcDir/filter_catchments_and_add_attributes.py \
     -f $tempCurrentBranchDataDir/demDerived_reaches_split_$current_branch_id.gpkg \
     -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
     -o $tempCurrentBranchDataDir/demDerived_reaches_split_filtered_$current_branch_id.gpkg \
-    -w $tempHucDataDir/wbd8_clp.gpkg \
+    -w $tempHucDataDir/wbd_clp.gpkg \
     -u $hucNumber
 
 ## RASTERIZE NEW CATCHMENTS AGAIN ##
@@ -250,7 +251,7 @@ python3 $srcDir/add_crosswalk.py \
     -j $tempCurrentBranchDataDir/src_$current_branch_id.json \
     -x $tempCurrentBranchDataDir/crosswalk_table_$current_branch_id.csv \
     -t $tempCurrentBranchDataDir/hydroTable_$current_branch_id.csv \
-    -w $tempHucDataDir/wbd8_clp.gpkg \
+    -w $tempHucDataDir/wbd_clp.gpkg \
     -b $b_arg \
     -u $hucNumber \
     -m $manning_n \
@@ -281,8 +282,6 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
         -b2 1.5 \
         -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg
-
-
 else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
 fi
@@ -299,8 +298,11 @@ if [ "$current_branch_id" = "$branch_zero_id" ] && [ "$evaluateCrosswalk" = "1" 
         -z $current_branch_id
 fi
 
+## Below is from the v4.8.7.3 merge and introduces a breaking change to NGWPC's HLP functionality.
+##  Notably the HydroId value requirement in src_adjust_spatial_obs.py
+
 ## CONVERSION TO INT16 ##
-echo -e $startDiv"Convert GW Catchments and REM to Int16 $hucNumber $current_branch_id"
-python3 $toolsDir/convert_to_int16.py \
-    -b $tempCurrentBranchDataDir
+# echo -e $startDiv"Convert GW Catchments and REM to Int16 $hucNumber $current_branch_id"
+# python3 $toolsDir/convert_to_int16.py \
+#     -b $tempCurrentBranchDataDir
 

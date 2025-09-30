@@ -20,8 +20,8 @@ Description
         split_points_filename:
             Save location for output flowpoints. i.e. <current_branch_folder>/demDerived_reaches_split_points_<current_branch_id>.gpkg
 
-        wbd8_clp_filename:
-            Filename of existing HUC8 geometry file. i.e. <HUC_data_folder>/wbd8_clp.gpkg
+        wbd_clp_filename:
+            Filename of existing HUC8 geometry file. i.e. <HUC_data_folder>/wbd_clp.gpkg
 
         lakes_filename:
             Filename of existing Lakes geometry file. i.e. <HUC_data_folder>/nwm_lakes_proj_subset.gpkg
@@ -77,7 +77,7 @@ def split_flows(
     dem_filename,
     split_flows_filename,
     split_points_filename,
-    wbd8_clp_filename,
+    wbd_clp_filename,
     lakes_filename,
     nwm_streams_filename,
     max_length,
@@ -158,7 +158,7 @@ def split_flows(
     # These HUC-level geopackages are being read using the fiona engine because
     # the pyogrio + arrow engine was giving random segmentation faults that
     # we think may be due to many branches trying to read the same GPKG
-    wbd8 = gpd.read_file(wbd8_clp_filename, engine='fiona')
+    wbd = gpd.read_file(wbd_clp_filename, engine='fiona')
     dem = rasterio.open(dem_filename, 'r')
 
     if isfile(lakes_filename):
@@ -166,13 +166,13 @@ def split_flows(
     else:
         lakes = None
 
-    wbd8 = wbd8.filter(items=[FIM_ID, 'geometry'])
-    wbd8 = wbd8.set_index(FIM_ID)
+    wbd = wbd.filter(items=[FIM_ID, 'geometry'])
+    wbd = wbd.set_index(FIM_ID)
 
     # Note: We don't index parts because the new index format causes problems later on
     flows = flows.explode(index_parts=False)
 
-    flows = flows.to_crs(wbd8.crs)  # Note: temporary solution
+    flows = flows.to_crs(wbd.crs)  # Note: temporary solution
 
     split_flows = []
     slopes = []
@@ -238,7 +238,7 @@ def split_flows(
     # Split stream segments at HUC8 boundaries
     print('Splitting stream segments at HUC8 boundaries...')
     flows = (
-        gpd.overlay(flows, wbd8, how='union', keep_geom_type=True)
+        gpd.overlay(flows, wbd, how='union', keep_geom_type=True)
         .explode(index_parts=True)
         .reset_index(drop=True)
     )
@@ -403,9 +403,9 @@ def split_flows(
     # Create IDs and Network Traversal Columns
     addattributes = build_stream_traversal.build_stream_traversal_columns()
     tResults = None
-    tResults = addattributes.execute(split_flows_gdf, wbd8, hydro_id)
+    tResults = addattributes.execute(split_flows_gdf, wbd, hydro_id)
 
-    del wbd8
+    del wbd
 
     if tResults[0] == 'OK':
         split_flows_gdf = tResults[1]
@@ -474,7 +474,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dem-filename', help='dem-filename', required=True)
     parser.add_argument('-s', '--split-flows-filename', help='split-flows-filename', required=True)
     parser.add_argument('-p', '--split-points-filename', help='split-points-filename', required=True)
-    parser.add_argument('-w', '--wbd8-clp-filename', help='wbd8-clp-filename', required=True)
+    parser.add_argument('-w', '--wbd-clp-filename', help='wbd-clp-filename', required=True)
     parser.add_argument('-l', '--lakes-filename', help='lakes-filename', required=True)
     parser.add_argument('-n', '--nwm-streams-filename', help='nwm-streams-filename', required=True)
     parser.add_argument('-m', '--max-length', help='Maximum split distance (meters)', required=True)

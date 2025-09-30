@@ -56,8 +56,9 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
 
     # Load wbd and use it as a mask to pull the bathymetry data
     fim_huc_dir = join(fim_dir, huc)
-    wbd8_clp = gpd.read_file(join(fim_huc_dir, 'wbd8_clp.gpkg'), engine="pyogrio", use_arrow=True)
-    bathy_data = gpd.read_file(bathy_file_ehydro, mask=wbd8_clp, engine="fiona")
+    # Below uses merged v4.8.7.3 version of wbd_clp
+    wbd_clp = gpd.read_file(join(fim_huc_dir, 'wbd_clp.gpkg'), engine="pyogrio", use_arrow=True)
+    bathy_data = gpd.read_file(bathy_file_ehydro, mask=wbd_clp, engine="fiona")
     bathy_data = bathy_data.rename(columns={'ID': 'feature_id'})
 
     # Get src_full from each branch
@@ -199,8 +200,8 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
     path_nwm_streams = join(fim_huc_dir, "nwm_subset_streams.gpkg")
     nwm_stream = gpd.read_file(path_nwm_streams)
 
-    wbd8 = gpd.read_file(join(fim_huc_dir, 'wbd.gpkg'), engine="pyogrio", use_arrow=True)
-    nwm_stream_clp = nwm_stream.clip(wbd8)
+    wbd = gpd.read_file(join(fim_huc_dir, 'wbd.gpkg'), engine="pyogrio", use_arrow=True)
+    nwm_stream_clp = nwm_stream.clip(wbd)
 
     ml_bathy_data_df = ml_bathy_data_df.merge(
         nwm_stream_clp[['ID', 'order_']], left_on='hf_id', right_on='ID'
@@ -445,6 +446,7 @@ def process_bathy_adjustment(
     bathy_file_aibased,
     wbd_buffer,
     wbd,
+    huc_level,
     output_suffix,
     number_of_jobs,
     ai_toggle,
@@ -471,6 +473,8 @@ def process_bathy_adjustment(
         wbd : str
             Path to wbd input data, e.g.
             "/data/inputs/wbd/WBD_National_EPSG_5070_WBDHU8_clip_dem_domain.gpkg".
+        huc_level : int
+            HUC level to be used. Can be 8, 10, or 12.
         output_suffix : str
             Output filename suffix.
         number_of_jobs : int
@@ -510,13 +514,24 @@ def process_bathy_adjustment(
             sys.exit(0)
 
     # Find applicable HUCs to apply ehydro bathymetric adjustment
-    fim_hucs = [h for h in os.listdir(fim_dir) if re.match(r'\d{8}', h)]
+    # NOTE: This block can be removed if we have estimated bathymetry data for
+    # the whole domain later.
+    regex_pattern = rf'\d{{{huc_level}}}'
+    fim_hucs = [h for h in os.listdir(fim_dir) if re.match(regex_pattern, h)]
     bathy_gdf = gpd.read_file(bathy_file_ehydro, engine="pyogrio", use_arrow=True)
     buffered_bathy = bathy_gdf.geometry.buffer(wbd_buffer)  # We buffer the bathymetric data to get adjacent
     wbd = gpd.read_file(
         wbd, mask=buffered_bathy, engine="fiona"
     )  # HUCs that could also have bathymetric reaches included
-    hucs_with_bathy = wbd.HUC8.to_list()
+
+    # hucs_with_bathy = wbd.HUC8.to_list()
+    hucs_with_bathy = wbd.filter(regex='HUC\d{1,2}', axis=1)
+    if len(hucs_with_bathy.columns) > 1:
+        raise ValueError(
+            f"More than one HUC column found in WBD file, {hucs_with_bathy.columns}. Please check the WBD file."
+        )
+    else:
+        hucs_with_bathy = hucs_with_bathy.iloc[:, 0].to_list()
     hucs = [h for h in fim_hucs if h in hucs_with_bathy]
     hucs.sort()
     msg = f"Identified {len(hucs)} HUCs that have USACE eHydro bathymetric data: {hucs}\n"
@@ -632,6 +647,7 @@ if __name__ == '__main__':
         required=True,
         type=str,
     )
+    parser.add_argument('-huc_level', '--huc-level', help='HUC level to use', required=True, type=int)
     parser.add_argument(
         '-suff',
         '--output-suffix',
@@ -673,6 +689,7 @@ if __name__ == '__main__':
     bathy_file_aibased = args['bathy_file_aibased']
     wbd_buffer = int(args['wbd_buffer'])
     wbd = args['wbd']
+    huc_level = args['huc_level']
     output_suffix = args['output_suffix']
     number_of_jobs = args['number_of_jobs']
     ai_toggle = args['ai_toggle']
@@ -685,6 +702,7 @@ if __name__ == '__main__':
         bathy_file_aibased,
         wbd_buffer,
         wbd,
+        huc_level,
         output_suffix,
         number_of_jobs,
         ai_toggle,

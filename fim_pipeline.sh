@@ -7,46 +7,51 @@ usage()
     Processing of HUC's in FIM4 comes in three sections. You can run 'fim_pipeline.sh' which will run
         the three main scripts: 'fim_pre_processing.sh', 'fim_process_unit_wb.sh' & 'fim_post_processing.sh'.
 
-    Usage : fim_pipeline.sh -u <huc8> -n <name_of_your_run>
+    Usage : fim_pipeline.sh -u <huc> -n <name_of_your_run>
 
     All arguments to this script are passed to 'fim_pre_processing.sh'.
     REQUIRED:
-      -u/--hucList      : HUC8s to run; more than one HUC8 should be passed in quotes (space delimited).
+        -u/--hucList    : HUCs to run; more than one HUC should be passed in quotes (space delimited).
                             A line delimited file, with a .lst extension, is also acceptable.
-                            HUC8s must be present in inputs directory.
-      -n/--runName      : A name to tag the output directories and log files (only alphanumeric).
+                            HUCs must be present in inputs directory. Only HUC 8s, 10s, and 12s are fully supported.
+                            * Note: This does not need to be provided if '-r' is used.
+        -n/--runName    : A name to tag the output directories and log files (only alphanumeric).
 
     OPTIONS:
-      -h/--help         : Print usage statement.
-      -c/--config       : Configuration file with bash environment variables to export
-                        - Default: config/params_template.env
-      -ud/--unitDenylist
-                        A file with a line delimited list of files in UNIT (HUC) directories to be
+        -h/--help       : Print usage statement.
+        -c/--config     : Configuration file with bash environment variables to export
+                            - Default: config/params_template.env
+        -ud/--unitDenylist
+                        : A file with a line delimited list of files in UNIT (HUC) directories to be
                             removed upon completion.
                         - Default: config/deny_unit.lst
                         - Note: if you want to keep all output files (aka.. no files removed),
                             use the word NONE as this value for this parameter.
-      -bd/--branchDenylist
-                        A file with a line delimited list of files in BRANCHES directories to be
+        -bd/--branchDenylist
+                        : A file with a line delimited list of files in BRANCHES directories to be
                             removed upon completion of branch processing.
                         - Default: config/deny_branches.lst
                         - Note: if you want to keep all output files (aka.. no files removed),
                             use the word NONE as this value for this parameter.
-      -zd/--branchZeroDenylist
-                        A file with a line delimited list of files in BRANCH ZERO directories to
+        -zd/--branchZeroDenylist
+                        : A file with a line delimited list of files in BRANCH ZERO directories to
                             be removed upon completion of branch zero processing.
                         - Default: config/deny_branch_zero.lst
                         - Note: If you want to keep all output files (aka.. no files removed),
                             use the word NONE as this value for this parameter.
-      -jh/--jobLimit    : Max number of concurrent HUC jobs to run. Default 1 job at time.
-      -jb/--jobBranchLimit
-                        Max number of concurrent Branch jobs to run. Default 1 job at time.
+        -jh/--jobLimit  : Max number of concurrent HUC jobs to run. Default 1 job at time.
+        -jb/--jobBranchLimit
+                        : Max number of concurrent Branch jobs to run. Default 1 job at time.
                         - Note: Make sure that the product of jh and jb plus 2 (jh x jb + 2)
                             does not exceed the total number of cores available.
-      -o                : Overwrite outputs if they already exist.
-      -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
+        -o              : Overwrite outputs if they already exist.
+        -skipcal        : If this param is included, the S.R.C. updated via the calibration points
                             will be skipped.
-      -x                : If this param is included, the crosswalk will be evaluated.
+        -x              : If this param is included, the crosswalk will be evaluated.
+        -r              : Restart. This will delete the failed HUC Directories, and re-issue run_unit_wb.sh on HUCs
+                            that had processing errors (identified by a log file in <runName>/unit_errors/ directory)
+                            Provide an integer value for the retry attempt. (e.g. -r 2 for second retry)
+        -skippost       : Skip post processing.
 
 
     Running 'fim_pipeline.sh' is a quicker process than running all three scripts independently; however,
@@ -55,7 +60,7 @@ usage()
             - 'fim_pre_processing.sh' : This section must be run first as it creates the basic output folder
                 for the run. Key files and folders for the next two sections are also created.
 
-            - 'fim_process_unit_wb.sh' : This script processes one and exactly one HUC8 plus all of its
+            - 'fim_process_unit_wb.sh' : This script processes one and exactly one HUC plus all of its
                 related branches. While it can only process one, you can run this script multiple times,
                 each with different HUC (or overwriting a HUC). When you run 'fim_pipeline.sh',
                 when more than one HUC is provided, this script is iterated over, and parallelized.
@@ -68,7 +73,6 @@ usage()
                 folders. It also processes the group in sub-steps such as usgs guages processesing,
                 rating curve adjustments and more. Naturally, running or re-running this script can only
                 be done after running 'fim_pre_processing.sh' and at least one run of 'fim_process_unit_wb.sh'.
-
     "
     exit
 }
@@ -92,6 +96,7 @@ source $srcDir/bash_functions.env
 jobMaxLimit=$(( $jobHucLimit * $jobBranchLimit ))
 
 logFile=$outputDestDir/logs/unit/pipeline_summary_unit.log
+postProcessingLogFile=$outputDestDir/logs/fim_post_processing.log
 process_wb_file=$projectDir/fim_process_unit_wb.sh
 
 pipeline_start_time=`date +%s`
@@ -124,10 +129,13 @@ echo "---------------------------------------------------"
 rm -df $workDir/$runName
 
 # Pipe into post processing
-. $projectDir/fim_post_processing.sh -n $runName -j $jobMaxLimit
+if [ "$skippost" = "0" ]; then
+    . $projectDir/fim_post_processing.sh -n $runName -j $jobMaxLimit 2>&1 | tee $postProcessingLogFile
+else
+    echo "---- Skipping fim_post_processing"
+fi
 
 echo
-
 echo "======================== End of fim_pipeline for $runName =========="
 date -u
 Calc_Duration "Total Duration is ... " $pipeline_start_time

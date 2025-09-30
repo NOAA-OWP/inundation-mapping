@@ -1,10 +1,12 @@
 #!/bin/bash -e
 
-# Do not call this file directly. Call fim_process_unit_wb.sh which calls
-# this file.
+# Do not call this file directly. Call fim_process_unit_wb.sh which calls this file.
+
+# huc level
+export huc_level=${#hucNumber}
 
 ## SOURCE FILE AND FUNCTIONS ##
-# load the various enviro files
+# load the various environment files
 args_file=$outputDestDir/runtime_args.env
 
 source $args_file
@@ -17,8 +19,18 @@ branch_list_lst_file=$tempHucDataDir/branch_ids.lst
 
 branchSummaryLogFile=$outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
 
-huc2Identifier=${hucNumber:0:2}
+# Denote input_DEM
+if [ "$input_DEM_source" = "seamless_10m" ]; then
+    input_DEM=$input_DEM_seamless
+elif [ "$input_DEM_source" = "tiles_1m" ]; then
+    input_DEM=$input_DEM_tiles
+else
+    echo -e "input_DEM_source is not set to a valid option. Only 'seamless_10m' or 'tiles_1m' are valid options."
+    echo -e "Please check your config file. Exiting ..."
+    exit 1
+fi
 
+huc2Identifier=${hucNumber:0:2}
 
 ## SET CRS and input DEM domain
 if [ $huc2Identifier -eq 19 ]; then
@@ -60,8 +72,9 @@ cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
 # Renamed to usgs_gages.gpkg while being copied
 cp $usgs_gages_file $tempHucDataDir/usgs_gages.gpkg
 
-# Check if the $hucNumber directory exists in the ras2fim $inputsDir
-if [ -d "$ras2fim_input_dir/$hucNumber" ]; then
+
+# Check if the $hucNumber directory exists in the ras2fim $inputsDir and src_adjust_ras2fim is set to True
+if [ -d "$ras2fim_input_dir/$hucNumber" ] && [ "$src_adjust_ras2fim" = "True" ]; then
     ras_rating_gpkg="$ras2fim_input_dir/$hucNumber/$ras_rating_curve_gpkg_filename"
     ras_rating_csv="$ras2fim_input_dir/$hucNumber/$ras_rating_curve_csv_filename"
     if [ -f "$ras_rating_gpkg" ]; then
@@ -75,6 +88,17 @@ if [ -d "$ras2fim_input_dir/$hucNumber" ]; then
         echo "Copied $ras_rating_csv to $tempHucDataDir"
     else
         echo "File $ras_rating_csv does not exist. Skipping copy."
+    fi
+fi
+
+# Check if the $hucNumber directory exists in the ripple1d_input_dir and src_adjust_ripple1d is set to True
+if [ -d "$ripple1d_input_dir/$hucNumber" ] && [ "$src_adjust_ripple1d" = "True" ]; then
+    ripple1d_rating_file="$ripple1d_input_dir/$hucNumber/$ripple1d_rating_curve_filename"
+    if [ -f "$ripple1d_rating_file" ]; then
+        cp "$ripple1d_rating_file" $tempHucDataDir
+        echo "Copied $ripple1d_rating_file to $tempHucDataDir"
+    else
+        echo "File $ripple1d_rating_file does not exist. Skipping copy."
     fi
 fi
 
@@ -144,6 +168,7 @@ mkdir -p $tempCurrentBranchDataDir
 
 ## CLIP RASTERS
 echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
+
 # Note: don't need to use gdalwarp -cblend as we are using a buffered wbd
 [ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && {
 gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
@@ -230,13 +255,55 @@ python3 $srcDir/agreedem.py \
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
-rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
-    $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
+date -u
+Tstart
+if [[ "$pit_fill_method" = "richdem" ]]; then
+    echo "Running richdem (rd_depression_filling) Algorithm..."
+    rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
+        $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
+elif [[ "$pit_fill_method" = "wbt" ]]; then
+    echo "Running WBT fill depression Algorithm..."
+    python3 $srcDir/fill_depressions.py -w $tempCurrentBranchDataDir -b $branch_zero_id -m $pit_fill_method
+elif [[ "$pit_fill_method" = "pyflwdir" ]]; then
+    echo "Running pyflwdir fill depression Algorithm..."
+    python3 $srcDir/fill_depressions.py -w $tempCurrentBranchDataDir -b $branch_zero_id -m $pit_fill_method
+else 
+    echo "The value provided for pit_fill_method parameter:     $pit_fill_method "
+    echo "   is not valid, see config/params_template.env file for valid options."
+    echo -e "Please check your config file. Exiting ..."
+    exit 22
+fi
+Tcount
 
-# ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
+# Ensure the file dem_burned_filled_0.tif exists before proceeding
+if [[ ! -f $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif ]]; then
+   echo "The file: $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif does not exist"
+   echo "Exiting ..."
+   exit 2
+fi
+
+
+## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
 # if [ "$levelpaths_exist" = "1" ]; then
 #     echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
-#     rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
+#     date -u
+#     Tstart
+#     if [[ "$pit_fill_method" = "richdem" ]]; then
+#         echo "Running richdem (rd_depression_filling) Algorithm..."
+#         rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
+#     elif [[ "$pit_fill_method" = "wbt" ]]; then
+#         echo "Running WBT fill depression Algorithm..."
+#         python3 $srcDir/fill_depressions.py -w $tempHucDataDir -m $pit_fill_method
+#     elif [[ "$pit_fill_method" = "pyflwdir" ]]; then
+#         echo "Running pyflwdir fill depression Algorithm..."
+#         python3 $srcDir/fill_depressions.py -w $tempHucDataDir -m $pit_fill_method
+#     else
+#         echo "The value provided for pit_fill_method parameter:     $pit_fill_method "
+#         echo "   is not valid, see config/params_template.env file for valid options."
+#         echo -e "Please check your config file. Exiting ..."
+#         exit 22
+#     fi
+#     Tcount
 # fi
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
@@ -283,6 +350,8 @@ if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
         -gages $tempHucDataDir/usgs_gages.gpkg \
         -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
         -ras $tempHucDataDir/$ras_rating_curve_gpkg_filename \
+        -ripple $tempHucDataDir/$ripple1d_rating_curve_filename \
+        -wbd $tempHucDataDir/wbd.gpkg \
         -o $tempHucDataDir/usgs_subset_gages.gpkg \
         -huc $hucNumber \
         -ahps $tempHucDataDir/nws_lid.gpkg \
@@ -301,7 +370,8 @@ if [ -f $tempHucDataDir/usgs_subset_gages_$branch_zero_id.gpkg ]; then
         -dem $tempCurrentBranchDataDir/dem_meters_$branch_zero_id.tif \
         -dem_adj $tempCurrentBranchDataDir/dem_thalwegCond_$branch_zero_id.tif \
         -out $tempCurrentBranchDataDir -b $branch_zero_id \
-        -huc_CRS $huc_CRS
+        -huc_CRS $huc_CRS \
+        -huc_number $hucNumber
 fi
 
 ## CLEANUP BRANCH ZERO OUTPUTS ##

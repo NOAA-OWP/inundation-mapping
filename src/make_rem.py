@@ -87,7 +87,7 @@ def rel_dem(dem_fileName, pixel_watersheds_fileName, rem_fileName, thalweg_raste
         return rem_window
 
     rem_rasterio_object = rasterio.open(
-        rem_fileName, 'w', **meta
+        rem_fileName, 'w', **meta, BIGTIFF='YES'
     )  # Open rem_rasterio_object for writing to rem_fileName.
     pixel_catchments_rasterio_object = rasterio.open(
         pixel_watersheds_fileName

@@ -133,22 +133,47 @@ def process_bridges_in_huc(
         hand_grid_profile = hand_grid.profile
         hand_grid_array = hand_grid.read(1)
 
-    # first process the osm bridges without reliable lidar data using previous method
-    non_lidar_osm_gdf, hand_grid_array = process_non_lidar_osm(
-        osm_gdf, hand_grid_array, hand_grid_profile, non_lidar_buffer
-    )
-    lidar_osm_gdf, updated_hand_grid_array = process_lidar_osm(
-        osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer, bridge_elev_diff_raster
-    )
+        ## Below is commented to enable HLP pre clip data before v4.8.7.3 merge
 
-    # either of non_lidar_osm_gdf or lidar_osm_gdf can be None (if there are no lidar or non-lidar bridges)-- so handle it
-    valid_osm_gdfs = [gdf for gdf in [non_lidar_osm_gdf, lidar_osm_gdf] if gdf is not None]
+        # first process the osm bridges without reliable lidar data using previous method
+        # non_lidar_osm_gdf, hand_grid_array = process_non_lidar_osm(
+        #     osm_gdf, hand_grid_array, hand_grid_profile, non_lidar_buffer
+        # )
+        # lidar_osm_gdf, updated_hand_grid_array = process_lidar_osm(
+        #     osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer, bridge_elev_diff_raster
+        # )
 
-    osm_gdf = pd.concat(valid_osm_gdfs, ignore_index=True)
+        # either of non_lidar_osm_gdf or lidar_osm_gdf can be None (if there are no lidar or non-lidar bridges)-- so handle it
+        # valid_osm_gdfs = [gdf for gdf in [non_lidar_osm_gdf, lidar_osm_gdf] if gdf is not None]
 
-    # # Write the new HAND grid
+        # osm_gdf = pd.concat(valid_osm_gdfs, ignore_index=True)
+
+        ## Below is pre v4.8.7.3 merge version which works with old HLP pre clip osm_bridges_subset.gpkg files,
+        ## which do not contain the new 'has_lidar_tif' column
+
+        # Get max hand values for each bridge
+        osm_gdf['max_hand'] = zonal_stats(
+            osm_gdf['geometry'], hand_grid_array, affine=hand_grid.transform, stats="max", nodata=-999
+        )
+        # pull the values out of the geopandas columns so we can use them as floats
+        osm_gdf['max_hand'] = [x.get('max') for x in osm_gdf.max_hand]
+        # sort in case of overlaps; display max hand value at any given location
+        osm_gdf = osm_gdf.sort_values(by="max_hand", ascending=False)
+
+        # Burn the bridges into the HAND grid
+        shapes = ((geom, value) for geom, value in zip(osm_gdf.geometry, osm_gdf.max_hand))
+        features.rasterize(
+            shapes=shapes, out=hand_grid_array, transform=hand_grid.transform, all_touched=False
+        )
+
+    # # # Write the new HAND grid
+    ## Below is from v4.8.7.3
+    # with rasterio.open(source_hand_raster, 'w', **hand_grid_profile) as new_hand_grid:
+    #     new_hand_grid.write(updated_hand_grid_array, 1)
+
+    ## Below is pre v4.8.7.3 merge version
     with rasterio.open(source_hand_raster, 'w', **hand_grid_profile) as new_hand_grid:
-        new_hand_grid.write(updated_hand_grid_array, 1)
+        new_hand_grid.write(hand_grid_array, 1)
 
     del hand_grid_array
 
@@ -157,7 +182,10 @@ def process_bridges_in_huc(
     osm_gdf = osm_gdf.drop(columns='centroid_geometry')
 
     # Join the bridge points to the HAND catchments to get the HydroID and feature_id
-    osm_gdf = osm_gdf.loc[osm_gdf.threshold_hand >= 0]
+    ## Below is from v4.8.7.3
+    # osm_gdf = osm_gdf.loc[osm_gdf.threshold_hand >= 0]
+    ## Below is pre v4.8.7.3 merge version
+    osm_gdf = osm_gdf.loc[osm_gdf.max_hand >= 0]
     catchments_df = gpd.read_file(catchments)
 
     osm_gdf = gpd.sjoin(osm_gdf, catchments_df[['HydroID', 'feature_id', 'order_', 'geometry']], how='inner')
@@ -166,7 +194,10 @@ def process_bridges_in_huc(
 
     osm_gdf = osm_gdf.drop(columns='index_right')
     # Calculate threatened stage
-    osm_gdf['threshold_hand_75'] = osm_gdf.threshold_hand * threatened_percent
+    ## Below is from v4.8.7.3
+    # osm_gdf['threshold_hand_75'] = osm_gdf.threshold_hand * threatened_percent
+    ## Below is pre v4.8.7.3 merge version
+    osm_gdf['max_hand_75'] = osm_gdf.max_hand * threatened_percent
     # Add the branch id to the catchments
     branch_dir = re.search(r'branches/(\d{10}|0)/', catchments).group()
     branch_id = re.search(r'(\d{10}|0)', branch_dir).group()
@@ -194,16 +225,29 @@ def flow_lookup(stages, hydroid, hydroTable):
 
 
 def flows_from_hydrotable(bridge_pnts, hydroTable):
-    bridge_pnts[['threshold_discharge', 'threshold_discharge75']] = bridge_pnts.apply(
-        lambda row: flow_lookup((row.threshold_hand, row.threshold_hand_75), row.HydroID, hydroTable),
+    ## Below is from v4.8.7.3
+    # bridge_pnts[['threshold_discharge', 'threshold_discharge75']] = bridge_pnts.apply(
+    #     lambda row: flow_lookup((row.threshold_hand, row.threshold_hand_75), row.HydroID, hydroTable),
+    #     axis=1,
+    #     result_type='expand',
+    # )
+    # # Convert stages and dischrages to ft and cfs respectively
+    # bridge_pnts['threshold_hand_ft'] = bridge_pnts['threshold_hand'] * 3.28084
+    # bridge_pnts['threshold_hand_75_ft'] = bridge_pnts['threshold_hand_75'] * 3.28084
+    # bridge_pnts['threshold_discharge_cfs'] = bridge_pnts['threshold_discharge'] * 35.3147
+    # bridge_pnts['threshold_discharge_75_cfs'] = bridge_pnts['threshold_discharge75'] * 35.3147
+
+    ## Below is pre v4.8.7.3 merge version
+    bridge_pnts[['max_discharge', 'max_discharge75']] = bridge_pnts.apply(
+        lambda row: flow_lookup((row.max_hand, row.max_hand_75), row.HydroID, hydroTable),
         axis=1,
         result_type='expand',
     )
     # Convert stages and dischrages to ft and cfs respectively
-    bridge_pnts['threshold_hand_ft'] = bridge_pnts['threshold_hand'] * 3.28084
-    bridge_pnts['threshold_hand_75_ft'] = bridge_pnts['threshold_hand_75'] * 3.28084
-    bridge_pnts['threshold_discharge_cfs'] = bridge_pnts['threshold_discharge'] * 35.3147
-    bridge_pnts['threshold_discharge_75_cfs'] = bridge_pnts['threshold_discharge75'] * 35.3147
+    bridge_pnts['max_hand_ft'] = bridge_pnts['max_hand'] * 3.28084
+    bridge_pnts['max_hand_75_ft'] = bridge_pnts['max_hand_75'] * 3.28084
+    bridge_pnts['max_discharge_cfs'] = bridge_pnts['max_discharge'] * 35.3147
+    bridge_pnts['max_discharge_75_cfs'] = bridge_pnts['max_discharge75'] * 35.3147
 
     return bridge_pnts
 
