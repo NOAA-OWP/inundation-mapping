@@ -320,7 +320,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
 
     if deploy_params_file is None or deploy_params_file == "":
         raise ValueError("workflows params file variable is None or empty")
-    if not os.path.exists(deploy_params_file):
+    if not os.path.isfile(deploy_params_file):
         raise ValueError(f"params file of {deploy_params_file} can not be found. Check path and/or case.")
 
     logging.info(f"loading working params file ({deploy_params_file})")
@@ -358,7 +358,7 @@ def __setup_aws(aws_creds_file):
     if aws_creds_file is None or aws_creds_file == "":
         raise ValueError("aws credentials file argument is None or empty")
 
-    if not os.path.exists(aws_creds_file):
+    if not os.path.isfile(aws_creds_file):
         raise ValueError(
             f"aws credentials file of {aws_creds_file} can not be found. Check path and/or case."
         )
