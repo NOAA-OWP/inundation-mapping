@@ -89,55 +89,9 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, deploy_params_file, log_path
 
     try:
 
-        qa_files_to_upload = []  # a list of dictionaries
-        # {"src_file": file_path, "trg_file": trg_file}
+        # We will send all to qa datasets and it can pick out what it needs.
+        __load_qa_dataset(deploy_types, deploy_params_file)
 
-        has_qa_file_types = False
-
-        # breaking this up to smaller parts for readability. Remember, we can have more than one deploy_type
-        if 'fpc' in deploy_types or 'fpp' in deploy_types:
-            qa_files_to_upload.extend(__load_fim_performance(deploy_types, deploy_params_file))
-            has_qa_file_types = True
-
-        # if 'cffb' in deploy_types or 'cffc' in deploy_types or 'cfsb' in deploy_types or 'cfsc' in deploy_types:
-        #     files_to_upload.extend(__load_catfim_files(deploy_types, workflow_params_file)
-        #     has_qa_file_types = True
-
-        if 'rcc' in deploy_types or 'urc' in deploy_types:
-            qa_files_to_upload.extend(__load_misc_files(deploy_types, deploy_params_file))
-            has_qa_file_types = True
-
-        # Upload files as per arguments going to HV QA Dataset folders
-        if has_qa_file_types is True and len(qa_files_to_upload) > 0:
-            logging.info("------------------------------------")
-            logging.info("**** Begin loading misc HydroVIS QA dataset files into S3 ****")
-            section_start_dt = datetime.now(timezone.utc)
-            print(f"Section start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
-
-            # Load each file. Note: One AWS Client can only load one file at a time.
-            for file in qa_files_to_upload:
-                logging.info(f"-- Uploading {file['src_file']}")
-
-                # boto3 only allows one file at a time.
-                # Upload file will tell us if the file does not exist.
-                file_exists, ___ = s3_sf.upload_file(
-                    S3_CLIENT, HV_S3_BUCKET_NAME, file['src_file'], file['trg_file']
-                )
-                if not file_exists:
-                    logging.info(f"-- Skipped uploading {file['src_file']}. File does not exist.")
-
-            print("")
-            end_time = datetime.now(timezone.utc)
-            logging.info(
-                f"**** Completed loading misc HydroVIS QA dataset files into S3: {len(qa_files_to_upload)} uploaded."
-            )
-            print(f"Section end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
-            logging.info(fh.print_date_time_duration(section_start_dt, end_time, False))
-            logging.info("------------------------------------")
-
-        # -----------
-        # __load_hand_dataset will make it own s3 clients and do it's own load. The rest of the functions
-        # can share one function level s3 load script.
         if 'hand' in deploy_type:
             __load_hand_dataset(deploy_params_file, num_jobs)
 
@@ -224,76 +178,101 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
 
 
 # ============================
-def __load_fim_performance(deploy_types, deploy_params_file):
+def __load_qa_dataset(deploy_types, deploy_params_file):
 
     files_to_upload = []
 
     # catchments
     if 'fpc' in deploy_types:
-        file_path = __get_env_variable_with_versions('HV_FIM_PERF_CATCHMENTS_FILE', deploy_params_file)
-        if not file_path.startswith("/"):
-            file_path = "/" + file_path
-        file_name = os.path.basename(file_path)
-        trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
-        upload_item = {"src_file": file_path, "trg_file": trg_file}
+        upload_item = __get_file_to_upload_item('HV_FIM_PERF_CATCHMENTS_FILE', deploy_params_file)
         files_to_upload.append(upload_item)
 
     # Points and Polys are loaded together and are very quick
     if 'fpp' in deploy_types:
-
         # Polys first
-        file_path = __get_env_variable_with_versions('HV_FIM_PERF_POLYS_FILES', deploy_params_file)
-        if not file_path.startswith("/"):
-            file_path = "/" + file_path
-        file_name = os.path.basename(file_path)
-        trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
-        upload_item = {"src_file": file_path, "trg_file": trg_file}
+        upload_item = __get_file_to_upload_item('HV_FIM_PERF_POLYS_FILES', deploy_params_file)
         files_to_upload.append(upload_item)
 
         # Points first
-        file_path = __get_env_variable_with_versions('HV_FIM_PERF_POINTS_FILES', deploy_params_file)
-        if not file_path.startswith("/"):
-            file_path = "/" + file_path
-        file_name = os.path.basename(file_path)
-        trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
-        upload_item = {"src_file": file_path, "trg_file": trg_file}
+        upload_item = __get_file_to_upload_item('HV_FIM_PERF_POINTS_FILES', deploy_params_file)
         files_to_upload.append(upload_item)
-
-    return files_to_upload
-
-
-# ============================
-# def __load_catfim_files(deploy_types, deploy_params_file):
-
-
-# ============================
-def __load_misc_files(deploy_types, deploy_params_file):
-
-    files_to_upload = []
-
+    
     # rating curve comparison (Sierra test)
     if 'rcc' in deploy_types:
-        file_path = __get_env_variable_with_versions('HV_RCC_NWM_RECURR_FLOW_FILE', deploy_params_file)
-        if not file_path.startswith("/"):
-            file_path = "/" + file_path
-        file_name = os.path.basename(file_path)
-        trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
-
-        upload_item = {"src_file": file_path, "trg_file": trg_file}
+        upload_item = __get_file_to_upload_item('HV_RCC_NWM_RECURR_FLOW_FILE', deploy_params_file)
         files_to_upload.append(upload_item)
 
     # Latest usgs rating curve
     if 'urc' in deploy_types:
-        file_path = __get_env_variable_with_versions('HV_URC_RATING_CURVE_FILE', deploy_params_file)
-        if not file_path.startswith("/"):
-            file_path = "/" + file_path
-        file_name = os.path.basename(file_path)
-        trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
-
-        upload_item = {"src_file": file_path, "trg_file": trg_file}
+        upload_item = __get_file_to_upload_item('HV_URC_RATING_CURVE_FILE', deploy_params_file)
         files_to_upload.append(upload_item)
 
-    return files_to_upload
+    # CatFIM Flow (sites and library)
+    if 'cffb' in deploy_types:
+        upload_item = __get_file_to_upload_item('HV_CAT_FLOW_SITES', deploy_params_file)
+        files_to_upload.append(upload_item)
+
+        upload_item = __get_file_to_upload_item('HV_CAT_FLOW_LIBRARY', deploy_params_file)
+        files_to_upload.append(upload_item)
+
+    # CatFIM Flow Compare files
+    if 'cffc' in deploy_types:
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_SITES', deploy_params_file)
+        files_to_upload.append(upload_item)
+
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_GAINED_COVERAGE', deploy_params_file)
+        files_to_upload.append(upload_item)
+
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_LOST_COVERAGE', deploy_params_file)
+        files_to_upload.append(upload_item)
+
+    # CatFIM Stage (sites and library)
+    if 'cfsb' in deploy_types:
+        upload_item = __get_file_to_upload_item('HV_CAT_STAGE_SITES', deploy_params_file)
+        files_to_upload.append(upload_item)
+
+        upload_item = __get_file_to_upload_item('HV_CAT_STAGE_LIBRARY', deploy_params_file)
+        files_to_upload.append(upload_item)
+   
+    # CatFIM Stage Compare files
+    if 'cffc' in deploy_types:    
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_SITES', deploy_params_file)
+        files_to_upload.append(upload_item)
+
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_GAINED_COVERAGE', deploy_params_file)
+        files_to_upload.append(upload_item)
+
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_LOST_COVERAGE', deploy_params_file)
+        files_to_upload.append(upload_item)
+
+    # -----------------------
+    # Upload files as per arguments going to HV QA Dataset folders
+    if len(files_to_upload) > 0:
+        logging.info("------------------------------------")
+        logging.info("**** Begin loading misc HydroVIS QA dataset files into S3 ****")
+        section_start_dt = datetime.now(timezone.utc)
+        print(f"Section start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
+
+        # Load each file. Note: One AWS Client can only load one file at a time.
+        for file in files_to_upload:
+            logging.info(f"-- Uploading {file['src_file']}")
+
+            # boto3 only allows one file at a time.
+            # Upload file will tell us if the file does not exist.
+            file_exists, ___ = s3_sf.upload_file(
+                S3_CLIENT, HV_S3_BUCKET_NAME, file['src_file'], file['trg_file']
+            )
+            if not file_exists:
+                logging.info(f"-- Skipped uploading {file['src_file']}. File does not exist.")
+
+        print("")
+        end_time = datetime.now(timezone.utc)
+        logging.info(
+            f"**** Completed loading misc HydroVIS QA dataset files into S3: {len(files_to_upload)} uploaded."
+        )
+        print(f"Section end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        logging.info(fh.print_date_time_duration(section_start_dt, end_time, False))
+        logging.info("------------------------------------")
 
 
 # ============================
@@ -306,6 +285,18 @@ def __get_env_variable_with_versions(env_var_name, deploy_params_file):
     env_value = env_value.replace("{RELEASE_FIM_PUBLIC_VERSION}", RELEASE_FIM_PUBLIC_VERSION)
     env_value = env_value.replace("{HAND_VERSION}", HAND_VERSION)
     return env_value
+
+
+# ============================
+def __get_file_to_upload_item(env_var_name, deploy_params_file):
+
+    file_path = __get_env_variable_with_versions(env_var_name, deploy_params_file)
+    if not file_path.startswith("/"):
+        file_path = "/" + file_path
+    file_name = os.path.basename(file_path)
+    trg_file = HV_S3_ROOT_QA_DATASETS_PATH + file_name
+    upload_item = {"src_file": file_path, "trg_file": trg_file}
+    return upload_item
 
 
 # ============================
@@ -494,9 +485,9 @@ if __name__ == '__main__':
         '-lp',
         '--log-path',
         help='OPTIONAL: Path to where the log file will saved.\n'
-        '  Defaults to /data/workflows/deploy.\n'
+        '  Defaults to /data/workflows/deploy/logs.\n'
         'The file name is auto-generated.',
-        default='/data/workflows/deploy',
+        default='/data/workflows/deploy/logs',
     )
     parser.add_argument('-j', "--num-jobs", help="OPTIONAL: Number of processes", type=int, default=1)
 
