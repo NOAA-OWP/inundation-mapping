@@ -196,7 +196,7 @@ def __load_qa_dataset(deploy_types, deploy_params_file):
         # Points first
         upload_item = __get_file_to_upload_item('HV_FIM_PERF_POINTS_FILES', deploy_params_file)
         files_to_upload.append(upload_item)
-    
+
     # rating curve comparison (Sierra test)
     if 'rcc' in deploy_types:
         upload_item = __get_file_to_upload_item('HV_RCC_NWM_RECURR_FLOW_FILE', deploy_params_file)
@@ -233,9 +233,9 @@ def __load_qa_dataset(deploy_types, deploy_params_file):
 
         upload_item = __get_file_to_upload_item('HV_CAT_STAGE_LIBRARY', deploy_params_file)
         files_to_upload.append(upload_item)
-   
+
     # CatFIM Stage Compare files
-    if 'cffc' in deploy_types:    
+    if 'cffc' in deploy_types:
         upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_SITES', deploy_params_file)
         files_to_upload.append(upload_item)
 

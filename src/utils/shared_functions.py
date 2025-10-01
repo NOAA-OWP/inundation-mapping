@@ -64,7 +64,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
 
     if log_file_dir is None or log_file_dir == "":
         raise ValueError("log directory path can not be None or empty")
-    
+
     print(f"log_file_dir is {log_file_dir}")
     os.makedirs(log_file_dir, exist_ok=True)
 

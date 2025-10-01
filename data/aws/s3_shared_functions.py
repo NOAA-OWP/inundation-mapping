@@ -419,7 +419,7 @@ def upload_file(
     if not src_file_path.startswith("/"):
         src_file_path = "/" + src_file_path
 
-    if not os.path.exists(src_file_path):
+    if not os.path.isfile(src_file_path):
         return False
 
     # strip leading slash if exists, we will put it back if need too
