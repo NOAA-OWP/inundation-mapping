@@ -420,7 +420,7 @@ def upload_file(
         src_file_path = "/" + src_file_path
 
     if not os.path.isfile(src_file_path):
-        return False
+        return False, src_file_path
 
     # strip leading slash if exists, we will put it back if need too
     trg_file_path = trg_file_path.lstrip("/")
