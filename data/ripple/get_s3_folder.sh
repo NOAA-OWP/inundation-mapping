@@ -54,17 +54,18 @@ set -e
 usage_msg()
 {
     echo "This tool downloads just one folder path from the source S3, calcs some stats
-    then pushes it back up to a target s3. 
+    then pushes it back up to a target s3. If you do not want to re-upload to a target s3,
+    leave those arguments off.
 
     Sample Usage: 
          ./get_s3_folder.sh
             -src 's3://(somebucket)/ripple/fim_100_domain/collections'
+            -sap 'rtx-profile-name'            
             -n 'mip_03170004'
             -lt '/home/your/output/ripple/fim_30'
-            -st 's3://(somebucket)/fim/ripple_100/collections'
             -c '/efs.../ripple/fim_100_prod_data/download_stats'
-            -log '/efs.../ripple/fim_100_prod_data/download_logs            
-            -sap 'rtx-profile-name'
+            -log '/efs.../ripple/fim_100_prod_data/download_logs'
+            -st 's3://(somebucket)/fim/ripple_100/collections'            
             -tap 'ti-temp'
 
             # NOTE: for now.. Leave off all starting and trailing slashes.
@@ -76,20 +77,20 @@ usage_msg()
       -src/--s3_source_path    : Source Full s3 bucket and common prefix.
                                  Parent folder where all child key folders live
                                    ie) s3://(somebucket)/ripple/30_pcnt_domain/collections
+      -sap/--src_aws_profile_name: Name of the cli aws profile name for the src download.                                   
       -n/--key_name            : Folder name (key) to be downloaded.
                                    ie) mip_03170004
                                    from s3://(somebucket)/ripple/30_pcnt_domain/collections/mip_03170004
       -lt/--temp_trg_path      : Root local folder path for downloads.
                                    ie) /home/some-user/temp_ripple_downloads
-      -st/--s3_target_root     : s3://(some bucket)/fim/ripple_100/collections/
       -c/--stats_folder        : For each collection folder (key_name) downloaded, a unique stats file
                                  will be created with meta data about the download.
                                  This saves a header line of:
                                  (folder_name, download_size, num_models, date_downloaded)
                                  The file name pattern will be download_stats_{key_name}.csv
        -log/--log_folder        : Location where the log files for stored                                 
-       -sap/--src_aws_profile_name: Name of the cli aws profile name for the src download.
-       -tap/--trg_aws_profile_name: Name of the cli aws profile name for the target upload.
+       -st/--s3_target_root     : Optional: s3://(some bucket)/fim/ripple_100/collections/
+       -tap/--trg_aws_profile_name: Optional: Name of the cli aws profile name for the target upload.
 
     OPTIONS:
       -h/--help                 : Print usage statement.
@@ -105,6 +106,10 @@ while [ "$1" != "" ]; do
         shift
         s3_source_path=$1
         ;;
+    -sap|--src_aws_profile_name)
+        shift
+        src_aws_profile_name=$1
+        ;;
     -n|--key_name)
         shift
         key_name=$1
@@ -113,10 +118,6 @@ while [ "$1" != "" ]; do
         shift
         temp_trg_path=$1
         ;;
-    -st|--s3_target_root)
-        shift
-        s3_target_root=$1
-        ;;
     -c|--stats_folder)
         shift
         stats_folder=$1
@@ -124,10 +125,10 @@ while [ "$1" != "" ]; do
     -log|--log_folder)
         shift
         log_folder=$1
-        ;;        
-    -sap|--src_aws_profile_name)
+        ;;
+    -st|--s3_target_root)
         shift
-        src_aws_profile_name=$1
+        s3_target_root=$1
         ;;
     -tap|--trg_aws_profile_name)
         shift
@@ -153,6 +154,12 @@ if [ "$s3_source_path" = "" ]; then
     exit 22
 fi
 
+if [ "$src_aws_profile_name" = "" ]; then
+    echo "ERROR: Missing -sap (source aws profile name)"
+    usage_msg
+    exit 22
+fi
+
 if [ "$key_name" = "" ]; then
     echo "ERROR: Missing -n (s3 Key name aka: folder name (MC (model collection)))"
     usage_msg
@@ -165,26 +172,8 @@ if [ "$temp_trg_path" = "" ]; then
     exit 22
 fi
 
-if [ "$s3_target_root" = "" ]; then
-    echo "ERROR: Missing -st (S3 target path)"
-    usage_msg
-    exit 22
-fi
-
 if [ "$stats_folder" = "" ]; then
     echo "ERROR: Missing -c (stats folder path name)"
-    usage_msg
-    exit 22
-fi
-
-if [ "$src_aws_profile_name" = "" ]; then
-    echo "ERROR: Missing -sap (source aws profile name)"
-    usage_msg
-    exit 22
-fi
-
-if [ "$trg_aws_profile_name" = "" ]; then
-    echo "ERROR: Missing -tap (target aws profile name)"
     usage_msg
     exit 22
 fi
@@ -194,7 +183,22 @@ if [ "$log_folder" = "" ]; then
     usage_msg
     exit 22
 fi
-  
+
+upload_to_trg_s3="True"
+if [ "$s3_target_root" = "" ]; then
+#     echo "ERROR: Missing -st (S3 target path)"
+#     usage_msg
+#     exit 22
+    upload_to_trg_s3="False"
+fi
+
+if [ "$trg_aws_profile_name" = "" ]; then
+#     echo "ERROR: Missing -tap (target aws profile name)"
+#     usage_msg
+#     exit 22
+    upload_to_trg_s3="False"
+fi
+
 # trim spaces of the end if any
 key_name="${key_name%%*([[:space:]])}"    
 
@@ -207,9 +211,12 @@ source ./ripple_shared_tools.sh
 
 src_s3_uri="$s3_source_path/$key_name"
 local_trg="$temp_trg_path/$key_name"
-log_file="${log_folder}/download_log_${key_name}.txt"
+file_name_date=$(date +"%Y%m%d_%H%M")
+log_file="${log_folder}/download_log_${key_name}-${file_name_date}.txt"
 stats_file="${stats_folder}/download_stats_${key_name}.csv"
-trg_s3_uri="${s3_target_root}/$key_name"
+if [ "$upload_to_trg_s3" = "True" ]; then
+    trg_s3_uri="${s3_target_root}/$key_name"
+fi
 
 # Does folder exist? create it if not
 mkdir -p $local_trg
@@ -224,11 +231,15 @@ Setup_logging $log_file
 #     exit 0
 # fi
 
-# Start or remove stats file
+# Start or remove stats file, yes, there might be dup entries depending on re-sync
 if [ ! -f $stats_file ]; then
     touch $stats_file
-else
-    rm -f $stats_file
+    stats_header="model_collection_name,source,huc,num_features,download_size_in_mib,"
+    stats_header+="download_s3_dur_in_mins_perc,upload_s3_dur_in_mins_perc,total_duration,date_downloaded"
+    echo "$stats_header" >> ${stats_file}
+
+# else
+#     rm -f $stats_file
 fi
 
 # extract the huc from the source type
@@ -239,32 +250,31 @@ IFS='_' read -r -a fc_name_split <<< $key_name
 collection_source="${fc_name_split[0]}"
 huc="${fc_name_split[1]}"
 
-l_echo "++++++++++++++++++++" $log_file
+# l_echo "++++++++++++++++++++" $log_file
 msg="${key_name}: Processing started"
 l_echo "$msg" "$log_file"
-msg="${key_name}: From ${src_s3_uri} to ${local_trg} to ${trg_s3_uri}"
-l_echo "$msg" "$log_file"
-msg="${key_name}: For HUC $huc, source $collection_source"
-l_echo "$msg" "$log_file"
-msg="Stats file:  $stats_file"
-l_echo "$msg" "$log_file"
-echo "Log file written to ${log_file}"
+# msg="${key_name}: From ${src_s3_uri} to ${local_trg} to ${trg_s3_uri}"
+# l_echo "$msg" "$log_file"
+# msg="${key_name}: For HUC $huc, source $collection_source"
+# l_echo "$msg" "$log_file"
+# msg="Stats file:  $stats_file"
+# l_echo "$msg" "$log_file"
+# echo "Log file written to ${log_file}"
 
 overall_t_start=`date +%s`
 
 # ==============================
 # Download from S3
 # l_echo "---------------------" "$log_file"
-l_echo "${key_name}: Starting S3 download" "$log_file"
-echo "Stand by... the s3 command is in quiet mode and may take a while (7 to 30 mins depending on size)"
+# l_echo "${key_name}: Starting S3 download" "$log_file"
 t_start=`date +%s`
 # sleep 20
 cli_args="--exclude '*' --include 'library_extent/*' --include 'qc/*' --include '*.xlsx'"
-cli_args="${cli_args} --include 'ripple.gpkg' --include 'start_reaches.csv' --quiet"
-cmd_str="aws s3 cp --recursive ${src_s3_uri}/ ${local_trg}/ $cli_args --profile $src_aws_profile_name"
-# echo "$cmd_str"
+cli_args+=" --include 'ripple.gpkg' --include 'start_reaches.csv'"
+cli_args+=" --include 'source_models/*' --include 'submodels/*' --quiet"
+cmd_str="aws s3 sync ${src_s3_uri}/ ${local_trg}/ $cli_args --profile $src_aws_profile_name"
+echo "$cmd_str" >> ${log_file}
 eval "$cmd_str"
-
 
 download_dur="$(calc_Duration $t_start)"
 msg="${key_name}: s3 download complete: duration (in percent minutes) = $download_dur"
@@ -276,7 +286,7 @@ l_echo "${key_name}: Starting calc stats" "$log_file"
 # t_start=`date +%s`
 disk_usage="$(du -shm $local_trg | cut -f1)"
 msg="Folder Size in MiB = $disk_usage"
-# echo "$msg"
+echo "$msg"
 
 # find ${local_trg}/library_extent/ -mindepth 1 -maxdepth 1 -type d | wc -l | xargs echo "Total folders: "
 extent_folder="${local_trg}/library_extent/"
@@ -298,32 +308,30 @@ l_echo "$msg" "$log_file"
 msg="${key_name}: Calc stats complete:"
 l_echo "$msg" "$log_file"
 
-
 # ==============================
 # Upload to Target S3
 
 # TEMP: hold on trying to reload to our S3 as we have perms issues using the same term
 # window to download from RTX, then upload to our S3.  It does not like having one
 # terminal window usign two accounts at one time. I am going to use my temp aws creds
-l_echo "${key_name}: Starting S3 Upload" "$log_file"
-echo "Stand by... the s3 command is in quiet mode and may take a while (7 to 30 mins depending on size)"
 
-t_start=`date +%s`
-cmd_str="aws s3 sync ${local_trg}/ ${trg_s3_uri}/ --quiet --profile $trg_aws_profile_name"
-# echo "$cmd_str"
-eval "$cmd_str"
+if [ "$upload_to_trg_s3" = "True" ]; then
+    l_echo "${key_name}: Starting S3 Upload" "$log_file"
+    echo "Stand by... the s3 command is in quiet mode and may take a while (7 to 30 mins depending on size)"
 
-upload_dur="$(calc_Duration $t_start)"
-msg="${key_name}: upload to s3 complete: duration (in percent minutes) = $upload_dur"
-l_echo "$msg" "$log_file"
+    t_start=`date +%s`
+    cmd_str="aws s3 sync ${local_trg}/ ${trg_s3_uri}/ --quiet --profile $trg_aws_profile_name"
+    # echo "$cmd_str"
+    eval "$cmd_str"
 
+    upload_dur="$(calc_Duration $t_start)"
+    msg="${key_name}: upload to s3 complete: duration (in percent minutes) = $upload_dur"
+    l_echo "$msg" "$log_file"
+fi
 
 # ==============================
 # Now build up the stats line for the log
 # This one is a simple csv
-stats_header="model_collection_name,source,huc,num_features,download_size_in_mib,"
-stats_header+="download_s3_dur_in_mins_perc,upload_s3_dur_in_mins_perc,total_duration,date_downloaded"
-echo "$stats_header" >> ${stats_file}
 
 download_date=$(date +"%Y%m%d_%H%M")
 total_dur="$(calc_Duration $overall_t_start)"
@@ -333,13 +341,13 @@ stats+="$download_dur,$upload_dur,$total_dur,$download_date"
 # echo $stats
 echo "$stats" >> ${stats_file}
 
-
 # ==============================
 msg="${key_name}: Processing complete: Duration (in percent minutes) = $total_dur mins"
 l_echo "$msg" "$log_file"
 
 # ==============================
-echo "${key_name}: Removing local temp folders"
-rm -rdf $local_trg
-echo "+++++++++++++++++++"
-
+if [ "$upload_to_trg_s3" = "True" ]; then
+    echo "${key_name}: Removing local temp folders"
+    rm -rdf $local_trg
+fi
+# echo "+++++++++++++++++++"

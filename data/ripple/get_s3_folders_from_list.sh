@@ -73,7 +73,7 @@
 
 #   - One HUC may have more than one MC folder. A MC folder is a source plus a HUC. ie) mip_12090301
 #     and/or ble_12090301. A small amount of HUCs have both ble and mip for FIM_100.
-#   - 
+# 
 #
 # Overall Metrics:
 #     I will make a jupyter tool that can find and concat all MC stats file.
@@ -102,12 +102,12 @@ usage_msg()
   
     Sample Usage:  ./get_s3_folders_from_list.sh
                 -src 's3://(somebucket)/ripple/fim_100_domain/collections'
+                -sap 'rtx-profile-name'                
                 -list 'mip_03170004' (or a file with a list of MC names. See notes below)
                 -lt '/home/your/output/ripple/fim_30'
-                -st 's3://(somebucket)/fim/ripple_100/collections'
                 -c '/efs.../ripple/fim_100_prod_data/download_stats'
                 -log '/efs.../ripple/fim_100_prod_data/download_logs                
-                -sap 'rtx-profile-name'
+                -st 's3://(somebucket)/fim/ripple_100/collections'
                 -tap 'ti-temp'
                 -j 10
 
@@ -129,17 +129,15 @@ usage_msg()
       -src/--s3_source_path    : Source Full s3 bucket and common prefix.
                                  Parent folder where all child key folders live
                                    ie) s3://(somebucket)/ripple/30_pcnt_domain/collections
+      -sap/--src_aws_profile_name: Name of the cli aws profile name for the src download.                                   
       -lt/--temp_trg_path      : Root local folder path for downloads.
                                    ie) /home/some-user/temp_ripple_downloads
-      -st/--s3_target_root     : s3://(some bucket)/fim/ripple_100/collections/
       -c/--stats_folder        : For each collection folder (key_name) downloaded, a unique stats file
                                  will be created with meta data about the download.
                                  This saves a header line of:
                                  (folder_name, download_size, num_models, date_downloaded)
                                  The file name pattern will be download_stats_{key_name}.csv
       -log/--log_folder        : Location where the log files for stored                                 
-      -sap/--src_aws_profile_name: Name of the cli aws profile name for the src download.
-      -tap/--trg_aws_profile_name: Name of the cli aws profile name for the target upload.
       -j/--num_jobs            : This can process multiple MC's at one. Enter the number of 
                                  concurrent processes you want. Default is 1.
 
@@ -156,6 +154,8 @@ usage_msg()
                                  The list of keys will be the subfolder at just the one level below
                                  the s3_source_path.
                                    ie) s3://(somebucket)/ripple/30_pcnt_domain/collections/mip_03170004
+      -st/--s3_target_root      : Optional: s3://(some bucket)/fim/ripple_100/collections/
+      -tap/--trg_aws_profile_name: Optional: Name of the cli aws profile name for the target upload.                                      
 
     OPTIONS:
       -h/--help                 : Print usage statement.
@@ -171,6 +171,10 @@ while [ "$1" != "" ]; do
         shift
         s3_source_path=$1
         ;;
+    -sap|--src_aws_profile_name)
+        shift
+        src_aws_profile_name=$1
+        ;;
     -list|--list_of_keys)
         shift
         list_of_keys=$1
@@ -178,10 +182,6 @@ while [ "$1" != "" ]; do
     -lt|--temp_trg_path)
         shift
         temp_trg_path=$1
-        ;;
-    -st|--s3_target_root)
-        shift
-        s3_target_root=$1
         ;;
     -c|--stats_folder)
         shift
@@ -191,9 +191,9 @@ while [ "$1" != "" ]; do
         shift
         log_folder=$1
         ;;        
-    -sap|--src_aws_profile_name)
+    -st|--s3_target_root)
         shift
-        src_aws_profile_name=$1
+        s3_target_root=$1
         ;;
     -tap|--trg_aws_profile_name)
         shift
@@ -213,12 +213,22 @@ while [ "$1" != "" ]; do
     shift
 done
 
+echo
+echo "======================= Start of loading model collection folders ========================="
+echo "---- Started: `date -u`"
+echo "............................................"
 
 # ==========================================================
 # VALIDATION
 # print usage if arguments empty
 if [ "$s3_source_path" = "" ]; then
     echo "ERROR: Missing -src (s3 source path)"
+    usage_msg
+    exit 22
+fi
+
+if [ "$src_aws_profile_name" = "" ]; then
+    echo "ERROR: Missing -sap (source aws profile name)"
     usage_msg
     exit 22
 fi
@@ -235,26 +245,8 @@ if [ "$temp_trg_path" = "" ]; then
     exit 22
 fi
 
-if [ "$s3_target_root" = "" ]; then
-    echo "ERROR: Missing -st (S3 target path)"
-    usage_msg
-    exit 22
-fi
-
 if [ "$stats_folder" = "" ]; then
     echo "ERROR: Missing -c (stats folder path name)"
-    usage_msg
-    exit 22
-fi
-
-if [ "$src_aws_profile_name" = "" ]; then
-    echo "ERROR: Missing -sap (source aws profile name)"
-    usage_msg
-    exit 22
-fi
-
-if [ "$trg_aws_profile_name" = "" ]; then
-    echo "ERROR: Missing -tap (target aws profile name)"
     usage_msg
     exit 22
 fi
@@ -265,6 +257,21 @@ if [ "$log_folder" = "" ]; then
     exit 22
 fi
 
+upload_to_trg_s3="True"
+if [ "$s3_target_root" = "" ]; then
+#     echo "ERROR: Missing -st (S3 target path)"
+#     usage_msg
+#     exit 22
+    upload_to_trg_s3="False"
+fi
+
+if [ "$trg_aws_profile_name" = "" ]; then
+#     echo "ERROR: Missing -tap (target aws profile name)"
+#     usage_msg
+#     exit 22
+    upload_to_trg_s3="False"
+fi
+
 # TODO: Lots more validation such as extensions, valid s3 paths, etc
 
 # ===========================================
@@ -272,7 +279,7 @@ fi
 # I don't want to use parallization at this point as even with just one aws sync running
 # it hits the network near max. aws sync has it own form of paralliation in it via chunking
 
-# echo "++ $list_of_keys ++"
+echo "++ $list_of_keys ++"
 # First. let's see if it is file path or string with spaces.
 if [ ! -e "$list_of_keys" ]
 then
@@ -292,9 +299,11 @@ if [ "$num_jobs" = "" ]; then num_jobs=1; fi
 source ./ripple_shared_tools.sh
 
 # Clean out the temp dir before starting
-mkdir -p $temp_trg_path
-rm -rdf $temp_trg_path/*  # remove contents if any
-# mkdir -p $temp_trg_path
+if [ "$upload_to_trg_s3" = "True" ] ; then
+    # mkdir -p $temp_trg_path
+    rm -rdf $temp_trg_path/*  # remove contents if any
+    # mkdir -p $temp_trg_path
+fi
 
 # ===========================================
 # setup error and warning log folders
@@ -304,10 +313,6 @@ mkdir -p $error_folder_name
 
 # ===========================================
 t_overall_list_start=`date +%s`
-echo
-echo "======================= Start of loading model collection folders ========================="
-echo "---- Started: `date -u`"
-echo "............................................"
 
 run_script_with_args() {
     local input_cur_key="$1"
@@ -321,9 +326,16 @@ run_script_with_args() {
     # this happens the list being loaded might have extra blank lines
     if [ "$cur_key" != "" ]; then
         cmd=" -src $s3_source_path -n $cur_key -lt $temp_trg_path"
-        cmd+=" -st $s3_target_root -c $stats_folder -log $log_folder"
-        cmd+=" -sap $src_aws_profile_name -tap $trg_aws_profile_name"
-        # echo "$cmd"
+        cmd+=" -c $stats_folder -log $log_folder"
+        cmd+=" -sap $src_aws_profile_name"
+        if [ "$upload_to_trg_s3" = "True" ]; then
+            cmd+=" -tap $trg_aws_profile_name"
+            cmd+=" -st $s3_target_root"
+        else
+            echo "-- Target S3 arguments not provided, skipping upload"
+        fi
+
+        echo "$cmd"
         bash get_s3_folder.sh $cmd
         sleep 1
     fi
@@ -332,14 +344,22 @@ run_script_with_args() {
 # so the parallel can see the args
 export -f run_script_with_args
 export s3_source_path=$s3_source_path
+export src_aws_profile_name=$src_aws_profile_name
 export temp_trg_path=$temp_trg_path
-export s3_target_root=$s3_target_root
 export stats_folder=$stats_folder
 export log_folder=$log_folder
-export src_aws_profile_name=$src_aws_profile_name
+
+# Send these anyways even though they might be empty
+export s3_target_root=$s3_target_root
 export trg_aws_profile_name=$trg_aws_profile_name
 
-parallel -j $num_jobs run_script_with_args ::: "${arr_key_names[@]}"
+echo "............................................"
+echo "---- Starting: `date -u`"
+
+echo "Starting iterator"
+echo "Stand by... All s3 command is in quiet mode and may take a while (5 to 60 mins depending on size)"
+
+parallel -u -j $num_jobs run_script_with_args ::: "${arr_key_names[@]}"
 
 echo
 echo "............................................"
@@ -357,4 +377,3 @@ warning_file_path="$error_folder_name/warnings_${file_name_date}.log"
 find $log_folder -maxdepth 1 -type f -exec grep -iHn "warning" {} +  > $warning_file_path &
 
 echo "======================= End of loading model collection folders ========================="
-echo
