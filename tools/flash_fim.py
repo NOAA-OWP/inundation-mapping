@@ -10,6 +10,10 @@ from rasterstats import zonal_stats
 
 
 def smooth_level_path(lp_order_flows):
+    """
+    This function removes extreme outlier flow values by interpolating any value that is less then 5%
+    of the median flow value within the range of three reaches upstream and downstream.
+    """
 
     lp_order_flows = lp_order_flows.sort_values(by="hydroseq")
     # Select any id that the minimum value is less than 5% of the median of three upstream to three downstream
@@ -26,6 +30,12 @@ def smooth_level_path(lp_order_flows):
 
 
 def low_order_confluence_check(lp_order_group):
+    """
+    This function checks the reaches upstream of a confluence for mis-assignment of the higher order
+    downstream flow to the lower order confluence. If the 4 reaches upstream of a confluence have flow
+    values 90% or greater than the downstream value they are reassigned to the next highest flow pixels.
+    """
+
     if len(lp_order_group) > 0:
         lp_order_group = lp_order_group.sort_values(by="hydroseq", ascending=False)
         pre_confluence_flows = lp_order_group.iloc[-4:, :]
@@ -45,9 +55,10 @@ def low_order_confluence_check(lp_order_group):
 
 def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
     """
-    This function conflates the flow predicted by FLASH outputs to the Reference Hydrofabric version 2.2 to enable the
-    generation of FIM for each forecast.
+    This function conflates the flow predicted by a FLASH model to hydrofabric flow paths and exports a flow file
+    for use in FIM generation.
     """
+
     if timestep == "latest":
         url = f"https://mrms.ncep.noaa.gov/2D/FLASH/{model}_MAXSTREAMFLOW/MRMS_FLASH_{model}_MAXSTREAMFLOW.latest.grib2.gz"
     else:
@@ -159,10 +170,28 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
 
 
 def conflate_all_models(hucs, output, timestep, min_order):
+    """
+    Function for conflating the FLASH output flow values to the Hydrofabric reference flowlines to obtain a flow file
+    for each model (CREST, SAC-SMA, and Hydrophobic) to use to generate HAND FIM. This Function requires a list of hucs
+    to run and a path to export flow files for each of the three models.
+
+    Args:
+
+        hucs (str): HUCs to extract FLASH flow for.
+        output (str): Path and base name to output flow files. Ex. "/user/Documents/flow_file.csv"
+        timestep (str): Timestep to pull data from. Pulls either "latest" or archived data using a specific timestep
+                        with the format YYYYMMDD-HHMMSS. Ex. 20250704-083000
+        min_order (str): Minimum stream order to use in conflating flow.
+
+    Example Usage:
+    python /foss_fim/tools/flash_fim.py -u 12100201 12090201 -o /user/Documents/latest_flow.csv -t 20250704-083000 -m 3
+
+    """
+
     huc8 = gpd.read_file("/data/inputs/wbd/WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg", engine="pyogrio")
     huc8 = huc8.loc[huc8["HUC8"].astype(str).isin(hucs)]
     huc_flows = gpd.read_file(
-        "/rdp-user/Documents/hydrofabric/conus_reference.gpkg",
+        "/home/riley.mcdermott/conus_reference_v2.2.gpkg",  # "/data/inputs/reference_hydrofabric/conus_reference_v2.2.gpkg",
         layer="flowpaths",
         mask=huc8.geometry,
         engine="pyogrio",
@@ -188,13 +217,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t",
         "--timestep",
-        help="Timestep to pull FLASH data for in UTC time. Defaults to latest. Ex. 20250704-080000 or YYYYMMDD-HHMMSS",
+        help="Timestep to pull FLASH data for in 10 minute intervals and UTC time. Defaults to latest. Ex. 20250704-083000 or YYYYMMDD-HHMMSS",
         required=False,
         default="latest",
         type=str,
     )
     parser.add_argument(
-        '-m', '--min-order', help='Minimum size streamorder to consider.', required=False, type=int, default=2
+        '-m',
+        '--min-order',
+        help='Minimum size streamorder to consider when conflating flow. Defaults to 2.',
+        required=False,
+        type=int,
+        default=2,
     )
 
     start = timer()
