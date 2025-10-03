@@ -1,2 +1,0 @@
-*.env
-!/deploy/deploy_params_template.env
