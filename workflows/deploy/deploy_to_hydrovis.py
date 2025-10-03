@@ -436,7 +436,7 @@ if __name__ == '__main__':
          - cffc (CatFIM Flow Based Compare files)
          - cfsb (CatFIM Stage Based)
          - cfsc (CatFIM Stage Based Compare files)
-         - rcc  (Rating Curve Comparion Metrics (Sierra Tests))
+         - rcc  (Rating Curve Comparison Metrics (Sierra Tests))
          - urc  (USGS Rating Curve)
 
     This can handle multiple types of uploads to HV. The actual pathing is in the .env
