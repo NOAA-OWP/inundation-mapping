@@ -161,6 +161,13 @@ def process_branch(branch_path, branch_id, log_dir, huc_id):
     logger.info(f"[Branch {branch_id}] Starting processing")
     print(f"[Branch {branch_id}] Starting processing")
 
+    htable_dtypes = {
+        'SLOPE': 'float32',
+        'channel_n': 'float16',
+        'overbank_n': 'float16',
+        'discharge_cms': 'float32',
+    }
+
     with timed_step(f"[Branch {branch_id}] Reading input files", logger):
         elevation_raster_path = os.path.join(branch_path, f'rem_zeroed_masked_{branch_id}.tif')
         catchment_raster_path = os.path.join(
@@ -180,7 +187,7 @@ def process_branch(branch_path, branch_id, log_dir, huc_id):
             logger.warning(f"[Branch {branch_id}] Skipping due to missing files.")
             return
 
-        htable_df = pd.read_csv(htable_path)
+        htable_df = pd.read_csv(htable_path, dtype=htable_dtypes)
 
     with timed_step(f"[Branch {branch_id}] Reading and preprocessing rasters", logger):
         with rasterio.open(elevation_raster_path) as elev_src, rasterio.open(
@@ -250,6 +257,7 @@ def process_branch(branch_path, branch_id, log_dir, huc_id):
                 'HydroID',
                 'HydroID_join',
                 'feature_id',
+                'order_',
                 'SLOPE',
                 'HUC',
                 'Bathymetry_source',
