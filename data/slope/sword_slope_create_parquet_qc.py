@@ -9,8 +9,7 @@ import geopandas as gpd
 River Network Slope QA/QC and Gap-Filling Script
 ------------------------------------------------
 This script processes river segment slope data to identify and correct unrealistic values
-based on user-defined thresholds. It is designed to check agains the NWM hydrofab to check that
-each segment has a slope and upstream/downstream connectivity defined by `id` and `toid` attributes.
+based on user-defined thresholds. It is designed to check against the NWM hydrofab to and fill/extrapolate missing or invalid slope values using valid upstream/downstream values.
 
 Key Workflow:
 1. Read an input CSV containing slope data (with `id`, `toid`, and `slope_iris_sword` columns).
