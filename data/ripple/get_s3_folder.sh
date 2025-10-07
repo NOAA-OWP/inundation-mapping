@@ -1,5 +1,10 @@
 #!/bin/bash -e
 
+# ### DO NOT RUN IN A DOCKER CONTAINER AND do not run this script without
+# going through get_s3_folder_from_list.sh
+
+# PS.. bash get_s3_folders_from_list.sh" instead of   ./get_s3_folder.sh  (dot)
+ 
 # *** MC means Ripple Model Collection (a folder for inside the Ripple root data dirs) ***
 
 # Note: This is pretty rough with a lot of hardcoding
@@ -55,23 +60,26 @@ usage_msg()
 {
     echo "This tool downloads just one folder path from the source S3, calcs some stats
     then pushes it back up to a target s3. If you do not want to re-upload to a target s3,
-    leave those arguments off.
+    leave those arguments off. Do not use this directly as it relys on variables
+    from get_s3_folders_from_list.sh
+    
+    ### DO NOT RUN IN A DOCKER CONTAINER
 
     Sample Usage: 
-         ./get_s3_folder.sh
+         basj get_s3_folder.sh
             -src 's3://(somebucket)/ripple/fim_100_domain/collections'
             -sap 'rtx-profile-name'            
             -n 'mip_03170004'
-            -lt '/home/your/output/ripple/fim_30'
-            -c '/efs.../ripple/fim_100_prod_data/download_stats'
+            -ltrg '/home/your/output/ripple/fim_30'
+            -stats '/efs.../ripple/fim_100_prod_data/download_stats'
             -log '/efs.../ripple/fim_100_prod_data/download_logs'
-            -st 's3://(somebucket)/fim/ripple_100/collections'            
+            -targ 's3://(somebucket)/fim/ripple_100/collections'
             -tap 'ti-temp'
-
-            # NOTE: for now.. Leave off all starting and trailing slashes.
- 
+             
             Also.. pathing does not like tilde's in them. 
                ie) ~/temp won't work but /home/some-user/temp will
+
+    CRITICAL NOTE: For now, leave all slashs off the end of paths
 
     REQUIRED:
       -src/--s3_source_path    : Source Full s3 bucket and common prefix.
@@ -81,15 +89,15 @@ usage_msg()
       -n/--key_name            : Folder name (key) to be downloaded.
                                    ie) mip_03170004
                                    from s3://(somebucket)/ripple/30_pcnt_domain/collections/mip_03170004
-      -lt/--temp_trg_path      : Root local folder path for downloads.
+      -ltrg/--local_trg_path   : Root local folder path for downloads.
                                    ie) /home/some-user/temp_ripple_downloads
-      -c/--stats_folder        : For each collection folder (key_name) downloaded, a unique stats file
+      -stats/--stats_folder    : For each collection folder (key_name) downloaded, a unique stats file
                                  will be created with meta data about the download.
                                  This saves a header line of:
                                  (folder_name, download_size, num_models, date_downloaded)
                                  The file name pattern will be download_stats_{key_name}.csv
        -log/--log_folder        : Location where the log files for stored                                 
-       -st/--s3_target_root     : Optional: s3://(some bucket)/fim/ripple_100/collections/
+       -targ/--s3_target_root     : Optional: s3://(some bucket)/fim/ripple_100/collections
        -tap/--trg_aws_profile_name: Optional: Name of the cli aws profile name for the target upload.
 
     OPTIONS:
@@ -114,11 +122,11 @@ while [ "$1" != "" ]; do
         shift
         key_name=$1
         ;;
-    -lt|--temp_trg_path)
+    -ltrg|--local_trg_path)
         shift
-        temp_trg_path=$1
+        local_trg_path=$1
         ;;
-    -c|--stats_folder)
+    -stats|--stats_folder)
         shift
         stats_folder=$1
         ;;
@@ -126,7 +134,7 @@ while [ "$1" != "" ]; do
         shift
         log_folder=$1
         ;;
-    -st|--s3_target_root)
+    -targ|--s3_target_root)
         shift
         s3_target_root=$1
         ;;
@@ -143,7 +151,6 @@ while [ "$1" != "" ]; do
     esac
     shift
 done
-
 
 # ==========================================================
 # VALIDATION
@@ -166,14 +173,14 @@ if [ "$key_name" = "" ]; then
     exit 22
 fi
 
-if [ "$temp_trg_path" = "" ]; then
-    echo "ERROR: Missing -lt (local temp target path)"
+if [ "$local_trg_path" = "" ]; then
+    echo "ERROR: Missing -ltrg (local temp target path)"
     usage_msg
     exit 22
 fi
 
 if [ "$stats_folder" = "" ]; then
-    echo "ERROR: Missing -c (stats folder path name)"
+    echo "ERROR: Missing -stats (stats folder path name)"
     usage_msg
     exit 22
 fi
@@ -184,52 +191,58 @@ if [ "$log_folder" = "" ]; then
     exit 22
 fi
 
-upload_to_trg_s3="True"
+upload_to_trg_s3="true"
 if [ "$s3_target_root" = "" ]; then
-#     echo "ERROR: Missing -st (S3 target path)"
+#     echo "ERROR: Missing -targ (S3 target path)"
 #     usage_msg
 #     exit 22
-    upload_to_trg_s3="False"
+    upload_to_trg_s3="false"
 fi
 
 if [ "$trg_aws_profile_name" = "" ]; then
 #     echo "ERROR: Missing -tap (target aws profile name)"
 #     usage_msg
 #     exit 22
-    upload_to_trg_s3="False"
+    upload_to_trg_s3="false"
 fi
 
 # trim spaces of the end if any
-key_name="${key_name%%*([[:space:]])}"    
+key_name="${key_name%%*([[:space:]])}"
+# take off last slash if there is one.
+key_name="${key_name%/}"
 
 # TODO: Lots more validation such as extensions, valid s3 paths, etc
 
+# take off last slash if there is one.
+src_s3_uri="${src_s3_uri%/}"
+local_trg_path="${local_trg_path%/}"
+stats_folder="${stats_folder%/}"
+log_folder="${log_folder%/}"
+s3_target_root="${s3_target_root%/}"
+
 source ./ripple_shared_tools.sh
 
-# ==========================================================
-# function to calc duration  (really doesn't need to keep being reloaded and should be a sep file)
-
-src_s3_uri="$s3_source_path/$key_name"
-local_trg="$temp_trg_path/$key_name"
+src_s3_uri="$s3_source_path/${key_name}"
+local_trg="$local_trg_path/${key_name}"
 file_name_date=$(date +"%Y%m%d_%H%M")
-log_file="${log_folder}/download_log_${key_name}-${file_name_date}.txt"
-stats_file="${stats_folder}/download_stats_${key_name}.csv"
-if [ "$upload_to_trg_s3" = "True" ]; then
+stat_file_name_date=$(date +"%Y%m%d")
+log_file="${log_folder}/download_log_${key_name}_${file_name_date}.txt"
+stats_file="${stats_folder}/download_stats_${stat_file_name_date}.csv"
+if [[ "${upload_to_trg_s3}" == "true" ]]; then
     trg_s3_uri="${s3_target_root}/$key_name"
 fi
+
+# add a random timer for 1 to 20 seconds to help with multi proc
+MIN=1
+MAX=20
+# The range of numbers is MAX-MIN+1, so we need to add 1 to get the correct range
+sleep $((MIN + RANDOM % (MAX - MIN + 1)))
 
 # Does folder exist? create it if not
 mkdir -p $local_trg
 mkdir -p $log_folder
 mkdir -p $stats_folder
 Setup_logging $log_file
-
-# test keyname is a valid
-# extract first (TODO later)
-# if [[ ${#key_name} -ne 12 ]]; then
-#     l_echo "*** WARNING: ${key_name} is expected to be 12 chars in length.\n Skipping download"
-#     exit 0
-# fi
 
 # Start or remove stats file, yes, there might be dup entries depending on re-sync
 if [ ! -f $stats_file ]; then
@@ -264,24 +277,31 @@ l_echo "$msg" "$log_file"
 overall_t_start=`date +%s`
 
 # ==============================
-# Download from S3
+# #### Download from S3
+
 # l_echo "---------------------" "$log_file"
 # l_echo "${key_name}: Starting S3 download" "$log_file"
 t_start=`date +%s`
 # sleep 20
 cli_args="--exclude '*' --include 'library_extent/*' --include 'qc/*' --include '*.xlsx'"
 cli_args+=" --include 'ripple.gpkg' --include 'start_reaches.csv'"
-cli_args+=" --include 'source_models/*' --include 'submodels/*' --quiet"
+cli_args+=" --include 'source_models/*' --include 'submodels/*'"
+cli_args+=" --quiet"
 cmd_str="aws s3 sync ${src_s3_uri}/ ${local_trg}/ $cli_args --profile $src_aws_profile_name"
+# echo "$cmd_str"
 echo "$cmd_str" >> ${log_file}
-eval "$cmd_str"
+eval $cmd_str
+
+# ==============================
+# #### Calc duration
 
 download_dur="$(calc_Duration $t_start)"
 msg="${key_name}: s3 download complete: duration (in percent minutes) = $download_dur"
 l_echo "$msg" "$log_file"
 
 # ==============================
-# Calc disk usage, number of features (folder count) and make stats csv
+# ### Calc disk usage, number of features (folder count) and make stats csv
+
 l_echo "${key_name}: Starting calc stats" "$log_file"
 # t_start=`date +%s`
 disk_usage="$(du -shm $local_trg | cut -f1)"
@@ -315,14 +335,16 @@ l_echo "$msg" "$log_file"
 # window to download from RTX, then upload to our S3.  It does not like having one
 # terminal window usign two accounts at one time. I am going to use my temp aws creds
 
-if [ "$upload_to_trg_s3" = "True" ]; then
+if [[ "${upload_to_trg_s3}" == "true" ]]; then
     l_echo "${key_name}: Starting S3 Upload" "$log_file"
     echo "Stand by... the s3 command is in quiet mode and may take a while (7 to 30 mins depending on size)"
 
     t_start=`date +%s`
     cmd_str="aws s3 sync ${local_trg}/ ${trg_s3_uri}/ --quiet --profile $trg_aws_profile_name"
+    # cmd_str="aws s3 sync ${local_trg}/ ${trg_s3_uri}/ --profile $trg_aws_profile_name"    
     # echo "$cmd_str"
-    eval "$cmd_str"
+    echo "$cmd_str" >> ${log_file}
+    eval $cmd_str
 
     upload_dur="$(calc_Duration $t_start)"
     msg="${key_name}: upload to s3 complete: duration (in percent minutes) = $upload_dur"
@@ -346,8 +368,8 @@ msg="${key_name}: Processing complete: Duration (in percent minutes) = $total_du
 l_echo "$msg" "$log_file"
 
 # ==============================
-if [ "$upload_to_trg_s3" = "True" ]; then
+if [[ "${upload_to_trg_s3}" == "true" ]]; then
     echo "${key_name}: Removing local temp folders"
     rm -rdf $local_trg
 fi
-# echo "+++++++++++++++++++"
+echo "+++++++++++++++++++"
