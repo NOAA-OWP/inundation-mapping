@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import csv
+import glob
 import pathlib
 import traceback
 from pathlib import Path
@@ -1177,9 +1178,9 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
     # Get list of all LIDs and their corresponding HUC from the metadata.pkl file
     with open(metadata_pkl_file, 'rb') as f:
         metadata = pickle.load(f)
-
-    print('Start threshold downloads.')
     
+    print('Assembling HUC/LID list from metadata file.')
+
     lid_list = []
     huc_lid_dict = {}
 
@@ -1195,11 +1196,11 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
         lid_list.append(lid_i)
         huc_lid_dict[lid_i] = huc_i
 
-    print('HUC/LID list assembled.')
+    print('Start threshold downloads.')
+    print(f'Total sites to download: {len(lid_list)}')
 
     # Iterate through LIDs in huc_lid_dict and get thresholds from the WRDS API
     for lid, huc in huc_lid_dict.items():
-
         try:
             stages, flows, status = get_thresholds(
                     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
@@ -1223,10 +1224,9 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
             writer.writeheader()
             writer.writerows(thresholds)
 
-    output_pickle_path = os.path.join(thresholds_folder, 'all_thresholds.pkl')
-
     print('Saved threshold CSVs for sites.')
 
+    output_pickle_path = os.path.join(thresholds_folder, 'all_thresholds.pkl')
     
     # Get all threshold CSVs
     csv_files = glob.glob(os.path.join(thresholds_folder, "*.csv"))
@@ -1237,7 +1237,6 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
         df = pd.read_csv(file)
         all_dataframes.append(df)
         os.remove(file)  # Remove individual CSV after reading
-
 
     thresholds_df = pd.concat(all_dataframes, ignore_index=True)
 
