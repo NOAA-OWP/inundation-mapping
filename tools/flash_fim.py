@@ -44,11 +44,13 @@ def low_order_confluence_check(lp_order_group):
         pre_confluence_flows = pre_confluence_flows.assign(
             threshold=pre_confluence_flows["discharge"] / confluence_q > 0.9
         )
-        pre_confluence_ids = pre_confluence_flows.loc[pre_confluence_flows["threshold"] == True]["id"]
-        lp_order_group.loc[lp_order_group["id"].isin(pre_confluence_ids), "fixed_q"] = -9999
-        lp_order_group.loc[~lp_order_group["id"].isin(pre_confluence_ids), "fixed_q"] = lp_order_group[
-            "discharge"
+        pre_confluence_ids = pre_confluence_flows.loc[pre_confluence_flows["threshold"] == True][
+            "flowpath_id"
         ]
+        lp_order_group.loc[lp_order_group["flowpath_id"].isin(pre_confluence_ids), "fixed_q"] = -9999
+        lp_order_group.loc[~lp_order_group["flowpath_id"].isin(pre_confluence_ids), "fixed_q"] = (
+            lp_order_group["discharge"]
+        )
 
     return lp_order_group
 
@@ -70,9 +72,9 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
     flash_raster_url = f"/vsigzip//vsicurl/{url}"
 
     # Buffer stream lines
-    huc_flows = huc_flows.loc[huc_flows["streamorde"] >= min_order]
+    huc_flows = huc_flows.loc[huc_flows["streamorder"] >= min_order]
     huc_flows_buffer = huc_flows.assign(geometry=huc_flows.buffer(500, cap_style="square"))[
-        ["id", "toid", "lengthkm", "streamorde", "mainstemlp", "hydroseq", "geometry"]
+        ["flowpath_id", "flowpath_toid", "lengthkm", "streamorder", "mainstemlp", "hydroseq", "geometry"]
     ]
 
     # Calculate zonal stats for each order of magnitude
@@ -98,8 +100,10 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
                 geojson_out=True,
             )
 
-            rsb_df = gpd.GeoDataFrame.from_features(raster_stats_buf)[["id", "mean", "count"]].astype(float)
-            huc_flows_rs = pd.merge(huc_flows_rs, rsb_df, on="id", suffixes=("", f"_{r_min}"))
+            rsb_df = gpd.GeoDataFrame.from_features(raster_stats_buf)[
+                ["flowpath_id", "mean", "count"]
+            ].astype(float)
+            huc_flows_rs = pd.merge(huc_flows_rs, rsb_df, on="flowpath_id", suffixes=("", f"_{r_min}"))
     huc_flows_rs = huc_flows_rs.rename(columns={"mean": "mean_10000", "count": "count_10000"}).drop(
         columns="geometry"
     )
@@ -125,19 +129,19 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
     )
 
     # For high stream orders override to largest flow
-    huc_flows_rs.loc[huc_flows_rs["streamorde"] <= 2, "discharge"] = huc_flows_rs["max_pixels"]
-    huc_flows_rs.loc[huc_flows_rs["streamorde"] > 2, "discharge"] = huc_flows_rs["max_flow"]
+    huc_flows_rs.loc[huc_flows_rs["streamorder"] <= 2, "discharge"] = huc_flows_rs["max_pixels"]
+    huc_flows_rs.loc[huc_flows_rs["streamorder"] > 2, "discharge"] = huc_flows_rs["max_flow"]
 
     # Apply smoothing to get rid of outliers
-    huc_flows_out = huc_flows_rs.groupby(by=["mainstemlp", "streamorde"], group_keys=False).apply(
+    huc_flows_out = huc_flows_rs.groupby(by=["mainstemlp", "streamorder"], group_keys=False).apply(
         smooth_level_path
     )
 
     # Apply confluence check to fix misaligned flows - Set confluence errors to -9999
-    map_index = huc_flows_out.set_index('id')["discharge"]
-    huc_flows_out["to_q"] = huc_flows_out["toid"].map(map_index)
+    map_index = huc_flows_out.set_index("flowpath_id")["discharge"]
+    huc_flows_out["to_q"] = huc_flows_out["flowpath_toid"].map(map_index)
     huc_flows_conf = (
-        huc_flows_out.groupby(by=["mainstemlp", "streamorde"], group_keys=False)
+        huc_flows_out.groupby(by=["mainstemlp", "streamorder"], group_keys=False)
         .apply(low_order_confluence_check)
         .drop(columns=["to_q"])
     )
@@ -154,14 +158,14 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
 
     # huc_flows_conf = huc_flows_conf.sort_values(by = "hydroseq", ascending = False).reset_index()
     huc_flows_conf["final_q"] = (
-        huc_flows_conf.groupby(by=["mainstemlp", "streamorde"])["fixed_q"]
+        huc_flows_conf.groupby(by=["mainstemlp", "streamorder"])["fixed_q"]
         .rolling(5, min_periods=1, center=True, win_type="triang")
         .mean()
-        .reset_index(level=["mainstemlp", "streamorde"], drop=True)
+        .reset_index(level=["mainstemlp", "streamorder"], drop=True)
     )
 
-    export_flow = huc_flows_conf[["id", "final_q"]].rename(
-        columns={"id": "feature_id", "final_q": "discharge"}
+    export_flow = huc_flows_conf[["flowpath_id", "final_q"]].rename(
+        columns={"flowpath_id": "feature_id", "final_q": "discharge"}
     )
     export_flow["feature_id"] = export_flow["feature_id"].astype(int)
 
@@ -191,8 +195,7 @@ def conflate_all_models(hucs, output, timestep, min_order):
     huc8 = gpd.read_file("/data/inputs/wbd/WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg", engine="pyogrio")
     huc8 = huc8.loc[huc8["HUC8"].astype(str).isin(hucs)]
     huc_flows = gpd.read_file(
-        "/home/riley.mcdermott/conus_reference_v2.2.gpkg",  # "/data/inputs/reference_hydrofabric/conus_reference_v2.2.gpkg",
-        layer="flowpaths",
+        "/data/inputs/reference_hydrofabric/reference_fabric_v2_3_flowpaths.gpkg",
         mask=huc8.geometry,
         engine="pyogrio",
     )
