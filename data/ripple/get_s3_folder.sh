@@ -293,7 +293,7 @@ t_start=`date +%s`
 # sleep 20
 cli_args="--exclude '*' --include 'library_extent/*' --include 'qc/*' --include '*.xlsx'"
 cli_args+=" --include 'ripple.gpkg' --include 'start_reaches.csv'"
-cli_args+=" --include 'source_models/*' --include 'submodels/*'"
+# cli_args+=" --include 'source_models/*' --include 'submodels/*'"
 cli_args+=" --quiet"
 cmd_str="aws s3 sync ${src_s3_uri}/ ${local_trg}/ $cli_args --profile $src_aws_profile_name"
 # echo "$cmd_str"
