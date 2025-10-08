@@ -121,7 +121,7 @@ def filter_voi(voi_array):
     """
     minfilter = generic_filter(voi_array, low_percentile_ignore_zeros, size=4)
     # Values for Fim 6.0: sigma = 2; radius = 2; mathematically suggested raduis = 2-3 * sigma
-    gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=1.5, radius=2)  # 2  4
+    gfilter = scipy.ndimage.gaussian_filter1d(minfilter, sigma=2, radius=2)  # 1.5  2
     return gfilter
 
 
@@ -193,6 +193,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
         ]
         # Remove headwaters with lakeID
         headwaters = list(headwaters_rows[headwaters_rows['LakeID'] < 0]['HydroID'])
+        # TODO : What if lake hydroID is in the middle of a chain?
 
         # Build hydroid chain first
         hydroid_chain_mhws = []
@@ -215,6 +216,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
         # print(f'Hydroids_chain was created for branch: HUC {huc} Branch: {branch}')
 
         # Makes a logitudinal dataframes of variables of interests
+        # TODO: Recalculate the volume using surface area instead of filtering
         keys = [
             'SurfaceArea (m2)',
             'Volume (m3)',
@@ -346,9 +348,6 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             )
             cond_thalweg_rows = long_col > 0
             src_df.loc[cond_thalweg_rows, 'Longitudinal_adjustment_applied'] = True
-
-            volume_test = src_df2['Volume (m3)']
-            src_df['Volume_test'] = volume_test
 
             # # Check the nonmonotonic (reverse rating curve)
             # hydroid_chain_q_check = []
