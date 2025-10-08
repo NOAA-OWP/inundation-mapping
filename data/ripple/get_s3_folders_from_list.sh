@@ -107,7 +107,8 @@ usage_msg()
   
     ### DO NOT RUN IN A DOCKER CONTAINER
 
-    Sample Usage:  bash get_s3_folders_from_list.sh
+    Sample Usage:
+      bash get_s3_folders_from_list.sh     (yes.. .bash  and not just ./)
                 -src 's3://(somebucket)/ripple/fim_100_domain/collections'
                 -sap 'rtx-profile-name'                
                 -list 'mip_03170004' (or a file with a list of MC names. See notes below)
@@ -305,6 +306,15 @@ else
     msg="loading the file list of model collection (folder) names from $list_of_keys"
     echo -e $msg
     readarray -t arr_key_names < "${list_of_keys}"
+
+    # # loop through the array removing spaces and slashes at the end
+    # for i in "${!arr_key_names[@]}"; do
+    #     # arr_key_names[$i]=${arr_key_names[$i]%$'\n'}
+    #     tmp_val="$(Trim_spaces $arr_key_names[$i])"
+    #     # and ending slash if there are any
+    #     tmp_val="${tmp_val%/}"
+    #     arr_key_names[$i]=$tmp_val
+    # done
 fi
 
 if [ "$num_jobs" = "" ]; then num_jobs=1; fi
@@ -323,8 +333,10 @@ t_overall_list_start=`date +%s`
 run_script_with_args() {
     local input_cur_key="$1"
 
-    # trim spaces of the end if any
-    cur_key="${input_cur_key%%*([[:space:]])}"    
+    # Trim spaces plus ending slash if it exists
+    cur_key="${input_cur_key##*[[:space:]]}"
+    cur_key="${cur_key%%*([[:space:]])}"
+    cur_key="${cur_key%/}"
     #cmd="./get_s3_folder.sh"
     # cmd="get_s3_folder.sh"
 
@@ -340,7 +352,7 @@ run_script_with_args() {
         else
             echo "-- Target S3 arguments not provided, skipping upload"
         fi
-        echo "$cmd"
+        # echo "$cmd"
         bash get_s3_folder.sh $cmd
         sleep 1
     fi
@@ -365,6 +377,7 @@ echo "---- Starting: `date -u`"
 echo "Starting iterator"
 echo "Stand by... All s3 command is in quiet mode and may take a while (5 to 60 mins depending on size)"
 
+# Multi-proc.. aka bash parallel
 parallel -u -j $num_jobs run_script_with_args ::: "${arr_key_names[@]}"
 
 echo

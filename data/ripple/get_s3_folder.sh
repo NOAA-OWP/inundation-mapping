@@ -65,8 +65,8 @@ usage_msg()
     
     ### DO NOT RUN IN A DOCKER CONTAINER
 
-    Sample Usage: 
-         basj get_s3_folder.sh
+    Sample Usage:   (yes.. .bash  and not just ./)
+         bash get_s3_folder.sh
             -src 's3://(somebucket)/ripple/fim_100_domain/collections'
             -sap 'rtx-profile-name'            
             -n 'mip_03170004'
@@ -155,6 +155,17 @@ done
 # ==========================================================
 # VALIDATION
 # print usage if arguments empty
+
+source ./ripple_shared_tools.sh
+
+key_name="$(Trim_spaces $key_name)"
+s3_source_path="$(Trim_spaces $s3_source_path)"
+src_aws_profile_name="$(Trim_spaces $src_aws_profile_name)"
+local_trg_path="$(Trim_spaces $local_trg_path)"
+stats_folder="$(Trim_spaces $stats_folder)"
+log_folder="$(Trim_spaces $log_folder)"
+
+
 if [ "$s3_source_path" = "" ]; then
     echo "ERROR: Missing -src (s3 source path)"
     usage_msg
@@ -197,6 +208,8 @@ if [ "$s3_target_root" = "" ]; then
 #     usage_msg
 #     exit 22
     upload_to_trg_s3="false"
+else
+    s3_target_root="$(Trim_spaces $s3_target_root)"
 fi
 
 if [ "$trg_aws_profile_name" = "" ]; then
@@ -204,12 +217,9 @@ if [ "$trg_aws_profile_name" = "" ]; then
 #     usage_msg
 #     exit 22
     upload_to_trg_s3="false"
+else
+    trg_aws_profile_name="$(Trim_spaces $trg_aws_profile_name)"
 fi
-
-# trim spaces of the end if any
-key_name="${key_name%%*([[:space:]])}"
-# take off last slash if there is one.
-key_name="${key_name%/}"
 
 # TODO: Lots more validation such as extensions, valid s3 paths, etc
 
@@ -220,15 +230,13 @@ stats_folder="${stats_folder%/}"
 log_folder="${log_folder%/}"
 s3_target_root="${s3_target_root%/}"
 
-source ./ripple_shared_tools.sh
-
-src_s3_uri="$s3_source_path/${key_name}"
-local_trg="$local_trg_path/${key_name}"
+src_s3_uri="$s3_source_path/$key_name"
+local_trg="$local_trg_path/$key_name"
 file_name_date=$(date +"%Y%m%d_%H%M")
+log_file="${log_folder}/download_log_${key_name}_$file_name_date.txt"
 stat_file_name_date=$(date +"%Y%m%d")
-log_file="${log_folder}/download_log_${key_name}_${file_name_date}.txt"
 stats_file="${stats_folder}/download_stats_${stat_file_name_date}.csv"
-if [[ "${upload_to_trg_s3}" == "true" ]]; then
+if [[ "$upload_to_trg_s3" == "true" ]]; then
     trg_s3_uri="${s3_target_root}/$key_name"
 fi
 
@@ -322,9 +330,6 @@ msg+="; Extent folder count = $folder_count"
 msg="${key_name}: ${msg}"
 l_echo "$msg" "$log_file"
 
-# folder_stats_dur="$(calc_Duration $t_start)"
-# msg="${key_name}: Calc stats complete: duration (in percent minutes) = $folder_stats_dur"
-#folder_stats_dur="$(calc_Duration $t_start)"
 msg="${key_name}: Calc stats complete:"
 l_echo "$msg" "$log_file"
 
@@ -337,7 +342,6 @@ l_echo "$msg" "$log_file"
 
 if [[ "${upload_to_trg_s3}" == "true" ]]; then
     l_echo "${key_name}: Starting S3 Upload" "$log_file"
-    echo "Stand by... the s3 command is in quiet mode and may take a while (7 to 30 mins depending on size)"
 
     t_start=`date +%s`
     cmd_str="aws s3 sync ${local_trg}/ ${trg_s3_uri}/ --quiet --profile $trg_aws_profile_name"
@@ -368,8 +372,9 @@ msg="${key_name}: Processing complete: Duration (in percent minutes) = $total_du
 l_echo "$msg" "$log_file"
 
 # ==============================
-if [[ "${upload_to_trg_s3}" == "true" ]]; then
-    echo "${key_name}: Removing local temp folders"
-    rm -rdf $local_trg
-fi
+
+# if [[ "${upload_to_trg_s3}" == "true" ]]; then
+#     echo "${key_name}: Removing local temp folders"
+#     rm -rdf $local_trg
+# fi
 echo "+++++++++++++++++++"
