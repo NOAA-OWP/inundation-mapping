@@ -249,8 +249,8 @@ def run_with_mp(
     #           1, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
     #           0, []  (Fail but there is nothing to add to the run_by_mp result set)
     #          -1, []  (Catestrophic fail, shut down the entire script)
-    
-    # Remember that what you send back for a return value is independent from the code.  No matter what you send back for the 
+
+    # Remember that what you send back for a return value is independent from the code.  No matter what you send back for the
     # return value will be added to the run_with_mp list as long as the return item is not null. Your return value
     # can be None, a string, a datasets, dictionaries, or even antoher list (resulting in lists in lists).
 
