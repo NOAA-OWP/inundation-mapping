@@ -237,18 +237,22 @@ def run_with_mp(
     #      -1: Critical Fail and the entire script should be aborted
 
     # Some examples of usage:
-
-    # Some tools like pull_osm_roads.py want a T/F returned for every mp item, so its mp process
+    #    data\roads\pull_osm_roads.py wants a T/F returned for every mp item, so its mp process
     #    named "single_huc_job" returns:
     #            1, [True]  (meaning success and add "True" to the run_by_mp result set)
     #            0, [False] (meaning fail don't shut down the entire process, add the value of
     #                 False to the run_with_mp return results and show the tqdm / print message
 
-    # Some tools like get_usgs_rating_curves.py have different needs. Inside its mp function,
+    # Another example:
+    #    data\usgs\get_usgs_rating_curves.py have different needs. Inside its mp function,
     #    named "__mp___mp_get_site_rating_curve" could have three scenerios (at a min)
     #           1, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
     #           0, []  (Fail but there is nothing to add to the run_by_mp result set)
     #          -1, []  (Catestrophic fail, shut down the entire script)
+    
+    # Remember that what you send back for a return value is independent from the code.  No matter what you send back for the 
+    # return value will be added to the run_with_mp list as long as the return item is not null. Your return value
+    # can be None, a string, a datasets, dictionaries, or even antoher list (resulting in lists in lists).
 
     # ++++++++++++++++++++++
 
