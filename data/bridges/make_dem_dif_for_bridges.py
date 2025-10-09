@@ -165,12 +165,12 @@ def make_one_diff(
             with rasterio.open(output_diff_path, 'w', **raster_meta) as dst:
                 dst.write(updated_raster, 1)
         screen_queue.put(f"End of processing {task_id}")
-        return True
+        return 0, [True]
 
     except Exception as e:
         file_logger.error(f"❌ Exception in HUC {task_id}: {str(e)}")
         file_logger.error(traceback.format_exc())
-        return False
+        return 1, [False]
 
 
 def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number_jobs):
@@ -222,13 +222,13 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
                 )
 
         # now start the multiprocessing
+        # Shut down if an error is found.
         mp_results = run_with_mp(
             task_function=make_one_diff,
             tasks_args_list=tasks_args_list,
             file_logger=file_logger,
             max_workers=number_jobs,
             task_id_key="HUC",  # must be one of the task arg keys. used for status report
-            exit_on_failure=False,
             show_progress=True,
         )
 

@@ -57,7 +57,31 @@ Flow-based example with HUC list:
 - `-mc`, `--past_major_interval_cap`: OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs? of the machine. Defaults to 5.
 - `-step`: 'OPTIONAL: By adding a number here, you may be able to skip levels of processing. The number you submit means it will start at that step. e.g. step of 2 means start at step 2 which for flow based is the creating of tifs and gpkgs. Note: This assumes those previous steps have already been processed and the files are present. Defaults to 0 which means all steps processed.
 - `-me`, `--nwm_metafile`: OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.  NOTE: This parameter is for quick debugging only and should not be used in a production mode.
+- `-cv`, `--catfim-version`: OPTIONAL: The version of the code that was used to run the product. This value is included in the output gpkgs and csvs in a field named product_version. If you put in a value here, we will add the phrase CatFIM to the front of it. ie) 2.0 becomes CatFIM, 2.2 becomes CatFIM, etc. Defaults to blank. 
+- `-hv`, `--model-version`: OPTIONAL: The version of the HAND data outputs that was used to run the product. This value is included in the output gpkgs and csvs in a field named model_version. If you put in a value here, we will change dots to underscores only. This should be a HAND version number only and not include the word HAND_ ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank.
 - `-o`, `--overwrite`: OPTIONAL: Overwrite files.
+
+## Running CatFIM Site Comparison
+### What is CatFIM Site Comparison?
+CatFIM site comparison is an internal tool that allows us to compare multiple different versions of CatFIM outputs. 
+
+
+### Commands
+
+Generating geopackages:
+`python /foss_fim/tools/catfim/catfim_sites_compare.py -p '/data/catfim/hand_4_5_11_1_stage_based/ /data/catfim/fim_4_5_2_11_stage_based/' -o '/test_outputs' -g`
+
+Multiple comparisons:
+`python /foss_fim/tools/catfim/catfim_sites_compare.py -p '/data/catfim/hand_4_5_11_1_stage_based/ /data/catfim/fim_4_5_2_11_stage_based/ /data/catfim/hand_4_5_11_1_flow_based/ /data/catfim/fim_4_5_2_11_flow_based/' -o '/test_outputs'`
+
+
+### Arguments
+
+- `-p`, `--path-list`: Space-delimited list of CatFIM output paths from which to compile sites. Paths MUST have the version number in it (i.e. `4_5_11_1`) because the version number is used to put the versions in sequential order.
+- `-o`, `--output-save-filepath`: Path to where the results files will be saved.
+- `-k`, `--keep-differences-only`: OPTIONAL: Option to keep only changed sites in the comparison files.
+- `-g`, `--generate-geopackages`: OPTIONAL: Option to generate spatial difference maps and a points geopackage for the version comparisons.
+- `-d`, `--debug-mode`: OPTIONAL: Debug mode. Will only iterate through 100 records while generating geopackages.
 
 ## Visualization Tips & Tricks
 
