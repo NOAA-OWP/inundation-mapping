@@ -210,8 +210,11 @@ def process_generate_categorical_fim(
             ' is a valid matching HUC.'
         )
 
+    # Set default data source to WRDS
+    data_source = 'WRDS'
 
     # ================================
+
     if threshold_file != "":
         if os.path.exists(threshold_file) == False:
             raise Exception("The threshold input file can not be found. Please remove or fix pathing.")
@@ -226,8 +229,11 @@ def process_generate_categorical_fim(
             loaded_data = pickle.load(f)
 
         hucs = loaded_data['huc'].unique().tolist()
-        threshold_hucs= [str(num).zfill(8) for num in hucs]        
+        threshold_hucs= [str(num).zfill(8) for num in hucs]
 
+        # Get the source (since it might be Manual_Input)
+        data_source = loaded_data['source'].tolist()[0]
+   
         # If a HUC list is specified, check that the HUCs in the list are also in the threshold file
         if 'all' not in lst_hucs:
             missing_hucs = [huc for huc in valid_ahps_hucs if huc not in threshold_hucs]
@@ -277,6 +283,8 @@ def process_generate_categorical_fim(
     if threshold_file != "":
         FLOG.lprint(f'Threshold file has data for {len(threshold_hucs)} HUC(s)')
 
+    FLOG.lprint(f'Data source: {data_source}')  # TEMP DEBUG
+
     # For API usage
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
@@ -292,8 +300,6 @@ def process_generate_categorical_fim(
     fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
     if not os.path.exists(fim_inputs_csv_path):
         raise ValueError(f"{fim_inputs_csv_path} not found. Verify that you have the correct input files.")
-
-    # print()
 
     # FLOG.lprint("Filtering out HUCs that do not have related ahps site in them.")
     # valid_ahps_hucs = __filter_hucs_to_ahps(lst_hucs)
@@ -333,6 +339,7 @@ def process_generate_categorical_fim(
                 nwm_metafile,
                 df_restricted_sites,
                 threshold_file,
+                data_source,
             )
         else:
             FLOG.lprint("generate_stage_based_categorical_fim step skipped")
@@ -584,6 +591,7 @@ def iterate_through_huc_stage_based(
     child_log_file_prefix,
     progress_stmt,
     threshold_file,
+    data_source,
 ):
     """_summary_
     This and its children will create stage based tifs and catfim data based on a huc
@@ -627,7 +635,8 @@ def iterate_through_huc_stage_based(
         # -- If necessary files exist, continue -- #
         # Yes, each lid gets a record no matter what, so we need some of these messages duplicated
         # per lid record
-        if not os.path.exists(usgs_elev_table): # TODO: Guam - Will we need to add Guam to this data table? Or include this data in our manual input?
+
+        if data_source != 'Manual_Input' and not os.path.exists(usgs_elev_table):
             msg = ":Internal Error: Missing key data from HUC record (usgs_elev_table missing)"
             # all_messages.append(huc + msg)
             MP_LOG.warning(huc + msg)
@@ -642,7 +651,8 @@ def iterate_through_huc_stage_based(
         categories = ['action', 'minor', 'moderate', 'major', 'record']
 
         if skip_lid_process == False:  # else skip to message processing
-            usgs_elev_df = pd.read_csv(usgs_elev_table)
+            if data_source != 'Manual_Input': # Manual input data does not need usgs_elev_table
+                usgs_elev_df = pd.read_csv(usgs_elev_table)
 
             df_cols = {
                 "nws_lid": pd.Series(dtype='str'),
@@ -694,8 +704,6 @@ def iterate_through_huc_stage_based(
 
                 found_restrict_lid = df_restricted_sites.loc[df_restricted_sites['nws_lid'] == lid.upper()]
 
-                # print(found_restrict_lid)
-
                 # Assume only one rec for now, fix later
                 if len(found_restrict_lid) > 0:
                     reason = found_restrict_lid.iloc[
@@ -714,13 +722,8 @@ def iterate_through_huc_stage_based(
 
                 # Get thresholds from WRDS API or threshold file
                 thresholds, flows, status_msg = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
+                MP_LOG.trace(status_msg)
 
-                MP_LOG.ltrace(status_msg)
-
-                # Sept 2025 - Removed threshold_count functionality for now. It had the intended functionality of differentiating API errors 
-                # versus zero thresholds being available versus the incorrect thresholds being available, but I think
-                # it was actually confusing. 
-  
                 # Update status if stage thresholds are not found
                 if thresholds is None or len(thresholds) == 0:
                     if "WRDS response sucessful." in status_msg:
@@ -756,29 +759,6 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + err_msg)
                     continue
 
-                # Look for acceptable elevs
-                acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id) 
-                # TODO: Guam - Do we need to add Guam to this data? Or have it read in this data from the manual inputs?
-
-                if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
-                    msg = ":Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
-                    all_messages.append(lid + msg)
-                    MP_LOG.warning(huc_lid_id + msg)
-                    continue
-
-                # TODO: Guam - Do we need to add Guam to this data? Or have it read in this data from the manual inputs?
-                # Get the dem_adj_elevation value from usgs_elev_table.csv.
-                # Prioritize the value that is not from branch 0.
-                lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(
-                    acceptable_usgs_elev_df, lid, huc_lid_id
-                )
-                all_messages = all_messages + dem_eval_messages
-                if len(dem_eval_messages) > 0:
-                    continue
-
-                # Initialize nested dict for lid attributes
-                stage_based_att_dict.update({lid: {}})
-
                 # Find lid metadata from master list of metadata dictionaries.
                 metadata = next(
                     (item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False
@@ -790,27 +770,63 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
-                # Filter out sites that don't have "good" data ## TODO: USGS Gage Method: It doens't seem like the below error messages are performing as expected....
-                try:
-                    if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
-                        MP_LOG.warning(f"{huc_lid_id}: Not in acceptable alt method codes")
-                        continue
-                    if not metadata['usgs_data']['site_type'] in acceptable_site_type_list:
-                        MP_LOG.warning(f"{huc_lid_id}: Not in acceptable site type codes")
-                        continue
-                    if not float(metadata['usgs_data']['alt_accuracy_code']) <= acceptable_alt_acc_thresh:
-                        MP_LOG.warning(f"{huc_lid_id}: Not in acceptable threshold range")
-                        continue
-                except Exception:
-                    MP_LOG.error(f"{huc_lid_id}: Filtering out 'bad' data in the usgs data")
-                    MP_LOG.error(traceback.format_exc())
-                    continue
+                if data_source != 'Manual_Input':  # Check elevation data if not manual input
 
-                datum_adj_ft, datum_messages = __adjust_datum_ft(flows, metadata, lid, huc_lid_id)
-                all_messages = all_messages + datum_messages
-                if datum_adj_ft is None:
-                    MP_LOG.warning(f"{huc_lid_id}: datum_adj_ft is None")
-                    continue
+                    # Look for acceptable elevations
+                    acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id) 
+
+                    if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
+                        msg = ":Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
+                        all_messages.append(lid + msg)
+                        MP_LOG.warning(huc_lid_id + msg)
+                        continue
+
+                    # Get the dem_adj_elevation value from usgs_elev_table.csv.
+                    # Prioritize the value that is not from branch 0.
+                    lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(
+                        acceptable_usgs_elev_df, lid, huc_lid_id
+                    )
+                    all_messages = all_messages + dem_eval_messages
+                    if len(dem_eval_messages) > 0:
+                        continue
+
+                    # Filter out sites that don't have "good" data ## TODO: USGS Gage Method: It doens't seem like the below error messages are performing as expected....
+                    try:
+                        if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
+                            MP_LOG.warning(f"{huc_lid_id}: Not in acceptable alt method codes")
+                            continue
+                        if not metadata['usgs_data']['site_type'] in acceptable_site_type_list:
+                            MP_LOG.warning(f"{huc_lid_id}: Not in acceptable site type codes")
+                            continue
+                        if not float(metadata['usgs_data']['alt_accuracy_code']) <= acceptable_alt_acc_thresh:
+                            MP_LOG.warning(f"{huc_lid_id}: Not in acceptable threshold range")
+                            continue
+                    except Exception:
+                        MP_LOG.error(f"{huc_lid_id}: Filtering out 'bad' data in the usgs data")
+                        MP_LOG.error(traceback.format_exc())
+                        continue
+
+                    ## TODO: Guam - not running this for Guam, may need to adjust if results are bad
+                    # Adjust datum of HAND grid based on elevation data from usgs_elev_table.csv.
+                    datum_adj_ft, datum_messages = __adjust_datum_ft(flows, metadata, lid, huc_lid_id)
+                    all_messages = all_messages + datum_messages
+                    if datum_adj_ft is None:
+                        MP_LOG.warning(f"{huc_lid_id}: datum_adj_ft is None")
+                        continue
+
+                else:  # if source is manual input, we skip the above elevation filtering
+                    MP_LOG.lprint(f"{huc_lid_id}: Skipping elevation checks and datum adjustment for Manual Input source")
+
+                    lid_altitude = float(lid_altitude) # LID altitude is expected to be in meters
+                    lid_usgs_elev = (lid_altitude * 0.3048) 
+                    # lid_altitude is now in meters to match non-manual input units # TODO: Automate conversion?
+
+                    datum_adj_ft = 0  # no datum adjustment for manual input # TODO: Confirm that this is correct
+
+                    ## TODO: Guam - is there anything else we need to do to the altitude for manual input? 
+
+                # Initialize nested dict for lid attributes
+                stage_based_att_dict.update({lid: {}})
 
                 # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
                 unfiltered_segments = list(set(get_nwm_segs(metadata)))
@@ -829,7 +845,8 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Check for large discrepancies between the elevation values from WRDS and HAND.
-                #   Otherwise this causes bad mapping.
+                #   Otherwise this causes bad mapping. 
+                # Manual_Input will have no elev disparity because it's from the the same value.
                 elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
                 diff_rounded = round(elevation_diff, 2)
 
@@ -860,9 +877,6 @@ def iterate_through_huc_stage_based(
 
                 # For each flood category / magnitude
                 MP_LOG.lprint(f"{huc_lid_id}: About to process flood categories")
-                # child_log_file_prefix_tifs = MP_LOG.MP_calc_prefix_name(
-                #     MP_LOG.LOG_FILE_PATH, child_log_file_prefix + "_MP_tifs"
-                # )
 
                 # Make mapping lid_directory.
                 mapping_lid_directory = os.path.join(mapping_huc_directory, lid)
@@ -1392,6 +1406,8 @@ def load_restricted_sites(is_stage_based):
 
 
 def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
+    # The purpose of this function is to determine the vertical datum adjustment
+    #   to convert the datum of the rating curve to NAVD88.
 
     # TODO: Aug 2024: This whole parts needs revisiting. Lots of lid data has changed and this
     # is all likely very old.
@@ -1674,6 +1690,7 @@ def generate_stage_based_categorical_fim(
     nwm_metafile,
     df_restricted_sites,
     threshold_file,
+    data_source,
 ):
     '''
     Sep 2024,
@@ -1763,6 +1780,7 @@ def generate_stage_based_categorical_fim(
                         child_log_file_prefix,
                         progress_stmt,
                         threshold_file,
+                        data_source,
                     )
                     huc_index += 1
 

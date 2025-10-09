@@ -433,11 +433,8 @@ def generate_flows(
     API_BASE_URL, WBD_LAYER = get_env_paths(env_file)
     nwm_us_search = int(nwm_us_search)
     nwm_ds_search = int(nwm_ds_search)
-    # metadata_url = f'{API_BASE_URL}/metadata' ## TEMP DEBUG - TODO: Guam - add back in after testing
-    # threshold_url = f'{API_BASE_URL}/nws_threshold' ## TEMP DEBUG - TODO: Guam - add back in after testing
-
-    metadata_url = f'{API_BASE_URL}/metadataBROKEN' ## TEMP DEBUG
-    threshold_url = f'{API_BASE_URL}/nws_thresholdBROKEN' ## TEMP DEBUG
+    metadata_url = f'{API_BASE_URL}/metadata'
+    threshold_url = f'{API_BASE_URL}/nws_threshold'
     ###################################################################
 
     # Create HUC message directory to store messages that will be read and joined after multiprocessing
@@ -450,10 +447,10 @@ def generate_flows(
 
     # Open NWM flows geopackages
     # TODO: Pull from bash_variables.env once we switch from using catfim.env to bash_variables.env
-    nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg' # TODO: Get from bash_variables.env
-    nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg' # TODO: Get from bash_variables.env
-    input_nhd_flows_Guam = r'/data/inputs/nhdplus/Guam_6637/NHDFlowline_Guam_6637.gpkg' # TODO: Get from bash_variables.env
-    input_nhd_flows_AmericanSamoa = r'/data/inputs/nhdplus/AmericanSamoa_32702/NHDFlowline_AmericanSamoa_32702.gpkg' # TODO: Get from bash_variables.env
+    nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
+    nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
+    input_nhd_flows_Guam = r'/home/emily.deardorff/projects/catfim_guam/input_data/NHDFlowline_Guam_6637.gpkg' # TODO: GUAM - move to correct inputs folder
+    input_nhd_flows_AmericanSamoa = r'/home/emily.deardorff/projects/catfim_guam/input_data/NHDFlowline_AmericanSamoa_32702.gpkg' # TODO: GUAM - move to correct inputs folder
 
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
@@ -469,7 +466,6 @@ def generate_flows(
         'nhd_flows_guam_df': nhd_flows_guam_df,
         'nhd_flows_americansamoa_df': nhd_flows_americansamoa_df
     }
-    
 
     # nwm_metafile might be an empty string
     # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
@@ -501,7 +497,9 @@ def generate_flows(
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-    out_gdf = out_gdf.astype({'metadata_sources': str})
+
+    if 'metadata_sources' in out_gdf.columns: # TODO: Is this column needed/used? Changed to accomodate Guam
+        out_gdf = out_gdf.astype({'metadata_sources': str})
 
     FLOG.lprint("+++++++++++++")
     FLOG.lprint("Start Flow Generation")
