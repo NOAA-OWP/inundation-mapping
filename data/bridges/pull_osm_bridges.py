@@ -313,6 +313,8 @@ def combine_huc_features(output_dir):
 
 def process_osm_bridges(wbd_file, output_folder, number_of_jobs, lst_hucs):
     start_time = dt.datetime.now(dt.timezone.utc)
+
+    # TODO: plug in shared_functions version for logger setup
     __setup_logger(output_folder)
 
     print("==================================")
