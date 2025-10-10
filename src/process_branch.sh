@@ -43,6 +43,11 @@ do
         err_exists=1
         echo "***** Branch has no crosswalks *****"
         rm -rf $tempHucDataDir/branches/$branchId/
+    elif [ $code -eq 65]; then
+        echo
+        err_exists=1
+        echo "***** Too many HydroIDs or a HydroID with more than 8 digits in gw catchments to convert to Int16 *****"
+        rm -rf $tempHucDataDir/branches/$branchId/
     elif [ $code -ne 0 ]; then
         echo
         err_exists=1

@@ -16,6 +16,215 @@ To run the script, you need to create a directory in your `metrix_dir` (the only
 - `data/ripple/`
     - `terrain_agreement_metrics_analysis.py`
 
+## V4.8.14.0 - 2025-10-10 - [PR#1650](https://github.com/NOAA-OWP/inundation-mapping/pull/1650)
+
+Fixes Alaska HUCs attempt to convert to Int16 if there are too many Hydro IDs and creates error handling for when this issue may arise.
+
+### Changes
+- src/delineate_hydros_and_produce_HAND.sh: Add check for Alaska HUC2 identifier before running conversion to int16 data type.
+- src/process_branch.sh: Add handling for int16 conversion failure error code.
+- src/src_adjust_spatial_obs.py: Add check for Alaska HUC2 identifier to see if process should run in Int16 or Int32.
+- src/utils/fim_enums.py: Add error code for int16 conversion error.
+- tools/catfim/generate_categorical_fim_mapping.py: Process in either in Int16 for rem and HydroIDs, or int32 and float32 respectively in the case of an Alaska HUC.
+- tools/inundation.py: Process in either in Int16 for rem and HydroIDs, or int32 and float32 respectively in the case of an Alaska HUC.
+- tools/mosaic_inundation.py: Add rasterio merge and remove calls to removed script overlapping_inundation.py.
+- tools/convert_to_int16.py: Add raise error for scenarios where catchment raster has too many HydroIDs or HydroIDs that have more than 8 digits.
+
+### Removals
+- /tools/overlapping_inundation.py
+<br />
+
+## v4.8.13.0 - 2025-10-10 - [PR#1673](https://github.com/NOAA-OWP/inundation-mapping/pull/1673)
+
+This script processes river segment slope data to identify and correct unrealistic values based on user-defined thresholds. It is designed to check against the NWM hydrofab to and fill/extrapolate missing or invalid slope values using valid upstream/downstream values.
+
+### Additions
+`data/slope/sword_slope_create_parquet_qc.py`: new data pre-processing script (see summary below)
+
+### Changes
+`src/bash_variables.env`: updated the path for the `iris_sword_slope` to use the new input file (IRIS_SWORD_v1.0_20251006.parquet)
+<br/>
+
+## v4.8.12.3 - 2025-10-10 - [PR#1660](https://github.com/NOAA-OWP/inundation-mapping/pull/1660)
+
+The file shared_functions.py had a bug in it related to a object length check. During that processes we discovered some enhancements to logging tools and run_with_mp.  The return code system was changed now where 1 = success, 0 = fail but do not abort and -1 means fail and abort run.  
+
+This triggered changes to scripts that use the logging or run_with_mp tools for their return values from their multi-proc functions.  The change affected four data load scripts, and all were retested for correct data loading. A fifth data load script, pull_osm_bridges.py, was updated but only for a comment and was not affected by other changes in this PR.
+
+There was also a change to shared_functions.setup_file_logger. It no longer takes a full path and file name for  a log file, but two separate variables, one for the log folder, the other for a log file prefix. A date will be added automatically to the log file name.
+
+### Changes
+
+- `data`
+    - `bridges\make_dem_dif_for_bridges.py`:  Updated call to setup_file_logger plus changes related to run_with_mp. A bit of additional error handling was also added.
+    - `bridges\pull_osm_bridges.py`:  Just a comment added
+    - `nfhl\download_fema_nfhl.py`:  Updated call to setup_file_logger plus changes related to run_with_mp.
+    - `roads\pull_osm_roads.py`:  Updated call to setup_file_logger plus changes related to run_with_mp.
+- `src\shared_functions.py`: as described.
+    - `usgs\get_usgs_rating_curve.py`:  Updated call to setup_file_logger plus changes related to run_with_mp. A bit of additional error handling was also added. A small fix for rounding was also fixed.
+<br/>
+
+## v4.8.12.2 - 2025-10-10 - [PR#1616](https://github.com/NOAA-OWP/inundation-mapping/pull/1616)
+
+Fixes a bug that was introduced to flow-based CatFIM in recent changes to the Inundate_gms() function. The bug was fixed by adding multi_process = True as an input to the function.
+
+### Changes
+tools/catfim/generate_categorical_fim_mapping.py: Added multi-process option to inundate_gms() function. Updated print logs.
+<br/>
+
+## v4.8.12.1 - 2025-10-10 - [PR#1617]([https://github.com/NOAA-OWP/inundation-mapping/pull/1617])
+
+This tool generates a custom flow file for a specific FIM scenario. Given a flow value and either a feature ID or a LID/USGS gage ID, it traces downstream along NWM streamlines and applies the input flow to each segment within the specified distance.
+
+### Additions
+- `-tools/generate_custom_flow_files.py`
+<br/>
+
+## v4.8.12.0 - 2025-10-10 - [PR#1621]([https://github.com/NOAA-OWP/inundation-mapping/pull/1621])
+
+This PR focuses on the position of three scripts in the post-processing and updating the longitudinal filtering parameters. First, a new script has been written to address the thalweg notch adjustment, separated from the nonmonotonic adjustment script. Second, the post-processing has been changed in a way that `thalweg_notches_adjustment` and `logitudinal_flow_adjustment` will be run before `bathymetry_adjustment`. Then, `nonmonotonic_adjustment` will be run after the `src_subdivision` section. The second purpose of this PR is to update the `longitudinal_adjustment` parameters and replace the minimum filter with the lowest 10-percentile of the discharge on the rating curve. 
+
+### Additions
+- `src/`
+    - `thalweg_notches_adjustment.py`
+
+### Changes
+- `fim_post_processing.sh`
+- `src/`
+    - `longitudinal_flow_adjustment.py`
+    - `nonmonotonic_src_adjustment.py`
+- `config/`
+    - `params_template.env`
+<br/>
+
+## v4.8.11.3 - 2025-10-10 - [PR#1669](https://github.com/NOAA-OWP/inundation-mapping/pull/1669)
+
+The FEMA NFHL data consists of several layers. The 100- and 500-year floodplain layers are merged into a layer called 'combined'. However, if a HUC has neither 100- or 500-year floodplain layers, the `combined` layer is not produced. This missing `combined` layer causes an error in `src/adjust_floodplains.py`. This patch skips the reading of the `combined` layer if it doesn't exist.
+
+### Changes
+
+- `src/adjust_floodplains.py`: Skips reading `combined` layer if it doesn't exist in the FEMA NFHL geopackage.
+<br/>
+
+## v4.8.11.2 - 2025-10-10 - [PR#1671](https://github.com/NOAA-OWP/inundation-mapping/pull/1671)
+
+Adjusted the scripts for pulling down filtered files/folders for the new ripple 100_0_10_4 set. These adjustments allow for optional download to EFS only, or additionally add re-push back up to our S3.
+
+### Changes
+
+- 'data\ripple\get_s3_folder.sh, get_s3_folders_from_list.sh and ripple_shared_tools.sh`: As described above.
+<br/>
+
+## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
+
+Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
+
+A couple of other minor updates were done related to this:
+- Add the new `shared_function` `run_with_mp` and `setup_mp_file_logger`.  In implementation of that system, a few updates and adjustments were added/required.
+    - It original needed child mp tasks to return either True or False. This one needed to return a dataframe. 
+    - We also found that originally it determined that the mp tasks was either True / False meaning success or fail. If fail, it optionally may want to shut down the entire script.  This script has three status: Success, Fail but continue or Fail and shut down the script. This script needed to have both options available for each task to decide if it was an "acceptable" fail or a "catastrophic" fail. A "status" return code system was added to handle the three scenarios of what each child mp task could return.
+    - Forced shutdowns of processpools and thread queues is well known to be tricky. A lot of factors can play into when and how catastrophic fails. Depending on what code objects any companies has in their code requires different strategies to handle full shut downs.  In our case, it was a bit trickier than normal because of the combination of the processpool, tqdm and the screen queue. With lots of testing and experimentation, we now have a stronger system helping reducing the risk of the app hanging, orphaned threads or memory leaks. Note: It is not perfect and never will be. CTRL-C is now handled better but it will never be perfect. As with all of our scripts, product wide, whenever you use CTRL-C to abort, and you may have to do it a number of times, you need to close your docker container and restart to fully clean it up.
+     - With the change of returns for `run_with_mp` and it's tasks, we went back to adjust all current scripts using this system and fixed them. Minor adjustments were made to all three scripts: `make_dem_difs_for_bridges.py`,  `pull_osm_roads.py` and `download_fema_nfhl.py`.  All three were stub tested to ensure their small code adjustments were fine.
+ - Another change: The file was _renamed from rating_curve_get_usgs_curves.py to get_usgs_rating_curves.py_.  Some other files had note changed to reflect the updated file name.
+ - `get_usgs_rating_curves.py` picked up a major upgrade on logging including more details of what failed, when and details to details to help show what record id's were being processed when failed.
+ - A bug was found and fixed in `tools_shared_functions.py`.
+
+A full new valid set of usgs_rating_curve data files was created, will be copied to all enviros and bash_variables.env updated to reflect the new set.
+
+### Renamed files:
+-  Was: `data\usgs\rating_curve_get_usgs_curves.py`   to  `data\usgs\get_usgs_rating_curves.py`,
+
+### Files updated related to file name change (all just note updates):
+- `data\nws\preprocess_ahps_nws.py`,   `data\usgs\preprocess_ahps_usgs.py`,  `src\src_adjust_usgs_rating_trace.py`, `tools\fimr_to_benchmark.py`, `tools\generate_nws_lid.py` and `tools\rating_curve_comparison.py`
+
+### Changes
+- `data`
+    - `bridges\make_dem_dif_for_bridges.py`:  Updated for return values to `run_with_mp` shared functions.
+    - `nflh\download_fema_nfhl.py`: Updated for return values to `run_with_mp` shared functions.
+    - `roads\pull_osm_roads.py`: Updated for return values to `run_with_mp` shared functions.
+    - `usgs\get_usgs_rating_curve.py`:  as described above.
+
+- `pyproject.toml`: Updated linting rules doc to reflect the new get_usgs_rating_curve.py file name.
+- `src\bash_variables.env`: Updated for new path for the new usgs rating curve files
+- `src\utils\shared_functions`: In addition to the updates mentioned above for `run_with_mp`, the function named `setup_mp_file_logger` was updated to make an error file to help identify errors that occur. Logging types of both error and critical now show up in the regular log, but are copied into the new "error" log files to help bring the error(s) to attention. A new function named `setup_file_logger` was added which is nearly identical to the previous existing `setup_mp_file_logger` but is for non multi-processing usages. It has a few critical differences. There is likely a way to merge them. A couple of new small logging related utility functions were also added.
+- `tools\tools_shared_functions.py`: Fixed a bug that assumed a particular https response node was returned.
+<br/>
+
+## v4.8.11.0 - 2025-09-19 - [PR#1639]([https://github.com/NOAA-OWP/inundation-mapping/pull/1639])
+
+Catchments were being dropped due to a number of confounding reasons. Previously `crosses` was used to identify outlets as stream lines that intersected the HUC boundary, in order to extend the levelpaths downstream of the outlet(s). However, some recent and proposed changes including clipping streams to the landsea mask and extending streams by snapping to the WBD caused the `crosses` method to fail to identify some HUC outlets, so these levelpaths were not extended downstream, creating levelpaths that did not flow to the edge of the DEM based on the buffered branch polygons, and resulting in reverse flow issues and dropped catchments. Some additional bug fixes and improvements include clipping the branch polygons to the clipped WBD (clipped to the DEM domain and the landsea mask), the Great Salt Lake was incorporated into the waterbody mask, and mainstem stream endpoints were adjusted to the nearest landsea boundary within 10 km, ensuring that NSM streams connect to the DEM/waterbody edge and preventing dropped catchments.
+
+### Changes
+
+- `data/wbd/`
+    - `clip_vectors_to_wbd.py`: Updates method to determine outlets and ignores outlets that re-enter the HUC due to faulty data and snap levelpath endpoints (mainstem only) to the nearest landsea boundary
+    - `generate_pre_clip_fim_huc8.py`: Filters WBD columns to be read.
+- `src/`
+    - `bash_variables.env`: Updates landsea mask to include Great Salt Lake
+    - `buffer_stream_branches.py`: Clips branch polygons to WBD rather than DEM domain
+    - `run_unit_wb.sh`: Updates arguments for `buffer_stream_branches.py` to pass WBD instead of DEM domain for clipping
+    - `stream_branches.py`: Uses WBD boundary intersection to find outlets
+<br/>
+
+## v4.8.10.8 - 2025-09-19 - [PR#1196](https://github.com/NOAA-OWP/inundation-mapping/pull/1196)
+
+This PR adds a new tool, which is still in progress. The tool addresses the issue #994 (but is not going to close this issue yet). 
+The tool aims to update the HAND SRC by comparing water surface elevation (WSE) between RAS2FIM and HAND. The algorithm is as below:
+
+- For each RAS cross section, determine the HAND discharge adjustment (Q_Adjust):
+    - HAND minimum WSE is assumed the same as HAND Hydro-conditioned DEM
+    - RAS2FIM minimum WSE is already available from HEC-RAS runs.
+    - Calculate the difference between the minimum WSE values of RAS2FIM and HAND, and call it "WSE_base_error". This difference can address the bathymetry error in HAND SRC.  
+    - Add stage values into RAS2FIM rating curves (by subtracting DEM from WSE), and then interpolate a discharge for the "WSE_base_error". This interpolated discharge is called "Q_Adjust."
+- Calculate the median of "Q_Adjust" values for cross sections within HAND catchments.
+- Add the median "Q_Adjust" values to the flows of HAND SRC
+
+### Additions
+- tools/adjust_wse_with_ras2fim.py
+<br/>
+
+## v4.8.10.7 - 2025-09-19 - [PR#1607](https://github.com/NOAA-OWP/inundation-mapping/pull/1607)
+
+Changes files to use `fiona` as the I/O engine when reading files with `gpd.read_file()` to avoid segmentation faults. The issue was originally documented in #1376 and fixed in #1490, but two more files are fixed here.
+
+### Changes
+
+- `src/`
+    - `mask_dem.py` and `mitigate_branch_outlet_backpool.py`: Added `engine='fiona'` to `gpd.read_file()`. Also removed an unnecessary file read in `mask_dem.py`.
+<br/>
+
+## v4.8.10.6 - 2025-09-19 - [PR#1643](https://github.com/NOAA-OWP/inundation-mapping/pull/1643)
+
+Adjust eval_plot.py so it only looks for the config file when in -sp (spatial) mode. Spatial mode is used when running the tool to create FIM_performance files. In that mode, it can only run in OWP servers as it needs to talk to internal servers.
+
+Also updated the tools to create gpkg files instead of shape file. It does continue to create csv as files as before.  Adjustments for zero padding HUC numbers when applicable was also added.
+
+This update does not affect use of the tool as part of regular alpha testing.
+
+### Changes
+- `tools\`
+    - `eval_plots.py`: as described above including the zero padding HUC fix.
+    - `eval_plots_stackedbar.py`: zero padding HUC fix.
+<br/>
+
+## v4.8.10.5 - 2025-09-19 - [PR#1606](https://github.com/NOAA-OWP/inundation-mapping/pull/1606)
+
+Added new optional input argument to inundate scripts and `synthesize_test_cases.py` to use the `precalb_discharge_cms` values in the hydrotable instead of the default `discharge_cms`.
+
+### Changes
+- `tools/inundate_gms.py`: added "precalb_option", specify "precalb_discharge_cms" as an req input column and force the hydrotable input to be the csv file ("precalb_discharge_cms" is not currently one of the outputs in the feather file). Note that there is logic to fill the "precalb_discharge_cms" with "discharge_cms" when the precalb_discharge is null (this happens for hucs/branches where the calibration routines do not run - not benchmark data to calibrate to)
+- `tools/inundate_mosaic_wrapper.py`: added the "precalb_option" argument for passing to downstream functions
+- `tools/inundation.py`: added the "precalb_option" argument and added logic to use the "precalb_discharge_cms" data for interpolating the stages.
+- `tools/run_test_case.py`: added the "precalb_option" argument for passing to downstream functions
+- `tools/synthesize_test_cases.py`: added the "precalb_option" as an optional input argument and pass to the appropriate downstream functions
+<br/>
+
+## v4.8.10.4 - 2025-09-19 - [PR#1648](https://github.com/NOAA-OWP/inundation-mapping/pull/1648)
+
+Updated pull_osm_roads to allow for a selected set of hucs for testing.
+
+### Changes
+- `data/roads/pull_osm_roads.py`: as described above.
 <br/>
 
 ## v4.8.10.3 - 2025-08-29 - [PR#1627](https://github.com/NOAA-OWP/inundation-mapping/pull/1627)
@@ -262,9 +471,8 @@ Addresses bug related to the `location_id` data type that is read in from the `a
 
 ### Changes
 `src/src_adjust_usgs_rating_trace.py`: Added `dtype={'location_id': object}` to the acceptable_sites csv file read
-  
+ 
 <br/><br/>
-
 
 ## v4.8.7.1 - 2025-07-18 - [PR#1539]([https://github.com/NOAA-OWP/inundation-mapping/pull/1539])
 
@@ -290,9 +498,7 @@ Removing the hydrofabric slope values for now due to issues with erroneous value
 <br/><br/>
 
 
-## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
-
-## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+## v4.8.6.3 - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
 
 Clips NWM streams at the land/sea mask.
 
