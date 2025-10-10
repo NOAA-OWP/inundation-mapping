@@ -73,7 +73,9 @@ def produce_stage_based_lid_tifs(
 
     # Subtract HAND gage elevation from HAND WSE to get HAND stage.
     hand_stage_m = datum_adj_wse_m - lid_usgs_elev
-    hand_stage = round(hand_stage_m * 1000)  # convert to mm to match HAND
+    hand_stage = (
+        hand_stage_m if str(huc)[:2] == '19' else round(hand_stage_m * 1000)
+    )  # convert to mm to match HAND
 
     # If hand_stage is negative, write message and exit out
     if hand_stage < 0:
@@ -324,15 +326,20 @@ def produce_inundated_branch_tif(
 
         # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
         #   are <= to hand_stage and the catchments value is in the hydroid_list.
+
+        is_alaska = str(huc)[:2] == '19'
+
+        output_dtype = 'uint8' if is_alaska else 'int16'
+
         reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
-            'int16'
+            output_dtype
         )
 
         # The catchment_array has hydroid that have had the first 4 chars cut off
         # we need to the same for the hydroid's from the hydroid_list
         clipped_hydroid_list = []
         for i in hydroid_list:
-            clipped_str = str(i)[-4:]
+            clipped_str = str(i) if is_alaska else str(i)[-4:]
             clipped_hydroid_list.append(int(clipped_str))
 
         # Create a mask of the catchments_array where the values are in the clipped_hydroid_list
@@ -341,12 +348,12 @@ def produce_inundated_branch_tif(
         # Create a target array where the catchments_array is not nodata and the hydroid_mask is True
         target_catchments_array = np.where(
             ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
-        ).astype('int16')
+        ).astype(output_dtype)
 
         # Mask the reclass_rem_array with the target_catchments_array
         masked_reclass_rem_array = np.where(
             ((reclass_rem_array >= 1) & (target_catchments_array >= 1)), 1, 0
-        ).astype('int16')
+        ).astype(output_dtype)
 
         ## Debugging:
 

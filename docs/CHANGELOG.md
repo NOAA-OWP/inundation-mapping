@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## V4.8.14.0 - 2025-10-10 - [PR#1650](https://github.com/NOAA-OWP/inundation-mapping/pull/1650)
+
+Fixes Alaska HUCs attempt to convert to Int16 if there are too many Hydro IDs and creates error handling for when this issue may arise.
+
+### Changes
+- src/delineate_hydros_and_produce_HAND.sh: Add check for Alaska HUC2 identifier before running conversion to int16 data type.
+- src/process_branch.sh: Add handling for int16 conversion failure error code.
+- src/src_adjust_spatial_obs.py: Add check for Alaska HUC2 identifier to see if process should run in Int16 or Int32.
+- src/utils/fim_enums.py: Add error code for int16 conversion error.
+- tools/catfim/generate_categorical_fim_mapping.py: Process in either in Int16 for rem and HydroIDs, or int32 and float32 respectively in the case of an Alaska HUC.
+- tools/inundation.py: Process in either in Int16 for rem and HydroIDs, or int32 and float32 respectively in the case of an Alaska HUC.
+- tools/mosaic_inundation.py: Add rasterio merge and remove calls to removed script overlapping_inundation.py.
+- tools/convert_to_int16.py: Add raise error for scenarios where catchment raster has too many HydroIDs or HydroIDs that have more than 8 digits.
+
+### Removals
+- /tools/overlapping_inundation.py
+<br />
+
 ## v4.8.13.0 - 2025-10-10 - [PR#1673](https://github.com/NOAA-OWP/inundation-mapping/pull/1673)
 
 This script processes river segment slope data to identify and correct unrealistic values based on user-defined thresholds. It is designed to check against the NWM hydrofab to and fill/extrapolate missing or invalid slope values using valid upstream/downstream values.
