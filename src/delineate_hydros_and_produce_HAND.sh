@@ -36,28 +36,6 @@ python3 $srcDir/accumulate_headwaters.py \
     -stream $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -thresh 1
 
-## DINF FLOW ACCUMULATIONS ##
-echo -e $startDiv"Dinf Flow Accumulations $hucNumber $current_branch_id"
-$taudemDir/areadinf \
-    -ang $tempCurrentBranchDataDir/flowdir_dinf_burned_filled_$current_branch_id.tif \
-    -sca $tempCurrentBranchDataDir/flowaccum_dinf_burned_filled_$current_branch_id.tif \
-    -wg $tempCurrentBranchDataDir/headwaters_$current_branch_id.tif \
-    -nc
-
-## DINF THRESHOLD ACCUMULATIONS ##
-# echo -e $startDiv"Threshold Accumulations $hucNumber $current_branch_id"
-# date -u
-# Tstart
-# $taudemDir/threshold \
-#     -ssa $tempCurrentBranchDataDir/flowaccum_dinf_burned_filled_$current_branch_id.tif \
-#     -src $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
-#     -thresh 1
-# Tcount
-# python3 $srcDir/threshold_streams.py \
-#     -fa $tempCurrentBranchDataDir/flowaccum_dinf_burned_filled_$current_branch_id.tif \
-#     -stream $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
-#     -thresh 1
-
 ## PREPROCESSING FOR LATERAL THALWEG ADJUSTMENT ###
 echo -e $startDiv"Preprocessing for lateral thalweg adjustment $hucNumber $current_branch_id"
 python3 $srcDir/unique_pixel_and_allocation.py \
@@ -168,7 +146,7 @@ $srcDir/mitigate_branch_outlet_backpool.py \
     --calculate-stats
 Tcount
 
-## D8 REM ##
+## DINF REM ##
 echo -e $startDiv"Dinf REM $hucNumber $current_branch_id"
 $taudemDir/dinfdistdown \
     -ang $tempCurrentBranchDataDir/flowdir_dinf_burned_filled_$current_branch_id.tif \
@@ -179,7 +157,7 @@ $taudemDir/dinfdistdown \
     -m ave v \
     -nc
 
-## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS##
+## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
 echo -e $startDiv"Bring negative values in REM to zero and mask to catchments $hucNumber $current_branch_id"
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
     -A $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
