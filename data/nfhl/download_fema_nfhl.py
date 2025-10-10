@@ -137,7 +137,7 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
 
         if wbd is None:
             file_logger.error(f'No wbd available for huc {huc}')
-            return False
+            return 2, [False]
 
         def __get_nfhl_flood_hazard_zones(
             huc, wbd, out_file, geometryType='esriGeometryEnvelope', geometryCRS=geometryCRS
@@ -280,15 +280,17 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
         success = __get_nfhl_flood_hazard_zones(
             huc=huc, out_file=out_file, wbd=wbd, geometryType=geometry_type, geometryCRS=geometryCRS
         )
-        if success:
+        if success:  # True
             file_logger.info(f"Completed processing HUC {task_id}")
+            return 0, [True]
             # screen_queue.put(f"Completed processing HUC {task_id}")
-        return success
+        else:  # False
+            return 2, [False]
 
     except Exception as e:
         file_logger.error(f"Exception in HUC {task_id}: {str(e)}")
         file_logger.error(traceback.format_exc())
-        return False
+        return 1, []
 
 
 def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnvelope', num_processes=1):
@@ -360,13 +362,13 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
             )
 
         # Run multiprocessing
+        # A mix of abort on some errors, continue on others (case by case)
         results = run_with_mp(
             task_function=download_nfhl,
             tasks_args_list=tasks_args_list,
             file_logger=file_logger,
             max_workers=num_processes,
             task_id_key='huc',
-            exit_on_failure=False,
             show_progress=False,  # Disables the progress bar display
         )
         file_logger.info(f"Multiprocessing results: {results}")
