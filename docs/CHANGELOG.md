@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.x.x.x - 2025-xx-xx - [PR#1640](https://github.com/NOAA-OWP/inundation-mapping/pull/1640)
+## v4.8.14.1 - 2025-10-10 - [PR#1640](https://github.com/NOAA-OWP/inundation-mapping/pull/1640)
 
 This PR focuses on processing and analysing the Ripple model metrics to find the source RAS models that have low quality and could be discarded from the Hydrovis database.  The main output of the script is a CSV file containing a list of low-accuracy ripple collection_ids and source model_ids, and associated NWM streams. You can also find detailed information on NWM streams metrics as well as averaged source model metrics. 
 
@@ -10,7 +10,7 @@ To run the script, you need to create a directory in your `metrix_dir` (the only
 
 1. All terrain agreement metrics databases for NWM reaches, e.g, `0501244.terrain_agreement.db`
 2. Ripple geopackage for each model collection, e.g., 'ripple.gpkg'
-
+<br />
 
 ### Additions
 - `data/ripple/`
