@@ -3,14 +3,29 @@
 
 import argparse
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 from typing import Optional, Union
 
+import geopandas as gpd
+import numpy as np
 import pandas as pd
-from overlapping_inundation import OverlapWindowMerge
+import rasterio
+import rioxarray as rxr
+import xarray as xr
+from geocube.api.core import make_geocube
+from rasterio.features import shapes
+from rasterio.merge import merge
+from shapely.geometry import box
+from shapely.geometry.multipolygon import MultiPolygon
+from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
 from utils.shared_variables import elev_raster_ndv
+
+
+gpd.options.io_engine = "pyogrio"
 
 
 def Mosaic_inundation(
@@ -184,21 +199,14 @@ def mosaic_by_unit(
     str
         File name of mosaiced output
     """
-    # overlap object instance
-    overlap = OverlapWindowMerge(inundation_maps_list, (30, 30))
 
     if mosaic_output is not None:
-        if workers > 1:
-            threaded = True
-        else:
-            threaded = False
 
-        overlap.merge_rasters(mosaic_output, threaded=threaded, workers=workers, nodata=nodata)
+        merge(inundation_maps_list, method='max', nodata=nodata, dst_path=mosaic_output)
 
         if mask:
             fh.vprint("Masking ...", verbose)
-            # print("Masking Begin", time.localtime())
-            overlap.mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
+            mask_mosaic(mosaic_output, mask, outfile=mosaic_output, workers=workers)
 
     if remove_inputs:
         fh.vprint("Removing inputs ...", verbose)
@@ -209,6 +217,76 @@ def mosaic_by_unit(
                 remove_list.append(inun_map)
 
         return remove_list
+
+
+def _vprint(message, verbose):
+    if verbose:
+        print(message)
+
+
+def mask_mosaic(mosaic, polys, polys_layer=None, outfile=None, workers=4, quiet=True):
+
+    if isinstance(mosaic, str):
+        with rasterio.open(mosaic, 'r') as rst:
+            windows = [windows for _, windows in rst.block_windows()]
+            profile = rst.profile
+    elif isinstance(mosaic, rasterio.DatasetReader):
+        pass
+    else:
+        raise TypeError("Pass rasterio dataset or filepath for mosaic")
+
+    if isinstance(polys, str):
+        polys = gpd.read_file(polys, layer=polys_layer)
+    elif isinstance(polys, gpd.GeoDataFrame):
+        pass
+    else:
+        raise TypeError("Pass geopandas dataset or filepath for catchment polygons")
+
+    mosaic_read = rxr.open_rasterio(mosaic)
+    mosaic_read = mosaic_read.sel({'band': 1})
+    geom = polys['geometry'].values[0]
+
+    def write_window(geom, window, wrst, lock):
+        mosaic_slice = mosaic.isel(
+            y=slice(window.row_off, window.row_off + window.height),
+            x=slice(window.col_off, window.col_off + window.width),
+        )
+        bbox = box(*mosaic_slice.rio.bounds())
+
+        if geom.intersects(bbox):
+
+            inter = geom.intersection(bbox)
+
+            if inter.area != bbox.area:
+                gdf_temp = gpd.GeoDataFrame(geometry=[inter], crs=mosaic_slice.rio.crs)
+                gdf_temp['arb'] = np.int8(1)
+                temp_rast = make_geocube(vector_data=gdf_temp, measurements=['arb'], like=mosaic_slice)
+                mosaic_slice.data = xr.where(np.isnan(temp_rast['arb']), 0, mosaic_slice.data)
+                # with lock:
+                wrst.write_band(1, mosaic_slice.data.squeeze(), window=window)
+
+    executor = ThreadPoolExecutor(max_workers=workers)
+
+    def __data_generator(windows, mosaic, geom, wrst, lock):
+        for window in windows:
+            yield mosaic, geom, window, wrst, lock
+
+    lock = Lock()
+
+    with rasterio.open(outfile, "r+", **profile) as wrst:
+        dgen = __data_generator(windows, mosaic_read, geom, wrst, lock)
+        results = {executor.submit(write_window, *wg): 1 for wg in dgen}
+
+        for future in as_completed(results):
+            try:
+                future.result()
+            except Exception as exc:
+                _vprint("Exception {} for {}".format(exc, results[future]), not quiet)
+            else:
+                if results[future] is not None:
+                    _vprint("... {} complete".format(results[future]), not quiet)
+                else:
+                    _vprint("... complete", not quiet)
 
 
 def mosaic_final_inundation_extent_to_poly(
@@ -229,14 +307,6 @@ def mosaic_final_inundation_extent_to_poly(
         File type to output inundation polygon
 
     """
-    import geopandas as gpd
-    import numpy as np
-    import rasterio
-    from rasterio.features import shapes
-    from shapely.geometry.multipolygon import MultiPolygon
-    from shapely.geometry.polygon import Polygon
-
-    gpd.options.io_engine = "pyogrio"
 
     with rasterio.open(inundation_raster) as src:
         # Open inundation_raster using rasterio.

@@ -20,7 +20,7 @@ from rasterio.merge import merge
 from shapely.geometry import Point
 
 from data.create_vrt_file import create_vrt_file
-from utils.shared_functions import run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
 """
@@ -165,12 +165,12 @@ def make_one_diff(
             with rasterio.open(output_diff_path, 'w', **raster_meta) as dst:
                 dst.write(updated_raster, 1)
         screen_queue.put(f"End of processing {task_id}")
-        return True
+        return 1, [True]
 
     except Exception as e:
         file_logger.error(f"❌ Exception in HUC {task_id}: {str(e)}")
         file_logger.error(traceback.format_exc())
-        return False
+        return 0, [False]
 
 
 def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number_jobs):
@@ -180,17 +180,23 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
 
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_path = os.path.join(output_dir, f"DEM_diff_rasters-{file_dt_string}.log")
-    file_logger = setup_mp_file_logger(log_file_path)
+    file_logger = setup_mp_file_logger(log_file_path, "DEM_diff_raster")
 
     try:
         print('Reading osm bridge lines...')
+        if not os.path.isfile(OSM_bridge_file):
+            raise ValueError(f"Argument -i OSM_bridge_file of {OSM_bridge_file} does not exist.")
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
 
         print('Adding HUC8/6 number and info about existence of lidar raster or not...')
         OSM_bridge_lines_gdf['huc6'] = OSM_bridge_lines_gdf['huc8'].str[:6]
         OSM_bridge_lines_gdf = identify_bridges_with_lidar(OSM_bridge_lines_gdf, lidar_tif_dir)
+        if len(OSM_bridge_lines_gdf) == 0:
+            raise ValueError("There are no bridges with lidar data, check data and tif folder pathing.")
 
         dem_files = list(glob.glob(os.path.join(dem_dir, '*.tif')))
+        if len(dem_files) == 0:
+            raise ValueError("No DEM files were found. Please recheck the DEM folder pathing")
         dem_files.sort()
 
         available_dif_files = list(glob.glob(os.path.join(output_dir, '*.tif')))
@@ -222,13 +228,13 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
                 )
 
         # now start the multiprocessing
+        # Shut down if an error is found.
         mp_results = run_with_mp(
             task_function=make_one_diff,
             tasks_args_list=tasks_args_list,
             file_logger=file_logger,
             max_workers=number_jobs,
             task_id_key="HUC",  # must be one of the task arg keys. used for status report
-            exit_on_failure=False,
             show_progress=True,
         )
 
