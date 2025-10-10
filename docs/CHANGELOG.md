@@ -1,6 +1,23 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.12.0 - 2025-10-10 - [PR#1621]([https://github.com/NOAA-OWP/inundation-mapping/pull/1621])
+
+This PR focuses on the position of three scripts in the post-processing and updating the longitudinal filtering parameters. First, a new script has been written to address the thalweg notch adjustment, separated from the nonmonotonic adjustment script. Second, the post-processing has been changed in a way that `thalweg_notches_adjustment` and `logitudinal_flow_adjustment` will be run before `bathymetry_adjustment`. Then, `nonmonotonic_adjustment` will be run after the `src_subdivision` section. The second purpose of this PR is to update the `longitudinal_adjustment` parameters and replace the minimum filter with the lowest 10-percentile of the discharge on the rating curve. 
+
+### Additions
+- `src/`
+    - `thalweg_notches_adjustment.py`
+
+### Changes
+- `fim_post_processing.sh`
+- `src/`
+    - `longitudinal_flow_adjustment.py`
+    - `nonmonotonic_src_adjustment.py`
+- `config/`
+    - `params_template.env`
+<br/>
+
 ## v4.8.11.3 - 2025-10-10 - [PR#1669](https://github.com/NOAA-OWP/inundation-mapping/pull/1669)
 
 The FEMA NFHL data consists of several layers. The 100- and 500-year floodplain layers are merged into a layer called 'combined'. However, if a HUC has neither 100- or 500-year floodplain layers, the `combined` layer is not produced. This missing `combined` layer causes an error in `src/adjust_floodplains.py`. This patch skips the reading of the `combined` layer if it doesn't exist.
@@ -402,9 +419,7 @@ Removing the hydrofabric slope values for now due to issues with erroneous value
 <br/><br/>
 
 
-## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
-
-## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+## v4.8.6.3 - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
 
 Clips NWM streams at the land/sea mask.
 
