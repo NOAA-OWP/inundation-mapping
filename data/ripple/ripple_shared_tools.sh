@@ -18,7 +18,7 @@ function calc_Duration() {
 
 function Setup_logging() {
 
-    local log_file_path=$1
+    local log_file_path="$1"
     # echo "the setup log path is ${log_file_path}"
     if [ ! -f $log_file_path ]; then
         touch $log_file_path
@@ -38,4 +38,15 @@ function l_echo() {
     printf -v current_datetime '%(%Y%m%d-%H:%M:%S)T' -1
     adj_msg="$current_datetime - ${msg}"
     echo -e "$adj_msg" ; echo -e "$adj_msg" >> $log_file_path
+}
+
+# trims spaces both sides plus an ending slash if one exists
+function Trim_spaces() {
+    local orig_value="$1"
+
+    # trim spaces (end first, then front)
+    rtn_value="${orig_value##*[[:space:]]}"
+    rtn_value="${rtn_value%%*([[:space:]])}"
+    rtn_value="${rtn_value%/}"
+    echo -e "$rtn_value"
 }

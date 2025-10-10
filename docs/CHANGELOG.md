@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.11.2 - 2025-10-10 - [PR#1671](https://github.com/NOAA-OWP/inundation-mapping/pull/1671)
+
+Adjusted the scripts for pulling down filtered files/folders for the new ripple 100_0_10_4 set. These adjustments allow for optional download to EFS only, or additionally add re-push back up to our S3.
+
+### Changes
+
+- 'data\ripple\get_s3_folder.sh, get_s3_folders_from_list.sh and ripple_shared_tools.sh`: As described above.
+<br/>
+
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
 
 Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
