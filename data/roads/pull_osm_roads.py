@@ -262,12 +262,12 @@ def single_huc_job(
             else:
                 file_logger.warning(f"No roads within actual boundary of HUC for {task_id}")
                 screen_queue.put(f"No roads within actual boundary of HUC for {task_id}")
-        return 0, [True]
+        return 1, [True]
 
     except Exception as e:
         file_logger.error(f"❌ Exception in HUC {HUC_no}: {str(e)}")
         file_logger.error(traceback.format_exc())  # Optional: log full traceback
-        return 2, [False]
+        return 0, [False]
 
 
 def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
@@ -289,7 +289,7 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
     # Create the logger
     file_dt_string = start_time.strftime("%Y%m%d-%H%M")
     log_file_path = os.path.join(output_dir, f"pull_osm_roads_{file_dt_string}.log")
-    file_logger = setup_mp_file_logger(log_file_path)
+    file_logger = setup_mp_file_logger(log_file_path, "pull_osm_roads")
 
     print("==================================")
     print("Starting load of OSM Road data")
