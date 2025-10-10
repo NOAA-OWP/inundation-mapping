@@ -7,6 +7,47 @@ Fixes a bug that was introduced to flow-based CatFIM in recent changes to the In
 
 ### Changes
 tools/catfim/generate_categorical_fim_mapping.py: Added multi-process option to inundate_gms() function. Updated print logs.
+## v4.8.12.1 - 2025-10-10 - [PR#1617]([https://github.com/NOAA-OWP/inundation-mapping/pull/1617])
+
+This tool generates a custom flow file for a specific FIM scenario. Given a flow value and either a feature ID or a LID/USGS gage ID, it traces downstream along NWM streamlines and applies the input flow to each segment within the specified distance.
+
+### Additions
+- `-tools/generate_custom_flow_files.py`
+<br/>
+
+## v4.8.12.0 - 2025-10-10 - [PR#1621]([https://github.com/NOAA-OWP/inundation-mapping/pull/1621])
+
+This PR focuses on the position of three scripts in the post-processing and updating the longitudinal filtering parameters. First, a new script has been written to address the thalweg notch adjustment, separated from the nonmonotonic adjustment script. Second, the post-processing has been changed in a way that `thalweg_notches_adjustment` and `logitudinal_flow_adjustment` will be run before `bathymetry_adjustment`. Then, `nonmonotonic_adjustment` will be run after the `src_subdivision` section. The second purpose of this PR is to update the `longitudinal_adjustment` parameters and replace the minimum filter with the lowest 10-percentile of the discharge on the rating curve. 
+
+### Additions
+- `src/`
+    - `thalweg_notches_adjustment.py`
+
+### Changes
+- `fim_post_processing.sh`
+- `src/`
+    - `longitudinal_flow_adjustment.py`
+    - `nonmonotonic_src_adjustment.py`
+- `config/`
+    - `params_template.env`
+<br/>
+
+## v4.8.11.3 - 2025-10-10 - [PR#1669](https://github.com/NOAA-OWP/inundation-mapping/pull/1669)
+
+The FEMA NFHL data consists of several layers. The 100- and 500-year floodplain layers are merged into a layer called 'combined'. However, if a HUC has neither 100- or 500-year floodplain layers, the `combined` layer is not produced. This missing `combined` layer causes an error in `src/adjust_floodplains.py`. This patch skips the reading of the `combined` layer if it doesn't exist.
+
+### Changes
+
+- `src/adjust_floodplains.py`: Skips reading `combined` layer if it doesn't exist in the FEMA NFHL geopackage.
+<br/>
+
+## v4.8.11.2 - 2025-10-10 - [PR#1671](https://github.com/NOAA-OWP/inundation-mapping/pull/1671)
+
+Adjusted the scripts for pulling down filtered files/folders for the new ripple 100_0_10_4 set. These adjustments allow for optional download to EFS only, or additionally add re-push back up to our S3.
+
+### Changes
+
+- 'data\ripple\get_s3_folder.sh, get_s3_folders_from_list.sh and ripple_shared_tools.sh`: As described above.
 <br/>
 
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
@@ -392,9 +433,7 @@ Removing the hydrofabric slope values for now due to issues with erroneous value
 <br/><br/>
 
 
-## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
-
-## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+## v4.8.6.3 - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
 
 Clips NWM streams at the land/sea mask.
 
