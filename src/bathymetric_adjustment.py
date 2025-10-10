@@ -148,6 +148,10 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
         src_df.loc[cond_q, 'WetArea (m2)'] = 0
         src_df.loc[cond_q, 'HydraulicRadius (m)'] = 0
 
+        src_df2 = src_df.copy()
+        discharge_bathymetry = src_df2['Discharge (m3s-1)']
+        src_df['Discharge (m3s-1)_bathymetryAdjusted'] = discharge_bathymetry
+
         # Write src back to file
         # src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
         src_df.to_csv(src, index=False)
@@ -294,6 +298,11 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
 
             # Write src back to file
             src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
+
+            src_df2 = src_df.copy()
+            discharge_bathymetry = src_df2['Discharge (m3s-1)']
+            src_df['Discharge (m3s-1)_bathymetryAdjusted'] = discharge_bathymetry
+
             src_df.to_csv(src, index=False)
 
         else:
@@ -372,6 +381,11 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
 
             # Write src back to file
             src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
+
+            src_df3 = src_df.copy()
+            discharge_bathymetry2 = src_df3['Discharge (m3s-1)']
+            src_df['Discharge (m3s-1)_bathymetryAdjusted'] = discharge_bathymetry2
+
             src_df.to_csv(src, index=False)
 
     return log_text
@@ -653,7 +667,7 @@ if __name__ == '__main__':
         '--ai_toggle',
         help='Toggle to apply ai_based bathymetry, ait = 1',
         required=False,
-        default=0,
+        default=1,
         type=int,
     )
     parser.add_argument(
