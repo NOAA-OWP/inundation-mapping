@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## V4.8.10.4 - 2025-09-10 - [PR#1650](https://github.com/NOAA-OWP/inundation-mapping/pull/1650)
+## V4.8.14.0 - 2025-10-10 - [PR#1650](https://github.com/NOAA-OWP/inundation-mapping/pull/1650)
 
 Fixes Alaska HUCs attempt to convert to Int16 if there are too many Hydro IDs and creates error handling for when this issue may arise.
 
@@ -18,6 +18,7 @@ Fixes Alaska HUCs attempt to convert to Int16 if there are too many Hydro IDs an
 ### Removals
 - /tools/overlapping_inundation.py
 <br />
+
 ## v4.8.13.0 - 2025-10-10 - [PR#1673](https://github.com/NOAA-OWP/inundation-mapping/pull/1673)
 
 This script processes river segment slope data to identify and correct unrealistic values based on user-defined thresholds. It is designed to check against the NWM hydrofab to and fill/extrapolate missing or invalid slope values using valid upstream/downstream values.
