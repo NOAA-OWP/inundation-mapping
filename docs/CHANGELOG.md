@@ -10,6 +10,23 @@ This script processes river segment slope data to identify and correct unrealist
 
 ### Changes
 `src/bash_variables.env`: updated the path for the `iris_sword_slope` to use the new input file (IRIS_SWORD_v1.0_20251006.parquet)
+## v4.8.12.3 - 2025-10-10 - [PR#1660](https://github.com/NOAA-OWP/inundation-mapping/pull/1660)
+
+The file shared_functions.py had a bug in it related to a object length check. During that processes we discovered some enhancements to logging tools and run_with_mp.  The return code system was changed now where 1 = success, 0 = fail but do not abort and -1 means fail and abort run.  
+
+This triggered changes to scripts that use the logging or run_with_mp tools for their return values from their multi-proc functions.  The change affected four data load scripts, and all were retested for correct data loading. A fifth data load script, pull_osm_bridges.py, was updated but only for a comment and was not affected by other changes in this PR.
+
+There was also a change to shared_functions.setup_file_logger. It no longer takes a full path and file name for  a log file, but two separate variables, one for the log folder, the other for a log file prefix. A date will be added automatically to the log file name.
+
+### Changes
+
+- `data`
+    - `bridges\make_dem_dif_for_bridges.py`:  Updated call to setup_file_logger plus changes related to run_with_mp. A bit of additional error handling was also added.
+    - `bridges\pull_osm_bridges.py`:  Just a comment added
+    - `nfhl\download_fema_nfhl.py`:  Updated call to setup_file_logger plus changes related to run_with_mp.
+    - `roads\pull_osm_roads.py`:  Updated call to setup_file_logger plus changes related to run_with_mp.
+- `src\shared_functions.py`: as described.
+    - `usgs\get_usgs_rating_curve.py`:  Updated call to setup_file_logger plus changes related to run_with_mp. A bit of additional error handling was also added. A small fix for rounding was also fixed.
 <br/>
 
 ## v4.8.12.2 - 2025-10-10 - [PR#1616](https://github.com/NOAA-OWP/inundation-mapping/pull/1616)
