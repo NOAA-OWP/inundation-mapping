@@ -273,7 +273,7 @@ def produce_stage_based_lid_tifs(
         # The intermediatary are all inundated branch tifs.
 
         # The ones we want to keep end at _extent.tif and remove ones that have _extent_*.tif
-        MP_LOG.lprint(f"{huc_lid_cat_id}: Removing interium inundated branch files")
+        # MP_LOG.lprint(f"{huc_lid_cat_id}: Removing interium inundated branch files")
         branch_tifs = glob.glob(f"{lid_directory}/{lid}_{category_key}_extent_*.tif")
         for tif_file in branch_tifs:
             os.remove(tif_file)
