@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.8.14.1 - 2025-10-10 - [PR#1640](https://github.com/NOAA-OWP/inundation-mapping/pull/1640)
+
+This PR focuses on processing and analysing the Ripple model metrics to find the source RAS models that have low quality and could be discarded from the Hydrovis database.  The main output of the script is a CSV file containing a list of low-accuracy ripple collection_ids and source model_ids, and associated NWM streams. You can also find detailed information on NWM streams metrics as well as averaged source model metrics. 
+
+To run the script, you need to create a directory in your `metrix_dir` (the only input of the script) for each ripple collection and name it the same as the Ripple collection name, e.g., `mip_12090301`. The following files should be stored in the collection directory:
+
+1. All terrain agreement metrics databases for NWM reaches, e.g, `0501244.terrain_agreement.db`
+2. Ripple geopackage for each model collection, e.g., 'ripple.gpkg'
+<br />
+
+### Additions
+- `data/ripple/`
+    - `terrain_agreement_metrics_analysis.py`
+
 ## V4.8.14.0 - 2025-10-10 - [PR#1650](https://github.com/NOAA-OWP/inundation-mapping/pull/1650)
 
 Fixes Alaska HUCs attempt to convert to Int16 if there are too many Hydro IDs and creates error handling for when this issue may arise.
