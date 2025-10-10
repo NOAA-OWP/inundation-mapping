@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-10-01 - [PR#1671](https://github.com/NOAA-OWP/inundation-mapping/pull/1671)
+## v4.8.11.2 - 2025-10-10 - [PR#1671](https://github.com/NOAA-OWP/inundation-mapping/pull/1671)
 
 Adjusted the scripts for pulling down filtered files/folders for the new ripple 100_0_10_4 set. These adjustments allow for optional download to EFS only, or additionally add re-push back up to our S3.
 
