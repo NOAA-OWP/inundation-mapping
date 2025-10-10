@@ -247,12 +247,8 @@ def run_with_mp(
     #    data\usgs\get_usgs_rating_curves.py have different needs. Inside its mp function,
     #    named "__mp___mp_get_site_rating_curve" could have three scenerios (at a min)
     #           1, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
-    #           0, []  (Fail but there is nothing to add to the run_by_mp result set)
-    #          -1, []  (Catestrophic fail, shut down the entire script)
-
-    # Remember that what you send back for a return value is independent from the code.  No matter what you send back for the
-    # return value will be added to the run_with_mp list as long as the return item is not null. Your return value
-    # can be None, a string, a datasets, dictionaries, or even antoher list (resulting in lists in lists).
+    #           0, [None]  (Fail but there is nothing to add to the run_by_mp result set)
+    #          -1, [None]  (Catestrophic fail, shut down the entire script)
 
     # ++++++++++++++++++++++
 
@@ -362,10 +358,10 @@ def run_with_mp(
 
                     elif rtn_code == 0:  # Fail but not shut down the pool.
                         if show_progress:
-                            tqdm.write(f"❌ Error or Warning reported for {task_id}.")
+                            tqdm.write(f"❌ Error reported for {task_id}.")
                         else:
-                            print(f"❌ Error or Warning reported for {task_id}.")
-                        file_logger.info(f"❌ Error or Warning reported for {task_id}.")
+                            print(f"❌ Error reported for {task_id}.")
+                        file_logger.info(f"❌ Error reported for {task_id}.")
 
                     else:  # rtn_code == -1, but really any negative int
                         # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
@@ -374,10 +370,6 @@ def run_with_mp(
                             f"Critical Error: Abort Program from task id = {task_id}."
                             " See exception details in the logs."
                         )
-
-                    # Some calling functions, may return a None, especially if it returned rtn_code == 0 (fail but continue)
-                    if rtn_value is not None:
-                        results[task_id] = rtn_value
 
                     if pbar:
                         # print("task bar being updated")
