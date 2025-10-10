@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-09-30 - [PR#1660](https://github.com/NOAA-OWP/inundation-mapping/pull/1660)
+## v4.8.12.3 - 2025-10-10 - [PR#1660](https://github.com/NOAA-OWP/inundation-mapping/pull/1660)
 
 The file shared_functions.py had a bug in it related to a object length check. During that processes we discovered some enhancements to logging tools and run_with_mp.  The return code system was changed now where 1 = success, 0 = fail but do not abort and -1 means fail and abort run.  
 
@@ -18,6 +18,8 @@ There was also a change to shared_functions.setup_file_logger. It no longer take
     - `roads\pull_osm_roads.py`:  Updated call to setup_file_logger plus changes related to run_with_mp.
 - `src\shared_functions.py`: as described.
     - `usgs\get_usgs_rating_curve.py`:  Updated call to setup_file_logger plus changes related to run_with_mp. A bit of additional error handling was also added. A small fix for rounding was also fixed.
+<br/>
+
 ## v4.8.12.2 - 2025-10-10 - [PR#1616](https://github.com/NOAA-OWP/inundation-mapping/pull/1616)
 
 Fixes a bug that was introduced to flow-based CatFIM in recent changes to the Inundate_gms() function. The bug was fixed by adding multi_process = True as an input to the function.
