@@ -10,9 +10,6 @@ import rasterio.features as features
 import whitebox
 
 
-# from rasterstats import zonal_stats
-
-
 wbt = whitebox.WhiteboxTools()
 wbt.set_verbose_mode(False)
 wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
