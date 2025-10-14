@@ -384,7 +384,7 @@ def run_with_mp(
                 # The child mp function should have it's own try/except but in case something slips
                 # through or they forgot to add it.
 
-                error_msg = f"L Critical error: {ex}"
+                error_msg = f"❌ Critical error: {ex}"
                 traceback_msg = traceback.format_exc()
                 print(error_msg)
                 print(traceback_msg)
