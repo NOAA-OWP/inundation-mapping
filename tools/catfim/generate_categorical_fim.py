@@ -897,6 +897,7 @@ def iterate_through_huc_stage_based(
 
                 # So, we might have an MP inside an MP
                 # let's merge what we have at this point, before we go into another MP
+                # TODO: Oct 2025: We should re-enable this, but need to test it first.
                 # MP_LOG.merge_log_files(MP_LOG.LOG_FILE_PATH, child_log_file_prefix_tifs, True)
 
                 # we do intervals only on non-record and valid stages

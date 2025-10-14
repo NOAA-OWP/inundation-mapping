@@ -65,9 +65,6 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     if log_file_dir is None or log_file_dir == "":
         raise ValueError("log directory path can not be None or empty")
 
-    print(f"log_file_dir is {log_file_dir}")
-    os.makedirs(log_file_dir, exist_ok=True)
-
     if log_file_name_prefix is None or log_file_name_prefix == "":
         raise ValueError("log file name prefix can not be None or empty")
 
@@ -240,18 +237,18 @@ def run_with_mp(
     #      -1: Critical Fail and the entire script should be aborted
 
     # Some examples of usage:
-
-    # Some tools like pull_osm_roads.py want a T/F returned for every mp item, so its mp process
+    #    data\roads\pull_osm_roads.py wants a T/F returned for every mp item, so its mp process
     #    named "single_huc_job" returns:
     #            1, [True]  (meaning success and add "True" to the run_by_mp result set)
     #            0, [False] (meaning fail don't shut down the entire process, add the value of
     #                 False to the run_with_mp return results and show the tqdm / print message
 
-    # Some tools like get_usgs_rating_curves.py have different needs. Inside its mp function,
+    # Another example:
+    #    data\usgs\get_usgs_rating_curves.py have different needs. Inside its mp function,
     #    named "__mp___mp_get_site_rating_curve" could have three scenerios (at a min)
-    #           1, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
-    #           0, []  (Fail but there is nothing to add to the run_by_mp result set)
-    #          -1, []  (Catestrophic fail, shut down the entire script)
+    #           0, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
+    #           1, []  (Catestrophic fail, shut down the entire script)
+    #           2, []  (Fail but there is nothing to add to the run_by_mp result set)
 
     # ++++++++++++++++++++++
 
@@ -359,14 +356,7 @@ def run_with_mp(
                             print(f" Success for {task_id}")
                         file_logger.info(f" Success for {task_id}")
 
-                    elif rtn_code == 0:  # Fail but not shut down the pool.
-                        if show_progress:
-                            tqdm.write(f"L Error or Warning reported for {task_id}.")
-                        else:
-                            print(f"L Error or Warning reported for {task_id}.")
-                        file_logger.info(f"L Error or Warning reported for {task_id}.")
-
-                    else:  # rtn_code == -1, but really any negative int
+                    elif rtn_code == 1:
                         # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
                         # throw an exception to shut down and cleanup all objects (pool, tqdm, queue)
                         raise Exception(
@@ -374,9 +364,31 @@ def run_with_mp(
                             " See exception details in the logs."
                         )
 
-                    # Some calling functions, may return a None, especially if it returned rtn_code == 0 (fail but continue)
-                    if rtn_value is not None:
-                        results[task_id] = rtn_value
+                    elif rtn_code == 2:
+                        # Fail but not shut down the pool.
+                        if rtn_code == 2:  # show tqdm / print message
+                            if show_progress:
+                                tqdm.write(f"❌ Error or Warning reported for {task_id}.")
+                            else:
+                                print(f"❌ Error or Warning reported for {task_id}.")
+                            file_logger.info(f"❌ Error or Warning reported for {task_id}.")
+                    else:
+                        raise Exception("Child mp task returned and invalid status code")
+
+                    if len(rtn_value) == 1:
+                        # add it to the run_with_mp results
+                        # Some mp functions will return an empty list meaning they don't
+                        # want to add anything to the run_with_mp return set.
+
+                        # IMPORTANT NOTE:
+                        #    This extracts the first item only.
+                        results[task_id] = rtn_value[0]
+                    if len(rtn_value > 1):
+                        raise Exception(
+                            "Child mp task must return either 0 or 1 list items, and you have more"
+                            " than one item in the return list. Consider a list or dictionary in"
+                            " return list."
+                        )
 
                     if pbar:
                         # print("task bar being updated")
