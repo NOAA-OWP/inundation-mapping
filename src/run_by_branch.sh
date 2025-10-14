@@ -116,6 +116,11 @@ echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
     $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif
 
+## PIT REMOVE ORIGINAL DEM - BRANCH 0 (include all NWM streams) ##
+echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"
+rd_depression_filling $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
+    $tempCurrentBranchDataDir/dem_filled_$current_branch_id.tif
+
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
