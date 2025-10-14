@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-10-14 - [PR#1677](https://github.com/NOAA-OWP/inundation-mapping/pull/1677)
+
+During a merge of the recent PR for mprunner fixes, one critical line was dropped. The line takes the return value from the child multi-proc function and adds it to a list collection of return results. 
+
+A couple of small links in the changelog were also fixed.
+
+### Changes
+- `src/utils/shared_functions.py`: as described.
+<br />
 
 ## v4.8.14.1 - 2025-10-10 - [PR#1640](https://github.com/NOAA-OWP/inundation-mapping/pull/1640)
 
@@ -15,6 +24,7 @@ To run the script, you need to create a directory in your `metrix_dir` (the only
 ### Additions
 - `data/ripple/`
     - `terrain_agreement_metrics_analysis.py`
+<br />
 
 ## V4.8.14.0 - 2025-10-10 - [PR#1650](https://github.com/NOAA-OWP/inundation-mapping/pull/1650)
 
