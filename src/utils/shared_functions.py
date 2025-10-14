@@ -349,18 +349,19 @@ def run_with_mp(
                         # success and show tqdm or print line
                         if show_progress:
                             tqdm.write(
-                                f" Success for {task_id}"
+                                f"✅ Success for {task_id}"
                             )  # do not use print otherwise a new updated bar is created after each print line
                         else:
-                            print(f" Success for {task_id}")
-                        file_logger.info(f" Success for {task_id}")
+                            print(f"✅ Success for {task_id}")
+                        file_logger.info(f"✅ Success for {task_id}")
 
                     elif rtn_code == 0:  # Fail but not shut down the pool.
                         if show_progress:
-                            tqdm.write(f"L Error reported for {task_id}.")
+                            tqdm.write(f"❌ Error reported for {task_id}.")
                         else:
-                            print(f"L Error reported for {task_id}.")
-                        file_logger.info(f"L Error reported for {task_id}.")
+                            print(f"❌ Error reported for {task_id}.")
+                        file_logger.info(f"❌ Error reported for {task_id}.")
+
 
                     else:  # rtn_code == -1, but really any negative int
                         # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
@@ -372,7 +373,7 @@ def run_with_mp(
 
                     if pbar:
                         # print("task bar being updated")
-                        pbar.update(1)  # Progress update for each completed task
+                        pbar.update(1)  # ✅ Progress update for each completed task
 
                 results[task_id] = rtn_value
 
