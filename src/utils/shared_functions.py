@@ -32,7 +32,6 @@ gp.options.io_engine = "pyogrio"
 # #################################
 # log file tools
 
-
 # This one is a standard Python logger, NOT MEANT for multi-proc
 # def setup_file_logger(log_file_path):
 def setup_file_logger(log_file_dir, log_file_name_prefix):
@@ -74,7 +73,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     print(f"Logs saved to: {log_file_path}")
 
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     # logger.propagate = False # Prevent propagation to the root logger
 
     # basic screen handler
@@ -246,9 +245,9 @@ def run_with_mp(
     # Another example:
     #    data\usgs\get_usgs_rating_curves.py have different needs. Inside its mp function,
     #    named "__mp___mp_get_site_rating_curve" could have three scenerios (at a min)
-    #           0, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
-    #           1, []  (Catestrophic fail, shut down the entire script)
-    #           2, []  (Fail but there is nothing to add to the run_by_mp result set)
+    #           1, [some dataframe]  (success and add the dataframe to the run_by_mp result set)
+    #           0, [None]  (Fail but there is nothing to add to the run_by_mp result set)
+    #          -1, [None]  (Catestrophic fail, shut down the entire script)
 
     # ++++++++++++++++++++++
 
@@ -356,7 +355,14 @@ def run_with_mp(
                             print(f" Success for {task_id}")
                         file_logger.info(f" Success for {task_id}")
 
-                    elif rtn_code == 1:
+                    elif rtn_code == 0:  # Fail but not shut down the pool.
+                        if show_progress:
+                            tqdm.write(f"L Error reported for {task_id}.")
+                        else:
+                            print(f"L Error reported for {task_id}.")
+                        file_logger.info(f"L Error reported for {task_id}.")
+
+                    else:  # rtn_code == -1, but really any negative int
                         # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
                         # throw an exception to shut down and cleanup all objects (pool, tqdm, queue)
                         raise Exception(
@@ -364,35 +370,11 @@ def run_with_mp(
                             " See exception details in the logs."
                         )
 
-                    elif rtn_code == 2:
-                        # Fail but not shut down the pool.
-                        if rtn_code == 2:  # show tqdm / print message
-                            if show_progress:
-                                tqdm.write(f"❌ Error or Warning reported for {task_id}.")
-                            else:
-                                print(f"❌ Error or Warning reported for {task_id}.")
-                            file_logger.info(f"❌ Error or Warning reported for {task_id}.")
-                    else:
-                        raise Exception("Child mp task returned and invalid status code")
-
-                    if len(rtn_value) == 1:
-                        # add it to the run_with_mp results
-                        # Some mp functions will return an empty list meaning they don't
-                        # want to add anything to the run_with_mp return set.
-
-                        # IMPORTANT NOTE:
-                        #    This extracts the first item only.
-                        results[task_id] = rtn_value[0]
-                    if len(rtn_value > 1):
-                        raise Exception(
-                            "Child mp task must return either 0 or 1 list items, and you have more"
-                            " than one item in the return list. Consider a list or dictionary in"
-                            " return list."
-                        )
-
                     if pbar:
                         # print("task bar being updated")
-                        pbar.update(1)  #  Progress update for each completed task
+                        pbar.update(1)  # Progress update for each completed task
+
+                results[task_id] = rtn_value
 
                 if pbar:  # All mp tasks are done.
                     pbar.close()
