@@ -32,6 +32,7 @@ gp.options.io_engine = "pyogrio"
 # #################################
 # log file tools
 
+
 # This one is a standard Python logger, NOT MEANT for multi-proc
 # def setup_file_logger(log_file_path):
 def setup_file_logger(log_file_dir, log_file_name_prefix):
@@ -361,7 +362,6 @@ def run_with_mp(
                         else:
                             print(f"❌ Error reported for {task_id}.")
                         file_logger.info(f"❌ Error reported for {task_id}.")
-
 
                     else:  # rtn_code == -1, but really any negative int
                         # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
