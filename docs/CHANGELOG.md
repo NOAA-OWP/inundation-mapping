@@ -32,7 +32,7 @@ Details on full tool usage are embedded in the scripts themselves. This tool rel
 ### Changes
 - `src\utils`
     - `fim_logger.py`: Adjusted for usage of date time objects to be consistent with other scripts.
-    - `shared_functions.py`: WIP... HOLD. See note at the top.
+    - `shared_functions.py`: Added a new function called `get_value_from_env` which validates the env value then returns it. The reason for this addition is validation and clarity when errors occur for loading env variables.
 - `tools\catfim`
     - `README.md`, `generate_categorical_fim.py`, and `generate_categorical_fim_flows.py`: Adjusted to use and default to the config file of `fim_enviro_values.env.template` consistent with other scripts/tools.
 
