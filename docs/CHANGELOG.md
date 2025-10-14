@@ -72,7 +72,7 @@ Fixes a bug that was introduced to flow-based CatFIM in recent changes to the In
 tools/catfim/generate_categorical_fim_mapping.py: Added multi-process option to inundate_gms() function. Updated print logs.
 <br/>
 
-## v4.8.12.1 - 2025-10-10 - [PR#1617]([https://github.com/NOAA-OWP/inundation-mapping/pull/1617])
+## v4.8.12.1 - 2025-10-10 - [PR#1617](https://github.com/NOAA-OWP/inundation-mapping/pull/1617)
 
 This tool generates a custom flow file for a specific FIM scenario. Given a flow value and either a feature ID or a LID/USGS gage ID, it traces downstream along NWM streamlines and applies the input flow to each segment within the specified distance.
 
@@ -80,7 +80,7 @@ This tool generates a custom flow file for a specific FIM scenario. Given a flow
 - `-tools/generate_custom_flow_files.py`
 <br/>
 
-## v4.8.12.0 - 2025-10-10 - [PR#1621]([https://github.com/NOAA-OWP/inundation-mapping/pull/1621])
+## v4.8.12.0 - 2025-10-10 - [PR#1621](https://github.com/NOAA-OWP/inundation-mapping/pull/1621)
 
 This PR focuses on the position of three scripts in the post-processing and updating the longitudinal filtering parameters. First, a new script has been written to address the thalweg notch adjustment, separated from the nonmonotonic adjustment script. Second, the post-processing has been changed in a way that `thalweg_notches_adjustment` and `logitudinal_flow_adjustment` will be run before `bathymetry_adjustment`. Then, `nonmonotonic_adjustment` will be run after the `src_subdivision` section. The second purpose of this PR is to update the `longitudinal_adjustment` parameters and replace the minimum filter with the lowest 10-percentile of the discharge on the rating curve. 
 
