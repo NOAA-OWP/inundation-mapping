@@ -78,17 +78,20 @@ def adjust_floodplains(
         if 'availability' in nfhl_layers:
             distance_mask = np.zeros_like(distance)
 
-            fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer='combined')
+            if 'combined' in nfhl_layers:
+                # Read the FEMA flood zones layer
+                fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer='combined')
 
-            # Clip the FEMA flood zones to the branch polygon
-            fema_flood_zones_clipped = gpd.clip(fema_flood_zones, branch_poly)
+                # Clip the FEMA flood zones to the branch polygon
+                fema_flood_zones_clipped = gpd.clip(fema_flood_zones, branch_poly)
 
-            # Mask the distance raster with fema_flood_zones_clipped
-            for geom in fema_flood_zones_clipped.geometry:
-                mask = features.geometry_mask(
-                    [geom], out_shape=distance.shape, transform=src.transform, invert=True
-                )
-                distance_mask[mask] = 1
+                # Mask the distance raster with fema_flood_zones_clipped
+                for geom in fema_flood_zones_clipped.geometry:
+                    mask = features.geometry_mask(
+                        [geom], out_shape=distance.shape, transform=src.transform, invert=True
+                    )
+                    distance_mask[mask] = 1
+
             distance_grid = np.where(distance_mask == 1, distance, np.nan)
 
             # Fill in areas outside the FEMA flood zone availability
