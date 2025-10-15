@@ -235,7 +235,7 @@ def __load_qa_dataset(deploy_types, deploy_params_file):
         files_to_upload.append(upload_item)
 
     # CatFIM Stage Compare files
-    if 'cffc' in deploy_types:
+    if 'cfsc' in deploy_types:
         upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_SITES', deploy_params_file)
         files_to_upload.append(upload_item)
 
