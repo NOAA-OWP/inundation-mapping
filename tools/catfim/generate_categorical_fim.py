@@ -29,7 +29,6 @@ from tools_shared_functions import (
     filter_nwm_segments_by_stream_order,
     get_datum,
     get_nwm_segs,
-    get_thresholds,
     ngvd_to_navd_ft,
 )
 from tools_shared_variables import (
@@ -43,11 +42,6 @@ from tools_shared_variables import (
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
-
-# from itertools import repeat
-# from pathlib import Path
-
-
 # global RLOG
 FLOG = fl.FIM_logger()  # the non mp version
 MP_LOG = fl.FIM_logger()  # the Multi Proc version
@@ -55,17 +49,20 @@ MP_LOG = fl.FIM_logger()  # the Multi Proc version
 gpd.options.io_engine = "pyogrio"
 
 
-# TODO: Aug 2024: This script was upgraded significantly with lots of misc TODO's embedded.
-# Lots of inline documenation needs updating as well
-
-
 """
-Jun 17, 2024
+Jun 2024
 This system is continuing to mature over time. It has a number of optimizations that can still
 be applied in areas such as logic, performance and error handling.
 
 In the interium there is still a consider amount of debug lines and tools embedded in that can
 be commented on/off as required.
+
+Aug 2024
+This script was upgraded significantly with lots of misc TODO's embedded.
+Lots of inline documenation needs updating as well.
+
+Oct 2025
+Doc strings and improved documentation was added.
 
 
 NOTE: For now.. all logs roll up to the parent log file. ie) catfim_2024_07_09-22-20-12.log
@@ -94,13 +91,80 @@ def process_generate_categorical_fim(
     nwm_metafile,
     threshold_file,
 ):
-
-    # ================================
-    # Step System
-    # This system allows us to to skip steps.
-    # Steps that are skipped are assumed to have the valid files that are needed
-    # When a number is submitted, ie) 2, it means skip steps 1 and start at 2
     '''
+    Orchestrates the generation of CatFIM products for a set of Hydrologic Unit Codes (HUCs),
+    supporting both stage-based and flow-based methodologies. Handles validation, setup, filtering, and multi-step processing
+    including flow generation, mapping, post-processing, and status updates.
+    
+    Parameters
+    ----------
+    fim_run_dir : str
+        Path to the FIM run directory containing HUC folders and input files.
+    env_file : str
+        Path to the .env file containing API and environment configuration.
+    job_number_huc : int
+        Number of parallel jobs to use for HUC-level processing.
+    job_number_inundate : int
+        Number of parallel jobs to use for inundation-level processing.
+    is_stage_based : bool
+        If True, runs stage-based CatFIM workflow; otherwise, runs flow-based workflow.
+    output_folder : str
+        Base output folder for CatFIM results.
+    overwrite : bool
+        If True, allows overwriting existing output files and folders.
+    search : int or float
+        Upstream and downstream search distance in miles for site selection.
+    lst_hucs : str
+        Space-separated list of HUCs to process, or 'all' to process all available HUCs.
+    catfim_version : str
+        CatFIM version string (e.g., '1.0').
+    model_version : str
+        HAND model version string (e.g., '2.1.5.2').
+    job_number_intervals : int
+        Number of parallel jobs for interval-based processing.
+    past_major_interval_cap : int
+        Cap for major interval processing (used in stage-based workflow).
+    step_num : int
+        Step number to start processing from (optional, allows skipping earlier steps).
+    nwm_metafile : str
+        Path to the NWM metadata pickle file (optional, defaults to "" if not included).
+    threshold_file : str
+        Path to the threshold pickle file for manual input thresholds (optional, defaults to "" if not included).
+    
+    Raises
+    ------
+    Exception
+        If required files or directories are missing or invalid.
+    ValueError
+        If input parameters are inconsistent or result in zero valid HUCs.
+    
+    Returns
+    -------
+    None
+        Results are written to output directories and files; function does not return a value.
+    
+    Workflow Steps
+    -------------
+    1. Validation and setup of input directories, files, and parameters.
+    2. Filtering and selection of valid HUCs based on input and threshold files.
+    3. Stage-based or flow-based CatFIM processing, including flow generation, mapping, and post-processing.
+    4. Compilation of threshold data and cleanup of intermediate files.
+    5. Updating mapping status for processed sites.
+    6. Logging of progress, warnings, and summary information.
+    
+    Notes
+    -----
+    - Supports skipping steps via the `step_num` parameter.
+    - Handles both manual and automated threshold input via `threshold_file`.
+    - Uses environment variables for API access and configuration.
+    - Designed for parallel processing and scalable workflows.
+
+    Step System
+    -----------
+    This system allows us to to skip steps.
+    Steps that are skipped are assumed to have the valid files that are needed
+    When a number is submitted, ie) 2, it means skip steps 1 and start at 2
+
     Step number usage:
         0 = cover all (it is changed to 999 so all steps are covered)
     flow:
@@ -111,6 +175,7 @@ def process_generate_categorical_fim(
         1 = start at generate_flows and tifs
         2 = start at creation of gpkgs
         3 = start at update mapping status
+
     '''
 
     # ================================
@@ -467,12 +532,28 @@ def process_generate_categorical_fim(
 
 
 def get_list_ahps_with_library_gpkgs(output_mapping_dir):
+    '''
+    Used in both stage- and flow-based CatFIM.
 
-    # as it is a set it will dig out unique files
+    Scans the specified output mapping directory for GeoPackage (.gpkg) files within the 'gpkg' subdirectory,
+    extracts unique AHPS IDs from the filenames, and returns a list of these IDs.
+
+    The function assumes that the AHPS ID is the second segment in the filename when split by underscores.
+    Only files with at least two underscore-separated segments in their names are considered.
+
+    Args:
+        output_mapping_dir (str): Path to the directory containing the 'gpkg' subdirectory with .gpkg files.
+
+    Returns:
+        ahps_ids_with_gpkgs (list): A list of unique AHPS IDs (as strings) extracted from the .gpkg filenames.
+
+    Used to check whether AHPS LID is 5 characters, but no longer does (as of Aug '25) 
+    because LID lengths above 5 characters are probably invalid but we are not checking that here.
+    '''
+
     ahps_ids_with_gpkgs = []
-    # gpkg_file_names =
     file_pattern = os.path.join(output_mapping_dir, "gpkg") + '/*.gpkg'
-    # print(file_pattern)
+
     for file_path in glob.glob(file_pattern):
         file_name = os.path.basename(file_path)
         file_name_segs = file_name.split("_")
@@ -480,25 +561,45 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
             continue
         ahps_id = file_name_segs[1]
 
-        # if len(ahps_id) == 5: 7/17/25 - Removed this logic
-        # because LID lengths above 5 characters are probably
-        # invalid but we are not checking that here.
-
         if ahps_id not in ahps_ids_with_gpkgs:
             ahps_ids_with_gpkgs.append(ahps_id)
 
     return ahps_ids_with_gpkgs
 
 
-# This is used by both Stage Based and Flow Based
 def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, model_version):
     '''
-    Overview:
-        - Gets a list of valid ahps that have at least one gkpg file. If we have at least one, then the site mapped something
-        - We use that list compared to the original sites gpkg (or csv) file name to update the rows for the mapped column
-          By this point, most shoudl have had status messages until something failed in inundation or creating the gpkg.
-        - We also use a convention where if a status messsage starts with ---, then remove the ---. It is reserved for showing
-          that some magnitudes exists and some failed.
+    Used in both stage- and flow-based CatFIM.
+    
+    Updates the mapping status and status messages for CatFIM sites based on the presence of valid inundation GeoPackage files.
+
+    This function reads a GeoPackage or CSV file containing CatFIM site information, checks which sites have valid inundation
+    mapping outputs, and updates the 'mapped' and 'status' columns accordingly. Gets a list of valid ahps that have at least 
+    one gkpg file. If we have at least one, then the site mapped something.
+    
+    It also adds 'model_version' and 'product_version' columns, and saves the updated data back to the original file and as a CSV.
+
+    By this point, most should have had status messages until something failed in inundation or creating the gpkg.
+
+    Args:
+        output_mapping_dir (str): Directory containing the output mapping files, including inundation GeoPackages.
+        catfim_sites_file_path (str): Path to the CatFIM sites GeoPackage or CSV file to be updated.
+        catfim_version (str): The product version string to be recorded in the output.
+        model_version (str): The model version string to be recorded in the output.
+
+    Raises:
+        SystemExit: If the input sites file does not exist, is empty, or no valid inundation files are found.
+
+    Side Effects:
+        - Updates the 'mapped' and 'status' columns in the input sites file.
+        - Adds 'model_version' and 'product_version' columns.
+        - Saves the updated file in both GeoPackage and CSV formats.
+        - Logs critical errors and warnings using FLOG.
+
+    Notes:
+        - Sites without valid inundation files are marked as 'mapped' = 'no' and their status is updated.
+        - Sites with valid inundation files are marked as 'mapped' = 'yes' and their status is set to 'Good' if empty.
+        - If a status message starts with "---", it is removed to indicate a warning rather than an error.
     '''
 
     # Import geopackage output from flows creation
@@ -516,7 +617,6 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
         sys.exit(1)
 
     try:
-
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
         if len(valid_ahps_ids) == 0:
             FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
@@ -574,7 +674,6 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
 
 # This is always called as part of Multi-processing so uses MP_LOG variable and
 # creates it's own logging object.
-# This does flow files and mapping in the same function by HUC
 def iterate_through_huc_stage_based(
     output_catfim_dir,
     huc,
@@ -593,9 +692,72 @@ def iterate_through_huc_stage_based(
     threshold_file,
     data_source,
 ):
-    """_summary_
-    This and its children will create stage based tifs and catfim data based on a huc
-    """
+    '''
+    Processes a single HUC to generate stage-based CatFIM.
+    
+    The function iterates through all NWS LIDs (locations) within the HUC, performing data validation, 
+    threshold extraction, elevation adjustment, and mapping for each flood category and interval. 
+    It handles logging, error reporting, and output file generation for each site.
+
+    Does flow files and mapping in the same function by HUC.
+
+    Parameters
+    ----------
+    output_catfim_dir : str
+        Directory where CatFIM outputs will be saved.
+    huc : str
+        Hydrologic Unit Code to process.
+    fim_dir : str
+        Directory containing FIM input data for the HUC.
+    huc_dictionary : dict
+        Dictionary mapping HUCs to lists of NWS LIDs.
+    threshold_url : str
+        URL for WRDS API to fetch flood stage thresholds.
+    all_lists : list
+        List of metadata dictionaries for all sites.
+    past_major_interval_cap : int or float
+        Maximum interval value for stages past 'major' category.
+    job_number_inundate : int
+        Number of parallel jobs for inundation mapping.
+    job_number_intervals : int
+        Number of parallel jobs for interval mapping.
+    nwm_flows_region_df : pandas.DataFrame
+        DataFrame containing NWM flow data for the region.
+    df_restricted_sites : pandas.DataFrame
+        DataFrame listing restricted NWS LIDs and reasons.
+    parent_log_output_file : str
+        Path to the parent log file for multiprocessing logging.
+    child_log_file_prefix : str
+        Prefix for child log files in multiprocessing.
+    progress_stmt : str
+        Statement describing current progress for logging.
+    threshold_file : str
+        Path to local threshold file (if not using WRDS API).
+    data_source : str
+        Source of input data ('Manual_Input' or other).
+
+    Returns
+    -------
+    None
+
+    Side Effects
+    ------------
+    - Creates output directories and files for mapping and attributes.
+    - Writes log messages and error reports to log files.
+    - Generates stage-based and interval-based inundation TIFFs.
+    - Exports site attribute CSV files for each processed LID.
+    - Writes status and error messages to a HUC-specific messages file.
+
+    Exceptions
+    ----------
+    - Handles and logs exceptions during processing, continuing to next site or exiting on critical errors.
+
+    Notes
+    -----
+    - This function is designed to be multiprocessing-safe and may be called within a multiprocessing context.
+    - Extensive logging is performed for debugging and status tracking.
+    - Sites with missing or invalid data are skipped, and reasons are logged.
+    '''
 
     try:
         # This is setting up logging for this function to go up to the parent
@@ -770,7 +932,8 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
-                if data_source != 'Manual_Input':  # Check elevation data if not manual input
+                # If not manual input, check elevation data and get datum adjustment
+                if data_source != 'Manual_Input':  
 
                     # Look for acceptable elevations
                     acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id) 
@@ -790,7 +953,8 @@ def iterate_through_huc_stage_based(
                     if len(dem_eval_messages) > 0:
                         continue
 
-                    # Filter out sites that don't have "good" data ## TODO: USGS Gage Method: It doens't seem like the below error messages are performing as expected....
+                    # Filter out sites that don't have "good" data 
+                    # TODO: USGS Gage Method: It doens't seem like the below error messages are performing as expected....
                     try:
                         if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
                             MP_LOG.warning(f"{huc_lid_id}: Not in acceptable alt method codes")
@@ -806,7 +970,6 @@ def iterate_through_huc_stage_based(
                         MP_LOG.error(traceback.format_exc())
                         continue
 
-                    ## TODO: Guam - not running this for Guam, may need to adjust if results are bad
                     # Adjust datum of HAND grid based on elevation data from usgs_elev_table.csv.
                     datum_adj_ft, datum_messages = __adjust_datum_ft(flows, metadata, lid, huc_lid_id)
                     all_messages = all_messages + datum_messages
@@ -818,12 +981,10 @@ def iterate_through_huc_stage_based(
                     MP_LOG.lprint(f"{huc_lid_id}: Skipping elevation checks and datum adjustment for Manual Input source")
 
                     lid_altitude = float(lid_altitude) # LID altitude is expected to be in meters
-                    lid_usgs_elev = (lid_altitude * 0.3048) 
-                    # lid_altitude is now in meters to match non-manual input units # TODO: Automate conversion?
+                    lid_usgs_elev = (lid_altitude * 0.3048) # lid_altitude is now in meters to match non-manual input units
+                    # TODO: Automate conversion?
 
-                    datum_adj_ft = 0  # no datum adjustment for manual input # TODO: Confirm that this is correct
-
-                    ## TODO: Guam - is there anything else we need to do to the altitude for manual input? 
+                    datum_adj_ft = 0  # no datum adjustment for manual input
 
                 # Initialize nested dict for lid attributes
                 stage_based_att_dict.update({lid: {}})
@@ -1197,26 +1358,32 @@ def iterate_through_huc_stage_based(
 
 def __calc_stage_values(categories, thresholds):
     '''
-    Overview:
-        Calculates values for each of the five stages. Any that do not have a threshold or have invalid values.
-    Parameters:
-        - categories: all 5 of the names ("action", "moderate" etc)
-        - thresholds: values from WRDS for the stages (anywhere from 0 to 5 stages)
-        - huc_lid_id: a string of the huc and lid values just for logging or display (not logic)
+    Used in stage-based CatFIM.
 
-    returns:
-        - a dataframe with rows for each five stages, defaulted to -1.
-        - a list of categories names with valid values
-        - A warning message if some stages are missing values (stages inc record)
-        - An error message if one exists  (including if all five stages are invalid)
+    Calculates stage values for flood categories based on provided thresholds.
+
+    Args:
+        categories (list): List of stage names (e.g., "action", "minor", "moderate", "major", "record").
+        thresholds (dict): Dictionary mapping stage names to their threshold values (anywhere from 0 to 5 stages).
+
+    Returns:
+        stage_values_df (pandas.DataFrame): DataFrame with rows for each stage and 
+            their corresponding values (defaulted to -1 if missing or invalid).
+        valid_stage_names (list): List of stage names with valid threshold values.
+        warning_msg (str): Warning message if some stages are missing valid values.
+        err_msg (str): Error message if all stages are missing or invalid.
+
+    Notes:
+        - Stages with missing or invalid threshold values are assigned -1.
+        - If all five stages are invalid, returns None for the DataFrame and an error message.
+        - Warning messages are formatted with "---" to indicate missing stage data.
+    
     '''
 
+    # Set default values
     err_msg = ""
     warning_msg = ""
-
-    # default values
     default_stage_data = [['action', -1], ['minor', -1], ['moderate', -1], ['major', -1], ['record', -1]]
-
     valid_stage_names = []
 
     # Setting up a default df (not counting record)
@@ -1253,14 +1420,26 @@ def __calc_stage_values(categories, thresholds):
 
 def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc_lid_id):
     '''
-    Return:
-        interval_recs is a list of list [["action", 21], ["action", 22],....]
-        This represents stage names and depths to inundate against to generate all interval recs we need
+    Used in stage-based CatFIM.
+
+    Calculate stage intervals for inundation mapping based on non-recurrent stage values.
+    This function generates a list of intervals between stage values, rounding up to the next whole number
+    where necessary, and ensures that intervals are unique and in order. For each stage, it determines the
+    range of integer depths to be used for inundation calculations, up to the next stage or a specified cap
+    for the last stage.
+
+    Args:
+        non_rec_stage_values_df (pd.DataFrame): DataFrame containing stage names and their corresponding stage values.
+            Must have columns "stage_name" and "stage_value".
+        past_major_interval_cap (int): The number of intervals to add beyond the last stage value.
+        huc_lid_id (str): Identifier used for logging and tracing.
+    
+    Returns:
+        list: A list of lists, where each sublist contains a stage name and an integer interval value,
+              e.g., [["action", 21], ["action", 22], ...]. This represents the stage names and depths
+              to be used for inundation mapping.
     '''
-
-    interval_recs = []
-
-    stage_values_claimed = []
+    interval_recs, stage_values_claimed = [], []
 
     MP_LOG.trace(
         f"{huc_lid_id}: Calculating intervals for non_rec_stage_values_df is {non_rec_stage_values_df}"
@@ -1274,14 +1453,13 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
     for idx in non_rec_stage_values_df.index:
 
         row = non_rec_stage_values_df.loc[idx]
-
-        # MP_LOG.trace(f"{huc_lid_id}: interval calcs - non_rec_stage_value is idx: {idx}; {row}")
-
         cur_stage_name = row["stage_name"]
         cur_stage_val = row["stage_value"]
 
-        # calc the intervals between the cur and the next stage
-        # for the cur, we need to round up, but the curr and the next
+        # MP_LOG.trace(f"{huc_lid_id}: interval calcs - non_rec_stage_value is idx: {idx}; {row}")
+
+        # calc the intervals between the current and the next stage
+        # for the current, we need to round up, but the current and the next
         # to stay at full integers. We do this as it is possible for stages to be decimals
         # ie) action is 2.4, and mod is 4.6, we want intervals at 3 and 4.
         # The highest value of the interval_list is not included
@@ -1295,7 +1473,7 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
             min_interval_val = int(cur_stage_val) + 1
 
         else:
-            # round up to nextg whole number
+            # round up to next whole number
             min_interval_val = math.ceil(cur_stage_val) + 1
 
         if idx < len(non_rec_stage_values_df) - 1:  # not the last record
@@ -1326,15 +1504,19 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
 
 
 def load_restricted_sites(is_stage_based):
-    """
-    Previously, only stage based used this. It is now being used by stage-based and flow-based (1/24/25)
+    '''
+    Used in both stage- and flow-based CatFIM. 
 
-    The 'catfim_type' column can have three different values: 'stage', 'flow', and 'both'. This determines
-    whether the site should be filtered out for stage-based CatFIM, flow-based CatFIM, or both of them.
+    The 'catfim_type' arg is used to determine whether the site should be filtered out
+    for stage-based CatFIM, flow-based CatFIM, or both.
 
-    Returns: a dataframe for the restricted lid and the reason why:
-        'nws_lid', 'restricted_reason', 'catfim_type'
-    """
+    Args:
+        catfim_type (str): Can have three different values: 'stage', 'flow', or 'both'. 
+    
+    Returns: 
+        df_restricted_sites (pandas.DataFrame): A dataframe for the restricted lid and the reason why.
+            Columns: 'nws_lid', 'restricted_reason', 'catfim_type'
+    '''
 
     file_name = "ahps_restricted_sites.csv"
     current_script_folder = os.path.dirname(__file__)
@@ -1358,10 +1540,6 @@ def load_restricted_sites(is_stage_based):
 
     df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.upper()
 
-    # There are enough conditions and a low number of rows that it is easier to
-    # test / change them via a for loop
-    # indexs_for_recs_to_be_removed_from_list = [] -> Removed 7/17/25
-
     # Clean up dataframe
     for ind, row in df_restricted_sites.iterrows():
         nws_lid = row['nws_lid']
@@ -1383,7 +1561,6 @@ def load_restricted_sites(is_stage_based):
             df_restricted_sites.at[ind, 'restricted_reason'] = restricted_reason
             FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
         continue
-    # end loop
 
     # Invalid records in CSV (not dropping, just completely invalid recs from the csv)
     # Could be just blank rows from the csv
@@ -1406,11 +1583,36 @@ def load_restricted_sites(is_stage_based):
 
 
 def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
-    # The purpose of this function is to determine the vertical datum adjustment
-    #   to convert the datum of the rating curve to NAVD88.
+    '''
+    Used in stage-based CatFIM.
+    
+    Determines the vertical datum adjustment (in feet) to convert the datum of the 
+    rating curve to NAVD88.
 
-    # TODO: Aug 2024: This whole parts needs revisiting. Lots of lid data has changed and this
-    # is all likely very old.
+    Uses the rating curve source and metadata to get the correct vertical datum and CRS. 
+
+    It applies custom workarounds for known sites with special datum or CRS requirements, 
+    and attempts to compute the adjustment using the NOAA VDatum service when necessary. 
+    
+    Args:
+        flows (dict): Dictionary containing flow information, including the source of the rating curve.
+        metadata (dict): Dictionary containing site metadata, including datum and CRS information.
+        lid (str): Location identifier for the site.
+        huc_lid_id (str): Combined HUC and location identifier for logging and messaging.
+    Returns:
+        tuple:
+            - datum_adj_ft (float or None): The vertical datum adjustment in feet to convert to NAVD88,
+              or None if adjustment could not be determined.
+            - all_messages (list of str): List of messages and warnings generated during processing.
+    Notes:
+        - Special handling is included for sites with known datum or CRS issues.
+        - If the datum is already NAVD88 or equivalent, the adjustment is 0.0.
+        - If the datum is NGVD29 or similar, an adjustment is attempted using the NOAA VDatum service.
+        - If errors occur during adjustment, appropriate messages are logged and returned.
+
+    TODO: Aug 2024: This whole parts needs revisiting. Lots of lid data has changed and this
+    is all likely very old.
+    '''
 
     # Jul 2024: For now, we will duplicate messages via all_messsages and via the logging system.
     all_messages = []
@@ -1538,6 +1740,27 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 
 
 def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
+    '''
+    Used in stage-based CatFIM.
+
+    Creates an updated USGS elevation table with a descriptive USGS exclusion status column. 
+
+    The function checks each row of the input DataFrame for:
+        - Acceptable USGS data altitude method code
+        - Acceptable USGS site type
+        - Acceptable USGS altitude accuracy threshold
+
+    For each criterion not met, a corresponding message is appended to the 'usgs_exclusion_status' column.
+    If all criteria are met, the status is set to 'acceptable'.
+    In case of missing columns or errors, the original DataFrame is returned and errors are logged.
+
+    Args:
+        usgs_elev_df (pd.DataFrame): DataFrame containing USGS elevation data with required columns.
+        huc_lid_id (str): Identifier for the HUC/LID, used for logging.
+
+    Returns:
+        pd.DataFrame: DataFrame with an added 'usgs_exclusion_status' column indicating acceptability.
+    '''
     acceptable_usgs_elev_df = None
     try:
         acceptable_msg = ''
@@ -1590,6 +1813,28 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
 
 
 def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
+    '''
+    Used in stage-based CatFIM.
+
+    Retrieves the DEM-adjusted elevation value for a given USGS gage site (LID) from the provided DataFrame,
+    and checks for exclusion criteria or data issues.
+
+    Args:
+        acceptable_usgs_elev_df (pd.DataFrame): DataFrame containing USGS gage information, including
+            'nws_lid', 'levpa_id', 'dem_adj_elevation', and 'usgs_exclusion_status' columns.
+        lid (str): The NWS LID to look up.
+        huc_lid_id (str): Combined HUC and LID identifier for logging purposes.
+
+    Returns:
+        tuple:
+            - lid_usgs_elev (float): The DEM-adjusted elevation value for the specified LID, or 0 if not found or excluded.
+            - all_messages (list of str): List of warning or error messages encountered during the lookup process.
+
+    Notes:
+        - If the LID is not found, excluded, or has an elevation of 0, appropriate messages are logged and returned.
+        - If multiple entries exist for the LID, the one with a non-zero 'levpa_id' is used.
+        - Exclusion status other than 'acceptable' will result in an early return with a message.
+    '''
 
     # MP_LOG.trace(locals())
 
@@ -1651,12 +1896,23 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
 
 
 def __calculate_category_key(category, stage_value, is_interval_stage):
+    '''
+    Used in stage-based CatFIM.
 
-    # Calcuate the category key which becomes part of a file name
-    # Change to an int if whole number only. ie.. we don't want 22.00 but 22.0, but keep 22.15
-    # category_key comes things like this: action, action_24.0ft, or action_24.6ft
-    # and yes... this needs a better answer.
+    Calcuates the category key which becomes part of a file name
+    Changes to an int if whole number only. ie.. we don't want 22.00 but 22.0, but keep 22.15
+    category_key comes things like this: action, action_24.0ft, or action_24.6ft
 
+    Args:
+        category (str): The flood category (e.g., 'action', 'minor', etc.).
+        stage_value (float): The stage value for the category.
+        is_interval_stage (bool): Whether this is an interval stage (True) or a main stage (False).
+
+    Returns:
+        category_key (str): Category and stage value string for file naming.
+
+    TODO: yes... this needs a better answer.
+    '''
     category_key = category + "_"  # ie) action_
 
     if float(stage_value) % 1 == 0:  # then we have a whole number
@@ -1692,6 +1948,47 @@ def generate_stage_based_categorical_fim(
     threshold_file,
     data_source,
 ):
+    '''
+    Generates stage-based CatFIM for a list of HUCs.
+    
+    This function orchestrates the workflow for producing stage-based CatFIM outputs, including:
+    - Generating necessary flow data and site attributes.
+    - Parallel processing of HUCs to create inundation mapping and attribute files.
+    - Aggregating and merging results from parallel tasks.
+    - Compiling a comprehensive GeoPackage and CSV of all candidate sites, indicating mapping status and reasons for unmapped sites.
+    - Logging and error handling throughout the process.
+
+    Parameters
+    ----------        
+        output_catfim_dir (str): Directory where CatFIM outputs will be written.
+        fim_run_dir (str): Directory containing FIM run data.
+        nwm_us_search (str): Path or identifier for upstream NWM search data.
+        nwm_ds_search (str): Path or identifier for downstream NWM search data.
+        env_file (str): Path to the environment file for configuration.
+        job_number_inundate (int): Number of parallel jobs for inundation processing.
+        job_number_huc (int): Number of parallel jobs for HUC processing.
+        lst_hucs (list of str): List of HUCs to process.
+        job_number_intervals (int): Number of parallel jobs for interval processing.
+        past_major_interval_cap (int): Cap for past major intervals.
+        nwm_metafile (str): Path to the NWM metafile.
+        df_restricted_sites (pd.DataFrame): DataFrame of restricted sites to exclude from processing.
+        threshold_file (str): Path to the threshold file for mapping.
+        data_source (str): Identifier for the data source being used.
+
+    Outputs
+    ----------        
+        - Attribute CSVs for each mapped site.
+        - A merged attribute CSV (`nws_lid_attributes.csv`) in the attributes directory.
+        - A GeoPackage (`stage_based_catfim_sites.gpkg`) and CSV summarizing all candidate sites and their mapping status.
+        - Log files documenting the process and any issues encountered.
+
+    Note: The function assumes the existence of several external utilities and global variables (e.g., FLOG, VIZ_PROJECTION, acceptable_* lists).
+
+    Raises
+    ----------  
+        Exception: If no attribute CSV files are found or if other critical errors occur during processing.
+    '''
+
     '''
     Sep 2024,
     I believe this can be radically simplied, but just startign with a dataframe for each ahps and populate what we
@@ -1927,6 +2224,27 @@ def generate_stage_based_categorical_fim(
 def set_start_files_folders(
     step_num, output_catfim_dir, output_mapping_dir, output_flows_dir, attributes_dir, overwrite
 ):
+    '''
+    Used in both stage- and flow-based CatFIM.
+
+    Sets up and manages the initial folder structure and log files.
+
+    Depending on the step number and overwrite flag, this function will:
+    - Create the main output directory if it does not exist.
+    - Check for the existence of the output mapping directory as a proxy for all output folders.
+    - If the mapping directory exists and overwrite is False, raises an Exception to prevent accidental data loss.
+    - If overwrite is True, deletes and recreates the mapping, flows, and attributes directories.
+    - Always creates the flows, mapping, and attributes directories if they do not exist.
+    - Ensures a logs directory exists and sets up logging for the process.
+
+    Args:
+        step_num (int): The current step number in the workflow. Only performs folder cleaning if step_num == 0.
+        output_catfim_dir (str): Path to the main output directory for the Categorical FIM process.
+        output_mapping_dir (str): Path to the output directory for mapping results.
+        output_flows_dir (str): Path to the output directory for flow results.
+        attributes_dir (str): Path to the output directory for attribute results.
+        overwrite (bool): If True, existing output directories will be deleted and recreated.
+    '''
 
     # ================================
     # Folder cleaning based on step system
