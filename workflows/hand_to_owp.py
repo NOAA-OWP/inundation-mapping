@@ -18,24 +18,22 @@ from src.utils.shared_functions import FIM_Helpers as fh
 # GLOBAL Vars including files / folders to be copied
 
 S3_CLIENT = None  # boto3 client (works for both buckets)
+FIM_S3_BUCKET_NAME = ""  # comes from the aws creds file
 
 # Neither of these include their bucket names
-FIM_S3_BUCKET_NAME = ""  # Comes from the aws cred env file
-FIM_S3_ROOT_PATH = ""  # Comes from the workflows env file
-FIM_PREVIOUS_FIM_HAND_PATH = ""  # Comes from the workflows env file
-
+SRC_S3_HAND_PATH = ""  # Comes partialy from the workflows env file and part is an arg
+TRG_DATA_HAND_PATH = ""  # Comes partialy from the workflows env file and part is an arg
 HAND_VERSION = ""
-
 
 # ============================
 def hand_to_owp(hand_version, aws_creds_file, workflows_params_file, log_path, num_jobs):
 
-    print("****  Doadling FIM S3 HAND to OWP Started   ****")
+    print("****  Downloading FIM S3 HAND to OWP Started   ****")
 
     # --------------
     # Validation. We are validating all variables in case the call came in from another py file
     # We also load a number of key variables (load env)
-    deploy_types = __validate_input(hand_version, workflows_params_file, num_jobs)
+    __validate_input(hand_version, workflows_params_file, num_jobs)
 
     # May throw exceptions or shut the program down.
     __setup_aws(aws_creds_file)
@@ -43,19 +41,15 @@ def hand_to_owp(hand_version, aws_creds_file, workflows_params_file, log_path, n
     overall_start_dt = datetime.now(timezone.utc)
 
     # setup logs
-    sf.setup_file_logger(log_path, "deloy_to_hydrovis")
+    sf.setup_file_logger(log_path, "hand_to_owp")
     logging.info(f"Start time: {overall_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
-    logging.info(f"Deploy types to upload: {deploy_type}")
 
-    logging.info(
-        f"Loading to s3://{HV_S3_BUCKET_NAME}{HV_S3_ROOT_HANDSET_PATH}"
-        f" and s3://{HV_S3_BUCKET_NAME}{HV_S3_ROOT_QA_DATASETS_PATH}."
-        " Depending on while deploy types were selected."
-    )
+    logging.info(f"Loading from s3://{FIM_S3_BUCKET_NAME}{SRC_S3_HAND_PATH} to {TRG_DATA_HAND_PATH}.")
     print("")
 
     try:
-
+        __load_hand_dataset(workflows_params_file, num_jobs)
+        
     except Exception:
         print("********************************")
         print("**** Error: Program Aborted.")
@@ -68,12 +62,57 @@ def hand_to_owp(hand_version, aws_creds_file, workflows_params_file, log_path, n
         logging.info(fh.print_date_time_duration(overall_start_dt, end_time, False))
         print("")
 
+# ============================
+def __load_hand_dataset(workflows_params_file, num_jobs):
+
+    # We filter to keep only the files we specifically want
+    # We will build up a list of files for upload as AWS can only
+    # upload one a time, but for uploading we will use mp and muliple s3 clients, not he one from this page level
+    files_to_upload = []  # a list of dictionaries
+    # {"src_file": file_path, "trg_file": trg_file}
+
+    num_load_patterns = int(sf.get_value_from_env('HAND_LOAD_PATTERN_COUNT', workflows_params_file))
+    logging.info(
+        f"--- Finding HAND s3 files using {num_load_patterns} patterns"
+    )
+    print(
+        "...... This script finds all of the applicable file names first, then downloads each"
+        " one at a time (AWS limitation) but will use multi-proc to speed it up."
+    )
+
+    # Load each cmd one at a time from the enviro, then feed it to grep to get the files we
+    # want. Remember.. AWS can only download/upload one file at a time (AWS Keys versus actual
+    # directories.)
+    for i in range(1, num_load_patterns + 1):
+        load_pattern_name = f'HAND_LOAD_PATTERN_{i}'
+        load_pattern = sf.get_value_from_env(load_pattern_name, workflows_params_file)
+        logging.info(
+            f"Getting file names for pattern {load_pattern_name} ({load_pattern})."
+            " This can take several minutes, hang in there (< 10 mins)"
+        )
+        
+        # download files based on this pattern and get count of how many were downloaded based on this pattern.
+        
+        # full_path_pattern = hand_local_dataset_path + load_pattern  # already has correct leading slashes
+        # found_files = glob.glob(full_path_pattern)
+
+        # for file_path in found_files:
+        #     trg_file = file_path.replace(hand_local_dataset_path, HV_S3_ROOT_HANDSET_PATH)
+        #     upload_item = {"src_file": file_path, "trg_file": trg_file}
+        #     files_to_upload.append(upload_item)
+
+        logging.info(f"--- Files found for this pattern: {len(found_files)}")
+
+    print(f"--- Total number of files to be loaded to HAND dataset is {len(files_to_upload)}")
 
 
 # ============================
 def __validate_input(hand_version, workflows_params_file, num_jobs):
+    # validates inputs and loads some global variables
 
-    global FIM_S3_ROOT_PATH, FIM_PREVIOUS_FIM_HAND_PATH, HAND_VERSION
+    # Even though the workflow params has a HAND_VERSION arg, we don't use that one, as we override it for our own from cmd line.
+
+    global SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH, HAND_VERSION
 
     if workflows_params_file is None or workflows_params_file == "":
         raise ValueError("workflows params file variable is None or empty")
@@ -83,22 +122,21 @@ def __validate_input(hand_version, workflows_params_file, num_jobs):
     logging.info(f"loading working params file ({workflows_params_file})")
     load_dotenv(workflows_params_file)
 
-    if hand_version is None or hand_version == "":
-        HAND_VERSION = hand_version
+    if hand_version is None or hand_version.strip() == "":
+        raise ValueError("The arg for hand_version can not be empty.")
+    else:
+        hand_version = hand_version.strip()
 
-    FIM_S3_HAND_PATH = __get_env_variable_with_args("FIM_S3_HAND_PATH", "HAND_VERSION", workflows_params_file)
-    FIM_PREVIOUS_FIM_HAND_PATH = __get_env_variable_with_args("FIM_PREVIOUS_FIM_HAND_PATH", "HAND_VERSION", workflows_params_file)
+    s3_hand_path = sf.add_slashes_to_path(sf.get_value_from_env("FIM_DATA_ROOT_PATH", workflows_params_file))
+    # s3_hand_path comes in with a subsitution variable named "HAND_VERSION". We won't use the env HAND_VERSION env value as we will subsitute our own.
+    # becomes /foss_fim/previous_fim/hand_4_8_7_2  (or whatever hand_version (or test value))
+    SRC_S3_HAND_PATH = s3_hand_path.replace("{{HAND_VERSION}}", hand_version)
 
-
-    # The bucket name / load is in the aws function
-    HV_S3_ROOT_HANDSET_PATH = __get_env_variable_with_versions("HV_S3_ROOT_HANDSET_PATH", deploy_params_file)
-    HV_S3_ROOT_HANDSET_PATH = sf.add_slashes_to_path(HV_S3_ROOT_HANDSET_PATH)
-
-    HV_S3_ROOT_QA_DATASETS_PATH = __get_env_variable_with_versions(
-        "HV_S3_ROOT_QA_DATASETS_PATH", deploy_params_file
-    )
-    HV_S3_ROOT_QA_DATASETS_PATH = sf.add_slashes_to_path(HV_S3_ROOT_QA_DATASETS_PATH)
-
+    trg_data_root_path = sf.get_value_from_env("FIM_DATA_PREVIOUS_FIM_HAND_PATH", workflows_params_file)
+    TRG_DATA_HAND_PATH = os.path.join(trg_data_root_path, "previous_fim", hand_version)
+        
+    HAND_VERSION = hand_version
+        
     if num_jobs > 20:
         # show a warning, then sleep for a bit allowwing them to abort if they like.
         msg = "Warning: The number of jobs you have submitted may be larger than your network connection speed.\n"
@@ -107,18 +145,6 @@ def __validate_input(hand_version, workflows_params_file, num_jobs):
         print(msg)
         time.sleep(10)  # gives them time to abort if they want.
 
-    return deploy_types
-
-
-# ============================
-def __get_env_variable_with_args(env_var_name, replace_env_var_name, params_file):
-    # This will load an enviro variable, raising an exception if it does not exist
-    # if it does exist, see if it needs subsitution in the value for either the
-
-    env_value = sf.get_value_from_env(env_var_name, params_file)
-    # env_value = env_value.replace("{RELEASE_FIM_PUBLIC_VERSION}", RELEASE_FIM_PUBLIC_VERSION)
-    # env_value = env_value.replace("{HAND_VERSION}", HAND_VERSION)
-    return env_value
 
 # ============================
 def __setup_aws(aws_creds_file):
@@ -202,8 +228,8 @@ if __name__ == '__main__':
         '-hv',
         '--hand-version',
         help='REQUIRED: The version of hand you are copying. ie) hand_4_8_7_2. This will be the name in the \n'
-        'S3... foss_fim/previous_fim folder and will also be the name of the local data/previous_fim folder.\n'
-        'For debugging purposes, you can use values other than hand_x_x_x_x. Be careful of dots and cases',
+        'S3... foss_fim/previous_fim/{hand_version} folder and target data/previous_fim{hand_version} folder.\n'
+        'For debugging purposes, you can use values other than hand_x_x_x_x. Be careful of dots and cases.',
         required=True,
         type=str,
     )

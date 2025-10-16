@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-import logging
+import fnmatch
 import os
-import traceback
 from concurrent import futures
 from functools import partial
 
@@ -189,6 +188,69 @@ def does_s3_file_exist(s3_client, bucket_name, s3_file_path):
 
 
 # -------------------------------------------------
+def get_file_list(s3_client, bucket_name, s3_src_folder_path, search_key=""):
+    """
+    Process:
+        - uses a S3 paginator to recursively look for matches (non case-sensitive)
+        - You can optionally use a search key to filter records
+    Inputs:
+        - bucket_name: e.g mys3bucket_name
+        - s3_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive)
+        - search_key: OPTIONAL: phrase (str) to be searched: e.g */wbd.gpkg
+          search key can have more than one astericks char as a wildcard, but only astericks work
+          which means 0 to many chars.
+
+    Output
+        - A list of files found matching the pattern if applicable. It is an S3 key pattern:
+            ie) /foss_fim/previous_fim/hand_4_8_7_2/fim_inputs.csv
+    """
+
+    # Examples:
+    # search_key = "*/hydrotable.csv"  - looks at the first level only (ie. huc level)
+    # search_key = "*/branches/*/rem_zeroed_masked_*.tif"  - looks for all branch level rems
+    # search_key = "fim_inputs.csv"  - file at the root src_s3_folder_path (ie. hand_4_8_7_2)
+
+    try:
+        # both src must have a slash on the end only
+        # strip leading slash if exists
+        s3_src_folder_path = s3_src_folder_path.lstrip("/")
+        if not s3_src_folder_path.endswith("/"):
+            s3_src_folder_path += "/"        
+
+        s3_items = []  # a list s3 keys (files paths without the bucket name)
+
+        operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_folder_path}
+        paginator = s3_client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(**operation_parameters)
+
+        for page in pages:
+            if 'Contents' in page:
+                # Iterate over each object and download it
+                for obj in page['Contents']:
+                    s3_key = obj['Key']
+                    # key_adj = key.replace(s3_src_folder_path, "")
+                    # s3_items.append(obj['Key'])
+
+                    if search_key == "":
+                        s3_items.append(s3_key)
+                    elif fnmatch.fnmatch(key_adj, search_key) is True:
+                        item = {"key": key_adj, "url": f"s3://{bucket_name}/{s3_src_folder_path}{key_adj}"}
+                        s3_items.append(item)
+                    # no need for an eslse
+
+
+        return s3_items
+
+    except Exception as ex:
+
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, ___ = awssf.aws_exception_handler(ex)
+        raise Exception(return_msg)
+    
+    
+# -------------------------------------------------
+# NOTE:  not fully tested yet as of Oct 16, 2025 - this is a temp unfinished placeholder
 def get_folder_list(s3_client, bucket_name, s3_src_folder_path):
     """
     Process:
@@ -314,8 +376,8 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
 
 
 # -------------------------------------------------
-# TODO: Add multi-theading
-# Maybe let that be done at the script level and not here as a seperate client per mp
+# TODO: Add multi-theading ?? 
+# Maybe let that be done at the script level and not here as a seperate client per mt
 # is required. See upload_large_datasets below for examples if we choose to add this.
 def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
     """
@@ -335,8 +397,6 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
         The calling code and decide what to do with it.
         Note: Exceptions can still be thrown for catastropic errors (creds, other)
     """
-
-    # TODO: add aws exception handling
 
     # re-validate the connection and credentials as well
     is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
@@ -529,3 +589,67 @@ def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
         # if it finds it, it returns a nice user friendly message
         return_msg, ___ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
+
+
+# -------------------------------------------------
+# NOTE:  not fully tested yet as of Oct 16, 2025 - this is a temp unfinished placeholder
+# TODO: Do we want multi-thread on this? would be gain any value by makign up a file
+# delete list via pagination then MT the actual deletes?
+def delete_s3_folder(s3_client, bucket_name, s3_folder_path):
+
+    """
+    Returns:
+        - Number of files deleted
+    """
+
+    # re-validate the connection and credentials as well
+    is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
+    if not is_success:
+        # In this case, we want to raise a new Exception
+        raise Exception(return_msg)
+    
+    # must have a slash on the end only
+    # strip leading slash if exists
+    s3_folder_path = s3_folder_path.lstrip("/")
+    if not s3_folder_path.endswith("/"):
+        s3_folder_path += "/"    
+   
+    files_to_delete = []
+    
+    try:
+        # use paginator as it can handle more than the 1000 file limit max from list_objects_v2
+        # operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path, 'Delimiter': '/'}
+        # if you add the delimiter of '/' it will get files at that level only and not recursive
+        operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_folder_path}
+        paginator = s3_client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(**operation_parameters)
+        
+        for page in pages:
+            if "Contents" in page:
+                for obj in page["Contents"]:
+                    files_to_delete.append({'Key': obj['Key']})                   
+
+        # Should we add mt to this?
+        # If we do add TQDM, we really have to do it via pages and not files ???
+        if files_to_delete:
+            s3_client.delete_objects(
+                Bucket=bucket_name,
+                Delete={'Objects': files_to_delete},
+            )
+            # maybe add tqdm ?
+            # Callback=awssf.ProgressPercentage(src_file_path)
+            
+
+    except Exception as ex:
+
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, ___ = awssf.aws_exception_handler(ex)
+        raise Exception(return_msg)
+
+    return len(files_to_delete)
+
+    
+# -------------------------------------------------
+# TODO: is this even possible via boto3?
+# def move_s3_folder(bucket_name, s3_folder_path):
