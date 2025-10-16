@@ -190,14 +190,6 @@ gdal_rasterize -q -ot Int32 -a HydroID -a_nodata 0 -init 0 -co "COMPRESS=LZW" -c
     $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif
 
-## CALCULATE ADJUSTED HAND (SUBTRACT MIN REM FROM REM) ##
-echo -e $startDiv"Calculate Adjusted HAND (Subtract Min REM from REM) $hucNumber $current_branch_id"
-python3 $srcDir/calculate_adjusted_REM.py \
-    -r $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-    -o $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-    -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
-    -t $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif
-
 ## MASK SLOPE TO CATCHMENTS ##
 echo -e $startDiv"Mask to slopes to catchments $hucNumber $current_branch_id"
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
@@ -237,6 +229,14 @@ if [ "$healed_hand_hydrocondition" = true ] && [ "$current_branch_id" != "$branc
         --calc="R+(D-T)" --NoDataValue=$ndv \
         --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
 fi
+
+## CALCULATE ADJUSTED HAND (SUBTRACT MIN REM FROM REM) ##
+echo -e $startDiv"Calculate Adjusted HAND (Subtract Min REM from REM) $hucNumber $current_branch_id"
+python3 $srcDir/calculate_adjusted_REM.py \
+    -r $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+    -o $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+    -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.gpkg \
+    -t $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_$current_branch_id.tif
 
 ## HYDRAULIC PROPERTIES ##
 echo -e $startDiv"Sample reach averaged parameters $hucNumber $current_branch_id"

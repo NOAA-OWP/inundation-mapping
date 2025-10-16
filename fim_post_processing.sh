@@ -170,16 +170,16 @@ Tstart
 python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -ras -j $jobLimit
 Tcount
 
-## RUN THALWEG NOTCHES ADJUSTMENT ROUTINE ##
-if [ "$thalweg_notches_adjustment" = "True" ]; then
-    l_echo $startDiv"Performing thalweg notches adjustment routine"
-    Tstart
-    python3 $srcDir/thalweg_notches_adjustment.py \
-        -fim_dir $outputDestDir \
-        -j $jobLimit \
+# ## RUN THALWEG NOTCHES ADJUSTMENT ROUTINE ##
+# if [ "$thalweg_notches_adjustment" = "True" ]; then
+#     l_echo $startDiv"Performing thalweg notches adjustment routine"
+#     Tstart
+#     python3 $srcDir/thalweg_notches_adjustment.py \
+#         -fim_dir $outputDestDir \
+#         -j $jobLimit \
 
-    Tcount
-fi
+#     Tcount
+# fi
 
 ## RUN LONGITUDINAL FILTER ROUTINE ##
 if [ "$logitudinal_filter" = "True" ]; then

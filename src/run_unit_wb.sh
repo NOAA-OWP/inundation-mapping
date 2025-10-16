@@ -149,7 +149,7 @@ echo -e $startDiv"Clipping rasters to branches $hucNumber $branch_zero_id"
 [ ! -f $tempCurrentBranchDataDir/dem_meters.tif ] && {
 gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
     -overwrite -co "BLOCKXSIZE=512" -co "BLOCKYSIZE=512" -co "TILED=YES" -co "COMPRESS=LZW" \
-    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_DEM $tempHucDataDir/dem_meters_orig.tif
+    -co "BIGTIFF=YES" -t_srs $huc_CRS -tr $res $res -tap $input_DEM $tempHucDataDir/dem_meters.tif
 
 # Clip the bridge elevation diff raster (DEM_diff). Used 'near' to make sure neighboring cells do not get any interpolated value
 gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32 -r near -of "GTiff" \
@@ -160,7 +160,7 @@ gdalwarp -cutline $tempHucDataDir/wbd_buffered.gpkg -crop_to_cutline -ot Float32
 ## GET RASTER METADATA
 echo -e $startDiv"Get DEM Metadata $hucNumber $branch_zero_id"
 read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy \
-    <<<$($srcDir/getRasterInfoNative.py -r $tempHucDataDir/dem_meters_orig.tif)
+    <<<$($srcDir/getRasterInfoNative.py -r $tempHucDataDir/dem_meters.tif)
 
 ## RASTERIZE NLD MULTILINES ##
 echo -e $startDiv"Rasterize all NLD multilines using zelev vertices $hucNumber $branch_zero_id"
@@ -178,13 +178,13 @@ echo -e "(*Overwrite dem_meters.tif output) $hucNumber $branch_zero_id"
 # REMAINS UNTESTED FOR AREAS WITH LEVEES
 [ -f $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif ] && \
 python3 $srcDir/burn_in_levees.py \
-    -dem $tempHucDataDir/dem_meters_orig.tif \
+    -dem $tempHucDataDir/dem_meters.tif \
     -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif \
-    -out $tempHucDataDir/dem_meters_levees.tif
+    -out $tempHucDataDir/dem_meters.tif
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
-rd_depression_filling $tempHucDataDir/dem_meters_levees.tif \
+rd_depression_filling $tempHucDataDir/dem_meters.tif \
     $tempHucDataDir/dem_meters.tif
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
