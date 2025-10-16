@@ -49,7 +49,8 @@ python3 $srcDir/unique_pixel_and_allocation.py \
 ## ADJUST THALWEG MINIMUM USING LATERAL ZONAL MINIMUM ##
 echo -e $startDiv"Performing lateral thalweg adjustment $hucNumber $current_branch_id"
 python3 $srcDir/adjust_thalweg_lateral.py \
-    -e $tempCurrentBranchDataDir/dem_filled_$current_branch_id.tif \
+    -f $tempCurrentBranchDataDir/dem_filled_$current_branch_id.tif \
+    -e $tempCurrentBranchDataDir/dem_meters_$current_branch_id.tif \
     -s $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif \
     -a $tempCurrentBranchDataDir/demDerived_streamPixels_ids_"$current_branch_id"_allo.tif \
     -d $tempCurrentBranchDataDir/demDerived_streamPixels_ids_"$current_branch_id"_dist.tif \

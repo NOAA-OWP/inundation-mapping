@@ -235,8 +235,8 @@ rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
     $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 
 ## PIT REMOVE ORIGINAL DEM - BRANCH 0 (include all NWM streams) ##
-echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
-rd_depression_filling $tempCurrentBranchDataDir/dem_meters.tif \
+echo -e $startDiv"Pit remove original DEM $hucNumber $branch_zero_id"
+rd_depression_filling $tempHucDataDir/dem_meters.tif \
     $tempCurrentBranchDataDir/dem_filled_$branch_zero_id.tif
 
 # ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##

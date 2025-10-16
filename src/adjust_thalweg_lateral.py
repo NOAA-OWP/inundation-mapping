@@ -9,7 +9,8 @@ from numba import njit, typed, types
 
 
 def adjust_thalweg_laterally(
-    elevation_raster,
+    filled_dem,
+    original_dem,
     stream_raster,
     allocation_raster,
     cost_distance_raster,
@@ -64,11 +65,11 @@ def adjust_thalweg_laterally(
         return dem_window_to_return
 
     # Open files.
-    with rasterio.open(elevation_raster) as elevation_raster_object, rasterio.open(
+    with rasterio.open(filled_dem) as filled_dem_obj, rasterio.open(
         allocation_raster
     ) as allocation_zone_raster_object:
         with rasterio.open(cost_distance_raster) as cost_distance_raster_object:
-            meta = elevation_raster_object.meta.copy()
+            meta = filled_dem_obj.meta.copy()
             meta['tiled'], meta['compress'] = True, 'lzw'
             ndv = meta['nodata']
 
@@ -77,12 +78,10 @@ def adjust_thalweg_laterally(
                 types.int32, types.float32
             )  # Initialize an empty dictionary to store the catchment minimums
             # Update catchment_min_dict with pixel sheds minimum.
-            for ji, window in elevation_raster_object.block_windows(
+            for ji, window in filled_dem_obj.block_windows(
                 1
             ):  # Iterate over windows, using elevation_raster_object as template
-                elevation_window = elevation_raster_object.read(
-                    1, window=window
-                ).ravel()  # Define elevation_window
+                elevation_window = filled_dem_obj.read(1, window=window).ravel()  # Define elevation_window
                 zone_window = allocation_zone_raster_object.read(
                     1, window=window
                 ).ravel()  # Define zone_window
@@ -103,30 +102,43 @@ def adjust_thalweg_laterally(
             # --------------------------------------------------------------------------------------------- #
 
         # Specify raster object metadata.
-        with rasterio.open(stream_raster) as thalweg_object, rasterio.open(
-            dem_lateral_thalweg_adj, 'w', **meta
-        ) as dem_lateral_thalweg_adj_object:
-            for ji, window in elevation_raster_object.block_windows(
-                1
-            ):  # Iterate over windows, using dem_rasterio_object as template
-                dem_window = elevation_raster_object.read(1, window=window)  # Define dem_window
-                window_shape = dem_window.shape
-                dem_window = dem_window.ravel()
+        with rasterio.open(stream_raster) as thalweg_obj, rasterio.open(
+            original_dem
+        ) as orig_dem_obj, rasterio.open(dem_lateral_thalweg_adj, 'w', **meta) as output_obj:
 
-                zone_window = allocation_zone_raster_object.read(
-                    1, window=window
-                ).ravel()  # Define catchments_window
-                thalweg_window = thalweg_object.read(1, window=window).ravel()  # Define thalweg_window
+            for ji, window in filled_dem_obj.block_windows(1):
+                # Read window data (2D)
+                dem_window_filled_2d = filled_dem_obj.read(1, window=window)
+                dem_window_orig_2d = orig_dem_obj.read(1, window=window)
+                zone_window_2d = allocation_zone_raster_object.read(1, window=window)
+                thalweg_window_2d = thalweg_obj.read(1, window=window)
 
-                # Call numba-optimized function to reassign thalweg cell values to catchment minimum value.
-                minimized_dem_window = minimize_thalweg_elevation(
-                    dem_window, zone_min_dict, zone_window, thalweg_window
+                # Flatten arrays for Numba
+                dem_window_filled = dem_window_filled_2d.ravel()
+                zone_window = zone_window_2d.ravel()
+                thalweg_window = thalweg_window_2d.ravel()
+
+                # Perform thalweg adjustment
+                minimized_thalweg_flat = minimize_thalweg_elevation(
+                    dem_window_filled, zone_min_dict, zone_window, thalweg_window
                 )
-                minimized_dem_window = minimized_dem_window.reshape(window_shape).astype(np.float32)
 
-                dem_lateral_thalweg_adj_object.write(minimized_dem_window, window=window, indexes=1)
+                # Reshape back to 2D (use the shape of the window)
+                minimized_thalweg_2d = minimized_thalweg_flat.reshape(dem_window_filled_2d.shape)
 
-                del dem_window, zone_window, thalweg_window, minimized_dem_window
+                # Combine adjusted thalweg with original DEM
+                combined_window = np.where(thalweg_window_2d == 1, minimized_thalweg_2d, dem_window_orig_2d)
+
+                # Write output (rasterio expects 2D input)
+                output_obj.write(combined_window.astype(np.float32), window=window, indexes=1)
+
+                del (
+                    dem_window_filled_2d,
+                    dem_window_orig_2d,
+                    zone_window_2d,
+                    thalweg_window,
+                    minimized_thalweg_2d,
+                )
 
 
 if __name__ == '__main__':
@@ -134,7 +146,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Adjusts the elevation of the thalweg to the lateral zonal minimum.'
     )
-    parser.add_argument('-e', '--elevation_raster', help='Raster of elevation.', required=True)
+    parser.add_argument(
+        '-f', '--filled_dem', help='Filled DEM raster used for elevation calculations.', required=True
+    )
+    parser.add_argument(
+        '-e',
+        '--original_dem',
+        help='Original DEM raster used for non-thalweg elevation values.',
+        required=True,
+    )
     parser.add_argument(
         '-s', '--stream_raster', help='Raster of thalweg pixels (0=No Thalweg, 1=Thalweg)', required=True
     )
