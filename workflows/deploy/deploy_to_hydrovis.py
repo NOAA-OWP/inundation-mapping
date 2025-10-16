@@ -32,9 +32,9 @@ and the target being HydroVIS buckets and pathing.
 # GLOBAL Vars including files / folders to be copied
 
 S3_CLIENT = None  # boto3 client (works for both buckets)
+HV_S3_BUCKET_NAME = ""  # Comes from the aws cred env file
 
 # Neither of these include their bucket names
-HV_S3_BUCKET_NAME = ""
 HV_S3_ROOT_HANDSET_PATH = ""  # The path up to and including the hand folder but without the bucket name.
 HV_S3_ROOT_QA_DATASETS_PATH = (
     ""  # the patch up to and including the qa_dataset path but without the bucket name.
@@ -381,7 +381,7 @@ def __setup_aws(aws_creds_file):
     if not is_success:  # if it was not already thrown from asf
         raise Exception(return_msg)
 
-    # we load the bucke name from the aws file to help with git security a little.
+    # we load the bucket name from the aws file to help with git security a little.
     HV_S3_BUCKET_NAME = sf.get_value_from_env("HV_S3_BUCKET_NAME", aws_creds_file)
     HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
 
@@ -389,7 +389,7 @@ def __setup_aws(aws_creds_file):
     # may also throw an exceptoin
     is_success, return_msg = s3_sf.does_s3_bucket_exist(S3_CLIENT, HV_S3_BUCKET_NAME)
     if not is_success:
-        logging.error(f"HV_S3_BUCKET_NAME value of {HV_S3_BUCKET_NAME}. Check the env file and case.")
+        logging.error(f"HV_S3_BUCKET_NAME value of {HV_S3_BUCKET_NAME}. Check the aws creds env file and case.")
         logging.error(return_msg)
         print("Program aborted")
         sys.exit(1)
@@ -406,7 +406,7 @@ if __name__ == '__main__':
 
     SRC pathing can be from local folders (EFS or dev_fim_share)
 
-    Sample Usage (min args)
+    Sample Usages
         python /foss_fim/workflows/deploy/deploy_to_hydrovis.py
             -dt 'fpc fpp'
             # Yes.. can be more than one dt
@@ -415,7 +415,6 @@ if __name__ == '__main__':
             -dt hand
             -lp '/data/workflows/deploy/
             -dp '/data/config/deploy_params_tests.env'
-            -j 10  ***
 
     *** While this system does support mp, it is used only when loading HAND datasets. Also.. there is a max of how many
         connections we can make to AWS at the same time. That number is variable and depends on your machines network speed mostly.
@@ -477,7 +476,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-dp',
         '--deploy-params-file',
-        help='OPTIONAL: Path to deploy params(config) file.\n' '  Defaults to /data/config/deploy_params.env',
+        help='OPTIONAL: Path to deploy params(config) file.\n' '  Defaults to /data/config/hv_deploy_params.env',
         default="/data/config/hv_deploy_params.env",
     )
 
@@ -489,7 +488,9 @@ if __name__ == '__main__':
         'The file name is auto-generated.',
         default='/data/workflows/deploy/logs',
     )
-    parser.add_argument('-j', "--num-jobs", help="OPTIONAL: Number of processes", type=int, default=1)
+
+    parser.add_argument('-j', "--num-jobs", help="OPTIONAL: Number of processes (defaults to 10)",
+                        type=int, default=10)
 
     args = parser.parse_args()
 
