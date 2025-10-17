@@ -29,6 +29,7 @@ def adjust_floodplains(
     branch_polygons: str,
     branch_id: str,
     fema_flood_zones_file: str,
+    fema_flood_zones_layer: str = 'combined',
 ):
     """
     Adjusts the floodplains in a DEM based on the distance to a given input file.
@@ -81,9 +82,9 @@ def adjust_floodplains(
         if 'availability' in nfhl_layers:
             distance_mask = np.zeros_like(distance)
 
-            if 'combined' in nfhl_layers:
+            if fema_flood_zones_layer in nfhl_layers:
                 # Read the FEMA flood zones layer
-                fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer='combined')
+                fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer=fema_flood_zones_layer)
 
                 # Clip the FEMA flood zones to the branch polygon
                 fema_flood_zones_clipped = gpd.clip(fema_flood_zones, branch_poly)
@@ -149,6 +150,9 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--branch-polygons', help='Branch polygons file', type=str)
     parser.add_argument('-b', '--branch-id', help='Branch ID', type=str)
     parser.add_argument('-f', '--fema-flood-zones-file', help='FEMA flood zones file', type=str)
+    parser.add_argument(
+        '-l', '--fema-flood-zones-layer', help='FEMA flood zones layer', type=str, default='combined'
+    )
 
     args = parser.parse_args()
 
