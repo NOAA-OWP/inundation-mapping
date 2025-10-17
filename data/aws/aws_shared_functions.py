@@ -192,12 +192,15 @@ def create_aws_client(
 
         # TODO: fix this... needs some tweaks
         # Setup Config to manage timeouts on initial connection
-        # shorter timeout means quicker response
+        # The read_timeout has been overridden to higher than default
+        # in case it is pulling down a large file.
+        # And a very high max_pool_connections for multi-thread and clients that are open a long
+        # time and re-used.
         client_config = Config(
             connect_timeout=20,
-            read_timeout=900,
+            read_timeout=(60 * 5),
             max_pool_connections=50,
-            retries={"mode": "standard", 'max_attempts': 10},
+            retries={"mode": "standard", 'max_attempts': 5},
         )
 
         # -------------------

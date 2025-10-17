@@ -28,6 +28,11 @@ This tools is designed for a source being a local/EFS drive (docker mapped drive
 and the target being HydroVIS buckets and pathing.
 '''
 
+'''
+All deploy types can be done with aws s3 cli.  Why do we do it via python/boto3?
+    We can use multi-thread to make it faster and have more control of contents and rules.
+'''
+
 # ============================
 # GLOBAL Vars including files / folders to be copied
 
@@ -146,7 +151,7 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
         load_pattern_name = f'HV_HAND_LOAD_PATTERN_{i}'
         load_pattern = sf.get_value_from_env(load_pattern_name, deploy_params_file)
         logging.info(
-            f"Getting file names for pattern {load_pattern_name} ({load_pattern}). For branch loads,"
+            f"Getting file names for pattern {load_pattern_name} : ({load_pattern}). For branch loads,"
             " this can take several minutes, hang in there (< 10 mins)"
         )
         full_path_pattern = hand_local_dataset_path + load_pattern  # already has correct leading slashes
@@ -310,7 +315,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
 
     global HV_S3_ROOT_HANDSET_PATH, HV_S3_ROOT_QA_DATASETS_PATH, RELEASE_FIM_PUBLIC_VERSION, HAND_VERSION
 
-    if deploy_type is None or deploy_type == "":
+    if not deploy_type:
         raise ValueError("The deploy type variable is None or empty")
 
     deploy_types = deploy_type.split()
@@ -318,7 +323,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
     if len(invalid_types) > 0:
         raise ValueError(f"The following deployment types are invalid: {invalid_types}")
 
-    if deploy_params_file is None or deploy_params_file == "":
+    if not deploy_params_file:
         raise ValueError("workflows params file variable is None or empty")
     if not os.path.isfile(deploy_params_file):
         raise ValueError(f"params file of {deploy_params_file} can not be found. Check path and/or case.")
@@ -355,7 +360,7 @@ def __setup_aws(aws_creds_file):
 
     global S3_CLIENT, HV_S3_BUCKET_NAME
 
-    if aws_creds_file is None or aws_creds_file == "":
+    if not aws_creds_file:
         raise ValueError("aws credentials file argument is None or empty")
 
     if not os.path.isfile(aws_creds_file):
@@ -386,10 +391,12 @@ def __setup_aws(aws_creds_file):
     HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
 
     # validate the bucket
-    # may also throw an exceptoin
+    # may also throw an exception
     is_success, return_msg = s3_sf.does_s3_bucket_exist(S3_CLIENT, HV_S3_BUCKET_NAME)
     if not is_success:
-        logging.error(f"HV_S3_BUCKET_NAME value of {HV_S3_BUCKET_NAME}. Check the aws creds env file and case.")
+        logging.error(
+            f"HV_S3_BUCKET_NAME value of {HV_S3_BUCKET_NAME}. Check the aws creds env file and case."
+        )
         logging.error(return_msg)
         print("Program aborted")
         sys.exit(1)
@@ -476,7 +483,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-dp',
         '--deploy-params-file',
-        help='OPTIONAL: Path to deploy params(config) file.\n' '  Defaults to /data/config/hv_deploy_params.env',
+        help='OPTIONAL: Path to deploy params(config) file.\n'
+        '  Defaults to /data/config/hv_deploy_params.env',
         default="/data/config/hv_deploy_params.env",
     )
 
@@ -489,8 +497,9 @@ if __name__ == '__main__':
         default='/data/workflows/deploy/logs',
     )
 
-    parser.add_argument('-j', "--num-jobs", help="OPTIONAL: Number of processes (defaults to 10)",
-                        type=int, default=10)
+    parser.add_argument(
+        '-j', "--num-jobs", help="OPTIONAL: Number of processes (defaults to 10)", type=int, default=10
+    )
 
     args = parser.parse_args()
 

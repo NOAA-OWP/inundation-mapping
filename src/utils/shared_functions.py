@@ -62,11 +62,13 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     Returns the name/path of the new log file.
     """
 
-    if log_file_dir is None or log_file_dir == "":
+    if not log_file_dir:
         raise ValueError("log directory path can not be None or empty")
 
-    if log_file_name_prefix is None or log_file_name_prefix == "":
+    if not log_file_name_prefix:
         raise ValueError("log file name prefix can not be None or empty")
+
+    os.makedirs(log_file_dir, exist_ok=True)
 
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
