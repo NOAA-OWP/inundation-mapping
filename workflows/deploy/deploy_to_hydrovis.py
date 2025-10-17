@@ -28,13 +28,18 @@ This tools is designed for a source being a local/EFS drive (docker mapped drive
 and the target being HydroVIS buckets and pathing.
 '''
 
+'''
+All deploy types can be done with aws s3 cli.  Why do we do it via python/boto3?
+    We can use multi-thread to make it faster and have more control of contents and rules.
+'''
+
 # ============================
 # GLOBAL Vars including files / folders to be copied
 
 S3_CLIENT = None  # boto3 client (works for both buckets)
+HV_S3_BUCKET_NAME = ""  # Comes from the aws cred env file
 
 # Neither of these include their bucket names
-HV_S3_BUCKET_NAME = ""
 HV_S3_ROOT_HANDSET_PATH = ""  # The path up to and including the hand folder but without the bucket name.
 HV_S3_ROOT_QA_DATASETS_PATH = (
     ""  # the patch up to and including the qa_dataset path but without the bucket name.
@@ -130,36 +135,56 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
         raise ValueError(f"FIM_HAND_DATASET_LOCAL_PATH of {hand_local_dataset_path} does not exist")
     hand_local_dataset_path = sf.add_slashes_to_path(hand_local_dataset_path)
 
-    num_load_patterns = int(sf.get_value_from_env('HV_HAND_LOAD_PATTERN_COUNT', deploy_params_file))
-    logging.info(
-        f"--- Finding HAND datasets files from {hand_local_dataset_path} : {num_load_patterns} patterns"
-    )
-    print(
-        "...... This script finds all of the applicable file names first, then loads each"
-        " into AWS one at a time (AWS limitation) but will use multi-proc to speed it up."
-    )
+    # ----------------
+    # as each search_key needs to be used one at a time to figure out which are to be included
+    # or maybe we use MT here?
+    file_patterns = []
+
+    file_pattern_key = "HV_HAND_LOAD_PATTERN"
+    for name, value in os.environ.items():
+        if file_pattern_key in name:
+            file_patterns.append({"env_var_name": name, "env_var_value": value})
 
     # Load each cmd one at a time from the enviro, then feed it to grep to get the files we
     # want. Remember.. AWS can only download/upload one file at a time (AWS Keys versus actual
     # directories.)
-    for i in range(1, num_load_patterns + 1):
-        load_pattern_name = f'HV_HAND_LOAD_PATTERN_{i}'
-        load_pattern = sf.get_value_from_env(load_pattern_name, deploy_params_file)
-        logging.info(
-            f"Getting file names for pattern {load_pattern_name} ({load_pattern}). For branch loads,"
-            " this can take several minutes, hang in there (< 10 mins)"
-        )
-        full_path_pattern = hand_local_dataset_path + load_pattern  # already has correct leading slashes
-        found_files = glob.glob(full_path_pattern)
+    print("*** Note: Some loads per pattern can be slow, especially branches.")
+    print("*** We get the names and paths of all files that are applicable before copying")
+    time.sleep(5)  # gives the a min to read this.
+    print("")
 
-        for file_path in found_files:
+    for file_pattern in file_patterns:
+        pattern_name = file_pattern["env_var_name"]
+        pattern = file_pattern["env_var_value"]
+
+        logging.info(f"Getting file names for pattern {pattern_name} : {pattern}")
+
+        # slashes already exist on the hand_local_dataset_path
+        full_path_pattern = hand_local_dataset_path + pattern
+        # some path combinations can end up with a double slash
+        full_path_pattern = full_path_pattern.replace("//", "/")
+
+        file_paths = glob.glob(full_path_pattern)
+
+        for file_path in file_paths:
+
+            # glob can end with double slashes sometimes so remove them
+            if "//" in file_path:
+                file_path = file_path.replace("//", "/")
+
             trg_file = file_path.replace(hand_local_dataset_path, HV_S3_ROOT_HANDSET_PATH)
             upload_item = {"src_file": file_path, "trg_file": trg_file}
             files_to_upload.append(upload_item)
 
-        logging.info(f"--- Files found for this pattern: {len(found_files)}")
+        logging.info(f".. found {len(file_paths)} files")
 
-    print(f"--- Total number of files to be loaded to HAND dataset is {len(files_to_upload)}")
+        if len(file_paths) == 0:
+            print("*********************")
+            logging.error(f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
+                          " Check the data source folders and/or the patterns from the env file.")
+            time.sleep(5)  # allows the user time to react if required
+
+    print(f"--- Total number of files to be loaded to HV S3 is {len(files_to_upload)}")
 
     sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
     logging.info("------------------------------------")
@@ -310,7 +335,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
 
     global HV_S3_ROOT_HANDSET_PATH, HV_S3_ROOT_QA_DATASETS_PATH, RELEASE_FIM_PUBLIC_VERSION, HAND_VERSION
 
-    if deploy_type is None or deploy_type == "":
+    if not deploy_type:
         raise ValueError("The deploy type variable is None or empty")
 
     deploy_types = deploy_type.split()
@@ -318,7 +343,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
     if len(invalid_types) > 0:
         raise ValueError(f"The following deployment types are invalid: {invalid_types}")
 
-    if deploy_params_file is None or deploy_params_file == "":
+    if not deploy_params_file:
         raise ValueError("workflows params file variable is None or empty")
     if not os.path.isfile(deploy_params_file):
         raise ValueError(f"params file of {deploy_params_file} can not be found. Check path and/or case.")
@@ -355,7 +380,7 @@ def __setup_aws(aws_creds_file):
 
     global S3_CLIENT, HV_S3_BUCKET_NAME
 
-    if aws_creds_file is None or aws_creds_file == "":
+    if not aws_creds_file:
         raise ValueError("aws credentials file argument is None or empty")
 
     if not os.path.isfile(aws_creds_file):
@@ -381,15 +406,17 @@ def __setup_aws(aws_creds_file):
     if not is_success:  # if it was not already thrown from asf
         raise Exception(return_msg)
 
-    # we load the bucke name from the aws file to help with git security a little.
+    # we load the bucket name from the aws file to help with git security a little.
     HV_S3_BUCKET_NAME = sf.get_value_from_env("HV_S3_BUCKET_NAME", aws_creds_file)
     HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
 
     # validate the bucket
-    # may also throw an exceptoin
+    # may also throw an exception
     is_success, return_msg = s3_sf.does_s3_bucket_exist(S3_CLIENT, HV_S3_BUCKET_NAME)
     if not is_success:
-        logging.error(f"HV_S3_BUCKET_NAME value of {HV_S3_BUCKET_NAME}. Check the env file and case.")
+        logging.error(
+            f"HV_S3_BUCKET_NAME value of {HV_S3_BUCKET_NAME}. Check the aws creds env file and case."
+        )
         logging.error(return_msg)
         print("Program aborted")
         sys.exit(1)
@@ -406,7 +433,7 @@ if __name__ == '__main__':
 
     SRC pathing can be from local folders (EFS or dev_fim_share)
 
-    Sample Usage (min args)
+    Sample Usages
         python /foss_fim/workflows/deploy/deploy_to_hydrovis.py
             -dt 'fpc fpp'
             # Yes.. can be more than one dt
@@ -415,7 +442,6 @@ if __name__ == '__main__':
             -dt hand
             -lp '/data/workflows/deploy/
             -dp '/data/config/deploy_params_tests.env'
-            -j 10  ***
 
     *** While this system does support mp, it is used only when loading HAND datasets. Also.. there is a max of how many
         connections we can make to AWS at the same time. That number is variable and depends on your machines network speed mostly.
@@ -477,7 +503,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-dp',
         '--deploy-params-file',
-        help='OPTIONAL: Path to deploy params(config) file.\n' '  Defaults to /data/config/deploy_params.env',
+        help='OPTIONAL: Path to deploy params(config) file.\n'
+        '  Defaults to /data/config/hv_deploy_params.env',
         default="/data/config/hv_deploy_params.env",
     )
 
@@ -489,7 +516,10 @@ if __name__ == '__main__':
         'The file name is auto-generated.',
         default='/data/workflows/deploy/logs',
     )
-    parser.add_argument('-j', "--num-jobs", help="OPTIONAL: Number of processes", type=int, default=1)
+
+    parser.add_argument(
+        '-j', "--num-jobs", help="OPTIONAL: Number of processes (defaults to 10)", type=int, default=10
+    )
 
     args = parser.parse_args()
 

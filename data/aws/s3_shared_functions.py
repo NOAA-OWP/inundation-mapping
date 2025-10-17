@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-import logging
 import os
-import traceback
 from concurrent import futures
 from functools import partial
 
