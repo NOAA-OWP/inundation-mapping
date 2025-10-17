@@ -99,15 +99,9 @@ def __load_hand_dataset(num_jobs):
     # We will build up a list of files for download
     files_to_download = []
 
-    # TODO: get a list of the search_keys_patterns
-
-    # for name, value in os.environ.items():
-    #     print(f"{name}: {value}")
-
     # We get a list of applicable files
     # as each search_key needs to be used one at a time to figure out which are to be included
     # or maybe we use MT here?
-    # file_patterns = [""]
     file_patterns = []
 
     file_pattern_key = "OWP_HAND_LOAD_PATTERN"
@@ -115,55 +109,40 @@ def __load_hand_dataset(num_jobs):
         if file_pattern_key in name:
             file_patterns.append({"env_var_name": name, "env_var_value": value})
 
+    print("*** Note: Some loads per pattern can be slow, especially branches.")
+    print("*** We get the names and paths of all files that are applicable before copying")
+    time.sleep(5)  # gives the a min to read this.
+    print("")
+
     for file_pattern in file_patterns:
         pattern_name = file_pattern["env_var_name"]
         pattern = file_pattern["env_var_value"]
-
-        logging.info(
-            f"Getting file names for pattern {pattern_name} : {pattern}. For branch loads,"
-            " this can take several minutes, hang in there (< 10 mins)"
-        )
+        logging.info(f"Getting file names for pattern {pattern_name} : {pattern}")
         file_paths = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, pattern)
-        logging.info(f".. Number of files found for pattern {pattern} is {len(file_paths)}")
-        files_to_download.extend(file_paths)
+        logging.info(f".. found {len(file_paths)} files")
+
+        if len(file_paths) == 0:
+            print("*********************")
+            logging.error(f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
+                          " Check the data source folders and/or the patterns from the env file.")
+            time.sleep(5)  # allows the user time to react if required
+            continue
+
+        for file_path in file_paths:
+            if not file_path.startswith("/"):
+                file_path = "/" + file_path
+            trg_file = file_path.replace(SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH)
+            item = {"src_file": file_path, "trg_file": trg_file}
+            files_to_download.append(item)
+
+        # # files_to_download.extend(file_paths)
+        print("")
 
     print("++++++++++++")
     logging.info(f"Total number of files to download is {len(files_to_download)}")
 
     print("All done for now")
     sys.exit(0)
-
-    # num_load_patterns = int(sf.get_value_from_env('HAND_LOAD_PATTERN_COUNT', workflows_params_file))
-    # logging.info(
-    #     f"--- Finding HAND s3 files using {num_load_patterns} patterns"
-    # )
-    # print(
-    #     "...... This script finds all of the applicable file names first, then downloads each"
-    #     " one at a time (AWS limitation) but will use multi-proc to speed it up."
-    # )
-
-    # # Load each cmd one at a time from the enviro, then feed it to grep to get the files we
-    # # want. Remember.. AWS can only download/upload one file at a time (AWS Keys versus actual
-    # # directories.)
-    # for i in range(1, num_load_patterns + 1):
-    #     load_pattern_name = f'HAND_LOAD_PATTERN_{i}'
-    #     load_pattern = sf.get_value_from_env(load_pattern_name, workflows_params_file)
-    #     logging.info(
-    #         f"Getting file names for pattern {load_pattern_name} ({load_pattern})."
-    #         " This can take several minutes, hang in there (< 10 mins)"
-    #     )
-
-    #     # download files based on this pattern and get count of how many were downloaded based on this pattern.
-
-    #     # full_path_pattern = hand_local_dataset_path + load_pattern  # already has correct leading slashes
-    #     # found_files = glob.glob(full_path_pattern)
-
-    #     # for file_path in found_files:
-    #     #     trg_file = file_path.replace(hand_local_dataset_path, HV_S3_ROOT_HANDSET_PATH)
-    #     #     upload_item = {"src_file": file_path, "trg_file": trg_file}
-    #     #     files_to_upload.append(upload_item)
-
-    #     # logging.info(f"--- Files found for this pattern: {len(found_files)}")
 
     print(f"--- Total number of files to be loaded to HAND dataset is {len(files_to_download)}")
 
@@ -176,11 +155,11 @@ def __validate_input(source_path, target_path, workflows_params_file, num_jobs):
 
     if not source_path:
         raise ValueError("The -st source path value is None or empty")
-    SRC_S3_HAND_PATH = source_path
+    SRC_S3_HAND_PATH = sf.add_slashes_to_path(source_path)
 
     if not target_path:
         raise ValueError("The -st source path value is None or empty")
-    TRG_DATA_HAND_PATH = target_path
+    TRG_DATA_HAND_PATH = sf.add_slashes_to_path(target_path)
 
     if not workflows_params_file:
         raise ValueError("The workflows params file argument value is None or empty")

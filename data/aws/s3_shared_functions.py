@@ -318,7 +318,7 @@ def get_folder_list(s3_client, bucket_name, s3_src_folder_path):
 
 
 # -------------------------------------------------
-def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
+def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test_bucket_exists=False):
     """
     Process:
         - Note: The boto3.client must be already instantated and passed in
@@ -330,15 +330,20 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path):
         - s3_file_key: bucket relative file path to the file name (ie. /inputs/fema/12090301.gpkg)
           (as in s3://hand_data_bucket/inputs/fema/12090301.gpkg)
         - target_file_path: e.g . /data/inputs/fema/12090301.gpkg
+
     Returns:
         - True if file exists and was downloaded, False if not
     """
+    # Yes.. outside the try/catch
+    # re-validate the connection and credentials as well
+
 
     # re-validate the connection and credentials as well
-    is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
-    if not is_success:
-        # In this case, we want to raise a new Exception
-        raise Exception(return_msg)
+    if test_bucket_exists is True:
+        is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
+        if not is_success:
+            # In this case, we want to raise a new Exception
+            raise Exception(return_msg)
 
     does_file_exist = False
     # strip leading slash if exists
@@ -438,6 +443,78 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
 
 
 # -------------------------------------------------
+# You generally want to use this only when you have a large number of files to upload.
+# Size of each file is not relavent.
+# This uses multi-threading and not multi-proc
+def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
+    '''
+    file_list must be a list of dictionaries: {"src_file": file_path, "trg_file": trg_file}
+
+    '''
+    # This assumes the bucket exists and the session/client are still alive and valid
+    try:
+        tasks_args_list = []
+
+        # "partials" allow you to set some of the values that are shared by all
+        # Multi-threads (or procs) so we don't have so much duplication.
+        # In this case, we had to use this for sharing the s3_client.
+        # The other two remaing args to upload_file are unique and are handled
+        # by the for loop and list of dictionaries.
+        merged_partial_download_file = partial(
+            download_s3_file,
+            s3_client=s3_client,
+            bucket_name=bucket_name,
+            test_bucket_exists=False,
+        )
+        # Shared client appears to not be threadsafe as long as I keep the job down (under 10?)
+        for i, file_item in enumerate(file_list):
+
+            # In theory these should never happen
+            if "//" in file_item['src_file']:
+                file_item['src_file'] = file_item['src_file'].replace("//", "/")
+            if file_item['src_file'] == "/":  
+                continue
+
+            # debugging test
+            # if i > 20:
+            #     break
+            args_item = {"s3_file_key": file_item['src_file'], "target_file_path": file_item['trg_file']}
+            tasks_args_list.append(args_item)
+
+        # Dispatch work tasks with our s3_client
+        # Need to use a thread and not an mp here (sharing usage of the s3 client)
+        with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures_dict = [executor.submit(merged_partial_download_file, **arg) for arg in tasks_args_list]
+
+            # adding the min intervals speeds it up so it doesn't try to repaint every tqdm loop
+            for future in tqdm(
+                futures.as_completed(futures_dict),
+                total=len(tasks_args_list),
+                desc="downloading files",
+                miniters=10,
+            ):
+                if future.cancelled():
+                    continue
+                if future is not None:
+                    future_exception = future.exception()
+                    # These are exceptions from withing the function being executed
+                    if future_exception:
+                        # reraise it
+                        raise Exception(f"zooks: future item has an exception {future_exception}")
+                    # else:  # we don't care about the result at this time.
+                    #     result = future.result()
+                    #     print(result)
+                # else:
+                #     print("looks good, future item is None though, how is that possible?")
+
+    except Exception as ex:
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, ___ = awssf.aws_exception_handler(ex)
+        raise Exception(return_msg)
+
+
+# -------------------------------------------------
 def upload_file(
     s3_client, bucket_name, src_file_path, trg_file_path, show_progress_bar=True, test_bucket_exists=True
 ):
@@ -463,8 +540,6 @@ def upload_file(
     # Yes.. outside the try/catch
     # re-validate the connection and credentials as well
 
-    # TODO: Do we really one one per upload? humm.. optional arg maybe?
-    # thinking about small one off files versus large batches such as HV hand dataset load.
     if test_bucket_exists is True:
         is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
         if not is_success:
@@ -547,6 +622,12 @@ def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
         )
         # Shared client appears to not be threadsafe as long as I keep the job down (under 10?)
         for i, file_item in enumerate(file_list):
+
+            # In theory these should never happen
+            if "//" in file_item['src_file']:
+                file_item['src_file'] = file_item['src_file'].replace("//", "/")
+            if file_item['src_file'] == "/":  
+                continue
 
             # debugging test
             # if i > 20:

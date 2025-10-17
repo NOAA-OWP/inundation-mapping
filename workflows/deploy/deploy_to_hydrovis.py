@@ -135,36 +135,56 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
         raise ValueError(f"FIM_HAND_DATASET_LOCAL_PATH of {hand_local_dataset_path} does not exist")
     hand_local_dataset_path = sf.add_slashes_to_path(hand_local_dataset_path)
 
-    num_load_patterns = int(sf.get_value_from_env('HV_HAND_LOAD_PATTERN_COUNT', deploy_params_file))
-    logging.info(
-        f"--- Finding HAND datasets files from {hand_local_dataset_path} : {num_load_patterns} patterns"
-    )
-    print(
-        "...... This script finds all of the applicable file names first, then loads each"
-        " into AWS one at a time (AWS limitation) but will use multi-proc to speed it up."
-    )
+    # ----------------
+    # as each search_key needs to be used one at a time to figure out which are to be included
+    # or maybe we use MT here?
+    file_patterns = []
+
+    file_pattern_key = "HV_HAND_LOAD_PATTERN"
+    for name, value in os.environ.items():
+        if file_pattern_key in name:
+            file_patterns.append({"env_var_name": name, "env_var_value": value})
 
     # Load each cmd one at a time from the enviro, then feed it to grep to get the files we
     # want. Remember.. AWS can only download/upload one file at a time (AWS Keys versus actual
     # directories.)
-    for i in range(1, num_load_patterns + 1):
-        load_pattern_name = f'HV_HAND_LOAD_PATTERN_{i}'
-        load_pattern = sf.get_value_from_env(load_pattern_name, deploy_params_file)
-        logging.info(
-            f"Getting file names for pattern {load_pattern_name} : ({load_pattern}). For branch loads,"
-            " this can take several minutes, hang in there (< 10 mins)"
-        )
-        full_path_pattern = hand_local_dataset_path + load_pattern  # already has correct leading slashes
-        found_files = glob.glob(full_path_pattern)
+    print("*** Note: Some loads per pattern can be slow, especially branches.")
+    print("*** We get the names and paths of all files that are applicable before copying")
+    time.sleep(5)  # gives the a min to read this.
+    print("")
 
-        for file_path in found_files:
+    for file_pattern in file_patterns:
+        pattern_name = file_pattern["env_var_name"]
+        pattern = file_pattern["env_var_value"]
+
+        logging.info(f"Getting file names for pattern {pattern_name} : {pattern}")
+
+        # slashes already exist on the hand_local_dataset_path
+        full_path_pattern = hand_local_dataset_path + pattern
+        # some path combinations can end up with a double slash
+        full_path_pattern = full_path_pattern.replace("//", "/")
+
+        file_paths = glob.glob(full_path_pattern)
+
+        for file_path in file_paths:
+
+            # glob can end with double slashes sometimes so remove them
+            if "//" in file_path:
+                file_path = file_path.replace("//", "/")
+
             trg_file = file_path.replace(hand_local_dataset_path, HV_S3_ROOT_HANDSET_PATH)
             upload_item = {"src_file": file_path, "trg_file": trg_file}
             files_to_upload.append(upload_item)
 
-        logging.info(f"--- Files found for this pattern: {len(found_files)}")
+        logging.info(f".. found {len(file_paths)} files")
 
-    print(f"--- Total number of files to be loaded to HAND dataset is {len(files_to_upload)}")
+        if len(file_paths) == 0:
+            print("*********************")
+            logging.error(f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
+                          " Check the data source folders and/or the patterns from the env file.")
+            time.sleep(5)  # allows the user time to react if required
+
+    print(f"--- Total number of files to be loaded to HV S3 is {len(files_to_upload)}")
 
     sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
     logging.info("------------------------------------")
