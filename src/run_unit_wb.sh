@@ -182,11 +182,6 @@ python3 $srcDir/burn_in_levees.py \
     -nld $tempCurrentBranchDataDir/nld_rasterized_elev_$branch_zero_id.tif \
     -out $tempHucDataDir/dem_meters.tif
 
-## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
-echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
-rd_depression_filling $tempHucDataDir/dem_meters.tif \
-    $tempHucDataDir/dem_meters.tif
-
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $branch_zero_id"
 gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
