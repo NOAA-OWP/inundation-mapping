@@ -335,8 +335,6 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
         - True if file exists and was downloaded, False if not
     """
     # Yes.. outside the try/catch
-    # re-validate the connection and credentials as well
-
 
     # re-validate the connection and credentials as well
     if test_bucket_exists is True:
@@ -356,7 +354,8 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
     # The target folder must pre-exist
     trg_dir = os.path.dirname(target_file_path)
     if not os.path.exists(trg_dir):
-        os.makedirs(trg_dir, exist_ok=True)
+        full_access_permissions = 0o777
+        os.makedirs(trg_dir, mode=full_access_permissions, exist_ok=True)
 
     try:
         s3_client.download_file(bucket_name, s3_file_key, target_file_path)
@@ -449,6 +448,13 @@ def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
 def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
     '''
     file_list must be a list of dictionaries: {"src_file": file_path, "trg_file": trg_file}
+    Note: src_file is the S3 path without the "s3://" and "bucket name"
+    ie: {
+    "src_file":
+       '/foss_fim/temp/RobH/Rob_deploy_test_10/03140303/branches/2411000027/hydroTable_2411000027.csv',
+    "trg_file": /outputs/Rob_deploy_test_10' :
+       '/outputs/Rob_deploy_test_10/03140303/branches/2411000027/hydroTable_2411000027.csv',
+    }
 
     '''
     # This assumes the bucket exists and the session/client are still alive and valid
@@ -461,10 +467,7 @@ def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
         # The other two remaing args to upload_file are unique and are handled
         # by the for loop and list of dictionaries.
         merged_partial_download_file = partial(
-            download_s3_file,
-            s3_client=s3_client,
-            bucket_name=bucket_name,
-            test_bucket_exists=False,
+            download_s3_file, s3_client=s3_client, bucket_name=bucket_name, test_bucket_exists=False
         )
         # Shared client appears to not be threadsafe as long as I keep the job down (under 10?)
         for i, file_item in enumerate(file_list):
@@ -472,7 +475,7 @@ def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
             # In theory these should never happen
             if "//" in file_item['src_file']:
                 file_item['src_file'] = file_item['src_file'].replace("//", "/")
-            if file_item['src_file'] == "/":  
+            if file_item['src_file'] == "/":
                 continue
 
             # debugging test
@@ -527,9 +530,10 @@ def upload_file(
         - s3_client: my_client = boto3.client(profile, creds, whatever). We use s3 clients as they are
           thread safe, not all AWS object types are.
         - bucket_name: ie) hand_data_bucket
-        - src_file_path: ie /data/inputs/fema/12090301.gpkg
-        - trg_file_path: bucket relative file path to the file name (ie. /foss_fim/inputs/fema/12090301.gpkg)
-          (as in s3://hand_data_bucket/foss_fim/inputs/fema/12090301.gpkg)
+        - src_file_path:
+               ie. /data/inputs/fema/12090301.gpkg
+        - trg_file_path: The S3 path to the file without "s3://" and the bucket name.
+               ie. /foss_fim/inputs/fema/12090301.gpkg)
         - show_progress_bar: Any files over 1 GiB can automatically show a progress bar
           if this value is set to True
 
@@ -601,7 +605,13 @@ def upload_file(
 def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
     '''
     file_list must be a list of dictionaries: {"src_file": file_path, "trg_file": trg_file}
-
+    Note: trg_file is the S3 path without the "s3://" and "bucket name"
+    ie: {
+    "src_file":
+       '/data/inputs/fema/12090301.gpkg',
+    "trg_file": '/foss_fim/inputs/' :
+       '/foss_fim/inputs/fema/12090301.gpkg',
+    }
     '''
 
     # This assumes the bucket exists and the session/client are still alive and valid
@@ -626,7 +636,7 @@ def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
             # In theory these should never happen
             if "//" in file_item['src_file']:
                 file_item['src_file'] = file_item['src_file'].replace("//", "/")
-            if file_item['src_file'] == "/":  
+            if file_item['src_file'] == "/":
                 continue
 
             # debugging test

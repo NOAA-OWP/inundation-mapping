@@ -180,8 +180,10 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
 
         if len(file_paths) == 0:
             print("*********************")
-            logging.error(f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
-                          " Check the data source folders and/or the patterns from the env file.")
+            logging.error(
+                f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
+                " Check the data source folders and/or the patterns from the env file."
+            )
             time.sleep(5)  # allows the user time to react if required
 
     print(f"--- Total number of files to be loaded to HV S3 is {len(files_to_upload)}")

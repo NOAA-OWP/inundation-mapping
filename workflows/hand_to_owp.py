@@ -86,7 +86,7 @@ def hand_to_owp(source_path, target_path, aws_creds_file, workflows_params_file,
     finally:
         logging.info("==========================================================")
         end_time = datetime.now(timezone.utc)
-        logging.info("****  Completed Deploy to HydroVIS  ****")
+        print("****  Completed downloading all applicable files   ****")
         print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
         logging.info(fh.print_date_time_duration(overall_start_dt, end_time, False))
         print("")
@@ -98,6 +98,7 @@ def __load_hand_dataset(num_jobs):
     # We filter to keep only the files we specifically want
     # We will build up a list of files for download
     files_to_download = []
+    section_start_dt = datetime.now(timezone.utc)
 
     # We get a list of applicable files
     # as each search_key needs to be used one at a time to figure out which are to be included
@@ -109,8 +110,13 @@ def __load_hand_dataset(num_jobs):
         if file_pattern_key in name:
             file_patterns.append({"env_var_name": name, "env_var_value": value})
 
-    print("*** Note: Some loads per pattern can be slow, especially branches.")
-    print("*** We get the names and paths of all files that are applicable before copying")
+    logging.info("------------------------------------")
+    print(
+        "*** Building a list of files to upload: We get the names and paths"
+        " of all files that are applicable before copying"
+    )
+    print("    Note: Some loads per pattern can be slow, especially branches.")
+    print(f"    Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
     time.sleep(5)  # gives the a min to read this.
     print("")
 
@@ -123,8 +129,10 @@ def __load_hand_dataset(num_jobs):
 
         if len(file_paths) == 0:
             print("*********************")
-            logging.error(f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
-                          " Check the data source folders and/or the patterns from the env file.")
+            logging.error(
+                f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
+                " Check the data source folders and/or the patterns from the env file."
+            )
             time.sleep(5)  # allows the user time to react if required
             continue
 
@@ -138,13 +146,25 @@ def __load_hand_dataset(num_jobs):
         # # files_to_download.extend(file_paths)
         print("")
 
-    print("++++++++++++")
-    logging.info(f"Total number of files to download is {len(files_to_download)}")
+    logging.info(f"Download list created: Total number of files to download is {len(files_to_download)}")
+    logging.info(fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False))
+    logging.info("------------------------------------")
 
-    print("All done for now")
-    sys.exit(0)
+    # Let's it do its own upload, instead of the generic parent deploy_to_hydrovis pattern.
+    # This set is pretty big so pass it to s3_shared_functions.upload_large_files,
+    # which has a form of a multi-proc inside of it. (no logging though)
+    section_start_dt = datetime.now(timezone.utc)
+    logging.info("*** Downloading files")
+    print(f"  Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
+    sorted_files_to_download = sorted(files_to_download, key=lambda x: x["src_file"])
+    s3_sf.download_large_filesets(S3_CLIENT, FIM_S3_BUCKET_NAME, sorted_files_to_download, num_jobs)
 
-    print(f"--- Total number of files to be loaded to HAND dataset is {len(files_to_download)}")
+    print()
+    end_time = datetime.now(timezone.utc)
+    logging.info("**** Completed downloading files ****")
+    print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    logging.info(fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False))
+    logging.info("------------------------------------")
 
 
 # ============================
