@@ -86,18 +86,31 @@ def process_points(args):
 
     water_edge_df = water_edge_df.to_crs(DEFAULT_FIM_PROJECTION_CRS)
 
-    with open(hydroid_prefixpath, 'r') as file:
-        hydroid_prefix = file.read()
-        int_hid_prefix = int(hydroid_prefix) * 10000
+    process_int16 = True
+    try:
+        with open(hydroid_prefixpath, 'r') as file:
+            hydroid_prefix = file.read()
+            int_hid_prefix = int(hydroid_prefix) * 10000
+    except FileNotFoundError:
+        process_int16 = False
+        int_hid_prefix = 0
 
     ## Use point geometry to determine HAND raster pixel values.
     with rasterio.open(hand_path) as hand_src, rasterio.open(catchments_path) as catchments_src:
-        water_edge_df['hand'] = [np.float32(h[0]) / 1000 for h in hand_src.sample(coords)]
+
+        water_edge_df['hand'] = (
+            [np.float32(h[0]) / 1000 for h in hand_src.sample(coords)]
+            if process_int16
+            else [h[0] for h in hand_src.sample(coords)]
+        )
+
         hydroids = []
 
         for c in catchments_src.sample(coords):
-            hid = int_hid_prefix * -1 + c[0] if c[0] < 0 else int_hid_prefix + c[0]
+            c[0] = c[0] if c[0] >= 0 else c[0] * -1
+            hid = int_hid_prefix + c[0] if process_int16 else c[0]
             hydroids.append(hid)
+
         water_edge_df['hydroid'] = hydroids
 
     water_edge_df = water_edge_df[
