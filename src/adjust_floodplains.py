@@ -56,6 +56,8 @@ def adjust_floodplains(
         The ID of the branch to adjust.
     fema_flood_zones_file : str
         The file containing the FEMA flood zones.
+    fema_flood_zones_layer : str, optional
+        The layer name of the FEMA flood zones, by default 'combined'.
 
     Returns
     -------
