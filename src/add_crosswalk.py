@@ -369,6 +369,10 @@ def add_crosswalk(
 
     output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
 
+    #also add default manning and slope for reseting hydrotable and src full later
+    output_src['default_SLOPE']=output_src['SLOPE']
+    output_src['default_ManningN']=output_src['ManningN']
+
     del crosswalk
 
     output_crosswalk = output_src[['HydroID', 'feature_id']]
@@ -479,6 +483,24 @@ def add_crosswalk(
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)
+
+
+    #make two temp files for debugging...first for scr_full
+    import os
+    dirname = os.path.dirname(output_src_fileName)
+    basename = os.path.basename(output_src_fileName)
+    name, ext = os.path.splitext(basename)
+
+    new_src_path = os.path.join(dirname, f"{name}_temp{ext}")
+    output_src.to_csv(new_src_path)
+
+    #now hydrotable
+    dirname = os.path.dirname(output_hydro_table_fileName)
+    basename = os.path.basename(output_hydro_table_fileName)
+    name, ext = os.path.splitext(basename)
+
+    new_hydrotable_path = os.path.join(dirname, f"{name}_temp{ext}")
+    output_hydro_table.to_csv(new_hydrotable_path)
 
     with open(output_src_json_fileName, 'w') as f:
         json.dump(output_src_json, f, sort_keys=True, indent=2)

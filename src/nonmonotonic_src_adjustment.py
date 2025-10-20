@@ -325,7 +325,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         src_df['subdiv_applied'] = src_df.groupby('HydroID')['subdiv_applied'].ffill()
         src_df['channel_n'] = src_df.groupby('HydroID')['channel_n'].ffill()
         src_df['overbank_n'] = src_df.groupby('HydroID')['overbank_n'].ffill()
-        src_df.to_csv(src, index=False)
+        src_df.to_csv(src, index=False,float_format='%.15g')
 
         # Adjusting hydro tables for nonmonotonic SRC
         # Reporting in the log file

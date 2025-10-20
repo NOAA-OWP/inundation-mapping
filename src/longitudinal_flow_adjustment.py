@@ -137,7 +137,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
         # Save updated branch 0 ht and src tables
         src_0_df = src_0_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
-        src_0_df.to_csv(src_full_0, index=False)
+        src_0_df.to_csv(src_full_0, index=False,float_format='%.15g')
         ht_0_df = ht_0_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
         ht_0_df.to_csv(ht_0_path, index=False)
     else:
@@ -325,7 +325,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
             # Write src back to file
-            src_df.to_csv(src_all_branches_path[isrc], index=False)
+            src_df.to_csv(src_all_branches_path[isrc], index=False,float_format='%.15g')
             # log_text += f'Successfully recalculated discharge for HUC {huc} branch {branch}'
 
         log_text += f'Adjusting hydroTable for longitudinal filter for HUC {huc} Branch {branch}'

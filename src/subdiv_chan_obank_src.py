@@ -146,7 +146,7 @@ def variable_mannings_calc(args):
             )  # reset the discharge value back to the original if vmann=false
 
             ## Output new SRC with bankfull column
-            df_src.to_csv(in_src_bankfull_filename, index=False)
+            df_src.to_csv(in_src_bankfull_filename, index=False,float_format='%.15g')
 
             ## Output new hydroTable with updated discharge and ManningN column
             df_src_trim = df_src[

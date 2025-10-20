@@ -79,7 +79,7 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
         if bathy_data.empty:
             log_text += '  There were no eHydro bathymetry feature_ids for this branch'
             src_df['Bathymetry_source'] = [""] * len(src_df)
-            src_df.to_csv(src, index=False)
+            src_df.to_csv(src, index=False, float_format='%.15g')
             return log_text
 
         # Merge in missing bathy data and fill Nans
@@ -150,7 +150,7 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
 
         # Write src back to file
         # src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
-        src_df.to_csv(src, index=False)
+        src_df.to_csv(src, index=False, float_format='%.15g')
 
     return log_text
 
@@ -294,7 +294,7 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
 
             # Write src back to file
             src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
-            src_df.to_csv(src, index=False)
+            src_df.to_csv(src, index=False,float_format='%.15g')
 
         else:
             # src_df = src_df.merge(aib_df, on='feature_id', how='left', validate='many_to_one')
@@ -372,7 +372,7 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
 
             # Write src back to file
             src_df = src_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
-            src_df.to_csv(src, index=False)
+            src_df.to_csv(src, index=False,float_format='%.15g')
 
     return log_text
 

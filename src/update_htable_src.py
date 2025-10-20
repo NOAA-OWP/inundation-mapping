@@ -58,9 +58,16 @@ def process_branch(sub_branch_path, branch, huc_id):
     recalc_df['HydroID'] = input_src_base['HydroID']
     recalc_df['Stage'] = input_src_base['Stage']
     input_src_full['HydroID'] = input_src_full['HydroID'].astype(str)
+    # recalc_df = recalc_df.merge(
+    #     input_src_full[['HydroID', 'Stage', 'SLOPE']], on=['HydroID', 'Stage'], how='left'
+    # )
+
+    #get slope and mannings from src_full.
     recalc_df = recalc_df.merge(
-        input_src_full[['HydroID', 'Stage', 'SLOPE']], on=['HydroID', 'Stage'], how='left'
+        input_src_full[['HydroID', 'Stage', 'default_SLOPE','default_ManningN']], on=['HydroID', 'Stage'], how='left'
     )
+    recalc_df.rename(columns={'default_SLOPE':'SLOPE','default_ManningN':'ManningN'},inplace=True)
+
     columns_from_src = [
         'HydroID',
         'Stage',
@@ -69,7 +76,7 @@ def process_branch(sub_branch_path, branch, huc_id):
         'LENGTHKM',
         'AREASQKM',
         'Volume (m3)',
-        'ManningN',
+        # 'ManningN',
         'BedArea (m2)',
     ]
     keys = ['HydroID', 'Stage']
@@ -184,9 +191,11 @@ def process_branch(sub_branch_path, branch, huc_id):
         'HydraulicRadius (m)',
         'Discharge (m3s-1)',
         'Bathymetry_source',
+        'default_SLOPE',
+        'default_ManningN'
     ]
     final_src_full = input_src_full[src_full_preserve_columns]
-    final_src_full.to_csv(src_full_file, index=False)
+    final_src_full.to_csv(src_full_file, index=False, float_format='%.15g')
     input_hydro_table.to_csv(hydro_table_file, index=False)
 
 
