@@ -371,6 +371,8 @@ def run_with_mp(
                             " See exception details in the logs."
                         )
 
+                    results[task_id] = rtn_value
+
                     if pbar:
                         # print("task bar being updated")
                         pbar.update(1)  # ✅ Progress update for each completed task
