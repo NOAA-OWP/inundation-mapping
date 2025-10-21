@@ -28,6 +28,8 @@ from tqdm import tqdm
 
 from utils.shared_functions import FIM_Helpers as fh
 
+SLOPE_SCALE = float(os.getenv("slope_scale"))
+
 
 # *******************************************************
 # def list_all_test_cases(huc, version, archive, benchmark_categories=[]):
@@ -867,7 +869,7 @@ def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
         srcs_df.loc[row_slice, 'discharge_cms'] = (
             wet_area
             * (srcs_df.loc[row_slice, 'HydraulicRadius_chan (m)'] ** (2.0 / 3))
-            * (srcs_df.loc[row_slice, 'SLOPE'] ** 0.5)
+            * ((srcs_df.loc[row_slice, 'SLOPE']/SLOPE_SCALE) ** 0.5)
             / srcs_df.loc[row_slice, 'channel_n']
         )
 

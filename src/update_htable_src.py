@@ -3,6 +3,7 @@ import os
 import re
 
 import pandas as pd
+SLOPE_SCALE = float(os.getenv("slope_scale"))
 
 
 def process_branch(sub_branch_path, branch, huc_id):
@@ -91,7 +92,7 @@ def process_branch(sub_branch_path, branch, huc_id):
     recalc_df['Discharge (m3s-1)'] = (
         recalc_df['WetArea (m2)']
         * pow(recalc_df['HydraulicRadius (m)'], 2.0 / 3)
-        * pow(recalc_df['SLOPE'], 0.5)
+        * pow(recalc_df['SLOPE']/SLOPE_SCALE , 0.5)
         / recalc_df['ManningN']
     )
     recalc_df.loc[recalc_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
@@ -195,7 +196,7 @@ def process_branch(sub_branch_path, branch, huc_id):
         'default_ManningN'
     ]
     final_src_full = input_src_full[src_full_preserve_columns]
-    final_src_full.to_csv(src_full_file, index=False, float_format='%.15g')
+    final_src_full.to_csv(src_full_file, index=False)
     input_hydro_table.to_csv(hydro_table_file, index=False)
 
 

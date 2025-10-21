@@ -213,7 +213,7 @@ def src_bankfull_lookup(args):
         df_src['bankfull_proxy'] = df_src['bankfull_proxy'].fillna('channel')
 
         ## Output new SRC with bankfull column
-        df_src.to_csv(src_full_filename, index=False,float_format='%.15g')
+        df_src.to_csv(src_full_filename, index=False)
         log_text += 'Completed: ' + str(huc)
 
         ## plot rating curves (optional arg)

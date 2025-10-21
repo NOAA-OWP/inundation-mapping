@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
+SLOPE_SCALE = float(os.getenv("slope_scale"))
 
 """
     Vary the Manning's n values for in-channel vs. floodplain
@@ -134,7 +135,7 @@ def variable_mannings_calc(args):
             df_src['Discharge (m3s-1)_varMann'] = (
                 df_src[wet_area]
                 * pow(df_src[hydr_radius], 2.0 / 3)
-                * pow(df_src['SLOPE'], 0.5)
+                * pow(df_src['SLOPE']/SLOPE_SCALE, 0.5)
                 / df_src['comp_ManningN']
             )
 

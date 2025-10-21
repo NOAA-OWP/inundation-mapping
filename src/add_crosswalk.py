@@ -3,6 +3,7 @@
 import argparse
 import json
 import sys
+import os
 
 import geopandas as gpd
 import numpy as np
@@ -18,6 +19,7 @@ from utils.shared_variables import FIM_ID
 # Define acceptable slope range
 SLOPE_MIN = 9.999e-7
 SLOPE_MAX = 0.5
+SLOPE_SCALE = float(os.getenv("slope_scale"))
 
 
 def add_crosswalk(
@@ -284,13 +286,17 @@ def add_crosswalk(
     # hfab_mask = (input_src_base['SLOPE_HFAB'] >= SLOPE_MIN) & (input_src_base['SLOPE_HFAB'] <= SLOPE_MAX)
 
     # Apply masks to filter out invalid slope values
-    sword_slope = input_src_base['SLOPE_IRIS_SWORD'].where(sword_mask).astype(float).round(17)
+    sword_slope = input_src_base['SLOPE_IRIS_SWORD'].where(sword_mask)
     # hfab_slope = input_src_base['SLOPE_HFAB'].where(hfab_mask)
 
     # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
     input_src_base['SLOPE'] = (
-        sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN']).astype(float).round(17)
+        sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN'])
     )
+
+    #now to preserve slope precisions, we will record slope values as an integer by multiplying by a scale
+    #later in the code, when we need to use slope values, we will need to divide the values by the same scale
+    input_src_base['SLOPE']=SLOPE_SCALE*input_src_base['SLOPE'].values.round().astype("int64")
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})

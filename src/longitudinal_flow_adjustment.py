@@ -15,6 +15,8 @@ import pandas as pd
 import scipy
 from scipy.ndimage import generic_filter
 
+SLOPE_SCALE = float(os.getenv("slope_scale"))
+
 
 # -------------------------------------------------------
 def extract_longitudinal_variables(src_df, hydroid, stage):
@@ -162,7 +164,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
 
         # Save updated branch 0 ht and src tables
         src_0_df = src_0_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
-        src_0_df.to_csv(src_full_0, index=False,float_format='%.15g')
+        src_0_df.to_csv(src_full_0, index=False)
         ht_0_df = ht_0_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
         ht_0_df.to_csv(ht_0_path, index=False)
     else:
@@ -330,7 +332,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             src_df['Discharge (m3s-1)'] = (
                 src_df['WetArea (m2)']
                 * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-                * pow(src_df['SLOPE'], 0.5)
+                * pow(src_df['SLOPE']/SLOPE_SCALE, 0.5)
                 / src_df['ManningN']
             )
             # Refining Discharge for lake hydroIDs with the original Q
@@ -419,7 +421,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             # huc_q_check.append(hydroid_chain_q_check)
 
             # Write src back to file
-            src_df.to_csv(src_all_branches_path[isrc], index=False,float_format='%.15g')
+            src_df.to_csv(src_all_branches_path[isrc], index=False)
             # log_text += f'Successfully recalculated discharge for HUC {huc} branch {branch}'
 
     log_text += f'Successfully recalculated discharge for HUC {huc}\n'

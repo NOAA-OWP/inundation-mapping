@@ -15,6 +15,8 @@ from os.path import join
 import numpy as np
 import pandas as pd
 
+SLOPE_SCALE = float(os.getenv("slope_scale"))
+
 
 # -------------------------------------------------------
 # Analysing each HydroID SRC for nonmonotonic SRC
@@ -67,7 +69,7 @@ def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
         srcs_df.loc[row_slice, 'Discharge (m3s-1)'] = (
             wet_area
             * (srcs_df.loc[row_slice, 'HydraulicRadius (m)'] ** (2.0 / 3))
-            * (srcs_df.loc[row_slice, 'SLOPE'] ** 0.5)
+            * ((srcs_df.loc[row_slice, 'SLOPE']/SLOPE_SCALE) ** 0.5)
             / srcs_df.loc[row_slice, 'channel_n']
         )
         # srcs_df['Discharge (m3s-1)_subdiv'] = np.where(
@@ -211,7 +213,7 @@ def correct_nonmonotonic_src(fim_dir, huc, strm_order):  # , bankfull_flows_file
         src_df5.loc[cond_nonmono_rows, 'Nonmonotonic_adjustment_applied'] = True
 
         src_df = src_df5.copy()
-        src_df.to_csv(src, index=False,float_format='%.15g')
+        src_df.to_csv(src, index=False)
 
 
         # Adjusting hydro tables for nonmonotonic SRC
