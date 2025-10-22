@@ -43,6 +43,15 @@ Details on full tool usage are embedded in the scripts themselves. This tool rel
 ### FOR NOAA/OWP usage only
 This tool is not for usage outside of the OWP / FIM team.
 <br /><br />
+## v4.8.14.2 - 2025-10-17 - [PR#1677](https://github.com/NOAA-OWP/inundation-mapping/pull/1677)
+
+During a merge of the recent PR for mprunner fixes, one critical line was dropped. The line takes the return value from the child multi-proc function and adds it to a list collection of return results. 
+
+A couple of small links in the changelog were also fixed.
+
+### Changes
+- `src/utils/shared_functions.py`: as described.
+<br />
 
 ## v4.8.14.1 - 2025-10-10 - [PR#1640](https://github.com/NOAA-OWP/inundation-mapping/pull/1640)
 
@@ -57,6 +66,7 @@ To run the script, you need to create a directory in your `metrix_dir` (the only
 ### Additions
 - `data/ripple/`
     - `terrain_agreement_metrics_analysis.py`
+<br />
 
 ## V4.8.14.0 - 2025-10-10 - [PR#1650](https://github.com/NOAA-OWP/inundation-mapping/pull/1650)
 
@@ -114,7 +124,7 @@ Fixes a bug that was introduced to flow-based CatFIM in recent changes to the In
 tools/catfim/generate_categorical_fim_mapping.py: Added multi-process option to inundate_gms() function. Updated print logs.
 <br/>
 
-## v4.8.12.1 - 2025-10-10 - [PR#1617]([https://github.com/NOAA-OWP/inundation-mapping/pull/1617])
+## v4.8.12.1 - 2025-10-10 - [PR#1617](https://github.com/NOAA-OWP/inundation-mapping/pull/1617)
 
 This tool generates a custom flow file for a specific FIM scenario. Given a flow value and either a feature ID or a LID/USGS gage ID, it traces downstream along NWM streamlines and applies the input flow to each segment within the specified distance.
 
@@ -122,7 +132,7 @@ This tool generates a custom flow file for a specific FIM scenario. Given a flow
 - `-tools/generate_custom_flow_files.py`
 <br/>
 
-## v4.8.12.0 - 2025-10-10 - [PR#1621]([https://github.com/NOAA-OWP/inundation-mapping/pull/1621])
+## v4.8.12.0 - 2025-10-10 - [PR#1621](https://github.com/NOAA-OWP/inundation-mapping/pull/1621)
 
 This PR focuses on the position of three scripts in the post-processing and updating the longitudinal filtering parameters. First, a new script has been written to address the thalweg notch adjustment, separated from the nonmonotonic adjustment script. Second, the post-processing has been changed in a way that `thalweg_notches_adjustment` and `logitudinal_flow_adjustment` will be run before `bathymetry_adjustment`. Then, `nonmonotonic_adjustment` will be run after the `src_subdivision` section. The second purpose of this PR is to update the `longitudinal_adjustment` parameters and replace the minimum filter with the lowest 10-percentile of the discharge on the rating curve. 
 
@@ -154,7 +164,7 @@ Adjusted the scripts for pulling down filtered files/folders for the new ripple 
 
 ### Changes
 
-- 'data\ripple\get_s3_folder.sh, get_s3_folders_from_list.sh and ripple_shared_tools.sh`: As described above.
+- `data\ripple\get_s3_folder.sh, get_s3_folders_from_list.sh and ripple_shared_tools.sh`: As described above.
 <br/>
 
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
