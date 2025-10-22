@@ -19,25 +19,7 @@ from src.utils.shared_functions import FIM_Helpers as fh
 aws s3 cli equiv (note.. may not be up-to-date here)
    - Why do we do it via python/boto3? We can use multi-thread to make it faster
      and have more control of contents and rules.
-
-As of Oct 2025
-
-hand_version="hand_4_8_7_2" ; aws s3 sync \
-s3://{our bucket}/foss_fim/previous_fim/${fim_version}/ /data/previous_fim/${hand_version}/ \
---exclude "*" \
---include="*usgs_elev_table.csv" \
---include="*rem_zeroed_masked_*.tif" \
---include="*gw_catchments_reaches_filtered_addedAttributes_*.tif" \
---include="*hydroTable_*.csv" \
---include "*hydrotable.feather" \
---include "*hydrotable.parquet" \
---include="*wbd.gpkg" \
---include="*nwm_lakes_proj_subset.gpkg" \
---include="fim_inputs.csv" \
---include="*_metrics.csv" \
---profile ti-temp --dryrun
 '''
-
 
 # ============================
 # GLOBAL Vars including files / folders to be copied
@@ -111,6 +93,7 @@ def __load_hand_dataset(num_jobs):
             file_patterns.append({"env_var_name": name, "env_var_value": value})
 
     logging.info("------------------------------------")
+
     print(
         "*** Building a list of files to upload: We get the names and paths"
         " of all files that are applicable before copying"
@@ -120,56 +103,64 @@ def __load_hand_dataset(num_jobs):
     time.sleep(5)  # gives the a min to read this.
     print("")
 
+    if len(search_keys) == 0:
+        logging.Error("No search patterns were found. Check the env and ensure that all variable names"
+                      " for loading hand to owp files start with OWP_HAND_LOAD_PATTERN")
+
+    search_keys = []  # purely keys, but we use the for loop to show the user the search keys loaded
     for file_pattern in file_patterns:
         pattern_name = file_pattern["env_var_name"]
         pattern = file_pattern["env_var_value"]
         logging.info(f"Getting file names for pattern {pattern_name} : {pattern}")
-        file_paths = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, pattern)
-        logging.info(f".. found {len(file_paths)} files")
+        search_keys.append(pattern)
+        # file_paths = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, pattern)
+        # logging.info(f".. found {len(file_paths)} files")
 
-        if len(file_paths) == 0:
-            print("*********************")
-            logging.error(
-                f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
-                " Check the data source folders and/or the patterns from the env file."
-            )
-            time.sleep(5)  # allows the user time to react if required
-            continue
+        # if len(file_paths) == 0:
+        #     print("*********************")
+        #     logging.error(
+        #         f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
+        #         " Check the data source folders and/or the patterns from the env file."
+        #     )
+        #     time.sleep(5)  # allows the user time to react if required
+        #     continue
 
-        for file_path in file_paths:
-            if not file_path.startswith("/"):
-                file_path = "/" + file_path
-            trg_file = file_path.replace(SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH)
-            item = {"src_file": file_path, "trg_file": trg_file}
-            files_to_download.append(item)
+        # for file_path in file_paths:
+        #     if not file_path.startswith("/"):
+        #         file_path = "/" + file_path
+        #     trg_file = file_path.replace(SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH)
+        #     item = {"src_file": file_path, "trg_file": trg_file}
+        #     files_to_download.append(item)
 
         # # files_to_download.extend(file_paths)
-        print("")
+        # print("")
+
+
+    files_to_download = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, search_keys)
 
     logging.info(f"Download list created: Total number of files to download is {len(files_to_download)}")
     logging.info(fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False))
     logging.info("------------------------------------")
 
-    # Let's it do its own upload, instead of the generic parent deploy_to_hydrovis pattern.
-    # This set is pretty big so pass it to s3_shared_functions.upload_large_files,
-    # which has a form of a multi-proc inside of it. (no logging though)
-    section_start_dt = datetime.now(timezone.utc)
-    logging.info("*** Downloading files")
-    print(f"  Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
-    sorted_files_to_download = sorted(files_to_download, key=lambda x: x["src_file"])
-    s3_sf.download_large_filesets(S3_CLIENT, FIM_S3_BUCKET_NAME, sorted_files_to_download, num_jobs)
-
-    print()
-    end_time = datetime.now(timezone.utc)
-    logging.info("**** Completed downloading files ****")
-    print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    logging.info(fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False))
-    logging.info("------------------------------------")
+    if len(files_to_download) == 0:
+        logging.ERROR("No files were found using the env OWP_HAND_LOAD_PATTERN variables."
+                      " Check that variables exists starting with that pattern.")
+    else:
+        section_start_dt = datetime.now(timezone.utc)
+        logging.info("*** Downloading files")
+        print(f"  Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
+        sorted_files_to_download = sorted(files_to_download, key=lambda x: x["src_file"])
+        s3_sf.download_large_filesets(S3_CLIENT, FIM_S3_BUCKET_NAME, sorted_files_to_download, num_jobs)
+        print()
+        end_time = datetime.now(timezone.utc)
+        logging.info("**** Completed downloading files ****")
+        print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
+        logging.info(fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False))
+        logging.info("------------------------------------")
 
 
 # ============================
 def __validate_input(source_path, target_path, workflows_params_file, num_jobs):
-    # validates inputs and loads some global variables
 
     global SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH
 
@@ -197,11 +188,17 @@ def __validate_input(source_path, target_path, workflows_params_file, num_jobs):
         print(msg)
         time.sleep(10)  # gives them time to abort if they want.
 
+    # We load the bucket here and the src path above, but validate them in the __set_aws function
+    FIM_S3_BUCKET_NAME = sf.get_value_from_env("FIM_S3_BUCKET_NAME", workflows_params_file)
+    FIM_S3_BUCKET_NAME = FIM_S3_BUCKET_NAME.strip('/')
+
 
 # ============================
 def __setup_aws(aws_creds_file):
 
-    global S3_CLIENT, FIM_S3_BUCKET_NAME
+    # We validate the src s3 folder and bucket name here. It assumes it is already loaded
+    # from the workflow file.
+    global S3_CLIENT
 
     if not aws_creds_file:
         raise ValueError("aws credentials file argument value is None or empty")
@@ -228,10 +225,6 @@ def __setup_aws(aws_creds_file):
 
     if not is_success:  # if it was not already thrown from asf
         raise Exception(return_msg)
-
-    # we load the bucket name from the aws file to help with git security a little.
-    FIM_S3_BUCKET_NAME = sf.get_value_from_env("FIM_S3_BUCKET_NAME", aws_creds_file)
-    FIM_S3_BUCKET_NAME = FIM_S3_BUCKET_NAME.strip('/')
 
     # validate the bucket
     # may also throw an exception

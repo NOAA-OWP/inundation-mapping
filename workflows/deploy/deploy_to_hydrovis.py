@@ -335,7 +335,8 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
     This also sets up a bunch of key variables and paths.
     '''
 
-    global HV_S3_ROOT_HANDSET_PATH, HV_S3_ROOT_QA_DATASETS_PATH, RELEASE_FIM_PUBLIC_VERSION, HAND_VERSION
+    global HV_S3_ROOT_HANDSET_PATH, HV_S3_ROOT_QA_DATASETS_PATH, HV_S3_BUCKET_NAME
+    global RELEASE_FIM_PUBLIC_VERSION, HAND_VERSION
 
     if not deploy_type:
         raise ValueError("The deploy type variable is None or empty")
@@ -374,13 +375,20 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
         print(msg)
         time.sleep(10)  # gives them time to abort if they want.
 
+    # we load the bucket name from the aws file to help with git security a little.
+    # We validate the bucket existance in __setup_aws
+    HV_S3_BUCKET_NAME = sf.get_value_from_env("HV_S3_BUCKET_NAME", deploy_params_file)
+    HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
+
     return deploy_types
 
 
 # ============================
 def __setup_aws(aws_creds_file):
 
-    global S3_CLIENT, HV_S3_BUCKET_NAME
+    # We validate the bucket existance in here and assume the deploy env file is alreayd loaded
+
+    global S3_CLIENT
 
     if not aws_creds_file:
         raise ValueError("aws credentials file argument is None or empty")
@@ -408,12 +416,9 @@ def __setup_aws(aws_creds_file):
     if not is_success:  # if it was not already thrown from asf
         raise Exception(return_msg)
 
-    # we load the bucket name from the aws file to help with git security a little.
-    HV_S3_BUCKET_NAME = sf.get_value_from_env("HV_S3_BUCKET_NAME", aws_creds_file)
-    HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
-
     # validate the bucket
     # may also throw an exception
+    # assumes the bucket name is already loaded when the deploy env was loaded
     is_success, return_msg = s3_sf.does_s3_bucket_exist(S3_CLIENT, HV_S3_BUCKET_NAME)
     if not is_success:
         logging.error(

@@ -7,6 +7,7 @@ from functools import partial
 
 import botocore
 import botocore.exceptions
+from boto3.s3.transfer import TransferConfig
 from tqdm import tqdm
 
 import data.aws.aws_shared_functions as awssf
@@ -27,8 +28,8 @@ is translated to a pattern of "prefixes" that S3 can use.
 # step functions, task definitions, execution scripts, etc.
 
 
-# TODO: Add logging options in these functions
-
+# Also examined other performance packges such as bulkboto3 code and found it was no faster.
+# We max out he network performance no matter what based on the job arg
 
 # -------------------------------------------------
 def parse_bucket_and_folder_name(s3_full_folder_path):
@@ -188,38 +189,40 @@ def does_s3_file_exist(s3_client, bucket_name, s3_file_path):
 
 
 # -------------------------------------------------
-def get_file_list(s3_client, bucket_name, s3_src_folder_path, search_key=""):
+# TODO: Oct 2025: Try using _get_bucket.. bucket.objects.filter to see if it is any faster.
+def get_file_list_by_key(s3_client, bucket_name, s3_parent_src_folder_path, search_key=""):
     """
     Process:
         - uses a S3 paginator to recursively look for matches (non case-sensitive)
         - You can optionally use a search key to filter records
     Inputs:
         - bucket_name: e.g mys3bucket_name
-        - s3_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive)
+        - s3_parent_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive). All applicable files will be 
+          found under this folder.
         - search_key: OPTIONAL: phrase (str) to be searched: e.g */wbd.gpkg
           search key can have more than one astericks char as a wildcard, but only astericks work
           which means 0 to many chars.
 
     Output
-        - A list of files found matching the pattern if applicable. It is an S3 key pattern:
-            ie) /foss_fim/previous_fim/hand_4_8_7_2/fim_inputs.csv
+        - A list of files found matching the pattern if applicable.
     """
 
     # Examples:
     # search_key = "*/hydrotable.csv"  - looks at the first level only (ie. huc level)
     # search_key = "*/branches/*/rem_zeroed_masked_*.tif"  - looks for all branch level rems
     # search_key = "fim_inputs.csv"  - file at the root src_s3_folder_path (ie. hand_4_8_7_2)
+    # if you want all files under the s3_parent_src_folder_pathr, just submit ""
 
     try:
         # both src must have a slash on the end only
         # strip leading slash if exists
-        s3_src_folder_path = s3_src_folder_path.lstrip("/")
-        if not s3_src_folder_path.endswith("/"):
-            s3_src_folder_path += "/"
+        s3_parent_src_folder_path = s3_parent_src_folder_path.lstrip("/")
+        if not s3_parent_src_folder_path.endswith("/"):
+            s3_parent_src_folder_path += "/"
 
         s3_items = []  # a list s3 keys (files paths without the bucket name)
 
-        operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_folder_path}
+        operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_parent_src_folder_path}
         paginator = s3_client.get_paginator('list_objects_v2')
         pages = paginator.paginate(**operation_parameters)
 
@@ -228,7 +231,7 @@ def get_file_list(s3_client, bucket_name, s3_src_folder_path, search_key=""):
                 # Iterate over each object and download it
                 for obj in page['Contents']:
                     s3_key = obj['Key']
-                    key_adj = s3_key.replace(s3_src_folder_path, "")
+                    key_adj = s3_key.replace(s3_parent_src_folder_path, "")
                     if search_key == "":
                         s3_items.append(s3_key)
                     elif fnmatch.fnmatch(key_adj, search_key) is True:
@@ -236,6 +239,92 @@ def get_file_list(s3_client, bucket_name, s3_src_folder_path, search_key=""):
                     # no need for an eslse
 
         return s3_items
+
+    except Exception as ex:
+
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, ___ = awssf.aws_exception_handler(ex)
+        raise Exception(return_msg)
+
+
+# -------------------------------------------------
+def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_search_key = [""], num_workers=10):
+    """
+    Process:
+        - Using a list of search keys, it will use multi-threading to get a single list of files
+        - For examples on how to use search keys, see the examples below.
+    Inputs:
+        - bucket_name: e.g mys3bucket_name
+        - s3_parent_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive). All applicable files will be 
+          found under this folder.
+        - list_of_search_key: A simple list with search key strings: ie: ["*/wbd.gpkg", "*/hydrotable.csv"]
+          search key can have more than one astericks char as a wildcard, but only astericks work
+          which means 0 to many chars.
+
+    Output
+        - A list of files found matching all combined search patterns. 
+    """
+
+    # Examples:
+    # search_key = "*/hydrotable.csv"  - looks at the first level only (ie. huc level)
+    # search_key = "*/branches/*/rem_zeroed_masked_*.tif"  - looks for all branch level rems
+    # search_key = "fim_inputs.csv"  - file at the root src_s3_folder_path (ie. hand_4_8_7_2)
+
+    # If you want all files under the s3_parent_src_folder_path, just submit "" as an as a single list item
+    #    If you do this.. no other search keys will be attempted as they will simply be duplications
+
+    if not list_of_search_key:
+        raise ValueError("Error: list of search keys can not be null or empty")
+
+    try:
+
+        tasks_args_list = []
+        full_list_files = []
+
+        # "partials" allow you to set some of the values that are shared by all
+        # Multi-threads (or procs) so we don't have so much duplication.
+        # In this case, we had to use this for sharing the s3_client.
+        # The other two remaing args to upload_file are unique and are handled
+        # by the for loop and list of dictionaries.
+        merged_partial_get_file_by_key = partial(
+            get_file_list_by_key, s3_client=s3_client, bucket_name=bucket_name, s3_parent_src_folder_path=s3_parent_src_folder_path)
+
+        # Shared client appears to not be threadsafe as long as I keep the job down (under 20?)
+        for search_key in list_of_search_key:
+            if search_key == "":
+                # ignore all other keys as they are relevant
+                tasks_args_list = [{"search_key": search_key}]
+                break
+            args_item = {"search_key": search_key}
+            tasks_args_list.append(args_item)            
+
+       # Dispatch work tasks with our s3_client
+        # Need to use a thread and not an mp here (sharing usage of the s3 client)
+        with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures_dict = [executor.submit(merged_partial_get_file_by_key, **arg) for arg in tasks_args_list]
+
+            # adding the min intervals speeds it up so it doesn't try to repaint every tqdm loop
+            for future in tqdm(
+                futures.as_completed(futures_dict),
+                total=len(tasks_args_list),
+                desc="downloading files",
+                miniters=10,
+            ):
+                if future.cancelled():
+                    continue
+                if future is not None:
+                    future_exception = future.exception()
+                    # These are exceptions from withing the function being executed
+                    if future_exception:
+                        # reraise it
+                        raise Exception(f"zooks: future item has an exception {future_exception}")
+                    else:
+                         result = future.result()
+                         full_list_files.append(result)
+                # else:
+                #     print("looks good, future item is None though, how is that possible?")
+        return full_list_files
 
     except Exception as ex:
 
@@ -357,8 +446,16 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
         full_access_permissions = 0o777
         os.makedirs(trg_dir, mode=full_access_permissions, exist_ok=True)
 
+    # Configure multipart  settings. Speeds up large files
+    s3_config = TransferConfig(
+        multipart_threshold=1024 * 25,      # 25MB - start multipart for files > 25MB
+        max_concurrency=30,                 # 10 concurrent threads
+        multipart_chunksize=1024 * 25,     # 25MB per part
+        use_threads=True                    # Enable threading
+    )
+
     try:
-        s3_client.download_file(bucket_name, s3_file_key, target_file_path)
+        s3_client.download_file(bucket_name, s3_file_key, target_file_path, Config=s3_config)
         does_file_exist = True
     except Exception as ex:
 
@@ -376,13 +473,12 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
 
 
 # -------------------------------------------------
-# TODO: Add multi-theading ??
 # Maybe let that be done at the script level and not here as a seperate client per mt
 # is required. See upload_large_datasets below for examples if we choose to add this.
 def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
     """
     Process:
-        - Note: The boto3.client must be already instantated and passed in
+        - Note: The boto3.client must be already instantiated and passed in
         - Using the incoming s3 src folder, call get_records to get a list of child folders and files
         - Open a s3 client and iterate through the files to download
         - Is recursive
@@ -469,8 +565,8 @@ def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
         merged_partial_download_file = partial(
             download_s3_file, s3_client=s3_client, bucket_name=bucket_name, test_bucket_exists=False
         )
-        # Shared client appears to not be threadsafe as long as I keep the job down (under 10?)
-        for i, file_item in enumerate(file_list):
+        # Shared client appears to not be threadsafe as long as I keep the job down (under 20?)
+        for file_item in file_list:
 
             # In theory these should never happen
             if "//" in file_item['src_file']:
@@ -478,9 +574,6 @@ def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
             if file_item['src_file'] == "/":
                 continue
 
-            # debugging test
-            # if i > 20:
-            #     break
             args_item = {"s3_file_key": file_item['src_file'], "target_file_path": file_item['trg_file']}
             tasks_args_list.append(args_item)
 
@@ -566,6 +659,14 @@ def upload_file(
     # debug
     # print(f"Staring upload for  {src_file_path}")
 
+    # Configure multipart  settings. Speeds up large files
+    s3_config = TransferConfig(
+        multipart_threshold=1024 * 25,      # 25MB - start multipart for files > 25MB
+        max_concurrency=10,                 # 10 concurrent threads
+        multipart_chunksize=1024 * 25,     # 25MB per part
+        use_threads=True                    # Enable threading
+    )
+
     try:
         # Will show progress if a large file
         is_large_file = False
@@ -583,10 +684,11 @@ def upload_file(
                     bucket_name,
                     trg_file_path,
                     Callback=awssf.ProgressPercentage(src_file_path),
+                    Config=s3_config
                 )
                 print("", flush=True)  # reset the console lines as it does not have an line break
             else:
-                s3_client.upload_file(src_file_path, bucket_name, trg_file_path)
+                s3_client.upload_file(src_file_path, bucket_name, trg_file_path, Config=s3_config)
 
     except Exception as ex:
 

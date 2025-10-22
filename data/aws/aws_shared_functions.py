@@ -145,6 +145,12 @@ def create_aws_client(
 
     If you want to make your own session and use it to make multiple clients, use other functions.
 
+    Boto3 with managing our own multi-thread is pretty much the fastest option also recognizing
+    that are usually using filtered lists with mostly small files, high volume. We can only go
+    as fast as our network pip (speed) can handle, but we want it maxed out.
+
+    We also do not use s3 config 'use_accelerate_endpoint': True as the bucket has to have it enabled.
+
     Inputs:
         - aws_service_type_names: What type of client are you creating. This code currently
           supports only the "s3" type, but more are expected soon.
@@ -195,12 +201,12 @@ def create_aws_client(
         # The read_timeout has been overridden to higher than default
         # in case it is pulling down a large file.
         # And a very high max_pool_connections for multi-thread and clients that are open a long
-        # time and re-used.
+        # time and re-used. Likely will be more than the network speed can handle but lets leave it higher anyways.
         client_config = Config(
             connect_timeout=20,
             read_timeout=(60 * 5),
-            max_pool_connections=50,
-            retries={"mode": "standard", 'max_attempts': 5},
+            max_pool_connections=30,
+            retries={"mode": "standard", 'max_attempts': 5}
         )
 
         # -------------------
