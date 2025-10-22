@@ -135,8 +135,7 @@ def create_aws_client(
     aws_secret_access_key: str = None,
     aws_session_token: str = None,
     aws_region: str = None,
-    aws_config_profile_name: str = None,
-    bucket_name = None
+    aws_config_profile_name: str = None
 ):
     '''
 
