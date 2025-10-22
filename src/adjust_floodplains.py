@@ -112,10 +112,6 @@ def adjust_floodplains(
         else:
             fema_flood_zones_availability_mask = fema_flood_zones_combined_clipped
 
-        fema_flood_zones_availability_mask.dissolve().to_file(
-            '/outputs/temp/fema_flood_zones_availability_mask.gpkg', driver='GPKG'
-        )
-
         for geom in fema_flood_zones_availability_mask.geometry:
             mask = features.geometry_mask(
                 [geom], out_shape=distance.shape, transform=src.transform, invert=False
