@@ -135,7 +135,7 @@ def create_aws_client(
     aws_secret_access_key: str = None,
     aws_session_token: str = None,
     aws_region: str = None,
-    aws_config_profile_name: str = None
+    aws_config_profile_name: str = None,
 ):
     '''
 
@@ -206,7 +206,7 @@ def create_aws_client(
             connect_timeout=20,
             read_timeout=(60 * 5),
             max_pool_connections=30,
-            retries={"mode": "standard", 'max_attempts': 5}
+            retries={"mode": "standard", 'max_attempts': 5},
         )
 
         # -------------------

@@ -85,12 +85,12 @@ def __load_hand_dataset(num_jobs):
     # We get a list of applicable files
     # as each search_key needs to be used one at a time to figure out which are to be included
     # or maybe we use MT here?
-    file_patterns = []
-
+    search_keys = []  # purely keys, but we use the for loop to show the user the search keys loaded
     file_pattern_key = "OWP_HAND_LOAD_PATTERN"
     for name, value in os.environ.items():
         if file_pattern_key in name:
-            file_patterns.append({"env_var_name": name, "env_var_value": value})
+            search_keys.append(value)
+            logging.info(f"Getting file names for pattern {name} : {value}")
 
     logging.info("------------------------------------")
 
@@ -104,37 +104,38 @@ def __load_hand_dataset(num_jobs):
     print("")
 
     if len(search_keys) == 0:
-        logging.Error("No search patterns were found. Check the env and ensure that all variable names"
-                      " for loading hand to owp files start with OWP_HAND_LOAD_PATTERN")
+        logging.Error(
+            "No search patterns were found. Check the env and ensure that all variable names"
+            " for loading hand to owp files start with OWP_HAND_LOAD_PATTERN"
+        )
 
-    search_keys = []  # purely keys, but we use the for loop to show the user the search keys loaded
-    for file_pattern in file_patterns:
-        pattern_name = file_pattern["env_var_name"]
-        pattern = file_pattern["env_var_value"]
-        logging.info(f"Getting file names for pattern {pattern_name} : {pattern}")
-        search_keys.append(pattern)
-        # file_paths = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, pattern)
-        # logging.info(f".. found {len(file_paths)} files")
+    # # We use file patterns only to help show the patterns to the users
+    # for file_pattern in file_patterns:
+    #     pattern_name = file_pattern["env_var_name"]
+    #     pattern = file_pattern["env_var_value"]
 
-        # if len(file_paths) == 0:
-        #     print("*********************")
-        #     logging.error(
-        #         f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
-        #         " Check the data source folders and/or the patterns from the env file."
-        #     )
-        #     time.sleep(5)  # allows the user time to react if required
-        #     continue
+    #     search_keys.append(pattern)
+    # file_paths = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, pattern)
+    # logging.info(f".. found {len(file_paths)} files")
 
-        # for file_path in file_paths:
-        #     if not file_path.startswith("/"):
-        #         file_path = "/" + file_path
-        #     trg_file = file_path.replace(SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH)
-        #     item = {"src_file": file_path, "trg_file": trg_file}
-        #     files_to_download.append(item)
+    # if len(file_paths) == 0:
+    #     print("*********************")
+    #     logging.error(
+    #         f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
+    #         " Check the data source folders and/or the patterns from the env file."
+    #     )
+    #     time.sleep(5)  # allows the user time to react if required
+    #     continue
 
-        # # files_to_download.extend(file_paths)
-        # print("")
+    # for file_path in file_paths:
+    #     if not file_path.startswith("/"):
+    #         file_path = "/" + file_path
+    #     trg_file = file_path.replace(SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH)
+    #     item = {"src_file": file_path, "trg_file": trg_file}
+    #     files_to_download.append(item)
 
+    # # files_to_download.extend(file_paths)
+    # print("")
 
     files_to_download = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, search_keys)
 
@@ -143,8 +144,10 @@ def __load_hand_dataset(num_jobs):
     logging.info("------------------------------------")
 
     if len(files_to_download) == 0:
-        logging.ERROR("No files were found using the env OWP_HAND_LOAD_PATTERN variables."
-                      " Check that variables exists starting with that pattern.")
+        logging.ERROR(
+            "No files were found using the env OWP_HAND_LOAD_PATTERN variables."
+            " Check that variables exists starting with that pattern."
+        )
     else:
         section_start_dt = datetime.now(timezone.utc)
         logging.info("*** Downloading files")

@@ -31,6 +31,7 @@ is translated to a pattern of "prefixes" that S3 can use.
 # Also examined other performance packges such as bulkboto3 code and found it was no faster.
 # We max out he network performance no matter what based on the job arg
 
+
 # -------------------------------------------------
 def parse_bucket_and_folder_name(s3_full_folder_path):
     """
@@ -197,7 +198,7 @@ def get_file_list_by_key(s3_client, bucket_name, s3_parent_src_folder_path, sear
         - You can optionally use a search key to filter records
     Inputs:
         - bucket_name: e.g mys3bucket_name
-        - s3_parent_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive). All applicable files will be 
+        - s3_parent_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive). All applicable files will be
           found under this folder.
         - search_key: OPTIONAL: phrase (str) to be searched: e.g */wbd.gpkg
           search key can have more than one astericks char as a wildcard, but only astericks work
@@ -249,21 +250,21 @@ def get_file_list_by_key(s3_client, bucket_name, s3_parent_src_folder_path, sear
 
 
 # -------------------------------------------------
-def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_search_key = [""], num_workers=10):
+def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_search_key=[""], num_workers=10):
     """
     Process:
         - Using a list of search keys, it will use multi-threading to get a single list of files
         - For examples on how to use search keys, see the examples below.
     Inputs:
         - bucket_name: e.g mys3bucket_name
-        - s3_parent_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive). All applicable files will be 
+        - s3_parent_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive). All applicable files will be
           found under this folder.
         - list_of_search_key: A simple list with search key strings: ie: ["*/wbd.gpkg", "*/hydrotable.csv"]
           search key can have more than one astericks char as a wildcard, but only astericks work
           which means 0 to many chars.
 
     Output
-        - A list of files found matching all combined search patterns. 
+        - A list of files found matching all combined search patterns.
     """
 
     # Examples:
@@ -288,7 +289,11 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
         # The other two remaing args to upload_file are unique and are handled
         # by the for loop and list of dictionaries.
         merged_partial_get_file_by_key = partial(
-            get_file_list_by_key, s3_client=s3_client, bucket_name=bucket_name, s3_parent_src_folder_path=s3_parent_src_folder_path)
+            get_file_list_by_key,
+            s3_client=s3_client,
+            bucket_name=bucket_name,
+            s3_parent_src_folder_path=s3_parent_src_folder_path,
+        )
 
         # Shared client appears to not be threadsafe as long as I keep the job down (under 20?)
         for search_key in list_of_search_key:
@@ -297,9 +302,9 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
                 tasks_args_list = [{"search_key": search_key}]
                 break
             args_item = {"search_key": search_key}
-            tasks_args_list.append(args_item)            
+            tasks_args_list.append(args_item)
 
-       # Dispatch work tasks with our s3_client
+        # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures_dict = [executor.submit(merged_partial_get_file_by_key, **arg) for arg in tasks_args_list]
@@ -320,8 +325,8 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
                         # reraise it
                         raise Exception(f"zooks: future item has an exception {future_exception}")
                     else:
-                         result = future.result()
-                         full_list_files.append(result)
+                        result = future.result()
+                        full_list_files.append(result)
                 # else:
                 #     print("looks good, future item is None though, how is that possible?")
         return full_list_files
@@ -448,10 +453,10 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
 
     # Configure multipart  settings. Speeds up large files
     s3_config = TransferConfig(
-        multipart_threshold=1024 * 25,      # 25MB - start multipart for files > 25MB
-        max_concurrency=30,                 # 10 concurrent threads
-        multipart_chunksize=1024 * 25,     # 25MB per part
-        use_threads=True                    # Enable threading
+        multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
+        max_concurrency=30,  # 10 concurrent threads
+        multipart_chunksize=1024 * 25,  # 25MB per part
+        use_threads=True,  # Enable threading
     )
 
     try:
@@ -661,10 +666,10 @@ def upload_file(
 
     # Configure multipart  settings. Speeds up large files
     s3_config = TransferConfig(
-        multipart_threshold=1024 * 25,      # 25MB - start multipart for files > 25MB
-        max_concurrency=10,                 # 10 concurrent threads
-        multipart_chunksize=1024 * 25,     # 25MB per part
-        use_threads=True                    # Enable threading
+        multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
+        max_concurrency=10,  # 10 concurrent threads
+        multipart_chunksize=1024 * 25,  # 25MB per part
+        use_threads=True,  # Enable threading
     )
 
     try:
@@ -684,7 +689,7 @@ def upload_file(
                     bucket_name,
                     trg_file_path,
                     Callback=awssf.ProgressPercentage(src_file_path),
-                    Config=s3_config
+                    Config=s3_config,
                 )
                 print("", flush=True)  # reset the console lines as it does not have an line break
             else:
