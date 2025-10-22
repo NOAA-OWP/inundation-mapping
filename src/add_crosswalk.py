@@ -286,17 +286,18 @@ def add_crosswalk(
     # hfab_mask = (input_src_base['SLOPE_HFAB'] >= SLOPE_MIN) & (input_src_base['SLOPE_HFAB'] <= SLOPE_MAX)
 
     # Apply masks to filter out invalid slope values
-    sword_slope = input_src_base['SLOPE_IRIS_SWORD'].where(sword_mask)
+    sword_slope = input_src_base['SLOPE_IRIS_SWORD'].where(sword_mask).astype(float).round(17)
     # hfab_slope = input_src_base['SLOPE_HFAB'].where(hfab_mask)
 
     # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
     input_src_base['SLOPE'] = (
-        sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN'])
+        sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN']).astype(float).round(17)
     )
 
     #now to preserve slope precisions, we will record slope values as an integer by multiplying by a scale
     #later in the code, when we need to use slope values, we will need to divide the values by the same scale
-    input_src_base['SLOPE']=SLOPE_SCALE*input_src_base['SLOPE'].values.round().astype("int64")
+    input_src_base['SLOPE'] = ((SLOPE_SCALE * input_src_base['SLOPE']).round()).astype('int64')
+
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
@@ -489,24 +490,6 @@ def add_crosswalk(
     output_src.to_csv(output_src_fileName, index=False)
     output_crosswalk.to_csv(output_crosswalk_fileName, index=False)
     output_hydro_table.to_csv(output_hydro_table_fileName, index=False)
-
-
-    #make two temp files for debugging...first for scr_full
-    import os
-    dirname = os.path.dirname(output_src_fileName)
-    basename = os.path.basename(output_src_fileName)
-    name, ext = os.path.splitext(basename)
-
-    new_src_path = os.path.join(dirname, f"{name}_temp{ext}")
-    output_src.to_csv(new_src_path)
-
-    #now hydrotable
-    dirname = os.path.dirname(output_hydro_table_fileName)
-    basename = os.path.basename(output_hydro_table_fileName)
-    name, ext = os.path.splitext(basename)
-
-    new_hydrotable_path = os.path.join(dirname, f"{name}_temp{ext}")
-    output_hydro_table.to_csv(new_hydrotable_path)
 
     with open(output_src_json_fileName, 'w') as f:
         json.dump(output_src_json, f, sort_keys=True, indent=2)
