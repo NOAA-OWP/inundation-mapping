@@ -460,8 +460,8 @@ if __name__ == '__main__':
          - fpp  (FIM Performance Points / Polys)
          - cffb (CatFIM Flow Based)
          - cffc (CatFIM Flow Based Compare files)
-         - cfsb (CatFIM Stage Based)
-         - cfsc (CatFIM Stage Based Compare files)
+         - csfc (CatFIM Stage Based)
+         - csfc (CatFIM Stage Based Compare files)
          - rcc  (Rating Curve Comparison Metrics (Sierra Tests))
          - urc  (USGS Rating Curve)
 
@@ -476,6 +476,10 @@ if __name__ == '__main__':
         - fim performance files
         - usgs files
         - etc
+
+    Reminder:
+        - CatFIM and FIM Points/Polys can only be done in OWP. (cffb, cffc, csfc, csfc, fpp)
+        - The rest need to be done in the EC2's.
     '''
 
     parser = argparse.ArgumentParser(
