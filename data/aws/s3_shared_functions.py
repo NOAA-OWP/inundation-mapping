@@ -5,6 +5,7 @@ import os
 from concurrent import futures
 from functools import partial
 
+import boto3
 import botocore
 import botocore.exceptions
 from boto3.s3.transfer import TransferConfig
