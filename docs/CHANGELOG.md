@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.____ - 2025-____ - [PR#1687](https://github.com/NOAA-OWP/inundation-mapping/pull/1687)
+
+Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now they will be masked out of BOTH stage-based and flow-based CatFIM (rather than just stage). 
+
+### Changes
+- `tools/catfim/ahps_restricted_sites.csv`: Changed classification of 3 sites from "stage" to "both."
+
+<br />
+
+
 ## v4.8.14.2 - 2025-10-17 - [PR#1677](https://github.com/NOAA-OWP/inundation-mapping/pull/1677)
 
 During a merge of the recent PR for mprunner fixes, one critical line was dropped. The line takes the return value from the child multi-proc function and adds it to a list collection of return results. 
