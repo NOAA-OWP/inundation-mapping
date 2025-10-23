@@ -20,14 +20,16 @@ def calculate_min_rem_catchment_values(catchments_gpkg, catchment_tif, rem_raste
 
     # Read raster profile to get nodata value
     with rio.open(rem_raster) as rem_src:
-        rem_raster_profile = rem_src.profile
+        rem_raster_data = rem_src.read(1)
+        rem_profile = rem_src.profile
+        rem_nodata = rem_profile['nodata']
 
     # Get max hand values for each catchment
     stats = zonal_stats(
         catchments_gpkg['geometry'],
         rem_raster,
         stats="min",
-        nodata=rem_raster_profile["nodata"],
+        nodata=rem_nodata,
         all_touched=True,
         geojson_out=True,
     )
@@ -36,16 +38,12 @@ def calculate_min_rem_catchment_values(catchments_gpkg, catchment_tif, rem_raste
     gdf = pd.merge(catchments_gpkg, gdf, left_index=True, right_index=True)
 
     # Read catchment raster and replace values with min hand values from gdf
-    with rio.open(rem_raster) as rem_src:
-        rem_raster = rem_src.read(1)
-        rem_profile = rem_src.profile
-        rem_nodata = rem_profile['nodata']
     with rio.open(catchment_tif) as catchment_src:
         catchment_raster = catchment_src.read(1)
         catchment_profile = catchment_src.profile
         catchment_nodata = catchment_profile['nodata']
 
-    out_raster_data = rem_raster.copy()
+    out_raster_data = rem_raster_data.copy()
     for _, row in gdf.iterrows():
         min_rem_value = row['min']
         if pd.isna(min_rem_value):
@@ -54,9 +52,10 @@ def calculate_min_rem_catchment_values(catchments_gpkg, catchment_tif, rem_raste
             min_rem_value
         )
 
-    out_raster_data = rem_raster - out_raster_data
+    out_raster_data = rem_raster_data - out_raster_data
     out_raster_data[out_raster_data < 0] = 0  # Ensure non-negative values
     out_raster_data[catchment_raster == catchment_nodata] = rem_nodata
+    out_raster_data[rem_raster_data == rem_nodata] = rem_nodata
 
     with rio.open(out_raster, "w", **rem_profile) as out_src:
         out_src.write(out_raster_data, 1)
