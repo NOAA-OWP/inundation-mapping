@@ -176,10 +176,15 @@ def inundate(
     if hydro_table is None:
         raise TypeError("Pass hydro table csv")
 
+    depths_profile = rem.profile
+    inundation_profile = catchments.profile
+
+    int_16 = inundation_profile['dtype'] == 'int16'
+
     # catchment stages dictionary
     if hydro_table is not None:
         catchmentStagesDict, hucSet = __subset_hydroTable_to_forecast(
-            hydro_table, forecast, subset_hucs, precalb_option
+            hydro_table, forecast, subset_hucs, int_16, precalb_option
         )
     else:
         raise TypeError("Pass hydro table csv")
@@ -187,9 +192,6 @@ def inundate(
     if catchmentStagesDict is not None:
         if src_table is not None:
             create_src_subset_csv(hydro_table, catchmentStagesDict, src_table)
-
-        depths_profile = rem.profile
-        inundation_profile = catchments.profile
 
         depths_profile.update(driver='GTiff', blockxsize=256, blockysize=256, tiled=True)
 
@@ -201,6 +203,8 @@ def inundate(
             if (inundation_raster is not None and inundation_profile is not None)
             else None
         )
+
+        nodata = np.int16(inundation_profile['nodata']) if int_16 else np.int32(inundation_profile['nodata'])
 
         # make windows generator
         window_gen = __make_windows_generator(
@@ -217,7 +221,8 @@ def inundate(
             windowed=windowed,
             depth_rst=depth_rst,
             inundation_rst=inundation_rst,
-            inundation_nodata=inundation_profile['nodata'],
+            inundation_nodata=nodata,
+            min_value=30 if int_16 else 0.03048,
         )
 
         inundation_rasters = []
@@ -251,6 +256,7 @@ def __inundate_in_huc(
     quiet: Optional[bool] = False,
     window: Optional[bool] = None,
     inundation_nodata: Optional[int] = None,
+    min_value=30,
 ) -> Tuple[str, str, str]:
     """
     Inundate within the chosen scope
@@ -296,7 +302,8 @@ def __inundate_in_huc(
         catchmentStagesDict,
         rem_array.shape[1],
         rem_array.shape[0],
-        np.int16(inundation_nodata),
+        inundation_nodata,
+        min_value,
     )
 
     if depths is not None:
@@ -310,7 +317,13 @@ def __inundate_in_huc(
 
 @njit(nogil=True, fastmath=True, cache=True)
 def __go_fast_mapping(
-    rem: np.ndarray, catchments: np.ndarray, catchment_stages_dict: typed.Dict, x: int, y: int, nodata_c: int
+    rem: np.ndarray,
+    catchments: np.ndarray,
+    catchment_stages_dict: typed.Dict,
+    x: int,
+    y: int,
+    nodata_c: int,
+    min_value: Union[int, float],
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Numba optimization for determining flood depth and flood
@@ -349,7 +362,7 @@ def __go_fast_mapping(
                         depth = catchment_stages_dict[catchments[i, j]] - rem[i, j]
 
                         # If the depth is greater than approximately 1/10th of a foot
-                        if depth < 30:
+                        if depth < min_value:
                             catchments[i, j] *= -1  # set HydroIDs to negative
                             rem[i, j] = 0
                         else:
@@ -382,6 +395,7 @@ def __make_windows_generator(
     depth_rst: Optional[str] = None,
     inundation_rst: Optional[str] = None,
     inundation_nodata: Optional[int] = None,
+    min_value: int = 30,
 ):
     """
     Generator to split processing in to windows or different masked datasets
@@ -512,6 +526,7 @@ def __make_windows_generator(
                 "quiet": quiet,
                 "window": None,
                 "inundation_nodata": inundation_nodata,
+                "min_value": min_value,
             }
     else:
         hucCode = None
@@ -530,6 +545,7 @@ def __make_windows_generator(
                     "quiet": quiet,
                     "window": window,
                     "inundation_nodata": inundation_nodata,
+                    "min_value": min_value,
                 }
         else:
             yield {
@@ -544,6 +560,7 @@ def __make_windows_generator(
                 "quiet": quiet,
                 "window": None,
                 "inundation_nodata": inundation_nodata,
+                "min_value": min_value,
             }
 
 
@@ -575,6 +592,7 @@ def __subset_hydroTable_to_forecast(
     hydroTable: Union[str, pd.DataFrame],
     forecast: Union[str, pd.DataFrame],
     subset_hucs=None,
+    process_int16=True,
     precalb_option: bool = False,
 ) -> Tuple[typed.Dict, List[str]]:
     """
@@ -588,6 +606,8 @@ def __subset_hydroTable_to_forecast(
         Whether to rename the headers in the forecast file
     subset_hucs: Union[str, list]
         List to subset the hydrotable
+    process_int16: bool, default = True
+        Whether to process inundation with int16 datatype
 
     Returns
     -------
@@ -691,12 +711,16 @@ def __subset_hydroTable_to_forecast(
     try:
         hydroTable = hydroTable.join(forecast, on=['feature_id'], how='inner')
     except AttributeError:
-        # print("FORECAST ERROR")
         raise NoForecastFound("No forecast value found for the passed feature_ids in the Hydro-Table")
 
     else:
+
         # initialize dictionary
-        catchmentStagesDict = typed.Dict.empty(types.int16, types.int16)
+        catchmentStagesDict = (
+            typed.Dict.empty(types.int16, types.int16)
+            if process_int16
+            else typed.Dict.empty(types.int32, types.float32)
+        )
 
         # interpolate stages
         for hid, sub_table in hydroTable.groupby(level='HydroID'):
@@ -716,8 +740,8 @@ def __subset_hydroTable_to_forecast(
             # add this interpolated stage to catchment stages dict
             h = round(interpolated_stage[0], 4)
 
-            hid = types.int16(np.int16(str(hid)[4:]))
-            h = types.int16(np.round(h * 1000))
+            hid = types.int16(np.int16(str(hid)[4:])) if process_int16 else types.int32(hid)
+            h = types.int16(np.round(h * 1000)) if process_int16 else types.float32(h)
             catchmentStagesDict[hid] = h
 
         # huc set
