@@ -2,12 +2,65 @@
 
 
 import argparse
+import math
 
 import numpy as np
 import rasterio
 from numba import njit, typed, types
+from rasterio.features import shapes
+from scipy.ndimage import generate_binary_structure, label
+from skimage.measure import regionprops
 
 
+# --------------------------- pit detection function ----------------------------
+def detect_pits(filled_dem_path, original_dem_path, save_mask=True):
+    """Detects gravel pit–like depressions by comparing filled and original DEMs."""
+
+    with rasterio.open(filled_dem_path) as fsrc, rasterio.open(original_dem_path) as osrc:
+        filled = fsrc.read(1)
+        orig = osrc.read(1)
+        profile = fsrc.profile
+
+    # Compute fill depth
+    diff = filled - orig
+    diff[diff < 0] = 0  # Ignore negatives
+
+    # Label connected regions of positive fill depth
+    structure = generate_binary_structure(2, 2)  # 2D, fully connected (8-connectivity)
+    labeled, num = label(diff > 0, structure=structure)
+    props = regionprops(labeled, intensity_image=diff)
+
+    # Initialize mask
+    pit_mask = np.zeros_like(diff, dtype=np.uint8)
+    # pixel_area = abs(profile["transform"][0]) * abs(profile["transform"][4])
+
+    for prop in props:
+        area_pixels = prop.area
+        # area_m2 = area_pixels * pixel_area
+        max_depth = prop.max_intensity
+        mean_depth = prop.mean_intensity
+        perim = prop.perimeter if prop.perimeter > 0 else 1e-9
+        circularity = (4 * math.pi * area_pixels) / (perim**2)
+
+        # Two-tier detection logic
+        pit_find = ((area_pixels >= 15) and (mean_depth >= 10) and (circularity >= 0.6)) or (
+            (area_pixels >= 20) and (max_depth >= 20)
+        )
+
+        if pit_find:
+            pit_mask[labeled == prop.label] = 1
+
+    if save_mask:
+        mask_path = filled_dem_path.replace(".tif", "_pitmask.tif")
+        profile.update(dtype="uint8", nodata=0, compress="lzw")
+        with rasterio.open(mask_path, "w", **profile) as dst:
+            dst.write(pit_mask, 1)
+        print(f"Saved pit mask to: {mask_path}")
+
+    return pit_mask, profile
+
+
+# ----------------------- thalweg adjustment function -----------------------------
 def adjust_thalweg_laterally(
     filled_dem,
     original_dem,
@@ -41,104 +94,94 @@ def adjust_thalweg_laterally(
 
     # ------------------------------------ Assign zonal min to thalweg ------------------------------------ #
     @njit
-    def minimize_thalweg_elevation(dem_window, zone_min_dict, zone_window, thalweg_window):
+    def minimize_thalweg_elevation(
+        dem_window, zone_min_dict, zone_window, thalweg_window, lateral_elevation_threshold
+    ):
         # Copy elevation values into new array that will store the minimized elevation values.
         dem_window_to_return = np.empty_like(dem_window)
         dem_window_to_return[:] = dem_window
 
-        for i, elev_m in enumerate(zone_window):
-            i = int(i)
-            elev_m = types.int32(elev_m)
+        for i in range(len(zone_window)):
+            elev_m = types.int32(zone_window[i])
             thalweg_cell = thalweg_window[i]  # From flows_grid_boolean.tif (0s and 1s)
-            if thalweg_cell == 1:  # Make sure thalweg cells are checked.
-                if elev_m in zone_min_dict:
-                    zone_min_elevation = zone_min_dict[elev_m]
-                    dem_thalweg_elevation = dem_window[i]
-
-                    elevation_difference = dem_thalweg_elevation - zone_min_elevation
-
-                    if (zone_min_elevation < dem_thalweg_elevation) and (
-                        elevation_difference <= lateral_elevation_threshold
-                    ):
-                        dem_window_to_return[i] = zone_min_elevation
+            if thalweg_cell == 1 and elev_m in zone_min_dict:  # Make sure thalweg cells are checked.
+                zone_min_elevation = zone_min_dict[elev_m]
+                dem_thalweg_elevation = dem_window[i]
+                elevation_difference = dem_thalweg_elevation - zone_min_elevation
+                if (zone_min_elevation < dem_thalweg_elevation) and (
+                    elevation_difference <= lateral_elevation_threshold
+                ):
+                    dem_window_to_return[i] = zone_min_elevation
 
         return dem_window_to_return
 
-    # Open files.
-    with rasterio.open(filled_dem) as filled_dem_obj, rasterio.open(
-        allocation_raster
-    ) as allocation_zone_raster_object:
-        with rasterio.open(cost_distance_raster) as cost_distance_raster_object:
-            meta = filled_dem_obj.meta.copy()
-            meta['tiled'], meta['compress'] = True, 'lzw'
-            ndv = meta['nodata']
+    # Detect pits first
+    pit_mask, profile = detect_pits(filled_dem, original_dem)
 
-            # -- Create zone_min_dict -- #
-            zone_min_dict = typed.Dict.empty(
-                types.int32, types.float32
-            )  # Initialize an empty dictionary to store the catchment minimums
-            # Update catchment_min_dict with pixel sheds minimum.
-            for ji, window in filled_dem_obj.block_windows(
-                1
-            ):  # Iterate over windows, using elevation_raster_object as template
-                elevation_window = filled_dem_obj.read(1, window=window).ravel()  # Define elevation_window
-                zone_window = allocation_zone_raster_object.read(
-                    1, window=window
-                ).ravel()  # Define zone_window
-                cost_window = cost_distance_raster_object.read(1, window=window).ravel()  # Define cost_window
+    # Build combined DEM for lateral search
+    with rasterio.open(filled_dem) as fsrc, rasterio.open(original_dem) as osrc:
+        filled = fsrc.read(1)
+        orig = osrc.read(1)
+        combined_dem = np.where(pit_mask == 1, filled, orig)
 
-                # Call numba-optimized function to update catchment_min_dict with pixel sheds minimum.
-                zone_min_dict = make_zone_min_dict(
-                    elevation_window,
-                    zone_min_dict,
-                    zone_window,
-                    cost_window,
-                    int(cost_distance_tolerance),
-                    ndv,
-                )
+    # Optional save for QA
+    combined_path = filled_dem.replace(".tif", "_combined.tif")
+    profile.update(dtype="float32", compress="lzw", nodata=None)
+    with rasterio.open(combined_path, "w", **profile) as dst:
+        dst.write(combined_dem.astype(np.float32), 1)
+    print(f"Saved combined DEM to: {combined_path}")
 
-                del elevation_window, zone_window, cost_window
+    # Open necessary datasets
+    with (
+        rasterio.open(allocation_raster) as alloc_src,
+        rasterio.open(cost_distance_raster) as cost_src,
+        rasterio.open(filled_dem) as filled_src,
+        rasterio.open(original_dem) as orig_src,
+        rasterio.open(stream_raster) as thalweg_src,
+    ):
+        meta = filled_src.meta.copy()
+        meta.update(tiled=True, compress="lzw")
+        ndv = meta.get("nodata", -9999)
 
-            # --------------------------------------------------------------------------------------------- #
+        # Creat zone min dictionary
+        zone_min_dict = typed.Dict.empty(types.int32, types.float32)
+        for ji, window in filled_src.block_windows(1):
+            elevation_window = combined_dem[
+                window.row_off : window.row_off + window.height,
+                window.col_off : window.col_off + window.width,
+            ].ravel()
+            zone_window = alloc_src.read(1, window=window).ravel()
+            cost_window = cost_src.read(1, window=window).ravel()
 
-        # Specify raster object metadata.
-        with rasterio.open(stream_raster) as thalweg_obj, rasterio.open(
-            original_dem
-        ) as orig_dem_obj, rasterio.open(dem_lateral_thalweg_adj, 'w', **meta) as output_obj:
+            zone_min_dict = make_zone_min_dict(
+                elevation_window, zone_min_dict, zone_window, cost_window, int(cost_distance_tolerance), ndv
+            )
 
-            for ji, window in filled_dem_obj.block_windows(1):
-                # Read window data (2D)
-                dem_window_filled_2d = filled_dem_obj.read(1, window=window)
-                dem_window_orig_2d = orig_dem_obj.read(1, window=window)
-                zone_window_2d = allocation_zone_raster_object.read(1, window=window)
-                thalweg_window_2d = thalweg_obj.read(1, window=window)
+        with rasterio.open(dem_lateral_thalweg_adj, "w", **meta) as out_dst:
+            for ji, window in filled_src.block_windows(1):
+                dem_window_filled_2d = filled_src.read(1, window=window)
+                dem_window_orig_2d = orig_src.read(1, window=window)
+                thalweg_window_2d = thalweg_src.read(1, window=window)
+                pit_window = pit_mask[
+                    window.row_off : window.row_off + window.height,
+                    window.col_off : window.col_off + window.width,
+                ]
 
-                # Flatten arrays for Numba
-                dem_window_filled = dem_window_filled_2d.ravel()
-                zone_window = zone_window_2d.ravel()
+                base_dem_window = np.where(pit_window == 1, dem_window_filled_2d, dem_window_orig_2d)
+                dem_window_flat = base_dem_window.ravel()
+
+                zone_window = alloc_src.read(1, window=window).ravel()
                 thalweg_window = thalweg_window_2d.ravel()
 
-                # Perform thalweg adjustment
-                minimized_thalweg_flat = minimize_thalweg_elevation(
-                    dem_window_filled, zone_min_dict, zone_window, thalweg_window
+                minimized_flat = minimize_thalweg_elevation(
+                    dem_window_flat, zone_min_dict, zone_window, thalweg_window, lateral_elevation_threshold
                 )
+                minimized_2d = minimized_flat.reshape(base_dem_window.shape)
 
-                # Reshape back to 2D (use the shape of the window)
-                minimized_thalweg_2d = minimized_thalweg_flat.reshape(dem_window_filled_2d.shape)
+                combined_window = np.where(thalweg_window_2d == 1, minimized_2d, base_dem_window)
+                out_dst.write(combined_window.astype(np.float32), window=window, indexes=1)
 
-                # Combine adjusted thalweg with original DEM
-                combined_window = np.where(thalweg_window_2d == 1, minimized_thalweg_2d, dem_window_orig_2d)
-
-                # Write output (rasterio expects 2D input)
-                output_obj.write(combined_window.astype(np.float32), window=window, indexes=1)
-
-                del (
-                    dem_window_filled_2d,
-                    dem_window_orig_2d,
-                    zone_window_2d,
-                    thalweg_window,
-                    minimized_thalweg_2d,
-                )
+                del (dem_window_filled_2d, dem_window_orig_2d, thalweg_window_2d, minimized_2d)
 
 
 if __name__ == '__main__':
