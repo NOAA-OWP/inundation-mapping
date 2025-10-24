@@ -294,7 +294,7 @@ def bathy_rc_lookup(
         modified_src_base['Discharge (m3s-1)'] = (
             modified_src_base['WetArea (m2)_bathy_adj']
             * pow(modified_src_base['HydraulicRadius (m)_bathy_adj'], 2.0 / 3)
-            * pow(modified_src_base['SLOPE'], 0.5) #note that slope here is from src base, which is raw data (unscaled data)
+            * pow(modified_src_base['SLOPE'], 0.5)
             / modified_src_base['ManningN']
         )
         ## mask discharge values for stage = 0 rows in SRC (replace with 0) --> do we need SRC to start at 0??

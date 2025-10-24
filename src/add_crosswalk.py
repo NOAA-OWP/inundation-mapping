@@ -3,7 +3,6 @@
 import argparse
 import json
 import sys
-import os
 
 import geopandas as gpd
 import numpy as np
@@ -19,7 +18,6 @@ from utils.shared_variables import FIM_ID
 # Define acceptable slope range
 SLOPE_MIN = 9.999e-7
 SLOPE_MAX = 0.5
-SLOPE_SCALE = float(os.getenv("slope_scale"))
 
 
 def add_crosswalk(
@@ -296,7 +294,19 @@ def add_crosswalk(
 
     #now to preserve slope precisions, we will record slope values as an integer by multiplying by a scale
     #later in the code, when we need to use slope values, we will need to divide the values by the same scale
-    input_src_base['SLOPE'] = ((SLOPE_SCALE * input_src_base['SLOPE']).round()).astype('int64')
+    # input_src_base['SLOPE'] = ((SLOPE_SCALE * input_src_base['SLOPE']).round()).astype('int64')
+
+    
+    
+    # --- Normalize and stabilize slope precision ---
+    # slope values are extremely small (e.g., ~1e-6) 
+    # floating-point rounding differences during read/write operations.
+    # To ensure consistent numeric precision across all downstream computations,
+    # each slope value is:
+    #   1. Rounded to 3 digits in scientific notation (mantissa precision)
+    #   2. Converted back to float for continued numerical use
+    # Example: 9.99999974737875E-06 → 1.000e-05 → 0.00001
+    input_src_base['SLOPE'] = input_src_base['SLOPE'].apply(lambda x: float(f"{x:.3e}"))
 
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
@@ -311,7 +321,7 @@ def add_crosswalk(
     input_src_base['Discharge (m3s-1)'] = (
         input_src_base['WetArea (m2)']
         * pow(input_src_base['HydraulicRadius (m)'], 2.0 / 3)
-        * pow(input_src_base['SLOPE']/SLOPE_SCALE, 0.5)
+        * pow(input_src_base['SLOPE'], 0.5)
         / input_src_base['ManningN']
     )
 

@@ -22,7 +22,6 @@ from tqdm import tqdm
 
 sns.set_theme(style="whitegrid")
 warnings.simplefilter(action='ignore', category=FutureWarning)
-SLOPE_SCALE = float(os.getenv("slope_scale"))
 
 """
     Compute channel geomety and Manning's equation using subdivision method (separate in-channel vs. overbank)
@@ -268,7 +267,7 @@ def subdiv_mannings_eq(df_src):
     df_src['Discharge_chan (m3s-1)'] = (
         df_src['WetArea_chan (m2)']
         * pow(df_src['HydraulicRadius_chan (m)'], 2.0 / 3)
-        * pow(df_src['SLOPE']/SLOPE_SCALE, 0.5)
+        * pow(df_src['SLOPE'], 0.5)
         / df_src['channel_n']
     )
     df_src['Velocity_chan (m/s)'] = df_src['Discharge_chan (m3s-1)'] / df_src['WetArea_chan (m2)']
@@ -292,7 +291,7 @@ def subdiv_mannings_eq(df_src):
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
         * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
-        * pow(df_src['SLOPE']/SLOPE_SCALE, 0.5)
+        * pow(df_src['SLOPE'], 0.5)
         / df_src['overbank_n']
     )
     df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']

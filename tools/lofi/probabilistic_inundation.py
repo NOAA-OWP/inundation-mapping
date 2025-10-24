@@ -28,8 +28,6 @@ from tqdm import tqdm
 
 from utils.shared_functions import s3_or_local_glob
 
-SLOPE_SCALE = float(os.getenv("slope_scale"))
-
 
 def get_fim_probability_distributions(
     posterior_dist: Optional[Union[str, pd.DataFrame]] = None, huc: Optional[int] = None
@@ -318,7 +316,7 @@ def get_subdivided_src(
     df_src['Discharge_obank (m3s-1)'] = (
         df_src['WetArea_obank (m2)']
         * pow(df_src['HydraulicRadius_obank (m)'], 2.0 / 3)
-        * pow(np.max([(df_src['SLOPE']/SLOPE_SCALE) + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
+        * pow(np.max([df_src['SLOPE'] + slope_adj, np.repeat(1e-5, df_src.shape[0])], axis=0), 0.5)
         / df_src['overbank_n']
     )
     df_src['Velocity_obank (m/s)'] = df_src['Discharge_obank (m3s-1)'] / df_src['WetArea_obank (m2)']

@@ -15,8 +15,6 @@ import pandas as pd
 import scipy
 from scipy.ndimage import generic_filter
 
-SLOPE_SCALE = float(os.getenv("slope_scale"))
-
 
 # -------------------------------------------------------
 def extract_longitudinal_variables(src_df, hydroid, stage):
@@ -149,26 +147,6 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
     log_text = f'Filtering Longitudinal Flow Fluctuation for HUC8: {huc}\n'
     fim_huc_dir = join(fim_dir, huc)
 
-    # if int(branch) == 0:
-    src_full_0 = join(fim_huc_dir, 'branches', str(0), 'src_full_crosswalked_0.csv')
-    ht_0_path = join(fim_huc_dir, 'branches', str(0), 'hydroTable_0.csv')
-
-    if os.path.isfile(src_full_0) and os.path.isfile(ht_0_path):
-        src_0_df = pd.read_csv(src_full_0, low_memory=False)
-        ht_0_df = pd.read_csv(ht_0_path, low_memory=False)
-
-        src_0_df.loc[src_0_df['Bathymetry_source'] == str(0), 'Bathymetry_source'] = 'No Bathymetry Applied'
-        src_0_df.loc[src_0_df['Bathymetry_source'] == 0, 'Bathymetry_source'] = 'No Bathymetry Applied'
-        src_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source'].fillna('No Bathymetry Applied')
-        ht_0_df['Bathymetry_source'] = src_0_df['Bathymetry_source']
-
-        # Save updated branch 0 ht and src tables
-        src_0_df = src_0_df.drop_duplicates(subset=['HydroID', 'Stage'], keep='first').reset_index(drop=True)
-        src_0_df.to_csv(src_full_0, index=False)
-        ht_0_df = ht_0_df.drop_duplicates(subset=['HydroID', 'stage'], keep='first').reset_index(drop=True)
-        ht_0_df.to_csv(ht_0_path, index=False)
-    else:
-        print("Files do not exist: src_full_crosswalked_0.csv and hydroTable_0.csv")
 
     # Get src_full, hydrotable and catchment from each branch
     src_all_branches_path = []
@@ -332,7 +310,7 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
             src_df['Discharge (m3s-1)'] = (
                 src_df['WetArea (m2)']
                 * pow(src_df['HydraulicRadius (m)'], 2.0 / 3)
-                * pow(src_df['SLOPE']/SLOPE_SCALE, 0.5)
+                * pow(src_df['SLOPE'], 0.5)
                 / src_df['ManningN']
             )
             # Refining Discharge for lake hydroIDs with the original Q

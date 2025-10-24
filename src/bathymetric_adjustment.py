@@ -12,8 +12,6 @@ from os.path import join
 import geopandas as gpd
 import pandas as pd
 
-SLOPE_SCALE = float(os.getenv("slope_scale"))
-
 
 # -------------------------------------------------------
 # Function to use RFC Bathymetry where available over eHydro Data
@@ -137,7 +135,7 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
         src_df['Discharge (m3s-1)'] = (
             src_df['WetArea (m2)']
             * src_df['HydraulicRadius (m)'] ** (2.0 / 3)
-            * (src_df['SLOPE']/SLOPE_SCALE) ** 0.5
+            * (src_df['SLOPE']) ** 0.5
             / src_df['ManningN']
         )
         # Force zero stage to have zero discharge
@@ -283,7 +281,7 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             src_df['Discharge (m3s-1)'] = (
                 src_df['WetArea (m2)']
                 * src_df['HydraulicRadius (m)'] ** (2.0 / 3)
-                * (src_df['SLOPE']/SLOPE_SCALE) ** 0.5
+                * (src_df['SLOPE']) ** 0.5
                 / src_df['ManningN']
             )
             # Force zero stage to have zero discharge
@@ -304,6 +302,7 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             src_df2 = src_df.copy()
             discharge_bathymetry = src_df2['Discharge (m3s-1)']
             src_df['Discharge (m3s-1)_bathymetryAdjusted'] = discharge_bathymetry
+
             src_df.to_csv(src, index=False)
 
         else:
@@ -363,7 +362,7 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             discharge_cms = (
                 src_df['WetArea (m2)']
                 * src_df['HydraulicRadius (m)'] ** (2.0 / 3)
-                * (src_df['SLOPE']/SLOPE_SCALE) ** 0.5
+                * (src_df['SLOPE']) ** 0.5
                 / src_df['ManningN']
             )
             src_df.loc[src_df["Bathymetry_source"] == "AI_Based", "Discharge (m3s-1)"] = discharge_cms

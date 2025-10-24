@@ -138,13 +138,13 @@ def recalculate_Q_with_mannN_and_update_hydroTables_ls(
         Q_ch = (
             ht_df['WetArea_chan (m2)']
             * pow(ht_df['HydraulicRadius_chan (m)'], 2.0 / 3)
-            * pow(ht_df['SLOPE']/SLOPE_SCALE, 0.5)
+            * pow(ht_df['SLOPE'], 0.5)
             / ht_df['manningN_ch_optz']
         )
         Q_ob = (
             ht_df['WetArea_obank (m2)']
             * pow(ht_df['HydraulicRadius_obank (m)'], 2.0 / 3)
-            * pow(ht_df['SLOPE']/SLOPE_SCALE, 0.5)
+            * pow(ht_df['SLOPE'], 0.5)
             / ht_df['manningN_ob_optz']
         )
         ht_df['Discharge(cms)_optzN'] = Q_ob + Q_ch
