@@ -147,7 +147,6 @@ def filter_longitudinal_discharge_jitters(fim_dir, huc):
     log_text = f'Filtering Longitudinal Flow Fluctuation for HUC8: {huc}\n'
     fim_huc_dir = join(fim_dir, huc)
 
-
     # Get src_full, hydrotable and catchment from each branch
     src_all_branches_path = []
     cathment_gpkg_path = []

@@ -67,7 +67,7 @@ def analyze_nonmonotonic_src(srcs_df, strm_order):  # , thalweg_hydroids
         srcs_df.loc[row_slice, 'Discharge (m3s-1)'] = (
             wet_area
             * (srcs_df.loc[row_slice, 'HydraulicRadius (m)'] ** (2.0 / 3))
-            * ((srcs_df.loc[row_slice, 'SLOPE']) ** 0.5)
+            * (srcs_df.loc[row_slice, 'SLOPE'] ** 0.5)
             / srcs_df.loc[row_slice, 'channel_n']
         )
         # srcs_df['Discharge (m3s-1)_subdiv'] = np.where(

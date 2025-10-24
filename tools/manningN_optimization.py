@@ -26,7 +26,6 @@ from tools_shared_variables import MAGNITUDE_DICT, TEST_CASES_DIR
 
 
 AHPS_BENCHMARK_CATEGORIES = ["usgs", "nws"]
-SLOPE_SCALE = float(os.getenv("slope_scale"))
 
 
 # *********************************************************

@@ -135,7 +135,7 @@ def correct_rating_for_ehydro_bathymetry(fim_dir, huc, bathy_file_ehydro, verbos
         src_df['Discharge (m3s-1)'] = (
             src_df['WetArea (m2)']
             * src_df['HydraulicRadius (m)'] ** (2.0 / 3)
-            * (src_df['SLOPE']) ** 0.5
+            * src_df['SLOPE'] ** 0.5
             / src_df['ManningN']
         )
         # Force zero stage to have zero discharge
@@ -281,7 +281,7 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             src_df['Discharge (m3s-1)'] = (
                 src_df['WetArea (m2)']
                 * src_df['HydraulicRadius (m)'] ** (2.0 / 3)
-                * (src_df['SLOPE']) ** 0.5
+                * src_df['SLOPE'] ** 0.5
                 / src_df['ManningN']
             )
             # Force zero stage to have zero discharge
@@ -362,7 +362,7 @@ def correct_rating_for_ai_bathymetry(fim_dir, huc, strm_order, bathy_file_aibase
             discharge_cms = (
                 src_df['WetArea (m2)']
                 * src_df['HydraulicRadius (m)'] ** (2.0 / 3)
-                * (src_df['SLOPE']) ** 0.5
+                * src_df['SLOPE'] ** 0.5
                 / src_df['ManningN']
             )
             src_df.loc[src_df["Bathymetry_source"] == "AI_Based", "Discharge (m3s-1)"] = discharge_cms
