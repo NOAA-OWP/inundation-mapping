@@ -288,26 +288,13 @@ def add_crosswalk(
     # hfab_slope = input_src_base['SLOPE_HFAB'].where(hfab_mask)
 
     # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
-    input_src_base['SLOPE'] = (
-        sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN']).astype(float)
-    )
+    input_src_base['SLOPE'] = sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN']).astype(float)
 
-    #now to preserve slope precisions, we will record slope values as an integer by multiplying by a scale
-    #later in the code, when we need to use slope values, we will need to divide the values by the same scale
-    # input_src_base['SLOPE'] = ((SLOPE_SCALE * input_src_base['SLOPE']).round()).astype('int64')
-
-    
-    
-    # --- Normalize and stabilize slope precision ---
-    # slope values are extremely small (e.g., ~1e-6) 
-    # floating-point rounding differences during read/write operations.
-    # To ensure consistent numeric precision across all downstream computations,
-    # each slope value is:
-    #   1. Rounded to 3 digits in scientific notation (mantissa precision)
+    # --- Normalize and stabilize precision of extremely small slopes ---
+    #   1. Rounded to 3 digits in scientific notation
     #   2. Converted back to float for continued numerical use
     # Example: 9.99999974737875E-06 → 1.000e-05 → 0.00001
     input_src_base['SLOPE'] = input_src_base['SLOPE'].apply(lambda x: float(f"{x:.3e}"))
-
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
@@ -386,9 +373,9 @@ def add_crosswalk(
 
     output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
 
-    #also add default manning and slope for reseting hydrotable and src full later
-    output_src['default_SLOPE']=output_src['SLOPE']
-    output_src['default_ManningN']=output_src['ManningN']
+    # also add default manning and slope for reseting hydrotable and src full later
+    output_src['default_SLOPE'] = output_src['SLOPE']
+    output_src['default_ManningN'] = output_src['ManningN']
 
     del crosswalk
 

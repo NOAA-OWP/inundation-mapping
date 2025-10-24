@@ -20,9 +20,9 @@ def process_branch(sub_branch_path, branch, huc_id):
         return
 
     # Load input files
-    input_src_base = pd.read_csv(src_base_file)
+    input_src_base = pd.read_csv(src_base_file, dtype={'CatchId': str})
     input_src_full = pd.read_csv(src_full_file)
-    input_hydro_table = pd.read_csv(hydro_table_file)
+    input_hydro_table = pd.read_csv(hydro_table_file, dtype={'HydroID': str})
 
     # Clean column headers of any leading/trailing whitespace.
     input_src_base.columns = input_src_base.columns.str.strip()
@@ -30,37 +30,20 @@ def process_branch(sub_branch_path, branch, huc_id):
     input_hydro_table.columns = input_hydro_table.columns.str.strip()
 
     # Apply data types to the clean column names
-    input_src_base['CatchId'] = input_src_base['CatchId'].astype(str)
     id_cols = ['HydroID', 'NextDownID', 'feature_id']
     for col in id_cols:
         if col in input_src_full.columns:
             input_src_full[col] = input_src_full[col].astype(str)
-    input_hydro_table['HydroID'] = input_hydro_table['HydroID'].astype(str)
 
-    # src_full unique by HydroID
-    src_full_unique = input_src_full.drop_duplicates(subset='HydroID')
-    input_src_base = input_src_base.merge(
-        src_full_unique[['ManningN', 'HydroID', 'NextDownID', 'order_']],
-        left_on='CatchId',
-        right_on='HydroID',
-    )
-
-    # If the merge failed, input_src_base will be empty. Exit gracefully.
-    if input_src_base.empty:
-        print(f"Warning: Merge failed for branch {branch}. No matching CatchId/HydroID found. Skipping.")
-        return
-    # Base Recalculation
+    # make sure numeric columns of src_base are really numeric
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     numeric_cols = [col for col in input_src_base.columns if col not in ['CatchId', 'HydroID', 'NextDownID']]
     input_src_base[numeric_cols] = input_src_base[numeric_cols].apply(pd.to_numeric, errors='coerce')
 
+    '''
     recalc_df = pd.DataFrame()
     recalc_df['HydroID'] = input_src_base['HydroID']
     recalc_df['Stage'] = input_src_base['Stage']
-    input_src_full['HydroID'] = input_src_full['HydroID'].astype(str)
-    # recalc_df = recalc_df.merge(
-    #     input_src_full[['HydroID', 'Stage', 'SLOPE']], on=['HydroID', 'Stage'], how='left'
-    # )
 
     #get slope and mannings from src_full.
     recalc_df = recalc_df.merge(
@@ -80,8 +63,27 @@ def process_branch(sub_branch_path, branch, huc_id):
         'BedArea (m2)',
     ]
     keys = ['HydroID', 'Stage']
-    recalc_df = recalc_df.merge(input_src_base[columns_from_src], on=keys, how='left')
+    recalc_df = recalc_df.merge(input_src_base[columns_from_src_base], on=keys, how='left')
+    '''
+    # get all fields of src_base (excluding SLOPE) and the rest from src_full
+    # remove slope of src base and rename cathid to match hydroid of src_full for merge
+    input_src_base = input_src_base.drop(columns=['SLOPE'])
+    input_src_base.rename(columns={'CatchId': 'HydroID'}, inplace=True)
+    recalc_df = input_src_base.copy()
 
+    recalc_df = recalc_df.merge(
+        input_src_full[['HydroID', 'Stage', 'default_SLOPE', 'default_ManningN', 'NextDownID', 'order_']],
+        on=['HydroID', 'Stage'],
+    )
+
+    # If the merge failed, Exit gracefully.
+    if recalc_df.empty:
+        print(f"Warning: Merge failed for branch {branch}. No matching CatchId/HydroID found. Skipping.")
+        return
+
+    recalc_df.rename(columns={'default_SLOPE': 'SLOPE', 'default_ManningN': 'ManningN'}, inplace=True)
+
+    # now continue with calculations
     recalc_df['TopWidth (m)'] = recalc_df['SurfaceArea (m2)'] / recalc_df['LENGTHKM'] / 1000
     recalc_df['WettedPerimeter (m)'] = recalc_df['BedArea (m2)'] / recalc_df['LENGTHKM'] / 1000
     recalc_df['WetArea (m2)'] = recalc_df['Volume (m3)'] / recalc_df['LENGTHKM'] / 1000
@@ -91,7 +93,7 @@ def process_branch(sub_branch_path, branch, huc_id):
     recalc_df['Discharge (m3s-1)'] = (
         recalc_df['WetArea (m2)']
         * pow(recalc_df['HydraulicRadius (m)'], 2.0 / 3)
-        * pow(recalc_df['SLOPE'] , 0.5)
+        * pow(recalc_df['SLOPE'], 0.5)
         / recalc_df['ManningN']
     )
     recalc_df.loc[recalc_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
@@ -141,11 +143,6 @@ def process_branch(sub_branch_path, branch, huc_id):
                         ] = src_stage[1]
 
     # Update src_full & hydroTable
-
-    # Ensure data types are consistent for alignment
-    input_src_full['HydroID'] = input_src_full['HydroID'].astype(str)
-    recalc_df['HydroID'] = recalc_df['HydroID'].astype(str)
-
     input_src_full.set_index(['HydroID', 'Stage'], inplace=True)
     recalc_df.set_index(['HydroID', 'Stage'], inplace=True)
 
@@ -192,7 +189,7 @@ def process_branch(sub_branch_path, branch, huc_id):
         'Discharge (m3s-1)',
         'Bathymetry_source',
         'default_SLOPE',
-        'default_ManningN'
+        'default_ManningN',
     ]
     final_src_full = input_src_full[src_full_preserve_columns]
     final_src_full.to_csv(src_full_file, index=False)
