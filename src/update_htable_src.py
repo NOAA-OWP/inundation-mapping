@@ -40,31 +40,6 @@ def process_branch(sub_branch_path, branch, huc_id):
     numeric_cols = [col for col in input_src_base.columns if col not in ['CatchId', 'HydroID', 'NextDownID']]
     input_src_base[numeric_cols] = input_src_base[numeric_cols].apply(pd.to_numeric, errors='coerce')
 
-    '''
-    recalc_df = pd.DataFrame()
-    recalc_df['HydroID'] = input_src_base['HydroID']
-    recalc_df['Stage'] = input_src_base['Stage']
-
-    #get slope and mannings from src_full.
-    recalc_df = recalc_df.merge(
-        input_src_full[['HydroID', 'Stage', 'default_SLOPE','default_ManningN']], on=['HydroID', 'Stage'], how='left'
-    )
-    recalc_df.rename(columns={'default_SLOPE':'SLOPE','default_ManningN':'ManningN'},inplace=True)
-
-    columns_from_src = [
-        'HydroID',
-        'Stage',
-        'Number of Cells',
-        'SurfaceArea (m2)',
-        'LENGTHKM',
-        'AREASQKM',
-        'Volume (m3)',
-        # 'ManningN',
-        'BedArea (m2)',
-    ]
-    keys = ['HydroID', 'Stage']
-    recalc_df = recalc_df.merge(input_src_base[columns_from_src_base], on=keys, how='left')
-    '''
     # get all fields of src_base (excluding SLOPE) and the rest from src_full
     # remove slope of src base and rename cathid to match hydroid of src_full for merge
     input_src_base = input_src_base.drop(columns=['SLOPE'])
