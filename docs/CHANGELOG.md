@@ -42,7 +42,8 @@ Details on full tool usage are embedded in the scripts themselves. This tool rel
 
 ### FOR NOAA/OWP usage only
 This tool is not for usage outside of the OWP / FIM team.
-<br /><br />
+<br />
+
 ## v4.8.14.2 - 2025-10-17 - [PR#1677](https://github.com/NOAA-OWP/inundation-mapping/pull/1677)
 
 During a merge of the recent PR for mprunner fixes, one critical line was dropped. The line takes the return value from the child multi-proc function and adds it to a list collection of return results. 
