@@ -98,9 +98,11 @@ def __load_hand_dataset(num_jobs):
         "*** Building a list of files to upload: We get the names and paths"
         " of all files that are applicable before copying"
     )
-    print("    Note: Some loads per pattern can be slow, especially branches."
-          " It may even appear to be frozen for up to 20 mins. Keep an eye on network"
-          " stats to ensure it is still working.")
+    print(
+        "    Note: Some loads per pattern can be slow, especially branches."
+        " It may even appear to be frozen for up to 20 mins. Keep an eye on network"
+        " stats to ensure it is still working."
+    )
 
     print(f"    Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
     time.sleep(5)  # gives the a min to read this.
