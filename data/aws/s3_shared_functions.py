@@ -9,6 +9,7 @@ from functools import partial
 
 import botocore
 import botocore.exceptions
+
 # from boto3.s3.transfer import TransferConfig
 from tqdm import tqdm
 
@@ -33,6 +34,7 @@ is translated to a pattern of "prefixes" that S3 can use.
 # and robinzhon code and found it was no faster. They ultimatly are all built as wrappers
 # against boto3 and botocore, but I want more options.
 # We max out he network performance no matter what based on the job arg
+
 
 # -------------------------------------------------
 def parse_bucket_and_folder_name(s3_full_folder_path):
@@ -315,7 +317,7 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
                 futures.as_completed(futures_dict),
                 total=len(tasks_args_list),
                 desc="Retrieving file paths",
-                miniters=10
+                miniters=10,
             ):
                 if future.cancelled():
                     continue
@@ -618,12 +620,14 @@ def download_files_by_file_list(s3_client, bucket_name, file_list, num_workers=1
         return_msg, ___ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
+
 # -------------------------------------------------
 # You generally want to use this only when you have a large number of files to upload.
 # Size of each file is not relavent.
 # This uses multi-threading and not multi-proc
-def download_folders(s3_client, bucket_name, s3_src_path, trg_folder_path, list_of_search_key = [""], num_workers=1):
-
+def download_folders(
+    s3_client, bucket_name, s3_src_path, trg_folder_path, list_of_search_key=[""], num_workers=1
+):
     """
     Process:
 
@@ -659,10 +663,10 @@ def download_folders(s3_client, bucket_name, s3_src_path, trg_folder_path, list_
 
     # Note: untested if you want all all files under a subfolder. Might need to use download_folder, TBD
 
-    if list_of_search_key is None:
-        list_of_search_key = [""]
+    # if list_of_search_key is None:
+    #     list_of_search_key = [""]
 
-    if not type(list_of_search_key) == list:
+    if not isinstance(list_of_search_key, list):
         raise Exception("Error: argument for list_of_search_keys must be a 'list' type")
 
     skip_multi = False
@@ -698,7 +702,7 @@ def download_folders(s3_client, bucket_name, s3_src_path, trg_folder_path, list_
             s3_client=s3_client,
             bucket_name=bucket_name,
             s3_src_path=s3_src_path,
-            trg_folder_path=trg_folder_path
+            trg_folder_path=trg_folder_path,
         )
         # Shared client appears to not be threadsafe as long as I keep the job down (under 20?)
         for i, search_key in enumerate(list_of_search_key):
@@ -711,16 +715,18 @@ def download_folders(s3_client, bucket_name, s3_src_path, trg_folder_path, list_
 
         if skip_multi:
             print("-----------------")
-            print("*** Note: We use one progress bar per pattern. There are some small bugs and sometimes"
+            print(
+                "*** Note: We use one progress bar per pattern. There are some small bugs and sometimes"
                 " you will see a progress bar for a key show up a second time. This is fine and"
-                " it is not really downloading that key set twice.")
+                " it is not really downloading that key set twice."
+            )
             print("-----------------")
 
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
         # boto3 clients are thread-safe, sessions and resources are not.
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-        # with futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+            # with futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
 
             futures_dict = [executor.submit(merged_partial_download_file, **arg) for arg in tasks_args_list]
 
@@ -730,7 +736,7 @@ def download_folders(s3_client, bucket_name, s3_src_path, trg_folder_path, list_
                         continue
                     if not future.exception():
                         num_files_downloaded = future.result()
-                        total_files_downloads+= num_files_downloaded
+                        total_files_downloads += num_files_downloaded
                     else:
                         raise future.exception()  # re-raise it
 
@@ -739,15 +745,13 @@ def download_folders(s3_client, bucket_name, s3_src_path, trg_folder_path, list_
         # if it finds it, it returns a nice user friendly message
         return_msg, ___ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
-    
+
     return total_files_downloads
 
 
-def download_files_by_search_key(s3_client, bucket_name, 
-                                s3_src_path,
-                                trg_folder_path,
-                                search_key="",
-                                id_number=0):
+def download_files_by_search_key(
+    s3_client, bucket_name, s3_src_path, trg_folder_path, search_key="", id_number=0
+):
 
     # Examples of searching
     # search_key = "" means download everything in that s3_src_path_folder
@@ -790,19 +794,23 @@ def download_files_by_search_key(s3_client, bucket_name,
 
         number_of_pages = 0  # for some reason, I can not easily get a count for of pages
         for page in pages:
-            number_of_pages+=1
+            number_of_pages += 1
 
         # show this message for the first one only, even if it function did not come in as MT
         if id_number == 0:
             print("s3 files are searched 1000 at a time and downloading applicable files.", flush=True)
-        
+
         pages = paginator.paginate(**operation_parameters)
 
         # for page in pages:
         cur_page_num = 1
-        with tqdm(position=id_number, total=number_of_pages, miniters=10,
-                    desc=f"key: '{search_key}' : pg {cur_page_num} of {number_of_pages} [{id_number}]",
-                    bar_format="{l_bar}{bar:20}{r_bar} ") as pbar:
+        with tqdm(
+            position=id_number,
+            total=number_of_pages,
+            miniters=10,
+            desc=f"key: '{search_key}' : pg {cur_page_num} of {number_of_pages} [{id_number}]",
+            bar_format="{l_bar}{bar:20}{r_bar} ",
+        ) as pbar:
             for page in pages:
                 # need a small tqdm sleep so updating the progress bar does not collide
                 # time.sleep(0.05*thread_number)
@@ -818,14 +826,15 @@ def download_files_by_search_key(s3_client, bucket_name,
 
                             os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
                             s3_client.download_file(bucket_name, s3_key, local_file_path)
-                            num_files_downloaded+=1
+                            num_files_downloaded += 1
                 time.sleep(0.1)  # needed for via an inner loop allows time for print queue
                 pbar.update(1)
-                
 
         if num_files_downloaded == 0:
-            print(f"*** Warning: Downloading file using search key of 'search_key' found zero files to download."
-                   " Check the search key value and/or pathing")
+            print(
+                "*** Warning: Downloading file using search key of 'search_key' found zero files to download."
+                " Check the search key value and/or pathing"
+            )
 
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
@@ -891,7 +900,7 @@ def upload_file(
     #     max_concurrency=10,  # 10 concurrent threads
     #     multipart_chunksize=1024 * 25,  # 25MB per part
     # )
-    #   use_threads=True,  # Enable threading    
+    #   use_threads=True,  # Enable threading
 
     try:
         # Will show progress if a large file
@@ -911,7 +920,7 @@ def upload_file(
                     trg_file_path,
                     Callback=awssf.ProgressPercentage(src_file_path),
                 )
-                   # Config=s3_config,                
+                # Config=s3_config,
                 print("", flush=True)  # reset the console lines as it does not have an line break
             else:
                 # s3_client.upload_file(src_file_path, bucket_name, trg_file_path, Config=s3_config)

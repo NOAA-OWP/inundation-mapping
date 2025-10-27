@@ -132,9 +132,9 @@ def __load_hand_dataset(num_jobs):
         print(f"  Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
         sorted_files_to_download = sorted(files_to_download, key=lambda x: x["src_file"])
         s3_sf.download_files_by_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, sorted_files_to_download, num_jobs)
-        # def download_large_filesets(s3_client, bucket_name, s3_src_path, trg_folder_path, list_of_search_key, num_workers=10):    
-#     num_files_downloaded = s3_sf.download_large_filesets(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH,
-                                                         # search_keys, len(search_keys))
+        # def download_large_filesets(s3_client, bucket_name, s3_src_path, trg_folder_path, list_of_search_key, num_workers=10):
+        #     num_files_downloaded = s3_sf.download_large_filesets(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH,
+        # search_keys, len(search_keys))
         print()
         logging.info(f"Number of files downloaded: {len(files_to_download)}")
         end_time = datetime.now(timezone.utc)
