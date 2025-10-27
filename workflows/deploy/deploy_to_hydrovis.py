@@ -176,9 +176,17 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
             upload_item = {"src_file": file_path, "trg_file": trg_file}
             files_to_upload.append(upload_item)
 
-        logging.info(f"--- Files found for this pattern: {len(found_files)}")
+        logging.info(f".. found {len(file_paths)} files")
 
-    print(f"--- Total number of files to be loaded to HAND dataset is {len(files_to_upload)}")
+        if len(file_paths) == 0:
+            print("*********************")
+            logging.error(
+                f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
+                " Check the data source folders and/or the patterns from the env file."
+            )
+            time.sleep(5)  # allows the user time to react if required
+
+    logging.info(f"--- Total number of files to be loaded to HV S3 is {len(files_to_upload)}")
 
     sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
     logging.info("------------------------------------")
@@ -411,12 +419,9 @@ def __setup_aws(aws_creds_file):
     if not is_success:  # if it was not already thrown from asf
         raise Exception(return_msg)
 
-    # we load the bucke name from the aws file to help with git security a little.
-    HV_S3_BUCKET_NAME = sf.get_value_from_env("HV_S3_BUCKET_NAME", aws_creds_file)
-    HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
-
     # validate the bucket
-    # may also throw an exceptoin
+    # may also throw an exception
+    # assumes the bucket name is already loaded when the deploy env was loaded
     is_success, return_msg = s3_sf.does_s3_bucket_exist(S3_CLIENT, HV_S3_BUCKET_NAME)
     if not is_success:
         logging.error(
@@ -465,8 +470,8 @@ if __name__ == '__main__':
          - fpp  (FIM Performance Points / Polys)
          - cffb (CatFIM Flow Based)
          - cffc (CatFIM Flow Based Compare files)
-         - csfc (CatFIM Stage Based)
-         - csfc (CatFIM Stage Based Compare files)
+         - cfsb (CatFIM Stage Based)
+         - cfsc (CatFIM Stage Based Compare files)
          - rcc  (Rating Curve Comparison Metrics (Sierra Tests))
          - urc  (USGS Rating Curve)
 
@@ -481,10 +486,6 @@ if __name__ == '__main__':
         - fim performance files
         - usgs files
         - etc
-
-    Reminder:
-        - CatFIM and FIM Points/Polys can only be done in OWP. (cffb, cffc, csfc, csfc, fpp)
-        - The rest need to be done in the EC2's.
     '''
 
     parser = argparse.ArgumentParser(
@@ -533,3 +534,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     deploy_to_hydrovis(**vars(args))
+    
