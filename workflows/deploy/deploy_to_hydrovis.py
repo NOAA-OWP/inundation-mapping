@@ -186,7 +186,7 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
             )
             time.sleep(5)  # allows the user time to react if required
 
-    print(f"--- Total number of files to be loaded to HV S3 is {len(files_to_upload)}")
+    logging.info(f"--- Total number of files to be loaded to HV S3 is {len(files_to_upload)}")
 
     sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
     logging.info("------------------------------------")
@@ -194,7 +194,8 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
     # Let's it do its own upload, instead of the generic parent deploy_to_hydrovis pattern.
     # This set is pretty big so pass it to s3_shared_functions.upload_large_files,
     # which has a form of a multi-proc inside of it. (no logging though)
-    s3_sf.upload_large_filesets(S3_CLIENT, HV_S3_BUCKET_NAME, sorted_files_to_upload, num_jobs)
+    logging.info("Downloading started")
+    s3_sf.upload_by_file_list(S3_CLIENT, HV_S3_BUCKET_NAME, sorted_files_to_upload, num_jobs)
 
     print("")
     end_time = datetime.now(timezone.utc)
@@ -274,6 +275,8 @@ def __load_qa_dataset(deploy_types, deploy_params_file):
 
     # -----------------------
     # Upload files as per arguments going to HV QA Dataset folders
+
+    # this is qa datasets and there are not many files, so we will just load them one at a time.
     if len(files_to_upload) > 0:
         logging.info("------------------------------------")
         logging.info("**** Begin loading misc HydroVIS QA dataset files into S3 ****")

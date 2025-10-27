@@ -19,6 +19,7 @@ from botocore.client import Config
 
 
 # -------------------------------------------------
+# TODO: Oct 2025: Change this to a dictionary as input
 def create_aws_session(
     aws_access_key_id: str = None,
     aws_secret_access_key: str = None,
@@ -129,6 +130,7 @@ def create_aws_session(
 
 
 # -------------------------------------------------
+# TODO: Oct 2025: Change this to a dictionary as input
 def create_aws_client(
     aws_service_type_name: str,
     aws_access_key_id: str = None,
@@ -205,7 +207,7 @@ def create_aws_client(
         client_config = Config(
             connect_timeout=20,
             read_timeout=(60 * 5),
-            max_pool_connections=30,
+            max_pool_connections=50,
             retries={"mode": "standard", 'max_attempts': 5},
         )
 

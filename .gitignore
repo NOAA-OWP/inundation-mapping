@@ -20,7 +20,7 @@ config/*.swp
 !config/aws_credentials.template.env
 !config/fim_enviro_values.template.env
 !config/hv_deploy_params.template.env
-!config/workflow_params.template.env
+!config/workflows_params.template.env
 
 !data/bridges/*.txt
 !tools/catfim/*.csv

@@ -109,42 +109,20 @@ def __load_hand_dataset(num_jobs):
             " for loading hand to owp files start with OWP_HAND_LOAD_PATTERN"
         )
 
-    # # We use file patterns only to help show the patterns to the users
-    # for file_pattern in file_patterns:
-    #     pattern_name = file_pattern["env_var_name"]
-    #     pattern = file_pattern["env_var_value"]
-
-    #     search_keys.append(pattern)
-    # file_paths = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, pattern)
-    # logging.info(f".. found {len(file_paths)} files")
-
-    # if len(file_paths) == 0:
-    #     print("*********************")
-    #     logging.error(
-    #         f"**** ERROR: no files were found pattern {pattern_name} : {pattern}."
-    #         " Check the data source folders and/or the patterns from the env file."
-    #     )
-    #     time.sleep(5)  # allows the user time to react if required
-    #     continue
-
-    # for file_path in file_paths:
-    #     if not file_path.startswith("/"):
-    #         file_path = "/" + file_path
-    #     trg_file = file_path.replace(SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH)
-    #     item = {"src_file": file_path, "trg_file": trg_file}
-    #     files_to_download.append(item)
-
-    # # files_to_download.extend(file_paths)
-    # print("")
-
-    files_to_download = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, search_keys)
+    file_paths = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, search_keys)
+    for file_path in file_paths:
+        if not file_path.startswith("/"):
+            file_path = "/" + file_path
+        trg_file = file_path.replace(SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH)
+        item = {"src_file": file_path, "trg_file": trg_file}
+        files_to_download.append(item)
 
     logging.info(f"Download list created: Total number of files to download is {len(files_to_download)}")
     logging.info(fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False))
     logging.info("------------------------------------")
 
     if len(files_to_download) == 0:
-        logging.ERROR(
+        logging.error(
             "No files were found using the env OWP_HAND_LOAD_PATTERN variables."
             " Check that variables exists starting with that pattern."
         )
@@ -153,8 +131,12 @@ def __load_hand_dataset(num_jobs):
         logging.info("*** Downloading files")
         print(f"  Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
         sorted_files_to_download = sorted(files_to_download, key=lambda x: x["src_file"])
-        s3_sf.download_large_filesets(S3_CLIENT, FIM_S3_BUCKET_NAME, sorted_files_to_download, num_jobs)
+        s3_sf.download_files_by_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, sorted_files_to_download, num_jobs)
+        # def download_large_filesets(s3_client, bucket_name, s3_src_path, trg_folder_path, list_of_search_key, num_workers=10):    
+#     num_files_downloaded = s3_sf.download_large_filesets(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH,
+                                                         # search_keys, len(search_keys))
         print()
+        logging.info(f"Number of files downloaded: {len(files_to_download)}")
         end_time = datetime.now(timezone.utc)
         logging.info("**** Completed downloading files ****")
         print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
@@ -165,7 +147,7 @@ def __load_hand_dataset(num_jobs):
 # ============================
 def __validate_input(source_path, target_path, workflows_params_file, num_jobs):
 
-    global SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH
+    global SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH, FIM_S3_BUCKET_NAME
 
     if not source_path:
         raise ValueError("The -st source path value is None or empty")
@@ -187,7 +169,7 @@ def __validate_input(source_path, target_path, workflows_params_file, num_jobs):
         # show a warning, then sleep for a bit allowwing them to abort if they like.
         msg = "Warning: The number of jobs you have submitted may be larger than your network connection speed.\n"
         "This may results in S3 issuing 'Connection Pool Is Full' warnings. If this happens, lower your"
-        "job number restart.\n Note: for OWP Staff: for the larger servers, it seems ok at 20."
+        "job number restart.\n Note: for OWP Staff: for the larger servers, it seems ok at 10 for prod."
         print(msg)
         time.sleep(10)  # gives them time to abort if they want.
 

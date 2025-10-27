@@ -2,12 +2,14 @@
 
 import fnmatch
 import os
+import random
+import time
 from concurrent import futures
 from functools import partial
 
 import botocore
 import botocore.exceptions
-from boto3.s3.transfer import TransferConfig
+# from boto3.s3.transfer import TransferConfig
 from tqdm import tqdm
 
 import data.aws.aws_shared_functions as awssf
@@ -27,10 +29,10 @@ is translated to a pattern of "prefixes" that S3 can use.
 # This AWS system will also be upgraded soon handle much more than just s3, but things like
 # step functions, task definitions, execution scripts, etc.
 
-
-# Also examined other performance packges such as bulkboto3 code and found it was no faster.
+# Also examined other performance packges such as bulkboto3, aioboto3, s3fs/fsspec,
+# and robinzhon code and found it was no faster. They ultimatly are all built as wrappers
+# against boto3 and botocore, but I want more options.
 # We max out he network performance no matter what based on the job arg
-
 
 # -------------------------------------------------
 def parse_bucket_and_folder_name(s3_full_folder_path):
@@ -190,7 +192,6 @@ def does_s3_file_exist(s3_client, bucket_name, s3_file_path):
 
 
 # -------------------------------------------------
-# TODO: Oct 2025: Try using _get_bucket.. bucket.objects.filter to see if it is any faster.
 def get_file_list_by_key(s3_client, bucket_name, s3_parent_src_folder_path, search_key=""):
     """
     Process:
@@ -198,8 +199,8 @@ def get_file_list_by_key(s3_client, bucket_name, s3_parent_src_folder_path, sear
         - You can optionally use a search key to filter records
     Inputs:
         - bucket_name: e.g mys3bucket_name
-        - s3_parent_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive). All applicable files will be
-          found under this folder.
+        - s3_parent_src_folder_path: e.g. foss_fim/previous_fim/hand_4_8_7_2 (case-sensitive).
+          All applicable files will be found under this folder.
         - search_key: OPTIONAL: phrase (str) to be searched: e.g */wbd.gpkg
           search key can have more than one astericks char as a wildcard, but only astericks work
           which means 0 to many chars.
@@ -233,16 +234,13 @@ def get_file_list_by_key(s3_client, bucket_name, s3_parent_src_folder_path, sear
                 for obj in page['Contents']:
                     s3_key = obj['Key']
                     key_adj = s3_key.replace(s3_parent_src_folder_path, "")
-                    if search_key == "":
-                        s3_items.append(s3_key)
-                    elif fnmatch.fnmatch(key_adj, search_key) is True:
+                    if search_key == "" or fnmatch.fnmatch(key_adj, search_key) is True:
                         s3_items.append(s3_key)
                     # no need for an eslse
 
         return s3_items
 
     except Exception as ex:
-
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
         return_msg, ___ = awssf.aws_exception_handler(ex)
@@ -304,8 +302,11 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
             args_item = {"search_key": search_key}
             tasks_args_list.append(args_item)
 
+        # files = merged_partial_get_file_by_key(**tasks_args_list[0])
+
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
+        # boto3 clients are thread-safe, sessions and resources are not.
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures_dict = [executor.submit(merged_partial_get_file_by_key, **arg) for arg in tasks_args_list]
 
@@ -313,8 +314,8 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
             for future in tqdm(
                 futures.as_completed(futures_dict),
                 total=len(tasks_args_list),
-                desc="downloading files",
-                miniters=10,
+                desc="Retrieving file paths",
+                miniters=10
             ):
                 if future.cancelled():
                     continue
@@ -326,7 +327,7 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
                         raise Exception(f"zooks: future item has an exception {future_exception}")
                     else:
                         result = future.result()
-                        full_list_files.append(result)
+                        full_list_files.extend(result)
                 # else:
                 #     print("looks good, future item is None though, how is that possible?")
         return full_list_files
@@ -452,15 +453,17 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
         os.makedirs(trg_dir, mode=full_access_permissions, exist_ok=True)
 
     # Configure multipart  settings. Speeds up large files
-    s3_config = TransferConfig(
-        multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
-        max_concurrency=30,  # 10 concurrent threads
-        multipart_chunksize=1024 * 25,  # 25MB per part
-        use_threads=True,  # Enable threading
-    )
+    # TODO: test to play with chunking sizes
+    # s3_config = TransferConfig(
+    #     multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
+    #     max_concurrency=30,  # 10 concurrent threads
+    #     multipart_chunksize=1024 * 25,  # 25MB per part
+    #     use_threads=True,  # Enable threading
+    # )
 
     try:
-        s3_client.download_file(bucket_name, s3_file_key, target_file_path, Config=s3_config)
+        # s3_client.download_file(bucket_name, s3_file_key, target_file_path, Config=s3_config)
+        s3_client.download_file(bucket_name, s3_file_key, target_file_path)
         does_file_exist = True
     except Exception as ex:
 
@@ -480,73 +483,73 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
 # -------------------------------------------------
 # Maybe let that be done at the script level and not here as a seperate client per mt
 # is required. See upload_large_datasets below for examples if we choose to add this.
-def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
-    """
-    Process:
-        - Note: The boto3.client must be already instantiated and passed in
-        - Using the incoming s3 src folder, call get_records to get a list of child folders and files
-        - Open a s3 client and iterate through the files to download
-        - Is recursive
-    Inputs:
-        - s3_client: my_client = boto3.client(profile, creds, whatever)
-        - s3_src_path: e.g. /inputs/fema (from s3://{some_bucket}/inputs/fema)
-        - trg_folder_path: e.g . /data/inputs/fema
+# def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
+#     """
+#     Process:
+#         - Note: The boto3.client must be already instantiated and passed in
+#         - Using the incoming s3 src folder, call get_records to get a list of child folders and files
+#         - Open a s3 client and iterate through the files to download
+#         - Is recursive
+#     Inputs:
+#         - s3_client: my_client = boto3.client(profile, creds, whatever)
+#         - s3_src_path: e.g. /inputs/fema (from s3://{some_bucket}/inputs/fema)
+#         - trg_folder_path: e.g . /data/inputs/fema
 
-    Returns:
-        - True or False (did a least one file download successfully)
+#     Returns:
+#         - True or False (did a least one file download successfully)
 
-        The calling code and decide what to do with it.
-        Note: Exceptions can still be thrown for catastropic errors (creds, other)
-    """
+#         The calling code and decide what to do with it.
+#         Note: Exceptions can still be thrown for catastropic errors (creds, other)
+#     """
 
-    # re-validate the connection and credentials as well
-    is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
-    if not is_success:
-        # In this case, we want to raise a new Exception
-        raise Exception(return_msg)
+#     # re-validate the connection and credentials as well
+#     is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
+#     if not is_success:
+#         # In this case, we want to raise a new Exception
+#         raise Exception(return_msg)
 
-    # both src must have a slash on the end only
-    # strip leading slash if exists
-    s3_src_path = s3_src_path.lstrip("/")
+#     # both src must have a slash on the end only
+#     # strip leading slash if exists
+#     s3_src_path = s3_src_path.lstrip("/")
 
-    if not s3_src_path.endswith("/"):
-        s3_src_path += "/"
+#     if not s3_src_path.endswith("/"):
+#         s3_src_path += "/"
 
-    # target must have a slash on the end only
-    # strip leading slash if exists
-    trg_folder_path = trg_folder_path.lstrip("/")
-    if not trg_folder_path.endswith("/"):
-        trg_folder_path += "/"
+#     # target must have a slash on the end only
+#     # strip leading slash if exists
+#     trg_folder_path = trg_folder_path.lstrip("/")
+#     if not trg_folder_path.endswith("/"):
+#         trg_folder_path += "/"
 
-    # operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path, 'Delimiter': '/'}
-    # if you add the delimiter of '/' it will get files at that level only and not recursive
-    operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path}
-    paginator = s3_client.get_paginator('list_objects_v2')
-    pages = paginator.paginate(**operation_parameters)
+#     # operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path, 'Delimiter': '/'}
+#     # if you add the delimiter of '/' it will get files at that level only and not recursive
+#     operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path}
+#     paginator = s3_client.get_paginator('list_objects_v2')
+#     pages = paginator.paginate(**operation_parameters)
 
-    min_one_file_downloaded = False
-    for page in pages:
-        if 'Contents' in page:
+#     min_one_file_downloaded = False
+#     for page in pages:
+#         if 'Contents' in page:
 
-            # Iterate over each object and download it
-            for obj in page['Contents']:
-                s3_key = obj['Key']
-                if s3_key[-1] != "/":  # if it was a folder (ending in a slash, we skip it)
-                    rel_path = os.path.relpath(s3_key, s3_src_path)
-                    local_file_path = "/" + os.path.join(trg_folder_path, rel_path)
+#             # Iterate over each object and download it
+#             for obj in page['Contents']:
+#                 s3_key = obj['Key']
+#                 if s3_key[-1] != "/":  # if it was a folder (ending in a slash, we skip it)
+#                     rel_path = os.path.relpath(s3_key, s3_src_path)
+#                     local_file_path = "/" + os.path.join(trg_folder_path, rel_path)
 
-                    os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
-                    s3_client.download_file(bucket_name, s3_key, local_file_path)
-                    min_one_file_downloaded = True
+#                     os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+#                     s3_client.download_file(bucket_name, s3_key, local_file_path)
+#                     min_one_file_downloaded = True
 
-    return min_one_file_downloaded
+#     return min_one_file_downloaded
 
 
 # -------------------------------------------------
 # You generally want to use this only when you have a large number of files to upload.
 # Size of each file is not relavent.
 # This uses multi-threading and not multi-proc
-def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
+def download_files_by_file_list(s3_client, bucket_name, file_list, num_workers=1):
     '''
     file_list must be a list of dictionaries: {"src_file": file_path, "trg_file": trg_file}
     Note: src_file is the S3 path without the "s3://" and "bucket name"
@@ -584,6 +587,7 @@ def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
 
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
+        # boto3 clients are thread-safe, sessions and resources are not.
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures_dict = [executor.submit(merged_partial_download_file, **arg) for arg in tasks_args_list]
 
@@ -592,7 +596,7 @@ def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
                 futures.as_completed(futures_dict),
                 total=len(tasks_args_list),
                 desc="downloading files",
-                miniters=10,
+                miniters=100,
             ):
                 if future.cancelled():
                     continue
@@ -613,6 +617,223 @@ def download_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
         # if it finds it, it returns a nice user friendly message
         return_msg, ___ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
+
+# -------------------------------------------------
+# You generally want to use this only when you have a large number of files to upload.
+# Size of each file is not relavent.
+# This uses multi-threading and not multi-proc
+def download_folders(s3_client, bucket_name, s3_src_path, trg_folder_path, list_of_search_key = [""], num_workers=1):
+
+    """
+    Process:
+
+        This can be for one folder or multiple folders via search keys.
+
+        - Note: The boto3.client must be already instantiated and passed in
+        - Using the incoming s3 src folder, call get_records to get a list of child folders and files
+        - Open a s3 client and iterate through the files to download
+        - Is recursive
+        - You can optionaly use a list of search keys (see examples below). If you do use non empty
+          search keys, performance will be a bit slower.
+        - If you want everything in a folder, do not submit the list_of_search_keys and it will
+          give you all files under the s3_src_path. This will generally download faster.
+    Inputs:
+        - s3_client: my_client = boto3.client(profile, creds, whatever)
+        - s3_src_path: e.g. /inputs/fema (from s3://{some_bucket}/inputs/fema)
+        - trg_folder_path: e.g . /data/inputs/fema
+        - list_of_search_key: simple list of strings, see search key below
+        - num_of_workers if you want to use MT (multi-threading)
+
+    Returns:
+        - Number of files downloaded after searching if applicable
+
+        The calling code and decide what to do with it.
+        Note: Exceptions can still be thrown for catastropic errors (creds, other)
+    """
+
+    # Examples for each item in the list of search_keys:
+    #   */hydrotable.csv  - looks at the first level only (ie. huc level)
+    #   */branches/*/rem_zeroed_masked_*.tif  - looks for all branch level rems
+    #   fim_inputs.csv  - file at the root src_s3_folder_path (ie. hand_4_8_7_2)
+    # if list_of_search_key is None or empty, This will just download an entire directory
+
+    # Note: untested if you want all all files under a subfolder. Might need to use download_folder, TBD
+
+    if list_of_search_key is None:
+        list_of_search_key = [""]
+
+    if not type(list_of_search_key) == list:
+        raise Exception("Error: argument for list_of_search_keys must be a 'list' type")
+
+    skip_multi = False
+    if list_of_search_key[0] == "" and len(list_of_search_key) == 0:
+        skip_multi = True
+
+    # This assumes the bucket exists and the session/client are still alive and valid
+    total_files_downloads = 0
+    try:
+
+        # both src must have a slash on the end only
+        # strip leading slash if exists
+        s3_src_path = s3_src_path.lstrip("/")
+
+        if not s3_src_path.endswith("/"):
+            s3_src_path += "/"
+
+        # target must have a slash on the end only
+        # strip leading slash if exists
+        trg_folder_path = trg_folder_path.lstrip("/")
+        if not trg_folder_path.endswith("/"):
+            trg_folder_path += "/"
+
+        tasks_args_list = []
+
+        # "partials" allow you to set some of the values that are shared by all
+        # Multi-threads (or procs) so we don't have so much duplication.
+        # In this case, we had to use this for sharing the s3_client.
+        # The other two remaing args to upload_file are unique and are handled
+        # by the for loop and list of dictionaries.
+        merged_partial_download_file = partial(
+            download_files_by_search_key,
+            s3_client=s3_client,
+            bucket_name=bucket_name,
+            s3_src_path=s3_src_path,
+            trg_folder_path=trg_folder_path
+        )
+        # Shared client appears to not be threadsafe as long as I keep the job down (under 20?)
+        for i, search_key in enumerate(list_of_search_key):
+            if search_key == "":
+                # ignore all other keys as they are relevant
+                tasks_args_list = [{"search_key": search_key}]
+                break
+            args_item = {"search_key": search_key, "id_number": i}
+            tasks_args_list.append(args_item)
+
+        if skip_multi:
+            print("-----------------")
+            print("*** Note: We use one progress bar per pattern. There are some small bugs and sometimes"
+                " you will see a progress bar for a key show up a second time. This is fine and"
+                " it is not really downloading that key set twice.")
+            print("-----------------")
+
+        # Dispatch work tasks with our s3_client
+        # Need to use a thread and not an mp here (sharing usage of the s3 client)
+        # boto3 clients are thread-safe, sessions and resources are not.
+        with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+        # with futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+
+            futures_dict = [executor.submit(merged_partial_download_file, **arg) for arg in tasks_args_list]
+
+            for future in futures.as_completed(futures_dict):
+                if future is not None:
+                    if future.cancelled():
+                        continue
+                    if not future.exception():
+                        num_files_downloaded = future.result()
+                        total_files_downloads+= num_files_downloaded
+                    else:
+                        raise future.exception()  # re-raise it
+
+    except Exception as ex:
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, ___ = awssf.aws_exception_handler(ex)
+        raise Exception(return_msg)
+    
+    return total_files_downloads
+
+
+def download_files_by_search_key(s3_client, bucket_name, 
+                                s3_src_path,
+                                trg_folder_path,
+                                search_key="",
+                                id_number=0):
+
+    # Examples of searching
+    # search_key = "" means download everything in that s3_src_path_folder
+    # search_key = "*/hydrotable.csv"  - looks at the first level only (ie. huc level)
+    # search_key = "*/branches/*/rem_zeroed_masked_*.tif"  - looks for all branch level rems
+    # search_key = "fim_inputs.csv"  - file at the root src_s3_folder_path (ie. hand_4_8_7_2)
+    # if you want all files under the s3_parent_src_folder_path, just submit ""
+
+    # both src must have a slash on the end only
+    # strip leading slash if exists
+    s3_src_path = s3_src_path.lstrip("/")
+
+    if not s3_src_path.endswith("/"):
+        s3_src_path += "/"
+
+    # target must have a slash on the end only
+    # strip leading slash if exists
+    trg_folder_path = trg_folder_path.lstrip("/")
+    if not trg_folder_path.endswith("/"):
+        trg_folder_path += "/"
+
+    # This assumes the bucket exists and the session/client are still alive and valid
+    num_files_downloaded = 0
+
+    # A bit of start staggering to help not overload the MP (milliseconds) (total is 1 seconds)
+    time.sleep(random.uniform(1, 1000) / 1000)
+
+    try:
+
+        # operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path, 'Delimiter': '/'}
+        # if you add the delimiter of '/' it will get files at that level only and not recursive
+        operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path}
+
+        # We want the number of pages, so we need to get run the paginator twice.
+        # One to get the page count (Yes.. goofy, but sounds like there is no other way).
+        # The second to process it. If we do it both in one, the pages get messed up and some
+        # pages get skipped.
+        paginator = s3_client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(**operation_parameters)
+
+        number_of_pages = 0  # for some reason, I can not easily get a count for of pages
+        for page in pages:
+            number_of_pages+=1
+
+        # show this message for the first one only, even if it function did not come in as MT
+        if id_number == 0:
+            print("s3 files are searched 1000 at a time and downloading applicable files.", flush=True)
+        
+        pages = paginator.paginate(**operation_parameters)
+
+        # for page in pages:
+        cur_page_num = 1
+        with tqdm(position=id_number, total=number_of_pages, miniters=10,
+                    desc=f"key: '{search_key}' : pg {cur_page_num} of {number_of_pages} [{id_number}]",
+                    bar_format="{l_bar}{bar:20}{r_bar} ") as pbar:
+            for page in pages:
+                # need a small tqdm sleep so updating the progress bar does not collide
+                # time.sleep(0.05*thread_number)
+                if 'Contents' in page:
+
+                    # Iterate over each object and download it
+                    for obj in page['Contents']:
+                        s3_key = obj['Key']
+                        key_adj = s3_key.replace(s3_src_path, "")
+                        if search_key == "" or fnmatch.fnmatch(key_adj, search_key) is True:
+                            rel_path = os.path.relpath(s3_key, s3_src_path)
+                            local_file_path = "/" + os.path.join(trg_folder_path, rel_path)
+
+                            os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+                            s3_client.download_file(bucket_name, s3_key, local_file_path)
+                            num_files_downloaded+=1
+                time.sleep(0.1)  # needed for via an inner loop allows time for print queue
+                pbar.update(1)
+                
+
+        if num_files_downloaded == 0:
+            print(f"*** Warning: Downloading file using search key of 'search_key' found zero files to download."
+                   " Check the search key value and/or pathing")
+
+    except Exception as ex:
+        # Check if our aws_exception_handler knows what it is.
+        # if it finds it, it returns a nice user friendly message
+        return_msg, ___ = awssf.aws_exception_handler(ex)
+        raise Exception(return_msg)
+
+    return num_files_downloaded
 
 
 # -------------------------------------------------
@@ -665,12 +886,12 @@ def upload_file(
     # print(f"Staring upload for  {src_file_path}")
 
     # Configure multipart  settings. Speeds up large files
-    s3_config = TransferConfig(
-        multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
-        max_concurrency=10,  # 10 concurrent threads
-        multipart_chunksize=1024 * 25,  # 25MB per part
-        use_threads=True,  # Enable threading
-    )
+    # s3_config = TransferConfig(
+    #     multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
+    #     max_concurrency=10,  # 10 concurrent threads
+    #     multipart_chunksize=1024 * 25,  # 25MB per part
+    # )
+    #   use_threads=True,  # Enable threading    
 
     try:
         # Will show progress if a large file
@@ -689,11 +910,12 @@ def upload_file(
                     bucket_name,
                     trg_file_path,
                     Callback=awssf.ProgressPercentage(src_file_path),
-                    Config=s3_config,
                 )
+                   # Config=s3_config,                
                 print("", flush=True)  # reset the console lines as it does not have an line break
             else:
-                s3_client.upload_file(src_file_path, bucket_name, trg_file_path, Config=s3_config)
+                # s3_client.upload_file(src_file_path, bucket_name, trg_file_path, Config=s3_config)
+                s3_client.upload_file(src_file_path, bucket_name, trg_file_path)
 
     except Exception as ex:
 
@@ -706,10 +928,15 @@ def upload_file(
 
 
 # -------------------------------------------------
+# TODO: Build an upload folder function, similar to the donwload_folders
+# def upload_folder(s3_client, bucket_name, src_folder, path, s3_trg_path, num_workers=10):
+
+
+# -------------------------------------------------
 # You generally want to use this only when you have a large number of files to upload.
 # Size of each file is not relavent.
 # This uses multi-threading and not multi-proc
-def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
+def upload_by_file_list(s3_client, bucket_name, file_list, num_workers=10):
     '''
     file_list must be a list of dictionaries: {"src_file": file_path, "trg_file": trg_file}
     Note: trg_file is the S3 path without the "s3://" and "bucket name"
@@ -754,6 +981,7 @@ def upload_large_filesets(s3_client, bucket_name, file_list, num_workers=10):
 
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
+        # boto3 clients are thread-safe, sessions and resources are not.
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures_dict = [executor.submit(merged_partial_upload_file, **arg) for arg in tasks_args_list]
 
