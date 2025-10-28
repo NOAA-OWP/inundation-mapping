@@ -16,6 +16,11 @@ This PR also covers an small adjustment to CatFIM, renaming its previous `catfim
 ### Usage Note:
 Details on full tool usage are embedded in the scripts themselves. This tool relies on two separate config env files, one for aws permissions and one for params to upload data to HydroVIS. The files exist in EFS... /data/config and are named aws_credentials.env and hv_deploy_params.env. Details on how to setup and use the two files are also not described here due to sensitive information, but details in those files have been added. It does not tell how to create an AWS profile as this is assumed to be common knowledge and is in other FIM-Dev developer docs.
 
+### Architecture Notes:
+The architecture introduced in this PR includes and sets us up for:
+- A new AWS communication and credentials layer, which can easily be updated for talking to other objects such as Lambdas, Step functions, EC2's, etc, including easy scripts to trigger "UAT" runs including status messaging to the user.
+- Adding a workflow system also allows running scripts normally run during production runs only, including output data validation, copying different combinations of output data to various S3 buckets and/or EFS paths.
+
 ### Additions
 - `.gitignore`:  With the rename of `catfim.env.template` to `fim_enviro_values.env.template`, this ensures the file gets into GIT.
 - `config`:  A new template for `aws_credentials.template.env`, and `hv_deploy_params.template`.
