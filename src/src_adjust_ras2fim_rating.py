@@ -35,8 +35,7 @@ Processing
 
 Inputs
 - branch_dir:           fim directory containing individual HUC output dirs
-- ras_rc_filepath:      RAS2FIM rating curve database
-                            (produced by reformat_ras_rating_curve.py in ras2fim repo)
+- ras_rc_filename:      Name of RAS2FIM rating curve database referenced in src/bash_variables.env
 - nwm_recurr_filepath:  NWM flow recurrence interval dataset
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
 - branch_jobs:           number of multi-processing branches jobs to use
@@ -179,7 +178,8 @@ def create_ras2fim_rating_database(huc_ras_input_file, ras_elev_df, nwm_recurr_f
         log_text += calc_df[calc_df['check_variance'] > 0.1].to_string() + '\n'
         final_df = final_df[final_df['check_variance'] < 0.1]
         # Get datestamp from ras2fim rating curve file to use as coll_time attribute in hydroTable.csv
-        datestamp = check_file_age(ras_rc_filepath)
+        # TODO below needs update since now it is a file name and not a path and will return None
+        datestamp = check_file_age(ras_rc_filename)
         final_df['coll_time'] = str(datestamp)[:15]
 
     # Rename attributes (for ingest to update_rating_curve) and output csv with the RAS2FIM RC database
@@ -291,8 +291,7 @@ def branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file, branch_job
         log_file.writelines(["%s\n" % item for item in log_output])
 
 
-def run_prep(huc_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, branch_jobs):
-    # TODO remove ras_input_dir argument which is not needed anymore
+def run_prep(huc_dir, ras_rc_filename, nwm_recurr_filepath, debug_outputs_option, branch_jobs):
     ## Create output dir for log and ras2fim rc database
     log_dir = os.path.join(huc_dir, "logs", "src_optimization")
     print("Log file output here: " + str(log_dir))
@@ -320,16 +319,12 @@ def run_prep(huc_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug
 
     if 1:  # TODO temporary for an easier PR review
         # huc_run_dir = os.path.join(run_dir, huc)
-        huc_ras_input_file = os.path.join(huc_dir, ras_rc_filepath)
+        huc_ras_input_file = os.path.join(huc_dir, ras_rc_filename)
         print('Reading RAS2FIM point loc HAND elevation from ras_elev_table csv file...')
         ras_elev_df = pd.read_csv(
             ras_elev_path,
             dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
         )
-
-        ## Create an aggregate dataframe with all ras2fim rating curve csv files
-        # print('Reading RAS2FIM rating curves csv files from the input directory...')
-        # ras_rating_df = concat_huc_csv(ras_input_dir, ras_rc_filepath)
 
         if ras_elev_df is None:
             warn_err = (
@@ -371,9 +366,6 @@ if __name__ == '__main__':
     )
     parser.add_argument('-huc_dir', '--huc_dir', help='directory of a HUC run.', required=True)
     parser.add_argument(
-        '-ras_input', '--ras2fim-dir', help='Path to RAS2FIM rating curve input directory', required=True
-    )
-    parser.add_argument(
         '-ras_rc',
         '--ras2fim-ratings',
         help='CSV file name for RAS2FIM rating curve (reach avg)',
@@ -400,11 +392,10 @@ if __name__ == '__main__':
     ## Assign variables from arguments.
     args = vars(parser.parse_args())
     huc_dir = args['huc_dir']
-    ras_input_dir = args['ras2fim_dir']
-    ras_rc_filepath = args['ras2fim_ratings']
+    ras_rc_filename = args['ras2fim_ratings']
     nwm_recurr_filepath = args['nwm_recur']
     debug_outputs_option = args['extra_outputs']
     branch_jobs = int(args['branch_jobs'])
 
     ## Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(huc_dir, ras_input_dir, ras_rc_filepath, nwm_recurr_filepath, debug_outputs_option, branch_jobs)
+    run_prep(huc_dir, ras_rc_filename, nwm_recurr_filepath, debug_outputs_option, branch_jobs)

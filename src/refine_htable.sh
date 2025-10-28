@@ -25,7 +25,7 @@ l_echo ""
 if [ "${manual_postproces,,}" = "true" ]; then
     l_echo $startDiv"Reseting hydroTable & scr_full_crosswalked for branches"
     Tstart
-    python3 $srcDir/update_htable_src.py -huc_dir $tempHucDataDir
+    python3 $srcDir/reset_htable_src.py -huc_dir $tempHucDataDir
     Tcount
 fi
 
@@ -33,7 +33,7 @@ fi
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
 l_echo $startDiv"Processing usgs & ras2fim elev table aggregation"
 Tstart
-python3 $srcDir/aggregate_by_huc.py -huc_dir $tempHucDataDir -elev -ras
+python3 $srcDir/aggregate_branches_to_huc.py -huc_dir $tempHucDataDir -elev -ras
 Tcount
 
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
@@ -114,7 +114,6 @@ if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
     python3 $srcDir/src_adjust_ras2fim_rating.py \
         -huc_dir $tempHucDataDir \
-        -ras_input $ras2fim_input_dir \
         -ras_rc $ras_rating_curve_csv_filename \
         -nwm_recur $nwm_recur_file \
         -jb $jobBranchLimit
@@ -144,7 +143,7 @@ fi
 ## AGGREGATE BRANCH TABLES ##
 l_echo $startDiv"Aggregating branch hydrotables"
 Tstart
-python3 $srcDir/aggregate_by_huc.py \
+python3 $srcDir/aggregate_branches_to_huc.py \
     -huc_dir $tempHucDataDir \
     -htable \
     -bridge
@@ -185,5 +184,9 @@ Tstart
     fi
     l_echo "scan of warnings done"
 Tcount
+
+
+
+#TODO: make sure to clean the log folder in fim pipeline since logs should be huc-level created.
 
 

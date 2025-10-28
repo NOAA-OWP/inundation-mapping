@@ -80,14 +80,6 @@ def manual_calibration(huc_dir: str, calibration_file: str):
                 feature_id combination.
     """
 
-    # # Get list of HUCs
-    # fim_inputs = pd.read_csv(
-    #     os.path.join(fim_directory, 'fim_inputs.csv'),
-    #     header=None,
-    #     names=['HUC', 'branch_id'],
-    #     dtype={'HUC': str, 'branch_id': int},
-    # )
-
     # fim_inputs_hucs = fim_inputs['HUC'].unique()
     hucNumber = os.path.basename(os.path.normpath(huc_dir))
 
