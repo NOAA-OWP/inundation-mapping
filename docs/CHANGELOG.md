@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-09-29 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/)
+## v4.x.x.x - 2025-09-29 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
 
 This PR adds a new script to pull, extract, and conflate MRMS FLASH flow values to NWM reaches to use in generating HAND FIM. FLASH FIM can be useful during flash flooding scenarios where conditions change quickly and high temporal resolution (up to every 10 minutes) is necessary. 
 

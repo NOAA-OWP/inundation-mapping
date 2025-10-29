@@ -173,7 +173,7 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
     export_flow.to_csv(output_path, index=False)
 
 
-def conflate_all_models(hucs, output, timestep, min_order):
+def conflate_all_models(hucs, huc_file, hydrofabric_file, output, timestep, min_order):
     """
     Function for conflating the FLASH output flow values to the Hydrofabric reference flowlines to obtain a flow file
     for each model (CREST, SAC-SMA, and Hydrophobic) to use to generate HAND FIM. This Function requires a list of hucs
@@ -182,23 +182,34 @@ def conflate_all_models(hucs, output, timestep, min_order):
     Args:
 
         hucs (str): HUCs to extract FLASH flow for.
+        huc_file (str): Path to HUC geopackage, either full CONUS or a subset.
+        hydrofabric_file (str): Path to hydrofabric flowpaths geopackage. Must be reference hydrofabric v3.0 or newer.
         output (str): Path and base name to output flow files. Ex. "/user/Documents/flow_file.csv"
         timestep (str): Timestep to pull data from. Pulls either "latest" or archived data using a specific timestep
                         with the format YYYYMMDD-HHMMSS. Ex. 20250704-083000
         min_order (str): Minimum stream order to use in conflating flow.
 
     Example Usage:
-    python /foss_fim/tools/flash_fim.py -u 12100201 12090201 -o /user/Documents/latest_flow.csv -t 20250704-083000 -m 3
+    python /foss_fim/tools/flash_fim.py -u 12100201 12090201 -b /user/Documents/HUC8_CONUS.gpkg
+    -hf /user/Documents/hydrofabric_reference_2_3.gpkg -o /user/Documents/latest_flow.csv -t 20250704-083000 -m 3
 
     """
+    # Check that input paths exist
+    if os.path.exists(huc_file) == False:
+        raise Exception(f"Input HUC file {huc_file} does not exist.")
 
-    huc8 = gpd.read_file("/data/inputs/wbd/WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg", engine="pyogrio")
+    if os.path.exists(hydrofabric_file) == False:
+        raise Exception(f"Input hydrofabric file:{hydrofabric_file} does not exist.")
+
+    if os.path.exists(os.path.dirname(output)) == False:
+        os.makedirs(os.path.dirname(output), exist_ok=True)
+
+    # Subset hydrofabric to HUCs of interest
+    huc8 = gpd.read_file(huc_file, engine="pyogrio")
     huc8 = huc8.loc[huc8["HUC8"].astype(str).isin(hucs)]
-    huc_flows = gpd.read_file(
-        "/data/inputs/reference_hydrofabric/reference_fabric_v2_3_flowpaths.gpkg",
-        mask=huc8.geometry,
-        engine="pyogrio",
-    )
+    huc_flows = gpd.read_file(hydrofabric_file, mask=huc8.geometry, engine="pyogrio")
+
+    # Conflate Flows
     flash_flow_conflation(
         model="CREST", timestep=timestep, huc_flows=huc_flows, output=output, min_order=min_order
     )
@@ -214,7 +225,25 @@ if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser(description="Tool to conflate flow from FLASH raster to NWM flowlines")
 
-    parser.add_argument("-u", "--hucs", help="HUCs to run", required=True, default="", type=str, nargs="+")
+    parser.add_argument(
+        "-u", "--hucs", help="List of HUCs to run", required=True, default="", type=str, nargs="+"
+    )
+    parser.add_argument(
+        "-b",
+        "--huc-file",
+        help="Path to HUC geopackage, CONUS scale or subset.",
+        required=True,
+        default="",
+        type=str,
+    )
+    parser.add_argument(
+        "-hf",
+        "--hydrofabric-file",
+        help="Path to hydrofabric flowpaths geopackage. Must be reference hydrofabric v3.0 or newer.",
+        required=True,
+        default="",
+        type=str,
+    )
 
     parser.add_argument("-o", "--output", help="Output flow file.", required=True, default=None, type=str)
     parser.add_argument(
