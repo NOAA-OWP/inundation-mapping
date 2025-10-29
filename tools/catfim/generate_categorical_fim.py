@@ -68,7 +68,7 @@ Tenative notes:
     
     - Primary tasks for this script become:
         - processing incomings and creating system wide variables as needed. They will be saved into
-          a runtime_args.txt file that catfim_process_huc.py and catfim_post_processing.py can pick up and use.
+          a runtime_args.env file that catfim_process_huc.py and catfim_post_processing.py can pick up and use.
           
         - This will setup the overall folder structure including the parent catfim output paths such
           as hand_4_x_x_x_flow_based.
@@ -226,10 +226,19 @@ def process_generate_categorical_fim(
     # Validation and setup
 
     # Append option configuration (flow_based or stage_based) to output folder name.
-    if is_stage_based:
+    if is_stage_based:  # catfim_type = fb or sb (case?)
         catfim_method = "stage_based"
     else:
         catfim_method = "flow_based"
+
+    # validate all of these vales before creating the runtime_args.env
+    # create_runtime_args_file(catfim_type,
+    #                          model_version,
+    #                          nwm_metafile_path,
+    #                          threshold_file_path,
+    #                          fim_run_dir,
+    #                          past_major_interval_cap)
+
 
     # Define output directories
     if output_folder.endswith("/"):
@@ -238,15 +247,19 @@ def process_generate_categorical_fim(
 
     local_vals = locals()
 
+    # most of these won't be needed as each HUC
+    # will have their own of each of these possibly
+    # I think all we need here is a folder named something like "hucs"
+    huc_dir = os.path.join(output_catfim_dir, 'hucs')
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
     output_thresholds_dir = os.path.join(output_catfim_dir, 'thresholds')
 
     # ================================
-    set_start_files_folders(
-        step_num, output_catfim_dir, output_mapping_dir, output_flows_dir, attributes_dir, overwrite
-    )
+    # set_start_files_folders(
+    #     step_num, output_catfim_dir, output_mapping_dir, output_flows_dir, attributes_dir, overwrite
+    # )
 
     FLOG.trace("locals...")
     FLOG.trace(local_vals)
@@ -2266,6 +2279,32 @@ def generate_stage_based_categorical_fim(
         FLOG.warning(f"nws_sites_layer ({nws_lid_gpkg_file_path}) : has no messages and should have some")
 
 
+def __create_runtime_args_file(output_catfim_dir,
+                               catfim_type,
+                               model_version,
+                               nwm_metafile_path,
+                               threshold_file_path,
+                               fim_run_dir,
+                               past_major_interval_cap):
+    
+    # Flow paths? not sure depends if we pull something out of it or just let process_hucs go get it.
+    # or does Flow_paths make ones for each HUC?
+    
+    args_file_name = "runtime_args.env"
+    args_file = os.path.join(output_catfim_dir, args_file_name)
+    
+    # Open the file using standard IO, then write lines to it.
+    # All of these will be validated before we get here
+    
+    "CATFIM_TYPE"
+    "MODEL_VERSION"
+    "NWM_METAFILE_PATH"
+    "THRESHOLD_FILE_PATH"
+    "FIM_RUN_DIR"
+    "PAST_MAJOR_INTERVAL_CAP"
+    # others?
+
+
 def set_start_files_folders(
     step_num, output_catfim_dir, output_mapping_dir, output_flows_dir, attributes_dir, overwrite
 ):
@@ -2323,30 +2362,34 @@ def set_start_files_folders(
 if __name__ == '__main__':
 
     '''
-    Sample
-    python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8
-    -e /data/config/catfim.env -t /data/catfim/rob_test/docker_test_1
-    -me '/data/catfim/rob_test/nwm_metafile.pkl' -sb -cv "2.2" -hv "4.5.11.1" -step 2
+    Sample mins args:
+    python /foss_fim/tools/generate_categorical_fim.py -f /data/previous_fim/fim_4_5_2_11
+    -ct fb -t /data/catfim/hand_4_8_7_2
+
+    Note... you likely want to always use the 'j' (number of jobs flag) which defaults to 1.
     '''
 
     # Parse arguments
     parser = argparse.ArgumentParser(description='Run Categorical FIM')
+    
     parser.add_argument(
         '-f',
-        '--fim_run_dir',
-        help='REQUIRED: Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11',
+        '--fim-run-dir',
+        help='REQUIRED: Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11'
+        ' or /data/outputs/test_hand_subset',
         required=True,
     )
     parser.add_argument(
         '-e',
-        '--env_file',
-        help='REQUIRED: Docker mount path to the catfim environment file. ie) data/config/catfim.env',
-        required=True,
+        '--env-file',
+        help='Optional: Docker mount path to the catfim environment file. ie) data/config/catfim.env',
+        required=False,
     )
 
+    # Keep this
     parser.add_argument(
         '-jh',
-        '--job_number_huc',
+        '--job-number-huc',
         help='OPTIONAL: Number of processes to use for HUC scale operations.'
         ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'
         ' machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be '
@@ -2355,44 +2398,57 @@ if __name__ == '__main__':
         default=1,
         type=int,
     )
-    parser.add_argument(
-        '-jn',
-        '--job_number_inundate',
-        help='OPTIONAL: Number of processes to use for inundating'
-        ' HUC and inundation job numbers should multiply to no more than one less than the CPU count'
-        ' of the machine. Defaults to 1.',
-        required=False,
-        default=1,
-        type=int,
-    )
+    
+    # Remove this arg
+    # parser.add_argument(
+    #     '-jn',
+    #     '--job-number-inundate',
+    #     help='OPTIONAL: Number of processes to use for inundating'
+    #     ' HUC and inundation job numbers should multiply to no more than one less than the CPU count'
+    #     ' of the machine. Defaults to 1.',
+    #     required=False,
+    #     default=1,
+    #     type=int,
+    # )
 
-    parser.add_argument(
-        '-ji',
-        '--job_number_intervals',
-        help='OPTIONAL: Number of processes to use for inundating multiple intervals in stage-based'
-        ' inundation and interval job numbers should multiply to no more than one less than the CPU count '
-        'of the machine. Defaults to 1.',
-        required=False,
-        default=1,
-        type=int,
-    )
+    # Remove this arg
+    # parser.add_argument(
+    #     '-ji',
+    #     '--job-number-intervals',
+    #     help='OPTIONAL: Number of processes to use for inundating multiple intervals in stage-based'
+    #     ' inundation and interval job numbers should multiply to no more than one less than the CPU count '
+    #     'of the machine. Defaults to 1.',
+    #     required=False,
+    #     default=1,
+    #     type=int,
+    # )
 
+    # Change this to manditory type. maybe -ct fb  or sb  (helps it be more verbose)
+    # parser.add_argument(
+    #     '-sb',
+    #     '--is-stage-based',
+    #     help='Run stage-based CatFIM instead of flow-based? Add this -sb param to make it stage based,'
+    #     ' leave it off for flow based',
+    #     required=False,
+    #     default=False,
+    #     action='store_true',
+    # )
     parser.add_argument(
-        '-sb',
-        '--is_stage_based',
-        help='Run stage-based CatFIM instead of flow-based? Add this -sb param to make it stage based,'
-        ' leave it off for flow based',
-        required=False,
-        default=False,
-        action='store_true',
+        '-ct',
+        '--catfim-type',
+        help="REQUIRE: add the value of 'fb' for Flow-Based processing or 'sb' for Stage-Based",
+        required=True,
     )
+    
     parser.add_argument(
         '-t',
         '--output_folder',
-        help='OPTIONAL: Target location, Where the output folder will be. Defaults to /data/catfim/',
-        required=False,
-        default='/data/catfim/',
+        help='REQUIRED: Target location, Where the output folder will be.'
+        'ie /data/catfim/hand_4_8_7_2 or /data/catfim/test/test1',
+        required=True,
     )
+    
+    # Do we want to keep this as an arg? does it ever get used? or do we just hardcoded it in as a form of a global var.
     parser.add_argument(
         '-s',
         '--search',
@@ -2402,6 +2458,7 @@ if __name__ == '__main__':
     )
 
     # NOTE: The HUCs you put in this, MUST be a HUC that is valid in your -f/ --fim_run_dir (HAND output folder)
+    # Keep this as is
     parser.add_argument(
         '-lh',
         '--lst_hucs',
@@ -2410,6 +2467,7 @@ if __name__ == '__main__':
         default='all',
     )
 
+    # Keep this
     parser.add_argument(
         '-mc',
         '--past_major_interval_cap',
@@ -2420,18 +2478,19 @@ if __name__ == '__main__':
         type=float,
     )
 
-    parser.add_argument(
-        '-step',
-        '--step-num',
-        help='OPTIONAL: By adding a number here, you may be able to skip levels of processing. The number'
-        ' you submit means it will start at that step. e.g. step of 2 means start at step 2 which for flow'
-        ' based is the creating of tifs and gpkgs. Note: This assumes'
-        ' those previous steps have already been processed and the files are present.'
-        ' Defaults to 0 which means all steps processed.',
-        required=False,
-        default=0,
-        type=int,
-    )
+    # Remove
+    # parser.add_argument(
+    #     '-step',
+    #     '--step-num',
+    #     help='OPTIONAL: By adding a number here, you may be able to skip levels of processing. The number'
+    #     ' you submit means it will start at that step. e.g. step of 2 means start at step 2 which for flow'
+    #     ' based is the creating of tifs and gpkgs. Note: This assumes'
+    #     ' those previous steps have already been processed and the files are present.'
+    #     ' Defaults to 0 which means all steps processed.',
+    #     required=False,
+    #     default=0,
+    #     type=int,
+    # )
 
     # NOTE: This params is for quick debugging only and should not be used in a production mode
     parser.add_argument(
@@ -2453,16 +2512,17 @@ if __name__ == '__main__':
         default="",
     )
 
-    parser.add_argument(
-        '-cv',
-        '--catfim-version',
-        help='OPTIONAL: The version of the code that was used to run the product. This value is included'
-        ' in the output gpkgs and csvs in a field named product_version. If you put in a value here,'
-        ' we will add the phrase CatFIM to the front of it.'
-        ' ie) 2.0 becomes CatFIM, 2.2 becomes CatFIM, etc. Defaults to blank',
-        required=False,
-        default="",
-    )
+    # Remove
+    # parser.add_argument(
+    #     '-cv',
+    #     '--catfim-version',
+    #     help='OPTIONAL: The version of the code that was used to run the product. This value is included'
+    #     ' in the output gpkgs and csvs in a field named product_version. If you put in a value here,'
+    #     ' we will add the phrase CatFIM to the front of it.'
+    #     ' ie) 2.0 becomes CatFIM, 2.2 becomes CatFIM, etc. Defaults to blank',
+    #     required=False,
+    #     default="",
+    # )
 
     parser.add_argument(
         '-hv',
@@ -2476,16 +2536,12 @@ if __name__ == '__main__':
         default="",
     )
 
-    parser.add_argument(
-        '-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true"
-    )
+    # Remove this. Individual HUCs can be re-run if we want, then re-run post processing.
+    # parser.add_argument(
+    #     '-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true"
+    # )
 
     args = vars(parser.parse_args())
 
-    try:
-
-        # call main program
-        process_generate_categorical_fim(**args)
-
-    except Exception:
-        FLOG.critical(traceback.format_exc())
+    # call main program
+    process_generate_categorical_fim(**args)
