@@ -6,7 +6,10 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 This PR adds a new script to pull, extract, and conflate MRMS FLASH flow values to NWM reaches to use in generating HAND FIM. FLASH FIM can be useful during flash flooding scenarios where conditions change quickly and high temporal resolution (up to every 10 minutes) is necessary. 
 
 ### Additions
-- `/tools/flash_fim.py` - Added a script to extract and crosswalk flow values from FLASH streamflow products to the hydrofabric reference flowlines for FIM production.
+- `/tools/flashfim/conflate_flash_flows.py` - Added a script to extract and conflate flow values from FLASH products to the hydrofabric reference flowlines for FIM production.
+- `/tools/flashfim/README.md` - Added README to give background on FLASH FIM and explain how to use the tool.
+<br />
+
 ## v4.8.14.2 - 2025-10-17 - [PR#1677](https://github.com/NOAA-OWP/inundation-mapping/pull/1677)
 
 During a merge of the recent PR for mprunner fixes, one critical line was dropped. The line takes the return value from the child multi-proc function and adds it to a list collection of return results. 
