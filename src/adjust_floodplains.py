@@ -80,7 +80,7 @@ def adjust_floodplains(
 
     distance_grid = distance.copy()
 
-    # Use NFHL flood hazard zones only if availability layer is present
+    # Use NFHL flood hazard zones
     if os.path.exists(fema_flood_zones_file):
         nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
 
@@ -101,23 +101,29 @@ def adjust_floodplains(
         distance_grid = np.where(distance_mask == 1, distance, np.nan)
 
         # Fill in areas outside the FEMA flood zone availability
+        distance_mask = np.zeros_like(distance)
         fema_flood_zones_combined = gpd.read_file(fema_flood_zones_file, layer='combined')
-        fema_flood_zones_combined_clipped = gpd.clip(fema_flood_zones_combined, branch_poly)
         if 'availability' in nfhl_layers:
             fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
-            fema_flood_zones_availability_clipped = gpd.clip(fema_flood_zones_availability, branch_poly)
             fema_flood_zones_availability_mask = pd.concat(
-                [fema_flood_zones_combined_clipped, fema_flood_zones_availability_clipped]
+                [fema_flood_zones_combined, fema_flood_zones_availability]
             ).drop_duplicates(subset='geometry', keep=False)
         else:
-            fema_flood_zones_availability_mask = fema_flood_zones_combined_clipped
+            fema_flood_zones_availability_mask = fema_flood_zones_combined
+
+        fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
+
+        fema_flood_zones_availability_mask.to_file(
+            f'/outputs/temp/fema_flood_zones_availability_mask_{branch_id}.gpkg', driver='GPKG'
+        )
 
         for geom in fema_flood_zones_availability_mask.geometry:
             mask = features.geometry_mask(
                 [geom], out_shape=distance.shape, transform=src.transform, invert=False
             )
             distance_mask[mask] = 1
-        distance_grid = np.where(distance_mask == 1, distance, distance_grid)
+
+        distance_grid = np.where(distance_mask == 0, distance, distance_grid)
 
     # Limit the distance to the distance threshold
     distance = np.where(distance_grid <= distance_threshold, distance_grid, np.nan)

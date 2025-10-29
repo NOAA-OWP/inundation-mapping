@@ -102,7 +102,7 @@ $srcDir/adjust_floodplains.py \
     -i $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
     -e $tempCurrentBranchDataDir/flows_grid_boolean_euclidean_distance_$current_branch_id.tif \
     -d $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
-    -o $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+    -o $tempCurrentBranchDataDir/dem_burned_adjusted_$current_branch_id.tif \
     -t $floodplain_distance_threshold \
     -s $floodplain_slope_exponent \
     -z $floodplain_z_factor \
@@ -113,7 +113,7 @@ $srcDir/adjust_floodplains.py \
 
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"
-rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+rd_depression_filling $tempCurrentBranchDataDir/dem_burned_adjusted_$current_branch_id.tif \
     $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
