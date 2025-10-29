@@ -113,10 +113,6 @@ def adjust_floodplains(
 
         fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
 
-        fema_flood_zones_availability_mask.to_file(
-            f'/outputs/temp/fema_flood_zones_availability_mask_{branch_id}.gpkg', driver='GPKG'
-        )
-
         for geom in fema_flood_zones_availability_mask.geometry:
             mask = features.geometry_mask(
                 [geom], out_shape=distance.shape, transform=src.transform, invert=False
