@@ -48,6 +48,50 @@ MP_LOG = fl.FIM_logger()  # the Multi Proc version
 
 gpd.options.io_engine = "pyogrio"
 
+"""
+Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
+
+Tenative notes:
+    - This script will fundamentally play the role stricly as pre-processing for processing HUC and their
+      related sites.
+      
+    - Some of the functions in here may move or be split to smaller functions.
+    
+    - Data acquision such as meta, threshold or flows, should be moved ot generate_categorical_fim_flows.py
+    
+    - Anyting related to inundation, tifs, gpkgs, etc, shoudl be moved to generate_categorical_mapping.py
+    
+    - Anything relating to final post-processing such as merging of sites / library data, or last minute editing
+      of site data will be moved into catfim_post_processing.py
+      
+    - This will continue to know if it is processing SB or FB.
+    
+    - Primary tasks for this script become:
+        - processing incomings and creating system wide variables as needed. They will be saved into
+          a runtime_args.txt file that catfim_process_huc.py and catfim_post_processing.py can pick up and use.
+          
+        - This will setup the overall folder structure including the parent catfim output paths such
+          as hand_4_x_x_x_flow_based.
+        
+        - Make calls to generate_categorical_fim_flows.py to create/acquire meta, threshold, flow data
+          that could be used for all HUCs and sites no matter what hucs are being processed at this time.
+          
+        - Have a way to figure out if we can use a previously created pickle/parquet files for HUC processing.
+          We need a way to also tell the system to reload meta/threshold/flow data when applicable. We might
+          just reuse our current system or a similar one. Question: I assume we will have seperate files
+          for meta versus threshold, so how do we tell the system to use one but reload the other or
+          various combinations. Maybe we already have that in the code. :)
+                         
+        - Setup an iterator using Multi-proc to process each HUC (catfim_process_huc.py), but keeping
+          arguments to a minimum focusing primarily on letting each huc pick up the runtime_args.txt file to
+          do its processing.
+          
+        - This can still take a list or file of HUCs, same as it current does and will need to
+          validate as well, just as we currently do.
+    
+    
+"""
+
 
 """
 Jun 2024

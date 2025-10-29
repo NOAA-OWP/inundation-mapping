@@ -28,6 +28,24 @@ import utils.fim_logger as fl
 from utils.shared_functions import getDriver
 from utils.shared_variables import VIZ_PROJECTION
 
+
+
+"""
+Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
+
+Tenative notes:
+    - Some of the functions in here may move or be split to smaller functions.
+    
+    - Data acquision such as meta, threshold or flows, should be moved ot generate_categorical_fim_flows.py
+    
+    - This script will focus on inundation, tifs, gpkgs, etc. for both FB and SB.
+    
+    - Some current functions from other files such as generate_categorical_fim.py and maybe
+      generate_categorical_fim_flows.py will be moved here if it is related to inundation, etc as mentioned above.
+    
+    
+"""
+
 '''
 
 Aug 2024

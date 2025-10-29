@@ -31,6 +31,32 @@ import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
 
+"""
+Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
+
+Tenative notes:
+    - Some of the functions in here may move or be split to smaller functions.
+    
+    - This can be use by any other file when applicable, but anything needed by catfim_post_processing.py
+      should be moved into that file.
+      
+    - Many or all of the functions in here, may move into catfim_process_huc.py potentially. Possible
+      some may move into generate_categorical_fim.py, but more likely some of it's logic relating to flows,
+      meta and thresholds wil move here.
+      
+    - This can be responsible for getting meta data, threashold and flow data for both FB and SB
+    
+    - For now, some data may come from
+      WRDS, but will save pickle / parquet files when applicable for all HUCs to use for it's processing.
+      Later, the process of getting data from WRDS will be split to an independant tools in our code "data"
+      folders. When that happens, this may no longer be needed here, other than flow data? or making version
+      copied of the WRDS files?
+      
+    - Meta and threshold data loaded here, are applicable to all HUCs and sites and will not be filtered in any
+      way. It will still, of course, continue to honor WRDS filters that apply to non CONUS sites/HUCs.
+
+"""
+
 '''
 
 Aug 2024
