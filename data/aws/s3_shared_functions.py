@@ -215,6 +215,11 @@ def get_file_list_by_key(s3_client, bucket_name, s3_parent_src_folder_path, sear
     # search_key = "fim_inputs.csv"  - file at the root src_s3_folder_path (ie. hand_4_8_7_2)
     # if you want all files under the s3_parent_src_folder_pathr, just submit ""
 
+    # TODO: Oct 30, 2025: found a bug to fix later.
+    # the pattern of */ is recursive.. hummmm..
+    # ie "*/usgs_elev_table.csv" which was expected to find it at the huc level
+    # also found the branch version as well.  hummm...
+
     try:
         # both src must have a slash on the end only
         # strip leading slash if exists
@@ -269,6 +274,11 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
     # search_key = "*/hydrotable.csv"  - looks at the first level only (ie. huc level)
     # search_key = "*/branches/*/rem_zeroed_masked_*.tif"  - looks for all branch level rems
     # search_key = "fim_inputs.csv"  - file at the root src_s3_folder_path (ie. hand_4_8_7_2)
+
+    # TODO: Oct 30, 2025: found a bug to fix later.
+    # the pattern of */ is recursive.. hummmm..
+    # ie "*/usgs_elev_table.csv" which was expected to find it at the huc level
+    # also found the branch version as well.  hummm...
 
     # If you want all files under the s3_parent_src_folder_path, just submit "" as an as a single list item
     #    If you do this.. no other search keys will be attempted as they will simply be duplications
