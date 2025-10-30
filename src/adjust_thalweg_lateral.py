@@ -35,17 +35,17 @@ def detect_pits(filled_dem_path, original_dem_path, save_mask=True):
     # pixel_area = abs(profile["transform"][0]) * abs(profile["transform"][4])
 
     for prop in props:
-        area_pixels = prop.area
-        # area_m2 = area_pixels * pixel_area
+        pixel_count = prop.area
+        # area_m2 = pixel_count * pixel_area
         max_depth = prop.max_intensity
         mean_depth = prop.mean_intensity
         perim = prop.perimeter if prop.perimeter > 0 else 1e-9
-        circularity = (4 * math.pi * area_pixels) / (perim**2)
+        circularity = (4 * math.pi * pixel_count) / (perim**2)
 
         # Two-tier detection logic
-        pit_find = ((area_pixels >= 15) and (mean_depth >= 10) and (circularity >= 0.6)) or (
-            (area_pixels >= 20) and (max_depth >= 20)
-        )
+        pit_find = (
+            (pixel_count >= 15) and (pixel_count < 4000) and (mean_depth >= 10) and (circularity >= 0.6)
+        ) or ((pixel_count >= 20) and (max_depth >= 20) and (pixel_count < 5000))
 
         if pit_find:
             pit_mask[labeled == prop.label] = 1
