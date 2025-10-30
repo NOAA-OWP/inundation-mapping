@@ -10,7 +10,7 @@ from functools import partial
 import botocore
 import botocore.exceptions
 
-# from boto3.s3.transfer import TransferConfig
+from boto3.s3.transfer import TransferConfig
 from tqdm import tqdm
 
 import data.aws.aws_shared_functions as awssf
@@ -456,16 +456,18 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
 
     # Configure multipart  settings. Speeds up large files
     # TODO: test to play with chunking sizes
-    # s3_config = TransferConfig(
-    #     multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
-    #     max_concurrency=30,  # 10 concurrent threads
-    #     multipart_chunksize=1024 * 25,  # 25MB per part
-    #     use_threads=True,  # Enable threading
-    # )
-
+    trans_config = TransferConfig(
+        max_concurrency=30,  # 10 concurrent threads is default
+        use_threads=True,  # Enable threading  (is by default)
+    )
+        # multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
+        # max_concurrency=30,  # 10 concurrent threads
+        # multipart_chunksize=1024 * 25,  # 25MB per part
+        # use_threads=True,  # Enable threading
+        
     try:
-        # s3_client.download_file(bucket_name, s3_file_key, target_file_path, Config=s3_config)
-        s3_client.download_file(bucket_name, s3_file_key, target_file_path)
+        s3_client.download_file(bucket_name, s3_file_key, target_file_path, Config=trans_config)
+        # s3_client.download_file(bucket_name, s3_file_key, target_file_path)
         does_file_exist = True
     except Exception as ex:
 
@@ -895,12 +897,12 @@ def upload_file(
     # print(f"Staring upload for  {src_file_path}")
 
     # Configure multipart  settings. Speeds up large files
-    # s3_config = TransferConfig(
-    #     multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
-    #     max_concurrency=10,  # 10 concurrent threads
-    #     multipart_chunksize=1024 * 25,  # 25MB per part
-    # )
-    #   use_threads=True,  # Enable threading
+    trans_config = TransferConfig(
+        max_concurrency=30,  # 10 concurrent threads is default
+        use_threads=True,  # Enable threading  (is by default)
+    )
+        # multipart_threshold=1024 * 25,  # 25MB - start multipart for files > 25MB
+        # multipart_chunksize=1024 * 25,  # 25MB per part
 
     try:
         # Will show progress if a large file
@@ -919,12 +921,13 @@ def upload_file(
                     bucket_name,
                     trg_file_path,
                     Callback=awssf.ProgressPercentage(src_file_path),
+                    Config=trans_config
                 )
                 # Config=s3_config,
                 print("", flush=True)  # reset the console lines as it does not have an line break
             else:
-                # s3_client.upload_file(src_file_path, bucket_name, trg_file_path, Config=s3_config)
-                s3_client.upload_file(src_file_path, bucket_name, trg_file_path)
+                s3_client.upload_file(src_file_path, bucket_name, trg_file_path, Config=trans_config)
+                # s3_client.upload_file(src_file_path, bucket_name, trg_file_path)
 
     except Exception as ex:
 

@@ -207,7 +207,7 @@ def create_aws_client(
         client_config = Config(
             connect_timeout=20,
             read_timeout=(60 * 5),
-            max_pool_connections=50,
+            max_pool_connections=100,
             retries={"mode": "standard", 'max_attempts': 5},
         )
 
