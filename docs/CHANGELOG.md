@@ -1,6 +1,60 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.x.x - 2025-10-30 - [PR#1683](https://github.com/NOAA-OWP/inundation-mapping/pull/1683)
+
+---------------------
+### FOR NOAA/OWP usage only
+This tool is not for usage outside of the OWP / FIM team.
+---------------------
+
+This expands on the new workflow architecture and adds a new tool that pulls down the exact files CatFIM and FIM Performance points/points (eval_plots.py).  
+
+It follows the same usage of env files and this one now adds a new `workflow_params.env` file. It was decided to not keep most other uses of env args seperate from the original `hv_deploy_params.env` due to size and functionality focus.
+
+See the new `hand_to_owp.py` for usage information. This tool also relies on the original `aws_credentials.env` file previously used. The default versions are in the usual data/config path.
+
+
+### Architecture Notes:
+
+**The additions to architecture in this PR included:**
+- Updates to improve on the AWS Communication / credentials system.
+- Additions and upgrades to the new `Workflow` system. `Workflows` are long running script system where a single "wrapper workflow" script can run other scripts in sequential order. Examples include: (some coming soon)
+    - Copying correct filtered HAND dataset files from S3 to OWP servers, where they can be added to run generate CatFIM scripts, then validate its outputs and copy it's outputs to other enviros. This one is added here.
+    - Downloading Bridge Data which triggers new-preclips.  (coming soon)
+    - New DEMs which triggers new Bridge DEM difs", etc.  (coming soon)
+    - It also allows running scripts normally run during production runs only, including output data validation, copying different combinations of output data to various S3 buckets and/or EFS paths.
+    - Advanced needs from Ripple already work-in-progress, where filtered data is pulled down from RTX, meta data extracted, various files saved to different locations, some on EFS and some on S3.
+    - The ability to AWS to eventually take over some of the workflow tools via AWS tools such as step functions and batch processes.
+
+### Additions
+ - `config/workflows_params.template.env`: as described above.
+ - `workflows/hand_to_owp.py`: as described above.
+
+### Changes
+
+- `.gitignore`: adjusted for the new workflows_params.template.env to ensure it can be included in the repo.
+- `config`
+    - `aws_credentials.template.env`: Adjusted to move the bucket names into the other .env files.
+    - `fim_enviro_values.template.env`:  Found another unrelated variable that should have been in this file.
+    - `hv_deploy_params.template.env`:  Misc minor adjustments, primarily adding a new HAND_PREVIOUS_VERSION value.
+- `data`
+    - `aws/aws_shared_functions.py`:  minor adjustments to client_config for better threading and performance.
+    - `aws/s3_shared_functions.py`:
+        - Updated some of the functions and added new ones primarily based on finding / downloading files based on wildcard characters.
+        - Updated some existing functions for performance and usage flexibility.
+        - Added a new function to download files by pre-existing file lists.
+        - Added multi-threading to download functions.
+        - Added new function for deleting_s3_folder. Note: only partially tested and is not needed by any code yet.
+- `src/utils/shared_functions.py`:  fixed some permissions issues for new log folders created and misc items.
+- `workflows/deploy/deploy_to_hydrovis.py`:  Misc adjsutment to enviro variable usages, adding more logging, and tidbits.
+
+
+### Removals
+
+- `config\aws_s3_put_fim4_hydrovis_whitelist.lst`:  no longer applicable
+- `src\toDo.md`: A very old, non-applicable file.
+<br />
 
 ## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
 
