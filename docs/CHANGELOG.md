@@ -2,6 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.8.x.x - 2025-10-14 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
+## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
 
 This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc
 
@@ -15,6 +16,11 @@ This PR also covers an small adjustment to CatFIM, renaming its previous `catfim
 
 ### Usage Note:
 Details on full tool usage are embedded in the scripts themselves. This tool relies on two separate config env files, one for aws permissions and one for params to upload data to HydroVIS. The files exist in EFS... /data/config and are named aws_credentials.env and hv_deploy_params.env. Details on how to setup and use the two files are also not described here due to sensitive information, but details in those files have been added. It does not tell how to create an AWS profile as this is assumed to be common knowledge and is in other FIM-Dev developer docs.
+
+### Architecture Notes:
+The architecture introduced in this PR includes and sets us up for:
+- A new AWS communication and credentials layer, which can easily be updated for talking to other objects such as Lambdas, Step functions, EC2's, etc, including easy scripts to trigger "UAT" runs including status messaging to the user.
+- Adding a workflow system also allows running scripts normally run during production runs only, including output data validation, copying different combinations of output data to various S3 buckets and/or EFS paths.
 
 ### Additions
 - `.gitignore`:  With the rename of `catfim.env.template` to `fim_enviro_values.env.template`, this ensures the file gets into GIT.
@@ -42,6 +48,34 @@ Details on full tool usage are embedded in the scripts themselves. This tool rel
 
 ### FOR NOAA/OWP usage only
 This tool is not for usage outside of the OWP / FIM team.
+<br />
+
+## v4.8.15.0 - 2025-10-30 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
+
+This PR adds a new script to pull, extract, and conflate MRMS FLASH flow values to NWM reaches to use in generating HAND FIM. FLASH FIM can be useful during flash flooding scenarios where conditions change quickly and high temporal resolution (up to every 10 minutes) is necessary. 
+
+### Additions
+- `/tools/flashfim/conflate_flash_flows.py` - Added a script to extract and conflate flow values from FLASH products to the hydrofabric reference flowlines for FIM production.
+- `/tools/flashfim/README.md` - Added README to give background on FLASH FIM and explain how to use the tool.
+<br />
+
+## v4.8.14.4 - 2025-10-30 - [PR#1687](https://github.com/NOAA-OWP/inundation-mapping/pull/1687)
+
+Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now they will be masked out of BOTH stage-based and flow-based CatFIM (rather than just stage). 
+
+### Changes
+- `tools/catfim/ahps_restricted_sites.csv`: Changed classification of 3 sites from "stage" to "both."
+<br />
+
+## v4.8.14.3 - 2025-10-30 - [PR#1654](https://github.com/NOAA-OWP/inundation-mapping/pull/1654)
+
+This PR looks for the root cause of the 'Ghost' bug. The bug occured due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
+Some notes about the slope precision: The slope values in src_base represent TauDEM’s rise-over-run slopes. Because these values—and the slopes subsequently propagated through HFAB and SWORD—are extremely small (e.g., 9.99999974737875E-06), it is critical to preserve their numerical precision throughout all read/write operations in downstream scripts.
+When writing slope values to derived files (e.g., src_full, hydrotables), each value is rounded to three digits in scientific notation and then converted back to a float for continued numerical use.
+
+### Changes
+- `src/update_htable_src.py`: as described. 
+- `src/add_crosswalk.py`: Changed the slope precision.
 <br />
 
 ## v4.8.14.2 - 2025-10-17 - [PR#1677](https://github.com/NOAA-OWP/inundation-mapping/pull/1677)
