@@ -74,7 +74,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
     if not os.path.isdir(log_file_dir):
-        raise Exception("This script does have permission to add a log folder")
+        raise Exception("This script likely does have permission to add a log folder")
 
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
@@ -156,7 +156,7 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
     if not os.path.isdir(log_folder):
-        raise Exception("This script does have permission to add a log folder")
+        raise Exception("This script likely does have permission to add a log folder")
 
     # Check name -> path
     if logger_name in _LOGGER_REGISTRY and _LOGGER_REGISTRY[logger_name] != abs_path:

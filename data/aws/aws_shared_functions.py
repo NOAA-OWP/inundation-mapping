@@ -122,7 +122,7 @@ def create_aws_session(
     except Exception as ex:
         # the aws will handle many messages and what it can not, it will
         # re-raise, which we can further re-raise
-        error_msg, type_known = aws_exception_handler(ex)
+        error_msg, _____ = aws_exception_handler(ex)
         return False, error_msg, None
 
     # True/False (success), no error_msg, s3_client object
@@ -230,8 +230,8 @@ def create_aws_client(
         # the aws will handle many messages and what it can not, it will
         # re-raise, which we can further re-raise
         error_msg, type_known = aws_exception_handler(ex)
-        if type_known is False:
-            raise Exception(error_msg)
+        # if type_known is False:
+        #     raise Exception(error_msg)
 
         return False, error_msg, None
 

@@ -14,7 +14,6 @@ from boto3.s3.transfer import TransferConfig
 from tqdm import tqdm
 
 import data.aws.aws_shared_functions as awssf
-import src.utils.shared_functions as sf
 
 
 '''

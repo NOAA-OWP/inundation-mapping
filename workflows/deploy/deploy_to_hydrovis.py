@@ -46,6 +46,7 @@ HV_S3_ROOT_QA_DATASETS_PATH = (
 )
 HAND_VERSION = ""
 RELEASE_FIM_PUBLIC_VERSION = ""
+HAND_PREVIOUS_VERSION = ""
 
 
 # ============================
@@ -313,6 +314,7 @@ def __get_env_variable_with_versions(env_var_name, deploy_params_file):
     # it is ok if both or neither of those values exist in then env arg
     env_value = sf.get_value_from_env(env_var_name, deploy_params_file)
     env_value = env_value.replace("{RELEASE_FIM_PUBLIC_VERSION}", RELEASE_FIM_PUBLIC_VERSION)
+    env_value = env_value.replace("{HAND_PREVIOUS_VERSION}", HAND_PREVIOUS_VERSION)
     env_value = env_value.replace("{HAND_VERSION}", HAND_VERSION)
     return env_value
 
@@ -339,7 +341,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
     '''
 
     global HV_S3_ROOT_HANDSET_PATH, HV_S3_ROOT_QA_DATASETS_PATH, HV_S3_BUCKET_NAME
-    global RELEASE_FIM_PUBLIC_VERSION, HAND_VERSION
+    global RELEASE_FIM_PUBLIC_VERSION, HAND_VERSION, HAND_PREVIOUS_VERSION
 
     if not deploy_type:
         raise ValueError("The deploy type variable is None or empty")
@@ -360,6 +362,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
     # shorthand for the os.getenv
     HAND_VERSION = sf.get_value_from_env("HAND_VERSION", deploy_params_file)
     RELEASE_FIM_PUBLIC_VERSION = sf.get_value_from_env("RELEASE_FIM_PUBLIC_VERSION", deploy_params_file)
+    HAND_PREVIOUS_VERSION = sf.get_value_from_env("HAND_PREVIOUS_VERSION", deploy_params_file)
 
     # The bucket name / load is in the aws function
     HV_S3_ROOT_HANDSET_PATH = __get_env_variable_with_versions("HV_S3_ROOT_HANDSET_PATH", deploy_params_file)
