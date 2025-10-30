@@ -967,94 +967,94 @@ def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_s
     return output_meta_list
 
 
-if __name__ == '__main__':
-    # Parse arguments
-    parser = argparse.ArgumentParser(description='Create forecast files for all nws_lid sites')
-    parser.add_argument(
-        '-w', '--output_catfim_dir', help='Workspace where all data will be stored.', required=True
-    )
+# if __name__ == '__main__':
+#     # Parse arguments
+#     parser = argparse.ArgumentParser(description='Create forecast files for all nws_lid sites')
+#     parser.add_argument(
+#         '-w', '--output_catfim_dir', help='Workspace where all data will be stored.', required=True
+#     )
 
-    parser.add_argument(
-        '-log',
-        '--log_output_file',
-        help='REQUIRED: Path to where the output log file will be.'
-        r'ie) /data/catfim/rob_test/logs/catfim_2024_07_07-22_26_18.log',
-        required=True,
-        type=str,
-    )
+#     parser.add_argument(
+#         '-log',
+#         '--log_output_file',
+#         help='REQUIRED: Path to where the output log file will be.'
+#         r'ie) /data/catfim/rob_test/logs/catfim_2024_07_07-22_26_18.log',
+#         required=True,
+#         type=str,
+#     )
 
-    parser.add_argument(
-        '-e',
-        '--env_file',
-        help='Docker mount path to the catfim environment file. ie) data/config/catfim.env',
-        required=True,
-    )
+#     parser.add_argument(
+#         '-e',
+#         '--env_file',
+#         help='Docker mount path to the catfim environment file. ie) data/config/catfim.env',
+#         required=True,
+#     )
 
-    parser.add_argument(
-        '-hucs',
-        '--lst_hucs',
-        help='list of hucs that you want to process. ie) -hucs 12090301 01100006 12040101',
-        required=True,
-        type=str,
-        nargs='+',
-    )
+#     parser.add_argument(
+#         '-hucs',
+#         '--lst_hucs',
+#         help='list of hucs that you want to process. ie) -hucs 12090301 01100006 12040101',
+#         required=True,
+#         type=str,
+#         nargs='+',
+#     )
 
-    parser.add_argument(
-        '-u',
-        '--nwm_us_search',
-        help='Walk upstream on NWM network this many miles',
-        required=False,
-        default=5,
-    )
+#     parser.add_argument(
+#         '-u',
+#         '--nwm_us_search',
+#         help='Walk upstream on NWM network this many miles',
+#         required=False,
+#         default=5,
+#     )
 
-    parser.add_argument(
-        '-d',
-        '--nwm_ds_search',
-        help='Walk downstream on NWM network this many miles',
-        required=False,
-        default=5,
-    )
+#     parser.add_argument(
+#         '-d',
+#         '--nwm_ds_search',
+#         help='Walk downstream on NWM network this many miles',
+#         required=False,
+#         default=5,
+#     )
 
-    parser.add_argument(
-        '-jh',
-        '--job_number_huc',
-        help='OPTIONAL: Number of processes to use for HUC scale operations.'
-        ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'
-        ' machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be '
-        'kept low (2-4). Defaults to 1.',
-        required=False,
-        default=1,
-        type=int,
-    )
+#     parser.add_argument(
+#         '-jh',
+#         '--job_number_huc',
+#         help='OPTIONAL: Number of processes to use for HUC scale operations.'
+#         ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'
+#         ' machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be '
+#         'kept low (2-4). Defaults to 1.',
+#         required=False,
+#         default=1,
+#         type=int,
+#     )
 
-    parser.add_argument(
-        '-a',
-        '--is_stage_based',
-        help='Is this a stage based or flow based run? Add the -a to mean is_stage_based is True ',
-        required=False,
-        default=False,
-        action='store_true',
-    )
+#     parser.add_argument(
+#         '-a',
+#         '--is_stage_based',
+#         help='Is this a stage based or flow based run? Add the -a to mean is_stage_based is True ',
+#         required=False,
+#         default=False,
+#         action='store_true',
+#     )
 
-    parser.add_argument(
-        '-n',
-        '--nwm_metafile',
-        help='OPTIONAL: Path to the pre-made pickle file that already holds the nwm metadata',
-        required=False,
-        type=str,
-        default="",
-    )
+#     parser.add_argument(
+#         '-n',
+#         '--nwm_metafile',
+#         help='OPTIONAL: Path to the pre-made pickle file that already holds the nwm metadata',
+#         required=False,
+#         type=str,
+#         default="",
+#     )
 
-    parser.add_argument(
-        '-tf',
-        '--threshold-file',
-        help='OPTIONAL: Path to the pre-made pickle file that already holds the thresholds',
-        required=False,
-        type=str,
-        default="",
-    )
+#     parser.add_argument(
+#         '-tf',
+#         '--threshold-file',
+#         help='OPTIONAL: Path to the pre-made pickle file that already holds the thresholds',
+#         required=False,
+#         type=str,
+#         default="",
+#     )
 
-    args = vars(parser.parse_args())
+#     args = vars(parser.parse_args())
 
-    # Run get_env_paths and static_flow_lids
-    generate_flows(**args)
+#     # Run get_env_paths and static_flow_lids
+#     generate_flows(**args)

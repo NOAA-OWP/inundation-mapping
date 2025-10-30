@@ -39,12 +39,15 @@ from tools_shared_variables import (
     acceptable_site_type_list,
 )
 
+from tools.catfim.catfim_process_huc import process_huc
+
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
 # global RLOG
 FLOG = fl.FIM_logger()  # the non mp version
 MP_LOG = fl.FIM_logger()  # the Multi Proc version
+NWM_FILE_PATH = "/data/input/wrds/versioned file"
 
 gpd.options.io_engine = "pyogrio"
 
@@ -121,21 +124,29 @@ def process_generate_categorical_fim(
     fim_run_dir,
     env_file,
     job_number_huc,
-    job_number_inundate,
-    is_stage_based,
+    # job_number_inundate,
+    # is_stage_based,
+    catfim_type,
     output_folder,
-    overwrite,
+    # overwrite,
     search,
     lst_hucs,
-    catfim_version,
-    model_version,
-    job_number_intervals,
+    # catfim_version,
     past_major_interval_cap,
-    step_num,
+    # model_version,
+    # job_number_intervals,
+    # step_num,
     nwm_metafile,
     threshold_file,
+    get_new_meta_data,
+    get_new_threshold_data,
 ):
+    
     '''
+    
+    # TODO: Needs more updating
+    
+    
     Orchestrates the generation of CatFIM products for a set of Hydrologic Unit Codes (HUCs),
     supporting both stage-based and flow-based methodologies. Handles validation, setup, filtering, and multi-step processing
     including flow generation, mapping, post-processing, and status updates.
@@ -148,32 +159,25 @@ def process_generate_categorical_fim(
         Path to the .env file containing API and environment configuration.
     job_number_huc : int
         Number of parallel jobs to use for HUC-level processing.
-    job_number_inundate : int
-        Number of parallel jobs to use for inundation-level processing.
-    is_stage_based : bool
-        If True, runs stage-based CatFIM workflow; otherwise, runs flow-based workflow.
     output_folder : str
         Base output folder for CatFIM results.
-    overwrite : bool
-        If True, allows overwriting existing output files and folders.
     search : int or float
         Upstream and downstream search distance in miles for site selection.
     lst_hucs : str
         Space-separated list of HUCs to process, or 'all' to process all available HUCs.
-    catfim_version : str
-        CatFIM version string (e.g., '1.0').
     model_version : str
         HAND model version string (e.g., '2.1.5.2').
     job_number_intervals : int
         Number of parallel jobs for interval-based processing.
     past_major_interval_cap : int
         Cap for major interval processing (used in stage-based workflow).
-    step_num : int
-        Step number to start processing from (optional, allows skipping earlier steps).
     nwm_metafile : str
         Path to the NWM metadata pickle file (optional, defaults to "" if not included).
     threshold_file : str
         Path to the threshold pickle file for manual input thresholds (optional, defaults to "" if not included).
+        
+    get_new_meta_data,
+    get_new_threshold_data
     
     Raises
     ------
@@ -198,59 +202,79 @@ def process_generate_categorical_fim(
     
     Notes
     -----
-    - Supports skipping steps via the `step_num` parameter.
     - Handles both manual and automated threshold input via `threshold_file`.
     - Uses environment variables for API access and configuration.
     - Designed for parallel processing and scalable workflows.
-
-    Step System
-    -----------
-    This system allows us to to skip steps.
-    Steps that are skipped are assumed to have the valid files that are needed
-    When a number is submitted, ie) 2, it means skip steps 1 and start at 2
-
-    Step number usage:
-        0 = cover all (it is changed to 999 so all steps are covered)
-    flow:
-        1 = start at generate_flows
-        2 = start at manage_catfim_mapping
-        3 = start at update mapping status
-    stage:
-        1 = start at generate_flows and tifs
-        2 = start at creation of gpkgs
-        3 = start at update mapping status
 
     '''
 
     # ================================
     # Validation and setup
 
+    # load bash_variables
+    # or maybe validate these by themselves.
+
+
+    local_vals = locals()
+    __validate_inputs(local_vals)  # We probably should validate some of those bash_variables we are using?
+    
+
+    # may not even need the catfim_method as the catfim_process_huc and catfim_post_processing will now how
+    # to the file names based on the type.
     # Append option configuration (flow_based or stage_based) to output folder name.
-    if is_stage_based:  # catfim_type = fb or sb (case?)
-        catfim_method = "stage_based"
-    else:
-        catfim_method = "flow_based"
-
-    # validate all of these vales before creating the runtime_args.env
-    # create_runtime_args_file(catfim_type,
-    #                          model_version,
-    #                          nwm_metafile_path,
-    #                          threshold_file_path,
-    #                          fim_run_dir,
-    #                          past_major_interval_cap)
-
-
+    catfim_type = catfim_type.lower()
+    
     # Define output directories
+   
+    if catfim_type == "sb":
+        catfim_method = "stage_based"
+    else:  # fb
+        catfim_method = "flow_based"
+        
+    # likely can merge this with the catfim_method above as nothign else shoudl use catfim_method only catfim_type
     if output_folder.endswith("/"):
         output_folder = output_folder[:-1]
     output_catfim_dir = output_folder + "_" + catfim_method
 
-    local_vals = locals()
+
+    # ================================
+    # Define default arguments. Modify these if necessary
+    # hummm... on model_version auto appending HAND. how woujld it now the model version
+    # ie that it is hand_4_8_7_2.  I think we shoudl let the whole thing come in from the arg
+    # that way we don't have to do args such as "rob_model_version" or "4_8_7_2 (but instead hand_4_8_7_2)""
+    if model_version != "":
+        model_version = "HAND " + model_version  # hummm
+        model_version = model_version.replace(".", "_")
+        
+    # being dropped
+    # if catfim_version != "":
+    #     catfim_version = "CatFIM " + catfim_version
+    #     catfim_version = catfim_version.replace(".", "_")
+
+    # validate all of these vales before creating the runtime_args.env
+    # We adjust the output path to add flow_based or stage_based and it becomes one of the 
+    # two args into catfim_process_huc.py
+    
+    __create_runtime_args_file(catfim_type,
+                               model_version,
+                               nwm_metafile,
+                               threshold_file,
+                               fim_run_dir,
+                               past_major_interval_cap)
+
+
+    local_vals = locals()  # we can get it again as it is now updated
+    FLOG.trace("locals...")
+    FLOG.trace(local_vals)    
 
     # most of these won't be needed as each HUC
     # will have their own of each of these possibly
     # I think all we need here is a folder named something like "hucs"
     huc_dir = os.path.join(output_catfim_dir, 'hucs')
+    os.makedirs(huc_dir, exist_ok=True)  # Does this create the recurvive tree folder structure?
+    
+    # Do we create these here? or let each script file just auto know where it is
+    # and create it if it needs too. TBD
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
@@ -260,53 +284,6 @@ def process_generate_categorical_fim(
     # set_start_files_folders(
     #     step_num, output_catfim_dir, output_mapping_dir, output_flows_dir, attributes_dir, overwrite
     # )
-
-    FLOG.trace("locals...")
-    FLOG.trace(local_vals)
-
-    # ================================
-    if nwm_metafile != "":
-        if os.path.exists(nwm_metafile) == False:
-            raise Exception("The nwm_metadata (-me) file can not be found. Please remove or fix pathing.")
-        file_ext = os.path.splitext(nwm_metafile)
-        if file_ext.count == 0:
-            raise Exception("The nwm_metadata (-me) file appears to be invalid. It is missing an extension.")
-        if file_ext[1].lower() != ".pkl":
-            raise Exception("The nwm_metadata (-me) file appears to be invalid. The extention is not pkl.")
-
-
-    # ================================
-    # Define default arguments. Modify these if necessary
-
-    if model_version != "":
-        model_version = "HAND " + model_version
-        model_version = model_version.replace(".", "_")
-    if catfim_version != "":
-        catfim_version = "CatFIM " + catfim_version
-        catfim_version = catfim_version.replace(".", "_")
-
-    # ================================
-    # TODO: Aug 2024: Job values are not well used. There are some times where not
-    # all three job values are not being used. This needs to be cleaned up.
-    # Check job numbers and raise error if necessary
-    # Considering how we are using each CPU very well at all, we could experiment
-    # with either overclocking or chagnign to threading. Of course, if we change
-    # to threading we ahve to be super careful about file and thread collisions (locking)
-
-    # commented out for now for some small overclocking tests (carefully of course)
-    # total_cpus_requested = job_number_huc * job_number_inundate * job_number_intervals
-    # total_cpus_available = os.cpu_count() - 2
-    # if total_cpus_requested > total_cpus_available:
-    #     raise ValueError(
-    #         f"The HUC job number (jh) [{job_number_huc}]"
-    #         f" multiplied by the inundate job number (jn) [{job_number_inundate}]"
-    #         f" multiplied by the job number intervals (ji) [{job_number_intervals}]"
-    #         " exceeds your machine\'s available CPU count minus one."
-    #         " Please lower one or more of those values accordingly."
-    #     )
-
-    # we are getting too many folders and files. We want just huc folders.
-    # output_flow_dir_list = os.listdir(fim_run_dir)
 
     # ================================
     # Get HUCs from FIM run directory
@@ -332,10 +309,31 @@ def process_generate_categorical_fim(
             ' is a valid matching HUC.'
         )
 
-    # Set default data source to WRDS
+    # Set default data source to WRDS... hummm
     data_source = 'WRDS'
 
+
     # ================================
+    # if nwm_metafile != "":  # Move to validate_inputs
+        
+    #     # if -gm is set to true which means go get it directly from WRDS
+        
+    #     # Else ( false), 
+    #     #    Was the -me flag set?  Set that as the nwm_metafile
+    #     #    Else: get it from  the fim_enviro_values.env
+        
+    #     #    then validate the file path.
+        
+    #     if os.path.exists(nwm_metafile) == False:
+    #         raise Exception("The nwm_metadata (-me) file can not be found. Please remove or fix pathing.")
+    #     file_ext = os.path.splitext(nwm_metafile)
+    #     if file_ext.count == 0:
+    #         raise Exception("The nwm_metadata (-me) file appears to be invalid. It is missing an extension.")
+    #     if file_ext[1].lower() != ".pkl":
+    #         raise Exception("The nwm_metadata (-me) file appears to be invalid. The extention is not pkl.")
+
+    # ================================
+    # do the same for the threshold file and the -gt flag and -tf args
 
     if threshold_file != "":
         if os.path.exists(threshold_file) == False:
@@ -436,50 +434,67 @@ def process_generate_categorical_fim(
     nwm_us_search, nwm_ds_search = search, search
     catfim_sites_file_path = ""
 
+    # ================================
+    # Iterator for catfim_process_huc.py here
+    # See various examples of possible MP systems we use.
+    
+    task_args_list = []    
+    for huc in lst_hucs:
+        # build task args
+        
+        task_args_list.append(
+            {
+                "huc": huc,
+                "output_folder": output_catfim_dir,
+            }
+        )
+
+    sorted_tasks_args_list = sorted(task_args_list, key=lambda x: ['huc'])
+        
+    # setup MP
+    #     process_huc()  # needs to be adjusted to ask args
+
     # STAGE-BASED
-    if is_stage_based:
+    if catfim_type == "sb":
         # Generate Stage-Based CatFIM mapping
         # does flows and inundation (mapping)
 
         catfim_sites_file_path = os.path.join(output_mapping_dir, 'stage_based_catfim_sites.gpkg')
 
-        if step_num <= 1:
+        # if step_num <= 1:
 
-            df_restricted_sites = load_restricted_sites(is_stage_based)
+        df_restricted_sites = load_restricted_sites(catfim_type)
 
-            generate_stage_based_categorical_fim(
-                output_catfim_dir,
-                fim_run_dir,
-                nwm_us_search,
-                nwm_ds_search,
-                env_file,
-                job_number_inundate,
-                job_number_huc,
-                valid_ahps_hucs,
-                job_number_intervals,
-                past_major_interval_cap,
-                nwm_metafile,
-                df_restricted_sites,
-                threshold_file,
-                data_source,
-            )
-        else:
-            FLOG.lprint("generate_stage_based_categorical_fim step skipped")
+        generate_stage_based_categorical_fim(
+            # output_catfim_dir,
+            # OUTPUT_CATFIM_DIR,
+            fim_run_dir,
+            nwm_us_search,
+            nwm_ds_search,
+            env_file,
+            1,
+            job_number_huc,
+            valid_ahps_hucs,
+            1,
+            past_major_interval_cap,
+            nwm_metafile,
+            df_restricted_sites,
+            threshold_file,
+            data_source,
+        )
 
         FLOG.lprint("")
-        if step_num <= 2:
-            # creates the gpkgs (tif's created above)
-            # TODO: Aug 2024, so we need to clean it up
-            # This step does not need a job_number_inundate as it can't really use use it.
-            # It processes primarily hucs and ahps in multiproc
-            # for now, we will manuall multiple the huc * 5 (max number of ahps types)
 
-            ahps_jobs = job_number_huc * 5
-            post_process_cat_fim_for_viz(
-                catfim_method, output_catfim_dir, ahps_jobs, catfim_version, model_version, FLOG.LOG_FILE_PATH
-            )
-        else:
-            FLOG.lprint("post_process_cat_fim_for_viz step skipped")
+        # creates the gpkgs (tif's created above)
+        # TODO: Aug 2024, so we need to clean it up
+        # This step does not need a job_number_inundate as it can't really use use it.
+        # It processes primarily hucs and ahps in multiproc
+        # for now, we will manuall multiple the huc * 5 (max number of ahps types)
+
+        ahps_jobs = job_number_huc * 5
+        post_process_cat_fim_for_viz(
+            catfim_method, output_catfim_dir, ahps_jobs, "", model_version, FLOG.LOG_FILE_PATH
+        )
 
     # FLOW-BASED
     else:
@@ -565,15 +580,15 @@ def process_generate_categorical_fim(
     FLOG.lprint("")
 
     # This is done for SB and FB
-    if (
-        step_num <= 3
-    ):  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
+    # if (
+    #     step_num <= 3
+    # ):  # can later be changed to is_flow_based and step_num > 3, so stage can have it's own numbers
         # Updating mapping status
-        FLOG.lprint('Updating mapping status...')
-        update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, model_version)
-        FLOG.lprint('Updating mapping status complete')
-    else:
-        FLOG.lprint("Updating mapping status step skipped")
+    FLOG.lprint('Updating mapping status...')
+    update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, model_version)
+    FLOG.lprint('Updating mapping status complete')
+    # else:
+    #     FLOG.lprint("Updating mapping status step skipped")
 
     FLOG.lprint("================================")
     FLOG.lprint("End generate categorical fim")
@@ -587,6 +602,57 @@ def process_generate_categorical_fim(
     FLOG.lprint(f"Duration: {str(time_duration).split('.')[0]}")
     return
 
+
+def __validate_inputs(received_locals_dict):
+
+    # validate some of incoming inputs
+    # derived values can be return if applicable or even updated values. hummm.. might be able to update them live via ** (pointers)
+    # can set global variables if any
+   
+    for name, value in received_locals_dict.items():
+        print(f"{name}: {value}")  # temp debug
+        match name:
+            case "fim_run_dir":
+                # does exist and is not empty
+                # if value == "":
+                #     raise Exception
+                # if not os.path.exists(value):
+                #     raise Exception
+                print("placeholder")                
+            case "env_file":
+                # does exist, even if it was defaulted
+                print("placeholder")
+            case "catfim_type":
+                # is name.lower == "fb" or "sb"
+                print("placeholder")
+            case "output_folder":
+                # make sure it is not empty. make if it does not exist
+                print("placeholder")
+            case "lst_hucs":
+                # ensure it is an array or "all" as the first element of the list?
+                print("placeholder")                
+            case "nwm_metafile":
+                # if received_locals_dict["get-new-meta-data"] is False:
+
+                # elseif nwm_metafile == ""
+                #    get from enviro file ??
+                
+                # test if meta file exists
+                
+                print("placeholder")                
+            case "threshold_file":
+                # if received_locals_dict["get-new-threshold-data"] is False:
+
+                # elseif threshold_file == ""
+                #    get from enviro file ??
+                
+                # test if threshold_file exists
+
+                print("placeholder")
+            # case _: we dont' care about any others for validation
+    
+    # return if applicable?
+    
 
 def get_list_ahps_with_library_gpkgs(output_mapping_dir):
     '''
@@ -1991,7 +2057,7 @@ def __calculate_category_key(category, stage_value, is_interval_stage):
 
 # This creates a HUC iterator with each HUC creating its flow files and tifs
 def generate_stage_based_categorical_fim(
-    output_catfim_dir,
+    # output_catfim_dir,
     fim_run_dir,
     nwm_us_search,
     nwm_ds_search,
@@ -2056,7 +2122,7 @@ def generate_stage_based_categorical_fim(
     can likely use most of them too.
     '''
 
-    output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
+    # output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
     # Create HUC message directory to store messages that will be read and joined after multiprocessing
@@ -2282,8 +2348,8 @@ def generate_stage_based_categorical_fim(
 def __create_runtime_args_file(output_catfim_dir,
                                catfim_type,
                                model_version,
-                               nwm_metafile_path,
-                               threshold_file_path,
+                               nwm_metafile,
+                               threshold_file,
                                fim_run_dir,
                                past_major_interval_cap):
     
@@ -2296,6 +2362,8 @@ def __create_runtime_args_file(output_catfim_dir,
     # Open the file using standard IO, then write lines to it.
     # All of these will be validated before we get here
     
+    # don't need output_catfim_dir as it is part of each files command args
+    # ie output_catfim_dir = /data/config/hand_4_8_7_2_flow_based/  or /data/catfim/rob_test/my_test1_flow_based
     "CATFIM_TYPE"
     "MODEL_VERSION"
     "NWM_METAFILE_PATH"
@@ -2379,6 +2447,8 @@ if __name__ == '__main__':
         ' or /data/outputs/test_hand_subset',
         required=True,
     )
+    
+    # PR already incoming that changes this to /data/config/fim_enviro_values.env
     parser.add_argument(
         '-e',
         '--env-file',
@@ -2388,7 +2458,7 @@ if __name__ == '__main__':
 
     # Keep this
     parser.add_argument(
-        '-jh',
+        '-j',
         '--job-number-huc',
         help='OPTIONAL: Number of processes to use for HUC scale operations.'
         ' HUC and inundation job numbers should multiply to no more than one less than the CPU count of the'
@@ -2433,16 +2503,17 @@ if __name__ == '__main__':
     #     default=False,
     #     action='store_true',
     # )
+    
     parser.add_argument(
         '-ct',
         '--catfim-type',
-        help="REQUIRE: add the value of 'fb' for Flow-Based processing or 'sb' for Stage-Based",
+        help="REQUIRED: add the value of 'fb' for Flow-Based processing or 'sb' for Stage-Based",
         required=True,
     )
     
     parser.add_argument(
         '-t',
-        '--output_folder',
+        '--output-folder',
         help='REQUIRED: Target location, Where the output folder will be.'
         'ie /data/catfim/hand_4_8_7_2 or /data/catfim/test/test1',
         required=True,
@@ -2461,7 +2532,7 @@ if __name__ == '__main__':
     # Keep this as is
     parser.add_argument(
         '-lh',
-        '--lst_hucs',
+        '--lst-hucs',
         help='OPTIONAL: Space-delimited list of HUCs to produce CatFIM for. Defaults to all HUCs',
         required=False,
         default='all',
@@ -2470,9 +2541,9 @@ if __name__ == '__main__':
     # Keep this
     parser.add_argument(
         '-mc',
-        '--past_major_interval_cap',
+        '--past-major-interval-cap',
         help='OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs?'
-        ' of the machine. Defaults to 5.',
+        ' of the machine. Defaults to 5.0',
         required=False,
         default=5.0,
         type=float,
@@ -2492,26 +2563,6 @@ if __name__ == '__main__':
     #     type=int,
     # )
 
-    # NOTE: This params is for quick debugging only and should not be used in a production mode
-    parser.add_argument(
-        '-me',
-        '--nwm_metafile',
-        help='OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.'
-        ' e.g.: /data/catfim/nwm_metafile.pkl',
-        required=False,
-        default="",
-    )
-
-    parser.add_argument(
-        '-tf',
-        '--threshold-file',
-        help='OPTIONAL: If you have a pre-existing threshold file, you can path to it here. '
-        'Providing this manual input will prevent the WRDS API from being queried for thresholds.'
-        ' e.g.: /data/catfim/threshold_file.pkl',
-        required=False,
-        default="",
-    )
-
     # Remove
     # parser.add_argument(
     #     '-cv',
@@ -2524,17 +2575,81 @@ if __name__ == '__main__':
     #     default="",
     # )
 
+
+    # We are droppoing model version inlcuding leaving it out of any of our output files.
+    # In HV, I can pull out model_version from the output folder name.
+    # ie) s3://....path/v6_0/hand_4_8_7_2/qa_datasets/ (catfim files, sierr files, etc.)
+    # Let HV handle it just as HV handle model_versions for all other data like HAND data
+    # TODO: Update the HV catfim load code
+    # parser.add_argument(
+    #     '-hv',
+    #     '--model-version',
+    #     help='OPTIONAL: The version of the HAND data outputs that was used to run the product.'
+    #     ' This value is included in the output gpkgs and csvs in a field named model_version.'
+    #     ' If you put in a value here, we will change dots to underscores only.'
+    #     ' This should be a HAND version number only and not include the word HAND_'
+    #     ' ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank',
+    #     required=False,
+    #     default="",
+    # )
+
+    # get from bash_varibles.env or similar
     parser.add_argument(
-        '-hv',
-        '--model-version',
-        help='OPTIONAL: The version of the HAND data outputs that was used to run the product.'
-        ' This value is included in the output gpkgs and csvs in a field named model_version.'
-        ' If you put in a value here, we will change dots to underscores only.'
-        ' This should be a HAND version number only and not include the word HAND_'
-        ' ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank',
+        '-mf',
+        '--nwm-meta-file',
+        help='OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.'
+        ' e.g.: /data/catfim/nwm_metafile.pkl',
         required=False,
         default="",
     )
+
+    parser.add_argument(
+        '-gm',
+        '--get-new-meta-data',
+        help="OPTIONAL: If this argument is added, and this script is on a OWP server, then ignore"
+        " and pre-existing meta file and go load new data directly from WRDS. Note: Calling WRDS"
+        " directly means you can add filters, searching, site specific, etc. This allows for easier debugging."
+        " However, the default behavior is to use the previously created nwm_metadata file and filter out the data"
+        " CatFIM needs for processing.",
+         required=False,
+         default=False,
+         action='store_true'
+    )
+
+    # get from bash_varibles.env or similar if not provided
+    parser.add_argument(
+        '-tf',
+        '--threshold-file',
+        help='OPTIONAL: If you have a pre-existing threshold file, you can path to it here. '
+        'Providing this manual input will prevent the WRDS API from being queried for thresholds.'
+        ' e.g.: /data/catfim/threshold_file.pkl',
+        required=False,
+        default="",
+    )
+   
+    parser.add_argument(
+        '-gt',
+        '--get-new-threshold-data',
+        help="OPTIONAL: If this argument is added, and this script is on a OWP server, then ignore"
+        " and pre-existing threshold data file and go load new data directly from WRDS. Note: Calling WRDS"
+        " directly means you can add filters, searching, site specific, etc. This allows for easier debugging."
+        " However, the default behavior is to use the previously created nwm_threshold file and filter out the data"
+        " CatFIM needs for processing.",
+         required=False,
+         default=False,
+         action='store_true'
+    )
+    
+    parser.add_argument(
+        '-sp',
+        '--skip-processing',
+        help="OPTIONAL: If this flag is set, it will setup all of the initial 'pre-processing' steps, but will"
+        " not continue with the processing of the hucs or post processing. This allows this tool to be used as"
+        " either a full fun, or just do post processing and let other tools like AWS do process hucs and post processing.",
+         required=False,
+         default=False,
+         action='store_true'
+    )        
 
     # Remove this. Individual HUCs can be re-run if we want, then re-run post processing.
     # parser.add_argument(

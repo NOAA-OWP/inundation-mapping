@@ -12,8 +12,18 @@ NWM_METAFILE_PATH=""
 THRESHOLD_FILE_PATH=""
 FIM_RUN_DIR=""
 PAST_MAJOR_INTERVAL_CAP=""
+HUC_PATH=""
+
 
 """_summary_
+
+    A sample model HUC folder can be found at /....(data)/catfim/rob_tests/new_arc_test1_flow_based
+      - it has a single sites files which combines all of the attribute files for each site into its own huc file
+        updateing it as it is being processed. 
+      - It also can be using the mapped / status colums as it goes
+      - When the huc is finished be processed, it is ready for post processing to merge with the rest of the huc sites files.
+
+
     Overall processing steps (tenatively)
     
     Will call generate_categorical_fim_flows and generate_categorical_fim when applicable.
@@ -56,16 +66,21 @@ PAST_MAJOR_INTERVAL_CAP=""
     
 def process_huc(huc, output_folder):
 
+    global HUC_PATH
+    
     # ------------
-    huc_path = validate_inputs(huc, output_folder)  # ie: /data/catfim/(somefolder)/hucs/12090301
+    # pass in locals() ?
+    # local_vals = locals() -- see generate_categorical_fim.py for an example if we want to use this
+    # __validate_inputs(local_vals)
+    HUC_PATH = __validate_inputs(huc, output_folder)  # ie: /data/catfim/(somefolder)/hucs/12090301
 
     # ---------------------
     # Start a folder structure if not already in place ?? Do we want all of these?
-    output_flows_dir = os.path.join(huc_path, 'flows')  # include threshold data?
-    output_mapping_dir = os.path.join(huc_path, 'mapping')
-    attributes_dir = os.path.join(huc_path, 'attributes')  # do we want this anymore? Isn't it duplicate of what we create
+    output_flows_dir = os.path.join(HUC_PATH, 'flows')  # FB flow data only? or merge with threshold data? TBD
+    output_mapping_dir = os.path.join(HUC_PATH, 'mapping')
+    attributes_dir = os.path.join(HUC_PATH, 'attributes')  # Meta data? do we want this anymore? Isn't it duplicate of what we create
       # for our huc level sies csv file we create pretty much right away?
-    output_thresholds_dir = os.path.join(huc_path, 'thresholds')  # hummmm...
+    # output_thresholds_dir = os.path.join(huc_path, 'thresholds')  # hummmm... do we need this anymore?
     
     # ---------------------
     # Setup logging. It should make its own huc log folder inside the parent "logs" folder
@@ -76,6 +91,14 @@ def process_huc(huc, output_folder):
         # load the runtime_args.env, error if it does not exist. It should give us all values we need
         # See generate_categorical_fim.py -> save_env_args(output_path)
         load_runtime_args(output_folder)
+       
+        
+        # two options on how we can use .env  as in os.getenv('CATFIM_TYPE')
+        # if CATFIM_TYPE == 'sb':
+        
+        # or just make the global CATFIM_TYPE (as a short cut)
+            # if os.enviro['CATFIM_TYPE'] == 'sb':
+        
         
         # ---------------------
         # validate HUC and if it is applicable to CatFIM?
@@ -126,9 +149,9 @@ def process_huc(huc, output_folder):
         # but hard to do if huc is not validated, and logger created. HUMMMM.
 
 
-def validate_inputs(huc, output_folder):
+def __validate_inputs(huc, output_folder):
 
-    # valdiate huc value (8 numeric maybe)
+    # valdiate huc value (8 numeric maybe and starts with 0, 1, or 2
 
     # validate the outfolder path exists first
 

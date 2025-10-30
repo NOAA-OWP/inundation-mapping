@@ -20,9 +20,9 @@ MODEL_VERSION=""
     
     2: Validate HUCs data (has some sies and library data remaining)
     
-    3: roll up all HUC level sites.csv/gpkg's and library files csv/gpkg.
+    3: roll up all HUC level sites.csv/gpkg's and library files csv/gpkg into one big final set of files like we currently have.
     
-    3.b Update the rolled up files for model_version (hand version) fields?
+    3.b Update the rolled up files for model_version (hand version) fields? TBD
     
     4: Roll up HUC logs?  not sure about that one.
     
