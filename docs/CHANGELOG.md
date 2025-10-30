@@ -1,13 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-09-29 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
+## v4.8.15.0 - 2025-10-30 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
 
 This PR adds a new script to pull, extract, and conflate MRMS FLASH flow values to NWM reaches to use in generating HAND FIM. FLASH FIM can be useful during flash flooding scenarios where conditions change quickly and high temporal resolution (up to every 10 minutes) is necessary. 
 
 ### Additions
 - `/tools/flashfim/conflate_flash_flows.py` - Added a script to extract and conflate flow values from FLASH products to the hydrofabric reference flowlines for FIM production.
 - `/tools/flashfim/README.md` - Added README to give background on FLASH FIM and explain how to use the tool.
+<br />
+
 ## v4.8.14.4 - 2025-10-30 - [PR#1687](https://github.com/NOAA-OWP/inundation-mapping/pull/1687)
 
 Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now they will be masked out of BOTH stage-based and flow-based CatFIM (rather than just stage). 
