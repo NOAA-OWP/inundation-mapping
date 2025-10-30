@@ -190,7 +190,7 @@ def conflate_all_models(hucs, huc_file, hydrofabric_file, output, timestep, min_
         min_order (str): Minimum stream order to use in conflating flow.
 
     Example Usage:
-    python /foss_fim/tools/flash_fim.py -u 12100201 12090201 -b /user/Documents/HUC8_CONUS.gpkg
+    python /foss_fim/tools/flashfim/conflate_flash_flows.py -u 12100201 12090201 -b /user/Documents/HUC8_CONUS.gpkg
     -hf /user/Documents/hydrofabric_reference_2_3.gpkg -o /user/Documents/latest_flow.csv -t 20250704-083000 -m 3
 
     """
