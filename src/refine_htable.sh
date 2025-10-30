@@ -36,6 +36,28 @@ Tstart
 python3 $srcDir/aggregate_branches_to_huc.py -huc_dir $tempHucDataDir -elev -ras
 Tcount
 
+## RUN THALWEG NOTCHES ADJUSTMENT ROUTINE ##
+if [ "$thalweg_notches_adjustment" = "True" ]; then
+    l_echo $startDiv"Performing thalweg notches adjustment routine"
+    Tstart
+    python3 $srcDir/thalweg_notches_adjustment.py \
+        -huc_dir $tempHucDataDir \
+        -j $jobLimit \
+
+    Tcount
+fi
+
+## RUN LONGITUDINAL FILTER ROUTINE ##
+if [ "$logitudinal_filter" = "True" ]; then
+    l_echo $startDiv"Performing longitudinal discharge adjustment routine"
+    Tstart
+    python3 $srcDir/longitudinal_flow_adjustment.py \
+        -huc_dir $tempHucDataDir \
+        -j $jobLimit \
+
+    Tcount
+fi
+
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
 if [ "$bathymetry_adjust" = "True" ]; then
     l_echo $startDiv"Performing Bathymetry Adjustment routine"
@@ -80,15 +102,6 @@ if [ "$nonmonotonic_src_adjustment" = "True" ]; then
     # Run Nonmonotonic SRCs Adjustment routine -flows $bankfull_flows_file \
     Tstart
     python3 $srcDir/nonmonotonic_src_adjustment.py \
-        -huc_dir $tempHucDataDir
-    Tcount
-fi
-
-## RUN LONGITUDINAL FILTER ROUTINE ##
-if [ "$logitudinal_filter" = "True" ]; then
-    l_echo $startDiv"Performing longitudinal discharge adjustment routine"
-    Tstart
-    python3 $srcDir/longitudinal_flow_adjustment.py \
         -huc_dir $tempHucDataDir
     Tcount
 fi

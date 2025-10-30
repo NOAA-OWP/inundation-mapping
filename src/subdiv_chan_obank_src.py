@@ -380,7 +380,7 @@ def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plo
     begin_time = dt.datetime.now()
 
     ## initiate log file
-    log_dir = os.path.join(huc_dir, "logs", "src_optimization")
+    log_dir = os.path.join(huc_dir, "logs", "src_refinements")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
 

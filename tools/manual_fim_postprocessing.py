@@ -52,19 +52,19 @@ def run_shell_for_huc(
         msg = f"[{task_id}] ✅ Manual postprocessing succeeded for HUC {huc}"
         screen_queue.put(msg)
         file_logger.info(msg)
-        return True
+        return 1, [True]
 
     except subprocess.CalledProcessError as e:
         msg = f"[{task_id}] ❌ Manual postprocessing failed for HUC {huc}: {e}"
         screen_queue.put(msg)
         file_logger.error(msg)
-        return False
+        return 0, [False]
 
     except Exception as ex:
         msg = f"[{task_id}] ❌ Manual postprocessing failed with unexpected error for HUC {huc}: {ex}"
         screen_queue.put(msg)
         file_logger.error(msg)
-        return False
+        return 0, [False]
 
 
 def manual_postprocessing(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6, branch_jobs: int = 2):
@@ -122,7 +122,7 @@ def manual_postprocessing(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int
     # Create the logger
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file_path = os.path.join(fim_run_dir, 'logs', f"manual_postprocessing_{timestamp}.log")
-    file_logger = setup_mp_file_logger(log_file_path)
+    file_logger = setup_mp_file_logger(log_file_path, logger_name='manual_postprocessing')
     print('started manual postprocessing...')
     file_logger.info('started manual postprocessing...')
 
@@ -134,12 +134,11 @@ def manual_postprocessing(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int
         max_workers=huc_jobs,
         task_id_key="huc",  # to label logs by HUC ID
         show_progress=False,  # there are many print statments in each calibration scripts
-        exit_on_failure=False,
     )
 
     print('multiprocessing tasks finished!')
     # only report if all succeeded or the failed ones
-    failed_keys = [id for id, status in mp_results.items() if not status]
+    failed_keys = [tid for tid, payload in mp_results.items() if not payload[0]]
 
     if not failed_keys:
         file_logger.info("✅ All multiprocessing tasks Succeeded")
@@ -147,9 +146,9 @@ def manual_postprocessing(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int
     else:
         file_logger.info(f"❌ {len(failed_keys)} failed:")
         print(f"❌ {len(failed_keys)} failed:")
-        for id in failed_keys:
-            file_logger.info(f"  - {id}")
-            print(f"  - {id}")
+        for tid in failed_keys:
+            file_logger.info(f"  - {tid}")
+            print(f"  - {tid}")
 
     print("Done!")
     file_logger.info("Done!")

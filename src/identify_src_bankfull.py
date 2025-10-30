@@ -306,7 +306,7 @@ def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_opt
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
     ## initiate log file
-    log_dir = os.path.join(huc_dir, "logs", "src_optimization")
+    log_dir = os.path.join(huc_dir, "logs", "src_refinements")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
 

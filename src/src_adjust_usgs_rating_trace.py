@@ -33,7 +33,7 @@ Processing
 
 Inputs
 - branch_dir:           fim directory containing individual HUC output dirs
-- usgs_rc_filepath:     USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
+- usgs_rc_filepath:     USGS rating curve database (produced by get_usgs_rating_curves.py)
 - nwm_recurr_filepath:  NWM flow recurrence interval dataset
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
 - branch_jobs:           number of multi-processing branches jobs to use
@@ -472,7 +472,7 @@ def run_prep(
     huc = os.path.basename(os.path.normpath(huc_dir))
 
     # Create output dir for log and usgs rc database
-    log_dir = os.path.join(huc_dir, "logs", "src_optimization")
+    log_dir = os.path.join(huc_dir, "logs", "src_refinements")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
 

@@ -60,8 +60,6 @@ fi
 #                                                                                       #
 #########################################################################################
 
-# Clean out the other post processing files before starting
-rm -rdf $outputDestDir/logs/src_optimization
 # TODO what is below coming from?
 rm -f $log_file_name
 

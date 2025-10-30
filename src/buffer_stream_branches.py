@@ -16,7 +16,7 @@ def buffer_stream_branches(
     branch_id_attribute: str,
     buffer_distance: int,
     stream_polygons_file: str = None,
-    dem_domain: str = None,
+    wbd: str = None,
     verbose: bool = False,
 ):
     if os.path.exists(streams_file):
@@ -34,18 +34,17 @@ def buffer_stream_branches(
             stream_network, buffer_distance=buffer_distance, verbose=verbose
         )
 
-        # Clip to DEM domain
-        if os.path.exists(dem_domain):
-            dem_domain = gpd.read_file(dem_domain)
-            stream_polys.geometry = gpd.clip(stream_polys, dem_domain).geometry
+        # Clip to WBD
+        if os.path.exists(wbd):
+            wbd = gpd.read_file(wbd)
+            stream_polys.geometry = gpd.clip(stream_polys, wbd).geometry
 
-        stream_polys.write(stream_polygons_file, verbose=verbose)
+            stream_polys.write(stream_polygons_file, verbose=verbose)
 
 
 if __name__ == "__main__":
     # parse arguments
     parser = argparse.ArgumentParser(description="Generates branch polygons")
-    parser.add_argument("-a", "--dem-domain", help="DEM domain file", required=False, type=str)
     parser.add_argument("-s", "--streams-file", help="Streams file to branch", required=True)
     parser.add_argument("-i", "--branch-id-attribute", help="Attribute with branch ids", required=True)
     parser.add_argument(
@@ -58,6 +57,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-b", "--stream-polygons-file", help="Branch polygons out file name", required=False, default=None
     )
+    parser.add_argument("-w", "--wbd", help="WBD file to clip to", required=False, default=None)
     parser.add_argument(
         "-v", "--verbose", help="Verbose printing", required=False, default=None, action="store_true"
     )

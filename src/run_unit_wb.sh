@@ -121,11 +121,12 @@ python3 $srcDir/associate_levelpaths_with_levees.py -nld $tempHucDataDir/nld_sub
 
 ## STREAM BRANCH POLYGONS
 echo -e $startDiv"Generating Stream Branch Polygons for $hucNumber"
-$srcDir/buffer_stream_branches.py -a $tempHucDataDir/$dem_domain_filename \
+$srcDir/buffer_stream_branches.py \
     -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
     -i $branch_id_attribute \
     -d $branch_buffer_distance_meters \
-    -b $tempHucDataDir/branch_polygons.gpkg
+    -b $tempHucDataDir/branch_polygons.gpkg \
+    -w $tempHucDataDir/wbd_buffered.gpkg
 
 ## CREATE BRANCHID LIST FILE
 echo -e $startDiv"Create list file of branch ids for $hucNumber"
