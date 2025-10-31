@@ -266,7 +266,7 @@ def mitigate_branch_outlet_backpool(
 
     # --------------------------------------------------------------
     # Read in nwm lines, explode to ensure linestrings are the only geometry
-    nwm_streams = gpd.read_file(nwm_streams_filename).explode(index_parts=True)
+    nwm_streams = gpd.read_file(nwm_streams_filename, engine='fiona').explode(index_parts=True)
 
     # Check whether it's branch zero
     if 'levpa_id' in nwm_streams.columns:
@@ -294,8 +294,8 @@ def mitigate_branch_outlet_backpool(
         #     print(f'No catchment pixels geome at {catchment_reaches_filename}.')
 
         # Read in split_flows_file and split_points_filename
-        split_flows_geom = gpd.read_file(split_flows_filename)
-        split_points_geom = gpd.read_file(split_points_filename)
+        split_flows_geom = gpd.read_file(split_flows_filename, engine='fiona')
+        split_points_geom = gpd.read_file(split_points_filename, engine='fiona')
 
         # Subset the split flows to get the last one
         split_flows_last_geom = split_flows_geom[split_flows_geom['NextDownID'] == '-1']
@@ -423,7 +423,7 @@ def mitigate_branch_outlet_backpool(
                     # print("gdal_polygonize executed successfully.")  # verbose
 
                     # Read in the polygonized catchment pixels
-                    cp_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename)
+                    cp_poly_geom = gpd.read_file(catchment_pixels_polygonized_filename, engine='fiona')
 
                     # --------------------------------------------------------------
                     # Mask problematic pixel catchment from the catchments rasters

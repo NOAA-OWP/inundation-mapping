@@ -37,16 +37,16 @@ CatFIM can only be run by systems that can access the WRDS API, which is restric
 ### Commands
 Stage-based example with step system and pre-downloaded metadata: 
 
-`python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8 -e /data/config/catfim.env -t /data/docker_test_1 -me '/data/nwm_metafile.pkl' -sb -step 2`
+`python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8 -t /data/docker_test_1 -me '/data/nwm_metafile.pkl' -sb -step 2`
 
 Flow-based example with HUC list:
 
-`python /foss_fim/tools/catfim/generate_categorical_fim.py -f /data/previous_fim/fim_4_5_2_11/ -jh 4 -jn 2 -e /data/config/catfim.env -t /data/hand_4_5_11_1_catfim_datavis -o -lh '06010105 17110004 10300101 19020401 19020302'`
+`python /foss_fim/tools/catfim/generate_categorical_fim.py -f /data/previous_fim/fim_4_5_2_11/ -jh 4 -jn 2 -t /data/hand_4_5_11_1_catfim_datavis -o -lh '06010105 17110004 10300101 19020401 19020302'`
 
 
 ### Arguments
 - `-f`, `--fim_run_dir`: Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11
-- `-e`, `--env_file`: Docker mount path to the catfim environment file. ie) data/config/catfim.env
+- `-e`, `--env_file`: OPTIONAL: Docker mount path to the environment file. Defaults to /data/config/fim_enviro_values.env
 - `-jh`, `--job_number_huc`: OPTIONAL: Number of processes to use for HUC scale operations. HUC and inundation job numbers should multiply to no more than one less than the CPU count of the machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be kept low (2-4). Defaults to 1.
 - `-jn`, `--job_number_inundate`: OPTIONAL: Number of processes to use for inundating HUC and inundation job numbers should multiply to no more than one less than the CPU count of the machine. Defaults to 1.
 - `-ji`, `--job_number_intervals`: OPTIONAL: Number of processes to use for inundating multiple intervals in stage-based inundation and interval job numbers should multiply to no more than one less than the CPU count of the machine. Defaults to 1.
@@ -57,7 +57,31 @@ Flow-based example with HUC list:
 - `-mc`, `--past_major_interval_cap`: OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs? of the machine. Defaults to 5.
 - `-step`: 'OPTIONAL: By adding a number here, you may be able to skip levels of processing. The number you submit means it will start at that step. e.g. step of 2 means start at step 2 which for flow based is the creating of tifs and gpkgs. Note: This assumes those previous steps have already been processed and the files are present. Defaults to 0 which means all steps processed.
 - `-me`, `--nwm_metafile`: OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.  NOTE: This parameter is for quick debugging only and should not be used in a production mode.
+- `-cv`, `--catfim-version`: OPTIONAL: The version of the code that was used to run the product. This value is included in the output gpkgs and csvs in a field named product_version. If you put in a value here, we will add the phrase CatFIM to the front of it. ie) 2.0 becomes CatFIM, 2.2 becomes CatFIM, etc. Defaults to blank. 
+- `-hv`, `--model-version`: OPTIONAL: The version of the HAND data outputs that was used to run the product. This value is included in the output gpkgs and csvs in a field named model_version. If you put in a value here, we will change dots to underscores only. This should be a HAND version number only and not include the word HAND_ ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank.
 - `-o`, `--overwrite`: OPTIONAL: Overwrite files.
+
+## Running CatFIM Site Comparison
+### What is CatFIM Site Comparison?
+CatFIM site comparison is an internal tool that allows us to compare multiple different versions of CatFIM outputs. 
+
+
+### Commands
+
+Generating geopackages:
+`python /foss_fim/tools/catfim/catfim_sites_compare.py -p '/data/catfim/hand_4_5_11_1_stage_based/ /data/catfim/fim_4_5_2_11_stage_based/' -o '/test_outputs' -g`
+
+Multiple comparisons:
+`python /foss_fim/tools/catfim/catfim_sites_compare.py -p '/data/catfim/hand_4_5_11_1_stage_based/ /data/catfim/fim_4_5_2_11_stage_based/ /data/catfim/hand_4_5_11_1_flow_based/ /data/catfim/fim_4_5_2_11_flow_based/' -o '/test_outputs'`
+
+
+### Arguments
+
+- `-p`, `--path-list`: Space-delimited list of CatFIM output paths from which to compile sites. Paths MUST have the version number in it (i.e. `4_5_11_1`) because the version number is used to put the versions in sequential order.
+- `-o`, `--output-save-filepath`: Path to where the results files will be saved.
+- `-k`, `--keep-differences-only`: OPTIONAL: Option to keep only changed sites in the comparison files.
+- `-g`, `--generate-geopackages`: OPTIONAL: Option to generate spatial difference maps and a points geopackage for the version comparisons.
+- `-d`, `--debug-mode`: OPTIONAL: Debug mode. Will only iterate through 100 records while generating geopackages.
 
 ## Visualization Tips & Tricks
 

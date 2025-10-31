@@ -433,23 +433,18 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
         for ind, row in sites_gdf.iterrows():
             ahps_id = row['ahps_lid']
             status_val = row['status']
-
+            # If the ahps_id is not in the valid list, then mapped should be "no" and status updated
             if ahps_id not in valid_ahps_ids:
-
                 sites_gdf.at[ind, 'mapped'] = 'no'
                 FLOG.warning(
-                    f"Mapped status was changed to no for {ahps_id} because no inundation GPKGs found."
+                    f"{ahps_id} : Mapped status was changed to no because no inundation GPKGs found."
                 )
-
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
-
                 else:
                     if status_val.startswith("---") == True:
                         status_val = status_val[3:]  # remove the "---" from the status
-
-                    sites_gdf.at[ind, 'status'] = status_val + ', site resulted with no valid inundated files'
-
+                    sites_gdf.at[ind, 'status'] = status_val
                 continue
                 # It is safe to assume a status message for invalid ones already exist
 
@@ -591,8 +586,8 @@ def iterate_through_huc_stage_based(
 
             for lid in nws_lids:
 
-                # debugging
-                # if lid.upper() not in ['PNTA3', 'PWBA3']:
+                # # Debugging mode:
+                # if lid.upper() not in ['PACI1']:
                 #    continue
 
                 # TODO: Oct 2024, yes. this is goofy but temporary
@@ -751,11 +746,28 @@ def iterate_through_huc_stage_based(
                 # Check for large discrepancies between the elevation values from WRDS and HAND.
                 #   Otherwise this causes bad mapping.
                 elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
+                diff_rounded = round(elevation_diff, 2)
+
+                # Log elevation difference information - not an error, just for reference (maybe remove later)
+                if elevation_diff > 0:
+                    MP_LOG.lprint(f"{huc_lid_id}: USGS elev is higher than HAND elev by {diff_rounded} ft")
+                elif elevation_diff < 0:
+                    MP_LOG.lprint(
+                        f"{huc_lid_id}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft"
+                    )
+
                 if abs(elevation_diff) > 10:
                     msg = ':Large discrepancy in elevation estimates from gage and HAND'
                     all_messages.append(lid + msg)
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
+                elif abs(elevation_diff) > 5:
+                    msg = (
+                        f':Moderate discrepancy ({diff_rounded} ft) in elevation estimates from gage and HAND'
+                    )
+                    MP_LOG.warning(huc_lid_id + msg)
+                    # all_messages.append(lid + msg) # just print as a warning for now (not appending to message)
+                    # We are not continuing, just a warning
 
                 # This function sometimes is called within a MP but sometimes not.
                 # So, we might have an MP inside an MP
@@ -798,15 +810,21 @@ def iterate_through_huc_stage_based(
                 # At this point we have at least one valid stage/category
                 # cyle through on the stages that are valid
                 # This are not interval values
+
+                negative_hand_stage = False  # initialize value
+
                 for idx, stage_row in stage_values_df.iterrows():
-                    # MP_LOG.lprint(f"{huc_lid_id}: Magnitude is {category}")
                     # Pull stage value and confirm it's valid, then process
 
                     category = stage_row['stage_name']
                     stage_value = stage_row['stage_value']
 
-                    # messages already included in the stage_warning_msg above
-                    if stage_value == -1:
+                    if stage_value == -1:  # messages already included in the stage_warning_msg above
+                        continue
+
+                    if (
+                        negative_hand_stage == True
+                    ):  # if we already had a negative hand stage, skip remaining stages
                         continue
 
                     MP_LOG.trace(f"About to create tifs for {huc_lid_id} : {category} : {stage_value}")
@@ -837,10 +855,13 @@ def iterate_through_huc_stage_based(
                         child_log_file_prefix,
                     )
 
-                    # If we get a message back, then something went wrong with the site adn we need to
+                    # If we get a message back, then something went wrong with the site and we need to
                     # remove it as a valid site
-
                     all_messages += messages
+
+                    # Mark site as invalid if any stage results in a negative hand stage value
+                    if hand_stage < 0:
+                        negative_hand_stage = True
 
                     # Extra metadata for alternative CatFIM technique.
                     # TODO Revisit because branches complicate things
@@ -862,11 +883,21 @@ def iterate_through_huc_stage_based(
                         mapping_lid_directory, lid + '_' + category_key + '_extent.tif'
                     )
                     if os.path.exists(stage_file_name) == False:
-                        # somethign failed and we didn't get a rolled up extent file, so we need to reject the stage
+                        # something failed and we didn't get a rolled up extent file, so we need to reject the stage
                         stage_values_df.at[idx, 'stage_value'] = -1
+
+                # If any stage resulted in a negative hand stage value, mark site as invalid.
+                # because this indicates that there is an elevation disparity that will
+                # likely result in bad mapping.
+                if negative_hand_stage == True:
+                    msg = ': Discrepancy in elevation estimates from gage and HAND caused negative HAND stage value'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
 
                 # So, we might have an MP inside an MP
                 # let's merge what we have at this point, before we go into another MP
+                # TODO: Oct 2025: We should re-enable this, but need to test it first.
                 # MP_LOG.merge_log_files(MP_LOG.LOG_FILE_PATH, child_log_file_prefix_tifs, True)
 
                 # we do intervals only on non-record and valid stages
@@ -1033,7 +1064,7 @@ def iterate_through_huc_stage_based(
 
                     if stage_warning_msg == "":  # does not mean the lid is good.
                         all_messages.append(lid + ':Good')
-                    else:  # we will leave the ":---" on it for now if it is does have a warnning message
+                    else:  # we will leave the ":---" on it for now if it is does have a warning message
                         all_messages.append(lid + stage_warning_msg)
                         MP_LOG.warning(huc_lid_id + stage_warning_msg)
                 else:
@@ -1820,7 +1851,7 @@ if __name__ == '__main__':
     '''
     Sample
     python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8
-    -e /data/config/catfim.env -t /data/catfim/rob_test/docker_test_1
+    -t /data/catfim/rob_test/docker_test_1
     -me '/data/catfim/rob_test/nwm_metafile.pkl' -sb -cv "2.2" -hv "4.5.11.1" -step 2
     '''
 
@@ -1835,10 +1866,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '-e',
         '--env_file',
-        help='REQUIRED: Docker mount path to the catfim environment file. ie) data/config/catfim.env',
-        required=True,
+        help='OPTIONAL: Docker mount path to the catfim environment file.'
+        ' Defaults to: /data/config/fim_enviro_values.env',
+        default="/data/config/fim_enviro_values.env",
+        required=False,
     )
-
     parser.add_argument(
         '-jh',
         '--job_number_huc',
@@ -1955,7 +1987,7 @@ if __name__ == '__main__':
         help='OPTIONAL: The version of the HAND data outputs that was used to run the product.'
         ' This value is included in the output gpkgs and csvs in a field named model_version.'
         ' If you put in a value here, we will change dots to underscores only.'
-        ' This shoudl be a HAND version number only and not include the word HAND_'
+        ' This should be a HAND version number only and not include the word HAND_'
         ' ie) 4.5.11.1 becomes 4_5_11_1, etc. Defaults to blank',
         required=False,
         default="",
