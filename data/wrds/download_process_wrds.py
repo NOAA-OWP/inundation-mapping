@@ -1,27 +1,17 @@
 #!/usr/bin/env python3
+
 import argparse
 import os
 import urllib3
-
-# import urllib
-# import urllib.request
-# from collections import defaultdict
-# from pathlib import Path
 import pickle
 import pandas as pd
 import requests
-from datetime import date
 from dotenv import load_dotenv
 
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
-
-
-# -------------------------------------
-# Name: download_process_wrds_data.py
-# Script Location: data/wrds ? 
-# -------------------------------------
+from datetime import date, datetime, timezone
 
 # moved over from inundation-mapping/tools/tools_shared_functions.py
 # TODO: Remove this function from the tools shared functions file
@@ -228,30 +218,64 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
 
 # TODO: Remove this function from the generate_categorical_fim_flows.py and replace it with code that can read it in
 # was __load_nwm_metadata
-def download_all_metadata(workspace, metadata_url, search, get_metadata, label_with_date):
+def download_all_metadata(workspace, metadata_url, search, metadata_download, label_with_date, lst_hucs):
+
+    print('Starting metadata download from WRDS...')
 
     nwm_us_search, nwm_ds_search = search, search
     output_meta_list = []
 
-    # Get all forecast points
-    forecast_point_meta_list, ___ = get_metadata(
-        metadata_url,
-        select_by='nws_lid',
-        selector=['all'],
-        must_include='nws_data.rfc_forecast_point',
-        upstream_trace_distance=nwm_us_search,
-        downstream_trace_distance=nwm_ds_search,
-    )
+    if 'all' in lst_hucs:
+        # Get all forecast sites
+        forecast_point_meta_list, ___ = get_metadata( # TODO: Weirdly, when this section is run it gets 4810 forecast points whereas if I use huc_list = ['all'] it gets 3686 forecast points... (and fewer unique LIDs)
+            metadata_url,
+            select_by='nws_lid',
+            selector=['all'],
+            must_include='nws_data.rfc_forecast_point',
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
 
-    # Get all points for OCONUS regions (HI, PR, and AK)
-    oconus_meta_list, ___ = get_metadata(
-        metadata_url,
-        select_by='state',
-        selector=['HI', 'PR', 'AK'],
-        must_include=None,
-        upstream_trace_distance=nwm_us_search,
-        downstream_trace_distance=nwm_ds_search,
-    )
+        print(f'    Number of forecast points: {len(forecast_point_meta_list)}')
+
+        # Get all sites for OCONUS regions (HI, PR, and AK)
+        oconus_meta_list, ___ = get_metadata(
+            metadata_url,
+            select_by='state',
+            selector=['HI', 'PR', 'AK'],
+            must_include=None,
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+
+    else:
+        # Get forecast sites from HUC list
+        forecast_point_meta_list, ___ = get_metadata(
+            metadata_url,
+            select_by='huc',
+            selector=lst_hucs,
+            must_include='nws_data.rfc_forecast_point',
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+
+        print(f'    Number of forecast points: {len(forecast_point_meta_list)}')
+
+        # Subset lst_hucs to only include the HUCs that start with 19, 20, 21, or 22
+        allowed_prefixes = ('19', '20', '21', '22')
+        lst_hucs_oconus = [h for h in lst_hucs if str(h).startswith(allowed_prefixes)]
+
+        # Get all sites for listed HUCs in OCONUS regions (HI, PR, and AK)
+        oconus_meta_list, ___ = get_metadata(
+            metadata_url,
+            select_by='huc',
+            selector=lst_hucs_oconus,
+            must_include=None,
+            upstream_trace_distance=nwm_us_search,
+            downstream_trace_distance=nwm_ds_search,
+        )
+
+    print(f'    Number of OCONUS points: {len(oconus_meta_list)}')
 
     # Append the lists
     unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
@@ -278,10 +302,17 @@ def download_all_metadata(workspace, metadata_url, search, get_metadata, label_w
             unique_lids_list.append(nws_lid)
             output_meta_list.append(site)
 
-    if get_metadata == True:
+    print(f'    Total number of unique LIDs: {len(unique_lids_list)}')
+
+    if metadata_download == True:
         filename = f'nwm_metafile{label_with_date}.pkl'
         meta_filepath = os.path.join(workspace, filename)
-        print(f"Meta file will be downloaded and saved at {meta_filepath}")
+        print(f"    Metadata saved at {meta_filepath}")
+
+        file_size_bytes = os.path.getsize(meta_filepath)
+        file_size_kb = round(file_size_bytes / 1024, 2)
+        file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
+        print(f"    File size: {file_size_kb} kb or {file_size_mb} mb")
 
         with open(meta_filepath, "wb") as p_handle:
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -312,11 +343,8 @@ def download_all_thresholds(workspace, threshold_url, metadata_list, label_with_
     - CSV files for each LID in a subfolder 'threshold_download' within the output_folder.
     - A combined pickle file 'all_thresholds.pkl' containing all thresholds.
     """
+    print('Starting threshold download from WRDS...')
 
-    filename = f'thresholds{label_with_date}.pkl'
-    thresholds_filepath = os.path.join(workspace, filename)
-    print(f"Thresholds will be downloaded and saved at {thresholds_filepath}")
-    
     lid_list = []
     huc_lid_dict = {}
 
@@ -331,8 +359,7 @@ def download_all_thresholds(workspace, threshold_url, metadata_list, label_with_
         lid_list.append(lid_i)
         huc_lid_dict[lid_i] = huc_i
 
-    print('Start threshold downloads.')
-    print(f'Total sites to download: {len(lid_list)}')
+    print(f'    Number of sites to download thresholds for: {len(lid_list)}')
 
     # Iterate through LIDs in huc_lid_dict and get thresholds from the WRDS API
     list_threshold_dfs = []
@@ -357,14 +384,22 @@ def download_all_thresholds(workspace, threshold_url, metadata_list, label_with_
     # Combine all the DataFrames in the list into a single, final DataFrame
     all_thresholds_df = pd.concat(list_threshold_dfs, ignore_index=True)
 
+    filename = f'thresholds{label_with_date}.pkl'
+    thresholds_filepath = os.path.join(workspace, filename)
+
     # Save the combined DataFrame to a pickle file
     try:
         with open(thresholds_filepath, 'wb') as f:
             pickle.dump(all_thresholds_df, f)
+        print(f"    Thresholds saved at {thresholds_filepath}")
+
+        file_size_bytes = os.path.getsize(thresholds_filepath)
+        file_size_kb = round(file_size_bytes / 1024, 2)
+        file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
+        print(f"    File size: {file_size_kb} kb or {file_size_mb} mb")
+
     except Exception as e:
         print(f"Error saving pickle file {thresholds_filepath}: {e}")
-
-    print('Thresholds compilation complete.')
 
     # return huc_lid_dict and safe as file? TODO: add in, add a note that it's just for tracing
 
@@ -376,56 +411,93 @@ def obtain_wrds_data(env_file,
                     label,
                     lst_hucs,
                     search,
-                    get_metadata,
-                    get_thresholds):
+                    metadata_download,
+                    threshold_download):
 
-    print('Starting processing to obtain WRDS data...')
+
+    overall_start_time = datetime.now(timezone.utc)
+    dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+
+    print('================================')
+    print('Starting processing to obtain WRDS data')
+    print(f'{dt_string} (UTC)')
+    print()
 
     # Validate workspace
     if not os.path.exists(workspace):
         raise ValueError(f'Workspace path {workspace} does not exist. Please provide a valid path.')
     
 
-    if get_metadata == False and get_thresholds == False:
+    if metadata_download == False and threshold_download == False:
         raise ValueError('At least one of -m (get metadata) or -t (get thresholds) must be specified as True.')
-    elif get_metadata == True and get_thresholds == True:
-        print('Both metadata and thresholds will be saved.')
-    elif get_metadata == True and get_thresholds == False:
-        print('Only metadata will be saved.')
-    elif get_thresholds == True and get_metadata == False:
-        print('Only threshold data will be saved.')
+    elif metadata_download == True and threshold_download == True:
+        print('Both metadata and thresholds will be downloaded and saved.')
+    elif metadata_download == True and threshold_download == False:
+        print('Only metadata will be downloaded and saved.')
+    elif threshold_download == True and metadata_download == False:
+        print('Only threshold data will be saved (but metadata will still be downloaded).')
     
-    # For API usage
+    lst_hucs = lst_hucs.split()
+
+    if 'all' in lst_hucs:
+        print('No HUC list provided, downloading data for all HUCs.')
+    else:
+        print(f'Downloading data for {len(lst_hucs)} HUCs.')
+
+    print()
+
+    # Set up API URLs
     load_dotenv(env_file)
     API_BASE_URL = os.getenv('API_BASE_URL')
     if API_BASE_URL is None:
         raise ValueError(
             'API base url not found. Ensure inundation_mapping/tools/ has an .env file with the API_BASE_URL.'
         )
-
     metadata_url = f'{API_BASE_URL}/metadata'
     threshold_url = f'{API_BASE_URL}/nws_threshold'
 
-    lst_hucs = lst_hucs.split()
-
     # If a list of HUCs is provided, add 'subset' to the label
     subset = '' if 'all' in lst_hucs else '_subset'
+
+    # Add a leading underscore to the label if it's not empty
+    label = f'_{label}' if label != '' else label
 
     date_formatted = date.today().strftime("%d%m%Y")
     label_with_date = f'{label}{subset}_{date_formatted}'
 
     # Download metadata and save metadata to pkl file 
     # (If thresholds_only == True, metadata will be downloaded but not saved)
-    output_meta_list = download_all_metadata(workspace, metadata_url, search, get_metadata, label_with_date) # TODO: Add lst_hucs filtering
+    metadata_start_time = datetime.now(timezone.utc)
+    output_meta_list = download_all_metadata(workspace, metadata_url, search, metadata_download, label_with_date, lst_hucs)
     
-    if get_thresholds == True:
+    metadata_end_time = datetime.now(timezone.utc)
+    metadata_duration = metadata_end_time - metadata_start_time
+    print(f"    Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}")
+    print()
+
+    if threshold_download == True:
         # Download thresholds
-        download_all_thresholds(workspace, threshold_url, output_meta_list, label_with_date) # TODO: add lst_hucs filtering
+        thresholds_start_time = datetime.now(timezone.utc)
+
+        download_all_thresholds(workspace, threshold_url, output_meta_list, label_with_date)
+
+        thresholds_end_time = datetime.now(timezone.utc)
+        thresholds_duration = thresholds_end_time - thresholds_start_time
+        print(f"    Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
+        print()
+
         # TODO: add a note about why .pkl for thresholds
 
-    print('Processing complete.') # TODO: add runtime tracking. if runtime is super long, add multiproc?
 
-    # TODO: figure out timing, look at file sizes how big
+    overall_end_time = datetime.now(timezone.utc)
+    dt_string = overall_end_time.strftime("%m/%d/%Y %H:%M:%S")
+    time_duration = overall_end_time - overall_start_time
+
+
+    print('Processing complete.')
+    print(f"Total duration: {str(time_duration).split('.')[0]}") 
+    print('================================')
+
     # TODO: bolt in Ali's new logging system
 
 
@@ -446,19 +518,19 @@ if __name__ == '__main__':
         '--workspace',
         help='OPTIONAL: Workspace where all outputs will be saved.',
         required=False,
-        default = '/data/wrds ?' # TODO: Add default data folder path
+        default = '/data/inputs/wrds/'
     )
 
     parser.add_argument('-l',
         '--label',
-        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_ddmmyy.pkl and thresholds_<label>_ddmmyy.pkl)',
+        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_ddmmyy.pkl and thresholds_<label>_ddmmyy.pkl).',
         required=False
     )
 
     parser.add_argument(
         '-lh',
         '--lst-hucs',
-        help='OPTIONAL: Space-delimited list of HUCs to get WRDS data for. Defaults to all HUCs.',
+        help="OPTIONAL: Space-delimited list of HUCs to get WRDS data for. Defaults to all HUCs. e.g. '12090301 19020301'",
         required=False,
         default='all',
     )
@@ -473,7 +545,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-m',
-        '--get-metadata',
+        '--metadata-download',
         help="OPTIONAL: Create the metadata.pkl file. Must have at least one of -m or -t selected.",
         required=False,
         default=False,
@@ -482,7 +554,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-t',
-        '--get-thresholds',
+        '--threshold-download',
         help="OPTIONAL: Create the thresholds.pkl file. Must have at least one of -m or -t selected.",
         required=False,
         default=False,
@@ -493,43 +565,3 @@ if __name__ == '__main__':
 
     # Main function call
     obtain_wrds_data(**args)
-
-
-
-'''
-Arguments for command line functionality:
-
-- output save folder path (optional, will default to a specific data folder)
-- file label (optional, stucture will be metadata_<label>_ddmmyy.pkl and thresholds_<label>_ddmmyy.pkl)
-
--mf (optional, just download metadata file)
--tf (optional, just download threholds file)
-
-and then MAYBE: 
-- manual input CSV (optional, would default to '' but would be used to preprocess manual thresholds/metadata into the same style of output)
-if the manual input is used, then we would want the output file label to also indicate that (maybe like metadata_manual_<label>_ddmmyy.pkl etc.)
-
-
-
-
-
-
-Notes:
-
-script will need an env file with the API paths
-
-should we also add the scripts that compile the non-WRDS data? (I'm leaning towards yes)
-
-default functionality will download all of the metadata and download all the thresholds and save them into two .pkl files
-the file name will be modifiable but it will have _ddmmyy.pkl, which will help with versioning and allow us to add a 
-line of code in CatFIM that goes to get the most recent metadata
-
-we will make it so CatFIM can still run these functions and select only specific sites? but 
-if this code is run within CatFIM, then the .pkl files can be saved in the CatFIM output folder
-and not the default output folder.
-
-
-
-
-
-'''
