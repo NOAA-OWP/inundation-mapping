@@ -455,7 +455,7 @@ def process_longitudinal_flow_adjustment(huc_dir):
 
     """
     # Set up log file
-    log_dir = os.path.join(huc_dir, "logs", "src_refinements")
+    log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
     log_file_path = os.path.join(log_dir, 'longitudinal_filter.log')

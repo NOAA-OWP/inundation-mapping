@@ -1,6 +1,6 @@
 
-manual_postproces=$1
-jobBranchLimit=$2 # should allow new values for manual_fim_postprocessing.py
+calibration_rerun=$1
+jobBranchLimit=$2 # should allow new values for rerun_calibrate_rating_curves.py
 
 
 source $outputDestDir/params.env
@@ -12,7 +12,7 @@ hucNumber=$(basename "${tempHucDataDir%/}")
 
 l_echo ""
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-if [ "${manual_postproces,,}" = "true" ]; then
+if [ "${calibration_rerun,,}" = "true" ]; then
     l_echo "---- Manual postprcessing for HUC $hucNumber"
 else
     l_echo "---- Start of post_processing for HUC $hucNumber"
@@ -21,8 +21,8 @@ l_echo "---- Started: `date -u`"
 l_echo ""
 
 
-# Check if it is a manual postprocessing or not
-if [ "${manual_postproces,,}" = "true" ]; then
+# Check if it is a calibration rerun or not
+if [ "${calibration_rerun,,}" = "true" ]; then
     l_echo $startDiv"Reseting hydroTable & scr_full_crosswalked for branches"
     Tstart
     python3 $srcDir/reset_htable_src.py -huc_dir $tempHucDataDir

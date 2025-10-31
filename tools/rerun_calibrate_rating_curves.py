@@ -36,8 +36,8 @@ def run_shell_for_huc(
     huc, script_path, task_env, branch_jobs, file_logger=None, screen_queue=None, task_id=None
 ):
     # note that sub-processes python codes have their own custom print statments and logging which do not follow file_logger here.
-    #  therefore file_logger and  in this function only provide overall status of manual postprocessing.
-    file_logger.info(f"Manual postprocessing Started for {task_id}")
+    #  therefore file_logger and  in this function only provide overall status of rerunning the calibration.
+    file_logger.info(f"Rerunning calibration Started for {task_id}")
     try:
         cmd = ["bash", script_path, "True", str(branch_jobs)]
 
@@ -49,31 +49,31 @@ def run_shell_for_huc(
             check=True,  # will raise CalledProcessError immediately when a calibration routine fails and the subsequent python code are not run
         )
 
-        msg = f"[{task_id}] ✅ Manual postprocessing succeeded for HUC {huc}"
+        msg = f"[{task_id}] ✅ Rerunning calibration succeeded for HUC {huc}"
         screen_queue.put(msg)
         file_logger.info(msg)
         return 1, [True]
 
     except subprocess.CalledProcessError as e:
-        msg = f"[{task_id}] ❌ Manual postprocessing failed for HUC {huc}: {e}"
+        msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}: {e}"
         screen_queue.put(msg)
         file_logger.error(msg)
         return 0, [False]
 
     except Exception as ex:
-        msg = f"[{task_id}] ❌ Manual postprocessing failed with unexpected error for HUC {huc}: {ex}"
+        msg = f"[{task_id}] ❌ Rerunning calibration failed with unexpected error for HUC {huc}: {ex}"
         screen_queue.put(msg)
         file_logger.error(msg)
         return 0, [False]
 
 
-def manual_postprocessing(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6, branch_jobs: int = 2):
+def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6, branch_jobs: int = 2):
     # notes
-    # 1- this manual postprocessing will read an existing FIM run with mmultiple HUC results and will overwrite the hyrotable (or src table)
+    # 1- this rerunning calibration will read an existing FIM run with mmultiple HUC results and will overwrite the hyrotable (or src table)
     # 2- accordingly, the log files are overwrtten to be consistent with updated hyrtables.
-    # 3- The flags to activate/deactivate each postprocessing script is still read from $outputDestDir/params.env file. So if a step is not required
+    # 3- The flags to activate/deactivate each calibration script is still read from $outputDestDir/params.env file. So if a step is not required
     # the $outputDestDir/params.env file (available in output folder) needs to be updated (and not config/params_template.env of the code itself)
-    # this is again to have consistent results across a fim output--the param.env be consistent with the last postprocessing applied.
+    # this is again to have consistent results across a fim output--the param.env be consistent with the last calibration run applied.
 
     # Check that fim run directory exists
     if not os.path.exists(fim_run_dir):
@@ -98,12 +98,12 @@ def manual_postprocessing(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int
     if limit_hucs:
         hucs = [h for h in limit_hucs if h in hucs]
 
-    # as env variables, pass fim run directory (containing params.env) and src directory (containing bash_variables.env) into refine_htable.sh
+    # as env variables, pass fim run directory (containing params.env) and src directory (containing bash_variables.env) into calibrate_rating_curves.sh
     env = os.environ.copy()
     env["outputDestDir"] = fim_run_dir
 
-    # create path to the target script (refine_htable.sh)
-    script_path = str(Path(env.get("srcDir")) / "refine_htable.sh")
+    # create path to the target script (calibrate_rating_curves.sh)
+    script_path = str(Path(env.get("srcDir")) / "calibrate_rating_curves.sh")
 
     tasks_args_list = []
     for huc in sorted(hucs):
@@ -121,10 +121,10 @@ def manual_postprocessing(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int
 
     # Create the logger
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file_path = os.path.join(fim_run_dir, 'logs', f"manual_postprocessing_{timestamp}.log")
-    file_logger = setup_mp_file_logger(log_file_path, logger_name='manual_postprocessing')
-    print('started manual postprocessing...')
-    file_logger.info('started manual postprocessing...')
+    log_file_path = os.path.join(fim_run_dir, 'logs', f"rerun_calibrate_rating_curves_{timestamp}.log")
+    file_logger = setup_mp_file_logger(log_file_path, logger_name='rerunning_calibration')
+    print('started rerunning calibration...')
+    file_logger.info('started rerunning calibration...')
 
     # Run multiprocessing
     mp_results = run_with_mp(
@@ -160,12 +160,10 @@ def manual_postprocessing(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int
 if __name__ == "__main__":
 
     # sample usage
-    # python foss_fim/tools/manual_fim_postprocessing.py
+    # python foss_fim/tools/rerun_calibrate_rating_curves.py
 
     # Parse arguments
-    parser = argparse.ArgumentParser(
-        description="Perform manual fim postprocessing (after a fim pipeline run)"
-    )
+    parser = argparse.ArgumentParser(description="Rerun calibrating rating curves (after a fim pipeline run)")
     parser.add_argument(
         "-i", "--fim_run_dir", help="Directory path to FIM run directory.", required=True, type=str
     )
@@ -173,7 +171,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-u",
         "--limit_hucs",
-        help="Optional. If specified, postprocessing steps are applied only for these limited HUCs.",
+        help="Optional. If specified, rerunning calibration steps are applied only for these limited HUCs.",
         required=False,
         type=str,
         nargs="+",
@@ -199,6 +197,6 @@ if __name__ == "__main__":
 
     start = timer()
 
-    manual_postprocessing(**vars(parser.parse_args()))
+    rerun_calibration(**vars(parser.parse_args()))
 
     print(f"Completed in {round((timer() - start)/60, 2)} minutes.")

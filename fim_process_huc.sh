@@ -8,12 +8,12 @@ usage ()
     For portability, we can make a direct call to this file with two parameters: HUC Number & Run Name;
     which correspond to the -n argument in fim_pipeline.sh and fim_pre_processing.sh.
 
-    This file will catch any and all errors from src/run_unit_wb.sh, even if that script aborts.
+    This file will catch any and all errors from src/run_huc.sh, even if that script aborts.
 
-    It is not possible to call src/run_unit_wb.sh directly, as it relies on exported values from this file.
-        src/run_unit_wb.sh will futher process branches (src/process_branch.sh) in parallel.
+    It is not possible to call src/run_huc.sh directly, as it relies on exported values from this file.
+        src/run_huc.sh will futher process branches (src/process_branch.sh) in parallel.
 
-    Usage: ./fim_process_unit_wb.sh <name_of_your_run> <huc8>
+    Usage: ./fim_process_huc.sh <name_of_your_run> <huc8>
 
     Produce FIM hydrofabric datasets for a single unit and branch scale.
     - Note: fim_pre_processing.sh must have been already run. This script does
@@ -25,7 +25,7 @@ usage ()
         2) HUC number
             Example:
 
-                ./fim_process_unit_wb.sh test_name 05030104
+                ./fim_process_huc.sh test_name 05030104
     "
     exit
 }
@@ -91,7 +91,7 @@ rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
 hucLogFileName=$outputDestDir/logs/unit/"$hucNumber"_unit.log
 
 # Process the actual huc
-/usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
+/usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFileName
 
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 # and yes.. we can not use the $? as we are messing with exit codes

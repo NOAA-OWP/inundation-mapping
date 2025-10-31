@@ -316,7 +316,7 @@ def run_prep(huc_dir, debug_outputs_option, ds_thresh_override, DOWNSTREAM_THRES
         DOWNSTREAM_THRESHOLD = float(ds_thresh_override)
 
     ## Create output dir for log file
-    output_dir = os.path.join(huc_dir, "logs", "src_refinements")
+    output_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
 

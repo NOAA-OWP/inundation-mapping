@@ -472,7 +472,7 @@ def run_prep(
     huc = os.path.basename(os.path.normpath(huc_dir))
 
     # Create output dir for log and usgs rc database
-    log_dir = os.path.join(huc_dir, "logs", "src_refinements")
+    log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
 

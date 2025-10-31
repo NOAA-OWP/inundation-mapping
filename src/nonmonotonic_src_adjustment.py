@@ -297,7 +297,7 @@ def process_nonmonotonic_src_adjustment(huc_dir, strm_order):  # bankfull_flows_
             default = 4
     """
     # Set up log file
-    log_dir = os.path.join(huc_dir, "logs", "src_refinements")
+    log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
     log_file_path = os.path.join(log_dir, 'nonmonotonic_src_adjustment.log')

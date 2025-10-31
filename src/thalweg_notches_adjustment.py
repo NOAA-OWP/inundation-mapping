@@ -292,7 +292,7 @@ def process_thalweg_notches_adjustment(huc_dir):  # stage_interval,
             default = 4
     """
     # Set up log file
-    log_dir = os.path.join(huc_dir, "logs", "src_refinements")
+    log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
     log_file_path = os.path.join(log_dir, 'thalweg_notches_adjustment.log')
@@ -328,7 +328,7 @@ if __name__ == '__main__':
     ----------
     huc_dir : str
         Directory path for huc output. Log file will be placed in
-        huc/logs/src_refinements/thalweg_notch_adjustment.log.
+        huc/logs/src_calibrations/thalweg_notch_adjustment.log.
     stage_interval : int
 
     Sample Usage

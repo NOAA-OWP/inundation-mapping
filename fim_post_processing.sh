@@ -55,7 +55,7 @@ fi
 #                                                                                       #
 # PLEASE DO NOT USE the job limits coming in from the runtime_args.env                  #
 # Most of the time, post processing will not be run on the same servers                 #
-# that is running fim_process_unit_wb.sh and the processing power                       #
+# that is running fim_process_huc.sh and the processing power                       #
 # used to run fim_post_processing.sh will be different (hence.. different job limit)    #
 #                                                                                       #
 #########################################################################################

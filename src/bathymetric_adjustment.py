@@ -483,7 +483,7 @@ def process_bathy_adjustment(
 
     """
     # Set up log file
-    log_dir = os.path.join(huc_dir, "logs", "src_refinements")
+    log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     print("Log file output here: " + str(log_dir))
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)

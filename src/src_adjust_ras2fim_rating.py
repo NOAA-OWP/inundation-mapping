@@ -293,7 +293,7 @@ def branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file, branch_job
 
 def run_prep(huc_dir, ras_rc_filename, nwm_recurr_filepath, debug_outputs_option, branch_jobs):
     ## Create output dir for log and ras2fim rc database
-    log_dir = os.path.join(huc_dir, "logs", "src_refinements")
+    log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     print("Log file output here: " + str(log_dir))
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
