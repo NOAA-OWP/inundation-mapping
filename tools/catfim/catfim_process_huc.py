@@ -20,8 +20,11 @@ HUC_PATH=""
     A sample model HUC folder can be found at /....(data)/catfim/rob_tests/new_arc_test1_flow_based
       - it has a single sites files which combines all of the attribute files for each site into its own huc file
         updateing it as it is being processed. 
+      - may / may not have one HUC level master or split level threashold / discharge data ??
+      
       - It also can be using the mapped / status colums as it goes
-      - When the huc is finished be processed, it is ready for post processing to merge with the rest of the huc sites files.
+      
+      - When the huc is finished be processed, it's output files sit ready for post processing to merge with the rest of the huc files.
 
 
     Overall processing steps (tenatively)
@@ -65,22 +68,33 @@ HUC_PATH=""
 """
     
 def process_huc(huc, output_folder):
-
-    global HUC_PATH
-    
+   
     # ------------
     # pass in locals() ?
     # local_vals = locals() -- see generate_categorical_fim.py for an example if we want to use this
     # __validate_inputs(local_vals)
-    HUC_PATH = __validate_inputs(huc, output_folder)  # ie: /data/catfim/(somefolder)/hucs/12090301
+    __validate_inputs(huc, output_folder)  # ie: /data/catfim/(somefolder)/hucs/12090301
 
     # ---------------------
     # Start a folder structure if not already in place ?? Do we want all of these?
     output_flows_dir = os.path.join(HUC_PATH, 'flows')  # FB flow data only? or merge with threshold data? TBD
     output_mapping_dir = os.path.join(HUC_PATH, 'mapping')
-    attributes_dir = os.path.join(HUC_PATH, 'attributes')  # Meta data? do we want this anymore? Isn't it duplicate of what we create
-      # for our huc level sies csv file we create pretty much right away?
+    
+    # Empty the folders, kill previous output files, except the log folder if it exists. We don't want any residue other than log files
+    # Keep all log files from previous runs. They will be date/time stamped already.
+    # especially when we are file search based on extensions / pathing.
+    # ie.. kill the attributes files, final huc level sites files, final huc level gpkg, etc.
+
+    
+    # we no longer need an attributes files as we will likely just keep one or two huc level files that keep getting updated
+    # such as a sites file for this huc. Maybe another for threshold data? but one or two shared files for the HUC.
+    # if we think it makes sense. We can use files / folders
+    # attributes_dir = os.path.join(HUC_PATH, 'attributes')  # Meta data? do we want this anymore? Isn't it duplicate of what we create
+   
+    # for our huc level sies csv file we create pretty much right away?
     # output_thresholds_dir = os.path.join(huc_path, 'thresholds')  # hummmm... do we need this anymore?
+    
+    
     
     # ---------------------
     # Setup logging. It should make its own huc log folder inside the parent "logs" folder
@@ -118,7 +132,7 @@ def process_huc(huc, output_folder):
         # Various meta and threshold processing? including validation of data ?
         
         # ---------------------    
-        # Figure out stages and if SB also figure out stages.
+        # Figure out categories. (ie.. action, moderate, etc) - SB to also figure out intervals?
         
         # ---------------------    
         # Data adjustments or rejections ? (might be higher or even need more here)
@@ -151,18 +165,20 @@ def process_huc(huc, output_folder):
 
 def __validate_inputs(huc, output_folder):
 
+    global HUC_PATH
     # valdiate huc value (8 numeric maybe and starts with 0, 1, or 2
 
     # validate the outfolder path exists first
 
+
     # ie: /data/catfim/hand_4_8_7_2_stage_based/hucs/12090301
-    huc_path = os.path.join(output_folder, "hucs", huc)
-    
+    HUC_PATH = os.path.join(output_folder, "hucs", huc)
+    # make path if not already there
     
     # No need to validate any of the runtime_args as they were validated when it was created.
     
-    # return any newly created values based on inputs
-    return huc_path
+    # return any newly created values based on inputs if any. I don't see any at this time
+    # return
 
 
 def load_runtime_args(output_folder):
