@@ -1,6 +1,82 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
+
+This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc
+
+This is part of a bigger EPIC Issue: [1641](https://github.com/NOAA-OWP/inundation-mapping/issues/1641):  Workflow Pipelines - build long chain scripts for quicker deploy and copying
+
+This was setup creating an opportunity to create more code infrastructure supporting FIM tools to talk to AWS, S3 for this tool, plus more tools coming in the near future. This one sets up infrastructure for creating and authenticating to AWS for all types of AWS calls plus full S3 communications (uploads and downloads). Some of the infrastructure code was copy/pasted based on another WIP PR [1480](https://github.com/NOAA-OWP/inundation-mapping/pull/1480): Update get_sample_data.py for lidar bridge elevation data.
+
+The new code infrastructure is a new system called `workflows`. . The `workflow` folders currently only have scripts to deploy to Hydrovis, but in near future PR's, will also include scripts for uploading inputs files/folders, qa tools against other scripts outputs, and chaining together multiple scripts. An example of a workflow down the road would be running catfim flow based, then it has a qa tool for it, then it uploads to HV buckets, the to FIM S3. This is a part of the bigger EPIC issue card mentioned above.
+
+This PR also covers an small adjustment to CatFIM, renaming its previous `catfim.env.template` to `fim_enviro_values.env.template`, to help with re-usability and consistency of other scripts already using the new fim_enviro_values.env. 
+
+### Usage Note:
+Details on full tool usage are embedded in the scripts themselves. This tool relies on two separate config env files, one for aws permissions and one for params to upload data to HydroVIS. The files exist in EFS... /data/config and are named aws_credentials.env and hv_deploy_params.env. Details on how to setup and use the two files are also not described here due to sensitive information, but details in those files have been added. It does not tell how to create an AWS profile as this is assumed to be common knowledge and is in other FIM-Dev developer docs.
+
+### Architecture Notes:
+The architecture introduced in this PR includes and sets us up for:
+- A new AWS communication and credentials layer, which can easily be updated for talking to other objects such as Lambdas, Step functions, EC2's, etc, including easy scripts to trigger "UAT" runs including status messaging to the user.
+- Adding a workflow system also allows running scripts normally run during production runs only, including output data validation, copying different combinations of output data to various S3 buckets and/or EFS paths.
+
+### Additions
+- `.gitignore`:  With the rename of `catfim.env.template` to `fim_enviro_values.env.template`, this ensures the file gets into GIT.
+- `config`:  A new template for `aws_credentials.template.env`, and `hv_deploy_params.template`.
+- `data\aws`
+    - `aws_shared_functions.py`:  Can be used to create sessions and clients for any type of service. We are using s3 only for now, but more are expected in PR coming soon. Also includes a new `aws_exception_handler` function, which can be used to turn most types of aws errors into more user friendly message, telling them what happened and what to do about it.
+    - `s3_shared_functions.py`:  This assists on any scripts communication with AWS s3 buckets. It includes a wide array of functions from uploading, downloading, checking buckets existence, checking for file/folder existence, and others. It also includes a tool for multi-threading allowing for very fast uploading of collections of files.
+ - `workflows`
+     - `.gitignore` and `init.py`: additions in support of the new workflow infrastructure described above
+     - `deploy\deploy_to_hydrovis.py`: A new tool allowing for quicker and easier uploading of production deployment files for HydroVIS / FIM releases.  Most arguments, variables and pathing are driven by a config file. Note: A template env file for it has not been includes as it contains sensitive information.
+     
+### Rename
+- `Was: tools\catfim\catfim.env.template  To: fim_enviro_values.env.template` and moved to `config\` folder.
+
+### Changes
+- `src\utils`
+    - `fim_logger.py`: Adjusted for usage of date time objects to be consistent with other scripts.
+    - `shared_functions.py`: Added a new function called `get_value_from_env` which validates the env value then returns it. The reason for this addition is validation and clarity when errors occur for loading env variables.
+- `tools\catfim`
+    - `README.md`, `generate_categorical_fim.py`, and `generate_categorical_fim_flows.py`: Adjusted to use and default to the config file of `fim_enviro_values.env.template` consistent with other scripts/tools.
+
+### Removals
+- `data\aws`:
+    - `aws_base.py`,  `s3.py`, `aws_creds_template.env` and `.gitignore`:  No longer applicable
+
+### FOR NOAA/OWP usage only
+This tool is not for usage outside of the OWP / FIM team.
+<br />
+
+## v4.8.15.0 - 2025-10-30 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
+
+This PR adds a new script to pull, extract, and conflate MRMS FLASH flow values to NWM reaches to use in generating HAND FIM. FLASH FIM can be useful during flash flooding scenarios where conditions change quickly and high temporal resolution (up to every 10 minutes) is necessary. 
+
+### Additions
+- `/tools/flashfim/conflate_flash_flows.py` - Added a script to extract and conflate flow values from FLASH products to the hydrofabric reference flowlines for FIM production.
+- `/tools/flashfim/README.md` - Added README to give background on FLASH FIM and explain how to use the tool.
+<br />
+
+## v4.8.14.4 - 2025-10-30 - [PR#1687](https://github.com/NOAA-OWP/inundation-mapping/pull/1687)
+
+Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now they will be masked out of BOTH stage-based and flow-based CatFIM (rather than just stage). 
+
+### Changes
+- `tools/catfim/ahps_restricted_sites.csv`: Changed classification of 3 sites from "stage" to "both."
+<br />
+
+## v4.8.14.3 - 2025-10-30 - [PR#1654](https://github.com/NOAA-OWP/inundation-mapping/pull/1654)
+
+This PR looks for the root cause of the 'Ghost' bug. The bug occured due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
+Some notes about the slope precision: The slope values in src_base represent TauDEM’s rise-over-run slopes. Because these values—and the slopes subsequently propagated through HFAB and SWORD—are extremely small (e.g., 9.99999974737875E-06), it is critical to preserve their numerical precision throughout all read/write operations in downstream scripts.
+When writing slope values to derived files (e.g., src_full, hydrotables), each value is rounded to three digits in scientific notation and then converted back to a float for continued numerical use.
+
+### Changes
+- `src/update_htable_src.py`: as described. 
+- `src/add_crosswalk.py`: Changed the slope precision.
+<br />
+
 ## v4.8.14.2 - 2025-10-17 - [PR#1677](https://github.com/NOAA-OWP/inundation-mapping/pull/1677)
 
 During a merge of the recent PR for mprunner fixes, one critical line was dropped. The line takes the return value from the child multi-proc function and adds it to a list collection of return results. 

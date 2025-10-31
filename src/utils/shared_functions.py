@@ -206,10 +206,10 @@ def run_with_mp(
            log file per task and combining them afterward.
 
     - Use try/except in both the task function and this wrapper:
-        • Child MP process functions should always have it's own try/except to handle issues gracefully.
-        • This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
-        • Inside helper functions feel free to log any information. but no need to raise errors.
-        • The only exception is that when we really need to address a special case like API limits and wait and retry.
+        " Child MP process functions should always have it's own try/except to handle issues gracefully.
+        " This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
+        " Inside helper functions feel free to log any information. but no need to raise errors.
+        " The only exception is that when we really need to address a special case like API limits and wait and retry.
     - Inside your task function or helpers, log live messages using screen_queue.put(msg).
     - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
     - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
@@ -377,6 +377,8 @@ def run_with_mp(
                         # print("task bar being updated")
                         pbar.update(1)  # ✅ Progress update for each completed task
 
+                results[task_id] = rtn_value
+
                 if pbar:  # All mp tasks are done.
                     pbar.close()
 
@@ -460,9 +462,44 @@ def getDriver(fileName):
     return driver
 
 
-########################################################################
-# Function to check the age of a file (use for flagging potentially outdated input)
-########################################################################
+# Assumes the env file has been loaded into the os.environ objects
+def get_value_from_env(arg_key, env_file_path):
+    '''
+    Notes:
+        - we don't actually load the file here as we could be loading more than once.
+    Params:
+        - arg_key is the variables in the loaded environment object
+        - validate_local_file_exists: if False, do not validate that the file exists
+             Note: not all uses of this tool will be for file paths
+             ** Only work on S3 paths at this time
+    Returns
+        - The arg_key value
+    '''
+
+    env_file_name = ""
+
+    if arg_key is None or arg_key == "":
+        raise Exception("arg key is missing or empty")
+
+    arg_value = os.environ[arg_key]
+
+    if arg_value is None or arg_value == "":
+        if env_file_path is None or env_file_path == "":
+            env_file_name = "Undefined"
+        raise ValueError(f"Env file of {env_file_name} : {arg_key} variable does not exist or empty")
+
+    return arg_value
+
+
+# Adds a starting and ending slash if not already there
+def add_slashes_to_path(file_path):
+    if not file_path.endswith("/"):
+        file_path += "/"
+    if not file_path.startswith("/"):
+        file_path = "/" + file_path
+    return file_path
+
+
 def check_file_age(file):
     '''
     Checks if file exists, determines the file age
