@@ -348,7 +348,7 @@ def process_generate_categorical_fim(
     if threshold_file != "":
         FLOG.lprint(f'Threshold file has data for {len(threshold_hucs)} HUC(s)')
 
-    FLOG.lprint(f'Data source: {data_source}')  # TEMP DEBUG
+    # FLOG.lprint(f'Data source: {data_source}')  # TEMP DEBUG
 
     # For API usage
     load_dotenv(env_file)

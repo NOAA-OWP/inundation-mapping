@@ -214,7 +214,7 @@ def generate_flows_for_huc(
 
             stages, flows, status_msg = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
 
-            MP_LOG.lprint(status_msg) # TEMP DEBUG
+            # MP_LOG.lprint(status_msg) # TEMP DEBUG
 
             # Update status if flows are not found
             if flows is None or len(flows) == 0: # Changed to flows Sept' 25
@@ -528,8 +528,8 @@ def generate_flows(
     # TODO: Pull from bash_variables.env once we switch from using catfim.env to bash_variables.env
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
-    input_nhd_flows_Guam = r'/home/emily.deardorff/projects/catfim_guam/input_data/NHDFlowline_Guam_6637.gpkg' # TODO: GUAM - move to correct inputs folder
-    input_nhd_flows_AmericanSamoa = r'/home/emily.deardorff/projects/catfim_guam/input_data/NHDFlowline_AmericanSamoa_32702.gpkg' # TODO: GUAM - move to correct inputs folder
+    input_nhd_flows_Guam = r'/data/inputs/nhdplus/NHDFlowline_Guam_6637.gpkg'
+    input_nhd_flows_AmericanSamoa = r'/data/inputs/nhdplus/NHDFlowline_AmericanSamoa_32702.gpkg'
 
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
