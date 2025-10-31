@@ -3,6 +3,7 @@
 import os
 import argparse
 
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 
@@ -69,36 +70,50 @@ HUC_PATH=""
     
 def process_huc(huc, output_folder):
    
-    # ------------
-    # pass in locals() ?
-    # local_vals = locals() -- see generate_categorical_fim.py for an example if we want to use this
-    # __validate_inputs(local_vals)
-    __validate_inputs(huc, output_folder)  # ie: /data/catfim/(somefolder)/hucs/12090301
+
+    # load our standard bash_variables.env
+    # Is there any bash_variables needed? 
+    load_dotenv('/foss_fim/src/bash_variables.env')
+
+    __validate_inputs(huc, output_folder)  # also validates some bash_variables if it needs any.
+
+    overall_start_time = datetime.now(timezone.utc)
+    dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+
+    FLOG.lprint("================================")
+    FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
+    FLOG.lprint("")
+
+
+    # ---------------------
+    # Setup logging. It should make its own huc log folder inside the parent "logs" folder
+    # log even if any other validation occurs after __validate_inputs.
+
+
+    # ---------------------
+    # recheck if the HUC is valid and has valid apps sites. Log and abort it no sites
+    # left to process or HUC is invalid. 
+    
+    # Check if huc exists in the FIM_RUN_DIR and has branches. (jsut in case it was a HUC that failed
+    # in the HUC run. We also might have an invalid HUC passed in here if this file was called directly
+    # from command line.
+    # We will need to repeat most of the validating from generate_categorical_fim.py.
+    # why? if this started up via command line or part of the generate_categorical_fim.py MP.
+
+
 
     # ---------------------
     # Start a folder structure if not already in place ?? Do we want all of these?
-    output_flows_dir = os.path.join(HUC_PATH, 'flows')  # FB flow data only? or merge with threshold data? TBD
+    
     output_mapping_dir = os.path.join(HUC_PATH, 'mapping')
     
-    # Empty the folders, kill previous output files, except the log folder if it exists. We don't want any residue other than log files
-    # Keep all log files from previous runs. They will be date/time stamped already.
-    # especially when we are file search based on extensions / pathing.
-    # ie.. kill the attributes files, final huc level sites files, final huc level gpkg, etc.
-
+    # get rid of all files, etc previous log files.
+    discharge_file = os.path.join(HUC_PATH, "discharge_values.csv")
+    sites_file = os.path.join(HUC_PATH, "sites.csv")
+    libary_file = os.path.join(HUC_PATH, "sites.csv")
     
-    # we no longer need an attributes files as we will likely just keep one or two huc level files that keep getting updated
-    # such as a sites file for this huc. Maybe another for threshold data? but one or two shared files for the HUC.
-    # if we think it makes sense. We can use files / folders
-    # attributes_dir = os.path.join(HUC_PATH, 'attributes')  # Meta data? do we want this anymore? Isn't it duplicate of what we create
    
-    # for our huc level sies csv file we create pretty much right away?
-    # output_thresholds_dir = os.path.join(huc_path, 'thresholds')  # hummmm... do we need this anymore?
     
-    
-    
-    # ---------------------
-    # Setup logging. It should make its own huc log folder inside the parent "logs" folder
-    # can't really setup logging until we have the huc validated
 
     try:
         # ---------------------
@@ -106,30 +121,32 @@ def process_huc(huc, output_folder):
         # See generate_categorical_fim.py -> save_env_args(output_path)
         load_runtime_args(output_folder)
        
-        
-        # two options on how we can use .env  as in os.getenv('CATFIM_TYPE')
+       
+       
         # if CATFIM_TYPE == 'sb':
-        
-        # or just make the global CATFIM_TYPE (as a short cut)
-            # if os.enviro['CATFIM_TYPE'] == 'sb':
-        
+            # print("Processing stage based data")        
+        # else
+            # print("Processing flow based data")
+
         
         # ---------------------
         # validate HUC and if it is applicable to CatFIM?
+        # - does it has flow data in FIM_RUN_DIR?
+        #    - does it have threshold data in the THRESHOLD_FILE_PATH?
 
         # ---------------------
-        # Get list of applicable, valid sites for this HUCs?  from where? master sites metadata or site file?
+        # Get list of applicable sites, valid sites for this HUCs from master sites metadata
         #   Watching for excluded sites from restricted sites csv.
-
-        # ---------------------
-        # Create its own sites csv. Populate what we know if anything and continue updating throughout
-        # processing steps including mapping flags and status data.
         
         # ---------------------       
         # Load its own metadata, threshold data and flow data, if applicable using shared various files.
         
         # ---------------------    
         # Various meta and threshold processing? including validation of data ?
+
+        # ---------------------
+        # Create its own sites csv. Populate what we know if anything and continue updating throughout
+        # processing steps including mapping flags and status data.
         
         # ---------------------    
         # Figure out categories. (ie.. action, moderate, etc) - SB to also figure out intervals?
@@ -178,6 +195,8 @@ def __validate_inputs(huc, output_folder):
     # No need to validate any of the runtime_args as they were validated when it was created.
     
     # return any newly created values based on inputs if any. I don't see any at this time
+
+    
     # return
 
 
