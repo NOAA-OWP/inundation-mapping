@@ -337,7 +337,7 @@ if __name__ == '__main__':
         -j $jobLimit -sor 4
     """
     parser = ArgumentParser(description="thalweg notches in SRC Adjustment")
-    parser.add_argument('-huc_dir', '--fim-dir', help='Path to huc dir', required=True, type=str)
+    parser.add_argument('-huc_dir', '--huc_dir', help='Path to huc dir', required=True, type=str)
     # parser.add_argument(
     #     '-i',
     #     '--stage_interval',

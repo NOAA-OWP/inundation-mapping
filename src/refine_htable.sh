@@ -41,19 +41,18 @@ if [ "$thalweg_notches_adjustment" = "True" ]; then
     l_echo $startDiv"Performing thalweg notches adjustment routine"
     Tstart
     python3 $srcDir/thalweg_notches_adjustment.py \
-        -huc_dir $tempHucDataDir \
-        -j $jobLimit \
+        -huc_dir $tempHucDataDir
 
     Tcount
 fi
+
 
 ## RUN LONGITUDINAL FILTER ROUTINE ##
 if [ "$logitudinal_filter" = "True" ]; then
     l_echo $startDiv"Performing longitudinal discharge adjustment routine"
     Tstart
     python3 $srcDir/longitudinal_flow_adjustment.py \
-        -huc_dir $tempHucDataDir \
-        -j $jobLimit \
+        -huc_dir $tempHucDataDir
 
     Tcount
 fi

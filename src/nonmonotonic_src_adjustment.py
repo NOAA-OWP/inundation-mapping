@@ -223,26 +223,21 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
 
         ## Use the subdivision discharge column when it is being applied
         if 'subdiv_discharge_cms' in ht_df.columns:
-            ht_df = ht_df.drop(columns=['subdiv_discharge_cms'])
-            ht_df = ht_df.merge(src_df[['subdiv_discharge_cms']], on=['HydroID', 'Stage'])
-
-        src_cols = [
-            'Number of Cells',
-            'SurfaceArea (m2)',
-            'BedArea (m2)',
-            'TopWidth (m)',
-            'WettedPerimeter (m)',
-            'HydraulicRadius (m)',
-            'WetArea (m2)',
-            'Volume (m3)',
-            'Bathymetry_source',
-            'subdiv_applied',
-            'channel_n',
-            'overbank_n',
-        ]
-
-        ht_df = ht_df.drop(columns=[src_cols])
-        ht_df = ht_df.merge(src_df[src_cols], on=['HydroID', 'Stage'])
+            ht_df['subdiv_discharge_cms'] = src_df['Discharge (m3s-1)_subdiv']
+        ht_df['Number of Cells'] = src_df['Number of Cells']
+        ht_df['SurfaceArea (m2)'] = src_df['SurfaceArea (m2)']
+        ht_df['BedArea (m2)'] = src_df['BedArea (m2)']
+        ht_df['TopWidth (m)'] = src_df['TopWidth (m)']
+        ht_df['WettedPerimeter (m)'] = src_df['WettedPerimeter (m)']
+        ht_df['HydraulicRadius (m)'] = src_df['HydraulicRadius (m)']
+        ht_df['WetArea (m2)'] = src_df['WetArea (m2)']
+        ht_df['Volume (m3)'] = src_df['Volume (m3)']
+        ht_df['discharge_cms'] = src_df['Discharge (m3s-1)']
+        # For the sake of aggregation routine
+        ht_df['Bathymetry_source'] = src_df['Bathymetry_source']
+        ht_df['subdiv_applied'] = src_df['subdiv_applied']
+        ht_df['channel_n'] = src_df['channel_n']
+        ht_df['overbank_n'] = src_df['overbank_n']
 
         # Write ht back to file
         ht_df.to_csv(ht_branch_path, index=False)
