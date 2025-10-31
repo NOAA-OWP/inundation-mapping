@@ -37,16 +37,16 @@ CatFIM can only be run by systems that can access the WRDS API, which is restric
 ### Commands
 Stage-based example with step system and pre-downloaded metadata: 
 
-`python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8 -e /data/config/catfim.env -t /data/docker_test_1 -me '/data/nwm_metafile.pkl' -sb -step 2`
+`python /foss_fim/tools/generate_categorical_fim.py -f /outputs/Rob_catfim_test_1 -jh 1 -jn 10 -ji 8 -t /data/docker_test_1 -me '/data/nwm_metafile.pkl' -sb -step 2`
 
 Flow-based example with HUC list:
 
-`python /foss_fim/tools/catfim/generate_categorical_fim.py -f /data/previous_fim/fim_4_5_2_11/ -jh 4 -jn 2 -e /data/config/catfim.env -t /data/hand_4_5_11_1_catfim_datavis -o -lh '06010105 17110004 10300101 19020401 19020302'`
+`python /foss_fim/tools/catfim/generate_categorical_fim.py -f /data/previous_fim/fim_4_5_2_11/ -jh 4 -jn 2 -t /data/hand_4_5_11_1_catfim_datavis -o -lh '06010105 17110004 10300101 19020401 19020302'`
 
 
 ### Arguments
 - `-f`, `--fim_run_dir`: Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11
-- `-e`, `--env_file`: Docker mount path to the catfim environment file. ie) data/config/catfim.env
+- `-e`, `--env_file`: OPTIONAL: Docker mount path to the environment file. Defaults to /data/config/fim_enviro_values.env
 - `-jh`, `--job_number_huc`: OPTIONAL: Number of processes to use for HUC scale operations. HUC and inundation job numbers should multiply to no more than one less than the CPU count of the machine. CatFIM sites generally only have 2-3 branches overlapping a site, so this number can be kept low (2-4). Defaults to 1.
 - `-jn`, `--job_number_inundate`: OPTIONAL: Number of processes to use for inundating HUC and inundation job numbers should multiply to no more than one less than the CPU count of the machine. Defaults to 1.
 - `-ji`, `--job_number_intervals`: OPTIONAL: Number of processes to use for inundating multiple intervals in stage-based inundation and interval job numbers should multiply to no more than one less than the CPU count of the machine. Defaults to 1.
