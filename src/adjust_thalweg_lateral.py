@@ -20,10 +20,19 @@ def detect_pits(filled_dem_path, original_dem_path, save_mask=True):
         filled = fsrc.read(1)
         orig = osrc.read(1)
         profile = fsrc.profile
+        nodata_val = osrc.nodata
 
     # Compute fill depth
     diff = filled - orig
     diff[diff < 0] = 0  # Ignore negatives
+
+    # Set the difference to 0 where the original DEM had NoData
+    if nodata_val is not None:
+        # Create a boolean mask: True where original DEM equals the NoData value
+        nodata_mask = orig == nodata_val
+
+        # Set the difference (diff) to 0 at all masked locations
+        diff[nodata_mask] = 0
 
     # Label connected regions of positive fill depth
     structure = generate_binary_structure(2, 2)  # 2D, fully connected (8-connectivity)
@@ -45,7 +54,7 @@ def detect_pits(filled_dem_path, original_dem_path, save_mask=True):
         # Two-tier detection logic
         pit_find = (
             (pixel_count >= 15) and (pixel_count < 4000) and (mean_depth >= 10) and (circularity >= 0.6)
-        ) or ((pixel_count >= 20) and (max_depth >= 20) and (pixel_count < 5000))
+        ) or ((pixel_count >= 15) and (pixel_count < 5000) and (mean_depth >= 3) and (max_depth >= 20))
 
         if pit_find:
             pit_mask[labeled == prop.label] = 1

@@ -117,6 +117,10 @@ def mask_dem(
                 out_masked = np.where(levee_catchments_masked == nodata, nodata, dem_masked)
 
         if out_masked is not None:
+            # Set the nodata value in the profile to ensure the GeoTIFF header
+            # tells richDEM (and other programs) which value means 'NoData'.
+            # The 'nodata' variable was read earlier from the input DEM.
+            dem_profile.update(nodata=nodata)
             with rio.open(out_dem_filename, "w", **dem_profile, BIGTIFF='YES') as dest:
                 dest.write(out_masked[0, :, :], indexes=1)
 
