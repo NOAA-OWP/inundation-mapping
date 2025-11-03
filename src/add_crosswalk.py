@@ -284,11 +284,17 @@ def add_crosswalk(
     # hfab_mask = (input_src_base['SLOPE_HFAB'] >= SLOPE_MIN) & (input_src_base['SLOPE_HFAB'] <= SLOPE_MAX)
 
     # Apply masks to filter out invalid slope values
-    sword_slope = input_src_base['SLOPE_IRIS_SWORD'].where(sword_mask)
+    sword_slope = input_src_base['SLOPE_IRIS_SWORD'].where(sword_mask).astype(float)
     # hfab_slope = input_src_base['SLOPE_HFAB'].where(hfab_mask)
 
     # Assign SLOPE values with priority: IRIS_SWORD then RISE_RUN
-    input_src_base['SLOPE'] = sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN'])
+    input_src_base['SLOPE'] = sword_slope.combine_first(input_src_base['SLOPE_RISE_RUN']).astype(float)
+
+    # --- Normalize and stabilize precision of extremely small slopes ---
+    #   1. Rounded to 3 digits in scientific notation
+    #   2. Converted back to float for continued numerical use
+    # Example: 9.99999974737875E-06 → 1.000e-05 → 0.00001
+    input_src_base['SLOPE'] = input_src_base['SLOPE'].apply(lambda x: float(f"{x:.3e}"))
 
     input_src_base = input_src_base.rename(columns=lambda x: x.strip(" "))
     input_src_base = input_src_base.apply(pd.to_numeric, **{'errors': 'coerce'})
@@ -366,6 +372,10 @@ def add_crosswalk(
     del sml_segs
 
     output_src = output_src.merge(crosswalk[['HydroID', 'feature_id']], on='HydroID')
+
+    # also add default manning and slope for reseting hydrotable and src full later
+    output_src['default_SLOPE'] = output_src['SLOPE']
+    output_src['default_ManningN'] = output_src['ManningN']
 
     del crosswalk
 

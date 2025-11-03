@@ -588,11 +588,12 @@ if __name__ == '__main__':
     # PR already incoming that changes this to /data/config/fim_enviro_values.env
     parser.add_argument(
         '-e',
-        '--env-file',
-        help='Optional: Docker mount path to the catfim environment file. ie) data/config/catfim.env',
+        '--env_file',
+        help='OPTIONAL: Docker mount path to the catfim environment file.'
+        ' Defaults to: /data/config/fim_enviro_values.env',
+        default="/data/config/fim_enviro_values.env",
         required=False,
     )
-
     parser.add_argument(
         '-j',
         '--number-jobs',
