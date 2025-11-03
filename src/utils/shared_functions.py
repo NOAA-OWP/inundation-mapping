@@ -71,7 +71,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
-    print(f"Logs saved to: {log_file_path}")
+    # print(f"Logs saved to: {log_file_path}")
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)

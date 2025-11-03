@@ -585,6 +585,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
     try:
         logging.info("Retrieving new USGS rating curves")
         logging.info(f"Started {display_dt_string} (UTC)")
+        print(f"    Logs will be saved to {log_file_path}")
         print()
         print(f"Saving results in {output_dir}")
         print()

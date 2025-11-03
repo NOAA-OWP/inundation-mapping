@@ -2,6 +2,7 @@
 
 import argparse
 import glob
+import logging
 import pickle
 import math
 import os
@@ -197,7 +198,7 @@ def process_generate_categorical_fim(
     os.makedirs(output_catfim_dir, exist_ok=True)
     
     log_folder = os.path.join(output_folder, "logs")
-    sf.setup_file_logger(log_folder, "get_rating_curves")
+    log_file_path = sf.setup_file_logger(log_folder, "gen_catfim")
     
 
     # If HUC list is given as an input
@@ -205,8 +206,8 @@ def process_generate_categorical_fim(
         print(f'HUCs to use (from input list): {valid_ahps_hucs}')
 
         if len(dropped_huc_lst) > 0:
-            FLOG.warning('Listed HUCs not available in FIM run directory:')
-            FLOG.warning(dropped_huc_lst)
+            logging.warning('Listed HUCs not available in FIM run directory:')
+            logging.warning(dropped_huc_lst)
 
 
     # ================================
@@ -236,9 +237,10 @@ def process_generate_categorical_fim(
     overall_start_time = datetime.now(timezone.utc)
     dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
 
-    FLOG.lprint("================================")
-    FLOG.lprint(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
-    FLOG.lprint("")
+    print("================================")
+    logging.info(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
+    print(f"    Logs will be saved to {log_file_path}")    
+    print("")
 
     
     # do we need to load it to help sort out what HUCs are still valid for processing?
@@ -330,8 +332,8 @@ def process_generate_categorical_fim(
                                past_major_interval_cap)
 
     if skip_processing:
-        FLOG.lprint("Skipping processing as per the addition of the -sp (skip processing flag).")
-        FLOG.lprint("CatFIM HUC processing and post processing will be done independently.")
+        logging.info("Skipping processing as per the addition of the -sp (skip processing flag).")
+        logging.info("CatFIM HUC processing and post processing will be done independently.")
         
         # Skip duration as it would have been super short
         __print_footer("End generate categorical fim", overall_start_time, False)
@@ -372,9 +374,16 @@ def process_generate_categorical_fim(
 
     sorted_tasks_args_list = sorted(task_args_list, key=lambda x: ['huc'])
         
-    FLOG.lprint(f"Processing {num_hucs} huc(s)")
+    logging.info(f"Processing {num_hucs} huc(s)")
 
-    # Add MP here
+    # === Run jobs in parallel ===
+    mp_results = sf.run_with_mp(
+        task_function=__mp_process_huc,
+        tasks_args_list=task_args_list,
+        file_logger=None,
+        max_workers=number_jobs,  # Overpass API does not really like more than 3 request at a time
+        task_id_key="HUC_no",  # used for task id---must be one of the keys from args dict
+    )
         
     # setup MP
     #     process_huc()  # needs to be adjusted to ask args
@@ -392,6 +401,11 @@ def process_generate_categorical_fim(
 
     return
 
+def __mp_process_huc():
+    print("placeholder")
+    
+    # Setup data and push it to catfim_process_huc.py
+    
 
 def __validate_inputs(received_locals_dict):
 
@@ -537,17 +551,17 @@ def __create_runtime_args_file(output_catfim_dir,
 # I don't think we can make this a shared function as how would we log it?
 def __print_footer(title, start_time, include_duration=True):
     
-    FLOG.lprint("================================")
-    FLOG.lprint(title)
+    logging.info("================================")
+    logging.info(title)
 
     end_time = datetime.now(timezone.utc)
     dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
-    FLOG.lprint(f"Ended (UTC): {dt_string}")
+    logging.info(f"Ended (UTC): {dt_string}")
 
     if include_duration:
         # calculate duration
         time_duration = end_time - start_time
-        FLOG.lprint(f"Duration: {str(time_duration).split('.')[0]}")
+        logging.info(f"Duration: {str(time_duration).split('.')[0]}")
 
 
 if __name__ == '__main__':

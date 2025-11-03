@@ -2,6 +2,7 @@
  
 import os
 import argparse
+import logging
 
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -69,6 +70,14 @@ HUC_PATH=""
 """
     
 def process_huc(huc, output_folder):
+
+    """_summary_
+    
+        Arguments:
+        - huc: string (so we don't have problems with zero padding)
+        - output_folder
+            ie) /data/catfim/my_test_flow_based/hucs
+    """
    
 
     # load our standard bash_variables.env
