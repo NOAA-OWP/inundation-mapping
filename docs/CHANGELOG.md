@@ -4,6 +4,9 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
 
+### FOR NOAA/OWP usage only
+This tool is not for usage outside of the OWP / FIM team.
+
 This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc
 
 This is part of a bigger EPIC Issue: [1641](https://github.com/NOAA-OWP/inundation-mapping/issues/1641):  Workflow Pipelines - build long chain scripts for quicker deploy and copying
@@ -46,8 +49,7 @@ The architecture introduced in this PR includes and sets us up for:
 - `data\aws`:
     - `aws_base.py`,  `s3.py`, `aws_creds_template.env` and `.gitignore`:  No longer applicable
 
-### FOR NOAA/OWP usage only
-This tool is not for usage outside of the OWP / FIM team.
+
 <br />
 
 ## v4.8.15.0 - 2025-10-30 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
