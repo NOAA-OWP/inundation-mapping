@@ -62,15 +62,18 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     Returns the name/path of the new log file.
     """
 
-    if log_file_dir is None or log_file_dir == "":
+    if not log_file_dir:
         raise ValueError("log directory path can not be None or empty")
 
-    if log_file_name_prefix is None or log_file_name_prefix == "":
+    if not log_file_name_prefix:
         raise ValueError("log file name prefix can not be None or empty")
 
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
+    
+    # we will assume the parent folder already exists
+    os.makedirs(log_file_dir, exist_ok=True)
     # print(f"Logs saved to: {log_file_path}")
 
     logger = logging.getLogger()
@@ -91,6 +94,14 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
+
+    # warning file handler
+    
+    # TODO: This is new.. test it with various combinations of log types
+    warning_file_name = log_file_path.replace(".log", "-warnings.log")
+    warning_file_handler = logging.FileHandler(warning_file_name)
+    warning_file_handler.setLevel(logging.WARNING)
+    warning_file_handler.setFormatter(formatter)
 
     # # basic file handler
     file_handler = logging.FileHandler(log_file_path)
@@ -192,7 +203,7 @@ def run_with_mp(
     tasks_args_list,
     file_logger,
     max_workers=4,
-    task_id_key=None,  # must be one of the keys in the args list
+    task_id_key=None,  # must not be None and must be one of the keys in the args list.
     show_progress=True,
 ):
     '''
@@ -200,8 +211,10 @@ def run_with_mp(
 
     NOTES:
     This setup is using a shared log file and it is ok for now assuming that:
-        - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work
+        - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work.
+        
         - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
+        
         - if we encounter a case that this does not work correctly, then we can improve it by creating one
            log file per task and combining them afterward.
 
@@ -210,12 +223,17 @@ def run_with_mp(
         " This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
         " Inside helper functions feel free to log any information. but no need to raise errors.
         " The only exception is that when we really need to address a special case like API limits and wait and retry.
-    - Inside your task function or helpers, log live messages using screen_queue.put(msg).
+        
+    - Inside your task function or helpers, log live messages using screen_queue.put(msg) if the screen_queue
+        has been passed to the child mp function.
+    
     - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
+    
     - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
-        - Do not use any print statements after start of multiprocessing in the task function or inside its helper functions. Instead use screen_queue.put().
-        - use file_logger.info() to log the message in the log file
-
+        - Do not use any print statements after start of multiprocessing in the task function or inside its helper
+          functions. Instead use screen_queue.put().
+          
+        - Use file_logger.info() to log the message in the log file.
     '''
 
     # +++++++++++++++++++++
@@ -251,6 +269,19 @@ def run_with_mp(
     #          -1, [None]  (Catestrophic fail, shut down the entire script)
 
     # ++++++++++++++++++++++
+
+    # Validation
+    if not task_function:
+        raise Exception("task_function argument can not be None or empty")
+    if tasks_args_list is None or len(tasks_args_list) == 0:
+        raise Exception("tasks_args_list can not be None or empty")
+    if file_logger is None or not isinstance(file_logger, logging.Logger):
+        raise Exception("file_logger is either None or is not a logging class")
+    if not task_id_key:
+        raise Exception("task_id_key can not be None or empty")
+    
+    # TODO: Add a validation test to ensure the task_id_key exists as a poplated key in all items
+    # in the tasks_args_list.
 
     try:
         # the thread must be inside the try catch to be closed correct in system fail.
@@ -302,7 +333,7 @@ def run_with_mp(
         # When an MP dies and we want to shut down the app, we have to let it finish the wip mps, then we can
         #   abort and stop new ones from firing.
 
-        # CTRL-C a number of times from console will stop the two program faster, but will leave orphaned memory
+        # CTRL-C entered multiple of times from console will stop the two program faster, but will leave orphaned memory
         #    leaks.  If you do this, close your container to release the memory leaks and restart a new container.
 
         results = {}
@@ -636,6 +667,66 @@ def s3_or_local_glob(path: str) -> list:
     fs, pth = url_to_fs(path)
     return fs.glob(pth)
 
+
+def print_andor_log_duration(start_dt, include_print=True, include_log=True, logging_instance=None ):
+    '''
+    Process:
+    -------
+    Calcuates the difference in time between the start and curerent end time (in UTC)
+    and prints is as:
+
+        Ended (UTC): 11/22/2025 16:48:21    Duration: 4 hours 23 mins 15 secs
+
+    Make sure your start_dt is in UTC
+
+    -------
+    Usage:
+        - You can optionally just use this for print to screen/console. Defaulted to true.
+          You can turn off print via include_print=False.
+          
+        - You can optionally just use this to log to file only. Defaulted to true.
+          You can turn off print via include_log=False. Note: If you do want to include logging,
+          make sure you have included a logging_instance with file logging set up.
+
+        -  Sample usages:
+            - to both screen and logger - default logger
+                display_duration(some starting date/time object, True, True, logging.getLogger() )
+            - to both screen and logger - custom logger
+                display_duration(some_date/time object, True, True, fim_logger (or similar) )
+            - screen only
+                display_duration(some_date/time object, True, False)
+            - to log only
+                display_duration(some_date/time object, False, True, logging.getLogger() /  fim_logger (or similar))
+    -------
+    Returns:
+        Duration as a formatted string (just the duration part and not the part about End: (date/time))
+
+    '''
+
+    if include_log and not isinstance( logging_instance, logging.Logger):
+        raise Exception("You have requested to log the duration to file, but the logging_instance"
+                        " does not appear to be an instance of logging.Logger (or a custom version).")
+    
+    end_dt = datetime.now(timezone.utc)
+    dt_string = end_dt.strftime("%m/%d/%Y %H:%M:%S")
+
+    time_delta = end_dt - start_dt
+    total_seconds = int(time_delta.total_seconds())
+
+    total_days, rem_seconds = divmod(total_seconds, 60 * 60 * 24)
+    total_hours, rem_seconds = divmod(rem_seconds, 60 * 60)
+    total_mins, seconds = divmod(rem_seconds, 60)
+
+    if total_days > 0:
+        total_hours = (total_days * 24) + total_hours
+
+    time_fmt = f"Duration: {total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
+    msg = f"Ended (UTC): {dt_string}  {time_fmt}"
+
+    if include_print:
+        print(msg)
+
+    return time_fmt
 
 
 # #####################################

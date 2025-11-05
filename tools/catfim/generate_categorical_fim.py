@@ -3,28 +3,18 @@
 import argparse
 import glob
 import logging
-import pickle
-import math
 import os
-# import shutil
-import sys
-import time
 import traceback
+import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
 
-# import geopandas as gpd
-# import numpy as np
-# import pandas as pd
-from dotenv import load_dotenv
-
 # import data.wrds.download_process_wrds 
 import src.utils.shared_functions as sf
+import tools.catfim.catfim_shared_functions as csf
 from tools.catfim.catfim_process_huc import process_huc
+from tools.catfim.catfim_post_processing import catfim_post_processing
 
-# from utils.shared_variables import VIZ_PROJECTION
-
-# gpd.options.io_engine = "pyogrio"
 
 """
 Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
@@ -87,11 +77,6 @@ Oct 2025
 Doc strings and improved documentation was added.
 
 
-NOTE: For now.. all logs roll up to the parent log file. ie) catfim_2024_07_09-22-20-12.log
-This creates a VERY large final log file, but the warnings and errors file should be manageable.
-Later: Let's split this to seperate log files per huc. Easy to do that for Stage Based it has
-"iterate_through_stage_based" function. Flow based? we have to think that one out a bit
-
 """
 
 
@@ -110,9 +95,10 @@ def process_generate_categorical_fim(
     get_new_threshold_data,
     skip_processing,
 ):
-    
+# Notes: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
+
     '''
-    
+        
     # TODO: Needs more updating
     
     
@@ -140,6 +126,7 @@ def process_generate_categorical_fim(
         Path to the NWM metadata pickle file (optional, defaults to "" if not included).
     threshold_file : str
         Path to the threshold pickle file for manual input thresholds (optional, defaults to "" if not included).
+        
         
     get_new_meta_data,
     get_new_threshold_data
@@ -173,246 +160,174 @@ def process_generate_categorical_fim(
 
     '''
 
-    # ================================
-    # Validation and setup
+    is_logging_loaded = False   
 
+    try:
+        overall_start_time = datetime.now(timezone.utc)
+        dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+        print("================================")
 
-    local_vals = locals()
-    __validate_inputs(local_vals)  # We probably should validate some of those bash_variables we are using?
+        # ================================
+        # Validation and setup
+        # Note: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
+        local_vals = locals()
+        valid_fim_hucs, dropped_huc_lst = __validate_inputs(local_vals)
+        # We probably should validate some of those bash_variables we are using? (some paths?)
 
-    # may not even need the catfim_method as the catfim_process_huc and catfim_post_processing will now how
-    # to the file names based on the type.
-    # Append option configuration (flow_based or stage_based) to output folder name.
-    catfim_type = catfim_type.lower()
-   
-    if catfim_type == "sb":
-        catfim_method = "stage_based"
-    else:  # fb
-        catfim_method = "flow_based"
-        
-    # likely can merge this with the catfim_method above as nothign else shoudl use catfim_method only catfim_type
-    if output_folder.endswith("/"):
-        output_folder = output_folder[:-1]
-    output_catfim_dir = output_folder + "_" + catfim_method
-    
-    os.makedirs(output_catfim_dir, exist_ok=True)
-    
-    log_folder = os.path.join(output_folder, "logs")
-    log_file_path = sf.setup_file_logger(log_folder, "gen_catfim")
-    
+        # Needed even if we are skip_processes
+        __create_runtime_args_file(catfim_type,
+                                   env_file,
+                                   search,
+                                   nwm_meta_file,
+                                   get_new_meta_data,
+                                   threshold_file,
+                                   get_new_threshold_data,
+                                   fim_run_dir,
+                                   past_major_interval_cap)
 
-    # If HUC list is given as an input
-    if 'all' not in lst_hucs:
-        print(f'HUCs to use (from input list): {valid_ahps_hucs}')
+        catfim_type = catfim_type.lower()
+        if catfim_type == "sb":
+            catfim_type_name = "stage_based"
+        else:  # fb
+            catfim_type_name = "flow_based"
+            
+        # likely can merge this with the catfim_method above as nothign else shoudl use catfim_method only catfim_type
+        if output_folder.endswith("/"):
+            output_folder = output_folder[:-1]
+        output_catfim_dir = output_folder + "_" + catfim_type_name
+
+        os.makedirs(output_catfim_dir, exist_ok=True)
+
+        print(f"Start catfim processing for {catfim_type_name} ;  (UTC): {dt_string}")
+        print("")
+
+        log_folder = os.path.join(output_folder, "logs")
+        log_file_path = sf.setup_file_logger(log_folder, "gen_catfim")
+        print(f"  Logs will be save to {log_file_path}")
+        is_logging_loaded = True
 
         if len(dropped_huc_lst) > 0:
             logging.warning('Listed HUCs not available in FIM run directory:')
             logging.warning(dropped_huc_lst)
 
+        print("Let's stop here for a test")
+        sys.exit(0)
 
-    # ================================
-    # Get HUCs from FIM run directory
-    valid_ahps_hucs = [
-        x
-        for x in os.listdir(fim_run_dir)
-        if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
-    ]
-
-    # If a HUC list is specified, only keep the specified HUCs
-    lst_hucs = lst_hucs.split()
-    if 'all' not in lst_hucs:
-        valid_ahps_hucs = [x for x in valid_ahps_hucs if x in lst_hucs]
-        dropped_huc_lst = list((set(lst_hucs).difference(valid_ahps_hucs)))
-
-    valid_ahps_hucs.sort()
-
-    num_hucs = len(valid_ahps_hucs)
-    if num_hucs == 0:
-        raise ValueError(
-            f'The number of valid hucs compared to the output directory of {fim_run_dir} is zero.'
-            ' Verify that you have the correct input folder and if you used the -lh flag that it'
-            ' is a valid matching HUC.'
-        )
-
-    overall_start_time = datetime.now(timezone.utc)
-    dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
-
-    print("================================")
-    logging.info(f"Start generate categorical fim for {catfim_method} - (UTC): {dt_string}")
-    print(f"    Logs will be saved to {log_file_path}")    
-    print("")
-
-    
-    # do we need to load it to help sort out what HUCs are still valid for processing?
-    if get_new_meta_data:
-        # call new incoming data/wrds/ get wrds data tools
-        # with whatever args we want
-        print("Loading new meta data")
+        # valid_fim_hucs has already been validate to have at least one by this point ???
+        # For now, we get the meta gdf, but don't need it here.
         
-        # and we need the nwm_meta_file name / path
-        # nwm_meta_file = obtain_wrds_data(...)  # but needs meta only in case we want to manually load threshold?
-    else:
-        # get it from bash_variables and ensure it exists
-        print("placeholder")
-    
-    # if not os.path.exists(threshold_file):
-    #   raise
-
-
-    # do we need to load it to help sort out what HUCs are still valid for processing?
-    if get_new_threshold_data:
-        # call new incoming data/wrds/ get wrds data tools
-        # with whatever args we want
-        print("Loading new threshold meta data")
+        # Define upstream and downstream search in miles
+        nwm_us_search, nwm_ds_search = search, search
+        huc_dictionary, __ = csf.get_meta_and_huc_data(output_catfim_dir,
+                                                        nwm_us_search,
+                                                        nwm_ds_search,
+                                                        nwm_meta_file,
+                                                        get_new_meta_data,
+                                                        valid_fim_hucs,
+                                                        env_file)
         
-        # and we need the nwm_meta_file name / path
-        # threshold_file = obtain_wrds_data(...)  # but needs meta only in case we want to manually load threshold?
-    else:
-        # get it from bash_variables and ensure it exists
-        print("placeholder")
+        if len(huc_dictionary) == 0:
+            raise Exception("The submitted huc list did not find any HUCs with nwm site meta data")
 
-    # if not os.path.exists(threshold_file):
-    #   raise
+        # Change it to a simple string huc list.
+        # All HUCs in this list are validated as having hand data, plus are not on the restricted list.
+        huc_list = list[set(huc_dictionary.keys())]  # ie, 12090301, 05030201. using 'set' fixes uniqueness.
+        huc_list.sort()
+       
+        # AWS will need this list to know what HUCs to process and iterate
+        catfim_huc_list_file = os.path.join(output_folder, "catfim_huc_list.txt")
+        with open(catfim_huc_list_file, "w") as f:
+            for item in huc_list:
+                f.write(f"{item}\n")
         
+        # End of Validation and setup
+        # ================================
 
-    # if threshold_file != "":
-    #     if os.path.exists(threshold_file) == False:
-    #         raise Exception("The threshold input file can not be found. Please remove or fix pathing.")
-    #     file_ext = os.path.splitext(threshold_file)
-    #     if file_ext.count == 0:
-    #         raise Exception("The threshold input file appears to be invalid. It is missing an extension.")
-    #     if file_ext[1].lower() != ".pkl":
-    #         raise Exception("The threshold input file appears to be invalid. The extention is not pkl.")
+        # Each huc has their own independent self-encapsulated folder under the "hucs" folder.
+        # ie) /data/catfim/my_test_flow_based/hucs/12090301
+        huc_dir = os.path.join(output_catfim_dir, 'hucs')
+        os.makedirs(huc_dir, exist_ok=True)
 
-    #     # Read pickle file and get a list of unique HUCs
-    #     with open(threshold_file, 'rb') as f:
-    #         loaded_data = pickle.load(f)
-
-    #     hucs = loaded_data['huc'].unique().tolist()
-    #     threshold_hucs= [str(num).zfill(8) for num in hucs]
-
-    #     # Get the source (since it might be Manual_Input)
-    #     data_source = loaded_data['source'].tolist()[0]
-   
-    #     # If a HUC list is specified, check that the HUCs in the list are also in the threshold file
-    #     if 'all' not in lst_hucs:
-    #         missing_hucs = [huc for huc in valid_ahps_hucs if huc not in threshold_hucs]
-    #         if missing_hucs:
-    #             raise Exception(
-    #                 f"The following HUCs from the input list are not present in the threshold file ({threshold_file}): "
-    #                 f"{', '.join(missing_hucs)}"
-    #             )
-    #     else:
-    #         # If 'all' is specified, filter valid_ahps_hucs to only those present in the threshold file and warn about dropped HUCs
-    #         filtered_hucs = [huc for huc in valid_ahps_hucs if huc in threshold_hucs]
-    #         dropped_huc_lst = list(set(valid_ahps_hucs) - set(filtered_hucs))
-    #         if dropped_huc_lst:
-    #             FLOG.warning(
-    #                 f"The following HUCs are present in the FIM run directory but not in the threshold file ({threshold_file}) and will be skipped: "
-    #                 f"{', '.join(dropped_huc_lst)}"
-    #             )
-    #         valid_ahps_hucs = filtered_hucs
-    #         num_hucs = len(valid_ahps_hucs)
-    #         if num_hucs == 0:
-    #             raise ValueError(
-    #                 f'After filtering, the number of valid HUCs compared to the output directory of {fim_run_dir} is zero.'
-    #                 ' Verify that you have the correct input folder and threshold file.'
-    #             )
-
-    # End of Validation and setup
-    # ================================
-
-    # Needed even if we are skip_processes
-    __create_runtime_args_file(catfim_type,
-                               env_file,
-                               search,
-                               nwm_meta_file,
-                               threshold_file,
-                               fim_run_dir,
-                               past_major_interval_cap)
-
-    if skip_processing:
-        logging.info("Skipping processing as per the addition of the -sp (skip processing flag).")
-        logging.info("CatFIM HUC processing and post processing will be done independently.")
-        
-        # Skip duration as it would have been super short
-        __print_footer("End generate categorical fim", overall_start_time, False)
-        return
-        
-
-    # ================================
-    # Iterator for catfim_process_huc.py here
-    # See various examples of possible MP systems we use.
-    
-    num_hucs_to_process = len(lst_hucs)
-    if  num_hucs_to_process == 0:
-        
-        # most of these won't be needed as each HUC
-        # print/log error message
-        # Tell user it is being aborted
-
-        # Skip duration as it would have been super short
-        __print_footer("End generate categorical fim", overall_start_time, False)
-        sys.exit(1)
+        if skip_processing:
             
-    # will have their own of each of these possibly
-    # I think all we need here is a folder named something like "hucs"
-    huc_dir = os.path.join(output_catfim_dir, 'hucs')
-    os.makedirs(huc_dir, exist_ok=True)  # Does this create the recurvive tree folder structure?
-    # Each huc will make its own folder when it gets there.
-    
-    print(f"Processing {num_hucs_to_process} CatFIM HUCs")
-    
-    task_args_list = []    
-    for huc in lst_hucs:
-        task_args_list.append(
-            {
-                "huc": huc,
-                "output_folder": output_catfim_dir,
-            }
-        )
+            logging.info("Skipping processing as per the addition of the -sp (skip processing flag).")
+            logging.info("CatFIM HUC processing and post processing will be done independently.")
+            
+            # Skip duration as it would have been super short
+            logging.info("End generate categorical fim processing")
+            sf.print_andor_log_duration(overall_start_time, True, True, logging.getLogger())
+            return
 
-    sorted_tasks_args_list = sorted(task_args_list, key=lambda x: ['huc'])
+        num_hucs_to_process = len(huc_dir)
+        logging.info(f"Processing {num_hucs_to_process} CatFIM HUCs. Note: not all may have ahps sites.")
+
+        task_args_list = []    
+        for huc in huc_list:
+            task_args_list.append(
+                {
+                    "huc": huc,
+                    "output_folder": output_catfim_dir,
+                }
+            )
+        sorted_tasks_args_list = sorted(task_args_list, key=lambda x: ['huc'])
+            
+
+        # === Run jobs in parallel ===
+        # Setup some sort of processpool
+        # do we want a TQDM? depends on what we want to output to screen.
+        # play with it a little. We recently figured out how to do both.
+        # depending on what we choose to do, look at my new s3_shared_functions
+        # even though it uses MT, but can be easily adjsuted to MP
+
+        # With each process_huc handing it's own logging and may/may not be handing it's screen output
+        # we may not want to use run_with_mp. TBD
+
+        with ProcessPoolExecutor(max_workers=number_jobs) as executor:
+
+            # Some mp functions might throw an exception, which means it may not get to as_completed
+            # We still need to catch that and if so, shut down the script.
+            futures_dict = [executor.submit(process_huc, **arg) for arg in sorted_tasks_args_list]
+
+            # Need Try, except but need some combinations of exceptions, controlled errors and CTRL-C (aborts)
+            
+            # for future in as_completed(futures_dict):
+            #    if future is not None:  # we don't have anything to return at this time.
+                    # if not future.exception():
+                    #     failed_huc = future.result()
+                    #     if failed_huc != "":
+                    #         failed_HUCs_list.append(failed_huc)
+                    # else:
+                    #     raise future.exception()
+            # TODO: At a min.. use as_completed to catch
+            # catestrophic errors where we want to shut down the MP
+            # (inc CTRL-C which may be more than one)
+
+        # End of mp huc processing
+
+        catfim_post_processing(output_catfim_dir)
+
+        logging.info("End generate categorical fim processing")
+        sf.print_andor_log_duration(overall_start_time, True, True, logging.getLogger())
+
+    except Exception as ex:
+        trace_error = traceback.format_exc()
+        err_msg = f"A critical error has occurred performing post processing. Detail: {trace_error}"
         
-    logging.info(f"Processing {num_hucs} huc(s)")
+        if is_logging_loaded:
+            logging.critical(err_msg)
+        else:
+            print(err_msg)
+            
+        # re-raise the exception, mostly for AWS
+        raise ex
 
-    # === Run jobs in parallel ===
-    mp_results = sf.run_with_mp(
-        task_function=__mp_process_huc,
-        tasks_args_list=task_args_list,
-        file_logger=None,
-        max_workers=number_jobs,  # Overpass API does not really like more than 3 request at a time
-        task_id_key="HUC_no",  # used for task id---must be one of the keys from args dict
-    )
-        
-    # setup MP
-    #     process_huc()  # needs to be adjusted to ask args
-
-    # End of mp huc processing
-    
-    # Important: must not have any valuse returned from each catfim_process_huc.py
-    
-    # do we want to iterate each HUC folder looking for the existance of its final libary file
-    # and count it?  If any one HUC did not get to a final gpkg, we know it aborted or failed somehow
-    # and each HUC logs / prints would have told the user why
-    # Then we can show the user "x" hucs successfully processed.
-
-    __print_footer("End generate categorical fim", overall_start_time, True)
-
-    return
-
-def __mp_process_huc():
-    print("placeholder")
-    
-    # Setup data and push it to catfim_process_huc.py
-    
 
 def __validate_inputs(received_locals_dict):
 
     # validate some of incoming inputs
     # derived values can be return if applicable or even updated values. hummm.. might be able to update them live via ** (pointers)
     # can set global variables if any
-   
+          
     for name, value in received_locals_dict.items():
         print(f"{name}: {value}")  # temp debug
         match name:
@@ -429,139 +344,71 @@ def __validate_inputs(received_locals_dict):
                 # is name.lower == "fb" or "sb"
                 print("placeholder")
             case "output_folder":
-                # make sure it is not empty. make if it does not exist
+                # make sure it is not empty.
                 print("placeholder")
-            case "lst_hucs":
-                # ensure it is an array or "all" as the first element of the list?
-                print("placeholder")                
             # case _: we dont' care about any others for validation
+
+    # check if incoming HUC is valid and we have fim data for it.    
+    fim_run_dir = received_locals_dict["fim_run_dir"]
+    fim_hucs = [
+        x
+        for x in os.listdir(fim_run_dir)
+        if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
+    ]    
+
+    # -----------------    
+    # If a HUC list is specified, only keep the specified HUCs which have fim data
+    lst_hucs = received_locals_dict["lst_hucs"]
+    if not lst_hucs:
+        raise Exception("-lh list of HUC values much be the word 'all' or an actual list of HUCs")
+        
+    lst_hucs = lst_hucs.split()
+    dropped_huc_lst = []
+    if 'all' not in lst_hucs:
+        valid_fim_hucs = [x for x in fim_hucs if x in lst_hucs]
+        dropped_huc_lst = list((set(lst_hucs).difference(valid_fim_hucs)))
+    else:
+        valid_fim_hucs = [x for x in fim_hucs]
     
-    # return if applicable?
+    num_hucs = len(valid_fim_hucs)
+    if num_hucs == 0:
+        raise ValueError(
+            f'The number of valid hucs compared to the output directory of {fim_run_dir} is zero.'
+            ' Verify that you have the correct input folder and if you used the -lh flag that it'
+            ' is a valid matching HUC.'
+        )
+        
+    valid_fim_hucs.sort()        
+    
+    return valid_fim_hucs, dropped_huc_lst
    
-
-# do we still want this? ya.. probably so we know if we still have any valid HUCs to process
-# each HUC will also need to do it as well.
-# Maybe a catfim_shared_functions.py file?
-def __load_restricted_sites(is_stage_based):
-    '''
-    Used in both stage- and flow-based CatFIM. 
-
-    The 'catfim_type' arg is used to determine whether the site should be filtered out
-    for stage-based CatFIM, flow-based CatFIM, or both.
-
-    Args:
-        catfim_type (str): Can have three different values: 'stage', 'flow', or 'both'. 
-    
-    Returns: 
-        df_restricted_sites (pandas.DataFrame): A dataframe for the restricted lid and the reason why.
-            Columns: 'nws_lid', 'restricted_reason', 'catfim_type'
-    '''
-
-    file_name = "ahps_restricted_sites.csv"
-    current_script_folder = os.path.dirname(__file__)
-    file_path = os.path.join(current_script_folder, file_name)
-
-    df_restricted_sites = pd.read_csv(file_path, dtype=str)
-
-    df_restricted_sites['nws_lid'].fillna("", inplace=True)
-    df_restricted_sites['restricted_reason'].fillna("", inplace=True)
-    df_restricted_sites['catfim_type'].fillna("", inplace=True)
-
-    # remove extra empty spaces on either side of all cellls
-    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.strip()
-    df_restricted_sites['restricted_reason'] = df_restricted_sites['restricted_reason'].str.strip()
-    df_restricted_sites['catfim_type'] = df_restricted_sites['catfim_type'].str.strip()
-
-    # Need to drop the comment lines before doing any more processing
-    df_restricted_sites.drop(
-        df_restricted_sites[df_restricted_sites.nws_lid.str.startswith("#")].index, inplace=True
-    )
-
-    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.upper()
-
-    # Clean up dataframe
-    for ind, row in df_restricted_sites.iterrows():
-        nws_lid = row['nws_lid']
-        restricted_reason = row['restricted_reason']
-
-        # if len(nws_lid) != 5:  # Invalid row, could be just a blank row in the file
-        # (7/17/25) Removed this logic becuase it was preventing sites with more or
-        # less than 5 character LIDs from being filtered out.
-        #     FLOG.warning(
-        #         f"From the ahps_restricted_sites list, an invalid nws_lid value of '{nws_lid}'"
-        #         " and has dropped from processing"
-        #     )
-        #     indexs_for_recs_to_be_removed_from_list.append(ind)
-        #     continue
-
-        if restricted_reason == "":
-            restricted_reason = "From the ahps_restricted_sites,"
-            " the site will not be mapped, but a reason has not be provided."
-            df_restricted_sites.at[ind, 'restricted_reason'] = restricted_reason
-            FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
-        continue
-
-    # Invalid records in CSV (not dropping, just completely invalid recs from the csv)
-    # Could be just blank rows from the csv
-    # (7/17/25) Removed this logic becuase it was preventing sites with more or
-    # less than 5 character LIDs from being filtered out.
-    # if len(indexs_for_recs_to_be_removed_from_list) > 0:
-    #     df_restricted_sites = df_restricted_sites.drop(indexs_for_recs_to_be_removed_from_list).reset_index()
-
-    # Filter df_restricted_sites by CatFIM type
-    if is_stage_based == True:  # Keep rows where 'catfim_type' is either 'stage' or 'both'
-        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['stage', 'both'])]
-
-    else:  # Keep rows where 'catfim_type' is either 'flow' or 'both'
-        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['flow', 'both'])]
-
-    # Remove catfim_type column
-    df_restricted_sites.drop('catfim_type', axis=1, inplace=True)
-
-    return df_restricted_sites
-
 
 def __create_runtime_args_file(output_catfim_dir,
                                env_file,
                                search,
                                catfim_type,
                                nwm_meta_file,
+                               get_new_meta_data,
                                threshold_file,
+                               get_new_threshold_data,
                                fim_run_dir,
                                past_major_interval_cap):
-    
-    
+        
     args_file_name = "runtime_args.env"
-    args_file = os.path.join(output_catfim_dir, args_file_name)
+    args_file_path = os.path.join(output_catfim_dir, args_file_name)
     
     # Open the file using standard IO, then write lines to it.
     # All of these will be validated before we get here
-    
-    # don't need output_catfim_dir as it is part of each files command args
-    # ie output_catfim_dir = /data/config/hand_4_8_7_2_flow_based/  or /data/catfim/rob_test/my_test1_flow_based
-    "CATFIM_TYPE"
-    "ENV_FILE"
-    "SEARCH"
-    "NWM_METAFILE_PATH"
-    "THRESHOLD_FILE_PATH"
-    "FIM_RUN_DIR"
-    "PAST_MAJOR_INTERVAL_CAP"
-
-
-# I don't think we can make this a shared function as how would we log it?
-def __print_footer(title, start_time, include_duration=True):
-    
-    logging.info("================================")
-    logging.info(title)
-
-    end_time = datetime.now(timezone.utc)
-    dt_string = end_time.strftime("%m/%d/%Y %H:%M:%S")
-    logging.info(f"Ended (UTC): {dt_string}")
-
-    if include_duration:
-        # calculate duration
-        time_duration = end_time - start_time
-        logging.info(f"Duration: {str(time_duration).split('.')[0]}")
+    with open(args_file_path, "w") as file:
+        file.write(f"CATFIM_TYPE={catfim_type}\n")
+        file.write(f"ENV_FILE=\"{env_file}\"\n")
+        file.write(f"SEARCH={search}\n")
+        file.write(f"NWM_METAFILE_PATH=\"{nwm_meta_file}\"\n")
+        file.write(f"GET_NEW_META_DATA=\"{get_new_meta_data}\"\n")
+        file.write(f"THRESHOLD_FILE_PATH=\"{threshold_file}\"\n")
+        file.write(f"GET_NEW_THRESHOLD_DATA=\"{get_new_threshold_data}\"\n")
+        file.write(f"FIM_RUN_DIR=\"{fim_run_dir}\"\n")
+        file.write(f"PAST_MAJOR_INTERVAL_CAP={past_major_interval_cap}\n")
 
 
 if __name__ == '__main__':
@@ -580,7 +427,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-f',
         '--fim-run-dir',
-        help='REQUIRED: Path to directory containing HAND outputs, e.g. /data/previous_fim/fim_4_5_2_11'
+        help='REQUIRED: Path to directory containing HAND outputs, e.g. /data/previous_fim/hand_4_8_7_2'
         ' or /data/outputs/test_hand_subset',
         required=True,
     )
@@ -617,7 +464,8 @@ if __name__ == '__main__':
         '-t',
         '--output-folder',
         help='REQUIRED: Target location, Where the output folder will be.'
-        'ie /data/catfim/hand_4_8_7_2 or /data/catfim/test/test1',
+        ' ie /data/catfim/hand_4_8_7_2 or /data/catfim/test/test1.'
+        ' Note: the output folder names will have the phase flow_based or stage_based appended',
         required=True,
     )
     
@@ -628,6 +476,7 @@ if __name__ == '__main__':
         help='OPTIONAL: Upstream and downstream search in miles. How far up and downstream do you want to go? Defaults to 5.',
         required=False,
         default='5',
+        type=int,
     )
 
     # NOTE: The HUCs you put in this, MUST be a HUC that is valid in your -f/ --fim_run_dir (HAND output folder)
@@ -645,10 +494,10 @@ if __name__ == '__main__':
         '-mc',
         '--past-major-interval-cap',
         help='OPTIONAL: Stage-Based Only. How many feet past major do you want to go for the interval FIMs?'
-        ' of the machine. Defaults to 5.0',
+        ' of the machine. Defaults to 5',
         required=False,
-        default=5.0,
-        type=float,
+        default=5,
+        type=int,
     )
 
     parser.add_argument(

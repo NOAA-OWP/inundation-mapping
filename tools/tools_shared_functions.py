@@ -835,6 +835,10 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
         # filter by hucs we are using
         huc8 = huc8[huc8['HUC8'].isin(huc_list)]
 
+    # Means HUC did not exist in the WBD which is possible if someone used a huc arg.
+    if len(huc8) == 0:
+        return [], gpd.GeoDataFrame()  # empty dataframe
+
     huc8 = huc8.sort_values(by='HUC8', ascending=True)
 
     # Define EPSG codes for possible latlon datum names (default of NAD83 if unassigned)
@@ -891,7 +895,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     )
     joined_gdf = joined_gdf.drop(columns='index_wbd')
 
-    # Create a dictionary of huc [key] and nws_lid[value]
+    # Create a dictionary of HUC8[key] and nws_lid[value];  ie 12090301, blat2
     dictionary = joined_gdf.groupby('HUC8')['identifiers_nws_lid'].apply(list).to_dict()
 
     return dictionary, joined_gdf
