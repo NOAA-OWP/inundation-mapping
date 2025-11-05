@@ -104,7 +104,7 @@ def does_s3_bucket_exist(s3_client, bucket_name):
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
-        return_msg, ___ = awssf.aws_exception_handler(ex)
+        return_msg, _ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
     return is_success, return_msg
@@ -247,8 +247,8 @@ def get_file_list_by_key(s3_client, bucket_name, s3_parent_src_folder_path, sear
 
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
-        # if it finds it, it returns a nice user friendly message
-        return_msg, ___ = awssf.aws_exception_handler(ex)
+        # If it finds it, it returns a nice user friendly message.
+        return_msg, _ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
 
@@ -346,7 +346,7 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
 
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
-        return_msg, ___ = awssf.aws_exception_handler(ex)
+        return_msg, _ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
 
@@ -459,8 +459,8 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
     # The target folder must pre-exist
     trg_dir = os.path.dirname(target_file_path)
     if not os.path.exists(trg_dir):
-        full_access_permissions = 0o777
-        os.makedirs(trg_dir, mode=full_access_permissions, exist_ok=True)
+        permissions_code = 0o664
+        os.makedirs(trg_dir, mode=permissions_code, exist_ok=True)
 
     # Configure multipart  settings. Speeds up large files
     # TODO: test to play with chunking sizes
@@ -490,71 +490,6 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
             raise Exception(return_msg)
 
     return does_file_exist
-
-
-# -------------------------------------------------
-# Maybe let that be done at the script level and not here as a seperate client per mt
-# is required. See upload_large_datasets below for examples if we choose to add this.
-# def download_s3_folder(s3_client, bucket_name, s3_src_path, trg_folder_path):
-#     """
-#     Process:
-#         - Note: The boto3.client must be already instantiated and passed in
-#         - Using the incoming s3 src folder, call get_records to get a list of child folders and files
-#         - Open a s3 client and iterate through the files to download
-#         - Is recursive
-#     Inputs:
-#         - s3_client: my_client = boto3.client(profile, creds, whatever)
-#         - s3_src_path: e.g. /inputs/fema (from s3://{some_bucket}/inputs/fema)
-#         - trg_folder_path: e.g . /data/inputs/fema
-
-#     Returns:
-#         - True or False (did a least one file download successfully)
-
-#         The calling code and decide what to do with it.
-#         Note: Exceptions can still be thrown for catastropic errors (creds, other)
-#     """
-
-#     # re-validate the connection and credentials as well
-#     is_success, return_msg = does_s3_bucket_exist(s3_client, bucket_name)
-#     if not is_success:
-#         # In this case, we want to raise a new Exception
-#         raise Exception(return_msg)
-
-#     # both src must have a slash on the end only
-#     # strip leading slash if exists
-#     s3_src_path = s3_src_path.lstrip("/")
-
-#     if not s3_src_path.endswith("/"):
-#         s3_src_path += "/"
-
-#     # target must have a slash on the end only
-#     # strip leading slash if exists
-#     trg_folder_path = trg_folder_path.lstrip("/")
-#     if not trg_folder_path.endswith("/"):
-#         trg_folder_path += "/"
-
-#     # operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path, 'Delimiter': '/'}
-#     # if you add the delimiter of '/' it will get files at that level only and not recursive
-#     operation_parameters = {'Bucket': bucket_name, 'Prefix': s3_src_path}
-#     paginator = s3_client.get_paginator('list_objects_v2')
-#     pages = paginator.paginate(**operation_parameters)
-
-#     min_one_file_downloaded = False
-#     for page in pages:
-#         if 'Contents' in page:
-
-#             # Iterate over each object and download it
-#             for obj in page['Contents']:
-#                 s3_key = obj['Key']
-#                 if s3_key[-1] != "/":  # if it was a folder (ending in a slash, we skip it)
-#                     rel_path = os.path.relpath(s3_key, s3_src_path)
-#                     local_file_path = "/" + os.path.join(trg_folder_path, rel_path)
-
-#                     os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
-#                     s3_client.download_file(bucket_name, s3_key, local_file_path)
-#                     min_one_file_downloaded = True
-
-#     return min_one_file_downloaded
 
 
 # -------------------------------------------------
@@ -627,7 +562,7 @@ def download_files_by_file_list(s3_client, bucket_name, file_list, num_workers=1
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
-        return_msg, ___ = awssf.aws_exception_handler(ex)
+        return_msg, _ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
 
@@ -677,7 +612,7 @@ def download_folders(
     #     list_of_search_key = [""]
 
     if not isinstance(list_of_search_key, list):
-        raise Exception("Error: argument for list_of_search_keys must be a 'list' type")
+        raise TypeError("Error: argument for list_of_search_keys must be a 'list' type")
 
     skip_multi = False
     if list_of_search_key[0] == "" and len(list_of_search_key) == 0:
@@ -753,7 +688,7 @@ def download_folders(
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
-        return_msg, ___ = awssf.aws_exception_handler(ex)
+        return_msg, _ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
     return total_files_downloads
@@ -849,7 +784,7 @@ def download_files_by_search_key(
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
-        return_msg, ___ = awssf.aws_exception_handler(ex)
+        return_msg, _ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
     return num_files_downloaded
@@ -941,7 +876,7 @@ def upload_file(
 
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
-        return_msg, ___ = awssf.aws_exception_handler(ex)
+        return_msg, _ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
     return True, src_file_path  # file uploaded succesfully
@@ -1029,7 +964,7 @@ def upload_by_file_list(s3_client, bucket_name, file_list, num_workers=10):
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
-        return_msg, ___ = awssf.aws_exception_handler(ex)
+        return_msg, _ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
 
@@ -1081,7 +1016,7 @@ def delete_s3_folder(s3_client, bucket_name, s3_folder_path):
 
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
-        return_msg, ___ = awssf.aws_exception_handler(ex)
+        return_msg, _ = awssf.aws_exception_handler(ex)
         raise Exception(return_msg)
 
     return len(files_to_delete)

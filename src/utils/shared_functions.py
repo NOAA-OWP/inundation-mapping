@@ -69,8 +69,8 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
         raise ValueError("log file name prefix can not be None or empty")
 
     # Example with a different permission (e.g., full access for everyone)
-    full_access_permissions = 0o777
-    os.makedirs(log_file_dir, mode=full_access_permissions, exist_ok=True)
+    permissions_code = 0o664
+    os.makedirs(log_file_dir, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
     if not os.path.isdir(log_file_dir):
@@ -150,13 +150,13 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         raise Exception("log file name must end with .log")
 
     abs_path = os.path.abspath(log_file_path)
-    full_access_permissions = 0o777
+    permissions_code = 0o664
     log_folder = os.path.dirname(abs_path)
-    os.makedirs(log_folder, mode=full_access_permissions, exist_ok=True)
+    os.makedirs(log_folder, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
     if not os.path.isdir(log_folder):
-        raise Exception("This script likely does have permission to add a log folder")
+        raise OSError("This script likely does have permission to add a log folder")
 
     # Check name -> path
     if logger_name in _LOGGER_REGISTRY and _LOGGER_REGISTRY[logger_name] != abs_path:

@@ -49,7 +49,6 @@ See the new `hand_to_owp.py` for usage information. This tool also relies on the
 - `src/utils/shared_functions.py`:  fixed some permissions issues for new log folders created and misc items.
 - `workflows/deploy/deploy_to_hydrovis.py`:  Misc adjsutment to enviro variable usages, adding more logging, and tidbits.
 
-
 ### Removals
 
 - `config\aws_s3_put_fim4_hydrovis_whitelist.lst`:  no longer applicable
