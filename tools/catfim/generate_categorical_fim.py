@@ -174,29 +174,17 @@ def process_generate_categorical_fim(
         valid_fim_hucs, dropped_huc_lst = __validate_inputs(local_vals)
         # We probably should validate some of those bash_variables we are using? (some paths?)
 
-        # Needed even if we are skip_processes
-        __create_runtime_args_file(catfim_type,
-                                   env_file,
-                                   search,
-                                   nwm_meta_file,
-                                   get_new_meta_data,
-                                   threshold_file,
-                                   get_new_threshold_data,
-                                   fim_run_dir,
-                                   past_major_interval_cap)
-
-        catfim_type = catfim_type.lower()
         if catfim_type == "sb":
             catfim_type_name = "stage_based"
         else:  # fb
             catfim_type_name = "flow_based"
-            
+
         # likely can merge this with the catfim_method above as nothign else shoudl use catfim_method only catfim_type
         if output_folder.endswith("/"):
             output_folder = output_folder[:-1]
-        output_catfim_dir = output_folder + "_" + catfim_type_name
+        output_folder = output_folder + "_" + catfim_type_name
 
-        os.makedirs(output_catfim_dir, exist_ok=True)
+        os.makedirs(output_folder, exist_ok=True)
 
         print(f"Start catfim processing for {catfim_type_name} ;  (UTC): {dt_string}")
         print("")
@@ -205,6 +193,18 @@ def process_generate_categorical_fim(
         log_file_path = sf.setup_file_logger(log_folder, "gen_catfim")
         print(f"  Logs will be save to {log_file_path}")
         is_logging_loaded = True
+
+        # Needed even if we are skip_processes
+        __create_runtime_args_file(output_folder,
+                                   env_file,
+                                   search,
+                                   catfim_type,                                   
+                                   nwm_meta_file,
+                                   get_new_meta_data,
+                                   threshold_file,
+                                   get_new_threshold_data,
+                                   fim_run_dir,
+                                   past_major_interval_cap)
 
         if len(dropped_huc_lst) > 0:
             logging.warning('Listed HUCs not available in FIM run directory:')
@@ -235,7 +235,7 @@ def process_generate_categorical_fim(
         huc_list.sort()
        
         # AWS will need this list to know what HUCs to process and iterate
-        catfim_huc_list_file = os.path.join(output_folder, "catfim_huc_list.txt")
+        catfim_huc_list_file = os.path.join(output_catfim_dir, "catfim_huc_list.txt")
         with open(catfim_huc_list_file, "w") as f:
             for item in huc_list:
                 f.write(f"{item}\n")
@@ -266,7 +266,7 @@ def process_generate_categorical_fim(
             task_args_list.append(
                 {
                     "huc": huc,
-                    "output_folder": output_catfim_dir,
+                    "output_folder": output_folder,
                 }
             )
         sorted_tasks_args_list = sorted(task_args_list, key=lambda x: ['huc'])
@@ -304,7 +304,7 @@ def process_generate_categorical_fim(
 
         # End of mp huc processing
 
-        catfim_post_processing(output_catfim_dir)
+        catfim_post_processing(output_folder)
 
         logging.info("End generate categorical fim processing")
         sf.print_andor_log_duration(overall_start_time, True, True, logging.getLogger())
@@ -327,25 +327,34 @@ def __validate_inputs(received_locals_dict):
     # validate some of incoming inputs
     # derived values can be return if applicable or even updated values. hummm.. might be able to update them live via ** (pointers)
     # can set global variables if any
+        
+    print("---------------")
+    print("debugging __validate_inputs")
           
     for name, value in received_locals_dict.items():
-        print(f"{name}: {value}")  # temp debug
+        # print(f"{name}: {value}")  # temp debug
         match name:
             case "fim_run_dir":
-                if not value:
-                    raise Exception("Argument for ")
-                # if not os.path.exists(value):
-                #     raise Exception
-                print("placeholder")                
+                if not value or not os.path.exists(value):
+                    raise Exception("Argument for -f (hand output pathing) is either None, empty"
+                                    " or the folder does not exist. Please check the argument")
             case "env_file":
-                # does exist, even if it was defaulted
-                print("placeholder")
+                if not value:
+                    raise Exception("This tool relys on being able to load an enviro file either by"
+                                    " default or by an explicit argument.")
+                if not os.path.exists(value):
+                    raise Exception("This tool relys on being able to load an enviro file either by"
+                                    f" default or by an explicit argument. Path value is {value}")
             case "catfim_type":
-                # is name.lower == "fb" or "sb"
-                print("placeholder")
+                if value not in ["fb", "sb"]:
+                    raise Exception("Argument for -ct (catfim type) must be either fb (for flow based)"
+                                    " or sb (for stage based)")
             case "output_folder":
-                # make sure it is not empty.
-                print("placeholder")
+                if not value:
+                    raise Exception("Argument for -t (output folder) can not be None or empty")
+                # We create the folder later after we append _flow_based or _stage_based
+                # do we want to validate the parent pathing?
+                
             # case _: we dont' care about any others for validation
 
     # check if incoming HUC is valid and we have fim data for it.    
@@ -380,10 +389,12 @@ def __validate_inputs(received_locals_dict):
         
     valid_fim_hucs.sort()        
     
+    print("---------------")    
+    
     return valid_fim_hucs, dropped_huc_lst
    
 
-def __create_runtime_args_file(output_catfim_dir,
+def __create_runtime_args_file(output_folder,
                                env_file,
                                search,
                                catfim_type,
@@ -395,8 +406,11 @@ def __create_runtime_args_file(output_catfim_dir,
                                past_major_interval_cap):
         
     args_file_name = "runtime_args.env"
-    args_file_path = os.path.join(output_catfim_dir, args_file_name)
+    args_file_path = os.path.join(output_folder, args_file_name)
     
+    if os.path.isfile(args_file_path):
+        os.remove(args_file_path)    
+        
     # Open the file using standard IO, then write lines to it.
     # All of these will be validated before we get here
     with open(args_file_path, "w") as file:
