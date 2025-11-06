@@ -97,8 +97,8 @@ python3 $srcDir/agreedem.py -r $tempCurrentBranchDataDir/flows_grid_boolean_$cur
     
 ## ADJUST FLOODPLAINS ##
 echo -e $startDiv"Adjust floodplains $hucNumber $current_branch_id"
-echo -e $tempHucDataDir/branch_polygons.gpkg
-$srcDir/adjust_floodplains.py \
+echo -e "Using FEMA floodplain layer: $fema_floodplain_layer"
+python3 $srcDir/adjust_floodplains.py \
     -i $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
     -e $tempCurrentBranchDataDir/flows_grid_boolean_euclidean_distance_$current_branch_id.tif \
     -d $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
