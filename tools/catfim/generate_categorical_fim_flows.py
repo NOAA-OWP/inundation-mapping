@@ -766,179 +766,139 @@ def generate_flows(
     FLOG.lprint(f"End Wrapping up flows generation Duration: {str(all_time_duration).split('.')[0]}")
     print()
 
-def __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file):
-    '''
-    Runs for both stage- and flow-based CatFIM.
+# def __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file): -> changed to load_thresholds_huc()
+#     '''
+#     Runs for both stage- and flow-based CatFIM.
 
-    Loads threshold stage and flow data for a given site (LID) either from a local pickle file or from the WRDS API.
+#     Loads threshold stage and flow data for a given site (LID) either from a local pickle file or from the WRDS API.
 
-    Parameters
-    ----------
-        output_catfim_dir (str): Directory path where output threshold files should be saved.
-        threshold_url (str): URL for the WRDS API to fetch threshold data.
-        lid (str): NWS Location Identifier (LID) for the site.
-        huc (str): Hydrologic Unit Code associated with the site.
-        threshold_file (str): Path to the local pickle file containing threshold data.
+#     Parameters
+#     ----------
+#         output_catfim_dir (str): Directory path where output threshold files should be saved.
+#         threshold_url (str): URL for the WRDS API to fetch threshold data.
+#         lid (str): NWS Location Identifier (LID) for the site.
+#         huc (str): Hydrologic Unit Code associated with the site.
+#         threshold_file (str): Path to the local pickle file containing threshold data.
 
-    Returns:
-    ----------
-        stages (dict or None): Dictionary of stage thresholds for the site, or None if not found.
-        flows (dict or None): Dictionary of flow thresholds for the site, or None if not found.
-        status_msg (str): Status message indicating the source of the loaded thresholds or error information.
-    '''
+#     Returns:
+#     ----------
+#         stages (dict or None): Dictionary of stage thresholds for the site, or None if not found.
+#         flows (dict or None): Dictionary of flow thresholds for the site, or None if not found.
+#         status_msg (str): Status message indicating the source of the loaded thresholds or error information.
+#     '''
 
-    if os.path.isfile(threshold_file) == True:
-        # Read pickle file and get the stages and flows dictionary for the site
-        with open(threshold_file, 'rb') as f:
-            loaded_data = pickle.load(f)
-            site_data = loaded_data[loaded_data['nws_lid'] == lid.upper()] # TODO: Check whether we need an upper or lower case conversion
+#     if os.path.isfile(threshold_file) == True:
+#         # Read pickle file and get the stages and flows dictionary for the site
+#         with open(threshold_file, 'rb') as f:
+#             loaded_data = pickle.load(f)
+#             site_data = loaded_data[loaded_data['nws_lid'] == lid.upper()] # TODO: Check whether we need an upper or lower case conversion
 
-        # Error if site_data is empty
-        if site_data.empty:
-            FLOG.error(f"No threshold data found for LID {lid} in the provided threshold file.")
-            return None, None, 0
+#         # Error if site_data is empty
+#         if site_data.empty:
+#             FLOG.error(f"No threshold data found for LID {lid} in the provided threshold file.")
+#             return None, None, 0
 
-        # Make output dictionaries for stages and flows
-        # Assuming there's only one record per threshold_type per lid
-        stages = site_data.loc[site_data['threshold_type'] == 'stages'].to_dict(orient='records')[0]
-        del stages['threshold_type']
-        del stages['huc']
+#         # Make output dictionaries for stages and flows
+#         # Assuming there's only one record per threshold_type per lid
+#         stages = site_data.loc[site_data['threshold_type'] == 'stages'].to_dict(orient='records')[0]
+#         del stages['threshold_type']
+#         del stages['huc']
 
-        flows = site_data.loc[site_data['threshold_type'] == 'flows'].to_dict(orient='records')[0]
-        del flows['threshold_type']
-        del flows['huc']
+#         flows = site_data.loc[site_data['threshold_type'] == 'flows'].to_dict(orient='records')[0]
+#         del flows['threshold_type']
+#         del flows['huc']
 
-        # # Print out the stages and flows for debugging  ## TEMP DEBUG
-        # FLOG.lprint(f"Stages for LID {lid}: {stages}")  ## TEMP DEBUG
-        # FLOG.lprint(f"Flows for LID {lid}: {flows}")  ## TEMP DEBUG
+#         # # Print out the stages and flows for debugging  ## TEMP DEBUG
+#         # FLOG.lprint(f"Stages for LID {lid}: {stages}")  ## TEMP DEBUG
+#         # FLOG.lprint(f"Flows for LID {lid}: {flows}")  ## TEMP DEBUG
 
-        status_msg = 'Thresholds loaded from .pkl file.'
+#         status_msg = 'Thresholds loaded from .pkl file.'
 
-    else:
-        # Get thresholds from the WRDS API
-        stages, flows, status_msg = get_thresholds(
-            threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-        )
+#     else:
+#         # Get thresholds from the WRDS API
+#         stages, flows, status_msg = get_thresholds(
+#             threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+#         )
 
-        # Save thresholds to output_thresholds_dir (if the file of that LID doesn't already exist)
-        output_thresholds_dir = os.path.join(output_catfim_dir, "thresholds")
-        if not os.path.exists(output_thresholds_dir):
-            os.mkdir(output_thresholds_dir)
+#         # Save thresholds to output_thresholds_dir (if the file of that LID doesn't already exist)
+#         output_thresholds_dir = os.path.join(output_catfim_dir, "thresholds")
+#         if not os.path.exists(output_thresholds_dir):
+#             os.mkdir(output_thresholds_dir)
 
-        lid_thresholds_csv = os.path.join(output_thresholds_dir, f"thresholds_{lid.lower()}.csv")
+#         lid_thresholds_csv = os.path.join(output_thresholds_dir, f"thresholds_{lid.lower()}.csv")
 
-        if not os.path.isfile(lid_thresholds_csv):
-            thresholds = [{'threshold_type': 'stages', 'huc': huc, **stages},  # TODO: Add HUC
-                        {'threshold_type': 'flows', 'huc': huc, **flows}] # TODO: Add HUC
+#         if not os.path.isfile(lid_thresholds_csv):
+#             thresholds = [{'threshold_type': 'stages', 'huc': huc, **stages},  # TODO: Add HUC
+#                         {'threshold_type': 'flows', 'huc': huc, **flows}] # TODO: Add HUC
 
-            with open(lid_thresholds_csv, mode='w', newline='') as file:
-                writer = csv.DictWriter(file, fieldnames=thresholds[1].keys())
-                writer.writeheader()
-                writer.writerows(thresholds)
+#             with open(lid_thresholds_csv, mode='w', newline='') as file:
+#                 writer = csv.DictWriter(file, fieldnames=thresholds[1].keys())
+#                 writer.writeheader()
+#                 writer.writerows(thresholds)
 
-    return stages, flows, status_msg
+#     return stages, flows, status_msg
 
 
-# local script calls __load_nwm_metadata so FLOG is already setup
-def __load_nwm_metadata(output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile):
-    '''
-    Runs for both stage and flow. Loads and filters NWM metadata.
+# # local script calls __load_nwm_metadata so FLOG is already setup
+# def __load_nwm_metadata(output_catfim_dir, metadata_url, search, nwm_metafile, metadata_download):
+#     '''
+#     Runs for both stage and flow. Loads and filters NWM metadata.
 
-    This function checks if a local metadata pickle file exists. If it does, the metadata is loaded from the file.
-    Otherwise, it downloads metadata from the specified URL using two API calls: one for all forecast points and
-    another for all points in OCONUS regions (HI, PR, AK). The results are combined, and duplicate or None-valued
-    NWS LIDs are filtered out. The filtered metadata is then saved to a pickle file for future use.
+#     This function checks if a local metadata pickle file exists. If it does, the metadata is loaded from the file.
+#     Otherwise, it downloads metadata from the specified URL using two API calls: one for all forecast points and
+#     another for all points in OCONUS regions (HI, PR, AK). The results are combined, and duplicate or None-valued
+#     NWS LIDs are filtered out. The filtered metadata is then saved to a pickle file for future use.
 
-    Args:
-        output_catfim_dir (str): Directory where output files, including the metadata pickle, are stored.
-        metadata_url (str): URL endpoint for retrieving NWM metadata.
-        nwm_us_search (int): Upstream trace distance for metadata search.
-        nwm_ds_search (int): Downstream trace distance for metadata search.
-        nwm_metafile (str): Path to the local metadata pickle file.
+#     Args:
+#         output_catfim_dir (str): Directory where output files, including the metadata pickle, are stored.
+#         metadata_url (str): URL endpoint for retrieving NWM metadata.
+#         nwm_us_search (int): Upstream trace distance for metadata search.
+#         nwm_ds_search (int): Downstream trace distance for metadata search.
+#         nwm_metafile (str): Path to the local metadata pickle file.
 
-    Returns:
-        list: Filtered list of metadata dictionaries, each representing a unique NWS LID site.
-    '''
+#     Returns:
+#         list: Filtered list of metadata dictionaries, each representing a unique NWS LID site.
+#     '''
 
-    FLOG.trace(metadata_url)
+#     FLOG.trace(metadata_url)
 
-    output_meta_list = []
-    # Check to see if meta file already exists
-    # This feature means we can copy the pickle file to another enviro (AWS?) as it won't need to call
-    # WRDS unless we need a smaller or modified version. This one likely has all nws_lid data.
+#     output_meta_list = []
 
-    if os.path.isfile(nwm_metafile) == True:
-        FLOG.lprint(f"Meta file already downloaded and exists at {nwm_metafile}")
 
-        with open(nwm_metafile, "rb") as p_handle:
-            output_meta_list = pickle.load(p_handle)
+#     if metadata_download == True:
+#         # meta_file = os.path.join(output_catfim_dir, "nwm_metafile.pkl")
 
-    else:
-        meta_file = os.path.join(output_catfim_dir, "nwm_metafile.pkl")
+#         # FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
 
-        FLOG.lprint(f"Meta file will be downloaded and saved at {meta_file}")
+#         # Download metadata and save metadata to pkl file 
+#         metadata_start_time = datetime.now(timezone.utc)
+#         nwm_metafile = download_all_metadata(output_catfim_dir, metadata_url, search, metadata_download, label='mid_run')
 
-        # Get all forecast points
-        forecast_point_meta_list, ___ = get_metadata(
-            metadata_url,
-            select_by='nws_lid',
-            selector=['all'],
-            must_include='nws_data.rfc_forecast_point',
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
+        
+#         metadata_end_time = datetime.now(timezone.utc)
+#         metadata_duration = metadata_end_time - metadata_start_time
+#         print(f"    Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}")
+#         print()
 
-        # Get all points for OCONUS regions (HI, PR, and AK)
-        oconus_meta_list, ___ = get_metadata(
-            metadata_url,
-            select_by='state',
-            selector=['HI', 'PR', 'AK'],
-            must_include=None,
-            upstream_trace_distance=nwm_us_search,
-            downstream_trace_distance=nwm_ds_search,
-        )
 
-        # Append the lists
-        unfiltered_meta_list = forecast_point_meta_list + oconus_meta_list
+#     else:
+#         # Error if metafile is not there
+#         if not os.path.isfile(nwm_metafile):
+#             FLOG.critical(f"NWM metadata file not found at {nwm_metafile} and metadata_download is set to False.")
+#             sys.exit(1)
 
-        # Filter the metadata list
-        output_meta_list = []
-        unique_lids, duplicate_lids = [], []
-        duplicate_meta_list = []
-        nonelid_metadata_list = []
+#         else:
+#             FLOG.lprint(f"Meta file already downloaded and exists at {nwm_metafile}")
 
-        for i, site in enumerate(unfiltered_meta_list):
-            nws_lid = site['identifiers']['nws_lid']
+#     # Open metadata file
+#     with open(nwm_metafile, "rb") as p_handle:
+#         output_meta_list = pickle.load(p_handle)
+       
+#     # Get the HUC dictionary
+#     huc_lid_dict, lid_list = get_huc_dictionary(output_meta_list, lst_hucs)
+    
 
-            if nws_lid is None:
-                # No LID available
-                nonelid_metadata_list.append(site)
-
-            elif nws_lid in unique_lids:
-                # Duplicate LID
-                duplicate_lids.append(nws_lid)
-                duplicate_meta_list.append(site)
-
-            else:
-                # debug
-                # if nws_lid.upper() not in ['PNTA3', 'PWBA3']:
-                #     continue
-
-                # Unique/unseen LID that's not None
-                unique_lids.append(nws_lid)
-                output_meta_list.append(site)
-
-        FLOG.lprint(f'{len(duplicate_lids)} duplicate points removed.')
-        # FLOG.lprint(f'Duplicate point LIDs: {duplicate_lids}')
-        FLOG.lprint(f'{len(nonelid_metadata_list)} points with value of None for nws_lid removed.')
-        FLOG.lprint(f'Filtered metadatada downloaded for {len(output_meta_list)} points.')
-
-        # ----------
-
-        with open(meta_file, "wb") as p_handle:
-            pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-    return output_meta_list
+#     return output_meta_list, huc_lid_dict
 
 
 if __name__ == '__main__':

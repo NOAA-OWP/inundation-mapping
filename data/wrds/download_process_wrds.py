@@ -13,212 +13,58 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from datetime import date, datetime, timezone
 
-# moved over from inundation-mapping/tools/tools_shared_functions.py
-# TODO: Remove this function from the tools shared functions file
-# TODO: Re-route all files that use this function to get it from here
-def get_metadata(
-    metadata_url,
-    select_by,
-    selector,
-    must_include=None,
-    upstream_trace_distance=None,
-    downstream_trace_distance=None,
-):
-    '''
-    Retrieve metadata for a site or list of sites.
+from tools_shared_functions import(
+    get_metadata,
+    get_thresholds
+)
 
-    Parameters
-    ----------
-    metadata_url : STR
-        metadata base URL.
-    select_by : STR
-        Location search option. Options include: 'state', TODO: test 'nws_lid'
-    selector : LIST
-        Value to match location data against. Supplied as a LIST.
-    must_include : STR, optional
-        What attributes are required to be valid response. The default is None.
-    upstream_trace_distance : INT, optional
-        Distance in miles upstream of site to trace NWM network. The default is None.
-    downstream_trace_distance : INT, optional
-        Distance in miles downstream of site to trace NWM network. The default is None.
 
-    Returns
-    -------
-    metadata_list : LIST
-        Dictionary or list of dictionaries containing metadata at each site.
-    metadata_dataframe : Pandas DataFrame
-        Dataframe of metadata for each site.
+def label_data_file(label, lst_hucs):
+
+    # If a list of HUCs is provided, add 'subset' to the label
+    subset = '' if 'all' in lst_hucs else '_subset'
+
+    # Add a leading underscore to the label if it's not empty
+    label = f'_{label}' if label != '' else label
+
+    date_formatted = date.today().strftime("%d%m%Y")
+    label_with_date = f'{label}{subset}_{date_formatted}'
+
+    return label_with_date
+
+def get_huc_dictionary(metadata_list, lst_hucs):
 
     '''
-
-    # Format selector variable in case multiple selectors supplied
-    format_selector = '%2C'.join(selector)
-    # Define the url
-    url = f'{metadata_url}/{select_by}/{format_selector}/'
-    # Assign optional parameters to a dictionary
-    params = {}
-    params['must_include'] = must_include
-    params['upstream_trace_distance'] = upstream_trace_distance
-    params['downstream_trace_distance'] = downstream_trace_distance
-    # Suppress Insecure Request Warning
-    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-    # Request data from url
-    response = requests.get(url, params=params, verify=False)
-    #    print(response)
-    #    print(url)
-    if response.ok:
-        # Convert data response to a json
-        metadata_json = response.json()
-        # Get the count of returned records
-        location_count = metadata_json['_metrics']['location_count']
-        # Get metadata
-        metadata_list = metadata_json['locations']
-        # Add timestamp of WRDS retrieval
-        timestamp = response.headers['Date']
-        # Add timestamp of sources retrieval
-        timestamp_list = metadata_json['data_sources']['metadata_sources']
-
-        # Default timestamps to "Not available" and overwrite with real values if possible.
-        nwis_timestamp, nrldb_timestamp = "Not available", "Not available"
-        for timestamp in timestamp_list:
-            if "NWIS" in timestamp:
-                nwis_timestamp = timestamp
-            if "NRLDB" in timestamp:
-                nrldb_timestamp = timestamp
-
-        #        nrldb_timestamp, nwis_timestamp = metadata_json['data_sources']['metadata_sources']
-        # get crosswalk info (always last dictionary in list)
-        crosswalk_info = metadata_json['data_sources']
-        # Update each dictionary with timestamp and crosswalk info also save to DataFrame.
-        for metadata in metadata_list:
-            metadata.update({"wrds_timestamp": timestamp})
-            metadata.update({"nrldb_timestamp": nrldb_timestamp})
-            metadata.update({"nwis_timestamp": nwis_timestamp})
-            metadata.update(crosswalk_info)
-        metadata_dataframe = pd.json_normalize(metadata_list)
-        # Replace all periods with underscores in column names
-        metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
-    else:
-        # if request was not succesful, print error message.
-        # TODO: Output this as a status string because the print is getting suppressed
-        print(f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}')
-        # Return empty outputs
-        metadata_list = []
-        metadata_dataframe = pd.DataFrame()
-    return metadata_list, metadata_dataframe
-
-
-# moved over from inundation-mapping/tools/tools_shared_functions.py
-# TODO: Remove this function from the tools shared functions file
-# TODO: Re-route all files that use this function to get it from here
-def get_thresholds(threshold_url, select_by, selector, threshold='all'):
+    huc_lid_dict, lid_list = get_huc_dictionary(metadata_list, lst_hucs)
     '''
-    Get nws_lid threshold stages and flows (i.e. bankfull, action, minor,
-    moderate, major). Returns a dictionary for stages and one for flows.
 
-    Parameters
-    ----------
-    threshold_url : STR
-        WRDS threshold API.
-    select_by : STR
-        Type of site (nws_lid, usgs_site_code etc).
-    selector : STR
-        Site for selection. Must be a single site.
-    threshold : STR, optional
-        Threshold option. The default is 'all'.
+    lid_list = []
+    huc_lid_dict = {}
 
-    Returns
-    -------
-    stages : DICT
-        Dictionary of stages at each threshold.
-    flows : DICT
-        Dictionary of flows at each threshold.
-    status_msg : STR
-        Status of API call and data availability.
+    # Iterate through the metadata to get a list of LIDs and HUCs
+    for site_entry in metadata_list:
+        lid_i = site_entry['identifiers']['nws_lid']
+        huc_nws_i = site_entry['nws_preferred']['huc']
+        huc_usgs_i = site_entry['usgs_preferred']['huc']
+    
+        huc_i = huc_usgs_i if huc_nws_i is None else huc_nws_i
 
-    '''
-    params = {}
-    params['threshold'] = threshold
-    url = f'{threshold_url}/{select_by}/{selector}'
+        lid_list.append(lid_i)
+        huc_lid_dict[lid_i] = huc_i
 
-    # Initialize status message
-    status_msg = f"Selector: {selector}: "
+    if 'all' not in lst_hucs:
+        # Filter huc_lid_dict to only include HUCs in huc_lst
+        huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
+        lid_list = list(huc_lid_dict.keys())
 
-    # response = requests.get(url, params=params, verify=False)
+    print(f'Number of sites to download thresholds for: {len(lid_list)}')
 
-    # Call the API
-    session = requests.Session()
-
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-    retry = Retry(connect=3, backoff_factor=0.5)
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount('http://', adapter)
-
-    response = session.get(url, params=params, verify=False)
-
-    if response.status_code == 200:
-        thresholds_json = response.json()
-
-        # Get metadata
-        thresholds_info = thresholds_json['value_set']
-        threshold_count = thresholds_json['_metrics']['threshold_count']
-        status_msg += f"WRDS response sucessful. {threshold_count} threshold types available. "
-
-        # Initialize stages/flows dictionaries
-        stages = {}
-        flows = {}
-        # Check if thresholds information is populated. If site is non-existent thresholds info is blank
-        if thresholds_info:
-            # Get all rating sources and corresponding indexes in a dictionary
-            rating_sources = {
-                i.get('calc_flow_values').get('rating_curve').get('source'): index
-                for index, i in enumerate(thresholds_info)
-            }
-            # Get threshold data use USGS Rating Depot (priority) otherwise NRLDB.
-            if 'USGS Rating Depot' in rating_sources:
-                threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
-            elif 'NRLDB' in rating_sources:
-                threshold_data = thresholds_info[rating_sources['NRLDB']]
-            # If neither USGS or NRLDB is available use first dictionary to get stage values.
-            else:
-                threshold_data = thresholds_info[0]
-            # Get stages and flows for each threshold
-            if threshold_data:
-                status_msg += "Thresholds available. "
-
-                stages = threshold_data['stage_values']
-                flows = threshold_data['calc_flow_values']
-                # Add source information to stages and flows. Flows source inside a nested dictionary. Remove key once source assigned to flows.
-                stages['source'] = threshold_data.get('metadata').get('threshold_source')
-                flows['source'] = flows.get('rating_curve', {}).get('source')
-                flows.pop('rating_curve', None)
-                # Add timestamp WRDS data was retrieved.
-                stages['wrds_timestamp'] = response.headers['Date']
-                flows['wrds_timestamp'] = response.headers['Date']
-                # Add Site information
-                stages['nws_lid'] = threshold_data.get('metadata').get('nws_lid')
-                flows['nws_lid'] = threshold_data.get('metadata').get('nws_lid')
-                stages['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
-                flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
-                stages['units'] = threshold_data.get('metadata').get('stage_units')
-                flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
-        return stages, flows, status_msg
-    else:
-        status_msg += "WRDS response error." 
-        print(status_msg)
-        stages = None
-        flows = None
-
-        return stages, flows, status_msg
-
+    return huc_lid_dict
 
 # ----- 
 
-# TODO: Remove this function from the generate_categorical_fim_flows.py and replace it with code that can read it in
-# was __load_nwm_metadata
-def download_all_metadata(workspace, metadata_url, search, metadata_download, label_with_date):
+# TODO: Remove this function from the generate_categorical_fim_flows.py and replace it with code that can read it in 
+def download_all_metadata(metadata_filepath, metadata_url, search):
 
     print('Starting metadata download from WRDS...')
 
@@ -277,37 +123,30 @@ def download_all_metadata(workspace, metadata_url, search, metadata_download, la
             unique_lids_list.append(nws_lid)
             output_meta_list.append(site)
 
-    print(f'    Total number of unique LIDs: {len(unique_lids_list)}')
+    print(f'Total number of unique LIDs: {len(unique_lids_list)}')
 
-    meta_filepath = None
+    try:
 
-    if metadata_download == True:
-        try:
-            filename = f'nwm_metafile{label_with_date}.pkl'
-            meta_filepath = os.path.join(workspace, filename)
+        with open(metadata_filepath, "wb") as p_handle:
+            pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open(meta_filepath, "wb") as p_handle:
-                pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
+        print(f"Metadata saved at {metadata_filepath}")
 
-            print(f"    Metadata saved at {meta_filepath}")
+        file_size_bytes = os.path.getsize(metadata_filepath)
+        file_size_kb = round(file_size_bytes / 1024, 2)
+        file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
+        print(f"File size: {file_size_kb} kb or {file_size_mb} mb")
 
-            file_size_bytes = os.path.getsize(meta_filepath)
-            file_size_kb = round(file_size_bytes / 1024, 2)
-            file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
-            print(f"    File size: {file_size_kb} kb or {file_size_mb} mb")
-
-        except Exception as e:
-            print(f"Error saving pickle file {meta_filepath}: {e}")
-
-
-    return output_meta_list, meta_filepath # so CatFIM can read it in
+    except Exception as e:
+        print(f"Error saving pickle file {metadata_filepath}: {e}")
 
 
 # moved over from inundation-mapping/tools/tools_shared_functions.py
-# TODO: Remove this function from the tools shared functions file
 # TODO: Re-route all files that use this function to get it from here
-def download_all_thresholds(workspace, threshold_url, metadata_list, label_with_date, lst_hucs):
+def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
     """
+    TODO: add a note about why .pkl for thresholds.
+
     Download all thresholds from the WRDS API for a list of LIDs and save them as CSV files.
     Combine all CSV files into a single pickle file.
 
@@ -315,39 +154,16 @@ def download_all_thresholds(workspace, threshold_url, metadata_list, label_with_
     to predownload thresholds for all sites in the metadata pickle file.
 
     Parameters:
+    - thresholds_filepath: str, filepath where output files will be saved.
     - threshold_url: str, URL of the WRDS API endpoint for thresholds.
-    - output_folder: str, path to the folder where output files will be saved.
-    - metadata_list: 
-
-    Returns:
-    - None
+    - huc_lid_dict: dict, dictionary mapping LIDs to HUCs.
     
     Outputs:
-    - CSV files for each LID in a subfolder 'threshold_download' within the output_folder.
-    - A combined pickle file 'all_thresholds.pkl' containing all thresholds.
+    - Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
     """
+    thresholds_start_time = datetime.now(timezone.utc)
+
     print('Starting threshold download from WRDS...')
-
-    lid_list = []
-    huc_lid_dict = {}
-
-    # Iterate through the metadata to get a list of LIDs and HUCs
-    for site_entry in metadata_list:
-        lid_i = site_entry['identifiers']['nws_lid']
-        huc_nws_i = site_entry['nws_preferred']['huc']
-        huc_usgs_i = site_entry['usgs_preferred']['huc']
-    
-        huc_i = huc_usgs_i if huc_nws_i is None else huc_nws_i
-
-        lid_list.append(lid_i)
-        huc_lid_dict[lid_i] = huc_i
-
-    if 'all' not in lst_hucs:
-        # Filter huc_lid_dict to only include HUCs in huc_lst
-        huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
-        lid_list = list(huc_lid_dict.keys())
-
-    print(f'    Number of sites to download thresholds for: {len(lid_list)}')
 
     # Iterate through LIDs in huc_lid_dict and get thresholds from the WRDS API
     list_threshold_dfs = []
@@ -372,37 +188,138 @@ def download_all_thresholds(workspace, threshold_url, metadata_list, label_with_
     # Combine all the DataFrames in the list into a single, final DataFrame
     all_thresholds_df = pd.concat(list_threshold_dfs, ignore_index=True)
 
-    filename = f'thresholds{label_with_date}.pkl'
-    thresholds_filepath = os.path.join(workspace, filename)
-
     # Save the combined DataFrame to a pickle file
     try:
         with open(thresholds_filepath, 'wb') as f:
             pickle.dump(all_thresholds_df, f)
-        print(f"    Thresholds saved at {thresholds_filepath}")
+        print(f"Thresholds saved at {thresholds_filepath}")
 
         file_size_bytes = os.path.getsize(thresholds_filepath)
         file_size_kb = round(file_size_bytes / 1024, 2)
         file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
-        print(f"    File size: {file_size_kb} kb or {file_size_mb} mb")
+        print(f"File size: {file_size_kb} kb or {file_size_mb} mb")
 
     except Exception as e:
         print(f"Error saving pickle file {thresholds_filepath}: {e}")
 
-    return thresholds_filepath # so CatFIM can read it in
+    thresholds_end_time = datetime.now(timezone.utc)
+    thresholds_duration = thresholds_end_time - thresholds_start_time
+    print(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
+    print()
 
-    # return huc_lid_dict and safe as file? TODO: add in, add a note that it's just for tracing
 
-# def emulate_wrds_data(data_csv) # actually I think that emulate wrds data really might need to be its own file in the wrds folder... # TODO
+def __load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download, lst_hucs):
+    '''
+    Downloads or reads in the NWM metadata and then returns the data as a list and a HUC dictionary. 
 
-# this function will also be able to be run from within CatFIM
-def obtain_wrds_data(env_file,
-                    workspace,
-                    label,
-                    lst_hucs,
-                    search,
-                    metadata_download,
-                    threshold_download):
+    1. Loads the NWM metadata list using the method specified by metadata_download.
+        If metadata_download is True: it downloads metadata from the specified URL using two API calls: one for all 
+        forecast points and another for all points in OCONUS regions (HI, PR, AK). Results are combined
+        and duplicate or None-valued NWS LIDs are filtered out.
+        
+        If metadata_download is False: the metadata is loaded from the file (function errors out if filepath isn't provided
+        and download metadata is False).
+
+    2. Uses the NWM metadata to create a huc/lid dictionary.
+
+    Args:
+        metadata_filepath (str) : Filepath where the metadata pickle is or will be stored. If it does not exist, 
+                                it will be created. If it does exist and metadata_download is True, it will be overwritten.
+        API_BASE_URL (str) : WRDS API URL for retrieving NWM metadata.
+        search (int) : Distance for upstream and downstream metadata search.
+        metadata_download (bool) : Whether metadata should be downloaded (True) or not (False)
+        lst_hucs (list of string) : List of HUCs to process or a list containing the value 'all' to process all HUCs.
+
+    Returns:
+        output_meta_list (list) : Filtered list of metadata dictionaries, each representing a unique NWS LID site.
+        huc_lid_dict (dict) : dictionary mapping LIDs to HUCs.
+    '''
+
+    output_meta_list = []
+
+    if metadata_download == True:
+        metadata_url = f'{API_BASE_URL}/metadata'
+
+        # Give a warning if the file will be overwritten
+        if os.path.isfile(metadata_filepath):
+            print(f"WARNING: NWM metadata file already exists at {metadata_filepath} and metadata_download is set to True. It will be overwritten.")
+        else:
+            print(f"Meta file will be downloaded and saved at {metadata_filepath}")
+
+        # Download metadata and save metadata to pkl file 
+        metadata_start_time = datetime.now(timezone.utc)
+        download_all_metadata(metadata_filepath, metadata_url, search)
+
+        metadata_end_time = datetime.now(timezone.utc)
+        metadata_duration = metadata_end_time - metadata_start_time
+        print(f"Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}")
+        print()
+
+    else:
+        # Error if metafile is not there
+        if not os.path.isfile(metadata_filepath):
+            raise ValueError(f"NWM metadata file not found at {metadata_filepath} and metadata_download is set to False. Provide a valid NWM metafile or set metadata_download to True.")
+            # this error really should only occur in command line running of this tool or CatFIM development
+            # (and not regular CatFIM runs), so we can keep for now. 
+        else:
+            print(f"Meta file already downloaded and exists at {metadata_filepath}")
+
+    # Open metadata file
+    with open(metadata_filepath, "rb") as p_handle:
+        output_meta_list = pickle.load(p_handle)
+    
+    # Get the HUC dictionary
+    huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
+    
+    return output_meta_list, huc_lid_dict
+
+# TODO: THIS SHOULD BE MOVED TO A CATFIM-SPECIFIC SCRIPT 
+def __load_site_thresholds(threshold_file, lid):
+    '''
+    Loads threshold stage and flow data for a given site (LID) from a local pickle file.
+
+    Parameters
+    ----------
+        threshold_file (str): Path to the local pickle file containing threshold data.
+        lid (str): NWS Location Identifier (LID) for the site.
+
+    Returns:
+    ----------
+        stages (dict or None): Dictionary of stage thresholds for the site, or None if not found.
+        flows (dict or None): Dictionary of flow thresholds for the site, or None if not found.
+    '''
+
+    if os.path.isfile(threshold_file) == True:
+        # Read pickle file and get the stages and flows dictionary for the site
+        with open(threshold_file, 'rb') as f:
+            loaded_data = pickle.load(f)
+            site_data = loaded_data[loaded_data['nws_lid'] == lid.upper()] # TODO: Check whether we need an upper or lower case conversion
+
+        # Error if site_data is empty
+        if site_data.empty:
+            FLOG.error(f"No threshold data found for LID {lid} in the provided threshold file.")
+            return None, None, 0
+
+        # Make output dictionaries for stages and flows
+        # Assuming there's only one record per threshold_type per lid
+        stages = site_data.loc[site_data['threshold_type'] == 'stages'].to_dict(orient='records')[0]
+        del stages['threshold_type']
+        del stages['huc']
+
+        flows = site_data.loc[site_data['threshold_type'] == 'flows'].to_dict(orient='records')[0]
+        del flows['threshold_type']
+        del flows['huc']
+
+        # # Print out the stages and flows for debugging  ## TEMP DEBUG
+        # FLOG.lprint(f"Stages for LID {lid}: {stages}")  ## TEMP DEBUG
+        # FLOG.lprint(f"Flows for LID {lid}: {flows}")  ## TEMP DEBUG
+
+        FLOG.lprint('Thresholds loaded from .pkl file.')
+
+    return stages, flows
+
+
+def main(env_file, workspace, label, lst_hucs, search, metadata_download, threshold_download, input_metadata_file):
 
     overall_start_time = datetime.now(timezone.utc)
     dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
@@ -415,16 +332,16 @@ def obtain_wrds_data(env_file,
     # Validate workspace
     if not os.path.exists(workspace):
         raise ValueError(f'Workspace path {workspace} does not exist. Please provide a valid path.')
-    
 
+    # Validate inputs
     if metadata_download == False and threshold_download == False:
         raise ValueError('At least one of -m (get metadata) or -t (get thresholds) must be specified as True.')
     elif metadata_download == True and threshold_download == True:
         print('Both metadata and thresholds will be downloaded and saved.')
     elif metadata_download == True and threshold_download == False:
-        print('Only metadata will be downloaded and saved.')
+        print('Only metadata will be saved.')
     elif threshold_download == True and metadata_download == False:
-        print('Only threshold data will be saved (but metadata will still be downloaded).')
+        print('Only threshold data will be saved, valid metadata pkl file must be provided.')
     
     lst_hucs = lst_hucs.split()
 
@@ -432,7 +349,6 @@ def obtain_wrds_data(env_file,
         print('No HUC list provided, downloading data for all HUCs.')
     else:
         print(f'Downloading data for {len(lst_hucs)} HUCs.')
-
     print()
 
     # Set up API URLs
@@ -442,46 +358,39 @@ def obtain_wrds_data(env_file,
         raise ValueError(
             'API base url not found. Ensure inundation_mapping/tools/ has an .env file with the API_BASE_URL.'
         )
-    metadata_url = f'{API_BASE_URL}/metadata'
-    threshold_url = f'{API_BASE_URL}/nws_threshold'
 
-    # If a list of HUCs is provided, add 'subset' to the label
-    subset = '' if 'all' in lst_hucs else '_subset'
-
-    # Add a leading underscore to the label if it's not empty
-    label = f'_{label}' if label != '' else label
-
-    date_formatted = date.today().strftime("%d%m%Y")
-    label_with_date = f'{label}{subset}_{date_formatted}'
-
-    # Download metadata and save metadata to pkl file 
-    # (If thresholds_only == True, metadata will be downloaded but not saved)
-    metadata_start_time = datetime.now(timezone.utc)
-    output_meta_list, ___ = download_all_metadata(workspace, metadata_url, search, metadata_download, label_with_date)
+    # If no metafile is provided, generate filepath and filename
+    if input_metadata_file == '':
+        label_with_date = label_data_file(label, lst_hucs)
+        output_metadata_filename = f'metadata{label_with_date}.pkl'
+        metadata_filepath = os.path.join(workspace, output_metadata_filename)
     
-    metadata_end_time = datetime.now(timezone.utc)
-    metadata_duration = metadata_end_time - metadata_start_time
-    print(f"    Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}")
-    print()
+    # If metadata filepath is provided, use it
+    else:
+        metadata_filepath = input_metadata_file
 
+    ## ===== START SECTION OF CODE TO COPY INTO CATFIM PREPROCESSING =====
+
+    # Load NWM metadata (either by downloading it or pulling it from WRDS)
+    # Note: This is the function that we will put into CatFIM code
+    ___, huc_lid_dict= __load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download, lst_hucs)
+
+    # Load thresholds if specified
     if threshold_download == True:
+        threshold_url = f'{API_BASE_URL}/nws_threshold'
+
+        label_with_date = label_data_file(label, lst_hucs)
+        output_thresholds_filename = f'thresholds{label_with_date}.pkl'
+        thresholds_filepath = os.path.join(workspace, output_thresholds_filename)
+
         # Download thresholds
-        thresholds_start_time = datetime.now(timezone.utc)
+        download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
 
-        ___ = download_all_thresholds(workspace, threshold_url, output_meta_list, label_with_date, lst_hucs)
-
-        thresholds_end_time = datetime.now(timezone.utc)
-        thresholds_duration = thresholds_end_time - thresholds_start_time
-        print(f"    Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
-        print()
-
-        # TODO: add a note about why .pkl for thresholds
-
+    ## ===== END SECTION OF CODE TO COPY INTO CATFIM PREPROCESSING =====
 
     overall_end_time = datetime.now(timezone.utc)
     dt_string = overall_end_time.strftime("%m/%d/%Y %H:%M:%S")
     time_duration = overall_end_time - overall_start_time
-
 
     print('Processing complete.')
     print(f"Total duration: {str(time_duration).split('.')[0]}") 
@@ -550,7 +459,15 @@ if __name__ == '__main__':
         action='store_true'
         )
 
+    parser.add_argument(
+        '-mf',
+        '--input-metadata-file',
+        help="OPTIONAL: Input metadata file to use for pulling thresholds. Will error if -m flag is also used.",
+        required=False,
+        default='',
+    )
+
     args = vars(parser.parse_args())
 
     # Main function call
-    obtain_wrds_data(**args)
+    main(**args)
