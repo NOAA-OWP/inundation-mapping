@@ -78,17 +78,19 @@ fi
 # make outputs directory
 mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
+mkdir -p $tempHucDataDir/logs
+mkdir -p $tempHucDataDir/logs/branch
 chmod 777 $tempHucDataDir
 chmod 777 $tempBranchDataDir
 
 # Clean out previous unit logs and branch logs starting with this huc
-rm -f $outputDestDir/logs/unit/"$hucNumber"_unit.log
-rm -f $outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
-rm -f $outputDestDir/logs/branch/"$hucNumber"*.log
+rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
+rm -f $tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
+rm -f $tempHucDataDir/logs/branch/"$hucNumber"*.log
 rm -f $outputDestDir/unit_errors/"$hucNumber"*.log
 rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
 
-hucLogFileName=$outputDestDir/logs/unit/"$hucNumber"_unit.log
+hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 
 # Process the actual huc
 /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFileName

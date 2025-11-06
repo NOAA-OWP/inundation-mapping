@@ -15,7 +15,7 @@ source $srcDir/bash_variables.env
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv
 branch_list_lst_file=$tempHucDataDir/branch_ids.lst
 
-branchSummaryLogFile=$outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
+branchSummaryLogFile=$tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
 
 huc2Identifier=${hucNumber:0:2}
 

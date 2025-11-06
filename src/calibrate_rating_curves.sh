@@ -13,9 +13,9 @@ hucNumber=$(basename "${tempHucDataDir%/}")
 l_echo ""
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 if [ "${calibration_rerun,,}" = "true" ]; then
-    l_echo "---- Manual postprcessing for HUC $hucNumber"
+    l_echo "---- Rerunning calibration for HUC $hucNumber"
 else
-    l_echo "---- Start of post_processing for HUC $hucNumber"
+    l_echo "---- Start of Calibration for HUC $hucNumber"
 fi
 l_echo "---- Started: `date -u`"
 l_echo ""
@@ -162,39 +162,54 @@ python3 $srcDir/aggregate_branches_to_huc.py \
 Tcount
 
 
-
-l_echo $startDiv"Scanning logs for errors and warnings..."
+l_echo $startDiv"Scanning logs ..."
 echo "Results will be saved inside log folder of each HUC."
 Tstart
-    out_name="huc_errors_from_logs.log"
-    outpath="$tempHucDataDir/logs/$out_name"
+    if [ "${calibration_rerun,,}" = "true" ]; then
+        error_out_name="huc_${hucNumber}_errors_calib_rerun.log"
+    else
+        error_out_name="huc_${hucNumber}_errors.log"
+    fi
+
+    error_outpath="$tempHucDataDir/logs/$error_out_name"
 
     # Always delete old file if it exists
-    [ -f "$outpath" ] && rm -f "$outpath"
+    [ -f "$error_outpath" ] && rm -f "$error_outpath"
 
-    # Run grep into a temporary file
-    grep -H -R -i -n "error" --exclude="$out_name" --exclude="$out_name.tmp" "$tempHucDataDir/logs/" > "$outpath".tmp
+    # Run grep into a temporary file--saves the lines that contain the word “error”
+    if [ "${calibration_rerun,,}" = "true" ]; then
+        grep -H -R -i -n "error" --exclude="$error_out_name" --exclude="$error_out_name.tmp" "$tempHucDataDir/logs/src_calibrations" > "$error_outpath".tmp
+    else
+        grep -H -R -i -n "error" --exclude="$error_out_name" --exclude="$error_out_name.tmp" "$tempHucDataDir/logs/" > "$error_outpath".tmp
+    fi
 
     # Only keep the file if it's non-empty
-    if [ -s "$outpath".tmp ]; then
-        mv "$outpath".tmp "$outpath"
+    if [ -s "$error_outpath".tmp ]; then
+        mv "$error_outpath".tmp "$error_outpath"
     else
-        rm -f "$outpath".tmp
+        rm -f "$error_outpath".tmp
     fi
-    l_echo "scan of errors done"
 
     # repreat the workflow for warning files
-
-    out_name="huc_warnings_from_logs.log"
+    if [ "${calibration_rerun,,}" = "true" ]; then
+        out_name="huc_${hucNumber}_warnings_calib_rerun.log"
+    else
+        out_name="huc_${hucNumber}_warnings.log"
+    fi
     outpath="$tempHucDataDir/logs/$out_name"
     [ -f "$outpath" ] && rm -f "$outpath"
-    grep -H -R -i -n "warning" --exclude="$out_name" --exclude="$out_name.tmp" "$tempHucDataDir/logs/" > "$outpath".tmp
+    if [ "${calibration_rerun,,}" = "true" ]; then
+        grep -H -R -i -n "warning" --exclude="$out_name" --exclude="$out_name.tmp" "$tempHucDataDir/logs/src_calibrations" > "$outpath".tmp
+    else
+        grep -H -R -i -n "warning" --exclude="$out_name" --exclude="$out_name.tmp" "$tempHucDataDir/logs/" > "$outpath".tmp
+    fi
+
     if [ -s "$outpath".tmp ]; then
         mv "$outpath".tmp "$outpath"
     else
         rm -f "$outpath".tmp
     fi
-    l_echo "scan of warnings done"
+    l_echo "scan of log files done"
 Tcount
 
 

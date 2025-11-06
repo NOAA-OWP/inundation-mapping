@@ -73,8 +73,7 @@ source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
 # Tell the system the name and location of the post processing log
-timestamp=$(date +"%Y_%m_%d-%H_%M_%S")
-log_file_name=$outputDestDir/logs/post_proc_${timestamp}.log
+log_file_name=$outputDestDir/logs/post_processing.log
 Set_log_file_path $log_file_name
 
 l_echo ""
@@ -86,7 +85,7 @@ T_total_start
 post_proc_start_time=`date +%s`
 
 echo "Concatenate all processing time files into a CSV file"
-csvFile=$outputDestDir/logs/unit/total_duration_run_by_unit_all_HUCs.csv
+csvFile=$outputDestDir/logs/total_duration_run_by_unit_all_HUCs.csv
 
 # if [[ ! -f "$csvFile" ]]; then
 python3 $srcDir/duration_system.py -fim $outputDestDir -o $csvFile
@@ -103,7 +102,8 @@ Tcount
 
 ## GET NON ZERO EXIT CODES FOR BRANCHES ##
 l_echo $startDiv"Start non-zero exit code checking"
-find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | \
+#find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | \
+find $outputDestDir -path "*/logs/branch/*_branch_*.log" -type f | \
     xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > \
     "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
 
@@ -126,10 +126,10 @@ Tcount
 l_echo $startDiv"Compile all HUCs error files"
 echo "Results will be saved in log folder."
 Tstart
-    timestamp=$(date +"%Y%m%d_%H%M")
-    outfile="$outputDestDir/logs/all_errors_from_logs_$timestamp.log"
+    outfile="$outputDestDir/logs/all_errors.log"
     # Collect all matching files into new output
-    find "$outputDestDir" -type f -name "huc_errors_from_logs.log" -exec cat {} + > "$outfile"
+    find "$outputDestDir" -type f -name "huc_*_errors.log" \
+       -exec sh -c 'for f; do echo "=== $f ==="; cat "$f"; done' _ {} + > "$outfile"
     echo "Collected errors into: $outfile"
 Tcount
 

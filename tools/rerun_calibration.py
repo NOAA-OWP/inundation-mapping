@@ -17,19 +17,37 @@ from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 
 def compile_error_logs(fim_run_dir, hucs):
+    """
+    Combines 'huc_{huc}_errors_calib_rerun.log' files from all HUC directories
+    into a single timestamped log file.
+    The combined file is created only if at least one source file exists.
+    """
+    error_logs = []
+
+    # Collect existing HUC error logs
+    for huc in hucs:
+        huc_log_file = os.path.join(fim_run_dir, huc, "logs", f"huc_{huc}_errors_calib_rerun.log")
+        if os.path.isfile(huc_log_file):
+            error_logs.append(huc_log_file)
+
+    # Exit early if none found
+    if not error_logs:
+        print("No 'huc_errors_calib_rerun.log' files found — no combined log created.")
+        return
+
+    # Create output file with timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    outfile = os.path.join(fim_run_dir, 'logs', f"all_errors_from_logs_{timestamp}.log")
+    outfile = os.path.join(fim_run_dir, "logs", f"all_errors_calib_rerun_{timestamp}.log")
 
+    # Combine logs
     with open(outfile, "w") as out_f:
-        for huc in hucs:
-            huc_log_dir = os.path.join(fim_run_dir, huc, "logs")
+        for file in error_logs:
+            out_f.write(f"===== From {file} =====\n")
+            with open(file, "r") as f:
+                out_f.write(f.read())
+                out_f.write("\n")
 
-            # Find all files named all_errors_from_logs.log in this folder
-            for file in glob.glob(os.path.join(huc_log_dir, "huc_errors_from_logs.log")):
-                out_f.write(f"===== From {file} =====\n")
-                with open(file, "r") as f:
-                    out_f.write(f.read())
-                    out_f.write("\n")
+    print(f"Combined error log created: {outfile}")
 
 
 def run_shell_for_huc(
@@ -120,8 +138,8 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
         )
 
     # Create the logger
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file_path = os.path.join(fim_run_dir, 'logs', f"rerun_calibrate_rating_curves_{timestamp}.log")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    log_file_path = os.path.join(fim_run_dir, 'logs', f"rerun_calibration_{timestamp}.log")
     file_logger = setup_mp_file_logger(log_file_path, logger_name='rerunning_calibration')
     print('started rerunning calibration...')
     file_logger.info('started rerunning calibration...')
@@ -153,7 +171,7 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
     print("Done!")
     file_logger.info("Done!")
 
-    # finally compile error log files
+    # finally compile error log files, if exist
     compile_error_logs(fim_run_dir, hucs)
 
 

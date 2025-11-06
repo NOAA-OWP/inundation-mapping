@@ -212,8 +212,7 @@ else
 fi
 
 
-mkdir -p $outputDestDir/logs/unit
-mkdir -p $outputDestDir/logs/branch
+mkdir -p $outputDestDir/logs
 mkdir -p $outputDestDir/unit_errors
 mkdir -p $outputDestDir/branch_errors
 
