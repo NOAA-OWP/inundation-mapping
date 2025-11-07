@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import sys
 import urllib3
 import pickle
 import pandas as pd
@@ -242,9 +243,10 @@ def __load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_downlo
 
         # Give a warning if the file will be overwritten
         if os.path.isfile(metadata_filepath):
-            print(f"WARNING: NWM metadata file already exists at {metadata_filepath} and metadata_download is set to True. It will be overwritten.")
+            print(f"WARNING: NWM metadata file already exists at {metadata_filepath},")
+            print("          but metadata_download is set to True. File will be overwritten.")
         else:
-            print(f"Meta file will be downloaded and saved at {metadata_filepath}")
+            print(f"Metadata will be downloaded and saved at {metadata_filepath}")
 
         # Download metadata and save metadata to pkl file 
         metadata_start_time = datetime.now(timezone.utc)
@@ -258,7 +260,9 @@ def __load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_downlo
     else:
         # Error if metafile is not there
         if not os.path.isfile(metadata_filepath):
-            raise ValueError(f"NWM metadata file not found at {metadata_filepath} and metadata_download is set to False. Provide a valid NWM metafile or set metadata_download to True.")
+            print(f"ERROR: NWM metadata file not found at {metadata_filepath} and metadata_download is set to False.")
+            print("Provide a valid NWM metafile or set metadata_download to True.")
+            sys.exit()
             # this error really should only occur in command line running of this tool or CatFIM development
             # (and not regular CatFIM runs), so we can keep for now. 
         else:
@@ -349,6 +353,7 @@ def main(env_file, workspace, label, lst_hucs, search, metadata_download, thresh
         print('No HUC list provided, downloading data for all HUCs.')
     else:
         print(f'Downloading data for {len(lst_hucs)} HUCs.')
+        print('HUC list only limits the thresholds downloaded, all metadata will stil be downloaded.')
     print()
 
     # Set up API URLs
@@ -428,7 +433,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-lh',
         '--lst-hucs',
-        help="OPTIONAL: Space-delimited list of HUCs to get WRDS data for. Defaults to all HUCs. e.g. '12090301 19020301'",
+        help="OPTIONAL: Space-delimited list of HUCs to get WRDS data for. Defaults to all HUCs. e.g. '12090301 19020301'" \
+        "Only limits the thresholds downloaded, all metadata will stil be downloaded.",
         required=False,
         default='all',
     )
