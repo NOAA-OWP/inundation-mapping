@@ -64,7 +64,6 @@ def get_huc_dictionary(metadata_list, lst_hucs):
 
 # ----- 
 
-# TODO: Remove this function from the generate_categorical_fim_flows.py and replace it with code that can read it in 
 def download_all_metadata(metadata_filepath, metadata_url, search):
 
     print('Starting metadata download from WRDS...')
@@ -142,12 +141,8 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         print(f"Error saving pickle file {metadata_filepath}: {e}")
 
 
-# moved over from inundation-mapping/tools/tools_shared_functions.py
-# TODO: Re-route all files that use this function to get it from here
 def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
     """
-    TODO: add a note about why .pkl for thresholds.
-
     Download all thresholds from the WRDS API for a list of LIDs and save them as CSV files.
     Combine all CSV files into a single pickle file.
 
@@ -161,6 +156,11 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
     
     Outputs:
     - Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
+
+    Note: The output is saved as a pickle file instead of CSV becuase that is the file type we
+    chose for saving the metadata. The metadata is a list of dictionaries, which is not easily
+    saved as a CSV file. To keep the file types consistent, we are saving the thresholds
+    as a pickle file as well.
     """
     thresholds_start_time = datetime.now(timezone.utc)
 
@@ -297,7 +297,7 @@ def __load_site_thresholds(threshold_file, lid):
         # Read pickle file and get the stages and flows dictionary for the site
         with open(threshold_file, 'rb') as f:
             loaded_data = pickle.load(f)
-            site_data = loaded_data[loaded_data['nws_lid'] == lid.upper()] # TODO: Check whether we need an upper or lower case conversion
+            site_data = loaded_data[loaded_data['nws_lid'] == lid.upper()]
 
         # Error if site_data is empty
         if site_data.empty:
@@ -406,7 +406,8 @@ def main(env_file, workspace, label, lst_hucs, search, metadata_download, thresh
 
 if __name__ == '__main__':
     # Parse arguments
-    parser = argparse.ArgumentParser(description='PLACEHOLDER.') # TODO: Add description
+    parser = argparse.ArgumentParser(description='This script automates the downloading and processing of datasets from WRDS. '
+        'It retrieves metadata and threshold data for specified HUCs and saves them as pickle files in the designated workspace.')
 
     parser.add_argument(
         '-e',
