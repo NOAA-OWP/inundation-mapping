@@ -18,10 +18,35 @@ from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
 def compile_error_logs(fim_run_dir, hucs):
     """
-    Combines 'huc_{huc}_errors_calib_rerun.log' files from all HUC directories
-    into a single timestamped log file.
-    The combined file is created only if at least one source file exists.
+    Aggregate error logs from calibration rerun across all HUCs.
+
+    Searches for 'huc_{huc}_errors_calib_rerun.log' files in each HUC's logs
+    directory and combines them into a single timestamped aggregated log file.
+    If no error log files are found, no output file is created.
+
+    Parameters
+    ----------
+    fim_run_dir : str
+        Root directory of the FIM run containing HUC subdirectories.
+        Example: '/data/outputs/fim_run_20250106'
+    hucs : list of str
+        List of HUC identifiers (8-digit strings) to search for error logs.
+        Example: ['12090301', '12090302']
+
+    Returns
+    -------
+    None
+        Writes output to: {fim_run_dir}/logs/all_errors_calib_rerun_{timestamp}.log
+        Prints message to console indicating success or if no logs were found.
+
+    Notes
+    -----
+    - Only processes files from calibration reruns (not initial runs)
+    - Uses timestamp format: YYYYMMDD_HHMM
+    - Each HUC's errors are separated by headers in the output file
+
     """
+
     error_logs = []
 
     # Collect existing HUC error logs
@@ -86,13 +111,6 @@ def run_shell_for_huc(
 
 
 def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6, branch_jobs: int = 2):
-    # notes
-    # 1- this rerunning calibration will read an existing FIM run with mmultiple HUC results and will overwrite the hyrotable (or src table)
-    # 2- accordingly, the log files are overwrtten to be consistent with updated hyrtables.
-    # 3- The flags to activate/deactivate each calibration script is still read from $outputDestDir/params.env file. So if a step is not required
-    # the $outputDestDir/params.env file (available in output folder) needs to be updated (and not config/params_template.env of the code itself)
-    # this is again to have consistent results across a fim output--the param.env be consistent with the last calibration run applied.
-
     # Check that fim run directory exists
     if not os.path.exists(fim_run_dir):
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), fim_run_dir)
@@ -176,9 +194,15 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
 
 
 if __name__ == "__main__":
+    # notes
+    # - this tool will read an existing FIM run (with mmultiple HUC results) and will overwrite the hyrotable (and src table)
+    # - accordingly, the log files are overwrtten to be consistent with updated hyrtables.
+    # - The flags to activate/deactivate each calibration script is still read from $outputDestDir/params.env file. So if a step is not required
+    # the $outputDestDir/params.env file (available in output folder) needs to be updated (and not config/params_template.env of the code itself)
 
     # sample usage
     # python foss_fim/tools/rerun_calibrate_rating_curves.py
+    # -i fim_dir -jh 6 -jb 2
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Rerun calibrating rating curves (after a fim pipeline run)")

@@ -163,57 +163,59 @@ Tcount
 
 
 l_echo $startDiv"Scanning logs ..."
+# Output files are named differently whether it is a rerun or fim pipeline
+
 echo "Results will be saved inside log folder of each HUC."
 Tstart
     if [ "${calibration_rerun,,}" = "true" ]; then
-        error_out_name="huc_${hucNumber}_errors_calib_rerun.log"
+        error_log_filename="huc_${hucNumber}_errors_calib_rerun.log"
     else
-        error_out_name="huc_${hucNumber}_errors.log"
+        error_log_filename="huc_${hucNumber}_errors.log"
     fi
 
-    error_outpath="$tempHucDataDir/logs/$error_out_name"
+    error_log_path="$tempHucDataDir/logs/$error_log_filename"
 
     # Always delete old file if it exists
-    [ -f "$error_outpath" ] && rm -f "$error_outpath"
+    [ -f "$error_log_path" ] && rm -f "$error_log_path"
+
+    # For rerun mode: Only scan src_calibrations subdirectory which is updated during rerun
+    # For normal mode: Scan entire logs directory
 
     # Run grep into a temporary file--saves the lines that contain the word “error”
     if [ "${calibration_rerun,,}" = "true" ]; then
-        grep -H -R -i -n "error" --exclude="$error_out_name" --exclude="$error_out_name.tmp" "$tempHucDataDir/logs/src_calibrations" > "$error_outpath".tmp
+        grep -H -R -i -n "error" --exclude="$error_log_filename" --exclude="$error_log_filename.tmp" "$tempHucDataDir/logs/src_calibrations" > "$error_log_path".tmp
     else
-        grep -H -R -i -n "error" --exclude="$error_out_name" --exclude="$error_out_name.tmp" "$tempHucDataDir/logs/" > "$error_outpath".tmp
+        grep -H -R -i -n "error" --exclude="$error_log_filename" --exclude="$error_log_filename.tmp" "$tempHucDataDir/logs/" > "$error_log_path".tmp
     fi
 
-    # Only keep the file if it's non-empty
-    if [ -s "$error_outpath".tmp ]; then
-        mv "$error_outpath".tmp "$error_outpath"
+    # Only keep the file if it's non-empty (error were found)
+    if [ -s "$error_log_path".tmp ]; then
+        mv "$error_log_path".tmp "$error_log_path"
     else
-        rm -f "$error_outpath".tmp
+        rm -f "$error_log_path".tmp
+        l_echo "No errors found"
     fi
 
-    # repreat the workflow for warning files
+    # repeat the workflow for warning files
     if [ "${calibration_rerun,,}" = "true" ]; then
-        out_name="huc_${hucNumber}_warnings_calib_rerun.log"
+        warning_log_filename="huc_${hucNumber}_warnings_calib_rerun.log"
     else
-        out_name="huc_${hucNumber}_warnings.log"
+        warning_log_filename="huc_${hucNumber}_warnings.log"
     fi
-    outpath="$tempHucDataDir/logs/$out_name"
-    [ -f "$outpath" ] && rm -f "$outpath"
+    warning_log_path="$tempHucDataDir/logs/$warning_log_filename"
+    [ -f "$warning_log_path" ] && rm -f "$warning_log_path"
     if [ "${calibration_rerun,,}" = "true" ]; then
-        grep -H -R -i -n "warning" --exclude="$out_name" --exclude="$out_name.tmp" "$tempHucDataDir/logs/src_calibrations" > "$outpath".tmp
+        grep -H -R -i -n "warning" --exclude="$warning_log_filename" --exclude="$warning_log_filename.tmp" "$tempHucDataDir/logs/src_calibrations" > "$warning_log_path".tmp
     else
-        grep -H -R -i -n "warning" --exclude="$out_name" --exclude="$out_name.tmp" "$tempHucDataDir/logs/" > "$outpath".tmp
+        grep -H -R -i -n "warning" --exclude="$warning_log_filename" --exclude="$warning_log_filename.tmp" "$tempHucDataDir/logs/" > "$warning_log_path".tmp
     fi
 
-    if [ -s "$outpath".tmp ]; then
-        mv "$outpath".tmp "$outpath"
+    if [ -s "$warning_log_path".tmp ]; then
+        mv "$warning_log_path".tmp "$warning_log_path"
     else
-        rm -f "$outpath".tmp
+        rm -f "$warning_log_path".tmp
     fi
     l_echo "scan of log files done"
 Tcount
-
-
-
-#TODO: make sure to clean the log folder in fim pipeline since logs should be huc-level created.
 
 

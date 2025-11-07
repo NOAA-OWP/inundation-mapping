@@ -288,169 +288,164 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jo
 
     huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
     branch_set = huc_branch_dict[huc]
-    if 1:  # TODO temporary only for an easier PR review
 
-        for branch_id in branch_set:
-            # Define paths to branch HAND data.
-            # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
-            branch_dir = os.path.join(huc_dir, 'branches', branch_id)
-            hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
-            catchments_path = os.path.join(
-                branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
+    for branch_id in branch_set:
+        # Define paths to branch HAND data.
+        # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
+        branch_dir = os.path.join(huc_dir, 'branches', branch_id)
+        hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
+        catchments_path = os.path.join(
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
+        )
+        catchments_poly_path = os.path.join(
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+        )
+        htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+        dem_reaches_path = os.path.join(
+            branch_dir, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+        )
+        df = gpd.read_file(dem_reaches_path)
+        usgs_elev = usgs_df[((usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id))]
+
+        # Calculate updstream/downstream trace ()
+        df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
+
+        # Change the data type of 'HydroID' and 'NextDownID' to int
+        df['HydroID'] = df['HydroID'].astype(int)
+        df['NextDownID'] = df['NextDownID'].astype(int)
+
+        # Loop through every row in the "usgs_elev" dataframe
+        for index, row in usgs_elev.iterrows():
+            start_id = row['hydroid']
+
+            # Trace the network for each row
+            up, down = trace_network(df, start_id)
+
+            # Append the results to the "usgs_elev" dataframe
+            usgs_elev = usgs_elev.copy()
+            usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
+            usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
+
+        # Handle NaN values and ignore rows where up/down trace list is empty
+        usgs_elev['up'] = (
+            usgs_elev['up']
+            .astype(str)
+            .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+        )
+        usgs_elev['down'] = (
+            usgs_elev['down']
+            .astype(str)
+            .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+        )
+
+        # Combine the up & down hydroid lists into a new column
+        usgs_elev['trace_hydroid'] = [lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])]
+
+        # Drop up & down columns
+        columns_to_drop = ['up', 'down']
+        usgs_elev.drop(columns=columns_to_drop, inplace=True)
+
+        # Explode the trace column
+        usgs_elev_trace = usgs_elev.explode('trace_hydroid')
+
+        # Check for empty or nan trace lists and convert the column to integers
+        usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('nan', 0)
+        usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('', 0)
+        usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].astype(int)
+
+        # Drop rows where 'trace_hydroid' column is empty
+        # Addresses backpool removals and lake gauges
+        usgs_elev_trace = usgs_elev_trace[usgs_elev_trace['trace_hydroid'].astype(int) != 0]
+
+        # Check that there are still valid entries in the usgs_elev
+        # May have filtered out all if all locs were lakes
+        if usgs_elev_trace.empty:
+            print(
+                "ALERT: did not find any valid hydroids to process: "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
             )
-            catchments_poly_path = os.path.join(
-                branch_dir,
-                'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
+            log_file.write(
+                "ALERT: did not find any valid hydroids to process: "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
             )
-            htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-            dem_reaches_path = os.path.join(
-                branch_dir,
-                'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
-            )
-            df = gpd.read_file(dem_reaches_path)
-            usgs_elev = usgs_df[((usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id))]
+            continue
 
-            # Calculate updstream/downstream trace ()
-            df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
+        # Rename columns
+        usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
+        usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
 
-            # Change the data type of 'HydroID' and 'NextDownID' to int
-            df['HydroID'] = df['HydroID'].astype(int)
-            df['NextDownID'] = df['NextDownID'].astype(int)
-
-            # Loop through every row in the "usgs_elev" dataframe
-            for index, row in usgs_elev.iterrows():
-                start_id = row['hydroid']
-
-                # Trace the network for each row
-                up, down = trace_network(df, start_id)
-
-                # Append the results to the "usgs_elev" dataframe
-                usgs_elev = usgs_elev.copy()
-                usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
-                usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
-
-            # Handle NaN values and ignore rows where up/down trace list is empty
-            usgs_elev['up'] = (
-                usgs_elev['up']
-                .astype(str)
-                .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
-            )
-            usgs_elev['down'] = (
-                usgs_elev['down']
-                .astype(str)
-                .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+        if debug_outputs_option:
+            usgs_elev_trace.to_csv(
+                os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False
             )
 
-            # Combine the up & down hydroid lists into a new column
-            usgs_elev['trace_hydroid'] = [
-                lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])
-            ]
+        # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
+        if not os.path.exists(hand_path):
+            print(
+                "WARNING: HAND grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+            )
+            log_file.write(
+                "WARNING: HAND grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
+            )
+        elif not os.path.exists(catchments_path):
+            print(
+                "WARNING: Catchments grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+            )
+            log_file.write(
+                "WARNING: Catchments grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
+            )
+        elif not os.path.exists(htable_path):
+            print(
+                "WARNING: hydroTable does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+            )
+            log_file.write(
+                "WARNING: hydroTable does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
+            )
+        else:
+            # Additional arguments for src_roughness_optimization
+            source_tag = 'usgs_rating'  # tag to use in source attribute field
+            merge_prev_adj = False  # merge in previous SRC adjustment calculations
 
-            # Drop up & down columns
-            columns_to_drop = ['up', 'down']
-            usgs_elev.drop(columns=columns_to_drop, inplace=True)
-
-            # Explode the trace column
-            usgs_elev_trace = usgs_elev.explode('trace_hydroid')
-
-            # Check for empty or nan trace lists and convert the column to integers
-            usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('nan', 0)
-            usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('', 0)
-            usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].astype(int)
-
-            # Drop rows where 'trace_hydroid' column is empty
-            # Addresses backpool removals and lake gauges
-            usgs_elev_trace = usgs_elev_trace[usgs_elev_trace['trace_hydroid'].astype(int) != 0]
-
-            # Check that there are still valid entries in the usgs_elev
-            # May have filtered out all if all locs were lakes
-            if usgs_elev_trace.empty:
-                print(
-                    "ALERT: did not find any valid hydroids to process: "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "ALERT: did not find any valid hydroids to process: "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-                continue
-
-            # Rename columns
-            usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
-            usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
-
-            if debug_outputs_option:
-                usgs_elev_trace.to_csv(
-                    os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False
-                )
-
-            # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
-            if not os.path.exists(hand_path):
-                print(
-                    "WARNING: HAND grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: HAND grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            elif not os.path.exists(catchments_path):
-                print(
-                    "WARNING: Catchments grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: Catchments grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            elif not os.path.exists(htable_path):
-                print(
-                    "WARNING: hydroTable does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: hydroTable does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            else:
-                # Additional arguments for src_roughness_optimization
-                source_tag = 'usgs_rating'  # tag to use in source attribute field
-                merge_prev_adj = False  # merge in previous SRC adjustment calculations
-
-                print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
-                procs_list.append(
-                    [
-                        branch_dir,
-                        usgs_elev_trace,
-                        htable_path,
-                        huc,
-                        branch_id,
-                        catchments_poly_path,
-                        debug_outputs_option,
-                        source_tag,
-                        merge_prev_adj,
-                    ]
-                )
+            print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
+            procs_list.append(
+                [
+                    branch_dir,
+                    usgs_elev_trace,
+                    htable_path,
+                    huc,
+                    branch_id,
+                    catchments_poly_path,
+                    debug_outputs_option,
+                    source_tag,
+                    merge_prev_adj,
+                ]
+            )
 
     # multiprocess all available branches
     print(f"Calculating new SRCs for {len(procs_list)} branches using {branch_jobs} jobs...")

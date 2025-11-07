@@ -318,31 +318,28 @@ def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_opt
 
     # get hucnumber
     huc = os.path.basename(os.path.normpath(huc_dir))
-    if 1:  # temporary for an easier PR review
-        if 1:
-
-            huc_branches_dir = os.path.join(huc_dir, 'branches')
-            for branch_id in os.listdir(huc_branches_dir):
-                branch_dir = os.path.join(huc_branches_dir, branch_id)
-                src_orig_full_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
-                huc_output_dir = join(branch_dir, 'src_plots')
-                ## Check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use
-                #   orginial src_full_crosswalked.csv
-                if isfile(src_orig_full_filename):
-                    procs_list.append(
-                        [src_orig_full_filename, df_bflows, huc, branch_id, src_plot_option, huc_output_dir]
-                    )
-                else:
-                    print(
-                        f'HUC: {str(huc)}  branch id: {str(branch_id)}'
-                        'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
-                        f' {str(branch_dir)}  - skipping this branch!!!\n'
-                    )
-                    log_file.write(
-                        f'HUC: {str(huc)}  branch id: {str(branch_id)}'
-                        'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
-                        f' {str(branch_dir)}  - skipping this branch!!!\n'
-                    )
+    huc_branches_dir = os.path.join(huc_dir, 'branches')
+    for branch_id in os.listdir(huc_branches_dir):
+        branch_dir = os.path.join(huc_branches_dir, branch_id)
+        src_orig_full_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
+        huc_output_dir = join(branch_dir, 'src_plots')
+        ## Check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use
+        #   orginial src_full_crosswalked.csv
+        if isfile(src_orig_full_filename):
+            procs_list.append(
+                [src_orig_full_filename, df_bflows, huc, branch_id, src_plot_option, huc_output_dir]
+            )
+        else:
+            print(
+                f'HUC: {str(huc)}  branch id: {str(branch_id)}'
+                'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
+                f' {str(branch_dir)}  - skipping this branch!!!\n'
+            )
+            log_file.write(
+                f'HUC: {str(huc)}  branch id: {str(branch_id)}'
+                'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
+                f' {str(branch_dir)}  - skipping this branch!!!\n'
+            )
 
     log_file.write('#########################################################\n\n')
 

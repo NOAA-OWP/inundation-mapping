@@ -320,7 +320,7 @@ branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
 # -------------------
 ## Processing Branches ##
 echo
-echo "---- Start of branch processing for $hucNumber"
+echo "---- Start of branch processing for $hucNumber using $jobBranchLimit workers for branch processing"
 branch_processing_start_time=`date +%s`
 
 if [ -f $branch_list_lst_file ]; then

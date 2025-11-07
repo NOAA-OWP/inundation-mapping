@@ -204,98 +204,96 @@ def ingest_points_layer(huc_dir, branch_jobs, debug_outputs_option, log_file):
         return
 
     water_edge_df = gpd.read_parquet(water_edge_filepath)
-    if 1:  # TODO temporary for an easier PR rview
-        print(f"{len(water_edge_df)} Water edge calibration points found in " + str(huc))
-        log_file.write(f"{len(water_edge_df)} Water edge calibration points found in " + str(huc) + '\n')
+    print(f"{len(water_edge_df)} Water edge calibration points found in " + str(huc))
+    log_file.write(f"{len(water_edge_df)} Water edge calibration points found in " + str(huc) + '\n')
 
-        ## Create X and Y location columns by extracting from geometry.
-        water_edge_df['X'] = water_edge_df['geometry'].x
-        water_edge_df['Y'] = water_edge_df['geometry'].y
+    ## Create X and Y location columns by extracting from geometry.
+    water_edge_df['X'] = water_edge_df['geometry'].x
+    water_edge_df['Y'] = water_edge_df['geometry'].y
 
-        ## Intermediate output for debugging
-        if debug_outputs_option:
-            huc_debug_pts_out = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.csv')
-            water_edge_df.to_csv(huc_debug_pts_out)
-            huc_debug_pts_out_gpkg = os.path.join(huc_dir, 'export_water_edge_df_' + huc + '.gpkg')
-            water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
-            # write parquet file using ".to_parquet() method"
-            parquet_filepath = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.parquet')
-            water_edge_df.to_parquet(parquet_filepath, index=False)
+    ## Intermediate output for debugging
+    if debug_outputs_option:
+        huc_debug_pts_out = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.csv')
+        water_edge_df.to_csv(huc_debug_pts_out)
+        huc_debug_pts_out_gpkg = os.path.join(huc_dir, 'export_water_edge_df_' + huc + '.gpkg')
+        water_edge_df.to_file(huc_debug_pts_out_gpkg, driver='GPKG', index=False, engine='fiona')
+        # write parquet file using ".to_parquet() method"
+        parquet_filepath = os.path.join(huc_dir, 'debug_water_edge_df_' + huc + '.parquet')
+        water_edge_df.to_parquet(parquet_filepath, index=False)
 
-        procs_list = []
-        huc_branches_dir = os.path.join(huc_dir, 'branches')
-        for branch_id in os.listdir(huc_branches_dir):
-            branch_dir = os.path.join(huc_branches_dir, branch_id)
-            ## Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
-            hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
-            catchments_path = os.path.join(
-                branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
+    procs_list = []
+    huc_branches_dir = os.path.join(huc_dir, 'branches')
+    for branch_id in os.listdir(huc_branches_dir):
+        branch_dir = os.path.join(huc_branches_dir, branch_id)
+        ## Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
+        hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
+        catchments_path = os.path.join(
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
+        )
+        htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+        catchments_poly_path = os.path.join(
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+        )
+        hydroid_prefix_path = os.path.join(branch_dir, 'hydroid_prefix.txt')
+
+        # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
+        if not os.path.exists(hand_path):
+            print(
+                "WARNING: HAND grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
             )
-            htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-            catchments_poly_path = os.path.join(
-                branch_dir,
-                'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
+            log_file.write(
+                "WARNING: HAND grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
             )
-            hydroid_prefix_path = os.path.join(branch_dir, 'hydroid_prefix.txt')
-
-            # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
-            if not os.path.exists(hand_path):
-                print(
-                    "WARNING: HAND grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: HAND grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            elif not os.path.exists(catchments_path):
-                print(
-                    "WARNING: Catchments grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: Catchments grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            elif not os.path.exists(htable_path):
-                print(
-                    "WARNING: hydroTable does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: hydroTable does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            else:
-                procs_list.append(
-                    [
-                        branch_dir,
-                        huc,
-                        branch_id,
-                        hand_path,
-                        catchments_path,
-                        catchments_poly_path,
-                        water_edge_df,
-                        htable_path,
-                        debug_outputs_option,
-                        hydroid_prefix_path,
-                    ]
-                )
+        elif not os.path.exists(catchments_path):
+            print(
+                "WARNING: Catchments grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+            )
+            log_file.write(
+                "WARNING: Catchments grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
+            )
+        elif not os.path.exists(htable_path):
+            print(
+                "WARNING: hydroTable does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+            )
+            log_file.write(
+                "WARNING: hydroTable does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
+            )
+        else:
+            procs_list.append(
+                [
+                    branch_dir,
+                    huc,
+                    branch_id,
+                    hand_path,
+                    catchments_path,
+                    catchments_poly_path,
+                    water_edge_df,
+                    htable_path,
+                    debug_outputs_option,
+                    hydroid_prefix_path,
+                ]
+            )
 
     with Pool(processes=branch_jobs) as pool:
         log_output = pool.map(process_points, procs_list)
