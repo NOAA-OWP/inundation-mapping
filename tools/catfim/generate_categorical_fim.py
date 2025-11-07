@@ -218,7 +218,7 @@ def process_generate_categorical_fim(
         
         # Define upstream and downstream search in miles
         nwm_us_search, nwm_ds_search = search, search
-        huc_dictionary, __ = csf.get_meta_and_huc_data(output_catfim_dir,
+        huc_dictionary, _ = csf.get_meta_and_huc_data(output_catfim_dir,
                                                         nwm_us_search,
                                                         nwm_ds_search,
                                                         nwm_meta_file,
@@ -357,14 +357,14 @@ def __validate_inputs(received_locals_dict):
                 
             # case _: we dont' care about any others for validation
 
-    # check if incoming HUC is valid and we have fim data for it.    
+    # check if incoming HUC (or HUC list) is valid and we have fim data for it.
     fim_run_dir = received_locals_dict["fim_run_dir"]
     fim_hucs = [
         x
         for x in os.listdir(fim_run_dir)
         if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
-    ]    
-
+    ]
+    
     # -----------------    
     # If a HUC list is specified, only keep the specified HUCs which have fim data
     lst_hucs = received_locals_dict["lst_hucs"]
@@ -449,7 +449,7 @@ if __name__ == '__main__':
     # PR already incoming that changes this to /data/config/fim_enviro_values.env
     parser.add_argument(
         '-e',
-        '--env_file',
+        '--env-file',
         help='OPTIONAL: Docker mount path to the catfim environment file.'
         ' Defaults to: /data/config/fim_enviro_values.env',
         default="/data/config/fim_enviro_values.env",

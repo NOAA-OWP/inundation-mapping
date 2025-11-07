@@ -8,9 +8,6 @@ from dotenv import load_dotenv
 
 import src.utils.shared_functions as sf
 
-# Global variable  (some shortcuts from env files)
-CATFIM_TYPE=""
-
 
 """_summary_
     Overall processing steps (tenatively)
@@ -56,10 +53,10 @@ def catfim_post_processing(output_folder):
         # ---------------------
         # load the runtime_args.env, error if it does not exist. It should give us all values we need
         # See generate_categorical_fim.py -> save_env_args(output_path)
-        __load_runtime_args(output_folder)
+        catfim_type = __load_runtime_args(output_folder)
         
         catfim_type_name = ""
-        if CATFIM_TYPE == 'sb':
+        if catfim_type == 'sb':
             catfim_type_name = "stage_based"
         else:
             catfim_type_name = "flow_based"
@@ -134,14 +131,12 @@ def catfim_post_processing(output_folder):
 
 def __load_runtime_args(output_folder):
     
-    global CATFIM_TYPE
-    
     args_file_name = "runtime_args.env"
     args_file = os.path.join(output_folder, args_file_name)
     
     # use load_env, and pull out just the variables it needs.
     load_dotenv(args_file)
-    CATFIM_TYPE = os.getenv('CATFIM_TYPE')
+    return os.getenv('CATFIM_TYPE')
     
 
 def __set_start_files_folders(output_folder, catfim_type_name):

@@ -4,6 +4,8 @@ import os
 import logging
 import pickle
 
+import pandas as pd
+
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -16,13 +18,19 @@ from tools_shared_functions import (
 # gpd.options.io_engine = "pyogrio"
 
 # Shared by both generate_categorical_fim.py and catfim_process_hucs.py
+
+# TODO: Nov 5, 2025: Emily is building a replacment for this. She will have one function to get
+# just the huc list and sites. Then a sperate one for huc_dictionary and meta ?? hummm
+
+# I forget how we said we would filter the dataset to just one huc when applicable ??
+
 def get_meta_and_huc_data(output_catfim_dir,
+                          metadata_url,
                           nwm_us_search,
                           nwm_ds_search,
                           nwm_meta_file_path,
                           get_new_meta_data,
-                          lst_hucs,
-                          env_file):
+                          lst_hucs):
 
     '''
     Returns:
@@ -33,8 +41,10 @@ def get_meta_and_huc_data(output_catfim_dir,
         invalid or did not find any matching ahps data.
     '''
 
+    # TODO: replace with Emily's and filter to HUC? For now we do it at aggregate_wbd_hucs
     all_meta_lists = load_nwm_metadata(
-        output_catfim_dir, nwm_us_search, nwm_ds_search, nwm_meta_file_path, get_new_meta_data, env_file)
+        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_meta_file_path, get_new_meta_data)
+
 
     # logging.info("+++++++++++++++++++")
     # logging.info(f"all_meta_lists is {all_meta_lists}")
@@ -53,14 +63,18 @@ def get_meta_and_huc_data(output_catfim_dir,
     # invalid or did not find any matching ahps data.
     return huc_dictionary, meta_gdf
 
+    # all_meta_lists = load_nwm_metadata(
+    #     output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_meta_file_path, get_new_meta_data)
 
+
+
+# TODO: Nov 5, 2025: Emily will have a replacement for this, so it will go away
 def load_nwm_metadata(output_catfim_dir,
                       metadata_url,
                       nwm_us_search,
                       nwm_ds_search,
                       nwm_meta_file,
-                      get_new_meta_data,
-                      env_file):
+                      get_new_meta_data):
     '''
     Runs for both stage and flow. Loads and filters NWM metadata.
 
@@ -116,9 +130,6 @@ def load_nwm_metadata(output_catfim_dir,
         else:
             raise Exception("nwm_meta_file at {nwm_meta_file} does not exist")
     else:  # get new data
-        api_base_url = load_env_values(env_file)
-        metadata_url = f'{api_base_url}/metadata'    
-
         save_pickle_file = True  # Save a copy if it was newly loaded
 
         # Get all forecast points
@@ -173,7 +184,7 @@ def load_nwm_metadata(output_catfim_dir,
 
         logging.info(f'{len(duplicate_lids)} duplicate points removed.')
         # logging.info(f'Duplicate point LIDs: {duplicate_lids}')
-        logging.info(f'{len(nonelid_metadata_list)} points with value of None for nws_lid removed.')
+        logging.info(f'{len(nonelid_metadata_list)} points with value of None for {nws_lid} removed.')
         logging.info(f'Filtered metadatada downloaded for {len(output_meta_list)} points.')
 
     # ----------
@@ -199,7 +210,7 @@ def load_nwm_metadata(output_catfim_dir,
 # def get_flow_data():  use generate_categorical_fim_flows to get this.
 
 
-def load_env_values(env_file):
+def load_fim_global_env_values(env_file):
     '''
     Loads environment variables from a .env file.
     Expects the .env file to contain API_BASE_URL
@@ -218,4 +229,68 @@ def load_env_values(env_file):
     
     # At this point, we only have one value to return.
     return api_base_url
+
+
+def load_restricted_sites(catfim_type):
+    """
+    Previously, only stage based used this. It is now being used by stage-based and flow-based (1/24/25)
+
+    The 'catfim_type' column can have three different values: 'stage', 'flow', and 'both'. This determines
+    whether the site should be filtered out for stage-based CatFIM, flow-based CatFIM, or both of them.
+
+    Returns: a dataframe for the restricted lid and the reason why:
+        'nws_lid', 'restricted_reason'
+    """
+
+    file_name = "ahps_restricted_sites.csv"
+    current_script_folder = os.path.dirname(__file__)
+    file_path = os.path.join(current_script_folder, file_name)
+
+    df_restricted_sites = pd.read_csv(file_path, dtype=str)
+
+    df_restricted_sites['nws_lid'].fillna("", inplace=True)
+    df_restricted_sites['restricted_reason'].fillna("", inplace=True)
+    df_restricted_sites['catfim_type'].fillna("", inplace=True)
+
+    # remove extra empty spaces on either side of all cellls
+    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.strip()
+    df_restricted_sites['restricted_reason'] = df_restricted_sites['restricted_reason'].str.strip()
+    df_restricted_sites['catfim_type'] = df_restricted_sites['catfim_type'].str.strip()
+
+    # Need to drop the comment lines before doing any more processing
+    df_restricted_sites.drop(
+        df_restricted_sites[df_restricted_sites.nws_lid.str.startswith("#")].index, inplace=True
+    )
+
+    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.upper()
+
+    # Clean up dataframe
+    for ind, row in df_restricted_sites.iterrows():
+        nws_lid = row['nws_lid']
+        restricted_reason = row['restricted_reason']
+
+        if restricted_reason == "":
+            restricted_reason = "From the ahps_restricted_sites,"
+            " the site will not be mapped, but a reason has not be provided."
+            df_restricted_sites.at[ind, 'restricted_reason'] = restricted_reason
+
+            # FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'")            
+            # Humm.. how do we log this? screen is ok, but log isn't (MP versus non MP)
+            # can we try just using the "logging" instance? Let's try it and see what happens
+            logging.warning(f"{restricted_reason}. Lid is '{nws_lid}'")     
+                        
+        continue
+    # end loop
+
+    # Filter df_restricted_sites by CatFIM type
+    if catfim_type == 'sb':  # Keep rows where 'catfim_type' is either 'stage' or 'both'
+        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['stage', 'both'])]
+
+    else:
+        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['flow', 'both'])]
+
+    # Remove catfim_type column
+    df_restricted_sites.drop('catfim_type', axis=1, inplace=True)
+
+    return df_restricted_sites
 
