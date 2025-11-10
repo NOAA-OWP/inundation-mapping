@@ -9,12 +9,10 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
 
-# import data.wrds.download_process_wrds 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
 from tools.catfim.catfim_process_huc import process_huc
 from tools.catfim.catfim_post_processing import catfim_post_processing
-
 
 """
 Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
@@ -62,19 +60,12 @@ Tenative notes:
 
 
 """
-Jun 2024
+Jun 17, 2024
 This system is continuing to mature over time. It has a number of optimizations that can still
 be applied in areas such as logic, performance and error handling.
 
 In the interium there is still a consider amount of debug lines and tools embedded in that can
 be commented on/off as required.
-
-Aug 2024
-This script was upgraded significantly with lots of misc TODO's embedded.
-Lots of inline documenation needs updating as well.
-
-Oct 2025
-Doc strings and improved documentation was added.
 
 
 """
@@ -522,20 +513,6 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-gmf',
-        '--get-new-meta-data',
-        help="OPTIONAL: If this argument is added, and this script is on a OWP server, then ignore"
-        " and pre-existing meta file and go load new data directly from WRDS. Note: Calling WRDS"
-        " directly means you can add filters, searching, site specific, etc. This allows for easier debugging."
-        " However, the default behavior is to use the previously created nwm_metadata file and filter out the data"
-        " CatFIM needs for processing.",
-         required=False,
-         default=False,
-         action='store_true'
-    )
-
-    # get from bash_varibles.env or similar if not provided
-    parser.add_argument(
         '-tf',
         '--threshold-file',
         help='OPTIONAL: If you have a pre-existing threshold file, you can path to it here. '
@@ -544,7 +521,7 @@ if __name__ == '__main__':
         required=False,
         default="",
     )
-   
+
     parser.add_argument(
         '-gtf',
         '--get-new-threshold-data',

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import copy
-import csv
 import glob
 import logging
 import os
@@ -26,7 +25,6 @@ from tools_shared_functions import (
 
 # import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
-
 
 """
 Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
@@ -72,6 +70,17 @@ Doc strings and improved documentation was added.
 gpd.options.io_engine = "pyogrio"
 
 
+def get_env_paths(env_file):
+
+    if os.path.exists(env_file) == False:
+        raise Exception(f"The environment file of {env_file} does not seem to exist")
+
+    load_dotenv(env_file)
+    # import variables from .env file
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    WBD_LAYER = os.getenv("WBD_LAYER")
+    return API_BASE_URL, WBD_LAYER
+
 # This one is for lid magnitudes only and is part of an MP pool
 def generate_flows_for_huc(
     huc,
@@ -81,60 +90,11 @@ def generate_flows_for_huc(
     output_flows_dir,
     attributes_dir,
     huc_messages_dir,
-    nwm_flows_region_df,
+    nwm_flows_df,
     parent_log_output_file,
     child_log_file_prefix,
     df_restricted_sites,
-    output_catfim_dir,
-    threshold_file,
 ):
-    '''
-    Only runs for flow-based CatFIM.
-    
-    Generates categorical flow files and attribute CSVs for a given HUC 
-    using metadata, thresholds, and NWM stream segments.
-
-    For each NWS site (lid) in the specified HUC:
-        - Checks for restricted sites and skips them if necessary.
-        - Loads threshold stage and flow data from WRDS or local files.
-        - Validates the presence of required stage and flow data for flood categories.
-        - Filters NWM stream segments by stream order and region.
-        - Writes flow CSV files for each valid flood category.
-        - Compiles site attributes and writes an attribute CSV.
-        - Logs messages and warnings for missing or invalid data.
-        - Writes a summary message file for the HUC.
-
-    Parameters
-    ----------
-        huc (str): Hydrologic Unit Code to process.
-        huc_dictionary (dict): Dictionary mapping HUCs to lists of NWS site identifiers (lids).
-        threshold_url (str): URL for retrieving threshold data from WRDS.
-        all_meta_lists (list of dict): List of metadata dictionaries for all NWS sites.
-        output_flows_dir (str): Directory to write output flow CSV files.
-        attributes_dir (str): Directory to write output attribute CSV files.
-        huc_messages_dir (str): Directory to write HUC-specific message files.
-        nwm_flows_region_df (pandas.DataFrame): DataFrame containing NWM stream segment data for the region.
-        parent_log_output_file (str): Path to the parent log file for multiprocessing logging.
-        child_log_file_prefix (str): Prefix for child log files created by this function.
-        df_restricted_sites (pandas.DataFrame): DataFrame listing restricted NWS sites and reasons.
-        output_catfim_dir (str): Directory for CATFIM output files.
-        threshold_file (str): Path to local threshold file (if not using WRDS).
-
-    Returns
-    -------
-    None
-
-    Side Effects
-    ------------
-    - Writes flow CSV files for each site and flood category.
-    - Writes attribute CSV files for each site.
-    - Writes HUC-specific message text files.
-    - Logs progress, warnings, and errors to the specified log files.
-
-    Exceptions
-    ----------
-    Logs and handles exceptions, writing error details to the log file.
-    '''
 
     try:
         # Note: child_log_file_prefix is "MP_process_gen_flows", meaning all logs created by this function start
@@ -212,22 +172,20 @@ def generate_flows_for_huc(
             # Careful, for "all_message.append" the syntax into it must be f'{lid}: (whever messages)
             # this is gets parsed and logic used against it.
 
-            stages, flows, status_msg = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
+            # for Stage based, is uses stage values from threshold data supplied by WRDS
+            # but here (for flow), it uses the values from the flows data from WRDS
+            stages, flows, threshold_count = get_thresholds(
+                threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+            )
 
-            MP_LOG.lprint(status_msg) # TEMP DEBUG
+            # Yes.. stages, we will handle missing flows later even though we don't use the stage here
+            if stages is None or len(stages) == 0:
+                msg = ':Error getting stages values from WRDS API'
+                all_messages.append(lid + msg)
+                MP_LOG.warning(huc_lid_id + msg)
+                continue
 
-            # Update status if flows are not found
-            if flows is None or len(flows) == 0: # Changed to flows Sept' 25
-                if "WRDS response sucessful." in status_msg:
-                    msg = ':WRDS response sucessful but no flow values available'
-                    all_messages.append(lid + msg)
-                    MP_LOG.warning(huc_lid_id + msg)
-                    continue
-                else:
-                    msg = ':Error getting flows values from WRDS API'
-                    all_messages.append(lid + msg)
-                    MP_LOG.warning(huc_lid_id + msg)
-                    continue
+            # MP_LOG.lprint(f"Thresholds for {huc_lid_id} are : {thresholds}")
 
             # Check if stages are supplied, if not write message and exit.
             if all(stages.get(category, None) is None for category in categories):
@@ -251,7 +209,7 @@ def generate_flows_for_huc(
             )
 
             # Sept 2024: Should we skip these functions that are seen in stage based? Yes
-            #    Flow doesn't need all of the elevation stuff
+            #    Flow doesn't need all of the evalation stuff
             #     acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
             #     lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(
             #     lid_altitude = metadata['usgs_data']['altitude']
@@ -262,9 +220,8 @@ def generate_flows_for_huc(
             unfiltered_segments = list(set(get_nwm_segs(metadata)))
             desired_order = metadata['nwm_feature_data']['stream_order']
 
-            # Filter segments to be of like stream order.           
-            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_region_df)
-            # Previous input was nwm_flows_df, but now it is region specific df (9/25/25)
+            # Filter segments to be of like stream order.
+            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_df)
 
             # If there are no segments, write message and exit out
             if not segments or len(segments) == 0:
@@ -507,6 +464,30 @@ def generate_flows(
     - Handles special regions (Guam, American Samoa, Alaska) with region-specific flowline data.
     - Uses multiprocessing for efficient HUC-level flow generation.
     - Produces summary files for mapped and unmapped sites, including status messages.
+
+    # TODO; Most docstrings like this are now very outdated and need updating
+    
+    This will create static flow files for all nws_lids and save to the
+    workspace directory with the following format:
+    huc code
+        nws_lid_code
+            threshold (action/minor/moderate/major if they exist/are defined by WRDS)
+                flow file (ahps_{lid code}_huc_{huc 8 code}_flows_{threshold}.csv)
+
+    This will use the WRDS API to get the nwm segments as well as the flow
+    values for each threshold at each nws_lid and then create the necessary
+    flow file to use for inundation mapping.
+    Parameters
+    ----------
+    output_catfim_dir : STR
+        root catfim dir for the particular run. ie) fim_4_3_3_4_stage_based
+    nwm_us_search : STR
+        Upstream distance (in miles) for walking up NWM network.
+    nwm_ds_search : STR
+        Downstream distance (in miles) for walking down NWM network.
+    wbd_path : STR
+        Location of HUC geospatial data (geopackage).
+
     '''
 
     # -----------------
@@ -549,12 +530,19 @@ def generate_flows(
     logging.info("Loading nwm flow metadata")
     start_dt = datetime.now(timezone.utc)
 
-    # Read in flow files
+
+    # Open NWM flows geopackages
+    # TODO: Pull from bash_variables.env once we switch from using catfim.env to bash_variables.env
+    nwm_flows_gpkg = os.getenv("input_nwm_flows")
+    nwm_flows_alaska_gpkg = os.getenv("input_nwm_flows_Alaska")
+    input_nhd_flows_Guam = r'/data/inputs/nhdplus/NHDFlowline_Guam_6637.gpkg'
+    input_nhd_flows_AmericanSamoa = r'/data/inputs/nhdplus/NHDFlowline_AmericanSamoa_32702.gpkg'
+
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
     nhd_flows_guam_df = gpd.read_file(input_nhd_flows_Guam)
     nhd_flows_americansamoa_df = gpd.read_file(input_nhd_flows_AmericanSamoa)
-
+    
     # Add the dfs to a dictionary for easy access later
     flows_df_dict = {
         'nwm_flows_df': nwm_flows_df,
@@ -562,7 +550,7 @@ def generate_flows(
         'nhd_flows_guam_df': nhd_flows_guam_df,
         'nhd_flows_americansamoa_df': nhd_flows_americansamoa_df
     }
-
+    
     # nwm_metafile might be an empty string
     # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
 
@@ -593,7 +581,7 @@ def generate_flows(
     # Drop list fields if invalid
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-
+    
     if 'metadata_sources' in out_gdf.columns: # TODO: Is this column needed/used? Changed to accomodate Guam
         out_gdf = out_gdf.astype({'metadata_sources': str})
 
@@ -606,7 +594,6 @@ def generate_flows(
 
     # now filter down to only the HUC that called this.
     
-
     # It this is stage-based, it returns all of these objects here, but if it continues
     # (aka. Flow based), then it returns only nws_lid_layer (created later in this function)
     if is_stage_based:  # If it's stage-based, the function stops running here
@@ -616,7 +603,8 @@ def generate_flows(
             metadata_url,
             threshold_url,
             all_meta_lists,
-            flows_df_dict,
+            nwm_flows_df,
+            nwm_flows_alaska_df,
         )
 
 
@@ -636,15 +624,10 @@ def generate_flows(
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         for huc in huc_dictionary:
 
-            # Get the correct nwm_flows_region_df based on the HUC
-            if huc[:4] == '2201':  # Guam
-                nwm_flows_region_df = flows_df_dict['nhd_flows_guam_df']
-            elif huc[:4] == '2203':  # American Samoa
-                nwm_flows_region_df = flows_df_dict['nhd_flows_americansamoa_df']
-            elif huc[:2] == '19':  # Alaska
-                nwm_flows_region_df = flows_df_dict['nwm_flows_alaska_df']
-            else:  # CONUS + Hawaii + Puerto Rico
-                nwm_flows_region_df = flows_df_dict['nwm_flows_df']
+            # nwm_flows_region_df = nwm_flows_df  # To exclude Alaska
+            nwm_flows_region_df = (
+                nwm_flows_alaska_df if huc[:2] == '19' else nwm_flows_df
+            )  # To include Alaska
 
             # Deep copy that speed up Multi-Proc a little as all_meta_lists
             # is a huge object. Need to figure out how to filter that down somehow
@@ -659,7 +642,7 @@ def generate_flows(
                 output_flows_dir,
                 attributes_dir,
                 huc_messages_dir,
-                nwm_flows_region_df, 
+                nwm_flows_region_df,
                 log_output_file,
                 child_log_file_prefix,
                 df_restricted_sites,
@@ -863,7 +846,6 @@ def __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file
                 writer.writerows(thresholds)
 
     return stages, flows, status_msg
-
 
 
 
