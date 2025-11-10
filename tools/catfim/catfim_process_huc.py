@@ -3,6 +3,7 @@
 import os
 import argparse
 import logging
+import pickle
 import shutil
 import sys
 import traceback
@@ -15,7 +16,22 @@ import pandas as pd
 
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+
 from src.utils.shared_variables import VIZ_PROJECTION
+from tools_shared_functions import (
+    filter_nwm_segments_by_stream_order,
+    get_datum,
+    get_nwm_segs,
+    get_thresholds,
+    ngvd_to_navd_ft,
+)
+from tools_shared_variables import (
+    acceptable_alt_acc_thresh,
+    acceptable_alt_meth_code_list,
+    acceptable_coord_acc_code_list,
+    acceptable_coord_method_code_list,
+    acceptable_site_type_list,
+)
 
 gpd.options.io_engine = "pyogrio"
 
@@ -36,6 +52,7 @@ gpd.options.io_engine = "pyogrio"
     Will call generate_categorical_fim_flows and generate_categorical_fim when applicable.
 
 
+    
     
     7: Various meta and threshold processing? including validation of data ?
     
@@ -69,19 +86,21 @@ def process_huc(huc, output_folder):
     # load the runtime_args.env, error if it does not exist. It should give us all values we need
     # See generate_categorical_fim.py -> save_env_args(output_path)
     # We will also do some validation in it as well.
+    
+    print("================================")
+    print(f"Starting process_huc for {huc}")
+    print("")
+    
     __load_runtime_args(output_folder)
 
     huc_path, output_folder = __validate_inputs(huc, output_folder)  # also validates some bash_variables if it needs any.
+
+    wrds_api_base_url = csf.load_fim_global_env_values(os.getenv('ENV_FILE'))
 
     try:
 
         overall_start_time = datetime.now(timezone.utc)
         dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
-
-        print("================================")
-
-        
-        wrds_api_base_url = csf.load_fim_global_env_values(os.getenv('ENV_FILE'))
         
         # Validate that we have that as a HUC in the fim_dir. 
         # Helping sort out if even a valid HUC was submitted
@@ -100,18 +119,17 @@ def process_huc(huc, output_folder):
         print(f"Logs for this HUC will be saved to {log_file_path}")
 
         print("")
-        logging.info(f"Start generate {catfim_type_name} catfim fim for HUC: {huc} ;  {dt_string} (UTC)")
+        logging.info(f"Processing {catfim_type_name} catfim fim for HUC: {huc} ;  {dt_string} (UTC)")
         print("")
         
         output_mapping_dir = os.path.join(huc_path, "mapping")
                 
-        # FB uses a discharge_file but SB does not. Easiest to clean the folder completely up regardless of type
+        # FB uses a discharge_file but SB does not. Easiest to clean the folder completely up regardless of type.
         discharge_file_path, sites_file_path, library_file_path = __set_start_files_folders(huc_path, output_mapping_dir)
     
         metadata_url = f'{wrds_api_base_url}/metadata'
-        huc_dictionary, meta_gdf = csf.get_meta_and_huc_data("",
+        huc_dictionary, meta_gdf = csf.get_meta_and_huc_data(output_folder,
                                                              metadata_url,
-                                                             os.getenv('SEARCH'),
                                                              os.getenv('SEARCH'),
                                                              os.getenv('NWM_METAFILE_PATH'),
                                                              os.getenv('GET_NEW_META_DATA'),
@@ -141,17 +159,23 @@ def process_huc(huc, output_folder):
         # validation of the valid_nwm_lids already be done, so neither of these variables should be empty.
         valid_nwm_lids, meta_gdf = __check_for_resticted_sites(meta_gdf, catfim_type, huc, sites_file_path)
         logging.info(f"{len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
-
-
-
+        
         # Temp debugging
         print("--------------")
-        print("Ok.. let's stop here for now")        
-        sys.exit(0)
+        print("Ok.. let's stop here for now")   
+        __save_sites_file(meta_gdf, sites_file_path)
+        # graceful exit is fine here. We don't need to crash it or through an exception.
+        sys.exit(0)        
         
         # ---------------------
-        # does both fb and sb need it?
-        # threshold data and flow data, if applicable using shared various files.
+        # Get threshold data
+
+
+        # ---------------------
+        # threshold data and flow data, if applicable using shared various files. ?? Both need threshold but flow data
+        # but flow data for FB comes from the HAND dataset, for SB it comes from WRDS?  check this..
+
+        
         
         # ---------------------    
         # Various meta and threshold processing? including validation of data ?
@@ -207,6 +231,110 @@ def process_huc(huc, output_folder):
         
         # do we re-throw the error? gcf, aws, or cmd line? hummm
 
+
+# def __emilys_get_threshold_data(get_new_threshold_data,
+#                               threshold_file_path,
+#                               huc_lid_dict):
+
+    
+# ROB: This needs some cleanup
+#     Processing:
+#         If 
+    
+#     if get_new_threshold_data is False:
+#         if threshold_file_path is None or threshold_file_path == "":
+#             threshold_file_path = os.getenv("nwm_threshold_file")  # get from Bash_variables
+
+#         if os.path.exists(threshold_file_path):
+#             raise Exception....
+#          
+#         Load the provided or default bash_variables pickle file
+
+        # if os.path.isfile(threshold_file_path):
+        #     logging.info("Loading threshold file from {threshold_file_path}")
+        #     with open(threshold_file_path, "rb") as p_handle:
+        #         output_meta_list = pickle.load(p_handle)
+        # else:
+        #     raise Exception(f"threshold_file_path at {threshold_file_path} does not exist")
+        
+#     else:  # go get it from Emily  get_new_threshold_data == True:
+#         threshold_url = f'{os.getenv("API_BASE_URL")}/nws_threshold'
+
+#         label='catfim_{huc number?}' # TEMP (whatever)  (hummm... do I want huc name as mine will only ever have one huc at a time.)
+#         label_with_date = dw.label_data_file(label, lst_hucs)
+#         output_thresholds_filename = f'thresholds{label_with_date}.pkl'
+#         threshold_file_path = os.path.join(output_catfim_dir, output_thresholds_filename)
+
+        # current dev flow based get_thresholds
+            # stages, flows, threshold_count = get_thresholds(
+            #     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+            # )
+
+        # current dev stage based get_thresholds
+            # thresholds, flows, threshold_count = get_thresholds(
+            #    threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+            #)
+
+#         # Download thresholds. Catfim will only need to get one HUC at a time.
+#         thresholds, flows, threshold_count = dw.download_all_thresholds(threshold_file_path, threshold_url, huc_lid_dict)
+#  
+#    return thresholds, flows, threshold_count
+
+
+# TODO: Nov 7, 2025: Emily will have a replacement for this, so it will go away
+def __get_threshold_data(threshold_url,
+                        threshold_file_path,
+                        get_new_threshold_data,
+                        huc):
+    '''
+    Runs for both stage and flow. Loads and filters NWM threshold
+
+
+    NEEDS UPDATING          
+
+    This function checks if a local threshold pickle file exists. If it does, the metadata is loaded from the file.
+    Otherwise, it downloads metadata from the specified URL using two API calls: one for all forecast points and
+    another for all points in OCONUS regions (HI, PR, AK). The results are combined, and duplicate or None-valued
+    NWS LIDs are filtered out. The filtered metadata is then saved to a pickle file for future use.          
+          
+    Returns:
+        thresholds, flows, threshold_count
+          
+    '''
+    
+    save_pickle_file = False
+    if get_new_threshold_data is False:
+        if not threshold_file_path:
+            # get the bash_variables value
+            threshold_file_path = os.getenv("nwm_threshold_file")
+            save_pickle_file = True  # Save a copy if it came from bash_variables
+            
+        if not os.path.isfile(threshold_file_path):
+            raise Exception(f"threshold file at {threshold_file_path} does not exist")
+
+        # Read pickle file and get a list of unique HUCs
+        with open(threshold_file_path, 'rb') as f:
+            loaded_data = pickle.load(f)
+
+        hucs = loaded_data['huc'].unique().tolist()
+        threshold_hucs= [str(num).zfill(8) for num in hucs]
+
+        # Get the source (since it might be Manual_Input)
+        # data_source = loaded_data['source'].tolist()[0]
+   
+        if huc not in threshold_hucs:
+            # TODO; do we want this as an exception? or just logging.error so the program can graceful
+            # exist the MP.
+            raise Exception(f"{huc}  is not present in the threshold file ({threshold_file_path}): ")
+    else:
+        # Get thresholds (stages) and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
+        # Note: SB calls the variable of "threshold" here as "thresholds" but FB called it stages previously
+        thresholds, flows, threshold_count = get_thresholds(
+            threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+        )
+ 
+# used by flow based only. hummm... likely not
+# def get_flow_data():  use generate_categorical_fim_flows to get this.
 
 
 def __setup_sites_gdf(meta_gdf, catfim_type):
@@ -270,7 +398,7 @@ def __setup_sites_gdf(meta_gdf, catfim_type):
         
     return viz_out_gdf
 
-    
+
 def __check_for_resticted_sites(meta_gdf, catfim_type, huc, sites_file_path):
     # ---------------------
     # Get list of applicable sites, valid sites for this HUCs from master sites metadata
@@ -290,12 +418,13 @@ def __check_for_resticted_sites(meta_gdf, catfim_type, huc, sites_file_path):
             # what if it comes back with more than one? if so.. it is a bug in the list
             meta_gdf.at[index, "status"] = is_restrict_lid.iloc[0]['restricted_reason']
             meta_gdf.at[index, "mapped"] = "no"
+        else:
             valid_nwm_lids.append(lid)
-        # else:  # do nothing
 
     # Save the meta file we have with the new error messages, then abort.
+    
     if len(valid_nwm_lids) == 0:
-        msg = f"All sites associated to HUC {huc} are retricted. No more processing will continue."
+        msg = f"All sites associated to HUC {huc} are retricted. No more processing will continue. Aborting."
         logging.critical(msg)
         __save_sites_file(meta_gdf, sites_file_path)
         # graceful exit is fine here. We don't need to crash it or through an exception.
@@ -307,18 +436,14 @@ def __check_for_resticted_sites(meta_gdf, catfim_type, huc, sites_file_path):
 def __save_sites_file(meta_gdf, sites_file_path):
     
     logging.info(f"Saving sites file to {sites_file_path} and a csv version as well.")
-    
-    # We will need to update the "mapped" column. Look at the "status" column. Anything in there is an error
-    # and "mapped" stays as no.
-    # But if "status" is still at "value not set", then "mapped" becomes 'yes', "warning" column gets copied
-    # over to "status" and "warning" column gets dropped.
+
+    # Do not attempt to mess with any columns at this point, as we may choose to save the file at
+    # multiple points through the process before all status are completed.    
     
     meta_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
     meta_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
-    # viz_out_gdf.to_file(catfim_sites_gpkg_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine='fiona')
-    print("debug.. now the csv")
 
-    # Save a csv version of he file as well
+    # Save a csv version as well
     nws_lid_csv_file_path = sites_file_path.replace(".gpkg", ".csv")
     meta_gdf.to_csv(nws_lid_csv_file_path)
 
@@ -377,9 +502,9 @@ def __load_runtime_args(output_folder):
         ENV_FILE="/data/config/fim_enviro_values.env"
         SEARCH=5
         NWM_METAFILE_PATH=""
-        GET_NEW_META_DATA="False"
+        GET_NEW_META_DATA=False
         THRESHOLD_FILE_PATH=""
-        GET_NEW_THRESHOLD_DATA="False"
+        GET_NEW_THRESHOLD_DATA=False
         FIM_RUN_DIR="/data/previous_fim/hand_4_8_7_2"
         PAST_MAJOR_INTERVAL_CAP=5
     '''
@@ -392,6 +517,8 @@ def __load_runtime_args(output_folder):
     
     # use load_env, and pull out just the variables it needs.
     load_dotenv(args_file)
+    
+    # Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans
    
         
 def __set_start_files_folders(huc_path, output_mapping_dir):

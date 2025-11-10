@@ -171,6 +171,7 @@ def process_generate_categorical_fim(
         # Validation and setup
         # Note: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         local_vals = locals()
+        # this will handle a huc list arg of "all"
         valid_fim_hucs, dropped_huc_lst = __validate_inputs(local_vals)
         # We probably should validate some of those bash_variables we are using? (some paths?)
 
@@ -216,15 +217,12 @@ def process_generate_categorical_fim(
         # valid_fim_hucs has already been validate to have at least one by this point ???
         # For now, we get the meta gdf, but don't need it here.
         
-        # Define upstream and downstream search in miles
-        nwm_us_search, nwm_ds_search = search, search
-        huc_dictionary, _ = csf.get_meta_and_huc_data(output_catfim_dir,
-                                                        nwm_us_search,
-                                                        nwm_ds_search,
-                                                        nwm_meta_file,
-                                                        get_new_meta_data,
-                                                        valid_fim_hucs,
-                                                        env_file)
+        # "search" : Define upstream and downstream search in miles
+        huc_dictionary, _ = csf.get_meta_and_huc_data(output_folder,
+                                                      search,
+                                                      nwm_meta_file,
+                                                      get_new_meta_data,
+                                                      valid_fim_hucs)
         
         if len(huc_dictionary) == 0:
             raise Exception("The submitted huc list did not find any HUCs with nwm site meta data")
@@ -418,9 +416,9 @@ def __create_runtime_args_file(output_folder,
         file.write(f"ENV_FILE=\"{env_file}\"\n")
         file.write(f"SEARCH={search}\n")
         file.write(f"NWM_METAFILE_PATH=\"{nwm_meta_file}\"\n")
-        file.write(f"GET_NEW_META_DATA=\"{get_new_meta_data}\"\n")
+        file.write(f"GET_NEW_META_DATA={get_new_meta_data}\n")
         file.write(f"THRESHOLD_FILE_PATH=\"{threshold_file}\"\n")
-        file.write(f"GET_NEW_THRESHOLD_DATA=\"{get_new_threshold_data}\"\n")
+        file.write(f"GET_NEW_THRESHOLD_DATA={get_new_threshold_data}\n")
         file.write(f"FIM_RUN_DIR=\"{fim_run_dir}\"\n")
         file.write(f"PAST_MAJOR_INTERVAL_CAP={past_major_interval_cap}\n")
 
