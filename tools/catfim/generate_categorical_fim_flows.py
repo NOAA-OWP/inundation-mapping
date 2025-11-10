@@ -443,7 +443,7 @@ def generate_flows(
     job_number_huc,
     is_stage_based,
     lst_hucs,
-    nwm_metafile,
+    nwm_meta_file,
     log_output_file,
     df_restricted_sites,
     threshold_file,
@@ -470,7 +470,7 @@ def generate_flows(
         job_number_huc (int): Number of parallel jobs to run for HUC-level processing.
         is_stage_based (bool): If True, runs in stage-based mode and returns early with relevant objects.
         lst_hucs (list of str): List of HUC codes to process.
-        nwm_metafile (str): Path to NWM metadata file (may be empty).
+        nwm_meta_file (str): Path to NWM metadata file (may be empty).
         log_output_file (str): Path to the log output file for logging process information.
         df_restricted_sites (pandas.DataFrame): DataFrame of restricted sites to exclude from processing.
         threshold_file (str): Path to file containing threshold definitions for mapping.
@@ -544,13 +544,13 @@ def generate_flows(
         'nhd_flows_americansamoa_df': nhd_flows_americansamoa_df
     }
 
-    # nwm_metafile might be an empty string
+    # nwm_meta_file might be an empty string
     # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
 
     # TODO: Aug 2024:
     # Filter the meta list to just HUCs in the fim run output or huc if sent in as a param
-    all_meta_lists = __load_nwm_metadata(
-        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_metafile
+    all_meta_lists = __load_nwm_metadata( # TODO: Update in Guam branch
+        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_meta_file
     )
 
     end_dt = datetime.now(timezone.utc)
@@ -839,7 +839,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '-n',
-        '--nwm_metafile',
+        '--nwm_meta_file',
         help='OPTIONAL: Path to the pre-made pickle file that already holds the nwm metadata',
         required=False,
         type=str,

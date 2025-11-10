@@ -39,6 +39,14 @@ from tools_shared_variables import (
     acceptable_site_type_list,
 )
 
+from tools.wrds.download_process_wrds import (
+    load_nwm_metadata,
+    download_all_thresholds,
+    label_data_file,
+    load_site_thresholds
+)
+
+
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
@@ -78,18 +86,20 @@ def process_generate_categorical_fim(
     env_file,
     job_number_huc,
     job_number_inundate,
+    job_number_intervals,
     is_stage_based,
     output_folder,
-    overwrite,
     search,
     lst_hucs,
-    catfim_version,
-    model_version,
-    job_number_intervals,
     past_major_interval_cap,
     step_num,
-    nwm_metafile,
+    nwm_meta_file,
+    get_new_meta_data,
     threshold_file,
+    get_new_threshold_data,
+    catfim_version,
+    model_version,
+    overwrite
 ):
     '''
     Orchestrates the generation of CatFIM products for a set of Hydrologic Unit Codes (HUCs),
@@ -126,7 +136,7 @@ def process_generate_categorical_fim(
         Cap for major interval processing (used in stage-based workflow).
     step_num : int
         Step number to start processing from (optional, allows skipping earlier steps).
-    nwm_metafile : str
+    nwm_meta_file : str
         Path to the NWM metadata pickle file (optional, defaults to "" if not included).
     threshold_file : str
         Path to the threshold pickle file for manual input thresholds (optional, defaults to "" if not included).
@@ -197,7 +207,6 @@ def process_generate_categorical_fim(
     output_flows_dir = os.path.join(output_catfim_dir, 'flows')
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
-    output_thresholds_dir = os.path.join(output_catfim_dir, 'thresholds')
 
     # ================================
     set_start_files_folders(
@@ -208,10 +217,10 @@ def process_generate_categorical_fim(
     FLOG.trace(local_vals)
 
     # ================================
-    if nwm_metafile != "":
-        if os.path.exists(nwm_metafile) == False:
+    if nwm_meta_file != "":
+        if os.path.exists(nwm_meta_file) == False:
             raise Exception("The nwm_metadata (-me) file can not be found. Please remove or fix pathing.")
-        file_ext = os.path.splitext(nwm_metafile)
+        file_ext = os.path.splitext(nwm_meta_file)
         if file_ext.count == 0:
             raise Exception("The nwm_metadata (-me) file appears to be invalid. It is missing an extension.")
         if file_ext[1].lower() != ".pkl":
@@ -280,49 +289,77 @@ def process_generate_categorical_fim(
 
     # ================================
 
-    if threshold_file != "":
-        if os.path.exists(threshold_file) == False:
-            raise Exception("The threshold input file can not be found. Please remove or fix pathing.")
-        file_ext = os.path.splitext(threshold_file)
-        if file_ext.count == 0:
-            raise Exception("The threshold input file appears to be invalid. It is missing an extension.")
-        if file_ext[1].lower() != ".pkl":
-            raise Exception("The threshold input file appears to be invalid. The extention is not pkl.")
 
-        # Read pickle file and get a list of unique HUCs
-        with open(threshold_file, 'rb') as f:
-            loaded_data = pickle.load(f)
+    ## ===== START SECTION OF CODE COPIED FROM download_process_wrds.py ===== # TODO: Pull logic from Rob's brance
 
-        hucs = loaded_data['huc'].unique().tolist()
-        threshold_hucs= [str(num).zfill(8) for num in hucs]
+    # TODO: Add logic to create new metadata filename (pull from Rob's branch)
 
-        # Get the source (since it might be Manual_Input)
-        data_source = loaded_data['source'].tolist()[0]
+    # Load NWM metadata (either by downloading it or pulling it from WRDS)
+    # Note: This is the function that we will put into CatFIM code
+    output_meta_list, huc_lid_dict, messages = load_nwm_metadata(nwm_meta_file, API_BASE_URL, search, get_new_meta_data, lst_hucs)
+    FLOG.lprint(messages)
+
+    if not huc_lid_dict:
+        sys.exit('Error occurred in metadata download.')
+
+    # Load thresholds if specified
+    if get_new_threshold_data == True:
+        threshold_url = f'{API_BASE_URL}/nws_threshold'
+
+        label = ''
+        label_with_date = label_data_file(label, lst_hucs)
+        output_thresholds_filename = f'thresholds{label_with_date}.pkl'
+        thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
+
+        # Download thresholds
+        messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
+        FLOG.lprint(messages)
+
+    ## ===== END SECTION OF CODE COPIED FROM download_process_wrds.py =====
+
+    # if threshold_file != "":
+    #     if os.path.exists(threshold_file) == False:
+    #         raise Exception("The threshold input file can not be found. Please remove or fix pathing.")
+    #     file_ext = os.path.splitext(threshold_file)
+    #     if file_ext.count == 0:
+    #         raise Exception("The threshold input file appears to be invalid. It is missing an extension.")
+    #     if file_ext[1].lower() != ".pkl":
+    #         raise Exception("The threshold input file appears to be invalid. The extention is not pkl.")
+
+    #     # Read pickle file and get a list of unique HUCs
+    #     with open(threshold_file, 'rb') as f:
+    #         loaded_data = pickle.load(f)
+
+    #     hucs = loaded_data['huc'].unique().tolist()
+    #     threshold_hucs= [str(num).zfill(8) for num in hucs]
+
+        # # Get the source (since it might be Manual_Input)
+        # data_source = loaded_data['source'].tolist()[0] ## TODO add back in
    
-        # If a HUC list is specified, check that the HUCs in the list are also in the threshold file
-        if 'all' not in lst_hucs:
-            missing_hucs = [huc for huc in valid_ahps_hucs if huc not in threshold_hucs]
-            if missing_hucs:
-                raise Exception(
-                    f"The following HUCs from the input list are not present in the threshold file ({threshold_file}): "
-                    f"{', '.join(missing_hucs)}"
-                )
-        else:
-            # If 'all' is specified, filter valid_ahps_hucs to only those present in the threshold file and warn about dropped HUCs
-            filtered_hucs = [huc for huc in valid_ahps_hucs if huc in threshold_hucs]
-            dropped_huc_lst = list(set(valid_ahps_hucs) - set(filtered_hucs))
-            if dropped_huc_lst:
-                FLOG.warning(
-                    f"The following HUCs are present in the FIM run directory but not in the threshold file ({threshold_file}) and will be skipped: "
-                    f"{', '.join(dropped_huc_lst)}"
-                )
-            valid_ahps_hucs = filtered_hucs
-            num_hucs = len(valid_ahps_hucs)
-            if num_hucs == 0:
-                raise ValueError(
-                    f'After filtering, the number of valid HUCs compared to the output directory of {fim_run_dir} is zero.'
-                    ' Verify that you have the correct input folder and threshold file.'
-                )
+        # # If a HUC list is specified, check that the HUCs in the list are also in the threshold file
+        # if 'all' not in lst_hucs:
+        #     missing_hucs = [huc for huc in valid_ahps_hucs if huc not in threshold_hucs]
+        #     if missing_hucs:
+        #         raise Exception(
+        #             f"The following HUCs from the input list are not present in the threshold file ({threshold_file}): "
+        #             f"{', '.join(missing_hucs)}"
+        #         )
+        # else:
+        #     # If 'all' is specified, filter valid_ahps_hucs to only those present in the threshold file and warn about dropped HUCs
+        #     filtered_hucs = [huc for huc in valid_ahps_hucs if huc in threshold_hucs]
+        #     dropped_huc_lst = list(set(valid_ahps_hucs) - set(filtered_hucs))
+        #     if dropped_huc_lst:
+        #         FLOG.warning(
+        #             f"The following HUCs are present in the FIM run directory but not in the threshold file ({threshold_file}) and will be skipped: "
+        #             f"{', '.join(dropped_huc_lst)}"
+        #         )
+        #     valid_ahps_hucs = filtered_hucs
+        #     num_hucs = len(valid_ahps_hucs)
+        #     if num_hucs == 0:
+        #         raise ValueError(
+        #             f'After filtering, the number of valid HUCs compared to the output directory of {fim_run_dir} is zero.'
+        #             ' Verify that you have the correct input folder and threshold file.'
+        #         )
 
     # End of Validation and setup
     # ================================
@@ -344,9 +381,9 @@ def process_generate_categorical_fim(
             FLOG.warning('Listed HUCs not available in FIM run directory:')
             FLOG.warning(dropped_huc_lst)
 
-    # Print number of available hucs in threshold_file
-    if threshold_file != "":
-        FLOG.lprint(f'Threshold file has data for {len(threshold_hucs)} HUC(s)')
+    # # Print number of available hucs in threshold_file
+    # if threshold_file != "":
+    #     FLOG.lprint(f'Threshold file has data for {len(threshold_hucs)} HUC(s)')
 
     # FLOG.lprint(f'Data source: {data_source}')  # TEMP DEBUG
 
@@ -401,7 +438,7 @@ def process_generate_categorical_fim(
                 valid_ahps_hucs,
                 job_number_intervals,
                 past_major_interval_cap,
-                nwm_metafile,
+                nwm_meta_file,
                 df_restricted_sites,
                 threshold_file,
                 data_source,
@@ -448,7 +485,7 @@ def process_generate_categorical_fim(
                 job_flows,
                 is_stage_based,
                 valid_ahps_hucs,
-                nwm_metafile,
+                nwm_meta_file,
                 FLOG.LOG_FILE_PATH,
                 df_restricted_sites,
                 threshold_file,
@@ -476,34 +513,6 @@ def process_generate_categorical_fim(
         else:
             FLOG.lprint("manage_catfim_mapping step skipped")
     # end if else
-
-    output_pickle_path = os.path.join(output_thresholds_dir, 'thresholds.pkl')
-    threshold_csv_files = glob.glob(os.path.join(output_thresholds_dir, "*.csv"))
-
-    if threshold_file != "":
-        FLOG.lprint(f"Skipping threshold CSV compilation because supplied threshold file was used.")
-
-    else:  # Check whether there are saved threshold CSVs and, if so, compile them
-        if len(threshold_csv_files) == 0:
-            FLOG.lprint("No threshold CSV files found to compile, threshold.pkl will not be created.")
-
-        else:
-            # Compile saved thresholds data into a single file
-            all_dataframes = []
-            for file in threshold_csv_files:
-                df = pd.read_csv(file)
-                all_dataframes.append(df)
-                os.remove(file)  # Remove individual CSV after reading
-            thresholds_df = pd.concat(all_dataframes, ignore_index=True)
-
-            try:
-                with open(output_pickle_path, 'wb') as f:
-                    pickle.dump(thresholds_df, f)
-                FLOG.lprint(f"Successfully combined {len(threshold_csv_files)} CSVs into {output_pickle_path}")
-            except Exception as e:
-                FLOG.lprint(f"Error saving pickle file {output_pickle_path}: {e}")
-
-    ######
 
     FLOG.lprint("")
 
@@ -1943,7 +1952,7 @@ def generate_stage_based_categorical_fim(
     lst_hucs,
     job_number_intervals,
     past_major_interval_cap,
-    nwm_metafile,
+    nwm_meta_file,
     df_restricted_sites,
     threshold_file,
     data_source,
@@ -1970,7 +1979,7 @@ def generate_stage_based_categorical_fim(
         lst_hucs (list of str): List of HUCs to process.
         job_number_intervals (int): Number of parallel jobs for interval processing.
         past_major_interval_cap (int): Cap for past major intervals.
-        nwm_metafile (str): Path to the NWM metafile.
+        nwm_meta_file (str): Path to the NWM metafile.
         df_restricted_sites (pd.DataFrame): DataFrame of restricted sites to exclude from processing.
         threshold_file (str): Path to the threshold file for mapping.
         data_source (str): Identifier for the data source being used.
@@ -2026,7 +2035,7 @@ def generate_stage_based_categorical_fim(
             job_flows,
             True,
             lst_hucs,
-            nwm_metafile,
+            nwm_meta_file,
             str(FLOG.LOG_FILE_PATH),
             df_restricted_sites,
             threshold_file,
@@ -2388,16 +2397,29 @@ if __name__ == '__main__':
         type=int,
     )
 
-    # NOTE: This params is for quick debugging only and should not be used in a production mode
     parser.add_argument(
-        '-me',
-        '--nwm_metafile',
+        '-mf',
+        '--nwm-meta-file',
         help='OPTIONAL: If you have a pre-existing nwm metadata pickle file, you can path to it here.'
         ' e.g.: /data/catfim/nwm_metafile.pkl',
         required=False,
         default="",
     )
 
+    parser.add_argument(
+        '-gmf',
+        '--get-new-meta-data',
+        help="OPTIONAL: If this argument is added, and this script is on a OWP server, then ignore"
+        " and pre-existing meta file and go load new data directly from WRDS. Note: Calling WRDS"
+        " directly means you can add filters, searching, site specific, etc. This allows for easier debugging."
+        " However, the default behavior is to use the previously created nwm_metadata file and filter out the data"
+        " CatFIM needs for processing.",
+         required=False,
+         default=False,
+         action='store_true'
+    )
+
+    # get from bash_varibles.env or similar if not provided
     parser.add_argument(
         '-tf',
         '--threshold-file',
@@ -2406,6 +2428,19 @@ if __name__ == '__main__':
         ' e.g.: /data/catfim/threshold_file.pkl',
         required=False,
         default="",
+    )
+   
+    parser.add_argument(
+        '-gtf',
+        '--get-new-threshold-data',
+        help="OPTIONAL: If this argument is added, and this script is on a OWP server, then ignore"
+        " and pre-existing threshold data file and go load new data directly from WRDS. Note: Calling WRDS"
+        " directly means you can add filters, searching, site specific, etc. This allows for easier debugging."
+        " However, the default behavior is to use the previously created nwm_threshold file and filter out the data"
+        " CatFIM needs for processing.",
+         required=False,
+         default=False,
+         action='store_true'
     )
 
     parser.add_argument(
