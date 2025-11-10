@@ -27,6 +27,8 @@ from tools_shared_functions import (
     get_thresholds,
 )
 
+from download_process_wrds import load_site_thresholds
+
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
@@ -212,7 +214,7 @@ def generate_flows_for_huc(
             # Careful, for "all_message.append" the syntax into it must be f'{lid}: (whever messages)
             # this is gets parsed and logic used against it.
 
-            stages, flows, status_msg = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
+            stages, flows, status_msg = load_site_thresholds(threshold_file, lid)
 
             # MP_LOG.lprint(status_msg) # TEMP DEBUG
 
@@ -549,9 +551,13 @@ def generate_flows(
 
     # TODO: Aug 2024:
     # Filter the meta list to just HUCs in the fim run output or huc if sent in as a param
-    all_meta_lists = __load_nwm_metadata( # TODO: Update in Guam branch
-        output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_meta_file
-    )
+    # all_meta_lists = __load_nwm_metadata( # TODO: Update in Guam branch
+    #     output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_meta_file
+    # )
+
+    # Open metadata file
+    with open(nwm_meta_file, "rb") as p_handle:
+        all_meta_lists = pickle.load(p_handle)
 
     end_dt = datetime.now(timezone.utc)
     time_duration = end_dt - start_dt

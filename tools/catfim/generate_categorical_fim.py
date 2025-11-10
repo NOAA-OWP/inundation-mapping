@@ -892,7 +892,8 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Get thresholds from WRDS API or threshold file
-                thresholds, flows, status_msg = __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file)
+                thresholds, flows, status_msg = load_site_thresholds(threshold_file, lid)
+                
                 MP_LOG.trace(status_msg)
 
                 # Update status if stage thresholds are not found
