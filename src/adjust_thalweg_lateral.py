@@ -43,6 +43,9 @@ def detect_pits(filled_dem_path, original_dem_path, save_mask=True):
     pit_mask = np.zeros_like(diff, dtype=np.uint8)
     # pixel_area = abs(profile["transform"][0]) * abs(profile["transform"][4])
 
+    # Set all filled (nonzero diff) areas to 2 (non-pit filled area) initially
+    pit_mask[labeled > 0] = 2
+
     for prop in props:
         pixel_count = prop.area
         # area_m2 = pixel_count * pixel_area
@@ -53,8 +56,8 @@ def detect_pits(filled_dem_path, original_dem_path, save_mask=True):
 
         # Two-tier detection logic
         pit_find = (
-            (pixel_count >= 15) and (pixel_count < 4000) and (mean_depth >= 10) and (circularity >= 0.6)
-        ) or ((pixel_count >= 15) and (pixel_count < 5000) and (mean_depth >= 3) and (max_depth >= 20))
+            (pixel_count >= 15) and (pixel_count < 8000) and (mean_depth >= 10) and (circularity >= 0.6)
+        ) or ((pixel_count >= 15) and (pixel_count < 8000) and (mean_depth >= 5) and (max_depth >= 20))
 
         if pit_find:
             pit_mask[labeled == prop.label] = 1
