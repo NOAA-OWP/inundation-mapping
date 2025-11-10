@@ -513,6 +513,20 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '-gmf',
+        '--get-new-meta-data',
+        help="OPTIONAL: If this argument is added, and this script is on a OWP server, then ignore"
+        " and pre-existing meta file and go load new data directly from WRDS. Note: Calling WRDS"
+        " directly means you can add filters, searching, site specific, etc. This allows for easier debugging."
+        " However, the default behavior is to use the previously created nwm_metadata file and filter out the data"
+        " CatFIM needs for processing.",
+         required=False,
+         default=False,
+         action='store_true'
+    )
+
+    # get from bash_varibles.env or similar if not provided
+    parser.add_argument(
         '-tf',
         '--threshold-file',
         help='OPTIONAL: If you have a pre-existing threshold file, you can path to it here. '
@@ -521,7 +535,7 @@ if __name__ == '__main__':
         required=False,
         default="",
     )
-
+      
     parser.add_argument(
         '-gtf',
         '--get-new-threshold-data',

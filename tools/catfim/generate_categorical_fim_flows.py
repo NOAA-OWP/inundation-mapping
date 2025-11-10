@@ -23,6 +23,8 @@ from tools_shared_functions import (
     get_thresholds,
 )
 
+from download_process_wrds import load_site_thresholds
+
 # import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
 
@@ -172,18 +174,22 @@ def generate_flows_for_huc(
             # Careful, for "all_message.append" the syntax into it must be f'{lid}: (whever messages)
             # this is gets parsed and logic used against it.
 
-            # for Stage based, is uses stage values from threshold data supplied by WRDS
-            # but here (for flow), it uses the values from the flows data from WRDS
-            stages, flows, threshold_count = get_thresholds(
-                threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-            )
+            stages, flows, status_msg = load_site_thresholds(threshold_file, lid)
 
-            # Yes.. stages, we will handle missing flows later even though we don't use the stage here
-            if stages is None or len(stages) == 0:
-                msg = ':Error getting stages values from WRDS API'
-                all_messages.append(lid + msg)
-                MP_LOG.warning(huc_lid_id + msg)
-                continue
+            # MP_LOG.lprint(status_msg) # TEMP DEBUG
+
+            # Update status if flows are not found
+            if flows is None or len(flows) == 0: # Changed to flows Sept' 25
+                if "WRDS response sucessful." in status_msg:
+                    msg = ':WRDS response sucessful but no flow values available'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
+                else:
+                    msg = ':Error getting flows values from WRDS API'
+                    all_messages.append(lid + msg)
+                    MP_LOG.warning(huc_lid_id + msg)
+                    continue
 
             # MP_LOG.lprint(f"Thresholds for {huc_lid_id} are : {thresholds}")
 
@@ -550,12 +556,19 @@ def generate_flows(
         'nhd_flows_guam_df': nhd_flows_guam_df,
         'nhd_flows_americansamoa_df': nhd_flows_americansamoa_df
     }
-    
-    # nwm_metafile might be an empty string
+
+    # nwm_meta_file might be an empty string
     # maybe ensure all projections are changed to one standard output of 3857 (see shared_variables) as the come out
 
-    # all_meta_lists = __load_nwm_metadata(
-    #     output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_meta_file_path, get_new_meta_data)
+    # TODO: Aug 2024:
+    # Filter the meta list to just HUCs in the fim run output or huc if sent in as a param
+    # all_meta_lists = __load_nwm_metadata( # TODO: Update in Guam branch
+    #     output_catfim_dir, metadata_url, nwm_us_search, nwm_ds_search, nwm_meta_file
+    # )
+
+    # Open metadata file
+    with open(nwm_meta_file, "rb") as p_handle:
+        all_meta_lists = pickle.load(p_handle)
 
     # end_dt = datetime.now(timezone.utc)
     # time_duration = end_dt - start_dt
