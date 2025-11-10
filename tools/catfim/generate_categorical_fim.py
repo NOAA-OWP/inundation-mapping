@@ -891,7 +891,7 @@ def iterate_through_huc_stage_based(
                     MP_LOG.warning(huc_lid_id + msg)
                     continue
 
-                # Get thresholds from WRDS API or threshold file
+                # Get thresholds from threshold file
                 thresholds, flows, status_msg = load_site_thresholds(threshold_file, lid)
                 
                 MP_LOG.trace(status_msg)
