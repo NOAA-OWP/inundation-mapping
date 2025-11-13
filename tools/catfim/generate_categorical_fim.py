@@ -16,10 +16,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-from generate_categorical_fim_flows import (
-    generate_flows,
-    __load_thresholds,
-)
+from generate_categorical_fim_flows import generate_flows
 from generate_categorical_fim_mapping import (
     manage_catfim_mapping,
     post_process_cat_fim_for_viz,
@@ -39,7 +36,7 @@ from tools_shared_variables import (
     acceptable_site_type_list,
 )
 
-from tools.wrds.download_process_wrds import (
+from data.wrds.download_process_wrds import (
     load_nwm_metadata,
     download_all_thresholds,
     label_data_file,
@@ -216,15 +213,50 @@ def process_generate_categorical_fim(
     FLOG.trace("locals...")
     FLOG.trace(local_vals)
 
+
+    # For API usage
+    load_dotenv(env_file)
+    API_BASE_URL = os.getenv('API_BASE_URL')
+    if API_BASE_URL is None:
+        raise ValueError(
+            'API base url not found. '
+            'Ensure inundation_mapping/tools/ has an .env file with the following info: '
+            'API_BASE_URL, WBD_LAYER, NWM_FLOWS_MS, '
+            'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
+        )
+
     # ================================
-    if nwm_meta_file != "":
-        if os.path.exists(nwm_meta_file) == False:
-            raise Exception("The nwm_metadata (-me) file can not be found. Please remove or fix pathing.")
-        file_ext = os.path.splitext(nwm_meta_file)
-        if file_ext.count == 0:
-            raise Exception("The nwm_metadata (-me) file appears to be invalid. It is missing an extension.")
-        if file_ext[1].lower() != ".pkl":
-            raise Exception("The nwm_metadata (-me) file appears to be invalid. The extention is not pkl.")
+
+    # Set metadata/threshold filepaths if they aren't provided
+    if nwm_meta_file == "": nwm_meta_file = os.path.join('fim_temp', 'nwm_metadata.pkl') # TODO: Update default paths
+    if threshold_file == "": threshold_file = os.path.join('fim_temp', 'thresholds.pkl') # TODO: Update default paths
+
+    # Error if the files are not found and we are not getting new data
+    if get_new_meta_data == False and os.path.exists(nwm_meta_file) == False:
+        raise Exception(f"The nwm_metadata file can not be found at {nwm_meta_file}. Please fix pathing or use the get metadata flag.")
+            
+    if get_new_threshold_data == False and threshold_file != "" and os.path.exists(threshold_file) == False:
+        raise Exception(f"The threshold input file can not be found at {threshold_file}. Please fix pathing or use the get threshold flag.")
+
+    #         if os.path.exists(nwm_meta_file) == False:
+    #             raise Exception("The nwm_metadata (-me) file can not be found. Please remove or fix pathing.")
+    #         file_ext = os.path.splitext(nwm_meta_file)
+    #         if file_ext.count == 0:
+    #             raise Exception("The nwm_metadata (-me) file appears to be invalid. It is missing an extension.")
+    #         if file_ext[1].lower() != ".pkl":
+    #             raise Exception("The nwm_metadata (-me) file appears to be invalid. The extention is not pkl.")
+        
+    # else:
+    #     nwm_meta_file = os.path.join(output_catfim_dir, 'nwm_metadata.pkl')
+
+    # if threshold_file != "":
+    #     if os.path.exists(threshold_file) == False:
+    #         raise Exception("The threshold input file can not be found. Please remove or fix pathing.")
+    #     file_ext = os.path.splitext(threshold_file)
+    #     if file_ext.count == 0:
+    #         raise Exception("The threshold input file appears to be invalid. It is missing an extension.")
+    #     if file_ext[1].lower() != ".pkl":
+    #         raise Exception("The threshold input file appears to be invalid. The extention is not pkl.")
 
 
     # ================================
@@ -387,16 +419,6 @@ def process_generate_categorical_fim(
 
     # FLOG.lprint(f'Data source: {data_source}')  # TEMP DEBUG
 
-    # For API usage
-    load_dotenv(env_file)
-    API_BASE_URL = os.getenv('API_BASE_URL')
-    if API_BASE_URL is None:
-        raise ValueError(
-            'API base url not found. '
-            'Ensure inundation_mapping/tools/ has an .env file with the following info: '
-            'API_BASE_URL, WBD_LAYER, NWM_FLOWS_MS, '
-            'USGS_METADATA_URL, USGS_DOWNLOAD_URL'
-        )
 
     # Check that fim_inputs.csv exists and raise error if necessary
     fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')

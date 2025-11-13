@@ -27,7 +27,7 @@ from tools_shared_functions import (
     get_thresholds,
 )
 
-from download_process_wrds import load_site_thresholds
+from data.wrds.download_process_wrds import load_site_thresholds
 
 import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
@@ -530,8 +530,8 @@ def generate_flows(
     # TODO: Pull from bash_variables.env once we switch from using catfim.env to bash_variables.env
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
-    input_nhd_flows_Guam = r'/data/inputs/nhdplus/NHDFlowline_Guam_6637.gpkg'
-    input_nhd_flows_AmericanSamoa = r'/data/inputs/nhdplus/NHDFlowline_AmericanSamoa_32702.gpkg'
+    input_nhd_flows_Guam = r'/data/inputs/nhdplus/Guam_6637/NHDFlowline_Guam_6637.gpkg'
+    input_nhd_flows_AmericanSamoa = r'/data/inputs/nhdplus/AmericanSamoa_32702/NHDFlowline_AmericanSamoa_32702.gpkg'
 
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)

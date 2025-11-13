@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import argparse
 import os
 import sys
@@ -22,8 +21,31 @@ from tools_shared_functions import(
 
 def label_data_file(label, lst_hucs):
     '''
-    Example usage:
-    label_with_date = label_data_file(label, lst_hucs)
+    Generate a filename-style label that optionally indicates a subset and appends the current date.
+
+    Parameters
+    ----------
+    label : str
+        Base label to include in the output. If non-empty, a leading underscore is prepended (e.g. "foo" -> "_foo").
+    lst_hucs : Sequence[str]
+        Sequence of HUC identifiers. If the sequence contains the string 'all' (membership tested with `in`),
+        no subset marker is added; otherwise '_subset' is appended.
+
+    Returns
+    -------
+    str
+        Composed label in the form:
+            "{label}{subset}_{date}"
+        where:
+          - `label` is either the empty string or the input label prefixed with an underscore,
+          - `subset` is either '' (when 'all' in lst_hucs) or '_subset',
+          - `date` is the current date formatted as DDMMYYYY.
+
+    Examples
+    --------
+    label_data_file("survey", ["HUC1"])  -> "_survey_subset_12062025"
+    label_data_file("", ["all"])        -> "_12062025"
+
     '''
 
     # If a list of HUCs is provided, add 'subset' to the label
@@ -60,8 +82,6 @@ def get_huc_dictionary(metadata_list, lst_hucs):
         # Filter huc_lid_dict to only include HUCs in huc_lst
         huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
         lid_list = list(huc_lid_dict.keys())
-
-    print(f'Number of sites to download thresholds for: {len(lid_list)}')
 
     return huc_lid_dict
 
@@ -142,18 +162,11 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         messages.append(msg)
         print(msg)
 
-        file_size_bytes = os.path.getsize(metadata_filepath)
-        file_size_kb = round(file_size_bytes / 1024, 2)
-        file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
-
-        msg = f"File size: {file_size_kb} kb or {file_size_mb} mb"
-        messages.append(msg)
-        print(msg)
-
     except Exception as e:
         msg = f"Error saving pickle file {metadata_filepath}: {e}"
         messages.append(msg)
         print(msg)
+        raise(e)
 
     return messages
 
@@ -197,6 +210,8 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
                 )
         except Exception as e:
             msg = f"Error retrieving thresholds for LID {lid}: {e}"
+            # TODO: Could change phrasing (to remove 'Error')... or just have CatFIM handle by not
+            # throwing this as a critical error
             messages.append(msg)
             print(msg)
 
@@ -224,18 +239,11 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
         messages.append(msg)
         print(msg)
 
-        file_size_bytes = os.path.getsize(thresholds_filepath)
-        file_size_kb = round(file_size_bytes / 1024, 2)
-        file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
-        
-        msg = f"File size: {file_size_kb} kb or {file_size_mb} mb"
-        messages.append(msg)
-        print(msg)
-
     except Exception as e:
         msg = f"Error saving pickle file {thresholds_filepath}: {e}"
         messages.append(msg)
         print(msg)
+        raise(e)
 
     thresholds_end_time = datetime.now(timezone.utc)
     thresholds_duration = thresholds_end_time - thresholds_start_time
@@ -306,27 +314,24 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         print()
 
     else:
-        # Error if metafile is not there
-        if not os.path.isfile(metadata_filepath):
-            msg = f"NWM metadata file not found at {metadata_filepath} and metadata_download is set to False."
-            messages.append(msg)
-            print(msg)
-    
-            msg = "ERROR: Cannot proceed without NWM metadata. Provide a valid NWM metafile or set metadata_download to True."
-            messages.append(msg)
-            print(msg)
-    
-            return output_meta_list, huc_lid_dict, messages # HUC lid dict will be empty, so we can use that to indicate an error
-            # sys.exit() # TODO: handle error if empty huc lid dict is returned
+        msg = f"metadata_download set to False, looking for NWM metadata file at {metadata_filepath}."
+        messages.append(msg)
+        print(msg)
 
-            # Note: this error really should only occur in command line running of this tool or CatFIM development
-            # (and not regular CatFIM runs)
-        else:
-            msg = f"NWM metadata file found at {metadata_filepath}, loading metadata from file."
-            messages.append(msg)
-            print(msg)
+    # Check metadata file exists and error if metafile is not there
+    if not os.path.isfile(metadata_filepath):
+        msg = f"NWM metadata file not found at {metadata_filepath}."
+        messages.append(msg)
+        print(msg)
 
-    # Open metadata file
+        msg = "ERROR: Cannot proceed without NWM metadata."
+        messages.append(msg)
+        print(msg)
+
+        return output_meta_list, huc_lid_dict, messages # HUC lid dict will be empty, so we can use that to indicate an error
+        # TODO: handle error in CatFIM if empty huc lid dict is returned? or raise exception here?
+
+    # Open metadata file (either the one we just downloaded or pre-existing)
     with open(metadata_filepath, "rb") as p_handle:
         output_meta_list = pickle.load(p_handle)
     
@@ -480,6 +485,24 @@ def main(env_file, output_folder, label, lst_hucs, search, metadata_download, th
 
 
 if __name__ == '__main__':
+    '''
+    Run examples:
+    1. Download both metadata and thresholds for all HUCs
+    python download_process_wrds.py -m -t
+
+    2. Download metadata only for specific HUCs
+    python download_process_wrds.py -m -lh "12090301 19020301"
+
+    3. Download thresholds only using an existing metadata file
+    python download_process_wrds.py -t -mf "path/to/metadata.pkl"
+
+    4. Specify a custom output folder and label
+    python download_process_wrds.py -w "/custom/output/folder" -l "my_label"
+
+    5. Set a custom search distance
+    python download_process_wrds.py -s 10 -m -t
+    
+    '''
     # Parse arguments
     parser = argparse.ArgumentParser(description='This script automates the downloading and processing of datasets from WRDS. '
         'It retrieves metadata and threshold data for specified HUCs and saves them as pickle files in the designated output folder.')
