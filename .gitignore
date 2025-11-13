@@ -17,9 +17,13 @@ config/*.swp
 **/.DS_Store
 .private/
 
-!tools/catfim/*.csv
-!tools/catfim/catfim.env.template
+*.env
+!config/hv_deploy_params.template.env
+!config/fim_enviro_values.template.env
+!config/aws_credentials.template.env
+
 !data/bridges/*.txt
+!tools/catfim/*.csv
 
 !**/.ipynb
 **/.ipynb_checkpoints

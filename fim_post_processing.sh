@@ -170,6 +170,28 @@ Tstart
 python3 $srcDir/aggregate_by_huc.py -fim $outputDestDir -i $fim_inputs -elev -ras -j $jobLimit
 Tcount
 
+## RUN THALWEG NOTCHES ADJUSTMENT ROUTINE ##
+if [ "$thalweg_notches_adjustment" = "True" ]; then
+    l_echo $startDiv"Performing thalweg notches adjustment routine"
+    Tstart
+    python3 $srcDir/thalweg_notches_adjustment.py \
+        -fim_dir $outputDestDir \
+        -j $jobLimit \
+
+    Tcount
+fi
+
+## RUN LONGITUDINAL FILTER ROUTINE ##
+if [ "$logitudinal_filter" = "True" ]; then
+    l_echo $startDiv"Performing longitudinal discharge adjustment routine"
+    Tstart
+    python3 $srcDir/longitudinal_flow_adjustment.py \
+        -fim_dir $outputDestDir \
+        -j $jobLimit \
+
+    Tcount
+fi
+
 ## RUN BATHYMETRY ADJUSTMENT ROUTINE ##
 if [ "$bathymetry_adjust" = "True" ]; then
     l_echo $startDiv"Performing Bathymetry Adjustment routine"
@@ -219,17 +241,6 @@ if [ "$nonmonotonic_src_adjustment" = "True" ]; then
     python3 $srcDir/nonmonotonic_src_adjustment.py \
         -fim_dir $outputDestDir \
         -j $jobLimit
-    Tcount
-fi
-
-## RUN LONGITUDINAL FILTER ROUTINE ##
-if [ "$logitudinal_filter" = "True" ]; then
-    l_echo $startDiv"Performing longitudinal discharge adjustment routine"
-    Tstart
-    python3 $srcDir/longitudinal_flow_adjustment.py \
-        -fim_dir $outputDestDir \
-        -j $jobLimit \
-
     Tcount
 fi
 
