@@ -204,7 +204,6 @@ else
     # remove these directories and files on a new or overwrite run
     rm -rdf $outputDestDir/logs
     rm -rdf $outputDestDir/branch_errors
-    rm -rdf $outputDestDir/unit_errors
     rm -rdf $outputDestDir/eval
     rm -f $outputDestDir/crosswalk_table.csv
     rm -f $outputDestDir/fim_inputs*
@@ -213,7 +212,6 @@ fi
 
 
 mkdir -p $outputDestDir/logs
-mkdir -p $outputDestDir/unit_errors
 mkdir -p $outputDestDir/branch_errors
 
 # copy over config file and rename it (note.. yes, the envFile file can still be

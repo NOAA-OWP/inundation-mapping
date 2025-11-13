@@ -87,7 +87,6 @@ chmod 777 $tempBranchDataDir
 rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
 rm -f $tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
 rm -f $tempHucDataDir/logs/branch/"$hucNumber"*.log
-rm -f $outputDestDir/unit_errors/"$hucNumber"*.log
 rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
 
 hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
@@ -125,11 +124,6 @@ do
         err_exists=1
     fi
 done
-
-if [ "$err_exists" = "1" ]; then
-    # copy the error log over to the unit_errors folder to better isolate it
-    cp $hucLogFileName $outputDestDir/unit_errors
-fi
 
 # Move the contents of the temp directory into the outputs directory and update file permissions
 mv -f $tempHucDataDir $outputHucDataDir
