@@ -5,18 +5,10 @@ import argparse
 import os
 import pathlib
 from glob import glob
-from logging import exception
 
 
-def __read_included_files(parent_dir_path):
-    # TODO: Oct25, 2023: Previously we had this test done against multiple huc lists.
-    # Now in FIM4 we only want it to check against the one file 'included_huc8.lst'.
-    # I have just replaced the pattern, but later we might want to clean this up.
-
-    # filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc*.lst'))
-
-    included_huc_list = 'included_huc8_withAlaska+Guam+AmericanSamoa.lst'  # previous: 'included_huc8.lst'
-    filename_patterns = glob(os.path.join(parent_dir_path, included_huc_list))
+def __read_included_files(huc_list):
+    filename_patterns = glob(huc_list)
 
     accepted_hucs_set = set()
     for filename in filename_patterns:
@@ -71,9 +63,8 @@ def __check_for_membership(hucs, accepted_hucs_set):
             raise KeyError(msg)
 
 
-def check_hucs(hucs, inputsDir):
-    huc_list_path = os.path.join(inputsDir, 'huc_lists')
-    accepted_hucs = __read_included_files(huc_list_path)
+def check_hucs(hucs, huc_list):
+    accepted_hucs = __read_included_files(huc_list)
     list_hucs = __read_input_hucs(hucs)
     __check_for_membership(list_hucs, accepted_hucs)
 
@@ -95,7 +86,7 @@ if __name__ == '__main__':
         required=True,
         nargs='+',
     )
-    parser.add_argument('-i', '--inputsDir', help='Inputs directory', required=True)
+    parser.add_argument('-i', '--huc-list', help='HUC list file', required=True)
 
     # extract to dictionary
     args = vars(parser.parse_args())
