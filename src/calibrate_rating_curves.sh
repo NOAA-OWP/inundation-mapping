@@ -2,10 +2,18 @@
 calibration_rerun=$1
 jobBranchLimit=$2 # should allow new values for rerun_calibrate_rating_curves.py
 
-
-source $outputDestDir/params.env
 source $srcDir/bash_variables.env
 source $srcDir/bash_functions.env
+
+# Check if it is a calibration rerun and create a special params_rerun.env from template
+if [ "${calibration_rerun,,}" = "true" ]; then
+    # Copy params_template.env to params_rerun.env for calibration rerun
+    envFile=$projectDir/config/params_template.env
+    cp $envFile $outputDestDir/params_rerun.env
+    source $outputDestDir/params_rerun.env
+else
+    source $outputDestDir/params.env
+fi
 
 #get huc number
 hucNumber=$(basename "${tempHucDataDir%/}")
@@ -191,6 +199,7 @@ Tstart
     # Only keep the file if it's non-empty (error were found)
     if [ -s "$error_log_path".tmp ]; then
         mv "$error_log_path".tmp "$error_log_path"
+        l_echo "There are some errors reported in log file \"$error_log_path\""
     else
         rm -f "$error_log_path".tmp
         l_echo "No errors found"
