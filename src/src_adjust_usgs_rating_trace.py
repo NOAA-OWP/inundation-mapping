@@ -94,6 +94,13 @@ def create_usgs_rating_database(
     usgs_rc_df = usgs_rc_df.merge(cross_df, how='left', on='location_id')
     usgs_rc_df = usgs_rc_df[usgs_rc_df['hydroid'].notna()]
 
+    # If all records filtered out, write log and return empty dataframe
+    if len(usgs_rc_df) == 0:
+        log_text += '\n[WARNING] All gages were removed after filtering criteria.\n'
+        log_usgs_db = open(os.path.join(log_dir, 'log_usgs_rc_database.log'), "w")
+        log_usgs_db.write(log_text)
+        log_usgs_db.close()
+        return pd.DataFrame()
     # calculate hand elevation
     usgs_rc_df['hand'] = usgs_rc_df['elevation_navd88_m'] - usgs_rc_df['hand_datum']
     usgs_rc_df = usgs_rc_df[
@@ -287,6 +294,17 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jo
     usgs_df['levpa_id'] = usgs_df['levpa_id'].astype(int).astype(str)
 
     huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
+
+    # Check if this HUC has any gages after all filterings 
+    if huc not in huc_branch_dict:
+        warn_msg = (
+            f"WARNING: All USGS gages for HUC {huc} was filtered out during processing."
+            f"Skipping USGS rating curve adjustments.\n"
+        )
+        print(warn_msg)
+        log_file.write(warn_msg)
+        return
+
     branch_set = huc_branch_dict[huc]
 
     for branch_id in branch_set:
@@ -507,8 +525,18 @@ def run_prep(
             usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
         )
 
-        # Create huc proc_list for multiprocessing and execute the update_rating_curve function
-        branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jobs)
+        # if usgs_df is empty--no acceptable gage, then end the process early. 
+        if usgs_df.empty:
+            warn_msg = (
+                f"WARNING: All USGS gage data for HUC {huc} was filtered out during processing. "
+                f"Check log_usgs_rc_database.log for details. Skipping USGS rating curve adjustments.\n"
+            )
+            print(warn_msg)
+            log_file.write(warn_msg)
+        else:
+            # Create huc proc_list for multiprocessing and execute the update_rating_curve function
+            branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jobs)
+
 
     # Record run time and close log file
     log_file.write('########################################################\n\n')
