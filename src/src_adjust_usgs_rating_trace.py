@@ -295,7 +295,7 @@ def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jo
 
     huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
 
-    # Check if this HUC has any gages after all filterings 
+    # Check if this HUC has any gages after all filterings
     if huc not in huc_branch_dict:
         warn_msg = (
             f"WARNING: All USGS gages for HUC {huc} was filtered out during processing."
@@ -525,7 +525,7 @@ def run_prep(
             usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
         )
 
-        # if usgs_df is empty--no acceptable gage, then end the process early. 
+        # if usgs_df is empty--no acceptable gage, then end the process early.
         if usgs_df.empty:
             warn_msg = (
                 f"WARNING: All USGS gage data for HUC {huc} was filtered out during processing. "
@@ -536,7 +536,6 @@ def run_prep(
         else:
             # Create huc proc_list for multiprocessing and execute the update_rating_curve function
             branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jobs)
-
 
     # Record run time and close log file
     log_file.write('########################################################\n\n')

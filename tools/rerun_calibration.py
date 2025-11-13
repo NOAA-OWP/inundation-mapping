@@ -134,7 +134,9 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
     if limit_hucs:
         hucs = [h for h in limit_hucs if h in hucs]
 
-    # as env variables, pass fim run directory (containing params.env) and src directory (containing bash_variables.env) into calibrate_rating_curves.sh
+    # as env variables, pass fim run directory and src directory into calibrate_rating_curves.sh
+    # Note: calibrate_rating_curves.sh will create and source params_rerun.env (from params_template.env)
+    # instead of sourcing params.env when running in rerun mode
     env = os.environ.copy()
     env["outputDestDir"] = fim_run_dir
 
@@ -156,11 +158,12 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
         )
 
     # Create the logger
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    start_time = datetime.now()
+    timestamp = start_time.strftime("%Y%m%d_%H%M")
     log_file_path = os.path.join(fim_run_dir, 'logs', f"rerun_calibration_{timestamp}.log")
     file_logger = setup_mp_file_logger(log_file_path, logger_name='rerunning_calibration')
     print('started rerunning calibration...')
-    file_logger.info('started rerunning calibration...')
+    file_logger.info(f'started rerunning calibration at: {timestamp}')
 
     # Run multiprocessing
     mp_results = run_with_mp(
@@ -186,23 +189,27 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
             file_logger.info(f"  - {tid}")
             print(f"  - {tid}")
 
-    print("Done!")
-    file_logger.info("Done!")
-
-    # finally compile error log files, if exist
+    # compile error log files, if exist
     compile_error_logs(fim_run_dir, hucs)
+
+    # Calculate and log total duration
+    end_time = datetime.now()
+    duration = end_time - start_time
+    print(f"Done! Total duration: {duration}")
+    file_logger.info(f"Finished at: {end_time}")
+    file_logger.info(f"Total duration: {duration}")
 
 
 if __name__ == "__main__":
     # notes
     # - this tool will read an existing FIM run (with mmultiple HUC results) and will overwrite the hyrotable (and src table)
     # - accordingly, the log files are overwrtten to be consistent with updated hyrtables.
-    # - The flags to activate/deactivate each calibration script is still read from $outputDestDir/params.env file. So if a step is not required
-    # the $outputDestDir/params.env file (available in output folder) needs to be updated (and not config/params_template.env of the code itself)
+    # - The flags to activate/deactivate each calibration script is still manage from config/params_template.env of the code
+    # A new params_rerun.env will be created (from config/params_template.env) and is used for rerun.
 
     # sample usage
-    # python foss_fim/tools/rerun_calibrate_rating_curves.py
-    # -i fim_dir -jh 6 -jb 2
+    # python foss_fim/tools/rerun_calibration.py
+    # -i /outputs/fim_dir -jh 6 -jb 2
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Rerun calibrating rating curves (after a fim pipeline run)")
@@ -242,3 +249,5 @@ if __name__ == "__main__":
     rerun_calibration(**vars(parser.parse_args()))
 
     print(f"Completed in {round((timer() - start)/60, 2)} minutes.")
+
+    # add duration into log file as well
