@@ -160,7 +160,7 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
     # Create the logger
     start_time = datetime.now()
     timestamp = start_time.strftime("%Y%m%d_%H%M")
-    log_file_path = os.path.join(fim_run_dir, 'logs', f"rerun_calibration_{timestamp}.log")
+    log_file_path = os.path.join(fim_run_dir, 'logs', f"calib_rerun_{timestamp}.log")
     file_logger = setup_mp_file_logger(log_file_path, logger_name='rerunning_calibration')
     print('started rerunning calibration...')
     file_logger.info(f'started rerunning calibration at: {timestamp}')
