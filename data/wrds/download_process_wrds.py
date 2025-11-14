@@ -314,7 +314,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         print()
 
     else:
-        msg = f"metadata_download set to False, looking for NWM metadata file at {metadata_filepath}."
+        msg = f"Not downloading metadata, looking for NWM metadata file at {metadata_filepath}."
         messages.append(msg)
         print(msg)
 
@@ -334,9 +334,21 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     # Open metadata file (either the one we just downloaded or pre-existing)
     with open(metadata_filepath, "rb") as p_handle:
         output_meta_list = pickle.load(p_handle)
+        print(f"NWM metadata file loaded from {metadata_filepath}.") # TEMP DEBUG
     
     # Get the HUC dictionary
     huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
+
+    # Check if huc_lid_dict is empty and log message (unlikely but possible)
+    if not huc_lid_dict:
+        if "all" not in lst_hucs:
+            msg = "WARNING: No valid HUC/LID pairs found in the metadata for the specified HUC list."
+        else:
+            msg = "WARNING: No valid HUC/LID pairs found in the metadata."
+        messages.append(msg)
+        print(msg)
+
+    print()
     
     return output_meta_list, huc_lid_dict, messages
 

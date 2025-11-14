@@ -532,11 +532,13 @@ def restructure_data_for_pkl(joined_gdf_with_streams):
             "nws_preferred": {
                 "latitude": row['dec_lat_va'],
                 "longitude": row['dec_long_va'],
+                "huc": row['huc_cd'],
             },
             "usgs_preferred": {
                 "latitude": row['dec_lat_va'],
                 "longitude": row['dec_long_va'],
                 "latlon_datum_name": row['dec_coord_datum_cd'],
+                "huc": row['huc_cd'],
             },
             "nrldb_timestamp": 'NA',
             "nwis_timestamp": 'NA',
@@ -656,7 +658,7 @@ def mimic_wrds_data(site_thresholds_csv, usgs_data_txt, nhd_flowlines_gpkg,
     try:
         with open(metadata_output_pickle_path, 'wb') as f:
             pickle.dump(metadata_dict_list, f)
-        print(f"Saved thresholds to {metadata_output_pickle_path}")
+        print(f"Saved metadata to {metadata_output_pickle_path}")
     except Exception as e:
         print(f"Error saving pickle file {metadata_output_pickle_path}: {e}")
     
@@ -685,15 +687,7 @@ if __name__ == '__main__':
     This script builds a local “mimic” of WRDS site metadata and thresholds that would
       typically by downloaded from the WRDS API.
 
-    Steps:
-
-    - GET ELEVATION FROM WRDS: reads and formats a USGS station text file and downloads NWS metadata from an API,
-    - JOIN THRESHOLDS TO ELEVATIONS: joins metadata with USGS attributes and thresholds CSV,
-    - CROSSWALKING, UPSTREAM/DOWNSTREAM TRACE: finds nearest NHD flowlines and traces upstream/downstream reaches by distance and stream order,
-    - FORMATTING: reformats results into threshold and metadata structures, and saves them as pickle files.
-
-    Inputs and requirements
-
+    Notes on Inputs:
     - site_thresholds_csv (required)
         Path to a CSV containing site threshold records. Required columns (exact names):
             nws_lid, source, wrds_timestamp,
@@ -703,7 +697,7 @@ if __name__ == '__main__':
             stage_thresh_record, stage_thresh_units
         Format: comma-separated UTF-8 CSV. Each row represents thresholds for one NWS LID.
 
-    - usgs_data_txt (required) # TODO: Add description on how to download
+    - usgs_data_txt (required)
         Path to a USGS station text file (tab-separated) exported from USGS. The reader in this
         script skips the first 43 rows and expects the following columns to exist:
             agency_cd, site_no, station_nm, site_tp_cd, dec_lat_va, dec_long_va,
@@ -712,33 +706,23 @@ if __name__ == '__main__':
             alt_va, alt_meth_cd, alt_acy_va, alt_datum_cd, huc_cd
         Latitude/longitude must be decimal degrees. A horizontal datum should be present in
         dec_coord_datum_cd; if missing, DEFAULT_DATA_CRS ('NAD83') is used.
+        TODO: Add description on how to download
 
     - nhd_flowlines_gpkg (required)
-        Path to a GeoPackage (or other file readable by geopandas) containing NHD flowlines.
-        The flowline layer must include these fields:
-            ID, FROMCOMID, to, order_, LengthKM, Lake, geometry
-        The file will be reprojected to the provided local_proj_crs before spatial operations.
 
-    - env_file (optional)
-        Path to a .env file containing the environment variable API_BASE_URL used to fetch
-        additional metadata. Default: /data/config/fim_enviro_values.env. If API_BASE_URL is
-        missing the script will raise a ValueError.
 
-    - workspace (optional)
-        Directory where output pickle files will be written. Must be writable by the user.
-        Default: /data/inputs/wrds/manual_input # TODO: Update default path?
-
-    - label (optional)
-        Short label string appended into output filenames (metadata_<label>.pkl,
-        thresholds_<label>.pkl). If omitted, filenames use the label argument as provided. # TODO: Update label desc.
-
-    - search (optional)
-        Integer search distance in miles for upstream/downstream tracing (default: 5 miles).
-        Converted internally to kilometers (1 mile = 1.60934 km).
-
-    Notes and assumptions:
+    Notes on Projections:
     - The code assumes a single horizontal datum for the USGS input file and the WRDS metadata;
         when missing, DEFAULT_DATA_CRS ('NAD83') is used and a warning is printed.
+
+    - Oct '25 Guam CatFIM run used EPSG:3993, but I think EPSG:6637 is better for Guam overall
+        because it is NAD83-based instead of WGS84-based. Since that is the case, we can pull
+        the value from the NHD flowlines file instead of requiring user input.
+
+    Example usage:
+        python /foss_fim/data/wrds/mimic_wrds_data.py -t /guam_thresholds.csv -u /usgs_data_guam.txt 
+        -f /data/inputs/nhdplus/Guam_6637/NHDFlowline_Guam_6637.gpkg -w /output_folder/ -l guam 
+        
     '''
     
     # Parse arguments
@@ -747,6 +731,7 @@ if __name__ == '__main__':
         'that would typically by downloaded from the WRDS API.'
     )
 
+    # TODO:  Do we want to have a template CSV in this folder as well?
     parser.add_argument(
         '-t',
         '--site-thresholds-csv',
@@ -760,12 +745,12 @@ if __name__ == '__main__':
         required=True,
     ) 
 
-
     # TODO: remove as input when I get the USGS API metadata download working
+    # TODO: Add description, incl. where we need to get this data from (and how).
     parser.add_argument(
         '-u',
         '--usgs-data-txt',
-        help='a CSV downloaded from the USGS site' # TODO: Add description, incl. where we need to get this data from (and how). Do we want to have a template CSV in this folder as well?
+        help='a CSV downloaded from the USGS site' 
         'e.g. /home/emily.deardorff/notebooks/usgs_data_guam.txt',
         required=True,
     )
@@ -773,7 +758,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-f',
         '--nhd-flowlines-gpkg',
-        help='NHD flowlines file for the area.' # TODO: Add description, incl. where we need to get this data from 
+        help='NHD flowlines file for the area.'
         'e.g. /data/inputs/nhdplus/Guam_6637/NHDFlowline_Guam_6637.gpkg',
         required=True,
     )
@@ -788,9 +773,6 @@ if __name__ == '__main__':
     #     type=int,
     #     required=True,
     # )
-    # The Oct '25 Guam CatFIM run used EPSG:3993, but I think EPSG:6637 is better for Guam overall
-    # because it is NAD83-based instead of WGS84-based. Since that is the case, we can pull
-    # the value from the NHD flowlines file instead of requiring user input.
 
     parser.add_argument(
         '-e',
@@ -810,7 +792,8 @@ if __name__ == '__main__':
 
     parser.add_argument('-l',
         '--label',
-        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_ddmmyy.pkl and thresholds_<label>_ddmmyy.pkl).',
+        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_ddmmyy.pkl '
+             'and thresholds_<label>_ddmmyy.pkl).',
         required=False
     )
 

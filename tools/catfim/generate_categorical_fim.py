@@ -205,6 +205,7 @@ def process_generate_categorical_fim(
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
+
     # ================================
     set_start_files_folders(
         step_num, output_catfim_dir, output_mapping_dir, output_flows_dir, attributes_dir, overwrite
@@ -228,8 +229,8 @@ def process_generate_categorical_fim(
     # ================================
 
     # Set metadata/threshold filepaths if they aren't provided
-    if nwm_meta_file == "": nwm_meta_file = os.path.join('fim_temp', 'nwm_metadata.pkl') # TODO: Update default paths
-    if threshold_file == "": threshold_file = os.path.join('fim_temp', 'thresholds.pkl') # TODO: Update default paths
+    if nwm_meta_file == "": nwm_meta_file = os.path.join(output_catfim_dir, 'nwm_metadata.pkl') # TODO: Update default paths
+    if threshold_file == "": threshold_file = os.path.join(output_catfim_dir, 'thresholds.pkl') # TODO: Update default paths
 
     # Error if the files are not found and we are not getting new data
     if get_new_meta_data == False and os.path.exists(nwm_meta_file) == False:
@@ -321,10 +322,7 @@ def process_generate_categorical_fim(
 
     # ================================
 
-
-    ## ===== START SECTION OF CODE COPIED FROM download_process_wrds.py ===== # TODO: Pull logic from Rob's brance
-
-    # TODO: Add logic to create new metadata filename (pull from Rob's branch)
+    ## ===== START SECTION OF CODE COPIED FROM download_process_wrds.py =====
 
     # Load NWM metadata (either by downloading it or pulling it from WRDS)
     # Note: This is the function that we will put into CatFIM code
@@ -338,60 +336,34 @@ def process_generate_categorical_fim(
     if get_new_threshold_data == True:
         threshold_url = f'{API_BASE_URL}/nws_threshold'
 
-        label = ''
-        label_with_date = label_data_file(label, lst_hucs)
-        output_thresholds_filename = f'thresholds{label_with_date}.pkl'
-        thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
+        # label = ''
+        # label_with_date = label_data_file(label, lst_hucs)
+        # output_thresholds_filename = f'thresholds{label_with_date}.pkl'
+        # thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
         # Download thresholds
-        messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
+        messages = download_all_thresholds(threshold_file, threshold_url, huc_lid_dict)
         FLOG.lprint(messages)
 
     ## ===== END SECTION OF CODE COPIED FROM download_process_wrds.py =====
 
-    # if threshold_file != "":
-    #     if os.path.exists(threshold_file) == False:
-    #         raise Exception("The threshold input file can not be found. Please remove or fix pathing.")
-    #     file_ext = os.path.splitext(threshold_file)
-    #     if file_ext.count == 0:
-    #         raise Exception("The threshold input file appears to be invalid. It is missing an extension.")
-    #     if file_ext[1].lower() != ".pkl":
-    #         raise Exception("The threshold input file appears to be invalid. The extention is not pkl.")
+    # Get the source (important for differentiating processing for manual input vs wrds)
+    with open(threshold_file, "rb") as p_handle:
+        thresh_list = pickle.load(p_handle)
+        source_list = thresh_list['source']
 
-    #     # Read pickle file and get a list of unique HUCs
-    #     with open(threshold_file, 'rb') as f:
-    #         loaded_data = pickle.load(f)
+        # If manual input is in source list, set data source to manual input
+        # Assumes that if one is manual input, then all are manual input
+        if 'Manual_Input' in source_list:
+            print("Manual input found in threshold source list.")
+            data_source = 'Manual_Input'
 
-    #     hucs = loaded_data['huc'].unique().tolist()
-    #     threshold_hucs= [str(num).zfill(8) for num in hucs]
+        # Otherwise, compile unique sources into a comma-separated string
+        else:
+            data_source = set(thresh_list['source'])
+            data_source = ', '.join(data_source)
 
-        # # Get the source (since it might be Manual_Input)
-        # data_source = loaded_data['source'].tolist()[0] ## TODO add back in
-   
-        # # If a HUC list is specified, check that the HUCs in the list are also in the threshold file
-        # if 'all' not in lst_hucs:
-        #     missing_hucs = [huc for huc in valid_ahps_hucs if huc not in threshold_hucs]
-        #     if missing_hucs:
-        #         raise Exception(
-        #             f"The following HUCs from the input list are not present in the threshold file ({threshold_file}): "
-        #             f"{', '.join(missing_hucs)}"
-        #         )
-        # else:
-        #     # If 'all' is specified, filter valid_ahps_hucs to only those present in the threshold file and warn about dropped HUCs
-        #     filtered_hucs = [huc for huc in valid_ahps_hucs if huc in threshold_hucs]
-        #     dropped_huc_lst = list(set(valid_ahps_hucs) - set(filtered_hucs))
-        #     if dropped_huc_lst:
-        #         FLOG.warning(
-        #             f"The following HUCs are present in the FIM run directory but not in the threshold file ({threshold_file}) and will be skipped: "
-        #             f"{', '.join(dropped_huc_lst)}"
-        #         )
-        #     valid_ahps_hucs = filtered_hucs
-        #     num_hucs = len(valid_ahps_hucs)
-        #     if num_hucs == 0:
-        #         raise ValueError(
-        #             f'After filtering, the number of valid HUCs compared to the output directory of {fim_run_dir} is zero.'
-        #             ' Verify that you have the correct input folder and threshold file.'
-        #         )
+    
 
     # End of Validation and setup
     # ================================
