@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 
+import csv
 import datetime as dt
 import gc
+import glob
 import json
 import logging
 import os
-import csv
-import glob
 import pathlib
+import pickle
 import traceback
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import pickle
 import rasterio
 import rasterio.crs
 import rasterio.shutil
@@ -1133,12 +1133,13 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
         return stages, flows, status_msg
     else:
-        status_msg += "WRDS response error." 
+        status_msg += "WRDS response error."
         print(status_msg)
         stages = None
         flows = None
 
         return stages, flows, status_msg
+
 
 def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
     """
@@ -1155,7 +1156,7 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
 
     Returns:
     - None
-    
+
     Outputs:
     - CSV files for each LID in a subfolder 'threshold_download' within the output_folder.
     - A combined pickle file 'all_thresholds.pkl' containing all thresholds.
@@ -1164,7 +1165,7 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
     # Check that the inputs exist
     if not os.path.exists(metadata_pkl_file):
         raise FileNotFoundError(f"Metadata pickle file not found: {metadata_pkl_file}")
-    
+
     if not os.path.exists(output_folder):
         raise FileNotFoundError(f"Output folder not found: {output_folder}")
 
@@ -1178,7 +1179,7 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
     # Get list of all LIDs and their corresponding HUC from the metadata.pkl file
     with open(metadata_pkl_file, 'rb') as f:
         metadata = pickle.load(f)
-    
+
     print('Assembling HUC/LID list from metadata file.')
 
     lid_list = []
@@ -1190,7 +1191,7 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
 
         huc_nws_i = site_entry['nws_preferred']['huc']
         huc_usgs_i = site_entry['usgs_preferred']['huc']
-    
+
         huc_i = huc_usgs_i if huc_nws_i is None else huc_nws_i
 
         lid_list.append(lid_i)
@@ -1203,8 +1204,8 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
     for lid, huc in huc_lid_dict.items():
         try:
             stages, flows, status = get_thresholds(
-                    threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-                )
+                threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+            )
         except Exception as e:
             print(f"Error retrieving thresholds for LID {lid}: {e}")
             print(status)
@@ -1213,11 +1214,13 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
         # Specify the CSV file name and path
         csv_filename = f"thresholds_{lid.lower()}.csv"
         csv_filepath = os.path.join(thresholds_folder, csv_filename)
-        
+
         # Combine and label thresholds
-        thresholds = [{'threshold_type': 'stages', 'huc': huc, **stages}, 
-                    {'threshold_type': 'flows', 'huc': huc, **flows}]
-        
+        thresholds = [
+            {'threshold_type': 'stages', 'huc': huc, **stages},
+            {'threshold_type': 'flows', 'huc': huc, **flows},
+        ]
+
         # Open the CSV file and write threshold data
         with open(csv_filepath, mode='w', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=thresholds[1].keys())
@@ -1227,7 +1230,7 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
     print('Saved threshold CSVs for sites.')
 
     output_pickle_path = os.path.join(thresholds_folder, 'all_thresholds.pkl')
-    
+
     # Get all threshold CSVs
     csv_files = glob.glob(os.path.join(thresholds_folder, "*.csv"))
 
@@ -1249,6 +1252,7 @@ def download_all_thresholds(threshold_url, metadata_pkl_file, output_folder):
         print(f"Error saving pickle file {output_pickle_path}: {e}")
 
     print('Thresholds compilation complete.')
+
 
 ########################################################################
 # Function to write flow file

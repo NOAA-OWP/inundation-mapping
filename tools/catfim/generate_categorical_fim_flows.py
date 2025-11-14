@@ -27,9 +27,8 @@ from tools_shared_functions import (
     get_thresholds,
 )
 
-from data.wrds.download_process_wrds import load_site_thresholds
-
 import utils.fim_logger as fl
+from data.wrds.download_process_wrds import load_site_thresholds
 from utils.shared_variables import VIZ_PROJECTION
 
 
@@ -55,7 +54,7 @@ def get_env_paths(env_file):
     '''
     Loads environment variables from a .env file.
     Expects the .env file to contain API_BASE_URL and WBD_LAYER variables.
-    
+
     Parameters
     ----------
         env_file (str): Path to the .env file.
@@ -92,8 +91,8 @@ def generate_flows_for_huc(
 ):
     '''
     Only runs for flow-based CatFIM.
-    
-    Generates categorical flow files and attribute CSVs for a given HUC 
+
+    Generates categorical flow files and attribute CSVs for a given HUC
     using metadata, thresholds, and NWM stream segments.
 
     For each NWS site (lid) in the specified HUC:
@@ -219,7 +218,7 @@ def generate_flows_for_huc(
             # MP_LOG.lprint(status_msg) # TEMP DEBUG
 
             # Update status if flows are not found
-            if flows is None or len(flows) == 0: # Changed to flows Sept' 25
+            if flows is None or len(flows) == 0:  # Changed to flows Sept' 25
                 if "WRDS response sucessful." in status_msg:
                     msg = ':WRDS response sucessful but no flow values available'
                     all_messages.append(lid + msg)
@@ -264,8 +263,10 @@ def generate_flows_for_huc(
             unfiltered_segments = list(set(get_nwm_segs(metadata)))
             desired_order = metadata['nwm_feature_data']['stream_order']
 
-            # Filter segments to be of like stream order.           
-            segments = filter_nwm_segments_by_stream_order(unfiltered_segments, desired_order, nwm_flows_region_df)
+            # Filter segments to be of like stream order.
+            segments = filter_nwm_segments_by_stream_order(
+                unfiltered_segments, desired_order, nwm_flows_region_df
+            )
             # Previous input was nwm_flows_df, but now it is region specific df (9/25/25)
 
             # If there are no segments, write message and exit out
@@ -452,7 +453,7 @@ def generate_flows(
 ):
     '''
     Runs for both stage- and flow-based CatFIM (but with different outputs/endpoints).
-    
+
     Generates static flow files for all NWS LIDs and saves them to the specified workspace directory.
     The function supports both stage-based and flow-based inundation mapping workflows.
     For each HUC, the function:
@@ -476,14 +477,14 @@ def generate_flows(
         log_output_file (str): Path to the log output file for logging process information.
         df_restricted_sites (pandas.DataFrame): DataFrame of restricted sites to exclude from processing.
         threshold_file (str): Path to file containing threshold definitions for mapping.
-    
+
     Returns
     -------
     If is_stage_based is True, returns a tuple:
         (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, flows_df_dict)
     Otherwise, returns None (results are written to disk).
-    
-    
+
+
     Side Effects
     ------------
     - Writes flow files, attribute CSVs, and GeoPackages to output directories.
@@ -491,7 +492,7 @@ def generate_flows(
         <huc>/<lid>/<threshold>/flow file (ahps_{lid code}_huc_{huc 8 code}_flows_{threshold}.csv)
     - Logs process information and errors.
     - Merges and finalizes mapping results for visualization and downstream use.
- 
+
     Notes
     -----
     - Handles special regions (Guam, American Samoa, Alaska) with region-specific flowline data.
@@ -531,7 +532,9 @@ def generate_flows(
     nwm_flows_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows.gpkg'
     nwm_flows_alaska_gpkg = r'/data/inputs/nwm_hydrofabric/nwm_flows_alaska_nwmV3_ID.gpkg'
     input_nhd_flows_Guam = r'/data/inputs/nhdplus/Guam_6637/NHDFlowline_Guam_6637.gpkg'
-    input_nhd_flows_AmericanSamoa = r'/data/inputs/nhdplus/AmericanSamoa_32702/NHDFlowline_AmericanSamoa_32702.gpkg'
+    input_nhd_flows_AmericanSamoa = (
+        r'/data/inputs/nhdplus/AmericanSamoa_32702/NHDFlowline_AmericanSamoa_32702.gpkg'
+    )
 
     nwm_flows_df = gpd.read_file(nwm_flows_gpkg)
     nwm_flows_alaska_df = gpd.read_file(nwm_flows_alaska_gpkg)
@@ -543,7 +546,7 @@ def generate_flows(
         'nwm_flows_df': nwm_flows_df,
         'nwm_flows_alaska_df': nwm_flows_alaska_df,
         'nhd_flows_guam_df': nhd_flows_guam_df,
-        'nhd_flows_americansamoa_df': nhd_flows_americansamoa_df
+        'nhd_flows_americansamoa_df': nhd_flows_americansamoa_df,
     }
 
     # nwm_meta_file might be an empty string
@@ -581,7 +584,7 @@ def generate_flows(
     out_gdf = out_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
     out_gdf = out_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
 
-    if 'metadata_sources' in out_gdf.columns: # TODO: Is this column needed/used? Changed to accomodate Guam
+    if 'metadata_sources' in out_gdf.columns:  # TODO: Is this column needed/used? Changed to accomodate Guam
         out_gdf = out_gdf.astype({'metadata_sources': str})
 
     FLOG.lprint("+++++++++++++")
@@ -594,14 +597,7 @@ def generate_flows(
     # It this is stage-based, it returns all of these objects here, but if it continues
     # (aka. Flow based), then it returns only nws_lid_layer (created later in this function)
     if is_stage_based:  # If it's stage-based, the function stops running here
-        return (
-            huc_dictionary,
-            out_gdf,
-            metadata_url,
-            threshold_url,
-            all_meta_lists,
-            flows_df_dict,
-        )
+        return (huc_dictionary, out_gdf, metadata_url, threshold_url, all_meta_lists, flows_df_dict)
 
     # only flow based needs the "flow" dir
     output_flows_dir = os.path.join(output_catfim_dir, "flows")
@@ -639,7 +635,7 @@ def generate_flows(
                 output_flows_dir,
                 attributes_dir,
                 huc_messages_dir,
-                nwm_flows_region_df, 
+                nwm_flows_region_df,
                 log_output_file,
                 child_log_file_prefix,
                 df_restricted_sites,
@@ -771,7 +767,6 @@ def generate_flows(
     all_time_duration = all_end - all_start
     FLOG.lprint(f"End Wrapping up flows generation Duration: {str(all_time_duration).split('.')[0]}")
     print()
-
 
 
 if __name__ == '__main__':

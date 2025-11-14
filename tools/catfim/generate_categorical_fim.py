@@ -2,9 +2,9 @@
 
 import argparse
 import glob
-import pickle
 import math
 import os
+import pickle
 import shutil
 import sys
 import time
@@ -36,16 +36,15 @@ from tools_shared_variables import (
     acceptable_site_type_list,
 )
 
+import utils.fim_logger as fl
 from data.wrds.download_process_wrds import (
-    load_nwm_metadata,
     download_all_thresholds,
     label_data_file,
-    load_site_thresholds
+    load_nwm_metadata,
+    load_site_thresholds,
 )
-
-
-import utils.fim_logger as fl
 from utils.shared_variables import VIZ_PROJECTION
+
 
 # global RLOG
 FLOG = fl.FIM_logger()  # the non mp version
@@ -96,13 +95,13 @@ def process_generate_categorical_fim(
     get_new_threshold_data,
     catfim_version,
     model_version,
-    overwrite
+    overwrite,
 ):
     '''
     Orchestrates the generation of CatFIM products for a set of Hydrologic Unit Codes (HUCs),
     supporting both stage-based and flow-based methodologies. Handles validation, setup, filtering, and multi-step processing
     including flow generation, mapping, post-processing, and status updates.
-    
+
     Parameters
     ----------
     fim_run_dir : str
@@ -137,19 +136,19 @@ def process_generate_categorical_fim(
         Path to the NWM metadata pickle file (optional, defaults to "" if not included).
     threshold_file : str
         Path to the threshold pickle file for manual input thresholds (optional, defaults to "" if not included).
-    
+
     Raises
     ------
     Exception
         If required files or directories are missing or invalid.
     ValueError
         If input parameters are inconsistent or result in zero valid HUCs.
-    
+
     Returns
     -------
     None
         Results are written to output directories and files; function does not return a value.
-    
+
     Workflow Steps
     -------------
     1. Validation and setup of input directories, files, and parameters.
@@ -158,7 +157,7 @@ def process_generate_categorical_fim(
     4. Compilation of threshold data and cleanup of intermediate files.
     5. Updating mapping status for processed sites.
     6. Logging of progress, warnings, and summary information.
-    
+
     Notes
     -----
     - Supports skipping steps via the `step_num` parameter.
@@ -205,7 +204,6 @@ def process_generate_categorical_fim(
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     attributes_dir = os.path.join(output_catfim_dir, 'attributes')
 
-
     # ================================
     set_start_files_folders(
         step_num, output_catfim_dir, output_mapping_dir, output_flows_dir, attributes_dir, overwrite
@@ -213,7 +211,6 @@ def process_generate_categorical_fim(
 
     FLOG.trace("locals...")
     FLOG.trace(local_vals)
-
 
     # For API usage
     load_dotenv(env_file)
@@ -229,15 +226,21 @@ def process_generate_categorical_fim(
     # ================================
 
     # Set metadata/threshold filepaths if they aren't provided
-    if nwm_meta_file == "": nwm_meta_file = os.path.join(output_catfim_dir, 'nwm_metadata.pkl') # TODO: Update default paths
-    if threshold_file == "": threshold_file = os.path.join(output_catfim_dir, 'thresholds.pkl') # TODO: Update default paths
+    if nwm_meta_file == "":
+        nwm_meta_file = os.path.join(output_catfim_dir, 'nwm_metadata.pkl')  # TODO: Update default paths
+    if threshold_file == "":
+        threshold_file = os.path.join(output_catfim_dir, 'thresholds.pkl')  # TODO: Update default paths
 
     # Error if the files are not found and we are not getting new data
     if get_new_meta_data == False and os.path.exists(nwm_meta_file) == False:
-        raise Exception(f"The nwm_metadata file can not be found at {nwm_meta_file}. Please fix pathing or use the get metadata flag.")
-            
+        raise Exception(
+            f"The nwm_metadata file can not be found at {nwm_meta_file}. Please fix pathing or use the get metadata flag."
+        )
+
     if get_new_threshold_data == False and threshold_file != "" and os.path.exists(threshold_file) == False:
-        raise Exception(f"The threshold input file can not be found at {threshold_file}. Please fix pathing or use the get threshold flag.")
+        raise Exception(
+            f"The threshold input file can not be found at {threshold_file}. Please fix pathing or use the get threshold flag."
+        )
 
     #         if os.path.exists(nwm_meta_file) == False:
     #             raise Exception("The nwm_metadata (-me) file can not be found. Please remove or fix pathing.")
@@ -246,7 +249,7 @@ def process_generate_categorical_fim(
     #             raise Exception("The nwm_metadata (-me) file appears to be invalid. It is missing an extension.")
     #         if file_ext[1].lower() != ".pkl":
     #             raise Exception("The nwm_metadata (-me) file appears to be invalid. The extention is not pkl.")
-        
+
     # else:
     #     nwm_meta_file = os.path.join(output_catfim_dir, 'nwm_metadata.pkl')
 
@@ -258,7 +261,6 @@ def process_generate_categorical_fim(
     #         raise Exception("The threshold input file appears to be invalid. It is missing an extension.")
     #     if file_ext[1].lower() != ".pkl":
     #         raise Exception("The threshold input file appears to be invalid. The extention is not pkl.")
-
 
     # ================================
     # Define default arguments. Modify these if necessary
@@ -326,7 +328,9 @@ def process_generate_categorical_fim(
 
     # Load NWM metadata (either by downloading it or pulling it from WRDS)
     # Note: This is the function that we will put into CatFIM code
-    output_meta_list, huc_lid_dict, messages = load_nwm_metadata(nwm_meta_file, API_BASE_URL, search, get_new_meta_data, lst_hucs)
+    output_meta_list, huc_lid_dict, messages = load_nwm_metadata(
+        nwm_meta_file, API_BASE_URL, search, get_new_meta_data, lst_hucs
+    )
     FLOG.lprint(messages)
 
     if not huc_lid_dict:
@@ -363,8 +367,6 @@ def process_generate_categorical_fim(
             data_source = set(thresh_list['source'])
             data_source = ', '.join(data_source)
 
-    
-
     # End of Validation and setup
     # ================================
 
@@ -390,7 +392,6 @@ def process_generate_categorical_fim(
     #     FLOG.lprint(f'Threshold file has data for {len(threshold_hucs)} HUC(s)')
 
     # FLOG.lprint(f'Data source: {data_source}')  # TEMP DEBUG
-
 
     # Check that fim_inputs.csv exists and raise error if necessary
     fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
@@ -550,7 +551,7 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
     Returns:
         ahps_ids_with_gpkgs (list): A list of unique AHPS IDs (as strings) extracted from the .gpkg filenames.
 
-    Used to check whether AHPS LID is 5 characters, but no longer does (as of Aug '25) 
+    Used to check whether AHPS LID is 5 characters, but no longer does (as of Aug '25)
     because LID lengths above 5 characters are probably invalid but we are not checking that here.
     '''
 
@@ -573,13 +574,13 @@ def get_list_ahps_with_library_gpkgs(output_mapping_dir):
 def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catfim_version, model_version):
     '''
     Used in both stage- and flow-based CatFIM.
-    
+
     Updates the mapping status and status messages for CatFIM sites based on the presence of valid inundation GeoPackage files.
 
     This function reads a GeoPackage or CSV file containing CatFIM site information, checks which sites have valid inundation
-    mapping outputs, and updates the 'mapped' and 'status' columns accordingly. Gets a list of valid ahps that have at least 
+    mapping outputs, and updates the 'mapped' and 'status' columns accordingly. Gets a list of valid ahps that have at least
     one gkpg file. If we have at least one, then the site mapped something.
-    
+
     It also adds 'model_version' and 'product_version' columns, and saves the updated data back to the original file and as a CSV.
 
     By this point, most should have had status messages until something failed in inundation or creating the gpkg.
@@ -697,9 +698,9 @@ def iterate_through_huc_stage_based(
 ):
     '''
     Processes a single HUC to generate stage-based CatFIM.
-    
-    The function iterates through all NWS LIDs (locations) within the HUC, performing data validation, 
-    threshold extraction, elevation adjustment, and mapping for each flood category and interval. 
+
+    The function iterates through all NWS LIDs (locations) within the HUC, performing data validation,
+    threshold extraction, elevation adjustment, and mapping for each flood category and interval.
     It handles logging, error reporting, and output file generation for each site.
 
     Does flow files and mapping in the same function by HUC.
@@ -816,7 +817,7 @@ def iterate_through_huc_stage_based(
         categories = ['action', 'minor', 'moderate', 'major', 'record']
 
         if skip_lid_process == False:  # else skip to message processing
-            if data_source != 'Manual_Input': # Manual input data does not need usgs_elev_table
+            if data_source != 'Manual_Input':  # Manual input data does not need usgs_elev_table
                 usgs_elev_df = pd.read_csv(usgs_elev_table)
 
             df_cols = {
@@ -887,7 +888,7 @@ def iterate_through_huc_stage_based(
 
                 # Get thresholds from threshold file
                 thresholds, flows, status_msg = load_site_thresholds(threshold_file, lid)
-                
+
                 MP_LOG.trace(status_msg)
 
                 # Update status if stage thresholds are not found
@@ -937,10 +938,10 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # If not manual input, check elevation data and get datum adjustment
-                if data_source != 'Manual_Input':  
+                if data_source != 'Manual_Input':
 
                     # Look for acceptable elevations
-                    acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id) 
+                    acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id)
 
                     if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
                         msg = ":Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
@@ -957,7 +958,7 @@ def iterate_through_huc_stage_based(
                     if len(dem_eval_messages) > 0:
                         continue
 
-                    # Filter out sites that don't have "good" data 
+                    # Filter out sites that don't have "good" data
                     # TODO: USGS Gage Method: It doens't seem like the below error messages are performing as expected....
                     try:
                         if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
@@ -982,10 +983,14 @@ def iterate_through_huc_stage_based(
                         continue
 
                 else:  # if source is manual input, we skip the above elevation filtering
-                    MP_LOG.lprint(f"{huc_lid_id}: Skipping elevation checks and datum adjustment for Manual Input source")
+                    MP_LOG.lprint(
+                        f"{huc_lid_id}: Skipping elevation checks and datum adjustment for Manual Input source"
+                    )
 
-                    lid_altitude = float(lid_altitude) # LID altitude is expected to be in meters
-                    lid_usgs_elev = (lid_altitude * 0.3048) # lid_altitude is now in meters to match non-manual input units
+                    lid_altitude = float(lid_altitude)  # LID altitude is expected to be in meters
+                    lid_usgs_elev = (
+                        lid_altitude * 0.3048
+                    )  # lid_altitude is now in meters to match non-manual input units
                     # TODO: Automate conversion?
 
                     datum_adj_ft = 0  # no datum adjustment for manual input
@@ -1010,7 +1015,7 @@ def iterate_through_huc_stage_based(
                     continue
 
                 # Check for large discrepancies between the elevation values from WRDS and HAND.
-                #   Otherwise this causes bad mapping. 
+                #   Otherwise this causes bad mapping.
                 # Manual_Input will have no elev disparity because it's from the the same value.
                 elevation_diff = lid_usgs_elev - (lid_altitude * 0.3048)
                 diff_rounded = round(elevation_diff, 2)
@@ -1371,7 +1376,7 @@ def __calc_stage_values(categories, thresholds):
         thresholds (dict): Dictionary mapping stage names to their threshold values (anywhere from 0 to 5 stages).
 
     Returns:
-        stage_values_df (pandas.DataFrame): DataFrame with rows for each stage and 
+        stage_values_df (pandas.DataFrame): DataFrame with rows for each stage and
             their corresponding values (defaulted to -1 if missing or invalid).
         valid_stage_names (list): List of stage names with valid threshold values.
         warning_msg (str): Warning message if some stages are missing valid values.
@@ -1381,7 +1386,7 @@ def __calc_stage_values(categories, thresholds):
         - Stages with missing or invalid threshold values are assigned -1.
         - If all five stages are invalid, returns None for the DataFrame and an error message.
         - Warning messages are formatted with "---" to indicate missing stage data.
-    
+
     '''
 
     # Set default values
@@ -1437,7 +1442,7 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
             Must have columns "stage_name" and "stage_value".
         past_major_interval_cap (int): The number of intervals to add beyond the last stage value.
         huc_lid_id (str): Identifier used for logging and tracing.
-    
+
     Returns:
         list: A list of lists, where each sublist contains a stage name and an integer interval value,
               e.g., [["action", 21], ["action", 22], ...]. This represents the stage names and depths
@@ -1509,15 +1514,15 @@ def __calc_stage_intervals(non_rec_stage_values_df, past_major_interval_cap, huc
 
 def load_restricted_sites(is_stage_based):
     '''
-    Used in both stage- and flow-based CatFIM. 
+    Used in both stage- and flow-based CatFIM.
 
     The 'catfim_type' arg is used to determine whether the site should be filtered out
     for stage-based CatFIM, flow-based CatFIM, or both.
 
     Args:
-        catfim_type (str): Can have three different values: 'stage', 'flow', or 'both'. 
-    
-    Returns: 
+        catfim_type (str): Can have three different values: 'stage', 'flow', or 'both'.
+
+    Returns:
         df_restricted_sites (pandas.DataFrame): A dataframe for the restricted lid and the reason why.
             Columns: 'nws_lid', 'restricted_reason', 'catfim_type'
     '''
@@ -1589,15 +1594,15 @@ def load_restricted_sites(is_stage_based):
 def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     '''
     Used in stage-based CatFIM.
-    
-    Determines the vertical datum adjustment (in feet) to convert the datum of the 
+
+    Determines the vertical datum adjustment (in feet) to convert the datum of the
     rating curve to NAVD88.
 
-    Uses the rating curve source and metadata to get the correct vertical datum and CRS. 
+    Uses the rating curve source and metadata to get the correct vertical datum and CRS.
 
-    It applies custom workarounds for known sites with special datum or CRS requirements, 
-    and attempts to compute the adjustment using the NOAA VDatum service when necessary. 
-    
+    It applies custom workarounds for known sites with special datum or CRS requirements,
+    and attempts to compute the adjustment using the NOAA VDatum service when necessary.
+
     Args:
         flows (dict): Dictionary containing flow information, including the source of the rating curve.
         metadata (dict): Dictionary containing site metadata, including datum and CRS information.
@@ -1747,7 +1752,7 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df, huc_lid_id):
     '''
     Used in stage-based CatFIM.
 
-    Creates an updated USGS elevation table with a descriptive USGS exclusion status column. 
+    Creates an updated USGS elevation table with a descriptive USGS exclusion status column.
 
     The function checks each row of the input DataFrame for:
         - Acceptable USGS data altitude method code
@@ -1954,7 +1959,7 @@ def generate_stage_based_categorical_fim(
 ):
     '''
     Generates stage-based CatFIM for a list of HUCs.
-    
+
     This function orchestrates the workflow for producing stage-based CatFIM outputs, including:
     - Generating necessary flow data and site attributes.
     - Parallel processing of HUCs to create inundation mapping and attribute files.
@@ -1963,7 +1968,7 @@ def generate_stage_based_categorical_fim(
     - Logging and error handling throughout the process.
 
     Parameters
-    ----------        
+    ----------
         output_catfim_dir (str): Directory where CatFIM outputs will be written.
         fim_run_dir (str): Directory containing FIM run data.
         nwm_us_search (str): Path or identifier for upstream NWM search data.
@@ -1980,7 +1985,7 @@ def generate_stage_based_categorical_fim(
         data_source (str): Identifier for the data source being used.
 
     Outputs
-    ----------        
+    ----------
         - Attribute CSVs for each mapped site.
         - A merged attribute CSV (`nws_lid_attributes.csv`) in the attributes directory.
         - A GeoPackage (`stage_based_catfim_sites.gpkg`) and CSV summarizing all candidate sites and their mapping status.
@@ -1989,7 +1994,7 @@ def generate_stage_based_categorical_fim(
     Note: The function assumes the existence of several external utilities and global variables (e.g., FLOG, VIZ_PROJECTION, acceptable_* lists).
 
     Raises
-    ----------  
+    ----------
         Exception: If no attribute CSV files are found or if other critical errors occur during processing.
     '''
 
@@ -2009,7 +2014,6 @@ def generate_stage_based_categorical_fim(
     huc_messages_dir = os.path.join(output_mapping_dir, 'huc_messages')
     os.makedirs(huc_messages_dir, exist_ok=True)
 
-
     FLOG.lprint("Starting generate_flows (Stage Based)")
     # Generate flows is only using one of the incoming job number params
     # so let's multiply -jh (huc) and -jn (inundate)
@@ -2021,20 +2025,18 @@ def generate_stage_based_categorical_fim(
     # stage based doesn't really need generated flow data
     # But for flow based, it really does use it to generate flows.
     #
-    (huc_dictionary, sites_gdf, ___, threshold_url, all_lists, flows_df_dict) = (
-        generate_flows(
-            output_catfim_dir,
-            nwm_us_search,
-            nwm_ds_search,
-            env_file,
-            job_flows,
-            True,
-            lst_hucs,
-            nwm_meta_file,
-            str(FLOG.LOG_FILE_PATH),
-            df_restricted_sites,
-            threshold_file,
-        )
+    (huc_dictionary, sites_gdf, ___, threshold_url, all_lists, flows_df_dict) = generate_flows(
+        output_catfim_dir,
+        nwm_us_search,
+        nwm_ds_search,
+        env_file,
+        job_flows,
+        True,
+        lst_hucs,
+        nwm_meta_file,
+        str(FLOG.LOG_FILE_PATH),
+        df_restricted_sites,
+        threshold_file,
     )
 
     # FLOG.trace("Huc distionary is ...")
@@ -2117,7 +2119,7 @@ def generate_stage_based_categorical_fim(
     # Write to file
     if len(all_csv_df) == 0:
         raise Exception(f"no csv files found - missing attribute CSVs in {attributes_dir}")
-    # TODO: This error currently occurs if no sites are mapped (usually in a test). 
+    # TODO: This error currently occurs if no sites are mapped (usually in a test).
     # Make a test that catches this earlier and provides a more legible error/warning message.
 
     all_csv_df.to_csv(os.path.join(attributes_dir, 'nws_lid_attributes.csv'), index=False)
@@ -2409,9 +2411,9 @@ if __name__ == '__main__':
         " directly means you can add filters, searching, site specific, etc. This allows for easier debugging."
         " However, the default behavior is to use the previously created nwm_metadata file and filter out the data"
         " CatFIM needs for processing.",
-         required=False,
-         default=False,
-         action='store_true'
+        required=False,
+        default=False,
+        action='store_true',
     )
 
     # get from bash_varibles.env or similar if not provided
@@ -2424,7 +2426,7 @@ if __name__ == '__main__':
         required=False,
         default="",
     )
-   
+
     parser.add_argument(
         '-gtf',
         '--get-new-threshold-data',
@@ -2433,9 +2435,9 @@ if __name__ == '__main__':
         " directly means you can add filters, searching, site specific, etc. This allows for easier debugging."
         " However, the default behavior is to use the previously created nwm_threshold file and filter out the data"
         " CatFIM needs for processing.",
-         required=False,
-         default=False,
-         action='store_true'
+        required=False,
+        default=False,
+        action='store_true',
     )
 
     parser.add_argument(

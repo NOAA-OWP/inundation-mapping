@@ -28,6 +28,7 @@ import utils.fim_logger as fl
 from utils.shared_functions import getDriver
 from utils.shared_variables import VIZ_PROJECTION
 
+
 '''
 
 Aug 2024
@@ -68,7 +69,7 @@ def produce_stage_based_lid_tifs(
 ):
     '''
     Only used for stage-based CatFIM.
-    
+
     Generates stage-based inundation TIFF files for a given LID (Location ID) and category, mosaics branch-level inundation maps,
     and removes intermediary files. Handles multi-processing across branches and logs progress and warnings.
 
@@ -368,16 +369,16 @@ def produce_inundated_branch_tif(
     '''
     Only used in stage-based CatFIM.
 
-    Generates a binary inundation raster (GeoTIFF) for a given branch and stage, 
+    Generates a binary inundation raster (GeoTIFF) for a given branch and stage,
     indicating inundated areas within specified catchments.
 
-    This function reads a REM (Raster Elevation Model) and catchments raster, applies 
-    a stage threshold, and masks the result to catchments matching the provided hydroid 
-    list. The output is a raster where inundated cells are marked as 1 and non-inundated 
+    This function reads a REM (Raster Elevation Model) and catchments raster, applies
+    a stage threshold, and masks the result to catchments matching the provided hydroid
+    list. The output is a raster where inundated cells are marked as 1 and non-inundated
     cells as 0.
 
-    This is a form of inundation which is specific to CatFIM because we only have one 
-    flow value and the other FIM inundation tools are looking for flow files not single 
+    This is a form of inundation which is specific to CatFIM because we only have one
+    flow value and the other FIM inundation tools are looking for flow files not single
     values.
 
     Parameters
@@ -416,7 +417,7 @@ def produce_inundated_branch_tif(
     - Logging is set up for error and trace reporting.
     - Handles hydroid values by clipping to the last 4 digits for matching.
     - Both input rasters are expected to have a nodata value of 0.
-    - A category can have different formats, depending if it is an interval or not or int or float. 
+    - A category can have different formats, depending if it is an interval or not or int or float.
         If it has a stage number it, it is an interval value, ie) action, action_24ft, action_24.6, or action_24.6ft
 
     '''
@@ -498,12 +499,12 @@ def produce_inundated_branch_tif(
 
 
 # This is not part of an MP process, but needs to have FLOG carried over so this file can see it
-def run_catfim_inundation(    
+def run_catfim_inundation(
     fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
 ):
     '''
     Only used in flow-based CatFIM.
-    
+
     Executes the inundation and mosaicking process for CatFIM mapping across multiple HUCs and AHPS sites.
 
     This function coordinates the parallel execution of inundation mapping tasks using a process pool, handling
@@ -673,8 +674,8 @@ def run_inundation(
 ):
     '''
     Only used in flow-based CatFIM.
-    
-    Runs the inundation mapping workflow for a given HUC and magnitude, including logging, 
+
+    Runs the inundation mapping workflow for a given HUC and magnitude, including logging,
     inundation raster generation, mosaicking, and lake masking.
 
     Inundates each set based on the ahps/mangnitude list and for each segment in the the branch hydrotable.
@@ -976,7 +977,6 @@ def post_process_cat_fim_for_viz(
         None
     '''
 
-
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
 
@@ -1134,7 +1134,7 @@ def reformat_inundation_maps(
     Used in both flow- and stage-based CatFIM.
 
     Converts an inundation raster (GeoTIFF) to a dissolved polygon GeoPackage with enriched attributes.
-    
+
     This function reads an inundation raster file, extracts inundated areas as polygons, dissolves them into a single multipolygon,
     and joins additional attributes from a CSV file. The resulting GeoDataFrame is projected to Web Mercator and saved as a GeoPackage.
     Logging is performed throughout the process, and special handling is included for interval stages and empty rasters.
@@ -1182,7 +1182,7 @@ def reformat_inundation_maps(
     - The interval stage might come in as null and that is ok
 
     '''
-    
+
     # Note: child_log_file_prefix is "MP_reformat_tifs_{huc}", meaning all logs created by this
     # function start with the phrase will rollup to the master catfim logs
 
@@ -1288,6 +1288,7 @@ def reformat_inundation_maps(
 # This is not part of an MP progress and simply needs the
 # pointer of FLOG carried over here so it can use it directly.
 
+
 # TODO: Aug, 2024. We need re-evaluate job numbers, see usage of job numbers below
 def manage_catfim_mapping(
     fim_run_dir,
@@ -1304,7 +1305,7 @@ def manage_catfim_mapping(
     '''
     Only used in flow-based CatFIM.
 
-    Manages the workflow for generating categorical FIM (Flood Inundation Mapping) outputs, 
+    Manages the workflow for generating categorical FIM (Flood Inundation Mapping) outputs,
     including running inundation mapping and post-processing for visualization.
 
     Parameters:
