@@ -52,13 +52,13 @@ def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
     1. Go to https://waterdata.usgs.gov/nwis/inventory and select a method to filter the site data, such as State/Territory).
 
     2. Filtering and downloading data:
-        - In the next page, select the State/Territory (or other identifier) for which you want to get the data. 
+        - In the next page, select the State/Territory (or other identifier) for which you want to get the data.
         - In the "Choose Output Format" section, check the "Site-description information displayed in" button and select "Tab-separated format -- saved to file."
         - Where it says "Select fields to include in site-description output," select all of the fields by clicking the first field, holding down the Shift
           key, and then clicking the very last field.
 
     3. Click "Submit" to download the file. Save it with a descriptive name and a .txt extension.
-    
+
     TODO: Update or replace this function with a call to the USGS API (instead of
     using a predownloaded USGS data file)
     '''
