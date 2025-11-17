@@ -3,7 +3,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.8.x.x - 2025-10-29 - [PR#1689](https://github.com/NOAA-OWP/inundation-mapping/pull/1689)
 
-Uses 100-year FEMA NFHL data as the extent for floodplain adjustment where the data exist. This is primarily to fix the situation around Phoenix AZ where the 500-year floodplain data allow extensive erroneous overflooding even though the 500-year data were confirmed to be correct. Additionally, there is no NFHL availability layer coverage for the area even though there is coverage by the 100- and 500-year layers, so the 100- and 500-year extents are added to the availability layer mask to exclude inundation in those areas beyond the distance threshold. The distance threshold for floodplain adjustment is also reduced from 3000 meters to 1500 meters.
+Uses 100-year FEMA NFHL data as the extent for floodplain adjustment where the data exist. This is primarily to fix the situation around Phoenix AZ where the 500-year floodplain data allow extensive erroneous overflooding even though the 500-year data were confirmed to be correct. Additionally, there is no NFHL availability layer coverage for the area even though there is coverage by the 100- and 500-year layers, so the 100- and 500-year extents are added to the availability layer mask to exclude inundation in those areas beyond the distance threshold. The distance threshold for floodplain adjustment is also reduced from 3000 meters to 1500 meters and confined to the catchment for the current levelpath.
 
 ### Changes
 
@@ -14,6 +14,7 @@ Uses 100-year FEMA NFHL data as the extent for floodplain adjustment where the d
 - `src/`
     - `adjust_floodplains.py`: Uses specified NFHL layer in floodplain adjustment and adds combined 100- and 500-year floodplains to availability mask
     - `run_by_branch.sh`: Adds an intermediate file (`dem_burned_adjusted_{}.tif`) for debugging.
+    - `run_unit_wb.sh`: Miscellaneous cleanup (deleted commented lines and fix misspelling).
     
 ## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
 
