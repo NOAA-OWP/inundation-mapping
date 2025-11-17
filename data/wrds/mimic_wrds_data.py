@@ -9,6 +9,7 @@ import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
 from tools_shared_functions import get_metadata
+from download_process_wrds import label_data_file
 
 
 def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
@@ -18,7 +19,7 @@ def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
     Parameters
     ----------
     usgs_data_txt : str or file-like
-        Path to a USGS metadata text file with a a 43-line header which is skipped prior
+        Path to a USGS metadata text file with a # header which is skipped prior
         to reading the table rows.
     DEFAULT_DATA_CRS : str or pyproj.CRS
         Coordinate reference system to assign when the file does not contain a coordinate
@@ -46,12 +47,24 @@ def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
     - KeyError if the expected columns are not present in the parsed table.
     - ValueError from geopandas if the CRS value is not a valid/recognized CRS.
 
+    To Get the USGS Data File
+    --------------------------
+    1. Go to https://waterdata.usgs.gov/nwis/inventory and select a method to filter the site data, such as State/Territory).
+
+    2. Filtering and downloading data:
+        - In the next page, select the State/Territory (or other identifier) for which you want to get the data. 
+        - In the "Choose Output Format" section, check the "Site-description information displayed in" button and select "Tab-separated format -- saved to file."
+        - Where it says "Select fields to include in site-description output," select all of the fields by clicking the first field, holding down the Shift
+          key, and then clicking the very last field.
+
+    3. Click "Submit" to download the file. Save it with a descriptive name and a .txt extension.
+    
     TODO: Update or replace this function with a call to the USGS API (instead of
     using a predownloaded USGS data file)
     '''
 
-    # Read in USGS data file (skipping the 43-line header)
-    usgs_data_df = pd.read_csv(usgs_data_txt, sep='\t', skiprows=43)
+    # Read in USGS data file
+    usgs_data_df = pd.read_csv(usgs_data_txt, sep='\t', comment='#')
 
     # Keep necessary metadata columns only
     columns_to_keep = [
@@ -106,6 +119,7 @@ def download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS
     DEFAULT_DATA_CRS : str
         Fallback coordinate reference system / datum to assign to the output GeoDataFrame
         when the downloaded metadata does not specify a lat/lon datum.
+
     Returns
     -------
     meta_gdf : geopandas.GeoDataFrame
@@ -660,10 +674,13 @@ def mimic_wrds_data(
     # Restructure the data so it is the right format for saving the pkl files
     all_thresh_df, metadata_dict_list = restructure_data_for_pkl(joined_gdf_with_streams)
 
+    # Create a file label with the date
+    date_label = label_data_file(label, ['all'])
+
     # Save thresholds to pkl file
     threshold_output_pickle_path = os.path.join(
-        workspace, f'thresholds_{label}.pkl'
-    )  # TODO: Update to match outputs from download_process_wrds.py
+        workspace, f'thresholds{date_label}.pkl'
+    )
     try:
         with open(threshold_output_pickle_path, 'wb') as f:
             pickle.dump(all_thresh_df, f)
@@ -673,8 +690,8 @@ def mimic_wrds_data(
 
     # Save metadata to pkl file
     metadata_output_pickle_path = os.path.join(
-        workspace, f'metadata_{label}.pkl'
-    )  # TODO: Update to match outputs from download_process_wrds.py
+        workspace, f'metadata{date_label}.pkl'
+    )
     try:
         with open(metadata_output_pickle_path, 'wb') as f:
             pickle.dump(metadata_dict_list, f)
@@ -717,7 +734,7 @@ if __name__ == '__main__':
 
     - usgs_data_txt (required)
         Path to a USGS station text file (tab-separated) exported from USGS. The reader in this
-        script skips the first 43 rows and expects the following columns to exist:
+        script skips the first rows (that start with a #) and expects the following columns to exist:
             agency_cd, site_no, station_nm, site_tp_cd, dec_lat_va, dec_long_va,
             coord_meth_cd, coord_acy_cd, coord_datum_cd, dec_coord_datum_cd,
             district_cd, state_cd, county_cd, country_cd,
@@ -749,11 +766,10 @@ if __name__ == '__main__':
         'that would typically by downloaded from the WRDS API.'
     )
 
-    # TODO:  Do we want to have a template CSV in this folder as well?
     parser.add_argument(
         '-t',
         '--site-thresholds-csv',
-        help='# a CSV with the LID, and any flow or stage thresholds available w/ units.'
+        help='A CSV with the LID, and any flow or stage thresholds available w/ units.'
         'e.g. /home/emily.deardorff/notebooks/guam_thresholds.csv'
         'Columns required:     nws_lid, source, wrds_timestamp, flow_thresh_action,'
         'flow_thresh_minor, flow_thresh_moderate, flow_thresh_major,'
@@ -764,11 +780,11 @@ if __name__ == '__main__':
     )
 
     # TODO: remove as input when I get the USGS API metadata download working
-    # TODO: Add description, incl. where we need to get this data from (and how).
     parser.add_argument(
         '-u',
         '--usgs-data-txt',
-        help='a CSV downloaded from the USGS site' 'e.g. /home/emily.deardorff/notebooks/usgs_data_guam.txt',
+        help='A textfile of site metadata downloaded from the USGS NWIS Web Interface. '
+        'e.g. /home/emily.deardorff/notebooks/usgs_data_guam.txt',
         required=True,
     )
 
@@ -805,7 +821,7 @@ if __name__ == '__main__':
         '--workspace',
         help='OPTIONAL: Workspace where all outputs will be saved.',
         required=False,
-        default='/data/inputs/wrds/manual_input',  # TODO: decide on a default save location
+        default='/data/inputs/wrds/manual_input',
     )
 
     parser.add_argument(
