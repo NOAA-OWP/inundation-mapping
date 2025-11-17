@@ -1,353 +1,494 @@
+"""
+This script calculates flood depth for geometries (e.g., roads, points, or buildings) for a given flow file.
+
+Workflow:
+    1. Identify intersecting HUCs: For each input geometry, determine which HUCs intersect with it.
+    Geometries crossing multiple HUCs are processed for each HUC independently, and the most conservative
+    result (highest flood depth) is reported.
+
+    2. Extract threshold HAND values: For each geometry segment within a HUC branch, read the
+       minimum HAND value along the segment from HAND grids. This represents the
+       elevation threshold at which the geometry would begin to flood. Additional columns added:
+       - threshold_hand: Minimum HAND elevation (meters)
+       - HydroID
+       - feature_id
+       - branch: Branch identifier within the HUC
+
+    3. Calculate threshold discharge: Using the HydroTable for each branch, interpolate the discharge
+       value corresponding to each threshold_hand. This represents the flow rate at which flooding
+       would begin. Geometries with threshold_hand > 25m are excluded as they exceed HydroTable limits.
+
+    4. Determine inundation status: Compare the evaluated discharge (from input flow file) against
+       the threshold discharge. If evaluated discharge > threshold discharge, the geometry is flooded.
+
+    5. Compute flood depth: For flooded geometries, interpolate the evaluated stage from the HydroTable
+       using the evaluated discharge. Flood depth is calculated as:
+       flood_depth = evaluated_stage - threshold_hand
+
+Output:
+    A geopackage containing only inundated geometries with their flood depth.
+    For geometries spanning multiple HUCs/branches, the maximum flood depth is reported.
+"""
 
 import argparse
-import glob
 import os
 import re
-from pathlib import Path
+import traceback
+from timeit import default_timer as timer
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-import xarray as xr
-from rasterio import features
-from rasterio.warp import Resampling, reproject
 from rasterstats import zonal_stats
-from src.process_roads_fimpact import min_hand_excluding_zero
+
 from src.heal_bridges_osm import flow_lookup
-from tools.road_inundation import stage_lookup
-import traceback
+from src.process_roads_fimpact import min_hand_excluding_zero
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
-
-import geopandas as gpd
-import pandas as pd
-'''
-step0: Ideantify which HUCs intersect with provided geometries. so d=for each geometry ad a column of which hucs must be processed. 
-
-step 1: make a for loop for all branches:
-
-if  [ -f $tempHucDataDir/osm_roads_subset.gpkg ]; then
-    echo -e $startDiv"Process roads FIMpact $hucNumber $current_branch_id"
-    python3 $srcDir/process_roads_fimpact.py \
-        -g $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
-        -r $tempHucDataDir/osm_roads_subset.gpkg \
-        -c $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
-        -o $tempCurrentBranchDataDir/osm_roads_fimpact_$current_branch_id.csv
-
-Three new columns are added to the road dataset: threshold_hand, HydroID, and feature_id for each branch.
+from tools.road_inundation import stage_lookup
 
 
-Step2: get discharge value corresponding to each threshold_hand from the branch’s HydroTable (per HydroID) and assigns it as threshold_discharge.
-Any record with a threshold_hand value greater than 25m (the maximum stage listed in the HydroTables) is removed entirely.
+# Constants
+MAX_HAND_THRESHOLD_M = 25  # Maximum HAND value in HydroTable (meters)
+METERS_TO_FEET = 3.28084
+CMS_TO_CFS = 35.3147
+MM_TO_METERS = 1000
 
-Step3: get the flow file, find the discharge for that feature_id, flag as flooded and compute depth as shown in tools/road_inundation.py.
 
+def get_evaluated_stage(fim_path, huc, branch, fimpact_df):
+    """
+    Calculate evaluated stage for flooded geometries corresponding to evaluated discharge.
 
-'''
+    Args:
+        fim_path: Path to FIM outputs directory
+        huc: 
+        branch: Branch identifier within the HUC
+        fimpact_df: DataFrame with evaluated discharge values
 
-def get_evaluated_stage(fim_path,huc,branch,fimpact_df):
-    # Ensure the column exists before assignment
+    Returns:
+        DataFrame with evaluated_stage column added
+    """
     fimpact_df['evaluated_stage'] = np.nan
 
-    # Loop over each unique branch
     for branch_id in fimpact_df['branch'].unique():
-        # Load hydrotable once for the branch
-        hydrotable_filename = os.path.join(fim_path,huc,'branches',branch ,f'hydroTable_{branch_id}.csv' )
+        hydrotable_path = os.path.join(
+            fim_path, huc, 'branches', branch, f'hydroTable_{branch_id}.csv'
+        )
         hydrotable_df = pd.read_csv(
-            hydrotable_filename,
+            hydrotable_path,
             dtype={'HydroID': str, 'stage': float, 'discharge_cms': float},
             usecols=['HydroID', 'discharge_cms', 'stage'],
         )
 
-        # Subset fimpact_df for this branch
-        branch_df = fimpact_df[(fimpact_df['branch'] == branch_id)&(fimpact_df['HUC'] == huc)]
+        branch_df = fimpact_df[
+            (fimpact_df['branch'] == branch_id) & (fimpact_df['HUC'] == huc)
+        ]
 
-        # Interpolate for each row in this subset
         for _, row in branch_df.iterrows():
-            single_hydro = hydrotable_df[hydrotable_df.HydroID == row.HydroID]
+            hydro_data = hydrotable_df[hydrotable_df.HydroID == row.HydroID]
             evaluated_stage = stage_lookup(
-                row.evaluated_discharge, single_hydro['discharge_cms'], single_hydro['stage']
+                row.evaluated_discharge, hydro_data['discharge_cms'], hydro_data['stage']
             )
             fimpact_df.at[row.name, 'evaluated_stage'] = evaluated_stage
+
     return fimpact_df
 
-def compute_flood_depth(fim_path,huc,branch,fimpact_df):
-    # Read the flow_file. make sure feaure id is str
 
-    # read hydroTable and find the stage corresponding to given discharge
-    # subtract that from threshold_hand...this is called flood_depth
-    # so when we report the inundated roads, we also report the case with maximum flood depth
-    # add given discharge
-    fimpact_df = fimpact_df.merge(flow_file_data, on='feature_id')
+def compute_depth(fim_path, huc, branch, fimpact_df , flow_file_df):
+    """
+    - Identify flooded objects by comparing evaluated flow vs threshold flow
+    - Compute flood depth by comparing evaluated stage against threshold hand.
 
-    # change the name of the given flow to evaluated discharge
+    Args:
+        fim_path: Path to FIM outputs directory
+        huc: 
+        branch: Branch identifier within the HUC
+        fimpact_df : DataFrame with threshold hand and discharge values
+        flow_file_df: DataFrame with feature_id and discharge columns
+
+    Returns:
+        DataFrame containing only flooded geometries with flood_depth column
+    """
+    fimpact_df  = fimpact_df.merge(flow_file_df, on='feature_id')
     fimpact_df.rename(columns={'discharge': 'evaluated_discharge'}, inplace=True)
 
-    # selected the inundated records
-    fimpact_df = fimpact_df[fimpact_df['evaluated_discharge'] > fimpact_df['threshold_discharge']]
+    # Filter to inundated records only
+    fimpact_df = fimpact_df[
+        fimpact_df['evaluated_discharge'] > fimpact_df['threshold_discharge']
+    ]
 
-    # add evaluated stage. For performance, read hydrotable of each branch once for all records in that branch
-    get_evaluated_stage(fim_path,huc,branch,fimpact_df)
+    if fimpact_df.empty:
+        return fimpact_df
 
+    # Calculate evaluated stage for flooded geometries
+    fimpact_df = get_evaluated_stage(fim_path, huc, branch, fimpact_df)
+
+    # Calculate flood depth
     fimpact_df['flood_depth'] = fimpact_df['evaluated_stage'] - fimpact_df['threshold_hand']
 
-    # for now, remove any record with negative flood depth. these may happen due to non-monotonic src especially in branch zero.
+    # Remove records with negative flood depth (can occur due to non-monotonic SRC)
     fimpact_df = fimpact_df[fimpact_df['flood_depth'] >= 0]
 
     return fimpact_df
 
 
-def get_threshold_flow(fim_path,huc,branch,fimpact_df):
-    hydrotable_path = os.path.join(fim_path,huc,'branches',branch, f'hydroTable_{branch}.csv')
-    hydrotable = pd.read_csv(hydrotable_path, dtype={'HydroID': str,'stage': float,'discharge_cms': float,}, usecols=['HydroID','stage','discharge_cms'])
+def get_threshold_discharge(fim_path, huc, branch, fimpact_df ):
+    """
+    Calculate threshold discharge from threshold HAND values using HydroTable interpolation.
 
-    # make sure to remove any road with threshold hand greater than 25m (the max available in HydroTable)
-    # these roads are assumed to be non-inundated. so no need to process them further.
-    fimpact_df = fimpact_df[fimpact_df['threshold_hand'] < 25].copy()
+    Args:
+        fim_path: Path to FIM outputs directory
+        huc: 
+        branch: Branch identifier within the HUC
+        fimpact_df : DataFrame with threshold_hand values
 
-    if fimpact_df.empty:
-        return None
-    
-    fimpact_df.loc[:,'threshold_discharge'] = fimpact_df.apply(
-        lambda row: flow_lookup(row.threshold_hand, row.HydroID, hydrotable), axis=1
+    Returns:
+        DataFrame with threshold_discharge column added, or None if no valid records
+    """
+    hydrotable_path = os.path.join(fim_path, huc, 'branches', branch, f'hydroTable_{branch}.csv')
+    hydrotable_df = pd.read_csv(
+        hydrotable_path,
+        dtype={'HydroID': str, 'stage': float, 'discharge_cms': float},
+        usecols=['HydroID', 'stage', 'discharge_cms']
     )
 
-    # Convert stages and dischrages to ft and cfs respectively
-    fimpact_df.loc[:,'threshold_hand_ft'] = fimpact_df['threshold_hand'] * 3.28084
-    fimpact_df.loc[:,'threshold_discharge_cfs'] = fimpact_df['threshold_discharge'] * 35.3147
-    return fimpact_df
+    # Filter out geometries with threshold_hand exceeding HydroTable limits
+    fimpact_df  = fimpact_df [fimpact_df ['threshold_hand'] < MAX_HAND_THRESHOLD_M].copy()
 
-def get_threshold_hand(fim_path,huc,branch,roads_gdf):
-    # read hand grid
-    hand_grid_path=os.path.join(fim_path,huc,'branches',branch,'rem_zeroed_masked_%s.tif'%branch)
-    catchments_path=os.path.join(fim_path,huc,'branches',branch,'gw_catchments_reaches_filtered_addedAttributes_crosswalked_%s.gpkg'%branch)
+    if fimpact_df .empty:
+        return None
+
+    fimpact_df .loc[:, 'threshold_discharge'] = fimpact_df .apply(
+        lambda row: flow_lookup(row.threshold_hand, row.HydroID, hydrotable_df), axis=1
+    )
+
+    # Convert to imperial units
+    fimpact_df .loc[:, 'threshold_hand_ft'] = fimpact_df ['threshold_hand'] * METERS_TO_FEET
+    fimpact_df .loc[:, 'threshold_discharge_cfs'] = fimpact_df ['threshold_discharge'] * CMS_TO_CFS
+
+    return fimpact_df 
+
+
+def get_threshold_hand(fim_path, huc, branch, geometries_gdf):
+    """
+    Extract threshold HAND values for input geometries from HAND grids.
+
+    Args:
+        fim_path: Path to FIM outputs directory
+        hu
+        branch: Branch identifier within the HUC
+        geometries_gdf: GeoDataFrame with input geometries
+
+    Returns:
+        DataFrame with threshold_hand, HydroID, feature_id, and branch columns
+    """
+    hand_grid_path = os.path.join(
+        fim_path, huc, 'branches', branch, f'rem_zeroed_masked_{branch}.tif'
+    )
+    catchments_path = os.path.join(
+        fim_path, huc, 'branches', branch,
+        f'gw_catchments_reaches_filtered_addedAttributes_crosswalked_{branch}.gpkg'
+    )
+
     with rasterio.open(hand_grid_path, 'r') as hand_grid:
         hand_grid_profile = hand_grid.profile
         hand_grid_array = hand_grid.read(1)
 
-    # remove interfering id from input geometry, if available
-    if 'catchment_id' in roads_gdf.columns:
-        roads_gdf = roads_gdf.drop(columns=['catchment_id'])
+    # Remove interfering column if present
+    if 'catchment_id' in geometries_gdf.columns:
+        geometries_gdf = geometries_gdf.drop(columns=['catchment_id'])
 
-    # read HAND catchments to split the roads/geometry segments for each intersected HYDROIDs/feature_ids.
-    # because a road can exists within multiple HydroID/hydroTable and
-    # we need to consider threshold hand for all intersected HydroID.
-    catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'order_', 'geometry'])
+    # Read catchments to split geometries by HydroID
+    catchments_df = gpd.read_file(
+        catchments_path, columns=['HydroID', 'feature_id', 'order_', 'geometry']
+    )
 
-    # possible that feature id and hydro id be as type float. first make them int and then str
+    # Ensure IDs are strings for consistency
     catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
     catchments_df['HydroID'] = catchments_df['HydroID'].astype(int).astype(str)
 
-    # further split the roads based on HAND catchments
-    roads_gdf_splitted = gpd.overlay(roads_gdf, catchments_df, how="intersection")
+    # Split geometries based on catchment boundaries
+    geometries_split = gpd.overlay(geometries_gdf, catchments_df, how="intersection")
 
-    # zonal stats does not like the lines input if it is jagged (can happenen because
-    # of overlaying with catchment boundaries) and can yield wrong results.
-    # threfore, we explode the lines to make sure all segments are single linestring.
-    roads_gdf_splitted = roads_gdf_splitted.explode(index_parts=True).reset_index(drop=True)
+    # Explode to handle jagged geometries from overlay operation
+    geometries_split = geometries_split.explode(index_parts=True).reset_index(drop=True)
 
-    if roads_gdf_splitted.empty:
-        print(f'no splitted roads for {branch}')
+    if geometries_split.empty:
+        print(f'No geometries found in branch {branch}')
         return None
 
-    # tag the processed branch
-    roads_gdf_splitted['branch'] = branch
+    geometries_split['branch'] = branch
 
-    # Call zonal_stats with the custom stat
+    # Calculate minimum HAND value for each geometry segment
     stats = zonal_stats(
-        roads_gdf_splitted['geometry'],
+        geometries_split['geometry'],
         hand_grid_array,
         affine=hand_grid_profile['transform'],
         nodata=hand_grid_profile["nodata"],
         all_touched=True,
-        stats=[],  # No built-in stats needed
+        stats=[],
         add_stats={"min_ex0": min_hand_excluding_zero},
     )
 
-    # we do not care about the length of inundated roads... just the min hand anywhere along the length
-    roads_gdf_splitted.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
+    geometries_split.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
 
-    #the REM unit after fim pipeline changes to mm.so need to convert to meter first.
-    # this unit conversion might provide slight discrepencies compared to results in 'osm_roads_fimpact_xxx.csv' cretaed during a fim pileline 
-    roads_gdf_splitted['threshold_hand']=roads_gdf_splitted['threshold_hand']/1000 
+    # Convert from mm to meters (REM units changed in FIM pipeline)
+    geometries_split['threshold_hand'] = geometries_split['threshold_hand'] / MM_TO_METERS
 
-    # it is possible that roads cross areas of a HAND with nan data (levee), so make sure to remove those Nan threshold hands
-    roads_gdf_splitted = roads_gdf_splitted.dropna(subset=['threshold_hand'])
+    # Remove geometries crossing NoData areas (e.g., levees)
+    geometries_split = geometries_split.dropna(subset=['threshold_hand'])
 
-    # no need to save geometry since we want to report the final result for the full lenght of roads and we need to merge to initial roads at the very end again
-    roads_gdf_splitted = roads_gdf_splitted.drop(columns='geometry')
+    # Drop geometry for performance (will be re-merged with original geometries later)
+    geometries_split = geometries_split.drop(columns='geometry')
 
-    # group by segment id, hydroid, and report the min of threshold hand to remove extra exploded road segments in each hydroid
-    min_idx = roads_gdf_splitted.groupby(['osmid_catchid', 'HydroID'])['threshold_hand'].idxmin()
-    fimpact_df = roads_gdf_splitted.loc[min_idx]
+    # Keep minimum threshold_hand for each geometry-HydroID combination
+    min_idx = geometries_split.groupby(['osmid_catchid', 'HydroID'])['threshold_hand'].idxmin()
+    fimpact_df  = geometries_split.loc[min_idx]
 
-    # make sure to record ids as str for csv output file
+    # Ensure IDs are strings for output consistency
     cols_to_str = ['osmid', 'huc8', 'HydroID', 'feature_id', 'branch']
-    fimpact_df[cols_to_str] = fimpact_df[cols_to_str].astype(str)
+    fimpact_df [cols_to_str] = fimpact_df [cols_to_str].astype(str)
 
-    return fimpact_df
+    return fimpact_df 
 
 
-def find_intersecting_hucs(fim_path,roads_gdf):
-    '''
-    for each input geometry file, it finds the intersecting HUCs available in the provide fim run path. 
-    The boundary of each huc is read from wbd8_clp.gpkg file within each huc outputs. 
-    If an input geometry intersects two neighboring HUCs, two records are created for thatgeometry (one for each huc)
-    and the tool will work on each huc independently and the more conservative result (higher flood depth) is reported.
-    '''
+def find_intersecting_hucs(fim_path, geometries_gdf):
+    """
+    Identify which HUCs intersect with input geometries.
 
-    print("identifying intersected HUCs for each road segment")
-    # all input features must be in 4326
-    #TODO raise error ?
-    roads_gdf = roads_gdf.to_crs(4326)
+    For each geometry, determines all intersecting HUCs in the FIM outputs. If a geometry
+    crosses multiple HUCs, separate records are created for each HUC.
 
-    #now process hucs and make a gdf for their boundary in 4326
+    Args:
+        fim_path: Path to FIM outputs directory
+        geometries_gdf: GeoDataFrame with input geometries
+
+    Returns:
+        GeoDataFrame with HUC and original_crs columns added
+    """
+    print("Identifying intersected HUCs for each geometry")
+
+    # Reproject to WGS84 for spatial join
+    if geometries_gdf.crs != 'EPSG:4326':
+        geometries_gdf = geometries_gdf.to_crs(4326)
+
+    # Find all HUC directories
     hucs = [huc for huc in os.listdir(fim_path) if re.match(r'\d{8}', huc)]
 
-    hucs_boundaries_geoms = []
+    # Load HUC boundaries
+    huc_boundaries_list = []
     for huc in hucs:
-        huc_boundary_gdf = gpd.read_file(os.path.join(fim_path,huc,'wbd8_clp.gpkg'))
+        huc_boundary_gdf = gpd.read_file(os.path.join(fim_path, huc, 'wbd8_clp.gpkg'))
         huc_boundary_gdf["HUC"] = huc
-
         huc_boundary_gdf["original_crs"] = huc_boundary_gdf.crs.to_string()
         huc_boundary_gdf = huc_boundary_gdf.to_crs(4326)
-        # if applicable, merge all polygons in wbd (which often contains multiple polygon pieces or sub-basins) into one unified geometry
+
+        # Dissolve multi-polygon HUCs into single geometry
         huc_boundary_gdf = huc_boundary_gdf.dissolve().reset_index(drop=True)
-        
-        hucs_boundaries_geoms.append(huc_boundary_gdf[["HUC", "geometry","original_crs"]])
 
-    hucs_boundaries_gdf = gpd.GeoDataFrame(pd.concat(hucs_boundaries_geoms, ignore_index=True), crs="EPSG:4326")
+        huc_boundaries_list.append(huc_boundary_gdf[["HUC", "geometry", "original_crs"]])
 
-    roads_in_hucs_gdf = gpd.sjoin(roads_gdf, hucs_boundaries_gdf, how="inner", predicate="intersects")
-    # Drop join index column added by sjoin
-    roads_in_hucs_gdf = roads_in_hucs_gdf.drop(columns=["index_right"], errors="ignore")
-    return roads_in_hucs_gdf
+    huc_boundaries_gdf = gpd.GeoDataFrame(
+        pd.concat(huc_boundaries_list, ignore_index=True), crs="EPSG:4326"
+    )
 
-def task_fn(  fim_path, unique_id, this_huc_roads_gdf,  file_logger, screen_queue, task_id):
+    # Spatial join to find intersecting HUCs
+    geometries_with_hucs_gdf = gpd.sjoin(
+        geometries_gdf, huc_boundaries_gdf, how="inner", predicate="intersects"
+    )
+    geometries_with_hucs_gdf = geometries_with_hucs_gdf.drop(columns=["index_right"], errors="ignore")
+
+    return geometries_with_hucs_gdf
+
+
+def process_one_huc_branch(fim_path, unique_id, huc_geometries_gdf, flow_file_df,
+                       file_logger, screen_queue, task_id):
+    """
+    Process a single HUC-branch combination to calculate flood depth.
+
+    Args:
+        fim_path: Path to FIM outputs directory
+        unique_id: Unique identifier in format "HUC_branch"
+        huc_geometries_gdf: GeoDataFrame with geometries for this HUC
+        flow_file_df: DataFrame with feature_id and discharge columns
+        file_logger: File Logger instance 
+        screen_queue: Screen logger instance
+        task_id: Task identifier for logging
+
+    Returns:
+        Tuple of (success_code, [result_datafram])
+    """
     file_logger.info(f"Started processing {task_id}")
     try:
-        huc,branch=unique_id.split("_")
-        fimpact_df=get_threshold_hand(fim_path,huc,branch,this_huc_roads_gdf)
-        if fimpact_df is not None:
-            fimpact_df=get_threshold_flow(fim_path,huc,branch,fimpact_df)
-            if fimpact_df is not None:
-                fimpact_df=compute_flood_depth(fim_path,huc,branch,fimpact_df)
-        return 1,[fimpact_df, True]
+        huc, branch = unique_id.split("_")
+
+        fimpact_df  = get_threshold_hand(fim_path, huc, branch, huc_geometries_gdf)
+        if fimpact_df  is None:
+            return 1, [None]
+
+        fimpact_df  = get_threshold_discharge(fim_path, huc, branch, fimpact_df )
+        if fimpact_df  is None:
+            return 1, [None]
+
+        fimpact_df  = compute_depth(fim_path, huc, branch, fimpact_df , flow_file_df)
+
+        return 1, [fimpact_df ]
+
     except Exception as e:
-        file_logger.error(f"❌ Exception in {task_id}: {str(e)}")
+        file_logger.error(f"Exception in {task_id}: {str(e)}")
         file_logger.error(traceback.format_exc())
-        return 0,[None, False]
+        screen_queue.put(f"Exception in {task_id}")
+        return 0, [None]
 
 
-flow_file='data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_50_0_cms.csv'
+def flood_depth_main(fim_run_dir: str, flow_file: str, geometry_file: str,
+                             output_file_path: str, max_workers: int = 8):
+    """
+    Compute flood depth for input geometries using FIM outputs and a flow file.
 
-# output_dir= os.path.join ('outputs/flood_depth/run_05030104/','flood_depth_output')
-output_dir= os.path.join ('outputs/flood_depth/run_4_hucs/','flood_depth_output')
-os.makedirs(output_dir, exist_ok=True)
+    Args:
+        fim_run_dir: Path to FIM outputs directory
+        flow_file: Path to CSV flow file with 'feature_id' and 'discharge' columns
+        geometry_file: Path to input geometry file (e.g., roads geopackage)
+        output_file_path: Path to output geopackage file
+        max_workers: Number of parallel workers for multiprocessing (default: 8)
+    """
+    # Validate output file extension
+    if not output_file_path.lower().endswith('.gpkg'):
+        raise ValueError("Output file must have a .gpkg extension.")
 
-# Create the logger
-log_file_path = os.path.join(output_dir, "sample.log")
-file_logger = setup_mp_file_logger(log_file_path, logger_name='depth_logger')
-print('started the process')
-file_logger.info('started the process')
+    # Create output directory if needed
+    output_dir = os.path.dirname(output_file_path)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
 
-# fim_path='outputs/flood_depth/run_05030104/fim_run/'
-fim_path='outputs/post_to_huc/my_branch/New/pipeline/'
+    # Setup logging
+    log_file_path = os.path.join(output_dir, "flood_depth.log")
+    file_logger = setup_mp_file_logger(log_file_path, logger_name='depth_logger')
+    print('Started flood depth analysis')
+    file_logger.info('Started flood depth analysis')
 
-# roads_gdf=gpd.read_file(r"outputs/flood_depth/run_05030104/fim_run/05030104/osm_roads_subset.gpkg")
-roads_gdf=gpd.read_file("outputs/flood_depth/run_4_hucs/combined.gpkg")
+    # Read input data
+    geometries_gdf = gpd.read_file(geometry_file)
+    flow_file_df = pd.read_csv(flow_file, dtype={'feature_id': str})
 
+    # Find intersecting HUCs for each geometry
+    geometries_with_hucs_gdf = find_intersecting_hucs(fim_run_dir, geometries_gdf)
 
-roads_in_hucs_gdf=find_intersecting_hucs(fim_path,roads_gdf)
+    # Prepare multiprocessing tasks
+    tasks_args_list = []
+    available_hucs = geometries_with_hucs_gdf['HUC'].unique().tolist()
 
-'''
-#get the hucs to process HAND
-# final = []
-# hucs=test['HUC'].unique().tolist()
-# for huc in hucs:
-#     print(f'working on huc{huc}')
-#     huc_dir=os.path.join(fim_path,huc)
-#     this_huc_roads_gdf=test[test['HUC']==huc]
-#     # bring it back to its original crs
-#     original_crs = this_huc_roads_gdf["original_crs"].iloc[0]  # all rows should have same CRS
-#     this_huc_roads_gdf = this_huc_roads_gdf.to_crs(original_crs)
-#     #now ready to process for each huc
-#     # find all branches inside branch folder
-#     branched_dfs=[]
-#     branches = [branch for branch in os.listdir(os.path.join(huc_dir,'branches'))]
-#     for branch_id in branches:
-#         print('    branch %s'%branch_id)
-#         threshold_gdf=get_threshold_hand(huc_dir,branch_id,this_huc_roads_gdf)
-#         if threshold_gdf is not None:
-#             fimpact_df=get_threshold_flow(huc_dir,branch_id,threshold_gdf)
-#             branched_dfs.append(fimpact_df)
-            
-#     # aggregare results of all branches
-#     aggregated_branched_dfs= pd.concat(branched_dfs, ignore_index=True)
+    for huc in available_hucs:
+        huc_dir = os.path.join(fim_run_dir, huc)
+        huc_geometries_gdf = geometries_with_hucs_gdf[geometries_with_hucs_gdf['HUC'] == huc]
 
-#     fimpact_gdf=compute_flood_depth(huc_dir,aggregated_branched_dfs,flow_file)
-#     final.append(fimpact_gdf)
+        # Reproject to original CRS for processing withi huc outputs
+        original_crs = huc_geometries_gdf["original_crs"].iloc[0]
+        huc_geometries_gdf = huc_geometries_gdf.to_crs(original_crs)
 
-# final_gdf = gpd.GeoDataFrame(pd.concat(final, ignore_index=True), crs="EPSG:4326")
-# final_gdf.to_file(output_path)
+        # Create task for all branches because geometries can be anywhere across the huc
+        branches = [branch for branch in os.listdir(os.path.join(huc_dir, 'branches'))]
+        for branch in branches:
+            tasks_args_list.append({
+                "fim_path": fim_run_dir,
+                "unique_id": f"{huc}_{branch}",
+                "huc_geometries_gdf": huc_geometries_gdf,
+                "flow_file_df": flow_file_df,
+            })
 
-#heavy lifting is during processing HAND. so it is goo to include get_threshold_hand in MP
-# final = []
-'''
+    # Run multiprocessing for all hucs/branches
+    mp_results = run_with_mp(
+        task_function=process_one_huc_branch,
+        tasks_args_list=tasks_args_list,
+        file_logger=file_logger,
+        max_workers=max_workers,
+        task_id_key="unique_id",
+        show_progress=True
+    )
 
-flow_file_data = pd.read_csv(flow_file, dtype={'feature_id': str})
+    # Collect and consolidate results
+    all_results_dfs = []
+    for task_id, task_payload in mp_results.items():
+        result_df = task_payload[0]
+        if result_df is not None:
+            all_results_dfs.append(result_df)
 
-tasks_args_list = []
-available_hucs=roads_in_hucs_gdf['HUC'].unique().tolist()
-for huc in available_hucs:
-    huc_dir=os.path.join(fim_path,huc)
+    if not all_results_dfs:
+        print("No inundated geometries found.")
+        file_logger.info("No inundated geometries found.")
+        return
 
-    this_huc_roads_gdf=roads_in_hucs_gdf[roads_in_hucs_gdf['HUC']==huc]
-    original_crs = this_huc_roads_gdf["original_crs"].iloc[0]  # all rows should have same CRS
-    this_huc_roads_gdf = this_huc_roads_gdf.to_crs(original_crs)
+    all_results_df = pd.concat(all_results_dfs, ignore_index=True)
 
-    # Prepare tasks_args_list as shown earlier
-    # need to process all branches of a huc since the input objects can be anywhere across the huc 
-    branches = [branch for branch in os.listdir(os.path.join(huc_dir,'branches'))]
-    for branch in branches:
-        tasks_args_list.append({
-        "fim_path":fim_path,
-        "unique_id":f"{huc}_{branch}",
-        "this_huc_roads_gdf": this_huc_roads_gdf, #this is input features with huc numbers
-        })
+    # Keep maximum flood depth for each geometry (across all HUCs/branches)
+    final_result_df = all_results_df.loc[
+        all_results_df.groupby(['osmid_catchid'])['flood_depth'].idxmax()
+    ]
 
+    # Merge with original geometry to report full-length features
+    final_result_gdf = final_result_df.merge(
+        geometries_gdf[['geometry', 'osmid_catchid']], on='osmid_catchid', how='left'
+    )
+    final_result_gdf = gpd.GeoDataFrame(final_result_gdf, geometry='geometry', crs=geometries_gdf.crs)
 
-# Run multiprocessing
-mp_results = run_with_mp(
-    task_function=task_fn,
-    tasks_args_list=tasks_args_list,
-    file_logger=file_logger,
-    max_workers=8,
-    task_id_key="unique_id",  # Must match a key inside task arguments
-    show_progress=True
-)
+    # Reproject to WGS84 for output
+    final_result_gdf = final_result_gdf.to_crs('epsg:4326')
 
-all_fimpacts_dfs=[]
-for task_id, this_task_results in mp_results.items():
-    #the task function returns a single item (a gdf for each HUC) in a list
-    this_fimpact_df=this_task_results[0]
-    all_fimpacts_dfs.append(this_fimpact_df)
+    # Save output
+    final_result_gdf.to_file(output_file_path, driver="GPKG")
 
-all_fimpacts_dfs= pd.concat(all_fimpacts_dfs, ignore_index=True)
-final_fimpact_df = all_fimpacts_dfs.loc[all_fimpacts_dfs.groupby(['osmid_catchid'])['flood_depth'].idxmax()]
-#now merge with full lentgh of roads to warn the entire road to be closed 
-final_fimpact_gdf = final_fimpact_df.merge(roads_gdf[['geometry','osmid_catchid']], on='osmid_catchid', how='left')
-final_fimpact_gdf = gpd.GeoDataFrame(final_fimpact_gdf, geometry='geometry', crs=roads_gdf.crs)
-
-final_fimpact_gdf = final_fimpact_gdf.to_crs('epsg:4326')
-final_fimpact_gdf.to_file(os.path.join(output_dir, 'flood_depth.gpkg'))
+    print(f'Flood depth analysis completed. Output saved to: {output_file_path}')
+    file_logger.info(f'Flood depth analysis completed. Output saved to: {output_file_path}')
 
 
+if __name__ == "__main__":
+    '''
+    sample usage:
+    python foss_fim/tools/compute_flood_depth.py 
+    -y 'outputs/post_to_huc/my_branch/New/pipeline/' 
+    -f 'data/inputs/rating_curve/nwm_recur_flows/nwm3_17C_recurr_50_0_cms.csv' 
+    -g "outputs/flood_depth/run_4_hucs/combined.gpkg" 
+    -o 'outputs/flood_depth/run_4_hucs/flood_depth_output/new.gpkg
+    '''
+    parser = argparse.ArgumentParser(
+        description="Compute flood depth for input geometries using FIM outputs and a flow file."
+    )
+    parser.add_argument(
+        "-fim", "--fim_run_dir",
+        help="Directory path to FIM run directory.",
+        required=True,
+        type=str
+    )
+    parser.add_argument(
+        "-flow", "--flow_file",
+        help='Discharges in CMS as CSV file. "feature_id" and "discharge" columns must be supplied.',
+        required=True,
+        type=str,
+    )
+    parser.add_argument(
+        "-geom", "--geometry_file",
+        help="Path to input geometry file (e.g., roads geopackage).",
+        required=True,
+        type=str,
+    )
+    parser.add_argument(
+        "-o", "--output_file_path",
+        help="Path to geopackage output.",
+        required=True,
+        type=str
+    )
+    parser.add_argument(
+        "-j", "--max_workers",
+        help="Number of parallel workers for multiprocessing. Default is 8.",
+        required=False,
+        type=int,
+        default=8,
+    )
 
 
+    start = timer()
 
+    flood_depth_main(**vars(parser.parse_args()))
 
-
-
-
-
+    print(f"Completed in {round((timer() - start)/60, 2)} minutes.")
