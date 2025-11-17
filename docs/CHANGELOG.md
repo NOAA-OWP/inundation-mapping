@@ -22,6 +22,8 @@ eval_plots.py assume there would be some metrics data a given benchmark type for
         - Fixed a bug when the tool is being used for spatial data, creating the FIM Performance points and poly files. A previous merge accidently changed a key variable name which would have resulted in the two FIM Performance files never being created.
         - Add more doc strings.
     - `synthesize_test_cases.py`:   Added a few warning message and upgrade a bit of the wording on an error message.
+    - `run_test_case.py`: Found a bug where shutil.rmtree could fail with directory not empty during race conditions of the python GC. Could have been MP cleaning overlapping or subdirectories at the same times. Added the "ignore_error=True" tag to shutil.rmtree.
+    - `probabilitic_inundation.py`: Added the "ignore_error=True" tag to shutil.rmtree.
 <br />
 
 ## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
