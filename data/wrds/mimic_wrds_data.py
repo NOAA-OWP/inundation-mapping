@@ -678,9 +678,8 @@ def mimic_wrds_data(
     date_label = label_data_file(label, ['all'])
 
     # Save thresholds to pkl file
-    threshold_output_pickle_path = os.path.join(
-        workspace, f'thresholds{date_label}.pkl'
-    )
+    threshold_output_pickle_path = os.path.join(workspace, f'thresholds{date_label}.pkl')
+
     try:
         with open(threshold_output_pickle_path, 'wb') as f:
             pickle.dump(all_thresh_df, f)
@@ -689,9 +688,8 @@ def mimic_wrds_data(
         print(f"Error saving pickle file {threshold_output_pickle_path}: {e}")
 
     # Save metadata to pkl file
-    metadata_output_pickle_path = os.path.join(
-        workspace, f'metadata{date_label}.pkl'
-    )
+    metadata_output_pickle_path = os.path.join(workspace, f'metadata{date_label}.pkl')
+
     try:
         with open(metadata_output_pickle_path, 'wb') as f:
             pickle.dump(metadata_dict_list, f)
