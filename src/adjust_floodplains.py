@@ -20,6 +20,9 @@ wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 def adjust_floodplains(
     input_file: str,
     dem_file: str,
+    nwm_catchments: str,
+    nwm_streams: str,
+    nwm_levelpaths: str,
     distance_file: str,
     output_file: str,
     distance_threshold: float,
@@ -39,6 +42,12 @@ def adjust_floodplains(
         The input raster file to calculate the distance from.
     dem_file : str
         The DEM file to adjust.dataset file.
+    nwm_catchments : str
+        The file containing the NWM catchments.
+    nwm_streams : str
+        The file containing the NWM streams.
+    nwm_levelpaths : str
+        The file containing the NWM levelpaths.
     distance_file : str
         The output distance file.
     output_file : str
@@ -65,6 +74,35 @@ def adjust_floodplains(
 
     wbt.euclidean_distance(input_file, distance_file)
 
+    catchments = gpd.read_file(nwm_catchments)
+    streams = gpd.read_file(nwm_streams)
+    levelpaths = gpd.read_file(nwm_levelpaths)
+    branch_polys = gpd.read_file(branch_polygons)
+    branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
+
+    # Filter levelpaths by branch
+    levelpaths = levelpaths[levelpaths['levpa_id'] == branch_id]
+
+    # Find streams that flow to the levelpaths
+    ids = levelpaths['ID'].tolist()
+
+    # Get all upstream streams
+    def get_upstream_streams(hydro_ids, streams_df):
+        upstream_streams = pd.DataFrame()
+        for hydro_id in hydro_ids:
+            direct_upstream = streams_df[streams_df['to'] == hydro_id]
+            if not direct_upstream.empty:
+                upstream_streams = pd.concat([upstream_streams, direct_upstream])
+                upstream_streams = pd.concat(
+                    [upstream_streams, get_upstream_streams(direct_upstream['ID'].tolist(), streams_df)]
+                )
+        return upstream_streams.drop_duplicates()
+
+    upstream_streams = get_upstream_streams(ids, streams)
+
+    # Filter catchments by upstream streams
+    upstream_catchments = catchments[catchments['ID'].isin(upstream_streams['ID'].tolist())].dissolve()
+
     with rio.open(distance_file) as src, rio.open(dem_file) as dem_src:
         profile = src.profile
         distance = src.read(1)
@@ -72,9 +110,6 @@ def adjust_floodplains(
         dem_nodata = dem_src.nodata
 
         distance_mask = np.zeros_like(distance)
-
-        branch_polys = gpd.read_file(branch_polygons)
-        branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 
         # Use NFHL flood hazard zones
         if os.path.exists(fema_flood_zones_file):
@@ -110,8 +145,14 @@ def adjust_floodplains(
         else:
             distance_mask = distance
 
-    # Limit the distance to the distance threshold
-    distance = np.where(distance_mask <= distance_threshold, distance_mask, np.nan)
+        # Clip to the upstream catchment polygon
+        geometries = [mapping(geom) for geom in upstream_catchments.geometry]
+        distance_clipped, out_transform = mask(src, geometries, crop=False, nodata=np.nan)
+        distance_clipped = distance_clipped[0]  # Extract the first band
+
+    distance = np.where(
+        ~np.isnan(distance_clipped) & (distance_mask <= distance_threshold), distance_mask, np.nan
+    )
 
     # Save distance raster
     with rio.open(distance_file, 'w', **profile) as dst:
@@ -155,6 +196,9 @@ if __name__ == '__main__':
     parser.add_argument(
         '-l', '--fema-flood-zones-layer', help='FEMA flood zones layer', type=str, default='combined'
     )
+    parser.add_argument('-c', '--nwm-catchments', help='NWM catchments file', type=str)
+    parser.add_argument('-n', '--nwm-streams', help='NWM streams file', type=str)
+    parser.add_argument('-lp', '--nwm-levelpaths', help='NWM levelpaths file', type=str)
 
     args = parser.parse_args()
 
