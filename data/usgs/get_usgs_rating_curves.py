@@ -104,12 +104,12 @@ def __mp_get_flows_for_site(
                 flow_df = flow_df.rename(columns={'discharge': 'discharge_cms'})
 
                 site_flows_df = pd.concat([site_flows_df, flow_df], ignore_index=True)
-        return 0, [site_flows_df]
+        return 1, site_flows_df
 
     except Exception:
         file_logger.critical(f"❌ Critical error while processing {task_id}")
         file_logger.critical(traceback.format_exc())
-        return 1, []  # shut the program down.
+        return -1, None  # shut the program down.
 
 
 # Generate categorical flows for each category across all sites.
@@ -131,12 +131,6 @@ def __write_categorical_flow_files(
         This function uses its own mp log file. This arg allows the mp logs to be
         appended to the parent when it is done.
         Note: For now.. any error files created anywhere are not removed.
-
-    Returns
-    -------
-    all_flows_data : DataFrame
-        A dataframe of categorical flow for every feature ID in the input metadata.
-
     '''
 
     threshold_url = f'{API_BASE_URL}/nws_threshold'
@@ -189,7 +183,8 @@ def __write_categorical_flow_files(
     # Again.. we make a special mp for this set
     mp_log_file_path = os.path.join(output_dir, f"get_rating_curves-mp-flow-{file_datetime_string}.log")
     mp_logger = sf.setup_mp_file_logger(mp_log_file_path, logger_name="mp_flows")
-    list_flow_dfs = sf.run_with_mp(
+    # We get a list of dictionaries
+    flow_dfs = sf.run_with_mp(
         task_function=__mp_get_flows_for_site,
         tasks_args_list=sorted_tasks_args_list,
         file_logger=mp_logger,
@@ -203,7 +198,14 @@ def __write_categorical_flow_files(
     # for now.. let's leave the error files alone, even the mp ones
 
     # roll up the list of df's into one master df
-    all_flows_data = pd.concat(list_flow_dfs, ignore_index=True)
+    # run_with_mp returns a list of dictionaries keyed with a huc. We don't care about the keys, just the values
+    # which are df's
+    all_flows_data = pd.DataFrame()
+    for i, value in enumerate(flow_dfs.values()):
+        if i == 0:
+            all_flows_data = value
+        else:
+            all_flows_data = pd.concat([all_flows_data, value])
 
     # Write usgs stage discharge data, used by Sierra tests (rating_curve_comparison.py)
     logging.info("Writing for USGS discharge data for each usgs stage (ie. action, minor, etc)")
@@ -211,8 +213,8 @@ def __write_categorical_flow_files(
         usgs_discharge_file_name = os.path.join(output_dir, 'usgs_stage_discharge_cms.csv')
         final_data = all_flows_data[['feature_id', 'discharge_cms', 'recurr_interval']]
         final_data.to_csv(usgs_discharge_file_name, index=False)
-
-    return all_flows_data
+    else:
+        logging.info("No flow data was found. Saving of usgs_stage_discharge_cms file skipped")
 
 
 def set_global_env(env_file):
@@ -260,7 +262,7 @@ def __mp_get_site_rating_curve(
         # If no rating curve was returned, skip site.
         if curve.empty:
             file_logger.warning(f'{location_id}: Removed because it has no rating curves')
-            return 2, []  # log and continue the next task
+            return 0, None  # log and continue the next task
 
         # If the site is in PR, VI, or HI, keep datum in LMSL (local mean sea level)
         # because our 3DEP dems are also in LMSL for these areas.
@@ -278,7 +280,7 @@ def __mp_get_site_rating_curve(
                     f'VI, or HI but has a datum other than LMSL ({datum_name})'
                 )
                 file_logger.warning(message)
-                return 2, []  # log and continue the next task
+                return 0, None  # log and continue the next task
 
         # If the state is not PR, VI, or HI, then we want to adjust the datum to NAVD88 if needed.
         # If the datum is unknown, skip site.
@@ -291,7 +293,7 @@ def __mp_get_site_rating_curve(
                 # If datum API failed, print message and skip site.
                 if datum_adj_ft is None:
                     file_logger.warning(f'{location_id}: Removed because datum adjustment failed!!')
-                    return 2, []  # log and continue the next task
+                    return 0, None  # log and continue the next task
 
                 # If datum adjustment succeeded, calculate datum in NAVD88
                 navd88_datum = round(usgs['datum'] + datum_adj_ft, 2)
@@ -306,13 +308,13 @@ def __mp_get_site_rating_curve(
                 file_logger.warning(
                     f'{location_id}: Removed because LMSL datum found outside of PR, VI, or HI'
                 )
-                return 2, []  # log and continue the next task
+                return 0, None  # log and continue the next task
 
             else:
                 # If the site has an unrecognized datum, skip site.
                 datum_name = usgs['vcs']
                 file_logger.warning(f'{location_id}: Removed due to unknown datum ({datum_name})')
-                return 2, []  # log and continue the next task
+                return 0, None  # log and continue the next task
 
         # Populate rating curve with metadata and use navd88 datum to convert stage to elevation.
         # If you came in looking for all sites, then "active" will be true. A filtered set, this might be True or False
@@ -320,15 +322,15 @@ def __mp_get_site_rating_curve(
         curve['datum'] = usgs['datum']
         curve['datum_vcs'] = usgs['vcs']
         curve['navd88_datum'] = navd88_datum
-        curve['elevation_navd88'] = curve['stage'] + navd88_datum
+        curve['elevation_navd88'] = round(curve['stage'] + navd88_datum, 2)
 
         file_logger.debug(f"Done rating curves for usgs location id of {usgs_site_code}")
-        return 0, [curve]
+        return 1, curve
 
     except Exception:
         file_logger.critical(f"❌ Critical error while processing {task_id}")
         file_logger.critical(traceback.format_exc())
-        return 1, []  # shut the program down.
+        return -1, None  # shut the program down.
 
 
 def __get_usgs_metadata(list_of_gage_sites, metadata_url):
@@ -535,12 +537,14 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         sys.exit()
     else:
         print(f'Loading environment file: {env_file}')
+        print("")
         # Set global variables
         set_global_env(env_file)
 
     if list_of_gage_sites != 'all':
         print(
-            "*** You have provide a list of specific usgs site codes to process.\nPlease note that when getting all sites,"
+            "\n"
+            "*** NOTICE: You have provide a list of specific usgs site codes to process.\nPlease note that when getting all sites,"
             " it filters to only sites that are active. But when using specific codes, it will not use the 'is active' filter.\n\n"
             "To continue, hit your enter key or CTRL-C to abort"
         )
@@ -575,9 +579,7 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
     file_datetime_string = overall_start_dt.strftime("%Y%m%d-%H%M")
     display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
 
-    log_file_name = f"get_rating_curves-{file_datetime_string}.log"
-    log_file_path = os.path.join(output_dir, log_file_name)
-    sf.setup_file_logger(log_file_path)
+    log_file_path = sf.setup_file_logger(output_dir, "get_rating_curves")
     # file_logger = sf.setup_mp_file_logger(log_file_path)
 
     try:
@@ -604,7 +606,6 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         display_dt_string = section_start_dt.strftime("%m/%d/%Y %H:%M:%S")
         logging.info("=============")
         logging.info(f"Processing metadata started: {display_dt_string} (UTC)")
-        all_rating_curves = pd.DataFrame()
 
         num_sites = len(metadata_list)
         logging.info(f"Number of sites to process: {num_sites}")
@@ -634,7 +635,8 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         # parent script.
         mp_log_file_path = os.path.join(output_dir, f"get_rating_curves-mp-{file_datetime_string}.log")
         mp_logger = sf.setup_mp_file_logger(mp_log_file_path, logger_name="mp_rcs")
-        list_rating_curves_dfs = sf.run_with_mp(
+        # We get a list of dictionaries
+        rating_curves_dfs = sf.run_with_mp(
             task_function=__mp_get_site_rating_curve,
             tasks_args_list=sorted_tasks_args_list,
             file_logger=mp_logger,
@@ -648,11 +650,19 @@ def usgs_rating_to_elev(list_of_gage_sites, env_file, num_jobs, output_dir):
         # for now.. let's leave the error files alone, even the mp ones
 
         # more processing of rating curves
-        if len(list_rating_curves_dfs) == 0:
+        if len(rating_curves_dfs) == 0:
             logging.error("There are no acceptable sites. Stopping program.")
             sys.exit(1)
 
-        all_rating_curves = pd.concat(list_rating_curves_dfs)
+        # run_with_mp returns a list of dictionaries keyed with a huc. We don't care about the keys, just the values
+        # which are df's
+        all_rating_curves = pd.DataFrame()
+        for i, value in enumerate(rating_curves_dfs.values()):
+            if i == 0:
+                all_rating_curves = value
+            else:
+                all_rating_curves = pd.concat([all_rating_curves, value])
+
         logging.info(f"Number of sites to processes with metadata: {len(all_rating_curves)}")
 
         display_dt_string = datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")

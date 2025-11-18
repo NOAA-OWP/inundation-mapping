@@ -1,6 +1,206 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
+
+This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc
+
+This is part of a bigger EPIC Issue: [1641](https://github.com/NOAA-OWP/inundation-mapping/issues/1641):  Workflow Pipelines - build long chain scripts for quicker deploy and copying
+
+This was setup creating an opportunity to create more code infrastructure supporting FIM tools to talk to AWS, S3 for this tool, plus more tools coming in the near future. This one sets up infrastructure for creating and authenticating to AWS for all types of AWS calls plus full S3 communications (uploads and downloads). Some of the infrastructure code was copy/pasted based on another WIP PR [1480](https://github.com/NOAA-OWP/inundation-mapping/pull/1480): Update get_sample_data.py for lidar bridge elevation data.
+
+The new code infrastructure is a new system called `workflows`. . The `workflow` folders currently only have scripts to deploy to Hydrovis, but in near future PR's, will also include scripts for uploading inputs files/folders, qa tools against other scripts outputs, and chaining together multiple scripts. An example of a workflow down the road would be running catfim flow based, then it has a qa tool for it, then it uploads to HV buckets, the to FIM S3. This is a part of the bigger EPIC issue card mentioned above.
+
+This PR also covers an small adjustment to CatFIM, renaming its previous `catfim.env.template` to `fim_enviro_values.env.template`, to help with re-usability and consistency of other scripts already using the new fim_enviro_values.env. 
+
+### Usage Note:
+Details on full tool usage are embedded in the scripts themselves. This tool relies on two separate config env files, one for aws permissions and one for params to upload data to HydroVIS. The files exist in EFS... /data/config and are named aws_credentials.env and hv_deploy_params.env. Details on how to setup and use the two files are also not described here due to sensitive information, but details in those files have been added. It does not tell how to create an AWS profile as this is assumed to be common knowledge and is in other FIM-Dev developer docs.
+
+### Architecture Notes:
+The architecture introduced in this PR includes and sets us up for:
+- A new AWS communication and credentials layer, which can easily be updated for talking to other objects such as Lambdas, Step functions, EC2's, etc, including easy scripts to trigger "UAT" runs including status messaging to the user.
+- Adding a workflow system also allows running scripts normally run during production runs only, including output data validation, copying different combinations of output data to various S3 buckets and/or EFS paths.
+
+### Additions
+- `.gitignore`:  With the rename of `catfim.env.template` to `fim_enviro_values.env.template`, this ensures the file gets into GIT.
+- `config`:  A new template for `aws_credentials.template.env`, and `hv_deploy_params.template`.
+- `data\aws`
+    - `aws_shared_functions.py`:  Can be used to create sessions and clients for any type of service. We are using s3 only for now, but more are expected in PR coming soon. Also includes a new `aws_exception_handler` function, which can be used to turn most types of aws errors into more user friendly message, telling them what happened and what to do about it.
+    - `s3_shared_functions.py`:  This assists on any scripts communication with AWS s3 buckets. It includes a wide array of functions from uploading, downloading, checking buckets existence, checking for file/folder existence, and others. It also includes a tool for multi-threading allowing for very fast uploading of collections of files.
+ - `workflows`
+     - `.gitignore` and `init.py`: additions in support of the new workflow infrastructure described above
+     - `deploy\deploy_to_hydrovis.py`: A new tool allowing for quicker and easier uploading of production deployment files for HydroVIS / FIM releases.  Most arguments, variables and pathing are driven by a config file. Note: A template env file for it has not been includes as it contains sensitive information.
+     
+### Rename
+- `Was: tools\catfim\catfim.env.template  To: fim_enviro_values.env.template` and moved to `config\` folder.
+
+### Changes
+- `src\utils`
+    - `fim_logger.py`: Adjusted for usage of date time objects to be consistent with other scripts.
+    - `shared_functions.py`: Added a new function called `get_value_from_env` which validates the env value then returns it. The reason for this addition is validation and clarity when errors occur for loading env variables.
+- `tools\catfim`
+    - `README.md`, `generate_categorical_fim.py`, and `generate_categorical_fim_flows.py`: Adjusted to use and default to the config file of `fim_enviro_values.env.template` consistent with other scripts/tools.
+
+### Removals
+- `data\aws`:
+    - `aws_base.py`,  `s3.py`, `aws_creds_template.env` and `.gitignore`:  No longer applicable
+
+### FOR NOAA/OWP usage only
+This tool is not for usage outside of the OWP / FIM team.
+<br />
+
+## v4.8.15.0 - 2025-10-30 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
+
+This PR adds a new script to pull, extract, and conflate MRMS FLASH flow values to NWM reaches to use in generating HAND FIM. FLASH FIM can be useful during flash flooding scenarios where conditions change quickly and high temporal resolution (up to every 10 minutes) is necessary. 
+
+### Additions
+- `/tools/flashfim/conflate_flash_flows.py` - Added a script to extract and conflate flow values from FLASH products to the hydrofabric reference flowlines for FIM production.
+- `/tools/flashfim/README.md` - Added README to give background on FLASH FIM and explain how to use the tool.
+<br />
+
+## v4.8.14.4 - 2025-10-30 - [PR#1687](https://github.com/NOAA-OWP/inundation-mapping/pull/1687)
+
+Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now they will be masked out of BOTH stage-based and flow-based CatFIM (rather than just stage). 
+
+### Changes
+- `tools/catfim/ahps_restricted_sites.csv`: Changed classification of 3 sites from "stage" to "both."
+<br />
+
+## v4.8.14.3 - 2025-10-30 - [PR#1654](https://github.com/NOAA-OWP/inundation-mapping/pull/1654)
+
+This PR looks for the root cause of the 'Ghost' bug. The bug occured due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
+Some notes about the slope precision: The slope values in src_base represent TauDEM’s rise-over-run slopes. Because these values—and the slopes subsequently propagated through HFAB and SWORD—are extremely small (e.g., 9.99999974737875E-06), it is critical to preserve their numerical precision throughout all read/write operations in downstream scripts.
+When writing slope values to derived files (e.g., src_full, hydrotables), each value is rounded to three digits in scientific notation and then converted back to a float for continued numerical use.
+
+### Changes
+- `src/update_htable_src.py`: as described. 
+- `src/add_crosswalk.py`: Changed the slope precision.
+<br />
+
+## v4.8.14.2 - 2025-10-17 - [PR#1677](https://github.com/NOAA-OWP/inundation-mapping/pull/1677)
+
+During a merge of the recent PR for mprunner fixes, one critical line was dropped. The line takes the return value from the child multi-proc function and adds it to a list collection of return results. 
+
+A couple of small links in the changelog were also fixed.
+
+### Changes
+- `src/utils/shared_functions.py`: as described.
+<br />
+
+## v4.8.14.1 - 2025-10-10 - [PR#1640](https://github.com/NOAA-OWP/inundation-mapping/pull/1640)
+
+This PR focuses on processing and analysing the Ripple model metrics to find the source RAS models that have low quality and could be discarded from the Hydrovis database.  The main output of the script is a CSV file containing a list of low-accuracy ripple collection_ids and source model_ids, and associated NWM streams. You can also find detailed information on NWM streams metrics as well as averaged source model metrics. 
+
+To run the script, you need to create a directory in your `metrix_dir` (the only input of the script) for each ripple collection and name it the same as the Ripple collection name, e.g., `mip_12090301`. The following files should be stored in the collection directory:
+
+1. All terrain agreement metrics databases for NWM reaches, e.g, `0501244.terrain_agreement.db`
+2. Ripple geopackage for each model collection, e.g., 'ripple.gpkg'
+<br />
+
+### Additions
+- `data/ripple/`
+    - `terrain_agreement_metrics_analysis.py`
+<br />
+
+## V4.8.14.0 - 2025-10-10 - [PR#1650](https://github.com/NOAA-OWP/inundation-mapping/pull/1650)
+
+Fixes Alaska HUCs attempt to convert to Int16 if there are too many Hydro IDs and creates error handling for when this issue may arise.
+
+### Changes
+- src/delineate_hydros_and_produce_HAND.sh: Add check for Alaska HUC2 identifier before running conversion to int16 data type.
+- src/process_branch.sh: Add handling for int16 conversion failure error code.
+- src/src_adjust_spatial_obs.py: Add check for Alaska HUC2 identifier to see if process should run in Int16 or Int32.
+- src/utils/fim_enums.py: Add error code for int16 conversion error.
+- tools/catfim/generate_categorical_fim_mapping.py: Process in either in Int16 for rem and HydroIDs, or int32 and float32 respectively in the case of an Alaska HUC.
+- tools/inundation.py: Process in either in Int16 for rem and HydroIDs, or int32 and float32 respectively in the case of an Alaska HUC.
+- tools/mosaic_inundation.py: Add rasterio merge and remove calls to removed script overlapping_inundation.py.
+- tools/convert_to_int16.py: Add raise error for scenarios where catchment raster has too many HydroIDs or HydroIDs that have more than 8 digits.
+
+### Removals
+- /tools/overlapping_inundation.py
+<br />
+
+## v4.8.13.0 - 2025-10-10 - [PR#1673](https://github.com/NOAA-OWP/inundation-mapping/pull/1673)
+
+This script processes river segment slope data to identify and correct unrealistic values based on user-defined thresholds. It is designed to check against the NWM hydrofab to and fill/extrapolate missing or invalid slope values using valid upstream/downstream values.
+
+### Additions
+`data/slope/sword_slope_create_parquet_qc.py`: new data pre-processing script (see summary below)
+
+### Changes
+`src/bash_variables.env`: updated the path for the `iris_sword_slope` to use the new input file (IRIS_SWORD_v1.0_20251006.parquet)
+<br/>
+
+## v4.8.12.3 - 2025-10-10 - [PR#1660](https://github.com/NOAA-OWP/inundation-mapping/pull/1660)
+
+The file shared_functions.py had a bug in it related to a object length check. During that processes we discovered some enhancements to logging tools and run_with_mp.  The return code system was changed now where 1 = success, 0 = fail but do not abort and -1 means fail and abort run.  
+
+This triggered changes to scripts that use the logging or run_with_mp tools for their return values from their multi-proc functions.  The change affected four data load scripts, and all were retested for correct data loading. A fifth data load script, pull_osm_bridges.py, was updated but only for a comment and was not affected by other changes in this PR.
+
+There was also a change to shared_functions.setup_file_logger. It no longer takes a full path and file name for  a log file, but two separate variables, one for the log folder, the other for a log file prefix. A date will be added automatically to the log file name.
+
+### Changes
+
+- `data`
+    - `bridges\make_dem_dif_for_bridges.py`:  Updated call to setup_file_logger plus changes related to run_with_mp. A bit of additional error handling was also added.
+    - `bridges\pull_osm_bridges.py`:  Just a comment added
+    - `nfhl\download_fema_nfhl.py`:  Updated call to setup_file_logger plus changes related to run_with_mp.
+    - `roads\pull_osm_roads.py`:  Updated call to setup_file_logger plus changes related to run_with_mp.
+- `src\shared_functions.py`: as described.
+    - `usgs\get_usgs_rating_curve.py`:  Updated call to setup_file_logger plus changes related to run_with_mp. A bit of additional error handling was also added. A small fix for rounding was also fixed.
+<br/>
+
+## v4.8.12.2 - 2025-10-10 - [PR#1616](https://github.com/NOAA-OWP/inundation-mapping/pull/1616)
+
+Fixes a bug that was introduced to flow-based CatFIM in recent changes to the Inundate_gms() function. The bug was fixed by adding multi_process = True as an input to the function.
+
+### Changes
+tools/catfim/generate_categorical_fim_mapping.py: Added multi-process option to inundate_gms() function. Updated print logs.
+<br/>
+
+## v4.8.12.1 - 2025-10-10 - [PR#1617](https://github.com/NOAA-OWP/inundation-mapping/pull/1617)
+
+This tool generates a custom flow file for a specific FIM scenario. Given a flow value and either a feature ID or a LID/USGS gage ID, it traces downstream along NWM streamlines and applies the input flow to each segment within the specified distance.
+
+### Additions
+- `-tools/generate_custom_flow_files.py`
+<br/>
+
+## v4.8.12.0 - 2025-10-10 - [PR#1621](https://github.com/NOAA-OWP/inundation-mapping/pull/1621)
+
+This PR focuses on the position of three scripts in the post-processing and updating the longitudinal filtering parameters. First, a new script has been written to address the thalweg notch adjustment, separated from the nonmonotonic adjustment script. Second, the post-processing has been changed in a way that `thalweg_notches_adjustment` and `logitudinal_flow_adjustment` will be run before `bathymetry_adjustment`. Then, `nonmonotonic_adjustment` will be run after the `src_subdivision` section. The second purpose of this PR is to update the `longitudinal_adjustment` parameters and replace the minimum filter with the lowest 10-percentile of the discharge on the rating curve. 
+
+### Additions
+- `src/`
+    - `thalweg_notches_adjustment.py`
+
+### Changes
+- `fim_post_processing.sh`
+- `src/`
+    - `longitudinal_flow_adjustment.py`
+    - `nonmonotonic_src_adjustment.py`
+- `config/`
+    - `params_template.env`
+<br/>
+
+## v4.8.11.3 - 2025-10-10 - [PR#1669](https://github.com/NOAA-OWP/inundation-mapping/pull/1669)
+
+The FEMA NFHL data consists of several layers. The 100- and 500-year floodplain layers are merged into a layer called 'combined'. However, if a HUC has neither 100- or 500-year floodplain layers, the `combined` layer is not produced. This missing `combined` layer causes an error in `src/adjust_floodplains.py`. This patch skips the reading of the `combined` layer if it doesn't exist.
+
+### Changes
+
+- `src/adjust_floodplains.py`: Skips reading `combined` layer if it doesn't exist in the FEMA NFHL geopackage.
+<br/>
+
+## v4.8.11.2 - 2025-10-10 - [PR#1671](https://github.com/NOAA-OWP/inundation-mapping/pull/1671)
+
+Adjusted the scripts for pulling down filtered files/folders for the new ripple 100_0_10_4 set. These adjustments allow for optional download to EFS only, or additionally add re-push back up to our S3.
+
+### Changes
+
+- `data\ripple\get_s3_folder.sh, get_s3_folders_from_list.sh and ripple_shared_tools.sh`: As described above.
+<br/>
+
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
 
 Going into the FIM 6.0 release, we planned on getting `usgs_rating_curve` files. Then we found a CatFIM problem that triggered some changes to shared functions that `get_usgs_rating_curves` needed. A quick test after the CatFIM change showed it broke getting usgs rating curves. We deferred it until now. We also wanted to add multi proc as it took over 32 hours to run. Multi-processing has now been added to bring this duration down drastically.
@@ -384,9 +584,7 @@ Removing the hydrofabric slope values for now due to issues with erroneous value
 <br/><br/>
 
 
-## v4.8.6.3 - 2025-07-14 - [PR#1574](https://github.com/NOAA-OWP/inundation-mapping/pull/1574)
-
-## v4.8.x.x - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
+## v4.8.6.3 - 2025-07-15 - [PR#1595](https://github.com/NOAA-OWP/inundation-mapping/pull/1595)
 
 Clips NWM streams at the land/sea mask.
 
