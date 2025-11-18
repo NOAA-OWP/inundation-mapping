@@ -183,8 +183,8 @@ Tstart
 
     error_log_path="$tempHucDataDir/logs/$error_log_filename"
 
-    # Always delete old file if it exists
-    [ -f "$error_log_path" ] && rm -f "$error_log_path"
+    # Make sure NOT TO delete error_log_path, because it started logging from fim_process_huc.sh if an error occurs
+    # [ -f "$error_log_path" ] && rm -f "$error_log_path"
 
     # For rerun mode: Only scan src_calibrations subdirectory which is updated during rerun
     # For normal mode: Scan entire logs directory
@@ -198,7 +198,8 @@ Tstart
 
     # Only keep the file if it's non-empty (error were found)
     if [ -s "$error_log_path".tmp ]; then
-        mv "$error_log_path".tmp "$error_log_path"
+        cat "$error_log_path".tmp >> "$error_log_path"
+        rm -f "$error_log_path".tmp
         l_echo "There are some errors reported in log file \"$error_log_path\""
     else
         rm -f "$error_log_path".tmp

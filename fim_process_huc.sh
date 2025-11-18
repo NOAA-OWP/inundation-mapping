@@ -125,6 +125,13 @@ do
     fi
 done
 
+if [ "$err_exists" = "1" ]; then
+    error_log_filename=$tempHucDataDir/logs/huc_"$hucNumber"_errors.log
+    err_msg="Error: "$hucNumber". Invalid return status code. Exit status: $return_codes"
+    echo $err_msg >> $error_log_filename
+fi
+
+
 # Move the contents of the temp directory into the outputs directory and update file permissions
 mv -f $tempHucDataDir $outputHucDataDir
 find $outputHucDataDir -type d -exec chmod -R 777 {} +
