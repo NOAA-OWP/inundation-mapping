@@ -35,12 +35,12 @@ def label_data_file(label, lst_hucs):
         where:
           - `label` is either the empty string or the input label prefixed with an underscore,
           - `subset` is either '' (when 'all' in lst_hucs) or '_subset',
-          - `date` is the current date formatted as DDMMYYYY.
+          - `date` is the current date formatted as YYYYMMDD.
 
     Examples
     --------
-    label_data_file("survey", ["HUC1"])  -> "_survey_subset_12062025"
-    label_data_file("", ["all"])        -> "_12062025"
+    label_data_file("survey", ["HUC1"])  -> "_survey_subset_20251206"
+    label_data_file("", ["all"])        -> "_20251206"
 
     '''
 
@@ -50,7 +50,7 @@ def label_data_file(label, lst_hucs):
     # Add a leading underscore to the label if it's not empty
     label = f'_{label}' if label != '' else label
 
-    date_formatted = date.today().strftime("%d%m%Y")
+    date_formatted = date.today().strftime("%Y%m%d")
     label_with_date = f'{label}{subset}_{date_formatted}'
 
     return label_with_date
@@ -560,7 +560,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-l',
         '--label',
-        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_ddmmyy.pkl and thresholds_<label>_ddmmyy.pkl).',
+        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_yyyymmdd.pkl and thresholds_<label>_yyyymmdd.pkl).',
         required=False,
     )
 
