@@ -8,8 +8,8 @@ from datetime import date, datetime, timezone
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
-from tools_shared_functions import get_metadata
 from download_process_wrds import label_data_file
+from tools_shared_functions import get_metadata
 
 
 def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
