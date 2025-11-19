@@ -119,24 +119,24 @@ def generate_streamflow_percentiles(
     dkeys = ['90', '75', '50', '25', '10']
 
     # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
-    if 'nbm' in ensemble_forecast.coords['member']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'nbm'})))
+    if 'nbm' in ensemble_forecast.coords['ensemble']:
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'nbm'})))
         rv['feature_id'] = feature
         return rv
 
-    if 'noda' in ensemble_forecast.coords['member']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'noda'})))
+    if 'noda' in ensemble_forecast.coords['ensemble']:
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'noda'})))
         rv['feature_id'] = feature
         return rv
 
-    if 'short' in ensemble_forecast.coords['member']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'short'})))
+    if 'short' in ensemble_forecast.coords['ensemble']:
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'short'})))
         rv['feature_id'] = feature
         return rv
 
     # If there is no feature in the NWM parameters file
     if feature not in params_weibull.index:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})))
         rv['feature_id'] = feature
         return rv
     else:
@@ -149,7 +149,7 @@ def generate_streamflow_percentiles(
         r = dist_dict[parameters['distribution_name']](**params)
 
     except Exception:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})))
         rv['feature_id'] = feature
         return rv
 
@@ -374,6 +374,7 @@ def get_subdivided_src(
     df_htable['LakeID'] = -999
     df_htable['HydroID'] = df_htable['HydroID'].astype(str)
     df_htable['feature_id'] = df_htable['feature_id'].astype(str)
+    df_htable['precalb_discharge_cms'] = 0
 
     output_table = os.path.join(htable_directory, htable_output.format(branch))
     df_htable.to_feather(output_table)
@@ -485,7 +486,7 @@ def inundate_probabilistic(
             {
                 'time': ensembles['streamflow']
                 .sel({'time': slice(reference_time, forecast_time)})
-                .max(['feature_id', 'member'], skipna=True)
+                .max(['feature_id', 'ensemble'], skipna=True)
                 .argmax()
             }
         )
@@ -496,7 +497,7 @@ def inundate_probabilistic(
             {
                 'time': ensembles['streamflow']
                 .sel({'time': slice(reference_time, forecast_time)})
-                .sum(['feature_id', 'member'], skipna=True)
+                .sum(['feature_id', 'ensemble'], skipna=True)
                 .argmax()
             }
         )
