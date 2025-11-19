@@ -1,6 +1,31 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v.8.x.x - 2025-11-18 - [PR#1697](https://github.com/NOAA-OWP/inundation-mapping/pull/1697)
+
+During some testing of the new PR 1620 :Redesign Calibration workflow, a branch error occurred. During a alpha test against a small huc sample set with a branch error, it exposed a bug in eval_plots.py.  The bug is normally not seen as in order to see the error, you have to have a huc list what errors out on one HUC but no other HUCs in that test run with a valid benchmark source. 
+
+Note: This bug is not related to PR 1620 and has existed for a long time.
+
+## This PR should not be merged until 1620 is merged with dev.
+
+eval_plots.py assume there would be some metrics data a given benchmark type for a given pipeline run and it could end up as an empty dataset. 
+
+### Changes
+
+- `tools`
+    -  `eval_plots.py`: Changes include:
+        - Added more prints to help sort out progress and more context clues when something fails. 
+        - Adjusted a few variable names to be more initiative.
+        - Added a bit of input validation code.
+        - Added some inline validation code to ensure some datasets are not empty in key places.
+        - Fixed a bug when the tool is being used for spatial data, creating the FIM Performance points and poly files. A previous merge accidently changed a key variable name which would have resulted in the two FIM Performance files never being created.
+        - Add more doc strings.
+    - `synthesize_test_cases.py`:   Added a few warning message and upgrade a bit of the wording on an error message.
+    - `run_test_case.py`: Found a bug where shutil.rmtree could fail with directory not empty during race conditions of the python GC. Could have been MP cleaning overlapping or subdirectories at the same times. Added the "ignore_error=True" tag to shutil.rmtree.
+    - `probabilitic_inundation.py`: Added the "ignore_error=True" tag to shutil.rmtree.
+<br />
+
 ## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
 
 This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc
