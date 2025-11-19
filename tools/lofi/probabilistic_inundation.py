@@ -103,45 +103,45 @@ def generate_streamflow_percentiles(
     }
 
     # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
-    if 'nbm' in ensemble_forecast.coords['member']:
+    if 'nbm' in ensemble_forecast.coords['ensemble']:
         return {
             'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '75': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '50': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '25': float(ensemble_forecast.sel({'member': 'nbm'})),
-            '10': float(ensemble_forecast.sel({'member': 'nbm'})),
+            '90': float(ensemble_forecast.sel({'ensemble': 'nbm'})),
+            '75': float(ensemble_forecast.sel({'ensemble': 'nbm'})),
+            '50': float(ensemble_forecast.sel({'ensemble': 'nbm'})),
+            '25': float(ensemble_forecast.sel({'ensemble': 'nbm'})),
+            '10': float(ensemble_forecast.sel({'ensemble': 'nbm'})),
         }
 
-    if 'da' in ensemble_forecast.coords['member']:
+    if 'da' in ensemble_forecast.coords['ensemble']:
         return {
             'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'da'})),
-            '75': float(ensemble_forecast.sel({'member': 'da'})),
-            '50': float(ensemble_forecast.sel({'member': 'da'})),
-            '25': float(ensemble_forecast.sel({'member': 'da'})),
-            '10': float(ensemble_forecast.sel({'member': 'da'})),
+            '90': float(ensemble_forecast.sel({'ensemble': 'da'})),
+            '75': float(ensemble_forecast.sel({'ensemble': 'da'})),
+            '50': float(ensemble_forecast.sel({'ensemble': 'da'})),
+            '25': float(ensemble_forecast.sel({'ensemble': 'da'})),
+            '10': float(ensemble_forecast.sel({'ensemble': 'da'})),
         }
 
-    if 'short' in ensemble_forecast.coords['member']:
+    if 'short' in ensemble_forecast.coords['ensemble']:
         return {
             'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': 'short'})),
-            '75': float(ensemble_forecast.sel({'member': 'short'})),
-            '50': float(ensemble_forecast.sel({'member': 'short'})),
-            '25': float(ensemble_forecast.sel({'member': 'short'})),
-            '10': float(ensemble_forecast.sel({'member': 'short'})),
+            '90': float(ensemble_forecast.sel({'ensemble': 'short'})),
+            '75': float(ensemble_forecast.sel({'ensemble': 'short'})),
+            '50': float(ensemble_forecast.sel({'ensemble': 'short'})),
+            '25': float(ensemble_forecast.sel({'ensemble': 'short'})),
+            '10': float(ensemble_forecast.sel({'ensemble': 'short'})),
         }
 
     # If there is no feature in the NWM parameters file
     if int(feature) not in params_weibull.index:
         return {
             'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': '1'})),
-            '75': float(ensemble_forecast.sel({'member': '1'})),
-            '50': float(ensemble_forecast.sel({'member': '1'})),
-            '25': float(ensemble_forecast.sel({'member': '1'})),
-            '10': float(ensemble_forecast.sel({'member': '1'})),
+            '90': float(ensemble_forecast.sel({'ensemble': '1'})),
+            '75': float(ensemble_forecast.sel({'ensemble': '1'})),
+            '50': float(ensemble_forecast.sel({'ensemble': '1'})),
+            '25': float(ensemble_forecast.sel({'ensemble': '1'})),
+            '10': float(ensemble_forecast.sel({'ensemble': '1'})),
         }
     else:
         parameters = params_weibull.loc[int(feature)]
@@ -155,11 +155,11 @@ def generate_streamflow_percentiles(
     except Exception:
         return {
             'feature_id': int(feature),
-            '90': float(ensemble_forecast.sel({'member': '1'})),
-            '75': float(ensemble_forecast.sel({'member': '1'})),
-            '50': float(ensemble_forecast.sel({'member': '1'})),
-            '25': float(ensemble_forecast.sel({'member': '1'})),
-            '10': float(ensemble_forecast.sel({'member': '1'})),
+            '90': float(ensemble_forecast.sel({'ensemble': '1'})),
+            '75': float(ensemble_forecast.sel({'ensemble': '1'})),
+            '50': float(ensemble_forecast.sel({'ensemble': '1'})),
+            '25': float(ensemble_forecast.sel({'ensemble': '1'})),
+            '10': float(ensemble_forecast.sel({'ensemble': '1'})),
         }
 
     likelihoods = np.array([1 - r.cdf(x) for x in ensemble_forecast.values])
@@ -479,7 +479,7 @@ def inundate_probabilistic(
     # Load datasets
     ensembles = xr.open_dataset(ensembles)
 
-    parameters_df = pd.read_csv(parameters)
+    parameters_df = pd.read_parquet(parameters)
     params_weibull = parameters_df.loc[parameters_df['distribution_name'] == 'weibull_min']
     params_weibull.set_index('feature_id', inplace=True)
 
@@ -516,7 +516,7 @@ def inundate_probabilistic(
                 {
                     'time': ensembles['streamflow']
                     .sel({'time': slice(reference_time, forecast_time)})
-                    .max(['feature_id', 'member'], skipna=True)
+                    .max(['feature_id', 'ensemble'], skipna=True)
                     .argmax()
                 }
             )
@@ -528,7 +528,7 @@ def inundate_probabilistic(
                 {
                     'time': ensembles['streamflow']
                     .sel({'time': slice(reference_time, forecast_time)})
-                    .sum(['feature_id', 'member'], skipna=True)
+                    .sum(['feature_id', 'ensemble'], skipna=True)
                     .argmax()
                 }
             )
