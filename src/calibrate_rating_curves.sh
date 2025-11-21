@@ -166,7 +166,8 @@ Tstart
 python3 $srcDir/aggregate_branches_to_huc.py \
     -huc_dir $tempHucDataDir \
     -htable \
-    -bridge
+    -bridge \
+    -road
 Tcount
 
 
