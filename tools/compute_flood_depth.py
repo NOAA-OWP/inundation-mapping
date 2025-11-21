@@ -1,10 +1,9 @@
 """
 This script calculates flood depth for geometries (e.g., roads, points, or buildings) for a given flow file.
 Input:
-     A geopackage containing desired geometries.The gpkh file can have any projection.
+     A geopackage containing desired geometries.The gpkg file can have any projection.
 
 Workflow:
-    A geopackage containing only inundated geometries with their flood depth.
     1. For each input geometry, the script first identifies all intersecting HUCs from the available HUCs in a given FIM run.
       Geometries that span multiple HUCs are then processed independently within each HUC, and the most conservative (maximum)
         flood depth across all relevant HUCs is ultimately retained.
@@ -18,20 +17,22 @@ Workflow:
         - feature_id
         - branch: Branch identifier within the HUC
 
-    3. Calculate threshold discharge: Using the HydroTable for each branch, interpolate the discharge
+    3. Interpolate threshold discharge: Using the HydroTable for each branch, interpolate the discharge
        value corresponding to each threshold_hand. This represents the flow rate at which flooding
        would begin. Geometries with threshold_hand > 25m are excluded as they exceed HydroTable limits.
 
-    4. Determine inundation status: Compare the evaluated discharge (from input flow file) against
-       the threshold discharge. If evaluated discharge > threshold discharge, the geometry is flooded.
+    4. Determine inundation status:  The `evaluated discharge` from the input flow file is compared to the
+    `threshold_discharge`. A geometry is marked as inundated if `evaluated_discharge > threshold_discharge`.
 
-    5. Compute flood depth: For flooded geometries, interpolate the evaluated stage from the HydroTable
-       using the evaluated discharge. Flood depth is calculated as:
-       flood_depth = evaluated_stage - threshold_hand
+    5. Compute flood depth: The evaluated stage is obtained by interpolating within the branch-specific
+      HydroTables using the corresponding evaluated discharge values. Flood depth is computed as:
+        flood_depth = evaluated_stage - threshold_hand.
+        At this time, any negative flood depths (which may occur due to non-monotonic SRC behavior) are set to zero.
 
-Output:
-    A geopackage containing only inundated geometries with their flood depth.
-    For geometries spanning multiple HUCs/branches, the maximum flood depth is reported.
+Output
+    - A gpkg file containing geometries along with their flooding status (Y or N) and the computed flood depths.
+    - For geometries intersecting multiple HUCs or branches, the maximum flood depth across all intersections is reported.
+    - Geometries that do not intersect any HUCs will have NULL for all output fields.
 """
 
 import argparse
@@ -71,7 +72,7 @@ def add_imperial_units(final_result_gdf):
 
 def get_evaluated_stage(fim_path, huc, branch, fimpact_df):
     """
-    Calculate evaluated stage for flooded geometries corresponding to evaluated discharge.
+    Calculate evaluated stage for geometries corresponding to evaluated discharge.
 
     Args:
         fim_path: Path to FIM outputs directory
@@ -84,22 +85,19 @@ def get_evaluated_stage(fim_path, huc, branch, fimpact_df):
     """
     fimpact_df['evaluated_stage'] = np.nan
 
-    for branch_id in fimpact_df['branch'].unique():
-        hydrotable_path = os.path.join(fim_path, huc, 'branches', branch, f'hydroTable_{branch_id}.csv')
-        hydrotable_df = pd.read_csv(
-            hydrotable_path,
-            dtype={'HydroID': str, 'stage': float, 'discharge_cms': float},
-            usecols=['HydroID', 'discharge_cms', 'stage'],
+    hydrotable_path = os.path.join(fim_path, huc, 'branches', branch, f'hydroTable_{branch}.csv')
+    hydrotable_df = pd.read_csv(
+        hydrotable_path,
+        dtype={'HydroID': str, 'stage': float, 'discharge_cms': float},
+        usecols=['HydroID', 'discharge_cms', 'stage'],
+    )
+
+    for _, row in fimpact_df.iterrows():
+        hydro_data = hydrotable_df[hydrotable_df.HydroID == row.HydroID]
+        evaluated_stage = stage_lookup(
+            row.evaluated_discharge, hydro_data['discharge_cms'], hydro_data['stage']
         )
-
-        branch_df = fimpact_df[(fimpact_df['branch'] == branch_id) & (fimpact_df['HUC'] == huc)]
-
-        for _, row in branch_df.iterrows():
-            hydro_data = hydrotable_df[hydrotable_df.HydroID == row.HydroID]
-            evaluated_stage = stage_lookup(
-                row.evaluated_discharge, hydro_data['discharge_cms'], hydro_data['stage']
-            )
-            fimpact_df.at[row.name, 'evaluated_stage'] = evaluated_stage
+        fimpact_df.at[row.name, 'evaluated_stage'] = evaluated_stage
 
     return fimpact_df
 
@@ -109,6 +107,7 @@ def compute_depth(fim_path, huc, branch, fimpact_df, flow_file_df):
     - Identify flooded objects by comparing evaluated flow vs threshold flow
     - Compute flood depth by comparing evaluated stage against threshold hand.
     - Keep the non-inundated objects in the final output with flood depth of zero
+
 
     Args:
         fim_path: Path to FIM outputs directory
@@ -134,7 +133,7 @@ def compute_depth(fim_path, huc, branch, fimpact_df, flow_file_df):
 
     # convert negative flood depths (can occur due to non-monotonic SRC) to zero
     # do not remove non-inundated objects
-    fimpact_df['flood_depth'] = np.where(fimpact_df['flood_depth'] > 0, fimpact_df['flood_depth'].values, 0)
+    fimpact_df['flood_depth'] = np.where(fimpact_df['flood_depth'] > 0, fimpact_df['flood_depth'], 0)
 
     return fimpact_df
 
@@ -160,7 +159,7 @@ def get_threshold_discharge(fim_path, huc, branch, fimpact_df):
     )
 
     # Filter out geometries with threshold_hand exceeding HydroTable limits
-    fimpact_df = fimpact_df[fimpact_df['threshold_hand'] < MAX_HAND_THRESHOLD_M].copy()
+    fimpact_df = fimpact_df[fimpact_df['threshold_hand'] <= MAX_HAND_THRESHOLD_M].copy()
 
     if fimpact_df.empty:
         return None
@@ -172,15 +171,15 @@ def get_threshold_discharge(fim_path, huc, branch, fimpact_df):
     return fimpact_df
 
 
-def get_threshold_hand(fim_path, huc, branch, geometries_gdf, file_logger, screen_queue, task_id):
+def get_threshold_hand(fim_path, huc, branch, huc_geometries_gdf, file_logger, screen_queue, task_id):
     """
     Extract threshold HAND values for input geometries from HAND grids.
 
     Args:
         fim_path: Path to FIM outputs directory
-        hu
+        huc:
         branch: Branch identifier within the HUC
-        geometries_gdf: GeoDataFrame with input geometries
+        huc_geometries_gdf: GeoDataFrame with geometries for this HUC
 
     Returns:
         DataFrame with threshold_hand, HydroID, feature_id, and branch columns
@@ -206,20 +205,20 @@ def get_threshold_hand(fim_path, huc, branch, geometries_gdf, file_logger, scree
     catchments_df['HydroID'] = catchments_df['HydroID'].astype(int).astype(str)
 
     # Split geometries based on catchment boundaries
-    geometries_split = gpd.overlay(geometries_gdf, catchments_df, how="intersection")
+    huc_geometries_split = gpd.overlay(huc_geometries_gdf, catchments_df, how="intersection")
 
     # Explode to handle jagged geometries from overlay operation
-    geometries_split = geometries_split.explode(index_parts=True).reset_index(drop=True)
+    huc_geometries_split = huc_geometries_split.explode(index_parts=True).reset_index(drop=True)
 
-    if geometries_split.empty:
-        file_logger.warning(f'No geometries found in branch {branch}')
+    if huc_geometries_split.empty:
+        file_logger.warning(f'No geometries found in huc {huc} branch {branch}')
         return None
 
-    geometries_split['branch'] = branch
+    huc_geometries_split['branch'] = branch
 
     # Calculate minimum HAND value for each geometry segment
     stats = zonal_stats(
-        geometries_split['geometry'],
+        huc_geometries_split['geometry'],
         hand_grid_array,
         affine=hand_grid_profile['transform'],
         nodata=hand_grid_profile["nodata"],
@@ -228,20 +227,20 @@ def get_threshold_hand(fim_path, huc, branch, geometries_gdf, file_logger, scree
         add_stats={"min_ex0": min_hand_excluding_zero},
     )
 
-    geometries_split.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
+    huc_geometries_split.loc[:, 'threshold_hand'] = [x.get('min_ex0') for x in stats]
 
     # Convert from mm to meters (REM units changed in FIM pipeline)
-    geometries_split['threshold_hand'] = geometries_split['threshold_hand'] / MM_TO_METERS
+    huc_geometries_split['threshold_hand'] = huc_geometries_split['threshold_hand'] / MM_TO_METERS
 
     # Remove geometries crossing NoData areas (e.g., levees)
-    geometries_split = geometries_split.dropna(subset=['threshold_hand'])
+    huc_geometries_split = huc_geometries_split.dropna(subset=['threshold_hand'])
 
     # Drop geometry for performance (will be re-merged with original geometries later)
-    geometries_split = geometries_split.drop(columns='geometry')
+    huc_geometries_split = huc_geometries_split.drop(columns='geometry')
 
     # Keep minimum threshold_hand for each geometry-HydroID combination
-    min_idx = geometries_split.groupby(['geometry_unique_id', 'HydroID'])['threshold_hand'].idxmin()
-    fimpact_df = geometries_split.loc[min_idx]
+    min_idx = huc_geometries_split.groupby(['geometry_unique_id', 'HydroID'])['threshold_hand'].idxmin()
+    fimpact_df = huc_geometries_split.loc[min_idx]
 
     # Ensure IDs are strings for output consistency
     cols_to_str = ['HydroID', 'feature_id', 'branch']
@@ -392,7 +391,7 @@ def flood_depth_main(
         huc_dir = os.path.join(fim_run_dir, huc)
         huc_geometries_gdf = geometries_with_hucs_gdf[geometries_with_hucs_gdf['HUC'] == huc]
 
-        # Reproject to original CRS for processing withi huc outputs
+        # Reproject to original CRS for processing within huc outputs
         huc_crs = huc_geometries_gdf["huc_crs"].iloc[0]
         huc_geometries_gdf = huc_geometries_gdf.to_crs(huc_crs)
 
@@ -439,7 +438,7 @@ def flood_depth_main(
 
     # Merge with original geometry to report full-length features
     final_result_gdf = final_result_df.merge(
-        geometries_gdf[['geometry', 'geometry_unique_id']], on='geometry_unique_id', how='left'
+        geometries_gdf[['geometry', 'geometry_unique_id']], on='geometry_unique_id', how='right'
     )
 
     # all spatial processing was done using epsg:4326
