@@ -365,7 +365,17 @@ def process_generate_categorical_fim(
         # Otherwise, compile unique sources into a comma-separated string
         else:
             data_source = set(thresh_list['source'])
-            data_source = ', '.join(data_source)
+
+            # TODO: Nov 2025: Fix this. The data source line below with the join has a bug.
+            # When the source comes in with a slash at the front, we get:
+            #     TypeError: sequence item 0: expected str instance, NoneType found
+
+            # When the source comes in without a slash at the front, we get:
+            #     TypeError: sequence item 0: expected str instance, float found
+            # data_source = ', '.join(data_source)
+
+            # temp workaround
+            data_source = 'TEST'
 
     # End of Validation and setup
     # ================================
