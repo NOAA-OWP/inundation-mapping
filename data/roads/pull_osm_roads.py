@@ -1,3 +1,15 @@
+"""
+Download road segments from OpenStreetMap (OSM) for FIM analysis.
+
+This script queries the Overpass API to download major road segments (motorway, trunk,
+primary, secondary, tertiary) for each HUC boundary. Road segments are then split by
+NWM catchment boundaries for use in flood impact (FIMpact) calculations.
+
+Important: Bridge segments (tagged with bridge=*) are explicitly EXCLUDED from the road
+downloads to prevent unrealistic flood depth calculations. Bridge segments are handled
+separately via pull_osm_bridges.py and the bridge-healing workflow.
+"""
+
 import argparse
 import http.client
 import os
@@ -86,13 +98,22 @@ def split_bbox(minx, miny, maxx, maxy, num_splits=4):
 
 
 def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
+    """
+    Pull road segments from OpenStreetMap for a given HUC boundary.
+
+    Note: Bridge segments (tagged with bridge=*) are explicitly excluded to prevent
+    unrealistic flood depth calculations in FIMpact analyses. Bridges are handled
+    separately via pull_osm_bridges.py and the bridge-healing workflow.
+    """
     minx, miny, maxx, maxy = huc_geom.bounds
     bbox_query = f"({miny},{minx},{maxy},{maxx})"
 
+    # Exclude bridge segments to prevent unrealistic flood depth calculations
+    # Bridge segments are pulled separately via pull_osm_bridges.py and handled differently
     query_template = """
     [out:json];
     (
-    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$"]{bbox};
+    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$"][!"bridge"]{bbox};
     );
     out body;
     >;
