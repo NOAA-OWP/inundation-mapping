@@ -11,7 +11,7 @@ from esri import ESRI_REST
 from shapely import Polygon
 
 from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import run_with_mp, setup_mp_file_logger, read_huc_file_list_or_array_of_hucs
 
 
 def load_wbd(huc_list):
@@ -350,15 +350,9 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
 
     start_time = dt.datetime.now(dt.timezone.utc)
 
-    # handle .lst file or direct HUC list
-    if len(huc_list) == 1 and huc_list[0].endswith('.lst'):
-        lst_file = huc_list[0]
-        if not os.path.exists(lst_file):
-            raise FileNotFoundError(f"HUC list file {lst_file} does not exist")
-        with open(lst_file, 'r') as f:
-            huc_list = [line.strip() for line in f if line.strip()]
+    huc_list = read_huc_file_list_or_array_of_hucs(huc_list)
 
-    if not huc_list:
+    if not huc_list or len(huc_list) == 0:
         raise ValueError('No valid HUC8 provided')
 
     os.makedirs(output_folder, exist_ok=True)
@@ -451,10 +445,10 @@ if __name__ == "__main__":
     """
     Sample Usage
     ----------
-    python3 /foss_fim//data/nfhl/download_fema_nfhl.py -u 11070106 08080206
+    python3 /foss_fim/data/nfhl/download_fema_nfhl.py -u 11070106 08080206
         -o /outputs/fema/test -j 8
     OR
-    python3 /foss_fim//data/nfhl/download_fema_nfhl.py -u huc_list.lst
+    python3 /foss_fim/data/nfhl/download_fema_nfhl.py -u huc_list.lst
         -o /outputs/fema/test -j 8
     """
 
