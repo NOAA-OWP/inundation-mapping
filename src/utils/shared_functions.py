@@ -435,9 +435,9 @@ def run_with_mp(
             screen_queue_thread.join()  # official closure of thread
 
         print("rob test")
-        # This hanging in some scenarios such as a bug in this function. Triggered by a mp child 
+        # This hanging in some scenarios such as a bug in this function. Triggered by a mp child
         # function not returning values correctly.
-        # sys.exit(1)  
+        # sys.exit(1)
         # need to rethrow
         raise ex2
 
@@ -648,21 +648,21 @@ def s3_or_local_glob(path: str) -> list:
     return fs.glob(pth)
 
 
-"""
-This function can be used for things other than just HUCS, but is being
-tested for list of HUCs or a path to a HUC list file.
-
-Some code reads in either a huc list file path or a list of hucs.
-  ie) /data/inputs/huc_list/mylist.huc
-  or 12090301 05020305
-Sometimes using nargs="+" can treat the incoming argument as one big or a bunch of hucs.
-  ie) -u 12090301 05030105 (without quotes around the two become two items in a huc list)
-BUT 
-      -u '12090301 05030105' becomes jsut one large sting in the single list. ie) hucs[0] = '12090301 05030105'
-
-This function can handle all three to result in a valid huc list array.
-"""
 def read_huc_file_list_or_array_of_hucs(hucs):
+    """
+    This function can be used for things other than just HUCS, but is being
+    tested for list of HUCs or a path to a HUC list file.
+
+    Some code reads in either a huc list file path or a list of hucs.
+    ie) /data/inputs/huc_list/mylist.huc
+    or 12090301 05020305
+    Sometimes using nargs="+" can treat the incoming argument as one big or a bunch of hucs.
+    ie) -u 12090301 05030105 (without quotes around the two become two items in a huc list)
+    BUT
+        -u '12090301 05030105' becomes jsut one large sting in the single list. ie) hucs[0] = '12090301 05030105'
+
+    This function can handle all three to result in a valid huc list array.
+    """
 
     if isinstance(hucs, list) and len(hucs) == 0:
         raise ValueError("HUC or item list can not be empty")
@@ -676,7 +676,7 @@ def read_huc_file_list_or_array_of_hucs(hucs):
         if hucs[0].endswith(".lst"):
             if not os.path.isfile(hucs[0]):
                 raise FileNotFoundError(f"Huc list file not found at {hucs[0]}")
-            
+
             with open(hucs[0], 'r') as hucs_file:
                 file_lines = hucs_file.readlines()
                 f_list = [clean_huc_value(fl) for fl in file_lines]
@@ -692,8 +692,8 @@ def read_huc_file_list_or_array_of_hucs(hucs):
     else:  # assume it is a string but it could have more than one huc value in it
         hucs = hucs.strip()
         if hucs == "":
-            raise ValueError(f"HUC list is empty")
-        
+            raise ValueError("HUC list is empty")
+
         if " " in hucs:  # we have something like '12090301 05030104'
             raw_huc_list = hucs.split(" ")
             for huc in raw_huc_list:
