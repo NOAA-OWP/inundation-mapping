@@ -562,6 +562,7 @@ if __name__ == '__main__':
         '--label',
         help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_yyyymmdd.pkl and thresholds_<label>_yyyymmdd.pkl).',
         required=False,
+        default='',
     )
 
     parser.add_argument(
