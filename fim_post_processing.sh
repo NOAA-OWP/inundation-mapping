@@ -253,7 +253,6 @@ if [ "$src_adjust_usgs" = "True" ] && [ "$src_subdiv_toggle" = "True" ] && [ "$s
         -run_dir $outputDestDir \
         -usgs_rc $usgs_rating_curve_csv \
         -usgs_sites $usgs_acceptable_gages_path \
-        -nwm_recur $nwm_recur_file \
         -j $jobLimit
     Tcount
 fi
