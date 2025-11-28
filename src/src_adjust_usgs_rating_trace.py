@@ -8,7 +8,7 @@ from multiprocessing import Pool
 import geopandas as gpd
 import pandas as pd
 
-from src_roughness_optimization import update_rating_curve
+from power_law_src_optimization import update_rating_curve
 from tools.tools_shared_functions import filter_usgs_by_acceptance_criteria
 from utils.shared_functions import check_file_age, concat_huc_csv
 from utils.shared_variables import USGS_CALB_TRACE_DIST
@@ -33,7 +33,7 @@ Processing
 
 Inputs
 - branch_dir:           fim directory containing individual HUC output dirs
-- usgs_rc_filepath:     USGS rating curve database (produced by get_usgs_rating_curves.py)
+- usgs_rc_filepath:     USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
 - nwm_recurr_filepath:  NWM flow recurrence interval dataset
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
 - job_number:           number of multi-processing jobs to use
@@ -46,7 +46,7 @@ Outputs
 
 
 def create_usgs_rating_database(
-    usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
+    usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, log_dir
 ):
     start_time = dt.datetime.now()
     print('Reading USGS rating curve from csv...')
@@ -101,107 +101,107 @@ def create_usgs_rating_database(
     ]
     usgs_rc_df['feature_id'] = usgs_rc_df['feature_id'].astype(int)
 
-    # read in the NWM recurr csv file
-    nwm_recur_df = pd.read_csv(nwm_recurr_filepath, dtype={'feature_id': int})
-    if "Unnamed: 0" in nwm_recur_df.columns:
-        nwm_recur_df = nwm_recur_df.drop(columns=["Unnamed: 0"])
-    nwm_recur_df = nwm_recur_df.rename(
-        columns={
-            '2_0_year_recurrence_flow_17C': '2_0_year',
-            '5_0_year_recurrence_flow_17C': '5_0_year',
-            '10_0_year_recurrence_flow_17C': '10_0_year',
-            '25_0_year_recurrence_flow_17C': '25_0_year',
-            '50_0_year_recurrence_flow_17C': '50_0_year',
-        }
-    )
+    # # read in the NWM recurr csv file
+    # nwm_recur_df = pd.read_csv(nwm_recurr_filepath, dtype={'feature_id': int})
+    # if "Unnamed: 0" in nwm_recur_df.columns:
+    #     nwm_recur_df = nwm_recur_df.drop(columns=["Unnamed: 0"])
+    # nwm_recur_df = nwm_recur_df.rename(
+    #     columns={
+    #         '2_0_year_recurrence_flow_17C': '2_0_year',
+    #         '5_0_year_recurrence_flow_17C': '5_0_year',
+    #         '10_0_year_recurrence_flow_17C': '10_0_year',
+    #         '25_0_year_recurrence_flow_17C': '25_0_year',
+    #         '50_0_year_recurrence_flow_17C': '50_0_year',
+    #     }
+    # )
 
-    # convert cfs to cms (x 0.028317)
-    nwm_recur_df.loc[:, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year']] *= 0.028317
+    # # convert cfs to cms (x 0.028317)
+    # nwm_recur_df.loc[:, ['2_0_year', '5_0_year', '10_0_year', '25_0_year', '50_0_year']] *= 0.028317
 
-    # merge nwm recurr with usgs_rc
-    merge_df = usgs_rc_df.merge(nwm_recur_df, how='left', on='feature_id')
+    # # merge nwm recurr with usgs_rc
+    # merge_df = usgs_rc_df.merge(nwm_recur_df, how='left', on='feature_id')
 
-    # NWM recurr intervals
-    recurr_intervals = ("2", "5", "10", "25", "50")
-    final_df = pd.DataFrame()  # create empty dataframe to append flow interval dataframes
-    for interval in recurr_intervals:
-        log_text += '\n\nProcessing: ' + str(interval) + '-year NWM recurr intervals\n'
-        print('Processing: ' + str(interval) + '-year NWM recurr intervals')
-        # Calculate the closest SRC discharge value to the NWM flow value
-        merge_df['Q_find'] = (merge_df['discharge_cms'] - merge_df[interval + "_0_year"]).abs()
+    # # NWM recurr intervals
+    # recurr_intervals = ("2", "5", "10", "25", "50")
+    # final_df = pd.DataFrame()  # create empty dataframe to append flow interval dataframes
+    # for interval in recurr_intervals:
+    #     log_text += '\n\nProcessing: ' + str(interval) + '-year NWM recurr intervals\n'
+    #     print('Processing: ' + str(interval) + '-year NWM recurr intervals')
+    #     # Calculate the closest SRC discharge value to the NWM flow value
+    #     merge_df['Q_find'] = (merge_df['discharge_cms'] - merge_df[interval + "_0_year"]).abs()
 
-        # Check for any missing/null entries in the input SRC
-        # There may be null values for lake or coastal flow lines
-        # (need to set a value to do groupby idxmin below)
-        if merge_df['Q_find'].isnull().values.any():
-            log_text += (
-                'HUC: '
-                + str(merge_df['huc'])
-                + ' : feature_id'
-                + str(merge_df['feature_id'])
-                + ' --> Null values found in "Q_find" calc. These will be filled with 999999 () \n'
-            )
-            # Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
-            merge_df['Q_find'] = merge_df['Q_find'].fillna(999999)
-        if merge_df['hydroid'].isnull().values.any():
-            log_text += 'HUC: ' + str(merge_df['huc']) + ' --> Null values found in "hydroid"... \n'
+    #     # Check for any missing/null entries in the input SRC
+    #     # There may be null values for lake or coastal flow lines
+    #     # (need to set a value to do groupby idxmin below)
+    #     if merge_df['Q_find'].isnull().values.any():
+    #         log_text += (
+    #             'HUC: '
+    #             + str(merge_df['huc'])
+    #             + ' : feature_id'
+    #             + str(merge_df['feature_id'])
+    #             + ' --> Null values found in "Q_find" calc. These will be filled with 999999 () \n'
+    #         )
+    #         # Fill missing/nan nwm 'Discharge (m3s-1)' values with 999999 to handle later
+    #         merge_df['Q_find'] = merge_df['Q_find'].fillna(999999)
+    #     if merge_df['hydroid'].isnull().values.any():
+    #         log_text += 'HUC: ' + str(merge_df['huc']) + ' --> Null values found in "hydroid"... \n'
 
-        # Create dataframe with crosswalked USGS flow and NWM recurr flow &
-        # find the index of the closest matching flow btw USGS rating and NWM recur
-        calc_df = merge_df.loc[merge_df.groupby(['location_id', 'levpa_id'])['Q_find'].idxmin()].reset_index(
-            drop=True
-        )
-        # Calculate flow difference (variance) to check for large discrepancies between
-        # NWM flow and USGS closest flow
-        calc_df['check_variance'] = (
-            (calc_df['discharge_cms'] - calc_df[interval + "_0_year"]) / calc_df['discharge_cms']
-        ).abs()
-        # Assign new metadata attributes
-        calc_df['nwm_recur'] = interval + "_0_year"
-        calc_df['layer'] = '_usgs-gage____' + interval + "-year"
-        calc_df = calc_df.rename(columns={interval + "_0_year": 'nwm_recur_flow_cms'})
-        # Subset calc_df for final output
-        calc_df = calc_df[
-            [
-                'location_id',
-                'hydroid',
-                'feature_id',
-                'levpa_id',
-                'huc',
-                'hand',
-                'discharge_cms',
-                'check_variance',
-                'nwm_recur_flow_cms',
-                'nwm_recur',
-                'layer',
-            ]
-        ]
-        final_df = pd.concat([final_df, calc_df], ignore_index=True)
-        # Log any negative HAND elev values and remove from database
-        log_text += 'Warning: Negative HAND stage values -->\n'
-        log_text += calc_df[calc_df['hand'] < 0].to_string() + '\n'
-        final_df = final_df[final_df['hand'] > 0]
-        # Log any signifant differences btw the NWM flow value and closest USGS rating flow
-        # This ensures that we consistently sample the USGS rating curves at known intervals - NWM recur flow
-        log_text += 'Warning: Large variance (>10%) between NWM flow and closest USGS flow -->\n'
-        log_text += calc_df[calc_df['check_variance'] > 0.1].to_string() + '\n'
-        final_df = final_df[final_df['check_variance'] < 0.1]
-        final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id']
-        # Get datestamp from usgs rating curve file to use as coll_time attribute in hydroTable.csv
-        datestamp = check_file_age(usgs_rc_filepath)
-        final_df['coll_time'] = str(datestamp)[:15]
+    #     # Create dataframe with crosswalked USGS flow and NWM recurr flow &
+    #     # find the index of the closest matching flow btw USGS rating and NWM recur
+    #     calc_df = merge_df.loc[merge_df.groupby(['location_id', 'levpa_id'])['Q_find'].idxmin()].reset_index(
+    #         drop=True
+    #     )
+    #     # Calculate flow difference (variance) to check for large discrepancies between
+    #     # NWM flow and USGS closest flow
+    #     calc_df['check_variance'] = (
+    #         (calc_df['discharge_cms'] - calc_df[interval + "_0_year"]) / calc_df['discharge_cms']
+    #     ).abs()
+    #     # Assign new metadata attributes
+    #     calc_df['nwm_recur'] = interval + "_0_year"
+    #     calc_df['layer'] = '_usgs-gage____' + interval + "-year"
+    #     calc_df = calc_df.rename(columns={interval + "_0_year": 'nwm_recur_flow_cms'})
+    #     # Subset calc_df for final output
+    #     calc_df = calc_df[
+    #         [
+    #             'location_id',
+    #             'hydroid',
+    #             'feature_id',
+    #             'levpa_id',
+    #             'huc',
+    #             'hand',
+    #             'discharge_cms',
+    #             'check_variance',
+    #             'nwm_recur_flow_cms',
+    #             'nwm_recur',
+    #             'layer',
+    #         ]
+    #     ]
+    #     final_df = pd.concat([final_df, calc_df], ignore_index=True)
+    # Log any negative HAND elev values and remove from database
+    log_text += 'Warning: Negative HAND stage values -->\n'
+    log_text += usgs_rc_df[usgs_rc_df['hand'] < 0].to_string() + '\n'
+    final_df = usgs_rc_df[usgs_rc_df['hand'] > 0]
+    # Log any signifant differences btw the NWM flow value and closest USGS rating flow
+    # This ensures that we consistently sample the USGS rating curves at known intervals - NWM recur flow
+    # log_text += 'Warning: Large variance (>10%) between NWM flow and closest USGS flow -->\n'
+    # log_text += calc_df[calc_df['check_variance'] > 0.1].to_string() + '\n'
+    # final_df = final_df[final_df['check_variance'] < 0.1]
+    final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id']
+    # Get datestamp from usgs rating curve file to use as coll_time attribute in hydroTable.csv
+    datestamp = check_file_age(usgs_rc_filepath)
+    final_df['coll_time'] = str(datestamp)[:15]
 
     # Rename attributes (for ingest to update_rating_curve) and output csv with the USGS RC database
-    final_df = final_df.rename(columns={'discharge_cms': 'flow'})
-    final_df.to_csv(os.path.join(log_dir, "usgs_rc_nwm_recurr.csv"), index=False)
+    # final_df = final_df.rename(columns={'discharge_cms': 'flow'})
+    final_df.to_csv(os.path.join(log_dir, "usgs_rc_full.csv"), index=False)
 
     # Output log text to log file
     log_text += '#########\nTotal entries per USGS gage location -->\n'
     loc_id_df = final_df.groupby(['location_id']).size().reset_index(name='count')
     log_text += loc_id_df.to_string() + '\n'
-    log_text += '#########\nTotal entries per NWM recur value -->\n'
-    recur_count_df = final_df.groupby(['nwm_recur']).size().reset_index(name='count')
-    log_text += recur_count_df.to_string() + '\n'
+    # log_text += '#########\nTotal entries per NWM recur value -->\n'
+    # recur_count_df = final_df.groupby(['nwm_recur']).size().reset_index(name='count')
+    # log_text += recur_count_df.to_string() + '\n'
     log_usgs_db = open(os.path.join(log_dir, 'log_usgs_rc_database.log'), "w")
     log_usgs_db.write(log_text)
     log_usgs_db.close()
@@ -473,7 +473,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
 
 
 def run_prep(
-    run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+    run_dir, usgs_rc_filepath, usgs_sites_filepath, debug_outputs_option, job_number
 ):
     # Check input args are valid
     assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
@@ -526,7 +526,7 @@ def run_prep(
         print('This may take a few minutes...')
         log_file.write("starting create usgs rating db\n")
         usgs_df = create_usgs_rating_database(
-            usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
+            usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, log_dir
         )
 
         # Create huc proc_list for multiprocessing and execute the update_rating_curve function
@@ -557,12 +557,12 @@ if __name__ == '__main__':
         help='Path to USGS acceptable sites for rating curves file',
         required=True,
     )
-    parser.add_argument(
-        '-nwm_recur',
-        '--nwm_recur',
-        help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',
-        required=True,
-    )
+    # parser.add_argument(
+    #     '-nwm_recur',
+    #     '--nwm_recur',
+    #     help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',
+    #     required=True,
+    # )
     parser.add_argument(
         '-debug',
         '--extra-outputs',
@@ -578,11 +578,11 @@ if __name__ == '__main__':
     run_dir = args['run_dir']
     usgs_rc_filepath = args['usgs_ratings']
     usgs_sites_filepath = args['usgs_sites']
-    nwm_recurr_filepath = args['nwm_recur']
+    # nwm_recurr_filepath = args['nwm_recur']
     debug_outputs_option = args['extra_outputs']
     job_number = int(args['job_number'])
 
     # Prepare/check inputs, create log file, and spin up the proc list
     run_prep(
-        run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+        run_dir, usgs_rc_filepath, usgs_sites_filepath, debug_outputs_option, job_number
     )
