@@ -142,6 +142,26 @@ def catchment_boundary_errors(
 def multi_process_catchment_boundaries(
     hydrofabric_dir, hucs, inundation_dir, output, inundation_type, min_error_length, job_number
 ):
+    """
+    Function for multiprocessing HUCs to identify catchment boundaries for a larger HUC subset efficiently.
+
+    Args:
+        hydrofabric_dir (str):  Path to hydrofabric directory where FIM outputs were written by
+                                fim_pipeline.
+        huc (str):              The HUC for which to check for catchment boundary issues.
+        inundation_file (str):  Full path to directory contatining inundation file(s). Raster (encoded by positive
+                                and negative HydroIDs) or vector. HUC number must be in file name.
+        output (str):           Path to output location for catchment boundary geopackage.
+        inundation_type (str):  Type of input inundation. Either 'tif' or 'gpkg'. Default tif.
+        min_error_length (int): Minimum length for output error lines. Default 100 meters.
+        job_number (int):       Number of concurrent jobs to use.
+
+    Example Usage:
+    python /foss_fim/tools/identify_catchment_boundary.py -y /data/previous_fim/hand_4_8_7_2/
+    -u 12090109 12090110 12090203 -i /user/Documents/inundation_dir/
+    -t tif -o /user/Documents/test_catch_bound/output_catchment_boundary_issue_file.gpkg -jh 5
+
+    """
     with ProcessPoolExecutor(max_workers=job_number) as executor:
         executor_dict = {}
         inundation_files = os.listdir(f"{inundation_dir}")
