@@ -118,8 +118,6 @@ def generate_streamflow_percentiles(
 
     dkeys = ['90', '75', '50', '25', '10']
 
-    ensemble_forecast = ensemble_forecast.sel({'feature_id': feature})
-
     # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
     if 'nbm' in ensemble_forecast.coords['ensemble']:
         rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'nbm'})['streamflow']))
