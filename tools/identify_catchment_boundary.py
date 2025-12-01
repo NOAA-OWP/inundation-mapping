@@ -32,6 +32,7 @@ def catchment_boundary_errors(
     """
 
     print(f'Processing HUC: {huc} now.')
+    huc_st = timer()
     # Get branch names for input HUC
     dirs = [x[1] for x in os.walk(f"{hydrofabric_dir}/{huc}/branches")][0]
 
@@ -45,6 +46,7 @@ def catchment_boundary_errors(
         )
         branch_catchments = branch_catchments.assign(branch_id=d)
         catchments = pd.concat([catchments, branch_catchments], ignore_index=True)
+    # print(f"Catchment Merge Completed in {round((timer() - huc_st)/60, 2)} minutes.")
 
     ## Read HUC Inundation
     # print("Reading inundation")
@@ -134,6 +136,7 @@ def catchment_boundary_errors(
             existing_error_lines = gpd.read_file(output, engine="pyogrio", use_arrow=True)
             error_lines_final = pd.concat([existing_error_lines, error_lines_final])
         error_lines_final.to_file(output, driver="GPKG", engine="pyogrio", index=False)
+        print(f"HUC: {huc} Completed in {round((timer() - huc_st)/60, 2)} minutes.")
 
 
 def multi_process_catchment_boundaries(
@@ -159,7 +162,6 @@ def multi_process_catchment_boundaries(
             try:
                 future = executor.submit(catchment_boundary_errors, **catchment_boundary_args)
                 executor_dict[future] = huc
-                # catchment_boundary_errors(**catchment_boundary_args)
             except Exception as ex:
                 print(f"*** {ex}")
                 traceback.print_exc()
