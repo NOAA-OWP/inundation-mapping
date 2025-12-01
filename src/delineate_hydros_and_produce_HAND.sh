@@ -152,7 +152,7 @@ $srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"$current_branc
     -o $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
     -t $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
 
-## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS##
+## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
 echo -e $startDiv"Bring negative values in REM to zero and mask to catchments $hucNumber $current_branch_id"
 gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
     -A $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
@@ -219,7 +219,18 @@ if  [ -f $tempCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
         --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
 fi
 
-## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
+## CATCHMENT SPILLOVER ##
+if [ "$compute_spillover_toggle" = true ] && [ "$current_branch_id" != "$branch_zero_id" ] ; then
+    echo -e $startDiv"Catchment spillover $hucNumber $current_branch_id"
+    python3 $srcDir/catchment_spillover.py \
+        --dem_tif $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+        --rem_tif $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
+        --flow_direction_tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+        --n_iterations $spillover_iterations
+fi
+
+
+## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS - BRANCHES (NOT 0) (NWM levelpath streams) ##
 if [ "$healed_hand_hydrocondition" = true ] && [ "$current_branch_id" != "$branch_zero_id" ] ; then
     echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
     gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
@@ -260,7 +271,7 @@ python3 $srcDir/add_crosswalk.py \
     -g $min_stream_length \
     -i $iris_sword_slope
 
-## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS ##
+## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS - BRANCH 0 (include all NWM streams) ##
 if [ "$healed_hand_hydrocondition" = true ] && [ "$current_branch_id" = "$branch_zero_id" ] ; then
     echo -e $startDiv"Healed HAND to Remove Hydro-conditioning Artifacts $hucNumber $current_branch_id"
     gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
@@ -320,4 +331,3 @@ else
     python3 $toolsDir/convert_to_int16.py \
         -b $tempCurrentBranchDataDir
 fi
-
