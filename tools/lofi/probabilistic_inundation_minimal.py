@@ -118,25 +118,27 @@ def generate_streamflow_percentiles(
 
     dkeys = ['90', '75', '50', '25', '10']
 
+    ensemble_forecast = ensemble_forecast.sel({'feature_id': feature})
+
     # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
     if 'nbm' in ensemble_forecast.coords['ensemble']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'nbm'})))
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'nbm'})['streamflow']))
         rv['feature_id'] = feature
         return rv
 
     if 'noda' in ensemble_forecast.coords['ensemble']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'noda'})))
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'noda'})['streamflow']))
         rv['feature_id'] = feature
         return rv
 
     if 'short' in ensemble_forecast.coords['ensemble']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'short'})))
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'short'})['streamflow']))
         rv['feature_id'] = feature
         return rv
 
     # If there is no feature in the NWM parameters file
     if feature not in params_weibull.index:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})))
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})['streamflow']))
         rv['feature_id'] = feature
         return rv
     else:
