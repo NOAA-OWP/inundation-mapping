@@ -209,11 +209,14 @@ def process_generate_categorical_fim(
         # For now, we get the meta gdf, but don't need it here.
         
         # "search" : Define upstream and downstream search in miles
+        api_base_url = csf.load_fim_global_env_values(env_file)
+        
         huc_dictionary, _ = csf.get_meta_and_huc_data(output_folder,
                                                       search,
                                                       nwm_meta_file,
                                                       get_new_meta_data,
-                                                      valid_fim_hucs)
+                                                      valid_fim_hucs,
+                                                      api_base_url)
         
         if len(huc_dictionary) == 0:
             raise Exception("The submitted huc list did not find any HUCs with nwm site meta data")

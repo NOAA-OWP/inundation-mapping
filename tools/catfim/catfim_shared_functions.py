@@ -10,110 +10,124 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
+import data.wrds.download_process_wrds as dpw
 from tools_shared_functions import (
     aggregate_wbd_hucs,
-    get_metadata,
+#     get_metadata,
 )
 
 # gpd.options.io_engine = "pyogrio"
 
 # Shared by both generate_categorical_fim.py and catfim_process_hucs.py
 
-# def emily_get_meta_and_huc_data(output_catfim_dir,
-#                                 search,
-#                                 nwm_meta_file_path,
-#                                 get_new_meta_data,
-#                                 lst_hucs,
-#                                 api_base_url):
-
-
-#     '''
-    
-#     For Catfim code, it is used by two scripts.
-#         - One is generate_categorical_fim which may be working with more than one huc and is aiming to get list
-#           of hucs and their sites for validation purposes. It does not need to use the metadata returned but that is ok.
-#         - Another is catfim_process_huc which does want the list of sites, but will pass in just it's own huc.
-#           However, it does need to use the incoming meta data.
-
-#     Returns:
-#         - huc_dictionary: list: Filtered list of metadata dictionaries, each representing a unique NWS LID site.
-#         - meta_gdf: all meta data for valid HUCs and all sites associated with it.
-        
-#         Note: Could come back with an empty huc_dictionary, meta_gdf if just one huc was submitted and it was
-#         invalid or did not find any matching ahps data.
-#     '''
-
-#     # Emily's will always load the meta data, either live, by file, but I have to give her
-#     # the nwm_meta_file_path
-
-#     if get_new_meta_data is False:
-        
-#         use_default_meta_file = False
-#         if nwm_meta_file_path is None or nwm_meta_file_path == "":
-#             nwm_meta_file_path = os.getenv("nwm_meta_file")  # get it from bash_variables 
-#             use_default_meta_file = True           
-#             # dw.load_nwm_metadata will load this file for us
-#         # else:  # a meta file path has been submitted by the user (likely an test meta file)
-
-#         if not os.path.isfile(nwm_meta_file_path):
-#             if use_default_meta_file:
-#                 errMsg = f"The default nwm_meta_file of {nwm_meta_file_path} does not exist."
-#                 "Check bash_variables and pathing."
-#             else:
-#                 errMsg = f"The nwm meta file path of {nwm_meta_file_path} does not exist."
-#                 "Check your inputs, including case, and pathing."
-
-#             raise Exception(errMsg)
-    
-#     # output_meta_list is a list of json blocks
-#     # nwm_meta_file_path will never be empty, but may or may not exist. I assume that if dw.load_nwm_metadata finds
-#     # the file, it will load it
-    
-#     logging.info("Loading nwm metadata")
-#     start_dt = datetime.now(timezone.utc)
-    
-#     # In this case, I do not need the huc_list_dictionary returned from load_nwm_metadata as the 
-#     # second return object.
-#     # we will submit output_meta_list to aggregate_wbd_hucs to validate, clean it up,
-#     # etc
-    
-#     # dw.load_nwm_metadata can a number of things:
-#     #   1) valid data. coudl the output_meta_list be empty? We coudl get valid data and a message saying
-#     #      that the pickle file was newly saved or something.
-#     #   2) an exception
-#     #   3) Some way to tell me that the file was not found ?? ie.. shoudl we let it do the sys.exit? that won't work in MP.
-#     #      Depending on the return_msg, output_meta_list might be empty.
-#     output_meta_list, __, return_msg = dw.load_nwm_metadata(nwm_meta_file_path,
-#                                                             api_base_url,
-#                                                             search,
-#                                                             get_new_meta_data,
-#                                                             lst_hucs)
-
-#     # return_msg might be a warning, or a line saying where it was saved ??  Hummm..
-#     # maybe have it just return something like 
-#     if return_msg != "":
-#         logging.info(return_msg)
-
-#     end_dt = datetime.now(timezone.utc)
-#     time_duration = end_dt - start_dt
-#     logging.info(f"Retrieving metadata - Duration: {str(time_duration).split('.')[0]}")
-
-#     print("")
-
-#     # Assign HUCs to all sites using a spatial join of the FIM 4 HUC layer.
-#     # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
-#     # of all sites used later in script.
-#     logging.info("Start aggregate_wbd_hucs")
-      # I don't think we need a duration on this as I think it is pretty fast.
-
-#     huc_dictionary, meta_gdf = aggregate_wbd_hucs(output_meta_list, os.getenv("input_wbd_layer"), True, lst_hucs)
-
-#     # Could come back with an empty huc_dictionary, out_gdf if just one huc was submitted and it was
-#     # invalid or did not find any matching ahps data.
-#     return huc_dictionary, meta_gdf
-
-
+# Emily's
 def get_meta_and_huc_data(output_catfim_dir,
+                            search,
+                            nwm_meta_file_path,
+                            get_new_meta_data,
+                            lst_hucs,
+                            api_base_url):
+
+
+    '''
+    
+    For Catfim code, it is used by two scripts.
+        - One is generate_categorical_fim which may be working with more than one huc and is aiming to get list
+          of hucs and their sites for validation purposes. It does not need to use the metadata returned but that is ok.
+        - Another is catfim_process_huc which does want the list of sites, but will pass in just it's own huc.
+          However, it does need to use the incoming meta data.
+
+    Returns:
+        - huc_dictionary: list: Filtered list of metadata dictionaries, each representing a unique NWS LID site.
+        - meta_gdf: all meta data for valid HUCs and all sites associated with it.
+        
+        Note: Could come back with an empty huc_dictionary, meta_gdf if just one huc was submitted and it was
+        invalid or did not find any matching ahps data.
+    '''
+
+    # Emily's will always load the meta data, either live, by file, but I have to give her
+    # the nwm_meta_file_path
+
+    if get_new_meta_data is False:
+        
+        use_default_meta_file = False
+        if nwm_meta_file_path is None or nwm_meta_file_path == "":
+            nwm_meta_file_path = os.getenv("nwm_meta_file")  # get it from bash_variables 
+            use_default_meta_file = True           
+            # dw.load_nwm_metadata will load this file for us
+        # else:  # a meta file path has been submitted by the user (likely an test meta file)
+
+        # either from incoming arg or bash_variables, the file should exists
+        if not os.path.isfile(nwm_meta_file_path):
+            if use_default_meta_file:
+                errMsg = f"The default nwm_meta_file of {nwm_meta_file_path} does not exist."
+                "Check bash_variables and pathing."
+            else:
+                errMsg = f"The nwm meta file path of {nwm_meta_file_path} does not exist."
+                "Check your inputs, including case, and pathing."
+
+            raise Exception(errMsg)
+    
+    # output_meta_list is a list of json blocks
+    # nwm_meta_file_path will never be empty, but may or may not exist. I assume that if dw.load_nwm_metadata finds
+    # the file, it will load it
+    
+    logging.info("Loading nwm metadata")
+    start_dt = datetime.now(timezone.utc)
+    
+    # In this case, I do not need the huc_list_dictionary returned from load_nwm_metadata as the 
+    # second return object.
+    # we will submit output_meta_list to aggregate_wbd_hucs to validate, clean it up,
+    # etc
+    
+    # dw.load_nwm_metadata can a number of things:
+    #   1) valid data. coudl the output_meta_list be empty? We coudl get valid data and a message saying
+    #      that the pickle file was newly saved or something.
+    #   2) an exception
+    #   3) Some way to tell me that the file was not found ?? ie.. shoudl we let it do the sys.exit? that won't work in MP.
+    #      Depending on the return_msg, output_meta_list might be empty.
+    
+    # TODO: How do we handle warnings and errors? warning.. just log
+    output_meta_list, _, return_msgs = dpw.load_nwm_metadata(nwm_meta_file_path,
+                                                            api_base_url,
+                                                            search,
+                                                            get_new_meta_data,
+                                                            lst_hucs)
+
+    # TODO: return_msgs is a list
+
+    # return_msg might be a warning, or a line saying where it was saved ??  Hummm..
+    # maybe have it just return something like 
+    if len(return_msgs) > 0:
+        # TODO: Fis this as it is an list.
+        logging.info(return_msg)
+        if "warning" in return_msg.lower():
+            logging.warning(return_msg)
+    
+    # TODO: what do we want to do with errors. Are some errors and some critical?
+    
+
+    end_dt = datetime.now(timezone.utc)
+    time_duration = end_dt - start_dt
+    logging.info(f"Completed loading metadata - Duration: {str(time_duration).split('.')[0]}")
+
+    print("")
+
+    # Assign HUCs to all sites using a spatial join of the FIM 4 HUC layer.
+    # Get a dictionary of hucs (key) and sites (values) as well as a GeoDataFrame
+    # of all sites used later in script.
+    logging.info("Start aggregate_wbd_hucs")
+    # I don't think we need a duration on this as I think it is pretty fast.
+
+    # TODO: Does this aggregate_wbd_hucs do more than Emily's return huc_list? validation maybe?
+    huc_dictionary, meta_gdf = aggregate_wbd_hucs(output_meta_list, os.getenv("input_wbd_layer"), True, lst_hucs)
+
+    # Could come back with an empty huc_dictionary, out_gdf if just one huc was submitted and it was
+    # invalid or did not find any matching ahps data.
+    return huc_dictionary, meta_gdf
+
+
+def rob_get_meta_and_huc_data(output_catfim_dir,
                           metadata_url,
                           search,
                           nwm_meta_file_path,

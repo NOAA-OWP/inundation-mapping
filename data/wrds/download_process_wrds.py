@@ -24,6 +24,10 @@ def label_data_file(label, lst_hucs):
     '''
     Example usage:
     label_with_date = label_data_file(label, lst_hucs)
+    
+    Rob: maybe a few more notes what this is function is doing. :)
+    Maybe some output examples?
+    
     '''
 
     # If a list of HUCs is provided, add 'subset' to the label
@@ -61,6 +65,8 @@ def get_huc_dictionary(metadata_list, lst_hucs):
         huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
         lid_list = list(huc_lid_dict.keys())
 
+    # Todo: Might not be used for thresholds, maybe just getting a Huc list?
+    
     print(f'Number of sites to download thresholds for: {len(lid_list)}')
 
     return huc_lid_dict
@@ -146,6 +152,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         file_size_kb = round(file_size_bytes / 1024, 2)
         file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
 
+        # Rob: I dont' think we need this.
         msg = f"File size: {file_size_kb} kb or {file_size_mb} mb"
         messages.append(msg)
         print(msg)
@@ -228,6 +235,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
         file_size_kb = round(file_size_bytes / 1024, 2)
         file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
         
+        # Rob: I don't think we need this.
         msg = f"File size: {file_size_kb} kb or {file_size_mb} mb"
         messages.append(msg)
         print(msg)
@@ -305,7 +313,8 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         print(f"Finished downloading metadata - Duration: {str(metadata_duration).split('.')[0]}")
         print()
 
-    else:
+    else:  # load existing meta data file
+        
         # Error if metafile is not there
         if not os.path.isfile(metadata_filepath):
             msg = f"NWM metadata file not found at {metadata_filepath} and metadata_download is set to False."
@@ -326,16 +335,18 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
             messages.append(msg)
             print(msg)
 
-    # Open metadata file
+    # ROB: Open metadata file  - why here? seems weird.. need indent maybe?
     with open(metadata_filepath, "rb") as p_handle:
         output_meta_list = pickle.load(p_handle)
     
     # Get the HUC dictionary
+    # ROB: Do we need to make sure the output_meta_list is not empty? Woudl it ever be?
     huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
     
     return output_meta_list, huc_lid_dict, messages
 
 # TODO: THIS SHOULD BE MOVED TO A CATFIM-SPECIFIC SCRIPT 
+# Rob: maybe not.. TBD...
 def load_site_thresholds(threshold_file, lid):
     '''
     Loads threshold stage and flow data for a given site (LID) from a local pickle file.
@@ -441,6 +452,8 @@ def main(env_file, output_folder, label, lst_hucs, search, metadata_download, th
         label_with_date = label_data_file(label, lst_hucs)
         output_metadata_filename = f'metadata{label_with_date}.pkl'
         metadata_filepath = os.path.join(output_folder, output_metadata_filename)
+        
+        # Rob: Tell the user the name and location of the file
     
     # If metadata filepath is provided, use it
     else:
@@ -462,6 +475,8 @@ def main(env_file, output_folder, label, lst_hucs, search, metadata_download, th
         label_with_date = label_data_file(label, lst_hucs)
         output_thresholds_filename = f'thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
+        
+        # Rob: Tell the user the name and location of the file
 
         # Download thresholds
         download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
@@ -480,6 +495,10 @@ def main(env_file, output_folder, label, lst_hucs, search, metadata_download, th
 
 
 if __name__ == '__main__':
+    
+    # ROB: need sample(s)
+
+    
     # Parse arguments
     parser = argparse.ArgumentParser(description='This script automates the downloading and processing of datasets from WRDS. '
         'It retrieves metadata and threshold data for specified HUCs and saves them as pickle files in the designated output folder.')
@@ -492,6 +511,8 @@ if __name__ == '__main__':
         required=False,
         default='/data/config/fim_enviro_values.env',
     )
+
+    # TODO: This shoudl nto be 
 
     parser.add_argument('-w',
         '--output-folder',
