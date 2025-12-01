@@ -1,6 +1,28 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.8._____ - 2025-_____ - [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
+
+This update adds data predownload functionality to CatFIM so it can create categorical FIM maps for sites that don't have thresholds available in the WRDS API. There is also a new default behavior for CatFIM: instead of hitting the WRDS API for each run, the CatFIM code defaults to using pre-downloaded input thresholds and metadata. However, there is still the option to download the thresholds and metadata during the CatFIM run (which was previously the default).
+
+There are two new scripts in this update.
+- `download_process_wrds.py` handles the predownloading of thresholds and metadata from the WRDS API for CatFIM. It can be run as a standalone script or it can be called from within the CatFIM processing.
+- `mimic_wrds_data.py` creates metadata and thresholds data files for sites that do not have thresholds available on WRDS. This is how the data for Guam CatFIM was pre-processed. The data outputs of this script is designed to run seamlessly in CatFIM (and trigger processing choices specific to Manual Inputs within CatFIM). 
+
+### Additions
+- `data/wrds/download_process_wrds.py`: Downloads, formats, and saves metadata and thresholds data from the WRDS API. Can be used with a HUC list or can download all available data.
+- `data/wrds/mimic_wrds_data.py`: Creates metadata and thresholds pickle files from a thresholds input CSV. Outputs match the structure of `download_process_wrds.py` and can be used as inputs to CatFIM.
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Added the option to provide an input thresholds file (rather than hitting the WRDS API). Added functionality to skip elevation adjustment for manual inputs. Added functionality to process two additional regional input files. Added docstrings for all functions. 
+- `tools/catfim/generate_categorical_fim_flows.py`: Added functionality to process two additional regional input files. Created the `__load_thresholds()` function to manage getting the thresholds from the WRDS API or the input thresholds file. Added docstrings for all functions. 
+- `tools/catfim/generate_categorical_fim_mapping.py`: Added docstrings for all functions. 
+- `tools/tools_shared_functions.py`: Updated the `get_thresholds()` function to produce a status message (and took out the `threshold_count` output).
+- `data/nws/preprocess_ahps_nws.py`: Changed output to `get_thresholds()` function.
+- `data/usgs/preprocess_ahps_usgs.py`: Changed output to `get_thresholds()` function.
+
+<br />
+
 ## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
 
 This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc

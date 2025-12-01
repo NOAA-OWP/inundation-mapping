@@ -27,6 +27,7 @@ from utils.shared_variables import VIZ_PROJECTION
 
 
 
+
 """
 Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
 
@@ -74,6 +75,66 @@ def produce_stage_based_lid_tifs(
     mp_parent_log_file,
     child_log_file_prefix,
 ):
+    '''
+    Only used for stage-based CatFIM.
+
+    Generates stage-based inundation TIFF files for a given LID (Location ID) and category, mosaics branch-level inundation maps,
+    and removes intermediary files. Handles multi-processing across branches and logs progress and warnings.
+
+    Parameters
+    ----------
+    stage_val : float
+        The stage value to use for inundation mapping.
+    datum_adj_ft : float
+        Datum adjustment in feet to be applied to the stage value.
+    branch_dir : str
+        Directory containing branch subdirectories for processing.
+    lid_usgs_elev : float
+        USGS elevation for the LID gage, used to calculate HAND stage.
+    lid_altitude : float
+        Altitude adjustment for the LID location.
+    fim_dir : str
+        Base directory for HAND FIM data.
+    segments : list
+        List of NWM segment feature IDs to process for inundation.
+    lid : str
+        Location ID string.
+    huc : str
+        Hydrologic Unit Code for the watershed.
+    lid_directory : str
+        Directory to store output TIFF files for the LID.
+    category : str
+        Category name for the inundation mapping (e.g., "action", "minor").
+    category_key : str
+        Key string representing the category and magnitude.
+    number_of_jobs : int
+        Number of parallel jobs to use for multi-processing.
+    mp_parent_log_file : str
+        Path to the parent log file for multi-processing logging.
+    child_log_file_prefix : str
+        Prefix for child log files in multi-processing.
+
+    Returns
+    -------
+    messages : list
+        List of warning or status messages generated during processing.
+    hand_stage : int
+        Computed HAND stage in millimeters.
+    datum_adj_wse : float
+        Datum-adjusted water surface elevation in feet.
+    datum_adj_wse_m : float
+        Datum-adjusted water surface elevation in meters.
+
+    Notes
+    -----
+    - The function performs multi-processing across branches to generate inundation maps.
+    - Branch-level TIFFs are mosaicked into a single extent TIFF for the LID and category.
+    - Lakes are masked out from the final inundation array.
+    - Intermediary branch TIFFs are deleted after merging to save space.
+    - Logging is performed throughout for traceability and error handling.
+    - If negative HAND stage or missing segments are detected, processing is skipped for those cases.
+
+    '''
 
     MP_LOG.MP_Log_setup(mp_parent_log_file, child_log_file_prefix)
 
@@ -318,13 +379,61 @@ def produce_inundated_branch_tif(
     parent_log_output_file,
     child_log_file_prefix,
 ):
-    """
-    # Open rem_path and catchment_path using rasterio.
+    '''
+    Only used in stage-based CatFIM.
 
-    Note: category can have different formats, depending if it is an interval or not or int or float
-    If it has a stage number it, it is an interval value
-       ie) action, action_24ft, action_24.6, or action_24.6ft
-    """
+    Generates a binary inundation raster (GeoTIFF) for a given branch and stage,
+    indicating inundated areas within specified catchments.
+
+    This function reads a REM (Raster Elevation Model) and catchments raster, applies
+    a stage threshold, and masks the result to catchments matching the provided hydroid
+    list. The output is a raster where inundated cells are marked as 1 and non-inundated
+    cells as 0.
+
+    This is a form of inundation which is specific to CatFIM because we only have one
+    flow value and the other FIM inundation tools are looking for flow files not single
+    values.
+
+    Parameters
+    ----------
+    rem_path : str
+        Path to the REM raster file.
+    catchments_path : str
+        Path to the catchments raster file.
+    hydroid_list : list of int
+        List of hydroid identifiers to include in the mask.
+    hand_stage : float or int
+        Stage threshold value for inundation.
+    lid_directory : str
+        Directory where the output raster will be saved.
+    category_key : str
+        Category key used in the output file name.
+    huc : str
+        Hydrologic Unit Code for the region.
+    lid : str
+        Location identifier for the site.
+    branch : str
+        Branch identifier for the mapping.
+    parent_log_output_file : str
+        Path to the parent log output file for logging.
+    child_log_file_prefix : str
+        Prefix for child log files.
+
+    Returns
+    -------
+    None
+        The function saves the output raster to disk and does not return any value.
+
+    Notes
+    -----
+    - The output raster is only generated if at least one cell is inundated.
+    - Logging is set up for error and trace reporting.
+    - Handles hydroid values by clipping to the last 4 digits for matching.
+    - Both input rasters are expected to have a nodata value of 0.
+    - A category can have different formats, depending if it is an interval or not or int or float.
+        If it has a stage number it, it is an interval value, ie) action, action_24ft, action_24.6, or action_24.6ft
+
+    '''
 
     try:
         # This is setting up logging for this function to go up to the parent
@@ -412,6 +521,32 @@ def produce_inundated_branch_tif(
 def run_catfim_inundation(
     fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
 ):
+    '''
+    Only used in flow-based CatFIM.
+
+    Executes the inundation and mosaicking process for CatFIM mapping across multiple HUCs and AHPS sites.
+
+    This function coordinates the parallel execution of inundation mapping tasks using a process pool, handling
+    multiple HUCs and AHPS sites. It sets up logging, identifies valid HUC directories, and processes each AHPS site
+    and magnitude threshold within those HUCs. For each combination, it submits an inundation mapping job to the
+    process pool executor. Errors are logged and handled gracefully, and log files from child processes are merged
+    into the parent log file upon completion.
+
+    Args:
+        fim_run_dir (str): Path to the directory containing HAND FIM run outputs for HUCs.
+        output_flows_dir (str): Path to the directory containing flow outputs for valid HUCs.
+        output_mapping_dir (str): Path to the directory where inundation mapping results will be saved.
+        job_number_huc (int): Number of parallel jobs to run for HUC-level processing.
+        job_number_inundate (int): Number of parallel jobs to run for inundation mapping within each HUC.
+        log_output_file (str): Path to the log file for recording process output and errors.
+
+    Returns:
+        None
+
+    Raises:
+        SystemExit: If a critical error occurs during processing, the function logs the error and exits the program.
+    '''
+
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
 
@@ -560,6 +695,41 @@ def run_inundation(
     parent_log_output_file,
     child_log_file_prefix,
 ):
+    '''
+    Only used in flow-based CatFIM.
+
+    Runs the inundation mapping workflow for a given HUC and magnitude, including logging,
+    inundation raster generation, mosaicking, and lake masking.
+
+    Inundates each set based on the ahps/mangnitude list and for each segment in the the branch hydrotable.
+    Then each set is inundated per branch and mosiaked for the AHPS site.
+
+    Parameters:
+        magnitude_flows_csv (str): Path to the CSV file containing magnitude flows for the forecast.
+        huc (str): Hydrologic Unit Code (HUC) identifier for the region to process.
+        output_huc_site_mapping_dir (str): Directory to store output HUC-site mapping files.
+        output_extent_tif (str): Path to the output inundation extent raster (GeoTIFF).
+        ahps_site (str): AHPS site identifier associated with the forecast.
+        magnitude (str): Magnitude value for the forecast (e.g., flood stage).
+        fim_run_dir (str): Directory containing FIM run data and hydrofabric.
+        job_number_inundate (int): Number of worker processes to use for inundation generation.
+        parent_log_output_file (str): Path to the parent log file for logging output.
+        child_log_file_prefix (str): Prefix for child log files created by this function.
+
+    Returns:
+        None
+
+    Side Effects:
+        - Generates inundation extent raster and saves to output_extent_tif.
+        - Logs progress and errors to the specified log files.
+        - Masks lakes from the inundation raster.
+        - Performs mosaicking of inundation rasters.
+        - Returns early if errors occur or output raster is not created.
+
+    Exceptions:
+        Logs any exceptions encountered during processing and returns None.
+    '''
+
     # Note: child_log_file_prefix is "MP_run_ind", meaning all logs created by this function start
     #  with the phrase "MP_run_ind"
     #  They will be rolled up into the parent_log_output_file
@@ -770,6 +940,36 @@ def post_process_huc(
 def post_process_cat_fim_for_viz(
     catfim_method, output_catfim_dir, job_huc_ahps, catfim_version, model_version, log_output_file
 ):
+    '''
+    Used in both flow-based and stage-based CatFIM.
+
+    Post-processes CatFIM outputs for visualization.
+
+    This function performs the following steps:
+    1. Sets up logging and prepares output directories.
+    2. Identifies HUC/AHPS directories to process.
+    3. Uses a process pool to post-process each HUC directory in parallel, converting TIF extents to polygons and saving as GeoPackage files.
+    4. Merges all generated GeoPackage layers into a single GeoDataFrame.
+    5. Optionally dissolves merged layers by AHPS and magnitude for flow-based methods.
+    6. Cleans up unnecessary columns from the merged data.
+    7. Adds model and product version metadata.
+    8. Saves the final merged layer as both GeoPackage and CSV files for visualization.
+    9. Rolls up logs from child processes into the main log file.
+
+    Args:
+        catfim_method (str): The method used for Categorical FIM (e.g., "flow_based").
+        output_catfim_dir (str): Directory where Categorical FIM outputs are stored.
+        job_huc_ahps (int): Number of parallel jobs for processing HUC/AHPS directories.
+        catfim_version (str): Version identifier for the Categorical FIM product.
+        model_version (str): Version identifier for the underlying model.
+        log_output_file (str): Path to the log file for recording process output.
+
+    Raises:
+        Exception: If no HUC/AHPS directories are found or if no GeoPackage files are generated.
+
+    Returns:
+        None
+    '''
 
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)
@@ -925,10 +1125,65 @@ def reformat_inundation_maps(
     parent_log_output_file,
     child_log_file_prefix,
 ):
+    
     """_summary_
     Turns inundated tifs into dissolved polys gpkg with more attributes
 
     """
+    
+    '''
+    Used in both flow- and stage-based CatFIM.
+
+    Converts an inundation raster (GeoTIFF) to a dissolved polygon GeoPackage with enriched attributes.
+
+    This function reads an inundation raster file, extracts inundated areas as polygons, dissolves them into a single multipolygon,
+    and joins additional attributes from a CSV file. The resulting GeoDataFrame is projected to Web Mercator and saved as a GeoPackage.
+    Logging is performed throughout the process, and special handling is included for interval stages and empty rasters.
+
+    Parameters
+    ----------
+    ahps_lid : str
+        The AHPS location identifier for the site.
+    tif_to_process : str
+        Path to the inundation raster (GeoTIFF) file to process.
+    gpkg_dir : str
+        Directory where the output GeoPackage file will be saved.
+    huc : str
+        Hydrologic Unit Code (HUC) for the watershed.
+    magnitude : str or int
+        Magnitude or recurrence interval for the inundation scenario.
+    nws_lid_attributes_filename : str
+        Path to the CSV file containing NWS LID attributes for joining.
+    interval_stage : float or None
+        Stage value for interval scenarios; may be None.
+    is_interval : bool
+        Flag indicating whether the scenario is an interval.
+    parent_log_output_file : str
+        Path to the parent log file for logging output.
+    child_log_file_prefix : str
+        Prefix for child log files created by this function.
+
+    Returns
+    -------
+    None
+        The function saves the output GeoPackage file and logs messages, but does not return a value.
+
+    Raises
+    ------
+    ValueError
+        If assigning CRS to a GeoDataFrame without a geometry column.
+    Exception
+        For any other errors encountered during processing.
+
+    Notes
+    -----
+    - If no inundated areas are found in the raster, a log message is written and the function returns early.
+    - The output GeoPackage contains dissolved polygons with joined attributes and is projected to Web Mercator.
+    - For interval scenarios, the 'stage_uncorrected' attribute is set to None to avoid confusion.
+    - The interval stage might come in as null and that is ok
+
+    '''
+    
     # interval stage might come in as null and that is ok
 
     # Note: child_log_file_prefix is "MP_reformat_tifs_{huc}", meaning all logs created by this
@@ -1051,6 +1306,33 @@ def manage_catfim_mapping(
     log_output_file,
     step_number=1,
 ):
+    '''
+    Only used in flow-based CatFIM.
+
+    Manages the workflow for generating categorical FIM (Flood Inundation Mapping) outputs,
+    including running inundation mapping and post-processing for visualization.
+
+    Parameters:
+        fim_run_dir (str): Directory containing the FIM run data.
+        output_flows_dir (str): Directory where flow outputs are stored.
+        output_catfim_dir (str): Directory for storing categorical FIM outputs.
+        catfim_method (str): Method used for categorical FIM generation.
+        catfim_version (str): Version identifier for the categorical FIM process.
+        model_version (str): Version identifier for the underlying model.
+        job_number_huc (int): Number of jobs for HUC (Hydrologic Unit Code) processing.
+        job_number_inundate (int): Number of jobs for inundation processing.
+        log_output_file (str): Path to the log file for output messages.
+        step_number (int, optional): Workflow step to execute. Defaults to 1.
+
+    Returns:
+        None
+
+    Notes:
+        - Initializes logging and manages workflow steps.
+        - Runs inundation mapping if step_number <= 1.
+        - Performs post-processing for visualization using multiple jobs.
+        - Logs the elapsed time for the mapping process.
+    '''
 
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
     FLOG.setup(log_output_file)

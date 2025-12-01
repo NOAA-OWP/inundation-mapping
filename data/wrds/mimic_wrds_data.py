@@ -3,11 +3,13 @@
 import argparse
 import os
 import pickle
-import pandas as pd
-import geopandas as gpd
-from tools_shared_functions import get_metadata
-from dotenv import load_dotenv
 from datetime import date, datetime, timezone
+
+import geopandas as gpd
+import pandas as pd
+from dotenv import load_dotenv
+from download_process_wrds import label_data_file
+from tools_shared_functions import get_metadata
 
 
 def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
@@ -17,7 +19,7 @@ def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
     Parameters
     ----------
     usgs_data_txt : str or file-like
-        Path to a USGS metadata text file with a a 43-line header which is skipped prior
+        Path to a USGS metadata text file with a # header which is skipped prior
         to reading the table rows.
     DEFAULT_DATA_CRS : str or pyproj.CRS
         Coordinate reference system to assign when the file does not contain a coordinate
@@ -44,30 +46,58 @@ def read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS):
     ---------------
     - KeyError if the expected columns are not present in the parsed table.
     - ValueError from geopandas if the CRS value is not a valid/recognized CRS.
-    
-    TODO: Update or replace this function with a call to the USGS API (instead of 
+
+    To Get the USGS Data File
+    --------------------------
+    1. Go to https://waterdata.usgs.gov/nwis/inventory and select a method to filter the site data, such as State/Territory).
+
+    2. Filtering and downloading data:
+        - In the next page, select the State/Territory (or other identifier) for which you want to get the data.
+        - In the "Choose Output Format" section, check the "Site-description information displayed in" button and select "Tab-separated format -- saved to file."
+        - Where it says "Select fields to include in site-description output," select all of the fields by clicking the first field, holding down the Shift
+          key, and then clicking the very last field.
+
+    3. Click "Submit" to download the file. Save it with a descriptive name and a .txt extension.
+
+    TODO: Update or replace this function with a call to the USGS API (instead of
     using a predownloaded USGS data file)
     '''
 
-    # Read in USGS data file (skipping the 43-line header)
-    usgs_data_df = pd.read_csv(usgs_data_txt, sep='\t', skiprows=43)
+    # Read in USGS data file
+    usgs_data_df = pd.read_csv(usgs_data_txt, sep='\t', comment='#')
 
     # Keep necessary metadata columns only
-    columns_to_keep = ['agency_cd', 'site_no', 'station_nm', 'site_tp_cd', 'dec_lat_va',
-                    'dec_long_va', 'coord_meth_cd', 'coord_acy_cd', 'coord_datum_cd',
-                    'dec_coord_datum_cd', 'district_cd', 'state_cd', 'county_cd',
-                    'country_cd', 'alt_va', 'alt_meth_cd', 'alt_acy_va', 'alt_datum_cd',
-                    'huc_cd']
+    columns_to_keep = [
+        'agency_cd',
+        'site_no',
+        'station_nm',
+        'site_tp_cd',
+        'dec_lat_va',
+        'dec_long_va',
+        'coord_meth_cd',
+        'coord_acy_cd',
+        'coord_datum_cd',
+        'dec_coord_datum_cd',
+        'district_cd',
+        'state_cd',
+        'county_cd',
+        'country_cd',
+        'alt_va',
+        'alt_meth_cd',
+        'alt_acy_va',
+        'alt_datum_cd',
+        'huc_cd',
+    ]
     usgs_data_df = usgs_data_df[columns_to_keep].drop(0)
-    
+
     # Get the CRS (assumes that all data in the file have same CRS)
     usgs_data_crs = usgs_data_df['dec_coord_datum_cd'].tolist()[0]
 
     if not usgs_data_crs:
         # Use the default CRS if not available
         usgs_data_crs = DEFAULT_DATA_CRS
-        print(f'Datum not available in USGS data, assuming default datum ({usgs_data_crs})') 
-    
+        print(f'Datum not available in USGS data, assuming default datum ({usgs_data_crs})')
+
     # Create geometry column and make the df into a geodataframe
     geometry = gpd.points_from_xy(usgs_data_df['dec_long_va'], usgs_data_df['dec_lat_va'])
     usgs_data_gdf = gpd.GeoDataFrame(usgs_data_df, geometry=geometry, crs=usgs_data_crs)
@@ -89,6 +119,7 @@ def download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS
     DEFAULT_DATA_CRS : str
         Fallback coordinate reference system / datum to assign to the output GeoDataFrame
         when the downloaded metadata does not specify a lat/lon datum.
+
     Returns
     -------
     meta_gdf : geopandas.GeoDataFrame
@@ -115,21 +146,21 @@ def download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS
 
     # Download and format metadata
     lid_list = thresholds_df['nws_lid'].tolist()
-    
+
     oconus_meta_list, ___ = get_metadata(
         metadata_url,
         select_by='nws_lid',
-        selector=lid_list, 
+        selector=lid_list,
         must_include=None,
         upstream_trace_distance=None,
         downstream_trace_distance=None,
     )
 
     print(f'Downloaded metadata for {len(oconus_meta_list)} sites from WRDS API.')
-    
+
     meta_lids, meta_lats, meta_lons, meta_datums = [], [], [], []
-    
-    for meta in oconus_meta_list: 
+
+    for meta in oconus_meta_list:
         lid = meta.get('identifiers').get('nws_lid')
         if lid in lid_list:
             lat = meta.get('nws_preferred').get('latitude')
@@ -138,17 +169,19 @@ def download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS
             meta_lids.append(lid)
             meta_lats.append(lat)
             meta_lons.append(lon)
-            meta_datums.append(datum)        
-    
-    meta_df = pd.DataFrame({'nws_lid': meta_lids, 'lat': meta_lats, 'lon': meta_lons, 'lat_lon_datum': meta_datums})
+            meta_datums.append(datum)
+
+    meta_df = pd.DataFrame(
+        {'nws_lid': meta_lids, 'lat': meta_lats, 'lon': meta_lons, 'lat_lon_datum': meta_datums}
+    )
     geometry = gpd.points_from_xy(meta_df['lon'], meta_df['lat'])
 
     # Get datum, if available, otherwise set datum to default value
     metadata_crs = meta_df['lat_lon_datum'].tolist()[0]
     if not metadata_crs:
-        metadata_crs = DEFAULT_DATA_CRS # Use a default value
-        print(f'Datum not available in downloaded metadata, assuming default datum ({metadata_crs})') 
-    
+        metadata_crs = DEFAULT_DATA_CRS  # Use a default value
+        print(f'Datum not available in downloaded metadata, assuming default datum ({metadata_crs})')
+
     meta_gdf = gpd.GeoDataFrame(meta_df, geometry=geometry, crs=metadata_crs)
 
     return meta_gdf, thresholds_df
@@ -217,46 +250,46 @@ def trace_network(df, start_id, trace_dist_km):
     trace_up = []
     trace_down = []
     start_order = None  # Variable to store the start_order
-    accumulated_length = 0    
-    
+    accumulated_length = 0
+
     # Trace downstream
     while True:
         current_row = df[df['nwm_feature_id'] == current_id]
-    
+
         if current_row.empty:
             break
-    
-        next_id = current_row['to'].values[0] # Was NextDownId
+
+        next_id = current_row['to'].values[0]  # Was NextDownId
         order = current_row['order_'].values[0]
         length = current_row['LengthKM'].values[0]
         lake = current_row['Lake'].values[0]
-            
+
         # Assign start_order when first encountered
         if start_order is None:
             start_order = order
-    
+
         # Exit loop if the stream order has changed
         if order != start_order:
             break
-    
+
         # Exit loop if the length has reached the max trace distance
         accumulated_length += length
         if accumulated_length >= float(trace_dist_km):
             break
-    
+
         # Exit loop if you reach a lake
         if lake > 0:
             break
-    
+
         # not dropping the HydroID that has the gauge location (need later)
         trace_down.append(int(current_id))
 
         # Load in the next ID to process
         current_id = next_id
-    
+
     current_id = start_id  # Reset current_id for tracing down
     accumulated_length = 0
-    
+
     # Trace downstream
     while True:
 
@@ -269,20 +302,20 @@ def trace_network(df, start_id, trace_dist_km):
         order = current_row['order_'].values[0]
         length = current_row['LengthKM'].values[0]
         lake = current_row['Lake'].values[0]
-        
+
         # Exit loop if the stream order has changed
         if order != start_order:
             break
-    
+
         # Exit loop if the length has reached the max trace distance
         accumulated_length += length
         if accumulated_length >= float(trace_dist_km):
             break
-    
+
         # Exit loop if you reach a lake
         if lake > 0:
             break
-    
+
         if current_id != start_id:
             trace_up.append(current_id)
 
@@ -343,38 +376,34 @@ def crosswalk_trace_flows(joined_gdf, nhd_flowlines_gpkg, search):
     flowlines_gdf['nwm_feature_id'] = flowlines_gdf['ID']
     columns_to_keep = ['nwm_feature_id', 'FROMCOMID', 'to', 'order_', 'LengthKM', 'Lake', 'geometry']
     flowlines_gdf = flowlines_gdf[columns_to_keep]
-    
+
     print('Done reading in and filtering NHD flowlines.')
-    
+
     # For each USGS site, get the NWM ID of the intersecting flowline
     flowlines_gdf = flowlines_gdf.to_crs(joined_gdf.crs)
     joined_gdf_with_streams = gpd.sjoin_nearest(
-        joined_gdf,
-        flowlines_gdf,
-        how="inner",
-        max_distance=20, 
-        distance_col="distance"
+        joined_gdf, flowlines_gdf, how="inner", max_distance=20, distance_col="distance"
     ).drop('index_right', axis=1)
 
     # Convert the trace from miles to km
-    km_conversion =  1.60934
+    km_conversion = 1.60934
     trace_dist_km = search * km_conversion
-    
+
     # Get nwm_feature_id for 8km upstream and 8km downstream
     upstream_trace_list, downstream_trace_list = [], []
     for index, row in joined_gdf_with_streams.iterrows():
-    
+
         # Get upstream and downstream traces
         trace_up, trace_down = [], []
         trace_up, trace_down = trace_network(flowlines_gdf, row['nwm_feature_id'], trace_dist_km)
-    
+
         upstream_trace_list.append(trace_up)
         downstream_trace_list.append(trace_down)
-    
+
     # Add the upstream and downstream trace to the geodataframe
     joined_gdf_with_streams['upstream_nwm_features'] = upstream_trace_list
     joined_gdf_with_streams['downstream_nwm_features'] = downstream_trace_list
-    
+
     print('Done getting the streamline IDs and upstream and downstream trace.')
 
     return joined_gdf_with_streams
@@ -383,7 +412,7 @@ def crosswalk_trace_flows(joined_gdf, nhd_flowlines_gpkg, search):
 def restructure_data_for_pkl(joined_gdf_with_streams):
     '''
     Restructure the data so it is the right format for saving the pkl files.
-     
+
     Creates two structures suitable for serialization/pickling: a thresholds
     DataFrame (matching the shape expected by thresholds.pkl) and a list of
     metadata dictionaries (matching the shape expected by nwm_metafile.pkl).
@@ -463,37 +492,43 @@ def restructure_data_for_pkl(joined_gdf_with_streams):
     # Reformat the data so it matches thresholds.pkl
     all_thresh_df_list = []
     for index, row in joined_gdf_with_streams.iterrows():
-        thresholds = [{'threshold_type': 'stages',
-            'huc': row['huc_cd'],
-            'low': 'NA',
-            'bankfull': 'NA',
-            'action': row['stage_thresh_action'],
-            'flood': 'NA',
-            'minor': row['stage_thresh_minor'],
-            'moderate': row['stage_thresh_moderate'],
-            'major': row['stage_thresh_major'],
-            'record': row['stage_thresh_record'],
-            'source': row['source'],
-            'wrds_timestamp': row['wrds_timestamp'],
-            'nws_lid': row['nws_lid'],
-            'usgs_site_code': 'NA',
-            'units': row['stage_thresh_units']},
-            {'threshold_type': 'flows',
-            'huc': row['huc_cd'],
-            'low': 'NA',
-            'bankfull': 'NA',
-            'action': row['flow_thresh_action'],
-            'flood': 'NA',
-            'minor': row['flow_thresh_minor'],
-            'moderate': row['flow_thresh_moderate'],
-            'major': row['flow_thresh_major'],
-            'record': row['flow_thresh_record'],
-            'source': row['source'],
-            'wrds_timestamp': row['wrds_timestamp'],
-            'nws_lid': row['nws_lid'],
-            'usgs_site_code': 'NA',
-            'units': row['flow_thresh_units']}]
-        
+        thresholds = [
+            {
+                'threshold_type': 'stages',
+                'huc': row['huc_cd'],
+                'low': 'NA',
+                'bankfull': 'NA',
+                'action': row['stage_thresh_action'],
+                'flood': 'NA',
+                'minor': row['stage_thresh_minor'],
+                'moderate': row['stage_thresh_moderate'],
+                'major': row['stage_thresh_major'],
+                'record': row['stage_thresh_record'],
+                'source': row['source'],
+                'wrds_timestamp': row['wrds_timestamp'],
+                'nws_lid': row['nws_lid'],
+                'usgs_site_code': 'NA',
+                'units': row['stage_thresh_units'],
+            },
+            {
+                'threshold_type': 'flows',
+                'huc': row['huc_cd'],
+                'low': 'NA',
+                'bankfull': 'NA',
+                'action': row['flow_thresh_action'],
+                'flood': 'NA',
+                'minor': row['flow_thresh_minor'],
+                'moderate': row['flow_thresh_moderate'],
+                'major': row['flow_thresh_major'],
+                'record': row['flow_thresh_record'],
+                'source': row['source'],
+                'wrds_timestamp': row['wrds_timestamp'],
+                'nws_lid': row['nws_lid'],
+                'usgs_site_code': 'NA',
+                'units': row['flow_thresh_units'],
+            },
+        ]
+
         thresholds_df = pd.DataFrame(thresholds)
         all_thresh_df_list.append(thresholds_df)
 
@@ -508,42 +543,43 @@ def restructure_data_for_pkl(joined_gdf_with_streams):
                 "usgs_site_code": "NA",
                 "nwm_feature_id": row['nwm_feature_id'],
             },
-            "nws_data": { 
+            "nws_data": {
                 "name": row['station_nm'],
                 "wfo": 'NA',
                 "rfc": 'NA',
                 "latitude": row['dec_lat_va'],
                 "longitude": row['dec_long_va'],
                 "horizontal_datum_name": row['dec_coord_datum_cd'],
-                "state": 'NA', #row['state_cd'],
-                "county": 'NA', #row['county_cd'],
-                },
+                "state": 'NA',  # row['state_cd'],
+                "county": 'NA',  # row['county_cd'],
+            },
             "usgs_data": {
                 "latitude": row['dec_lat_va'],
                 "longitude": row['dec_long_va'],
                 "latlon_datum_name": row['dec_coord_datum_cd'],
-                "state": 'NA', #row['state_cd'],
+                "state": 'NA',  # row['state_cd'],
                 "altitude": row['alt_va'],
                 "alt_accuracy_code": row['alt_acy_va'],
                 "alt_datum_code": row['alt_datum_cd'],
                 "alt_method_code": row['alt_meth_cd'],
                 "active": 'NA',
-                },
+            },
             "nws_preferred": {
                 "latitude": row['dec_lat_va'],
                 "longitude": row['dec_long_va'],
+                "huc": row['huc_cd'],
             },
             "usgs_preferred": {
                 "latitude": row['dec_lat_va'],
                 "longitude": row['dec_long_va'],
                 "latlon_datum_name": row['dec_coord_datum_cd'],
+                "huc": row['huc_cd'],
             },
             "nrldb_timestamp": 'NA',
             "nwis_timestamp": 'NA',
             "upstream_nwm_features": row['upstream_nwm_features'],
             "downstream_nwm_features": row['downstream_nwm_features'],
-            "nwm_feature_data": {
-                "stream_order": row['order_']}
+            "nwm_feature_data": {"stream_order": row['order_']},
         }
         metadata_dict_list.append(metadata_dict_lid)
 
@@ -551,9 +587,9 @@ def restructure_data_for_pkl(joined_gdf_with_streams):
 
 
 ## MAIN ##
-def mimic_wrds_data(site_thresholds_csv, usgs_data_txt, nhd_flowlines_gpkg,
-                    env_file, workspace, label, search):
-
+def mimic_wrds_data(
+    site_thresholds_csv, usgs_data_txt, nhd_flowlines_gpkg, env_file, workspace, label, search
+):
     '''
     Mimic WRDS data by assembling, joining, and saving site metadata, USGS observations,
     and threshold information so that outputs resemble those produced by WRDS.
@@ -589,7 +625,7 @@ def mimic_wrds_data(site_thresholds_csv, usgs_data_txt, nhd_flowlines_gpkg,
     print()
 
     # Environment
-    DEFAULT_DATA_CRS = 'NAD83' # Default CRS for the USGS and WRDS data (will only be used if 
+    DEFAULT_DATA_CRS = 'NAD83'  # Default CRS for the USGS and WRDS data (will only be used if
     # a CRS is not included in the available data) - Doesn't work if we use the local_proj_crs
     # because the data is stored in this more broadly applicable CRS?
     # TODO: Call this from somewhere?
@@ -606,7 +642,7 @@ def mimic_wrds_data(site_thresholds_csv, usgs_data_txt, nhd_flowlines_gpkg,
     usgs_data_gdf = read_format_usgs_data(usgs_data_txt, DEFAULT_DATA_CRS)
 
     # Download and format metadata for sites in the site thresholds CSV
-    metadata_url = f'{API_BASE_URL}/metadata'   
+    metadata_url = f'{API_BASE_URL}/metadata'
     meta_gdf, thresholds_df = download_format_metadata(site_thresholds_csv, metadata_url, DEFAULT_DATA_CRS)
 
     # Get the local projected CRS from the NHD flowlines file
@@ -619,15 +655,11 @@ def mimic_wrds_data(site_thresholds_csv, usgs_data_txt, nhd_flowlines_gpkg,
     usgs_data_gdf = usgs_data_gdf.to_crs(epsg=local_proj_crs)
 
     # NOTE: From here on out, the geoprocessing will take place in the local projected CRS
-    # (gotten from the flowlines file) because it will allow for more accurate geoprocessing. 
+    # (gotten from the flowlines file) because it will allow for more accurate geoprocessing.
 
     # Spatially join the metadata (lid), the USGS data (altitude and lat lon)
     joined_gdf = gpd.sjoin_nearest(
-        meta_gdf,
-        usgs_data_gdf,
-        how="left",
-        max_distance=10, 
-        distance_col="distance"
+        meta_gdf, usgs_data_gdf, how="left", max_distance=10, distance_col="distance"
     )
 
     # ... and then use the LID to join the thresholds to the table
@@ -635,15 +667,19 @@ def mimic_wrds_data(site_thresholds_csv, usgs_data_txt, nhd_flowlines_gpkg,
     joined_gdf = joined_gdf.drop('index_right', axis=1)
 
     # print('Joined WRDS metadata, USGS data, and thresholds data.')
-    
+
     # Crosswalk the sites to the flowlines and calculate upstream/downstream trace
     joined_gdf_with_streams = crosswalk_trace_flows(joined_gdf, nhd_flowlines_gpkg, search)
 
-    # Restructure the data so it is the right format for saving the pkl files    
+    # Restructure the data so it is the right format for saving the pkl files
     all_thresh_df, metadata_dict_list = restructure_data_for_pkl(joined_gdf_with_streams)
 
+    # Create a file label with the date
+    date_label = label_data_file(label, ['all'])
+
     # Save thresholds to pkl file
-    threshold_output_pickle_path = os.path.join(workspace, f'thresholds_{label}.pkl') # TODO: Update to match outputs from download_process_wrds.py
+    threshold_output_pickle_path = os.path.join(workspace, f'thresholds{date_label}.pkl')
+
     try:
         with open(threshold_output_pickle_path, 'wb') as f:
             pickle.dump(all_thresh_df, f)
@@ -652,14 +688,15 @@ def mimic_wrds_data(site_thresholds_csv, usgs_data_txt, nhd_flowlines_gpkg,
         print(f"Error saving pickle file {threshold_output_pickle_path}: {e}")
 
     # Save metadata to pkl file
-    metadata_output_pickle_path = os.path.join(workspace, f'metadata_{label}.pkl') # TODO: Update to match outputs from download_process_wrds.py
+    metadata_output_pickle_path = os.path.join(workspace, f'metadata{date_label}.pkl')
+
     try:
         with open(metadata_output_pickle_path, 'wb') as f:
             pickle.dump(metadata_dict_list, f)
-        print(f"Saved thresholds to {metadata_output_pickle_path}")
+        print(f"Saved metadata to {metadata_output_pickle_path}")
     except Exception as e:
         print(f"Error saving pickle file {metadata_output_pickle_path}: {e}")
-    
+
     # Save joined geodataframe to file for debugging
     debug_output_path = os.path.join(workspace, f'joined_gdf_with_streams_{label}.gpkg')
     try:
@@ -674,10 +711,8 @@ def mimic_wrds_data(site_thresholds_csv, usgs_data_txt, nhd_flowlines_gpkg,
 
     print()
     print('Processing complete.')
-    print(f"Total duration: {str(time_duration).split('.')[0]}") 
+    print(f"Total duration: {str(time_duration).split('.')[0]}")
     print('================================')
-
-
 
 
 if __name__ == '__main__':
@@ -685,15 +720,7 @@ if __name__ == '__main__':
     This script builds a local “mimic” of WRDS site metadata and thresholds that would
       typically by downloaded from the WRDS API.
 
-    Steps:
-
-    - GET ELEVATION FROM WRDS: reads and formats a USGS station text file and downloads NWS metadata from an API,
-    - JOIN THRESHOLDS TO ELEVATIONS: joins metadata with USGS attributes and thresholds CSV,
-    - CROSSWALKING, UPSTREAM/DOWNSTREAM TRACE: finds nearest NHD flowlines and traces upstream/downstream reaches by distance and stream order,
-    - FORMATTING: reformats results into threshold and metadata structures, and saves them as pickle files.
-
-    Inputs and requirements
-
+    Notes on Inputs:
     - site_thresholds_csv (required)
         Path to a CSV containing site threshold records. Required columns (exact names):
             nws_lid, source, wrds_timestamp,
@@ -703,44 +730,34 @@ if __name__ == '__main__':
             stage_thresh_record, stage_thresh_units
         Format: comma-separated UTF-8 CSV. Each row represents thresholds for one NWS LID.
 
-    - usgs_data_txt (required) # TODO: Add description on how to download
+    - usgs_data_txt (required)
         Path to a USGS station text file (tab-separated) exported from USGS. The reader in this
-        script skips the first 43 rows and expects the following columns to exist:
+        script skips the first rows (that start with a #) and expects the following columns to exist:
             agency_cd, site_no, station_nm, site_tp_cd, dec_lat_va, dec_long_va,
             coord_meth_cd, coord_acy_cd, coord_datum_cd, dec_coord_datum_cd,
             district_cd, state_cd, county_cd, country_cd,
             alt_va, alt_meth_cd, alt_acy_va, alt_datum_cd, huc_cd
         Latitude/longitude must be decimal degrees. A horizontal datum should be present in
         dec_coord_datum_cd; if missing, DEFAULT_DATA_CRS ('NAD83') is used.
+        TODO: Add description on how to download
 
     - nhd_flowlines_gpkg (required)
-        Path to a GeoPackage (or other file readable by geopandas) containing NHD flowlines.
-        The flowline layer must include these fields:
-            ID, FROMCOMID, to, order_, LengthKM, Lake, geometry
-        The file will be reprojected to the provided local_proj_crs before spatial operations.
 
-    - env_file (optional)
-        Path to a .env file containing the environment variable API_BASE_URL used to fetch
-        additional metadata. Default: /data/config/fim_enviro_values.env. If API_BASE_URL is
-        missing the script will raise a ValueError.
 
-    - workspace (optional)
-        Directory where output pickle files will be written. Must be writable by the user.
-        Default: /data/inputs/wrds/manual_input # TODO: Update default path?
-
-    - label (optional)
-        Short label string appended into output filenames (metadata_<label>.pkl,
-        thresholds_<label>.pkl). If omitted, filenames use the label argument as provided. # TODO: Update label desc.
-
-    - search (optional)
-        Integer search distance in miles for upstream/downstream tracing (default: 5 miles).
-        Converted internally to kilometers (1 mile = 1.60934 km).
-
-    Notes and assumptions:
+    Notes on Projections:
     - The code assumes a single horizontal datum for the USGS input file and the WRDS metadata;
         when missing, DEFAULT_DATA_CRS ('NAD83') is used and a warning is printed.
+
+    - Oct '25 Guam CatFIM run used EPSG:3993, but I think EPSG:6637 is better for Guam overall
+        because it is NAD83-based instead of WGS84-based. Since that is the case, we can pull
+        the value from the NHD flowlines file instead of requiring user input.
+
+    Example usage:
+        python /foss_fim/data/wrds/mimic_wrds_data.py -t /guam_thresholds.csv -u /usgs_data_guam.txt
+        -f /data/inputs/nhdplus/Guam_6637/NHDFlowline_Guam_6637.gpkg -w /output_folder/ -l guam
+
     '''
-    
+
     # Parse arguments
     parser = argparse.ArgumentParser(
         description='Builds a local “mimic” of WRDS site metadata and thresholds'
@@ -750,22 +767,21 @@ if __name__ == '__main__':
     parser.add_argument(
         '-t',
         '--site-thresholds-csv',
-        help='# a CSV with the LID, and any flow or stage thresholds available w/ units.'
-         'e.g. /home/emily.deardorff/notebooks/guam_thresholds.csv'
-         'Columns required:     nws_lid, source, wrds_timestamp, flow_thresh_action,'
-         'flow_thresh_minor, flow_thresh_moderate, flow_thresh_major,'
-         'flow_thresh_record, flow_thresh_units, stage_thresh_action,'
-         'stage_thresh_minor, stage_thresh_moderate, stage_thresh_major,'
-         'stage_thresh_record, stage_thresh_units',
+        help='A CSV with the LID, and any flow or stage thresholds available w/ units.'
+        'e.g. /home/emily.deardorff/notebooks/guam_thresholds.csv'
+        'Columns required:     nws_lid, source, wrds_timestamp, flow_thresh_action,'
+        'flow_thresh_minor, flow_thresh_moderate, flow_thresh_major,'
+        'flow_thresh_record, flow_thresh_units, stage_thresh_action,'
+        'stage_thresh_minor, stage_thresh_moderate, stage_thresh_major,'
+        'stage_thresh_record, stage_thresh_units',
         required=True,
-    ) 
-
+    )
 
     # TODO: remove as input when I get the USGS API metadata download working
     parser.add_argument(
         '-u',
         '--usgs-data-txt',
-        help='a CSV downloaded from the USGS site' # TODO: Add description, incl. where we need to get this data from (and how). Do we want to have a template CSV in this folder as well?
+        help='A textfile of site metadata downloaded from the USGS NWIS Web Interface. '
         'e.g. /home/emily.deardorff/notebooks/usgs_data_guam.txt',
         required=True,
     )
@@ -773,7 +789,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-f',
         '--nhd-flowlines-gpkg',
-        help='NHD flowlines file for the area.' # TODO: Add description, incl. where we need to get this data from 
+        help='NHD flowlines file for the area.'
         'e.g. /data/inputs/nhdplus/Guam_6637/NHDFlowline_Guam_6637.gpkg',
         required=True,
     )
@@ -784,13 +800,10 @@ if __name__ == '__main__':
     #     help='Local projected CRS for the area. Required for distance '
     #     'calculations. This is the CRS that is used for the coordinates '
     #     'on WRDS, but you might have to guess if the data is incomplete.'
-    #     'e.g. 3993 for Guam', 
+    #     'e.g. 3993 for Guam',
     #     type=int,
     #     required=True,
     # )
-    # The Oct '25 Guam CatFIM run used EPSG:3993, but I think EPSG:6637 is better for Guam overall
-    # because it is NAD83-based instead of WGS84-based. Since that is the case, we can pull
-    # the value from the NHD flowlines file instead of requiring user input.
 
     parser.add_argument(
         '-e',
@@ -801,17 +814,20 @@ if __name__ == '__main__':
         default='/data/config/fim_enviro_values.env',
     )
 
-    parser.add_argument('-w',
+    parser.add_argument(
+        '-w',
         '--workspace',
         help='OPTIONAL: Workspace where all outputs will be saved.',
         required=False,
-        default = '/data/inputs/wrds/manual_input' # TODO: decide on a default save location
+        default='/data/inputs/wrds/manual_input',
     )
 
-    parser.add_argument('-l',
+    parser.add_argument(
+        '-l',
         '--label',
-        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_ddmmyy.pkl and thresholds_<label>_ddmmyy.pkl).',
-        required=False
+        help='OPTIONAL: Label for filenames. Stucture will be metadata_<label>_ddmmyy.pkl '
+        'and thresholds_<label>_ddmmyy.pkl).',
+        required=False,
     )
 
     parser.add_argument(
