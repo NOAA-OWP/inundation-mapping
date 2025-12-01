@@ -23,9 +23,10 @@ ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
 class HucDirectory(object):
-    def __init__(self, fim_directory, huc_id, limit_branches=[]):
-        self.fim_directory = fim_directory
-        self.huc_dir_path = join(fim_directory, huc_id)
+    def __init__(self, huc_dir, limit_branches=[]):
+        # self.fim_directory = fim_directory
+        # self.huc_dir_path = join(fim_directory, huc_id)
+        self.huc_dir_path = huc_dir
         self.limit_branches = limit_branches
 
         self.usgs_dtypes = {
@@ -190,7 +191,7 @@ class HucDirectory(object):
             for branch in os.listdir(join(self.huc_dir_path, 'branches')):
                 yield (branch, join(self.huc_dir_path, 'branches', branch))
 
-    def usgs_elev_table(self, branch_path):
+    def aggregate_usgs_elev_table(self, branch_path):
         usgs_elev_filename = join(branch_path, 'usgs_elev_table.csv')
         if not os.path.isfile(usgs_elev_filename):
             return
@@ -217,7 +218,7 @@ class HucDirectory(object):
         src_cross['branch_id'] = branch_id
         self.agg_src_cross = pd.concat([self.agg_src_cross, src_cross])
 
-    def ras_elev_table(self, branch_path):
+    def aggregate_ras_elev_table(self, branch_path):
         ras_elev_filename = join(branch_path, 'ras_elev_table.csv')
         if not os.path.isfile(ras_elev_filename):
             return
@@ -275,9 +276,9 @@ class HucDirectory(object):
             # try catch and its own log file output in error only.
             for branch_id, branch_path in self.iter_branches():
                 if usgs_elev_flag:
-                    self.usgs_elev_table(branch_path)
+                    self.aggregate_usgs_elev_table(branch_path)
                 if ras_elev_flag:
-                    self.ras_elev_table(branch_path)
+                    self.aggregate_ras_elev_table(branch_path)
 
                 ## Other aggregate funtions can go here
                 if hydro_table_flag:
@@ -426,12 +427,13 @@ class HucDirectory(object):
             errMsg = errMsg + traceback.format_exc()
             print(errMsg, flush=True)
             log_error(
-                self.fim_directory,
+                self.huc_dir_path,
                 usgs_elev_flag,
                 hydro_table_flag,
                 src_cross_flag,
                 ras_elev_flag,
                 bridge_flag,
+                road_flag,
                 huc_id,
                 errMsg,
             )
@@ -441,7 +443,7 @@ class HucDirectory(object):
 # This is done independantly in each worker and does not attempt to write to a shared file
 # as those can collide with multi proc
 def log_error(
-    fim_directory,
+    huc_directory,
     usgs_elev_flag,
     hydro_table_flag,
     src_cross_flag,
@@ -466,8 +468,11 @@ def log_error(
         file_name += "_road"
     file_name += "_error.log"
 
-    log_path = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
-    file_path = os.path.join(log_path, file_name)
+    log_dir = os.path.join(huc_directory, "logs", "agg_by_huc_errors")
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+
+    file_path = os.path.join(log_dir, file_name)
 
     f = open(file_path, "a")
     f.write(errMsg)
@@ -475,37 +480,16 @@ def log_error(
 
 
 def aggregate_by_huc(
-    fim_directory,
-    fim_inputs,
-    usgs_elev_flag,
-    hydro_table_flag,
-    src_cross_flag,
-    ras_elev_flag,
-    bridge_flag,
-    road_flag,
-    num_job_workers,
+    huc_dir, usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag
 ):
-    assert os.path.isdir(fim_directory), f'{fim_directory} is not a valid directory'
+    assert os.path.isdir(huc_dir), f'{huc_dir} is not a valid directory'
 
-    # -------------------
-    # TODO: May 19, 2025: It is good to keep this in, but it needs to happen at the top of both fim_pipeline and post
-    # post processing. Currently, you run pipeline, you don't find out until here when this problem exists and
-    # it aborts here.
-    # Validation
-    total_cpus_available = os.cpu_count() - 2
-    if num_job_workers > total_cpus_available:
-        raise ValueError(
-            f'The number of jobs {num_job_workers}'
-            ' exceeds your machine\'s available CPU count minus two.'
-            ' Please lower the number of jobs'
-            ' values accordingly.'
-        )
-
+    '''
     # create log folder, might end up empty but at least create the folder
     # Yes.. this is duplicate in the log function
-    log_folder = os.path.join(fim_directory, "logs", "agg_by_huc_errors")
+    log_folder = os.path.join(huc_dir, "logs", "agg_by_huc_errors")
     if os.path.exists(log_folder) is False:
-        os.mkdir(log_folder)
+        os.makedirs(log_folder)
     else:
         # empty only ones with this type (we want to keep others that
         # might have been called with different types. aka.. once for -elev
@@ -526,87 +510,34 @@ def aggregate_by_huc(
         filelist = glob.glob(os.path.join(log_folder, f"*{agg_type}*"))
         for f in filelist:
             os.remove(f)
+    '''
 
     start_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     print(f"started: {dt_string}")
 
-    # Set up multiprocessor
-    with ProcessPoolExecutor(max_workers=num_job_workers) as executor:
-        # Loop through applicable HUCs, build the agg_function arguments, and submit them to the process pool
-        executor_dict = {}
-
-        try:
-            if fim_inputs:
-                fim_inputs_csv = pd.read_csv(fim_inputs, header=None, names=['huc', 'levpa_id'], dtype=str)
-                huc_list = fim_inputs_csv.huc.unique()
-
-                # with multi proc, it won't be 100% in order as different hucs
-                # process faster, but it does help a little
-                huc_list_sorted = sorted(huc_list)
-                for huc_id in huc_list_sorted:
-                    branches = fim_inputs_csv.loc[fim_inputs_csv.huc == huc_id, 'levpa_id'].tolist()
-                    huc_dir = HucDirectory(fim_directory, huc_id, limit_branches=branches)
-
-                    args_agg = {
-                        'usgs_elev_flag': usgs_elev_flag,
-                        'hydro_table_flag': hydro_table_flag,
-                        'src_cross_flag': src_cross_flag,
-                        'ras_elev_flag': ras_elev_flag,
-                        'bridge_flag': bridge_flag,
-                        'road_flag': road_flag,
-                        'huc_id': huc_id,
-                    }
-
-                    future = executor.submit(huc_dir.agg_function, **args_agg)
-                    executor_dict[future] = huc_id
-
-            else:
-                huc_list = [d for d in os.listdir(fim_directory) if re.match(r'\d{8}', d)]
-
-                # with multi proc, it won't be 100% in order as different hucs
-                # process faster, but it does help a little
-                huc_list_sorted = sorted(huc_list)
-                for huc_id in huc_list_sorted:
-                    if huc_id.isnumeric() is False:
-                        continue
-
-                    huc_dir = HucDirectory(fim_directory, huc_id)
-
-                    args_agg = {
-                        'usgs_elev_flag': usgs_elev_flag,
-                        'hydro_table_flag': hydro_table_flag,
-                        'src_cross_flag': src_cross_flag,
-                        'ras_elev_flag': ras_elev_flag,
-                        'bridge_flag': bridge_flag,
-                        'road_flag': road_flag,
-                        'huc_id': huc_id,
-                    }
-                    future = executor.submit(huc_dir.agg_function, **args_agg)
-                    executor_dict[future] = huc_id
-
-        except Exception:
-            errMsg = (
-                "--------------------------------------"
-                f"\n huc_id {huc_id} has an error - outside multi proc\n"
-            )
-            errMsg = errMsg + traceback.format_exc()
-            print(errMsg, flush=True)
-            log_error(
-                fim_directory,
-                usgs_elev_flag,
-                hydro_table_flag,
-                src_cross_flag,
-                ras_elev_flag,
-                bridge_flag,
-                road_flag,
-                huc_id,
-                errMsg,
-            )
-            # sys.exit(1)
-
-        # Send the executor to the progress bar and wait for all MS tasks to finish
-        progress_bar_handler(executor_dict, f"Running aggregate_by_huc with {num_job_workers} workers")
+    # get hucnumber
+    huc_id = os.path.basename(os.path.normpath(huc_dir))
+    try:
+        huc_dir_obj = HucDirectory(huc_dir)
+        huc_dir_obj.agg_function(
+            usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id
+        )
+    except Exception:
+        errMsg = "--------------------------------------" f"\n huc_id {huc_id} has an error\n"
+        errMsg = errMsg + traceback.format_exc()
+        print(errMsg, flush=True)
+        log_error(
+            huc_dir,
+            usgs_elev_flag,
+            hydro_table_flag,
+            src_cross_flag,
+            ras_elev_flag,
+            bridge_flag,
+            road_flag,
+            huc_id,
+            errMsg,
+        )
 
     end_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
@@ -624,8 +555,8 @@ if __name__ == '__main__':
     # in post processing.
 
     parser = argparse.ArgumentParser(description='Aggregates usgs_elev_table.csv at the HUC level')
-    parser.add_argument('-fim', '--fim_directory', help='Input FIM Directory', required=True)
-    parser.add_argument('-i', '--fim_inputs', help='Input fim_inputs CSV file', required=False)
+    parser.add_argument('-huc_dir', '--huc_dir', help='HUC Directory', required=True)
+    # parser.add_argument('-i', '--hucNumber', help='hucNumber to be postprocessed', required=False)
     parser.add_argument(
         '-elev',
         '--usgs_elev_flag',
@@ -673,9 +604,6 @@ if __name__ == '__main__':
         required=False,
         default=False,
         action='store_true',
-    )
-    parser.add_argument(
-        '-j', '--num_job_workers', help='Number of processes to use', required=False, default=1, type=int
     )
 
     args = vars(parser.parse_args())
