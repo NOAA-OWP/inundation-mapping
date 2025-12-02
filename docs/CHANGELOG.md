@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.____ - 2025-____ - [PR#1705](https://github.com/NOAA-OWP/inundation-mapping/pull/1705)
+
+Changes the threshold data source priority from USGS to NRLDB. This way, if rating curves from both USGS and NRLDB are available for a site, the NRLDB one will be used. 
+
+### Changes
+- `/tools/tools_shared_functions.py`: Changes the threshold data source priority in `get_thresholds()` from USGS to NRLDB.
+
+<br />
+
 ## v4.9.0.0 - 2025-12-01 - [PR#1620](https://github.com/NOAA-OWP/inundation-mapping/pull/1620)
 ## Summary
 This PR closes #1593  and introduces a **redesigned calibration workflow**, enabling each HUC processor to perform calibration independently after generating its own REM. Therefore, each HUC is self-contained and fully processed before moving to the next.  It also reorganizes log files to be stored within each HUC directory and introduces clear separation between full pipeline runs and calibration reruns.
