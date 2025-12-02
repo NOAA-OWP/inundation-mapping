@@ -1094,11 +1094,12 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 i.get('calc_flow_values').get('rating_curve').get('source'): index
                 for index, i in enumerate(thresholds_info)
             }
-            # Get threshold data use USGS Rating Depot (priority) otherwise NRLDB.
-            if 'USGS Rating Depot' in rating_sources:
-                threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
-            elif 'NRLDB' in rating_sources:
+            # Get threshold data by source
+            # Use NRLDB if available (priority), otherwise USGS Rating Depot (switched Dec '25)
+            if 'NRLDB' in rating_sources:
                 threshold_data = thresholds_info[rating_sources['NRLDB']]
+            elif 'USGS Rating Depot' in rating_sources:
+                threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
             # If neither USGS or NRLDB is available use first dictionary to get stage values.
             else:
                 threshold_data = thresholds_info[0]
