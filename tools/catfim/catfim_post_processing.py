@@ -41,7 +41,7 @@ def catfim_post_processing(output_folder):
     is_logging_loaded = False    
     
     # validate output_folder path
-    if not os.path.exist(output_folder):
+    if not os.path.exists(output_folder):
         raise Exception("CatFIM output path does not exist. Post Processing aborted.")
 
     try:
@@ -78,7 +78,7 @@ def catfim_post_processing(output_folder):
     
         # Validate that we have some huc sites / library data
         huc_path = os.path.join(output_folder, "hucs")
-        if os.path.exist(huc_path):
+        if os.path.exists(huc_path):
             raise Exception("CatFIM output huc folder does not exist. Post Processing aborted.")
 
         # Gets a list of huc numbers by finding folder names from /data/catfim/hand_4_8_7_2_stage_based/huc)

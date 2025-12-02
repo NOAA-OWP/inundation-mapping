@@ -291,6 +291,12 @@ def process_generate_categorical_fim(
         # hummmm
         # OR.. do we just look for all of the final files from HUCs such as it's final sites and library file and
         # remove them?  hummmm
+        # Maybe we can just remove all of their "mapping" folders
+        # What about override? do we even need it? or maybe we just check for override of the final post
+        # processing files before we start?
+        # What if we leave it all alone other than killing the final rolled up outputs. That way
+        # someone could re-run a huc, then re-run post processing and it will pick it up from all folders
+        # hummmm
 
 
         task_args_list = []
@@ -304,15 +310,30 @@ def process_generate_categorical_fim(
             
 
         # === Run jobs in parallel ===
-        # Setup some sort of processpool
         # do we want a TQDM? depends on what we want to output to screen.
         # play with it a little. We recently figured out how to do both.
         # depending on what we choose to do, look at my new s3_shared_functions
         # even though it uses MT, but can be easily adjsuted to MP
 
-        # With each process_huc handing it's own logging and may/may not be handing it's screen output
-        # we may not want to use run_with_mp. TBD
 
+        # With each process_huc handing it's own logging
+        # and may/may not be handing it's screen output...
+        #     we may not want to use run_with_mp. TBD
+
+        #     We need to be able to have catfim_process_huc.py run completely independently in case it is
+        #     running in AWS (hence.. its own log and log folder).
+
+        # But maybe we do let it all right to a common one and use run_with_mp. If we do:
+        #     can the mp call a seprate py file? (like through a process_by_huc function here or somethign)
+        #     right now, run_with_mp assumes one logger for all mp's so this does not work for AWS
+        #     unless we come up with something else.  Maybe a None logger that catfim_process_huc can detect?
+        #     or let a function in that script setup its own logger if comign through AWS?
+        
+        # For now, due to debugging, just use our own process pool
+
+        # We do not need anythign back at this point, only to know catch a fail but never shut down the thread
+        # So we dont' even need a futures
+        # what about CTRL-C
         with ProcessPoolExecutor(max_workers=number_jobs) as executor:
 
             # Some mp functions might throw an exception, which means it may not get to as_completed
@@ -320,7 +341,8 @@ def process_generate_categorical_fim(
             futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list]
 
             # Need Try, except but need some combinations of exceptions, controlled errors and CTRL-C (aborts)
-            
+            # or do we?
+                
             # for future in as_completed(futures_dict):
             #    if future is not None:  # we don't have anything to return at this time.
                     # if not future.exception():

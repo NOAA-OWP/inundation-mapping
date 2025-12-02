@@ -133,58 +133,62 @@ def process_huc(huc, output_folder):
         # Setup logging. It should make its own huc log folder inside the parent "logs" folder
         log_file_dir = os.path.join(huc_path, f"{huc}_logs")
         log_file_path = sf.setup_file_logger(log_file_dir, f"process_huc")
-        print(f"Logs for this HUC will be saved to {log_file_path}")
 
         print("")
         logging.info(f"Processing {catfim_type_name} catfim fim for HUC: {huc} ;  {dt_string} (UTC)")
         print("")
+        print(f"Logs for this HUC will be saved to {log_file_path}")        
         
         output_mapping_dir = os.path.join(huc_path, "mapping")
                 
         # FB uses a discharge_file but SB does not. Easiest to clean the folder completely up regardless of type.
         discharge_file_path, sites_file_path, library_file_path = __set_start_files_folders(huc_path, output_mapping_dir)
     
+        if huc == '01070001':
+            raise Exception("testing exception in a huc")
 
-        # Change to new download_process_wrds.py file
-        metadata_url = f'{wrds_api_base_url}/metadata'
-        huc_dictionary, meta_gdf = csf.get_meta_and_huc_data(output_folder,
-                                                             metadata_url,
-                                                             os.getenv('SEARCH'),
-                                                             os.getenv('NWM_METAFILE_PATH'),
-                                                             os.getenv('GET_NEW_META_DATA'),
-                                                             [huc])
-        if len(huc_dictionary) == 0:
-            msg = f"HUC number of {huc} is invalid or does not have any nwm sites associated to it."
-            logging.critical(msg)
-            raise Exception(msg)
+        # # Change to new download_process_wrds.py file
+        # metadata_url = f'{wrds_api_base_url}/metadata'
+        # huc_dictionary, meta_gdf = csf.get_meta_and_huc_data(output_folder,
+        #                                                      metadata_url,
+        #                                                      os.getenv('SEARCH'),
+        #                                                      os.getenv('NWM_METAFILE_PATH'),
+        #                                                      os.getenv('GET_NEW_META_DATA'),
+        #                                                      [huc])
+        # if len(huc_dictionary) == 0:
+        #     msg = f"HUC number of {huc} is invalid or does not have any nwm sites associated to it."
+        #     logging.critical(msg)
+        #     raise Exception(msg)
 
-        if len(huc_dictionary) > 1:
-            # ie: {'12090301': ['BRTT2', 'CBST2', 'LGRT2', 'SMIT2']}
-            msg = "An internal error has occurred. Expected 0 or 1 records back."
-            logging.critical(msg)
-            raise Exception(msg)
+        # if len(huc_dictionary) > 1:
+        #     # ie: {'12090301': ['BRTT2', 'CBST2', 'LGRT2', 'SMIT2']}
+        #     msg = "An internal error has occurred. Expected 0 or 1 records back."
+        #     logging.critical(msg)
+        #     raise Exception(msg)
 
-        # Make a simple list of just the site_ids
-        # Note: Should not be any recs coming in from meta_gdf that have dup nws_lid values
-        huc_nws_lids = huc_dictionary[huc]
+        # # Make a simple list of just the site_ids
+        # # Note: Should not be any recs coming in from meta_gdf that have dup nws_lid values
+        # huc_nws_lids = huc_dictionary[huc]
 
-        # It is ok to continue anyways as it will just log that it has none found.
-        # Is this even possible at this point? doesn't really matter.
-        logging.info(f"{len(huc_nws_lids)} sites found before validation: {huc_nws_lids}")
+        # # It is ok to continue anyways as it will just log that it has none found.
+        # # Is this even possible at this point? doesn't really matter.
+        # logging.info(f"{len(huc_nws_lids)} sites found before validation: {huc_nws_lids}")
         
-        # Start building up the new sites / meta file. We can adjust the status as we go.        
-        meta_gdf = __setup_sites_gdf(meta_gdf, catfim_type)
+        # # Start building up the new sites / meta file. We can adjust the status as we go.        
+        # meta_gdf = __setup_sites_gdf(meta_gdf, catfim_type)
         
-        # validation of the valid_nwm_lids already be done, so neither of these variables should be empty.
-        valid_nwm_lids, meta_gdf = __check_for_resticted_sites(meta_gdf, catfim_type, huc, sites_file_path)
-        logging.info(f"{len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
+        # # validation of the valid_nwm_lids already be done, so neither of these variables should be empty.
+        # valid_nwm_lids, meta_gdf = __check_for_resticted_sites(meta_gdf, catfim_type, huc, sites_file_path)
+        # logging.info(f"{len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
         
         # Temp debugging
         print("--------------")
         print("Ok.. let's stop here for now")   
-        __save_sites_file(meta_gdf, sites_file_path)
+        sys.exit(0)
+
+        # __save_sites_file(meta_gdf, sites_file_path)
         # graceful exit is fine here. We don't need to crash it or through an exception.
-        sys.exit(0)        
+
         
         # ---------------------
         # Get threshold data
@@ -235,7 +239,7 @@ def process_huc(huc, output_folder):
         # if you use "return" and it is AWS, it will not error out.
         # yes.. we want a "return", but may/may not have a value. 
         # if we add one, keep it a simple data type (str, int, float)
-        return
+        return huc
         
         
     except Exception:
