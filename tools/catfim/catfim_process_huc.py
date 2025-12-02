@@ -76,6 +76,18 @@ gpd.options.io_engine = "pyogrio"
     
 def process_huc(huc, output_folder):
   
+    """_summary_
+
+    Notes:
+        - When we iterate from the huc list from generate_categorical_fim.py, we always overwrite all HUC folders.
+          The overwrite flag here is really just for testing that script by itself at command level.
+
+
+    Raises:
+        Exception: _description_
+        Exception: _description_
+    """
+  
     is_logging_loaded = False
     
     # load our standard bash_variables.env
@@ -96,6 +108,11 @@ def process_huc(huc, output_folder):
     huc_path, output_folder = __validate_inputs(huc, output_folder)  # also validates some bash_variables if it needs any.
 
     wrds_api_base_url = csf.load_fim_global_env_values(os.getenv('ENV_FILE'))
+
+    # TODO: With this huc being processed in MP and all HUCs sharing the same physical meta and threshold files, we 
+    #   are going to have problems with race conditions. After we validate, make copies into the local HUC dir
+    #   temporary so it can use them for processing.
+    #   HUMM... google if we will have a race condition on copying the file.. I dont' think so but double check it
 
     try:
 
@@ -475,11 +492,11 @@ def __validate_inputs(huc, output_folder):
     fim_run_dir = os.getenv("FIM_RUN_DIR")
     if not fim_run_dir:
         raise Exception("The enviro value for FIM_RUN_DIR does not exist or is empty. It was loaded"
-                        " and included in the runtime_arg enviro file. Check pathing and variables")
+                        " and included in the runtime_arg enviro file. Check pathing and variables.")
     fim_run_huc_path = os.path.join(fim_run_dir, huc)
     if not os.path.exists(fim_run_huc_path):
         raise ValueError("This script needs to talk to its HUC in the fim_run_dir, but the folder of"
-                         f" {fim_run_huc_path} does not exist. Please check pathing (with case)")
+                         f" {fim_run_huc_path} does not exist. Please check pathing (with case).")
     
     # do we validate other key files? branches exist? what if it was a bad huc in the first place?
     
@@ -572,6 +589,8 @@ if __name__ == '__main__':
     # This script will already know where to look for the runtime_args.env file
 
     # We need only the huc number and the output path for args
+    
+    # Note: We always want to overwrite.
         
     parser.add_argument("-u", "--huc", help="REQUIRED: HUC8 Number", required=True, type=str)    
 

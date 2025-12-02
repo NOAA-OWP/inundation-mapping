@@ -165,16 +165,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         with open(metadata_filepath, "wb") as p_handle:
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        msg = f"Metadata saved at {metadata_filepath}"
-        messages.append(msg)
-        print(msg)
-
-        file_size_bytes = os.path.getsize(metadata_filepath)
-        file_size_kb = round(file_size_bytes / 1024, 2)
-        file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
-
-        # Rob: I dont' think we need this.
-        msg = f"File size: {file_size_kb} kb or {file_size_mb} mb"
+        msg = f"Metadata file saved at {metadata_filepath}"
         messages.append(msg)
         print(msg)
 
@@ -253,16 +244,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
         with open(thresholds_filepath, 'wb') as f:
             pickle.dump(all_thresholds_df, f)
 
-        msg = f"Thresholds saved at {thresholds_filepath}"
-        messages.append(msg)
-        print(msg)
-
-        file_size_bytes = os.path.getsize(thresholds_filepath)
-        file_size_kb = round(file_size_bytes / 1024, 2)
-        file_size_mb = round(file_size_bytes / (1024 * 1024), 2)
-        
-        # Rob: I don't think we need this.
-        msg = f"File size: {file_size_kb} kb or {file_size_mb} mb"
+        msg = f"Thresholds file saved at {thresholds_filepath}"
         messages.append(msg)
         print(msg)
 
@@ -312,6 +294,15 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     output_meta_list, huc_lid_dict, messages = load_nwm_metadata(
         metadata_filepath, API_BASE_URL, search, metadata_download, lst_hucs
     )
+    
+    NOTES:
+       - If this function finds warning data, it will include the phrase (case-senstive) "WARNING"
+         and same is true for "ERROR". Error means that the calling script can decide if it wants to shut down
+         log it, continue, etc.
+         It is also possible that you might get multiple messages returned in the "messages" list and some
+         may be warnings, others just messages. Could be a mix and match returned.
+         If something catestrophic happens, this function will thrown an exception.
+    
     '''
     output_meta_list = []
     messages = []
@@ -355,12 +346,6 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         messages.append(msg)
         print(msg)
         
-        return output_meta_list, huc_lid_dict, messages # HUC lid dict will be empty, so we can use that to indicate an error
-        # sys.exit() # TODO: handle error if empty huc lid dict is returned
-
-        # Note: this error really should only occur in command line running of this tool or CatFIM development
-        # (and not regular CatFIM runs)
-
         return (
             output_meta_list,
             huc_lid_dict,
@@ -585,9 +570,6 @@ if __name__ == '__main__':
         required=False,
         default='/data/config/fim_enviro_values.env',
     )
-
-    # TODO: This shoudl nto be 
-
     parser.add_argument(
         '-w',
         '--output-folder',
