@@ -226,9 +226,8 @@ if [ "$compute_spillover_toggle" = true ] && [ "$current_branch_id" != "$branch_
         --dem_tif $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
         --rem_tif $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
         --flow_direction_tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
-        --n_iterations $spillover_iterations
+        --max_iterations $spillover_iterations_max
 fi
-
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS - BRANCHES (NOT 0) (NWM levelpath streams) ##
 if [ "$healed_hand_hydrocondition" = true ] && [ "$current_branch_id" != "$branch_zero_id" ] ; then
