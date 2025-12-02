@@ -16,6 +16,165 @@ Uses 100-year FEMA NFHL data as the extent for floodplain adjustment where the d
     - `run_by_branch.sh`: Adds an intermediate file (`dem_burned_adjusted_{}.tif`) for debugging.
     - `run_unit_wb.sh`: Miscellaneous cleanup (deleted commented lines and fix misspelling).
     
+## v4.9.0.0 - 2025-12-01 - [PR#1620](https://github.com/NOAA-OWP/inundation-mapping/pull/1620)
+## Summary
+This PR closes #1593  and introduces a **redesigned calibration workflow**, enabling each HUC processor to perform calibration independently after generating its own REM. Therefore, each HUC is self-contained and fully processed before moving to the next.  It also reorganizes log files to be stored within each HUC directory and introduces clear separation between full pipeline runs and calibration reruns.
+
+**Key Changes:**
+- Calibration now runs per-HUC instead of across all HUCs
+- Logs are stored in HUC-specific directories
+- A new `tools/rerun_calibration.py` tool for calibration reruns instead of using `fim_post_processing.sh`
+
+
+<pre>
+╔══════════════════════════════════════════════════╗
+  ❌ OLD: Parallel Calibration Across All HUCs   
+╚══════════════════════════════════════════════════╝
+fim_pipeline.sh
+  ├─> Generate REMs for ALL HUCs
+  │
+  └─> fim_post_processing.sh
+        └─> Calibration (parallel across ALL HUCs & branches)
+
+╔═════════════════════════════════════════════════╗
+   ✅ NEW: Calibration Per-HUC                    
+╚═════════════════════════════════════════════════╝
+fim_pipeline.sh
+  └─> For each HUC:
+        ├─> Generate REM
+        ├─> calibrate_rating_curves.sh
+        │     ├─> Bathymetry adjustment
+        │     ├─> Thalweg notches
+        │     ├─> USGS rating curve calibration
+        │     └─> ... (10 calibration steps)
+        │         (branch-level parallelization)
+        └─> HUC fully processed
+</pre>
+
+
+### 1- Terminology Clarification — Calibration vs. Post-Processing
+
+Starting with this PR, **calibration** refers to all scripts involved in refining or improving synthetic rating curves, whether using observed data (e.g., USGS gages) or alternative techniques (e.g., bathymetric adjustments).
+
+The term **post-processing** is reserved exclusively for the software design components that manage FIM code closure tasks—such as organizing log files and recording execution times.
+
+---
+
+### 2- Calibration Redesign
+Below are the **calibration scripts** that are executed in the specific order by the new `src/calibrate_rating_curves.sh` script:
+
+<img width="278" height="550" alt="image" src="https://github.com/user-attachments/assets/83074a63-8fa4-423f-bd0a-e6125da919aa" />
+
+
+**2-1 Workflow Redesign**
+
+* **Previous design:** After generating hydro-conditioned REMs for all HUCs, the scripts above were executed in parallel across all HUCs/branches through former `fim_post_processing.sh`.
+* **New design:** Each HUC processor is now responsible for both REM generation **and** sequential execution of all calibration routines through the new `src/calibrate_rating_curves.sh` script. Two job numbers remain: one for HUCs and one for branches within a HUC.
+
+
+**2-2 Scripts Inputs**
+
+* **Previous:** Each calibration script accepted a FIM directory containing multiple HUCs and processed all HUCs and their branches in parallel.
+* **New:** Each calibration script now accepts a single HUC directory and processes only that HUC’s branches. Multiprocessing is applied (or can be applied) to parallelize branch-level runs within that HUC.
+
+
+**2-3 Calibration Rerun**
+
+* A new tool, `tools/rerun_calibration.py`, now handles calibration reruns. It executes the same set of scripts in order, but begins by resetting hydrotables and SRC full tables using `reset_htable_src.py` (formerly `update_htable_src.py`). Also, a new `params_rerun.env` file is created (from config/params_template.env) and sourced instead of the original `params.env`, enabling clean separation between initial run and reruns with customizable settings.
+
+**2-4 Updated `fim_post_processing.sh`**
+
+* The script no longer calls any of the calibration scripts. It now only manages pipeline closure.
+
+---
+
+
+
+### 3- Reorganizing Log Files
+
+With the new redesign, each HUC’s log files are now stored within its respective HUC directory. The overall logging structure has also been updated to clearly separate outputs between the two run modes below:
+
+- **Full FIM pipeline run**
+- **Calibration rerun mode**
+
+
+#### **3-1. FIM Pipeline Run**
+
+*(No timestamp needed for files since they are generated only once)*
+
+`huc_dir/logs/`
+
+* `huc_<HUC>_unit.log`
+* `branch/` — Contains branch summary files.
+* `src_calibrations/` — Stores calibration logs.
+* `huc_<HUC>_errors.log` — Created in `src/calibrate_rating_curves.sh`; scans all log files in the `logs/` folder for lines containing “error.”
+* `huc_<HUC>_warnings.log` — Created in `src/calibrate_rating_curves.sh`; scans all log files in the `logs/` folder for lines containing “warning.”
+
+
+`fim/logs/`
+
+* `all_errors.log` — Created in `fim_post_processing.sh`; searches the entire FIM directory for files matching `huc_*_errors.log` and concatenates their contents.
+* `post_processing.log` — Log output from `fim_post_processing.sh`.
+
+`fim/branch_errors/`  (located in the parent fim directory)
+
+
+#### **3-2. Calibration Rerun Mode**
+**Key Difference:** When rerunning calibration, we only scan `logs/src_calibrations/` 
+to avoid capturing errors from the original pipeline run. This ensures the error logs 
+reflect only the rerun attempt. Therefore, these logs may contain fewer records than the full FIM pipeline logs.
+
+`huc_dir/logs/`
+
+* `src_calibrations/` — Contains updated logs after the calibration rerun.
+* `huc_<HUC>_warnings_calib_rerun.log` — Created in `src/calibrate_rating_curves.sh`; scans all files in `logs/src_calibrations/` for lines containing “warning.”
+* `huc_<HUC>_errors_calib_rerun.log` — Created in `src/calibrate_rating_curves.sh`; scans all files in `logs/src_calibrations/` for lines containing “error.”
+
+`fim/logs/`
+* `calib_rerun_<timestamp>.log` — Created in `tools/rerun_calibration.py`
+* `all_errors_calib_rerun_<timestamp>.log` — Created in `tools/rerun_calibration.py`; concatenates all `huc_<HUC>_errors_calib_rerun.log` files from every HUC directory.
+
+---
+
+### 4- Other Minor Updates
+
+* Removed the redundant `skipcal` argument from the FIM pipeline (each calibration step already has its own Boolean toggle).
+* Removed the counter file previously used to distinguish between calibration rerun vs. pipeline calibration, as it is no longer needed.
+* Removed the `unit_errors` logging folder from the parent FIM directory because its functionality is now covered by other logging already in the codebase. Accordingly, the `src/check_unit_errors.py` file is also removed.
+* Eliminated the need to define and pass `jobMaxLimit=$(( $jobHucLimit * $jobBranchLimit ))` since each HUC now controls its own calibration sequence (with branch-level multiprocessing).
+
+---
+
+### Additions
+- src/calibrate_rating_curves.sh   
+- tools/rerun_calibration.py
+     
+### Changes
+- fim_pipeline.sh
+- fim_post_processing.sh
+- fim_pre_processing.sh
+- src/process_branch.sh
+- src/bathymetric_adjustment.py
+- src/thalweg_notches_adjustment.py
+- src/identify_src_bankfull.py
+- src/longitudinal_flow_adjustment.py
+- src/nonmonotonic_src_adjustment.py
+- src/src_adjust_ras2fim_rating.py
+- src/src_adjust_spatial_obs.py
+- src/src_adjust_usgs_rating_trace.py
+- src/src_manual_calibration.py
+- src/subdiv_chan_obank_src.py
+- Renamed `fim_process_unit_wb.sh` → `fim_process_huc.sh`
+- Renamed `src/run_unit_wb.sh` → `src/run_huc.sh`
+- Renamed `src_aggregate_by_huc.py` →  `src/aggregate_branches_to_huc.py`
+- Renamed `src/update_htable_src.py` → `src/reset_htable_src.py`
+
+### Removals
+- src/check_unit_errors.py
+- src/bathy_src_adjust_topwidth.py
+
+<br />
+
 ## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
 
 This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc
