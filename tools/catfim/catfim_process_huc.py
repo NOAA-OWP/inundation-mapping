@@ -144,6 +144,8 @@ def process_huc(huc, output_folder):
         # FB uses a discharge_file but SB does not. Easiest to clean the folder completely up regardless of type.
         discharge_file_path, sites_file_path, library_file_path = __set_start_files_folders(huc_path, output_mapping_dir)
     
+
+        # Change to new download_process_wrds.py file
         metadata_url = f'{wrds_api_base_url}/metadata'
         huc_dictionary, meta_gdf = csf.get_meta_and_huc_data(output_folder,
                                                              metadata_url,

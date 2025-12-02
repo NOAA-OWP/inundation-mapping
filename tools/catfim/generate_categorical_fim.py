@@ -160,7 +160,9 @@ def process_generate_categorical_fim(
         
         # NOTE: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         local_vals = locals()
-        # this will handle a huc list arg of "all"
+        # this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
+        # valid_fim_hucs are hucs that have valid huc folders in the fim output dir
+        # It has not yet been compared to meta data and sites
         valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
 
         if catfim_type == "sb":
@@ -177,11 +179,11 @@ def process_generate_categorical_fim(
 
         log_folder = os.path.join(output_folder, "logs")
         log_file_path = sf.setup_file_logger(log_folder, "gen_catfim")
-        print(f"  Logs will be saved to {log_file_path}")
         is_logging_loaded = True
 
         logging.info(f"Start catfim processing for {catfim_type_name} ;  (UTC): {dt_string}")
         print("")
+        print(f"  Logs will be saved to {log_file_path}")        
 
         # Needed even if we are skip_processes
         __create_runtime_args_file(output_folder,
@@ -199,9 +201,7 @@ def process_generate_categorical_fim(
             logging.warning('Listed HUCs not available in FIM run directory:')
             logging.warning(dropped_huc_lst)
 
-        # valid_fim_hucs has already been validate to have at least one by this point ???
-        
-        # I really only need to load this env if I am going to let the script call WRDS directly.
+        # We really only need to load this env if we are going to let the script call WRDS directly.
         api_base_url = ""
         if get_new_meta_data or get_new_threshold_data:
             api_base_url = csf.load_fim_global_env_values(env_file)
@@ -209,20 +209,17 @@ def process_generate_categorical_fim(
         
         # ================================
 
-        section_start_dt = datetime.now(timezone.utc)                
+        section_start_dt = datetime.now(timezone.utc)
+
+        # TODO: This has duplicate headers, durations, etc from load_nwm_metadata
+        # but those ones are prints. We want them logged.
+             
         logging.info("Loading meta data and huc dictionary")
-        
-        # huc_dictionary, _ = csf.get_meta_and_huc_data(output_folder,
-        #                                               search,
-        #                                               nwm_meta_file,
-        #                                               get_new_meta_data,
-        #                                               valid_fim_hucs,
-        #                                               api_base_url)
 
-
-        # I don't think I need the meta_list in this particular script, just the dictionary,
+        # I don't think I need the meta_list in this particular script, just the huc dictionary,
         # but load_nwm_metadata loads the meta data list to calc the huc_dictionary.
         # Other scripts, do use the meta_data values.
+        # The huc_dictionary returned is keyed with sorted upper case site ID's with huc number as a value.
         _, huc_dictionary, return_msgs = dpw.load_nwm_metadata(nwm_meta_file,
                                                                 api_base_url,
                                                                 search,
@@ -233,6 +230,10 @@ def process_generate_categorical_fim(
         if len(return_msgs) > 0:
             # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of 
             # custom exceptions.
+
+            # also.. we get duplicate info to the script as download_process_wrds.py has both prints
+            # and returns as a message.  Hummmm. See notes in download_process_wrds.py
+
             for msg in return_msgs:
                 if "warning" in msg.lower():
                     logging.warning(msg)
@@ -246,24 +247,24 @@ def process_generate_categorical_fim(
         logging.info(f"Completed loading metadata - Duration: {str(time_duration).split('.')[0]}")
         print("")
        
+        # The huc_dictionary has already be adjusted to include "all" or just the lst_hucs that 
+        # do have meta data.
+        # However, the list does not attempt to filter out sites from the aphs_restricted_sites yet.
+        # We will let catfim_process_huc.py sort that out so it can log as it wants.
         if len(huc_dictionary) == 0:
             raise Exception("The submitted huc list did not find any HUCs with nwm site meta data")
 
         # Change it to a simple string huc list.
         # All HUCs in this list are validated as having hand data, plus are not on the restricted list.
-        huc_list = list[set(huc_dictionary.keys())]  # ie, 12090301, 05030201. using 'set' fixes uniqueness.
-        huc_list.sort()
+        # Now I do not needs the aphs sites anymore, just unique huc list
+        meta_huc_list = list(set(huc_dictionary.values()))
+        meta_huc_list.sort()
       
         # AWS will need this list to know what HUCs to process and iterate
         catfim_huc_list_file = os.path.join(output_folder, "catfim_huc_list.txt")
         with open(catfim_huc_list_file, "w") as f:
-            for item in huc_list:
+            for item in meta_huc_list:
                 f.write(f"{item}\n")
-
-
-        print("Let's stop here for a test")
-        sys.exit(0)
-
 
         # Each huc has their own independent self-encapsulated folder under the "hucs" folder.
         # ie) /data/catfim/my_test_flow_based/hucs/12090301
@@ -293,14 +294,13 @@ def process_generate_categorical_fim(
 
 
         task_args_list = []
-        for huc in huc_list:
+        for huc in meta_huc_list:
             task_args_list.append(
                 {
                     "huc": huc,
                     "output_folder": output_folder
                 }
             )
-        sorted_tasks_args_list = sorted(task_args_list, key=lambda x: ['huc'])
             
 
         # === Run jobs in parallel ===
@@ -317,7 +317,7 @@ def process_generate_categorical_fim(
 
             # Some mp functions might throw an exception, which means it may not get to as_completed
             # We still need to catch that and if so, shut down the script.
-            futures_dict = [executor.submit(process_huc, **arg) for arg in sorted_tasks_args_list]
+            futures_dict = [executor.submit(process_huc, **arg) for arg in task_args_list]
 
             # Need Try, except but need some combinations of exceptions, controlled errors and CTRL-C (aborts)
             
@@ -355,13 +355,6 @@ def process_generate_categorical_fim(
 
 def __validate_inputs(received_locals_dict):
 
-    # validate some of incoming inputs
-    # derived values can be return if applicable or even updated values. hummm.. might be able to update them live via ** (pointers)
-    # can set global variables if any
-        
-    print("---------------")
-    print("debugging __validate_inputs")
-          
     # Let's check simple validation stuff.
     for name, value in received_locals_dict.items():
         # print(f"{name}: {value}")  # temp debug
@@ -459,12 +452,7 @@ def __validate_inputs(received_locals_dict):
     # Yes.. this script does not actually use the threshold data, but let's validate it exists to
     #    help the catfim_process_huc.py so they have the correct path and a loaded file.
     
-    # Rule:
-    #    If they used the gtf flag, then we assign the nwm_threshold_file path so it knows where to save
-    #        the file when it makes it.
-    #    If they did not use the gtf and did add a tf path, it needs to exist.
-    #    If they did not use the gtf flag and did not use the tf args, we default to bash_variables
-    #        which also needs to be validated for pathing.
+    # Rule: Same as meta data above.
     get_threshold_file = received_locals_dict["get_new_threshold_data"]
     threshold_file = received_locals_dict["threshold_file"]
     if get_threshold_file is True:
@@ -520,8 +508,6 @@ def __create_runtime_args_file(output_folder,
         file.write(f"GET_NEW_THRESHOLD_DATA={get_new_threshold_data}\n")
         file.write(f"FIM_RUN_DIR=\"{fim_run_dir}\"\n")
         file.write(f"PAST_MAJOR_INTERVAL_CAP={past_major_interval_cap}\n")
-
-    logging.info(f"New runtime args file created at {args_file_path}")
 
 
 if __name__ == '__main__':

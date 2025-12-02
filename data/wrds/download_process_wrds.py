@@ -15,6 +15,15 @@ from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
 
+
+# TODO: We have both prints and msgs added to the messages list. We need to rethink this
+# as catfim needs to iterate all messages coming back and log them. With prints
+# and messages, they screen shows everythign twice.
+# Check all functions for this problem. And how do we handle this for runnign this tool
+# at command line versus CatFIM. Maybe an arg for show pritns or create messages?
+
+
+
 def label_data_file(label, lst_hucs):
     '''
     Generate a filename-style label that optionally indicates a subset and appends the current date.
@@ -64,6 +73,10 @@ def get_huc_dictionary(metadata_list, lst_hucs):
     '''
     Example usage:
     huc_lid_dict, lid_list = get_huc_dictionary(metadata_list, lst_hucs)
+
+    returns: a dictionary [('00BRD', '18060005'), ('AANG1', '03130001'), ...]
+       - sorted by upper case site ids.
+       - May contain test or invalid sites at this point. Calling code can sort that out.
     '''
     lid_list = []
     huc_lid_dict = {}
@@ -165,12 +178,12 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         with open(metadata_filepath, "wb") as p_handle:
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        msg = f"Metadata file saved at {metadata_filepath}"
+        msg = f"New metadata file saved at {metadata_filepath}"
         messages.append(msg)
         print(msg)
 
     except Exception as e:
-        msg = f"Error saving pickle file {metadata_filepath}: {e}"
+        msg = f"Error saving meta data pickle file {metadata_filepath}: {e}"
         messages.append(msg)
         print(msg)
         raise (e)
@@ -285,9 +298,12 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         lst_hucs (list of string) : List of HUCs to process or a list containing the value 'all' to process all HUCs.
 
     Returns:
-        output_meta_list (list) : Filtered list of metadata dictionaries, each representing a unique NWS LID site.
-        huc_lid_dict (dict) : dictionary mapping LIDs to HUCs.
-        messages (list of string) : Logging (because print statements won't show up in CatFIM.)
+        - output_meta_list (list) : Filtered list of metadata dictionaries, each representing a unique NWS LID site.
+        - huc_lid_dict (dict) : dictionary mapping LIDs to HUCs.
+            ie) a dictionary [('00BRD', '18060005'), ('AANG1', '03130001'), ...]
+                - Sorted by upper case site ids.
+                - May contain test or invalid sites at this point. Calling code can sort that out.
+        - messages (list of string) : Logging (because print statements won't show up in CatFIM.)
 
     Example usage:
 
@@ -304,6 +320,13 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
          If something catestrophic happens, this function will thrown an exception.
     
     '''
+
+    # TODO: We have both prints and msgs added to the messages list. We need to rethink this
+    # as catfim needs to iterate all messages coming back and log them. With prints
+    # and messages, they screen shows everythign twice.
+    # Check all functions for this problem. And how do we handle this for runnign this tool
+    # at command line versus CatFIM. Maybe an arg for show pritns or create messages?
+
     output_meta_list = []
     messages = []
     huc_lid_dict = {}
@@ -313,7 +336,8 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
 
         # Give a warning if the file will be overwritten
         if os.path.isfile(metadata_filepath):
-            msg = f"WARNING: NWM metadata file already exists at {metadata_filepath}, but metadata_download is set to True. File will be overwritten."
+            msg = f"WARNING: NWM metadata file already exists at {metadata_filepath}, but metadata_download"
+            " is set to True. File will be overwritten."
             messages.append(msg)
             print(msg)
         else:
@@ -332,7 +356,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         print()
 
     else:
-        msg = f"Not downloading metadata, looking for NWM metadata file at {metadata_filepath}."
+        msg = f"Loading NWM metadata from {metadata_filepath}."
         messages.append(msg)
         print(msg)
 
@@ -356,7 +380,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     # Open metadata file (either the one we just downloaded or pre-existing)
     with open(metadata_filepath, "rb") as p_handle:
         output_meta_list = pickle.load(p_handle)
-        print(f"NWM metadata file loaded from {metadata_filepath}.")  # TEMP DEBUG
+        # print(f"NWM metadata file loaded from {metadata_filepath}.")  # TEMP DEBUG
 
     # Get the HUC dictionary
     # ROB: Do we need to make sure the output_meta_list is not empty? Woudl it ever be?
