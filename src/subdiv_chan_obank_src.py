@@ -36,8 +36,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
         (must contain variables "feature_id", "channel_n", "overbank_n")
     file_suffix : str
         Optional: Suffix to append to the output log file
-    number_of_jobs : str
-        Number of jobs.
+    branch_jobs : str
+        Number of branch jobs.
     src_plot_option : str
         Optional (True or False): use this flag to crate src plots for all hydroids (long run time)
 """
@@ -357,22 +357,12 @@ def generate_src_plot(df_src, plt_out_dir):
         plt.close()
 
 
-def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, verbose):
-    ## Initiate multiprocessing
-    available_cores = multiprocessing.cpu_count()
-    if number_of_jobs > available_cores:
-        number_of_jobs = available_cores - 2
-        print(
-            "Provided job number exceeds the number of available cores. "
-            + str(number_of_jobs)
-            + " max jobs will be used instead."
-        )
-
+def multi_process(variable_mannings_calc, procs_list, log_file, branch_jobs, verbose):
     print(
         "Computing subdivided SRC and applying variable Manning's n to channel/overbank for "
-        f"{len(procs_list)} branches using {number_of_jobs} jobs"
+        f"{len(procs_list)} branches using {branch_jobs} jobs"
     )
-    with Pool(processes=number_of_jobs) as pool:
+    with Pool(processes=branch_jobs) as pool:
         if verbose:
             map_output = tqdm(pool.imap(variable_mannings_calc, procs_list), total=len(procs_list))
             tuple(map_output)  # fetch the lazy results
@@ -381,23 +371,25 @@ def multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, 
     log_file.writelines(["%s\n" % item for item in map_output])
 
 
-def run_prep(
-    fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option, process_huc=None
-):
+def run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plot_option):
     procs_list = []
 
-    print(f"Writing progress to log file here: {fim_dir}/logs/subdiv_src_{output_suffix}.log")
+    print(f"Writing progress to log file here: {huc_dir}/logs/subdiv_src_{output_suffix}.log")
     print('This may take a few minutes...')
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
 
     ## initiate log file
-    log_file = open(join(fim_dir, 'logs', 'subdiv_src_' + output_suffix + '.log'), "w")
+    log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+
+    log_file = open(join(log_dir, 'subdiv_src_' + output_suffix + '.log'), "w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
     ## Check that the input fim_dir exists
-    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
+    # assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
     ## Check that the manning's roughness input filepath exists and then read to dataframe
     assert os.path.isfile(mann_n_table), 'Can not find the input roughness/feature_id file: ' + str(
         mann_n_table
@@ -416,63 +408,51 @@ def run_prep(
         )
     else:
         print('Running the variable_mannings_calc function...')
+        huc = os.path.basename(os.path.normpath(huc_dir))
+        huc_branches_dir = os.path.join(huc_dir, 'branches')
+        for branch_id in os.listdir(huc_branches_dir):
+            branch_dir = os.path.join(huc_branches_dir, branch_id)
+            in_src_bankfull_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
+            htable_filename = join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+            huc_plot_output_dir = join(branch_dir, 'src_plots')
 
-        if process_huc is None:
-            ## Loop through hucs in the fim_dir and create list of variables to feed to multiprocessing
-            huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
-            huc_list.sort()  # sort huc_list for helping track progress in future print statments
-        else:
-            huc_list = [process_huc]
-        for huc in huc_list:
-            # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-            if process_huc is None or huc in process_huc:
-                if re.match(r'\d{8}', huc):
-                    huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
-                    for branch_id in os.listdir(huc_branches_dir):
-                        branch_dir = os.path.join(huc_branches_dir, branch_id)
-                        in_src_bankfull_filename = join(
-                            branch_dir, 'src_full_crosswalked_' + branch_id + '.csv'
-                        )
-                        htable_filename = join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-                        huc_plot_output_dir = join(branch_dir, 'src_plots')
-
-                        if isfile(in_src_bankfull_filename) and isfile(htable_filename):
-                            procs_list.append(
-                                [
-                                    in_src_bankfull_filename,
-                                    df_mann,
-                                    huc,
-                                    branch_id,
-                                    htable_filename,
-                                    output_suffix,
-                                    src_plot_option,
-                                    huc_plot_output_dir,
-                                ]
-                            )
-                        else:
-                            print(
-                                'HUC: '
-                                + str(huc)
-                                + '  branch id: '
-                                + str(branch_id)
-                                + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
-                                + 'or hydroTable_*.csv) in the fim output dir: '
-                                + str(branch_dir)
-                                + ' - skipping this branch!!!\n'
-                            )
-                            log_file.write(
-                                'HUC: '
-                                + str(huc)
-                                + '  branch id: '
-                                + str(branch_id)
-                                + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
-                                + 'or hydroTable_*.csv) in the fim output dir: '
-                                + str(branch_dir)
-                                + ' - skipping this branch!!!\n'
-                            )
+            if isfile(in_src_bankfull_filename) and isfile(htable_filename):
+                procs_list.append(
+                    [
+                        in_src_bankfull_filename,
+                        df_mann,
+                        huc,
+                        branch_id,
+                        htable_filename,
+                        output_suffix,
+                        src_plot_option,
+                        huc_plot_output_dir,
+                    ]
+                )
+            else:
+                print(
+                    'HUC: '
+                    + str(huc)
+                    + '  branch id: '
+                    + str(branch_id)
+                    + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
+                    + 'or hydroTable_*.csv) in the fim output dir: '
+                    + str(branch_dir)
+                    + ' - skipping this branch!!!\n'
+                )
+                log_file.write(
+                    'HUC: '
+                    + str(huc)
+                    + '  branch id: '
+                    + str(branch_id)
+                    + '\nWARNING --> can not find required file (src_full_crosswalked_bankfull_*.csv '
+                    + 'or hydroTable_*.csv) in the fim output dir: '
+                    + str(branch_dir)
+                    + ' - skipping this branch!!!\n'
+                )
 
         ## Pass huc procs_list to multiprocessing function
-        multi_process(variable_mannings_calc, procs_list, log_file, number_of_jobs, verbose)
+        multi_process(variable_mannings_calc, procs_list, log_file, branch_jobs, verbose)
 
         ## Record run time and close log file
         end_time = dt.datetime.now()
@@ -488,7 +468,7 @@ if __name__ == '__main__':
         "component. Impliment user provided Manning's n values for in-channel vs. overbank flow. "
         "Recalculate Manning's eq for discharge"
     )
-    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument('-huc_dir', '--huc_dir', help='FIM output dir', required=True, type=str)
     parser.add_argument(
         '-mann',
         '--mann-n-table',
@@ -505,9 +485,9 @@ if __name__ == '__main__':
         type=str,
     )
     parser.add_argument(
-        '-j',
-        '--number-of-jobs',
-        help='OPTIONAL: number of workers (default=8)',
+        '-jb',
+        '--branch_jobs',
+        help='OPTIONAL: number of branches workers (default=8)',
         required=False,
         default=8,
         type=int,
@@ -531,11 +511,11 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    fim_dir = args['fim_dir']
+    huc_dir = args['huc_dir']
     mann_n_table = args['mann_n_table']
     output_suffix = args['output_suffix']
-    number_of_jobs = args['number_of_jobs']
+    branch_jobs = args['branch_jobs']
     verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
 
-    run_prep(fim_dir, mann_n_table, output_suffix, number_of_jobs, verbose, src_plot_option)
+    run_prep(huc_dir, mann_n_table, output_suffix, branch_jobs, verbose, src_plot_option)

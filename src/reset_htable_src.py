@@ -171,28 +171,29 @@ def process_branch(sub_branch_path, branch, huc_id):
     input_hydro_table.to_csv(hydro_table_file, index=False)
 
 
-def reset_hydro_and_src(fim_dir):
-    hucs = [h for h in os.listdir(fim_dir) if re.match(r'^\d{8}$', h)]
-    for huc_folder in hucs:
-        huc_path = os.path.join(fim_dir, huc_folder)
-        if os.path.isdir(huc_path):
-            for branch_folder in os.listdir(huc_path):
-                branch_path = os.path.join(huc_path, branch_folder)
-                if os.path.isdir(branch_path):
-                    for branch in os.listdir(branch_path):
-                        sub_branch_path = os.path.join(branch_path, branch)
-                        if os.path.isdir(sub_branch_path):
-                            print(f"Processing Branch: {branch}")
-                            process_branch(sub_branch_path, branch, huc_folder)
+def reset_hydro_and_src(huc_path):
+    print(huc_path)
+    huc_id = os.path.basename(os.path.normpath(huc_path))
+    branches_path = os.path.join(huc_path, 'branches')
+    branch_nos = [
+        branch_no
+        for branch_no in os.listdir(branches_path)
+        if os.path.isdir(os.path.join(huc_path, 'branches', branch_no))
+    ]
+    for branch_no in branch_nos:
+        sub_branch_path = os.path.join(branches_path, branch_no)
+        process_branch(sub_branch_path, branch_no, huc_id)
 
 
 if __name__ == '__main__':
     '''
     Sample usage (min params):
         python3 src/update_htable_src.py
-            -d /data/previous_fim/fim_4_5_2_0
+            -huc_dir /data/previous_fim/fim_4_5_2_0
     '''
     parser = argparse.ArgumentParser(description='Update hydrotable and src files.')
-    parser.add_argument('-d', '--fim_dir', help='Directory path for fim_pipeline output.', required=True)
+    parser.add_argument(
+        '-huc_dir', '--huc_dir', help='Directory path for fim output for a HUC.', required=True
+    )
     args = parser.parse_args()
-    reset_hydro_and_src(args.fim_dir)
+    reset_hydro_and_src(args.huc_dir)
