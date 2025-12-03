@@ -365,7 +365,7 @@ def run_with_mp(
                         file_logger.info(f"❌ Error reported for {task_id}.")
 
                     else:  # rtn_code == -1, but really any negative int
-                        # Catestrophic fails, shut the tool down (and assu the mp logged the reason why)
+                        # Catestrophic fails, shut the tool down (and assumes the mp logged the reason why)
                         # throw an exception to shut down and cleanup all objects (pool, tqdm, queue)
                         raise Exception(
                             f"Critical Error: Abort Program from task id = {task_id}."
@@ -434,7 +434,6 @@ def run_with_mp(
             screen_queue.put("DONE")  # sends the stop SIGNAL to thread
             screen_queue_thread.join()  # official closure of thread
 
-        print("rob test")
         # This hanging in some scenarios such as a bug in this function. Triggered by a mp child
         # function not returning values correctly.
         # sys.exit(1)
