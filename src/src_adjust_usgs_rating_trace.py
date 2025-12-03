@@ -36,7 +36,7 @@ Inputs
 - usgs_rc_filepath:     USGS rating curve database (produced by get_usgs_rating_curves.py)
 - nwm_recurr_filepath:  NWM flow recurrence interval dataset
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
-- job_number:           number of multi-processing jobs to use
+- branch_jobs:           number of multi-processing branches jobs to use
 
 Outputs
 - water_edge_median_ds: dataframe containing:
@@ -94,6 +94,13 @@ def create_usgs_rating_database(
     usgs_rc_df = usgs_rc_df.merge(cross_df, how='left', on='location_id')
     usgs_rc_df = usgs_rc_df[usgs_rc_df['hydroid'].notna()]
 
+    # If all records filtered out, write log and return empty dataframe
+    if len(usgs_rc_df) == 0:
+        log_text += '\n[WARNING] All gages were removed after filtering criteria.\n'
+        log_usgs_db = open(os.path.join(log_dir, 'log_usgs_rc_database.log'), "w")
+        log_usgs_db.write(log_text)
+        log_usgs_db.close()
+        return pd.DataFrame()
     # calculate hand elevation
     usgs_rc_df['hand'] = usgs_rc_df['elevation_navd88_m'] - usgs_rc_df['hand_datum']
     usgs_rc_df = usgs_rc_df[
@@ -186,7 +193,7 @@ def create_usgs_rating_database(
         log_text += 'Warning: Large variance (>10%) between NWM flow and closest USGS flow -->\n'
         log_text += calc_df[calc_df['check_variance'] > 0.1].to_string() + '\n'
         final_df = final_df[final_df['check_variance'] < 0.1]
-        final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id']
+        final_df['submitter'] = 'usgs_rating_wrds_api_' + final_df['location_id'].astype(str)
         # Get datestamp from usgs rating curve file to use as coll_time attribute in hydroTable.csv
         datestamp = check_file_age(usgs_rc_filepath)
         final_df['coll_time'] = str(datestamp)[:15]
@@ -279,225 +286,206 @@ def trace_network(df, start_id):
     return trace_up, trace_down
 
 
-def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
+def branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jobs):
     procs_list = []  # Initialize list for mulitprocessing.
+    huc = os.path.basename(os.path.normpath(huc_dir))
+    usgs_df['huc'] = usgs_df['huc'].astype(int).astype(str).str.zfill(8)
+    usgs_df['levpa_id'] = usgs_df['levpa_id'].astype(int).astype(str)
+    usgs_df['levpa_id'] = usgs_df['levpa_id'].astype(int).astype(str)
 
-    # loop through all unique level paths that have a USGS gage
-    # branch_huc_dict = pd.Series(usgs_df.levpa_id.values,index=usgs_df.huc).to_dict('list')
-    # branch_huc_dict = usgs_df.set_index('huc').T.to_dict('list')
     huc_branch_dict = usgs_df.groupby('huc')['levpa_id'].apply(set).to_dict()
 
-    for huc in sorted(
-        huc_branch_dict.keys()
-    ):  # sort huc_list for helping track progress in future print statments
-        branch_set = huc_branch_dict[huc]
-        for branch_id in branch_set:
-            # Define paths to branch HAND data.
-            # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
-            # Assumes outputs are for HUC8 (not HUC6)
-            branch_dir = os.path.join(run_dir, huc, 'branches', branch_id)
-            hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
-            catchments_path = os.path.join(
-                branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
+    # Check if this HUC has any gages after all filterings
+    if huc not in huc_branch_dict:
+        warn_msg = (
+            f"WARNING: All USGS gages for HUC {huc} was filtered out during processing."
+            f"Skipping USGS rating curve adjustments.\n"
+        )
+        print(warn_msg)
+        log_file.write(warn_msg)
+        return
+
+    branch_set = huc_branch_dict[huc]
+
+    for branch_id in branch_set:
+        # Define paths to branch HAND data.
+        # Define paths to HAND raster, catchments raster, and synthetic rating curve JSON.
+        branch_dir = os.path.join(huc_dir, 'branches', branch_id)
+        hand_path = os.path.join(branch_dir, 'rem_zeroed_masked_' + branch_id + '.tif')
+        catchments_path = os.path.join(
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
+        )
+        catchments_poly_path = os.path.join(
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+        )
+        htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
+        dem_reaches_path = os.path.join(
+            branch_dir, 'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
+        )
+        df = gpd.read_file(dem_reaches_path)
+        usgs_elev = usgs_df[((usgs_df['huc'] == huc) & (usgs_df['levpa_id'] == branch_id))]
+
+        # Calculate updstream/downstream trace ()
+        df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
+
+        # Change the data type of 'HydroID' and 'NextDownID' to int
+        df['HydroID'] = df['HydroID'].astype(int)
+        df['NextDownID'] = df['NextDownID'].astype(int)
+
+        # Loop through every row in the "usgs_elev" dataframe
+        for index, row in usgs_elev.iterrows():
+            start_id = row['hydroid']
+
+            # Trace the network for each row
+            up, down = trace_network(df, start_id)
+
+            # Append the results to the "usgs_elev" dataframe
+            usgs_elev = usgs_elev.copy()
+            usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
+            usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
+
+        # Handle NaN values and ignore rows where up/down trace list is empty
+        usgs_elev['up'] = (
+            usgs_elev['up']
+            .astype(str)
+            .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+        )
+        usgs_elev['down'] = (
+            usgs_elev['down']
+            .astype(str)
+            .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+        )
+
+        # Combine the up & down hydroid lists into a new column
+        usgs_elev['trace_hydroid'] = [lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])]
+
+        # Drop up & down columns
+        columns_to_drop = ['up', 'down']
+        usgs_elev.drop(columns=columns_to_drop, inplace=True)
+
+        # Explode the trace column
+        usgs_elev_trace = usgs_elev.explode('trace_hydroid')
+
+        # Check for empty or nan trace lists and convert the column to integers
+        usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('nan', 0)
+        usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('', 0)
+        usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].astype(int)
+
+        # Drop rows where 'trace_hydroid' column is empty
+        # Addresses backpool removals and lake gauges
+        usgs_elev_trace = usgs_elev_trace[usgs_elev_trace['trace_hydroid'].astype(int) != 0]
+
+        # Check that there are still valid entries in the usgs_elev
+        # May have filtered out all if all locs were lakes
+        if usgs_elev_trace.empty:
+            print(
+                "ALERT: did not find any valid hydroids to process: "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
             )
-            catchments_poly_path = os.path.join(
-                branch_dir,
-                'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
+            log_file.write(
+                "ALERT: did not find any valid hydroids to process: "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
             )
-            htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
-            dem_reaches_path = os.path.join(
-                branch_dir,
-                'demDerived_reaches_split_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
-            )
-            df = gpd.read_file(dem_reaches_path)
-            usgs_elev = usgs_df[(usgs_df['huc'] == huc) & (usgs_df['levpa_id'].astype(int) == int(branch_id))]
+            continue
 
-            # Calculate updstream/downstream trace ()
-            df = df[['HydroID', 'order_', 'LengthKm', 'NextDownID', 'LakeID']]
+        # Rename columns
+        usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
+        usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
 
-            # Change the data type of 'HydroID' and 'NextDownID' to int
-            df['HydroID'] = df['HydroID'].astype(int)
-            df['NextDownID'] = df['NextDownID'].astype(int)
-
-            # Loop through every row in the "usgs_elev" dataframe
-            for index, row in usgs_elev.iterrows():
-                start_id = row['hydroid']
-
-                # Trace the network for each row
-                up, down = trace_network(df, start_id)
-
-                # Append the results to the "usgs_elev" dataframe
-                usgs_elev = usgs_elev.copy()
-                usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
-                usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
-
-            # Handle NaN values and ignore rows where up/down trace list is empty
-            usgs_elev['up'] = (
-                usgs_elev['up']
-                .astype(str)
-                .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
-            )
-            usgs_elev['down'] = (
-                usgs_elev['down']
-                .astype(str)
-                .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
+        if debug_outputs_option:
+            usgs_elev_trace.to_csv(
+                os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False
             )
 
-            # Combine the up & down hydroid lists into a new column
-            usgs_elev['trace_hydroid'] = [
-                lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])
-            ]
+        # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
+        if not os.path.exists(hand_path):
+            print(
+                "WARNING: HAND grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+            )
+            log_file.write(
+                "WARNING: HAND grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
+            )
+        elif not os.path.exists(catchments_path):
+            print(
+                "WARNING: Catchments grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+            )
+            log_file.write(
+                "WARNING: Catchments grid does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
+            )
+        elif not os.path.exists(htable_path):
+            print(
+                "WARNING: hydroTable does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+            )
+            log_file.write(
+                "WARNING: hydroTable does not exist (skipping): "
+                + str(huc)
+                + ' - branch-id: '
+                + str(branch_id)
+                + '\n'
+            )
+        else:
+            # Additional arguments for src_roughness_optimization
+            source_tag = 'usgs_rating'  # tag to use in source attribute field
+            merge_prev_adj = False  # merge in previous SRC adjustment calculations
 
-            # Drop up & down columns
-            columns_to_drop = ['up', 'down']
-            usgs_elev.drop(columns=columns_to_drop, inplace=True)
-
-            # Explode the trace column
-            usgs_elev_trace = usgs_elev.explode('trace_hydroid')
-
-            # Check for empty or nan trace lists and convert the column to integers
-            usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('nan', 0)
-            usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('', 0)
-            usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].astype(int)
-
-            # Drop rows where 'trace_hydroid' column is empty
-            # Addresses backpool removals and lake gauges
-            usgs_elev_trace = usgs_elev_trace[usgs_elev_trace['trace_hydroid'].astype(int) != 0]
-
-            # Check that there are still valid entries in the usgs_elev
-            # May have filtered out all if all locs were lakes
-            if usgs_elev_trace.empty:
-                print(
-                    "ALERT: did not find any valid hydroids to process: "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "ALERT: did not find any valid hydroids to process: "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-                continue
-
-            # Rename columns
-            usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
-            usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
-
-            if debug_outputs_option:
-                usgs_elev_trace.to_csv(
-                    os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False
-                )
-
-            # Check to make sure the fim output files exist. Continue to next iteration if not and warn user.
-            if not os.path.exists(hand_path):
-                print(
-                    "WARNING: HAND grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: HAND grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            elif not os.path.exists(catchments_path):
-                print(
-                    "WARNING: Catchments grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: Catchments grid does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            elif not os.path.exists(htable_path):
-                print(
-                    "WARNING: hydroTable does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                )
-                log_file.write(
-                    "WARNING: hydroTable does not exist (skipping): "
-                    + str(huc)
-                    + ' - branch-id: '
-                    + str(branch_id)
-                    + '\n'
-                )
-            else:
-                # Additional arguments for src_roughness_optimization
-                source_tag = 'usgs_rating'  # tag to use in source attribute field
-                merge_prev_adj = False  # merge in previous SRC adjustment calculations
-
-                print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
-                procs_list.append(
-                    [
-                        branch_dir,
-                        usgs_elev_trace,
-                        htable_path,
-                        huc,
-                        branch_id,
-                        catchments_poly_path,
-                        debug_outputs_option,
-                        source_tag,
-                        merge_prev_adj,
-                    ]
-                )
+            print('Will perform SRC adjustments for huc: ' + str(huc) + ' - branch-id: ' + str(branch_id))
+            procs_list.append(
+                [
+                    branch_dir,
+                    usgs_elev_trace,
+                    htable_path,
+                    huc,
+                    branch_id,
+                    catchments_poly_path,
+                    debug_outputs_option,
+                    source_tag,
+                    merge_prev_adj,
+                ]
+            )
 
     # multiprocess all available branches
-    print(f"Calculating new SRCs for {len(procs_list)} branches using {job_number} jobs...")
-    with Pool(processes=job_number) as pool:
+    print(f"Calculating new SRCs for {len(procs_list)} branches using {branch_jobs} jobs...")
+    with Pool(processes=branch_jobs) as pool:
         log_output = pool.starmap(update_rating_curve, procs_list)
         log_file.writelines(["%s\n" % item for item in log_output])
-    # TO-DO update the error handling to properly capture issues in the multiprocessing
-    # try statement for debugging
-    # try:
-    #     with Pool(processes=job_number) as pool:
-    #         log_output = pool.starmap(update_rating_curve, procs_list)
-    #         log_file.writelines(["%s\n" % item for item in log_output])
-    # except Exception as e:
-    #     print(str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e))
-    #     log_file.write(
-    #         'ERROR!!!: HUC ' + str(huc) + ' --> ' + '  branch id: ' + str(branch_id) + str(e) + '\n'
-    #     )
 
 
 def run_prep(
-    run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+    huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, branch_jobs
 ):
     # Check input args are valid
-    assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
+    # assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
-    # Create an aggregate dataframe with all usgs_elev_table.csv entries for hucs in fim_dir
-    print('Reading USGS gage HAND elevation from usgs_elev_table.csv files...')
     # usgs_elev_file = os.path.join(branch_dir,'usgs_elev_table.csv')
     # usgs_elev_df = pd.read_csv(
     #     usgs_elev_file, dtype={'HUC8': object, 'location_id': object, 'feature_id': int}
     # )
-    csv_name = 'usgs_elev_table.csv'  # TODO: Get this from a variable?
-
-    available_cores = multiprocessing.cpu_count()
-    if job_number > available_cores:
-        job_number = available_cores - 1
-        print(
-            "Provided job number exceeds the number of available cores. "
-            + str(job_number)
-            + " max jobs will be used instead."
-        )
+    huc = os.path.basename(os.path.normpath(huc_dir))
 
     # Create output dir for log and usgs rc database
-    log_dir = os.path.join(run_dir, "logs", "src_optimization")
-    print("Log file output here: " + str(log_dir))
+    log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
 
@@ -508,17 +496,25 @@ def run_prep(
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
-    usgs_elev_df = concat_huc_csv(run_dir, csv_name)
+    csv_name = 'usgs_elev_table.csv'  # TODO: Get this from a variable?
+    if not os.path.exists(os.path.join(huc_dir, csv_name)):
+        print(f'No USGS calibration points exist for huc {huc}')
+        return
+
+    print('Reading USGS gage HAND elevation from usgs_elev_table.csv file...')
+    usgs_elev_df = pd.read_csv(
+        os.path.join(huc_dir, csv_name), dtype={'location_id': object, 'levpa_id': object}
+    )
 
     if usgs_elev_df is None:
         warn_err = (
-            'WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in fim_dir!'
+            'WARNING: usgs_elev_df not created - check that usgs_elev_table.csv files exist in huc_dir!'
         )
         print(warn_err)
         log_file.write(warn_err)
 
     elif usgs_elev_df.empty:
-        warn_err = 'WARNING: usgs_elev_df is empty - check that usgs_elev_table.csv files exist in fim_dir!'
+        warn_err = 'WARNING: usgs_elev_df is empty - check that usgs_elev_table.csv files exist in huc_dir!'
         print(warn_err)
         log_file.write(warn_err)
 
@@ -529,8 +525,17 @@ def run_prep(
             usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, nwm_recurr_filepath, log_dir
         )
 
-        # Create huc proc_list for multiprocessing and execute the update_rating_curve function
-        branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file)
+        # if usgs_df is empty--no acceptable gage, then end the process early.
+        if usgs_df.empty:
+            warn_msg = (
+                f"WARNING: All USGS gage data for HUC {huc} was filtered out during processing. "
+                f"Check log_usgs_rc_database.log for details. Skipping USGS rating curve adjustments.\n"
+            )
+            print(warn_msg)
+            log_file.write(warn_msg)
+        else:
+            # Create huc proc_list for multiprocessing and execute the update_rating_curve function
+            branch_proc_list(usgs_df, huc_dir, debug_outputs_option, log_file, branch_jobs)
 
     # Record run time and close log file
     log_file.write('########################################################\n\n')
@@ -547,7 +552,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Adjusts rating curve with database of USGS rating curve (calculated WSE/flow).'
     )
-    parser.add_argument('-run_dir', '--run-dir', help='Parent directory of FIM run.', required=True)
+    parser.add_argument('-huc_dir', '--huc_dir', help='directory of a HUC run', required=True)
     parser.add_argument(
         '-usgs_rc', '--usgs-ratings', help='Path to USGS rating curve csv file', required=True
     )
@@ -571,18 +576,20 @@ if __name__ == '__main__':
         required=False,
         action='store_true',
     )
-    parser.add_argument('-j', '--job-number', help='Number of jobs to use', required=False, default=1)
+    parser.add_argument(
+        '-jb', '--branch_jobs', help='Number of branches jobs to use', required=False, default=1
+    )
 
     # Assign variables from arguments.
     args = vars(parser.parse_args())
-    run_dir = args['run_dir']
+    huc_dir = args['huc_dir']
     usgs_rc_filepath = args['usgs_ratings']
     usgs_sites_filepath = args['usgs_sites']
     nwm_recurr_filepath = args['nwm_recur']
     debug_outputs_option = args['extra_outputs']
-    job_number = int(args['job_number'])
+    branch_jobs = int(args['branch_jobs'])
 
     # Prepare/check inputs, create log file, and spin up the proc list
     run_prep(
-        run_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, job_number
+        huc_dir, usgs_rc_filepath, usgs_sites_filepath, nwm_recurr_filepath, debug_outputs_option, branch_jobs
     )

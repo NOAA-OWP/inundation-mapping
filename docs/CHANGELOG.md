@@ -8,6 +8,250 @@ This PR fixes issue with box plot generation and introduces a new function to co
 
 ### Changes
 `tools/rating_curve_comparison.py` : changes as described above.
+## v4.9.0.0 - 2025-12-01 - [PR#1620](https://github.com/NOAA-OWP/inundation-mapping/pull/1620)
+## Summary
+This PR closes #1593  and introduces a **redesigned calibration workflow**, enabling each HUC processor to perform calibration independently after generating its own REM. Therefore, each HUC is self-contained and fully processed before moving to the next.  It also reorganizes log files to be stored within each HUC directory and introduces clear separation between full pipeline runs and calibration reruns.
+
+**Key Changes:**
+- Calibration now runs per-HUC instead of across all HUCs
+- Logs are stored in HUC-specific directories
+- A new `tools/rerun_calibration.py` tool for calibration reruns instead of using `fim_post_processing.sh`
+
+
+<pre>
+╔══════════════════════════════════════════════════╗
+  ❌ OLD: Parallel Calibration Across All HUCs   
+╚══════════════════════════════════════════════════╝
+fim_pipeline.sh
+  ├─> Generate REMs for ALL HUCs
+  │
+  └─> fim_post_processing.sh
+        └─> Calibration (parallel across ALL HUCs & branches)
+
+╔═════════════════════════════════════════════════╗
+   ✅ NEW: Calibration Per-HUC                    
+╚═════════════════════════════════════════════════╝
+fim_pipeline.sh
+  └─> For each HUC:
+        ├─> Generate REM
+        ├─> calibrate_rating_curves.sh
+        │     ├─> Bathymetry adjustment
+        │     ├─> Thalweg notches
+        │     ├─> USGS rating curve calibration
+        │     └─> ... (10 calibration steps)
+        │         (branch-level parallelization)
+        └─> HUC fully processed
+</pre>
+
+
+### 1- Terminology Clarification — Calibration vs. Post-Processing
+
+Starting with this PR, **calibration** refers to all scripts involved in refining or improving synthetic rating curves, whether using observed data (e.g., USGS gages) or alternative techniques (e.g., bathymetric adjustments).
+
+The term **post-processing** is reserved exclusively for the software design components that manage FIM code closure tasks—such as organizing log files and recording execution times.
+
+---
+
+### 2- Calibration Redesign
+Below are the **calibration scripts** that are executed in the specific order by the new `src/calibrate_rating_curves.sh` script:
+
+<img width="278" height="550" alt="image" src="https://github.com/user-attachments/assets/83074a63-8fa4-423f-bd0a-e6125da919aa" />
+
+
+**2-1 Workflow Redesign**
+
+* **Previous design:** After generating hydro-conditioned REMs for all HUCs, the scripts above were executed in parallel across all HUCs/branches through former `fim_post_processing.sh`.
+* **New design:** Each HUC processor is now responsible for both REM generation **and** sequential execution of all calibration routines through the new `src/calibrate_rating_curves.sh` script. Two job numbers remain: one for HUCs and one for branches within a HUC.
+
+
+**2-2 Scripts Inputs**
+
+* **Previous:** Each calibration script accepted a FIM directory containing multiple HUCs and processed all HUCs and their branches in parallel.
+* **New:** Each calibration script now accepts a single HUC directory and processes only that HUC’s branches. Multiprocessing is applied (or can be applied) to parallelize branch-level runs within that HUC.
+
+
+**2-3 Calibration Rerun**
+
+* A new tool, `tools/rerun_calibration.py`, now handles calibration reruns. It executes the same set of scripts in order, but begins by resetting hydrotables and SRC full tables using `reset_htable_src.py` (formerly `update_htable_src.py`). Also, a new `params_rerun.env` file is created (from config/params_template.env) and sourced instead of the original `params.env`, enabling clean separation between initial run and reruns with customizable settings.
+
+**2-4 Updated `fim_post_processing.sh`**
+
+* The script no longer calls any of the calibration scripts. It now only manages pipeline closure.
+
+---
+
+
+
+### 3- Reorganizing Log Files
+
+With the new redesign, each HUC’s log files are now stored within its respective HUC directory. The overall logging structure has also been updated to clearly separate outputs between the two run modes below:
+
+- **Full FIM pipeline run**
+- **Calibration rerun mode**
+
+
+#### **3-1. FIM Pipeline Run**
+
+*(No timestamp needed for files since they are generated only once)*
+
+`huc_dir/logs/`
+
+* `huc_<HUC>_unit.log`
+* `branch/` — Contains branch summary files.
+* `src_calibrations/` — Stores calibration logs.
+* `huc_<HUC>_errors.log` — Created in `src/calibrate_rating_curves.sh`; scans all log files in the `logs/` folder for lines containing “error.”
+* `huc_<HUC>_warnings.log` — Created in `src/calibrate_rating_curves.sh`; scans all log files in the `logs/` folder for lines containing “warning.”
+
+
+`fim/logs/`
+
+* `all_errors.log` — Created in `fim_post_processing.sh`; searches the entire FIM directory for files matching `huc_*_errors.log` and concatenates their contents.
+* `post_processing.log` — Log output from `fim_post_processing.sh`.
+
+`fim/branch_errors/`  (located in the parent fim directory)
+
+
+#### **3-2. Calibration Rerun Mode**
+**Key Difference:** When rerunning calibration, we only scan `logs/src_calibrations/` 
+to avoid capturing errors from the original pipeline run. This ensures the error logs 
+reflect only the rerun attempt. Therefore, these logs may contain fewer records than the full FIM pipeline logs.
+
+`huc_dir/logs/`
+
+* `src_calibrations/` — Contains updated logs after the calibration rerun.
+* `huc_<HUC>_warnings_calib_rerun.log` — Created in `src/calibrate_rating_curves.sh`; scans all files in `logs/src_calibrations/` for lines containing “warning.”
+* `huc_<HUC>_errors_calib_rerun.log` — Created in `src/calibrate_rating_curves.sh`; scans all files in `logs/src_calibrations/` for lines containing “error.”
+
+`fim/logs/`
+* `calib_rerun_<timestamp>.log` — Created in `tools/rerun_calibration.py`
+* `all_errors_calib_rerun_<timestamp>.log` — Created in `tools/rerun_calibration.py`; concatenates all `huc_<HUC>_errors_calib_rerun.log` files from every HUC directory.
+
+---
+
+### 4- Other Minor Updates
+
+* Removed the redundant `skipcal` argument from the FIM pipeline (each calibration step already has its own Boolean toggle).
+* Removed the counter file previously used to distinguish between calibration rerun vs. pipeline calibration, as it is no longer needed.
+* Removed the `unit_errors` logging folder from the parent FIM directory because its functionality is now covered by other logging already in the codebase. Accordingly, the `src/check_unit_errors.py` file is also removed.
+* Eliminated the need to define and pass `jobMaxLimit=$(( $jobHucLimit * $jobBranchLimit ))` since each HUC now controls its own calibration sequence (with branch-level multiprocessing).
+
+---
+
+### Additions
+- src/calibrate_rating_curves.sh   
+- tools/rerun_calibration.py
+     
+### Changes
+- fim_pipeline.sh
+- fim_post_processing.sh
+- fim_pre_processing.sh
+- src/process_branch.sh
+- src/bathymetric_adjustment.py
+- src/thalweg_notches_adjustment.py
+- src/identify_src_bankfull.py
+- src/longitudinal_flow_adjustment.py
+- src/nonmonotonic_src_adjustment.py
+- src/src_adjust_ras2fim_rating.py
+- src/src_adjust_spatial_obs.py
+- src/src_adjust_usgs_rating_trace.py
+- src/src_manual_calibration.py
+- src/subdiv_chan_obank_src.py
+- Renamed `fim_process_unit_wb.sh` → `fim_process_huc.sh`
+- Renamed `src/run_unit_wb.sh` → `src/run_huc.sh`
+- Renamed `src_aggregate_by_huc.py` →  `src/aggregate_branches_to_huc.py`
+- Renamed `src/update_htable_src.py` → `src/reset_htable_src.py`
+
+### Removals
+- src/check_unit_errors.py
+- src/bathy_src_adjust_topwidth.py
+
+<br />
+
+## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
+
+This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc
+
+This is part of a bigger EPIC Issue: [1641](https://github.com/NOAA-OWP/inundation-mapping/issues/1641):  Workflow Pipelines - build long chain scripts for quicker deploy and copying
+
+This was setup creating an opportunity to create more code infrastructure supporting FIM tools to talk to AWS, S3 for this tool, plus more tools coming in the near future. This one sets up infrastructure for creating and authenticating to AWS for all types of AWS calls plus full S3 communications (uploads and downloads). Some of the infrastructure code was copy/pasted based on another WIP PR [1480](https://github.com/NOAA-OWP/inundation-mapping/pull/1480): Update get_sample_data.py for lidar bridge elevation data.
+
+The new code infrastructure is a new system called `workflows`. . The `workflow` folders currently only have scripts to deploy to Hydrovis, but in near future PR's, will also include scripts for uploading inputs files/folders, qa tools against other scripts outputs, and chaining together multiple scripts. An example of a workflow down the road would be running catfim flow based, then it has a qa tool for it, then it uploads to HV buckets, the to FIM S3. This is a part of the bigger EPIC issue card mentioned above.
+
+This PR also covers an small adjustment to CatFIM, renaming its previous `catfim.env.template` to `fim_enviro_values.env.template`, to help with re-usability and consistency of other scripts already using the new fim_enviro_values.env. 
+
+### Usage Note:
+Details on full tool usage are embedded in the scripts themselves. This tool relies on two separate config env files, one for aws permissions and one for params to upload data to HydroVIS. The files exist in EFS... /data/config and are named aws_credentials.env and hv_deploy_params.env. Details on how to setup and use the two files are also not described here due to sensitive information, but details in those files have been added. It does not tell how to create an AWS profile as this is assumed to be common knowledge and is in other FIM-Dev developer docs.
+
+### Architecture Notes:
+The architecture introduced in this PR includes and sets us up for:
+- A new AWS communication and credentials layer, which can easily be updated for talking to other objects such as Lambdas, Step functions, EC2's, etc, including easy scripts to trigger "UAT" runs including status messaging to the user.
+- Adding a workflow system also allows running scripts normally run during production runs only, including output data validation, copying different combinations of output data to various S3 buckets and/or EFS paths.
+
+### Additions
+- `.gitignore`:  With the rename of `catfim.env.template` to `fim_enviro_values.env.template`, this ensures the file gets into GIT.
+- `config`:  A new template for `aws_credentials.template.env`, and `hv_deploy_params.template`.
+- `data\aws`
+    - `aws_shared_functions.py`:  Can be used to create sessions and clients for any type of service. We are using s3 only for now, but more are expected in PR coming soon. Also includes a new `aws_exception_handler` function, which can be used to turn most types of aws errors into more user friendly message, telling them what happened and what to do about it.
+    - `s3_shared_functions.py`:  This assists on any scripts communication with AWS s3 buckets. It includes a wide array of functions from uploading, downloading, checking buckets existence, checking for file/folder existence, and others. It also includes a tool for multi-threading allowing for very fast uploading of collections of files.
+ - `workflows`
+     - `.gitignore` and `init.py`: additions in support of the new workflow infrastructure described above
+     - `deploy\deploy_to_hydrovis.py`: A new tool allowing for quicker and easier uploading of production deployment files for HydroVIS / FIM releases.  Most arguments, variables and pathing are driven by a config file. Note: A template env file for it has not been includes as it contains sensitive information.
+     
+### Rename
+- `Was: tools\catfim\catfim.env.template  To: fim_enviro_values.env.template` and moved to `config\` folder.
+
+### Changes
+- `src\utils`
+    - `fim_logger.py`: Adjusted for usage of date time objects to be consistent with other scripts.
+    - `shared_functions.py`: Added a new function called `get_value_from_env` which validates the env value then returns it. The reason for this addition is validation and clarity when errors occur for loading env variables.
+- `tools\catfim`
+    - `README.md`, `generate_categorical_fim.py`, and `generate_categorical_fim_flows.py`: Adjusted to use and default to the config file of `fim_enviro_values.env.template` consistent with other scripts/tools.
+
+### Removals
+- `data\aws`:
+    - `aws_base.py`,  `s3.py`, `aws_creds_template.env` and `.gitignore`:  No longer applicable
+
+### FOR NOAA/OWP usage only
+This tool is not for usage outside of the OWP / FIM team.
+<br />
+
+## v4.8.15.0 - 2025-10-30 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
+
+This PR adds a new script to pull, extract, and conflate MRMS FLASH flow values to NWM reaches to use in generating HAND FIM. FLASH FIM can be useful during flash flooding scenarios where conditions change quickly and high temporal resolution (up to every 10 minutes) is necessary. 
+
+### Additions
+- `/tools/flashfim/conflate_flash_flows.py` - Added a script to extract and conflate flow values from FLASH products to the hydrofabric reference flowlines for FIM production.
+- `/tools/flashfim/README.md` - Added README to give background on FLASH FIM and explain how to use the tool.
+<br />
+
+## v4.8.14.4 - 2025-10-30 - [PR#1687](https://github.com/NOAA-OWP/inundation-mapping/pull/1687)
+
+Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now they will be masked out of BOTH stage-based and flow-based CatFIM (rather than just stage). 
+
+### Changes
+- `tools/catfim/ahps_restricted_sites.csv`: Changed classification of 3 sites from "stage" to "both."
+<br />
+
+## v4.8.14.3 - 2025-10-30 - [PR#1654](https://github.com/NOAA-OWP/inundation-mapping/pull/1654)
+
+This PR looks for the root cause of the 'Ghost' bug. The bug occured due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
+Some notes about the slope precision: The slope values in src_base represent TauDEM’s rise-over-run slopes. Because these values—and the slopes subsequently propagated through HFAB and SWORD—are extremely small (e.g., 9.99999974737875E-06), it is critical to preserve their numerical precision throughout all read/write operations in downstream scripts.
+When writing slope values to derived files (e.g., src_full, hydrotables), each value is rounded to three digits in scientific notation and then converted back to a float for continued numerical use.
+
+### Changes
+- `src/update_htable_src.py`: as described. 
+- `src/add_crosswalk.py`: Changed the slope precision.
+<br />
+
+## v4.8.14.2 - 2025-10-17 - [PR#1677](https://github.com/NOAA-OWP/inundation-mapping/pull/1677)
+
+During a merge of the recent PR for mprunner fixes, one critical line was dropped. The line takes the return value from the child multi-proc function and adds it to a list collection of return results. 
+
+A couple of small links in the changelog were also fixed.
+
+### Changes
+- `src/utils/shared_functions.py`: as described.
+<br />
 
 ## v4.8.14.1 - 2025-10-10 - [PR#1640](https://github.com/NOAA-OWP/inundation-mapping/pull/1640)
 
@@ -22,6 +266,7 @@ To run the script, you need to create a directory in your `metrix_dir` (the only
 ### Additions
 - `data/ripple/`
     - `terrain_agreement_metrics_analysis.py`
+<br />
 
 ## V4.8.14.0 - 2025-10-10 - [PR#1650](https://github.com/NOAA-OWP/inundation-mapping/pull/1650)
 
@@ -79,7 +324,7 @@ Fixes a bug that was introduced to flow-based CatFIM in recent changes to the In
 tools/catfim/generate_categorical_fim_mapping.py: Added multi-process option to inundate_gms() function. Updated print logs.
 <br/>
 
-## v4.8.12.1 - 2025-10-10 - [PR#1617]([https://github.com/NOAA-OWP/inundation-mapping/pull/1617])
+## v4.8.12.1 - 2025-10-10 - [PR#1617](https://github.com/NOAA-OWP/inundation-mapping/pull/1617)
 
 This tool generates a custom flow file for a specific FIM scenario. Given a flow value and either a feature ID or a LID/USGS gage ID, it traces downstream along NWM streamlines and applies the input flow to each segment within the specified distance.
 
@@ -87,7 +332,7 @@ This tool generates a custom flow file for a specific FIM scenario. Given a flow
 - `-tools/generate_custom_flow_files.py`
 <br/>
 
-## v4.8.12.0 - 2025-10-10 - [PR#1621]([https://github.com/NOAA-OWP/inundation-mapping/pull/1621])
+## v4.8.12.0 - 2025-10-10 - [PR#1621](https://github.com/NOAA-OWP/inundation-mapping/pull/1621)
 
 This PR focuses on the position of three scripts in the post-processing and updating the longitudinal filtering parameters. First, a new script has been written to address the thalweg notch adjustment, separated from the nonmonotonic adjustment script. Second, the post-processing has been changed in a way that `thalweg_notches_adjustment` and `logitudinal_flow_adjustment` will be run before `bathymetry_adjustment`. Then, `nonmonotonic_adjustment` will be run after the `src_subdivision` section. The second purpose of this PR is to update the `longitudinal_adjustment` parameters and replace the minimum filter with the lowest 10-percentile of the discharge on the rating curve. 
 
@@ -119,7 +364,7 @@ Adjusted the scripts for pulling down filtered files/folders for the new ripple 
 
 ### Changes
 
-- 'data\ripple\get_s3_folder.sh, get_s3_folders_from_list.sh and ripple_shared_tools.sh`: As described above.
+- `data\ripple\get_s3_folder.sh, get_s3_folders_from_list.sh and ripple_shared_tools.sh`: As described above.
 <br/>
 
 ## v4.8.11.1 - 2025-09-19 - [PR#1647](https://github.com/NOAA-OWP/inundation-mapping/pull/1647)
