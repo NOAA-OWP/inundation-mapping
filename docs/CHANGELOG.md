@@ -24,6 +24,8 @@ eval_plots.py assume there would be some metrics data a given benchmark type for
     - `synthesize_test_cases.py`:   Added a few warning message and upgrade a bit of the wording on an error message.
     - `run_test_case.py`: Found a bug where shutil.rmtree could fail with directory not empty during race conditions of the python GC. Could have been MP cleaning overlapping or subdirectories at the same times. Added the "ignore_error=True" tag to shutil.rmtree.
     - `probabilitic_inundation.py`: Added the "ignore_error=True" tag to shutil.rmtree.
+<br />
+
 ## v4.9.0.0 - 2025-12-01 - [PR#1620](https://github.com/NOAA-OWP/inundation-mapping/pull/1620)
 ## Summary
 This PR closes #1593  and introduces a **redesigned calibration workflow**, enabling each HUC processor to perform calibration independently after generating its own REM. Therefore, each HUC is self-contained and fully processed before moving to the next.  It also reorganizes log files to be stored within each HUC directory and introduces clear separation between full pipeline runs and calibration reruns.
