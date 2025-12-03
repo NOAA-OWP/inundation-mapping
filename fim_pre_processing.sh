@@ -88,10 +88,6 @@ in
         shift
         deny_branch_zero_list=$1
         ;;
-    -l|--huclistFile)
-        shift
-        huc_list_file=$1
-        ;;
     -o)
         overwrite=1
         ;;
@@ -195,8 +191,7 @@ source $srcDir/bash_variables.env
 export runName=$runName
 export jobHucLimit=$jobHucLimit
 
-
-num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList -i $huc_list_file)
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 

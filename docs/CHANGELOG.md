@@ -16,6 +16,7 @@ Adds capability to generate HAND FIM for Guam and American Samoa using data from
 
 - `.gitignore`: Allows new `config/huc_lists` folder and files
 - `fim_pre_processing.sh`: Reads `src/bash_variables.env` to get `huc_list_file` environment variable
+- `fim_pipeline.sh`: Added a comment line
 - `data/`
     - `bridges/make_rasters_using_lidar.py`: Updates and saves list of classification results
     - `bridges/pull_osm_bridges.py`, `get_sample_data.py`, `nfhl/download_fema_nfhl.py`, `roads/pull_osm_roads.py`, `wbd/clip_vectors_to_wbd.py`, `wbd/generate_pre_clip_fim_huc8.py`: Adds processing for Guam and American Samoa to existing scripts
