@@ -32,8 +32,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
         Directory containing FIM output folders.
     bankfull_flow_dir : str
         Directory containing "bankfull" flows files (e.g. NWM bankfull estimated recurr).
-    number_of_jobs : str
-        Number of jobs.
+    branch_jobs : str
+        Number of branch jobs.
     plots : str
         Optional: Flag to create SRC plots for all hydroids (True/False)
 """
@@ -276,19 +276,10 @@ def generate_src_plot(df_src, plt_out_dir):
         plt.close()
 
 
-def multi_process(src_bankfull_lookup, procs_list, log_file, number_of_jobs, verbose):
-    ## Initiate multiprocessing
-    available_cores = multiprocessing.cpu_count()
-    if number_of_jobs > available_cores:
-        number_of_jobs = available_cores - 2
-        print(
-            "Provided job number exceeds the number of available cores. "
-            f"{str(number_of_jobs)}"
-            " max jobs will be used instead."
-        )
+def multi_process(src_bankfull_lookup, procs_list, log_file, branch_jobs, verbose):
 
-    print(f"Identifying bankfull stage for {len(procs_list)} branches using {number_of_jobs} jobs")
-    with Pool(processes=number_of_jobs) as pool:
+    print(f"Identifying bankfull stage for {len(procs_list)} branches using {branch_jobs} jobs")
+    with Pool(processes=branch_jobs) as pool:
         # progress_bar = tqdm(total=len(procs_list[0]))
         if verbose:
             map_output = tqdm(pool.imap(src_bankfull_lookup, procs_list), total=len(procs_list))
@@ -298,7 +289,7 @@ def multi_process(src_bankfull_lookup, procs_list, log_file, number_of_jobs, ver
     log_file.writelines(["%s\n" % item for item in map_output])
 
 
-def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_option):
+def run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_option):
     procs_list = []
 
     ## Print message to user and initiate run clock
@@ -306,7 +297,7 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     print('This may take a few minutes...')
 
     ## Check that the input fim_dir exists
-    assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
+    # assert os.path.isdir(fim_dir), 'ERROR: could not find the input fim_dir location: ' + str(fim_dir)
     ## Check that the bankfull flow filepath exists and read to dataframe
     assert os.path.isfile(bankfull_flow_filepath), 'ERROR: Can not find the input bankfull flow file: ' + str(
         bankfull_flow_filepath
@@ -315,46 +306,45 @@ def run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_
     ## Create a time var to log run time
     begin_time = dt.datetime.now()
     ## initiate log file
-    log_file = open(join(fim_dir, 'logs', 'log_bankfull_indentify.log'), "w")
+    log_dir = os.path.join(huc_dir, "logs", "src_calibrations")
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+
+    log_file = open(join(log_dir, 'log_bankfull_indentify.log'), "w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
 
     df_bflows = pd.read_csv(bankfull_flow_filepath, dtype={'feature_id': int})
-    huc_list = [d for d in os.listdir(fim_dir) if re.match(r'^\d{8}$', d)]
-    huc_list.sort()  # sort huc_list for helping track progress in future print statments
-    huc_pass_list = []
-    for huc in huc_list:
-        # if huc != 'logs' and huc[-3:] != 'log' and huc[-4:] != '.csv':
-        if re.match(r'\d{8}', huc):
-            huc_branches_dir = os.path.join(fim_dir, huc, 'branches')
-            for branch_id in os.listdir(huc_branches_dir):
-                branch_dir = os.path.join(huc_branches_dir, branch_id)
-                src_orig_full_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
-                huc_output_dir = join(branch_dir, 'src_plots')
-                ## Check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use
-                #   orginial src_full_crosswalked.csv
-                if isfile(src_orig_full_filename):
-                    huc_pass_list.append(str(huc) + ' --> src_full_crosswalked_' + branch_id + '.csv')
-                    procs_list.append(
-                        [src_orig_full_filename, df_bflows, huc, branch_id, src_plot_option, huc_output_dir]
-                    )
-                else:
-                    print(
-                        f'HUC: {str(huc)}  branch id: {str(branch_id)}'
-                        'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
-                        f' {str(branch_dir)}  - skipping this branch!!!\n'
-                    )
-                    log_file.write(
-                        f'HUC: {str(huc)}  branch id: {str(branch_id)}'
-                        'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
-                        f' {str(branch_dir)}  - skipping this branch!!!\n'
-                    )
 
-    log_file.writelines(["%s\n" % item for item in huc_pass_list])
+    # get hucnumber
+    huc = os.path.basename(os.path.normpath(huc_dir))
+    huc_branches_dir = os.path.join(huc_dir, 'branches')
+    for branch_id in os.listdir(huc_branches_dir):
+        branch_dir = os.path.join(huc_branches_dir, branch_id)
+        src_orig_full_filename = join(branch_dir, 'src_full_crosswalked_' + branch_id + '.csv')
+        huc_output_dir = join(branch_dir, 'src_plots')
+        ## Check if BARC modified src_full_crosswalked_BARC.csv exists otherwise use
+        #   orginial src_full_crosswalked.csv
+        if isfile(src_orig_full_filename):
+            procs_list.append(
+                [src_orig_full_filename, df_bflows, huc, branch_id, src_plot_option, huc_output_dir]
+            )
+        else:
+            print(
+                f'HUC: {str(huc)}  branch id: {str(branch_id)}'
+                'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
+                f' {str(branch_dir)}  - skipping this branch!!!\n'
+            )
+            log_file.write(
+                f'HUC: {str(huc)}  branch id: {str(branch_id)}'
+                'WARNING --> can not find the SRC crosswalked csv file in the fim output dir: '
+                f' {str(branch_dir)}  - skipping this branch!!!\n'
+            )
+
     log_file.write('#########################################################\n\n')
 
     ## Pass huc procs_list to multiprocessing function
-    multi_process(src_bankfull_lookup, procs_list, log_file, number_of_jobs, verbose)
+    multi_process(src_bankfull_lookup, procs_list, log_file, branch_jobs, verbose)
 
     ## Record run time and close log file
     end_time = dt.datetime.now()
@@ -368,7 +358,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Identify bankfull stage for each hydroid synthetic rating curve'
     )
-    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument('-huc_dir', '--huc_dir', help='huc run directory', required=True, type=str)
     parser.add_argument(
         '-flows',
         '--bankfull-flow-input',
@@ -377,9 +367,9 @@ if __name__ == '__main__':
         type=str,
     )
     parser.add_argument(
-        '-j',
-        '--number-of-jobs',
-        help='OPTIONAL: number of workers (default=8)',
+        '-jb',
+        '--branch_jobs',
+        help='OPTIONAL: number of branches job (default=8)',
         required=False,
         default=8,
         type=int,
@@ -404,11 +394,11 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    fim_dir = args['fim_dir']
+    huc_dir = args['huc_dir']
     bankfull_flow_filepath = args['bankfull_flow_input']
-    number_of_jobs = args['number_of_jobs']
+    branch_jobs = args['branch_jobs']
     verbose = bool(args['verbose'])
     src_plot_option = args['src_plot_option']
 
     ## Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(fim_dir, bankfull_flow_filepath, number_of_jobs, verbose, src_plot_option)
+    run_prep(huc_dir, bankfull_flow_filepath, branch_jobs, verbose, src_plot_option)

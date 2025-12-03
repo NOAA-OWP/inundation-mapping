@@ -20,7 +20,7 @@ from utils.shared_functions import FIM_Helpers as fh
 
 '''
     Overview:
-      This script was created to absolve run_unit_wb.sh from getting the huc level WBD layer, calling
+      This script was created to absolve run_huc.sh from getting the huc level WBD layer, calling
       clip_vectors_to_wbd.py, and clipping the WBD for every run, which added a significant amount of
       processing time for each HUC8. Using this script, we generate the necessary pre-clipped .gpkg files
       for the rest of the processing steps.

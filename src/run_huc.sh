@@ -15,7 +15,7 @@ source $srcDir/bash_variables.env
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv
 branch_list_lst_file=$tempHucDataDir/branch_ids.lst
 
-branchSummaryLogFile=$outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
+branchSummaryLogFile=$tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
 
 huc2Identifier=${hucNumber:0:2}
 
@@ -334,7 +334,7 @@ branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
 # -------------------
 ## Processing Branches ##
 echo
-echo "---- Start of branch processing for $hucNumber"
+echo "---- Start of branch processing for $hucNumber using $jobBranchLimit workers for branch processing"
 branch_processing_start_time=`date +%s`
 
 if [ -f $branch_list_lst_file ]; then
@@ -365,6 +365,10 @@ echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration "Duration for processing branches : " $branch_processing_start_time
 #echo
 total_branches=$(wc -l < $branch_list_csv_file)
+
+## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
+$srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit
+
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
 echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
