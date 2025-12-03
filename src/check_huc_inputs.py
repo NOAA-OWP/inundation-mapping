@@ -83,7 +83,7 @@ def check_hucs(hucs, full_huc_list):
 if __name__ == '__main__':
 
     # This script helps ensure that all hucs passed in to pipeline or pre-processing are valid HUCs
-    # and are in the full_huc_list.lst file as valid and approved HUCS. 
+    # and are in the full_huc_list.lst file as valid and approved HUCS.
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Checks input hucs for availability within inputs')
