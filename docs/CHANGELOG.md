@@ -4,10 +4,11 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v4.8.x.x - 2025-08-20 - [PR#1603]([https://github.com/NOAA-OWP/inundation-mapping/pull/1603])
 
 This PR fixes issue with box plot generation and introduces a new function to compare two FIM outputs.
-<br />
 
 ### Changes
 `tools/rating_curve_comparison.py` : changes as described above.
+<br />
+
 ## v4.9.0.0 - 2025-12-01 - [PR#1620](https://github.com/NOAA-OWP/inundation-mapping/pull/1620)
 ## Summary
 This PR closes #1593  and introduces a **redesigned calibration workflow**, enabling each HUC processor to perform calibration independently after generating its own REM. Therefore, each HUC is self-contained and fully processed before moving to the next.  It also reorganizes log files to be stored within each HUC directory and introduces clear separation between full pipeline runs and calibration reruns.
