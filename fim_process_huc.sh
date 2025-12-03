@@ -8,12 +8,12 @@ usage ()
     For portability, we can make a direct call to this file with two parameters: HUC Number & Run Name;
     which correspond to the -n argument in fim_pipeline.sh and fim_pre_processing.sh.
 
-    This file will catch any and all errors from src/run_unit_wb.sh, even if that script aborts.
+    This file will catch any and all errors from src/run_huc.sh, even if that script aborts.
 
-    It is not possible to call src/run_unit_wb.sh directly, as it relies on exported values from this file.
-        src/run_unit_wb.sh will futher process branches (src/process_branch.sh) in parallel.
+    It is not possible to call src/run_huc.sh directly, as it relies on exported values from this file.
+        src/run_huc.sh will futher process branches (src/process_branch.sh) in parallel.
 
-    Usage: ./fim_process_unit_wb.sh <name_of_your_run> <huc8>
+    Usage: ./fim_process_huc.sh <name_of_your_run> <huc8>
 
     Produce FIM hydrofabric datasets for a single unit and branch scale.
     - Note: fim_pre_processing.sh must have been already run. This script does
@@ -25,7 +25,7 @@ usage ()
         2) HUC number
             Example:
 
-                ./fim_process_unit_wb.sh test_name 05030104
+                ./fim_process_huc.sh test_name 05030104
     "
     exit
 }
@@ -78,20 +78,21 @@ fi
 # make outputs directory
 mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
+mkdir -p $tempHucDataDir/logs
+mkdir -p $tempHucDataDir/logs/branch
 chmod 777 $tempHucDataDir
 chmod 777 $tempBranchDataDir
 
 # Clean out previous unit logs and branch logs starting with this huc
-rm -f $outputDestDir/logs/unit/"$hucNumber"_unit.log
-rm -f $outputDestDir/logs/branch/"$hucNumber"_summary_branch.log
-rm -f $outputDestDir/logs/branch/"$hucNumber"*.log
-rm -f $outputDestDir/unit_errors/"$hucNumber"*.log
+rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
+rm -f $tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
+rm -f $tempHucDataDir/logs/branch/"$hucNumber"*.log
 rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
 
-hucLogFileName=$outputDestDir/logs/unit/"$hucNumber"_unit.log
+hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 
 # Process the actual huc
-/usr/bin/time -v $srcDir/run_unit_wb.sh 2>&1 | tee $hucLogFileName
+/usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFileName
 
 #exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
 # and yes.. we can not use the $? as we are messing with exit codes
@@ -125,9 +126,11 @@ do
 done
 
 if [ "$err_exists" = "1" ]; then
-    # copy the error log over to the unit_errors folder to better isolate it
-    cp $hucLogFileName $outputDestDir/unit_errors
+    error_log_filename=$tempHucDataDir/logs/huc_"$hucNumber"_errors.log
+    err_msg="Error: "$hucNumber". Invalid return status code. Exit status: $return_codes"
+    echo $err_msg >> $error_log_filename
 fi
+
 
 # Move the contents of the temp directory into the outputs directory and update file permissions
 mv -f $tempHucDataDir $outputHucDataDir
