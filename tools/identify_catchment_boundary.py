@@ -52,7 +52,7 @@ def catchment_boundary_errors(
     # print("Reading inundation")
     if inundation_type == "tif":
         # Vectorize inundation
-        print("Inundation file: ", inundation_file)
+        # print("Inundation file: ", inundation_file)
         with rasterio.open(inundation_file) as src:
             affine = src.transform
             band = src.read(1)
@@ -164,6 +164,9 @@ def multi_process_catchment_boundaries(
     """
     with ProcessPoolExecutor(max_workers=job_number) as executor:
         executor_dict = {}
+        if not os.path.exists(os.path.dirname(output)):
+            print(f"Output directory {os.path.dirname(output)} does not exist. Making directory now...")
+            os.makedirs(os.path.dirname(output))
         inundation_files = os.listdir(f"{inundation_dir}")
         if os.path.exists(str(hucs[0])) == True:
             huc_list = pd.read_csv(hucs[0], dtype=str, header=None)
