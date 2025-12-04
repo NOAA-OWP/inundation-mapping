@@ -733,7 +733,7 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             recurr_data = recurr_data_table[
                 (recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')
             ].filter(items=['recurr_interval', 'discharge_cfs'])
-            recurr_q_max = recurr_data['discharge_cfs'].max()
+            # recurr_q_max = recurr_data['discharge_cfs'].max()
             for i, r in recurr_data.iterrows():
                 if not r.recurr_interval.isnumeric():
                     continue  # skip USGS stage discharge flows
@@ -1380,89 +1380,8 @@ def generate_version_comparison(old_stats_path, new_stats_path, output_path, old
     plt.close()
 
 
-if __name__ == '__main__':
-
-    """
-    Sample Usage:
-    python3 /foss_fim/tools/rating_curve_comparison.py
-        -fim_dir data/previous_fim/hand_4_5_8_0/
-        -output_dir data/fim_performance/hand_4_5_8_0/rating_curve_comparison/
-        -gages /data/inputs/usgs_gages/usgs_rating_curves_{date}.csv
-        -flows /data/inputs/rating_curve/nwm_recur_flows/
-        -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
-        -j 40
-
-    ** Note: To generate the comparison plots, run the script on the first version. For the second vrsion, run it as follows:
-        -fim_dir data/previous_fim/hand_4_8_7_2/
-        -output_dir data/fim_performance/hand_4_8_7_2/rating_curve_comparison/
-        -gages /data/inputs/usgs_gages/usgs_rating_curves_{date}.csv
-        -flows /data/inputs/rating_curve/nwm_recur_flows/
-        -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
-        -comp data/fim_performance/hand_4_5_8_0/rating_curve_comparison/agg_nwm_recurr_flow_elev_stats_location_id.csv "FIM5" "FIM6"
-        -j 40
-    """
-
-    parser = argparse.ArgumentParser(
-        description='generate rating curve plots and tables for FIM and USGS gages'
-    )
-    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
-    parser.add_argument(
-        '-output_dir', '--output-dir', help='rating curves output folder', required=True, type=str
-    )
-    parser.add_argument('-gages', '--usgs-gages-filename', help='USGS rating curves', required=True, type=str)
-    parser.add_argument('-flows', '--nwm-flow-dir', help='NWM recurrence flows dir', required=True, type=str)
-
-    # Mar 27, 2025: Was named "catfim" but that file name no longer made sense
-    parser.add_argument(
-        '-stages', '--usgs-stage-file', help='USGS discharge flows file', required=True, type=str
-    )
-    parser.add_argument(
-        '-j', '--number-of-jobs', help='number of workers', required=False, default=1, type=int
-    )
-    parser.add_argument(
-        '-group', '--stat-groups', help='column(s) to group stats', required=False, type=str, nargs='+'
-    )
-    parser.add_argument(
-        '-pnts',
-        '--stat-gages',
-        help='takes 2 arguments: 1) file path of input usgs_gages.gpkg and 2) output GPKG name to write USGS '
-        'gages with joined stats',
-        required=False,
-        type=str,
-        nargs=2,
-    )
-    parser.add_argument(
-        '-alt',
-        '--alt-plot',
-        help='Generate rating curve plots with REM maps',
-        required=False,
-        default=False,
-        action='store_true',
-    )
-    parser.add_argument(
-        '-eval',
-        '--evaluate-results',
-        help='Create a boxplot comparison of multiple input Sierra Test results. '
-        'Expects 2 arguments: 1) path to the Sierra Test results for comparison and 2) the corresponding '
-        'label for the boxplot.',
-        required=False,
-        nargs=2,
-        action='append',
-    )
-    parser.add_argument(
-        '-comp',
-        '--compare_plots',
-        help='Create comparison plots. '
-        'Expects 3 arguments: 1. path to the statistics file of other version for comparison, '
-        '2. ta label for the other version, and 3. a label for the current version being run',
-        required=False,
-        nargs=3,
-        metavar=('other_csv_path', 'other_label', 'current_label'),
-    )
-
-    parser.add_argument('-s', '--single-plot', help='Create single plots', action='store_true')
-    args = vars(parser.parse_args())
-
+def main(args):
+    # Arguments
     fim_dir = args['fim_dir']
     output_dir = args['output_dir']
     usgs_gages_filename = args['usgs_gages_filename']
@@ -1482,6 +1401,7 @@ if __name__ == '__main__':
     else:
         stat_gages = None
 
+    # setup logging
     start_time = dt.datetime.now()
     dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     log_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
@@ -1503,6 +1423,7 @@ if __name__ == '__main__':
     logging.info(".. (Sierra Test) / rating curve comparison")
     logging.info(f".. Started: {dt_string} \n")
 
+    # Execusion
     try:
         # Make sure that location_id is the only -group when using -pnts
         assert not stat_gages or (
@@ -1642,3 +1563,90 @@ if __name__ == '__main__':
     print("==========================================================================")
     logging.info(f".. Ended: {dt_string} \n")
     logging.info(f".. Duration: {str(time_duration).split('.')[0]}")
+
+if __name__ == '__main__':
+
+    """
+    Sample Usage:
+    python3 /foss_fim/tools/rating_curve_comparison.py
+        -fim_dir data/previous_fim/hand_4_5_8_0/
+        -output_dir data/fim_performance/hand_4_5_8_0/rating_curve_comparison/
+        -gages /data/inputs/usgs_gages/usgs_rating_curves_{date}.csv
+        -flows /data/inputs/rating_curve/nwm_recur_flows/
+        -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
+        -j 40
+
+    ** Note: To generate the comparison plots, run the script on the first version. For the second vrsion, run it as follows:
+        -fim_dir data/previous_fim/hand_4_8_7_2/
+        -output_dir data/fim_performance/hand_4_8_7_2/rating_curve_comparison/
+        -gages /data/inputs/usgs_gages/usgs_rating_curves_{date}.csv
+        -flows /data/inputs/rating_curve/nwm_recur_flows/
+        -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
+        -comp data/fim_performance/hand_4_5_8_0/rating_curve_comparison/agg_nwm_recurr_flow_elev_stats_location_id.csv "FIM5" "FIM6"
+        -j 40
+    """
+
+    parser = argparse.ArgumentParser(
+        description='generate rating curve plots and tables for FIM and USGS gages'
+    )
+    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument(
+        '-output_dir', '--output-dir', help='rating curves output folder', required=True, type=str
+    )
+    parser.add_argument('-gages', '--usgs-gages-filename', help='USGS rating curves', required=True, type=str)
+    parser.add_argument('-flows', '--nwm-flow-dir', help='NWM recurrence flows dir', required=True, type=str)
+
+    # Mar 27, 2025: Was named "catfim" but that file name no longer made sense
+    parser.add_argument(
+        '-stages', '--usgs-stage-file', help='USGS discharge flows file', required=True, type=str
+    )
+    parser.add_argument(
+        '-j', '--number-of-jobs', help='number of workers', required=False, default=1, type=int
+    )
+    parser.add_argument(
+        '-group', '--stat-groups', help='column(s) to group stats', required=False, type=str, nargs='+'
+    )
+    parser.add_argument(
+        '-pnts',
+        '--stat-gages',
+        help='takes 2 arguments: 1) file path of input usgs_gages.gpkg and 2) output GPKG name to write USGS '
+        'gages with joined stats',
+        required=False,
+        type=str,
+        nargs=2,
+    )
+    parser.add_argument(
+        '-alt',
+        '--alt-plot',
+        help='Generate rating curve plots with REM maps',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '-eval',
+        '--evaluate-results',
+        help='Create a boxplot comparison of multiple input Sierra Test results. '
+        'Expects 2 arguments: 1) path to the Sierra Test results for comparison and 2) the corresponding '
+        'label for the boxplot.',
+        required=False,
+        nargs=2,
+        action='append',
+    )
+    parser.add_argument(
+        '-comp',
+        '--compare_plots',
+        help='Create comparison plots. '
+        'Expects 3 arguments: 1. path to the statistics file of other version for comparison, '
+        '2. ta label for the other version, and 3. a label for the current version being run',
+        required=False,
+        nargs=3,
+        metavar=('other_csv_path', 'other_label', 'current_label'),
+    )
+
+    parser.add_argument('-s', '--single-plot', help='Create single plots', action='store_true')
+
+    args = vars(parser.parse_args())
+
+    # Call the logic
+    main(args)
