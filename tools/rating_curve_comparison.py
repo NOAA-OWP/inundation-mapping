@@ -1564,6 +1564,7 @@ def main(args):
     logging.info(f".. Ended: {dt_string} \n")
     logging.info(f".. Duration: {str(time_duration).split('.')[0]}")
 
+
 if __name__ == '__main__':
 
     """
