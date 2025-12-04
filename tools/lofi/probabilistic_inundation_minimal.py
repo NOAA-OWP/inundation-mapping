@@ -5,12 +5,14 @@ import shutil
 from concurrent.futures import as_completed
 from typing import Dict, Optional, Tuple, Union
 
+import fsspec
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
 import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
+from scipy.interpolate import PchipInterpolator
 from scipy.stats import (
     expon,
     gamma,
@@ -20,7 +22,7 @@ from scipy.stats import (
     kappa4,
     norm,
     pearson3,
-    truncexpon,
+    rv_continuous,
     weibull_min,
 )
 from shapely.geometry import shape
@@ -166,17 +168,41 @@ def generate_streamflow_percentiles(
 
     # Check to see if all values are the same, if so grab the first, otherwise get their point percent functions
     if not np.allclose(streamflow_expon_values, streamflow_expon_values[0]):
-        # Generate 10000 random values from distribution
-        trunc_expon = truncexpon(
-            *truncexpon.fit(streamflow_expon_values, loc=np.min(streamflow_expon_values))
-        )
+        streamflow_list = [(value, index) for index, value in enumerate(ef_values)]
+        streamflow_list.sort()
+        x_points = [item[0] for item in streamflow_list]
+        x_indices = [item[1] for item in streamflow_list]
+        cumsum = np.cumsum(scaled_likelihoods[x_indices] / 1e4)
+        cdf_points = np.interp(cumsum, [np.min(cumsum), np.max(cumsum)], [0.05, 0.95])
+
+        coefficientsx = np.polyfit(x_points, cdf_points, 2)
+        coefficientsy = np.polyfit(cdf_points, x_points, 2)
+        polynomial_functionx = np.poly1d(coefficientsx)
+        polynomial_functiony = np.poly1d(coefficientsy)
+        x_fitx = np.linspace(min(x_points), max(x_points), 100)  # Generate more points for a smooth curve
+        y_fity = polynomial_functionx(x_fitx)
+
+        y_fitx = np.linspace(min(cdf_points), max(cdf_points), 100)  # Generate more points for a smooth curve
+        x_fity = polynomial_functiony(y_fitx)
+
+        custom_cdf_func = PchipInterpolator(x_fitx, y_fity, extrapolate=True)
+        custom_ppf_func = PchipInterpolator(y_fitx, x_fity, extrapolate=True)
+
+        class CustomInterpDist(rv_continuous):
+            def _cdf(self, x):
+                return custom_cdf_func(x)
+
+            def _ppf(self, q):
+                return custom_ppf_func(q)
+
+        custom_dist = CustomInterpDist(a=min(x_points), b=max(x_points), name="CustomInterpDist")
 
         return {
-            '90': max(0, trunc_expon.ppf(0.1)),
-            '75': max(0, trunc_expon.ppf(0.25)),
-            '50': max(0, trunc_expon.ppf(0.5)),
-            '25': max(0, trunc_expon.ppf(0.75)),
-            '10': max(0, trunc_expon.ppf(0.9)),
+            '90': max(0, custom_dist.ppf(0.1)),
+            '75': max(0, custom_dist.ppf(0.25)),
+            '50': max(0, custom_dist.ppf(0.5)),
+            '25': max(0, custom_dist.ppf(0.75)),
+            '10': max(0, custom_dist.ppf(0.9)),
             'feature_id': feature,
         }
 
@@ -219,9 +245,13 @@ def get_subdivided_src(
         To get synthetic rating curve
 
     """
-    df_src = pd.read_csv(
-        os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv")
-    )
+
+    with fsspec.open(
+        os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv"),
+        mode='rt',
+        encoding='utf-8',
+    ) as f:  # Use 'rt' for text mode, and specify encoding
+        df_src = pd.read_csv(f)
 
     df_src = df_src.drop(
         [
@@ -240,9 +270,10 @@ def get_subdivided_src(
         errors='ignore',
     )
 
-    df_htable = pd.read_parquet(
-        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"), filters=[('branch_id', '==', int(branch))]
-    )
+    with fsspec.open(
+        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"), mode='rb'
+    ) as f:  # Use 'rt' for text mode, and specify encoding
+        df_htable = pd.read_parquet(f, filters=[('branch_id', '==', int(branch))])
     df_htable = df_htable.reset_index()
     df_htable = df_htable.astype({'HUC': str, 'HydroID': int})
 

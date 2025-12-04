@@ -135,7 +135,7 @@ def Inundate_gms(
         as_completed(executor_generator),
         total=len(executor_generator),
         desc=f"Inundating branches with {num_workers} workers",
-        disable=True,
+        disable=(not verbose),
     ):
         hucCode, branch_id = executor_generator[future]
 

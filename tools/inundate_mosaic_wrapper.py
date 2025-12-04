@@ -155,7 +155,7 @@ def produce_mosaicked_inundation(
 
         map_file.to_csv(map_filename, index=False)
 
-    # fh.vprint("Mosaicking extent...", verbose)
+    fh.vprint("Mosaicking extent...", verbose)
 
     for mosaic_attribute in ["depths_rasters", "inundation_rasters"]:
         mosaic_output = None
