@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import pickle
 import sys
@@ -382,9 +383,35 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         output_meta_list = pickle.load(p_handle)
         # print(f"NWM metadata file loaded from {metadata_filepath}.")  # TEMP DEBUG
 
+
+    # filter by the incoming lst_hucs, which may be one or all
+
+    # Filter for dictionaries where 'name' is 'Alice'
+    # filtered_list_by_name = [item for item in data_list if item.get('name') == 'Alice']
+    # print(filtered_list_by_name)
+
+    # filtered_meta_list = [item for item in output_meta_list if item.get('HUC8') in lst_hucs]
+        # Find lid metadata from master list of metadata dictionaries.
+    # filtered_meta_list = next(
+    #     (item for item in output_meta_list if item['identifiers']['HUC8'] in lst_hucs), False
+    # )
+
+    huc_lid_dict = {}
+    filtered_meta_list = []
+    for site_entry in output_meta_list:
+        lid_i = site_entry['identifiers']['nws_lid']
+        huc_nws_i = site_entry['nws_preferred']['huc']
+        huc_usgs_i = site_entry['usgs_preferred']['huc']
+
+        huc_i = huc_usgs_i if huc_nws_i is None else huc_nws_i
+
+        if 'all' in lst_hucs or huc_i in lst_hucs:
+            huc_lid_dict[lid_i] = huc_i
+            filtered_meta_list.append(site_entry)
+
     # Get the HUC dictionary
     # ROB: Do we need to make sure the output_meta_list is not empty? Woudl it ever be?
-    huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
+    # huc_lid_dict = get_huc_dictionary(filtered_meta_list, lst_hucs)
 
     # Check if huc_lid_dict is empty and log message (unlikely but possible)
     if not huc_lid_dict:
@@ -397,7 +424,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
 
     print()
 
-    return output_meta_list, huc_lid_dict, messages
+    return filtered_meta_list, huc_lid_dict, messages
 
 # TODO: THIS SHOULD BE MOVED TO A CATFIM-SPECIFIC SCRIPT 
 # Rob: maybe not.. TBD...

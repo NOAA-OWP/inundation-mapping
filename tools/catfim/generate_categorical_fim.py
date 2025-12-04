@@ -183,7 +183,7 @@ def process_generate_categorical_fim(
 
         logging.info(f"Start catfim processing for {catfim_type_name} ;  (UTC): {dt_string}")
         print("")
-        print(f"  Logs will be saved to {log_file_path}")        
+        print(f"... Logs will be saved to {log_file_path}")        
 
         # Needed even if we are skip_processes
         __create_runtime_args_file(output_folder,
@@ -203,7 +203,7 @@ def process_generate_categorical_fim(
 
         # We really only need to load this env if we are going to let the script call WRDS directly.
         api_base_url = ""
-        if get_new_meta_data or get_new_threshold_data:
+        if get_new_meta_data is True:
             api_base_url = csf.load_fim_global_env_values(env_file)
         
         
@@ -278,7 +278,9 @@ def process_generate_categorical_fim(
             
             # Skip duration as it would have been super short
             logging.info("End generate categorical fim processing")
-            sf.print_andor_log_duration(overall_start_time, True, True, logging.getLogger())
+            duration_msg = sf.calculate_duration_msg(overall_start_time)
+            logging.info(duration_msg)
+
             return
 
         num_hucs_to_process = len(huc_dir)
@@ -360,7 +362,8 @@ def process_generate_categorical_fim(
         catfim_post_processing(output_folder)
 
         logging.info("End generate categorical fim processing")
-        sf.print_andor_log_duration(overall_start_time, True, True, logging.getLogger())
+        duration_msg = sf.calculate_duration_msg(overall_start_time)
+        logging.info(duration_msg)
 
     except Exception as ex:
         trace_error = traceback.format_exc()

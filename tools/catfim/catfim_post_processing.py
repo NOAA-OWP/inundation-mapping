@@ -115,7 +115,8 @@ def catfim_post_processing(output_folder):
         #   search for files in each huc level for file names with _errors or _warnings
           
         logging.info(f"End CatFIM post processing")
-        sf.print_andor_log_duration(overall_start_time, True, True, logging.getLogger())
+        duration_msg = sf.calculate_duration_msg(overall_start_time)
+        logging.info(duration_msg)
     
     except Exception:
         trace_error = traceback.format_exc()

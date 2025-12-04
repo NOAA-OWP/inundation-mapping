@@ -668,44 +668,22 @@ def s3_or_local_glob(path: str) -> list:
     return fs.glob(pth)
 
 
-def print_andor_log_duration(start_dt, include_print=True, include_log=True, logging_instance=None ):
+def calculate_duration_msg(start_dt):
     '''
     Process:
     -------
     Calcuates the difference in time between the start and curerent end time (in UTC)
-    and prints is as:
+    and returns is as:
 
-        Ended (UTC): 11/22/2025 16:48:21    Duration: 4 hours 23 mins 15 secs
+        Duration: 4 hours 23 mins 15 secs
 
     Make sure your start_dt is in UTC
 
-    -------
-    Usage:
-        - You can optionally just use this for print to screen/console. Defaulted to true.
-          You can turn off print via include_print=False.
-          
-        - You can optionally just use this to log to file only. Defaulted to true.
-          You can turn off print via include_log=False. Note: If you do want to include logging,
-          make sure you have included a logging_instance with file logging set up.
-
-        -  Sample usages:
-            - to both screen and logger - default logger
-                display_duration(some starting date/time object, True, True, logging.getLogger() )
-            - to both screen and logger - custom logger
-                display_duration(some_date/time object, True, True, fim_logger (or similar) )
-            - screen only
-                display_duration(some_date/time object, True, False)
-            - to log only
-                display_duration(some_date/time object, False, True, logging.getLogger() /  fim_logger (or similar))
-    -------
-    Returns:
-        Duration as a formatted string (just the duration part and not the part about End: (date/time))
-
     '''
 
-    if include_log and not isinstance( logging_instance, logging.Logger):
-        raise Exception("You have requested to log the duration to file, but the logging_instance"
-                        " does not appear to be an instance of logging.Logger (or a custom version).")
+    # if include_log and not isinstance( logging_instance, logging.Logger):
+    #     raise Exception("You have requested to log the duration to file, but the logging_instance"
+    #                     " does not appear to be an instance of logging.Logger (or a custom version).")
     
     end_dt = datetime.now(timezone.utc)
     dt_string = end_dt.strftime("%m/%d/%Y %H:%M:%S")
@@ -721,10 +699,6 @@ def print_andor_log_duration(start_dt, include_print=True, include_log=True, log
         total_hours = (total_days * 24) + total_hours
 
     time_fmt = f"Duration: {total_hours:02d} hours {total_mins:02d} mins {seconds:02d} secs"
-    msg = f"Ended (UTC): {dt_string}  {time_fmt}"
-
-    if include_print:
-        print(msg)
 
     return time_fmt
 

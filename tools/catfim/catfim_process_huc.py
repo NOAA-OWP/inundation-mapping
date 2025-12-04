@@ -4,8 +4,10 @@ import os
 import argparse
 import logging
 import pickle
+import random
 import shutil
 import sys
+import time
 import traceback
 
 from datetime import datetime, timezone
@@ -14,11 +16,13 @@ from dotenv import load_dotenv
 import geopandas as gpd
 import pandas as pd
 
+import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
 
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools_shared_functions import (
+    aggregate_wbd_hucs,
     filter_nwm_segments_by_stream_order,
     get_datum,
     get_nwm_segs,
@@ -107,13 +111,6 @@ def process_huc(huc, output_folder):
 
     huc_path, output_folder = __validate_inputs(huc, output_folder)  # also validates some bash_variables if it needs any.
 
-    wrds_api_base_url = csf.load_fim_global_env_values(os.getenv('ENV_FILE'))
-
-    # TODO: With this huc being processed in MP and all HUCs sharing the same physical meta and threshold files, we 
-    #   are going to have problems with race conditions. After we validate, make copies into the local HUC dir
-    #   temporary so it can use them for processing.
-    #   HUMM... google if we will have a race condition on copying the file.. I dont' think so but double check it
-
     try:
 
         overall_start_time = datetime.now(timezone.utc)
@@ -131,64 +128,49 @@ def process_huc(huc, output_folder):
 
         # ---------------------
         # Setup logging. It should make its own huc log folder inside the parent "logs" folder
-        log_file_dir = os.path.join(huc_path, f"{huc}_logs")
-        log_file_path = sf.setup_file_logger(log_file_dir, f"process_huc")
+        log_file_dir = os.path.join(huc_path, "logs")
+        log_file_path = sf.setup_file_logger(log_file_dir, f"process_huc_{huc}")
 
         print("")
         logging.info(f"Processing {catfim_type_name} catfim fim for HUC: {huc} ;  {dt_string} (UTC)")
         print("")
-        print(f"Logs for this HUC will be saved to {log_file_path}")        
+        print(f"... Logs for this HUC will be saved to {log_file_path}")        
         
         output_mapping_dir = os.path.join(huc_path, "mapping")
                 
-        # FB uses a discharge_file but SB does not. Easiest to clean the folder completely up regardless of type.
+        # FB uses a discharge_file (in flows folder) but SB does not. Easiest to clean the folder completely up regardless of type.
         discharge_file_path, sites_file_path, library_file_path = __set_start_files_folders(huc_path, output_mapping_dir)
-    
-        if huc == '01070001':
-            raise Exception("testing exception in a huc")
 
-        # # Change to new download_process_wrds.py file
-        # metadata_url = f'{wrds_api_base_url}/metadata'
-        # huc_dictionary, meta_gdf = csf.get_meta_and_huc_data(output_folder,
-        #                                                      metadata_url,
-        #                                                      os.getenv('SEARCH'),
-        #                                                      os.getenv('NWM_METAFILE_PATH'),
-        #                                                      os.getenv('GET_NEW_META_DATA'),
-        #                                                      [huc])
-        # if len(huc_dictionary) == 0:
-        #     msg = f"HUC number of {huc} is invalid or does not have any nwm sites associated to it."
-        #     logging.critical(msg)
-        #     raise Exception(msg)
+        # =========================================
+        # Let's get the meta and points
+        section_start_dt = datetime.now(timezone.utc)
 
-        # if len(huc_dictionary) > 1:
-        #     # ie: {'12090301': ['BRTT2', 'CBST2', 'LGRT2', 'SMIT2']}
-        #     msg = "An internal error has occurred. Expected 0 or 1 records back."
-        #     logging.critical(msg)
-        #     raise Exception(msg)
+        # TODO do I need the json anymore?
+        logging.info("loading sites meta data")
+        meta_data_json, sites_gdf, _ = __get_metadata(huc, huc_path, output_folder)
 
-        # # Make a simple list of just the site_ids
-        # # Note: Should not be any recs coming in from meta_gdf that have dup nws_lid values
-        # huc_nws_lids = huc_dictionary[huc]
+        # Lets write what we have raw from meta data
+        sites_gdf = __setup_sites_gdf(sites_gdf, os.getenv('CATFIM_TYPE'), output_folder)
 
-        # # It is ok to continue anyways as it will just log that it has none found.
-        # # Is this even possible at this point? doesn't really matter.
-        # logging.info(f"{len(huc_nws_lids)} sites found before validation: {huc_nws_lids}")
-        
-        # # Start building up the new sites / meta file. We can adjust the status as we go.        
-        # meta_gdf = __setup_sites_gdf(meta_gdf, catfim_type)
-        
-        # # validation of the valid_nwm_lids already be done, so neither of these variables should be empty.
-        # valid_nwm_lids, meta_gdf = __check_for_resticted_sites(meta_gdf, catfim_type, huc, sites_file_path)
+        # Now compare that huc_dictionary to restricted sites
+        valid_nwm_lids, sites_gdf = __check_for_resticted_sites(sites_gdf, os.getenv('CATFIM_TYPE'), huc, sites_file_path)
+
+        logging.info("loading sites meta data - Complete")
+        duration_msg = sf.calculate_duration_msg(section_start_dt)
+        logging.info(duration_msg)
+
+
         # logging.info(f"{len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
-        
+
         # Temp debugging
         print("--------------")
         print("Ok.. let's stop here for now")   
         sys.exit(0)
-
-        # __save_sites_file(meta_gdf, sites_file_path)
-        # graceful exit is fine here. We don't need to crash it or through an exception.
-
+        
+        # =========================================
+        # Let's get the Threshold data
+        section_start_dt = datetime.now(timezone.utc)
+        logging.info("loading flow threshold data for valid sites")
         
         # ---------------------
         # Get threshold data
@@ -199,14 +181,10 @@ def process_huc(huc, output_folder):
         # but flow data for FB comes from the HAND dataset, for SB it comes from WRDS?  check this..
 
         
-        
-        # ---------------------    
-        # Various meta and threshold processing? including validation of data ?
+        logging.info("loading flow and threshold data for valid sites - Complete")
+        duration_msg = sf.calculate_duration_msg(section_start_dt)
+        logging.info(duration_msg)
 
-        
-        # ---------------------
-        # ? When / how do the points get added to sites?
-        
         # ---------------------    
         # Figure out categories. (ie.. action, moderate, etc) - SB to also figure out intervals?
         
@@ -230,9 +208,12 @@ def process_huc(huc, output_folder):
         # ---------------------    
         # Make final library files for this HUC
         
+        logging.info(f"Updating sites gdf and csv with finalized site data at {sites_file_path}")
+        __save_sites_file(sites_gdf, sites_file_path, True)
         
         logging.info(f"End processing for huc {huc}")
-        sf.print_andor_log_duration(overall_start_time, True, True, logging.getLogger())
+        duration_msg = sf.calculate_duration_msg(overall_start_time)
+        logging.info(duration_msg)
         
         # nothing to return as of now
         # but generate_categorical_fim.py can if it has value to return.
@@ -244,9 +225,8 @@ def process_huc(huc, output_folder):
         
     except Exception:
         trace_error = traceback.format_exc()
-        
+
         err_msg = f"A critical error has occurred while processing {huc}. Detail: {trace_error}"
-        
         if is_logging_loaded:
             logging.critical(err_msg)
         else:
@@ -255,54 +235,323 @@ def process_huc(huc, output_folder):
         # do we re-throw the error? gcf, aws, or cmd line? hummm
 
 
-# def __emilys_get_threshold_data(get_new_threshold_data,
-#                               threshold_file_path,
-#                               huc_lid_dict):
+def __get_metadata(huc, huc_path, output_folder):
 
-    
-# ROB: This needs some cleanup
-#     Processing:
-#         If 
-    
-#     if get_new_threshold_data is False:
-#         if threshold_file_path is None or threshold_file_path == "":
-#             threshold_file_path = os.getenv("nwm_threshold_file")  # get from Bash_variables
+    # If we are not getting new metadata, then we assume that the runtime args has the path
+    # to a valid pkl file. We just need to copy it over to this dir and load it so we don't
+    # have a file collision.
+    nwm_meta_file = os.getenv('NWM_METAFILE_PATH')
 
-#         if os.path.exists(threshold_file_path):
-#             raise Exception....
-#          
-#         Load the provided or default bash_variables pickle file
+    # We really only need to load this env if we are going to let the script call WRDS directly.
+    api_base_url = ""
+    if os.getenv('GET_NEW_META_DATA') is True:
+        api_base_url = csf.load_fim_global_env_values(os.getenv('ENV_FILE'))
 
-        # if os.path.isfile(threshold_file_path):
-        #     logging.info("Loading threshold file from {threshold_file_path}")
-        #     with open(threshold_file_path, "rb") as p_handle:
-        #         output_meta_list = pickle.load(p_handle)
-        # else:
-        #     raise Exception(f"threshold_file_path at {threshold_file_path} does not exist")
+        # Figure out pathing for the new file to be created, but we need it to be saved in this huc dir
+        # If we load our own, add the huc number in front.
+        nwm_meta_file = os.path.join(huc_path, f'{huc}_nwm_metadata.pkl')                    
+    else:
+        # We need to make a copy of it and put it into the local dir temporaily
+        # to save against MP file collisions.
+        # then pass that into
+        if os.path.isfile(nwm_meta_file) is False:
+            raise FileNotFoundError(f"Error: Expected metafile at {nwm_meta_file}")
         
-#     else:  # go get it from Emily  get_new_threshold_data == True:
-#         threshold_url = f'{os.getenv("API_BASE_URL")}/nws_threshold'
+        # Make a copy of it and put it in our local dir, but give it a few second random delay to help
+        # with MP and all of the first set of hucs grabbing a copy at the exact same time.
 
-#         label='catfim_{huc number?}' # TEMP (whatever)  (hummm... do I want huc name as mine will only ever have one huc at a time.)
-#         label_with_date = dw.label_data_file(label, lst_hucs)
-#         output_thresholds_filename = f'thresholds{label_with_date}.pkl'
-#         threshold_file_path = os.path.join(output_catfim_dir, output_thresholds_filename)
+        # A bit of start staggering to help not overload the MP (0.1 milliseconds to 2 secs)
+        time_delay_mms = random.randint(100, 2000) / 1000
+        time.sleep(time_delay_mms)
+        src_nwm_meta_file = os.path.join(output_folder, nwm_meta_file)
+        meta_file_name = os.path.basename(nwm_meta_file)
+        nwm_meta_file = os.path.join(huc_path, meta_file_name)  # Now using the new huc copy
+        shutil.copyfile(src_nwm_meta_file, nwm_meta_file)
 
-        # current dev flow based get_thresholds
-            # stages, flows, threshold_count = get_thresholds(
-            #     threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-            # )
+    # should give us the meta for just this huc
+    meta_data_json, huc_dictionary, return_msgs = dpw.load_nwm_metadata(nwm_meta_file,
+                                                            api_base_url,
+                                                            os.getenv('SEARCH'),
+                                                            os.getenv('GET_NEW_META_DATA') ,
+                                                            [huc])
 
-        # current dev stage based get_thresholds
-            # thresholds, flows, threshold_count = get_thresholds(
-            #    threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-            #)
+    # return_msgs is a list and might have some warnings, some messages and/or errors
+    if len(return_msgs) > 0:
+        # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of 
+        # custom exceptions.
 
-#         # Download thresholds. Catfim will only need to get one HUC at a time.
-#         thresholds, flows, threshold_count = dw.download_all_thresholds(threshold_file_path, threshold_url, huc_lid_dict)
-#  
-#    return thresholds, flows, threshold_count
+        # also.. we get duplicate info to the script as download_process_wrds.py has both prints
+        # and returns as a message.  Hummmm. See notes in download_process_wrds.py
 
+        for msg in return_msgs:
+            if "warning" in msg.lower():
+                logging.warning(msg)
+            elif "error" in msg.lower():
+                raise Exception(msg)
+            else:
+                logging.info(msg)
+
+    if len(huc_dictionary) == 0:
+        raise Exception(f"Error: {huc} does not appears to have any nwm sites")
+
+    # TODO: Is this possible that it could be empty? probably not... trace load_nwm_metadata
+    if len(meta_data_json) == 0:
+        raise Exception("Error: internal error: meta_data_json should not be empty")
+
+
+    # In theory, the huc_dictionary should be the same one as above.
+
+    # TODO: We likely don't need the full WBD which has all levels, HUC2, HUC4, ETC
+    # Let's check if we can feed it a huc8 version and would it speed it up at all?
+    # Might have layer names problems, but maybe if we have the word "huc8" in the names we can jsut get the first layer?
+    # or maybe we do start switching it. We really never have any toosl that need a full wbd_national with all
+    # huc layers. Rob: Maybe make a card for it for all including this one ??
+    huc_dictionary, sites_gdf = aggregate_wbd_hucs(meta_data_json, os.getenv("input_wbd_layer"), True, [huc])
+
+    # Drop list fields if invalid
+    sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
+    sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+
+    if 'metadata_sources' in sites_gdf.columns:  # TODO: Is this column needed/used? Changed to accomodate Guam?
+        sites_gdf = sites_gdf.astype({'metadata_sources': str})
+
+    viz_sites_gdf = sites_gdf.to_crs(VIZ_PROJECTION)
+
+    # Debug Temp. Lets make a copy as a checkpoint
+    # raw_sites_file = os.path.join(huc_path, "raw_sites.gpkg")
+    # viz_sites_gdf.to_file(raw_sites_file, driver='GPKG', crs=VIZ_PROJECTION, engine='fiona')
+
+    return meta_data_json, viz_sites_gdf, huc_dictionary
+
+
+def __setup_sites_gdf(sites_gdf, catfim_type, output_folder):
+
+    # Start building up the new sites / meta file. We can adjust the status as we go.
+    
+    # add new columns
+    sites_gdf["mapped"] = "no"  # definately want to start with "yes" and change to "no" if/as required.
+            
+    # Allows us to change this along the way if we need too
+    # and if the status is not been changed, then at the very end, we can change it to an empty
+    # string (aka.. all went perfectly well)
+    sites_gdf["status"] = "value not set"  # allows us to change this along the way if we need too
+    
+    # This is a temp column to help sort out errors versus warning when we
+    # change mapped value to yes.    
+    sites_gdf["warnings"] = ""
+    
+    # adjust and/or rename some columns
+    # Note: Yes... we are renaming 'identifiers_nws_lid': 'nws_lid'.
+    # At the very end, we will rename it to ahps_lid.
+    # Maybe we fix it someday, but not now. Too many other things going on.
+    sites_gdf.rename(
+        columns={
+            'identifiers_nwm_feature_id': 'nwm_seg',
+            'identifiers_nws_lid': 'nws_lid',
+            'identifiers_usgs_site_code': 'usgs_gage',
+        },
+        inplace=True,
+    )
+    sites_gdf['nws_lid'] = sites_gdf['nws_lid'].str.lower()
+    sites_gdf.rename(columns={"nws_lid": "ahps_lid"}, inplace=True)
+    
+    # Drop list fields if invalid
+    # downstream_nwm_features and upstream_nwm_features are lists and gpkg does not like it
+    sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
+    sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+    sites_gdf = sites_gdf.astype({'metadata_sources': str})
+    
+    # NOTE: if you get errors saying: Skipping field because of invalid value:
+    # There are a couple of possible reasons. Data type mismatch, None in a float/int column and the most
+    # common is a list object in a meta gdf field. To fix it, generaally just make it a string or drop it.
+    # We have both above.
+    # Nov 6, 2025: We have appx 15 fields that fail but not on all recs. Let's try to change all columns to string
+    # and see if that helps.
+
+    # We need a better answer here as we do want some columns to non string
+    
+    # Dec 4, 2025, we may no longer need this. We saw the problem with 12090301, failing saying invalid key
+    # # Convert all non-geometry columns to string
+    # for col in sites_gdf.columns:
+    #     if col != sites_gdf.geometry.name:  # Exclude the geometry column
+    #         sites_gdf[col] = sites_gdf[col].astype(str)
+    #         sites_gdf[col].fillna('', inplace=True)
+
+
+    
+    # Some SB specific columns we want to create now and populate later.
+    if catfim_type == 'sb':
+        sites_gdf['acceptable_coord_acc_code_list'] = ""
+        sites_gdf['acceptable_coord_method_code_list'] = ""
+        sites_gdf['acceptable_alt_acc_thresh'] = 0.0
+        sites_gdf['acceptable_alt_meth_code_list'] = ""
+        sites_gdf['acceptable_site_type_list'] = ""
+        
+    return sites_gdf
+
+
+def __check_for_resticted_sites(sites_gdf, catfim_type, huc, sites_file_path):
+    # ---------------------
+    # Get list of applicable sites, valid sites for this HUCs from master sites metadata
+    #   Watching for excluded sites from restricted sites csv.
+    df_restricted_sites = __load_restricted_sites(catfim_type)
+
+    # Update some of the meta.gdf records if they are in df_restricted_sites
+    # Check whether the LIDs is in the restricted sites list
+    # meta_gdf is likely pretty small by now, only sites for this HUC
+    # Likely a smarter way to do this as well.. lambda? Could do a join but we have
+    # dup column names we would have to cleanup.
+    valid_nwm_lids = []
+    for index, row in sites_gdf.iterrows():
+        lid = row["ahps_lid"]
+        is_restrict_lid = df_restricted_sites.loc[df_restricted_sites['nws_lid'] == lid.upper()]
+        if len(is_restrict_lid) > 0:
+            # what if it comes back with more than one? if so.. it is a bug in the list
+            sites_gdf.at[index, "status"] = is_restrict_lid.iloc[0]['restricted_reason']
+            sites_gdf.at[index, "mapped"] = "no"
+        else:
+            valid_nwm_lids.append(lid)
+
+    # Save the meta file we have with the new error messages, then abort.
+    if len(valid_nwm_lids) == 0:
+        msg = f"All sites associated to HUC {huc} are retricted. No more processing will continue. Aborting."
+        logging.critical(msg)
+        
+        __save_sites_file(sites_gdf, sites_file_path, True)
+        # graceful exit is fine here. We don't need to crash it or through an exception.
+        # sys.exit(0)  # humm.. or do we let this throw the exception for MP?
+        raise Exception(msg)
+    else:
+        # lets save where we are at this point. We don't need the csv right now
+        logging.info(f"Saving sites, pre flow and mapping, at {sites_file_path}")
+        __save_sites_file(sites_gdf, sites_file_path, False)
+
+    return valid_nwm_lids, sites_gdf
+    
+
+def __load_restricted_sites(catfim_type):
+    """
+    Previously, only stage based used this. It is now being used by stage-based and flow-based (1/24/25)
+
+    The 'catfim_type' column can have three different values: 'stage', 'flow', and 'both'. This determines
+    whether the site should be filtered out for stage-based CatFIM, flow-based CatFIM, or both of them.
+
+    Returns: a dataframe for the restricted lid and the reason why:
+        'nws_lid', 'restricted_reason'
+    """
+
+    file_name = "ahps_restricted_sites.csv"
+    current_script_folder = os.path.dirname(__file__)
+    file_path = os.path.join(current_script_folder, file_name)
+
+    df_restricted_sites = pd.read_csv(file_path, dtype=str)
+
+    df_restricted_sites['nws_lid'].fillna("", inplace=True)
+    df_restricted_sites['restricted_reason'].fillna("", inplace=True)
+    df_restricted_sites['catfim_type'].fillna("", inplace=True)
+
+    # remove extra empty spaces on either side of all cellls
+    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.strip()
+    df_restricted_sites['restricted_reason'] = df_restricted_sites['restricted_reason'].str.strip()
+    df_restricted_sites['catfim_type'] = df_restricted_sites['catfim_type'].str.strip()
+
+    # Need to drop the comment lines before doing any more processing
+    df_restricted_sites.drop(
+        df_restricted_sites[df_restricted_sites.nws_lid.str.startswith("#")].index, inplace=True
+    )
+
+    # Filter df_restricted_sites by CatFIM type
+    if catfim_type == 'sb':  # Keep rows where 'catfim_type' is either 'stage' or 'both'
+        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['stage', 'both'])]
+
+    else:
+        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['flow', 'both'])]
+
+    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.upper()
+
+    # Clean up dataframe
+    for ind, row in df_restricted_sites.iterrows():
+        nws_lid = row['nws_lid']
+        restricted_reason = row['restricted_reason']
+
+        if restricted_reason == "":
+            restricted_reason = "From the ahps_restricted_sites,"
+            " the site will not be mapped, but a reason has not be provided."
+            df_restricted_sites.at[ind, 'restricted_reason'] = restricted_reason
+
+            # FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'")            
+            # Humm.. how do we log this? screen is ok, but log isn't (MP versus non MP)
+            # can we try just using the "logging" instance? Let's try it and see what happens
+            logging.warning(f"{restricted_reason}. Lid is '{nws_lid}'")     
+                        
+        continue
+    # end loop
+
+    # Remove catfim_type column
+    df_restricted_sites.drop('catfim_type', axis=1, inplace=True)
+
+    return df_restricted_sites
+
+
+def __save_sites_file(sites_gdf, sites_file_path, inc_csv):
+    
+    sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
+
+    if inc_csv is True:
+        # Save a csv version as well
+        nws_lid_csv_file_path = sites_file_path.replace(".gpkg", ".csv")
+        sites_gdf.to_csv(nws_lid_csv_file_path)
+
+
+"""
+def __emilys_get_threshold_data(get_new_threshold_data,
+                              threshold_file_path,
+                              huc_lid_dict):
+
+    
+ROB: This needs some cleanup
+    Processing:
+        If 
+    
+    if get_new_threshold_data is False:
+        if threshold_file_path is None or threshold_file_path == "":
+            threshold_file_path = os.getenv("nwm_threshold_file")  # get from Bash_variables
+
+        if os.path.exists(threshold_file_path):
+            raise Exception....
+         
+        Load the provided or default bash_variables pickle file
+
+        if os.path.isfile(threshold_file_path):
+            logging.info("Loading threshold file from {threshold_file_path}")
+            with open(threshold_file_path, "rb") as p_handle:
+                output_meta_list = pickle.load(p_handle)
+        else:
+            raise Exception(f"threshold_file_path at {threshold_file_path} does not exist")
+        
+    else:  # go get it from Emily  get_new_threshold_data == True:
+        threshold_url = f'{os.getenv("API_BASE_URL")}/nws_threshold'
+
+        label='catfim_{huc number?}' # TEMP (whatever)  (hummm... do I want huc name as mine will only ever have one huc at a time.)
+        label_with_date = dw.label_data_file(label, lst_hucs)
+        output_thresholds_filename = f'thresholds{label_with_date}.pkl'
+        threshold_file_path = os.path.join(output_catfim_dir, output_thresholds_filename)
+
+        current dev flow based get_thresholds
+            stages, flows, threshold_count = get_thresholds(
+                threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+            )
+
+        current dev stage based get_thresholds
+            thresholds, flows, threshold_count = get_thresholds(
+               threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+            )
+
+        # Download thresholds. Catfim will only need to get one HUC at a time.
+        thresholds, flows, threshold_count = dw.download_all_thresholds(threshold_file_path, threshold_url, huc_lid_dict)
+ 
+   return thresholds, flows, threshold_count
+"""
 
 # TODO: Nov 7, 2025: Emily will have a replacement for this, so it will go away
 def __get_threshold_data(threshold_url,
@@ -360,119 +609,10 @@ def __get_threshold_data(threshold_url,
 # def get_flow_data():  use generate_categorical_fim_flows to get this.
 
 
-def __setup_sites_gdf(meta_gdf, catfim_type):
-
-    # Start building up the new sites / meta file. We can adjust the status as we go.
-    
-    # add new columns
-    meta_gdf["mapped"] = "no"  # definately want to start with "yes" and change to "no" if/as required.
-            
-    # Allows us to change this along the way if we need too
-    # and if the status is not been changed, then at the very end, we can change it to an empty
-    # string (aka.. all went perfectly well)
-    meta_gdf["status"] = "value not set"  # allows us to change this along the way if we need too
-    
-    # This is a temp column to help sort out errors versus warning when we
-    # change mapped value to yes.    
-    meta_gdf["warnings"] = ""
-    
-    # adjust and/or rename some columns
-    # Note: Yes... we are renaming 'identifiers_nws_lid': 'nws_lid'.
-    # At the very end, we will rename it to ahps_lid.
-    # Maybe we fix it someday, but not now. Too many other things going on.
-    meta_gdf.rename(
-        columns={
-            'identifiers_nwm_feature_id': 'nwm_seg',
-            'identifiers_nws_lid': 'nws_lid',
-            'identifiers_usgs_site_code': 'usgs_gage',
-        },
-        inplace=True,
-    )
-    meta_gdf['nws_lid'] = meta_gdf['nws_lid'].str.lower()
-    
-    # Drop list fields if invalid
-    # downstream_nwm_features and upstream_nwm_features are lists and gpkg does not like it
-    meta_gdf = meta_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
-    meta_gdf = meta_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-    meta_gdf = meta_gdf.astype({'metadata_sources': str})
-    
-    # NOTE: if you get errors saying: Skipping field because of invalid value:
-    # There are a couple of possible reasons. Data type mismatch, None in a float/int column and the most
-    # common is a list object in a meta gdf field. To fix it, generaally just make it a string or drop it.
-    # We have both above.
-    # Nov 6, 2025: We have appx 15 fields that fail but not on all recs. Let's try to change all columns to string
-    # and see if that helps.
-    
-    # Convert all non-geometry columns to string
-    for col in meta_gdf.columns:
-        if col != meta_gdf.geometry.name:  # Exclude the geometry column
-            meta_gdf[col] = meta_gdf[col].astype(str)
-            meta_gdf[col].fillna('', inplace=True)
-    
-    # Some SB specific columns we want to create now and populate later.
-    if catfim_type == 'sb':
-        meta_gdf['acceptable_coord_acc_code_list'] = ""
-        meta_gdf['acceptable_coord_method_code_list'] = ""
-        meta_gdf['acceptable_alt_acc_thresh'] = 0.0
-        meta_gdf['acceptable_alt_meth_code_list'] = ""
-        meta_gdf['acceptable_site_type_list'] = ""
-        
-    viz_out_gdf = meta_gdf.to_crs(VIZ_PROJECTION)
-        
-    return viz_out_gdf
-
-
-def __check_for_resticted_sites(meta_gdf, catfim_type, huc, sites_file_path):
-    # ---------------------
-    # Get list of applicable sites, valid sites for this HUCs from master sites metadata
-    #   Watching for excluded sites from restricted sites csv.
-    df_restricted_sites = csf.load_restricted_sites(catfim_type)
-
-    # Update some of the meta.gdf records if they are in df_restricted_sites
-    # Check whether the LIDs is in the restricted sites list
-    # meta_gdf is likely pretty small by now, only sites for this HUC
-    # Likely a smarter way to do this as well.. lambda? Could do a join but we have
-    # dup column names we would have to cleanup.
-    valid_nwm_lids = []
-    for index, row in meta_gdf.iterrows():
-        lid = row["nws_lid"]
-        is_restrict_lid = df_restricted_sites.loc[df_restricted_sites['nws_lid'] == lid.upper()]
-        if len(is_restrict_lid) > 0:
-            # what if it comes back with more than one? if so.. it is a bug in the list
-            meta_gdf.at[index, "status"] = is_restrict_lid.iloc[0]['restricted_reason']
-            meta_gdf.at[index, "mapped"] = "no"
-        else:
-            valid_nwm_lids.append(lid)
-
-    # Save the meta file we have with the new error messages, then abort.
-    
-    if len(valid_nwm_lids) == 0:
-        msg = f"All sites associated to HUC {huc} are retricted. No more processing will continue. Aborting."
-        logging.critical(msg)
-        __save_sites_file(meta_gdf, sites_file_path)
-        # graceful exit is fine here. We don't need to crash it or through an exception.
-        sys.exit(0)
-
-    return valid_nwm_lids, meta_gdf
-    
-
-def __save_sites_file(meta_gdf, sites_file_path):
-    
-    logging.info(f"Saving sites file to {sites_file_path} and a csv version as well.")
-
-    # Do not attempt to mess with any columns at this point, as we may choose to save the file at
-    # multiple points through the process before all status are completed.    
-    
-    meta_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
-    meta_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
-
-    # Save a csv version as well
-    nws_lid_csv_file_path = sites_file_path.replace(".gpkg", ".csv")
-    meta_gdf.to_csv(nws_lid_csv_file_path)
-
 
 def __validate_inputs(huc, output_folder):
 
+    # This validates some inputs but also copies key files around.
     
     # TODO: valdiate huc value (8 numeric maybe and starts with 0, 1, or 2) ???? 
     
