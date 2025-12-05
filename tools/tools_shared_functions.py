@@ -129,7 +129,8 @@ def filter_usgs_by_acceptance_criteria(input_df):
         defrag_input_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
     )
     output_df = defrag_input_df[
-        (defrag_input_df['acceptable_codes'] == True) & (defrag_input_df['acceptable_alt_error'] == True)]
+        (defrag_input_df['acceptable_codes'] == True) & (defrag_input_df['acceptable_alt_error'] == True)
+    ]
 
     return output_df
 
