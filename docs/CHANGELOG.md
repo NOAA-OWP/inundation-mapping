@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-09-22 - [PR#1658](https://github.com/NOAA-OWP/inundation-mapping/pull/1658)
+## v4.9.2.0 - 2025-12-05 - [PR#1658](https://github.com/NOAA-OWP/inundation-mapping/pull/1658)
 
 Adds capability to generate HAND FIM for Guam and American Samoa using data from NHDPlus. Guam uses CRS EPSG:6637 and American Samoa uses EPSG:32702. Note that there are no levees for American Samoa. Also relocates the UAT and full HUC lists into the config/huc_lists/ folder.
 
