@@ -1,13 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-08-20 - [PR#1603]([https://github.com/NOAA-OWP/inundation-mapping/pull/1603])
+## v4.9.1.3 - 2025-12-05 - [PR#1603]([https://github.com/NOAA-OWP/inundation-mapping/pull/1603])
 
 This PR fixes issue with box plot generation and introduces a new function to compare two FIM outputs.
 
 ### Changes
 `tools/rating_curve_comparison.py` : changes as described above.
 `tools/tools_shared_function.py`: Quick fix to fix a pandas warning: PerformanceWarning: DataFrame is highly fragmented
+<br/>
+
 ## v4.9.1.2 - 2025-12-05 - [PR#1628]([https://github.com/NOAA-OWP/inundation-mapping/pull/1628])
 
 This PR updates the catchment boundary issue tool to be more efficient in the processing of each individual HUC for identifying catchment boundary issues and adds multiprocessing by HUC for better scalability to large HUC inputs.
