@@ -3,7 +3,6 @@ import datetime as dt
 import os
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
-from multiprocessing import Pool
 
 import geopandas as gpd
 from dotenv import load_dotenv
