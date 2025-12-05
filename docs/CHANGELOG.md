@@ -22,6 +22,96 @@ There are two new scripts in this update.
 - `data/usgs/preprocess_ahps_usgs.py`: Changed output to `get_thresholds()` function.
 <br/>
 
+## v4.9.2.0 - 2025-12-05 - [PR#1658](https://github.com/NOAA-OWP/inundation-mapping/pull/1658)
+
+Adds capability to generate HAND FIM for Guam and American Samoa using data from NHDPlus. Guam uses CRS EPSG:6637 and American Samoa uses EPSG:32702. Note that there are no levees for American Samoa. Also relocates the UAT and full HUC lists into the config/huc_lists/ folder.
+
+### Additions
+
+- `config/huc_lists/`
+    - `full_huc_list.lst`: Adds complete HUC list including Guam and American Samoa (formerly `/data/inputs/huc_lists/included_huc8_withAlaska+Guam+AmericanSamoa.lst`)
+    - `uat_and_alpha_domain_huc_list.lst`: Adds UAT HUC list (formerly `/data/inputs/huc_lists/uat_and_alpha_domain_huc_list_all_alaska.lst`)
+- `data/nhdplus/preprocess_nhdplus.py`: Processes NHDPlus data including filtering and reprojecting
+
+### Changes
+
+- `.gitignore`: Allows new `config/huc_lists` folder and files
+- `fim_pre_processing.sh`: Reads `src/bash_variables.env` to get `huc_list_file` environment variable
+- `fim_pipeline.sh`: Added a comment line
+- `data/`
+    - `bridges/make_rasters_using_lidar.py`: Updates and saves list of classification results
+    - `bridges/pull_osm_bridges.py`, `get_sample_data.py`, `nfhl/download_fema_nfhl.py`, `roads/pull_osm_roads.py`, `wbd/clip_vectors_to_wbd.py`, `wbd/generate_pre_clip_fim_huc8.py`: Adds processing for Guam and American Samoa to existing scripts
+- `data/usgs/acquire_and_preprocess_3dep_dems.py` and `src/agreedem.py`: minor cleanup
+- `src/`
+    - `bash_variables.env`: Update preclip date and add paths for Guam and American Samoa files as well as `huc_list_file` variable
+    - `buffer_stream_branches.py`: Clip branch polygons to WBD instead of DEM domain
+    - `check_huc_inputs.py`: Reads HUC list from environment variable instead of hardcoded file
+    - `run_by_branch.sh`, `run_unit_wb.sh`: Add Guam and American Samoa HUCs
+    - `split_flows.py`: Add NHDPlus Lake field name
+    - `stream_branches.py`: Drop text metadata columns if they exist
+<br />
+    
+## v4.9.1.3 - 2025-12-05 - [PR#1603]([https://github.com/NOAA-OWP/inundation-mapping/pull/1603])
+
+This PR fixes issue with box plot generation and introduces a new function to compare two FIM outputs.
+
+### Changes
+`tools/rating_curve_comparison.py` : changes as described above.
+`tools/tools_shared_function.py`: Quick fix to fix a pandas warning: PerformanceWarning: DataFrame is highly fragmented
+<br/>
+
+## v4.9.1.2 - 2025-12-05 - [PR#1628]([https://github.com/NOAA-OWP/inundation-mapping/pull/1628])
+
+This PR updates the catchment boundary issue tool to be more efficient in the processing of each individual HUC for identifying catchment boundary issues and adds multiprocessing by HUC for better scalability to large HUC inputs.
+
+### Changes
+
+- Updates to `/tools/identify_catchment_boundary.py` to improve computational efficiency.
+
+<br/>
+
+## v.4.9.1.1 - 2025-12-05 - [PR#1697](https://github.com/NOAA-OWP/inundation-mapping/pull/1697)
+
+During some testing of the new PR 1620 :Redesign Calibration workflow, a branch error occurred. During a alpha test against a small huc sample set with a branch error, it exposed a bug in eval_plots.py.  The bug is normally not seen as in order to see the error, you have to have a huc list what errors out on one HUC but no other HUCs in that test run with a valid benchmark source. 
+
+Note: This bug is not related to PR 1620 and has existed for a long time.
+
+## This PR should not be merged until 1620 is merged with dev.
+
+eval_plots.py assume there would be some metrics data a given benchmark type for a given pipeline run and it could end up as an empty dataset. 
+
+### Changes
+
+- `tools`
+    -  `eval_plots.py`: Changes include:
+        - Added more prints to help sort out progress and more context clues when something fails. 
+        - Adjusted a few variable names to be more initiative.
+        - Added a bit of input validation code.
+        - Added some inline validation code to ensure some datasets are not empty in key places.
+        - Fixed a bug when the tool is being used for spatial data, creating the FIM Performance points and poly files. A previous merge accidently changed a key variable name which would have resulted in the two FIM Performance files never being created.
+        - Add more doc strings.
+    - `synthesize_test_cases.py`:   Added a few warning message and upgrade a bit of the wording on an error message.
+    - `run_test_case.py`: Found a bug where shutil.rmtree could fail with directory not empty during race conditions of the python GC. Could have been MP cleaning overlapping or subdirectories at the same times. Added the "ignore_error=True" tag to shutil.rmtree.
+    - `probabilitic_inundation.py`: Added the "ignore_error=True" tag to shutil.rmtree.
+<br />
+
+## v4.9.1.0 - 2025-12-05 - [PR#1689](https://github.com/NOAA-OWP/inundation-mapping/pull/1689)
+
+Uses 100-year FEMA NFHL data as the extent for floodplain adjustment where the data exist. This is primarily to fix the situation around Phoenix AZ where the 500-year floodplain data allow extensive erroneous overflooding even though the 500-year data were confirmed to be correct. Additionally, there is no NFHL availability layer coverage for the area even though there is coverage by the 100- and 500-year layers, so the 100- and 500-year extents are added to the availability layer mask to exclude inundation in those areas beyond the distance threshold. The distance threshold for floodplain adjustment is also reduced from 3000 meters to 1500 meters and confined to the catchment for the current levelpath.
+
+### Changes
+
+- `config/`
+    - `deny_branches.lst`: Adds `dem_burned_adjusted_{}.tif` to deny list
+    - `params_template.env`: Adds a variable to select NFHL layer and changes the floodplain adjustment distance threshold from 3000 m to 1500 m
+- `data/nfhl/download_fema_nfhl.py`: Removes unused import
+- `src/`
+    - `adjust_floodplains.py`: Uses specified NFHL layer in floodplain adjustment and adds combined 100- and 500-year floodplains to availability mask
+    - `run_by_branch.sh`: Adds an intermediate file (`dem_burned_adjusted_{}.tif`) for debugging.
+    - `run_unit_wb.sh`: Miscellaneous cleanup (deleted commented lines and fix misspelling).
+
+<br />
+
 ## v4.9.0.0 - 2025-12-01 - [PR#1620](https://github.com/NOAA-OWP/inundation-mapping/pull/1620)
 ## Summary
 This PR closes #1593  and introduces a **redesigned calibration workflow**, enabling each HUC processor to perform calibration independently after generating its own REM. Therefore, each HUC is self-contained and fully processed before moving to the next.  It also reorganizes log files to be stored within each HUC directory and introduces clear separation between full pipeline runs and calibration reruns.

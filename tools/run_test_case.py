@@ -22,7 +22,7 @@ from tools_shared_variables import (
     elev_raster_ndv,
 )
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
 
 
 class Benchmark(object):
@@ -269,8 +269,10 @@ class Test_Case(Benchmark):
                 self.stats_modes_list.append(inclusion_area_name + '_b' + str(inclusion_area_buffer) + 'm')
 
             # Delete the directory if it exists
+            # Sometimes with MP, os commands can collide in race conditions depending on what folders
+            # are remove folders (folder in folder and possibly others)
             if os.path.exists(self.dir):
-                shutil.rmtree(self.dir)
+                shutil.rmtree(self.dir, ignore_errors=True)
             os.mkdir(self.dir)
 
             # Get the magnitudes and lids for the current huc and loop through them
@@ -433,7 +435,6 @@ class Test_Case(Benchmark):
         mask_type='huc',
         inclusion_area='',
         inclusion_area_buffer=0,
-        light_run=False,
         overwrite=True,
         verbose=False,
         gms_workers=1,
@@ -484,7 +485,7 @@ class Test_Case(Benchmark):
 
         # Delete the directory if it exists
         if os.path.exists(composite_test_case.dir):
-            shutil.rmtree(composite_test_case.dir)
+            shutil.rmtree(composite_test_case.dir, ignore_errors=True)
 
         validation_data = composite_test_case.data(composite_test_case.huc)
         for magnitude in validation_data:

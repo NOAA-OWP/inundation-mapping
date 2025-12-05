@@ -9,6 +9,8 @@ config/**
 !config/aws*.lst
 !config/*template*
 !config/*default*
+!config/huc_lists/
+!config/huc_lists/*.lst
 !config/symbology/
 config/*.swp
 .vscode/

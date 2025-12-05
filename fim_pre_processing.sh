@@ -174,7 +174,7 @@ else
     has_deny_branch_zero_override=1 # it is the value of NONE and is overridden
 fi
 
-# Safety feature to avoid accidentaly overwrites
+# Safety feature to avoid accidental overwrites
 if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     echo
     echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
@@ -185,12 +185,13 @@ fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
 
 # these export are for fim_pipeline only.
 export runName=$runName
 export jobHucLimit=$jobHucLimit
 
-num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList -i $inputsDir)
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 

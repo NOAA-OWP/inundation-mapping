@@ -531,15 +531,30 @@ if __name__ == '__main__':
     print(f"started: {dt_string}")
     print()
 
+    # Warn about the MP job huc to the MT (multi-thread) job number.
+    # While inconsistent, it does pop up a fair bit. It is likely the usage
+    # of those two values in relation to how inundation is using those values.
+    # TODO: Research required.
+    print("--------------------------")
+    print(
+        "Warning: If you see errors in the output of this tool with the phrase of BrokenProcessPool,"
+        " lower the -jh (huc job number) to a lower value. You can adjust the -tb (branch job number)"
+        " to offset the new -jh value."
+    )
+    print("This is a known code issue that will be fixed in a future release.")
+    print("--------------------------")
+
     # check job numbers
     total_cpus_requested = job_number_huc * job_number_branch
     total_cpus_available = os.cpu_count() - 1
     if total_cpus_requested > total_cpus_available:
+        print("Error:")
         raise ValueError(
-            'The HUC job number, {}, multiplied by the branch job number, {}, '
-            'exceeds your machine\'s available CPU count minus one. '
-            'Please lower the job_number_huc or job_number_branch'
-            'values accordingly.'.format(job_number_huc, job_number_branch)
+            f'The HUC job number of {job_number_huc} (-jh)'
+            f' multiplied by the branch job number of {job_number_branch} (-th),'
+            f' exceeds your machine\'s available CPU count of {total_cpus_available} ({os.cpu_count()} - 1)\n'
+            'Please lower the job_number_huc or job_number_branch to create a multipled value that is less'
+            f' than {total_cpus_available} for this tool for this server.'
         )
 
     # Default to processing all possible versions in PREVIOUS_FIM_DIR.
