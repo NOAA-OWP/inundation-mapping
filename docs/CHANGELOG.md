@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v.9.1.1 - 2025-12-05 - [PR#1697](https://github.com/NOAA-OWP/inundation-mapping/pull/1697)
+## v.4.9.1.1 - 2025-12-05 - [PR#1697](https://github.com/NOAA-OWP/inundation-mapping/pull/1697)
 
 During some testing of the new PR 1620 :Redesign Calibration workflow, a branch error occurred. During a alpha test against a small huc sample set with a branch error, it exposed a bug in eval_plots.py.  The bug is normally not seen as in order to see the error, you have to have a huc list what errors out on one HUC but no other HUCs in that test run with a valid benchmark source. 
 
