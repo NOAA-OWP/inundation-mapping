@@ -14,7 +14,7 @@ hucNumber=$2
 branchId=$3
 
 # outputDestDir & tempHucDataDir come from fim_process_unit_wb.sh
-branchLogFileName=$outputDestDir/logs/branch/"$hucNumber"_branch_"$branchId".log
+branchLogFileName=$tempHucDataDir/logs/branch/"$hucNumber"_branch_"$branchId".log
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv
 
 /usr/bin/time -v $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branchLogFileName
