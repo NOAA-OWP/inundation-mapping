@@ -1,6 +1,35 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.2.0 - 2025-12-05 - [PR#1658](https://github.com/NOAA-OWP/inundation-mapping/pull/1658)
+
+Adds capability to generate HAND FIM for Guam and American Samoa using data from NHDPlus. Guam uses CRS EPSG:6637 and American Samoa uses EPSG:32702. Note that there are no levees for American Samoa. Also relocates the UAT and full HUC lists into the config/huc_lists/ folder.
+
+### Additions
+
+- `config/huc_lists/`
+    - `full_huc_list.lst`: Adds complete HUC list including Guam and American Samoa (formerly `/data/inputs/huc_lists/included_huc8_withAlaska+Guam+AmericanSamoa.lst`)
+    - `uat_and_alpha_domain_huc_list.lst`: Adds UAT HUC list (formerly `/data/inputs/huc_lists/uat_and_alpha_domain_huc_list_all_alaska.lst`)
+- `data/nhdplus/preprocess_nhdplus.py`: Processes NHDPlus data including filtering and reprojecting
+
+### Changes
+
+- `.gitignore`: Allows new `config/huc_lists` folder and files
+- `fim_pre_processing.sh`: Reads `src/bash_variables.env` to get `huc_list_file` environment variable
+- `fim_pipeline.sh`: Added a comment line
+- `data/`
+    - `bridges/make_rasters_using_lidar.py`: Updates and saves list of classification results
+    - `bridges/pull_osm_bridges.py`, `get_sample_data.py`, `nfhl/download_fema_nfhl.py`, `roads/pull_osm_roads.py`, `wbd/clip_vectors_to_wbd.py`, `wbd/generate_pre_clip_fim_huc8.py`: Adds processing for Guam and American Samoa to existing scripts
+- `data/usgs/acquire_and_preprocess_3dep_dems.py` and `src/agreedem.py`: minor cleanup
+- `src/`
+    - `bash_variables.env`: Update preclip date and add paths for Guam and American Samoa files as well as `huc_list_file` variable
+    - `buffer_stream_branches.py`: Clip branch polygons to WBD instead of DEM domain
+    - `check_huc_inputs.py`: Reads HUC list from environment variable instead of hardcoded file
+    - `run_by_branch.sh`, `run_unit_wb.sh`: Add Guam and American Samoa HUCs
+    - `split_flows.py`: Add NHDPlus Lake field name
+    - `stream_branches.py`: Drop text metadata columns if they exist
+<br />
+    
 ## v4.9.1.3 - 2025-12-05 - [PR#1603]([https://github.com/NOAA-OWP/inundation-mapping/pull/1603])
 
 This PR fixes issue with box plot generation and introduces a new function to compare two FIM outputs.
