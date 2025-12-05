@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
+import csv
 import datetime as dt
 import gc
+import glob
 import json
 import logging
 import os
 import pathlib
+import pickle
 import traceback
 from pathlib import Path
 
@@ -1065,13 +1068,16 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         Dictionary of stages at each threshold.
     flows : DICT
         Dictionary of flows at each threshold.
-    threshold_count : INT
-        Number of thresholds available for the site.
+    status_msg : STR
+        Status of API call and data availability.
 
     '''
     params = {}
     params['threshold'] = threshold
     url = f'{threshold_url}/{select_by}/{selector}'
+
+    # Initialize status message
+    status_msg = f"Selector: {selector}: "
 
     # response = requests.get(url, params=params, verify=False)
 
@@ -1088,9 +1094,12 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
 
     if response.status_code == 200:
         thresholds_json = response.json()
+
         # Get metadata
         thresholds_info = thresholds_json['value_set']
         threshold_count = thresholds_json['_metrics']['threshold_count']
+        status_msg += f"WRDS response sucessful. {threshold_count} threshold types available. "
+
         # Initialize stages/flows dictionaries
         stages = {}
         flows = {}
@@ -1111,6 +1120,8 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 threshold_data = thresholds_info[0]
             # Get stages and flows for each threshold
             if threshold_data:
+                status_msg += "Thresholds available. "
+
                 stages = threshold_data['stage_values']
                 flows = threshold_data['calc_flow_values']
                 # Add source information to stages and flows. Flows source inside a nested dictionary. Remove key once source assigned to flows.
@@ -1127,12 +1138,14 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 flows['usgs_site_code'] = threshold_data.get('metadata').get('usgs_site_code')
                 stages['units'] = threshold_data.get('metadata').get('stage_units')
                 flows['units'] = threshold_data.get('metadata').get('calc_flow_units')
-        return stages, flows, threshold_count
+        return stages, flows, status_msg
     else:
-        print("WRDS response error: ")
+        status_msg += "WRDS response error."
+        print(status_msg)
+        stages = None
+        flows = None
 
-
-#        print(response)
+        return stages, flows, status_msg
 
 
 ########################################################################
