@@ -20,6 +20,8 @@ There are two new scripts in this update.
 - `tools/tools_shared_functions.py`: Updated the `get_thresholds()` function to produce a status message (and took out the `threshold_count` output).
 - `data/nws/preprocess_ahps_nws.py`: Changed output to `get_thresholds()` function.
 - `data/usgs/preprocess_ahps_usgs.py`: Changed output to `get_thresholds()` function.
+<br />
+
 ## v4.9.0.0 - 2025-12-01 - [PR#1620](https://github.com/NOAA-OWP/inundation-mapping/pull/1620)
 ## Summary
 This PR closes #1593  and introduces a **redesigned calibration workflow**, enabling each HUC processor to perform calibration independently after generating its own REM. Therefore, each HUC is self-contained and fully processed before moving to the next.  It also reorganizes log files to be stored within each HUC directory and introduces clear separation between full pipeline runs and calibration reruns.
