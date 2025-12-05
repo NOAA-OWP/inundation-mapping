@@ -21,9 +21,9 @@ from shapely.geometry.polygon import Polygon
 from tools_shared_functions import mask_out_lakes
 from tqdm import tqdm
 
-import utils.fim_logger as fl
-from utils.shared_functions import getDriver
-from utils.shared_variables import VIZ_PROJECTION
+import src.utils.fim_logger as fl
+from src.utils.shared_functions import getDriver
+from src.utils.shared_variables import VIZ_PROJECTION
 
 
 

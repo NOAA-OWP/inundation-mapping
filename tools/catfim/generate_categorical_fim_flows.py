@@ -4,7 +4,9 @@ import copy
 import glob
 import logging
 import os
+import pickle
 import random
+import shutil
 import sys
 import time
 import traceback
@@ -23,10 +25,12 @@ from tools_shared_functions import (
     get_thresholds,
 )
 
-from download_process_wrds import load_site_thresholds
+import tools.catfim.catfim_shared_functions as csf
+import data.wrds.download_process_wrds as dpw
+# from download_process_wrds import load_site_thresholds
 
 # import utils.fim_logger as fl
-from utils.shared_variables import VIZ_PROJECTION
+from src.utils.shared_variables import VIZ_PROJECTION
 
 """
 Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
@@ -860,6 +864,96 @@ def __load_thresholds(output_catfim_dir, threshold_url, lid, huc, threshold_file
 
     return stages, flows, status_msg
 
+
+
+def get_threshold_data(huc, huc_path, output_folder, huc_lid_dict):
+
+    # If we are not getting new threshold, then we assume that the runtime args has the path
+    # to a valid pkl file. We just need to copy it over to this dir and load it so we don't
+    # have a file collision.
+    threshold_file_path = os.getenv('THRESHOLD_FILE_PATH')
+    
+    # We really only need to load this env if we are going to let the script call WRDS directly.
+    api_base_url = ""
+    if os.getenv('GET_NEW_THRESHOLD_DATA') is True:
+        api_base_url = csf.load_fim_global_env_values(os.getenv('ENV_FILE'))
+
+        # Figure out pathing for the new file to be created, but we need it to be saved in this huc dir
+        # If we load our own, add the huc number in front.
+        threshold_file_path = os.path.join(huc_path, f'{huc}thresholds.pkl')
+
+        threshold_url = f'{api_base_url}/nws_threshold'
+
+       # Download thresholds
+        return_msgs = dpw.download_all_thresholds(threshold_file_path, threshold_url, huc_lid_dict)
+
+        # return_msgs is a list and might have some warnings, some messages and/or errors
+        if len(return_msgs) > 0:
+            # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of 
+            # custom exceptions.
+
+            # also.. we get duplicate info to the script as download_process_wrds.py has both prints
+            # and returns as a message.  Hummmm. See notes in download_process_wrds.py
+
+            for msg in return_msgs:
+                if "warning" in msg.lower():
+                    logging.warning(msg)
+                elif "error" in msg.lower():
+                    raise Exception(msg)
+                else:
+                    logging.info(msg)
+    else:
+        # We need to make a copy of it and put it into the local dir temporaily
+        # to save against MP file collisions.
+        # then pass that into
+        if os.path.isfile(threshold_file_path) is False:
+            raise FileNotFoundError(f"Error: Expected the threshold file at {threshold_file_path}")
+
+        # Make a copy of it and put it in our local dir, but give it a few second random delay to help
+        # with MP and all of the first set of hucs grabbing a copy at the exact same time.
+
+        # A bit of start staggering to help not overload the MP (0.1 milliseconds to 2 secs)
+        time_delay_mms = random.randint(100, 2000) / 1000
+        time.sleep(time_delay_mms)
+        src_file = os.path.join(output_folder, threshold_file_path)
+        file_name = os.path.basename(threshold_file_path)
+        threshold_file_path = os.path.join(huc_path, file_name)  # Now using the new huc copy
+        shutil.copyfile(src_file, threshold_file_path)
+
+    # TODO: Rob: what is this "manual_input" thing about?  need some details here
+
+
+    # Either way, we have a threshold file to load and filter
+    # Get the source (important for differentiating processing for manual input vs wrds)
+    threshold_df = pd.DataFrame()
+    with open(threshold_file_path, "rb") as p_handle:
+
+        # even though the threshold file is a pickle file, it has a df in it
+        threshold_df = pickle.load(p_handle)
+        # source_list = thresh_json_data['source']
+
+        # If manual input is in source list, set data source to manual input
+        # Assumes that if one is manual input, then all are manual input
+        # if 'Manual_Input' in source_list:
+        #     print("Manual input found in threshold source list.")
+        #     data_source = 'Manual_Input'
+
+        # Otherwise, compile unique sources into a comma-separated string
+        # else:
+        #     data_source = set(thresh_json_data['source'])
+
+        #     # TODO: Nov 2025: Fix this. The data source line below with the join has a bug.
+        #     # When the source comes in with a slash at the front, we get:
+        #     #     TypeError: sequence item 0: expected str instance, NoneType found
+
+        #     # When the source comes in without a slash at the front, we get:
+        #     #     TypeError: sequence item 0: expected str instance, float found
+        #     # data_source = ', '.join(data_source)
+
+        #     # temp workaround
+        #     data_source = 'TEST'
+
+    print("test stop point")
 
 
 # Can not be called from command line
