@@ -147,7 +147,7 @@ def process_huc(huc, output_folder):
 
         # TODO do I need the json anymore?
         logging.info("loading sites meta data")
-        meta_data_json, sites_gdf, _ = __get_metadata(huc, huc_path, output_folder)
+        meta_data_json, sites_gdf, huc_lid_dict = __get_metadata(huc, huc_path, output_folder)
 
         # Lets write what we have raw from meta data
         sites_gdf = __setup_sites_gdf(sites_gdf, os.getenv('CATFIM_TYPE'), output_folder)
@@ -155,18 +155,13 @@ def process_huc(huc, output_folder):
         # Now compare that huc_dictionary to restricted sites
         valid_nwm_lids, sites_gdf = __check_for_resticted_sites(sites_gdf, os.getenv('CATFIM_TYPE'), huc, sites_file_path)
 
+        logging.info(f"{len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
         logging.info("loading sites meta data - Complete")
         duration_msg = sf.calculate_duration_msg(section_start_dt)
         logging.info(duration_msg)
+        print("")
 
 
-        # logging.info(f"{len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
-
-        # Temp debugging
-        print("--------------")
-        print("Ok.. let's stop here for now")   
-        sys.exit(0)
-        
         # =========================================
         # Let's get the Threshold data
         section_start_dt = datetime.now(timezone.utc)
@@ -174,7 +169,9 @@ def process_huc(huc, output_folder):
         
         # ---------------------
         # Get threshold data
-
+        # TODO: very, very low importance. We could build a new huc_lic_dict as we know only
+        # valid sites we want after restriction tests
+        __get_threshold_data(huc, huc_path, output_folder, huc_lid_dict)
 
         # ---------------------
         # threshold data and flow data, if applicable using shared various files. ?? Both need threshold but flow data
@@ -184,6 +181,12 @@ def process_huc(huc, output_folder):
         logging.info("loading flow and threshold data for valid sites - Complete")
         duration_msg = sf.calculate_duration_msg(section_start_dt)
         logging.info(duration_msg)
+
+        # Temp debugging
+        print("--------------")
+        print("Ok.. let's stop here for now")   
+        sys.exit(0)
+
 
         # ---------------------    
         # Figure out categories. (ie.. action, moderate, etc) - SB to also figure out intervals?
@@ -503,16 +506,95 @@ def __save_sites_file(sites_gdf, sites_file_path, inc_csv):
         sites_gdf.to_csv(nws_lid_csv_file_path)
 
 
-"""
-def __emilys_get_threshold_data(get_new_threshold_data,
-                              threshold_file_path,
-                              huc_lid_dict):
+def __get_threshold_data(huc, huc_path, output_folder, huc_lid_dict):
 
+    # If we are not getting new threshold, then we assume that the runtime args has the path
+    # to a valid pkl file. We just need to copy it over to this dir and load it so we don't
+    # have a file collision.
+    threshold_file_path = os.getenv('THRESHOLD_FILE_PATH')
     
-ROB: This needs some cleanup
-    Processing:
-        If 
-    
+    # We really only need to load this env if we are going to let the script call WRDS directly.
+    api_base_url = ""
+    if os.getenv('GET_NEW_THRESHOLD_DATA') is True:
+        api_base_url = csf.load_fim_global_env_values(os.getenv('ENV_FILE'))
+
+        # Figure out pathing for the new file to be created, but we need it to be saved in this huc dir
+        # If we load our own, add the huc number in front.
+        threshold_file_path = os.path.join(huc_path, f'{huc}thresholds.pkl')
+
+        threshold_url = f'{api_base_url}/nws_threshold'
+
+       # Download thresholds
+        return_msgs = dpw.download_all_thresholds(threshold_file_path, threshold_url, huc_lid_dict)
+
+        # return_msgs is a list and might have some warnings, some messages and/or errors
+        if len(return_msgs) > 0:
+            # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of 
+            # custom exceptions.
+
+            # also.. we get duplicate info to the script as download_process_wrds.py has both prints
+            # and returns as a message.  Hummmm. See notes in download_process_wrds.py
+
+            for msg in return_msgs:
+                if "warning" in msg.lower():
+                    logging.warning(msg)
+                elif "error" in msg.lower():
+                    raise Exception(msg)
+                else:
+                    logging.info(msg)
+    else:
+        # We need to make a copy of it and put it into the local dir temporaily
+        # to save against MP file collisions.
+        # then pass that into
+        if os.path.isfile(threshold_file_path) is False:
+            raise FileNotFoundError(f"Error: Expected the threshold file at {threshold_file_path}")
+
+        # Make a copy of it and put it in our local dir, but give it a few second random delay to help
+        # with MP and all of the first set of hucs grabbing a copy at the exact same time.
+
+        # A bit of start staggering to help not overload the MP (0.1 milliseconds to 2 secs)
+        time_delay_mms = random.randint(100, 2000) / 1000
+        time.sleep(time_delay_mms)
+        src_file = os.path.join(output_folder, threshold_file_path)
+        file_name = os.path.basename(threshold_file_path)
+        threshold_file_path = os.path.join(huc_path, file_name)  # Now using the new huc copy
+        shutil.copyfile(src_file, threshold_file_path)
+
+    # TODO: Rob: what is this "manual_input" thing about?  need some details here
+
+
+    # Either way, we have a threshold file to load and filter
+    # Get the source (important for differentiating processing for manual input vs wrds)
+    thresh_json_data = None
+    with open(threshold_file_path, "rb") as p_handle:
+        thresh_json_data = pickle.load(p_handle)
+        # source_list = thresh_json_data['source']
+
+        # If manual input is in source list, set data source to manual input
+        # Assumes that if one is manual input, then all are manual input
+        # if 'Manual_Input' in source_list:
+        #     print("Manual input found in threshold source list.")
+        #     data_source = 'Manual_Input'
+
+        # Otherwise, compile unique sources into a comma-separated string
+        # else:
+        #     data_source = set(thresh_json_data['source'])
+
+        #     # TODO: Nov 2025: Fix this. The data source line below with the join has a bug.
+        #     # When the source comes in with a slash at the front, we get:
+        #     #     TypeError: sequence item 0: expected str instance, NoneType found
+
+        #     # When the source comes in without a slash at the front, we get:
+        #     #     TypeError: sequence item 0: expected str instance, float found
+        #     # data_source = ', '.join(data_source)
+
+        #     # temp workaround
+        #     data_source = 'TEST'
+
+    print("test stop point")
+
+
+'''
     if get_new_threshold_data is False:
         if threshold_file_path is None or threshold_file_path == "":
             threshold_file_path = os.getenv("nwm_threshold_file")  # get from Bash_variables
@@ -549,65 +631,9 @@ ROB: This needs some cleanup
 
         # Download thresholds. Catfim will only need to get one HUC at a time.
         thresholds, flows, threshold_count = dw.download_all_thresholds(threshold_file_path, threshold_url, huc_lid_dict)
- 
-   return thresholds, flows, threshold_count
-"""
+ '''
 
-# TODO: Nov 7, 2025: Emily will have a replacement for this, so it will go away
-def __get_threshold_data(threshold_url,
-                        threshold_file_path,
-                        get_new_threshold_data,
-                        huc):
-    '''
-    Runs for both stage and flow. Loads and filters NWM threshold
-
-
-    NEEDS UPDATING          
-
-    This function checks if a local threshold pickle file exists. If it does, the metadata is loaded from the file.
-    Otherwise, it downloads metadata from the specified URL using two API calls: one for all forecast points and
-    another for all points in OCONUS regions (HI, PR, AK). The results are combined, and duplicate or None-valued
-    NWS LIDs are filtered out. The filtered metadata is then saved to a pickle file for future use.          
-          
-    Returns:
-        thresholds, flows, threshold_count
-          
-    '''
-    
-    save_pickle_file = False
-    if get_new_threshold_data is False:
-        if not threshold_file_path:
-            # get the bash_variables value
-            threshold_file_path = os.getenv("nwm_threshold_file")
-            save_pickle_file = True  # Save a copy if it came from bash_variables
-            
-        if not os.path.isfile(threshold_file_path):
-            raise Exception(f"threshold file at {threshold_file_path} does not exist")
-
-        # Read pickle file and get a list of unique HUCs
-        with open(threshold_file_path, 'rb') as f:
-            loaded_data = pickle.load(f)
-
-        hucs = loaded_data['huc'].unique().tolist()
-        threshold_hucs= [str(num).zfill(8) for num in hucs]
-
-        # Get the source (since it might be Manual_Input)
-        # data_source = loaded_data['source'].tolist()[0]
-   
-        if huc not in threshold_hucs:
-            # TODO; do we want this as an exception? or just logging.error so the program can graceful
-            # exist the MP.
-            raise Exception(f"{huc}  is not present in the threshold file ({threshold_file_path}): ")
-    else:
-        # Get thresholds (stages) and flows for each threshold from the WRDS API. Priority given to USGS calculated flows.
-        # Note: SB calls the variable of "threshold" here as "thresholds" but FB called it stages previously
-        thresholds, flows, threshold_count = get_thresholds(
-            threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-        )
- 
-# used by flow based only. hummm... likely not
-# def get_flow_data():  use generate_categorical_fim_flows to get this.
-
+   # return thresholds, flows, threshold_count
 
 
 def __validate_inputs(huc, output_folder):

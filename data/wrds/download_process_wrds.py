@@ -575,6 +575,8 @@ def main(
         # Download thresholds
         download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
 
+    # TODO: Should there be an "else"?
+
     ## ===== END SECTION OF CODE TO COPY INTO CATFIM PREPROCESSING =====
 
     overall_end_time = datetime.now(timezone.utc)
