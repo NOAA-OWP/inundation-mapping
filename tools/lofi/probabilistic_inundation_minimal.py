@@ -2,6 +2,7 @@ import argparse
 import ast
 import os
 import shutil
+import warnings
 from concurrent.futures import as_completed
 from typing import Dict, Optional, Tuple, Union
 
@@ -175,8 +176,11 @@ def generate_streamflow_percentiles(
         cumsum = np.cumsum(scaled_likelihoods[x_indices] / 1e4)
         cdf_points = np.interp(cumsum, [np.min(cumsum), np.max(cumsum)], [0.05, 0.95])
 
-        coefficientsx = np.polyfit(x_points, cdf_points, 2)
-        coefficientsy = np.polyfit(cdf_points, x_points, 2)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            coefficientsx = np.polyfit(x_points, cdf_points, 2)
+            coefficientsy = np.polyfit(cdf_points, x_points, 2)
+
         polynomial_functionx = np.poly1d(coefficientsx)
         polynomial_functiony = np.poly1d(coefficientsy)
         x_fitx = np.linspace(min(x_points), max(x_points), 100)  # Generate more points for a smooth curve
