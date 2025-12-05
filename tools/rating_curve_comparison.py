@@ -117,6 +117,9 @@ def generate_rating_curve_metrics(args):
     if not elev_table.empty:
         hydrotable = pd.DataFrame()
         for branch in elev_table.levpa_id.unique():
+            # Skip branch 0 (process only GMS branches)
+            # if branch == '0':
+            #     continue
             branch_elev_table = elev_table.loc[elev_table.levpa_id == branch].copy()
             # branch_elev_table = elev_table.loc[(elev_table.levpa_id == branch) & (elev_table.location_id.notnull())].copy()
             branch_hydrotable = pd.read_csv(
@@ -730,7 +733,7 @@ def generate_facet_plot(rc, plot_filename, recurr_data_table):
             recurr_data = recurr_data_table[
                 (recurr_data_table.location_id == gage) & (recurr_data_table.source == 'FIM')
             ].filter(items=['recurr_interval', 'discharge_cfs'])
-            recurr_q_max = recurr_data['discharge_cfs'].max()
+            # recurr_q_max = recurr_data['discharge_cfs'].max()
             for i, r in recurr_data.iterrows():
                 if not r.recurr_interval.isnumeric():
                     continue  # skip USGS stage discharge flows
@@ -1135,11 +1138,30 @@ def create_static_gpkg(output_dir, output_gpkg, agg_recurr_stats_table, gages_gp
     sns.histplot(ax=ax[0, 0], y='nrmse', data=usgs_gages, binwidth=0.2, binrange=(0, 10))
     sns.countplot(ax=ax[1, 0], y='mean_abs_y_diff_ft', data=usgs_gages)
     sns.countplot(ax=ax[1, 1], y='mean_y_diff_ft', data=usgs_gages)
-    sns.boxplot(
-        ax=ax[0, 1], data=usgs_gages[['2', '5', '10', '25', '50', 'action', 'minor', 'moderate', 'major']]
-    )
-    ax[0, 1].set(ylim=(-12, 12))
-
+    # Define the full set of columns we want for the boxplot
+    boxplot_cols = ['2', '5', '10', '25', '50', 'action', 'minor', 'moderate', 'major']
+    # Find which of these columns exist in the df and have data
+    cols_to_plot = [col for col in boxplot_cols if col in usgs_gages.columns and usgs_gages[col].notna().any]
+    # Create the boxplot if there are cols with data to plot
+    data_is_plottable = False
+    if cols_to_plot:
+        if usgs_gages[cols_to_plot].notna().any().any():
+            data_is_plottable = True
+    if data_is_plottable:
+        sns.boxplot(ax=ax[0, 1], data=usgs_gages[cols_to_plot])
+        ax[0, 1].set(ylim=(-12, 12))
+    else:
+        logging.warning("Cannot create a boxplot because no data is available.")
+        ax[0, 1].text(
+            0.5,
+            0.5,
+            'No data for boxplot',
+            horizontalalignment='center',
+            verticalalignment='center',
+            transform=ax[0, 1].transAxes,
+        )
+        ax[0, 1].set_yticks([])
+        ax[0, 1].set_xticks([])
     fig.tight_layout()
     fig.savefig(join(output_dir, f'{output_gpkg}_summary_plots.png'.replace('.gpkg', '')))
 
@@ -1172,8 +1194,16 @@ def calculate_rc_diff(rc):
         .reset_index()
         .pivot(index='location_id', columns='recurr_interval', values='yhat_minus_y')
     )
+    # Define columns that are expected in the final output
+    expected_cols = ['2', '5', '10', '25', '50', 'action', 'minor', 'moderate', 'major']
+
+    # Check if the column exists. If not, add it and fill with NaN
+    # This prevents a KeyError if a HUC is missing certain recurrence intervals.
+    for col in expected_cols:
+        if col not in rc_unmelt.columns:
+            rc_unmelt[col] = np.nan
     # Reorder columns
-    rc_unmelt = rc_unmelt[['2', '5', '10', '25', '50', 'action', 'minor', 'moderate', 'major']]
+    rc_unmelt = rc_unmelt[expected_cols]
 
     return rc_unmelt
 
@@ -1213,8 +1243,9 @@ def evaluate_results(sierra_results=[], labels=[], save_location=''):
         df['_version'] = label
 
     # Combine all dataframes into one
-    all_results = sierra_results[0]
-    all_results = pd.concat([all_results, sierra_results[1:]])
+    # all_results = sierra_results[0]
+    # all_results = pd.concat([all_results, sierra_results[1:]])
+    all_results = pd.concat(sierra_results, ignore_index=True)
 
     # Melt results for boxplotting
     all_results_melted = all_results.melt(
@@ -1236,69 +1267,121 @@ def evaluate_results(sierra_results=[], labels=[], save_location=''):
     plt.savefig(save_location)
 
 
-if __name__ == '__main__':
-
+def generate_version_comparison(old_stats_path, new_stats_path, output_path, old_label, new_label):
     """
-    Sample Usage:
-    python3 /foss_fim/tools/rating_curve_comparison.py
-        -fim_dir data/previous_fim/hand_4_5_8_0/
-        -output_dir data/fim_performance/hand_4_5_8_0/rating_curve_comparison/
-        -gages /data/inputs/usgs_gages/usgs_rating_curves_{date}.csv
-        -flows /data/inputs/rating_curve/nwm_recur_flows/
-        -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
-        -j 40
+    Generates a 2x2 comparison plots for two FIM versions.
+
+    Args:
+        old_stats_path (str): path to the statistics file for the old version.
+        new_stats_path (str): path to the statistics file for the new version.
+        output_path (str): path to save the image.
+        old_label (str): label for the old version (e.g., 'FIMv5')
+        new_label (str): label for the new version (e.g., 'FIMv6')
     """
 
-    parser = argparse.ArgumentParser(
-        description='generate rating curve plots and tables for FIM and USGS gages'
-    )
-    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
-    parser.add_argument(
-        '-output_dir', '--output-dir', help='rating curves output folder', required=True, type=str
-    )
-    parser.add_argument('-gages', '--usgs-gages-filename', help='USGS rating curves', required=True, type=str)
-    parser.add_argument('-flows', '--nwm-flow-dir', help='NWM recurrence flows dir', required=True, type=str)
+    logging.info('Generating evaluation plots...')
+    try:
+        old_stats = pd.read_csv(old_stats_path, dtype={'location_id': str})
+        new_stats = pd.read_csv(new_stats_path, dtype={'location_id': str})
+    except FileNotFoundError as e:
+        logging.error(f"Error: {e}")
+        return
+    # Metrics to compare
+    metrics = ['nrmse', 'mean_abs_y_diff_ft', 'percent_bias']
 
-    # Mar 27, 2025: Was named "catfim" but that file name no longer made sense
-    parser.add_argument(
-        '-stages', '--usgs-stage-file', help='USGS discharge flows file', required=True, type=str
+    comparison_df = pd.merge(
+        old_stats[['location_id'] + metrics],
+        new_stats[['location_id'] + metrics],
+        on='location_id',
+        suffixes=('_old', '_new'),
     )
-    parser.add_argument(
-        '-j', '--number-of-jobs', help='number of workers', required=False, default=1, type=int
-    )
-    parser.add_argument(
-        '-group', '--stat-groups', help='column(s) to group stats', required=False, type=str, nargs='+'
-    )
-    parser.add_argument(
-        '-pnts',
-        '--stat-gages',
-        help='takes 2 arguments: 1) file path of input usgs_gages.gpkg and 2) output GPKG name to write USGS '
-        'gages with joined stats',
-        required=False,
-        type=str,
-        nargs=2,
-    )
-    parser.add_argument(
-        '-alt',
-        '--alt-plot',
-        help='Generate rating curve plots with REM maps',
-        required=False,
-        default=False,
-        action='store_true',
-    )
-    parser.add_argument(
-        '-eval',
-        '--evaluate-results',
-        help='Create a boxplot comparison of multiple input Sierra Test results. '
-        'Expects 2 arguments: 1) path to the Sierra Test results for comparison and 2) the corresponding '
-        'label for the boxplot.',
-        required=False,
-        nargs=2,
-        action='append',
-    )
-    parser.add_argument('-s', '--single-plot', help='Create single plots', action='store_true')
-    args = vars(parser.parse_args())
+    comparison_df = comparison_df.replace([float('inf'), -float('inf')], pd.NA)
+    comparison_df = comparison_df.dropna(subset=['nrmse_old', 'nrmse_new'])
 
+    logging.info(f"found {len(comparison_df)} common gages to compare.")
+    if len(comparison_df) == 0:
+        logging.warning('No common gages found between the two versions.')
+        return
+
+    fig, axes = plt.subplots(2, 2, figsize=(16, 14))
+    fig.suptitle(f"FIM Version Comparison: {old_label} vs. {new_label}", fontsize=16, y=0.95)
+    # Scatter plot for NRMSE
+    ax1 = axes[0, 0]
+    sns.scatterplot(data=comparison_df, x='nrmse_old', y='nrmse_new', alpha=0.6, ax=ax1, s=20)
+    max_val_nrmse = max(comparison_df['nrmse_old'].max(), comparison_df['nrmse_new'].max())
+    if np.isfinite((max_val_nrmse)):
+        ax1.plot([0, max_val_nrmse], [0, max_val_nrmse], color='red', linestyle='--')
+    ax1.set_title('NRMSE Comparison', fontsize=14)
+    ax1.set_xlabel(f"NRMSE - {old_label}")
+    ax1.set_ylabel(f"NRMSE - {new_label}")
+    ax1.grid(True)
+    # ax1.legend()
+    ax1.set_aspect('equal', adjustable='box')
+    max_lim = comparison_df['nrmse_new'].quantile(0.75) + 5
+    ax1.set_ylim(0, max_lim)
+    ax1.set_xlim(0, max_lim)
+    # Boxplot for NRMSE
+    ax2 = axes[0, 1]
+    nrmse_melted = comparison_df.melt(
+        id_vars='location_id', value_vars=['nrmse_old', 'nrmse_new'], var_name='version', value_name='nrmse'
+    )
+    nrmse_melted['version'] = nrmse_melted['version'].replace(
+        {'nrmse_old': old_label, 'nrmse_new': new_label}
+    )
+    sns.boxplot(data=nrmse_melted, x='version', y='nrmse', ax=ax2)
+    ax2.set_title('NRMSE Distribution', fontsize=14)
+    ax2.set_xlabel('')
+    ax2.set_ylabel('NRMSE')
+    ax2.grid(axis='y')
+    max_lim2 = comparison_df['nrmse_new'].quantile(0.75) + 10
+    ax2.set_ylim(0, max_lim2)
+
+    # Boxplot for mean absolute error
+    ax3 = axes[1, 0]
+    mae_melted = comparison_df.melt(
+        id_vars='location_id',
+        value_vars=['mean_abs_y_diff_ft_old', 'mean_abs_y_diff_ft_new'],
+        var_name='version',
+        value_name='mae',
+    )
+    mae_melted['version'] = mae_melted['version'].replace(
+        {'mean_abs_y_diff_ft_old': old_label, 'mean_abs_y_diff_ft_new': new_label}
+    )
+    sns.boxplot(data=mae_melted, x='version', y='mae', ax=ax3)
+    ax3.set_title('Mean Absolute Error Distribution', fontsize=14)
+    ax3.set_xlabel('')
+    ax3.set_ylabel('Mean Absolute Error (ft)')
+    ax3.grid(axis='y')
+    max_lim3 = mae_melted['mae'].quantile(0.75) + 10
+    ax3.set_ylim(0, max_lim3)
+
+    # Boxplot for percent bias
+    ax4 = axes[1, 1]
+    bias_melted = comparison_df.melt(
+        id_vars='location_id',
+        value_vars=['percent_bias_old', 'percent_bias_new'],
+        var_name='version',
+        value_name='bias',
+    )
+    bias_melted['version'] = bias_melted['version'].replace(
+        {'percent_bias_old': old_label, 'percent_bias_new': new_label}
+    )
+    sns.boxplot(data=bias_melted, x='version', y='bias', ax=ax4)
+    ax4.set_title('Percent Bias Distribution', fontsize=14)
+    ax4.set_xlabel('')
+    ax4.set_ylabel('Percent Bias (%)')
+    ax4.grid(axis='y')
+    max_lim4 = bias_melted['bias'].quantile(0.75) + 10
+    ax4.set_ylim(0, max_lim4)
+
+    # Save
+    plt.tight_layout(rect=[0, 0.3, 1, 0.93])
+    plt.savefig(output_path, dpi=150)
+    plt.close()
+
+
+def main(args):
+    # Arguments
     fim_dir = args['fim_dir']
     output_dir = args['output_dir']
     usgs_gages_filename = args['usgs_gages_filename']
@@ -1318,6 +1401,7 @@ if __name__ == '__main__':
     else:
         stat_gages = None
 
+    # setup logging
     start_time = dt.datetime.now()
     dt_string = dt.datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     log_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
@@ -1339,6 +1423,7 @@ if __name__ == '__main__':
     logging.info(".. (Sierra Test) / rating curve comparison")
     logging.info(f".. Started: {dt_string} \n")
 
+    # Execusion
     try:
         # Make sure that location_id is the only -group when using -pnts
         assert not stat_gages or (
@@ -1358,6 +1443,7 @@ if __name__ == '__main__':
 
         merged_elev_table = []
         huc_list = [huc for huc in os.listdir(fim_dir) if re.search(r"^\d{6,8}$", huc)]
+        huc_list.sort()
         for huc in huc_list:
             elev_table_filename = join(fim_dir, huc, 'usgs_elev_table.csv')
             branches_folder = join(fim_dir, huc, 'branches')
@@ -1440,6 +1526,33 @@ if __name__ == '__main__':
             evaluate_results(
                 sierra_test_dfs, sierra_test_labels, join(output_dir, 'Sierra_Test_Eval_boxplot.png')
             )
+
+        # Generates comparison plots
+        if args['compare_plots']:
+            # The stats for the current run are aggregated in the output_dir
+            current_stats_filename = os.path.join(
+                output_dir,
+                f"agg_nwm_recurr_flow_elev_stats_{'_'.join(stat_groups) if stat_groups else 'location_id'}.csv",
+            )
+            # Unpach arguments
+            other_version_csv = args['compare_plots'][0]
+            other_version_label = args['compare_plots'][1]
+            current_version_label = args['compare_plots'][2]
+            # Define output path
+            plots_output_path = os.path.join(output_dir, 'FIM_Comparison_Stats.png')
+
+            if os.path.exists(current_stats_filename):
+                generate_version_comparison(
+                    old_stats_path=other_version_csv,
+                    new_stats_path=current_stats_filename,
+                    output_path=plots_output_path,
+                    old_label=other_version_label,
+                    new_label=current_version_label,
+                )
+            else:
+                logging.error(
+                    f"Could not find current stats file to generate comparison plots: {current_stats_filename}"
+                )
     except Exception:
         logging.info("-- Exception")
         print("")
@@ -1451,3 +1564,91 @@ if __name__ == '__main__':
     print("==========================================================================")
     logging.info(f".. Ended: {dt_string} \n")
     logging.info(f".. Duration: {str(time_duration).split('.')[0]}")
+
+
+if __name__ == '__main__':
+
+    """
+    Sample Usage:
+    python3 /foss_fim/tools/rating_curve_comparison.py
+        -fim_dir data/previous_fim/hand_4_5_8_0/
+        -output_dir data/fim_performance/hand_4_5_8_0/rating_curve_comparison/
+        -gages /data/inputs/usgs_gages/usgs_rating_curves_{date}.csv
+        -flows /data/inputs/rating_curve/nwm_recur_flows/
+        -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
+        -j 40
+
+    ** Note: To generate the comparison plots, run the script on the first version. For the second vrsion, run it as follows:
+        -fim_dir data/previous_fim/hand_4_8_7_2/
+        -output_dir data/fim_performance/hand_4_8_7_2/rating_curve_comparison/
+        -gages /data/inputs/usgs_gages/usgs_rating_curves_{date}.csv
+        -flows /data/inputs/rating_curve/nwm_recur_flows/
+        -stages /data/inputs/usgs_gages/usgs_stage_discharge_cms_{date}.csv
+        -comp data/fim_performance/hand_4_5_8_0/rating_curve_comparison/agg_nwm_recurr_flow_elev_stats_location_id.csv "FIM5" "FIM6"
+        -j 40
+    """
+
+    parser = argparse.ArgumentParser(
+        description='generate rating curve plots and tables for FIM and USGS gages'
+    )
+    parser.add_argument('-fim_dir', '--fim-dir', help='FIM output dir', required=True, type=str)
+    parser.add_argument(
+        '-output_dir', '--output-dir', help='rating curves output folder', required=True, type=str
+    )
+    parser.add_argument('-gages', '--usgs-gages-filename', help='USGS rating curves', required=True, type=str)
+    parser.add_argument('-flows', '--nwm-flow-dir', help='NWM recurrence flows dir', required=True, type=str)
+
+    # Mar 27, 2025: Was named "catfim" but that file name no longer made sense
+    parser.add_argument(
+        '-stages', '--usgs-stage-file', help='USGS discharge flows file', required=True, type=str
+    )
+    parser.add_argument(
+        '-j', '--number-of-jobs', help='number of workers', required=False, default=1, type=int
+    )
+    parser.add_argument(
+        '-group', '--stat-groups', help='column(s) to group stats', required=False, type=str, nargs='+'
+    )
+    parser.add_argument(
+        '-pnts',
+        '--stat-gages',
+        help='takes 2 arguments: 1) file path of input usgs_gages.gpkg and 2) output GPKG name to write USGS '
+        'gages with joined stats',
+        required=False,
+        type=str,
+        nargs=2,
+    )
+    parser.add_argument(
+        '-alt',
+        '--alt-plot',
+        help='Generate rating curve plots with REM maps',
+        required=False,
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '-eval',
+        '--evaluate-results',
+        help='Create a boxplot comparison of multiple input Sierra Test results. '
+        'Expects 2 arguments: 1) path to the Sierra Test results for comparison and 2) the corresponding '
+        'label for the boxplot.',
+        required=False,
+        nargs=2,
+        action='append',
+    )
+    parser.add_argument(
+        '-comp',
+        '--compare_plots',
+        help='Create comparison plots. '
+        'Expects 3 arguments: 1. path to the statistics file of other version for comparison, '
+        '2. ta label for the other version, and 3. a label for the current version being run',
+        required=False,
+        nargs=3,
+        metavar=('other_csv_path', 'other_label', 'current_label'),
+    )
+
+    parser.add_argument('-s', '--single-plot', help='Create single plots', action='store_true')
+
+    args = vars(parser.parse_args())
+
+    # Call the logic
+    main(args)
