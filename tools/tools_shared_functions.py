@@ -120,10 +120,16 @@ def filter_usgs_by_acceptance_criteria(input_df):
         & input_df['usgs_data_site_type'].isin(acceptable_site_type_list)
     )
     input_df = input_df.astype({'usgs_data_alt_accuracy_code': float})
-    input_df['acceptable_alt_error'] = np.where(
-        input_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
+
+    # the input_df is very fragmented at this point due the filter above. Make a temp unfragamented version
+    # else, we get a PerformanceWarning: DataFrame is highly fragmented
+    defrag_input_df = input_df.copy()
+
+    defrag_input_df['acceptable_alt_error'] = np.where(
+        defrag_input_df['usgs_data_alt_accuracy_code'] <= acceptable_alt_acc_thresh, True, False
     )
-    output_df = input_df[(input_df['acceptable_codes'] == True) & (input_df['acceptable_alt_error'] == True)]
+    output_df = defrag_input_df[
+        (defrag_input_df['acceptable_codes'] == True) & (defrag_input_df['acceptable_alt_error'] == True)]
 
     return output_df
 

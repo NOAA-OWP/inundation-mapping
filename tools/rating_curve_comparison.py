@@ -1443,6 +1443,7 @@ def main(args):
 
         merged_elev_table = []
         huc_list = [huc for huc in os.listdir(fim_dir) if re.search(r"^\d{6,8}$", huc)]
+        huc_list.sort()
         for huc in huc_list:
             elev_table_filename = join(fim_dir, huc, 'usgs_elev_table.csv')
             branches_folder = join(fim_dir, huc, 'branches')

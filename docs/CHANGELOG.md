@@ -7,6 +7,7 @@ This PR fixes issue with box plot generation and introduces a new function to co
 
 ### Changes
 `tools/rating_curve_comparison.py` : changes as described above.
+`tools/tools_shared_function.py`: Quick fix to fix a pandas warning: PerformanceWarning: DataFrame is highly fragmented
 <br />
 
 ## v4.9.0.0 - 2025-12-01 - [PR#1620](https://github.com/NOAA-OWP/inundation-mapping/pull/1620)
