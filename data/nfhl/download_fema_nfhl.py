@@ -3,7 +3,6 @@ import datetime as dt
 import os
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
-from multiprocessing import Pool
 
 import geopandas as gpd
 from dotenv import load_dotenv
@@ -11,7 +10,7 @@ from esri import ESRI_REST
 from shapely import Polygon
 
 from src.utils.shared_functions import FIM_Helpers as fh
-from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+from src.utils.shared_functions import read_huc_file_list_or_array_of_hucs, run_with_mp, setup_mp_file_logger
 
 
 def load_wbd(huc_list):
@@ -24,29 +23,41 @@ def load_wbd(huc_list):
         List of huc8
     Returns
     tuple
-        (wbd_conus, wbd_alaska)
+        (wbd_conus, wbd_alaska, wbd_guam, wbd_american_samoa)
     """
     srcDir = os.getenv('srcDir')
     load_dotenv(f'{srcDir}/bash_variables.env')
     input_WBD_gdb = os.getenv('input_WBD_gdb')
     input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # alaska
+    input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # guam
+    input_WBD_gdb_AmericanSamoa = os.getenv('input_WBD_gdb_AmericanSamoa')  # american samoa
     wbd_conus = None
     wbd_alaska = None
+    wbd_guam = None
+    wbd_american_samoa = None
     # Check if any huc8 is in AK
     has_alaska = any(huc.startswith('19') for huc in huc_list)
+    has_guam = any(huc == '22010000' for huc in huc_list)
+    has_american_samoa = any(huc == '22030001' for huc in huc_list)
 
     # Load conus wbd if needed
     if any(not huc.startswith('19') for huc in huc_list):
         if os.path.exists(input_WBD_gdb):
             wbd_conus = gpd.read_file(input_WBD_gdb)
-        else:
-            return None, None
+
     # Load AK wbd if needed
     if has_alaska and os.path.exists(input_WBD_gdb_Alaska):
         wbd_alaska = gpd.read_file(input_WBD_gdb_Alaska)
-    elif has_alaska:
-        return None, None
-    return wbd_conus, wbd_alaska
+
+    # Load Guam wbd if needed
+    if has_guam and os.path.exists(input_WBD_gdb_Guam):
+        wbd_guam = gpd.read_file(input_WBD_gdb_Guam)
+
+    # Load American Samoa wbd if needed
+    if has_american_samoa and os.path.exists(input_WBD_gdb_AmericanSamoa):
+        wbd_american_samoa = gpd.read_file(input_WBD_gdb_AmericanSamoa)
+
+    return wbd_conus, wbd_alaska, wbd_guam, wbd_american_samoa
 
 
 def process_nfhl(
@@ -100,7 +111,18 @@ def process_nfhl(
         file_logger.warning(f"No {nfhl_label} zones for HUC {huc}")
 
 
-def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logger, screen_queue, task_id):
+def download_nfhl(
+    huc,
+    out_file,
+    wbd_conus,
+    wbd_alaska,
+    wbd_guam,
+    wbd_american_samoa,
+    geometry_type,
+    file_logger,
+    screen_queue,
+    task_id,
+):
     """
     Download the NFHL flood hazard zones for a given HUC8
 
@@ -114,6 +136,8 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
         wbd for conus
     wbd_alaska : GeoDataFrame
         wbd for alaska
+    wbd_guam : GeoDataFrame
+        wbd for guam
     geometry_type: str
         the geometry Type for the query
     file_logger : logging.Logger
@@ -129,11 +153,26 @@ def download_nfhl(huc, out_file, wbd_conus, wbd_alaska, geometry_type, file_logg
     try:
         DEFAULT_FIM_PROJECTION_CRS = 5070
         ALASKA_CRS = 3338  # alaska
+        GUAM_CRS = 6637
+        AMERICAN_SAMOA_CRS = 32702
 
         # Select approporiate wbd and crs
         is_alaska = huc.startswith('19')
-        wbd = wbd_alaska if is_alaska else wbd_conus
-        geometryCRS = ALASKA_CRS if is_alaska else DEFAULT_FIM_PROJECTION_CRS
+        is_guam = huc == '22010000'
+        is_american_samoa = huc == '22030001'
+
+        if is_alaska:
+            wbd = wbd_alaska
+            geometryCRS = ALASKA_CRS
+        elif is_guam:
+            wbd = wbd_guam
+            geometryCRS = GUAM_CRS
+        elif is_american_samoa:
+            wbd = wbd_american_samoa
+            geometryCRS = AMERICAN_SAMOA_CRS
+        else:
+            wbd = wbd_conus
+            geometryCRS = DEFAULT_FIM_PROJECTION_CRS
 
         if wbd is None:
             file_logger.error(f'No wbd available for huc {huc}')
@@ -310,15 +349,9 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
 
     start_time = dt.datetime.now(dt.timezone.utc)
 
-    # handle .lst file or direct HUC list
-    if len(huc_list) == 1 and huc_list[0].endswith('.lst'):
-        lst_file = huc_list[0]
-        if not os.path.exists(lst_file):
-            raise FileNotFoundError(f"HUC list file {lst_file} does not exist")
-        with open(lst_file, 'r') as f:
-            huc_list = [line.strip() for line in f if line.strip()]
+    huc_list = read_huc_file_list_or_array_of_hucs(huc_list)
 
-    if not huc_list:
+    if not huc_list or len(huc_list) == 0:
         raise ValueError('No valid HUC8 provided')
 
     os.makedirs(output_folder, exist_ok=True)
@@ -341,7 +374,7 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
         print("")
 
         # Load wbd
-        wbd_conus, wbd_alaska = load_wbd(huc_list)
+        wbd_conus, wbd_alaska, wbd_guam, wbd_american_samoa = load_wbd(huc_list)
 
         # Tasks argument list
         huc_list = sorted(huc_list)
@@ -358,6 +391,8 @@ def download_nfhl_wrapper(huc_list, output_folder, geometryType='esriGeometryEnv
                     "out_file": os.path.join(output_folder, f"nfhl_{huc}.gpkg"),
                     "wbd_conus": wbd_conus,
                     "wbd_alaska": wbd_alaska,
+                    "wbd_guam": wbd_guam,
+                    "wbd_american_samoa": wbd_american_samoa,
                     "geometry_type": geometryType,
                 }
             )
@@ -409,10 +444,10 @@ if __name__ == "__main__":
     """
     Sample Usage
     ----------
-    python3 /foss_fim//data/nfhl/download_fema_nfhl.py -u 11070106 08080206
+    python3 /foss_fim/data/nfhl/download_fema_nfhl.py -u 11070106 08080206
         -o /outputs/fema/test -j 8
     OR
-    python3 /foss_fim//data/nfhl/download_fema_nfhl.py -u huc_list.lst
+    python3 /foss_fim/data/nfhl/download_fema_nfhl.py -u huc_list.lst
         -o /outputs/fema/test -j 8
     """
 

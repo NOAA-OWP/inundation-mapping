@@ -682,3 +682,4 @@ if __name__ == '__main__':
 
     # call main program
     process_generate_categorical_fim(**args)
+    
