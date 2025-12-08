@@ -473,13 +473,13 @@ def update_rating_curve(
                             )  # overwrite the previous layer
 
                         except Exception as e:
-                            error_message = (
-                                "ERROR occurred while writing to catchments gpkg "
+                            warning_message = (
+                                "WARNING occurred while writing to catchments gpkg "
                                 f"for huc: {huc} & branch id: {branch_id}"
                             )
-                            print(error_message)
-                            log_text += f"{error_message}\n"
-                            log_text += f"Error details: {e}\n"
+                            print(warning_message)
+                            log_text += f"{warning_message}\n"
+                            log_text += f"Warning details: {e}\n"
 
                             # Delete the original GeoPackage file
                             if os.path.exists(catchments_poly_path):

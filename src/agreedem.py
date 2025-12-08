@@ -65,6 +65,12 @@ def agreedem(
     with rasterio.open(dem) as elev, rasterio.open(rivers_raster) as rivers:
         dem_profile = elev.profile
 
+        # Define buffer distance and calculate adjustment to compute the
+        # bufgrid.
+        # half_res adjustment equal to half distance of one cell
+        half_res = elev.res[0] / 2
+        final_buffer = buffer_dist - half_res  # assume all units in meters.
+
         # Define smogrid profile and output file
         smo_profile = dem_profile.copy()
         smo_profile.update(nodata=0)
@@ -150,12 +156,6 @@ def agreedem(
                         # read distance, allocation, and elevation datasets
                         vectdist_data_window = vectdist.read(1, window=window)
                         elev_data_window = elev.read(1, window=window)
-
-                        # Define buffer distance and calculate adjustment to compute the
-                        # bufgrid.
-                        # half_res adjustment equal to half distance of one cell
-                        half_res = elev.res[0] / 2
-                        final_buffer = buffer_dist - half_res  # assume all units in meters.
 
                         # Calculate bufgrid. Assign NODATA to areas where vectdist_data <=
                         # buffered value.

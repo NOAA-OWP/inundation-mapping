@@ -5,7 +5,7 @@ usage()
 {
     echo "
     Processing of HUC's in FIM4 comes in three sections. You can run 'fim_pipeline.sh' which will run
-        the three main scripts: 'fim_pre_processing.sh', 'fim_process_unit_wb.sh' & 'fim_post_processing.sh'.
+        the three main scripts: 'fim_pre_processing.sh', 'fim_process_huc.sh' & 'fim_post_processing.sh'.
 
     Usage : fim_pipeline.sh -u <huc8> -n <name_of_your_run>
 
@@ -44,8 +44,6 @@ usage()
                         - Note: Make sure that the product of jh and jb plus 2 (jh x jb + 2)
                             does not exceed the total number of cores available.
       -o                : Overwrite outputs if they already exist.
-      -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
-                            will be skipped.
       -x                : If this param is included, the crosswalk will be evaluated.
 
 
@@ -55,19 +53,19 @@ usage()
             - 'fim_pre_processing.sh' : This section must be run first as it creates the basic output folder
                 for the run. Key files and folders for the next two sections are also created.
 
-            - 'fim_process_unit_wb.sh' : This script processes one and exactly one HUC8 plus all of its
+            - 'fim_process_huc.sh' : This script processes one and exactly one HUC8 plus all of its
                 related branches. While it can only process one, you can run this script multiple times,
                 each with different HUC (or overwriting a HUC). When you run 'fim_pipeline.sh',
                 when more than one HUC is provided, this script is iterated over, and parallelized.
-                For each HUC provided, 'fim_pipeline.sh' will call 'fim_process_unit_wb.sh'.
-                Using the 'fim_process_unit_wb.sh' script allows for a run / rerun of a HUC, or running other
+                For each HUC provided, 'fim_pipeline.sh' will call 'fim_process_huc.sh'.
+                Using the 'fim_process_huc.sh' script allows for a run / rerun of a HUC, or running other
                 HUCs at different times / days or even in different docker containers.
 
             - 'fim_post_processing.sh' : This section takes all of the HUCs that have been processed,
                 aggregates key information from each HUC directory and looks for errors across all HUC
                 folders. It also processes the group in sub-steps such as usgs guages processesing,
                 rating curve adjustments and more. Naturally, running or re-running this script can only
-                be done after running 'fim_pre_processing.sh' and at least one run of 'fim_process_unit_wb.sh'.
+                be done after running 'fim_pre_processing.sh' and at least one run of 'fim_process_huc.sh'.
 
     "
     exit
@@ -89,15 +87,18 @@ echo "---- Started: `date -u`"
 ## LOAD AND VALIDATE INCOMING ARGUMENTS
 source $srcDir/bash_functions.env
 . $projectDir/fim_pre_processing.sh "$@"
-jobMaxLimit=$(( $jobHucLimit * $jobBranchLimit ))
 
-logFile=$outputDestDir/logs/unit/pipeline_summary_unit.log
-process_wb_file=$projectDir/fim_process_unit_wb.sh
+
+logFile=$outputDestDir/logs/pipeline_summary_unit.log
+process_wb_file=$projectDir/fim_process_huc.sh
 
 pipeline_start_time=`date +%s`
 
 # PROCESS THE UNITS (And branches)
-# Why an if and else? watch the number of colons
+# Why an if and else? .. watch the number of colons.
+echo
+echo "---- Unit (HUC) processing is started"
+
 if [ -f "$hucList" ]; then
     if [ "$jobHucLimit" = "1" ]; then
         parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList
@@ -124,7 +125,7 @@ echo "---------------------------------------------------"
 rm -df $workDir/$runName
 
 # Pipe into post processing
-. $projectDir/fim_post_processing.sh -n $runName -j $jobMaxLimit
+. $projectDir/fim_post_processing.sh -n $runName 
 
 echo
 
