@@ -119,9 +119,11 @@ def adjust_floodplains(
             # Mask out areas inside the FEMA flood zone availability
             if 'availability' in nfhl_layers:
                 fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
-                fema_flood_zones_availability_mask = pd.concat(
-                    [fema_flood_zones_availability_mask, fema_flood_zones_availability]
-                ).drop_duplicates(subset='geometry', keep=False)
+                fema_flood_zones_availability_mask = (
+                    pd.concat([fema_flood_zones_availability_mask, fema_flood_zones_availability])
+                    .drop_duplicates(subset='geometry', keep=False)
+                    .dissolve()
+                )
 
             if fema_flood_zones_layer in nfhl_layers:
                 # Read the FEMA flood zones layer
@@ -134,13 +136,18 @@ def adjust_floodplains(
 
             fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
 
-            # Extract the polygon geometry (as a list of GeoJSON-like dicts)
-            # If you have multiple polygons in gdf, this will create a list of them
-            geometries = [mapping(geom) for geom in fema_flood_zones_availability_mask.geometry]
+            if not fema_flood_zones_availability_mask.empty:
 
-            # Perform the masking
-            distance_mask, out_transform = mask(src, geometries, crop=False, nodata=np.nan, invert=True)
-            distance_mask = distance_mask[0]  # Extract the first band
+                # Extract the polygon geometry (as a list of GeoJSON-like dicts)
+                # If you have multiple polygons in gdf, this will create a list of them
+                geometries = [mapping(geom) for geom in fema_flood_zones_availability_mask.geometry]
+
+                # Perform the masking
+                distance_mask, out_transform = mask(src, geometries, crop=False, nodata=np.nan, invert=True)
+                distance_mask = distance_mask[0]  # Extract the first band
+
+            else:
+                return  # No flood zones to process, exit the function
 
         else:
             distance_mask = distance
