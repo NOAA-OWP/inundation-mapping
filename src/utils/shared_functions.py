@@ -4,6 +4,7 @@ import glob
 import inspect
 import logging
 import os
+import pathlib
 import re
 import shutil
 import sys
@@ -377,8 +378,6 @@ def run_with_mp(
                         # print("task bar being updated")
                         pbar.update(1)  # ✅ Progress update for each completed task
 
-                results[task_id] = rtn_value
-
                 if pbar:  # All mp tasks are done.
                     pbar.close()
 
@@ -415,20 +414,31 @@ def run_with_mp(
                 # But it helps force shut down other objects like manual logging and a
                 # a queue.
                 pbar.close()  # aborts the progress bar
-                screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-                screen_queue_thread.join()  # official closure of thread
+
+                if screen_queue_thread:
+                    screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+                    screen_queue_thread.join()  # official closure of thread
                 # re raising instead of sys.exit to help ensure all objects are cleaned up correctly
                 raise Exception("Shutting down. Cleaning up caches and objects....")
 
         # if the pool finished correctly, shut down the remaining queue.
-        screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-        screen_queue_thread.join()  # official closure of thread
+        if screen_queue_thread:
+            screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+            screen_queue_thread.join()  # official closure of thread
 
     # This is primarily used when using CTRL-C to which can leave orphaned processes
     except Exception as ex2:
         print("Still shutting down, hang in there", flush=True)
         print(ex2, flush=True)
-        sys.exit(1)
+        if screen_queue_thread:
+            screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+            screen_queue_thread.join()  # official closure of thread
+
+        # This hanging in some scenarios such as a bug in this function. Triggered by a mp child
+        # function not returning values correctly.
+        # sys.exit(1)
+        # need to rethrow
+        raise ex2
 
     return results
 
@@ -635,6 +645,72 @@ def s3_or_local_glob(path: str) -> list:
     """
     fs, pth = url_to_fs(path)
     return fs.glob(pth)
+
+
+def read_huc_file_list_or_array_of_hucs(hucs):
+    """
+    This function can be used for things other than just HUCS, but is being
+    tested for list of HUCs or a path to a HUC list file.
+
+    Some code reads in either a huc list file path or a list of hucs.
+    ie) /data/inputs/huc_list/mylist.huc
+    or 12090301 05020305
+    Sometimes using nargs="+" can treat the incoming argument as one big or a bunch of hucs.
+    ie) -u 12090301 05030105 (without quotes around the two become two items in a huc list)
+    BUT
+        -u '12090301 05030105' becomes jsut one large sting in the single list. ie) hucs[0] = '12090301 05030105'
+
+    This function can handle all three to result in a valid huc list array.
+    """
+
+    if isinstance(hucs, list) and len(hucs) == 0:
+        raise ValueError("HUC or item list can not be empty")
+
+    huc_list = set()
+
+    if isinstance(hucs, list) and len(hucs) == 1:
+        # can be a path to a file or a single item huc
+        # but also could be one item with more than one huc in the string
+        # ie: hucs[0] = '12090301 05030104' which we need to break apart
+        if hucs[0].endswith(".lst"):
+            if not os.path.isfile(hucs[0]):
+                raise FileNotFoundError(f"Huc list file not found at {hucs[0]}")
+
+            with open(hucs[0], 'r') as hucs_file:
+                file_lines = hucs_file.readlines()
+                f_list = [clean_huc_value(fl) for fl in file_lines]
+                huc_list.update(f_list)
+        else:
+            raw_huc_list = hucs[0].split(" ")
+            for huc in raw_huc_list:
+                huc_list.add(clean_huc_value(huc))
+
+    elif isinstance(hucs, list) and len(hucs) > 1:
+        for huc in hucs:
+            huc_list.add(clean_huc_value(huc))
+    else:  # assume it is a string but it could have more than one huc value in it
+        hucs = hucs.strip()
+        if hucs == "":
+            raise ValueError("HUC list is empty")
+
+        if " " in hucs:  # we have something like '12090301 05030104'
+            raw_huc_list = hucs.split(" ")
+            for huc in raw_huc_list:
+                huc_list.add(clean_huc_value(huc))
+        else:
+            huc_list.add(clean_huc_value(hucs))
+
+    return huc_list
+
+
+# Sometimes value in HUC list files can have extra spaces or line break problems
+# Mostly has to do with file encoding.
+def clean_huc_value(huc):
+    # Strips the newline character plus
+    # single or double quotes (which sometimes happens)
+    huc = huc.strip().replace("\"", "")
+    huc = huc.replace("\'", "")
+    return huc
 
 
 ########################################################################
