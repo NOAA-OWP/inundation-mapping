@@ -136,25 +136,23 @@ def adjust_floodplains(
 
             fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
 
-            if not fema_flood_zones_availability_mask.empty:
-
-                # Extract the polygon geometry (as a list of GeoJSON-like dicts)
-                # If you have multiple polygons in gdf, this will create a list of them
-                geometries = [mapping(geom) for geom in fema_flood_zones_availability_mask.geometry]
-
-                # Perform the masking
-                distance_mask, out_transform = mask(src, geometries, crop=False, nodata=np.nan, invert=True)
-                distance_mask = distance_mask[0]  # Extract the first band
-
-            else:
+            if fema_flood_zones_availability_mask.empty:
                 return  # No flood zones to process, exit the function
+
+            # Extract the polygon geometry (as a list of GeoJSON-like dicts)
+            # If you have multiple polygons in gdf, this will create a list of them
+            geometries = [mapping(geom) for geom in fema_flood_zones_availability_mask.geometry]
+
+            # Perform the masking
+            distance_mask = mask(src, geometries, crop=False, nodata=np.nan, invert=True)
+            distance_mask = distance_mask[0]  # Extract the first band
 
         else:
             distance_mask = distance
 
         # Clip to the upstream catchment polygon
         geometries = [mapping(geom) for geom in upstream_catchments.geometry]
-        distance_clipped, out_transform = mask(src, geometries, crop=False, nodata=np.nan)
+        distance_clipped = mask(src, geometries, crop=False, nodata=np.nan)
         distance_clipped = distance_clipped[0]  # Extract the first band
 
     distance = np.where(
