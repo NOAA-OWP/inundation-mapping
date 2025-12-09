@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2025-12-08 [PR#1712](https://github.com/NOAA-OWP/inundation-mapping/pull/1712)
+
+Fixes the condition where an error is thrown when clipping the NFHL `availability` mask by the branch polygon results in no geometry (i.e., an empty set).
+
+### Changes
+ - `src/`
+     - `adjust_floodplains.py`: Returns (exits) if the `availability` mask geometry clipped by the branch polygon is empty.
+     - `run_by_branch`: Adjust filename if `adjust_floodplains.py` is exited before completing.
+
+<br/>
+
 ## v4.9.2.1 - 2025-12-05 [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
 
 This update adds data predownload functionality to CatFIM so it can create categorical FIM maps for sites that don't have thresholds available in the WRDS API. There is also a new default behavior for CatFIM: instead of hitting the WRDS API for each run, the CatFIM code defaults to using pre-downloaded input thresholds and metadata. However, there is still the option to download the thresholds and metadata during the CatFIM run (which was previously the default).
