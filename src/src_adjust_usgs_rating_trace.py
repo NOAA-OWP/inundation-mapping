@@ -16,33 +16,27 @@ from utils.shared_variables import USGS_CALB_TRACE_DIST
 
 
 '''
-The script ingests a USGS rating curve csv and a NWM flow recurrence interval database.
-The gage location will be associated to the corresponding hydroID and attributed with the HAND elevation value
+Purpose: 
+Builds a filtered and preprocessed USGS rating curve that will be used for SRC calibration.
 
 Processing
 - Read in USGS rating curve from csv and convert WSE navd88 values to meters
 - Read in the aggregate USGS elev table csv from the HUC fim directory (output from usgs_gage_crosswalk.py)
 - Filter null entries and convert usgs flow from cfs to cms
 - Calculate HAND elevation value for each gage location (NAVD88 elevation - NHD DEM thalweg elevation)
-- Read in the NWM recurr csv file and convert flow to cfs
-- Calculate the closest SRC discharge value to the NWM flow value
-- Create dataframe with crosswalked USGS flow and NWM recurr flow and assign metadata attributes
-- Calculate flow difference (variance) to check for large discrepancies btw NWM flow and USGS closest flow
-- Log any signifant differences (or negative HAND values) btw the NWM flow value and closest USGS rating flow
+- Log and remove negative HAND values
 - Produce log file
 - Call update_rating_curve() to perform the rating curve calibration.
 
 Inputs
 - branch_dir:           fim directory containing individual HUC output dirs
 - usgs_rc_filepath:     USGS rating curve database (produced by rating_curve_get_usgs_curves.py)
-- nwm_recurr_filepath:  NWM flow recurrence interval dataset
 - debug_outputs_option: optional flag to output intermediate files for reviewing/debugging
 - job_number:           number of multi-processing jobs to use
 
 Outputs
 - water_edge_median_ds: dataframe containing:
-                            'location_id', 'hydroid', 'feature_id', 'huc', 'hand', 'discharge_cms',
-                            'nwm_recur_flow_cms', 'nwm_recur', 'layer'
+                            'location_id', 'hydroid', 'feature_id', 'huc', 'hand', 'discharge_cms', 'submitter', 'accum_length'
 '''
 
 
@@ -131,6 +125,8 @@ def trace_network(df, start_id):
     # This function creates a list of all upstream & downstream hydroids
     # Input: df --> dataframe of demDerived_reaches with network attribs
     # Input: start_id --> hydroid value where the trace routine will start
+    # Store HydroIDs and accumulated lengths
+
     current_id = start_id
     trace_up = []
     trace_down = []
@@ -332,9 +328,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             usgs_elev_trace.rename(columns={'hydroid': 'hydroid_gauge'}, inplace=True)
             usgs_elev_trace.rename(columns={'trace_hydroid': 'hydroid'}, inplace=True)
 
-            usgs_elev_trace.to_csv(
-                    os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False
-                )
             if debug_outputs_option:
                 usgs_elev_trace.to_csv(
                     os.path.join(branch_dir, 'water_edge_trace_' + str(branch_id) + '.csv'), index=False
@@ -385,6 +378,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 )
             else:
                 # Additional arguments for src_roughness_optimization
+                # Keep this tag for now, it may use when applying power law for all calibration methods
                 source_tag = 'usgs_rating'  # tag to use in source attribute field
                 merge_prev_adj = False  # merge in previous SRC adjustment calculations
 
