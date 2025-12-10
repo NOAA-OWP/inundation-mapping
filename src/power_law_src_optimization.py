@@ -10,10 +10,9 @@ from multiprocessing import Pool
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import rasterio
 from geopandas.tools import sjoin
 
-from utils.shared_variables import DOWNSTREAM_THRESHOLD, ROUGHNESS_MAX_THRESH, ROUGHNESS_MIN_THRESH
+from utils.shared_variables import DOWNSTREAM_THRESHOLD
 
 
 gpd.options.io_engine = "pyogrio"
@@ -35,8 +34,6 @@ def fit_power_law(discharge_cms, stage):
     log_s = np.log(s_data)
     # Add weights for higher flow values
     weights = q_data
-    # weights[-1] = weights[-2] # match weight of last SRC point
-    # print(weights)
 
     model = LinearRegression()
     model.fit(log_q, log_s, sample_weight=weights)
@@ -49,6 +46,8 @@ def fit_power_law(discharge_cms, stage):
     model_log_s = model.predict(log_q)
     r2 = 1 - np.sum((log_s - model_log_s) **2) / np.sum((log_s - np.mean(log_s)) **2)
     return a, b, r2
+
+
 def update_rating_curve(
     fim_directory,
     water_edge_median_df,
@@ -219,7 +218,9 @@ def update_rating_curve(
             'calb_applied',
             'obs_source',
             'a',
-            'b'
+            'b',
+            'a_featid',
+            'b_featid',
         ],
         axis=1,
         errors='ignore',
@@ -229,22 +230,25 @@ def update_rating_curve(
     df_nvalues['b'] = np.nan
     df_nvalues['r2'] = np.nan
 
-    ## loop through the user provided point data --> stage/flow dataframe row by row
-    for hydroid in df_nvalues['hydroid'].unique():
+    ## loop through the user provided point data --> stage/flow dataframe only for hydroid_gage
+    for hydroid in df_nvalues['hydroid_gauge'].unique():
         df_hydro = df_htable[(df_htable.HydroID == hydroid) & (df_htable.stage > 0)]
         if df_hydro.empty:
             log_text += f"Warning: No valid hydroTable entries for HydroID {hydroid} in HUC {huc} branch {branch_id}\n"
             continue
-        df_obs = df_nvalues[df_nvalues.hydroid == hydroid]
+        df_obs = df_nvalues[df_nvalues.hydroid_gauge == hydroid]
         if df_obs.empty or len(df_obs) < 5:
             log_text += f"Warning: insufficent points"
             continue
         stages_obs = df_obs['hand'].values
         flow_obs = df_obs['discharge_cms'].values # CMS
+
         # Find the highest stage (last point)
         max_row = df_hydro.loc[df_hydro['stage'].idxmax()]
+        stages_fit = np.append(stages_obs, max_row['stage'])
+        flow_fit = np.append(flow_obs, max_row['discharge_cms'])
 
-        a, b, r2 = fit_power_law(flow_obs, stages_obs)
+        a, b, r2 = fit_power_law(flow_fit, stages_fit)
 
         df_nvalues.loc[df_nvalues.hydroid == hydroid, ['a', 'b', 'r2']] = a, b, r2
         df_nvalues.loc[df_nvalues.hydroid == hydroid, ['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']] = \
@@ -252,10 +256,25 @@ def update_rating_curve(
     if df_nvalues.empty:
         log_text += f'no valid power law fits for Huc {huc}'
         return log_text
+    df_nvalues.to_csv(os.path.join(fim_directory, f"calb_coef_usgs_powe_law_fit_{branch_id}.csv"), index=False)
+
+    # Take only rows were a and b are known
+    df_vals = df_nvalues.groupby('hydroid_gauge')[['a', 'b']].mean().reset_index()
+    # Merge back on hydroid_gauge
+    df_nvalues = (df_nvalues.set_index('hydroid_gauge').combine_first(df_vals.set_index('hydroid_gauge')).reset_index())
+ 
+
+    for hydroid in df_nvalues['hydroid'].unique():
+        df_hydro = df_htable[(df_htable.HydroID == hydroid) & (df_htable.stage > 0)]
+        max_row = df_hydro.loc[df_hydro['stage'].idxmax()]
+        df_nvalues.loc[df_nvalues.hydroid == hydroid, ['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']] = \
+            max_row[['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']].values
+    
+    df_nvalues.to_csv(os.path.join(fim_directory, f"calb_coef_usgs_powe_law_fit_{branch_id}.csv"), index=False)
     if debug_outputs_option:
         df_nvalues.to_csv(os.path.join(fim_directory, f"calb_coef_usgs_powe_law_fit_{branch_id}.csv"), index=False)
+    
     df_updated = df_nvalues[['hydroid', 'coll_time', 'submitter']] 
-
     df_updated = df_updated.sort_values('coll_time').drop_duplicates(
         ['hydroid'], keep='last'
     )  # sort by collection time and then drop duplicate HydroIDs (keep most recent coll_time per HydroID)
@@ -268,15 +287,26 @@ def update_rating_curve(
     ].drop_duplicates(['HydroID'])
 
     df_nmerge = branch_network_tracer(df_nmerge)
+    df_nmerge.to_csv(os.path.join(fim_directory, f"df_nmerge_trace_{branch_id}.csv"), index=False)
 
-    ## Merge the newly caluclated ManningN dataframes
-    df_nmerge = df_nmerge.merge(df_nvalues.groupby('hydroid')[['a', 'b']].mean().reset_index(), how='left', left_on='HydroID', right_on='hydroid').drop('hydroid', axis=1)
+    ## Merge the newly caluclated power law coefficients
+    def weighted_avg(group):
+        weights = 1 / group['accum_length']
+        a_avg = (group['a'] * weights).sum() / weights.sum()
+        b_avg = (group['b'] * weights).sum() / weights.sum()
+        return pd.Series({'a': a_avg, 'b': b_avg})
+    
+
+    df_nvalues = df_nvalues.groupby('hydroid').apply(weighted_avg).reset_index()
+    df_nvalues.to_csv(os.path.join(fim_directory, f"weighted_{branch_id}.csv"), index=False)
+    df_nmerge = df_nmerge.merge(df_nvalues, how='left', left_on='HydroID', right_on='hydroid').drop('hydroid', axis=1)
     df_nmerge = df_nmerge.merge(df_updated, how='left', left_on='HydroID', right_on='hydroid').drop('hydroid', axis=1)
 
     df_nmerge = group_power_law_calc(df_nmerge, down_dist_thresh)
     df_featid_ab = df_nmerge.groupby('feature_id')[['a', 'b']].mean().reset_index()
     df_nmerge = df_nmerge.merge(df_featid_ab, how='left', on='feature_id', suffixes=('', '_featid'))
     df_htable = df_htable.rename(columns={'discharge_cms': 'precalb_discharge_cms'})
+
     df_htable = df_htable.merge(df_nmerge[['HydroID', 'a', 'b', 'a_featid', 'b_featid', 'last_updated', 'submitter']], how='left', on='HydroID')
     for col in ['a', 'b', 'a_featid', 'b_featid']:
         if col not in df_htable.columns:
