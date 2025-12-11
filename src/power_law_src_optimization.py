@@ -20,7 +20,23 @@ gpd.options.io_engine = "pyogrio"
 from sklearn.linear_model import LinearRegression
 
 def fit_power_law(discharge_cms, stage):
+    """
+    Fit a weighted log-log power law relationship between discharge (Q) and stage (S):
+        stage = a * Q^b
+    Processing steps:
+    - Remove non-positive discharge and stage values.
+    - Log-transform Q and S.
+    - Apply weighted linear regression in log space, using discharge as weights.
+    - Convert regression intercept and slope into power-law parameters a and b.
+    - Compute model R² in log spcae.
 
+    Returns:
+        a (float): power-law coefficient
+        b (float): power-law exponent
+        R² (float): coefficient of determination in log space.
+        If insufficient valid points (<5), returns (None, None, None)
+
+    """
 
     valid_data = (discharge_cms > 0) & (stage > 0)
 
@@ -62,42 +78,28 @@ def update_rating_curve(
 ):
     '''
     This script ingests a dataframe containing observed data (HAND elevation and flow) and
-    calculates new SRC roughness values via Manning's equation.
-    The new roughness values are averaged for each HydroID and then progated downstream and
-    a new discharge value is calculated where applicable.
+    updates SRC discharge values by fitting and propagating power-law rating curve parameters (a and b) derived from 
+    observed stage-discharge data.
 
-    Processing Steps:
-    - Read in the hydroTable.csv and check whether it has previously been updated
-        (rename default columns if needed)
-    - Loop through the user provided point data --> stage/flow dataframe row by row and copy the corresponding
-        htable values for the matching stage->HAND lookup
-    - Calculate new HydroID roughness values for input obs data using Manning's equation
-    - Create dataframe to check for erroneous Manning's n values
-        (values set in tools_shared_variables.py: >0.6 or <0.001 --> see input args)
-    - Create magnitude and ahps column by subsetting the "layer" attribute
-    - Create df grouped by hydroid with ahps_lid and huc number and then pivot the magnitude column to display
-        n value for each magnitude at each hydroid
-    - Create df with the most recent collection time entry and submitter attribs
-    - Cacluate median ManningN to handle cases with multiple hydroid entries and create a df with the median
-        hydroid_ManningN value per feature_id
-    - Rename the original hydrotable variables to allow new calculations to use the primary var name
-    - Check for large variabilty in the calculated Manning's N values
-        (for cases with mutliple entries for a single hydroid)
-    - Create attributes to traverse the flow network between HydroIDs
-    - Calculate group_calb_coef (mean calb n for consective hydroids) and apply values downsteam to
-        non-calb hydroids (constrained to first Xkm of hydroids -
-        set downstream diststance var as input arg)
-    - Create the adjust_ManningN column by combining the hydroid_ManningN with the featid_ManningN
-        (use feature_id value if the hydroid is in a feature_id that contains valid hydroid_ManningN value(s))
-    - Merge in previous SRC adjustments (where available) for hydroIDs that do not have a new adjusted
-        roughness value
-    - Update the catchments polygon .gpkg with joined attribute - "src_calibrated"
-    - Merge the final ManningN dataframe to the original hydroTable
-    - Create the ManningN column by combining the hydroid_ManningN with the default_ManningN
-        (use modified where available)
-    - Calculate new discharge_cms with new adjusted ManningN
-    - Export a new hydroTable.csv and overwrite the previous version and output new src json
-        (overwrite previous)
+    -------------------------
+    Overview of new workflow
+    -------------------------
+
+    - Read in the hydroTable.csv and insure required columns exist.
+    - For each gage-linked HydroID:
+        - extract observed stage (HAND) and discharge (cms).
+        - append the highest stage from the hydroTable to give the model a hint about where the curve should reach in the FIM domain.
+          USGS observations rarely include the heighest stages that FIM cares about.
+        - fit a weighted power-law
+        - store a, b , and R².
+    - Merge fitted coefficients back to all rows belonging to each HydroID.
+    - Apply weighted averaging for HydroIds that have multiple observations,
+      using accumulated length as weights.
+    - Propagate a/b values downstream within each branch for a limited distance.
+    - Compute feature-level average a/b and merge into hydroTable.
+    - Recalculate discharge per row using Q = (S / a)^ (1/b) fallig back to feature-level a/b if HydroID-level values are missing,
+      otherwise reverting to pre-calibration discharge.
+    - Write: updated hydroTable_branch.csv, updated catchments GPKG, and debug CSVs if requested
 
     Inputs:
     - fim_directory:        fim directory containing individual HUC output dirs
@@ -231,12 +233,12 @@ def update_rating_curve(
     df_nvalues['r2'] = np.nan
 
     ## loop through the user provided point data --> stage/flow dataframe only for hydroid_gage
-    for hydroid in df_nvalues['hydroid_gauge'].unique():
-        df_hydro = df_htable[(df_htable.HydroID == hydroid) & (df_htable.stage > 0)]
+    for hydroid_g in df_nvalues['hydroid_gauge'].unique():
+        df_hydro = df_htable[(df_htable.HydroID == hydroid_g) & (df_htable.stage > 0)]
         if df_hydro.empty:
-            log_text += f"Warning: No valid hydroTable entries for HydroID {hydroid} in HUC {huc} branch {branch_id}\n"
+            log_text += f"Warning: No valid hydroTable entries for HydroID {hydroid_g} in HUC {huc} branch {branch_id}\n"
             continue
-        df_obs = df_nvalues[df_nvalues.hydroid_gauge == hydroid]
+        df_obs = df_nvalues[df_nvalues.hydroid_gauge == hydroid_g]
         if df_obs.empty or len(df_obs) < 5:
             log_text += f"Warning: insufficent points"
             continue
@@ -250,13 +252,13 @@ def update_rating_curve(
 
         a, b, r2 = fit_power_law(flow_fit, stages_fit)
 
-        df_nvalues.loc[df_nvalues.hydroid == hydroid, ['a', 'b', 'r2']] = a, b, r2
-        df_nvalues.loc[df_nvalues.hydroid == hydroid, ['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']] = \
+        df_nvalues.loc[df_nvalues.hydroid_gauge == hydroid_g, ['a', 'b', 'r2']] = a, b, r2
+        df_nvalues.loc[df_nvalues.hydroid_gauge == hydroid_g, ['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']] = \
             max_row[['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']].values
     if df_nvalues.empty:
         log_text += f'no valid power law fits for Huc {huc}'
         return log_text
-    df_nvalues.to_csv(os.path.join(fim_directory, f"calb_coef_usgs_powe_law_fit_{branch_id}.csv"), index=False)
+    df_nvalues.to_csv(os.path.join(fim_directory, f"calb_coef_usgs_powe_law_fit22222_{branch_id}.csv"), index=False)
 
     # Take only rows were a and b are known
     df_vals = df_nvalues.groupby('hydroid_gauge')[['a', 'b']].mean().reset_index()
@@ -270,7 +272,6 @@ def update_rating_curve(
         df_nvalues.loc[df_nvalues.hydroid == hydroid, ['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']] = \
             max_row[['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']].values
     
-    df_nvalues.to_csv(os.path.join(fim_directory, f"calb_coef_usgs_powe_law_fit_{branch_id}.csv"), index=False)
     if debug_outputs_option:
         df_nvalues.to_csv(os.path.join(fim_directory, f"calb_coef_usgs_powe_law_fit_{branch_id}.csv"), index=False)
     
@@ -287,8 +288,6 @@ def update_rating_curve(
     ].drop_duplicates(['HydroID'])
 
     df_nmerge = branch_network_tracer(df_nmerge)
-    df_nmerge.to_csv(os.path.join(fim_directory, f"df_nmerge_trace_{branch_id}.csv"), index=False)
-
     ## Merge the newly caluclated power law coefficients
     def weighted_avg(group):
         weights = 1 / group['accum_length']
@@ -419,6 +418,17 @@ def branch_network_tracer(df_input_htable):
     return df_input_htable
 
 def group_power_law_calc(df_nmerge, down_dist_thresh):
+    """
+    Propagate power-law coefficients (a, b) downstream within each branch.
+
+    Logic:
+        - Walk through each branch in order
+        - For rows lacking a/b:
+            - accumulate downstream distance
+            - if accumulated distance < down_dist_tresh,
+              fill missing a/b using the mean of all upstream hydroids in the same banch.
+        - Reset distance accumulation whenever a hydroid already has a valid a/b.
+    """
     dist_accum = 0
     branch_start = 1
     for index, row in df_nmerge.iterrows():

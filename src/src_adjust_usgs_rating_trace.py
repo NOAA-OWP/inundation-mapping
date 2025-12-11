@@ -36,7 +36,7 @@ Inputs
 
 Outputs
 - water_edge_median_ds: dataframe containing:
-                            'location_id', 'hydroid', 'feature_id', 'huc', 'hand', 'discharge_cms', 'submitter', 'accum_length'
+                            'location_id', 'hydroid', 'feature_id', 'huc', 'hand', 'discharge_cms', 'submitter'
 '''
 
 
@@ -246,10 +246,9 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 start_id = row['hydroid']
 
                 # Trace the network for each row
-                up, down , up_length, down_length= trace_network(df, start_id)
+                up, down , down_length, up_length = trace_network(df, start_id)
 
                 # Append the results to the "usgs_elev" dataframe
-                usgs_elev = usgs_elev.copy()
                 usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
                 usgs_elev.loc[index, 'down'] = ','.join(map(str, down))
                 usgs_elev.loc[index, 'up_length'] = str(up_length)
@@ -285,9 +284,6 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
             # Drop rows where 'trace_hydroid' column is empty
             # Addresses backpool removals and lake gauges
             usgs_elev_trace = usgs_elev_trace[usgs_elev_trace['trace_hydroid'].astype(int) != 0]
-            usgs_elev_trace.to_csv(
-                    os.path.join(branch_dir, 'water_edge_trace450_' + str(branch_id) + '.csv'), index=False
-                )
 
             # Map accumulated length
             def get_accum_length(row):
@@ -471,8 +467,6 @@ def run_prep(
         usgs_df = create_usgs_rating_database(
             usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, log_dir
         )
-
-        usgs_df.to_csv()
         # Create huc proc_list for multiprocessing and execute the update_rating_curve function
         branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file)
 
