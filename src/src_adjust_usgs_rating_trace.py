@@ -1,9 +1,9 @@
 import argparse
+import ast
 import datetime as dt
 import multiprocessing
 import os
 import sys
-import ast
 from multiprocessing import Pool
 
 import geopandas as gpd
@@ -16,7 +16,7 @@ from utils.shared_variables import USGS_CALB_TRACE_DIST
 
 
 '''
-Purpose: 
+Purpose:
 Builds a filtered and preprocessed USGS rating curve that will be used for SRC calibration.
 
 Processing
@@ -40,9 +40,7 @@ Outputs
 '''
 
 
-def create_usgs_rating_database(
-    usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, log_dir
-):
+def create_usgs_rating_database(usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, log_dir):
     start_time = dt.datetime.now()
     print('Reading USGS rating curve from csv...')
     log_text = 'Processing database for USGS flow/WSE at NWM flow recur intervals...\n'
@@ -96,7 +94,6 @@ def create_usgs_rating_database(
     ]
     usgs_rc_df['feature_id'] = usgs_rc_df['feature_id'].astype(int)
 
-   
     # Log any negative HAND elev values and remove from database
     log_text += 'Warning: Negative HAND stage values -->\n'
     log_text += usgs_rc_df[usgs_rc_df['hand'] < 0].to_string() + '\n'
@@ -246,7 +243,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 start_id = row['hydroid']
 
                 # Trace the network for each row
-                up, down , down_length, up_length = trace_network(df, start_id)
+                up, down, down_length, up_length = trace_network(df, start_id)
 
                 # Append the results to the "usgs_elev" dataframe
                 usgs_elev.loc[index, 'up'] = ','.join(map(str, up))
@@ -266,15 +263,12 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
                 .apply(lambda x: [num.strip() for num in x.split(',')] if pd.notna(x) else [])
             )
 
-
             # Combine the up & down hydroid lists into a new column
             usgs_elev['trace_hydroid'] = [
                 lst1 + lst2 for lst1, lst2 in zip(usgs_elev['up'], usgs_elev['down'])
             ]
             # Explode the trace column
             usgs_elev_trace = usgs_elev.explode('trace_hydroid')
-
-
 
             # Check for empty or nan trace lists and convert the column to integers
             usgs_elev_trace['trace_hydroid'] = usgs_elev_trace['trace_hydroid'].replace('nan', 0)
@@ -411,9 +405,7 @@ def branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file):
     #     )
 
 
-def run_prep(
-    run_dir, usgs_rc_filepath, usgs_sites_filepath, debug_outputs_option, job_number
-):
+def run_prep(run_dir, usgs_rc_filepath, usgs_sites_filepath, debug_outputs_option, job_number):
     # Check input args are valid
     assert os.path.isdir(run_dir), 'ERROR: could not find the input fim_dir location: ' + str(run_dir)
 
@@ -464,9 +456,7 @@ def run_prep(
     else:
         print('This may take a few minutes...')
         log_file.write("starting create usgs rating db\n")
-        usgs_df = create_usgs_rating_database(
-            usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, log_dir
-        )
+        usgs_df = create_usgs_rating_database(usgs_rc_filepath, usgs_sites_filepath, usgs_elev_df, log_dir)
         # Create huc proc_list for multiprocessing and execute the update_rating_curve function
         branch_proc_list(usgs_df, run_dir, debug_outputs_option, log_file)
 
@@ -516,6 +506,4 @@ if __name__ == '__main__':
     job_number = int(args['job_number'])
 
     # Prepare/check inputs, create log file, and spin up the proc list
-    run_prep(
-        run_dir, usgs_rc_filepath, usgs_sites_filepath, debug_outputs_option, job_number
-    )
+    run_prep(run_dir, usgs_rc_filepath, usgs_sites_filepath, debug_outputs_option, job_number)

@@ -11,13 +11,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from geopandas.tools import sjoin
-
+from sklearn.linear_model import LinearRegression
 from utils.shared_variables import DOWNSTREAM_THRESHOLD
-
-
 gpd.options.io_engine = "pyogrio"
 
-from sklearn.linear_model import LinearRegression
 
 def fit_power_law(discharge_cms, stage):
     """
@@ -43,7 +40,7 @@ def fit_power_law(discharge_cms, stage):
     q_data = discharge_cms[valid_data]
     s_data = stage[valid_data]
     if len(q_data) < 5:
-        return None, None, None # Not enough points
+        return None, None, None   # Not enough points
 
     # log transform
     log_q = np.log(q_data).reshape(-1, 1)
@@ -57,10 +54,10 @@ def fit_power_law(discharge_cms, stage):
     # log(s) = log(a) + b * log(q)
     log_a = model.intercept_
     b = model.coef_[0]
-    
+
     a = np.exp(log_a)
     model_log_s = model.predict(log_q)
-    r2 = 1 - np.sum((log_s - model_log_s) **2) / np.sum((log_s - np.mean(log_s)) **2)
+    r2 = 1 - np.sum((log_s - model_log_s) ** 2) / np.sum((log_s - np.mean(log_s)) ** 2)
     return a, b, r2
 
 
@@ -78,7 +75,7 @@ def update_rating_curve(
 ):
     '''
     This script ingests a dataframe containing observed data (HAND elevation and flow) and
-    updates SRC discharge values by fitting and propagating power-law rating curve parameters (a and b) derived from 
+    updates SRC discharge values by fitting and propagating power-law rating curve parameters (a and b) derived from
     observed stage-discharge data.
 
     -------------------------
@@ -163,50 +160,51 @@ def update_rating_curve(
         htable_path, dtype={'HUC': object, 'last_updated': object, 'submitter': object, 'obs_source': object}
     )
 
-    df_prev_adj = pd.DataFrame()  # initialize empty df for populating/checking later
-    if 'precalb_discharge_cms' not in df_htable.columns:  # need this column to exist before continuing
-        df_htable['calb_applied'] = False
-        df_htable['last_updated'] = pd.NA
-        df_htable['submitter'] = pd.NA
-        df_htable['obs_source'] = pd.NA
-        df_htable['precalb_discharge_cms'] = pd.NA
-        # df_htable['calb_coef_usgs'] = pd.NA
-        df_htable['calb_coef_final'] = pd.NA
-    if (
-        df_htable['precalb_discharge_cms'].isnull().values.any()
-    ):  # check if there are not valid values in the column (True = no previous calibration outputs)
-        df_htable['precalb_discharge_cms'] = df_htable['discharge_cms'].values
+    # Keep this section for later
+    # df_prev_adj = pd.DataFrame()  # initialize empty df for populating/checking later
+    # if 'precalb_discharge_cms' not in df_htable.columns:  # need this column to exist before continuing
+    #     df_htable['calb_applied'] = False
+    #     df_htable['last_updated'] = pd.NA
+    #     df_htable['submitter'] = pd.NA
+    #     df_htable['obs_source'] = pd.NA
+    #     df_htable['precalb_discharge_cms'] = pd.NA
+    #     # df_htable['calb_coef_usgs'] = pd.NA
+    #     df_htable['calb_coef_final'] = pd.NA
+    # if (
+    #     df_htable['precalb_discharge_cms'].isnull().values.any()
+    # ):  # check if there are not valid values in the column (True = no previous calibration outputs)
+    #     df_htable['precalb_discharge_cms'] = df_htable['discharge_cms'].values
 
-    ## The section below allows for previous calibration modifications (i.e. usgs rating calbs) to be
-    #  available in the final calibration outputs
-    # Check if the merge_prev_adj setting is True and there are valid 'calb_coef_final' values from previous
-    # calibration outputs
-    if merge_prev_adj and not df_htable['calb_coef_final'].isnull().all():
-        # Create a subset of hydrotable with previous adjusted SRC attributes
-        df_prev_adj_htable = df_htable.copy()[
-            ['HydroID', 'submitter', 'last_updated', 'obs_source', 'calb_coef_final']
-        ]
-        df_prev_adj_htable = df_prev_adj_htable.rename(
-            columns={
-                'submitter': 'submitter_prev',
-                'last_updated': 'last_updated_prev',
-                'calb_coef_final': 'calb_coef_final_prev',
-                'obs_source': 'obs_source_prev',
-            }
-        )
-        df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
-        # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
-        df_prev_adj = df_prev_adj_htable[
-            df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating|ras2fim_rating", na=False)
-        ]
-        log_text += (
-            'HUC: '
-            + str(huc)
-            + '  Branch: '
-            + str(branch_id)
-            + ': found previous hydroTable calibration attributes --> '
-            + 'retaining previous calb attributes for blending...\n'
-        )
+    # ## The section below allows for previous calibration modifications (i.e. usgs rating calbs) to be
+    # #  available in the final calibration outputs
+    # # Check if the merge_prev_adj setting is True and there are valid 'calb_coef_final' values from previous
+    # # calibration outputs
+    # if merge_prev_adj and not df_htable['calb_coef_final'].isnull().all():
+    #     # Create a subset of hydrotable with previous adjusted SRC attributes
+    #     df_prev_adj_htable = df_htable.copy()[
+    #         ['HydroID', 'submitter', 'last_updated', 'obs_source', 'calb_coef_final']
+    #     ]
+    #     df_prev_adj_htable = df_prev_adj_htable.rename(
+    #         columns={
+    #             'submitter': 'submitter_prev',
+    #             'last_updated': 'last_updated_prev',
+    #             'calb_coef_final': 'calb_coef_final_prev',
+    #             'obs_source': 'obs_source_prev',
+    #         }
+    #     )
+    #     df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
+    #     # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
+    #     df_prev_adj = df_prev_adj_htable[
+    #         df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating|ras2fim_rating", na=False)
+    #     ]
+    #     log_text += (
+    #         'HUC: '
+    #         + str(huc)
+    #         + '  Branch: '
+    #         + str(branch_id)
+    #         + ': found previous hydroTable calibration attributes --> '
+    #         + 'retaining previous calb attributes for blending...\n'
+    #     )
 
     # Delete previous adj columns to prevent duplicate variable issues
     # (if src_roughness_optimization.py was previously applied)
@@ -240,10 +238,10 @@ def update_rating_curve(
             continue
         df_obs = df_nvalues[df_nvalues.hydroid_gauge == hydroid_g]
         if df_obs.empty or len(df_obs) < 5:
-            log_text += f"Warning: insufficent points"
+            log_text += "Warning: insufficent points"
             continue
         stages_obs = df_obs['hand'].values
-        flow_obs = df_obs['discharge_cms'].values # CMS
+        flow_obs = df_obs['discharge_cms'].values   # CMS
 
         # Find the highest stage (last point)
         max_row = df_hydro.loc[df_hydro['stage'].idxmax()]
@@ -258,24 +256,22 @@ def update_rating_curve(
     if df_nvalues.empty:
         log_text += f'no valid power law fits for Huc {huc}'
         return log_text
-    df_nvalues.to_csv(os.path.join(fim_directory, f"calb_coef_usgs_powe_law_fit22222_{branch_id}.csv"), index=False)
 
     # Take only rows were a and b are known
-    df_vals = df_nvalues.groupby('hydroid_gauge')[['a', 'b']].mean().reset_index()
+    df_vals = df_nvalues.groupby('hydroid_gauge')[['a', 'b', 'r2']].mean().reset_index()
     # Merge back on hydroid_gauge
     df_nvalues = (df_nvalues.set_index('hydroid_gauge').combine_first(df_vals.set_index('hydroid_gauge')).reset_index())
- 
 
     for hydroid in df_nvalues['hydroid'].unique():
         df_hydro = df_htable[(df_htable.HydroID == hydroid) & (df_htable.stage > 0)]
         max_row = df_hydro.loc[df_hydro['stage'].idxmax()]
         df_nvalues.loc[df_nvalues.hydroid == hydroid, ['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']] = \
             max_row[['feature_id', 'LakeID', 'NextDownID', 'LENGTHKM']].values
-    
+
     if debug_outputs_option:
         df_nvalues.to_csv(os.path.join(fim_directory, f"calb_coef_usgs_powe_law_fit_{branch_id}.csv"), index=False)
-    
-    df_updated = df_nvalues[['hydroid', 'coll_time', 'submitter']] 
+
+    df_updated = df_nvalues[['hydroid', 'coll_time', 'submitter']]
     df_updated = df_updated.sort_values('coll_time').drop_duplicates(
         ['hydroid'], keep='last'
     )  # sort by collection time and then drop duplicate HydroIDs (keep most recent coll_time per HydroID)
@@ -289,15 +285,14 @@ def update_rating_curve(
 
     df_nmerge = branch_network_tracer(df_nmerge)
     ## Merge the newly caluclated power law coefficients
+
     def weighted_avg(group):
         weights = 1 / group['accum_length']
         a_avg = (group['a'] * weights).sum() / weights.sum()
         b_avg = (group['b'] * weights).sum() / weights.sum()
         return pd.Series({'a': a_avg, 'b': b_avg})
-    
 
     df_nvalues = df_nvalues.groupby('hydroid').apply(weighted_avg).reset_index()
-    df_nvalues.to_csv(os.path.join(fim_directory, f"weighted_{branch_id}.csv"), index=False)
     df_nmerge = df_nmerge.merge(df_nvalues, how='left', left_on='HydroID', right_on='hydroid').drop('hydroid', axis=1)
     df_nmerge = df_nmerge.merge(df_updated, how='left', left_on='HydroID', right_on='hydroid').drop('hydroid', axis=1)
 
@@ -355,67 +350,69 @@ def update_rating_curve(
     print("Completed huc: " + str(huc) + ' --> branch: ' + str(branch_id))
     return log_text
 
+
 def branch_network_tracer(df_input_htable):
     df_input_htable = df_input_htable.astype(
         {'NextDownID': 'int64'}
-    ) # ensure attribute has consistent format as int
+    )  # ensure attribute has consistent format as int
     # remove all hydroids associated with lake/water body
     # (these often have disjoined artifacts in the network)
     df_input_htable = df_input_htable.loc[df_input_htable['LakeID'] == -999]
     # define start catchments as hydroids that are not found in the "NextDownID" attribute for all
     # other hydroids
     df_input_htable["start_catch"] = ~df_input_htable['HydroID'].isin(df_input_htable['NextDownID'])
-    df_input_htable = df_input_htable.set_index('HydroID', drop=False) # set index to the hydroid
+    df_input_htable = df_input_htable.set_index('HydroID', drop=False)  # set index to the hydroid
     branch_heads = deque(
         df_input_htable[df_input_htable['start_catch'] == True]['HydroID'].tolist()
-    ) # create deque of hydroids to define start points in the while loop
-    visited = set() # create set to keep track of all hydroids that have been accounted for
-    branch_count = 0 # start branch id
+    )  # create deque of hydroids to define start points in the while loop
+    visited = set()  # create set to keep track of all hydroids that have been accounted for
+    branch_count = 0  # start branch id
     while branch_heads:
-        hid = branch_heads.popleft() # pull off left most hydroid from deque of start hydroids
+        hid = branch_heads.popleft()  # pull off left most hydroid from deque of start hydroids
         Q = deque(
             df_input_htable[df_input_htable['HydroID'] == hid]['HydroID'].tolist()
-        ) # create a new deque that will be used to populate all relevant downstream hydroids
+        )  # create a new deque that will be used to populate all relevant downstream hydroids
         vert_count = 0
         branch_count += 1
         while Q:
             q = Q.popleft()
             if q not in visited:
                 df_input_htable.loc[df_input_htable.HydroID == q, 'route_count'] = (
-                    vert_count # assign var with flow order ranking
+                    vert_count  # assign var with flow order ranking
                 )
                 df_input_htable.loc[df_input_htable.HydroID == q, 'branch_id'] = (
-                    branch_count # assign var with current branch id
+                    branch_count  # assign var with current branch id
                 )
                 vert_count += 1
                 visited.add(q)
                 # find the id for the next downstream hydroid
                 nextid = df_input_htable.loc[q, 'NextDownID']
-                order = df_input_htable.loc[q, 'order_'] # find the streamorder for the current hydroid
+                order = df_input_htable.loc[q, 'order_']  # find the streamorder for the current hydroid
                 if nextid not in visited and nextid in df_input_htable.HydroID:
                     # check if the NextDownID is referenced by more than one hydroid
                     # (>1 means this is a confluence)
                     check_confluence = (df_input_htable.NextDownID == nextid).sum() > 1
                     nextorder = df_input_htable.loc[
                         nextid, 'order_'
-                    ] # find the streamorder for the next downstream hydroid
+                    ]  # find the streamorder for the next downstream hydroid
                     # check if the nextdownid streamorder is greater than the current hydroid order and the
                     # nextdownid is a confluence (more than 1 upstream hydroid draining to it)
                     if nextorder > order and check_confluence == True:
                         branch_heads.append(
                             nextid
-                        ) # found a terminal point in the network (append to branch_heads for second pass)
+                        )  # found a terminal point in the network (append to branch_heads for second pass)
                         # if above conditions are True than stop traversing downstream and move on to next
                         # starting hydroid
                         continue
                     Q.append(nextid)
     df_input_htable = df_input_htable.reset_index(
         drop=True
-    ) # reset index (previously using hydroid as index)
+    )  # reset index (previously using hydroid as index)
     # sort the dataframe by branch_id and then by route_count
     # (need this ordered to ensure upstream to downstream ranking for each branch)
     df_input_htable = df_input_htable.sort_values(['branch_id', 'route_count'])
     return df_input_htable
+
 
 def group_power_law_calc(df_nmerge, down_dist_thresh):
     """
