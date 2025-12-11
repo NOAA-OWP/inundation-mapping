@@ -7,16 +7,18 @@ import os
 import pickle
 import sys
 import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
 
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from dotenv import load_dotenv
 
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
-from tools.catfim.catfim_process_huc import process_huc
 from tools.catfim.catfim_post_processing import catfim_post_processing
+from tools.catfim.catfim_process_huc import process_huc
+from tools.tools_shared_functions import aggregate_wbd_hucs
+
 
 """
 Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
@@ -24,42 +26,43 @@ Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, p
 Tenative notes:
     - This script will fundamentally play the role stricly as pre-processing for processing HUC and their
       related sites.
-      
+
     - Some of the functions in here may move or be split to smaller functions.
-    
+
     - Data acquision such as meta, threshold or flows, should be moved ot generate_categorical_fim_flows.py
-    
+
     - Anyting related to inundation, tifs, gpkgs, etc, shoudl be moved to generate_categorical_mapping.py
-    
+
     - Anything relating to final post-processing such as merging of sites / library data, or last minute editing
       of site data will be moved into catfim_post_processing.py
-      
+
     - This will continue to know if it is processing SB or FB.
-    
+
     - Primary tasks for this script become:
         - processing incomings and creating system wide variables as needed. They will be saved into
           a runtime_args.env file that catfim_process_huc.py and catfim_post_processing.py can pick up and use.
-          
+
         - This will setup the overall folder structure including the parent catfim output paths such
           as hand_4_x_x_x_flow_based.
-        
+
         - Make calls to generate_categorical_fim_flows.py to create/acquire meta, threshold, flow data
           that could be used for all HUCs and sites no matter what hucs are being processed at this time.
-          
+
         - Have a way to figure out if we can use a previously created pickle/parquet files for HUC processing.
           We need a way to also tell the system to reload meta/threshold/flow data when applicable. We might
           just reuse our current system or a similar one. Question: I assume we will have seperate files
           for meta versus threshold, so how do we tell the system to use one but reload the other or
           various combinations. Maybe we already have that in the code. :)
-                         
+
         - Setup an iterator using Multi-proc to process each HUC (catfim_process_huc.py), but keeping
           arguments to a minimum focusing primarily on letting each huc pick up the runtime_args.txt file to
           do its processing.
-          
+
         - This can still take a list or file of HUCs, same as it current does and will need to
           validate as well, just as we currently do.
-    
+
 """
+
 
 def process_generate_categorical_fim(
     fim_run_dir,
@@ -71,23 +74,23 @@ def process_generate_categorical_fim(
     lst_hucs,
     past_major_interval_cap,
     nwm_meta_file,
-    get_new_meta_data,    
+    get_new_meta_data,
     threshold_file,
     get_new_threshold_data,
     skip_processing,
     overwrite,
 ):
-# Notes: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
+    # Notes: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
 
     '''
-        
+
     # TODO: Docstrings Needs more updating
-    
-    
+
+
     Orchestrates the generation of CatFIM products for a set of Hydrologic Unit Codes (HUCs),
     supporting both stage-based and flow-based methodologies. Handles validation, setup, filtering, and multi-step processing
     including flow generation, mapping, post-processing, and status updates.
-    
+
     Parameters
     ----------
     fim_run_dir : str
@@ -110,23 +113,23 @@ def process_generate_categorical_fim(
         Path to the threshold pickle file for manual input thresholds (optional, defaults to "" if not included).
     overwrite : bool
         If True, allows overwriting existing output files and folders.
-        
-        
+
+
     get_new_meta_data,
     get_new_threshold_data
-    
+
     Raises
     ------
     Exception
         If required files or directories are missing or invalid.
     ValueError
         If input parameters are inconsistent or result in zero valid HUCs.
-    
+
     Returns
     -------
     None
         Results are written to output directories and files; function does not return a value.
-    
+
     Workflow Steps   (TODO: needs updating)
     -------------
     1. Validation and setup of input directories, files, and parameters.
@@ -135,7 +138,7 @@ def process_generate_categorical_fim(
     4. Compilation of threshold data and cleanup of intermediate files.
     5. Updating mapping status for processed sites.
     6. Logging of progress, warnings, and summary information.
-    
+
     Notes
     -----
     - Handles both manual and automated threshold input via `threshold_file`.
@@ -146,18 +149,18 @@ def process_generate_categorical_fim(
 
     '''
 
-    is_logging_loaded = False   
+    is_logging_loaded = False
 
     try:
         overall_start_time = datetime.now(timezone.utc)
         dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
         print("================================")
 
-        load_dotenv('/foss_fim/src/bash_variables.env')        
+        load_dotenv('/foss_fim/src/bash_variables.env')
 
         # ================================
         # Validation and setup
-        
+
         # NOTE: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         local_vals = locals()
         # this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
@@ -183,19 +186,23 @@ def process_generate_categorical_fim(
 
         logging.info(f"Start catfim processing for {catfim_type_name} ;  (UTC): {dt_string}")
         print("")
-        print(f"... Logs will be saved to {log_file_path}")        
+        print(f"... Logs will be saved to {log_file_path}")
 
         # Needed even if we are skip_processes
-        __create_runtime_args_file(output_folder,
-                                   env_file,
-                                   search,
-                                   catfim_type,                                   
-                                   nwm_meta_file,
-                                   get_new_meta_data,
-                                   threshold_file,
-                                   get_new_threshold_data,
-                                   fim_run_dir,
-                                   past_major_interval_cap)
+        nwm_sites_file = os.path.join(output_folder, "nwm_sites.parquet")
+        __create_runtime_args_file(
+            output_folder,
+            env_file,
+            search,
+            catfim_type,
+            nwm_meta_file,
+            nwm_sites_file,
+            get_new_meta_data,
+            threshold_file,
+            get_new_threshold_data,
+            fim_run_dir,
+            past_major_interval_cap,
+        )
 
         if len(dropped_huc_lst) > 0:
             logging.warning('Listed HUCs not available in FIM run directory:')
@@ -205,30 +212,28 @@ def process_generate_categorical_fim(
         api_base_url = ""
         if get_new_meta_data is True:
             api_base_url = csf.load_fim_global_env_values(env_file)
-        
-        
+
         # ================================
 
         section_start_dt = datetime.now(timezone.utc)
 
         # TODO: This has duplicate headers, durations, etc from load_nwm_metadata
         # but those ones are prints. We want them logged.
-             
+
         logging.info("Loading meta data and huc dictionary")
 
         # I don't think I need the meta_list in this particular script, just the huc dictionary,
         # but load_nwm_metadata loads the meta data list to calc the huc_dictionary.
         # Other scripts, do use the meta_data values.
-        # The huc_dictionary returned is keyed with sorted upper case site ID's with huc number as a value.
-        _, huc_dictionary, return_msgs = dpw.load_nwm_metadata(nwm_meta_file,
-                                                                api_base_url,
-                                                                search,
-                                                                get_new_meta_data,
-                                                                valid_fim_hucs)
+
+        # Do not pass in a huc list as it can miss some sites. See notes at load_nwm_metadata
+        metadata_json_list, return_msgs = dpw.load_nwm_metadata(
+            nwm_meta_file, api_base_url, search, get_new_meta_data, list()
+        )
 
         # return_msgs is a list and might have some warnings, some messages and/or errors
         if len(return_msgs) > 0:
-            # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of 
+            # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of
             # custom exceptions.
 
             # also.. we get duplicate info to the script as download_process_wrds.py has both prints
@@ -246,36 +251,47 @@ def process_generate_categorical_fim(
         time_duration = end_dt - section_start_dt
         logging.info(f"Completed loading metadata - Duration: {str(time_duration).split('.')[0]}")
         print("")
-       
-        # The huc_dictionary has already be adjusted to include "all" or just the lst_hucs that 
-        # do have meta data.
-        # However, the list does not attempt to filter out sites from the aphs_restricted_sites yet.
-        # We will let catfim_process_huc.py sort that out so it can log as it wants.
+
+        wbd_file = os.getenv("input_wbd_layer")
+        # wbd_file = '/data/inputs/wbd/WBD_National.gpkg'
+        huc_dictionary, nwm_sites_all_gdf = aggregate_wbd_hucs(
+            metadata_json_list, wbd_file, retain_attributes=True
+        )
         if len(huc_dictionary) == 0:
-            raise Exception("The submitted huc list did not find any HUCs with nwm site meta data")
+            raise Exception("The metadata pickle file does not have any appliable HUCs")
+
+        # Save the nwm_sites_all_gdf for catfim_process_huc.py to pick up.
+        # It has all sites and its huc number.
+        # Each huc will make its own filtered copy, update status, etc and save at each huc level
+        # for post processing rollup.
+        nwm_sites_all_gdf.to_parquet(nwm_sites_file, index=False)
+        #         nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'),driver='GPKG', engine='fiona')
 
         # Change it to a simple string huc list.
         # All HUCs in this list are validated as having hand data, plus are not on the restricted list.
         # Now I do not needs the aphs sites anymore, just unique huc list
-        meta_huc_list = list(set(huc_dictionary.values()))
-        meta_huc_list.sort()
-      
+
+        # meta_huc_list = list(set(huc_dictionary.values()))
+        # meta_huc_list = huc_dictionary.keys().sort()
+        valid_fim_hucs.sort()
+
         # AWS will need this list to know what HUCs to process and iterate
         catfim_huc_list_file = os.path.join(output_folder, "catfim_huc_list.txt")
         with open(catfim_huc_list_file, "w") as f:
-            for item in meta_huc_list:
+            for item in valid_fim_hucs:
                 f.write(f"{item}\n")
 
         # Each huc has their own independent self-encapsulated folder under the "hucs" folder.
         # ie) /data/catfim/my_test_flow_based/hucs/12090301
         huc_dir = os.path.join(output_folder, 'hucs')
         os.makedirs(huc_dir, exist_ok=True)
+        os.chmod(huc_dir, 0o777)  # 777 (rwxrwxrwx)
 
         if skip_processing:
-            
+
             logging.info("Skipping processing as per the addition of the -sp (skip processing flag).")
             logging.info("CatFIM HUC processing and post processing will be done independently.")
-            
+
             # Skip duration as it would have been super short
             logging.info("End generate categorical fim processing")
             duration_msg = sf.calculate_duration_msg(overall_start_time)
@@ -283,10 +299,13 @@ def process_generate_categorical_fim(
 
             return
 
-        num_hucs_to_process = len(huc_dir)
-        logging.info(f"Processing {num_hucs_to_process} CatFIM HUCs. Note: not all HUCs may have ahps sites.")
-        
-        
+        logging.info(
+            f"Processing {len(valid_fim_hucs)} valid CatFIM HUCs. Note: not all HUCs may have ahps sites."
+        )
+
+        print("stop here in gen catfim for now")
+        sys.exit(0)
+
         # TODO: remove all content in huc folders, EXCEPT their log files.
         # With us later scanning for files and file extensions, we may not want to be pulling in old bad HUCs.
         # or... do we. maybe we had some good HUCs that were left behind. Do we just let it pull them in?
@@ -300,23 +319,15 @@ def process_generate_categorical_fim(
         # someone could re-run a huc, then re-run post processing and it will pick it up from all folders
         # hummmm
 
-
         task_args_list = []
-        for huc in meta_huc_list:
-            task_args_list.append(
-                {
-                    "huc": huc,
-                    "output_folder": output_folder
-                }
-            )
-            
+        for huc in valid_fim_hucs:
+            task_args_list.append({"huc": huc, "output_folder": output_folder})
 
         # === Run jobs in parallel ===
         # do we want a TQDM? depends on what we want to output to screen.
         # play with it a little. We recently figured out how to do both.
         # depending on what we choose to do, look at my new s3_shared_functions
         # even though it uses MT, but can be easily adjsuted to MP
-
 
         # With each process_huc handing it's own logging
         # and may/may not be handing it's screen output...
@@ -330,7 +341,7 @@ def process_generate_categorical_fim(
         #     right now, run_with_mp assumes one logger for all mp's so this does not work for AWS
         #     unless we come up with something else.  Maybe a None logger that catfim_process_huc can detect?
         #     or let a function in that script setup its own logger if comign through AWS?
-        
+
         # For now, due to debugging, just use our own process pool
 
         # We do not need anythign back at this point, only to know catch a fail but never shut down the thread
@@ -344,15 +355,15 @@ def process_generate_categorical_fim(
 
             # Need Try, except but need some combinations of exceptions, controlled errors and CTRL-C (aborts)
             # or do we?
-                
+
             # for future in as_completed(futures_dict):
             #    if future is not None:  # we don't have anything to return at this time.
-                    # if not future.exception():
-                    #     failed_huc = future.result()
-                    #     if failed_huc != "":
-                    #         failed_HUCs_list.append(failed_huc)
-                    # else:
-                    #     raise future.exception()
+            # if not future.exception():
+            #     failed_huc = future.result()
+            #     if failed_huc != "":
+            #         failed_HUCs_list.append(failed_huc)
+            # else:
+            #     raise future.exception()
             # TODO: At a min.. use as_completed to catch
             # catestrophic errors where we want to shut down the MP
             # (inc CTRL-C which may be more than one)
@@ -368,12 +379,12 @@ def process_generate_categorical_fim(
     except Exception as ex:
         trace_error = traceback.format_exc()
         err_msg = f"A critical error has occurred performing post processing. Detail: {trace_error}"
-        
+
         if is_logging_loaded:
             logging.critical(err_msg)
         else:
             print(err_msg)
-            
+
         # re-raise the exception, mostly for AWS
         raise ex
 
@@ -386,17 +397,23 @@ def __validate_inputs(received_locals_dict):
         match name:
             case "fim_run_dir":
                 if not value or not os.path.exists(value):
-                    raise Exception("Argument for -f (hand output pathing) is either None, empty"
-                                    " or the folder does not exist. Please check the argument.")
+                    raise Exception(
+                        "Argument for -f (hand output pathing) is either None, empty"
+                        " or the folder does not exist. Please check the argument."
+                    )
             case "env_file":
                 if not os.path.isfile(value):
-                    raise FileNotFoundError(f"The enviro file of {value} does not exist."
-                                    " If you have included the -e argument with a path, double check the path"
-                                    " or you did not include, something is wrong with bash_variables or its value.")
+                    raise FileNotFoundError(
+                        f"The enviro file of {value} does not exist."
+                        " If you have included the -e argument with a path, double check the path"
+                        " or you did not include, something is wrong with bash_variables or its value."
+                    )
             case "catfim_type":
                 if value not in ["fb", "sb"]:
-                    raise Exception("Argument for -ct (catfim type) must be either fb (for flow based)"
-                                    " or sb (for stage based).")
+                    raise Exception(
+                        "Argument for -ct (catfim type) must be either fb (for flow based)"
+                        " or sb (for stage based)."
+                    )
             case "output_folder":
                 if not value:
                     raise Exception("Argument for -t (output folder) can not be None or empty.")
@@ -413,13 +430,13 @@ def __validate_inputs(received_locals_dict):
         for x in os.listdir(fim_run_dir)
         if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
     ]
-    
+
     # -----------------
     # If a HUC list is specified, only keep the specified HUCs which have fim data
     lst_hucs = received_locals_dict["lst_hucs"]
     if not lst_hucs:
         raise Exception("-lh list of HUC values much be the word 'all' or an actual list of HUCs")
-        
+
     lst_hucs = lst_hucs.split()
     dropped_huc_lst = []
     if 'all' not in lst_hucs:
@@ -427,7 +444,7 @@ def __validate_inputs(received_locals_dict):
         dropped_huc_lst = list((set(lst_hucs).difference(valid_fim_hucs)))
     else:
         valid_fim_hucs = [x for x in fim_hucs]
-    
+
     num_hucs = len(valid_fim_hucs)
     if num_hucs == 0:
         raise ValueError(
@@ -435,9 +452,9 @@ def __validate_inputs(received_locals_dict):
             ' Verify that you have the correct input folder and if you used the -lh flag that it'
             ' is a valid matching HUC.'
         )
-        
+
     valid_fim_hucs.sort()
-       
+
     # -----------------
     # Meta Data File
     # Sort out flags and paths for getting the metadata
@@ -457,26 +474,30 @@ def __validate_inputs(received_locals_dict):
         if nwm_meta_file == "":
             # check the path even though it came from bash_variables.
             if os.path.isfile(default_meta_file) is False:
-                raise FileNotFoundError("You did not use the -mf, overridden meta file path, which means the system"
-                f" uses the default from bash_variable of {default_meta_file}."
-                " Unfortunately, that file does not exist. Check pathing, override the flag"
-                " or check the inputs directory.")
+                raise FileNotFoundError(
+                    "You did not use the -mf, overridden meta file path, which means the system"
+                    f" uses the default from bash_variable of {default_meta_file}."
+                    " Unfortunately, that file does not exist. Check pathing, override the flag"
+                    " or check the inputs directory."
+                )
             nwm_meta_file = default_meta_file
-                            
+
         else:  # Use the path they supplied via the -mf flag
             if os.path.isfile(nwm_meta_file) is False:
-                raise FileNotFoundError(f"You provide a path to the meta file of {nwm_meta_file},"
-                                        " but that file does not exist."
-                                        " Check your pathing or leave the -mf argument off to use the bash_variables"
-                                        f" default value of {default_meta_file}.")
-                
+                raise FileNotFoundError(
+                    f"You provide a path to the meta file of {nwm_meta_file},"
+                    " but that file does not exist."
+                    " Check your pathing or leave the -mf argument off to use the bash_variables"
+                    f" default value of {default_meta_file}."
+                )
+
     # -----------------
     # Threshold Data File
     # Sort out flags and paths for getting the threshold
-    
+
     # Yes.. this script does not actually use the threshold data, but let's validate it exists to
     #    help the catfim_process_huc.py so they have the correct path and a loaded file.
-    
+
     # Rule: Same as meta data above.
     get_threshold_file = received_locals_dict["get_new_threshold_data"]
     threshold_file = received_locals_dict["threshold_file"]
@@ -488,39 +509,46 @@ def __validate_inputs(received_locals_dict):
         if threshold_file == "":
             # check the path even though it came from bash_variables.
             if os.path.isfile(default_threshold_file) is False:
-                raise FileNotFoundError("You did not use the -tf, overridden threshold file path, which means the"
-                                        f"  system uses the default from bash_variable of {default_threshold_file}."
-                                        " Unfortunately, that file does not exist. Check pathing, override the flag"
-                                        " or check the inputs directory.")
+                raise FileNotFoundError(
+                    "You did not use the -tf, overridden threshold file path, which means the"
+                    f"  system uses the default from bash_variable of {default_threshold_file}."
+                    " Unfortunately, that file does not exist. Check pathing, override the flag"
+                    " or check the inputs directory."
+                )
             threshold_file = default_threshold_file
-                            
+
         else:  # Use the path they supplied via the -mf flag
             if os.path.isfile(threshold_file) is False:
-                raise FileNotFoundError(f"You provide a path to the threshold file of {threshold_file},"
-                                        " but that file does not exist."
-                                        " Check your pathing or leave the -tf argument off to use the bash_variables"
-                                        f" default value of {default_threshold_file}.")
-    
-    return valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file
-   
+                raise FileNotFoundError(
+                    f"You provide a path to the threshold file of {threshold_file},"
+                    " but that file does not exist."
+                    " Check your pathing or leave the -tf argument off to use the bash_variables"
+                    f" default value of {default_threshold_file}."
+                )
 
-def __create_runtime_args_file(output_folder,
-                               env_file,
-                               search,
-                               catfim_type,
-                               nwm_meta_file,
-                               get_new_meta_data,
-                               threshold_file,
-                               get_new_threshold_data,
-                               fim_run_dir,
-                               past_major_interval_cap):
-        
+    return valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file
+
+
+def __create_runtime_args_file(
+    output_folder,
+    env_file,
+    search,
+    catfim_type,
+    nwm_meta_file,
+    nwm_sites_file,
+    get_new_meta_data,
+    threshold_file,
+    get_new_threshold_data,
+    fim_run_dir,
+    past_major_interval_cap,
+):
+
     args_file_name = "runtime_args.env"
     args_file_path = os.path.join(output_folder, args_file_name)
-    
+
     if os.path.isfile(args_file_path):
-        os.remove(args_file_path)    
-        
+        os.remove(args_file_path)
+
     # Open the file using standard IO, then write lines to it.
     # All of these will be validated before we get here
     with open(args_file_path, "w") as file:
@@ -528,6 +556,7 @@ def __create_runtime_args_file(output_folder,
         file.write(f"ENV_FILE=\"{env_file}\"\n")
         file.write(f"SEARCH={search}\n")
         file.write(f"NWM_METAFILE_PATH=\"{nwm_meta_file}\"\n")
+        file.write(f"NWM_SITES_PATH=\"{nwm_sites_file}\"\n")
         file.write(f"GET_NEW_META_DATA={get_new_meta_data}\n")
         file.write(f"THRESHOLD_FILE_PATH=\"{threshold_file}\"\n")
         file.write(f"GET_NEW_THRESHOLD_DATA={get_new_threshold_data}\n")
@@ -541,14 +570,14 @@ if __name__ == '__main__':
     Sample mins args:
     python /foss_fim/tools/generate_categorical_fim.py -f /data/previous_fim/fim_4_5_2_11
     -ct fb -t /data/catfim/hand_4_8_7_2 -j 20
-    
+
     System defaults uses bash_variables for the default metadata and threshold files.
-    
+
     '''
 
     # Parse arguments
     parser = argparse.ArgumentParser(description='Run Categorical FIM')
-    
+
     parser.add_argument(
         '-f',
         '--fim-run-dir',
@@ -563,7 +592,7 @@ if __name__ == '__main__':
         help="REQUIRED: add the value of 'fb' for Flow-Based processing or 'sb' for Stage-Based",
         required=True,
     )
-    
+
     parser.add_argument(
         '-t',
         '--output-folder',
@@ -572,7 +601,7 @@ if __name__ == '__main__':
         ' Note: the output folder names will have the phase flow_based or stage_based appended',
         required=True,
     )
-    
+
     # PR already incoming that changes this to /data/config/fim_enviro_values.env
     parser.add_argument(
         '-e',
@@ -590,7 +619,7 @@ if __name__ == '__main__':
         default=20,
         type=int,
     )
-    
+
     parser.add_argument(
         '-s',
         '--search',
@@ -635,9 +664,9 @@ if __name__ == '__main__':
         " and pre-existing meta file and go load new data directly from WRDS. Note: Calling WRDS"
         " directly means you can add filters, searching, site specific, etc. This allows for easier debugging."
         " However, the default behavior is for CatFIM to use bash_variables to find and load the latest meta file.",
-         required=False,
-         default=False,
-         action='store_true'
+        required=False,
+        default=False,
+        action='store_true',
     )
 
     parser.add_argument(
@@ -649,7 +678,7 @@ if __name__ == '__main__':
         required=False,
         default="",
     )
-     
+
     parser.add_argument(
         '-gtf',
         '--get-new-threshold-data',
@@ -660,19 +689,19 @@ if __name__ == '__main__':
         " latest threshold file.",
         required=False,
         default=False,
-        action='store_true'
+        action='store_true',
     )
-    
+
     parser.add_argument(
         '-sp',
         '--skip-processing',
         help="OPTIONAL: If this flag is set, it will setup all of the initial 'pre-processing' steps, but will"
         " not continue with the processing of the hucs or post processing. This allows this tool to be used as"
         " either a full fun, or just do post processing and let other tools like AWS do process hucs and post processing.",
-         required=False,
-         default=False,
-         action='store_true'
-    )        
+        required=False,
+        default=False,
+        action='store_true',
+    )
 
     parser.add_argument(
         '-o', '--overwrite', help='OPTIONAL: Overwrite files', required=False, action="store_true"
@@ -682,4 +711,3 @@ if __name__ == '__main__':
 
     # call main program
     process_generate_categorical_fim(**args)
-    

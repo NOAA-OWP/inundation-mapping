@@ -16,13 +16,11 @@ from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
 
-
 # TODO: We have both prints and msgs added to the messages list. We need to rethink this
 # as catfim needs to iterate all messages coming back and log them. With prints
 # and messages, they screen shows everythign twice.
 # Check all functions for this problem. And how do we handle this for runnign this tool
 # at command line versus CatFIM. Maybe an arg for show pritns or create messages?
-
 
 
 def label_data_file(label, lst_hucs):
@@ -52,10 +50,10 @@ def label_data_file(label, lst_hucs):
     label_data_file("survey", ["HUC1"])  -> "_survey_subset_20251206"
     label_data_file("", ["all"])        -> "_20251206"
 
-    
+
     Rob: maybe a few more notes what this is function is doing. :)
     Maybe some output examples?
-    
+
     '''
 
     # If a list of HUCs is provided, add 'subset' to the label
@@ -70,6 +68,10 @@ def label_data_file(label, lst_hucs):
     return label_with_date
 
 
+# TODO: As is, this does not work as it assumes a huc is in the meta data but is rarely true
+# To get a huc dictionary, we have to call tools_shared_functions.aggregate_wbd_hucs which
+# pickes up poit co-ordinates from the metadata_json_list, plots then and overlays them
+# against the WBD. Probably to just remove this for now. TBD
 def get_huc_dictionary(metadata_list, lst_hucs):
     '''
     Example usage:
@@ -99,13 +101,10 @@ def get_huc_dictionary(metadata_list, lst_hucs):
         lid_list = list(huc_lid_dict.keys())
 
     # Todo: Might not be used for thresholds, maybe just getting a Huc list?
-    
+
     print(f'Number of sites to download thresholds for: {len(lid_list)}')
 
     return huc_lid_dict
-
-
-# -----
 
 
 def download_all_metadata(metadata_filepath, metadata_url, search):
@@ -273,9 +272,14 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
     print(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
     print()
 
+    # TODO: Why not return the dataset as well?
     return messages
 
 
+# TODO: We likely want to drop the lst_hucs arg as it only looks for sites that have
+# a value in either nws_preferred.huc node or the nws_preferred.huc node and lots of sites
+# do not have that value. Later we use the lat/longs intersecting the WBD to sort out
+# the applicable huc per site. (aggregate_wbd_hucs)
 def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download, lst_hucs):
     '''
     Downloads or reads in the NWM metadata and then returns the data as a list and a HUC dictionary.
@@ -311,7 +315,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     output_meta_list, huc_lid_dict, messages = load_nwm_metadata(
         metadata_filepath, API_BASE_URL, search, metadata_download, lst_hucs
     )
-    
+
     NOTES:
        - If this function finds warning data, it will include the phrase (case-senstive) "WARNING"
          and same is true for "ERROR". Error means that the calling script can decide if it wants to shut down
@@ -319,7 +323,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
          It is also possible that you might get multiple messages returned in the "messages" list and some
          may be warnings, others just messages. Could be a mix and match returned.
          If something catestrophic happens, this function will thrown an exception.
-    
+
     '''
 
     # TODO: We have both prints and msgs added to the messages list. We need to rethink this
@@ -370,7 +374,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         msg = "ERROR: Cannot proceed without NWM metadata."
         messages.append(msg)
         print(msg)
-        
+
         return (
             output_meta_list,
             huc_lid_dict,
@@ -381,52 +385,26 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
     # Open metadata file (either the one we just downloaded or pre-existing)
     with open(metadata_filepath, "rb") as p_handle:
         output_meta_list = pickle.load(p_handle)
-        # print(f"NWM metadata file loaded from {metadata_filepath}.")  # TEMP DEBUG
-
-
-    # filter by the incoming lst_hucs, which may be one or all
-
-    # Filter for dictionaries where 'name' is 'Alice'
-    # filtered_list_by_name = [item for item in data_list if item.get('name') == 'Alice']
-    # print(filtered_list_by_name)
-
-    # filtered_meta_list = [item for item in output_meta_list if item.get('HUC8') in lst_hucs]
-        # Find lid metadata from master list of metadata dictionaries.
-    # filtered_meta_list = next(
-    #     (item for item in output_meta_list if item['identifiers']['HUC8'] in lst_hucs), False
-    # )
-
-    huc_lid_dict = {}
-    filtered_meta_list = []
-    for site_entry in output_meta_list:
-        lid_i = site_entry['identifiers']['nws_lid']
-        huc_nws_i = site_entry['nws_preferred']['huc']
-        huc_usgs_i = site_entry['usgs_preferred']['huc']
-
-        huc_i = huc_usgs_i if huc_nws_i is None else huc_nws_i
-
-        if 'all' in lst_hucs or huc_i in lst_hucs:
-            huc_lid_dict[lid_i] = huc_i
-            filtered_meta_list.append(site_entry)
+        print(f"NWM metadata file loaded from {metadata_filepath}.")  # TEMP DEBUG
 
     # Get the HUC dictionary
-    # ROB: Do we need to make sure the output_meta_list is not empty? Woudl it ever be?
-    # huc_lid_dict = get_huc_dictionary(filtered_meta_list, lst_hucs)
+    # huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
 
-    # Check if huc_lid_dict is empty and log message (unlikely but possible)
-    if not huc_lid_dict:
-        if "all" not in lst_hucs:
-            msg = "WARNING: No valid HUC/LID pairs found in the metadata for the specified HUC list."
-        else:
-            msg = "WARNING: No valid HUC/LID pairs found in the metadata."
-        messages.append(msg)
-        print(msg)
+    # # Check if huc_lid_dict is empty and log message (unlikely but possible)
+    # if not huc_lid_dict:
+    #     if "all" not in lst_hucs:
+    #         msg = "WARNING: No valid HUC/LID pairs found in the metadata for the specified HUC list."
+    #     else:
+    #         msg = "WARNING: No valid HUC/LID pairs found in the metadata."
+    #     messages.append(msg)
+    #     print(msg)
 
     print()
 
-    return filtered_meta_list, huc_lid_dict, messages
+    return output_meta_list, messages
 
-# TODO: THIS SHOULD BE MOVED TO A CATFIM-SPECIFIC SCRIPT 
+
+# TODO: THIS SHOULD BE MOVED TO A CATFIM-SPECIFIC SCRIPT
 # Rob: maybe not.. TBD...
 def load_site_thresholds(threshold_file, lid):
     '''
@@ -544,9 +522,9 @@ def main(
         label_with_date = label_data_file(label, lst_hucs)
         output_metadata_filename = f'metadata{label_with_date}.pkl'
         metadata_filepath = os.path.join(output_folder, output_metadata_filename)
-        
+
         # Rob: Tell the user the name and location of the file
-    
+
     # If metadata filepath is provided, use it
     else:
         metadata_filepath = input_metadata_file
@@ -569,7 +547,7 @@ def main(
         label_with_date = label_data_file(label, lst_hucs)
         output_thresholds_filename = f'thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
-        
+
         # Rob: Tell the user the name and location of the file
 
         # Download thresholds

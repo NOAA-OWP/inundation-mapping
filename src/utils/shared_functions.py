@@ -72,7 +72,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
-    
+
     # we will assume the parent folder already exists
     os.makedirs(log_file_dir, exist_ok=True)
     # print(f"Logs saved to: {log_file_path}")
@@ -95,19 +95,22 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
+    os.chmod(error_file_name, 0o777)
 
     # warning file handler
-    
+
     # TODO: This is new.. test it with various combinations of log types
     warning_file_name = log_file_path.replace(".log", "-warnings.log")
     warning_file_handler = logging.FileHandler(warning_file_name)
     warning_file_handler.setLevel(logging.WARNING)
     warning_file_handler.setFormatter(formatter)
+    os.chmod(warning_file_name, 0o777)
 
     # # basic file handler
     file_handler = logging.FileHandler(log_file_path)
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
+    os.chmod(log_file_path, 0o777)
 
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
@@ -186,11 +189,13 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         err_file_handler = logging.FileHandler(error_file_name)
         err_file_handler.setLevel(logging.ERROR)
         err_file_handler.setFormatter(formatter)
+        os.chmod(error_file_name, 0o777)
         logger.addHandler(err_file_handler)
 
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
+        os.chmod(log_file_path, 0o777)
         logger.addHandler(file_handler)
         logger.propagate = False  # avoid logging to root logger too
 
@@ -213,9 +218,9 @@ def run_with_mp(
     NOTES:
     This setup is using a shared log file and it is ok for now assuming that:
         - we have limitted amount of logs (3-4 lines per subprocess) in multiprocessing work.
-        
+
         - total number of subprocesses is modest (e.g., less than 50), not hundreds or thousands.
-        
+
         - if we encounter a case that this does not work correctly, then we can improve it by creating one
            log file per task and combining them afterward.
 
@@ -224,16 +229,16 @@ def run_with_mp(
         " This wrapper catches unexpected crashes (e.g., segfaults or crashes in subprocesses).
         " Inside helper functions feel free to log any information. but no need to raise errors.
         " The only exception is that when we really need to address a special case like API limits and wait and retry.
-        
+
     - Inside your task function or helpers, log live messages using screen_queue.put(msg) if the screen_queue
         has been passed to the child mp function.
-    
+
     - These will appear in the main process via tqdm.write() and won't interrupt the progress bar.
-    
+
     - Always pass three additional arguments into task_function and its helpers: file_logger ,screen_queue and task_id.
         - Do not use any print statements after start of multiprocessing in the task function or inside its helper
           functions. Instead use screen_queue.put().
-          
+
         - Use file_logger.info() to log the message in the log file.
     '''
 
@@ -280,7 +285,7 @@ def run_with_mp(
         raise Exception("file_logger is either None or is not a logging class")
     if not task_id_key:
         raise Exception("task_id_key can not be None or empty")
-    
+
     # TODO: Add a validation test to ensure the task_id_key exists as a poplated key in all items
     # in the tasks_args_list.
 
@@ -760,7 +765,7 @@ def calculate_duration_msg(start_dt):
     # if include_log and not isinstance( logging_instance, logging.Logger):
     #     raise Exception("You have requested to log the duration to file, but the logging_instance"
     #                     " does not appear to be an instance of logging.Logger (or a custom version).")
-    
+
     end_dt = datetime.now(timezone.utc)
     dt_string = end_dt.strftime("%m/%d/%Y %H:%M:%S")
 

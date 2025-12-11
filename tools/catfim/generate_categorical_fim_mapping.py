@@ -26,7 +26,6 @@ from src.utils.shared_functions import getDriver
 from src.utils.shared_variables import VIZ_PROJECTION
 
 
-
 """
 Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, process hucs, post processing
 
@@ -1391,5 +1390,6 @@ def manage_catfim_mapping(
     FLOG.lprint(f"Finished mapping in {str(elapsed_time).split('.')[0]} minutes")
 
     return
+
 
 # Can not be called from command line

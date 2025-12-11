@@ -836,6 +836,15 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     print("Reading WBD...")
     huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     print("WBD read.")
+
+    # Some WBD's submitted came from pre-clip HUCs and do not have a name or states column
+    # Not sure anyone needs it but for now, we will just add it if we need it
+    if 'name' not in huc8_all.columns:
+        huc8_all['name'] = ""
+
+    if 'states' not in huc8_all.columns:
+        huc8_all['states'] = ""
+
     huc8 = huc8_all[['HUC8', 'name', 'states', 'geometry']]
 
     if len(huc_list) > 0:
@@ -854,6 +863,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     metadata_gdf = gpd.GeoDataFrame()
     # Iterate through each site
     print("Iterating through metadata list...")
+    print(f"..{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     for metadata in metadata_list:
         # Convert metadata to json
         df = pd.json_normalize(metadata)
@@ -864,6 +874,8 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
             inplace=True,
         )
+        nws_lid = df['identifiers_nws_lid']
+        logging.info(f"... iterating in aggregate for nws_lid {nws_lid}")
         # If dataframe still has data
         if not df.empty:
             #            print(df[:5])
@@ -887,6 +899,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             # Append site geodataframe to metadata geodataframe
             metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index=True)
 
+    print(f"..{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     # Trim metadata to only have certain fields.
     if not retain_attributes:
         metadata_gdf = metadata_gdf[
