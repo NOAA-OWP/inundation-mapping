@@ -1154,7 +1154,7 @@ def process_theshold_data(catfim_type, valid_nwm_lids, sites_gdf, huc, huc_path,
                                                      )
         # update what we ahve for the lid site, but we can still keep usign it.
         sites_gdf.loc[site_gdf_index] = lid_sites_gdf
-        if lid_library_df.empty():
+        if not lid_library_df or lid_library_df.empty():
             continue
 
         pd.concat(huc_library_df, lid_library_df)
@@ -1177,8 +1177,8 @@ def __build_library_data(catfim_type, lid, lid_sites_gdf, huc, huc_path, lid_thr
     lid_library_df = create_library_df(catfim_type)
 
 
-    stage_col_names = ['action_stage', 'minor_stage', 'moderate_stage', 'major_stage', 'record_stage']
-    flow_col_names = ['action_flow', 'minor_flow', 'moderate_flow', 'major_flow', 'record_flow']
+    # stage_col_names = ['action_stage', 'minor_stage', 'moderate_stage', 'major_stage', 'record_stage']
+    # flow_col_names = ['action_flow', 'minor_flow', 'moderate_flow', 'major_flow', 'record_flow']
 
     # -------------------------
     # Yes, this is ugly, this may appear inefficent but much easier to read and manage
@@ -1186,12 +1186,14 @@ def __build_library_data(catfim_type, lid, lid_sites_gdf, huc, huc_path, lid_thr
     last_stage_type = ""
     last_stage_value = 0
         
+    # ---------------
+    # action
     # can probably send this off to a function to process
     # Action first
+    warning_messages = []
     lid_stage = lid_threshold_data['action_stage']
     lid_flows = lid_threshold_data['action_flow']
-    if not lid_stage or lid_stage == 0:
-        lid_sites_gdf['mapped'] = 'no'
+    if not lid_stage or lid_stage == 0 or not lid_flows or lid_flows == 0:
         lid_sites_gdf['warning'] = 'Missing action stage'
     # else:
 

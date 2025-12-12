@@ -182,6 +182,13 @@ def process_huc(huc, output_folder):
         logging.info(duration_msg)
         print("")
 
+
+        # Emily... abort here. Rob will keep going lower with thresholds
+        print("--------------")
+        print("Ok.. let's stop here for now")
+        sys.exit(0)
+
+
         # =========================================
         # Let's get the Threshold data
         section_start_dt = datetime.now(timezone.utc)

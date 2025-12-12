@@ -304,8 +304,6 @@ def process_generate_categorical_fim(
             f"Processing {len(valid_fim_hucs)} valid CatFIM HUCs. Note: not all HUCs may have ahps sites."
         )
 
-        print("stop here in gen catfim for now")
-        sys.exit(0)
 
         # TODO: remove all content in huc folders, EXCEPT their log files.
         # With us later scanning for files and file extensions, we may not want to be pulling in old bad HUCs.
@@ -323,6 +321,14 @@ def process_generate_categorical_fim(
         task_args_list = []
         for huc in valid_fim_hucs:
             task_args_list.append({"huc": huc, "output_folder": output_folder})
+
+        # Emily.. for your testing let it stop here for testing gen_catfim
+        # also add a system to abort after saving a huclist so it does not continue to iterate
+        # or run post processing. In EC2's, we do not want an early (pre-processing) abort as we do want
+        # it to iterate and hit post  processing.
+        # BUT.... in AWS, Step Functions will take care of the huc ietartion and post processing.
+        print("stop here in gen catfim for now")
+        sys.exit(0)
 
         # === Run jobs in parallel ===
         # do we want a TQDM? depends on what we want to output to screen.
