@@ -1118,7 +1118,10 @@ def process_theshold_data(catfim_type, valid_nwm_lids, sites_gdf, huc, huc_path,
 
 
         # We are passing in a copy of the lid_sites_gdf which we can use to replace it in the original df
-        # when it comes back
+        # when it comes back. But above we can sort out if all 5 stages or flows are missing.
+        # if at least one flow and one stages is available, go in. 
+        # Inside this can sort out which stage type and flow values are missing or invalid.
+        # For SB, this will also add the interval records
         rtn_lid_sites_gdf, lid_library_df = __build_library_data(catfim_type,
                                                      lid,
                                                      lid_site_data,
@@ -1146,7 +1149,7 @@ def __build_library_data(catfim_type, lid, lid_sites_gdf, huc, huc_path, lid_thr
     logging.info(f"Building library data for {lid}")
 
         # Create an empty new one to help manage schemas
-    library_df = create_library_df(catfim_type)
+    lid_library_df = create_library_df(catfim_type)
 
     stage_types = ['action', 'minor', 'moderate', 'major', 'record']
     stage_col_names = ['action_stage', 'minor_stage', 'moderate_stage', 'major_stage', 'record_stage']
