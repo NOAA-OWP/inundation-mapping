@@ -1,6 +1,28 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2025-12-12 [PR#1701](https://github.com/NOAA-OWP/inundation-mapping/pull/1701)
+This PR closes #1623 by updating the `data/pull_osm_roads.py` script to **exclude all OSM road segments tagged as bridges**. This change ensures that bridge features are not treated as normal road segments during FIMpact processing, which previously resulted in **unrealistically high flood-depth estimates** under bridge crossings.
+
+
+This PR includes the creation of an updated OSM roads dataset as well as a new pre-clipped dataset. The updated datasets are available at the following locations in FIM EFS, FIM S3, and ESIP:
+>
+> * `data/inputs/osm/roads/20251209/` — updated OSM roads dataset
+> * `data/inputs/pre_clip_huc8/20251209/` — updated pre-clipped dataset
+
+Bridge segments can cause issues when:
+
+1. The corresponding OSM bridge line is missing and therefore cannot heal the HAND raster, leaving a deep channel under the roadway; or
+2. The lidar and non-lidar bridge-healing workflows do not fully raise the HAND elevations beneath the bridge footprint.
+
+By excluding bridge geometries at the data-pull stage, these erroneous inundation signals are prevented entirely.
+
+### Changes
+- data/roads/pull_osm_roads.py
+- src/bash_variables.env
+
+<br/>
+
 ## v4.9.2.1 - 2025-12-05 [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
 
 This update adds data predownload functionality to CatFIM so it can create categorical FIM maps for sites that don't have thresholds available in the WRDS API. There is also a new default behavior for CatFIM: instead of hitting the WRDS API for each run, the CatFIM code defaults to using pre-downloaded input thresholds and metadata. However, there is still the option to download the thresholds and metadata during the CatFIM run (which was previously the default).
