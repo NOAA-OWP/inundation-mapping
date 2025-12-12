@@ -275,7 +275,7 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
 
     # sites_gdf = gpd.GeoDataFrame()
 
-    # move it to the first index
+    # move it to the first column (easier to read the outputs)
     ahps_col = sites_gdf.pop('nws_lid')
     sites_gdf.insert(0, 'nws_lid', ahps_col)
 
