@@ -859,10 +859,7 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
     time_delay_mms = random.randint(100, 4000) / 1000
     time.sleep(time_delay_mms)
 
-    threshold_stage = []
-    threshold_flow = []
-
-    huc_threshold_data_file_path = os.path.join(huc_path, f"{huc}_threshold_subset.pkl")
+    huc_threshold_data_file_path = os.path.join(huc_path, f"{huc}_threshold.csv")
 
     # We really only need to load this env if we are going to let the script call WRDS directly.
     api_base_url = ""
@@ -954,28 +951,224 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
 
     # I think it is possible to not have threshold data for all of this huc's list.
     # change all nws_lid values to lower
-    threshold_huc_df['nws_lid'] = threshold_huc_df['nws_lid'].str.lower()
+    # threshold_all_sites_df['nws_lid'] = threshold_all_sites_df['nws_lid'].str.lower()
 
-    threshold_huc_df = threshold_all_sites_df[threshold_all_sites_df['nws_lid'] in valid_nwm_lids]
-
+    threshold_huc_df = threshold_all_sites_df[threshold_all_sites_df['nws_lid'].isin(valid_nwm_lids)]
     if len(threshold_huc_df) == 0:
-        return [], []
+        # TODO: make sure to updates the sites mapped and status for all lid records for this HUC
+        return []
 
     # save a copy of the filtered version
     threshold_huc_df.to_csv(huc_threshold_data_file_path, index=False)
+
+    # drop columns we don't use at all.
+    threshold_huc_df = threshold_huc_df.drop(columns=['low', 'bankfull', 'huc', 'flood' ], errors='ignore')
+
 
     # ========================
     # Make df for stages and flows
     # TODO: This should stay as a df as it is will be easier to deal with later (ie. 0's in stage_types columns)
     # can stages be empty? and what df info()
-    # stages = threshold_huc_df.loc[threshold_huc_df['threshold_type'] == 'stages'].to_dict(orient='records')[0]
+    # stages_dict = threshold_huc_df.loc[threshold_huc_df['threshold_type'] == 'stages'].to_dict(orient='records')[0]
     stages_df = threshold_huc_df.loc[threshold_huc_df['threshold_type'] == 'stages']
 
     # can flows be empty? and what df info()
-    # flows = threshold_huc_df.loc[threshold_huc_df['threshold_type'] == 'flows'].to_dict(orient='records')[0]
+    # flows_dict = threshold_huc_df.loc[threshold_huc_df['threshold_type'] == 'flows'].to_dict(orient='records')[0]
     flows_df = threshold_huc_df.loc[threshold_huc_df['threshold_type'] == 'flows']
 
-    return stages_df, flows_df
+    # return stages_dict, flows_dict
+    # return stages_df, flows_df
+
+    # flatten this into one nwm row for now.
+    thresholds_merged_df = pd.merge(stages_df, flows_df, on='nws_lid', suffixes=('_stage', '_flow'))
+
+    # cleanup df
+    # Drop duplicate columns (all will have the same values)
+    # usgs_site_code, nws_lid, wrds_timestamp, threshold_type_stages
+    # we do not need the flow columns long term. Just need them for processing
+    thresholds_merged_df.drop(
+        columns=['threshold_type_stage', 'threshold_type_flow', 'wrds_timestamp_flow', 'usgs_site_code_flow'],
+        errors='ignore', inplace=True)
+    thresholds_merged_df.rename(
+        columns={
+            'wrds_timestamp_stage': 'wrds_timestamp',
+            'usgs_site_code_stage': 'usgs_site_code',
+        },
+        inplace=True,
+    )
+    # move the nws_lid column to the start to make it easier
+
+    # save a copy of the filtered flattened version
+    merged_file_name = huc_threshold_data_file_path.replace('.csv', '_merged.csv')
+    thresholds_merged_df.to_csv(merged_file_name, index=False)
+
+    return thresholds_merged_df
+
+def create_library_df(catfim_type):
+
+        # Sart the library df. It does not have an geometry yet. Some records
+    # will be added, but later removed if they fail anywhere
+    # We will just start with basic columns and add more as we go if applicable.
+    # At this point, these are applicable to both FB and SB
+    df_cols = {
+        "nws_lid": pd.Series(dtype='str'),
+        "name": pd.Series(dtype='str'),
+        "magnitude": pd.Series(dtype='str'),
+        "huc": pd.Series(dtype='str'),
+        "interval_stage": pd.Series(dtype='str'),
+        "is_interval": pd.Series(dtype='bool'),
+        "stage": pd.Series(dtype='float'),
+        "stage_uni": pd.Series(dtype='str'),
+        "WFO": pd.Series(dtype='str'),
+        "rfc": pd.Series(dtype='str'),
+        "state": pd.Series(dtype='str'),
+        "county": pd.Series(dtype='str'),
+        "q": pd.Series(dtype='str'),
+        "q_uni": pd.Series(dtype='str'),
+        "q_src": pd.Series(dtype='str'),
+        "s_src": pd.Series(dtype='str'),
+        "wrds_time": pd.Series(dtype='str'),
+        "nrldb_time": pd.Series(dtype='str'),
+        "nwis_time": pd.Series(dtype='str'),
+        "lat": pd.Series(dtype='float'),
+        "lon": pd.Series(dtype='float'),
+    }
+
+    # SB has a few extra columns that FB does not
+    if catfim_type == 'sb':
+        sb_cols = {    
+            "dtm_adj_ft": pd.Series(dtype='float'),
+            "dadj_w_ft": pd.Series(dtype='float'),
+            "dadj_w_m": pd.Series(dtype='float'),
+            "lid_alt_ft": pd.Series(dtype='float'),
+            "lid_alt_m": pd.Series(dtype='float'),
+            "rfs_stage": pd.Series(dtype='float'),
+        }
+        df_cols.update(sb_cols)
+
+    return pd.DataFrame(df_cols)  # creates the schema for all library columns
 
 
-# Can not be called from command line
+def process_theshold_data(catfim_type, valid_nwm_lids, sites_gdf, huc, huc_path, thresholds_merged_df, metadata_json):
+
+    # we still need the json to help pull out nodes like segments
+    
+    huc_library_df = pd.DataFrame()
+
+    for lid in valid_nwm_lids:
+
+        logging.info(f"threshold data processing for {lid}")
+
+        # this does not update the actual sites_gdf as it loose scope outside the for loop
+        # Let's ge the indexs number so we can update 
+        lid_site_data = sites_gdf.loc[sites_gdf["nws_lid"] == lid]
+        site_gdf_index = lid_site_data.index
+        lid_threshold_data = thresholds_merged_df.loc[thresholds_merged_df["nws_lid"] == lid]
+
+        if len(lid_threshold_data) == 0:
+            msg = 'Missing all flow values for all stages'
+            sites_gdf.loc[site_gdf_index, 'mapped'] = "no"
+            sites_gdf.loc[site_gdf_index, 'status'] = msg
+            logging.warning(f'{lid}: {msg}')
+            continue
+
+        # process flows and stages for this site
+        # lid_thresholds = thresholds_df[thresholds_df[['nws_lid'] == lid]]
+        # update the sites_gdf for the lid (mapped and status) - then continue
+
+        # stages = stages_df.loc[stages_df['nws_lid'] == lid].to_dict(orient='records')[0]
+        # flows = flows_df.loc[flows_df['nws_lid'] == lid].to_dict(orient='records')[0]
+
+        # --------------------------
+        # Can this go into a function?
+        # Validate flow data
+        # 
+        # Is there a smarter way to do this?
+        # if flows is None or len(flows) == 0 or all(flows.get(stage_type, None) is None for stage_type in stage_types):
+        #     # because we pull from a validate threshold file, we know it talked to WRDS
+        #     # if "WRDS response sucessful." in status_msg:  # we know we got some values so we don't need this message
+        #     #     msg = ':WRDS response sucessful but no flow values available'
+        #     #     all_messages.append(lid + msg)
+        #     #     MP_LOG.warning(huc_lid_id + msg)
+        #     #     continue
+        #     # else:
+        #     msg = 'Missing all flow values for all stages'
+        #     sites_gdf.loc[site_gdf_index, 'mapped'] = "no"
+        #     sites_gdf.loc[site_gdf_index, 'status'] = msg
+        #     logging.warning(f'{lid}: {msg}')  # error or warning?
+        #     continue
+
+        # # --------------------------
+        # # Validate stage data
+        # # Check if stages are supplied, if not write message and exit.
+        # if all(stages.get(stage_type, None) is None for stage_type in stage_types):
+        #     msg = 'Missing all stage data'
+        #     site_row['mapped'] = 'no'
+        #     site_row['status'] = msg
+        #     logging.warning(f'{lid}: {msg}')  # error or warning?
+        #     continue
+
+    #     # # Check if stages are supplied, if not write message and exit.
+    #     # TODO: come back to this
+    #     # if all(stages.get(category, None) is None for category in categories):
+    #     #     message = f'{lid}:Missing all stage data'
+    #     #     all_messages.append(message)
+    #     #     MP_LOG.warning(f"{huc} - {message}")
+
+
+
+        # We are passing in a copy of the lid_sites_gdf which we can use to replace it in the original df
+        # when it comes back
+        rtn_lid_sites_gdf, lid_library_df = __build_library_data(catfim_type,
+                                                     lid,
+                                                     lid_site_data,
+                                                     huc,
+                                                     huc_path,
+                                                     lid_threshold_data,
+                                                     metadata_json,
+                                                     )
+        sites_gdf.loc[site_gdf_index] = rtn_lid_sites_gdf
+        if not lid_library_df.empty():
+            pd.concat(huc_library_df, lid_library_df)
+
+    # # load segments (FB)
+
+    # # Find lid metadata from master list of metadata dictionaries.
+    # metadata = next(
+    #     (item for item in all_lists if item['identifiers']['nws_lid'] == lid.upper()), False
+    # )
+
+    return sites_gdf, huc_library_df
+
+
+def __build_library_data(catfim_type, lid, lid_sites_gdf, huc, huc_path, lid_threshold_data, metadata_json):
+
+    logging.info(f"Building library data for {lid}")
+
+        # Create an empty new one to help manage schemas
+    library_df = create_library_df(catfim_type)
+
+    stage_types = ['action', 'minor', 'moderate', 'major', 'record']
+    stage_col_names = ['action_stage', 'minor_stage', 'moderate_stage', 'major_stage', 'record_stage']
+    flow_col_names = ['action_flow', 'minor_flow', 'moderate_flow', 'major_flow', 'record_flow']
+
+    # -------------------------
+    # Yes, this is ugly, this may appear inefficent but much easier to read and manage
+    # and easier to manage intervals if applicable and also missing values for stage_type
+    last_stage_type = ""
+    last_stage_value = 0
+        
+    # can probably send this off to a function to process
+    # Action first
+    lid_stage = lid_threshold_data['action_stage']
+    lid_flows = lid_threshold_data['action_flow']
+    if not lid_stage or lid_stage == 0:
+        lid_sites_gdf['mapped'] = 'no'
+        lid_sites_gdf['warning'] = 'Missing action stage'
+    # else:
+
+
+    return lid_sites_gdf, lid_library_df
+
+
+# Can not be called from command line.

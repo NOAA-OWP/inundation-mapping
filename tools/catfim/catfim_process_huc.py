@@ -146,7 +146,7 @@ def process_huc(huc, output_folder):
         flows_data_dir = os.path.join(huc_path, "flow_data")
         sites_file_path = os.path.join(huc_path, f"{huc}_sites.gpkg")
         library_file_path = os.path.join(huc_path, f"{huc}_library.gpkg")
-        discharge_file_path = os.path.join(huc_path, "discharge_values.csv")
+        discharge_file_path = os.path.join(huc_path, "fb_discharge_values.csv")
 
         __set_start_files_folders(
             catfim_type,
@@ -154,7 +154,7 @@ def process_huc(huc, output_folder):
             flows_data_dir,
             sites_file_path,
             library_file_path,
-            discharge_file_path,
+            discharge_file_path
         )
 
         # =========================================
@@ -191,16 +191,26 @@ def process_huc(huc, output_folder):
         # Get threshold data
         # Note: it is possible get_threshold_data can come back empty if huc has no site(s) threshold data
         # It has stages and flows for all sites in this huc
-        stages_df, flows_df = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
+        # stages_df, flows_df = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
+        # yes.. it is ok that thresholds_merged_df is empty for now
+        thresholds_merged_df = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
 
         logging.info("loading flow and threshold data for valid sites - Complete")
         duration_msg = sf.calculate_duration_msg(section_start_dt)
         logging.info(duration_msg)
 
-        for lid in valid_nwm_lids:
-            # process flows and stages for this site
-            lid_stages = stages_df.loc[stages_df['nws_lid'] == lid].to_dict(orient='records')[0]
-            lid_flows = flows_df.loc[stages_df['nws_lid'] == lid].to_dict(orient='records')[0]
+        # ------------------------
+
+
+        # =========================================
+        # Processing Threshold data  (figure stages and calc flow data for inundation)
+        section_start_dt = datetime.now(timezone.utc)
+        logging.info("loading flow and threshold data for valid sites")
+
+        # we do have at least one threshold record
+        # library is not yet a gdf as it has no geometry
+        sites_gdf, library_df = gcf.process_theshold_data(catfim_type, valid_nwm_lids, sites_gdf, thresholds_merged_df, metadata_json)
+
 
         # ---------------------
         # Figure out categories. (ie.. action, moderate, etc) - SB to also figure out intervals?
@@ -232,7 +242,7 @@ def process_huc(huc, output_folder):
 
         logging.info(f"Updating sites gdf and csv with finalized site data at {sites_file_path}")
 
-        # For the sites gpkg, leave the column named as nws_lid, we can change it to ahps_lid later.
+        # For the sites gpkg, leave the column named as nws_lid, we can change it to ahps_lid later in post processing.
 
         __save_sites_file(sites_gdf, sites_file_path, True)
 
@@ -265,27 +275,17 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
 
     # sites_gdf = gpd.GeoDataFrame()
 
-    sites_gdf.rename(columns={"identifiers_nws_lid": "nws_lid"}, inplace=True)
-    sites_gdf['nws_lid'] = sites_gdf['nws_lid'].str.lower()
-
     # move it to the first index
     ahps_col = sites_gdf.pop('nws_lid')
     sites_gdf.insert(0, 'nws_lid', ahps_col)
 
-    # move the huc column as well.
+    # move the huc column as well, but we do need to keep it
     huc_col = sites_gdf.pop('HUC8')
     sites_gdf.insert(1, 'HUC8', huc_col)
 
     # add new columns
     sites_gdf.insert(loc=2, column="mapped", value="not set")
-
-    # Allows us to change this along the way if we need too
-    # and if the status is not been changed, then at the very end, we can change it to an empty
-    # string (aka.. all went perfectly well)
     sites_gdf.insert(loc=3, column="status", value="not set")
-
-    # This is a temp column to help sort out errors versus warning when we
-    # change mapped value to yes.
     sites_gdf.insert(loc=4, column="warnings", value="")
 
     # adjust and/or rename some columns
@@ -299,9 +299,10 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
 
     # Drop list fields if invalid
     # downstream_nwm_features and upstream_nwm_features are lists and gpkg does not like it
-    sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
-    sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
+    # hummm... or maybe jsut when it is null? both of those nodes are 
+    sites_gdf = sites_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
     sites_gdf = sites_gdf.astype({'metadata_sources': str})
+    sites_gdf.reset_index(inplace=True)
 
     # NOTE: if you get errors saying: Skipping field because of invalid value:
     # There are a couple of possible reasons. Data type mismatch, None in a float/int column and the most
@@ -344,7 +345,7 @@ def __check_for_resticted_sites(sites_gdf, catfim_type, huc, sites_file_path):
     # dup column names we would have to cleanup.
     valid_nwm_lids = []
     for index, row in sites_gdf.iterrows():
-        lid = row["ahps_lid"].upper()
+        lid = row["nws_lid"].upper()
         is_restrict_lid = df_restricted_sites.loc[df_restricted_sites['nws_lid'] == lid.upper()]
         if len(is_restrict_lid) > 0:
             # what if it comes back with more than one? if so.. it is a bug in the list
@@ -411,8 +412,8 @@ def __load_restricted_sites(catfim_type):
         nws_lid = row['nws_lid']
         restricted_reason = row['restricted_reason']
 
-        if len(nws_lid) != 5:
-            logging.warning(f"This lid value of '{nws_lid}' is invalid.")
+        # if len(nws_lid) != 5:
+        #     logging.warning(f"This lid value of '{nws_lid}' is invalid.")
         if restricted_reason == "":
             restricted_reason = "From the ahps_restricted_sites,"
             " the site will not be mapped, but a reason has not be provided."
@@ -427,7 +428,7 @@ def __load_restricted_sites(catfim_type):
     # end loop
 
     # Remove catfim_type column
-    df_restricted_sites.drop('catfim_type', axis=1, inplace=True)
+    df_restricted_sites = df_restricted_sites.drop('catfim_type', axis=1)
 
     return df_restricted_sites
 
@@ -529,7 +530,7 @@ def __set_start_files_folders(
     flows_data_dir,
     sites_file_path,
     library_file_path,
-    huc_threshold_data_file_path,
+    # huc_threshold_data_file_path,
     discharge_file_path,
 ):
 
@@ -552,8 +553,9 @@ def __set_start_files_folders(
     if os.path.isfile(library_file_path):
         os.remove(library_file_path)
 
-    if os.path.isfile(huc_threshold_data_file_path):
-        os.remove(huc_threshold_data_file_path)
+    # TODO: Come back and readd this (huc level one only, not the WRDS or newly downloaded WRDS version)
+    # if os.path.isfile(huc_threshold_data_file_path):
+    #     os.remove(huc_threshold_data_file_path)
 
     if catfim_type == 'fb':
         if os.path.isfile(discharge_file_path):
@@ -563,7 +565,8 @@ def __set_start_files_folders(
         # os.mkdir(flows_data_dir)   # add when we need it in fb
     # else:
 
-    # Always keeps the logs folder
+    # TODO: Always keeps the logs folder and maybe nothing else?
+    # certainly not meta or threshold files.
 
     return  # It is ok to return nothing to help show where a function finishes
 

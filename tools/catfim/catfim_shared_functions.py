@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timezone
 
 import geopandas as gpd
+import pandas as pd
 from dotenv import load_dotenv
 
 import data.wrds.download_process_wrds as dpw
@@ -96,6 +97,23 @@ def get_metadata(huc, huc_path, output_folder):
             else:
                 logging.info(msg)
 
+    # What does the metatable look like when flattened into a df considering its multiple layers
+    # test_df = pd.dataframe(metadata_json_list)
+    # test_df = pd.json_normalize(metadata_json_list)
+    # test_df.to_csv(os.path.join(output_folder, "df_all_metadata.csv"))
+
+    # Note:
+    # aggregate_wbd_hucs takes in a meta json and a list of hucs.
+    # DO NOT attempt to run aggregate_wbd_hucs it does not seem to work with a clipped huc wbd,
+    # not sure why. And if we try to run aggreg for every huc, the full size WBD takes anywhere
+    # from 6 to 20 mins to come back from agg. agg uses the points from each json site, then 
+    # adds them overtop of the WBD to figure out the HUCs, but the huc values do not come in
+    # reliably enough from WRDS. Ultimately, if we generate our own (or get a list)
+    # of HUCs to sites, we can filter this json down much easier.
+
+    # In the meantime, we let generate_categorical_fim, talk to agg for all HUCs and put that into a
+    # 
+
     # TODO: We need a faster answer
     # how do we handle not loading the entire WBD? Can't really use clips but maybe
     # it is ok to fully load it (well.. a smaller filtered HUC8 (102739 ???  - check crs inside aggre)
@@ -155,7 +173,28 @@ def get_metadata(huc, huc_path, output_folder):
 
     huc_sites_gdf = all_sites_gdf[all_sites_gdf['HUC8'] == huc]
 
+    if len(huc_sites_gdf) == 0:
+        raise Exception("No ")
+
+    huc_sites_gdf.rename(columns={"identifiers_nws_lid": "nws_lid"}, inplace=True)
+     # Keep everyhing upper for processing as the json files are upper for that filed
+    huc_sites_gdf['nws_lid'] = huc_sites_gdf['nws_lid'].str.upper()
+
     # TODO: now that we have a list of the sites applicable to this huc, filter the metadata_json
     # todo: We want a list of dictionary from huc_sites_gdf of {nws_lid, huc}
 
-    return metadata_json_list, huc_sites_gdf
+
+    # Now that we have a list of HUCs to lids from the parquet, given to use from generate_categorical_fim.
+    # we can filter the meta_json_list down
+    nwm_lids = huc_sites_gdf['nws_lid']
+
+    # let's hold off on this now
+    huc_metadata_json_list = []
+    for nwm_site_json in metadata_json_list:
+        lid = nwm_site_json['identifiers']['nws_lid']
+        if lid in nwm_lids:
+            huc_metadata_json_list.append(nwm_site_json)
+
+    # what do we do if the huc_site_gdf and/or huc_metadata_list is empty
+
+    return huc_metadata_json_list, huc_sites_gdf

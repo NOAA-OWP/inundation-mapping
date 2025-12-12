@@ -29,9 +29,9 @@ Tenative notes:
 
     - Some of the functions in here may move or be split to smaller functions.
 
-    - Data acquision such as meta, threshold or flows, should be moved ot generate_categorical_fim_flows.py
+    - Data acquistion such as meta, threshold or flows, should be moved ot generate_categorical_fim_flows.py
 
-    - Anyting related to inundation, tifs, gpkgs, etc, shoudl be moved to generate_categorical_mapping.py
+    - Anything related to inundation, tifs, gpkgs, etc, shoudl be moved to generate_categorical_mapping.py
 
     - Anything relating to final post-processing such as merging of sites / library data, or last minute editing
       of site data will be moved into catfim_post_processing.py
@@ -264,6 +264,7 @@ def process_generate_categorical_fim(
         # It has all sites and its huc number.
         # Each huc will make its own filtered copy, update status, etc and save at each huc level
         # for post processing rollup.
+        # and has the geometry for all poitns
         nwm_sites_all_gdf.to_parquet(nwm_sites_file, index=False)
         #         nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'),driver='GPKG', engine='fiona')
 
