@@ -1132,10 +1132,10 @@ def process_theshold_data(catfim_type, valid_nwm_lids, sites_gdf, huc, huc_path,
     #     #     MP_LOG.warning(f"{huc} - {message}")
 
         # or do we iterate the five types, pulling out the stage adn flow values as we do, then see all are invalid?
-        for stage_type in stage_types:
-            stage_val = lid_threshold_data[0][f"{stage_value}"]
-        for row in lid_threshold_data:
-            stage_val = row
+        # for stage_type in stage_types:
+        #     stage_val = lid_threshold_data[0][f"{stage_value}"]
+        # for row in lid_threshold_data:
+        #     stage_val = row
 
 
         # We are passing in a copy of the lid_sites_gdf which we can use to replace it in the original df
