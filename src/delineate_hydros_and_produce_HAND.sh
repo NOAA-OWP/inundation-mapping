@@ -292,8 +292,6 @@ if  [ -f $tempHucDataDir/osm_bridges_subset.gpkg ]; then
         -b2 1.5 \
         -p $tempCurrentBranchDataDir/gw_catchments_reaches_filtered_addedAttributes_crosswalked_$current_branch_id.gpkg \
         -c $tempCurrentBranchDataDir/osm_bridge_centroids_$current_branch_id.gpkg
-
-
 else
     echo -e $startDiv"No applicable bridge data for $hucNumber"
 fi

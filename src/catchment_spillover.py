@@ -26,9 +26,11 @@ def save_raster(array, filename, crs, transform):
         dst.write(array)
 
 
-def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20):
-    with rasterio.open(dem_tif) as dem, rasterio.open(rem_tif) as rem:
+def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20, pct_change_threshold=1.0):
+    if max_iterations <= 0:
+        return
 
+    with rasterio.open(dem_tif) as dem, rasterio.open(rem_tif) as rem:
         crs = dem.crs
         dem_nodata = dem.profile['nodata']
         dem = dem.read()
@@ -48,7 +50,6 @@ def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20):
         print(f"Iteration {i+1} of {max_iterations}")
         rem = catchment_spillover(dem, rem, flow_direction_tif, i)
 
-        # Compute percent pixel change in REM between iterations
         if i > 0:
             change_in_rem = rem - previous_rem
             percent_change = (np.nanmean(change_in_rem) / np.nanmean(previous_rem)) * 100.0
@@ -56,14 +57,13 @@ def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20):
             print(f"Percent change in REM: {percent_change:.2f}%")
 
             # Stop if percent change is less than 1% or max iterations reached
-            if percent_change > -1 or i >= max_iterations:
-                print("Final iteration completed. Saving final REM.")
-
-                save_raster(rem, rem_tif, crs, rem_transform)
-
+            if percent_change > -pct_change_threshold:
                 break
 
         previous_rem = rem
+
+    print("Final iteration completed. Saving final REM.")
+    save_raster(rem, rem_tif, crs, rem_transform)
 
     # Save rem_change as a pandas DataFrame csv
     rem_change_df = pd.DataFrame(rem_change, columns=['percent_change'])
@@ -202,6 +202,9 @@ if __name__ == "__main__":
     parser.add_argument("--flow_direction_tif", type=str, help="Path to flow direction TIFF file.")
     parser.add_argument(
         "--max_iterations", type=int, default=5, help="Number of spillover iterations to perform."
+    )
+    parser.add_argument(
+        "--pct_change_threshold", type=float, default=1.0, help="Percent change threshold to stop iterations."
     )
     args = parser.parse_args()
 
