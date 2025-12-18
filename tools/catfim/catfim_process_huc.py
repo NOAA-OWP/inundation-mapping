@@ -161,8 +161,8 @@ def process_huc(huc, output_folder):
         # Let's get the meta and points
         section_start_dt = datetime.now(timezone.utc)
 
-        # TODO: filter the metadata_json_list to just this huc
         logging.info("loading sites meta data")
+        # These are filtered to huc level
         metadata_json, sites_gdf = csf.get_metadata(huc, huc_path, output_folder)
 
         # Lets write what we have raw from meta data
@@ -172,55 +172,53 @@ def process_huc(huc, output_folder):
         valid_nwm_lids, sites_gdf = __check_for_resticted_sites(
             sites_gdf, os.getenv('CATFIM_TYPE'), huc, sites_file_path
         )
-        # lets save where we are at this point. We don't need the csv right now
+        # lets save the sites gpkg we are at this point
         logging.info(f"Saving sites, pre flow and mapping, at {sites_file_path}")
-        __save_sites_file(sites_gdf, sites_file_path, False)
+        sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
 
         logging.info(f"{len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
-        logging.info("loading sites meta data - Complete")
-        duration_msg = sf.calculate_duration_msg(section_start_dt)
-        logging.info(duration_msg)
         print("")
 
 
         # Emily... abort here. Rob will keep going lower with thresholds
-        print("--------------")
-        print("Ok.. let's stop here for now")
-        sys.exit(0)
+        # print("--------------")
+        # print("Ok.. let's stop here for now")
+        # sys.exit(0)
 
 
         # =========================================
         # Let's get the Threshold data
         section_start_dt = datetime.now(timezone.utc)
-        logging.info("loading flow and threshold data for valid sites")
+        logging.info("loading flow and threshold data for all valid sites")
 
         # ---------------------
         # Get threshold data
         # Note: it is possible get_threshold_data can come back empty if huc has no site(s) threshold data
         # It has stages and flows for all sites in this huc
-        # stages_df, flows_df = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
+         #stages_dict, flows_dict = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
         # yes.. it is ok that thresholds_merged_df is empty for now
         thresholds_merged_df = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
-
-        logging.info("loading flow and threshold data for valid sites - Complete")
-        duration_msg = sf.calculate_duration_msg(section_start_dt)
-        logging.info(duration_msg)
-
-        # ------------------------
-
+        # thresholds_stages_df, thresholds_flows_df = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
 
         # =========================================
         # Processing Threshold data  (figure stages and calc flow data for inundation)
         section_start_dt = datetime.now(timezone.utc)
-        logging.info("loading flow and threshold data for valid sites")
+        logging.info("Processing flow and threshold data for all valid sites")
 
         # we do have at least one threshold record
         # library is not yet a gdf as it has no geometry
-        sites_gdf, library_df = gcf.process_theshold_data(catfim_type, valid_nwm_lids, sites_gdf, thresholds_merged_df, metadata_json)
+        sites_gdf, library_df = gcf.process_theshold_data(catfim_type,
+                                                          valid_nwm_lids,
+                                                          sites_gdf,
+                                                          huc,
+                                                          huc_path,
+                                                          thresholds_merged_df,
+                                                          metadata_json)
 
+        logging.info(f"End processing flow and threshold data for huc {huc}")
+        duration_msg = sf.calculate_duration_msg(section_start_dt)
+        logging.info(duration_msg)
 
-        # ---------------------
-        # Figure out categories. (ie.. action, moderate, etc) - SB to also figure out intervals?
 
         # # Temp debugging
         # print("--------------")
@@ -247,11 +245,10 @@ def process_huc(huc, output_folder):
         # ---------------------
         # Make final library files for this HUC
 
-        logging.info(f"Updating sites gdf and csv with finalized site data at {sites_file_path}")
-
+        logging.info(f"Updating sites gdf with finalized site data at {sites_file_path}")
         # For the sites gpkg, leave the column named as nws_lid, we can change it to ahps_lid later in post processing.
-
-        __save_sites_file(sites_gdf, sites_file_path, True)
+        # hummmmm
+        sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
 
         logging.info(f"End processing for huc {huc}")
         duration_msg = sf.calculate_duration_msg(overall_start_time)
@@ -301,13 +298,15 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
     # Maybe we fix it someday, but not now. Too many other things going on.
     sites_gdf.rename(
         columns={'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_usgs_site_code': 'usgs_gage'},
-        inplace=True,
+        inplace=True
     )
 
     # Drop list fields if invalid
     # downstream_nwm_features and upstream_nwm_features are lists and gpkg does not like it
     # hummm... or maybe jsut when it is null? both of those nodes are 
+
     sites_gdf = sites_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
+    
     sites_gdf = sites_gdf.astype({'metadata_sources': str})
     sites_gdf.reset_index(inplace=True)
 
@@ -440,14 +439,25 @@ def __load_restricted_sites(catfim_type):
     return df_restricted_sites
 
 
-def __save_sites_file(sites_gdf, sites_file_path, inc_csv):
+def __save_sites_file(sites_gdf, sites_file_path):
+
+
+    # These fields throw errors when saving from gdf to gpkg, throwing Skipping field because of invalid value
+    # but strangely not in all records.
+    # likely bad records or nulls in key which get filtered out later.
+    sites_gdf = sites_gdf.astype({'metadata_sources': str,
+                                    'downstream_nwm_features': str,
+                                    'upstream_nwm_features': str,
+                                    'nwm_feature_data_downstream_feature_id': str,
+                                    'nws_data_county_code': str,
+                                    'nwm_feature_data_nhd_waterbody_comid': str,
+                                    'nws_data_latitude': str,
+                                    'nws_data_longitude': str,
+                                    'nws_data_zero_datum': str,
+                                    'nwm_feature_data_stream_order': str,
+                                    })
 
     sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
-
-    if inc_csv is True:
-        # Save a csv version as well
-        nws_lid_csv_file_path = sites_file_path.replace(".gpkg", ".csv")
-        sites_gdf.to_csv(nws_lid_csv_file_path)
 
 
 def __validate_inputs(huc, output_folder):
@@ -456,7 +466,7 @@ def __validate_inputs(huc, output_folder):
 
     # TODO: valdiate huc value (8 numeric maybe and starts with 0, 1, or 2) ????
 
-    if not output_folder:  # exists or empty
+    if not output_folder or output_folder == "":
         raise ValueError("output_folder argument can not be None or empty.")
     if output_folder.endswith("/"):  # strip it off the end
         output_folder = output_folder[:-1]
@@ -480,16 +490,24 @@ def __validate_inputs(huc, output_folder):
     # then run post processing again.
     fim_run_dir = os.getenv("FIM_RUN_DIR")
     if not fim_run_dir:
-        raise Exception(
+        raise ValueError(
             "The enviro value for FIM_RUN_DIR does not exist or is empty. It was loaded"
             " and included in the runtime_arg enviro file. Check pathing and variables."
         )
     fim_run_huc_path = os.path.join(fim_run_dir, huc)
     if not os.path.exists(fim_run_huc_path):
-        raise ValueError(
-            "This script needs to talk to its HUC in the fim_run_dir, but the folder of"
+        raise FileNotFoundError(
+            "This script needs to talk to its HUC in the fim_run_dir, but the folder"
             f" {fim_run_huc_path} does not exist. Please check pathing (with case)."
         )
+
+    # branch_dir = os.path.join(fim_run_huc_path, 'branches')
+    # if not os.path.exists(branch_dir):
+    #     raise FileNotFoundError(
+    #         "This script needs to talk to branches in its fim_run_dir / HUC in the fim_run_dir,"
+    #         f"but the folder " {branch_dir} does not exist. Please check pathing (with case)."
+    #     )
+
 
     # do we validate other key files? branches exist? what if it was a bad huc in the first place?
 
@@ -500,6 +518,7 @@ def __validate_inputs(huc, output_folder):
     # ie: /data/catfim/hand_4_8_7_2_stage_based/hucs/12090301
     huc_path = os.path.join(output_folder, "hucs", huc)
     os.makedirs(huc_path, exist_ok=True)
+    os.chmod(huc_path, 0o777)
 
     return huc_path, output_folder
 

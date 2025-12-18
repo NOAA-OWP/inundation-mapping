@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import glob
 import logging
 import os
@@ -231,6 +232,11 @@ def process_generate_categorical_fim(
             nwm_meta_file, api_base_url, search, get_new_meta_data, list()
         )
 
+        # debugging
+        # meta_json_to_text = os.path.join(output_folder, "metadata_json_list_text.json")
+        # with open(meta_json_to_text, 'w') as f:
+        #     json.dump(metadata_json_list, f, indent=4)
+
         # return_msgs is a list and might have some warnings, some messages and/or errors
         if len(return_msgs) > 0:
             # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of
@@ -260,13 +266,37 @@ def process_generate_categorical_fim(
         if len(huc_dictionary) == 0:
             raise Exception("The metadata pickle file does not have any appliable HUCs")
 
+
+        # These fields throw errors when saving from gdf to gpkg, throwing Skipping field because of invalid value
+        # but strangely not in all records.
+        # likely bad records or nulls in key which get filtered out later.
+        # nwm_sites_all_gdf = nwm_sites_all_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
+        nwm_sites_all_gdf = nwm_sites_all_gdf.astype({'metadata_sources': str,
+                                                      'downstream_nwm_features': str,
+                                                      'upstream_nwm_features': str,
+                                                      'nwm_feature_data_downstream_feature_id': str,
+                                                      'nws_data_county_code': str,
+                                                      'nwm_feature_data_nhd_waterbody_comid': str,
+                                                      'nws_data_latitude': float,
+                                                      'nws_data_longitude': float,
+                                                      'nws_data_zero_datum': float,
+                                                      'nwm_feature_data_stream_order': str,
+                                                      })
+
         # Save the nwm_sites_all_gdf for catfim_process_huc.py to pick up.
         # It has all sites and its huc number.
         # Each huc will make its own filtered copy, update status, etc and save at each huc level
         # for post processing rollup.
         # and has the geometry for all poitns
-        nwm_sites_all_gdf.to_parquet(nwm_sites_file, index=False)
-        #         nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'),driver='GPKG', engine='fiona')
+
+        # parquet version for quick loading in each HUC and 1/10th of the size
+        nwm_sites_all_gdf.to_parquet(nwm_sites_file)  # for quick loading in huc level
+        # for debugging and not shared with the HUCs
+        nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'),driver='GPKG', engine='fiona')
+
+
+        # TODO: Should we get a threshold for all hucs like we do for meta? then the hucs can copy / filter
+        # like meta? probably..
 
         # Change it to a simple string huc list.
         # All HUCs in this list are validated as having hand data, plus are not on the restricted list.

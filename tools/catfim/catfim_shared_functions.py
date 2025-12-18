@@ -39,6 +39,7 @@ def load_fim_global_env_values(env_file):
     return api_base_url
 
 
+# TODO: This should probably be moved into flows.py
 def get_metadata(huc, huc_path, output_folder):
 
     # this can get filtered meta data based on HUC if you want it.
@@ -171,11 +172,12 @@ def get_metadata(huc, huc_path, output_folder):
 
     all_sites_gdf = gpd.read_parquet(os.getenv('NWM_SITES_PATH'))
 
-    huc_sites_gdf = all_sites_gdf[all_sites_gdf['HUC8'] == huc]
+    huc_sites_gdf = all_sites_gdf[all_sites_gdf['HUC8'] == huc].copy()
 
     if len(huc_sites_gdf) == 0:
-        raise Exception("No ")
+        raise Exception("Error. The HUC of  {} does not exist in the all sites dataset.")
 
+    huc_sites_gdf.reset_index()
     huc_sites_gdf.rename(columns={"identifiers_nws_lid": "nws_lid"}, inplace=True)
      # Keep everyhing upper for processing as the json files are upper for that filed
     huc_sites_gdf['nws_lid'] = huc_sites_gdf['nws_lid'].str.upper()
@@ -184,17 +186,21 @@ def get_metadata(huc, huc_path, output_folder):
     # todo: We want a list of dictionary from huc_sites_gdf of {nws_lid, huc}
 
 
-    # Now that we have a list of HUCs to lids from the parquet, given to use from generate_categorical_fim.
+    # Now that we have a list of HUCs to lids from the geoparquet, given to use from generate_categorical_fim.
     # we can filter the meta_json_list down
-    nwm_lids = huc_sites_gdf['nws_lid']
+    nwm_lids = huc_sites_gdf['nws_lid'].tolist()
 
-    # let's hold off on this now
+    # Find lid metadata from master list of metadata dictionaries (line 66).
+    
     huc_metadata_json_list = []
-    for nwm_site_json in metadata_json_list:
-        lid = nwm_site_json['identifiers']['nws_lid']
+    for lid_site_data in metadata_json_list:
+        lid = lid_site_data['identifiers']['nws_lid']
         if lid in nwm_lids:
-            huc_metadata_json_list.append(nwm_site_json)
+            huc_metadata_json_list.append(lid_site_data)
+    
 
     # what do we do if the huc_site_gdf and/or huc_metadata_list is empty
+
+    # TODO: Error if no data found
 
     return huc_metadata_json_list, huc_sites_gdf

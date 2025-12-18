@@ -813,6 +813,13 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     HUC 08 layer to the GeoDataFrame. Sites that are not assigned a HUC
     code removed as well as sites in Alaska and Canada.
 
+    Note: When json is saved into a gdf and some fields have list value in the json node, geopandas, will
+    convert it to a string value which is great.  ie) 'downstream_nwm_features', value=['3763134', '3763132']
+    But sometimes when you save the gdf to gpkg it can through random errors saying: Skipping field because of invalid value.
+    ie) Skipping field because of invalid value: key='downstream_nwm_features', value=['3763134', '3763132'].
+    This is a problem in gdf.to_file and is being researched.
+
+
     Parameters
     ----------
     metadata_list: List of Dictionaries
@@ -874,10 +881,17 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
             inplace=True,
         )
-        nws_lid = df['identifiers_nws_lid']
-        logging.info(f"... iterating in aggregate for nws_lid {nws_lid}")
+       
         # If dataframe still has data
         if not df.empty:
+
+            # nws_lid = df.iloc[0]['identifiers_nws_lid']
+
+            # if nws_lid != 'VERP4':
+            #     continue
+
+            # logging.info(f"... iterating in aggregate for nws_lid {nws_lid}")
+
             #            print(df[:5])
             # Get horizontal datum
             h_datum = df['usgs_preferred_latlon_datum_name'].item()
