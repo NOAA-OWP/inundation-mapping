@@ -57,7 +57,7 @@ def add_crosswalk(
     slope_mono = 0.00004
     slope_mono_df = feature_ids_mono.copy()
     slope_mono_df['SLOPE_IRIS_SWORD'] = slope_mono
-    
+
     # Allegheney River
     feature_ids_all = pd.DataFrame([11050846, 11050716, 11050712, 11050700, 11050708], columns=['feature_id'])
     slope_all = 0.00004
@@ -75,7 +75,7 @@ def add_crosswalk(
     iris_df = iris_df.set_index('feature_id')
 
     # this will replace slope in df1 wherever the ID exists in df2
-    iris_df.update(slope_pitts_df[['SLOPE_IRIS_SWORD']]) 
+    iris_df.update(slope_pitts_df[['SLOPE_IRIS_SWORD']])
 
     iris_df = iris_df.reset_index()
     slope_pitts_df = slope_pitts_df.reset_index()
