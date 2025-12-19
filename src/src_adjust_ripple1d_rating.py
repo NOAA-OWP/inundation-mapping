@@ -47,7 +47,9 @@ Outputs
 '''
 
 
-def create_ripple1d_rating_database(huc_ripple1d_input_file, ripple1d_elev_df, nwm_recurr_filepath, log_dir): #, huc_level
+def create_ripple1d_rating_database(
+    huc_ripple1d_input_file, ripple1d_elev_df, nwm_recurr_filepath, log_dir
+):  # , huc_level
     start_time = dt.datetime.now()
     print('Reading ripple1d rating curves from parquet...')
     log_text = 'Processing database for ripple1d flow/WSE at NWM flow recur intervals...\n'
@@ -78,10 +80,19 @@ def create_ripple1d_rating_database(huc_ripple1d_input_file, ripple1d_elev_df, n
     start_time = dt.datetime.now()
 
     cross_df = ripple1d_elev_df[
-            ["location_id", "HydroID", "feature_id", "levpa_id", "HUC8", "dem_adj_elevation", "source"] # {huc_level}
+        [
+            "location_id",
+            "HydroID",
+            "feature_id",
+            "levpa_id",
+            "HUC8",
+            "dem_adj_elevation",
+            "source",
+        ]  # {huc_level}
     ].copy()
     cross_df.rename(
-        columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', 'HUC8': 'huc'}, inplace=True # {huc_level}
+        columns={'dem_adj_elevation': 'hand_datum', 'HydroID': 'hydroid', 'HUC8': 'huc'},
+        inplace=True,  # {huc_level}
     )
 
     # filter null location_id rows from cross_df
@@ -211,7 +222,7 @@ def create_ripple1d_rating_database(huc_ripple1d_input_file, ripple1d_elev_df, n
 def branch_proc_list(ripple1d_df, huc_dir, debug_outputs_option, log_file, branch_jobs):
 
     huc = os.path.basename(os.path.normpath(huc_dir))
-    
+
     procs_list = []  # Initialize list for mulitprocessing.
 
     # # loop through all unique level paths that have a ripple1d data points
@@ -233,8 +244,7 @@ def branch_proc_list(ripple1d_df, huc_dir, debug_outputs_option, log_file, branc
             branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_' + branch_id + '.tif'
         )
         catchments_poly_path = os.path.join(
-            branch_dir,
-            'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg',
+            branch_dir, 'gw_catchments_reaches_filtered_addedAttributes_crosswalked_' + branch_id + '.gpkg'
         )
         htable_path = os.path.join(branch_dir, 'hydroTable_' + branch_id + '.csv')
         water_edge_median_ds = ripple1d_df[
@@ -312,7 +322,11 @@ def branch_proc_list(ripple1d_df, huc_dir, debug_outputs_option, log_file, branc
 
 
 def run_prep(
-    huc_dir, ripple_rc_filename, nwm_recurr_filepath, debug_outputs_option, branch_jobs # huc_level, ripple_input_dir,
+    huc_dir,
+    ripple_rc_filename,
+    nwm_recurr_filepath,
+    debug_outputs_option,
+    branch_jobs,  # huc_level, ripple_input_dir,
 ):
     ## Check input args are valid
     assert os.path.isdir(huc_dir), 'ERROR: could not find the input fim_dir location: ' + str(huc_dir)
@@ -417,11 +431,14 @@ def run_prep(
     huc_ripple1d_input_file = os.path.join(huc_dir, ripple_rc_filename)
     print('Reading Ripple1D point loc HAND elevation from ripple1d_elev_table csv file...')
     ripple1d_elev_df = pd.read_csv(
-        ripple1d_elev_path, dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object}
+        ripple1d_elev_path,
+        dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
     )
 
     if ripple1d_elev_df is None:
-        warn_err = 'WARNING: ripple1d_elev_df not created - check that ' + csv_elev + ' files exist in huc_dir!'
+        warn_err = (
+            'WARNING: ripple1d_elev_df not created - check that ' + csv_elev + ' files exist in huc_dir!'
+        )
         print(warn_err)
         log_file.write(warn_err)
 
@@ -433,7 +450,9 @@ def run_prep(
     else:
         print('This may take a few minutes...')
         log_file.write("starting create Ripple1D rating db")
-        ras_df = create_ripple1d_rating_database(huc_ripple1d_input_file, ripple1d_elev_df, nwm_recurr_filepath, log_dir)
+        ras_df = create_ripple1d_rating_database(
+            huc_ripple1d_input_file, ripple1d_elev_df, nwm_recurr_filepath, log_dir
+        )
 
         ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
         branch_proc_list(ras_df, huc_dir, debug_outputs_option, log_file, branch_jobs)
@@ -490,7 +509,6 @@ if __name__ == '__main__':
     )
     parser.add_argument('-jb', '--branch_jobs', help='Number of jobs to use', required=False, default=1)
 
-
     ## Assign variables from arguments.
     args = vars(parser.parse_args())
     huc_dir = args['huc_dir']
@@ -503,5 +521,9 @@ if __name__ == '__main__':
 
     ## Prepare/check inputs, create log file, and spin up the proc list
     run_prep(
-        huc_dir, ripple_rc_filename, nwm_recurr_filepath, debug_outputs_option, branch_jobs, # huc_level, ripple_input_dir, 
+        huc_dir,
+        ripple_rc_filename,
+        nwm_recurr_filepath,
+        debug_outputs_option,
+        branch_jobs,  # huc_level, ripple_input_dir,
     )
