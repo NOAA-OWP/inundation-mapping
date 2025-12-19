@@ -127,6 +127,8 @@ def update_rating_curve(
         calb_type = 'calb_coef_usgs'
     elif source_tag == 'ras2fim_rating':
         calb_type = 'calb_coef_ras2fim'
+    elif source_tag == 'ripple1d_rating':
+        calb_type = 'calb_coef_ripple1d'
     else:
         log_text += "WARNING - unknown calibration data source type: " + str(source_tag) + '\n'
 
@@ -168,9 +170,12 @@ def update_rating_curve(
             }
         )
         df_prev_adj_htable = df_prev_adj_htable.groupby(["HydroID"]).first()
-        # Only keep previous USGS rating curve adjustments (previous spatial obs adjustments are not retained)
+        # Only keep previous USGS, ras2fim, or ripple1d rating curve adjustments
+        #   (previous spatial obs adjustments are not retained)
         df_prev_adj = df_prev_adj_htable[
-            df_prev_adj_htable['obs_source_prev'].str.contains("usgs_rating|ras2fim_rating", na=False)
+            df_prev_adj_htable['obs_source_prev'].str.contains(
+                "usgs_rating|ras2fim_rating|ripple1d_rating", na=False
+            )
         ]
         log_text += (
             'HUC: '

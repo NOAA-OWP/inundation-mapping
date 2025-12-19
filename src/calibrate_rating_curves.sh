@@ -37,11 +37,17 @@ if [ "${calibration_rerun,,}" = "true" ]; then
     Tcount
 fi
 
-
 ## RUN AGGREGATE BRANCH ELEV TABLES ##
-l_echo $startDiv"Processing usgs & ras2fim elev table aggregation"
+l_echo $startDiv"Processing usgs, ras2fim & ripple1d elev table aggregation"
 Tstart
-python3 $srcDir/aggregate_branches_to_huc.py -huc_dir $tempHucDataDir -elev -ras
+python3 $srcDir/aggregate_branches_to_huc.py \
+    -huc_dir $tempHucDataDir \
+    -elev \
+    -ras \
+    -ripple1d \
+    # -huc_level $huc_level \
+    # -i $fim_inputs \
+    # -j $jobLimit
 Tcount
 
 ## RUN THALWEG NOTCHES ADJUSTMENT ROUTINE ##
@@ -132,11 +138,27 @@ if [ "$src_adjust_ras2fim" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     Tstart
     l_echo $startDiv"Performing SRC adjustments using ras2fim rating curve database"
     # Run SRC Optimization routine using ras2fim rating curve data (WSE and flow @ NWM recur flow values)
+    # TODO: why we do not have "-ras_input $ras2fim_input_dir \"
     python3 $srcDir/src_adjust_ras2fim_rating.py \
         -huc_dir $tempHucDataDir \
         -ras_rc $ras_rating_curve_csv_filename \
         -nwm_recur $nwm_recur_file \
         -jb $jobBranchLimit
+    Tcount
+fi
+
+## RUN SYNTHETIC RATING CURVE CALIBRATION W/ RIPPLE1d CROSS SECTION RATING CURVES ##
+if [ "$src_adjust_ripple1d" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
+    Tstart
+    l_echo $startDiv"Performing SRC adjustments using ripple1d rating curve database"
+    # Run SRC Optimization routine using ripple1d rating curve data (WSE and flow @ NWM recur flow values)
+    python3 $srcDir/src_adjust_ripple1d_rating.py \
+        -huc_dir $tempHucDataDir \
+        -ripple1d_rc $ripple1d_rating_curve_filename \
+        -nwm_recur $nwm_recur_file \
+        -jb $jobBranchLimit
+        # -huc_level $huc_level \
+        # -ripple1d_input $ripple1d_input_dir \
     Tcount
 fi
 

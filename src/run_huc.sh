@@ -74,8 +74,8 @@ cp $inputsDir/ahps_sites/nws_lid.gpkg $tempHucDataDir
 # Renamed to usgs_gages.gpkg while being copied
 cp $usgs_gages_file $tempHucDataDir/usgs_gages.gpkg
 
-# Check if the $hucNumber directory exists in the ras2fim $inputsDir
-if [ -d "$ras2fim_input_dir/$hucNumber" ]; then
+# Check if the $hucNumber directory exists in the ras2fim $inputsDir and src_adjust_ras2fim is set to True
+if [ -d "$ras2fim_input_dir/$hucNumber" ] && [ "$src_adjust_ras2fim" = "True" ]; then
     ras_rating_gpkg="$ras2fim_input_dir/$hucNumber/$ras_rating_curve_gpkg_filename"
     ras_rating_csv="$ras2fim_input_dir/$hucNumber/$ras_rating_curve_csv_filename"
     if [ -f "$ras_rating_gpkg" ]; then
@@ -89,6 +89,17 @@ if [ -d "$ras2fim_input_dir/$hucNumber" ]; then
         echo "Copied $ras_rating_csv to $tempHucDataDir"
     else
         echo "File $ras_rating_csv does not exist. Skipping copy."
+    fi
+fi
+
+# Check if the $hucNumber directory exists in the ripple1d_input_dir and src_adjust_ripple1d is set to True
+if [ -d "$ripple1d_input_dir/$hucNumber" ] && [ "$src_adjust_ripple1d" = "True" ]; then
+    ripple1d_rating_file="$ripple1d_input_dir/$hucNumber/$ripple1d_rating_curve_filename"
+    if [ -f "$ripple1d_rating_file" ]; then
+        cp "$ripple1d_rating_file" $tempHucDataDir
+        echo "Copied $ripple1d_rating_file to $tempHucDataDir"
+    else
+        echo "File $ripple1d_rating_file does not exist. Skipping copy."
     fi
 fi
 
@@ -270,6 +281,7 @@ if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
         -gages $tempHucDataDir/usgs_gages.gpkg \
         -nwm $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg \
         -ras $tempHucDataDir/$ras_rating_curve_gpkg_filename \
+        -ripple $tempHucDataDir/$ripple1d_rating_curve_filename \
         -o $tempHucDataDir/usgs_subset_gages.gpkg \
         -huc $hucNumber \
         -ahps $tempHucDataDir/nws_lid.gpkg \

@@ -52,9 +52,10 @@ class GageCrosswalk(object):
         output_directory,
         huc_CRS,
     ):
-        '''Run the gage crosswalk steps: 1) spatial join to branch catchments layer 2) snap sites to
+        '''
+        Run the gage crosswalk steps: 1) spatial join to branch catchments layer 2) snap sites to
         the dem-derived flows 3) sample both dems at the snapped points 4) write the crosswalked points
-        to usgs_elev_table.csv
+        to usgs_elev_table.csv & ras_elev_table.csv & ripple1d_elev_table.csv
         '''
         if self.gages.empty:
             print(f'There are no gages for branch {self.branch_id}')
@@ -133,6 +134,8 @@ class GageCrosswalk(object):
         elev_table = elev_table[elev_table['location_id'].notna()]
         elev_table.source = elev_table.source.apply(str.lower)
 
+        elev_table_copy = elev_table.copy()
+
         # filter for just ras2fim entries (note that source column includes suffix with version number)
         ras_elev_table = elev_table[elev_table['source'].str.contains('ras2fim')]
         ras_elev_table = ras_elev_table[
@@ -156,9 +159,30 @@ class GageCrosswalk(object):
                 ' (note that most hucs do not have ras2fim data)'
             )
 
+        # filter for ripple1d entries (note that source column includes suffix with version number)
+        ripple1d_elev_table = elev_table_copy[elev_table_copy['source'].str.contains('ripple1d')]
+        ripple1d_elev_table = ripple1d_elev_table[
+            [
+                "location_id",
+                "HydroID",
+                "feature_id",
+                "levpa_id",
+                "HUC8",
+                "dem_elevation",
+                "dem_adj_elevation",
+                "source",
+                "ras_xs_station",
+            ]
+        ]
+
+        if not ripple1d_elev_table.empty:
+            ripple1d_elev_table.to_csv(join(output_directory, 'ripple1d_elev_table.csv'), index=False)
+        else:
+            print('INFO: there were no ripple1d points located in this huc')
+
         # filter for just usgs entries
-        # look for source attributes that do not contain "ras2fim"
-        usgs_elev_table = elev_table[~elev_table['source'].str.contains('ras2fim')]
+        # look for source attributes that do not contain "ras2fim" or "ripple1d"
+        usgs_elev_table = elev_table[~elev_table['source'].str.contains('ras2fim|ripple1d')]
         if not usgs_elev_table.empty:
             usgs_elev_table.to_csv(join(output_directory, 'usgs_elev_table.csv'), index=False)
 
