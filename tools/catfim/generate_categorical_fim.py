@@ -16,6 +16,8 @@ from dotenv import load_dotenv
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
+
+from src.utils.shared_variables import VIZ_PROJECTION
 from tools.catfim.catfim_post_processing import catfim_post_processing
 from tools.catfim.catfim_process_huc import process_huc
 from tools.tools_shared_functions import aggregate_wbd_hucs
@@ -288,6 +290,8 @@ def process_generate_categorical_fim(
         # Each huc will make its own filtered copy, update status, etc and save at each huc level
         # for post processing rollup.
         # and has the geometry for all poitns
+
+        nwm_sites_all_gdf = nwm_sites_all_gdf.to_crs(VIZ_PROJECTION)
 
         # parquet version for quick loading in each HUC and 1/10th of the size
         nwm_sites_all_gdf.to_parquet(nwm_sites_file)  # for quick loading in huc level

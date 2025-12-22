@@ -180,12 +180,6 @@ def process_huc(huc, output_folder):
         print("")
 
 
-        # Emily... abort here. Rob will keep going lower with thresholds
-        # print("--------------")
-        # print("Ok.. let's stop here for now")
-        # sys.exit(0)
-
-
         # =========================================
         # Let's get the Threshold data
         section_start_dt = datetime.now(timezone.utc)
@@ -204,6 +198,14 @@ def process_huc(huc, output_folder):
         # Processing Threshold data  (figure stages and calc flow data for inundation)
         section_start_dt = datetime.now(timezone.utc)
         logging.info("Processing flow and threshold data for all valid sites")
+
+
+        # Dec 22, 2025: Emily.. stop here for now. :)
+        print("--------------")
+        print("Ok.. let's stop here for now")
+        sys.exit(0)
+
+
 
         # we do have at least one threshold record
         # library is not yet a gdf as it has no geometry
@@ -305,10 +307,21 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
     # downstream_nwm_features and upstream_nwm_features are lists and gpkg does not like it
     # hummm... or maybe jsut when it is null? both of those nodes are 
 
+    # it is because it has a lists value or unkeyed json node. How do we fix this?  TBD. Check other code
+    # note in this file.
     sites_gdf = sites_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
-    
-    sites_gdf = sites_gdf.astype({'metadata_sources': str})
+    sites_gdf = sites_gdf.astype({'metadata_sources': str,
+                                    'nwm_feature_data_downstream_feature_id': str,
+                                    'nws_data_county_code': str,
+                                    'nwm_feature_data_nhd_waterbody_comid': str,
+                                    'nws_data_latitude': str,
+                                    'nws_data_longitude': str,
+                                    'nws_data_zero_datum': str,
+                                    'nwm_feature_data_stream_order': str,
+                                    })
+
     sites_gdf.reset_index(inplace=True)
+
 
     # NOTE: if you get errors saying: Skipping field because of invalid value:
     # There are a couple of possible reasons. Data type mismatch, None in a float/int column and the most
@@ -364,8 +377,8 @@ def __check_for_resticted_sites(sites_gdf, catfim_type, huc, sites_file_path):
     if len(valid_nwm_lids) == 0:
         msg = f"All sites associated to HUC {huc} are retricted. No more processing will continue. Aborting."
         logging.critical(msg)
-
-        __save_sites_file(sites_gdf, sites_file_path, True)
+        
+        sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
         # graceful exit is fine here. We don't need to crash it or through an exception.
         # sys.exit(0)  # humm.. or do we let this throw the exception for MP?
         raise Exception(msg)
@@ -437,27 +450,6 @@ def __load_restricted_sites(catfim_type):
     df_restricted_sites = df_restricted_sites.drop('catfim_type', axis=1)
 
     return df_restricted_sites
-
-
-def __save_sites_file(sites_gdf, sites_file_path):
-
-
-    # These fields throw errors when saving from gdf to gpkg, throwing Skipping field because of invalid value
-    # but strangely not in all records.
-    # likely bad records or nulls in key which get filtered out later.
-    sites_gdf = sites_gdf.astype({'metadata_sources': str,
-                                    'downstream_nwm_features': str,
-                                    'upstream_nwm_features': str,
-                                    'nwm_feature_data_downstream_feature_id': str,
-                                    'nws_data_county_code': str,
-                                    'nwm_feature_data_nhd_waterbody_comid': str,
-                                    'nws_data_latitude': str,
-                                    'nws_data_longitude': str,
-                                    'nws_data_zero_datum': str,
-                                    'nwm_feature_data_stream_order': str,
-                                    })
-
-    sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
 
 
 def __validate_inputs(huc, output_folder):

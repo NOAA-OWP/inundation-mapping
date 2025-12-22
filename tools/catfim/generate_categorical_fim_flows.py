@@ -371,7 +371,7 @@ def __process_flow_based_sites(valid_nwm_lids, huc, sites_gdf, thresholds_merged
         # procesing each magnitude in here, now that the tests that are not mag specific are done
         sites_gdf, library_df = __build_library_for_mags("fb", lid, sites_gdf, lid_threshold_data, lid_metadata, nwm_flows_region_df, segments)
 
-    # return sites_gdf, library_df
+    return sites_gdf, library_df
 
 
 '''
