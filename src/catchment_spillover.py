@@ -183,8 +183,6 @@ def catchment_spillover(dem, rem, flow_direction_tif, iteration):
     # Replace original REM values where they are greater
     DTF_w_downhill_backfill = np.where(DTF_w_downhill_backfill < rem, DTF_w_downhill_backfill, rem)
 
-    DTF_w_downhill_backfill[np.where(DTF_w_downhill_backfill <= 0)] = 0
-
     # px, py = np.gradient(rem[0], 2)
     # slope = np.sqrt(px ** 2 + py ** 2)
 
