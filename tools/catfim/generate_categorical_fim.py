@@ -356,6 +356,7 @@ def process_generate_categorical_fim(
         for huc in valid_fim_hucs:
             task_args_list.append({"huc": huc, "output_folder": output_folder})
 
+
         # Emily.. for your testing let it stop here for testing gen_catfim
         # also add a system to abort after saving a huclist so it does not continue to iterate
         # or run post processing. In EC2's, we do not want an early (pre-processing) abort as we do want
@@ -363,6 +364,8 @@ def process_generate_categorical_fim(
         # BUT.... in AWS, Step Functions will take care of the huc ietartion and post processing.
         print("stop here in gen catfim for now")
         sys.exit(0)
+
+
 
         # === Run jobs in parallel ===
         # do we want a TQDM? depends on what we want to output to screen.

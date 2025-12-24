@@ -17,6 +17,9 @@ import src.utils.shared_functions as sf
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.tools_shared_functions import aggregate_wbd_hucs
 
+# global vars, shared by all related py files.
+MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
+
 
 def load_fim_global_env_values(env_file):
     '''

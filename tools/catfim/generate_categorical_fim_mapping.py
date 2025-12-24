@@ -32,15 +32,20 @@ Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, p
 Tenative notes:
     - Some of the functions in here may move or be split to smaller functions.
     
-    - Data acquision such as meta, threshold or flows, should be moved ot generate_categorical_fim_flows.py
+    - Data acquision such as meta, threshold or flows, should be moved to generate_categorical_fim_flows.py
+      which has been renamed to generate_categorical_fim_thresholds.
     
     - This script will focus on inundation, tifs, gpkgs, etc. for both FB and SB.
     
     - Some current functions from other files such as generate_categorical_fim.py and maybe
-      generate_categorical_fim_flows.py will be moved here if it is related to inundation, etc as mentioned above.
+      generate_categorical_fim_thresholds.py will be moved here if it is related to inundation,
+      etc as mentioned above.
     
     
 """
+
+# This file should focus primarily on inunation and creating tifs and final gpkgs for this HUC.
+# However, some logic processing is done here as well. We might move some of that later.
 
 
 '''
