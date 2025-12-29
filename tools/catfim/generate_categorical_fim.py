@@ -164,22 +164,22 @@ def process_generate_categorical_fim(
         # ================================
         # Validation and setup
 
+        if catfim_type == "sb":
+            catfim_type_name = "stage_based"
+        else:  # fb
+            catfim_type_name = "flow_based"
+
+        # likely can merge this with the catfim_method above as nothing else should use catfim_method only catfim_type
+        if output_folder.endswith("/"):
+            output_folder = output_folder[:-1]
+        output_folder = output_folder + "_" + catfim_type_name
+
         # NOTE: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
         local_vals = locals()
         # this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir
         # It has not yet been compared to meta data and sites
         valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
-
-        if catfim_type == "sb":
-            catfim_type_name = "stage_based"
-        else:  # fb
-            catfim_type_name = "flow_based"
-
-        # likely can merge this with the catfim_method above as nothign else shoudl use catfim_method only catfim_type
-        if output_folder.endswith("/"):
-            output_folder = output_folder[:-1]
-        output_folder = output_folder + "_" + catfim_type_name
 
         os.makedirs(output_folder, exist_ok=True)
 
