@@ -95,6 +95,25 @@ python3 $srcDir/agreedem.py -r $tempCurrentBranchDataDir/flows_grid_boolean_$cur
     -sm 10 \
     -sh 1000
 
+# ## ADJUST FLOODPLAINS ##
+# echo -e $startDiv"Adjust floodplains $hucNumber $current_branch_id"
+# echo -e "Using FEMA floodplain layer: $fema_floodplain_layer"
+# python3 $srcDir/adjust_floodplains.py \
+#     -i $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif \
+#     -e $tempCurrentBranchDataDir/flows_grid_boolean_euclidean_distance_$current_branch_id.tif \
+#     -d $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
+#     -o $tempCurrentBranchDataDir/dem_burned_adjusted_$current_branch_id.tif \
+#     -t $floodplain_distance_threshold \
+#     -s $floodplain_slope_exponent \
+#     -z $floodplain_z_factor \
+#     -p $tempHucDataDir/branch_polygons.gpkg \
+#     -b $current_branch_id \
+#     -f $input_fema_flood_hazard_zones/nfhl_$hucNumber.gpkg \
+#     -l $fema_floodplain_layer \
+#     -c $tempHucDataDir/nwm_catchments_proj_subset.gpkg \
+#     -n $tempHucDataDir/nwm_subset_streams.gpkg \
+#     -lp $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg
+
 ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"
 if [ -f $tempCurrentBranchDataDir/dem_burned_adjusted_$current_branch_id.tif ]; then

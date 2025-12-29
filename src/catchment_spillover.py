@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 import numpy as np
 import pandas as pd
@@ -27,8 +28,6 @@ def save_raster(array, filename, crs, transform):
 
 
 def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20, pct_change_threshold=1.0):
-    if max_iterations <= 0:
-        return
 
     with rasterio.open(dem_tif) as dem, rasterio.open(rem_tif) as rem:
         crs = dem.crs
@@ -37,27 +36,26 @@ def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20, p
         dem[np.where(dem == dem_nodata)] = np.nan
 
         rem_transform = rem.transform
-        rem_sub25 = rem.read()
+        rem_nodata = rem.profile['nodata']
 
-        # Set all pixels above the SRC calculation height to nan
-        rem_sub25[np.where(rem_sub25 > 25.3)] = rem.profile['nodata']
-        rem_sub25[np.where(rem_sub25 == rem.profile['nodata'])] = np.nan
         rem = rem.read()
+        rem[np.where(rem == rem_nodata)] = np.nan
+        rem_mask = rem[rem != np.nan]
 
     rem_change = []
     previous_rem = None
     for i in range(max_iterations):
         print(f"Iteration {i+1} of {max_iterations}")
-        rem = catchment_spillover(dem, rem, flow_direction_tif, i)
+        rem = catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs, rem_transform)
 
         if i > 0:
             change_in_rem = rem - previous_rem
-            percent_change = (np.nanmean(change_in_rem) / np.nanmean(previous_rem)) * 100.0
+            percent_change = -(np.nanmean(change_in_rem) / np.nanmean(previous_rem)) * 100.0
             rem_change.append(percent_change)
             print(f"Percent change in REM: {percent_change:.2f}%")
 
-            # Stop if percent change is less than 1% or max iterations reached
-            if percent_change > -pct_change_threshold:
+            # Stop if percent change is less than the specified threshold or max iterations reached
+            if percent_change < pct_change_threshold:
                 break
 
         previous_rem = rem
@@ -67,27 +65,25 @@ def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20, p
 
     # Save rem_change as a pandas DataFrame csv
     rem_change_df = pd.DataFrame(rem_change, columns=['percent_change'])
-    rem_change_df.to_csv('/outputs/temp/rem_change.csv', index=False)
+    rem_change_df.to_csv(os.path.join(os.path.dirname(rem_tif), 'rem_change.csv'), index=False)
 
 
-def catchment_spillover(dem, rem, flow_direction_tif, iteration):
+def catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs=None, rem_transform=None):
+    # Calculate the pixel catchment thalweg elevation
     thalweg_elev = dem - rem
+
     # This removes some weird very high values from the thalweg_elev raster
     # More research on these areas are needed.
-    thalweg_elev[np.where(thalweg_elev > np.nanmax(dem))] = np.nan
+    # thalweg_elev[np.where(thalweg_elev > np.nanmax(dem))] = np.nan
 
     # The 3x3 max filter identifies which cells might spill over into neighbors
     max_thalweg_elev = ndimage.maximum_filter(thalweg_elev, size=3)
+    max_thalweg_elev[np.where(rem_mask == np.nan)] = np.nan
+
     # Recalculate depth-to-flood by subtracting the new reference (thalweg) elevation from the DEM
     # new_thalweg_elev = np.where(max_thalweg_elev > thalweg_elev, max_thalweg_elev - dem, np.nan)
     updated_dtf = np.where((dem - max_thalweg_elev) < rem, dem - max_thalweg_elev, rem)
     # spillover_locations = np.where(updated_dtf != rem, updated_dtf, np.nan)
-
-    # save_raster(dem - max_thalweg_elev, f'updated_dtf_reference_elev_{branch_id}_{iteration}.tif', branch_dir, crs, rem_transform)
-    # save_raster(max_thalweg_elev, f'max_thalweg_elev_{branch_id}_{iteration}.tif', branch_dir, crs, rem_transform)
-    # save_raster(updated_dtf, f'updated_dtf_spillover_{branch_id}_{iteration}.tif', branch_dir, crs, rem_transform)
-    # save_raster(new_thalweg_elev, f'new_thalweg_elev_spillover_{branch_id}_{iteration}.tif', branch_dir, crs, rem_transform)
-    # save_raster(spillover_locations, f'spillover_locations_{branch_id}_{iteration}.tif', branch_dir, crs, rem_transform)
 
     with rasterio.open(flow_direction_tif, "r") as src:
         flwdir = src.read(1)
@@ -117,14 +113,12 @@ def catchment_spillover(dem, rem, flow_direction_tif, iteration):
 
     # Fill the new depth-to-flood values to downhill cells
     DTF_w_downhill = flw.fillnodata(np.where(updated_dtf != rem, updated_dtf, -9999), -9999, how='min')
+
     # Stop the new depth-to-flood values where it meets the backfill flooding (equals original HAND values)
     DTF_w_downhill = np.where(DTF_w_downhill < rem, DTF_w_downhill, -9999)
 
-    # save_raster(DTF_w_downhill, f'/outputs/temp/DTF_w_downhill_{iteration}.tif', crs, rem_transform)
-
     # Set the no data to nans
     # DTF_w_downhill_nans = np.where(DTF_w_downhill == -9999, np.nan, DTF_w_downhill)
-    # save_raster(DTF_w_downhill_nans, f'/outputs/temp/DTF_w_downhill_nans_{iteration}.tif', crs, rem_transform)
 
     '''###############
     # Fill the new depth-to-flood values to downhill cells
@@ -151,18 +145,8 @@ def catchment_spillover(dem, rem, flow_direction_tif, iteration):
     updated_reference_elev = flw.fillnodata(
         np.where(DTF_w_downhill != -9999.0, dem - DTF_w_downhill, -9999.0), -9999, 'up'
     )
-    # save_raster(
-    #     updated_reference_elev, f'/outputs/temp/updated_reference_elev_{iteration}.tif', crs, rem_transform
-    # )
 
     updated_reference_elev_nans = np.where(updated_reference_elev == -9999.0, np.nan, updated_reference_elev)
-    # DTF_w_downhill_HAND_nans[np.where(DTF_w_downhill_HAND <= 0)] = np.nan
-    # save_raster(
-    #     updated_reference_elev_nans,
-    #     f'/outputs/temp/updated_reference_elev_nans_{iteration}.tif',
-    #     crs,
-    #     rem_transform,
-    # )
 
     '''
     # Attemped to translate the reference elevation uphill, but it didn't turn out right
@@ -176,20 +160,20 @@ def catchment_spillover(dem, rem, flow_direction_tif, iteration):
     # Calculate the final depth-to-inundation by subtracting the backfilled
     # reference elevation from the DEM.
     DTF_w_downhill_backfill = dem - updated_reference_elev_nans
-    # save_raster(
-    #     DTF_w_downhill_backfill, f'/outputs/temp/DTF_w_downhill_backfill_{iteration}.tif', crs, rem_transform
-    # )
 
     # Replace original REM values where they are greater
-    DTF_w_downhill_backfill = np.where(DTF_w_downhill_backfill < rem, DTF_w_downhill_backfill, rem)
+    DTF_w_downhill_backfill_final = np.where(DTF_w_downhill_backfill < rem, DTF_w_downhill_backfill, rem)
+
+    DTF_w_downhill_backfill_final[DTF_w_downhill_backfill_final < 0] = 0
 
     # px, py = np.gradient(rem[0], 2)
     # slope = np.sqrt(px ** 2 + py ** 2)
 
     # # If needed in degrees, convert using
     # slope_deg = np.degrees(np.arctan(slope))
+    # DTF_w_downhill_backfill[np.where(DTF_w_downhill_backfill <= 0)] = 0
 
-    return DTF_w_downhill_backfill
+    return DTF_w_downhill_backfill_final
 
 
 if __name__ == "__main__":

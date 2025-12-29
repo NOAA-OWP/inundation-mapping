@@ -145,21 +145,6 @@ $srcDir/mitigate_branch_outlet_backpool.py \
     --calculate-stats
 Tcount
 
-## D8 REM ##
-echo -e $startDiv"D8 REM $hucNumber $current_branch_id"
-$srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif \
-    -w $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
-    -o $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
-    -t $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
-
-## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
-echo -e $startDiv"Bring negative values in REM to zero and mask to catchments $hucNumber $current_branch_id"
-gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
-    -A $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
-    -B $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
-    --calc="(A*(A>=0)*(B>0))" --NoDataValue=$ndv \
-    --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
-
 ## RASTERIZE LANDSEA (OCEAN AREA) POLYGON (IF APPLICABLE) ##
 if [ -f $tempHucDataDir/LandSea_subset.gpkg ]; then
     echo -e $startDiv"Rasterize filtered/dissolved ocean/Glake polygon $hucNumber $current_branch_id"
@@ -209,6 +194,21 @@ $srcDir/make_stages_and_catchlist.py \
     -i $stage_interval_meters \
     -t $stage_max_meters
 
+## D8 REM ##
+echo -e $startDiv"D8 REM $hucNumber $current_branch_id"
+$srcDir/make_rem.py -d $tempCurrentBranchDataDir/dem_thalwegCond_"$current_branch_id".tif \
+    -w $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
+    -o $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
+    -t $tempCurrentBranchDataDir/demDerived_streamPixels_$current_branch_id.tif
+
+## BRING DISTANCE DOWN TO ZERO & MASK TO CATCHMENTS ##
+echo -e $startDiv"Bring negative values in REM to zero and mask to catchments $hucNumber $current_branch_id"
+gdal_calc.py --quiet --type=Float32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=YES" --co "TILED=YES" \
+    -A $tempCurrentBranchDataDir/rem_$current_branch_id.tif \
+    -B $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
+    --calc="(A*(A>=0)*(B>0))" --NoDataValue=$ndv \
+    --outfile=$tempCurrentBranchDataDir/"rem_zeroed_masked_$current_branch_id.tif"
+
 ## MASK REM RASTER TO REMOVE OCEAN AREAS ##
 if  [ -f $tempCurrentBranchDataDir/LandSea_subset_$current_branch_id.tif ]; then
     echo -e $startDiv"Additional masking to REM raster to remove ocean/Glake areas $hucNumber $current_branch_id"
@@ -226,7 +226,8 @@ if [ "$compute_spillover_toggle" = true ] && [ "$current_branch_id" != "$branch_
         --dem_tif $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
         --rem_tif $tempCurrentBranchDataDir/rem_zeroed_masked_$current_branch_id.tif \
         --flow_direction_tif $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
-        --max_iterations $spillover_iterations_max
+        --max_iterations $spillover_iterations_max \
+        --pct_change_threshold $spillover_pct_change_threshold
 fi
 
 ## HEAL HAND -- REMOVES HYDROCONDITIONING ARTIFACTS - BRANCHES (NOT 0) (NWM levelpath streams) ##
