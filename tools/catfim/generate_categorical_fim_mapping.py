@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import glob
 import logging
 import os
@@ -1397,4 +1398,108 @@ def manage_catfim_mapping(
     return
 
 
-# Can not be called from command line
+
+if __name__ == '__main__':
+
+
+# TODO: Repair this as it can still be run from command line
+
+
+    '''
+    Sample
+    python /foss_fim/tools/catfim/generate_categorical_fim_mapping.py -u 12090301 -t /data/catfim/hand_4_8_7_2
+    '''
+
+    # All files shoudl be in place such as the sites_gdf, threshold data files
+    # and begining library data for this huc
+
+    # Files required are:  __________________________ (list them here)
+    #     {huc}_sites.gdf
+    #     flow_discharge.csv  (if flow based)
+    #     {huc}_library_threshold.csv  (TODO: seems like a bad file name)
+
+    # Parse arguments
+    parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
+
+    # Most args will be in the runtime_arg.env created in the generate_categorical_fim.py
+    # This script will already know where to look for the runtime_args.env file
+
+    # We need only the huc number and the output path for args
+
+    # Note: We always want to overwrite.
+
+    parser.add_argument("-u", "--huc", help="REQUIRED: HUC8 Number", required=True, type=str)
+
+    parser.add_argument(
+        '-t',
+        '--output-folder',
+        help='REQUIRED: Target location, Where the output folder will be.'
+        'ie /data/catfim/hand_4_8_7_2 or /data/catfim/test/test1',
+        required=True,
+    )
+
+    args = vars(parser.parse_args())
+
+
+    # # Parse arguments
+    # parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
+    # parser.add_argument(
+    #     '-r', '--fim-run-dir', help='Name of directory containing outputs of fim_run.sh', required=True
+    # )
+    # parser.add_argument(
+    #     '-s',
+    #     '--source-flow-dir',
+    #     help='Path to directory containing flow CSVs to use to generate categorical FIM.',
+    #     required=True,
+    #     default="",
+    # )
+    # parser.add_argument(
+    #     '-o',
+    #     '--output-catfim-dir',
+    #     help='Path to directory where categorical FIM outputs will be written.',
+    #     required=True,
+    #     default="",
+    # )
+    # parser.add_argument(
+    #     '-jh',
+    #     '--job-number-huc',
+    #     help='Number of processes to use for huc processing. Default is 1.',
+    #     required=False,
+    #     default="1",
+    #     type=int,
+    # )
+    # parser.add_argument(
+    #     '-jn',
+    #     '--job-number-inundate',
+    #     help='OPTIONAL: Number of processes to use for inundating'
+    #     ' HUC and inundation job numbers should multiply to no more than one less than the CPU count'
+    #     ' of the machine. Defaults to 1.',
+    #     required=False,
+    #     default=1,
+    #     type=int,
+    # )
+
+    # parser.add_argument(
+    #     '-step',
+    #     '--step_number',
+    #     help='Using this option will write depth TIFFs.',
+    #     required=False,
+    #     default=1,
+    #     type=int,
+    # )
+
+    # args = vars(parser.parse_args())
+
+    # fim_run_dir = args['fim_run_dir']
+    # source_flow_dir = args['source_flow_dir']
+    # output_catfim_dir = args['output_catfim_dir']
+    # job_number_huc = int(args['job_number_huc'])
+    # job_number_inundate = int(args['job_number_inundate'])
+    # step_num = args['step_number']
+
+    # log_dir = os.path.join(output_catfim_dir, "logs")
+    # log_output_file = FLOG.calc_log_name_and_path(log_dir, "gen_cat_mapping")
+
+    # manage_catfim_mapping(
+    #     source_flow_dir, output_catfim_dir, job_number_huc, job_number_inundate, log_output_file, step_num
+    # )

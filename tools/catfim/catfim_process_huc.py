@@ -227,6 +227,8 @@ def process_huc(huc, output_folder):
 
         # For SB, it does not yet contain any of the interval records as future
         # logic might delimit more mag types.
+
+        # TODO: has_error system? or at least a way to see if 
         sites_gdf = gcf.process_theshold_data(catfim_type,
                                               valid_nwm_lids,
                                               sites_gdf,
@@ -250,6 +252,13 @@ def process_huc(huc, output_folder):
         print("Ok.. let's stop here for now")
         sys.exit(0)
 
+
+
+        # TODO: See if there are any site_gdf records that are still valid (ie.. not equal to "no")
+        # Also see if we ahve any library records.
+        # If not to either, record error and stop ??
+
+
         # ---------------------
         # Data adjustments or rejections ? (might be higher or even need more here)
         # FB has none, but SB does have more data logic
@@ -260,19 +269,22 @@ def process_huc(huc, output_folder):
             # TODO: what is a good name for this.  Maybe a new file called catfim_data_processing.py? (but leave mapping to focus on inundation)
             section_start_dt = datetime.now(timezone.utc)
             
-            sites_gdf = __process_altitudes(sites_gdf)
+            sites_gdf = __process_evalations(sites_gdf, threshold_huc_df, huc, huc_path)
 
 
         # ---------------------
         # If FB, Load branch and HAND data? (rems and hydrotables), liekly all done via inundation scripts
-
+        # hummmmm
 
         # ---------------------
         # If SB, add interval recs now?
 
 
         # ------------------
-        # manage_catfim_mapping
+        # Manage_catfim_mapping
+            # It will need only the huc and output file and it will reload all files
+            # it needs. This allows it to be run independantly through command line.
+
 
             # Create inundation tifs if applicable and roll them up if branch tifs?
             #    FB: Call inundation.py ?
@@ -309,7 +321,7 @@ def process_huc(huc, output_folder):
 
         # do we re-throw the error? gcf, aws, or cmd line? hummm
 
-def __process_altitudes(sites_gdf):
+def __process_evalations(sites_gdf, threshold_huc_df, huc, huc_path):
 
     """
     Only used by SB.
@@ -325,20 +337,28 @@ def __process_altitudes(sites_gdf):
     # TODO: this is still a wip.
     # data_source = threshold_huc_df["source_stage"]  # TODO: This is likely in the sites_gdf by now
     data_source = "WRDS"
+    has_critical_error = False
 
     # get a list of sites that are still valid
     valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]
 
-    usgs_elev_table = os.path.join(os.getenv("FIM_RUN_DIR"), huc, 'usgs_elev_table.csv')
-
-    usgs_elev_df = None
-    if data_source != 'Manual_Input' and not os.path.exists(usgs_elev_table):
-        msg = "Internal Error: Missing key data from HUC record (usgs_elev_table missing)"
-        raise Exception(msg)
-
     if data_source != 'Manual_Input':  # Manual input data does not need usgs_elev_table
-        usgs_elev_df = pd.read_csv(usgs_elev_table)
 
+        usgs_elev_table_file_name = 'usgs_elev_table.csv'
+        src_usgs_elev_table = os.path.join(os.getenv("FIM_RUN_DIR"), huc, usgs_elev_table_file_name)
+
+        usgs_elev_df = None
+        if data_source != 'Manual_Input' and not os.path.exists(src_usgs_elev_table):
+            msg = "Internal Error: Missing key data from HUC record (usgs_elev_table missing)"
+            raise Exception(msg)
+
+        # we need to quickly make a copy and bring it here to lower the chance of file collisions.
+        local_copy_usgs_elev_table = os.path.join(huc_path, usgs_elev_table_file_name)
+        shutil.copyfile(src_usgs_elev_table, local_copy_usgs_elev_table)
+
+        usgs_elev_df = pd.read_csv(local_copy_usgs_elev_table)
+
+        # TODO: this seems a bit weird. hummm.
         acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df)
         if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
             msg = "Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
@@ -347,7 +367,8 @@ def __process_altitudes(sites_gdf):
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
             sites_gdf["mapped"] = 'no'
             sites_gdf["status"] = msg
-            return sites_gdf
+            has_critical_error = True
+            return sites_gdf, has_critical_error  # This will stop further processing downstream
 
         else:  # if source is manual input, we skip the above elevation filtering
             logging.info("Skipping elevation checks and datum adjustment for Manual Input source")
@@ -365,11 +386,15 @@ def __process_altitudes(sites_gdf):
     
         # Find the single lid record from the sites_gdf. Note: you can not update this rec, only the
         # parent site_gdf for the site. Use this for read-only.
+
+        # *******************************
+        # IMPORTANT - USE lid_sites_gdf FOR READ-ONLY. It is only for ease of data extraction
+        # *******************************        
         lid_sites_gdf = sites_gdf.loc[sites_gdf["nws_lid"] == lid].copy()
 
-        if len(lid_sites_gdf) != 0:
+        if len(lid_sites_gdf) != 1:
             raise Exception("Internal error: There should be exactly one lid rec here")
-            
+
         lid_altitude = lid_sites_gdf.iloc[0]['usgs_data_altitude']
         if lid_altitude is None or lid_altitude == 0:
             msg = 'AHPS site altitude value is invalid'
@@ -381,37 +406,36 @@ def __process_altitudes(sites_gdf):
 
             # Get the dem_adj_elevation value from usgs_elev_table.csv.
             # Prioritize the value that is not from branch 0.
-            sites_gdf, lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(sites_gdf, 
-                acceptable_usgs_elev_df, lid
-            )
-            all_messages = all_messages + dem_eval_messages
-            if len(dem_eval_messages) > 0:
+
+            # sites_gdf, lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(sites_gdf, 
+            #     acceptable_usgs_elev_df, lid
+            # )
+            # all_messages = all_messages + dem_eval_messages
+            # if len(dem_eval_messages) > 0:
+            #     continue
+
+            lid_usgs_elev, err_msg = __adj_dem_evalation_val(acceptable_usgs_elev_df, lid)
+            if err_msg != "":
+                sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
                 continue
-
-
 
             # Filter out sites that don't have "good" data
             # TODO: USGS Gage Method: It doens't seem like the below error messages are performing as expected....
-            try:
-                if not metadata['usgs_data']['alt_method_code'] in acceptable_alt_meth_code_list:
-                    MP_LOG.warning(f"{huc_lid_id}: Not in acceptable alt method codes")
-                    continue
-                if not metadata['usgs_data']['site_type'] in acceptable_site_type_list:
-                    MP_LOG.warning(f"{huc_lid_id}: Not in acceptable site type codes")
-                    continue
-                if not float(metadata['usgs_data']['alt_accuracy_code']) <= acceptable_alt_acc_thresh:
-                    MP_LOG.warning(f"{huc_lid_id}: Not in acceptable threshold range")
-                    continue
-            except Exception:
-                MP_LOG.error(f"{huc_lid_id}: Filtering out 'bad' data in the usgs data")
-                MP_LOG.error(traceback.format_exc())
+            err_msg = __filter_bad_usgs_gage_data(lid_sites_gdf, lid)
+            if err_msg != "":
+                sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
                 continue
 
             # Adjust datum of HAND grid based on elevation data from usgs_elev_table.csv.
-            datum_adj_ft, datum_messages = __adjust_datum_ft(flows, metadata, lid, huc_lid_id)
-            all_messages = all_messages + datum_messages
-            if datum_adj_ft is None:
-                MP_LOG.warning(f"{huc_lid_id}: datum_adj_ft is None")
+            # datum_adj_ft, datum_messages = __adjust_datum_ft(flows, metadata, lid, huc_lid_id)
+            # all_messages = all_messages + datum_messages
+            # if datum_adj_ft is None:
+            #     MP_LOG.warning(f"{huc_lid_id}: datum_adj_ft is None")
+            #     continue
+
+            datum_adj_ft, err_msg = __adjust_datum_ft(lid_sites_gdf, threshold_huc_df, lid)
+            if err_msg != "":
+                sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
                 continue
 
         else:  # if source is manual input, we skip the above elevation filtering
@@ -423,7 +447,7 @@ def __process_altitudes(sites_gdf):
 
             datum_adj_ft = 0  # no datum adjustment for manual input
 
-
+        # segments are now loaded much earlier and will be handled when we do mapping
 
         # Check for large discrepancies between the elevation values from WRDS and HAND.
         #   Otherwise this causes bad mapping.
@@ -454,7 +478,7 @@ def __process_altitudes(sites_gdf):
 
 
 
-    return sites_gdf
+    return sites_gdf, has_critical_error
 
 
 def __create_acceptable_usgs_elev_df(usgs_elev_df):
@@ -531,7 +555,7 @@ def __create_acceptable_usgs_elev_df(usgs_elev_df):
     return acceptable_usgs_elev_df
 
 
-def __adjust_datum_ft(flows, metadata, lid):
+def __adjust_datum_ft(lid_sites_gdf, threshold_huc_df, lid):
     '''
     Used in stage-based CatFIM.
 
@@ -552,7 +576,7 @@ def __adjust_datum_ft(flows, metadata, lid):
         tuple:
             - datum_adj_ft (float or None): The vertical datum adjustment in feet to convert to NAVD88,
               or None if adjustment could not be determined.
-            - all_messages (list of str): List of messages and warnings generated during processing.
+            - err_msg
     Notes:
         - Special handling is included for sites with known datum or CRS issues.
         - If the datum is already NAVD88 or equivalent, the adjustment is 0.0.
@@ -563,24 +587,33 @@ def __adjust_datum_ft(flows, metadata, lid):
     is all likely very old.
     '''
 
-    # Jul 2024: For now, we will duplicate messages via all_messsages and via the logging system.
-    all_messages = []
+    err_msg = ""
+
+    # TODO: Why are we using flow source data to do logic calcs and not the stage columns
+
+    # Yes... flow data even though we are processing stage data
+    lid_flow_data = threshold_huc_df.loc[threshold_huc_df['nws_lid'] == lid &
+                                         threshold_huc_df['threshold_type'] == 'flows']
+    
+    if lid_flow_data.empty():
+        raise Exception(f"{lid}: We should have exactly one flow record")
+
 
     datum_adj_ft = None
     ### --- Do Datum Offset --- ###
     # determine source of interpolated threshold flows, this will be the rating curve that will be used.
-    rating_curve_source = flows.get('source')
+    # rating_curve_source = flows.get('source')
+    rating_curve_source = lid_flow_data.iloc[0]["source"]
 
     # MP_LOG.trace(f"{huc_lid_id} : rating_curve_source is {rating_curve_source}")
 
-    if rating_curve_source is None:
-        msg = ':No source for rating curve'
-        all_messages.append(lid + msg)
-        MP_LOG.warning(huc_lid_id + msg)
-        return None, all_messages
+    if rating_curve_source is None or rating_curve_source == "":
+        err_msg = 'No source for rating curve'
+        logging.warning(f"{lid}: {err_msg}")
+        return None, err_msg
 
     # Get the datum and adjust to NAVD if necessary.
-    nws_datum_info, usgs_datum_info = get_datum(metadata)
+    nws_datum_info, usgs_datum_info = get_datum_from_df(lid_sites_gdf)
     if rating_curve_source == 'USGS Rating Depot':
         datum_data = usgs_datum_info
     elif rating_curve_source == 'NRLDB':
@@ -589,21 +622,17 @@ def __adjust_datum_ft(flows, metadata, lid):
     # If datum not supplied, skip to new site
     datum = datum_data.get('datum', None)
     if datum is None:
-        msg = ':Datum info unavailable'
-        all_messages.append(lid + msg)
-        MP_LOG.warning(huc_lid_id + msg)
-        return None, all_messages
-
-    # ___________________________________________________________________________________________________#
-    # NOTE: !!!!
-    # When appending to a all_message and we may not automatcially want the record dropped
-    # then add "---" in front of the message. Whenever the code finds a message that does not
-    # start with a ---, it assumes if it is a fail and drops it. We will make a better system later.
-
+        err_msg = 'Datum info unavailable'
+        logging.warning(f"{lid}: {err_msg}")
+        return None, err_msg
+    
     # ___________________________________________________________________________________________________#
     # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null).
     # Modifying rating curve source will influence the rating curve and
     #   datum retrieved for benchmark determinations.
+
+    # TODO: bug from previous versions. rating_curve_source no used after this making this
+    # unused.
     if lid == 'bmbp1':
         rating_curve_source = 'NRLDB'
     # ___________________________________________________________________________________________________#
@@ -664,31 +693,94 @@ def __adjust_datum_ft(flows, metadata, lid):
         try:
             datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
         except Exception as ex:
-            MP_LOG.error(f"ERROR: {huc_lid_id}: ngvd_to_navd_ft")
-            MP_LOG.error(traceback.format_exc())
+            err_msg = f"ERROR: {lid}: ngvd_to_navd_ft"
+            logging.error(err_msg)
+            logging.error(traceback.format_exc())
             ex = str(ex)
             if crs is None:
-                msg = ':NOAA VDatum adjustment error, CRS is missing'
-                all_messages.append(lid + msg)
-                MP_LOG.error(huc_lid_id + msg)
+                err_msg = 'NOAA VDatum adjustment error, CRS is missing'
+                logging.error(f"{lid}: {err_msg}")
             if 'HTTPSConnectionPool' in ex:
                 time.sleep(10)  # Maybe the API needs a break, so wait 10 seconds
                 try:
                     datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
                 except Exception:
-                    msg = ':NOAA VDatum adjustment error, possible API issue'
-                    all_messages.append(lid + msg)
-                    MP_LOG.error(huc_lid_id + msg)
+                    err_msg = ':NOAA VDatum adjustment error, possible API issue'
+                    logging.error(f"{lid}: {err_msg}")
             if 'Invalid projection' in ex:
-                msg = f':NOAA VDatum adjustment error, invalid projection: crs={crs}'
-                all_messages.append(lid + msg)
-                MP_LOG.error(huc_lid_id + msg)
-            return None, all_messages
+                err_msg = f'NOAA VDatum adjustment error, invalid projection: crs={crs}'
+                logging.error(f"{lid}: {err_msg}")
+            return None, err_msg
 
-    return datum_adj_ft, all_messages
+    return datum_adj_ft, err_msg
 
 
-def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
+def get_datum_from_df(metadata_df):
+    '''
+    This extracts key meta data related to datums from a dataframe and
+    builds dictionaries. The incoming metadata_df basically just the original
+    metadata json that has been normalized and put into dataframe columns.
+    This gets data for both NWS and USGS.
+
+    This also assume exactly one metadata data record.
+
+    Given a record from the metadata endpoint, retrieve important information
+    related to the datum and site from both NWS and USGS sources. This information
+    is saved to a dictionary with common keys. USGS has more data available so
+    it has more keys.
+
+    NOTE: Some columns have already been renamed ????
+
+    Parameters
+    ----------
+    metadata_df : Dataframe
+        Single record dataframe made from a single lid metadata json dataset.
+
+    Returns
+    -------
+    nws_datums : DICT
+        Dictionary of NWS data.
+    usgs_datums : DICT
+        Dictionary of USGS Data.
+
+    '''
+
+    if metadata_df is None:
+        raise Exception("The metadata df can not be None")
+    if len(metadata_df) != 0:
+        raise Exception(f"Metadata shoudl contain exactly one record but has {len(metadata_df)} records")
+
+    # Get site and datum information from nws sub-dictionary. Use consistent naming between USGS and NWS sources.
+    nws_datums = {}
+    nws_datums['nws_lid'] = metadata_df['identifiers_nws_lid']
+    nws_datums['usgs_site_code'] = metadata_df['identifiers_usgs_site_code']
+    nws_datums['state'] = metadata_df['nws_data_state']
+    nws_datums['datum'] = metadata_df['nws_data_zero_datum']
+    nws_datums['vcs'] = metadata_df['nws_data_vertical_datum_name']
+    nws_datums['lat'] = metadata_df['nws_data_latitude']
+    nws_datums['lon'] = metadata_df['nws_data_longitude']
+    nws_datums['crs'] = metadata_df['nws_data_horizontal_datum_name']
+    nws_datums['source'] = 'nws_data'
+
+    # Get site and datum information from usgs_data sub-dictionary. Use consistent naming between USGS and NWS sources.
+    usgs_datums = {}
+    usgs_datums['nws_lid'] = metadata_df['identifiers_nws_lid']
+    usgs_datums['usgs_site_code'] = metadata_df['identifiers_usgs_site_code']
+    usgs_datums['active'] = metadata_df['usgs_data_active']
+    usgs_datums['state'] = metadata_df['usgs_data_state']
+    usgs_datums['datum'] = metadata_df['usgs_data_altitude']
+    usgs_datums['vcs'] = metadata_df['usgs_data_alt_datum_code']
+    usgs_datums['datum_acy'] = metadata_df['usgs_data_alt_accuracy_code']
+    usgs_datums['datum_meth'] = metadata_df['usgs_data_alt_method_code']
+    usgs_datums['lat'] = metadata_df['usgs_data_latitude']
+    usgs_datums['lon'] = metadata_df['usgs_data_longitude']
+    usgs_datums['crs'] = metadata_df['usgs_data_latlon_datum_name']
+    usgs_datums['source'] = 'usgs_data'
+
+    return nws_datums, usgs_datums
+
+
+def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid):
     '''
     Used in stage-based CatFIM.
 
@@ -699,12 +791,11 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
         acceptable_usgs_elev_df (pd.DataFrame): DataFrame containing USGS gage information, including
             'nws_lid', 'levpa_id', 'dem_adj_elevation', and 'usgs_exclusion_status' columns.
         lid (str): The NWS LID to look up.
-        huc_lid_id (str): Combined HUC and LID identifier for logging purposes.
 
     Returns:
         tuple:
             - lid_usgs_elev (float): The DEM-adjusted elevation value for the specified LID, or 0 if not found or excluded.
-            - all_messages (list of str): List of warning or error messages encountered during the lookup process.
+            - err_msg: might be empty
 
     Notes:
         - If the LID is not found, excluded, or has an elevation of 0, appropriate messages are logged and returned.
@@ -715,7 +806,7 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
     # MP_LOG.trace(locals())
 
     lid_usgs_elev = 0
-    all_messages = []
+    err_msg = ""
     try:
         # Check for USGS elevation data that matches the LID
         matching_rows = acceptable_usgs_elev_df.loc[acceptable_usgs_elev_df['nws_lid'] == lid.upper()]
@@ -723,10 +814,9 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
         # Check if the site is not in the usgs table in our data
         if len(matching_rows) == 0:
             # msg = ':Gage not in HAND usgs gage records' # prev error message (deprecated May 2025)
-            msg = ':Gage not in HAND usgs gage records, likely due to exclusion criteria'
-            all_messages.append(lid + msg)
-            MP_LOG.warning(huc_lid_id + msg)
-            return lid_usgs_elev, all_messages
+            err_msg = 'Gage not in HAND usgs gage records, likely due to exclusion criteria'
+            logging.warning(f"{lid}: {err_msg}")
+            return lid_usgs_elev, err_msg
 
         # It means there are two level paths, use the one that is not 0 (there will never be more than two)
         if len(matching_rows) == 2:
@@ -747,28 +837,58 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid, huc_lid_id):
         # If there is an exclusion status other than 'acceptable,' return the status
         # Uses [:-2] to exclude the last comma and space in the string
         if usgs_exclusion_status != 'acceptable':
-            msg = ':Gage excluded due to the following criteria -- ' + usgs_exclusion_status[:-2]
-            all_messages.append(lid + msg)
-            MP_LOG.warning(huc_lid_id + msg)
-            return lid_usgs_elev, all_messages
+            err_msg = 'Gage excluded due to the following criteria -- ' + usgs_exclusion_status[:-2]
+            logging.warning(f"{lid}: {err_msg}")
+            return lid_usgs_elev, err_msg
 
         # Check whether DEM adjusted elevation is 0 or not set
         if lid_usgs_elev == 0:
-            msg = ':DEM adjusted elevation is 0 or not set'
-            all_messages.append(lid + msg)
-            MP_LOG.warning(huc_lid_id + msg)
-            return lid_usgs_elev, all_messages
+            err_msg = 'DEM adjusted elevation is 0 or not set'
+            logging.warning(f"{lid}: {err_msg}")
+            return lid_usgs_elev, err_msg
 
     except IndexError:  # Occurs when LID is missing from table (yes. warning)
-        msg = ':Error when extracting dem adjusted elevation value'
-        all_messages.append(lid + msg)
-        MP_LOG.warning(f"{huc_lid_id}: adjusting dem_adj_elevation")
-        MP_LOG.warning(huc_lid_id + msg)
-        MP_LOG.warning(traceback.format_exc())
+        err_msg = 'Error when extracting dem adjusted elevation value'
+        logging.warning(f"{lid}: {err_msg}")
+        logging.warning(traceback.format_exc())
 
-    MP_LOG.trace(f"{huc_lid_id} : lid_usgs_elev is {lid_usgs_elev}")
+    # todo: We need to figure out how to get trace working
+    logging.trace(f"{lid} : lid_usgs_elev is {lid_usgs_elev}")
+    logging.info(f"{lid} : lid_usgs_elev is {lid_usgs_elev}")
 
-    return lid_usgs_elev, all_messages
+    return lid_usgs_elev, err_msg
+
+
+def __filter_bad_usgs_gage_data(lid_sites_gdf, lid):
+
+    # We wil do logging here as some are warnings, some are errors
+    # and we want logging to ber 
+
+    err_msg = ""
+    try:
+        alt_method_code = lid_sites_gdf.iloc[0]['usgs_data_alt_method_code']
+        if not alt_method_code in acceptable_alt_meth_code_list:
+            err_msg = "Not in acceptable alt method codes"
+            logging.warning(f"{lid}: {err_msg}")
+            return err_msg
+
+        site_type = lid_sites_gdf.iloc[0]['usgs_data_site_type']
+        if site_type in acceptable_site_type_list:
+            err_msg = "Not in acceptable site type codes"
+            logging.warning(f"{lid}: {err_msg}")
+            return err_msg
+        
+        alt_accuracy_code = lid_sites_gdf.iloc[0]['alt_accuracy_code']
+        if not float(alt_accuracy_code) <= acceptable_alt_acc_thresh:
+            err_msg = "Not in acceptable threshold range"
+            logging.warning(f"{lid}: {err_msg}")
+            return err_msg
+        
+    except Exception:
+        err_msg = "Error filtering out 'bad' data in the usgs data"
+        logging.error(f"{lid}: {err_msg}")
+
+    return err_msg
 
 
 def __setup_sites_gdf(sites_gdf, catfim_type):
@@ -790,14 +910,9 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
     sites_gdf.insert(loc=3, column="status", value="not set")
     sites_gdf.insert(loc=4, column="warnings", value="")
 
-    # adjust and/or rename some columns
-    # Note: Yes... we are renaming 'identifiers_nws_lid': 'nws_lid'.
-    # At the very end, we will rename it to ahps_lid.
-    # Maybe we fix it someday, but not now. Too many other things going on.
-    sites_gdf.rename(
-        columns={'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_usgs_site_code': 'usgs_gage'},
-        inplace=True
-    )
+    # # adjust and/or rename some columns
+    # # At the very end, we will rename it to ahps_lid.
+    # # Maybe we fix it someday, but not now. Too many other things going on.
 
     # Drop list fields if invalid
     # downstream_nwm_features and upstream_nwm_features are lists and gpkg does not like it
@@ -1122,6 +1237,11 @@ def __finalize_outputs(sites_gdf, sites_file_path):
     # TODO:
     # See other notes about this column. Do we want to keep it or drop it?
     sites_gdf.drop("threshold_data_source", axis=1, inplace=True, errors='ignore')
+
+    sites_gdf.rename(
+        columns={'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_usgs_site_code': 'usgs_gage'},
+        inplace=True
+    )
 
     # TODO: Update the sites recs if the mapped is still at 'not set' and status messages is also 'not set'.
     # if both are true, then we can changed mapped to yes and status to good.

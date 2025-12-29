@@ -306,6 +306,10 @@ def __create_sb_library_data(valid_lids,
     # is this in the threshold_huc_df dataset? Maybe just do the Manual_input search here
     data_source = threshold_huc_df["source_stage"]
 
+    # TODO: of course, SB needs the data from the stage row, but down the road
+    # it also nees some data from the flow row. See __adjust_datum_ft.
+    # SO.. As we iterate through lids, makes sure they have both rows.
+
     return sites_gdf
 
 
@@ -392,8 +396,9 @@ def __create_fb_library_data(valid_lids,
 
         # ---------------------------
         # As always, it updates, if applicable, the sites_gdf as it moves along (ie.. mapped, status)
-        has_error, sites_gdf, segments = __get_segments(lid, sites_gdf, lid_metadata, nwm_flows_region_df)
-        if has_error is True:
+        segments, err_msg = __get_segments(lid, lid_metadata, nwm_flows_region_df)
+        if err_msg != "":
+            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
             continue
 
         # procesing each magnitude in here, now that the tests that are not mag specific are done
@@ -688,9 +693,9 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
     return line_df
 
 
-def __get_segments(lid, sites_gdf, lid_metadata, nwm_flows_region_df):
+def __get_segments(lid, lid_metadata, nwm_flows_region_df):
 
-    in_error = False
+    err_msg = ""
 
     # --------------
     # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
@@ -706,12 +711,10 @@ def __get_segments(lid, sites_gdf, lid_metadata, nwm_flows_region_df):
 
     # If there are no segments, write message and exit out
     if not segments or len(segments) == 0:
-        msg = 'Missing nwm stream segments'
-        logging.warning(f'{lid}: {msg}')        
-        sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]        
-        in_error = True
+        err_msg = 'Missing nwm stream segments'
+        logging.warning(f'{lid}: {err_msg}')        
 
-    return in_error, sites_gdf, segments
+    return segments, err_msg
 
 
 # Can not be called from command line.
