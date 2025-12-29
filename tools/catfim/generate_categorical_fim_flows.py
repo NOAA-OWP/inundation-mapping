@@ -515,6 +515,10 @@ def __get_fb_discharge_and_library_data_per_lid(lid, sites_gdf, lid_threshold_da
             # Ultimately, only valid recs, will use the same library recs as the starting
             # point for all relavent library records. Some of these will be updated, rejected (removed)
             # at laster stages based on logic down the road.
+
+            # TODO: Technically this is not the most efficent as for each mag type that is valid
+            # by this point, they are all identical, except for the stage and flow value.
+            # But.. for now, at least it is simple to follow.
             lid_mag_library_rec_df  = __create_lid_mag_library_rec(
                                                     "fb",
                                                     lid,
@@ -611,10 +615,14 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
 
     # What is the easiest way to handle this. For now, lets leave the "q" as a string in all cases.
 
-    # what if a flows or stage rec is missing
+    # what if a flows or stage rec is missing??
 
     # TODO: Test: find a huc that might be missing stage or flow based data or override the code
     # to debug. Also test if the units and src cols are empty strings.
+
+
+    if len(lid_threshold_data) != 2:  # Should always be two recs? one for stage, one for flow?
+        raise Exception("Internal Error: Expected exactly one record")
 
     # units and sources can be empty strings
     q_uni = lid_threshold_data.loc[lid_threshold_data["threshold_type"] == "flows", 'units'].item()
@@ -623,29 +631,26 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
     s_src = lid_threshold_data.loc[lid_threshold_data["threshold_type"] == "stages", 'source'].item()
 
     # columns applicable to both FB and SB
-    line_df = pd.DataFrame(
-        {
-        'nws_lid': lid,
-        'name': lid_sites_gdf.iloc[0]["name"],
-        'WFO': lid_sites_gdf.iloc[0]["nws_data_wfo"],
-        'rfc': lid_sites_gdf.iloc[0]["nws_data_rfc"],
-        'huc': lid_sites_gdf.iloc[0]["HUC8"],
-        'state': lid_sites_gdf.iloc[0]["nws_data_state"],
-        'county': lid_sites_gdf.iloc[0]["nws_data_county"],
-        'magnitude': magnitude_type,
-        'stage': float(stage_value),  # are mag type specific stage values
-        'stage_uni': stage_uni,
-        's_src': s_src,
-        'q': str(flow_value),    # are mag type specific flow values
-        'q_uni': q_uni,
-        'q_src': q_src,
-        'wrds_time': lid_sites_gdf.iloc[0]["wrds_timestamp"],
-        'nrldb_time': lid_sites_gdf.iloc[0]["nrldb_timestamp"],
-        'nwis_time': lid_sites_gdf.iloc[0]["nwis_timestamp"],
-        'lat': lid_sites_gdf.iloc[0]["nws_preferred_latitude"],
-        'lon': lid_sites_gdf.iloc[0]["nws_preferred_longitude"],
-        }
-    )
+    # each col is added on at a time in case there is a cell problem
+    line_df = pd.DataFrame({'nws_lid': [lid]})
+    line_df['name'] = lid_sites_gdf.iloc[0]["name"]
+    line_df['WFO'] = lid_sites_gdf.iloc[0]["nws_data_wfo"]
+    line_df['rfc'] = lid_sites_gdf.iloc[0]["nws_data_rfc"]
+    line_df['huc'] = lid_sites_gdf.iloc[0]["HUC8"]
+    line_df['state'] = lid_sites_gdf.iloc[0]["nws_data_state"]
+    line_df['county'] = lid_sites_gdf.iloc[0]["nws_data_county"]
+    line_df['magnitude'] = magnitude_type
+    line_df['stage'] = float(stage_value)  # are mag type specific stage values
+    line_df['stage_uni'] = stage_uni
+    line_df['s_src'] = s_src
+    line_df['q'] = str(flow_value)    # are mag type specific flow values
+    line_df['q_uni'] = q_uni
+    line_df['q_src'] = q_src
+    line_df['wrds_time'] = lid_sites_gdf.iloc[0]["wrds_timestamp"]
+    line_df['nrldb_time'] = lid_sites_gdf.iloc[0]["nrldb_timestamp"]
+    line_df['nwis_time'] = lid_sites_gdf.iloc[0]["nwis_timestamp"]
+    line_df['lat'] = float(lid_sites_gdf.iloc[0]["nws_preferred_latitude"])
+    line_df['lon'] = float(lid_sites_gdf.iloc[0]["nws_preferred_longitude"])
 
     # TODO: These columns are missing from the original pickle file back from donwload_process_wrds.py
     # Emily is looking into it
@@ -653,6 +658,8 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
     # add the extra SB cols
     if catfim_type == 'sb':
         print("test")
+
+
         # line_df["dtm_adj_ft"] = float(lid_threshold_data.iloc[0]['datum_adj_ft'])
         # line_df["dadj_w_ft"] = float(lid_threshold_data.iloc[0]['datum_adj_wse_ft'])
         # line_df["dadj_w_m"] = float(lid_threshold_data.iloc[0]['datum_adj_wse_m'])
@@ -660,8 +667,19 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
         # line_df["lid_alt_m"] = float(lid_threshold_data.iloc[0]['lid_alt_m'])
 
 
-        # The six will like be something like this...
-        # line_df["dtm_adj_ft"] = lid_threshold_data.loc[lid_threshold_data["threshold_type"] == "stage", 'datum_adj_ft'].item()
+        # The six will like be something like this...  ??
+        # But that assumes we get more than one threshold rec back.. hummmm.
+
+        line_df["dtm_adj_ft"] = float(lid_threshold_data.loc[
+            lid_threshold_data["threshold_type"] == "stage", 'datum_adj_ft'].item())
+        line_df["dadj_w_ft"] = float(lid_threshold_data.loc[
+            lid_threshold_data["threshold_type"] == "stage", 'dadj_w_ft'].item())
+        line_df["dadj_w_m"] = float(lid_threshold_data.loc[
+            lid_threshold_data["threshold_type"] == "stage", 'dadj_w_m'].item())
+        line_df["lid_alt_ft"] = float(lid_threshold_data.loc[
+            lid_threshold_data["threshold_type"] == "stage", 'lid_alt_ft'].item())
+        line_df["lid_alt_m"] = float(lid_threshold_data.loc[
+            lid_threshold_data["threshold_type"] == "stage", 'lid_alt_m'].item())
 
 
         # TODO: Do we really need this? Rob: Check HV load and meta data

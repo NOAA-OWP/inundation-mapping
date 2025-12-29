@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
-import catfim.generate_categorical_fim_thresholds as gcf
+import catfim.generate_categorical_fim_flows as gcf
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.tools_shared_functions import (
     get_datum,
@@ -207,9 +207,9 @@ def process_huc(huc, output_folder):
 
 
         # Dec 24, 2025: Emily.. stop here for now. :)
-        print("--------------")
-        print("Ok.. let's stop here for now")
-        sys.exit(0)
+        # print("--------------")
+        # print("Ok.. let's stop here for now")
+        # sys.exit(0)
 
         # Note: We no longer need attribute files or the attribute folder.
         #    The data in those files, were mostly dup data from the sites_gdf
