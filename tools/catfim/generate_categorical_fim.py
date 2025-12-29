@@ -164,6 +164,13 @@ def process_generate_categorical_fim(
         # ================================
         # Validation and setup
 
+        # Validate catfim type outside of validation function so we can use catfim_type_name later
+        if catfim_type not in ["fb", "sb"]:
+            raise Exception(
+                "Argument for -ct (catfim type) must be either fb (for flow based)"
+                " or sb (for stage based)."
+            )
+
         if catfim_type == "sb":
             catfim_type_name = "stage_based"
         else:  # fb
@@ -451,12 +458,6 @@ def __validate_inputs(received_locals_dict):
                         f"The enviro file of {value} does not exist."
                         " If you have included the -e argument with a path, double check the path"
                         " or you did not include, something is wrong with bash_variables or its value."
-                    )
-            case "catfim_type":
-                if value not in ["fb", "sb"]:
-                    raise Exception(
-                        "Argument for -ct (catfim type) must be either fb (for flow based)"
-                        " or sb (for stage based)."
                     )
             case "output_folder":
                 if not value:
