@@ -253,10 +253,14 @@ def process_huc(huc, output_folder):
         sys.exit(0)
 
 
+        # See if we still have any valid lids
+        # We won't have any library files, but still need to finalize sites.gdf
+        # As it will still be part of the final product rollup
+        valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]
+        if len(valid_lids) == 0:
+            logging.info("There are no remaining sites to process skipping to sites finalization")
+            __finalize_outputs(sites_gdf, sites_file_path, True)
 
-        # TODO: See if there are any site_gdf records that are still valid (ie.. not equal to "no")
-        # Also see if we ahve any library records.
-        # If not to either, record error and stop ??
 
 
         # ---------------------
@@ -269,15 +273,17 @@ def process_huc(huc, output_folder):
             # TODO: what is a good name for this.  Maybe a new file called catfim_data_processing.py? (but leave mapping to focus on inundation)
             section_start_dt = datetime.now(timezone.utc)
             
-            sites_gdf = __process_evalations(sites_gdf, threshold_huc_df, huc, huc_path)
+            sites_gdf, has_critical_error, lid_altitude, datum_adj_ft, lid_usgs_elev = __process_evalations(
+                sites_gdf, threshold_huc_df, huc, huc_path)
+
+            # ---------------------
+            # Add Intervals
 
 
         # ---------------------
         # If FB, Load branch and HAND data? (rems and hydrotables), liekly all done via inundation scripts
         # hummmmm
 
-        # ---------------------
-        # If SB, add interval recs now?
 
 
         # ------------------
@@ -295,7 +301,7 @@ def process_huc(huc, output_folder):
 
         # ---------------------
         # Finalize all final sitess and library files for this HUC
-        __finalize_outputs(sites_gdf, sites_file_path)
+        __finalize_outputs(sites_gdf, sites_file_path, False)
 
 
 
@@ -457,28 +463,28 @@ def __process_evalations(sites_gdf, threshold_huc_df, huc, huc_path):
 
         # Log elevation difference information - not an error, just for reference (maybe remove later)
         if elevation_diff > 0:
-            MP_LOG.lprint(f"{huc_lid_id}: USGS elev is higher than HAND elev by {diff_rounded} ft")
+            logging.warning(f"{lid}: USGS elev is higher than HAND elev by {diff_rounded} ft")
         elif elevation_diff < 0:
-            MP_LOG.lprint(
-                f"{huc_lid_id}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft"
+            logging.warning(
+                f"{lid}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft"
             )
 
         if abs(elevation_diff) > 10:
-            msg = ':Large discrepancy in elevation estimates from gage and HAND'
-            all_messages.append(lid + msg)
-            MP_LOG.warning(huc_lid_id + msg)
+            err_msg = 'Large discrepancy in elevation estimates from gage and HAND'
+            logging.warning(f"{lid}: {err_msg}")
+            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
             continue
         elif abs(elevation_diff) > 5:
-            msg = (
+            err_msg = (
                 f':Moderate discrepancy ({diff_rounded} ft) in elevation estimates from gage and HAND'
             )
-            MP_LOG.warning(huc_lid_id + msg)
-            # all_messages.append(lid + msg) # just print as a warning for now (not appending to message)
-            # We are not continuing, just a warning
+            logging.warning(f"{lid}: {err_msg}")
+            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
+            # just print as a warning for now (not appending to message)
+            # We are not stopping
 
+    return sites_gdf, has_critical_error, lid_altitude, datum_adj_ft, lid_usgs_elev
 
-
-    return sites_gdf, has_critical_error
 
 
 def __create_acceptable_usgs_elev_df(usgs_elev_df):
@@ -1206,7 +1212,7 @@ def __set_start_files_folders(
     # returns nothing
 
 
-def __finalize_outputs(sites_gdf, sites_file_path):
+def __finalize_outputs(sites_gdf, sites_file_path, process_sites_only):
 
     # ------------------------------------
     # FINALIZING the sites table
@@ -1236,7 +1242,10 @@ def __finalize_outputs(sites_gdf, sites_file_path):
 
     # TODO:
     # See other notes about this column. Do we want to keep it or drop it?
-    sites_gdf.drop("threshold_data_source", axis=1, inplace=True, errors='ignore')
+    # sites_gdf.drop("threshold_data_source", axis=1, inplace=True, errors='ignore')
+
+    # TODO: append this to most status where mapped = no:
+    # "Site resulted with no valid inundated files"
 
     sites_gdf.rename(
         columns={'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_usgs_site_code': 'usgs_gage'},
@@ -1251,8 +1260,15 @@ def __finalize_outputs(sites_gdf, sites_file_path):
     sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
     # TODO: also save it as a csv
 
+
     # ------------------------------------
     # FINALIZING the library data saving it as a csv and gpkg
+
+    if process_sites_only is False:
+        print("we will get here")
+
+    else:
+        logging.info("There are no library files to process. Skipping library finalization")
 
     # returns nothing
 
