@@ -32,17 +32,17 @@ Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, p
 
 Tenative notes:
     - Some of the functions in here may move or be split to smaller functions.
-    
+
     - Data acquision such as meta, threshold or flows, should be moved to generate_categorical_fim_flows.py
       which has been renamed to generate_categorical_fim_thresholds.
-    
+
     - This script will focus on inundation, tifs, gpkgs, etc. for both FB and SB.
-    
+
     - Some current functions from other files such as generate_categorical_fim.py and maybe
       generate_categorical_fim_thresholds.py will be moved here if it is related to inundation,
       etc as mentioned above.
-    
-    
+
+
 """
 
 # This file should focus primarily on inunation and creating tifs and final gpkgs for this HUC.
@@ -1398,12 +1398,9 @@ def manage_catfim_mapping(
     return
 
 
-
 if __name__ == '__main__':
 
-
-# TODO: Repair this as it can still be run from command line
-
+    # TODO: Repair this as it can still be run from command line
 
     '''
     Sample
@@ -1440,7 +1437,6 @@ if __name__ == '__main__':
     )
 
     args = vars(parser.parse_args())
-
 
     # # Parse arguments
     # parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')

@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import numpy as np
 import os
 import pickle
 import random
@@ -12,20 +11,18 @@ import time
 import traceback
 from datetime import datetime, timezone
 
+import catfim.generate_categorical_fim_flows as gcf
+import catfim.generate_categorical_fim_mapping as gcfm
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
-import catfim.generate_categorical_fim_flows as gcf
-import catfim.generate_categorical_fim_mapping as gcfm
 from src.utils.shared_variables import VIZ_PROJECTION
-from tools.tools_shared_functions import (
-    get_datum,
-    ngvd_to_navd_ft,
-)
+from tools.tools_shared_functions import get_datum, ngvd_to_navd_ft
 from tools.tools_shared_variables import (
     acceptable_alt_acc_thresh,
     acceptable_alt_meth_code_list,
@@ -59,6 +56,7 @@ gpd.options.io_engine = "pyogrio"
 # Even if we add status_codes now, it won't really have its true value until two version down the road
 # as the current 4.8.7.2 does not have that column unless we build a temp retro fit to those files.
 
+
 def process_huc(huc, output_folder):
     """
 
@@ -72,11 +70,11 @@ def process_huc(huc, output_folder):
         and it will always be upper case.
         At the finalization, we will change all output files (sites and library) from nws_lid to
         ahps_lid and change it to lower case.
-        
+
 
     Raises:
         TODO: what do we want to do with exceptions.. see notes at the bottom of this function.
-        Exception: _description_ (any? depends on how we want to handle exceptions for both AWS and 
+        Exception: _description_ (any? depends on how we want to handle exceptions for both AWS and
             generate_categorial_fim.py HUC iterator.)
     """
 
@@ -96,7 +94,6 @@ def process_huc(huc, output_folder):
     print("")
 
     __load_runtime_args(output_folder)
-
 
     huc_path, output_folder = __validate_inputs(
         huc, output_folder
@@ -142,15 +139,9 @@ def process_huc(huc, output_folder):
         # TODO: change the cleanup to some grep getting all files, then compare
         # to a list of files to cleanup. Some other py files create intermediate files.
 
-        # removes the three files/folders above, plus a few others named 
+        # removes the three files/folders above, plus a few others named
         # inside the function.
-        __set_start_files_folders(
-            huc,    
-            huc_path,            
-            output_mapping_dir,
-            sites_file_path,
-            library_file_path,
-        )
+        __set_start_files_folders(huc, huc_path, output_mapping_dir, sites_file_path, library_file_path)
 
         # =========================================
         # Let's get the meta and points
@@ -171,11 +162,12 @@ def process_huc(huc, output_folder):
         # lets save the sites gpkg we are at this point
         sites_file_path_pre_thresh = sites_file_path.replace(".gpkg", "_pre_threshold.gpkg")
         logging.info(f"Saving sites, pre flow and mapping, at {sites_file_path_pre_thresh}")
-        sites_gdf.to_file(sites_file_path_pre_thresh, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False)
+        sites_gdf.to_file(
+            sites_file_path_pre_thresh, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
+        )
 
         logging.info(f"{len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
         print("")
-
 
         # =========================================
         # Let's get the Threshold data
@@ -188,27 +180,23 @@ def process_huc(huc, output_folder):
         # It has stages and flows for all sites in this huc
         # yes.. it is ok that thresholds_merged_df is empty for now
 
-
-# TODO: Is this the right answer?
-# The data_source is a column from the original threshold dataset. It often contains values
-# such as 'Manual_Input' and/or values such as:
-#     NWS-NRLDB generally for stage data and USGS Rating Depot for Flow data or a combination
+        # TODO: Is this the right answer?
+        # The data_source is a column from the original threshold dataset. It often contains values
+        # such as 'Manual_Input' and/or values such as:
+        #     NWS-NRLDB generally for stage data and USGS Rating Depot for Flow data or a combination
 
         threshold_huc_df, data_source = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
 
-# While somewhat inefficent, we will add this to the sites_gdf column of threshold_data_source
-# for simplicity of copying around and using against logic when needed.
-# At the end, we can drop it at the end. 
-# Note: It is only for SB processing at this time.
-# sites_gdf['threshold_data_source'] = data_source
-
-
+        # While somewhat inefficent, we will add this to the sites_gdf column of threshold_data_source
+        # for simplicity of copying around and using against logic when needed.
+        # At the end, we can drop it at the end.
+        # Note: It is only for SB processing at this time.
+        # sites_gdf['threshold_data_source'] = data_source
 
         # =========================================
         # Processing Threshold data  (figure stages and calc flow data for inundation)
         section_start_dt = datetime.now(timezone.utc)
         logging.info("Processing initial flow and threshold data for all valid sites")
-
 
         # Dec 24, 2025: Emily.. stop here for now. :)
         # print("--------------")
@@ -237,13 +225,9 @@ def process_huc(huc, output_folder):
         # valid for processing. Some may fail in other places down the road
         # and will be removed from the huc_library_df. For SB, it will add
         # some interval recs when applicable
-        sites_gdf, huc_library_df = gcf.process_theshold_data(catfim_type,
-                                              valid_nwm_lids,
-                                              sites_gdf,
-                                              huc,
-                                              huc_path,
-                                              threshold_huc_df,
-                                              metadata_json)
+        sites_gdf, huc_library_df = gcf.process_theshold_data(
+            catfim_type, valid_nwm_lids, sites_gdf, huc, huc_path, threshold_huc_df, metadata_json
+        )
 
         logging.info("End of initial processing flow and threshold data")
         duration_msg = sf.calculate_duration_msg(section_start_dt)
@@ -253,11 +237,12 @@ def process_huc(huc, output_folder):
         # Save a copy of the sites_gdf up to this point.
         sites_file_path_post_threshold = sites_file_path.replace(".gkpg", "_thresholds.gpkg")
         logging.info(f"Saving sites data post threshold processing at {sites_file_path_post_threshold}")
-        sites_gdf.to_file(sites_file_path_post_threshold, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False)
+        sites_gdf.to_file(
+            sites_file_path_post_threshold, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
+        )
 
         # TODO: double check if we have at least one rec in the huc_library_df.
         # if not, skip to finalize without the library data.
-
 
         # See if we still have any valid lids
         # We won't have any library files, but still need to finalize sites.gdf
@@ -268,12 +253,10 @@ def process_huc(huc, output_folder):
             __finalize_outputs(sites_file_path, library_file_path, True, sites_gdf)
             continue_processing = False
 
-
         # Temp debugging
         print("--------------")
         print("Ok.. let's stop here for now")
         sys.exit(0)
-
 
         if continue_processing is True:
             # ---------------------
@@ -281,17 +264,19 @@ def process_huc(huc, output_folder):
             # FB has none, but SB does have more data logic
             if os.getenv('CATFIM_TYPE') == "sb":
                 logging.info("Start processing stage based data")
-                
-                
+
                 # TODO: what is a good name (__process_evalations) for this.  Maybe a new file called catfim_data_processing.py? (but leave mapping to focus on inundation)
                 # Shoudl we keep all of the functions in this file for processing flow / stage / threshold data? or maybe a seperate file?
-                
+
                 sites_gdf, huc_library_df, has_critical_error = __process_elevations(
-                    sites_gdf, threshold_huc_df, huc_library_df, huc, huc_path)
+                    sites_gdf, threshold_huc_df, huc_library_df, huc, huc_path
+                )
                 if has_critical_error is True:
-                    logging.info("Critical error found and aborting processing" \
-                                 " and logged already in __process_evaluations." \
-                                 "  Skipping to sites finalization.")
+                    logging.info(
+                        "Critical error found and aborting processing"
+                        " and logged already in __process_evaluations."
+                        "  Skipping to sites finalization."
+                    )
                     __finalize_outputs(sites_file_path, library_file_path, True, sites_gdf)
                     continue_processing = False
 
@@ -301,10 +286,8 @@ def process_huc(huc, output_folder):
                     # hummm.... or maybe not? maybe in mapping as it can depend on how each stage
                     # processes?
 
-                    
-
                     # TODO: Give it a temp name and save. It will be reloaded in mapping
-                    #save: huc_library_df (csv.. not yet a gpkg as it has no geom yet)
+                    # save: huc_library_df (csv.. not yet a gpkg as it has no geom yet)
 
                     # We will resave lower as it progresses
 
@@ -328,11 +311,9 @@ def process_huc(huc, output_folder):
                     # produce_stage_based_lid_tifs  (but we need to retink this too as we hit it twice,
                     # one for the initial stage, then again for the intervals... HUMM)
 
-
                 # post_process_cat_fim_for_viz(
                 #     catfim_method, output_catfim_dir, ahps_jobs, catfim_version, model_version, FLOG.LOG_FILE_PATH
                 # )
-
 
                 # TODO: look into this part
                 # # Add acceptance criteria to viz_out_gdf before writing
@@ -342,34 +323,30 @@ def process_huc(huc, output_folder):
                 # sites_gdf['acceptable_alt_meth_code_list'] = str(acceptable_alt_meth_code_list)
                 # sites_gdf['acceptable_site_type_list'] = str(acceptable_site_type_list)
 
-
             # else:  # Flow based. I am not sure there is anything to do here actually.
-                # Likely can go straight to inundation
-                # ---------------------
-                # If FB, Load branch and HAND data? (rems and hydrotables), liekly all done via inundation scripts
-                # hummmmm
-
+            # Likely can go straight to inundation
+            # ---------------------
+            # If FB, Load branch and HAND data? (rems and hydrotables), liekly all done via inundation scripts
+            # hummmmm
 
         if continue_processing is True:
             section_start_dt = datetime.now(timezone.utc)
             logging.info("Starting catfim mapping")
             # ------------------
             # gcfm.Manage_catfim_mapping
-                # It will need only the huc and output file and it will reload all files
-                # it needs. This allows it to be run independantly through command line.
+            # It will need only the huc and output file and it will reload all files
+            # it needs. This allows it to be run independantly through command line.
 
+            # Create inundation tifs if applicable and roll them up if branch tifs?
+            #    FB: Call inundation.py ?
+            #     SB: Do our own inundation like we currently do?
 
-                # Create inundation tifs if applicable and roll them up if branch tifs?
-                #    FB: Call inundation.py ?
-                #     SB: Do our own inundation like we currently do?
+            # ---------------------
+            # Make extent polys? (or already done in manage_mapping?)
 
-                # ---------------------
-                # Make extent polys? (or already done in manage_mapping?)
-
-            logging.info(f"End of catfim mapping")
+            logging.info("End of catfim mapping")
             duration_msg = sf.calculate_duration_msg(section_start_dt)
             logging.info(duration_msg)
-
 
         # ---------------------
         # Finalize all final sitess and library files for this HUC
@@ -378,17 +355,9 @@ def process_huc(huc, output_folder):
         if continue_processing is True:
             __finalize_outputs(sites_file_path, library_file_path, False, None)
 
-
         logging.info(f"End processing for huc {huc}")
         duration_msg = sf.calculate_duration_msg(overall_start_time)
         logging.info(duration_msg)
-
-        # nothing to return as of now
-        # but generate_categorical_fim.py can if it has value to return.
-        # if you use "return" and it is AWS, it will not error out.
-        # yes.. we want a "return", but may/may not have a value.
-        # if we add one, keep it a simple data type (str, int, float)
-        return huc  #  ?? hummm
 
     except Exception:
         trace_error = traceback.format_exc()
@@ -401,8 +370,17 @@ def process_huc(huc, output_folder):
 
         # do we re-throw the error? gcf, aws, or cmd line? hummm
 
-def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_path):
+    # nothing to return as of now
+    # but generate_categorical_fim.py can if it has value to return.
+    # if you use "return" and it is AWS, it will not error out.
+    # yes.. we want a "return", but may/may not have a value.
+    # if we add one, keep it a simple data type (str, int, float)
 
+    #  hummm
+    return huc
+
+
+def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_path):
     """
     Only used by SB.
     """
@@ -423,7 +401,6 @@ def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_p
     # TODO: this is still a wip.
     # data_source = threshold_huc_df["source_stage"]  # TODO: This is likely in the sites_gdf by now
 
-    
     data_source = "WRDS"
     has_critical_error = False
 
@@ -450,7 +427,7 @@ def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_p
         acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df)
         if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
             msg = "Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
-            logging.error(f"{lid}: {msg}")
+            logging.error(f"{msg} for all lids")
 
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
             sites_gdf["mapped"] = 'no'
@@ -464,7 +441,6 @@ def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_p
 
         else:  # if source is manual input, we skip the above elevation filtering
             logging.info("Skipping elevation checks and datum adjustment for Manual Input source")
-
 
     # TODO: do we need this?, yes, but not until inundation. skip here and load it later when we need it
     # branch_dir = os.path.join(fim_dir, huc, 'branches')
@@ -481,7 +457,7 @@ def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_p
     updated_huc_library_df = pd.DataFrame()
 
     for lid in valid_lids:
-    
+
         # Find the single lid record from the sites_gdf and applicable library rows.
         # You can update the iloc'd record and replace the original row in the
         # parent as long as you can find the correct index
@@ -493,7 +469,7 @@ def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_p
 
         if len(lid_sites_gdf) != 1:
             raise Exception("Internal error: There should be exactly one lid rec here")
-        
+
         if len(lid_library_df) == 0:
             # If not, the sites should already have been udpated to mapped is no and correct
             # status message applied.
@@ -511,7 +487,7 @@ def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_p
             # Get the dem_adj_elevation value from usgs_elev_table.csv.
             # Prioritize the value that is not from branch 0.
 
-            # sites_gdf, lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(sites_gdf, 
+            # sites_gdf, lid_usgs_elev, dem_eval_messages = __adj_dem_evalation_val(sites_gdf,
             #     acceptable_usgs_elev_df, lid
             # )
             # all_messages = all_messages + dem_eval_messages
@@ -550,7 +526,7 @@ def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_p
             # TODO: Automate conversion?
 
             datum_adj_ft = 0  # no datum adjustment for manual input
-        
+
             # Update all library (stage) recs for this lid as they will all be the same
             lid_library_df['datum_adj_ft'] = datum_adj_ft
             lid_library_df['lid_alt_ft'] = lid_altitude
@@ -574,9 +550,7 @@ def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_p
             if elevation_diff > 0:
                 logging.warning(f"{lid}: USGS elev is higher than HAND elev by {diff_rounded} ft")
             elif elevation_diff < 0:
-                logging.warning(
-                    f"{lid}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft"
-                )
+                logging.warning(f"{lid}: USGS elev is lower than HAND elev by {abs(diff_rounded)} ft")
 
             if abs(elevation_diff) > 10:
                 err_msg = 'Large discrepancy in elevation estimates from gage and HAND'
@@ -608,14 +582,14 @@ def __process_elevations(sites_gdf, threshold_huc_df, huc_library_df, huc, huc_p
             maximum_stage_threshold = 250  # TODO: Move to a variables file?
             if (lowest_stage_val > lid_altitude) and (lowest_stage_val > maximum_stage_threshold):
                 lid_library_df['stage'] = lid_library_df['stage'] - lid_altitude
-                logging.info(f"{lid}: Lowest stage val > elev and higher than max stage thresh. Subtracted" \
-                            " elev from stage vals to fix.")
-            
+                logging.info(
+                    f"{lid}: Lowest stage val > elev and higher than max stage thresh. Subtracted"
+                    " elev from stage vals to fix."
+                )
+
             updated_huc_library_df = pd.concat([updated_huc_library_df, lid_library_df], ignore_index=True)
 
-
     return sites_gdf, updated_huc_library_df, has_critical_error
-
 
 
 def __create_acceptable_usgs_elev_df(usgs_elev_df):
@@ -729,12 +703,12 @@ def __adjust_datum_ft(lid_sites_gdf, threshold_huc_df, lid):
     # TODO: Why are we using flow source data to do logic calcs and not the stage columns
 
     # Yes... flow data even though we are processing stage data
-    lid_flow_data = threshold_huc_df.loc[threshold_huc_df['nws_lid'] == lid &
-                                         threshold_huc_df['threshold_type'] == 'flows']
-    
+    lid_flow_data = threshold_huc_df.loc[
+        threshold_huc_df['nws_lid'] == lid & threshold_huc_df['threshold_type'] == 'flows'
+    ]
+
     if lid_flow_data.empty():
         raise Exception(f"{lid}: We should have exactly one flow record")
-
 
     datum_adj_ft = None
     ### --- Do Datum Offset --- ###
@@ -762,7 +736,7 @@ def __adjust_datum_ft(lid_sites_gdf, threshold_huc_df, lid):
         err_msg = 'Datum info unavailable'
         logging.warning(f"{lid}: {err_msg}")
         return None, err_msg
-    
+
     # ___________________________________________________________________________________________________#
     # SPECIAL CASE: Workaround for "bmbp1" where the only valid datum is from NRLDB (USGS datum is null).
     # Modifying rating curve source will influence the rating curve and
@@ -999,28 +973,28 @@ def __adj_dem_evalation_val(acceptable_usgs_elev_df, lid):
 def __filter_bad_usgs_gage_data(lid_sites_gdf, lid):
 
     # We wil do logging here as some are warnings, some are errors
-    # and we want logging to ber 
+    # and we want logging to ber
 
     err_msg = ""
     try:
         alt_method_code = lid_sites_gdf.iloc[0]['usgs_data_alt_method_code']
-        if not alt_method_code in acceptable_alt_meth_code_list:
+        if alt_method_code not in acceptable_alt_meth_code_list:
             err_msg = "Not in acceptable alt method codes"
             logging.warning(f"{lid}: {err_msg}")
             return err_msg
 
         site_type = lid_sites_gdf.iloc[0]['usgs_data_site_type']
-        if site_type in acceptable_site_type_list:
+        if site_type not in acceptable_site_type_list:
             err_msg = "Not in acceptable site type codes"
             logging.warning(f"{lid}: {err_msg}")
             return err_msg
-        
+
         alt_accuracy_code = lid_sites_gdf.iloc[0]['alt_accuracy_code']
         if not float(alt_accuracy_code) <= acceptable_alt_acc_thresh:
             err_msg = "Not in acceptable threshold range"
             logging.warning(f"{lid}: {err_msg}")
             return err_msg
-        
+
     except Exception:
         err_msg = "Error filtering out 'bad' data in the usgs data"
         logging.error(f"{lid}: {err_msg}")
@@ -1053,20 +1027,23 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
 
     # Drop list fields if invalid
     # downstream_nwm_features and upstream_nwm_features are lists and gpkg does not like it
-    # hummm... or maybe just when it is null? both of those nodes are 
+    # hummm... or maybe just when it is null? both of those nodes are
 
     # it is because it has a lists value or unkeyed json node. How do we fix this?  TBD. Check other code
     # note in this file.
     sites_gdf = sites_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
-    sites_gdf = sites_gdf.astype({'metadata_sources': str,
-                                    'nwm_feature_data_downstream_feature_id': str,
-                                    'nws_data_county_code': str,
-                                    'nwm_feature_data_nhd_waterbody_comid': str,
-                                    'nws_data_latitude': str,
-                                    'nws_data_longitude': str,
-                                    'nws_data_zero_datum': str,
-                                    'nwm_feature_data_stream_order': str,
-                                    })
+    sites_gdf = sites_gdf.astype(
+        {
+            'metadata_sources': str,
+            'nwm_feature_data_downstream_feature_id': str,
+            'nws_data_county_code': str,
+            'nwm_feature_data_nhd_waterbody_comid': str,
+            'nws_data_latitude': str,
+            'nws_data_longitude': str,
+            'nws_data_zero_datum': str,
+            'nwm_feature_data_stream_order': str,
+        }
+    )
 
     # sites_gdf.reset_index(drop=True, inplace=True)
 
@@ -1076,10 +1053,8 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
     # as each rec in the sites_gdf will have the same value. It does however, make it easier to pass the data through
     # the system. When we save the final sites_gdf, we will drop the column.
     # This column is only used by SB processing at this time.
-    # HUMMMM !!!! 
+    # HUMMMM !!!!
     # sites_gdf['threshold_data_source'] = ""
-
-
 
     # NOTE: if you get errors saying: Skipping field because of invalid value:
     # There are a couple of possible reasons. Data type mismatch, None in a float/int column and the most
@@ -1157,7 +1132,6 @@ def __validate_inputs(huc, output_folder):
     #         f"but the folder " {branch_dir} does not exist. Please check pathing (with case)."
     #     )
 
-
     # do we validate other key files? branches exist? what if it was a bad huc in the first place?
 
     # TODO: Validate key bash_variable values? path the meta adn threshold files?  Better yet, Emily's tool shoudl do that when we call her things
@@ -1198,26 +1172,21 @@ def __load_runtime_args(output_folder):
     # Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans
 
 
-def __set_start_files_folders(
-    huc,
-    huc_path,
-    output_mapping_dir,
-    sites_file_path,
-    library_file_path
-):
+def __set_start_files_folders(huc, huc_path, output_mapping_dir, sites_file_path, library_file_path):
 
     # TODO: finish this and maybe find a better way to find / remove the files
     # instead of naming them?  But leaving debug file in place?  Maybe a file
     # name convention?  Maybe a working folder for these intermediate files?
 
     discharge_file_path = os.path.join(huc_path, "flow_discharges.csv")  # only used by FB
-    segments_file_path = os.path.join(huc_path, "features_segments.csv")  # only needed for SB, but will be saved as a checkpoint for both.
+    segments_file_path = os.path.join(
+        huc_path, "features_segments.csv"
+    )  # only needed for SB, but will be saved as a checkpoint for both.
     huc_thresholds_file_path = os.path.join(huc_path, f"{huc}_thresholds.csv")
-    library_pre_inun_file_path = os.path.join(huc_path, "library_pre_inundation.csv")    
+    library_pre_inun_file_path = os.path.join(huc_path, "library_pre_inundation.csv")
 
     # more to add and look in code for more.  We could use a smarter way. maybe not
     # we want to allow folks to keep debugging files or any extra files they want. Or do we?
-    
 
     # ================================
     # CLEANUP
@@ -1248,14 +1217,15 @@ def __set_start_files_folders(
     if os.path.isfile(library_pre_inun_file_path):
         os.remove(library_pre_inun_file_path)
 
-
     # TODO: Always keeps the logs folder and maybe nothing else?
     # certainly not meta or threshold files.
 
     return  # returns nothing, just a way to help show the end of the function
 
 
-def __finalize_outputs(catfim_type, sites_file_path, library_file_path, finalize_library_data, sites_gdf=None):
+def __finalize_outputs(
+    catfim_type, sites_file_path, library_file_path, finalize_library_data, sites_gdf=None
+):
 
     # ------------------------------------
     # FINALIZING the sites table
@@ -1272,11 +1242,10 @@ def __finalize_outputs(catfim_type, sites_file_path, library_file_path, finalize
     # TODO: do we want lower case lid values the entire way through?
     # Same for the library data?
     sites_gdf['nws_lid'] = sites_gdf['nws_lid'].str.lower()
-    
+
     # FB and SB sites and library outputs call it ahps_lid instead of nws_lid. why?
     # well.. we process throughout as nws_lid
-    sites_gdf.rename(columns={'nws_lid': 'ahps_lid'},inplace=True)
-
+    sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
     # TODO:
     # What do we want to do with the sites 3 stage columns (stage, stage_umi, s_src)
@@ -1285,7 +1254,7 @@ def __finalize_outputs(catfim_type, sites_file_path, library_file_path, finalize
     # What about the q, q_uni and q_src, which are the three flow based values
     # from the threshold data.
     # in current code, SB has all three of the q columns as string and they can be empty
-    # but in FB, the "q" col is a float. But it can be -1 as well. 
+    # but in FB, the "q" col is a float. But it can be -1 as well.
     # HUMMM.
 
     # TODO:
@@ -1293,14 +1262,12 @@ def __finalize_outputs(catfim_type, sites_file_path, library_file_path, finalize
     # sites_gdf.drop("threshold_data_source", axis=1, inplace=True, errors='ignore')
 
     sites_gdf.rename(
-        columns={'identifiers_nwm_feature_id': 'nwm_seg',
-                'identifiers_usgs_site_code': 'usgs_gage',
-                }, inplace=True
+        columns={'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_usgs_site_code': 'usgs_gage'},
+        inplace=True,
     )
 
     # TODO: append this to most status where mapped = no:
     # "Site resulted with no valid inundated files"
-
 
     # TODO: Update the sites recs if the mapped is still at 'not set' and status messages is also 'not set'.
     # if both are true, then we can changed mapped to yes and status to good.
@@ -1309,7 +1276,6 @@ def __finalize_outputs(catfim_type, sites_file_path, library_file_path, finalize
 
     sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False)
     # Do not create a csv here. Post processing will do that
-
 
     # ------------------------------------
     # FINALIZING the library data saving it as a csv and gpkg
@@ -1335,14 +1301,12 @@ def __finalize_outputs(catfim_type, sites_file_path, library_file_path, finalize
         #     'low', 'bankfull', 'huc', 'flood'],
         #     errors='ignore')
 
-#     lid_usgs_elev
-
+    #     lid_usgs_elev
 
     else:
         logging.info("There are no library files to process. Skipping library finalization")
 
     # returns nothing
-
 
 
 if __name__ == '__main__':

@@ -17,6 +17,7 @@ import src.utils.shared_functions as sf
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.tools_shared_functions import aggregate_wbd_hucs
 
+
 # global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
@@ -110,13 +111,13 @@ def get_metadata(huc, huc_path, output_folder):
     # aggregate_wbd_hucs takes in a meta json and a list of hucs.
     # DO NOT attempt to run aggregate_wbd_hucs it does not seem to work with a clipped huc wbd,
     # not sure why. And if we try to run aggreg for every huc, the full size WBD takes anywhere
-    # from 6 to 20 mins to come back from agg. agg uses the points from each json site, then 
+    # from 6 to 20 mins to come back from agg. agg uses the points from each json site, then
     # adds them overtop of the WBD to figure out the HUCs, but the huc values do not come in
     # reliably enough from WRDS. Ultimately, if we generate our own (or get a list)
     # of HUCs to sites, we can filter this json down much easier.
 
     # In the meantime, we let generate_categorical_fim, talk to agg for all HUCs and put that into a
-    # 
+    #
 
     # TODO: We need a faster answer
     # how do we handle not loading the entire WBD? Can't really use clips but maybe
@@ -175,37 +176,33 @@ def get_metadata(huc, huc_path, output_folder):
 
     all_sites_gdf = gpd.read_parquet(os.getenv('NWM_SITES_PATH'))
 
-    # TODO: Will the parquet file always have the huc values in it?  Maybe not. Meta from WRDS does
-    # not always.. Need to research this.
     huc_sites_gdf = all_sites_gdf[all_sites_gdf['HUC8'] == huc].copy()
 
     if len(huc_sites_gdf) == 0:
-        raise Exception("Error. The HUC of  {} does not exist in the all sites dataset.")
+        raise Exception(f"Error. The HUC of {huc} does not exist in the all sites dataset.")
 
     huc_sites_gdf.reset_index(drop=True, inplace=True)
 
     # There appears to be actual column named "index" at this point, remove it
 
     huc_sites_gdf.rename(columns={"identifiers_nws_lid": "nws_lid"}, inplace=True)
-     # Keep everyhing upper for processing as the json files are upper for that filed
+    # Keep everyhing upper for processing as the json files are upper for that filed
     huc_sites_gdf['nws_lid'] = huc_sites_gdf['nws_lid'].str.upper()
 
     # TODO: now that we have a list of the sites applicable to this huc, filter the metadata_json
     # todo: We want a list of dictionary from huc_sites_gdf of {nws_lid, huc}
-
 
     # Now that we have a list of HUCs to lids from the geoparquet, given to use from generate_categorical_fim.
     # we can filter the meta_json_list down
     nwm_lids = huc_sites_gdf['nws_lid'].tolist()
 
     # Find lid metadata from master list of metadata dictionaries (line 66).
-    
+
     huc_metadata_json_list = []
     for lid_site_data in metadata_json_list:
         lid = lid_site_data['identifiers']['nws_lid']
         if lid in nwm_lids:
             huc_metadata_json_list.append(lid_site_data)
-    
 
     # what do we do if the huc_site_gdf and/or huc_metadata_list is empty
 
@@ -240,8 +237,10 @@ def check_for_resticted_sites(sites_gdf, catfim_type, huc, sites_file_path):
     if len(valid_nwm_lids) == 0:
         msg = f"All sites associated to HUC {huc} are retricted. No more processing will continue. Aborting."
         logging.critical(msg)
-        
-        sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8")
+
+        sites_gdf.to_file(
+            sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8"
+        )
         # graceful exit is fine here. We don't need to crash it or through an exception.
         # sys.exit(0)  # humm.. or do we let this throw the exception for MP?
         raise Exception(msg)
