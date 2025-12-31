@@ -1417,6 +1417,7 @@ if __name__ == '__main__':
     #     {huc}_sites.gdf
     #     flow_discharge.csv  (if flow based)
     #     {huc}_library_threshold.csv  (TODO: seems like a bad file name)
+    #     others?
 
     # Parse arguments
     parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
