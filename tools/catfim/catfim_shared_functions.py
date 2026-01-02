@@ -233,18 +233,6 @@ def check_for_resticted_sites(sites_gdf, catfim_type, huc, sites_file_path):
         else:
             valid_nwm_lids.append(lid)
 
-    # Save the meta file we have with the new error messages, then abort.
-    if len(valid_nwm_lids) == 0:
-        msg = f"All sites associated to HUC {huc} are retricted. No more processing will continue. Aborting."
-        logging.critical(msg)
-
-        sites_gdf.to_file(
-            sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8"
-        )
-        # graceful exit is fine here. We don't need to crash it or through an exception.
-        # sys.exit(0)  # humm.. or do we let this throw the exception for MP?
-        raise Exception(msg)
-
     return valid_nwm_lids, sites_gdf
 
 
