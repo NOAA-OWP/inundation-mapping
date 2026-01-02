@@ -767,7 +767,7 @@ def calculate_duration_msg(start_dt):
     #                     " does not appear to be an instance of logging.Logger (or a custom version).")
 
     end_dt = datetime.now(timezone.utc)
-    dt_string = end_dt.strftime("%m/%d/%Y %H:%M:%S")
+    # dt_string = end_dt.strftime("%m/%d/%Y %H:%M:%S")
 
     time_delta = end_dt - start_dt
     total_seconds = int(time_delta.total_seconds())

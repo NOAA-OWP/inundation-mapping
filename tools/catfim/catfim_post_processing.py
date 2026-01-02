@@ -106,8 +106,12 @@ def catfim_post_processing(output_folder):
         # Rob's validation notes:
             # get list of hucs included
             # what if none?
-            # roll up all HUC level sites.csv/gpkg's and library files csv/gpkg.
+            # roll up all HUC level sites.gpkg's and library files gpkg.
             # should always be at least one huc, but may not more depending on debugging
+
+        # We are looking across all huc dirs for files with the convention of:
+        # {huc}_sites.gpkg or {huc}_library.gpkg. By looking for files with only that
+        # pattern, we can leave some debugging or intermedate files.
 
             # do we want to iterate each HUC folder looking for the existance of its final libary file
             # and count it?  If any one HUC did not get to a final gpkg, we know it aborted or failed somehow

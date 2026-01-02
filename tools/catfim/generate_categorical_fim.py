@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
-import json
 import glob
+import json
 import logging
 import os
 import pickle
@@ -16,7 +16,6 @@ from dotenv import load_dotenv
 import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
-
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.catfim.catfim_post_processing import catfim_post_processing
 from tools.catfim.catfim_process_huc import process_huc
@@ -275,22 +274,24 @@ def process_generate_categorical_fim(
         if len(huc_dictionary) == 0:
             raise Exception("The metadata pickle file does not have any appliable HUCs")
 
-
         # These fields throw errors when saving from gdf to gpkg, throwing Skipping field because of invalid value
         # but strangely not in all records.
         # likely bad records or nulls in key which get filtered out later.
         # nwm_sites_all_gdf = nwm_sites_all_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
-        nwm_sites_all_gdf = nwm_sites_all_gdf.astype({'metadata_sources': str,
-                                                      'downstream_nwm_features': str,
-                                                      'upstream_nwm_features': str,
-                                                      'nwm_feature_data_downstream_feature_id': str,
-                                                      'nws_data_county_code': str,
-                                                      'nwm_feature_data_nhd_waterbody_comid': str,
-                                                      'nws_data_latitude': float,
-                                                      'nws_data_longitude': float,
-                                                      'nws_data_zero_datum': float,
-                                                      'nwm_feature_data_stream_order': str,
-                                                      })
+        nwm_sites_all_gdf = nwm_sites_all_gdf.astype(
+            {
+                'metadata_sources': str,
+                'downstream_nwm_features': str,
+                'upstream_nwm_features': str,
+                'nwm_feature_data_downstream_feature_id': str,
+                'nws_data_county_code': str,
+                'nwm_feature_data_nhd_waterbody_comid': str,
+                'nws_data_latitude': float,
+                'nws_data_longitude': float,
+                'nws_data_zero_datum': float,
+                'nwm_feature_data_stream_order': str,
+            }
+        )
 
         # Save the nwm_sites_all_gdf for catfim_process_huc.py to pick up.
         # It has all sites and its huc number.
@@ -303,8 +304,7 @@ def process_generate_categorical_fim(
         # parquet version for quick loading in each HUC and 1/10th of the size
         nwm_sites_all_gdf.to_parquet(nwm_sites_file)  # for quick loading in huc level
         # for debugging and not shared with the HUCs
-        nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'),driver='GPKG', engine='fiona')
-
+        nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona')
 
         # TODO: Should we get a threshold for all hucs like we do for meta? then the hucs can copy / filter
         # like meta? probably..
@@ -345,7 +345,6 @@ def process_generate_categorical_fim(
             f"Processing {len(valid_fim_hucs)} valid CatFIM HUCs. Note: not all HUCs may have ahps sites."
         )
 
-
         # TODO: remove all content in huc folders, EXCEPT their log files.
         # With us later scanning for files and file extensions, we may not want to be pulling in old bad HUCs.
         # or... do we. maybe we had some good HUCs that were left behind. Do we just let it pull them in?
@@ -363,7 +362,6 @@ def process_generate_categorical_fim(
         for huc in valid_fim_hucs:
             task_args_list.append({"huc": huc, "output_folder": output_folder})
 
-
         # Emily.. for your testing let it stop here for testing gen_catfim
         # also add a system to abort after saving a huclist so it does not continue to iterate
         # or run post processing. In EC2's, we do not want an early (pre-processing) abort as we do want
@@ -371,8 +369,6 @@ def process_generate_categorical_fim(
         # BUT.... in AWS, Step Functions will take care of the huc ietartion and post processing.
         print("stop here in gen catfim for now")
         sys.exit(0)
-
-
 
         # === Run jobs in parallel ===
         # do we want a TQDM? depends on what we want to output to screen.

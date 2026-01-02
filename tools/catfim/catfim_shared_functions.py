@@ -17,6 +17,7 @@ import src.utils.shared_functions as sf
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.tools_shared_functions import aggregate_wbd_hucs
 
+
 # global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
@@ -110,13 +111,13 @@ def get_metadata(huc, huc_path, output_folder):
     # aggregate_wbd_hucs takes in a meta json and a list of hucs.
     # DO NOT attempt to run aggregate_wbd_hucs it does not seem to work with a clipped huc wbd,
     # not sure why. And if we try to run aggreg for every huc, the full size WBD takes anywhere
-    # from 6 to 20 mins to come back from agg. agg uses the points from each json site, then 
+    # from 6 to 20 mins to come back from agg. agg uses the points from each json site, then
     # adds them overtop of the WBD to figure out the HUCs, but the huc values do not come in
     # reliably enough from WRDS. Ultimately, if we generate our own (or get a list)
     # of HUCs to sites, we can filter this json down much easier.
 
     # In the meantime, we let generate_categorical_fim, talk to agg for all HUCs and put that into a
-    # 
+    #
 
     # TODO: We need a faster answer
     # how do we handle not loading the entire WBD? Can't really use clips but maybe
@@ -178,32 +179,136 @@ def get_metadata(huc, huc_path, output_folder):
     huc_sites_gdf = all_sites_gdf[all_sites_gdf['HUC8'] == huc].copy()
 
     if len(huc_sites_gdf) == 0:
-        raise Exception("Error. The HUC of  {} does not exist in the all sites dataset.")
+        raise Exception(f"Error. The HUC of {huc} does not exist in the all sites dataset.")
 
-    huc_sites_gdf.reset_index()
+    huc_sites_gdf.reset_index(drop=True, inplace=True)
+
+    # There appears to be actual column named "index" at this point, remove it
+
     huc_sites_gdf.rename(columns={"identifiers_nws_lid": "nws_lid"}, inplace=True)
-     # Keep everyhing upper for processing as the json files are upper for that filed
+    # Keep everyhing upper for processing as the json files are upper for that filed
     huc_sites_gdf['nws_lid'] = huc_sites_gdf['nws_lid'].str.upper()
 
     # TODO: now that we have a list of the sites applicable to this huc, filter the metadata_json
     # todo: We want a list of dictionary from huc_sites_gdf of {nws_lid, huc}
-
 
     # Now that we have a list of HUCs to lids from the geoparquet, given to use from generate_categorical_fim.
     # we can filter the meta_json_list down
     nwm_lids = huc_sites_gdf['nws_lid'].tolist()
 
     # Find lid metadata from master list of metadata dictionaries (line 66).
-    
+
     huc_metadata_json_list = []
     for lid_site_data in metadata_json_list:
         lid = lid_site_data['identifiers']['nws_lid']
         if lid in nwm_lids:
             huc_metadata_json_list.append(lid_site_data)
-    
 
     # what do we do if the huc_site_gdf and/or huc_metadata_list is empty
 
     # TODO: Error if no data found
 
     return huc_metadata_json_list, huc_sites_gdf
+
+
+def check_for_resticted_sites(sites_gdf, catfim_type, huc, sites_file_path):
+    # ---------------------
+    # Get list of applicable sites, valid sites for this HUCs from master sites metadata
+    #   Watching for excluded sites from restricted sites csv.
+    df_restricted_sites = load_restricted_sites(catfim_type)
+
+    # Update some of the meta.gdf records if they are in df_restricted_sites
+    # Check whether the LIDs is in the restricted sites list
+    # meta_gdf is likely pretty small by now, only sites for this HUC
+    # Likely a smarter way to do this as well.. lambda? Could do a join but we have
+    # dup column names we would have to cleanup.
+    valid_nwm_lids = []
+    for index, row in sites_gdf.iterrows():
+        lid = row["nws_lid"].upper()
+        is_restrict_lid = df_restricted_sites.loc[df_restricted_sites['nws_lid'] == lid.upper()]
+        if len(is_restrict_lid) > 0:
+            # what if it comes back with more than one? if so.. it is a bug in the list
+            sites_gdf.at[index, "status"] = is_restrict_lid.iloc[0]['restricted_reason']
+            sites_gdf.at[index, "mapped"] = "no"
+        else:
+            valid_nwm_lids.append(lid)
+
+    # Save the meta file we have with the new error messages, then abort.
+    if len(valid_nwm_lids) == 0:
+        msg = f"All sites associated to HUC {huc} are retricted. No more processing will continue. Aborting."
+        logging.critical(msg)
+
+        sites_gdf.to_file(
+            sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8"
+        )
+        # graceful exit is fine here. We don't need to crash it or through an exception.
+        # sys.exit(0)  # humm.. or do we let this throw the exception for MP?
+        raise Exception(msg)
+
+    return valid_nwm_lids, sites_gdf
+
+
+def load_restricted_sites(catfim_type):
+    """
+    Previously, only stage based used this. It is now being used by stage-based and flow-based (1/24/25)
+
+    The 'catfim_type' column can have three different values: 'stage', 'flow', and 'both'. This determines
+    whether the site should be filtered out for stage-based CatFIM, flow-based CatFIM, or both of them.
+
+    Returns: a dataframe for the restricted lid and the reason why:
+        'nws_lid', 'restricted_reason'
+    """
+
+    file_name = "ahps_restricted_sites.csv"
+    current_script_folder = os.path.dirname(__file__)
+    file_path = os.path.join(current_script_folder, file_name)
+
+    df_restricted_sites = pd.read_csv(file_path, dtype=str)
+
+    df_restricted_sites['nws_lid'].fillna("", inplace=True)
+    df_restricted_sites['restricted_reason'].fillna("", inplace=True)
+    df_restricted_sites['catfim_type'].fillna("", inplace=True)
+
+    # remove extra empty spaces on either side of all cellls
+    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.strip()
+    df_restricted_sites['restricted_reason'] = df_restricted_sites['restricted_reason'].str.strip()
+    df_restricted_sites['catfim_type'] = df_restricted_sites['catfim_type'].str.strip()
+
+    # Need to drop the comment lines before doing any more processing
+    df_restricted_sites.drop(
+        df_restricted_sites[df_restricted_sites.nws_lid.str.startswith("#")].index, inplace=True
+    )
+
+    # Filter df_restricted_sites by CatFIM type
+    if catfim_type == 'sb':  # Keep rows where 'catfim_type' is either 'stage' or 'both'
+        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['stage', 'both'])]
+
+    else:
+        df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['flow', 'both'])]
+
+    df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.upper()
+
+    # Clean up dataframe
+    for ind, row in df_restricted_sites.iterrows():
+        nws_lid = row['nws_lid']
+        restricted_reason = row['restricted_reason']
+
+        # if len(nws_lid) != 5:
+        #     logging.warning(f"This lid value of '{nws_lid}' is invalid.")
+        if restricted_reason == "":
+            restricted_reason = "From the ahps_restricted_sites,"
+            " the site will not be mapped, but a reason has not be provided."
+            df_restricted_sites.at[ind, 'restricted_reason'] = "Restricted Site - " + restricted_reason
+
+            # FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
+            # Humm.. how do we log this? screen is ok, but log isn't (MP versus non MP)
+            # can we try just using the "logging" instance? Let's try it and see what happens
+            logging.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
+
+        continue
+    # end loop
+
+    # Remove catfim_type column
+    df_restricted_sites = df_restricted_sites.drop('catfim_type', axis=1)
+
+    return df_restricted_sites

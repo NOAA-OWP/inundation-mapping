@@ -11,7 +11,7 @@ import requests
 import urllib3
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
-from tools_shared_functions import get_metadata, get_thresholds, aggregate_wbd_hucs
+from tools_shared_functions import aggregate_wbd_hucs, get_metadata, get_thresholds
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
@@ -378,11 +378,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         messages.append(msg)
         print(msg)
 
-        return (
-            output_meta_list,
-            messages
-            )
-
+        return (output_meta_list, messages)
 
     # Open metadata file (either the one we just downloaded or pre-existing)
     with open(metadata_filepath, "rb") as p_handle:
@@ -537,10 +533,8 @@ def main(
     )
 
     # Get the HUC dictionary
-    wbd_file = '/data/inputs/wbd/WBD_National.gpkg' # TODO: Replace with os.getenv("input_wbd_layer")?
-    huc_lid_dict, nwm_sites_all_gdf = aggregate_wbd_hucs(
-        output_meta_list, wbd_file, retain_attributes=True
-    )
+    wbd_file = '/data/inputs/wbd/WBD_National.gpkg'  # TODO: Replace with os.getenv("input_wbd_layer")?
+    huc_lid_dict, nwm_sites_all_gdf = aggregate_wbd_hucs(output_meta_list, wbd_file, retain_attributes=True)
 
     # Filter huc_lid_dict to only include HUCs in huc_lst
     if 'all' not in lst_hucs:
@@ -551,7 +545,7 @@ def main(
             if huc not in keep:
                 del huc_lid_dict[huc]
 
-    print(f"Number of sites to download thresholds for: {len(huc_lid_dict)}") ## TEMP DEBUG
+    print(f"Number of sites to download thresholds for: {len(huc_lid_dict)}")  # TEMP DEBUG
 
     if len(huc_lid_dict) == 0:
         raise Exception("The metadata pickle file does not have any applicable HUCs")
