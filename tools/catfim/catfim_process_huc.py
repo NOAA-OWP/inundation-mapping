@@ -274,10 +274,11 @@ def process_huc(huc, output_folder):
                 raise Exception("Internal Error: If huc_library_df is empty at this point, then we"
                 " have a site_gdf that was not updated correctly as we filtered out only good ones above")
 
-            # Temp debugging
-            # print("--------------")
-            # print("Ok.. let's stop here for now")
-            # sys.exit(0)
+        # Temp debugging
+        print("--------------")
+        print("Ok.. let's stop here for now. Everything for FB and SB should be working at some level"
+              " by this point")
+        sys.exit(0)
 
         if continue_processing is True:
 
