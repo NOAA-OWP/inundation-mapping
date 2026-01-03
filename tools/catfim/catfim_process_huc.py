@@ -139,13 +139,14 @@ def process_huc(huc, output_folder):
         # don't let any intermediates folow that convention exactly. Allways add something after _sites and _library
         sites_file_path = os.path.join(huc_path, f"{huc}_sites.gpkg")
         library_file_path = os.path.join(huc_path, f"{huc}_library.gpkg")
+        library_post_mapping_file_path = os.path.join(huc_path, f"{huc}_library_post_mapping.gpkg")
 
         # TODO: change the cleanup to some grep getting all files, then compare
         # to a list of files to cleanup. Some other py files create intermediate files.
 
         # removes the three files/folders above, plus a few others named
         # inside the function.
-        __set_start_files_folders(huc, huc_path, output_mapping_dir, sites_file_path, library_file_path)
+        __set_start_files_folders(huc, huc_path, output_mapping_dir, sites_file_path, library_file_path, library_post_mapping_file_path)
 
         # =========================================
         # Let's get the meta and points
@@ -264,7 +265,7 @@ def process_huc(huc, output_folder):
             valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]
             if len(valid_lids) == 0:
                 logging.info("There are no remaining sites to process skipping to sites finalization")
-                __update_sites_mapping_status(sites_file_path, library_file_path, True, sites_gdf)
+                __update_sites_mapping_status(sites_file_path, library_file_path, library_post_mapping_file_path, sites_gdf)
                 continue_processing = False
 
         if continue_processing is True:
@@ -298,7 +299,7 @@ def process_huc(huc, output_folder):
                         " and logged already in __process_evaluations."
                         "  Skipping to sites finalization."
                     )
-                    __update_sites_mapping_status(sites_file_path, library_file_path, True, sites_gdf)
+                    __update_sites_mapping_status(sites_file_path, library_file_path, library_post_mapping_file_path, sites_gdf)
                     continue_processing = False
 
                 # Temp debugging
@@ -359,6 +360,12 @@ def process_huc(huc, output_folder):
         if continue_processing is True:
             section_start_dt = datetime.now(timezone.utc)
             logging.info("Starting catfim mapping")
+
+
+            # pass in the library path and name being used during processing.
+            # The final one picks up the library_post_mapping_file_path, and saves it
+            # as the final (huc)_library.gpkg which catfim_post_processing looks for
+
             # ------------------
             # gcfm.Manage_catfim_mapping
             # It will need only the huc and output file and it will reload all files
@@ -380,7 +387,7 @@ def process_huc(huc, output_folder):
         # Assumes all logging or finalizaion was jumped to earlier.
         # TODO: HUMM... is there a smarter answer?
         if continue_processing is True:
-            __update_sites_mapping_status(sites_file_path, library_file_path, False, None)
+            __update_sites_mapping_status(sites_file_path, library_file_path, library_post_mapping_file_path, None)
 
         logging.info(f"End processing for huc {huc}")
         duration_msg = sf.calculate_duration_msg(overall_start_time)
@@ -1320,7 +1327,7 @@ def __load_runtime_args(output_folder):
     # Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans
 
 
-def __set_start_files_folders(huc, huc_path, output_mapping_dir, sites_file_path, library_file_path):
+def __set_start_files_folders(huc, huc_path, output_mapping_dir, sites_file_path, library_file_path, library_post_mapping_file_path):
 
     # TODO: finish this and maybe find a better way to find / remove the files
     # instead of naming them?  But leaving debug file in place?  Maybe a file
@@ -1353,6 +1360,9 @@ def __set_start_files_folders(huc, huc_path, output_mapping_dir, sites_file_path
     if os.path.isfile(library_file_path):
         os.remove(library_file_path)
 
+    if os.path.isfile(library_post_mapping_file_path):
+        os.remove(library_post_mapping_file_path)
+
     if os.path.isfile(discharge_file_path):
         os.remove(discharge_file_path)
 
@@ -1372,13 +1382,17 @@ def __set_start_files_folders(huc, huc_path, output_mapping_dir, sites_file_path
 
 
 def __update_sites_mapping_status(
-    catfim_type, sites_file_path, library_file_path, sites_gdf=None
+    catfim_type, sites_file_path, library_file_path, library_post_mapping_file_path, sites_gdf=None
 ):
 
     '''
     Used in both stage- and flow-based CatFIM.
 
     Updates the mapping status and status messages for CatFIM sites based on the presence of valid inundation GeoPackage files.
+
+    We look for the library_post_mapping_file_path (a intermediate processing file) and if it exists and all is well
+    it will save it as the library_file_path. library_file_path is in the format of {huc}_library.gpkg which is the format
+    that catfim_post_processing.py will look for. We only want that file there if all is well.
         
 
     Raises:
@@ -1412,20 +1426,26 @@ def __update_sites_mapping_status(
         # We load the library file. It might not be there if something failed in inundation or we early
         # aborts, such as all sites failed the restricted tests.
         # It might also be there but be empty.
-        library_gdf = None
-        all_failed_inundation = False
-        if not os.path.exists(library_file_path):
-            all_failed_inundation = True
+        huc_library_gdf = None
+        skip_saving_library = False
+        if not os.path.exists(library_post_mapping_file_path):
+            skip_saving_library = True
+            logging.warning(f"The working library file of {library_post_mapping_file_path} does not exist."
+                         " This could be correct when there are not any sites that had qualifying library data. "
+                         " It could also be code error. If you are unsure, please check the warning / error"
+                         "  log files and/or the sites file to be sure.")
         else:
-            library_gdf = gpd.read_file(library_file_path, engine='fiona')
-            if len(library_gdf) == 0:
-                all_failed_inundation = True
+            huc_library_gdf = gpd.read_file(library_post_mapping_file_path, engine='fiona')
+            if len(huc_library_gdf) == 0:
+                skip_saving_library = True
+                logging.warning(f"The working library file of {library_post_mapping_file_path} is empty and"
+                                " a finalized copy will not be created.")
 
         # look for sites that are not already set to 'no'
         valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]
 
         # All ones with 'mapped' = 'not set' should have status messages.
-        # TODO: probably should check
+        # TODO: probably should check as a safety check
 
 
         # we could have used lambda but the if/else logic got messy and unstable
@@ -1434,7 +1454,7 @@ def __update_sites_mapping_status(
             status_val = lid_site[0]['status']
             warning_val = lid_site[0]['status']
 
-            if all_failed_inundation is True:  # Technically it should not have a status message, but doesn't matter
+            if skip_saving_library is True:  # Technically it should not have a status message, but doesn't matter
                 msg = 'Site resulted with no valid inundated files'
                 sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
                 logging.error(msg)
@@ -1463,62 +1483,58 @@ def __update_sites_mapping_status(
 
         sites_gdf = sites_gdf.drop(columns=['warnings'], errors='ignore')
 
+        logging.info(f"Saving the adjusted final copy of the sites file to {sites_file_path}"
+                     " for catfim post processing to load")
         sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False)        
 
         # Let catfim_post_processing make the final csv (rolled up for all hucs). We don't need one here
 
+        if skip_saving_library is False:
+            # ----------------------------
+            # Finalization of the library file.
+
+            if catfim_type == "sb":
+                huc_library_gdf.rename(
+                    columns={'datum_adj_ft': 'dtm_adj_ft',
+                            'dadj_w_ft': 'datum_adj_wse_ft',
+                            'dadj_w_m': 'dadj_w_m',
+                            }, inplace=True
+                )
+
+
+            # TODO: is there any last minute changes we need? WIP columns to drop?
+            # we save it as the final adjusted name library file using the format of {huc}_library.gpkg,
+            # which is the format catfim_post_processing looks for. (_library.gpkg)
+
+            # TODO:
+            # What do we want to do with the sites 3 stage columns (stage, stage_umi, s_src)
+            # if they are -1 or empty?  Especially with stage being a double.
+
+            # What about the q, q_uni and q_src, which are the three flow based values
+            # from the threshold data.
+            # in current code, SB has all three of the q columns as string and they can be empty
+            # but in FB, the "q" col is a float. But it can be -1 as well.
+            # HUMMM.
+
+            # TODO:
+            # See other notes about this column. Do we want to keep it or drop it?
+            # sites_gdf.drop("threshold_data_source", axis=1, inplace=True, e
+
+            logging.info(f"Saving name adjusted final copy of the library files to {library_file_path}"
+                        " for catfim post processing to load")
+            huc_library_gdf.to_file(library_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False)
+            # Do not create a csv here. Post processing will do that            
+
+        else:
+            logging.info("Skipping library finalization.")
+
     except Exception:
         logging.critical(traceback.format_exc())
-    return
 
-    # TODO:
-    # For the library dataset....
-    # What do we want to do with the sites 3 stage columns (stage, stage_umi, s_src)
-    # if they are -1 or empty?  Especially with stage beign a double.
+        # TODO: Humm.. Do we rethrow? or just log and stop
+        # what will AWS do if we let a exception go back out. It is fine if the exception is 
 
-    # What about the q, q_uni and q_src, which are the three flow based values
-    # from the threshold data.
-    # in current code, SB has all three of the q columns as string and they can be empty
-    # but in FB, the "q" col is a float. But it can be -1 as well.
-    # HUMMM.
-
-    # TODO:
-    # See other notes about this column. Do we want to keep it or drop it?
-    # sites_gdf.drop("threshold_data_source", axis=1, inplace=True, e
-
-
-    # Do not create a csv here. Post processing will do that
-
-    # ------------------------------------
-    # FINALIZING the library data saving it as a csv and gpkg
-
-    if finalize_library_data is True:
-        print("we will get here")
-
-        # # Load in the updated library gpkg which was updated during inundation
-        # if os.path.isfile(huc_library_gdf):
-        # huc_library_gdf = gpd.read_file(library_file_path)
-
-        # if catfim_type == "sb":
-        #     huc_library_gdf.rename(
-        #         columns={'datum_adj_ft': 'dtm_adj_ft',
-        #                 'dadj_w_ft': 'datum_adj_wse_ft',
-        #                 'dadj_w_m': 'dadj_w_m',
-        #                 }, inplace=True
-        #     )
-
-        # watch for other column changes for both SB and FB
-
-        # threshold_huc_df = threshold_huc_df.drop(columns=[
-        #     'low', 'bankfull', 'huc', 'flood'],
-        #     errors='ignore')
-
-    #     lid_usgs_elev
-
-    else:
-        logging.info("There are no library files to process. Skipping library finalization")
-
-    # returns nothing
+    return  # nothing
 
 
 if __name__ == '__main__':
