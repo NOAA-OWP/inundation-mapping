@@ -209,7 +209,7 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
 # More / less equiv to generate_flows in previous versions but some parts have already been done
 # before we get here, such as dropping lids for restricted sites. Threshold data is more refined
 # by now from previous versions.
-def process_theshold_data(catfim_type, valid_lids, sites_gdf, huc, huc_path, threshold_huc_df, metadata_json):
+def process_theshold_data(catfim_type, valid_lids, sites_gdf, huc, huc_path, output_temp_dir, threshold_huc_df, metadata_json):
     """
     By this point some lids have been dropped such as one from the restricted sites list.
 
@@ -243,7 +243,7 @@ def process_theshold_data(catfim_type, valid_lids, sites_gdf, huc, huc_path, thr
     segments_file_path = os.path.join(huc_path, "features_segments.csv")
 
     # initial library file post threshold processing
-    library_pre_inun_file_path = os.path.join(huc_path, "library_pre_inundation.csv")
+    library_pre_inun_file_path = os.path.join(output_temp_dir, "library_pre_inundation.csv")
 
     # ++++++++++++++++++++++++++++
     # TODO: This should be changed to loading something_path at the HUC level for flow data,

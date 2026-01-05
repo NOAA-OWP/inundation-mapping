@@ -73,8 +73,10 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
 
+    access_rights = 0o777
+
     # we will assume the parent folder already exists
-    os.makedirs(log_file_dir, exist_ok=True)
+    os.makedirs(log_file_dir, exist_ok=True, mode=access_rights)
     # print(f"Logs saved to: {log_file_path}")
 
     logger = logging.getLogger()
@@ -95,7 +97,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
-    os.chmod(error_file_name, 0o777)
+    os.chmod(error_file_name, mode=access_rights)
 
     # warning file handler
 
@@ -104,13 +106,13 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     warning_file_handler = logging.FileHandler(warning_file_name)
     warning_file_handler.setLevel(logging.WARNING)
     warning_file_handler.setFormatter(formatter)
-    os.chmod(warning_file_name, 0o777)
+    os.chmod(warning_file_name, mode=access_rights)
 
     # # basic file handler
     file_handler = logging.FileHandler(log_file_path)
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
-    os.chmod(log_file_path, 0o777)
+    os.chmod(log_file_path, mode=access_rights)
 
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
@@ -156,8 +158,10 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
     if not log_file_path.endswith(".log"):
         raise Exception("log file name must end with .log")
 
+    access_rights = 0o777
+
     abs_path = os.path.abspath(log_file_path)
-    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True, mode=access_rights)
 
     # Check name -> path
     if logger_name in _LOGGER_REGISTRY and _LOGGER_REGISTRY[logger_name] != abs_path:
@@ -189,13 +193,13 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         err_file_handler = logging.FileHandler(error_file_name)
         err_file_handler.setLevel(logging.ERROR)
         err_file_handler.setFormatter(formatter)
-        os.chmod(error_file_name, 0o777)
+        os.chmod(error_file_name, mode=access_rights)
         logger.addHandler(err_file_handler)
 
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
-        os.chmod(log_file_path, 0o777)
+        os.chmod(log_file_path, mode=access_rights)
         logger.addHandler(file_handler)
         logger.propagate = False  # avoid logging to root logger too
 
