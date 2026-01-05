@@ -1,6 +1,29 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-01-05 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
+
+Fixes branch error code logging and updates formatting and a spelling error.
+
+### Changes
+
+- `src/`
+    - `process_branch.sh`: Added logic to write error log file if specific exit codes are returned
+    - `run_huc.sh`: reformat
+
+The following files had a spelling correction of "occured" to "occurred":
+- `data/bridges/make_dem_dif_for_bridges.py`
+- `docs/CHANGELOG.md`
+- `fim_process_huc.sh`
+- `src/process_branch.sh`
+- `tools/`
+    - `catfim/`
+        - `generate_categorical_fim_flows.py`
+        - `generate_categorical_fim_mapping.py`
+    - `reformat_to_int16.py`
+
+<br/>
+
 ## v4.9.2.1 - 2025-12-05 [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
 
 This update adds data predownload functionality to CatFIM so it can create categorical FIM maps for sites that don't have thresholds available in the WRDS API. There is also a new default behavior for CatFIM: instead of hitting the WRDS API for each run, the CatFIM code defaults to using pre-downloaded input thresholds and metadata. However, there is still the option to download the thresholds and metadata during the CatFIM run (which was previously the default).
