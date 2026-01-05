@@ -640,7 +640,7 @@ def run_catfim_inundation(
 
                         except Exception:
                             FLOG.critical(
-                                "A critical error occurred while attempting inundation"
+                                "A critical error occured while attempting inundation"
                                 f" for {huc} - {ahps_id}-- {magnitude}"
                             )
                             FLOG.critical(traceback.format_exc())
@@ -648,7 +648,7 @@ def run_catfim_inundation(
                             sys.exit(1)
 
         except Exception:
-            FLOG.critical("A critical error occurred while attempting all hucs inundation")
+            FLOG.critical("A critical error occured while attempting all hucs inundation")
             FLOG.critical(traceback.format_exc())
             FLOG.merge_log_files(log_output_file, child_log_file_prefix)
             sys.exit(1)
@@ -933,7 +933,7 @@ def post_process_huc(
                     )
                 except Exception:
                     MP_LOG.error(
-                        f"An ind reformat map error occurred for {huc} - {ahps_lid} - magnitude {magnitude}"
+                        f"An ind reformat map error occured for {huc} - {ahps_lid} - magnitude {magnitude}"
                     )
                     MP_LOG.error(traceback.format_exc())
 

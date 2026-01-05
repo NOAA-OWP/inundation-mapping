@@ -429,7 +429,7 @@ def generate_flows_for_huc(
         # print("")
 
     except Exception as ex:
-        MP_LOG.error(f"An error occurred while generating flows for huc {huc}")
+        MP_LOG.error(f"An error occured while generating flows for huc {huc}")
         MP_LOG.error(f"Details: {ex}")
         MP_LOG.error(traceback.format_exc())
 

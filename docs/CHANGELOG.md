@@ -16,11 +16,7 @@ The following files had a spelling correction of "occured" to "occurred":
 - `docs/CHANGELOG.md`
 - `fim_process_huc.sh`
 - `src/process_branch.sh`
-- `tools/`
-    - `catfim/`
-        - `generate_categorical_fim_flows.py`
-        - `generate_categorical_fim_mapping.py`
-    - `reformat_to_int16.py`
+- `tools/reformat_to_int16.py`
 
 <br/>
 
