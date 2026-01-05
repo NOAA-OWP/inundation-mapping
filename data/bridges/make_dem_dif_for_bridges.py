@@ -271,7 +271,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
         file_logger.info('TOTAL RUN TIME: ' + str(tot_run_time))
 
     except Exception as ex:
-        msg = f"*** An error occured while making dem diffs : Details: {ex}"
+        msg = f"*** An error occurred while making dem diffs : Details: {ex}"
         print(msg)
         file_logger.critical(msg)
         print(traceback.format_exc())

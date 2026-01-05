@@ -3,6 +3,8 @@
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start
 
+exit 0
+
 ## SOURCE BASH FUNCTIONS
 source $srcDir/bash_functions.env
 
