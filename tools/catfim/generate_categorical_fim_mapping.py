@@ -1500,3 +1500,8 @@ if __name__ == '__main__':
     # manage_catfim_mapping(
     #     source_flow_dir, output_catfim_dir, job_number_huc, job_number_inundate, log_output_file, step_num
     # )
+
+    # TODO: When this script is called by command line, it will always a sites_gdf, but won't use it
+    # as it does not need it. But will save it when it is done.
+    # When this is called by catfim_process_huc.py, it will have sites.gdf returned with updated
+    # as applicable
