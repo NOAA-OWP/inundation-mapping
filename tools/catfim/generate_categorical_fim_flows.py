@@ -296,6 +296,8 @@ def process_theshold_data(catfim_type, valid_lids, sites_gdf, huc, huc_path, thr
 
     # Save the both the library and the discharge files. They will be picked up later.
     # and it is ok if they are empty. Errors have been handles already for the sites_gdf
+    # This will auto have filtered out some recs based on applicable stages and/or flows
+    # that have not met conditions such as -1, 0 or null
     if len(huc_library_df) > 0:
         huc_library_df.to_csv(library_pre_inun_file_path, index=False)
         logging.info(f"Saving initial library file to {library_pre_inun_file_path}")
@@ -396,7 +398,8 @@ def __create_sb_huc_library_data(valid_lids, sites_gdf, threshold_huc_df, metada
             huc_segments_df = pd.concat([huc_segments_df, lid_seg_df], ignore_index=True)
 
         # procesing each magnitude in here, now that the tests that are not mag specific are done
-        # It will append data to the fb library csv as it goes along.
+        # It will append data to the library csv as it goes along.
+        # This will auto have filtered out some stages based on various conditions such as -1, 0 or null
         sites_gdf, lid_library_df = __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data)
         if len(lid_library_df) > 0:
             huc_library_df = pd.concat([huc_library_df, lid_library_df], ignore_index=True)
@@ -628,7 +631,7 @@ def __create_fb_huc_library_data(valid_lids, sites_gdf, threshold_huc_df, metada
             lid, sites_gdf, lid_threshold_data, segments_lst
         )
 
-        # It is ok if this is empty
+        # It is ok if this is empty as it may not have qualified all stages
         if len(lid_library_df) > 0:
             huc_library_df = pd.concat([huc_library_df, lid_library_df], ignore_index=True)
 
@@ -822,7 +825,10 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
     # have three "q" (flow) columns  (q, q_uni, q_src)
     # The three "q" columns are the flow value (applicable to the mag)
 
-    # For FB, all six columns must be there, but for SB, the "q" columns are optional
+    # For FB, all six columns must be there, 
+    # but for SB, the "q" columns are optional with the exception of q_src which is required.
+    # SB uses it when working with datums and rating_curve source (yes... huh???)
+
     # The three/six columns are applicable to the mag type submitted of course
     # ie.. (library rec.source column when we are processing the mag type of action
     # becomes the "action" value in the threshold stage row or threshold flow row.
@@ -843,6 +849,8 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
     # units and sources can be empty strings
     # Remember "q" data is flow data and "stage" of course are stage data
     # If catfim is FB, we will have a flows rec, but SB, this may not exist
+    # However, for SB, if the q_src is empty, it fill fail the record in the datum code
+    # we need to look into that
     q_uni = ""
     q_src = ""
     flow_value = ""
@@ -885,12 +893,17 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
 
     if catfim_type == "sb":
         # add some columns it needs for processing later.
+
+        # We keep this as the original value that came from the threshold but the stage
+        # column could change based on calcs.
+        line_df["rfc_stage"] = float(stage_value)
+
         line_df["datum_adj_ft"] = 0.0
         line_df["datum_adj_wse_ft"] = 0.0
         line_df["datum_adj_wse_m"] = 0.0
         line_df["lid_alt_ft"] = 0.0
         line_df["lid_alt_m"] = 0.0
-        line_df["rfs_stage"] = 0.0
+
         line_df["is_interval"] = False
         line_df["interval_stage"] = None
         line_df["lid_usgs_elev"] = 0.0  # This is a temp processing colum
