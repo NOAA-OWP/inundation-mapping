@@ -92,7 +92,6 @@ def catfim_post_processing(output_folder):
         print(f"  Logs will be saved to {log_file_path}")
 
         # ---------------------
-
         # Validate that we have some huc sites / library data
         huc_path = os.path.join(output_folder, "hucs")
         if not os.path.exists(huc_path):
@@ -174,6 +173,7 @@ def catfim_post_processing(output_folder):
             compiled_library_df.to_csv(library_csv_path)
             logging.info(f"  Created CSV version of library file at {library_csv_path}.")
 
+        # ---------------------
         # Print summary of HUC processing
         m = f"  HUC folders processed: {len(huc_list)}"
         print(m)
