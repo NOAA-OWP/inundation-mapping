@@ -228,6 +228,8 @@ def process_theshold_data(
 
     TODO: why are they called 'q'. ROB: check HV meta data mapx and data load scripts to see if we rename
     it there?  Also.. what does the catfim compare do with the fields?
+    -> Q is the conventional variable to use for discharge in hydrology, so it actually probably 
+       makes sense to keep it named that -E
     """
 
     # Basically.... the same thing as the original generate_flows, but thresholds have already been loaded
@@ -251,7 +253,9 @@ def process_theshold_data(
     # TODO: This should be changed to loading something_path at the HUC level for flow data,
     # The CONUS flow file it is 1.6 GiB and is a bit slow to load.
 
-    # Emily is looking into it
+    # I'm not certain that any of our FIM output flowlines files will be correct for this
+    # application. However, we could potentially use the preclip workflow to create
+    # HUC-level flow files for each HUC. I think this is a task to add to the CatFIM Epic. -E  
 
     # Get the correct nwm_flows_region_df based on the HUC
     if huc[:4] == '2201':  # Guam
@@ -269,29 +273,31 @@ def process_theshold_data(
     # TODO: check if the metadata_json is empty and fail
     # also check that other values such as valid_nwm_lids, thresholds_merge_df is not empty and fail
 
-    # These will save intermediate library data for all lids and mag types that are valid by this point.
-    # More logic will be done later, which may drop some of the library recs.
+    # Create HUC library data functions: 
+    #   - These will save intermediate library data for all lids and mag types that are valid by this point.
+    #   - More logic will be done later, which may drop some of the library recs.
+    #   - All returning df's will be saved as a csv at the end of this function. That helps
+    #      with abstraction allowing the mapping code to function more independantly and it
+    #      can reload files as needed and also give us checkpoint data.
+    #   - These are split to SB and FB mostly because messages are different.
 
-    # All returning df's will be saved as a csv at the end of this function. That helps
-    # with abstraction allowing the mapping code to function more independantly and it
-    # can reload files as needed and also give us checkpoint data.
-
-    # These are split to SB and FB mostly becuase messages are different.
-
+    # Save intermediate library data for all valid LIDs and magnitudes in the HUC (some could still be dropped later)
     if catfim_type == "sb":
-        # This will not create the interval records at this point. It will do it much farther down the road
-        # after it has passed a number of tests per mag.
+        # Create and process stage-based threshold data
         sites_gdf, huc_library_df, huc_segments_df = __create_sb_huc_library_data(
             valid_lids, sites_gdf, threshold_huc_df, metadata_json, nwm_flows_region_df
         )
+        # Note: This will not create the interval records at this point. It will do it much farther down the road
+        # after it has passed a number of tests per mag.
 
     else:
-        # This also creates and processes FB discharge data
+        # Create and process flow-based threshold and discharge data
         sites_gdf, huc_library_df, huc_segments_df, huc_discharges_df = __create_fb_huc_library_data(
             valid_lids, sites_gdf, threshold_huc_df, metadata_json, nwm_flows_region_df
         )
 
-        # It is ok if this is empty
+        # Save discharge dataframe
+        # It is ok if this is empty TODO: then why are we only saving non-empty dfs here? -E
         if len(huc_discharges_df) > 0:
             huc_discharges_df.to_csv(discharge_file_path, index=False)
             logging.info(f"Saving discharge file to {discharge_file_path}")
@@ -305,7 +311,6 @@ def process_theshold_data(
         huc_segments_df.to_csv(segments_file_path, index=False)
         logging.info(f"Saving segment file to {segments_file_path}")
 
-    # It is ok if huc_library_df is empty
     return sites_gdf, huc_library_df
 
 
@@ -413,7 +418,7 @@ def __create_sb_huc_library_data(valid_lids, sites_gdf, threshold_huc_df, metada
 # This is here are we are still talking about raw threshold data at this point
 def __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data):
 
-    # TODO: For now, this one is for SB only, and there is a seperate but very similar one for SB.
+    # TODO: For now, this one is for SB only, and there is a seperate but very similar one for FB.
     # Most of the tests for FB and SB are the same, just the messages are different.
 
     '''
@@ -491,7 +496,7 @@ def __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data):
                 "sb", lid, lid_sites_gdf, magnitude_type, lid_threshold_data
             )
 
-            # should always have a rec instead something catestrophic failed.
+            # should always have a rec unless something catestrophic occurred
             lid_library_df = pd.concat([lid_library_df, lid_mag_library_rec_df], ignore_index=True)
 
         except Exception as ex:
@@ -792,7 +797,7 @@ def __get_fb_discharge_and_library_data_per_lid(lid, sites_gdf, lid_threshold_da
     return sites_gdf, lid_library_df, lid_discharges_df
 
 
-# This is here are we are still talking about raw threshold data at this point
+# We are still talking about raw threshold data at this point
 def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type, lid_threshold_data):
 
     # TODO: do we need any column validation in here? It's twin in both the SB and FB code does not appear to
@@ -888,7 +893,7 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
     # line_df['nrldb_time'] = lid_sites_gdf.iloc[0]["nrldb_timestamp"]
     # line_df['nwis_time'] = lid_sites_gdf.iloc[0]["nwis_timestamp"]
     # line_df['lat'] = float(lid_sites_gdf.iloc[0]["nws_preferred_latitude"])
-    # line_df['lon'] = float(lid_sites_gdf.iloc[0]["nws_preferred_longitude"])
+    # line_df['lon'] = float(lid_sites_gdf.iloc[0]["nws_preferred_longitude"]) 
 
     if catfim_type == "sb":
         # add some columns it needs for processing later.

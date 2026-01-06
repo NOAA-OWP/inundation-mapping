@@ -50,7 +50,7 @@ gpd.options.io_engine = "pyogrio"
 
 """
 
-# TODO: Dec 20225: For all of the possible error messages that could be used with the message text changing
+# TODO: Dec 2025: For all of the possible error messages that could be used with the message text changing
 # per version, I wonder if we should add a "status_code" column to the sites.gdf, so catfim compare can
 # compare codes and not text values. Most of the status messages have been preserved, but likely some changes.
 # Even if we add status_codes now, it won't really have its true value until two version down the road
@@ -130,7 +130,11 @@ def process_huc(huc, output_folder):
 
         # Cleaning up some previous files and folders for new runs. By being specific we can keep debugging files
         # from previous runs.
-        # Some of these are only for stage and some ony for stage, but we will keep it as one just for simplicity
+
+        # We will want to make sure we have a pretty robust cleanup process, because we wouldn't want to 
+        # accidentally leave behind site or library files and accidentally merge them into the final outputs. -E
+
+        # Some of folders are only for stage and some only for flow, but we will keep it as one process just for simplicity
         # Note: later.. catfim post processing will look for only files starting with a huc number and
         # either _sites.gpkg or _library.gpkg
         output_mapping_dir = os.path.join(huc_path, "mapping")
@@ -162,7 +166,8 @@ def process_huc(huc, output_folder):
         section_start_dt = datetime.now(timezone.utc)
         continue_processing = True
 
-        logging.info("loading sites meta data")
+        logging.info("Loading sites metadata...")
+
         # These are filtered to huc level
         metadata_json, sites_gdf = csf.get_metadata(huc, huc_path, output_folder)
 
@@ -212,7 +217,7 @@ def process_huc(huc, output_folder):
             # =========================================
             # Let's get the Threshold data
             section_start_dt = datetime.now(timezone.utc)
-            logging.info("loading flow and threshold data for all valid sites")
+            logging.info("Loading flow and threshold data for all valid sites...")
 
             # ---------------------
             # Get threshold data
@@ -236,7 +241,7 @@ def process_huc(huc, output_folder):
             # =========================================
             # Processing Threshold data  (figure stages and calc flow data for inundation)
             section_start_dt = datetime.now(timezone.utc)
-            logging.info("Processing initial flow and threshold data for all valid sites")
+            logging.info("Processing initial flow and threshold data for all valid sites...")
 
             # Note: We no longer need attribute files or the attribute folder.
             #    The data in those files, were mostly dup data from the sites_gdf
@@ -255,10 +260,9 @@ def process_huc(huc, output_folder):
             # For SB, it does not yet contain any of the interval records as future
             # logic might delimit more mag types.
 
-            # TODO: has_error system? or at least a way to see if
-            # the huc_library_df allows us to keep track of which lids / mags are still
-            # valid for processing. Some may fail in other places down the road
-            # and will be removed from the huc_library_df. For SB, it will add
+            # TODO: has_error system? or at least a way to see if the huc_library_df allows us to keep 
+            # track of which lids / mags are still valid for processing. Some may fail in other places 
+            # down the road and will be removed from the huc_library_df. For SB, it will add
             # some interval recs when applicable
             sites_gdf, huc_library_df = gcf.process_theshold_data(
                 catfim_type,
@@ -271,7 +275,7 @@ def process_huc(huc, output_folder):
                 metadata_json,
             )
 
-            logging.info("End of initial processing flow and threshold data")
+            logging.info("End of initial processing flow and threshold data.")
             duration_msg = sf.calculate_duration_msg(section_start_dt)
             logging.info(duration_msg)
 
