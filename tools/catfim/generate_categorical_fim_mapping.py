@@ -7,24 +7,23 @@ import os
 import sys
 import time
 import traceback
-from concurrent.futures import ProcessPoolExecutor
+from datetime import datetime, timezone
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-from inundate_gms import Inundate_gms
-from mosaic_inundation import Mosaic_inundation
 from rasterio.features import shapes
 from rasterio.warp import Resampling, reproject
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
-from tools_shared_functions import mask_out_lakes
-from tqdm import tqdm
 
-import src.utils.fim_logger as fl
-from src.utils.shared_functions import getDriver
+import src.utils.shared_functions as sf
+import tools.catfim.catfim_shared_functions as csf
 from src.utils.shared_variables import VIZ_PROJECTION
+from tools.inundate_gms import Inundate_gms
+from tools.mosaic_inundation import Mosaic_inundation
+from tools.tools_shared_functions import mask_out_lakes
 
 
 """
@@ -33,13 +32,12 @@ Oct/Nov 2025: Notes for MP and splitting logic layer reorg. ie) pre procesing, p
 Tenative notes:
     - Some of the functions in here may move or be split to smaller functions.
 
-    - Data acquision such as meta, threshold or flows, should be moved to generate_categorical_fim_flows.py
-      which has been renamed to generate_categorical_fim_thresholds.
+    - Data acquision such as meta, threshold or flows, should be moved to generate_categorical_fim_flows.py.
 
     - This script will focus on inundation, tifs, gpkgs, etc. for both FB and SB.
 
     - Some current functions from other files such as generate_categorical_fim.py and maybe
-      generate_categorical_fim_thresholds.py will be moved here if it is related to inundation,
+      generate_categorical_fim_flows.py will be moved here if it is related to inundation,
       etc as mentioned above.
 
 
@@ -49,27 +47,77 @@ Tenative notes:
 # However, some logic processing is done here as well. We might move some of that later.
 
 
-'''
-
-Aug 2024
-This script was upgraded significantly with lots of misc TODO's embedded.
-Lots of inline documenation needs updating as well
-
-Oct 2025
-Doc strings and improved documentation was added.
-
-'''
-
-
-# will become global once initiallized
-FLOG = fl.FIM_logger()
-MP_LOG = fl.FIM_logger()
-
 gpd.options.io_engine = "pyogrio"
 
 
-# Technically, this is once called as a non MP, but also called in an MP pool
-# we will use an MP object either way
+# This function is only called when the tool is being run by itself from command line
+def catfim_mapping(huc, output_folder):
+    # This is use by this tool from command line only.
+    # It just sets up a logger (its own?) hummmm
+
+    # and load runtime_args itself as it won't be from command line.
+
+    print("Running mapping from command line, setting up the enviro and logging")
+
+    # start its own logging
+    # kill and rebuild its own fresh mapping folder
+
+    csf.load_runtime_args()
+
+    huc_path, output_folder = csf.validate_inputs(
+        huc, output_folder
+    )  # also validates some bash_variables if it needs any.
+
+    output_mapping_dir = os.path.join(huc_path, "mapping")
+    output_temp_dir = os.path.join(huc_path, "temp")
+    sites_mapping_file_path = os.path.join(output_mapping_dir, f"sites_mapping.gpkg")
+    library_pre_inun_file_path = os.path.join(output_temp_dir, "library_pre_inundation.csv")
+    library_post_mapping_file_path = os.path.join(output_mapping_dir, "library_post_mapping.gpkg")
+
+    process_mapping(
+        os.getenv('CATFIM_TYPE'),
+        huc,
+        huc_path,
+        output_mapping_dir,
+        output_temp_dir,
+        sites_mapping_file_path,
+        library_pre_inun_file_path,
+        library_post_mapping_file_path,
+    )
+
+    print("Completed running mapping from command line")
+
+
+def process_mapping(
+    catfim_type_name,
+    huc,
+    huc_path,
+    output_mapping_dir,
+    output_temp_dir,
+    sites_mapping_file_path,
+    library_pre_inun_file_path,
+    library_post_mapping_file_path,
+):
+
+    # We can just redefine our segements file and discharge file as we need them.
+
+    # Add its own duration system and section start and close messages
+    section_start_dt = datetime.now(timezone.utc)
+    logging.info("Starting catfim mapping")
+
+    # --------------------------
+    # Validation
+    #   - make sure the discharge (if applicable), exists
+    #   - make sure the segments file exist (for both FB and SB)
+    #   - the site "pre_mapping" version what ever that may be
+
+    # --------------------------
+
+    logging.info("End of catfim mapping")
+    duration_msg = sf.calculate_duration_msg(section_start_dt)
+    logging.info(duration_msg)
+
+
 def produce_stage_based_lid_tifs(
     stage_val,
     datum_adj_ft,
@@ -148,12 +196,12 @@ def produce_stage_based_lid_tifs(
 
     '''
 
-    MP_LOG.MP_Log_setup(mp_parent_log_file, child_log_file_prefix)
+    # MP_LOG.MP_Log_setup(mp_parent_log_file, child_log_file_prefix)
 
     messages = []
 
     huc_lid_cat_id = f"{huc} : {lid} : {category_key}"
-    MP_LOG.trace(f"{huc_lid_cat_id}: Starting to create tifs")
+    # MP_LOG.trace(f"{huc_lid_cat_id}: Starting to create tifs")
 
     # Determine datum-offset water surface elevation (from above).
     datum_adj_wse = stage_val + datum_adj_ft + lid_altitude
@@ -525,7 +573,6 @@ def produce_inundated_branch_tif(
     return
 
 
-# This is not part of an MP process, but needs to have FLOG carried over so this file can see it
 def run_catfim_inundation(
     fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
 ):
@@ -686,7 +733,6 @@ def run_catfim_inundation(
     return
 
 
-# This is part of an MP Pool
 def run_inundation(
     magnitude_flows_csv,
     huc,
@@ -809,9 +855,6 @@ def run_inundation(
     return
 
 
-# This is part of an MP Pool
-# TODO: Aug 2024: job_number_inundate is not used well at all and is partially
-# with more cleanup to do later. Partially removed now.
 def post_process_huc(
     output_catfim_dir,
     ahps_dir_list,
@@ -970,7 +1013,6 @@ def post_process_huc(
     return
 
 
-# This is not part of an MP process, but does need FLOG carried into it so it can use FLOG directly
 def post_process_cat_fim_for_viz(
     catfim_method, output_catfim_dir, job_huc_ahps, catfim_version, model_version, log_output_file
 ):
@@ -1145,7 +1187,6 @@ def post_process_cat_fim_for_viz(
     return
 
 
-# This is part of an MP pool
 def reformat_inundation_maps(
     ahps_lid,
     tif_to_process,
@@ -1289,7 +1330,7 @@ def reformat_inundation_maps(
 
         if not extent_poly_diss.empty:
             extent_poly_diss.to_file(
-                diss_extent_filename, driver=getDriver(diss_extent_filename), index=False, engine='fiona'
+                diss_extent_filename, driver=sf.getDriver(diss_extent_filename), index=False, engine='fiona'
             )
             # MP_LOG.trace(
             #    f"{huc} : {ahps_lid} : {magnitude} - Reformatted inundation map saved"
@@ -1313,11 +1354,6 @@ def reformat_inundation_maps(
     return
 
 
-# This is not part of an MP progress and simply needs the
-# pointer of FLOG carried over here so it can use it directly.
-
-
-# TODO: Aug, 2024. We need re-evaluate job numbers, see usage of job numbers below
 def manage_catfim_mapping(
     fim_run_dir,
     output_flows_dir,
@@ -1438,70 +1474,4 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    # # Parse arguments
-    # parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
-    # parser.add_argument(
-    #     '-r', '--fim-run-dir', help='Name of directory containing outputs of fim_run.sh', required=True
-    # )
-    # parser.add_argument(
-    #     '-s',
-    #     '--source-flow-dir',
-    #     help='Path to directory containing flow CSVs to use to generate categorical FIM.',
-    #     required=True,
-    #     default="",
-    # )
-    # parser.add_argument(
-    #     '-o',
-    #     '--output-catfim-dir',
-    #     help='Path to directory where categorical FIM outputs will be written.',
-    #     required=True,
-    #     default="",
-    # )
-    # parser.add_argument(
-    #     '-jh',
-    #     '--job-number-huc',
-    #     help='Number of processes to use for huc processing. Default is 1.',
-    #     required=False,
-    #     default="1",
-    #     type=int,
-    # )
-    # parser.add_argument(
-    #     '-jn',
-    #     '--job-number-inundate',
-    #     help='OPTIONAL: Number of processes to use for inundating'
-    #     ' HUC and inundation job numbers should multiply to no more than one less than the CPU count'
-    #     ' of the machine. Defaults to 1.',
-    #     required=False,
-    #     default=1,
-    #     type=int,
-    # )
-
-    # parser.add_argument(
-    #     '-step',
-    #     '--step_number',
-    #     help='Using this option will write depth TIFFs.',
-    #     required=False,
-    #     default=1,
-    #     type=int,
-    # )
-
-    # args = vars(parser.parse_args())
-
-    # fim_run_dir = args['fim_run_dir']
-    # source_flow_dir = args['source_flow_dir']
-    # output_catfim_dir = args['output_catfim_dir']
-    # job_number_huc = int(args['job_number_huc'])
-    # job_number_inundate = int(args['job_number_inundate'])
-    # step_num = args['step_number']
-
-    # log_dir = os.path.join(output_catfim_dir, "logs")
-    # log_output_file = FLOG.calc_log_name_and_path(log_dir, "gen_cat_mapping")
-
-    # manage_catfim_mapping(
-    #     source_flow_dir, output_catfim_dir, job_number_huc, job_number_inundate, log_output_file, step_num
-    # )
-
-    # TODO: When this script is called by command line, it will always a sites_gdf, but won't use it
-    # as it does not need it. But will save it when it is done.
-    # When this is called by catfim_process_huc.py, it will have sites.gdf returned with updated
-    # as applicable
+    catfim_mapping(**args)

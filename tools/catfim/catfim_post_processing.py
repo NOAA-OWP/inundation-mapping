@@ -1,12 +1,12 @@
 import argparse
 import logging
 import os
+import shutil
 import traceback
 from datetime import datetime, timezone
+
 import geopandas as gpd
 import pandas as pd
-import shutil
-
 from dotenv import load_dotenv
 
 import src.utils.shared_functions as sf
@@ -75,7 +75,9 @@ def catfim_post_processing(output_folder):
         print("")
 
         # Create filepath names and delete any pre-existing output files
-        sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count = __set_start_files_folders(output_folder, catfim_type_name)
+        sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count = __set_start_files_folders(
+            output_folder, catfim_type_name
+        )
 
         if deleted_file_count > 0:
             print(f"Removed {deleted_file_count} pre-existing output file(s).")
@@ -92,7 +94,8 @@ def catfim_post_processing(output_folder):
         if not os.path.exists(huc_path):
             raise Exception("CatFIM output huc folder does not exist. Post-processing aborted.")
 
-        # Gets a list of huc numbers by finding folder names from /data/catfim/hand_4_8_7_2_stage_based/huc)
+        # Note for the future: Never use the catfim_huc_list.txt as it might be invalid after initial processing
+        # This is much better: Gets a list of huc numbers by finding folder names from /data/catfim/hand_4_8_7_2_stage_based/huc)
         huc_list = [
             x
             for x in os.listdir(huc_path)
@@ -180,7 +183,12 @@ def catfim_post_processing(output_folder):
 
         # Concatenate all GeoDataFrames into one GDF each
         compiled_sites_gdf = gpd.pd.concat(compiled_sites_gdf_list, ignore_index=True)
+        # We need to change the column name here
+        compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+
         compiled_library_gdf = gpd.pd.concat(compiled_library_gdf_list, ignore_index=True)
+        # We need to change the column name here
+        compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
         # Save the compiled GeoDataFrames to GeoPackage files
         compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona')
