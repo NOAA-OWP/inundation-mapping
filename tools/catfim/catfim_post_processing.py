@@ -47,16 +47,7 @@ import src.utils.shared_functions as sf
 
 def catfim_post_processing(output_folder):
 
-    is_logging_loaded = False
-
-    # TEMPORARY DEBUGGING FUNCTIONALITY: Copy the contents of the input folder to a temp folder and work there.
-    temp_output_folder = os.path.join(output_folder, "temp_post_process")
-    os.mkdirs(temp_output_folder, exist_ok=True)
-    shutil.copytree(output_folder, temp_output_folder, dirs_exist_ok=True)
-    output_folder = temp_output_folder
-    print('Using temporary output folder for post processing:', output_folder) ## TEMP DEBUG
-    # REMOVE ABOVE BEFORE FLIGHT
-
+    is_logging_loaded = False # TODO: Does this ever become "True"?
 
     # Validate output_folder path
     if not os.path.exists(output_folder):
@@ -66,6 +57,7 @@ def catfim_post_processing(output_folder):
 
         overall_start_time = datetime.now(timezone.utc)
         dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
+
         print("================================")
 
         # ---------------------
@@ -79,17 +71,20 @@ def catfim_post_processing(output_folder):
         else:
             catfim_type_name = "flow_based"
 
-        print(f"Start post-processing for {catfim_type_name} ;  (UTC): {dt_string}")
+        print(f"Starting post-processing for {catfim_type_name} at {dt_string} (UTC)")
         print("")
 
         # Create filepath names and delete any pre-existing output files
-        sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path = __set_start_files_folders(output_folder, catfim_type_name)
+        sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count = __set_start_files_folders(output_folder, catfim_type_name)
+
+        if deleted_file_count > 0:
+            print(f"Removed {deleted_file_count} pre-existing output file(s).")
 
         # ---------------------
         # Create a post-processing logger (Log folder may be shared with pre-processing)
         log_file_dir = os.path.join(output_folder, "logs")
         log_file_path = sf.setup_file_logger(log_file_dir, "catfim_post_processing")
-        print(f"  Logs will be saved to {log_file_path}")
+        print(f"Logs will be saved to {log_file_path}")
 
         # ---------------------
         # Validate that we have some huc sites / library data
@@ -107,52 +102,81 @@ def catfim_post_processing(output_folder):
         if len(huc_list) == 0:
             raise Exception("No HUCs found in CatFIM output huc folder. Post-processing aborted.")
 
-        logging.info(f"  Found {len(huc_list)} HUCs to process.")
+        logging.info("")
+        logging.info(f"Found {len(huc_list)} HUC folder(s) to process.")
+        logging.info("Beginning iteration through HUC folders...")
+        # logging.info(huc_list) # TEMP DEBUG
+        logging.info("")
 
+        # ---------------------
         # Iterate through each HUC folder and compile all sites.gpkg and library.gpkg files into one big file each
-        hucs_without_sites, hucs_without_library, hucs_with_sites, hucs_with_library = [], [], [], []
+        hucs_without_sites, hucs_without_library = [], []
         compiled_sites_gdf_list, compiled_library_gdf_list = [], []
 
         for huc in huc_list:
             huc_folder = os.path.join(huc_path, huc)
+            missing_data = False # reset for each HUC
 
-            # Sites file
+            # Sites
             huc_sites_file = os.path.join(huc_folder, f"{huc}_sites.gpkg")
-            if os.path.isfile(huc_sites_file):
-                # Append to compiled sites file
-                huc_sites_gdf = gpd.read_file(huc_sites_file, engine='fiona')
+            try:
+                with open(huc_sites_file, 'r') as f:
+                    huc_sites_gdf = gpd.read_file(huc_sites_file, engine='fiona')
 
-                if os.path.isfile(sites_gpkg_path):
-                    compiled_sites_gdf = gpd.read_file(sites_gpkg_path, engine='fiona')
-                    compiled_sites_gdf_list.append(huc_sites_gdf)
-                # else:
-                    # print warning?
-
-                logging.info(f"    Appended sites from HUC {huc} to compiled sites GDF list.")
-                hucs_with_sites.append(huc)
-
-            else:
+            except FileNotFoundError:
                 hucs_without_sites.append(huc)
-                logging.warning(f"    WARNING: No sites file found for HUC {huc}.")
+                missing_data = True
+                # logging.warning(f"{huc} - WARNING: The file '{huc_sites_file}' does not exist.") # TEMP DEBUG
 
-            # Library file
+            # Library
             huc_library_file = os.path.join(huc_folder, f"{huc}_library.gpkg")
-            if os.path.isfile(huc_library_file):
-                # Append to compiled library file
-                huc_library_gdf = gpd.read_file(huc_library_file, engine='fiona')
+            try:
+                with open(huc_library_file, 'r') as f:
+                    huc_library_gdf = gpd.read_file(huc_library_file, engine='fiona')
 
-                if os.path.isfile(library_gpkg_path):
-                    compiled_library_gdf = gpd.read_file(library_gpkg_path, engine='fiona')
-                    compiled_library_gdf_list.append(huc_library_gdf)
-                # else:
-                    # print warning?
-
-                logging.info(f"    Appended library from HUC {huc} to compiled library GDF list.")
-                hucs_with_library.append(huc)
-
-            else:
+            except FileNotFoundError:
                 hucs_without_library.append(huc)
-                logging.warning(f"    WARNING: No library file found for HUC {huc}.")
+                missing_data = True
+                # logging.warning(f"{huc} - WARNING: The file '{huc_library_file}' does not exist.") # TEMP DEBUG
+
+            # If both files were found, append to compiled lists
+            if missing_data:
+                logging.info(f"{huc} - Skipped appending due to missing data.")
+            else:
+                logging.info(f"{huc} - Sites and library files found, appending data to output lists.")
+                compiled_sites_gdf_list.append(huc_sites_gdf)
+                compiled_library_gdf_list.append(huc_library_gdf)
+
+        # ---------------------
+        # Summarize HUC processing
+
+        logging.info("")
+        logging.info("Done iterating through HUC folders.")
+        logging.info(f"Compiled data from {len(compiled_sites_gdf_list)} out of {len(huc_list)} HUC folders.")
+
+        # Print HUCs that had neither sites nor library file
+        hucs_without_library_and_sites = list(set(hucs_without_sites) & set(hucs_without_library))
+        if len(hucs_without_library_and_sites) > 0:
+            logging.warning(f"WARNING: {len(hucs_without_library_and_sites)} HUC(s) skipped due to missing sites AND library files:")
+            logging.warning(hucs_without_library_and_sites)
+
+        # Print HUCs that had library but no sites (unlikely might indicate a bug)
+        hucs_missing_only_sites = list(set(hucs_without_sites).difference(set(hucs_without_library)))
+        if len(hucs_missing_only_sites) > 0:
+            logging.warning(f"WARNING: {len(hucs_missing_only_sites)} HUC(s) skipped due to missing sites file:")
+            logging.warning(hucs_missing_only_sites)
+
+        # Print HUCs that had sites but no library (unlikely, might indicate a bug)
+        hucs_missing_only_library = list(set(hucs_without_library).difference(set(hucs_without_sites)))
+        if len(hucs_missing_only_library) > 0:
+            logging.warning(f"WARNING: {len(hucs_missing_only_library)} HUC(s) skipped due to missing library file:")
+            logging.warning(hucs_missing_only_library)
+
+        # ---------------------
+        # Save compiled sites and library files
+
+        logging.info("")
+        logging.info("Saving compiled sites and library files...")
 
         # Concatenate all GeoDataFrames into one GDF each
         compiled_sites_gdf = gpd.pd.concat(compiled_sites_gdf_list, ignore_index=True)
@@ -160,44 +184,19 @@ def catfim_post_processing(output_folder):
 
         # Save the compiled GeoDataFrames to GeoPackage files
         compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona')
+        logging.info(f"Saved sites GeoPackage to {sites_gpkg_path}")
+
         compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona')
+        logging.info(f"Saved library GeoPackage to {library_gpkg_path}")
 
-        # Create a csv version of the sites and library files
-        if os.path.isfile(sites_gpkg_path): # TODO: Decide if this check is needed
-            compiled_sites_df = compiled_sites_gdf.drop(columns=['geometry'])
-            compiled_sites_df.to_csv(sites_csv_path, index = False)
-            logging.info(f"  Created CSV version of sites file at {sites_csv_path}.")
+        # Drop geometry column and save the csv versions
+        compiled_sites_df = compiled_sites_gdf.drop(columns=['geometry'])
+        compiled_sites_df.to_csv(sites_csv_path, index = False)
+        logging.info(f"Saved sites CSV to {sites_csv_path}")
 
-        if os.path.isfile(library_gpkg_path): # TODO: Decide if this check is needed
-            compiled_library_df = compiled_library_gdf.drop(columns=['geometry'])
-            compiled_library_df.to_csv(library_csv_path)
-            logging.info(f"  Created CSV version of library file at {library_csv_path}.")
-
-        # ---------------------
-        # Print summary of HUC processing
-        m = f"  HUC folders processed: {len(huc_list)}"
-        print(m)
-        logging.info(m)
-        logging.info(f"    HUCs with sites files: {len(hucs_with_sites)}")
-        logging.info(f"    HUCs with library files: {len(hucs_with_library)}")
-
-        # Print HUCs that had neither sites nor library file
-        hucs_with_neither = set(huc_list).difference(set(hucs_with_sites).union(set(hucs_with_library)))
-        if len(hucs_with_neither) > 0:
-            logging.warning(f"  WARNING: {len(hucs_with_neither)} HUCs had neither sites nor library files:")
-            logging.warning(f"    {hucs_with_neither}")
-
-        # Print HUCs that had a sites file but no library file (unlikely scenario)
-        hucs_with_sites_but_no_library = set(hucs_with_sites).difference(set(hucs_with_library))
-        if len(hucs_with_sites_but_no_library) > 0:
-            logging.warning(f"  WARNING: {len(hucs_with_sites_but_no_library)} HUCs had a sites file but no library file:")
-            logging.warning(f"    {hucs_with_sites_but_no_library})")
-
-        # Print HUCs that had a library file but no sites file (unlikely scenario)
-        hucs_with_library_but_no_sites = set(hucs_with_library).difference(set(hucs_with_sites))
-        if len(hucs_with_library_but_no_sites) > 0:
-            logging.warning(f"  WARNING: {len(hucs_with_library_but_no_sites)} HUCs had a library file but no sites file:")
-            logging.warning(f"    {hucs_with_library_but_no_sites})")
+        compiled_library_df = compiled_library_gdf.drop(columns=['geometry'])
+        compiled_library_df.to_csv(library_csv_path)
+        logging.info(f"Saved library CSV to {library_csv_path}")
 
         # ---------------------
         # Rollup logs? TODO
@@ -206,9 +205,15 @@ def catfim_post_processing(output_folder):
         #   or maybe all? not sure what is smart here.
         #   search for files in each huc level for file names with _errors or _warnings
 
+        logging.info("")
         logging.info("End CatFIM post-processing")
         duration_msg = sf.calculate_duration_msg(overall_start_time)
         logging.info(duration_msg)
+        logging.info("")
+        print("================================")
+        print("")
+
+
 
     except Exception:
         trace_error = traceback.format_exc()
@@ -219,7 +224,7 @@ def catfim_post_processing(output_folder):
         else:
             print(err_msg)
 
-        # do we re-throw the error? gcf, aws, or cmd line? hummm
+        # do we re-throw the error? gcf, aws, or cmd line? hummm TODO
 
 
 def __load_runtime_args(output_folder):
@@ -239,26 +244,34 @@ def __set_start_files_folders(output_folder, catfim_type_name):
 
     # ================================
     # CLEANUP
-    # Remove pre-existing output files / folders except anything in the log folder, we keep that one only. # TODO: Any other folders to remove?
+    # Remove pre-existing output files / folders except anything in the log folder, we keep that one only.
+    # # TODO: Any other folders to remove? I don't think so
+    
+    deleted_file_count = 0
+
     sites_gpkg_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_sites.gpkg")
-    if os.path.isfile(sites_gpkg_path):
+    if os.path.exists(sites_gpkg_path):
         os.remove(sites_gpkg_path)
+        deleted_file_count += 1
 
     sites_csv_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_sites.csv")
-    if os.path.isfile(sites_csv_path):
+    if os.path.exists(sites_csv_path):
         os.remove(sites_csv_path)
+        deleted_file_count += 1
 
     library_gpkg_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_library.gpkg")
-    if os.path.isfile(library_gpkg_path):
+    if os.path.exists(library_gpkg_path):
         os.remove(library_gpkg_path)
+        deleted_file_count += 1
 
     library_csv_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_library.csv")
-    if os.path.isfile(library_csv_path):
+    if os.path.exists(library_csv_path):
         os.remove(library_csv_path)
+        deleted_file_count += 1
 
     # Always keeps the logs folder
 
-    return sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path
+    return sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count
 
 
 if __name__ == '__main__':
@@ -274,7 +287,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-t',
         '--output-folder',
-        help='REQUIRED: Target location, Where the output folder will be.'
+        help='REQUIRED: Target location, location of the CatFIM output folder to be post-processed.'
         'ie /data/catfim/hand_4_8_7_2 or /data/catfim/test/test1',
         required=True,
     )
