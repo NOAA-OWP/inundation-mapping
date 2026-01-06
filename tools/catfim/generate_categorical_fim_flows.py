@@ -209,7 +209,9 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
 # More / less equiv to generate_flows in previous versions but some parts have already been done
 # before we get here, such as dropping lids for restricted sites. Threshold data is more refined
 # by now from previous versions.
-def process_theshold_data(catfim_type, valid_lids, sites_gdf, huc, huc_path, output_temp_dir, threshold_huc_df, metadata_json):
+def process_theshold_data(
+    catfim_type, valid_lids, sites_gdf, huc, huc_path, output_temp_dir, threshold_huc_df, metadata_json
+):
     """
     By this point some lids have been dropped such as one from the restricted sites list.
 
@@ -243,7 +245,7 @@ def process_theshold_data(catfim_type, valid_lids, sites_gdf, huc, huc_path, out
     segments_file_path = os.path.join(huc_path, "features_segments.csv")
 
     # initial library file post threshold processing
-    library_pre_inun_file_path = os.path.join(output_temp_dir, "library_pre_inundation.csv")
+    # library_pre_inun_file_path = os.path.join(output_temp_dir, "library_pre_inundation.csv")
 
     # ++++++++++++++++++++++++++++
     # TODO: This should be changed to loading something_path at the HUC level for flow data,
@@ -294,13 +296,10 @@ def process_theshold_data(catfim_type, valid_lids, sites_gdf, huc, huc_path, out
             huc_discharges_df.to_csv(discharge_file_path, index=False)
             logging.info(f"Saving discharge file to {discharge_file_path}")
 
-    # Save the both the library and the discharge files. They will be picked up later.
+    # Save the segments files. They will be picked up later.
     # and it is ok if they are empty. Errors have been handles already for the sites_gdf
     # This will auto have filtered out some recs based on applicable stages and/or flows
     # that have not met conditions such as -1, 0 or null
-    if len(huc_library_df) > 0:
-        huc_library_df.to_csv(library_pre_inun_file_path, index=False)
-        logging.info(f"Saving initial library file to {library_pre_inun_file_path}")
 
     if len(huc_segments_df) > 0:
         huc_segments_df.to_csv(segments_file_path, index=False)
@@ -507,7 +506,7 @@ def __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data):
         msg = 'No thresholds for required categories found on WRDS API'
         logging.warning(f"{lid}: {msg}")
         sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
-        return sites_gdf, pd.DataFrame, []
+        return sites_gdf, pd.DataFrame()
 
     elif len(invalid_stages) > 0:
         warning_mags = '; '.join(invalid_stages)
@@ -697,7 +696,7 @@ def __get_fb_discharge_and_library_data_per_lid(lid, sites_gdf, lid_threshold_da
 
     # FB does use some stage values, but only to add to the library tables. It does not use the value in calcs.
     stages = lid_threshold_data.loc[lid_threshold_data['threshold_type'] == 'stages'].to_dict(
-         orient='records'
+        orient='records'
     )[0]
     flows = lid_threshold_data.loc[lid_threshold_data['threshold_type'] == 'flows'].to_dict(orient='records')[
         0
@@ -825,7 +824,7 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
     # have three "q" (flow) columns  (q, q_uni, q_src)
     # The three "q" columns are the flow value (applicable to the mag)
 
-    # For FB, all six columns must be there, 
+    # For FB, all six columns must be there,
     # but for SB, the "q" columns are optional with the exception of q_src which is required.
     # SB uses it when working with datums and rating_curve source (yes... huh???)
 
@@ -898,15 +897,15 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
         # column could change based on calcs.
         line_df["rfc_stage"] = float(stage_value)
 
-        line_df["datum_adj_ft"] = 0.0
-        line_df["datum_adj_wse_ft"] = 0.0
-        line_df["datum_adj_wse_m"] = 0.0
-        line_df["lid_alt_ft"] = 0.0
-        line_df["lid_alt_m"] = 0.0
+        line_df["datum_adj_ft"] = -9999.0
+        line_df["datum_adj_wse_ft"] = -9999.0
+        line_df["datum_adj_wse_m"] = -9999.0
+        line_df["lid_alt_ft"] = -9999.0
+        line_df["lid_alt_m"] = -9999.0
 
         line_df["is_interval"] = False
         line_df["interval_stage"] = None
-        line_df["lid_usgs_elev"] = 0.0  # This is a temp processing colum
+        line_df["lid_usgs_elev"] = -9999.0  # This is a temp processing colum
 
     return line_df
 

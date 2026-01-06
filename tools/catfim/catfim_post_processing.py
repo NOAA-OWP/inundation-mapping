@@ -1,12 +1,12 @@
 import argparse
 import logging
 import os
+import shutil
 import traceback
 from datetime import datetime, timezone
+
 import geopandas as gpd
 import pandas as pd
-import shutil
-
 from dotenv import load_dotenv
 
 import src.utils.shared_functions as sf
@@ -54,9 +54,8 @@ def catfim_post_processing(output_folder):
     os.mkdirs(temp_output_folder, exist_ok=True)
     shutil.copytree(output_folder, temp_output_folder, dirs_exist_ok=True)
     output_folder = temp_output_folder
-    print('Using temporary output folder for post processing:', output_folder) ## TEMP DEBUG
+    print('Using temporary output folder for post processing:', output_folder)  ## TEMP DEBUG
     # REMOVE ABOVE BEFORE FLIGHT
-
 
     # Validate output_folder path
     if not os.path.exists(output_folder):
@@ -83,7 +82,9 @@ def catfim_post_processing(output_folder):
         print("")
 
         # Create filepath names and delete any pre-existing output files
-        sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path = __set_start_files_folders(output_folder, catfim_type_name)
+        sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path = __set_start_files_folders(
+            output_folder, catfim_type_name
+        )
 
         # ---------------------
         # Create a post-processing logger (Log folder may be shared with pre-processing)
@@ -97,7 +98,8 @@ def catfim_post_processing(output_folder):
         if not os.path.exists(huc_path):
             raise Exception("CatFIM output huc folder does not exist. Post-processing aborted.")
 
-        # Gets a list of huc numbers by finding folder names from /data/catfim/hand_4_8_7_2_stage_based/huc)
+        # Note for the future: Never use the catfim_huc_list.txt as it might be invalid after initial processing
+        # This is much better: Gets a list of huc numbers by finding folder names from /data/catfim/hand_4_8_7_2_stage_based/huc)
         huc_list = [
             x
             for x in os.listdir(huc_path)
@@ -126,7 +128,7 @@ def catfim_post_processing(output_folder):
                     compiled_sites_gdf = gpd.read_file(sites_gpkg_path, engine='fiona')
                     compiled_sites_gdf_list.append(huc_sites_gdf)
                 # else:
-                    # print warning?
+                # print warning?
 
                 logging.info(f"    Appended sites from HUC {huc} to compiled sites GDF list.")
                 hucs_with_sites.append(huc)
@@ -145,7 +147,7 @@ def catfim_post_processing(output_folder):
                     compiled_library_gdf = gpd.read_file(library_gpkg_path, engine='fiona')
                     compiled_library_gdf_list.append(huc_library_gdf)
                 # else:
-                    # print warning?
+                # print warning?
 
                 logging.info(f"    Appended library from HUC {huc} to compiled library GDF list.")
                 hucs_with_library.append(huc)
@@ -156,19 +158,24 @@ def catfim_post_processing(output_folder):
 
         # Concatenate all GeoDataFrames into one GDF each
         compiled_sites_gdf = gpd.pd.concat(compiled_sites_gdf_list, ignore_index=True)
+        # We need to change the column name here
+        compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+
         compiled_library_gdf = gpd.pd.concat(compiled_library_gdf_list, ignore_index=True)
+        # We need to change the column name here
+        compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
         # Save the compiled GeoDataFrames to GeoPackage files
         compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona')
         compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona')
 
         # Create a csv version of the sites and library files
-        if os.path.isfile(sites_gpkg_path): # TODO: Decide if this check is needed
+        if os.path.isfile(sites_gpkg_path):  # TODO: Decide if this check is needed
             compiled_sites_df = compiled_sites_gdf.drop(columns=['geometry'])
-            compiled_sites_df.to_csv(sites_csv_path, index = False)
+            compiled_sites_df.to_csv(sites_csv_path, index=False)
             logging.info(f"  Created CSV version of sites file at {sites_csv_path}.")
 
-        if os.path.isfile(library_gpkg_path): # TODO: Decide if this check is needed
+        if os.path.isfile(library_gpkg_path):  # TODO: Decide if this check is needed
             compiled_library_df = compiled_library_gdf.drop(columns=['geometry'])
             compiled_library_df.to_csv(library_csv_path)
             logging.info(f"  Created CSV version of library file at {library_csv_path}.")
@@ -190,13 +197,17 @@ def catfim_post_processing(output_folder):
         # Print HUCs that had a sites file but no library file (unlikely scenario)
         hucs_with_sites_but_no_library = set(hucs_with_sites).difference(set(hucs_with_library))
         if len(hucs_with_sites_but_no_library) > 0:
-            logging.warning(f"  WARNING: {len(hucs_with_sites_but_no_library)} HUCs had a sites file but no library file:")
+            logging.warning(
+                f"  WARNING: {len(hucs_with_sites_but_no_library)} HUCs had a sites file but no library file:"
+            )
             logging.warning(f"    {hucs_with_sites_but_no_library})")
 
         # Print HUCs that had a library file but no sites file (unlikely scenario)
         hucs_with_library_but_no_sites = set(hucs_with_library).difference(set(hucs_with_sites))
         if len(hucs_with_library_but_no_sites) > 0:
-            logging.warning(f"  WARNING: {len(hucs_with_library_but_no_sites)} HUCs had a library file but no sites file:")
+            logging.warning(
+                f"  WARNING: {len(hucs_with_library_but_no_sites)} HUCs had a library file but no sites file:"
+            )
             logging.warning(f"    {hucs_with_library_but_no_sites})")
 
         # ---------------------

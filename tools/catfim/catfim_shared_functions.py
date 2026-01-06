@@ -300,3 +300,90 @@ def load_restricted_sites(catfim_type):
     df_restricted_sites = df_restricted_sites.drop('catfim_type', axis=1)
 
     return df_restricted_sites
+
+
+def load_runtime_args(output_folder):
+    '''
+    Variables loaded (example)
+        CATFIM_TYPE=fb
+        ENV_FILE="/data/config/fim_enviro_values.env"
+        SEARCH=5
+        NWM_METAFILE_PATH=""
+        NWM_SITES_PATH=""
+        GET_NEW_META_DATA=False
+        THRESHOLD_FILE_PATH=""
+        GET_NEW_THRESHOLD_DATA=False
+        FIM_RUN_DIR="/data/previous_fim/hand_4_8_7_2"
+        PAST_MAJOR_INTERVAL_CAP=5
+    '''
+
+    args_file_name = "runtime_args.env"
+    args_file = os.path.join(output_folder, args_file_name)
+
+    if not os.path.isfile(args_file):
+        raise ValueError(f"Unable to find the runtime_args.env at {output_folder}")
+
+    # use load_env, and pull out just the variables it needs.
+    load_dotenv(args_file)
+
+    # Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans
+
+
+def validate_inputs(huc, output_folder):
+
+    # This validates some inputs but also copies key files around.
+
+    # TODO: valdiate huc value (8 numeric maybe and starts with 0, 1, or 2) ????
+
+    if not output_folder or output_folder == "":
+        raise ValueError("output_folder argument can not be None or empty.")
+    if output_folder.endswith("/"):  # strip it off the end
+        output_folder = output_folder[:-1]
+
+    # does it already have the subfolder of "hucs"? strip it for now temporarily
+    if output_folder.endswith("hucs"):
+        output_folder = output_folder[:-4]
+
+    if not os.path.exists(
+        output_folder
+    ):  # the hucs subfolder may/may not exist but the root output folder must
+        raise ValueError(
+            f"output_folder of {output_folder} does not exist. Please check pathing including case."
+        )
+
+    # Validate data exists in the fim_run_dir and it includes this HUC.
+    # This may seem reduntant as it was checked (sort of) in generate_categorical_fim.py.
+    # However, this one is HUC specific and it is possible that a HUC
+    # can be run after generate_categorical_fim.py was run and add more HUC on the fly.
+    # If this HUC did not previous exist or failed, you can re-run this script independantly
+    # then run post processing again.
+    fim_run_dir = os.getenv("FIM_RUN_DIR")
+    if not fim_run_dir:
+        raise ValueError(
+            "The enviro value for FIM_RUN_DIR does not exist or is empty. It was loaded"
+            " and included in the runtime_arg enviro file. Check pathing and variables."
+        )
+    fim_run_huc_path = os.path.join(fim_run_dir, huc)
+    if not os.path.exists(fim_run_huc_path):
+        raise FileNotFoundError(
+            "This script needs to talk to its HUC in the fim_run_dir, but the folder"
+            f" {fim_run_huc_path} does not exist. Please check pathing (with case)."
+        )
+
+    # branch_dir = os.path.join(fim_run_huc_path, 'branches')
+    # if not os.path.exists(branch_dir):
+    #     raise FileNotFoundError(
+    #         "This script needs to talk to branches in its fim_run_dir / HUC in the fim_run_dir,"
+    #         f"but the folder " {branch_dir} does not exist. Please check pathing (with case)."
+    #     )
+
+    # do we validate other key files? branches exist? what if it was a bad huc in the first place?
+
+    # TODO: Validate key bash_variable values? path the meta adn threshold files?  Better yet, Emily's tool shoudl do that when we call her things
+
+    # No need to validate any of the runtime_args as they were validated when it was created. (likely)
+
+    # ie: /data/catfim/hand_4_8_7_2_stage_based/hucs/12090301
+    huc_path = os.path.join(output_folder, "hucs", huc)
+
+    return huc_path, output_folder
