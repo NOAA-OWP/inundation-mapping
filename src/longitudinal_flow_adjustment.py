@@ -321,7 +321,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc):
             mask = (src_df_merged['LakeID'] > 0) & (src_df_merged['Discharge (m3s-1)_lake'].notnull())
             src_df.loc[mask, 'Discharge (m3s-1)'] = src_df_merged.loc[mask, 'Discharge (m3s-1)_lake']
             # Preserve slope columns exactly as-is
-            slope_cols = ['SLOP', 'default_SLOPE']
+            slope_cols = ['SLOPE', 'default_SLOPE']
             slope_backup = src_df[slope_cols].copy()
             # Round all columns
             src_df = src_df.round(5)
