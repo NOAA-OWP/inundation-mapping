@@ -72,10 +72,6 @@ def catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs=None, rem_tr
     # Calculate the pixel catchment thalweg elevation
     thalweg_elev = dem - rem
 
-    # This removes some weird very high values from the thalweg_elev raster
-    # More research on these areas are needed.
-    # thalweg_elev[np.where(thalweg_elev > np.nanmax(dem))] = np.nan
-
     # The 3x3 max filter identifies which cells might spill over into neighbors
     max_thalweg_elev = ndimage.maximum_filter(thalweg_elev, size=3)
     max_thalweg_elev[np.where(rem_mask == np.nan)] = np.nan
