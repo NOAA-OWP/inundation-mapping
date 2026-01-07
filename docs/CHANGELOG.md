@@ -7,7 +7,7 @@ Fixes the condition where an error is thrown when clipping the NFHL `availabilit
 
 ### Changes
  - `src/`
-     - `adjust_floodplains.py`: Returns (exits) if the `availability` mask geometry clipped by the branch polygon is empty.
+     - `adjust_floodplains.py`: Returns (exits) if the `availability` mask geometry clipped by the branch polygon is empty. Also fixes the `KeyError: 'ID'` that occurred when a levelpath was also a headwater with no upstream streams or catchments.
      - `run_by_branch`: Adjust filename if `adjust_floodplains.py` is exited before completing.
 
 <br/>
