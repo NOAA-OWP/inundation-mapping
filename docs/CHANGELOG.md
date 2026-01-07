@@ -53,6 +53,8 @@ See the new `hand_to_owp.py` for usage information. This tool also relies on the
 
 - `config\aws_s3_put_fim4_hydrovis_whitelist.lst`:  no longer applicable
 - `src\toDo.md`: A very old, non-applicable file.
+<br/>
+
 ## v4.9.2.1 - 2025-12-05 [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
 
 This update adds data predownload functionality to CatFIM so it can create categorical FIM maps for sites that don't have thresholds available in the WRDS API. There is also a new default behavior for CatFIM: instead of hitting the WRDS API for each run, the CatFIM code defaults to using pre-downloaded input thresholds and metadata. However, there is still the option to download the thresholds and metadata during the CatFIM run (which was previously the default).
