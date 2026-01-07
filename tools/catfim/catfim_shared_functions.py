@@ -331,6 +331,12 @@ def load_runtime_args(output_folder):
 
 def validate_inputs(huc, output_folder):
 
+    """
+    returns:
+        - calculated huc folder path
+        - A possible updated value for output_folder (cleaned up for slashes)
+    """
+    
     # This validates some inputs but also copies key files around.
 
     # TODO: valdiate huc value (8 numeric maybe and starts with 0, 1, or 2) ????
@@ -367,15 +373,18 @@ def validate_inputs(huc, output_folder):
     if not os.path.exists(fim_run_huc_path):
         raise FileNotFoundError(
             "This script needs to talk to its HUC in the fim_run_dir, but the folder"
-            f" {fim_run_huc_path} does not exist. Please check pathing (with case)."
+            f" {fim_run_huc_path} does not exist. Please check pathing (with case) and fim run"
+            " error logs or huc list."
         )
 
-    # branch_dir = os.path.join(fim_run_huc_path, 'branches')
-    # if not os.path.exists(branch_dir):
-    #     raise FileNotFoundError(
-    #         "This script needs to talk to branches in its fim_run_dir / HUC in the fim_run_dir,"
-    #         f"but the folder " {branch_dir} does not exist. Please check pathing (with case)."
-    #     )
+    branch_dir = os.path.join(fim_run_huc_path, 'branches')
+    if not os.path.exists(branch_dir):
+        raise FileNotFoundError(
+            "This script needs to talk to branches in its fim_run_dir / HUC in the fim_run_dir,"
+            f" but the folder {branch_dir} does not exist. Please check pathing (with case) and"
+            " it's error logs."
+        )
+    # TODO: Validate we have some folders in it.
 
     # do we validate other key files? branches exist? what if it was a bad huc in the first place?
 

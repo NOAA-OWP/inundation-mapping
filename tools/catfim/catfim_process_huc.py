@@ -95,6 +95,7 @@ def process_huc(huc, output_folder):
 
     csf.load_runtime_args(output_folder)
 
+    # Returns output_folder as it might be cleaned up a little such as slashes
     huc_path, output_folder = csf.validate_inputs(
         huc, output_folder
     )  # also validates some bash_variables if it needs any.
@@ -165,6 +166,11 @@ def process_huc(huc, output_folder):
         # Let's get the meta and points
         section_start_dt = datetime.now(timezone.utc)
         continue_processing = True
+
+        # Jan 2026: This was in previous code but not used
+        # fim_inputs_csv_path = os.path.join(fim_run_dir, 'fim_inputs.csv')
+        # if not os.path.exists(fim_inputs_csv_path):
+        #     raise ValueError(f"{fim_inputs_csv_path} not found. Verify that you have the correct input files.")
 
         logging.info("Loading sites metadata...")
 
@@ -360,36 +366,31 @@ def process_huc(huc, output_folder):
         # hummmmm
 
         # Temp debugging
-        print("--------------")
-        print("Ok.. let's stop here for now")
-        sys.exit(0)
+        # print("--------------")
+        # print("Ok.. let's stop here for now")
+        # sys.exit(0)
 
         # Start Mapping
         if continue_processing is True:
-
-            print("mapping code coming")
 
             # We can also add temp additonal columns in the mapping version of sites if it helps
             # with mapping processing, we just have to make they are removed after finalization here.
 
             # Mapping has to be fully independent.
 
-            # There should not be anything returned unless it is a catestropic exception so it
-            # matches what would happen if the mapping tool is run from command line.
-
             sites_mapping_file_path = os.path.join(output_mapping_dir, f"sites_mapping.gpkg")
             sites_gdf.to_file(
                 sites_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
             )
 
-            # We don't really want to return anything, unless it is a catestropic exception.
+            # We don't really want to return anything, unless it is a catastrophic exception.
             # We know the final files that should exist if all went well from mapping so we
             # we can just reload them when we are ready.
             # and Yes... we will be reloading and replacing our sites_gdf from the mapping version
             # as it might have updated it.
             # Mapping will know the file names for the segments and discharge
             gcfm.process_mapping(
-                catfim_type_name,
+                catfim_type,
                 huc,
                 huc_path,
                 output_mapping_dir,
