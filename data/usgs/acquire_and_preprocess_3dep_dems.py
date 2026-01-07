@@ -24,7 +24,7 @@ gpd.options.io_engine = "pyogrio"
 
 '''
 TODO:
-    - Add input args for resolution size, which means URL and block size also hve to be parameterized.
+    - Add input args for resolution size, which means URL and block size also have to be parameterized.
 '''
 
 # local constants (until changed to input param)

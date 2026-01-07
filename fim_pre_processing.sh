@@ -43,8 +43,6 @@ usage()
                         - Note: Make sure that the product of jh and jb plus 2 (jh x jb + 2)
                             does not exceed the total number of cores available.
       -o                : Overwrite outputs if they already exist.
-      -skipcal          : If this param is included, the S.R.C. will be updated via the calibration points.
-                            will be skipped.
     "
 }
 
@@ -93,9 +91,6 @@ in
     -o)
         overwrite=1
         ;;
-    -skipcal)
-        skipcal=1
-        ;;
     -x)
         evaluateCrosswalk=1
         ;;
@@ -130,7 +125,6 @@ if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi
 if [ "$jobHucLimit" = "" ]; then jobHucLimit=1; fi
 if [ "$jobBranchLimit" = "" ]; then jobBranchLimit=1; fi
 if [ -z "$overwrite" ]; then overwrite=0; fi
-if [ -z "$skipcal" ]; then skipcal=0; fi
 if [ -z "$evaluateCrosswalk" ]; then evaluateCrosswalk=0; fi
 
 # validate and set defaults for the deny lists
@@ -180,7 +174,7 @@ else
     has_deny_branch_zero_override=1 # it is the value of NONE and is overridden
 fi
 
-# Safety feature to avoid accidentaly overwrites
+# Safety feature to avoid accidental overwrites
 if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     echo
     echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
@@ -191,12 +185,13 @@ fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
 
 # these export are for fim_pipeline only.
 export runName=$runName
 export jobHucLimit=$jobHucLimit
 
-num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList -i $inputsDir)
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 
@@ -210,7 +205,6 @@ else
     # remove these directories and files on a new or overwrite run
     rm -rdf $outputDestDir/logs
     rm -rdf $outputDestDir/branch_errors
-    rm -rdf $outputDestDir/unit_errors
     rm -rdf $outputDestDir/eval
     rm -f $outputDestDir/crosswalk_table.csv
     rm -f $outputDestDir/fim_inputs*
@@ -218,9 +212,7 @@ else
 fi
 
 
-mkdir -p $outputDestDir/logs/unit
-mkdir -p $outputDestDir/logs/branch
-mkdir -p $outputDestDir/unit_errors
+mkdir -p $outputDestDir/logs
 mkdir -p $outputDestDir/branch_errors
 
 # copy over config file and rename it (note.. yes, the envFile file can still be
@@ -244,7 +236,6 @@ echo "export deny_unit_list=$deny_unit_list" >> $args_file
 echo "export deny_branches_list=$deny_branches_list" >> $args_file
 echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
-echo "export skipcal=$skipcal" >> $args_file
 echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
 
 echo "--- Pre-processing is complete"

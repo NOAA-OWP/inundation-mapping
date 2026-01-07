@@ -28,15 +28,14 @@ Generally, you do not copy this part into the ChangeLog. These are some quick no
     - Require new or adjusted data inputs? Does it have a way to version (folder or file dates)?
        - [ ] No
        - [ ] Yes
-           -  Require new pre-clip set or any other data reloads, such as DEMS, osm, etc. ie.. pre-requisite re-data upstream of your input  changes.
+           -  Require new pre-clip set or any other data reloads, such as DEMS, osm, etc. ie.. pre-requisite re-data upstream of your input changes.
                 - [ ] Yes
                 - [ ] No
-           -  Has the inputs been copied/exist in all five enviros:
+           -  Has the inputs been copied/exist in all four enviros:
                  - [ ] FIM EFS  
                  - [ ] FIM S3
                  - [ ] ESIP
                  - [ ] Dev1
-                 - [ ] UCS2
             
 - Please use caution in removing older version unless it is at least two versions ago.  Confirm with DevOps if cleanup might be involved.
 

@@ -20,7 +20,7 @@ from utils.shared_functions import FIM_Helpers as fh
 
 '''
     Overview:
-      This script was created to absolve run_unit_wb.sh from getting the huc level WBD layer, calling
+      This script was created to absolve run_huc.sh from getting the huc level WBD layer, calling
       clip_vectors_to_wbd.py, and clipping the WBD for every run, which added a significant amount of
       processing time for each HUC8. Using this script, we generate the necessary pre-clipped .gpkg files
       for the rest of the processing steps.
@@ -55,17 +55,24 @@ load_dotenv(f'{projectDir}/config/params_template.env')
 
 # Variables from src/bash_variables.env
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')  # alaska
+ALASKA_CRS = os.getenv('ALASKA_CRS')  # Alaska
+GUAM_CRS = os.getenv('GUAM_CRS')  # Guam
+AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')  # American Samoa
 
 input_WBD_gdb = os.getenv('input_WBD_gdb')
-input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # alaska
+input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # Alaska
+input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # Guam
+input_WBD_gdb_AmericanSamoa = os.getenv('input_WBD_gdb_AmericanSamoa')  # American Samoa
 
 input_DEM_domain = os.getenv('input_DEM_domain')
-input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # alaska
+input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # Alaska
+input_DEM_domain_Guam = os.getenv('input_DEM_domain_Guam')  # Guam
+input_DEM_domain_AmericanSamoa = os.getenv('input_DEM_domain_AmericanSamoa')  # American Samoa
 
 input_landsea = os.getenv('input_landsea')
-input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # alaska
-
+input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # Alaska
+input_landsea_Guam = os.getenv('input_landsea_Guam')  # Guam
+input_landsea_AmericanSamoa = os.getenv('input_landsea_AmericanSamoa')  # American Samoa
 
 input_GL_boundaries = os.getenv('input_GL_boundaries')
 
@@ -360,6 +367,14 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
             huc_CRS = ALASKA_CRS
             input_WBD_filename = input_WBD_gdb_Alaska
             dem_domain = input_DEM_domain_Alaska
+        elif huc == '22010000':  # Guam
+            huc_CRS = GUAM_CRS
+            input_WBD_filename = input_WBD_gdb_Guam
+            dem_domain = input_DEM_domain_Guam
+        elif huc == '22030001':  # American Samoa
+            huc_CRS = AMERICAN_SAMOA_CRS
+            input_WBD_filename = input_WBD_gdb_AmericanSamoa
+            dem_domain = input_DEM_domain_AmericanSamoa
         else:
             huc_CRS = DEFAULT_FIM_PROJECTION_CRS
             input_WBD_filename = input_WBD_gdb
@@ -370,6 +385,10 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
             input_LANDSEA = f"{input_GL_boundaries}"
         elif huc2Identifier == "19":
             input_LANDSEA = input_landsea_Alaska
+        elif huc == '22010000':
+            input_LANDSEA = input_landsea_Guam
+        elif huc == '22030001':
+            input_LANDSEA = input_landsea_AmericanSamoa
         else:
             input_LANDSEA = input_landsea
 
@@ -386,6 +405,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
         wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
 
         dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+
+        wbd = gpd.clip(wbd, dem_domain_gdf)
         wbd_buffer = gpd.clip(wbd_buffer, dem_domain_gdf)
 
         # first Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
