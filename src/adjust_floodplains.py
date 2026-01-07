@@ -81,6 +81,7 @@ def adjust_floodplains(
     branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 
     # Filter levelpaths by branch
+    levelpaths['ID'] = levelpaths['ID'].astype(int)
     levelpaths = levelpaths[levelpaths['levpa_id'] == branch_id]
 
     # Find streams that flow to the levelpaths
@@ -88,7 +89,7 @@ def adjust_floodplains(
 
     # Get all upstream streams
     def get_upstream_streams(hydro_ids, streams_df):
-        upstream_streams = pd.DataFrame()
+        upstream_streams = streams_df[streams_df['ID'].isin(hydro_ids)]
         for hydro_id in hydro_ids:
             direct_upstream = streams_df[streams_df['to'] == hydro_id]
             if not direct_upstream.empty:
