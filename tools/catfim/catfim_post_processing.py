@@ -13,41 +13,41 @@ import src.utils.shared_functions as sf
 
 
 """_summary_
-    Overall processing steps (tenatively)
 
-    Should not need to call any other of the catfim py files. Some of those compiled rollup
-    functions should be moved here. Should not need to update the compiled sites or library files,
-    only append them.
+    CatFIM Post-Processing Module
 
-    1: Start up its own non-shared log system.  It can have its own log folder, and yes, each HUC
-       has it's own log folder/files.
+    This module handles the final aggregation and compilation of Categorical Flood Inundation Mapping (CatFIM) 
+    output data from individual HUC folders into a consolidated dataset.
 
-    1.b: load the runtime_arg.env if it needs anything from it.
+    Key Responsibilities:
+    - Validates CatFIM output folder structure and runtime configuration
+    - Iterates through HUC-level directories to collect sites and library geospatial data
+    - Consolidates HUC-level GeoPackage and CSV files into unified output files
+    - Renames legacy 'nws_lid' columns to 'ahps_lid' for consistency
+    - Generates comprehensive logging of the post-processing workflow
+    - Handles both stage-based and flow-based CatFIM processing types
+    - Manages cleanup of pre-existing output files before regeneration
+    - Tracks and reports on HUCs with missing or incomplete data
 
-    2: Validate HUCs data (has some sites and library data remaining)
+    Main Functions:
+    - catfim_post_processing(): Primary orchestration function for the entire post-processing pipeline
+    - __load_runtime_args(): Loads runtime configuration from environment file
+    - __set_start_files_folders(): Manages output file paths and cleanup of pre-existing files
 
-    3: roll up all HUC level sites.csv/gpkg's and library files csv/gpkg into one big final set of files like we currently have.
+    Output Files Generated:
+    - Compiled sites GeoPackage and CSV
+    - Compiled library GeoPackage and CSV
+    - Post-processing logs with warnings for problematic HUCs
 
-    3.b Update the rolled up files for model_version (hand version) fields? TBD
-
-    4: Roll up HUC logs?  Nah.. don't need it. A list of HUCs that we processed maybe?
-
-    5: Roll up HUC error/warning logs?  seperate logs for warnign versus error?
-       -- humnmm... if a HUC was re-run, it would have more than one possible error and/or warning file
-       -- How do we roll up just the latest from each dir? and the rollup  here also needs date/time as it might
-       have more then one set of files.
-
-
-    this is taking over the functionality of the post_process_cat_fim_for_viz function... anything else?
-
-
+    Notes:
+    - Taking over the functionality previously handled by generate_categorical_fim.py's post_process_cat_fim_for_viz function
+    - Assumes the presence of a standardized CatFIM output directory structure
 
 """
 
-
 def catfim_post_processing(output_folder):
 
-    is_logging_loaded = False # TODO: Does this ever become "True"?
+    is_logging_loaded = False
 
     # Validate output_folder path
     if not os.path.exists(output_folder):
@@ -86,6 +86,7 @@ def catfim_post_processing(output_folder):
         # Create a post-processing logger (Log folder may be shared with pre-processing)
         log_file_dir = os.path.join(output_folder, "logs")
         log_file_path = sf.setup_file_logger(log_file_dir, "catfim_post_processing")
+        is_logging_loaded = True
         print(f"Logs will be saved to {log_file_path}")
 
         # ---------------------
@@ -94,8 +95,8 @@ def catfim_post_processing(output_folder):
         if not os.path.exists(huc_path):
             raise Exception("CatFIM output huc folder does not exist. Post-processing aborted.")
 
+        # Gets a list of huc numbers by finding folder names from /data/catfim/hand_4_8_7_2_stage_based/hucs
         # Note for the future: Never use the catfim_huc_list.txt as it might be invalid after initial processing
-        # This is much better: Gets a list of huc numbers by finding folder names from /data/catfim/hand_4_8_7_2_stage_based/huc)
         huc_list = [
             x
             for x in os.listdir(huc_path)
@@ -105,14 +106,14 @@ def catfim_post_processing(output_folder):
         if len(huc_list) == 0:
             raise Exception("No HUCs found in CatFIM output huc folder. Post-processing aborted.")
 
+        # ---------------------
+        # Iterate through each HUC folder and compile all sites.gpkg and library.gpkg files into one big file each
+
         logging.info("")
         logging.info(f"Found {len(huc_list)} HUC folder(s) to process.")
         logging.info("Beginning iteration through HUC folders...")
-        # logging.info(huc_list) # TEMP DEBUG
         logging.info("")
 
-        # ---------------------
-        # Iterate through each HUC folder and compile all sites.gpkg and library.gpkg files into one big file each
         hucs_without_sites, hucs_without_library = [], []
         compiled_sites_gdf_list, compiled_library_gdf_list = [], []
 
@@ -129,7 +130,6 @@ def catfim_post_processing(output_folder):
             except FileNotFoundError:
                 hucs_without_sites.append(huc)
                 missing_data = True
-                # logging.warning(f"{huc} - WARNING: The file '{huc_sites_file}' does not exist.") # TEMP DEBUG
 
             # Library
             huc_library_file = os.path.join(huc_folder, f"{huc}_library.gpkg")
@@ -140,15 +140,15 @@ def catfim_post_processing(output_folder):
             except FileNotFoundError:
                 hucs_without_library.append(huc)
                 missing_data = True
-                # logging.warning(f"{huc} - WARNING: The file '{huc_library_file}' does not exist.") # TEMP DEBUG
 
-            # If both files were found, append to compiled lists
+            # If both files were found, append to compiled lists (otherwise, add a note to the log)
             if missing_data:
                 logging.info(f"{huc} - Skipped appending due to missing data.")
             else:
                 logging.info(f"{huc} - Sites and library files found, appending data to output lists.")
                 compiled_sites_gdf_list.append(huc_sites_gdf)
                 compiled_library_gdf_list.append(huc_library_gdf)
+        # End huc loop
 
         # ---------------------
         # Summarize HUC processing
@@ -181,13 +181,12 @@ def catfim_post_processing(output_folder):
         logging.info("")
         logging.info("Saving compiled sites and library files...")
 
-        # Concatenate all GeoDataFrames into one GDF each
+        # Concatenate sites GeoDataFrames into one GDF and update LID column name
         compiled_sites_gdf = gpd.pd.concat(compiled_sites_gdf_list, ignore_index=True)
-        # We need to change the column name here
         compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
+        # Concatenate library GeoDataFrames into one GDF and update LID column name
         compiled_library_gdf = gpd.pd.concat(compiled_library_gdf_list, ignore_index=True)
-        # We need to change the column name here
         compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
         # Save the compiled GeoDataFrames to GeoPackage files
@@ -213,6 +212,11 @@ def catfim_post_processing(output_folder):
         #   or maybe all? not sure what is smart here.
         #   search for files in each huc level for file names with _errors or _warnings
 
+
+
+        # ---------------------
+        # Complete
+
         logging.info("")
         logging.info("End CatFIM post-processing")
         duration_msg = sf.calculate_duration_msg(overall_start_time)
@@ -220,7 +224,6 @@ def catfim_post_processing(output_folder):
         logging.info("")
         print("================================")
         print("")
-
 
 
     except Exception:
@@ -252,9 +255,9 @@ def __set_start_files_folders(output_folder, catfim_type_name):
 
     # ================================
     # CLEANUP
-    # Remove pre-existing output files / folders except anything in the log folder, we keep that one only.
-    # # TODO: Any other folders to remove? I don't think so
-    
+    # Remove pre-existing output files / folders except anything in the log folder.
+    # We should always keep the logs folder
+
     deleted_file_count = 0
 
     sites_gpkg_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_sites.gpkg")
@@ -277,8 +280,6 @@ def __set_start_files_folders(output_folder, catfim_type_name):
         os.remove(library_csv_path)
         deleted_file_count += 1
 
-    # Always keeps the logs folder
-
     return sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count
 
 
@@ -290,7 +291,7 @@ if __name__ == '__main__':
     '''
 
     # Parse arguments
-    parser = argparse.ArgumentParser(description='Run Post Processing for CatFIM')
+    parser = argparse.ArgumentParser(description='Run Post-Processing for CatFIM')
 
     parser.add_argument(
         '-t',
@@ -302,5 +303,5 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    # call main program
+    # Call main program
     catfim_post_processing(**args)
