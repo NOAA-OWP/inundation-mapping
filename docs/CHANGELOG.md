@@ -21,6 +21,48 @@ By excluding bridge geometries at the data-pull stage, these erroneous inundatio
 - data/roads/pull_osm_roads.py
 - src/bash_variables.env
 
+## v4.9.2.2 - 2026-01-08 - [PR#1698](https://github.com/NOAA-OWP/inundation-mapping/pull/1698)
+
+This PR closes #1592 and introduces a new tool that computes flood depth for arbitrary input geometries (polygons, lines, or points) for a given flow file. This PR also adds `flood_depth_ft` column for road inundation tool. 
+
+
+### Workflow Overview:
+#### **Input**
+- A gpkg file containing desired geometries. 
+- The gpkg file can have any projection.
+
+#### **Processing Logic**
+1. **Identify intersecting HUCs.**
+   For each input geometry, the script first identifies all intersecting HUCs from the available HUCs in a given FIM run. Geometries that span multiple HUCs are then processed independently within each HUC, and the most conservative (maximum) flood depth across all relevant HUCs is ultimately retained.
+
+
+2. **Extract threshold HAND values.**
+   For each geometry segment within a HUC, the script identifies all branches that intersect that geometry. For each intersecting branch, it computes the minimum HAND value along the portion of the geometry that overlaps that branch, yielding one `threshold_hand` value per branch. All intersecting branches within the HUC are processed in this way. The output includes:
+
+   * `threshold_hand`: minimum HAND elevation (m) for that branch
+   * `HydroID`
+   * `feature_id`
+   * `branch`: branch identifier within the HUC
+
+3. **Interpolate threshold discharge.**
+   Using the branch-specific HydroTables, the script interpolates the discharge corresponding to each `threshold_hand`. This `threshold_discharge` represents the flow rate at which inundation begins. Records with `threshold_hand > 25 m` are excluded because they exceed the valid range of the HydroTables.
+
+4. **Determine inundation status.**
+   The `evaluated discharge` from the input flow file is compared to the `threshold_discharge`. A geometry is marked as inundated if `evaluated_discharge > threshold_discharge`.
+
+5. **Calculate flood depth.**
+The `evaluated stage` is obtained by interpolating within the branch-specific HydroTables using the corresponding `evaluated discharge` values.  Flood depth is computed as:
+   `flood_depth = evaluated_stage – threshold_hand`.
+At this time, any negative flood depths (which may occur due to non-monotonic SRC behavior) are set to zero.
+
+
+#### **Output**
+- A gpkg file containing the geometries annotated with flooding status (Y/N) and computed flood depth. 
+- For geometries intersecting multiple HUCs or branches, the flood depth reported is the maximum across all intersections. 
+- Geometries meeting any of the following conditions will contain `NULL` values for all output fields:
+  - They do not intersect any HUCs.
+  - They intersect only HAND grid cells with NoData values (e.g., levee-protected areas).
+  - They intersect only HAND grid cells with HAND values greater than 25 m.
 <br/>
 
 ## v4.9.2.1 - 2025-12-05 [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
@@ -263,6 +305,10 @@ reflect only the rerun attempt. Therefore, these logs may contain fewer records 
 ---
 
 ### Additions
+- tools/compute_flood_depth.py
+
+### Changes
+- tools/road_inundation.py
 - src/calibrate_rating_curves.sh   
 - tools/rerun_calibration.py
      
