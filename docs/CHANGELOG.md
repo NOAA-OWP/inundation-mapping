@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.3.1 - 2026-01-08 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
+## v4.9.4.1 - 2026-01-08 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
 
 Fixes branch error code logging and updates formatting and a spelling error.
 
@@ -16,6 +16,8 @@ The following files had a spelling correction of "occured" to "occurred":
 - `fim_process_huc.sh`
 - `src/process_branch.sh`
 - `tools/reformat_to_int16.py`
+<br/>
+
 ## v4.9.4.0 - 2026-01-08 [PR#1712](https://github.com/NOAA-OWP/inundation-mapping/pull/1712)
 
 Fixes the condition where an error is thrown when clipping the NFHL `availability` mask by the branch polygon results in no geometry (i.e., an empty set).
