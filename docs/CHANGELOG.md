@@ -1,6 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.5.0 - 2026-01-08 - [PR#1716]([https://github.com/NOAA-OWP/inundation-mapping/pull/1716])
+
+This PR fixes issue #1700 .
+This PR resolves inconsistencies in Discharge (m3s-1) values in the `src_full_crossswalked` table observed when rerunning calibration scripts (`tools/rerun_calibration.py`)
+Initially, after running FIM pipeline and then rerunning the calibration, the slope values appear identical, but the Discharge (m3s-1) differs.
+
+- Root cause:
+After running FIM pipeline with all calibration steps off, each calibration script was then run separately. We identified that the `src/longitudinal_flow_adjustment.py` script was saving the `src_full_crossswalked` CSV by rounding all columns to 5 decimal places (line 323).
+
+- **The Impact:** This rounding altered the "default slope" value. When subsequent processes (like rerunning calibration or resetting hydrotable) reloaded this data, they used the rounded slope rather than the actual initial slope. This small delta propagated through the calculations, resulting in different final discharge outputs.
+### Changes
+- `src/longitudinal_flow_adjustment.py`: Ensure that slope values maintain precision when saving back to `src_full_crossswalked`.
+- `src/process_branch.sh`: Minor fix as it missed catching errors 65 due to syntax error.
+<br/>
+
 ## v4.9.4.1 - 2026-01-08 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
 
 Fixes branch error code logging and updates formatting and a spelling error.
