@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-01-05 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
+## v4.9.3.1 - 2026-01-08 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
 
 Fixes branch error code logging and updates formatting and a spelling error.
 
@@ -13,10 +13,10 @@ Fixes branch error code logging and updates formatting and a spelling error.
 
 The following files had a spelling correction of "occured" to "occurred":
 - `data/bridges/make_dem_dif_for_bridges.py`
-- `docs/CHANGELOG.md`
 - `fim_process_huc.sh`
 - `src/process_branch.sh`
 - `tools/reformat_to_int16.py`
+<br/>
 
 ## v4.9.3.0 - 2026-01-08 [PR#1701](https://github.com/NOAA-OWP/inundation-mapping/pull/1701)
 
