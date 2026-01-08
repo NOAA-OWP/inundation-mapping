@@ -14,6 +14,7 @@ Fixes branch error code logging and updates formatting and a spelling error.
 The following files had a spelling correction of "occured" to "occurred":
 - `data/bridges/make_dem_dif_for_bridges.py`
 - `fim_process_huc.sh`
+- `src/associate_levelpaths_with_leveese.py` - Some error handling cleanup
 - `src/process_branch.sh`
 - `tools/reformat_to_int16.py`
 <br/>
