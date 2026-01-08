@@ -1,6 +1,28 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.3.0 - 2026-01-08 [PR#1701](https://github.com/NOAA-OWP/inundation-mapping/pull/1701)
+
+This PR closes #1623 by updating the `data/pull_osm_roads.py` script to **exclude all OSM road segments tagged as bridges**. This change ensures that bridge features are not treated as normal road segments during FIMpact processing, which previously resulted in **unrealistically high flood-depth estimates** under bridge crossings.
+
+
+This PR includes the creation of an updated OSM roads dataset as well as a new pre-clipped dataset. The updated datasets are available at the following locations in FIM EFS, FIM S3, and ESIP:
+>
+> * `data/inputs/osm/roads/20251209/` — updated OSM roads dataset
+> * `data/inputs/pre_clip_huc8/20251209/` — updated pre-clipped dataset
+
+Bridge segments can cause issues when:
+
+1. The corresponding OSM bridge line is missing and therefore cannot heal the HAND raster, leaving a deep channel under the roadway; or
+2. The lidar and non-lidar bridge-healing workflows do not fully raise the HAND elevations beneath the bridge footprint.
+
+By excluding bridge geometries at the data-pull stage, these erroneous inundation signals are prevented entirely.
+
+### Changes
+- data/roads/pull_osm_roads.py
+- src/bash_variables.env
+<br/>
+
 ## v4.9.2.2 - 2026-01-08 - [PR#1698](https://github.com/NOAA-OWP/inundation-mapping/pull/1698)
 
 This PR closes #1592 and introduces a new tool that computes flood depth for arbitrary input geometries (polygons, lines, or points) for a given flow file. This PR also adds `flood_depth_ft` column for road inundation tool. 
