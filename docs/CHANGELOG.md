@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.4.1 - 2026-01-08 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
+
+Fixes branch error code logging and updates formatting and a spelling error.
+
+### Changes
+
+- `src/`
+    - `process_branch.sh`: Added logic to write error log file if specific exit codes are returned
+    - `run_huc.sh`: reformat
+
+The following files had a spelling correction of "occured" to "occurred":
+- `data/bridges/make_dem_dif_for_bridges.py`
+- `fim_process_huc.sh`
+- `src/associate_levelpaths_with_leveese.py` - Some error handling cleanup
+- `src/process_branch.sh`
+- `tools/reformat_to_int16.py`
+<br/>
+
 ## v4.9.4.0 - 2026-01-08 [PR#1712](https://github.com/NOAA-OWP/inundation-mapping/pull/1712)
 
 Fixes the condition where an error is thrown when clipping the NFHL `availability` mask by the branch polygon results in no geometry (i.e., an empty set).
@@ -417,7 +435,7 @@ Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now t
 
 ## v4.8.14.3 - 2025-10-30 - [PR#1654](https://github.com/NOAA-OWP/inundation-mapping/pull/1654)
 
-This PR looks for the root cause of the 'Ghost' bug. The bug occured due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
+This PR looks for the root cause of the 'Ghost' bug. The bug occurred due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
 Some notes about the slope precision: The slope values in src_base represent TauDEM’s rise-over-run slopes. Because these values—and the slopes subsequently propagated through HFAB and SWORD—are extremely small (e.g., 9.99999974737875E-06), it is critical to preserve their numerical precision throughout all read/write operations in downstream scripts.
 When writing slope values to derived files (e.g., src_full, hydrotables), each value is rounded to three digits in scientific notation and then converted back to a float for continued numerical use.
 
