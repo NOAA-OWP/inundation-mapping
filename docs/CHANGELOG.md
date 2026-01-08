@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.8.x.x - 2025-10-30 - [PR#1683](https://github.com/NOAA-OWP/inundation-mapping/pull/1683)
+## v4.9.5.1 - 2025-10-30 - [PR#1683](https://github.com/NOAA-OWP/inundation-mapping/pull/1683)
 
 ---------------------
 ### FOR NOAA/OWP usage only
@@ -53,6 +53,8 @@ See the new `hand_to_owp.py` for usage information. This tool also relies on the
 
 - `config\aws_s3_put_fim4_hydrovis_whitelist.lst`:  no longer applicable
 - `src\toDo.md`: A very old, non-applicable file.
+<br/>
+
 ## v4.9.5.0 - 2026-01-08 - [PR#1716]([https://github.com/NOAA-OWP/inundation-mapping/pull/1716])
 
 This PR fixes issue #1700 .
