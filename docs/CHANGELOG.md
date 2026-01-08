@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## vX.X.X - 2025-11-21 - [PR#1698](https://github.com/NOAA-OWP/inundation-mapping/pull/1698)
+## v4.9.2.2 - 2026-01-08 - [PR#1698](https://github.com/NOAA-OWP/inundation-mapping/pull/1698)
 
 This PR closes #1592 and introduces a new tool that computes flood depth for arbitrary input geometries (polygons, lines, or points) for a given flow file. This PR also adds `flood_depth_ft` column for road inundation tool. 
 
@@ -43,6 +43,8 @@ At this time, any negative flood depths (which may occur due to non-monotonic SR
   - They do not intersect any HUCs.
   - They intersect only HAND grid cells with NoData values (e.g., levee-protected areas).
   - They intersect only HAND grid cells with HAND values greater than 25 m.
+<br/>
+
 ## v4.9.2.1 - 2025-12-05 [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
 
 This update adds data predownload functionality to CatFIM so it can create categorical FIM maps for sites that don't have thresholds available in the WRDS API. There is also a new default behavior for CatFIM: instead of hitting the WRDS API for each run, the CatFIM code defaults to using pre-downloaded input thresholds and metadata. However, there is still the option to download the thresholds and metadata during the CatFIM run (which was previously the default).
