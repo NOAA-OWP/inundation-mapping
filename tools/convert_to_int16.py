@@ -106,4 +106,4 @@ if __name__ == "__main__":
         convert_to_int16(**args)
 
     except Exception:
-        print("The following error has occured:\n", traceback.format_exc())
+        print("The following error has occurred:\n", traceback.format_exc())

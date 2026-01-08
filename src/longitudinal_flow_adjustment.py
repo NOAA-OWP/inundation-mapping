@@ -320,7 +320,13 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc):
             # Update src_df where LakeID > 0 and Stage matches
             mask = (src_df_merged['LakeID'] > 0) & (src_df_merged['Discharge (m3s-1)_lake'].notnull())
             src_df.loc[mask, 'Discharge (m3s-1)'] = src_df_merged.loc[mask, 'Discharge (m3s-1)_lake']
+            # Preserve slope columns exactly as-is
+            slope_cols = ['SLOPE', 'default_SLOPE']
+            slope_backup = src_df[slope_cols].copy()
+            # Round all columns
             src_df = src_df.round(5)
+            # Restore slope precision
+            src_df[slope_cols] = slope_backup
 
             # Set Hydraulic properties of original stages with discharge = 0 back to 0
             src_df.loc[Q0_mask, 'Discharge (m3s-1)'] = 0

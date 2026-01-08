@@ -53,6 +53,113 @@ See the new `hand_to_owp.py` for usage information. This tool also relies on the
 
 - `config\aws_s3_put_fim4_hydrovis_whitelist.lst`:  no longer applicable
 - `src\toDo.md`: A very old, non-applicable file.
+## v4.9.5.0 - 2026-01-08 - [PR#1716]([https://github.com/NOAA-OWP/inundation-mapping/pull/1716])
+
+This PR fixes issue #1700 .
+This PR resolves inconsistencies in Discharge (m3s-1) values in the `src_full_crossswalked` table observed when rerunning calibration scripts (`tools/rerun_calibration.py`)
+Initially, after running FIM pipeline and then rerunning the calibration, the slope values appear identical, but the Discharge (m3s-1) differs.
+
+- Root cause:
+After running FIM pipeline with all calibration steps off, each calibration script was then run separately. We identified that the `src/longitudinal_flow_adjustment.py` script was saving the `src_full_crossswalked` CSV by rounding all columns to 5 decimal places (line 323).
+
+- **The Impact:** This rounding altered the "default slope" value. When subsequent processes (like rerunning calibration or resetting hydrotable) reloaded this data, they used the rounded slope rather than the actual initial slope. This small delta propagated through the calculations, resulting in different final discharge outputs.
+### Changes
+- `src/longitudinal_flow_adjustment.py`: Ensure that slope values maintain precision when saving back to `src_full_crossswalked`.
+- `src/process_branch.sh`: Minor fix as it missed catching errors 65 due to syntax error.
+<br/>
+
+## v4.9.4.1 - 2026-01-08 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
+
+Fixes branch error code logging and updates formatting and a spelling error.
+
+### Changes
+
+- `src/`
+    - `process_branch.sh`: Added logic to write error log file if specific exit codes are returned
+    - `run_huc.sh`: reformat
+
+The following files had a spelling correction of "occured" to "occurred":
+- `data/bridges/make_dem_dif_for_bridges.py`
+- `fim_process_huc.sh`
+- `src/associate_levelpaths_with_leveese.py` - Some error handling cleanup
+- `src/process_branch.sh`
+- `tools/reformat_to_int16.py`
+<br/>
+
+## v4.9.4.0 - 2026-01-08 [PR#1712](https://github.com/NOAA-OWP/inundation-mapping/pull/1712)
+
+Fixes the condition where an error is thrown when clipping the NFHL `availability` mask by the branch polygon results in no geometry (i.e., an empty set).
+
+### Changes
+ - `src/`
+     - `adjust_floodplains.py`: Returns (exits) if the `availability` mask geometry clipped by the branch polygon is empty. Also fixes the `KeyError: 'ID'` that occurred when a levelpath was also a headwater with no upstream streams or catchments.
+     - `run_by_branch`: Adjust filename if `adjust_floodplains.py` is exited before completing.
+<br/>
+
+## v4.9.3.0 - 2026-01-08 [PR#1701](https://github.com/NOAA-OWP/inundation-mapping/pull/1701)
+
+This PR closes #1623 by updating the `data/pull_osm_roads.py` script to **exclude all OSM road segments tagged as bridges**. This change ensures that bridge features are not treated as normal road segments during FIMpact processing, which previously resulted in **unrealistically high flood-depth estimates** under bridge crossings.
+
+
+This PR includes the creation of an updated OSM roads dataset as well as a new pre-clipped dataset. The updated datasets are available at the following locations in FIM EFS, FIM S3, and ESIP:
+>
+> * `data/inputs/osm/roads/20251209/` — updated OSM roads dataset
+> * `data/inputs/pre_clip_huc8/20251209/` — updated pre-clipped dataset
+
+Bridge segments can cause issues when:
+
+1. The corresponding OSM bridge line is missing and therefore cannot heal the HAND raster, leaving a deep channel under the roadway; or
+2. The lidar and non-lidar bridge-healing workflows do not fully raise the HAND elevations beneath the bridge footprint.
+
+By excluding bridge geometries at the data-pull stage, these erroneous inundation signals are prevented entirely.
+
+### Changes
+- data/roads/pull_osm_roads.py
+- src/bash_variables.env
+<br/>
+
+## v4.9.2.2 - 2026-01-08 - [PR#1698](https://github.com/NOAA-OWP/inundation-mapping/pull/1698)
+
+This PR closes #1592 and introduces a new tool that computes flood depth for arbitrary input geometries (polygons, lines, or points) for a given flow file. This PR also adds `flood_depth_ft` column for road inundation tool. 
+
+
+### Workflow Overview:
+#### **Input**
+- A gpkg file containing desired geometries. 
+- The gpkg file can have any projection.
+
+#### **Processing Logic**
+1. **Identify intersecting HUCs.**
+   For each input geometry, the script first identifies all intersecting HUCs from the available HUCs in a given FIM run. Geometries that span multiple HUCs are then processed independently within each HUC, and the most conservative (maximum) flood depth across all relevant HUCs is ultimately retained.
+
+
+2. **Extract threshold HAND values.**
+   For each geometry segment within a HUC, the script identifies all branches that intersect that geometry. For each intersecting branch, it computes the minimum HAND value along the portion of the geometry that overlaps that branch, yielding one `threshold_hand` value per branch. All intersecting branches within the HUC are processed in this way. The output includes:
+
+   * `threshold_hand`: minimum HAND elevation (m) for that branch
+   * `HydroID`
+   * `feature_id`
+   * `branch`: branch identifier within the HUC
+
+3. **Interpolate threshold discharge.**
+   Using the branch-specific HydroTables, the script interpolates the discharge corresponding to each `threshold_hand`. This `threshold_discharge` represents the flow rate at which inundation begins. Records with `threshold_hand > 25 m` are excluded because they exceed the valid range of the HydroTables.
+
+4. **Determine inundation status.**
+   The `evaluated discharge` from the input flow file is compared to the `threshold_discharge`. A geometry is marked as inundated if `evaluated_discharge > threshold_discharge`.
+
+5. **Calculate flood depth.**
+The `evaluated stage` is obtained by interpolating within the branch-specific HydroTables using the corresponding `evaluated discharge` values.  Flood depth is computed as:
+   `flood_depth = evaluated_stage – threshold_hand`.
+At this time, any negative flood depths (which may occur due to non-monotonic SRC behavior) are set to zero.
+
+
+#### **Output**
+- A gpkg file containing the geometries annotated with flooding status (Y/N) and computed flood depth. 
+- For geometries intersecting multiple HUCs or branches, the flood depth reported is the maximum across all intersections. 
+- Geometries meeting any of the following conditions will contain `NULL` values for all output fields:
+  - They do not intersect any HUCs.
+  - They intersect only HAND grid cells with NoData values (e.g., levee-protected areas).
+  - They intersect only HAND grid cells with HAND values greater than 25 m.
 <br/>
 
 ## v4.9.2.1 - 2025-12-05 [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
@@ -295,6 +402,10 @@ reflect only the rerun attempt. Therefore, these logs may contain fewer records 
 ---
 
 ### Additions
+- tools/compute_flood_depth.py
+
+### Changes
+- tools/road_inundation.py
 - src/calibrate_rating_curves.sh   
 - tools/rerun_calibration.py
      
@@ -393,7 +504,7 @@ Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now t
 
 ## v4.8.14.3 - 2025-10-30 - [PR#1654](https://github.com/NOAA-OWP/inundation-mapping/pull/1654)
 
-This PR looks for the root cause of the 'Ghost' bug. The bug occured due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
+This PR looks for the root cause of the 'Ghost' bug. The bug occurred due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
 Some notes about the slope precision: The slope values in src_base represent TauDEM’s rise-over-run slopes. Because these values—and the slopes subsequently propagated through HFAB and SWORD—are extremely small (e.g., 9.99999974737875E-06), it is critical to preserve their numerical precision throughout all read/write operations in downstream scripts.
 When writing slope values to derived files (e.g., src_full, hydrotables), each value is rounded to three digits in scientific notation and then converted back to a float for continued numerical use.
 
