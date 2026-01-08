@@ -63,11 +63,19 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     Returns the name/path of the new log file.
     """
 
-    if log_file_dir is None or log_file_dir == "":
+    if not log_file_dir:
         raise ValueError("log directory path can not be None or empty")
 
-    if log_file_name_prefix is None or log_file_name_prefix == "":
+    if not log_file_name_prefix:
         raise ValueError("log file name prefix can not be None or empty")
+
+    # Example with a different permission (e.g., full access for everyone)
+    permissions_code = 0o664
+    os.makedirs(log_file_dir, mode=permissions_code, exist_ok=True)
+    # even though we used os.makedirs, it does not mean it had permission to make the dir
+    # the mode is for permissions of the folder once is created.
+    if not os.path.isdir(log_file_dir):
+        raise Exception("This script likely does have permission to add a log folder")
 
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
@@ -143,7 +151,13 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         raise Exception("log file name must end with .log")
 
     abs_path = os.path.abspath(log_file_path)
-    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    permissions_code = 0o664
+    log_folder = os.path.dirname(abs_path)
+    os.makedirs(log_folder, mode=permissions_code, exist_ok=True)
+    # even though we used os.makedirs, it does not mean it had permission to make the dir
+    # the mode is for permissions of the folder once is created.
+    if not os.path.isdir(log_folder):
+        raise OSError("This script likely does have permission to add a log folder")
 
     # Check name -> path
     if logger_name in _LOGGER_REGISTRY and _LOGGER_REGISTRY[logger_name] != abs_path:
@@ -476,6 +490,7 @@ def getDriver(fileName):
 def get_value_from_env(arg_key, env_file_path):
     '''
     Notes:
+        - This assumes the env has already been loaded. The env_file_path is for error messages only.
         - we don't actually load the file here as we could be loading more than once.
     Params:
         - arg_key is the variables in the loaded environment object
@@ -483,7 +498,8 @@ def get_value_from_env(arg_key, env_file_path):
              Note: not all uses of this tool will be for file paths
              ** Only work on S3 paths at this time
     Returns
-        - The arg_key value
+        - The arg_key value. The return value may also have placeholders such as "mypath/{some version}/",
+          which can be subsituted somewhere else.
     '''
 
     env_file_name = ""
@@ -493,12 +509,12 @@ def get_value_from_env(arg_key, env_file_path):
 
     arg_value = os.environ[arg_key]
 
-    if arg_value is None or arg_value == "":
-        if env_file_path is None or env_file_path == "":
+    if arg_value is None or arg_value.strip() == "":
+        if env_file_path is None or env_file_path.strip() == "":
             env_file_name = "Undefined"
         raise ValueError(f"Env file of {env_file_name} : {arg_key} variable does not exist or empty")
 
-    return arg_value
+    return arg_value.strip()
 
 
 # Adds a starting and ending slash if not already there
