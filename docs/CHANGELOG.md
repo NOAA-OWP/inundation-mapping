@@ -1,7 +1,8 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2025-12-12 [PR#1701](https://github.com/NOAA-OWP/inundation-mapping/pull/1701)
+## v4.9.3.0 - 2026-01-08 [PR#1701](https://github.com/NOAA-OWP/inundation-mapping/pull/1701)
+
 This PR closes #1623 by updating the `data/pull_osm_roads.py` script to **exclude all OSM road segments tagged as bridges**. This change ensures that bridge features are not treated as normal road segments during FIMpact processing, which previously resulted in **unrealistically high flood-depth estimates** under bridge crossings.
 
 
@@ -20,6 +21,7 @@ By excluding bridge geometries at the data-pull stage, these erroneous inundatio
 ### Changes
 - data/roads/pull_osm_roads.py
 - src/bash_variables.env
+<br/>
 
 ## v4.9.2.2 - 2026-01-08 - [PR#1698](https://github.com/NOAA-OWP/inundation-mapping/pull/1698)
 
