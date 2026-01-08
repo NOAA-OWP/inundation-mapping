@@ -226,16 +226,27 @@ def get_sample_data(
 
     INPUT_DEM_DOMAIN = os.environ["input_DEM_domain"]
     INPUT_DEM_DOMAIN_ALASKA = os.environ["input_DEM_domain_Alaska"]
+    INPUT_DEM_DOMAIN_GUAM = os.environ["input_DEM_domain_Guam"]
+    INPUT_DEM_DOMAIN_AMERICAN_SAMOA = os.environ["input_DEM_domain_AmericanSamoa"]
     INPUT_DEM = os.environ['input_DEM']
     INPUT_DEM_ALASKA = os.environ['input_DEM_Alaska']
+    INPUT_DEM_GUAM = os.environ['input_DEM_Guam']
+    INPUT_DEM_AMERICAN_SAMOA = os.environ['input_DEM_AmericanSamoa']
     INPUT_LANDSEA = os.environ['input_landsea']
     INPUT_LANDSEA_ALASKA = os.environ['input_landsea_Alaska']
+    INPUT_LANDSEA_GUAM = os.environ['input_landsea_Guam']
+    INPUT_LANDSEA_AMERICAN_SAMOA = os.environ['input_landsea_AmericanSamoa']
     INPUT_NLD_LEVEE_PROTECTED_AREAS = os.environ["input_nld_levee_protected_areas"]
     INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA = os.environ["input_nld_levee_protected_areas_Alaska"]
+    INPUT_NLD_LEVEE_PROTECTED_AREAS_GUAM = os.environ["input_nld_levee_protected_areas_Guam"]
     INPUT_NWM_LAKES = os.environ['input_nwm_lakes']
     INPUT_NWM_LAKES_ALASKA = os.environ['input_nwm_lakes_Alaska']
+    INPUT_NWM_LAKES_GUAM = os.environ['input_nwm_lakes_Guam']
+    INPUT_NWM_LAKES_AMERICAN_SAMOA = os.environ['input_nwm_lakes_AmericanSamoa']
     INPUT_GL_BOUNDARIES = os.environ["input_GL_boundaries"]
     INPUT_WBD_GDB_ALASKA = os.environ["input_WBD_gdb_Alaska"]
+    INPUT_WBD_GDB_GUAM = os.environ["input_WBD_gdb_Guam"]
+    INPUT_WBD_GDB_AMERICAN_SAMOA = os.environ["input_WBD_gdb_AmericanSamoa"]
     NWM_RECUR_FILE = os.environ["nwm_recur_file"]
     INPUT_CALIB_POINTS_DIR = os.environ["input_calib_points_dir"]
 
@@ -308,6 +319,25 @@ def get_sample_data(
             input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_ALASKA
 
             __copy_file(INPUT_WBD_GDB_ALASKA, output_root_folder, input_root, bucket_path)
+
+        elif huc == '22010000':  # Guam
+            input_LANDSEA = INPUT_LANDSEA_GUAM
+            input_DEM = INPUT_DEM_GUAM
+            input_DEM_domain = INPUT_DEM_DOMAIN_GUAM
+            input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC8_{huc}_dem.tif')
+            input_NWM_lakes = INPUT_NWM_LAKES_GUAM
+            input_NLD_levee_protected_areas = INPUT_NLD_LEVEE_PROTECTED_AREAS_GUAM
+
+            __copy_file(INPUT_WBD_GDB_GUAM, output_root_folder, input_root, bucket_path)
+
+        elif huc == '22030001':  # American Samoa
+            input_LANDSEA = INPUT_LANDSEA_AMERICAN_SAMOA
+            input_DEM = INPUT_DEM_AMERICAN_SAMOA
+            input_DEM_domain = INPUT_DEM_DOMAIN_AMERICAN_SAMOA
+            input_DEM_file = os.path.join(os.path.split(input_DEM_domain)[0], f'HUC8_{huc}_dem.tif')
+            input_NWM_lakes = INPUT_NWM_LAKES_AMERICAN_SAMOA
+
+            __copy_file(INPUT_WBD_GDB_AMERICAN_SAMOA, output_root_folder, input_root, bucket_path)
 
         else:
             input_DEM = INPUT_DEM

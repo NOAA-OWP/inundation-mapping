@@ -16,7 +16,7 @@ from natsort import natsorted
 from tools_shared_functions import aggregate_wbd_hucs, get_metadata
 from tools_shared_variables import BAD_SITES, DISCARD_AHPS_QUERY
 
-from utils.shared_variables import VIZ_PROJECTION
+from src.utils.shared_variables import VIZ_PROJECTION
 
 
 gpd.options.io_engine = "pyogrio"
@@ -474,7 +474,7 @@ def filter_dataframe(dataframe, unique_field):
 ##############################################################################
 def eval_plots(
     metrics_csv,
-    workspace,
+    output_eval_folder,
     versions=[],
     stats=['CSI', 'FAR', 'TPR', 'PND', 'MCC', 'EQUITABLE_THREAT_SCORE'],
     spatial=False,
@@ -482,7 +482,7 @@ def eval_plots(
 ):
     '''
     Creates plots and summary statistics using metrics compiled from
-    synthesize_test_cases. Required inputs are metrics_csv and workspace.
+    synthesize_test_cases. Required inputs are metrics_csv and outputs_folder args.
     Outputs include:
         aggregate_<benchmark source>_<configuration>.csv: this csv
             contains the aggregated total statistics (i.e. CSI, FAR, POD)
@@ -533,9 +533,10 @@ def eval_plots(
     metrics_csv : STRING
         Path to csv produced as part of synthesize_test_cases containing
         all metrics across all versions.
-    workspace : STRING
-        Path to the output workspace. Subdirectories will be created
+    output_eval_folder : STRING
+        Path to the output eval folder. Subdirectories will be created
         reflecting the evaluation datasets.
+        ie) outputs/calib_test_3/eval/
     versions: LIST
         A list of versions to be aggregated/plotted. Uses the "startswith"
         approach. Versions should be supplied in the order they are to
@@ -571,7 +572,7 @@ def eval_plots(
 
     '''
 
-    if sp:  # create the spatial files generally used for FIM Performance.
+    if spatial:  # create the spatial files generally used for FIM Performance.
         load_dotenv(args['env_file'])
 
         API_BASE_URL = os.getenv('API_BASE_URL')
@@ -582,12 +583,31 @@ def eval_plots(
             )
         WBD_LAYER = os.getenv("WBD_LAYER")
 
+    # -------------------------------
+    # Validation
+    # TODO: Nov 14, 2025 - needs more validation code
+    if output_eval_folder == "":
+        raise ValueError("Argument value for output_eval_folder (-w) can not be empty")
+
+    if metrics_csv == "":
+        raise ValueError("Argument value for metrics file (-m) can not be empty")
+
+    if not os.path.isfile(metrics_csv):
+        raise ValueError(f"Argument value for metrics file (-m) : {metrics_csv}, file does not exist.")
+
+    # -------------------------------
     # Run eval_plots function
+    print("")
+    print("Starting running eval_plots")
+    print("")
     print('The following AHPS sites are considered "BAD_SITES":  ' + ', '.join(BAD_SITES))
     print('The following query is used to filter AHPS:  ' + DISCARD_AHPS_QUERY)
 
     # Import metrics csv as DataFrame and initialize all_datasets dictionary
     csv_df = pd.read_csv(metrics_csv, dtype={'huc': str})
+
+    if csv_df.empty:
+        raise Exception(f"The metrics csv of {metrics_csv} appears to be empty or did not load correctly")
 
     # Ensure all HUC values are 8 characters long with leading zeros if needed
     csv_df['huc'] = csv_df['huc'].str.zfill(8)
@@ -610,10 +630,13 @@ def eval_plots(
     and values (filtered dataframe, common sites). '''
 
     all_datasets = {}
+    print("Start - filtering datasets by source")
     for (benchmark_source, extent_configuration), benchmark_metrics in benchmark_by_source:
         '''If source is usgs/nws define the base resolution and query
         (use alternate query if passed). Append filtered datasets to
         all_datasets dictionary.'''
+
+        print(f"  {benchmark_source}: Getting filtered dataframe from metrics for benchmark. ")
 
         if benchmark_source in ['usgs', 'nws']:
             # Set the base processing unit for the ahps runs.
@@ -638,20 +661,30 @@ def eval_plots(
             all_datasets[(benchmark_source, extent_configuration)] = filter_dataframe(
                 benchmark_metrics, base_resolution
             )
-
+    print("End - filtering datasets by source")
+    print("")
+    print("Start data processing")
     # For each dataset in all_datasets, generate plots and aggregate statistics
     for (dataset_name, configuration), (dataset, sites) in all_datasets.items():
-        # Define and create the output workspace as a subfolder within the supplied workspace
-        output_workspace = Path(workspace) / dataset_name / configuration.lower()
-        output_workspace.mkdir(parents=True, exist_ok=True)
+
+        print(f"  {dataset_name}: data processing")
+
+        if dataset.empty:
+            print(f"Warning: metrics dataset for {dataset_name} is empty")
+            continue
+
+        # Define and create the benchmark name as a subfolder within the supplied outupts_folder.
+        # ie) /outputs/Rob_calib_test_3/eval/ble/comp/
+        output_benchmark_dir = Path(output_eval_folder) / dataset_name / configuration.lower()
+        output_benchmark_dir.mkdir(parents=True, exist_ok=True)
 
         # Write out the filtered dataset and common sites to file
         dataset.to_csv(
-            output_workspace / (f'{dataset_name}_{configuration.lower()}_analyzed_data.csv'), index=False
+            output_benchmark_dir / (f'{dataset_name}_{configuration.lower()}_analyzed_data.csv'), index=False
         )
         sites_pd = pd.DataFrame.from_dict(sites, orient='index').transpose()
         sites_pd.to_csv(
-            output_workspace / (f'{dataset_name}_{configuration.lower()}_common_sites.csv'), index=False
+            output_benchmark_dir / (f'{dataset_name}_{configuration.lower()}_common_sites.csv'), index=False
         )
 
         # Set the order of the magnitudes and define base resolution
@@ -685,7 +718,7 @@ def eval_plots(
 
         # Write aggregated metrics to file
         dataset_sums.to_csv(
-            output_workspace / f'aggregate_{dataset_name}_{configuration.lower()}.csv', index=False
+            output_benchmark_dir / f'aggregate_{dataset_name}_{configuration.lower()}.csv', index=False
         )
 
         ## This section naturally orders analyzed versions which defines the hue order for the generated plots
@@ -719,7 +752,7 @@ def eval_plots(
         textbox = '\n'.join(textbox)
 
         # Create aggregate barplot
-        aggregate_file = output_workspace / (f'csi_aggr_{dataset_name}_{configuration.lower()}.png')
+        aggregate_file = output_benchmark_dir / (f'csi_aggr_{dataset_name}_{configuration.lower()}.png')
         barplot(
             dataframe=dataset_sums,
             x_field='magnitude',
@@ -736,7 +769,7 @@ def eval_plots(
 
         # If enabled, write out barplots of CSI for individual sites.
         if site_barplots:
-            individual_dirs = output_workspace / 'individual'
+            individual_dirs = output_benchmark_dir / 'individual'
             individual_dirs.mkdir(parents=True, exist_ok=True)
             subset = dataset.groupby(base_resolution)
             for site_name, site_data in subset:
@@ -759,7 +792,9 @@ def eval_plots(
 
         # Create box plots for each metric in supplied stats
         for stat in stats:
-            output_file = output_workspace / (f'{stat.lower()}_{dataset_name}_{configuration.lower()}.png')
+            output_file = output_benchmark_dir / (
+                f'{stat.lower()}_{dataset_name}_{configuration.lower()}.png'
+            )
             boxplot(
                 dataframe=dataset,
                 x_field='magnitude',
@@ -790,7 +825,7 @@ def eval_plots(
                 )
                 # Define arguments for scatterplot function
                 title_text = f'CSI {magnitude}'
-                dest_file = output_workspace / f'csi_scatter_{magnitude}_{configuration.lower()}.png'
+                dest_file = output_benchmark_dir / f'csi_scatter_{magnitude}_{configuration.lower()}.png'
                 scatterplot(
                     dataframe=plotdf,
                     x_field=f'CSI_{x_version}',
@@ -802,14 +837,17 @@ def eval_plots(
                 # Write out dataframe used to create scatter plots
                 plotdf['Diff (C-B)'] = plotdf[f'CSI_{y_version}'] - plotdf[f'CSI_{x_version}']
                 plotdf.to_csv(
-                    output_workspace / f'csi_scatter_{magnitude}_{configuration.lower()}_data.csv',
+                    output_benchmark_dir / f'csi_scatter_{magnitude}_{configuration.lower()}_data.csv',
                     index=False,
                 )
 
+    print("")
     #######################################################################
     # Create spatial layers with threshold and mapping information
     ########################################################################
     if spatial:
+
+        print("Starting spatial point layer processing")
         ###############################################################
         # This section will join ahps metrics to a spatial point layer
         ###############################################################
@@ -852,9 +890,9 @@ def eval_plots(
             select_by = 'nws_lid'
             selector = list(all_ahps_datasets.nws_lid.unique())
             metadata_url = f'{API_BASE_URL}/metadata'
-            metadata_list, metadata_df = get_metadata(metadata_url, select_by, selector)
+            metadata_list, _ = get_metadata(metadata_url, select_by, selector)
             # Create geospatial data from WRDS output
-            dictionary, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
+            _, gdf = aggregate_wbd_hucs(metadata_list, Path(WBD_LAYER), retain_attributes=True)
             # Trim out unecessary columns and rename remaining columns
             gdf = gdf.filter(
                 [
@@ -885,18 +923,20 @@ def eval_plots(
             joined = gdf.merge(all_ahps_datasets, on='nws_lid')
             # Project to VIZ projection and write to file  (the csv is for HV, the gpkg is for debugging)
             joined = joined.to_crs(VIZ_PROJECTION)
-            points_file_name = os.path.join(workspace, 'fim_performance_points.gpkg')
+            points_file_name = os.path.join(output_eval_folder, 'fim_performance_points.gpkg')
             joined.to_file(points_file_name, driver="GPKG", engine='fiona')
             joined.to_csv(points_file_name.replace(".gpkg", ".csv"))
+            print(f"FIM Performance Points file(s) at {points_file_name}")
         else:
             print(
-                'NWS/USGS MS datasets not analyzed, no spatial data created.\n'
+                'NWS/USGS MS datasets not analyzed, no spatial point data created.\n'
                 'To produce spatial data analyze a MS version.'
             )
 
         ################################################################
-        # This section joins ble (FR) metrics to a spatial layer of HUCs.
+        # This section joins ble (FR) metrics to a spatial polygon layer of HUCs.
         ################################################################
+        print("Starting building spatial polygon layer")
         if (
             all_datasets.get(('ble', 'FR'))
             and all_datasets.get(('ifc', 'FR'))
@@ -945,12 +985,13 @@ def eval_plots(
             # Project to VIZ projection
             wbd_with_metrics = wbd_with_metrics.to_crs(VIZ_PROJECTION)
             # Write out to file (the csv is for HV, the gpkg is for debugging)
-            wbd_with_metrics_file_name = os.path.join(workspace, 'fim_performance_polys.gpkg')
+            wbd_with_metrics_file_name = os.path.join(output_eval_folder, 'fim_performance_polys.gpkg')
             wbd_with_metrics.to_file(wbd_with_metrics_file_name, driver="GPKG", engine='fiona')
             wbd_with_metrics.to_csv(wbd_with_metrics_file_name.replace(".gpkg", ".csv"))
+            print(f"FIM Performance Polys file(s) at {wbd_with_metrics_file_name}")
         else:
             print(
-                'BLE/IFC/RAS2FIM FR datasets not analyzed, no spatial data created.\n'
+                'BLE/IFC/RAS2FIM FR datasets not analyzed, no polygon spatial data created.\n'
                 'To produce spatial data analyze a FR version'
             )
 
@@ -976,10 +1017,17 @@ if __name__ == '__main__':
     Usage for FIM Performance mode. The example for output data is based on the filtered hand output
     normally used in OWP servers by catfim.  Any valid HAND dataset can be used and the filtered
     "catfim" output version has all of the files needed by both CatFIM and this script.
-    fim_version="hand_4_6_1_4" ; python /foss_fim/tools/eval_plots.py
-        -m /outputs/${fim_version}_catfim/${fim_version}_metrics.csv
-        -w /data/fim_performance/${fim_version} -v ${fim_version} -sp -i
+        Sample cmd for FIM Performance (points/polys - the key is to add the -sp flag here)
+        hand_version="hand_4_6_1_4" ; python /foss_fim/tools/eval_plots.py
+            -m /outputs/${hand_version}_catfim/${hand_version}_metrics.csv
+            -w /data/fim_performance/${hand_version} -v ${hand_version} -sp -i
 
+    Sample cmd for standard alpha testing (via synthesize_test_cs.py)
+
+    clear ; hand_version='Rob_calib_test_3' ; prev_version='hand_4_8_16_0' ; \
+        python3 foss_fim/tools/eval_plots.py -m /outputs/${hand_version}/${hand_version}_metrics.csv \
+        -w /outputs/${hand_version}/eval_2/ \
+        -v hand_4_8_7_2 hand_4_8_11_1 ${prev_version} ${hand_version}
     """
 
     # Parse arguments
@@ -987,9 +1035,15 @@ if __name__ == '__main__':
         description='Plot and aggregate statistics for benchmark datasets (BLE/AHPS libraries)'
     )
     parser.add_argument(
-        '-m', '--metrics_csv', help='Metrics csv created from synthesize test cases.', required=True
+        '-m', '--metrics_csv', help='REQUIRED: Metrics csv created from synthesize test cases.', required=True
     )
-    parser.add_argument('-w', '--workspace', help='Output workspace', required=True)
+    parser.add_argument(
+        '-w',
+        '--output-eval-folder',
+        help='REQUIRED: Root eval output Folder.'
+        'ie: /previous_fim/hand_4_8_16_0/eval/ or  /outputs/Rob_synth_test/eval/',
+        required=True,
+    )
     parser.add_argument(
         '-v',
         '--versions',
@@ -1038,10 +1092,10 @@ if __name__ == '__main__':
 
     # Finalize Variables
     m = args['metrics_csv']
-    w = args['workspace']
+    w = args['output_eval_folder']
     v = args['versions']
     s = args['stats']
     sp = args['spatial']
     i = args['site_plots']
 
-    eval_plots(metrics_csv=m, workspace=w, versions=v, stats=s, spatial=sp, site_barplots=i)
+    eval_plots(metrics_csv=m, output_eval_folder=w, versions=v, stats=s, spatial=sp, site_barplots=i)

@@ -376,12 +376,19 @@ def process_bridges_lidar_data(
         # Collect results
         list_of_classification_results = [future.result() for future in executor_dict]
 
-        # Combine results into a DataFrame
-        bridges_classifications_df = pd.concat(list_of_classification_results, ignore_index=True)
+        # filter None which are for the cases when no raster is created
+        list_of_classification_results = [df for df in list_of_classification_results if df is not None]
 
-        bridges_classifications_df.to_csv(
-            os.path.join(output_dir, 'classifications_summary.csv'), index=False
-        )
+        if list_of_classification_results:
+            # Combine results into a DataFrame
+            bridges_classifications_df = pd.concat(list_of_classification_results, ignore_index=True)
+
+            bridges_classifications_df.to_csv(
+                os.path.join(output_dir, 'classifications_summary.csv'), index=False
+            )
+        else:
+            logging.info('No Raster file was created.')
+            print('No Raster file was created.')
 
         # Record run time
         end_time = datetime.now(timezone.utc)

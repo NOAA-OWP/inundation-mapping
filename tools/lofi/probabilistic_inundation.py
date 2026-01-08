@@ -639,8 +639,8 @@ def inundate_probabilistic(
         os.remove(out_rast)
 
     # Remove SRC path and flow path
-    shutil.rmtree(src_output_path)
-    shutil.rmtree(flow_path)
+    shutil.rmtree(src_output_path, ignore_errors=True)
+    shutil.rmtree(flow_path, ignore_errors=True)
 
 
 def progress_bar_handler(executor_dict, verbose, desc) -> list:
