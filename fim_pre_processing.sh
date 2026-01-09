@@ -118,7 +118,6 @@ fi
 # outputsDir & workDir come from the Dockerfile
 outputDestDir=$outputsDir/$runName
 tempRunDir=$workDir/$runName
-# export WBT_PATH=${tempRunDir}/whitebox_temp
 
 # default values
 if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi

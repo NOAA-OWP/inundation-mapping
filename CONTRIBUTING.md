@@ -47,7 +47,7 @@ If you would like to contribute, please follow these steps:
 
 4. Build the Docker container (if not already done in the [README.md](./README.md) page.):
     ```
-    Docker build -f Dockerfile -t <image_name>:<tag> <path/to/repository>
+    Docker build -f Dockerfile.dev -t <image_name>:<tag> <path/to/repository>
     ```
 
 5. Pre-commit installation:
@@ -92,31 +92,37 @@ If you would like to contribute, please follow these steps:
     
 7. At this point, you should be set up with `pre-commit`. When a commit is made it will run the pre-commit hooks defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml). For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). Some tools used by the pre commit git hook (`isort`, `flake8`, & `black`) are also available as command line executables **within the Docker container***, however, it is recommended to run them through `pre-commit` **outside of the container**, as it picks up the correct configuration.
 
-   ```
-   There are multiple ways to run pre-commit tests. Here are three:
-   
-   # Check only the staged changes
-   pre-commit run
+    ```
+    There are multiple ways to run pre-commit tests. Here are three:
 
-   # Check all files in the repo
-   pre-commit run -a
+    # Check only the staged changes
+    pre-commit run
 
-   # Run only the isort, black, flake8 (in order).
-   pre-commit run -a isort
-   pre-commit run -a black  (If it fails the first time, run it again and now apply a fix if required)
-   pre-commit run -a flake8
-   ```
-    **Note: The pre-commit system can be a bit tricky. If you have trouble with pre-commit steps above, you have another option.** Some environments may require add the word **sudo** in front commands .
-   ```
-   # Open up a docker container
-   cd /foss_fim
-   isort .
-   black .
-   flake8 .
+    # Check all files in the repo
+    pre-commit run -a
 
-   # optionally close the container
-   # Back on your terminal console (outside the container), use the typical git add, git commit, git push
+    # Run only the isort, black, flake8 (in order).
+    pre-commit run -a isort  (*** See the Tech-Tip on re-running isort and black a second time)
+    pre-commit run -a black  (*** See the Tech-Tip on re-running isort and black a second time)
+    pre-commit run -a flake8
+    ```
+    ### Note:
+    The pre-commit system can be a bit tricky. If you have trouble with pre-commit steps above, you have another option.** Some environments may require add the word **sudo** in front commands .
 
+    ### Tech-Tip:
+    If you run isort, black and flake8 one at a time as above, you gain a very handy feature. When you run either isort or black the first time, it auto updates the files to fix it, assuming it has permissions (sudo).  Then run it again to validate it now passes. "flake8" doesn't auto update anything, you have to fix those by hand.
+
+    ```
+    # Open up a docker container
+    cd /foss_fim
+    isort .
+    black .
+    flake8 .
+    ```
+    Optionally close the container.
+    
+    Back on your terminal console (outside the container), use the typical git add, git commit, git push.
+    <br/>
 
 8. Outside of the Docker container, commit your changes:
     ```
