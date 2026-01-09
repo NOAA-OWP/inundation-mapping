@@ -73,43 +73,49 @@ Sites_gdf:
     into the final status column, same as before
 """
 
-# TODO: This files shoudl be renamed to somethign like generate_categorical_fim_thresholds
-# as "flows" is not descriptive enough. Note: REnaming it will maintian its history.
+# TODO: This file should be renamed to something like generate_categorical_fim_thresholds
+# as "flows" is not descriptive enough. Note: Renaming it will maintian its history.
 
 
 def get_threshold_data(huc, huc_path, valid_nwm_lids):
 
-    # A bit of start staggering to help not overload the MP (0.1 milliseconds to 4 secs)
+    # Stagger the start time to to help not overload the MP (0.1 milliseconds to 4 secs)
     time_delay_mms = random.randint(100, 4000) / 1000
     time.sleep(time_delay_mms)
 
     huc_thresholds_file_path = os.path.join(huc_path, f"{huc}_thresholds.csv")
 
-    # We really only need to load this env if we are going to let the script call WRDS directly.
-    api_base_url = ""
+    # If download threshold data option used, get threshold data from WRDS API
     if os.getenv('GET_NEW_THRESHOLD_DATA') is True:
+
+        # Get WRDS base URL from the ENV_FILE
+        api_base_url = ""
         api_base_url = csf.load_fim_global_env_values(os.getenv('ENV_FILE'))
 
         threshold_url = f'{api_base_url}/nws_threshold'
 
-        # Download thresholds applicable to this huc list.
-        # Build a new huc_lic_dict as we know only valid sites we want after restriction tests
+        # Build a new huc_lid_dict (because we only want to get thresholds for sites that have
+        # not been filtered out at this point) 
         huc_lid_dict = {}
         for lid in valid_nwm_lids:
             huc_lid_dict[lid] = huc
 
-        date_formatted = datetime.now(timezone.utc).strftime("%Y%m%d")
+        # Note: We need to download threshold data using the LID rather than the HUC
+        # because the HUC columns are sometimes incomplete or missing on WRDS. 
+        # Generating our own HUC dictionary is a much more reliable method. TODO: Is this comment necessary here? decide
 
-        # Note: We have to do this as not all threshhold data has a huc value, but we already
-        # have figured out a list of nws_lids for this huc
+        # Create a filepath for the threshold data
+        date_formatted = datetime.now(timezone.utc).strftime("%Y%m%d")
         local_copy_threshold_file_path = os.path.join(huc_path, f'nwm_threshold_data_{date_formatted}.pkl')
+
+        # Download all thresholds for the HUC's valid LIDs
         return_msgs = dpw.download_all_thresholds(local_copy_threshold_file_path, threshold_url, huc_lid_dict)
 
-        # return_msgs is a list and might have some warnings, some messages and/or errors
+        # Handle any messages returned from threshold download (return_msgs is a list, might have warnings/errors)
         if len(return_msgs) > 0:
+
             # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of
             # custom exceptions.
-
             # also.. we get duplicate info to the script as download_process_wrds.py has both prints
             # and returns as a message.  Hummmm. See notes in download_process_wrds.py
 
@@ -121,37 +127,45 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
                 else:
                     logging.info(msg)
     else:
-        # We need to make a copy of it and put it into the local dir temporaily
-        # to save against MP file collisions.
+        # If the threshold file already exists...
+        # Temporarily copy the threshold file to the local huc dir to avoid MP file collisions.
+        # The random time delay should help prevent multiple processes from trying to copy
+        # the same file at the exact same time.
+
+        # Get threshold filepath from ENV_FILE
         threshold_file_path = os.getenv('THRESHOLD_FILE_PATH')
         if os.path.isfile(threshold_file_path) is False:
             raise FileNotFoundError(f"Error: Expected the threshold file at {threshold_file_path}")
 
-        # Make a copy of it and put it in our local dir, but give it a few second random delay to help
-        # with MP and all of the first set of hucs grabbing a copy at the exact same time.
+        # Copy to threshold file to local huc dir
         src_file_name = os.path.basename(threshold_file_path)
         local_copy_threshold_file_path = os.path.join(huc_path, src_file_name)  # Now using the new huc copy
         shutil.copyfile(threshold_file_path, local_copy_threshold_file_path)
 
-    # TODO: Rob: what is this "manual_input" thing about?  need some details here
-
-    # Either way, we have an existing threshold file to load and filter
-    # Get the source (important for differentiating processing for manual input vs wrds)
-    # we will need to filter out just the site records we want as it depends what file was
-    # loaded in the first place.
-    # The threshold files has all site and huc data, so we need to filter it out
+    # Load the threshold data, get the source, and filter the data to just the valid lids for the huc
+    # Note: The source is important for differentiating processing for manual input vs wrds
     threshold_all_sites_df = pd.DataFrame()
     with open(local_copy_threshold_file_path, "rb") as p_handle:
 
-        # even though the threshold file is a pickle file, it has a df in it
+        # Load threshold pkl file (it is a pkl file even though it has a df in it, mainly
+        # to keep things consistent with the metadata.pkl file handling)
         threshold_all_sites_df = pickle.load(p_handle)
         source_list = threshold_all_sites_df['source']
 
         # TODO: There is a bug in the data_source that needs to fixed.
         # If manual input is in source list, set data source to manual input
         # Assumes that if one is manual input, then all are manual input
+        # 
+        # Emily note: actually I think that this is fine for now, because I think 
+        # we will be running manual_input thresholds separately from WRDS thresholds (like
+        # in separate CatFIM runs...)... but either way, should be explained/documented well
+
+        data_source = ""
+
+        # If any manual input is detected, set data source to 'Manual_Input'
+        # Currently, manual input thresholds are not mixed with WRDS thresholds
         if 'Manual_Input' in source_list:
-            logging.info("Manual input found in threshold source list.")
+            logging.info("Manual input found in threshold source list, setting all sources to 'Manual_Input'.")
             data_source = 'Manual_Input'
 
         # Otherwise, compile unique sources into a comma-separated string
@@ -169,23 +183,29 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
             # temp workaround
             data_source = 'TEST'
 
-    # This is for threshold filtered to this huc as the loaded threshold file may have more than
-    # just this huc
+    # At this point, we have a threshold file in the HUC directory. If it was downloaded
+    # from WRDS it will already be filtered to the HUC. If it was pre-loaded, it probably has threshold
+    # data for multiple HUCs. Could move this to the part of the processing that copies the 
+    # pre-loaded data. But it also doesn't hurt to have it here.
+
+    # Filter threshold data to be just the valid LIDs for this HUC 
+    # TODO: is this additional filtering step needed? it might be redundant? (might just need to reset index)
+    threshold_huc_df = threshold_all_sites_df[threshold_all_sites_df['nws_lid'].isin(valid_nwm_lids)].copy()
+
+    # TODO: do we need to reset index? or does copy() above do that for us?
+    # threshold_huc_df.reset_index(drop=True, inplace=True)
 
     # TODO: upper case or lower case always? (see other notes around the code about lower or upper)
     # I think it is possible to not have threshold data for all of this huc's list.
     # change all nws_lid values to lower
     # threshold_all_sites_df['nws_lid'] = threshold_all_sites_df['nws_lid'].str.lower()
 
-    threshold_huc_df = threshold_all_sites_df[threshold_all_sites_df['nws_lid'].isin(valid_nwm_lids)].copy()
+    # If no valid LIDs remain, return a blank value
     if len(threshold_huc_df) == 0:
         # TODO: make sure to updates the sites mapped and status for all lid records for this HUC
         return []
 
-    # TODO: humm.. do we reset? or does copy() above do that for us?
-    # threshold_huc_df.reset_index(drop=True, inplace=True)
-
-    # Ensure the mag type columns are floats and already rounded to 2 decimals.
+    # Ensure the mag type columns are floats and rounded to 2 decimals
     stage_types = ['action', 'minor', 'moderate', 'major', 'record']
     threshold_huc_df[stage_types] = threshold_huc_df[stage_types].fillna(value=-1).astype(float).round(2)
 
@@ -193,71 +213,87 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
     str_columns = ['units', 'source']
     threshold_huc_df[str_columns] = threshold_huc_df[str_columns].fillna(value="").astype(str)
 
-    # drop columns we don't use at all at this point.
+    # Drop threshold dataframe columns that will not be used
     threshold_huc_df = threshold_huc_df.drop(columns=['low', 'bankfull', 'huc', 'flood'], errors='ignore')
 
-    # move the nws_lid column to the start to make it easier to read the outputs
+    # Move the nws_lid column to be the first column (makes it easier to read the outputs)
     nws_lid_col = threshold_huc_df.pop('nws_lid')
     threshold_huc_df.insert(0, 'nws_lid', nws_lid_col)
 
-    # save a copy of the filtered version
+    # Save a copy of the filtered threshold data
     threshold_huc_df.to_csv(huc_thresholds_file_path, index=False)
 
     return threshold_huc_df, data_source
 
 
-# More / less equiv to generate_flows in previous versions but some parts have already been done
-# before we get here, such as dropping lids for restricted sites. Threshold data is more refined
-# by now from previous versions.
-def process_theshold_data(
+
+def process_threshold_data(
     catfim_type, valid_lids, sites_gdf, huc, huc_path, output_temp_dir, threshold_huc_df, metadata_json
 ):
     """
-    By this point some lids have been dropped such as one from the restricted sites list.
+    By this point some lids have been dropped (such as the restricted sites).
 
-    At the end, we will have a HUC level library file, which is all of the sites / mag types up to this
-    point. Many will be dropped as each lid / mag type is processed. It will be saved to a library but as
-    it will be a csv as it does not have geometry yet, which comes later.
+    This function creates a HUC-level library file with all of the site/magnitude combinations
+    that are still valid up to this point (some site/magnitude combinations will still be dropped
+    later on in processing). 
 
-    For FB, it will also create a flow_discharge.csv file which is the rolled up to HUC level data
-    previously seen the flows dir.
+    The HUC-level library file will be saved as a CSV because it does not have the geometry yet.
 
-    There is no longer a need for attributes files as it is data that already existed in the sites_gdf
-    and theshold data file. The attributes file had a bunch of duplicate data and mostly only needed
-    the stage level data for each mag.  It also includes the three "q" columns which is the flow data.
+    For FB, it will also create a flow_discharge.csv file (pre Jan 2026 was saved in the flows folder, 
+    now is saved in the HUC-level data). 
 
-    TODO: why are they called 'q'. ROB: check HV meta data mapx and data load scripts to see if we rename
+
+    Notes on the create HUC library data functions: 
+    - These will save intermediate library data for all lids and mag types that are valid by this point.
+    - More logic will be done later, which may drop some of the library recs.
+    - All returning df's will be saved as a csv at the end of this function. That helps
+       with abstraction allowing the mapping code to function more independantly and it
+       can reload files as needed and also give us checkpoint data.
+    - These are split to SB and FB mostly because messages are different.
+
+
+    Notes from CatFIM refactoring (Jan 2026):
+    - This function is mostly equivalent to generate_flows in previous versions, but some processing
+      that was previously done here has now been moved earlier in the code, such as dropping the 
+      restricted sites. 
+
+    - Removed the attributes files because that data already exists in the sites_gdf and the threshold 
+      data file. The attributes file had a bunch of duplicate data and mostly only needed
+      the stage level data for each mag. It also includes the three "q" (discharge) columns which is the flow data.
+
+
+    TODO: Rob: why are they called 'q'. check HV meta data mapx and data load scripts to see if we rename
     it there?  Also.. what does the catfim compare do with the fields?
-    -> Q is the conventional variable to use for discharge in hydrology, so it actually probably 
-       makes sense to keep it named that -E
+    Emily: Q is the conventional variable to use for discharge in hydrology, so it actually probably makes 
+    sense to keep it named that
+
+
+    more reorg comments:
+    Basically.... the same thing as the original generate_flows, but thresholds have already been loaded.
+    For now, we still need the json to help pull out nodes like segments. (more complex stuff)
+    Eventually we can get it all df row based as it is all there already which means we don't really need the metadata_json.
+
+    FB needs some meta data from sb stage colums. Not for processing, just data going into the library rows.
+    The discharge file is only needed for FB, but we name it here to help keep track of all possible files that can be created in this function.
     """
 
-    # Basically.... the same thing as the original generate_flows, but thresholds have already been loaded
+    # ================================
+    # Validate function inputs
 
-    # For now, we still need the json to help pull out nodes like segments. (more complex stuff)
+    # TODO: check if the metadata_json is empty and fail if so.
+    # also check that other values such as valid_nwm_lids, thresholds_merge_df is not empty and fail
 
-    # Eventually we can get it all df row based as it is all there already which means we
-    #    don't really need the metadata_json.
-
-    # FB needs some meta data from sb stage colums. Not for processing, just data going into the library rows.
-
-    # The discharge file is only needed for FB, but we name it here to help keep track of all
-    # possible files that can be created in this function.
+    # ================================
+    # Create filepath variables
     discharge_file_path = os.path.join(huc_path, "flow_discharges.csv")  # only needed for FB
     segments_file_path = os.path.join(huc_path, "features_segments.csv")
 
     # initial library file post threshold processing
     # library_pre_inun_file_path = os.path.join(output_temp_dir, "library_pre_inundation.csv")
 
-    # ++++++++++++++++++++++++++++
-    # TODO: This should be changed to loading something_path at the HUC level for flow data,
-    # The CONUS flow file it is 1.6 GiB and is a bit slow to load.
+    # ================================
+    # Load the flows dataframe based on the HUC
 
-    # I'm not certain that any of our FIM output flowlines files will be correct for this
-    # application. However, we could potentially use the preclip workflow to create
-    # HUC-level flow files for each HUC. I think this is a task to add to the CatFIM Epic. -E  
-
-    # Get the correct nwm_flows_region_df based on the HUC
     if huc[:4] == '2201':  # Guam
         nwm_flows_region_df = gpd.read_file(os.getenv('input_nhd_flows_Guam'))
     elif huc[:4] == '2203':  # American Samoa
@@ -265,29 +301,29 @@ def process_theshold_data(
     elif huc[:2] == '19':  # Alaska
         nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows_Alaska'))
     else:  # CONUS + Hawaii + Puerto Rico
-        nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows'))  # this might be slow, it is 1.8 GiB
-        # TODO: else assume CONUS + HI or PR? What if it is an invalid huc?  Do we validate it earlier? or let
-        # it fall out later with non matching lids or fim huc folders.
-        # HUMMM...
+        nwm_flows_region_df = gpd.read_file(os.getenv('input_nwm_flows'))  # might be slow, it is 1.8 GiB
 
-    # TODO: check if the metadata_json is empty and fail
-    # also check that other values such as valid_nwm_lids, thresholds_merge_df is not empty and fail
+    # Note: 'else' assumes that any HUC not meeting the above criteria is CONUS, HI, or PR. If an 
+    # valid HUC makes it this far (unlikely), it will fall out later in the processing.
 
-    # Create HUC library data functions: 
-    #   - These will save intermediate library data for all lids and mag types that are valid by this point.
-    #   - More logic will be done later, which may drop some of the library recs.
-    #   - All returning df's will be saved as a csv at the end of this function. That helps
-    #      with abstraction allowing the mapping code to function more independantly and it
-    #      can reload files as needed and also give us checkpoint data.
-    #   - These are split to SB and FB mostly because messages are different.
 
-    # Save intermediate library data for all valid LIDs and magnitudes in the HUC (some could still be dropped later)
+    # TODO: Rob: This should be changed to loading something_path at the HUC level for flow data,
+    # because the CONUS flow file it is 1.6 GiB and is a bit slow to load.
+    #
+    # Emily: I'm not certain that any of our FIM output flowlines files will be correct for this
+    # application. However, we could potentially use the preclip workflow to create
+    # HUC-level flow files for each HUC. I think this is a task to add to the CatFIM Epic.
+
+    # ================================
+    # Compile intermediate library data for all valid site/magnitude combinations in the HUC
+    # Note: Some site/magnitude combos could still be dropped later
+
     if catfim_type == "sb":
         # Create and process stage-based threshold data
         sites_gdf, huc_library_df, huc_segments_df = __create_sb_huc_library_data(
             valid_lids, sites_gdf, threshold_huc_df, metadata_json, nwm_flows_region_df
         )
-        # Note: This will not create the interval records at this point. It will do it much farther down the road
+        # Note: This will not create the interval records at this point. It will do it much later
         # after it has passed a number of tests per mag.
 
     else:
@@ -296,132 +332,172 @@ def process_theshold_data(
             valid_lids, sites_gdf, threshold_huc_df, metadata_json, nwm_flows_region_df
         )
 
-        # Save discharge dataframe
-        # It is ok if this is empty TODO: then why are we only saving non-empty dfs here? -E
+        # Save discharge dataframe (it is ok if this is empty)
+        #  TODO: if it's ok if it's empty then why are we only saving non-empty dfs here? 
+        #        or does this mean that it is ok enough that we are not throwing an error? -E
         if len(huc_discharges_df) > 0:
             huc_discharges_df.to_csv(discharge_file_path, index=False)
             logging.info(f"Saving discharge file to {discharge_file_path}")
 
-    # Save the segments files. They will be picked up later.
-    # and it is ok if they are empty. Errors have been handles already for the sites_gdf
-    # This will auto have filtered out some recs based on applicable stages and/or flows
-    # that have not met conditions such as -1, 0 or null
-
+    # Save the segments files
     if len(huc_segments_df) > 0:
         huc_segments_df.to_csv(segments_file_path, index=False)
         logging.info(f"Saving segment file to {segments_file_path}")
 
+    # Note: It is ok if they are empty. Errors have been handled already for the sites_gdf.
+    # This will auto have filtered out some recs based on applicable stages and/or flows
+    # that have not met conditions such as -1, 0 or null. # TODO: then why are we only saving the non-empty dfs here? -E
+
     return sites_gdf, huc_library_df
 
 
-# This is here are we are still talking about raw threshold data at this point
+# We are still talking about raw threshold data at this point
 def __create_sb_huc_library_data(valid_lids, sites_gdf, threshold_huc_df, metadata_json, nwm_flows_region_df):
 
-    # Yes.. there is some duplication here from __create_fb_library_data such as segments
-    # We can look to optimize this a bit more later.
-    # This biggest reason it it split is because the status messages are almost always different
+    """    
+    Iterate through valid sites and compile all available stage thresholds. 
 
-    # is this in the threshold_huc_df dataset? Maybe just do the Manual_input search here
-    # TODO: hummm
-    # data_source = threshold_huc_df["source_stage"]
+    Each site can have up to 5 site/magnitude combinations (one per mag type).
 
-    # TODO: of course, SB needs the data from the stage row, but down the road
-    # it also nees some data from the flow row. See __adjust_datum_ft.
-    # SO.. As we iterate through lids, makes sure they have both rows.
+    During processing some mags (flows/stages) might be rejected, in which case the library
+     record will be dropped OR may not be created at all (depending on when the rejection happens).
 
-    """
-    Attribute files are no longer needed as the data in those files were already present in sites_gdf,
-    metadata and threshold files. This gives us everything we need to start library records.
-    Each lid will create 0 to 5 library records initially (one per mag type).
-    During processing some mags (flows/stages) might be rejected which will either drop a library
-    record or not make it in the first place.
-
-    Each lid, then mag will be processed, eventually rolling up all valid library files to a huc
-    level file and will include all columns needed for the rest of program processing.
+    Each site/magnitude combination will be processed and eventually all valid library files will
+     be rolled up into a HUC-level file. This file will include all columns needed for the rest of
+     program processing.
 
     In later steps, more of those library records may be dropped based on further logic.
 
-    This master HUC level sites_gdf will be updated at all stages along the way to update
-    the mapped, status and warning columns as applicable. At this time, the warning column
-    is just for listing when a mag is missing for a lid but has at least one valid mag.
-    ie) Missing stage (or flow) data for action; minor; moderate; major. That will be merged
-    into the status column at the end if still applicable.
+    The mapped, status, and warning columns of the master HUC-level sites_gdf will be updated as 
+    needed at each subsequent processing step. 
+    
+    At this time, the warning column is just for listing when a magnitude is missing for a site but 
+    the site has at least one other valid magnitude. (For example: "Missing stage (or flow) data for 
+    action; minor; moderate; major.") This warning column will be merged into the status column at 
+    the end if the warning is still applicable.
 
-    Results / Returns:
-        - an updated sites_gdf and a basic library df
+    Args:
+        valid_lids (list): List of valid NWS LID identifiers to process.
+        sites_gdf (GeoDataFrame): Master GeoDataFrame containing site information with columns
+            for 'nws_lid', 'mapped', 'status', and 'warning'.
+        threshold_huc_df (DataFrame): HUC-level threshold data containing 'nws_lid', stage, and
+            flow information for each site.
+        metadata_json (list): List of metadata dictionaries containing site information indexed
+            by 'identifiers']['nws_lid'].
+        nwm_flows_region_df (DataFrame): NWM flow region data used for segment retrieval.
+    
+    Returns:
+         sites_gdf (GeoDataFrame): Updated with 'mapped' and 'status' columns reflecting
+            processing results for each LID.
+         huc_library_df (DataFrame): Aggregated library records for all processed LIDs and
+            magnitudes, containing all columns needed for downstream processing.
+         huc_segments_df (DataFrame): DataFrame of feature_ids and associated LIDs extracted
+            during segment processing.
+
+
+    CatFIM Reorg Notes (Jan 2026):
+    - Previous CatFIM versions had attribute files. Attribute files are no longer needed 
+      because the data in those files is already present in the sites_gdf, metadata, and 
+      threshold files. This gives us everything we need to start library records.
+
+    - There is some duplication here with __create_fb_library_data. The main reason it is 
+      split up between flow- and stage-based CatFIM is because the status messages created
+      in this section of code are almost always different between the two CatFIM types.
+      Since status messages are useful for tracking new bugs and errors between versions,
+      we've opted to keep this processing separate for now in the interest of maintaining
+      consistency with the status messaging. In the future, we can look into optimising this
+      a bit more (aka making it into just one function for flow- and stage-based CatFIM). 
+
+  
+    - is this in the threshold_huc_df dataset? Maybe just do the Manual_input search here
+      TODO: hummm
+      data_source = threshold_huc_df["source_stage"]
+  
+    - TODO: of course, SB needs the data from the stage row, but down the road
+      it also nees some data from the flow row. See __adjust_datum_ft.
+      SO.. As we iterate through lids, makes sure they have both rows.
+
+
+    SB will use the segments file, but segments will be created anyways as a checkpoint. 
+    TODO: Rob, do we mean that SB will NOT use the segments file? typo?
+
     """
-
-    # SB will use the segments file, but segments will be created anyways as a checkpoint.
-
-    # Note: While some of the tests are similar to FB, the status messages in the sties_gdf might
-    # be a bit different. ie) No thresholds for required categories found on WRDS API
-
+    # Initialize output dataframes
     huc_library_df = pd.DataFrame()
     huc_segments_df = pd.DataFrame()
 
+    # Iterate through valid sites and compile all available stage thresholds
     for lid in valid_lids:
 
-        # ---------------------
-        # Check the lid to see if it is missing all threshold (stage, flow) data.
-        # Processing data and tests the lid level before processing at the magnitude level
         print("")
-        logging.info(f"threshold data processing for {lid}")
+        logging.info(f"Processing threshold data for {lid}")
 
+        # ---------------------
+        # Processing data and tests at the site level before processing at the magnitude level
+
+        # Check if the site is missing all threshold (stage, flow) data
         lid_threshold_data = threshold_huc_df.loc[threshold_huc_df['nws_lid'] == lid].copy()
         if lid_threshold_data.empty:
-            # msg FB version = 'No thresholds for required categories found on WRDS API'
-
-            # TODO: Does this make sense? for FB, we say just:  'Missing all flow data'
             msg = 'No thresholds for required categories found on WRDS API'
             logging.warning(f"{lid}: {msg}")
             sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
             continue
 
-        # -------------------------
-        # SB does not need the flow ("q") columns but will populate it in library recs if it exists
-        # Hummmm
+        # TODO: Does this make sense? for FB, we say just:  'Missing all flow data'
+        # msg FB version = 'No thresholds for required categories found on WRDS API'
 
         # -------------------------
-        # Don't we already have all of the metadata in sites? For now, leave it so we can use
-        # some of the tools_shared_functions for getting the segments
+        # TODO: Decide if we need to keep the q column.
+        # SB does not need the flow ("q") columns but will populate it in library recs if it exists
+
+        # -------------------------
+        # Get metadata for site
         lid_metadata = next((item for item in metadata_json if item['identifiers']['nws_lid'] == lid), False)
 
+        # TODO: Don't we already have all of the metadata in sites? For now, leave it so we can use
+        # some of the tools_shared_functions for getting the segments
+
         # ---------------------------
-        # As always, it updates, if applicable, the sites_gdf as it moves along (ie.. mapped, status)
+        # Get the stream segments for the site
         segments_lst, err_msg = __get_segments(lid, lid_metadata, nwm_flows_region_df)
+
+        # Update the mapped and status columns of the sites_gdf if needed
         if err_msg != "":
             sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
             continue
+
         if len(segments_lst) > 0:
-            # at this point, it is just a simple list of feature_id's
-            # Turn into a df, and add a column for the lid.
-            # Then we can save it as a file for reloading and usage down the road.
+            # Turn segments_lst from a simple list of feature IDs into a dataframe and add a lid column
             lid_seg_df = pd.DataFrame(data=segments_lst, columns=["feature_id"])
-            # Add a column for the lid
             lid_seg_df["lid"] = lid
+
+            # Add the HUC segments for this site to the output huc_segments_df
             huc_segments_df = pd.concat([huc_segments_df, lid_seg_df], ignore_index=True)
 
-        # procesing each magnitude in here, now that the tests that are not mag specific are done
-        # It will append data to the library csv as it goes along.
-        # This will auto have filtered out some stages based on various conditions such as -1, 0 or null
+        # else: if we did not get a err_msg from __get_segments, we should be able to assume
+        # it was handled and exists
+
+        # Create a library of all available threshold data for each site/magnitude combination for this LID
         sites_gdf, lid_library_df = __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data)
+
+        # Add LID library data to the output huc_libary_df
         if len(lid_library_df) > 0:
             huc_library_df = pd.concat([huc_library_df, lid_library_df], ignore_index=True)
 
     # end of for lid loop
 
-    # It is ok if the library and segments are empty at this point
-    # We assume the errors have been recorded and handled for the sites_gdf
+    # Note: It is ok if the library and segments are empty at this point.
+    # We assume the errors have been recorded and handled in the sites_gdf.
     return sites_gdf, huc_library_df, huc_segments_df
 
 
 # This is here are we are still talking about raw threshold data at this point
 def __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data):
 
-    # TODO: For now, this one is for SB only, and there is a seperate but very similar one for FB.
-    # Most of the tests for FB and SB are the same, just the messages are different.
-
     '''
+    Create a dataframe with the basic five library recs when applicable, based on their stage and flow values.
+    We will do SB intervals later in mapping.
+
     Process:
         To get here, we already validated the sites for restricted sites and it does have a least some flow threshold data.
 
@@ -441,62 +517,81 @@ def __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data):
         - An library dataset for this lid with basic starting columns for all valid mags. If no recs returned, then
           the lid has no valid mags to process. It will return between 0 and 5 FB library rows in it.
         - A discharge dataset for this lid.
+
+    CatFIM Reorg Notes (Jan 26):
+
+      - There is some duplication here with flow-based processing. The main reason it is 
+      split up between flow- and stage-based CatFIM is because the status messages created
+      in this section of code are almost always different between the two CatFIM types.
+      Since status messages are useful for tracking new bugs and errors between versions,
+      we've opted to keep this processing separate for now in the interest of maintaining
+      consistency with the status messaging. In the future, we can look into optimizing this
+      a bit more (aka making it into just one function for flow- and stage-based CatFIM). 
+
+
+    # procesing each magnitude in here, now that the tests that are not mag specific are done
+    # It will append data to the library csv as it goes along.
+    # This will auto have filtered out some stages based on various conditions such as -1, 0 or null
+
     '''
+    logging.info(f"Building the initial library df of all appliable magnitudes for {lid}")
 
     # ======================
-    # Create the basic five library recs when applicable, based on their stage and flow values
-    # We will do SB intervals later in mapping
-
-    logging.info(f"Building the initial library data all appliable magnitudes for {lid}")
-
+    # Initialize output dataframe
     lid_library_df = pd.DataFrame()
 
-    # Find the single lid record from the sites_gdf. Note: you can not update this rec, only the
-    # parent site_gdf for the site. Use this for read-only.
+    # Copy the site data from the sites_gdf. 
+    # Note: You cannot update this rec, only the parent site_gdf for the site. Use lid_sites_gdf for read-only.
     lid_sites_gdf = sites_gdf.loc[sites_gdf["nws_lid"] == lid].copy()
 
-    # FB does use some stage values, but only to add to the library tables. It does not use the value in calcs.
-    # These are lid specific threshold data
+    # Make a dictionary of available stages for the site
     stages = lid_threshold_data.loc[lid_threshold_data['threshold_type'] == 'stages'].to_dict(
         orient='records'
     )[0]
+
+    # Note:
+    # FB does use some stage values, but only to add to the library tables. It does not use the value in calcs.
     # flows = lid_threshold_data.loc[lid_threshold_data['threshold_type'] == 'flows'].to_dict(orient='records')[0]
-
-    # These lists may change as processing continues and some get rejected.
-    invalid_stages = []
-
+    # These are lid-specific threshold data. These lists may change as processing continues and some get rejected.
+    
     # -----------------------------------
-    for magnitude_type in csf.MAGNITUDES_TYPES:
+    # Iterate through magnitudes and create data records for each valid site/magnitude combination
 
+    invalid_stages = []
+    for magnitude_type in csf.MAGNITUDES_TYPES:
         try:
             # -------------
             logging.info(f"Building initial library rec for {lid} - {magnitude_type}")
 
-            # Guaranted to be a float with either some value or -1 for invalid and is already rounded to 2 points
+            # Get stage value (will be float type, rounded to 2 decimal points)
             stage_value = stages[magnitude_type]
 
-            if stage_value == -1 or stage_value == 0:
+            # Exit if stage value is invalid (Value of -1 or nodata, -9999.0?) 
+            # TODO: What about nodata value? We changed that above to -9999 so change here? 
+            if stage_value == -1 or stage_value == 0: # or -9999.0 ? TODO
                 logging.warning(f"{lid}: {magnitude_type} has an invalid or n/a stage value of {stage_value}")
                 invalid_stages.append(magnitude_type)
                 continue
 
             # -------------
-            # library recs
+            # Create initial library record for the site/magnitude combination
+            # Some of these site/magnitude records will be updated or rejected (removed) based on logic down the road.
 
-            # We will create an initial library rec for this lid and mag based on valid
-            # lid and mag type.
-            # Ultimately, only valid recs, will use the same library recs as the starting
-            # point for all relavent library records. Some of these will be updated, rejected (removed)
-            # at laster stages based on logic down the road.
-
-            # TODO: Technically this is not the most efficent as for each mag type that is valid
-            # by this point, they are all identical, except for the stage and flow value.
-            # But.. for now, at least it is simple to follow.
             lid_mag_library_rec_df = __create_lid_mag_library_rec(
                 "sb", lid, lid_sites_gdf, magnitude_type, lid_threshold_data
             )
 
-            # should always have a rec unless something catestrophic occurred
+            # Note: We are creating an initial library rec for this lid and mag based on valid
+            # lid and mag type. Ultimately, only valid recs, will use the same library recs 
+            # as the starting point for all relavent library records. # TODO: Clarify or remove this comment?
+
+            # TODO: Technically this is not the most efficent as for each mag type that is valid
+            # by this point, they are all identical, except for the stage and flow value.
+            # But.. for now, at least it is simple to follow.
+
+
+            # Add library record for the site/magnitude combination to the output df 
+            # (we should always have one unless something catastrophic occurred)
             lid_library_df = pd.concat([lid_library_df, lid_mag_library_rec_df], ignore_index=True)
 
         except Exception as ex:
@@ -506,6 +601,8 @@ def __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data):
             raise ex
 
     # -------------
+    # Give descriptive warnings if some or all stages are unavailable, update mapped and status columns accordingly
+
     if len(invalid_stages) == 5:
         # msg = 'No valid flow values are available'
         msg = 'No thresholds for required categories found on WRDS API'
@@ -517,7 +614,7 @@ def __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data):
         warning_mags = '; '.join(invalid_stages)
         warning_message = f"Missing stage data for {warning_mags}"
 
-        # Might have been a warning from something else by this point.
+        # Might have been a warning from something else by this point. TODO: What does this comment mean?
         prev_warning = sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'].item()
         if prev_warning != "":
             warning_message = f"{prev_warning}; {warning_message}"
@@ -525,7 +622,7 @@ def __get_sb_library_data_per_lid(lid, sites_gdf, lid_threshold_data):
         logging.warning(f"{lid}: {warning_message}")
         sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'] = warning_message
 
-    # It is ok if lid_library_df goes back empty.
+    # Note: It is ok if lid_library_df goes back empty.
     return sites_gdf, lid_library_df
 
 
@@ -560,18 +657,23 @@ def __create_fb_huc_library_data(valid_lids, sites_gdf, threshold_huc_df, metada
     # Technically, we don't need both a discharge and a segment file as they have the same
     # first two columns, but it is easier to follow as seperate files.
 
+
+
+    # Initialize output dataframes
     huc_library_df = pd.DataFrame()
     huc_discharges_df = pd.DataFrame()  # formerly flow files in the flow dir
     huc_segments_df = pd.DataFrame()
 
+    # Iterate through valid sites and compile all available flow thresholds
     for lid in valid_lids:
 
-        # ---------------------
-        # Check the lid to see if it is missing all threshold (stage, flow) data.
-        # Processing data and tests the lid level before processing at the magnitude level
         print("")
         logging.info(f"threshold data processing for {lid}")
+    
+        # ---------------------
+        # Processing data and tests the lid level before processing at the magnitude level
 
+        # Check the lid to see if it is missing all threshold (stage, flow) data.
         lid_threshold_data = threshold_huc_df.loc[threshold_huc_df['nws_lid'] == lid].copy()
         if lid_threshold_data.empty:
             msg = 'Missing all flow data'
@@ -580,14 +682,16 @@ def __create_fb_huc_library_data(valid_lids, sites_gdf, threshold_huc_df, metada
             continue
 
         # -------------------------
-        # check if all stage values are here for this lid
-        # Even though FB does not actually use stage data in any calcs, it must have all 5 stage values to be valid
-        # and in the FB library file, there are no records without "stage" values.
+        # Check if stage values are available for the site
+
+        # Note: Even though FB does not actually use stage data in any calcs, it must have all 5 stage values to be valid
+        # and in the FB library file, there are no records without "stage" values. # TODO: Sanity check this logic
         stages = lid_threshold_data.loc[lid_threshold_data['threshold_type'] == 'stages'].to_dict(
             orient='records'
         )[0]
 
-        # We do want to reject if they are all missing which woudl indicate a code problem ??
+        # If no stages are available for site, log a warning and move on to next site
+        # We do want to reject if they are all missing which would indicate a code problem ?? TODO: Sanity check this logic
         if all(stages.get(magnitude_type, None) is None for magnitude_type in csf.MAGNITUDES_TYPES):
             msg = 'Error getting flows values from WRDS API'
             logging.warning(f"{lid}: {msg}")
@@ -595,10 +699,12 @@ def __create_fb_huc_library_data(valid_lids, sites_gdf, threshold_huc_df, metada
             continue
 
         # -------------------------
-        #  check if all flow threshold values are here for this lid
+        # Create flows dictionary for the site
         flows = lid_threshold_data.loc[lid_threshold_data['threshold_type'] == 'flows'].to_dict(
             orient='records'
         )[0]
+
+        # If all flows are missing for site, log a warning and move on to next site
         if all(flows.get(magnitude_type, None) is None for magnitude_type in csf.MAGNITUDES_TYPES):
             msg = "Missing all calculated flows for all stages"
             logging.warning(f"{lid}: {msg}")
@@ -606,47 +712,54 @@ def __create_fb_huc_library_data(valid_lids, sites_gdf, threshold_huc_df, metada
             continue
 
         # -------------------------
-        # Don't we already have all of the metadata in sites? For now, leave it so we can use
-        # some of the tools_shared_functions for getting the segments
+        # Get metadata for site
         lid_metadata = next((item for item in metadata_json if item['identifiers']['nws_lid'] == lid), False)
 
-        # ---------------------------
-        # As always, it updates, if applicable, the sites_gdf as it moves along (ie.. mapped, status)
+        # TODO: Don't we already have all of the metadata in sites? For now, leave it so we can use
+        # some of the tools_shared_functions for getting the segments
+
+        # ---------------------------       
+        # Get the stream segments for the site
         segments_lst, err_msg = __get_segments(lid, lid_metadata, nwm_flows_region_df)
+        
+        # Update the mapped and status columns of the sites_gdf if needed
         if err_msg != "":
             sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
             continue
+
         if len(segments_lst) > 0:
-            # at this point, it is just a simple list of feature_id's
-            # Turn into a df, and add a column for the lid.
-            # Then we can save it as a file for reloading and usage down the road.
+            # Turn segments_lst from a simple list of feature IDs into a dataframe and add a lid column
             lid_seg_df = pd.DataFrame(data=segments_lst, columns=["feature_id"])
-            # Add a column for the lid
             lid_seg_df["lid"] = lid
+
+            # Add the HUC segments for this site to the output huc_segments_df
             huc_segments_df = pd.concat([huc_segments_df, lid_seg_df], ignore_index=True)
 
         # else: if we did not get a err_msg from __get_segments, we should be able to assume
         # it was handled and exists
 
-        # procesing each magnitude in here, now that the tests that are not mag specific are done
-        # It will append data to the fb library csv as it goes along. We can assume we have
-        # segment data.
+        # Only tests left to do are the magnitude-specific tests (all others are done)
+        # It will append data to the fb library csv as it goes along. 
+        # We can assume we have segment data.
+
+        # Create a library of all available threshold data for each site/magnitude combination for this LID
         sites_gdf, lid_library_df, lid_discharges_df = __get_fb_discharge_and_library_data_per_lid(
             lid, sites_gdf, lid_threshold_data, segments_lst
         )
 
-        # It is ok if this is empty as it may not have qualified all stages
+        # Add LID library data to the output huc_libary_df
         if len(lid_library_df) > 0:
             huc_library_df = pd.concat([huc_library_df, lid_library_df], ignore_index=True)
 
-        # HUMM..... It is ok if this is empty? maybe errors were caught in __get_fb_discharge
-        # and the sites_gdf has already been updated?
+        # Add the LID discharges data to the output huc_discharges_df
         if len(lid_discharges_df) > 0:
             huc_discharges_df = pd.concat([huc_discharges_df, lid_discharges_df], ignore_index=True)
+        # TODO: Decide if it is ok if lid_discharges_df is empty? maybe errors were caught in __get_fb_discharge
+        # and the sites_gdf has already been updated?
 
     # end of for lid loop
 
-    # It is ok if the library and segments are empty at this point
+    # Note: It is ok if the library and segments are empty at this point
     # We assume the errors have been recorded and handled for the sites_gdf
     return sites_gdf, huc_library_df, huc_segments_df, huc_discharges_df
 
@@ -658,6 +771,8 @@ def __get_fb_discharge_and_library_data_per_lid(lid, sites_gdf, lid_threshold_da
     # Most of the tests for FB and SB are the same, just the messages are different.
 
     '''
+    ED START HERE 1/9/26
+
     Process:
         To get here, we already validated the sites for restricted sites and it does have a least some flow threshold data.
 

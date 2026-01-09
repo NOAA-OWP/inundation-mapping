@@ -78,35 +78,37 @@ def process_huc(huc, output_folder):
             generate_categorial_fim.py HUC iterator.)
     """
 
+    # ---------------------
+    # Setup
+
     is_logging_loaded = False
 
-    # load our standard bash_variables.env
-    # we do need some args later such as input_wbd_layer and likely others
+    # Load the standard bash_variables.env
+    # Note: we do need some args later such as input_wbd_layer and likely others
     load_dotenv('/foss_fim/src/bash_variables.env')
 
-    # ---------------------
-    # load the runtime_args.env, error if it does not exist. It should give us all values we need
+    # Load the runtime_args.env, error if it does not exist. 
+    # It should give us all values we need. We will also do some validation in it as well.
     # See generate_categorical_fim.py -> save_env_args(output_path)
-    # We will also do some validation in it as well.
+    csf.load_runtime_args(output_folder)
 
     print("================================")
     print(f"Starting process_huc for {huc}")
     print("")
 
-    csf.load_runtime_args(output_folder)
-
-    # Returns output_folder as it might be cleaned up a little such as slashes
+    # Validate input parameters and bash variables and return cleaned-up paths
     huc_path, output_folder = csf.validate_inputs(
         huc, output_folder
-    )  # also validates some bash_variables if it needs any.
+    )
+
+    # Create the huc folder if it does not exist
     os.makedirs(huc_path, exist_ok=True, mode=0o777)
 
     try:
-
         overall_start_time = datetime.now(timezone.utc)
         dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
 
-        # Validate that we have that as a HUC in the fim_dir.
+        # Validate that we have that as a HUC in the fim_dir. # TODO: what does this mean?
         # Helping sort out if even a valid HUC was submitted
 
         catfim_type_name = ""
@@ -121,34 +123,42 @@ def process_huc(huc, output_folder):
 
         # TODO: Why are my logs read only for all but the owner? other apps don't I think.
         # I can not delete them to cleanup if I want too. huh? Better check other apps that use setup_file_logger
+
         log_file_dir = os.path.join(huc_path, "logs")
         log_file_path = sf.setup_file_logger(log_file_dir, f"process_huc_{huc}")
 
         print("")
-        logging.info(f"Processing {catfim_type_name} catfim fim for HUC: {huc} ;  {dt_string} (UTC)")
+        logging.info(f"Processing {catfim_type_name} CatFIM for HUC: {huc} ;  {dt_string} (UTC)")
         print("")
         print(f"... Logs for this HUC will be saved to {log_file_path}")
 
-        # Cleaning up some previous files and folders for new runs. By being specific we can keep debugging files
-        # from previous runs.
+        is_logging_loaded = True # TODO: is this correct?
 
-        # We will want to make sure we have a pretty robust cleanup process, because we wouldn't want to 
-        # accidentally leave behind site or library files and accidentally merge them into the final outputs. -E
+        # Notes on cleaning up previous files: 
+        # - Cleaning up some previous files and folders for new runs. By being specific we can keep debugging files
+        #   from previous runs.
+        #
+        # - We will want to make sure we have a pretty robust cleanup process, because we wouldn't want to 
+        #   accidentally leave behind site or library files and accidentally merge them into the final outputs. -E
+        #
+        # - Some of folders are only for stage and some only for flow, but we will keep it as one process just for simplicity
+        # - Note: later.. catfim post processing will look for only files starting with a huc number and
+        #    either _sites.gpkg or _library.gpkg
 
-        # Some of folders are only for stage and some only for flow, but we will keep it as one process just for simplicity
-        # Note: later.. catfim post processing will look for only files starting with a huc number and
-        # either _sites.gpkg or _library.gpkg
+        # Create mapping and temp folders if they do not exist
         output_mapping_dir = os.path.join(huc_path, "mapping")
-
-        # Not all intermediates will go to temp. It depends if we want to keep it long term or not.
         output_temp_dir = os.path.join(huc_path, "temp")
 
-        # Make sure that only the final edition of the product ends in _sites.gpkg or _library.gpkg
-        # as catfim_post_processing.py will look for those conventions.
-        # Don't let any intermediates folow that convention exactly in this root huc dir.
-        # Always add something after _sites and _library
+        # Notes on file naming conventions: 
+        # - Not all intermediates will go to temp. It depends if we want to keep it long term or not.
+        # - Make sure that only the final edition of the product ends in _sites.gpkg or _library.gpkg
+        #   as catfim_post_processing.py will look for those conventions.
+        #   Don't let any intermediates folow that convention exactly in this root huc dir.
+        #   Always add something after _sites and _library
 
         # Yes.. Some of these variables are duplicated in gen..mapping.py to keep it independent
+
+        # Create file path variables
         sites_file_path = os.path.join(huc_path, f"{huc}_sites.gpkg")
         sites_file_post_mapping_path = os.path.join(output_mapping_dir, f"sites_post_mapping.gpkg")
         library_file_path = os.path.join(huc_path, f"{huc}_library.gpkg")
@@ -158,12 +168,11 @@ def process_huc(huc, output_folder):
         # TODO: change the cleanup to some grep getting all files, then compare
         # to a list of files to cleanup. Some other py files create intermediate files.
 
-        # removes the three files/folders above, plus a few others named
-        # inside the function.
+        # Remove some preexisting files and folders from prior runs
         __set_start_files_folders(output_mapping_dir, output_temp_dir, sites_file_path, library_file_path)
 
         # =========================================
-        # Let's get the meta and points
+        # Load site metadata and validate sites
         section_start_dt = datetime.now(timezone.utc)
         continue_processing = True
 
@@ -174,103 +183,73 @@ def process_huc(huc, output_folder):
 
         logging.info("Loading sites metadata...")
 
-        # These are filtered to huc level
+        # Get HUC-level metadata and save it as a GeoDataFrame
         metadata_json, sites_gdf = csf.get_metadata(huc, huc_path, output_folder)
-
-        # Lets write what we have raw from meta data
         sites_gdf = __setup_sites_gdf(sites_gdf, os.getenv('CATFIM_TYPE'))
 
-        # Now compare that huc_dictionary to restricted sites
-        valid_nwm_lids, sites_gdf = csf.check_for_resticted_sites(
+        # Check for restricted sites and updates the sites GeoDataFrame accordingly
+        valid_nwm_lids, sites_gdf = csf.check_for_restricted_sites(
             sites_gdf, os.getenv('CATFIM_TYPE'), huc, sites_file_path
         )
 
-        # Save the meta file we have with the new error messages, then abort.
+        # If no valid sites remain, save the meta file we have with the new error messages, then abort.
         if len(valid_nwm_lids) == 0:
             msg = f"All sites associated to HUC {huc} are retricted. No more processing will continue."
             logging.info(msg)
 
-            # use the final file name of "{huc}_sites.library" is used as it is the one that catfim post will
-            # look for it.
-            # all sites shoudl have had the status already updated.
-            # sites_gdf.to_file(
-            #     sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", encoding="utf-8"
-            # )
+            # Update mapping status and save the final sites file
             __update_sites_mapping_status(catfim_type, sites_file_path, "", "", sites_gdf, True)
-            # graceful exit is fine here. We don't need to crash it or through an exception.
+
+            # Notes: 
+            # - use the final file name of "{huc}_sites.library" is used as it is the one that catfim post will
+            #   look for it. all sites should have had the status already updated.
+            # - graceful exit is fine here. We don't need to crash it or through an exception.
             # sys.exit(0)  # humm.. or do we let this throw the exception for MP?
+
             continue_processing = False
 
-        # Checkpoint for the sites file
+        # =========================================
+        # Retrieve and process threshold data if valid sites remain for HUC
         if continue_processing is True:
-            # lets save the sites gpkg we are at this point
-            # sites_file_path_pre_thresh = os.path.join(output_temp_dir, "sites_pre_threshold.gpkg")
-            # logging.info(f"Saving sites, pre flow and mapping, at {sites_file_path_pre_thresh}")
-            # sites_gdf.to_file(
-            #     sites_file_path_pre_thresh, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
-            #
-            # )
 
-            # Yes.. the master copy
+            # Save sites to a file checkpoint (Yes.. to the master copy)
             logging.info(f"Saving sites, pre flow and mapping, at {sites_file_path}")
             sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False)
 
             logging.info(f"{len(valid_nwm_lids)} sites remaining after validation: {valid_nwm_lids}")
             print("")
 
-        # Retrieve and process threshold data
-        if continue_processing is True:
             # =========================================
-            # Let's get the Threshold data
+            # Retrieve threshold data
+
             section_start_dt = datetime.now(timezone.utc)
             logging.info("Loading flow and threshold data for all valid sites...")
 
-            # ---------------------
-            # Get threshold data
-            # Note: it is possible get_threshold_data can come back empty if huc has no site(s) threshold data
-            # It has stages and flows for all sites in this huc
-            # yes.. it is ok that thresholds_merged_df is empty for now
-
-            # TODO: Is this the right answer?
-            # The data_source is a column from the original threshold dataset. It often contains values
-            # such as 'Manual_Input' and/or values such as:
-            #     NWS-NRLDB generally for stage data and USGS Rating Depot for Flow data or a combination
-
+            # Get threshold data (stages and flows) for all valid sites in this HUC
             threshold_huc_df, data_source = gcf.get_threshold_data(huc, huc_path, valid_nwm_lids)
 
-            # While somewhat inefficent, we will add this to the sites_gdf column of threshold_data_source
-            # for simplicity of copying around and using against logic when needed.
-            # At the end, we can drop it at the end.
-            # Note: It is only for SB processing at this time.
-            # sites_gdf['threshold_data_source'] = data_source
+            # Note: It is possible threshold_huc_df can come back empty if huc has no site(s) with threshold data. 
+            # It is okay if this df is empty for now.
+
+            # Notes on the data_source column:
+            #   The data_source is a column from the original threshold dataset. It often contains values
+            #   such as 'Manual_Input' and/or values such as:
+            #       NWS-NRLDB generally for stage data and USGS Rating Depot for Flow data or a combination
+            #
+            #   It is important for us to know if the data_source is Manual_Input for stage-based CatFIM, 
+            #   because that prompts us to skip some of the elevation filtering if it is manual input.
+            #   TODO: Is this the right answer?
+            #
+            #   While somewhat inefficent, we will add this to the sites_gdf column of threshold_data_source
+            #   for simplicity of copying around and using against logic when needed and then we can drop it at the end.
 
             # =========================================
-            # Processing Threshold data  (figure stages and calc flow data for inundation)
+            # Process threshold data (figure stages and calc flow data for inundation)
+
             section_start_dt = datetime.now(timezone.utc)
             logging.info("Processing initial flow and threshold data for all valid sites...")
 
-            # Note: We no longer need attribute files or the attribute folder.
-            #    The data in those files, were mostly dup data from the sites_gdf
-            #    and the mag data already present in the threshold file.
-            # we do have at least one threshold record
-            # library is not yet a gdf as it has no geometry.
-
-            # A library file was created and saved to disk. It a library data file
-            # same as we use for final library files and is based on only lids
-            # and mag types that qualified to this point.  Some library recs
-            # may be rejected and removed based on logic down the road.
-            # It will contain 0 to 5 mag type records per lid.
-            #     ie) ABCD1/action  or EFGH1/record.
-            # The same pattern and columns used in the final library files. Later we will add geometry.
-
-            # For SB, it does not yet contain any of the interval records as future
-            # logic might delimit more mag types.
-
-            # TODO: has_error system? or at least a way to see if the huc_library_df allows us to keep 
-            # track of which lids / mags are still valid for processing. Some may fail in other places 
-            # down the road and will be removed from the huc_library_df. For SB, it will add
-            # some interval recs when applicable
-            sites_gdf, huc_library_df = gcf.process_theshold_data(
+            sites_gdf, huc_library_df = gcf.process_threshold_data(
                 catfim_type,
                 valid_nwm_lids,
                 sites_gdf,
@@ -280,6 +259,28 @@ def process_huc(huc, output_folder):
                 threshold_huc_df,
                 metadata_json,
             )
+
+            # Note: We no longer need attribute files or the attribute folder.
+            #    The data in those files, were mostly duplicate data from the sites_gdf
+            #    and the magnitude data already present in the threshold file.
+            # we do have at least one threshold record
+
+
+            # Notes on the library file at this point:
+            # - Library file was created and saved to disk
+            # - It is not yet a gdf because it has no geometry; we will add geometry later in mapping
+            # - Has the same pattern and columns that we use for final library files and is based on 
+            #   only the lids and mag types that are still valid up to this point
+            # - Some library site/magnitude combos may still be rejected and removed based on logic down the road
+            # - Contains records for up to 5 magnitude types per lid (ie. ABCD1/action  or EFGH1/record)
+            # - For SB, it does not yet contain any of the interval records because future
+            #   logic might limit more mag types.
+
+
+            # TODO: has_error system? or at least a way to see if the huc_library_df allows us to keep 
+            # track of which lids / mags are still valid for processing. Some may fail in other places 
+            # down the road and will be removed from the huc_library_df. For SB, it will add
+            # some interval recs when applicable
 
             logging.info("End of initial processing flow and threshold data.")
             duration_msg = sf.calculate_duration_msg(section_start_dt)
@@ -1257,40 +1258,65 @@ def __update_library_csv(catfim_type, sites_gdf, huc_library_df, library_pre_inu
 
 
 def __setup_sites_gdf(sites_gdf, catfim_type):
+    """
+    Setup and prepare a GeoDataFrame of sites for CATFIM processing.
 
-    # Jan 6, 2026: In earlier versions, building up this data was done in two differnt places
-    # one in the SB logic flow another one was basically identical in FB.
-    # Some of these columns were updated or added through the code as it progressed.
-    # But almost all of it was meta data that we knew up front, so we load what we
-    # already know at this point instead of piecemail.
+    Parameters
+    ----------
+    sites_gdf : geopandas.GeoDataFrame
+        A GeoDataFrame containing site information with columns such as 'nws_lid',
+        'HUC8', and various NWS and NWM metadata fields.
+    catfim_type : str
+        The type of CATFIM processing, 'sb' or 'fb'. 
+        Determines whether SB-specific validation columns are added.
+    
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        The processed sites GeoDataFrame with:
+        - Columns reordered: 'nws_lid' first, 'HUC8' second
+        - New columns added: 'mapped', 'status', 'warnings'
+        - Incompatible list fields dropped: 'downstream_nwm_features', 'upstream_nwm_features'
+        - Data types converted to string for GeoPackage compatibility
+        - (SB only) Additional columns for coordinate accuracy, altitude accuracy, and site type validation
 
-    # Start building up the new sites / meta file. We can adjust the status as we go.
+    Notes
+    -----   
+    
+    Jan 6, 2026: In earlier versions, building up this data was done in two differnt places
+    one in the SB logic flow another one was basically identical in FB.
+    Some of these columns were updated or added through the code as it progressed.
+    But almost all of it was meta data that we knew up front, so we load what we
+    already know at this point instead of piecemail.
 
-    # sites_gdf = gpd.GeoDataFrame()
 
-    # move it to the first column (easier to read the outputs)
+    This function starts building up the new sites / meta file. We can adjust the status as we go.
+
+
+    """
+
+    # Move LID column to be first (easier to read the outputs)
+    # Will be renamed to ahps_lid later in the process
     ahps_col = sites_gdf.pop('nws_lid')
     sites_gdf.insert(0, 'nws_lid', ahps_col)
 
-    # move the huc column as well, but we do need to keep it
+    # Move the huc column as well, but we do need to keep it
     huc_col = sites_gdf.pop('HUC8')
     sites_gdf.insert(1, 'HUC8', huc_col)
 
-    # add new columns
+    # Add new processing-specific columns
     sites_gdf.insert(loc=2, column="mapped", value="not set")
     sites_gdf.insert(loc=3, column="status", value="not set")
     sites_gdf.insert(loc=4, column="warnings", value="")
 
-    # # adjust and/or rename some columns
-    # # At the very end, we will rename it to ahps_lid.
-    # # Maybe we fix it someday, but not now. Too many other things going on.
+    # Drop list fields (downstream_nwm_features and upstream_nwm_features) if invalid
+    # because the are lists and the gpkg does not like it
 
-    # Drop list fields if invalid
-    # downstream_nwm_features and upstream_nwm_features are lists and gpkg does not like it
-    # hummm... or maybe just when it is null? both of those nodes are
-
+    # TODO: Decide what to do with these columns
+    # hummm... or maybe just delete it when it is null? both of those nodes are
     # it is because it has a lists value or unkeyed json node. How do we fix this?  TBD. Check other code
     # note in this file.
+
     sites_gdf = sites_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
     sites_gdf = sites_gdf.astype(
         {
@@ -1334,6 +1360,8 @@ def __setup_sites_gdf(sites_gdf, catfim_type):
     #         sites_gdf[col].fillna('', inplace=True)
 
     # Some SB specific columns we want to create now, filling in what we know now.
+
+    # Create stage-based specific validation columns
     if catfim_type == 'sb':
         sites_gdf['acceptable_coord_acc_code_list'] = str(acceptable_coord_acc_code_list)
         sites_gdf['acceptable_coord_method_code_list'] = str(acceptable_coord_method_code_list)

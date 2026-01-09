@@ -45,8 +45,23 @@ def load_fim_global_env_values(env_file):
 
 # TODO: This should probably be moved into flows.py  ??
 def get_metadata(huc, huc_path, output_folder):
+    """
+    Get metadata for a specific HUC.
 
-    # this can get filtered meta data based on HUC if you want it.
+    Parameters
+    ----------
+        huc (str): The HUC number.
+        huc_path (str): The path to the HUC directory.
+        output_folder (str): The output folder path.
+
+    Returns
+    -------
+        metadata_json_list (list): List of metadata JSON objects.
+        return_msgs (list): List of messages from the metadata retrieval process.
+
+    TODO: Emily - go through and clear out unneeded comments and code fragments.
+
+    """
 
     # If we are not getting new metadata, then we assume that the runtime args has the path
     # to a valid pkl file. We just need to copy it over to this dir and load it so we don't
@@ -197,7 +212,6 @@ def get_metadata(huc, huc_path, output_folder):
     nwm_lids = huc_sites_gdf['nws_lid'].tolist()
 
     # Find lid metadata from master list of metadata dictionaries (line 66).
-
     huc_metadata_json_list = []
     for lid_site_data in metadata_json_list:
         lid = lid_site_data['identifiers']['nws_lid']
@@ -205,23 +219,53 @@ def get_metadata(huc, huc_path, output_folder):
             huc_metadata_json_list.append(lid_site_data)
 
     # what do we do if the huc_site_gdf and/or huc_metadata_list is empty
-
     # TODO: Error if no data found
 
     return huc_metadata_json_list, huc_sites_gdf
 
 
-def check_for_resticted_sites(sites_gdf, catfim_type, huc, sites_file_path):
-    # ---------------------
-    # Get list of applicable sites, valid sites for this HUCs from master sites metadata
-    #   Watching for excluded sites from restricted sites csv.
+def check_for_restricted_sites(sites_gdf, catfim_type, huc, sites_file_path):
+    """
+    Checks for restricted sites and updates the sites GeoDataFrame accordingly.
+
+    Compares the provided sites GeoDataFrame against a list of restricted sites
+    loaded from a CSV file. It updates the 'status' and 'mapped' columns of
+    the GeoDataFrame for any restricted sites and returns a list of valid NWM LIDs.
+
+    Parameters
+    ----------
+    sites_gdf : geopandas.GeoDataFrame
+        A GeoDataFrame containing site information with columns such as 'nws_lid'.
+    catfim_type : str
+        The type of CATFIM processing, 'sb' or 'fb'.
+    huc : str
+        The HUC number.
+    sites_file_path : str
+        The file path where the sites GeoDataFrame is stored.
+
+    Returns
+    -------
+    valid_nwm_lids : list
+        A list of valid NWM LIDs after excluding restricted sites.
+    sites_gdf : geopandas.GeoDataFrame  
+        The updated GeoDataFrame with restricted sites marked accordingly.
+
+
+    Notes:
+    -----
+
+    meta_gdf is likely pretty small by now, only sites for this HUC
+    Likely a smarter way to do this as well.. lambda? Could do a join but we have
+    dup column names we would have to cleanup.
+
+
+    could possibly dump the code from load_restricted_sites in here as well?
+
+    """
+    # Load restricted sites for the given catfim_type
     df_restricted_sites = load_restricted_sites(catfim_type)
 
-    # Update some of the meta.gdf records if they are in df_restricted_sites
-    # Check whether the LIDs is in the restricted sites list
-    # meta_gdf is likely pretty small by now, only sites for this HUC
-    # Likely a smarter way to do this as well.. lambda? Could do a join but we have
-    # dup column names we would have to cleanup.
+    # Check whether LIDs are in restricted sites list, update sites_gdf accordingly
     valid_nwm_lids = []
     for index, row in sites_gdf.iterrows():
         lid = row["nws_lid"].upper()
@@ -238,8 +282,6 @@ def check_for_resticted_sites(sites_gdf, catfim_type, huc, sites_file_path):
 
 def load_restricted_sites(catfim_type):
     """
-    Previously, only stage based used this. It is now being used by stage-based and flow-based (1/24/25)
-
     The 'catfim_type' column can have three different values: 'stage', 'flow', and 'both'. This determines
     whether the site should be filtered out for stage-based CatFIM, flow-based CatFIM, or both of them.
 
@@ -331,13 +373,29 @@ def load_runtime_args(output_folder):
 
 def validate_inputs(huc, output_folder):
 
+
     """
-    returns:
-        - calculated huc folder path
-        - A possible updated value for output_folder (cleaned up for slashes)
+    Validate input parameters and return normalized paths.
+
+    Validates that the output_folder exists and the HUC data is available in FIM_RUN_DIR.
+    Ensures required directory structure (branches) exists for the HUC.
+
+    Args:
+        huc (str): HUC identifier for the hydrologic unit code.
+        output_folder (str): Root output folder path where HUC subdirectories are stored.
+
+    Returns:
+        tuple: (huc_path, output_folder)
+            - huc_path (str): Full path to the HUC subfolder in output directory.
+            - output_folder (str): Normalized output folder path (trailing slashes removed).
+
+    Raises:
+        ValueError: If output_folder is None/empty or doesn't exist, or if FIM_RUN_DIR environment variable is not set.
+        FileNotFoundError: If HUC path or branches directory doesn't exist in FIM_RUN_DIR.
+
     """
     
-    # This validates some inputs but also copies key files around.
+    # This validates some inputs but also copies key files around. TODO: does it actually?
 
     # TODO: valdiate huc value (8 numeric maybe and starts with 0, 1, or 2) ????
 
@@ -369,6 +427,7 @@ def validate_inputs(huc, output_folder):
             "The enviro value for FIM_RUN_DIR does not exist or is empty. It was loaded"
             " and included in the runtime_arg enviro file. Check pathing and variables."
         )
+
     fim_run_huc_path = os.path.join(fim_run_dir, huc)
     if not os.path.exists(fim_run_huc_path):
         raise FileNotFoundError(
@@ -384,6 +443,7 @@ def validate_inputs(huc, output_folder):
             f" but the folder {branch_dir} does not exist. Please check pathing (with case) and"
             " it's error logs."
         )
+
     # TODO: Validate we have some folders in it.
 
     # do we validate other key files? branches exist? what if it was a bad huc in the first place?
