@@ -244,7 +244,8 @@ def process_huc(huc, output_folder):
             #   for simplicity of copying around and using against logic when needed and then we can drop it at the end.
 
             # =========================================
-            # Process threshold data (figure stages and calc flow data for inundation)
+            # Process threshold data (creates a HUC-level library file with all of the site/magnitude combinations
+            # that are still valid up to this point and creates the flow data for FB)
 
             section_start_dt = datetime.now(timezone.utc)
             logging.info("Processing initial flow and threshold data for all valid sites...")
@@ -260,13 +261,12 @@ def process_huc(huc, output_folder):
                 metadata_json,
             )
 
-            # Note: We no longer need attribute files or the attribute folder.
+            # CatFIM Reorg. Note (Jan 26): We no longer need attribute files or the attribute folder.
             #    The data in those files, were mostly duplicate data from the sites_gdf
             #    and the magnitude data already present in the threshold file.
-            # we do have at least one threshold record
-
 
             # Notes on the library file at this point:
+            # - At this point, we do have at least one threshold record
             # - Library file was created and saved to disk
             # - It is not yet a gdf because it has no geometry; we will add geometry later in mapping
             # - Has the same pattern and columns that we use for final library files and is based on 
@@ -275,7 +275,6 @@ def process_huc(huc, output_folder):
             # - Contains records for up to 5 magnitude types per lid (ie. ABCD1/action  or EFGH1/record)
             # - For SB, it does not yet contain any of the interval records because future
             #   logic might limit more mag types.
-
 
             # TODO: has_error system? or at least a way to see if the huc_library_df allows us to keep 
             # track of which lids / mags are still valid for processing. Some may fail in other places 
@@ -287,11 +286,12 @@ def process_huc(huc, output_folder):
             logging.info(duration_msg)
 
             # ---------------------
-            # Save a copy of the sites_gdf up to this point.
-            # sites_file_path_post_threshold = os.path.join(output_temp_dir, "sites_post_threshold.gpkg")
+            # Save a copy of the sites_gdf at this point
+            # We may have some or all sites that have failed, so we want the master sites rec saved
+
+            # sites_file_path_post_threshold = os.path.join(output_temp_dir, "sites_post_threshold.gpkg") # TODO: Clean up
             # logging.info(f"Saving sites data post threshold processing at {sites_file_path_post_threshold}")
 
-            # We may have some or all sites that have failed and we do want the master sites rec saved
             logging.info(f"Saving sites data post threshold processing at {sites_file_path}")
             sites_gdf.to_file(sites_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False)
 
@@ -302,34 +302,37 @@ def process_huc(huc, output_folder):
                 logging.warning("There are no valid huc_library recs at this point. Skipping to finalization")
                 continue_processing = False
 
-        # Early abort for no remaing valid sites
         if continue_processing is True:
-            # See if we still have any valid lids
-            # We won't have any library files, but still need to finalize sites.gdf
-            # As it will still be part of the final product rollup
+
+            # Check for valid LIDs and abort processing if no valid sites remain
+
+            # If there's no valid LIDs we won't have any library files, but we still need to finalize 
+            # sites.gdf because it will still be part of the final product rollup.
+
             valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]["nws_lid"].values.tolist()
             if len(valid_lids) == 0:
                 logging.info("There are no remaining sites to process skipping to sites finalization")
                 __update_sites_mapping_status(catfim_type, sites_file_path, "", "", sites_gdf, True)
                 continue_processing = False
 
-        # Temp debugging
+        # Temp debugging # TODO: Clean up
         # print("--------------")
         # print("Ok.. let's stop here for now. Everything for FB and SB should be working at some level"
         #       " by this point")
         # sys.exit(0)
 
-        # SB Elevations
+        # Process stage-based elevation data
         if continue_processing is True and os.getenv('CATFIM_TYPE') == "sb":
 
-            logging.info("Start processing stage based data")
+            logging.info("Start processing stage-based data")
 
             # TODO: what is a good name (__process_evalations) for this.  Maybe a new file called catfim_data_processing.py? (but leave mapping to focus on inundation)
-            # Shoudl we keep all of the functions in this file for processing flow / stage / threshold data? or maybe a seperate file?
+            # Should we keep all of the functions in this file for processing flow / stage / threshold data? or maybe a seperate file?
 
             sites_gdf, huc_library_df, has_critical_error = __process_elevations(
                 sites_gdf, huc_library_df, huc, huc_path, output_temp_dir
             )
+
             if has_critical_error is True:
                 logging.info(
                     "Critical error found and aborting processing"
@@ -460,75 +463,83 @@ def process_huc(huc, output_folder):
 def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_dir):
     """
     Only used by SB at this time.
+
+
+    data_source comes from the original threshold dataset. It was put into a temp column
+    in the sites_gdf under the name of threshold_data_source. We can use it for processing logic.
+    Later we can drop the columns before the final huc catfim outputs.
+    This can be values of "Manual_Input" and/or values such as:
+        NWS-NRLDB generally for stage data and USGS Rating Depot for Flow data.
+
+    Same as before, the huc_library_df is a the starting framework for each lid and magnitude
+    that is still valid by this point. More tests may drop some of the records.
+    ie.. maybe some lid with an action stage fails a test, assuming that action record was
+    there in the first place. Some columns in the library df will be updated such as the
+    datum and altitude columns. For records that fail, we will just keep updating the
+    sites.gdf as we go and at the end of this function, we will drop lid/mags that no longer apply
+
+    TODO: this is still a wip.
+    data_source = threshold_huc_df["source_stage"]
+
+    huc_library_df should not be empty by now, but some lids may not have all or some library recs
+    for each stage, of course. ie) a lid / stage might have already failed for various reasons before
+    getting here. If it is, we should not bother coming in here as all sites have already failed for
+    various reasones.
+
+    However.. threshold_huc_df has not be filtered at this point and we need to watch for -1, 0, etc
+    TODO: Do we need to even use threshold_huc_df anymore by this point? maybe just the huc_library_df?
+    I don't think there is anything left in the threshold_huc_df that is not already in applicable
+    huc_library_df recs where it still qualifies.
+
+    This portion of code can add or update columns to the library csv or the sites gpkg as it needs
+    It just has to makes sure drops any temp columns in finalization.
+
     """
-
-    # data_source comes from the original threshold dataset. It was put into a temp column
-    # in the sites_gdf under the name of threshold_data_source. We can use it for processing logic.
-    # Later we can drop the columns before the final huc catfim outputs.
-    # This can be values of "Manual_Input" and/or values such as:
-    #     NWS-NRLDB generally for stage data and USGS Rating Depot for Flow data.
-
-    # Same as before, the huc_library_df is a the starting framework for each lid and magnitude
-    # that is still valid by this point. More tests may drop some of the records.
-    # ie.. maybe some lid with an action stage fails a test, assuming that action record was
-    # there in the first place. Some columns in the library df will be updated such as the
-    # datum and altitude columns. For records that fail, we will just keep updating the
-    # sites.gdf as we go and at the end of this function, we will drop lid/mags that no longer apply
-
-    # TODO: this is still a wip.
-    # data_source = threshold_huc_df["source_stage"]
-
-    # huc_library_df should not be empty by now, but some lids may not have all or some library recs
-    # for each stage, of course. ie) a lid / stage might have already failed for various reasons before
-    # getting here. If it is, we should not bother coming in here as all sites have already failed for
-    # various reasones.
-
-    # However.. threshold_huc_df has not be filtered at this point and we need to watch for -1, 0, etc
-    # TODO: Do we need to even use threshold_huc_df anymore by this point? maybe just the huc_library_df?
-    # I don't think there is anything left in the threshold_huc_df that is not already in applicable
-    # huc_library_df recs where it still qualifies.
-
-    # This portion of code can add or update columns to the library csv or the sites gpkg as it needs
-    # It just has to makes sure drops any temp columns in finalization.
 
     data_source = "WRDS"
     has_critical_error = False
 
     library_pre_inun_file_path = os.path.join(output_temp_dir, "library_pre_inundation.csv")
 
-    # Build a replacement huc_library_df
-    updated_huc_library_df = pd.DataFrame()
-
+    # Initialize output dataframes
+    updated_huc_library_df = pd.DataFrame() # A replacement huc_library_df
     acceptable_usgs_elev_df = pd.DataFrame()  # Empty in case we do not load it via non Manual Input
 
-    # get a list of sites that are still valid, should be at least one
+    # Get a list of sites that are still valid (there should be at least one)
     valid_lids = sites_gdf.loc[sites_gdf["mapped"] != "no"]["nws_lid"].values.tolist()
 
-    if data_source != 'Manual_Input':  # Manual input data does not need usgs_elev_table
+    if data_source != 'Manual_Input':  # Manual input data does not use usgs_elev_table
 
         # ------------------------
-        # The usgs elev table was previous in iterate_through_huc_stage_based but wasn't
-        # used until later in the code in that function. Now it is done much earlier.
+        # CatFIM Reorg Note (Jan 26): The usgs elev table was previously in iterate_through_huc_stage_based 
+        # but wasn't used until later in the code in that function. Now it is done much earlier.
+
+        # Get the USGS elevation table
         usgs_elev_table_file_name = 'usgs_elev_table.csv'
         src_usgs_elev_table = os.path.join(os.getenv("FIM_RUN_DIR"), huc, usgs_elev_table_file_name)
 
-        usgs_elev_df = None
         if data_source != 'Manual_Input' and not os.path.isfile(src_usgs_elev_table):
             msg = "Internal Error: Missing key data from HUC record (usgs_elev_table missing)"
             raise Exception(msg)
 
-        # we need to quickly make a copy and bring it here to lower the chance of file collisions.
-        # Not a temp drive.
+        # Make a copy to the local HUC folder to lower the chance of file collisions.
+        # (Copying it to HUC folder and not a temp drive.)
         local_copy_usgs_elev_table = os.path.join(huc_path, usgs_elev_table_file_name)
         shutil.copyfile(src_usgs_elev_table, local_copy_usgs_elev_table)
 
         # TODO: this seems a bit weird. hummm.
         # and has data for all lids in this huc. We are not using it for validation, just loading it for all sites
+
+        # Read back in the local copy of the USGS elevation table
+        usgs_elev_df = None # TODO: is this line necessary?
         usgs_elev_df = pd.read_csv(local_copy_usgs_elev_table)  # Only used here
 
         # ------------------------
-        # This loads the data for acceptable usgs elev data but uses it later on a lid by lid basis
+        # Creates an updated USGS elevation table with a descriptive USGS exclusion status column
+        # Note: Doesn't filter the df, just updates the column
         acceptable_usgs_elev_df = __create_acceptable_usgs_elev_df(usgs_elev_df)
+
+
         if acceptable_usgs_elev_df is None or len(acceptable_usgs_elev_df) == 0:
             msg = "Unable to find gage data"  # TODO: USGS Gage Method: Update this error message to be more descriptive
             logging.error(f"{msg} for all lids")
@@ -573,6 +584,7 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
 
         # Careful about using these two, wahat your function scoping rules for df's being
         # updated in functions.
+
         lid_sites_gdf = sites_gdf.loc[sites_gdf["nws_lid"] == lid].copy()
         lid_library_df = huc_library_df[huc_library_df["nws_lid"] == lid].copy()
 
@@ -580,9 +592,11 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             raise Exception("Internal error: There should be exactly one lid rec here")
 
         if len(lid_library_df) == 0:
-            # If not, the sites should already have been udpated to mapped is no and correct
+            # If not, the sites should already have been updated to mapped is no and correct
             # status message applied.
             raise Exception("Internal error: There should be at least one valid lid library rec by now")
+
+        
 
         # Make an "rfc_stage" column for better documentation which shows the original
         # TODO: rfc_stage, but final library calls this rfs_stage (typo?)

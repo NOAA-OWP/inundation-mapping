@@ -142,7 +142,7 @@ def catfim_post_processing(output_folder):
                 missing_data = True
 
             # If both files were found, append to compiled lists (otherwise, add a note to the log)
-            if missing_data:
+            if missing_data: # TODO: ACTUALLY WE SHOULD COMPILE WHATEVER WE HAVE BECAUSE IF WE DON"T HAVE LIBS BUT WE DO HAVE SITES THEN THAT"S NORMAL AND USEFUL
                 logging.info(f"{huc} - Skipped appending due to missing data.")
             else:
                 logging.info(f"{huc} - Sites and library files found, appending data to output lists.")
