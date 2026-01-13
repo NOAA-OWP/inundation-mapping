@@ -115,16 +115,10 @@ def adjust_floodplains(
         # Use NFHL flood hazard zones
         if os.path.exists(fema_flood_zones_file):
             nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
-            fema_flood_zones_availability_mask = gpd.read_file(fema_flood_zones_file, layer='combined')
 
             # Mask out areas inside the FEMA flood zone availability
             if 'availability' in nfhl_layers:
                 fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
-                fema_flood_zones_availability_mask = (
-                    pd.concat([fema_flood_zones_availability_mask, fema_flood_zones_availability])
-                    .drop_duplicates(subset='geometry', keep=False)
-                    .dissolve()
-                )
 
             if fema_flood_zones_layer in nfhl_layers:
                 # Read the FEMA flood zones layer
@@ -132,7 +126,7 @@ def adjust_floodplains(
 
                 # Exclude fema_flood_zones from fema_flood_zones_availability_mask
                 fema_flood_zones_availability_mask = gpd.overlay(
-                    fema_flood_zones_availability_mask, fema_flood_zones, how='difference'
+                    fema_flood_zones_availability, fema_flood_zones, how='difference'
                 )
 
             fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
