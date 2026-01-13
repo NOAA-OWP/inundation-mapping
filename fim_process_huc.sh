@@ -120,7 +120,7 @@ do
         err_exists=1
     else
         echo
-        echo "***** An error has occurred  *****"
+        echo "***** An error has occurred - Code ("${code}") *****"
         err_exists=1
     fi
 done

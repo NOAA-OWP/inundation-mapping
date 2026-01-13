@@ -1,3 +1,30 @@
+#!/bin/bash -e
+
+# Note: the line above is critical and is read and used as a special command
+# exactly as it is. The additon of the -e tells it to stop on fail.
+
+
+# HUMMM.... We at least need the bin/bash header, but have to think about 
+# it failing along the way but still wanting to log it at the end?
+# Tricker but possible with upgraded error handling.
+# Might have to have an inline handler catch it, but then have it continue
+# to its logging of it at the bottom.
+
+
+# ***************
+# IMPORTANT
+# TODO: We don't have a wrapper script like fim_process_huc.sh or 
+# process_branch.sh.  This script is called in one of two ways.
+# 1) as part of run_huc.sh which rolls up to fim_process_huc.sh so it catchs
+#    the error
+# 2) Run as a standalone script, but it currently has no way to handle errors
+#    as it does not have an error trap. We might want to add one directly in 
+#    but then we have to make sure we are correctly handling errors if it is
+#    Type 1 above.
+# We have to do a little think here. We do want run_huc.sh to handle errors
+# from here but what about when we run it stand alone. 
+# hummmm. Might need to experiment.
+
 
 calibration_rerun=$1
 jobBranchLimit=$2 # should allow new values for rerun_calibrate_rating_curves.py
@@ -229,4 +256,5 @@ Tstart
     l_echo "scan of log files done"
 Tcount
 
-
+# Let it send back any exception codes generated in here back to run_huc.sh or command line
+# if it fails? hummm...

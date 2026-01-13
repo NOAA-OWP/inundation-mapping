@@ -1,5 +1,8 @@
 #!/bin/bash -e
 
+# Note: the line above is critical and is read and used as a special command
+# exactly as it is. The additon of the -e tells it to stop on fail.
+
 # Do not call this file directly. Call fim_process_unit_wb.sh which calls
 # this file.
 
@@ -299,7 +302,9 @@ $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branch_zero_lis
 
 # -------------------
 ## Start the local csv branch list
-$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
+# This needs to be replaced lower with a system that can figure out the list after all
+# branches and branch 0 are finished.
+# $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
 
 branch0=$(Calc_Time $branch0_start_time)
 branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
@@ -322,6 +327,15 @@ else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
 
+# TODO: We need a new answer to genertae the branch_ids.csv and it HAS
+# to be here and cover branch 0 and other branches, figuring out a way to
+# only include ones that finished. Maybe search for the absolute final file
+# each in branch? ie.. the REM? or some other idea? aka.. how do we know
+# when a branch failed and we have to do it as one check here that is not
+# in a branch iterator ???
+
+
+
 branches=$(Calc_Time $branch_processing_start_time)
 branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
 
@@ -339,8 +353,23 @@ Calc_Duration "Duration for processing branches : " $branch_processing_start_tim
 #echo
 total_branches=$(wc -l < $branch_list_csv_file)
 
+## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit
+# Immediately capture the exit status of the last command (./script1.sh)
+RETURN_STATUS=$?
+# Use the captured status in a conditional statement
+# If we don't catch the calibrate error, it will try to continue running
+# and likely will be successful handing the duration and final duration message
+# but it will still return an non zero return to to process_huc.sh
+# By catching it here delibrately, we are getting helping find more details
+# of where it failed and why.
+if [ $RETURN_STATUS -ne 0 ]; then
+    echo "calibrate_rating_curves returned an error (Status: $RETURN_STATUS)"
+    # You can also exit the calling script with the same status
+    exit $RETURN_STATUS
+fi
+
 
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
@@ -350,3 +379,5 @@ date -u
 echo "---- HUC processing for $hucNumber is complete"
 Calc_Duration "Duration for huc processing: " $huc_start_time
 echo
+
+# let the script return whatever code it wants unless controlled exit like calibrate_rating_curves.sh
