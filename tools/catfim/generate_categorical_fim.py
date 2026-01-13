@@ -199,8 +199,10 @@ def process_generate_categorical_fim(
         print("")
         print(f"... Logs will be saved to {log_file_path}")
 
-        # Needed even if we are skip_processes
+        # Make sites output filepath (Needed even if we choose skip_processing)
         nwm_sites_file = os.path.join(output_folder, "nwm_sites.parquet")
+
+        # Create the runtime args file to store CatFIM inputs
         __create_runtime_args_file(
             output_folder,
             env_file,
@@ -242,7 +244,7 @@ def process_generate_categorical_fim(
             nwm_meta_file, api_base_url, search, get_new_meta_data, list()
         )
 
-        # debugging
+        # debugging # TODO: Clean up
         # meta_json_to_text = os.path.join(output_folder, "metadata_json_list_text.json")
         # with open(meta_json_to_text, 'w') as f:
         #     json.dump(metadata_json_list, f, indent=4)
@@ -309,7 +311,7 @@ def process_generate_categorical_fim(
         nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona')
 
         # TODO: Should we get a threshold for all hucs like we do for meta? then the hucs can copy / filter
-        # like meta? probably..
+        # like meta? probably.. -> decide, eventual update to WRDS download workflow (downloading all would take more time though...) 
 
         # Change it to a simple string huc list.
         # All HUCs in this list are validated as having hand data, plus are not on the restricted list.
@@ -347,7 +349,7 @@ def process_generate_categorical_fim(
             f"Processing {len(valid_fim_hucs)} valid CatFIM HUCs. Note: not all HUCs may have ahps sites."
         )
 
-        # TODO: remove all content in huc folders, EXCEPT their log files.
+        # TODO: Cleaning old files: remove all content in huc folders, EXCEPT their log files. Discuss - is this referring to cleaing out files from previous runs?
         # With us later scanning for files and file extensions, we may not want to be pulling in old bad HUCs.
         # or... do we. maybe we had some good HUCs that were left behind. Do we just let it pull them in?
         # hummmm
@@ -594,6 +596,10 @@ def __create_runtime_args_file(
     fim_run_dir,
     past_major_interval_cap,
 ):
+    """
+    Create a runtime args environment file (saved as output_folder/runtime_args.env).
+    This simplifies what we have to read into each function.
+    """
 
     args_file_name = "runtime_args.env"
     args_file_path = os.path.join(output_folder, args_file_name)
@@ -663,6 +669,7 @@ if __name__ == '__main__':
         default="/data/config/fim_enviro_values.env",
         required=False,
     )
+
     parser.add_argument(
         '-j',
         '--number-jobs',

@@ -2,6 +2,8 @@
 
 import argparse
 import glob
+import shutil
+
 import logging
 import os
 import sys
@@ -40,12 +42,10 @@ Tenative notes:
       generate_categorical_fim_flows.py will be moved here if it is related to inundation,
       etc as mentioned above.
 
+This file should focus primarily on inunation and creating tifs and final gpkgs for this HUC.
+However, some logic processing is done here as well. We might move some of that later.
 
 """
-
-# This file should focus primarily on inunation and creating tifs and final gpkgs for this HUC.
-# However, some logic processing is done here as well. We might move some of that later.
-
 
 gpd.options.io_engine = "pyogrio"
 
@@ -53,23 +53,21 @@ gpd.options.io_engine = "pyogrio"
 # This function is only called when the tool is being run by itself from command line
 def catfim_mapping(huc, output_folder):
     """
-    Run CatFIM mapping from the command line.
+    Run CatFIM mapping from the command line for a HUC.
     
     Args:
-        - huc
-        - output_folder
+        - huc (str) : 8-digit hydologic unit code
+        - output_folder (str) : Filepath to CatFIM outputs.
 
     """
+    is_logging_loaded = False
 
-    # It just sets up a logger (its own?) hummmm # TODO: Test/implement logging?
-    # and load runtime_args itself as it won't be from command line.
+    print(f"Running mapping from command line for huc {huc}.")
 
-    print("Running mapping from command line, setting up the enviro and logging")
+    # ----------------------------
+    print("Setting up environment and logging.")
 
-    # Set up logging # TODO
-
-    # Remove and rebuild a fresh new mapping folder # TODO
-
+    # Load CatFIM run arguments from the runtime_args.env file
     csf.load_runtime_args()
 
     # Validate input parameters and return normalized paths
@@ -77,16 +75,43 @@ def catfim_mapping(huc, output_folder):
         huc, output_folder
     )
 
+    # ----------------------------
+    # Set up logging
+
+
+    # It just sets up a logger (its own?) hummmm 
+    # TODO: Implement and test logging for command line run
+    # is_logging_loaded = True
+
+
+    # ----------------------------
     # Create filepaths
+
     # Yes.. these are duplicate from catfim_process_huc.py but have to be in order to use
     # this script independently
     output_mapping_dir = os.path.join(huc_path, "mapping")
     output_temp_dir = os.path.join(huc_path, "temp")
+
     sites_mapping_file_path = os.path.join(output_mapping_dir, f"sites_mapping.gpkg")
     library_pre_inun_file_path = os.path.join(output_temp_dir, "library_pre_inundation.csv")
     library_post_mapping_file_path = os.path.join(output_mapping_dir, "library_post_mapping.gpkg")
 
+    # Remove and rebuild fresh new mapping and temp folders
+    shutil.rmtree(output_mapping_dir, ignore_errors=True)
+    os.mkdir(output_mapping_dir)
+
+    shutil.rmtree(output_temp_dir, ignore_errors=True)
+    os.mkdir(output_temp_dir)
+
+    # Remove pre-existing post-mapping library file
+    if os.path.isfile(library_post_mapping_file_path):
+        os.remove(library_post_mapping_file_path)
+    
+    # ----------------------------
     # Process CatFIM mapping
+
+    print("Begin mapping") # TODO: replace prints with logging?
+
     process_mapping(
         os.getenv('CATFIM_TYPE'),
         huc_path,
@@ -99,13 +124,15 @@ def catfim_mapping(huc, output_folder):
 
     print("Completed running mapping from command line")
 
+    # TODO: Wrap up logs?
+
 
 
 def process_mapping(
     catfim_type,
     huc_path,
     output_mapping_dir,
-    output_temp_dir,  # do want need this?
+    output_temp_dir,  # TODO: decide, do we need this?
     sites_mapping_file_path,
     library_pre_inun_file_path,  # the csv / df versoin before we add geometry
     library_post_mapping_file_path,  # the gpkg version
@@ -113,12 +140,14 @@ def process_mapping(
     
     """
 
+    Handle the CatFIM mapping for a HUC.
 
+    TODO: Add docstring
 
 
     CatFIM Reorg Notes (Jan 26):
 
-    Still in progress as of 1/12/26
+    process_mapping is still heavily in progress as of 1/12/26
 
 
 
@@ -152,7 +181,7 @@ def process_mapping(
 
     # Add its own duration system and section start and close messages
     section_start_dt = datetime.now(timezone.utc)
-    logging.info("Starting catfim mapping")
+    logging.info("Starting CatFIM mapping")
 
     # --------------------------
     # Load mapping data for HUC
@@ -171,14 +200,17 @@ def process_mapping(
 
 
     # --------------------------
-    # Any mapping pre-procssing that is reasonble usable by both
-    # FB and SB. See what makes sense. # TODO: Fill in
+    # Mapping pre-processing (processing used by both SB and FB)
+    #  TODO: Fill in (if needed)
 
     # --------------------------
-    # split to SB and FB specific processing.
-    # And looking for opportunites to create common functions that they both can use
+    # Split to SB- and FB-specific mapping processing
+
+    # TODO: looking for opportunites to create common functions that they both can use
     # when possible break stuff to smaller functions instead of giant hundreds of lines
     # long sections. Whatever makes sense of course.
+
+
     if catfim_type == "sb":
         print("coming")
 
@@ -199,8 +231,9 @@ def process_mapping(
     elif catfim_type == "fb":
         # discharge_file_path = os.path.join(huc_path, "flow_discharges.csv):
         # TODO: load it here and pass it in ??
-        # If this is FB only, shoudl this be renamed to run_fb_mapping?
-        sites_gdf, huc_library_df = run_catfim_inundation(sites_gdf,
+
+        # Jan 26 - Renamed to run_fb_mapping instead of run_catfim_inundation
+        sites_gdf, huc_library_df = run_fb_mapping(sites_gdf,
                                         huc_library_df,
                                         huc_segments_df,
                                         output_mapping_dir, 
@@ -208,16 +241,37 @@ def process_mapping(
 
 
     # -----------------------------
-    # For both FB and SB
-    # by now it is a gdf or still a df.. TBD
-    sites_gdf, huc_library_gdf = post_process_cat_fim_for_viz
+    # HUC-level post-processing (for both FB and SB)
 
-    # see if there are any sites left that have some inundated files
+    # sites_gdf, huc_library_gdf = post_process_cat_fim_for_viz 
+    # TODO: I think we can get rid of the post_process_cat_fim_for_viz function and just
+    # call post_process_huc() and merge_inundated_layers_huc() here (new function)
+
+    # Post-process HUC
+    # TODO: Update inputs and code in post_process_huc 
+    post_process_huc(
+                output_catfim_dir,
+                ahps_dir_list,
+                huc_dir,
+                gpkg_dir,
+                huc,
+                log_output_file,
+                child_log_file_prefix,
+                progress_stmt)
+
+    # by now it is a gdf or still a df.. TBD
+
+    # TODO: add check to see if there are any sites left that have some inundated files
     # If not, the sites_gdf should already have the recs updated to know why
 
 
-    # roll up to create final gpkg.
-    # Create the gpkg in this function, but save it here.
+     
+    # Merge all inundated layers to create final gpkg (for the HUC)
+    library_post_mapping = merge_inundated_layers_huc(catfim_type) # TODO: Write this function.... also check to make sure we even need it
+    # TODO: Are we creating inundated_library_gpkg and sites_gdf  here?
+
+    # Create the gpkg in this function, but save it here. # TODO: have the function just return the HUC-level GPKG (library_post_mapping) here?
+
     # Is this where we make a gdf based on the library df and adding geomtry?
     # inundated_library_gpkg, sites_gdf = post_process_cat_fim_for_viz()
 
@@ -226,7 +280,9 @@ def process_mapping(
 
 
     # -----------------------------
-    # Finalization ??
+    # Finalization of HUC-level mapping outputs ??
+
+    # TODO: Add final checks
 
     # if len(inundated_library_gpkg) == 0:
     #     # logging.warning (but not an error and that is ok)
@@ -243,12 +299,10 @@ def process_mapping(
     duration_msg = sf.calculate_duration_msg(section_start_dt)
     logging.info(duration_msg)
 
-# def run_catfim_inundation(
-# fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
-# ):  Is this for SB only? -> no, only used in flow-based CatFIM before the reorg jan 26
+# only used in flow-based CatFIM before the reorg jan 26
 # Maybe we can use the catfim_type for an if catfim_type = SB for small blocks?
 
-def run_catfim_inundation(sites_gdf,
+def run_fb_mapping(sites_gdf,
                         huc_library_df,
                         huc_segments_df,
                         output_mapping_dir, 
@@ -280,6 +334,13 @@ def run_catfim_inundation(sites_gdf,
 
     Raises:
         SystemExit: If a critical error occurs during processing, the function logs the error and exits the program.
+
+    CatFIM Reorg Notes (Jan 26):
+
+    This function was previously named run_catfim_inundation but was renamed to run_fb_mapping for clarity 
+    (because it is only used in flow-based CatFIM).
+
+
     '''
 
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
@@ -381,7 +442,7 @@ def run_catfim_inundation(sites_gdf,
                         FLOG.trace(f"Begin inundation for {tif_name}")
                         try:
                             executor.submit(
-                                run_inundation,
+                                run_fb_inundation,
                                 magnitude_flows_csv,
                                 huc,
                                 huc_site_mapping_dir,
@@ -419,8 +480,9 @@ def run_catfim_inundation(sites_gdf,
 # This is for FB only but duplication of sections of code will be reviewed
 # to see if we can pull out shared smaller functions.
 
-# HUMMMM.... do we send in the site.gdf or jsut manage returning messages
-def run_inundation(
+# TODO: decide HUMMMM.... do we send in the site.gdf or jsut manage returning messages
+
+def run_fb_inundation( # Was previously called run_inundation, renamed to clarify that it is FB-specific # TODO: Discuss official new name?
     magnitude_flows_csv,  # is this the discharge data?
     huc,
     output_huc_site_mapping_dir,
@@ -594,8 +656,10 @@ def run_sb_mapping(sites_gdf, huc_library_df,
 # We will be updateing the datum_adj_wse, datum_adj_wse_m and hand_stage to the
 # library df so we want to return it.
 # PS.. what is hand_stage? Is this just an update to the library df "stage" column?
-def produce_stage_based_lid_tifs(
-    sites_gdf, huc_library_df,
+
+def produce_stage_based_lid_tifs( # TODO: rename to run_sb_inundation? add something that indicates it's SB-specific
+    sites_gdf, 
+    huc_library_df,
     stage_val,
     datum_adj_ft,
     branch_dir,
@@ -917,7 +981,7 @@ def produce_stage_based_lid_tifs(
 # Does FB use branches too? likely for the at least loading REM. not sure. Mostly depends on what is easiest
 # and when is the best time to load it. probably in here is best. TBD
 
-def produce_inundated_branch_tif(
+def produce_inundated_branch_tif( # TODO: add something to the name that indicates it's SB-specific
     rem_path,
     catchments_path,
     hydroid_list,
@@ -1229,6 +1293,9 @@ def post_process_huc(
 
     return
 
+# TODO: Decide how to optimize (is post_process_cat_fim_for_viz even necessary? could we go right to running post_process_huc and then make a 
+# new function that dissolves the geometries? ->  merge_inundated_layers_huc
+
 # humm... this feels like it could be significally optimized considering that we have 
 # way less files to worry about.
 def post_process_cat_fim_for_viz(
@@ -1317,7 +1384,7 @@ def post_process_cat_fim_for_viz(
                 FLOG.warning(f"no mapping for {huc}")
                 continue
 
-            # hummm
+            # hummm # TODO: CatFIM reorg - I think everything above this line in this function could possibly be remove? decide
             huc_exector.submit(
                 post_process_huc,
                 output_catfim_dir,
@@ -1330,88 +1397,248 @@ def post_process_cat_fim_for_viz(
                 progress_stmt,
             )
 
-    # end of ProcessPoolExecutor
 
-    # rolls up logs from child MP processes into this parent_log_output_file
-    # FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
-
-    # Merge all layers
-    gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
-    FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
-
-    gpkg_files.sort()
-
-    merged_layers_gdf = None
-    ctr = 0
-    num_gpkg_files = len(gpkg_files)
-    for gpkg_file in gpkg_files:
-
-        # for ctr, layer in enumerate(gpkg_files):
-        # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
-        FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
-
-        # Concatenate each /gpkg/{huc}_{aphs}_{magnitude}_extent.gpkg
-        diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
-        diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
-
-        if 'interval_stage' in diss_extent_gdf.columns:
-            # Update the stage column value to be the interval value if an interval values exists
-
-            diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0, "stage"] = diss_extent_gdf[
-                "interval_stage"
-            ]
-
-        if ctr == 0:
-            merged_layers_gdf = diss_extent_gdf
-        else:
-            merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
-
-        del diss_extent_gdf
-        ctr += 1
-
-    if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
-        raise Exception(f"No gpkgs found in {gpkg_dir}")
-
-    # TODO: July 9, 2024: Consider deleting all of the interium .gpkg files in the gpkg folder.
-    # It will get very big quick. But not yet.
-    # shutil.rmtree(gpkg_dir)
-
-    # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
-    # Aug 2024: We guessed on what might need to be dissolved from 4.4.0.0. In 4.4.0.0 there
-    # are "_dissolved" versions of catfim files but no notes on why or how, but this script
-    # did not do it. We are going to guess on what the dissolving rules are.
-    if catfim_method == "flow_based":
-        FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
-        merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
-
-    if 'level_0' in merged_layers_gdf:
-        merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
-
-    if 'status' in merged_layers_gdf:
-        merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
-
-    if 'mapped' in merged_layers_gdf:
-        merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
-
-    output_file_name = f"{catfim_method}_catfim_library"
-
-    merged_layers_gdf["model_version"] = model_version
-    merged_layers_gdf["product_version"] = catfim_version
-
-    gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
-    FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
-    merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")
-
-    csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
-    FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
-    merged_layers_gdf.to_csv(csv_file_path)
-
-    FLOG.lprint("End post processing TIFs...")
-
-    return
+    # TODO: CatFIM reorg - could make this file merging into a new function (merge_inundated_layers_huc?)
+    # and then get rid of post_process_cat_fim_for_viz and instead just have
+    # this new merge_inundated_layers_huc function and the above post_process_huc function run 
 
 
-# hummmm. I don't think we need to reformat each file (or site) into gpkg on disk.
+   # end of ProcessPoolExecutor
+
+
+    # OLD CODE (before CatFIM reorg): =========================
+    # # end of ProcessPoolExecutor
+
+    # # rolls up logs from child MP processes into this parent_log_output_file
+    # # FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
+
+    # # Merge all layers
+    # gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
+    # FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
+
+    # gpkg_files.sort()
+
+    # merged_layers_gdf = None
+    # ctr = 0
+    # num_gpkg_files = len(gpkg_files)
+    # for gpkg_file in gpkg_files:
+
+    #     # for ctr, layer in enumerate(gpkg_files):
+    #     # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
+    #     FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
+
+    #     # Concatenate each /gpkg/{huc}_{aphs}_{magnitude}_extent.gpkg
+    #     diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
+    #     diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
+
+    #     if 'interval_stage' in diss_extent_gdf.columns:
+    #         # Update the stage column value to be the interval value if an interval values exists
+
+    #         diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0, "stage"] = diss_extent_gdf[
+    #             "interval_stage"
+    #         ]
+
+    #     if ctr == 0:
+    #         merged_layers_gdf = diss_extent_gdf
+    #     else:
+    #         merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
+
+    #     del diss_extent_gdf
+    #     ctr += 1
+
+    # if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
+    #     raise Exception(f"No gpkgs found in {gpkg_dir}")
+
+    # # TODO: July 9, 2024: Consider deleting all of the interium .gpkg files in the gpkg folder.
+    # # It will get very big quick. But not yet.
+    # # shutil.rmtree(gpkg_dir)
+
+    # # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
+    # # Aug 2024: We guessed on what might need to be dissolved from 4.4.0.0. In 4.4.0.0 there
+    # # are "_dissolved" versions of catfim files but no notes on why or how, but this script
+    # # did not do it. We are going to guess on what the dissolving rules are.
+    # if catfim_method == "flow_based":
+    #     FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
+    #     merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
+
+    # if 'level_0' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
+
+    # if 'status' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
+
+    # if 'mapped' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
+
+    # output_file_name = f"{catfim_method}_catfim_library"
+
+    # merged_layers_gdf["model_version"] = model_version
+    # merged_layers_gdf["product_version"] = catfim_version
+
+    # gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
+    # FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
+    # merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")
+
+    # csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
+    # FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
+    # merged_layers_gdf.to_csv(csv_file_path)
+
+    # FLOG.lprint("End post processing TIFs...")
+
+    # return
+    # =========================
+
+
+
+# New function that takes the HUC-level file merging from what was
+# previously post_process_cat_fim_for_viz. But does not merge between HUCs 
+# (because that now is happening in catfim_post_processing.py).
+def merge_inundated_layers_huc(
+        huc_path,
+        
+):
+    """
+    Should be for FB and SB
+
+    Dissolve all GPKGs from the HUC mapping directory to create:
+    - huc_sites_file (huc_folder_path/{huc}_sites.gpkg) (these are the filepath names I use in post processing, might be called something different here at the moment)
+    - huc_library_file (huc_folder_path/{huc}_library.gpkg) (these are the filepath names I use in post processing, might be called something different here at the moment)
+
+
+
+    Filepaths, for reference: 
+
+    - output_temp_dir : huc_folder_path/temp/ (TODO: decide if we're gonna even keep this)
+
+    - output_mapping_dir : huc_folder_path/mapping/ 
+
+    - sites_mapping_file_path: output_mapping_dir/sites_mapping.gpkg
+
+    - library_post_mapping_file_path: output_mapping_dir/library_post_mapping.gpkg   
+    TODO: Has this file been created by the time we get here? or is this file what this function should be creating?
+    I think this function can create this file......
+
+
+    
+
+    """
+
+    # Get a list of all available GPKGs in the HUC mapping directory
+    output_mapping_dir = os.path.join(huc_path, "mapping")
+    gpkg_files = [x for x in os.listdir(output_mapping_dir) if x.endswith('.gpkg')]
+
+
+    # Iterate through all GPKG files in the HUC mapping directory
+    for gpkg_file in gpkg_files: # TODO
+
+        # Merge GPKGs 
+
+
+
+    # TODO: Add section that dissolves flow based catfim_libary by ahps and magnitudes?
+    # Do we have to do something special so we can deal with the intervals?
+
+
+
+    # TODO: Folder cleanup - Consider deleting all of the interium .gpkg files in the gpkg folder
+
+
+
+    return library_post_mapping # Will be saved to a file later on
+
+    # ==========================================
+    # Old code that I want this function to replace: 
+
+    # # rolls up logs from child MP processes into this parent_log_output_file
+    # # FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
+
+    # # Merge all layers
+    # gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
+    # FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
+
+    # gpkg_files.sort()
+
+    # merged_layers_gdf = None
+    # ctr = 0
+    # num_gpkg_files = len(gpkg_files)
+    # for gpkg_file in gpkg_files: # iterates through all gpkg files
+
+    #     # for ctr, layer in enumerate(gpkg_files):
+    #     # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
+    #     FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
+
+    #     # Concatenate each /gpkg/{huc}_{aphs}_{magnitude}_extent.gpkg
+    #     diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
+    #     diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
+
+    #     if 'interval_stage' in diss_extent_gdf.columns:
+    #         # Update the stage column value to be the interval value if an interval values exists
+
+    #         diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0, "stage"] = diss_extent_gdf[
+    #             "interval_stage"
+    #         ]
+
+    #     if ctr == 0:
+    #         merged_layers_gdf = diss_extent_gdf
+    #     else:
+    #         merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
+
+    #     del diss_extent_gdf
+    #     ctr += 1
+
+    # if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
+    #     raise Exception(f"No gpkgs found in {gpkg_dir}")
+
+    # # TODO: July 9, 2024: Consider deleting all of the interium .gpkg files in the gpkg folder.
+    # # It will get very big quick. But not yet.
+    # # shutil.rmtree(gpkg_dir)
+
+    # # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
+    # # Aug 2024: We guessed on what might need to be dissolved from 4.4.0.0. In 4.4.0.0 there
+    # # are "_dissolved" versions of catfim files but no notes on why or how, but this script
+    # # did not do it. We are going to guess on what the dissolving rules are.
+    # if catfim_method == "flow_based":
+    #     FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
+    #     merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
+
+    # if 'level_0' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
+
+    # if 'status' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
+
+    # if 'mapped' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
+
+    # output_file_name = f"{catfim_method}_catfim_library"
+
+    # merged_layers_gdf["model_version"] = model_version
+    # merged_layers_gdf["product_version"] = catfim_version
+
+    # NOTE Jan 2026: will not save newly merged GPKGs in new merge_inundated_layers_huc() function
+    
+    # gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
+    # FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
+    # merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")
+
+    # csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
+    # FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
+    # merged_layers_gdf.to_csv(csv_file_path)
+
+    # FLOG.lprint("End post processing TIFs...")
+
+    # return
+    # ==========================================
+
+
+
+
+
+
+
+
+
+# TODO: Decide - hummmm. I don't think we need to reformat each file (or site) into gpkg on disk.
 # maybe just a new gdf that we can add to the collection.
 # at some point, we will use the incoming library_df (without geom) and start a 
 # library_gdf and this might be that spot.
