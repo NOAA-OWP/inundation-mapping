@@ -81,6 +81,7 @@ def adjust_floodplains(
     branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 
     # Filter levelpaths by branch
+    levelpaths['ID'] = levelpaths['ID'].astype(int)
     levelpaths = levelpaths[levelpaths['levpa_id'] == branch_id]
 
     # Find streams that flow to the levelpaths
@@ -88,7 +89,7 @@ def adjust_floodplains(
 
     # Get all upstream streams
     def get_upstream_streams(hydro_ids, streams_df):
-        upstream_streams = pd.DataFrame()
+        upstream_streams = streams_df[streams_df['ID'].isin(hydro_ids)]
         for hydro_id in hydro_ids:
             direct_upstream = streams_df[streams_df['to'] == hydro_id]
             if not direct_upstream.empty:
@@ -119,9 +120,11 @@ def adjust_floodplains(
             # Mask out areas inside the FEMA flood zone availability
             if 'availability' in nfhl_layers:
                 fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
-                fema_flood_zones_availability_mask = pd.concat(
-                    [fema_flood_zones_availability_mask, fema_flood_zones_availability]
-                ).drop_duplicates(subset='geometry', keep=False)
+                fema_flood_zones_availability_mask = (
+                    pd.concat([fema_flood_zones_availability_mask, fema_flood_zones_availability])
+                    .drop_duplicates(subset='geometry', keep=False)
+                    .dissolve()
+                )
 
             if fema_flood_zones_layer in nfhl_layers:
                 # Read the FEMA flood zones layer
@@ -133,6 +136,9 @@ def adjust_floodplains(
                 )
 
             fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
+
+            if fema_flood_zones_availability_mask.empty:
+                return  # No flood zones to process, exit the function
 
             # Extract the polygon geometry (as a list of GeoJSON-like dicts)
             # If you have multiple polygons in gdf, this will create a list of them
