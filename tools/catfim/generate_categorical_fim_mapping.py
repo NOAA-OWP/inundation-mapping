@@ -52,23 +52,32 @@ gpd.options.io_engine = "pyogrio"
 
 # This function is only called when the tool is being run by itself from command line
 def catfim_mapping(huc, output_folder):
-    # This is use by this tool from command line only.
-    # It just sets up a logger (its own?) hummmm
+    """
+    Run CatFIM mapping from the command line.
+    
+    Args:
+        - huc
+        - output_folder
 
+    """
+
+    # It just sets up a logger (its own?) hummmm # TODO: Test/implement logging?
     # and load runtime_args itself as it won't be from command line.
 
     print("Running mapping from command line, setting up the enviro and logging")
 
-    # start its own logging
-    # kill and rebuild its own fresh mapping folder
+    # Set up logging # TODO
+
+    # Remove and rebuild a fresh new mapping folder # TODO
 
     csf.load_runtime_args()
 
-    # Returns output_folder as it might be cleaned up a little such as slashes
+    # Validate input parameters and return normalized paths
     huc_path, output_folder = csf.validate_inputs(
         huc, output_folder
-    )  # also validates some bash_variables if it needs any.
+    )
 
+    # Create filepaths
     # Yes.. these are duplicate from catfim_process_huc.py but have to be in order to use
     # this script independently
     output_mapping_dir = os.path.join(huc_path, "mapping")
@@ -77,6 +86,7 @@ def catfim_mapping(huc, output_folder):
     library_pre_inun_file_path = os.path.join(output_temp_dir, "library_pre_inundation.csv")
     library_post_mapping_file_path = os.path.join(output_mapping_dir, "library_post_mapping.gpkg")
 
+    # Process CatFIM mapping
     process_mapping(
         os.getenv('CATFIM_TYPE'),
         huc_path,
@@ -90,19 +100,7 @@ def catfim_mapping(huc, output_folder):
     print("Completed running mapping from command line")
 
 
-# Everything related to mapping starts here. SB and FB from catfim_process_huc or from
-# mapping command line via catfim_mapping function
 
-# at this point, you will need to load the sites gpkg that was copied as a workign version into
-# the mapping dir (if we want to use that idea), but you should not need any threshold data files
-# that has been loading, validated and some processing done and is now part of the library.csv (df)
-# We know some library recs will be rejected in here and sites.gpkg updated for the reason why as we progress.
-# We also know some mags or sites have been already rejected earlier and won't even have mag records
-# for it in the library df.
-# We can add temp columns to all df, .gpkgs, gdfs, etc at any time, we just have to clean them up later.
-# That option helps keep each processing of each site/mag more independent if it helps.
-# We also know SB will add some library interval recs.
-#
 def process_mapping(
     catfim_type,
     huc_path,
@@ -112,25 +110,52 @@ def process_mapping(
     library_pre_inun_file_path,  # the csv / df versoin before we add geometry
     library_post_mapping_file_path,  # the gpkg version
 ):
-
-    # Jan 7, 2026: I am now thinking we do not want/need a temp directory and jsut keep the intermediates
-    # and checkpoint files in the root. There won't be that many of them.
-    # We will continue to make subfolders and files inside the mappign folder with a similar structure
-    # to what we currently have. We may want to keep the subfodler structure as is as it is not too bad.
-
-    # That being said.. we can also look for opportunites to keep stuff in memory whenever reasonable
-    # as reading/writing to disk slow things down a little.  But. ease of usages and understanding of
-    # how the code works is far more important than optimization.
+    
+    """
 
 
-    # If it helps, we can always make temp dfs with filtered sites data
+
+
+    CatFIM Reorg Notes (Jan 26):
+
+    Still in progress as of 1/12/26
+
+
+
+    Everything related to mapping starts here. SB and FB from catfim_process_huc or from
+    mapping command line via catfim_mapping function
+
+    at this point, you will need to load the sites gpkg that was copied as a workign version into
+    the mapping dir (if we want to use that idea), but you should not need any threshold data files
+    that has been loading, validated and some processing done and is now part of the library.csv (df)
+    We know some library recs will be rejected in here and sites.gpkg updated for the reason why as we progress.
+    We also know some mags or sites have been already rejected earlier and won't even have mag records
+    for it in the library df.
+    We can add temp columns to all df, .gpkgs, gdfs, etc at any time, we just have to clean them up later.
+    That option helps keep each processing of each site/mag more independent if it helps.
+    We also know SB will add some library interval recs.
+
+    
+
+    Jan 7, 2026: I am now thinking we do not want/need a temp directory and jsut keep the intermediates
+    and checkpoint files in the root. There won't be that many of them. # TODO: Decide about temp file (i'm leaning towards remove too -E)
+    We will continue to make subfolders and files inside the mappign folder with a similar structure
+    to what we currently have. We may want to keep the subfodler structure as is as it is not too bad.
+
+    That being said.. we can also look for opportunites to keep stuff in memory whenever reasonable
+    as reading/writing to disk slow things down a little.  But. ease of usages and understanding of
+    how the code works is far more important than optimization.
+
+    If it helps, we can always make temp dfs with filtered sites data
+
+    """
 
     # Add its own duration system and section start and close messages
     section_start_dt = datetime.now(timezone.utc)
     logging.info("Starting catfim mapping")
 
     # --------------------------
-    # Validation and pre-loading aplicable to both
+    # Load mapping data for HUC
 
     segments_file_path = os.path.join(huc_path, "features_segments.csv")
     sites_gdf, huc_library_df, huc_segments_df =  __load_mapping_data(
@@ -139,14 +164,15 @@ def process_mapping(
         library_pre_inun_file_path)
 
     # --------------------------
+    # Validate inputs # TODO: Fill in
+
     # When reasonable validate any inputs (such as branches maybe)
-    # so we can abort sooner than later.
-    # Not sure they is anything we can do
+    # so we can abort sooner than later. Not sure they is anything we can do
 
 
     # --------------------------
     # Any mapping pre-procssing that is reasonble usable by both
-    # FB and SB. See what makes sense.
+    # FB and SB. See what makes sense. # TODO: Fill in
 
     # --------------------------
     # split to SB and FB specific processing.
@@ -163,14 +189,14 @@ def process_mapping(
         # Go to new function to create the iterator for stage based.
         # Might be able, which then can calc intervals, adjust values,
         # create tifs, etc
-        # sites_gdf, huc_library_df = run_sb_mapping(sites_gdf,   (yes.. a new function)
+        # sites_gdf, huc_library_df = run_sb_mapping(sites_gdf,   (yes.. a new function) # TODO: Finish writing function
         #                                 huc_library_df,
         #                                 huc_segments_df,
         #                                 output_mapping_dir, 
         #                                 sites_mapping_file_path
         #                                 )
 
-    if catfim_type == "fb":
+    elif catfim_type == "fb":
         # discharge_file_path = os.path.join(huc_path, "flow_discharges.csv):
         # TODO: load it here and pass it in ??
         # If this is FB only, shoudl this be renamed to run_fb_mapping?
@@ -219,8 +245,9 @@ def process_mapping(
 
 # def run_catfim_inundation(
 # fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
-# ):  Is this for SB only?
+# ):  Is this for SB only? -> no, only used in flow-based CatFIM before the reorg jan 26
 # Maybe we can use the catfim_type for an if catfim_type = SB for small blocks?
+
 def run_catfim_inundation(sites_gdf,
                         huc_library_df,
                         huc_segments_df,
@@ -526,15 +553,19 @@ def run_inundation(
     return
 
 
-# New... this is a wrapper for all things that SB needs do such
-# as figure out intervals, iterate sites and lids and build the tifs
 def run_sb_mapping(sites_gdf, huc_library_df,
                                         huc_segments_df,
                                         output_mapping_dir, 
                                         sites_mapping_file_path
                                         ):
+    """
+    New... this is a wrapper for all things that SB needs do such
+    as figure out intervals, iterate sites and lids and build the tifs
+    
 
-    print("begining SB mapping")
+    """
+
+    print("Beginning SB mapping")
     # Add duration system here
 
     # create lid iterator ??
@@ -1561,7 +1592,7 @@ def reformat_inundation_maps(
 # This whole things needs to be re-evaluated or merged with the logic pattern of the new
 # process_mapping.
 
-# Step numbers no longer needed
+# Step numbers no longer needed - cleaned up 1/12/26
 def manage_catfim_mapping(
     fim_run_dir,
     output_flows_dir,
@@ -1585,28 +1616,26 @@ def manage_catfim_mapping(
         output_flows_dir (str): Directory where flow outputs are stored.
         output_catfim_dir (str): Directory for storing categorical FIM outputs.
         catfim_method (str): Method used for categorical FIM generation.
-        step_number (int, optional): Workflow step to execute. Defaults to 1.
 
     Returns:
         None
 
     Notes:
-        - Initializes logging and manages workflow steps.
-        - Runs inundation mapping if step_number <= 1.
+        - Initializes logging.
+        - Runs inundation mapping.
         - Performs post-processing for visualization using multiple jobs.
         - Logs the elapsed time for the mapping process.
     '''
 
-    # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
+    # TODO: Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
 
     logging.info('Begin mapping')
-    start = time.time()  # Should this be changed to our standard duration code pattern?
+    start = time.time()  # TODO: Should this be changed to our standard duration code pattern?
 
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     if not os.path.exists(output_mapping_dir):
         os.mkdir(output_mapping_dir)
 
-    # if step_number <= 1:
     run_catfim_inundation(
         fim_run_dir,
         output_flows_dir,
@@ -1615,11 +1644,11 @@ def manage_catfim_mapping(
         job_number_inundate,
         FLOG.LOG_FILE_PATH,
     )
-    # else:
-    #     FLOG.lprint("Skip running Inundation as Step > 1")
+
+
 
     # FLOG.lprint("Aggregating Categorical FIM")
-    # Step 2
+
     # TODO: Aug 2024, so we need to clean it up
     # This step does not need a job_number_inundate as it can't really use it.
     # It processes primarily hucs and ahps in multiproc
@@ -1638,9 +1667,17 @@ def manage_catfim_mapping(
     return
 
 
-# Jan 2026: This is new and needed
-# It does not load discharge here as only FB needs that
 def __load_mapping_data(sites_mapping_file_path, segments_file_path, library_pre_inun_file_path):
+    """
+
+    Load data needed for CatFIM mapping. 
+    Used for both SB and FB. 
+    It does not load discharge here as only FB needs that
+
+    Jan 2026: This is new and needed.
+
+    """
+
     # --------------------------
     # Load the temp sites_gdf. This is a copy for usage in mapping
     # It can be updated and later, catfim_process_huc.py will pick it up and reload it
@@ -1652,7 +1689,7 @@ def __load_mapping_data(sites_mapping_file_path, segments_file_path, library_pre
 
     # --------------------------
     # Load segments file.. they both need it
-    segments_file_path = os.path.join(huc_path, "features_segments.csv")
+    segments_file_path = os.path.join(huc_path, "features_segments.csv") # TODO: Fix path
     if not os.path.isfile(segments_file_path):
         raise Exception(f"Missing file, expected {segments_file_path}")
     huc_segments_df = pd.read_csv(segments_file_path)
@@ -1673,35 +1710,34 @@ def __load_mapping_data(sites_mapping_file_path, segments_file_path, library_pre
 
 
 if __name__ == '__main__':
+    """
+    TODO: Repair command line functionality
+    TODO: Clean up docstring
 
-    # TODO: Repair this as it can still be run from command line
-
-    '''
     Sample
     python /foss_fim/tools/catfim/generate_categorical_fim_mapping.py -u 12090301 -t /data/catfim/hand_4_8_7_2
-    '''
 
-    # All files shoudl be in place such as the sites_gdf, threshold data files
-    # and begining library data for this huc
+    All files shoudl be in place such as the sites_gdf, threshold data files
+    and begining library data for this huc
 
-    # Files required are:  __________________________ (list them here)
-    #     {huc}_sites.gdf
-    #     flow_discharge.csv  (if flow based)
-    #     {huc}_library_threshold.csv  (TODO: seems like a bad file name)
-    #     others?
+    Files required are:  __________________________ (list them here)
+        {huc}_sites.gdf
+        flow_discharge.csv  (if flow based)
+        {huc}_library_threshold.csv  (TODO: seems like a bad file name)
+        others?
+
+    Most args will be in the runtime_arg.env created in the generate_categorical_fim.py
+    This script will already know where to look for the runtime_args.env file
+
+    We need only the huc number and the output path for args
+
+    Note: We always want to overwrite.
+
+    """
 
     # Parse arguments
     parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
-
-    # Most args will be in the runtime_arg.env created in the generate_categorical_fim.py
-    # This script will already know where to look for the runtime_args.env file
-
-    # We need only the huc number and the output path for args
-
-    # Note: We always want to overwrite.
-
     parser.add_argument("-u", "--huc", help="REQUIRED: HUC8 Number", required=True, type=str)
-
     parser.add_argument(
         '-t',
         '--output-folder',
