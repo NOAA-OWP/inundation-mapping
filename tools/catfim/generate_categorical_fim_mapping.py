@@ -214,19 +214,19 @@ def process_mapping(
     if catfim_type == "sb":
         print("coming")
 
-        # One things not yet done is using the __calc_stage_values but do we still even need it?
+        # TODO: Decide: One thing not yet done is using the __calc_stage_values but do we still even need it?
         # and if so.. where.  The library df already has the stage values so I think we
         # don't need it anymore
 
         # Go to new function to create the iterator for stage based.
         # Might be able, which then can calc intervals, adjust values,
         # create tifs, etc
-        # sites_gdf, huc_library_df = run_sb_mapping(sites_gdf,   (yes.. a new function) # TODO: Finish writing function
-        #                                 huc_library_df,
-        #                                 huc_segments_df,
-        #                                 output_mapping_dir, 
-        #                                 sites_mapping_file_path
-        #                                 )
+        sites_gdf, huc_library_df = run_sb_mapping(sites_gdf, #  (yes.. a new function) # TODO: Finish writing function
+                                        huc_library_df,
+                                        huc_segments_df,
+                                        output_mapping_dir, 
+                                        sites_mapping_file_path
+                                        )
 
     elif catfim_type == "fb":
         # discharge_file_path = os.path.join(huc_path, "flow_discharges.csv):
@@ -240,6 +240,12 @@ def process_mapping(
                                         sites_mapping_file_path)
 
 
+    # At this point, we will have the inundated tifs for each valid site/magnitude combination
+    # and the updated sites_gdf and huc_library_df. 
+
+    # TODO: At this point, I think we just need to merge those inundated tifs into a single layer
+    # per magnitude and add that into the huc_library_df to make it into the huc_library_gdf... Right?
+
     # -----------------------------
     # HUC-level post-processing (for both FB and SB)
 
@@ -248,8 +254,8 @@ def process_mapping(
     # call post_process_huc() and merge_inundated_layers_huc() here (new function)
 
     # Post-process HUC
-    # TODO: Update inputs and code in post_process_huc 
-    post_process_huc(
+    
+    post_process_huc(  # TODO: Update inputs and code in post_process_huc
                 output_catfim_dir,
                 ahps_dir_list,
                 huc_dir,
@@ -268,7 +274,7 @@ def process_mapping(
      
     # Merge all inundated layers to create final gpkg (for the HUC)
     library_post_mapping = merge_inundated_layers_huc(catfim_type) # TODO: Write this function.... also check to make sure we even need it
-    # TODO: Are we creating inundated_library_gpkg and sites_gdf  here?
+    # TODO: Are we creating inundated_library_gpkg and sites_gdf  here? 
 
     # Create the gpkg in this function, but save it here. # TODO: have the function just return the HUC-level GPKG (library_post_mapping) here?
 
@@ -295,51 +301,40 @@ def process_mapping(
     #     logging.info(f"Inundated library file saved to {library_post_mapping_file_path}")
 
 
-    logging.info("End of catfim mapping")
+    logging.info("End of CatFIM mapping")
     duration_msg = sf.calculate_duration_msg(section_start_dt)
     logging.info(duration_msg)
 
-# only used in flow-based CatFIM before the reorg jan 26
-# Maybe we can use the catfim_type for an if catfim_type = SB for small blocks?
 
+
+# only used in flow-based CatFIM before the reorg jan 26
+# Maybe we can use the catfim_type for an if catfim_type = SB for small blocks? and then we could use for both?
+# Otherwise we can just have run_fb_mapping and run_sb_mapping separately...?
 def run_fb_mapping(sites_gdf,
                         huc_library_df,
                         huc_segments_df,
                         output_mapping_dir, 
                         sites_mapping_file_path
 ):
-    
     '''
     Only used in flow-based CatFIM.
 
     Executes the inundation and mosaicking process for CatFIM mapping across multiple HUCs and AHPS sites.
 
-    This function coordinates the parallel execution of inundation mapping tasks using a process pool, handling
-    multiple HUCs and AHPS sites. It sets up logging, identifies valid HUC directories, and processes each AHPS site
-    and magnitude threshold within those HUCs. For each combination, it submits an inundation mapping job to the
-    process pool executor. Errors are logged and handled gracefully, and log files from child processes are merged
-    into the parent log file upon completion.
 
-    Args:
-        fim_run_dir (str): Path to the directory containing HAND FIM run outputs for HUCs.
-        output_flows_dir (str): Path to the directory containing flow outputs for valid HUCs.
-        output_mapping_dir (str): Path to the directory where inundation mapping results will be saved.
-        job_number_huc (int): Number of parallel jobs to run for HUC-level processing.
-        job_number_inundate (int): Number of parallel jobs to run for inundation mapping within each HUC.
-        log_output_file (str): Path to the log file for recording process output and errors.
-
-    Returns:
-        - sites_gdf which may or may not have be updated
-        - huc_library_df which may / may not be updated
-
-    Raises:
-        SystemExit: If a critical error occurs during processing, the function logs the error and exits the program.
 
     CatFIM Reorg Notes (Jan 26):
 
     This function was previously named run_catfim_inundation but was renamed to run_fb_mapping for clarity 
     (because it is only used in flow-based CatFIM).
 
+    run_fb_mapping()
+    - loops through HUCs/sites and for each site, runs:
+        - Inundate_gms()
+        - Mosaic_inundation()
+        - masks lakes
+
+        -> returns inundated site/mag tifs for each site      
 
     '''
 
@@ -376,7 +371,7 @@ def run_fb_mapping(sites_gdf,
     # loop through the library recs we do have? What about each lid?
     # Hummm.
 
-    # Jan 2026: We definatley want to take out multiprocessing, but maybe we can put in some multi-threading.
+    # TODO: Jan 2026: We definatley want to take out multiprocessing, but maybe we can put in some multi-threading.
     # we might have to do some benchmark tests without MP or MT and come back to it.
     # It won't take much to drop in MT. MT does not require managing seperate logging files and can
     # easily pass objects, such as dataframes, back and forth.
@@ -385,7 +380,7 @@ def run_fb_mapping(sites_gdf,
 
     with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
         try:
-            for huc in matching_hucs:
+            for huc in matching_hucs: # TODO: Remove HUC iteration
 
                 # Get list of AHPS site directories
                 huc_flows_dir = os.path.join(output_flows_dir, huc)
@@ -538,7 +533,7 @@ def run_fb_inundation( # Was previously called run_inundation, renamed to clarif
     # Why all high number for job_number_inundate? Inundate_gms has to create inundation for each
     # branch and merge them.
 
-    # HUMM.... How do we want to handle exceptions in here? Let them out? 
+    # TODO: decide... HUMM.... How do we want to handle exceptions in here? Let them out? 
     try:
         # MP_LOG.lprint(f"... Running Inundate_gms and mosiacking for {huc} : {ahps_site} : {magnitude}")
         map_file = Inundate_gms(
@@ -624,15 +619,45 @@ def run_sb_mapping(sites_gdf, huc_library_df,
     New... this is a wrapper for all things that SB needs do such
     as figure out intervals, iterate sites and lids and build the tifs
     
+    run_sb_mapping():
+    - iterates through sites, and for each site runs: 
+        - produce_stage_based_lid_tifs(), which:
+            - gets HAND stage
+            - gets hydrotable/branches
+            - runs produce_inundated_branch_tifs() (analogous to Inundate_GMS in FB)
+            - mosaics the inundated branch tigs (analogous to Mosaic_inundation in FB)
+    
+            -> returns inundated site/mag tifs for each site      
 
     """
 
     print("Beginning SB mapping")
     # Add duration system here
 
-    # create lid iterator ??
 
-        # produce_stage_based_lid_tifs(
+    # TODO: create lid iterator ??
+    for lid in lid_list:
+         
+        # Create the inundation tifs for each site/magnitude combination for the lid
+        produce_stage_based_lid_tifs( # TODO: update inputs
+            sites_gdf, 
+            huc_library_df,
+            stage_val,
+            datum_adj_ft,
+            branch_dir,
+            lid_usgs_elev,
+            lid_altitude,
+            fim_dir,
+            segments,
+            lid,
+            # huc,
+            lid_directory,
+            category,
+            category_key,  # ??
+            # number_of_jobs,
+            # mp_parent_log_file,
+            # child_log_file_prefix,
+    )
 
 
 
@@ -657,7 +682,7 @@ def run_sb_mapping(sites_gdf, huc_library_df,
 # library df so we want to return it.
 # PS.. what is hand_stage? Is this just an update to the library df "stage" column?
 
-def produce_stage_based_lid_tifs( # TODO: rename to run_sb_inundation? add something that indicates it's SB-specific
+def produce_stage_based_lid_tifs( # TODO: rename to something that indicates it's SB-specific? equivalent to run_fb_inundation()
     sites_gdf, 
     huc_library_df,
     stage_val,
@@ -894,7 +919,11 @@ def produce_stage_based_lid_tifs( # TODO: rename to run_sb_inundation? add somet
     # hold on this
     # MP_LOG.merge_log_files(mp_parent_log_file, child_log_file_prefix, True)
 
-    # -- MOSAIC -- #
+    # -- MOSAIC -- # 
+    
+    # NOTE: This section is analogous to Mosaic_inundation() function in FB CatFIM
+    # TODO: put into a function called mosaic_sb_inundation()? or something?
+
     # Merge all rasters in lid_directory that have the same magnitude/category.
     path_list = []
 
