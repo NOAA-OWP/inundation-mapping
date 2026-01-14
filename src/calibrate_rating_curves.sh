@@ -1,15 +1,5 @@
 
-
-# Note: the line above is critical and is read and used as a special command
-# exactly as it is. The additon of the -e tells it to stop on fail.
-
-
-# HUMMM.... We at least need the bin/bash header, but have to think about 
-# it failing along the way but still wanting to log it at the end?
-# Tricker but possible with upgraded error handling.
-# Might have to have an inline handler catch it, but then have it continue
-# to its logging of it at the bottom.
-
+### !/bin/bash -e  (intentionally not added)
 
 # ***************
 # IMPORTANT
@@ -211,6 +201,8 @@ Tstart
 
     error_log_path="$tempHucDataDir/logs/$error_log_filename"
 
+    # echo "calib - error_log_path is $error_log_path"
+
     # Make sure NOT TO delete error_log_path, because it started logging from fim_process_huc.sh if an error occurs
     # [ -f "$error_log_path" ] && rm -f "$error_log_path"
 
@@ -219,13 +211,18 @@ Tstart
 
     # Run grep into a temporary file--saves the lines that contain the word “error”
     if [ "${calibration_rerun,,}" = "true" ]; then
+        # echo "calib - here 1"
         grep -H -R -i -n "error" --exclude="$error_log_filename" --exclude="$error_log_filename.tmp" "$tempHucDataDir/logs/src_calibrations" > "$error_log_path".tmp
     else
+        # echo "calib - here 2"
         grep -H -R -i -n "error" --exclude="$error_log_filename" --exclude="$error_log_filename.tmp" "$tempHucDataDir/logs/" > "$error_log_path".tmp
     fi
 
+    # echo "calib - here 3"
+
     # Only keep the file if it's non-empty (error were found)
     if [ -s "$error_log_path".tmp ]; then
+        # echo "calib - here 4"
         cat "$error_log_path".tmp >> "$error_log_path"
         rm -f "$error_log_path".tmp
         l_echo "There are some errors reported in log file \"$error_log_path\""
@@ -234,21 +231,31 @@ Tstart
         l_echo "No errors found"
     fi
 
+    # echo "calib - here 5"
+
     # repeat the workflow for warning files
     if [ "${calibration_rerun,,}" = "true" ]; then
+        # echo "calib - here 6"
         warning_log_filename="huc_${hucNumber}_warnings_calib_rerun.log"
     else
         warning_log_filename="huc_${hucNumber}_warnings.log"
     fi
     warning_log_path="$tempHucDataDir/logs/$warning_log_filename"
+    # echo "calib - warning_log_path is $warning_log_path"
+
     [ -f "$warning_log_path" ] && rm -f "$warning_log_path"
     if [ "${calibration_rerun,,}" = "true" ]; then
+        # echo "calib - here 7"
         grep -H -R -i -n "warning" --exclude="$warning_log_filename" --exclude="$warning_log_filename.tmp" "$tempHucDataDir/logs/src_calibrations" > "$warning_log_path".tmp
     else
+        # echo "calib - here 8"
         grep -H -R -i -n "warning" --exclude="$warning_log_filename" --exclude="$warning_log_filename.tmp" "$tempHucDataDir/logs/" > "$warning_log_path".tmp
     fi
 
+    # echo "calib - here 9"
+
     if [ -s "$warning_log_path".tmp ]; then
+        # echo "calib - here 10"
         mv "$warning_log_path".tmp "$warning_log_path"
     else
         rm -f "$warning_log_path".tmp
