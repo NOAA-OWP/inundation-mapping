@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/bin/bash
+set -oE -pipefail
+# We do not want this script to abort, just log and return a zero
 
 :
 usage ()
@@ -58,6 +60,7 @@ if ! [[ $hucNumber =~ $re ]] ; then
    usage
 fi
 
+
 echo "=========================================================================="
 echo "---- Start of huc processing for $hucNumber"
 
@@ -69,6 +72,46 @@ export tempHucDataDir=$tempRunDir/$hucNumber
 export outputHucDataDir=$outputDestDir/$hucNumber
 export tempBranchDataDir=$tempHucDataDir/branches
 export current_branch_id=0
+
+error_log_filename="huc_${hucNumber}_errors.log"
+error_log_file_path="$tempHucDataDir/logs/$error_log_filename"
+hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
+
+# Some simple error handling
+handle_error(){
+
+    orig_fail_line_num=$1
+    echo "++++++++++++++++++++++++++++"
+    msg="Critical error in fim_process_huc.sh, line number:$orig_fail_line_num"
+    echo $msg
+    echo $msg >> $error_log_file_path
+
+    msg="  Command submitted: $BASH_COMMAND"
+    echo $msg
+    echo $msg >> $error_log_file_path
+    echo "++++++++++++++++++++++++++++"
+    echo
+    move_output_files
+    exit 0
+}
+
+move_output_files() {
+
+    # Move the contents of the temp directory into the outputs directory and update file permissions
+    # The dir should be moved no matter what, except or not.
+    echo "Moving temp directory for $hucNumber"
+    mv -f $tempHucDataDir $outputHucDataDir
+    find $outputHucDataDir -type d -exec chmod -R 777 {} +
+
+    echo "============================================================================================="
+    echo
+    echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
+    echo
+    echo "============================================================================================="
+}
+
+# In case there is a critical error with logic on this page.
+# trap 'handle_error $LINENO' ERR
 
 ## huc data
 if [ -d "$outputHucDataDir" ]; then
@@ -88,8 +131,6 @@ rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
 rm -f $tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
 rm -f $tempHucDataDir/logs/branch/"$hucNumber"*.log
 rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
-
-hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 
 # Process the actual huc
 /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFileName
@@ -126,21 +167,20 @@ do
 done
 
 if [ "$err_exists" = "1" ]; then
-    error_log_filename=$tempHucDataDir/logs/huc_"$hucNumber"_errors.log
     err_msg="Error: "$hucNumber". Invalid return status code. Exit status: $return_codes"
-    echo $err_msg >> $error_log_filename
+    echo $err_msg >> $error_log_file_path
 fi
 
+# Scan for the phrase "parallel:" and concat that to the error log even if it is just a
+# parallel: Warning
+echo "Scanning for the phrase 'parallel'"
+# Test
+# echo "parallel: test" >> $tempHucDataDir/logs/${hucNumber}_unit.log
 
-# Move the contents of the temp directory into the outputs directory and update file permissions
-mv -f $tempHucDataDir $outputHucDataDir
-find $outputHucDataDir -type d -exec chmod -R 777 {} +
+find "$tempHucDataDir/logs" -path "*.log" -type f -not -name $error_log_filename -exec  grep -H -i -n "parallel:" {} +  >> ${error_log_file_path}
 
-echo "============================================================================================="
-echo
-echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
-echo
-echo "============================================================================================="
+# call function to move the files from temp
+move_output_files
 
 # we always return a success at this point (so we don't stop the loops / iterator)
 exit 0

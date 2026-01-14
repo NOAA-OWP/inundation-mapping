@@ -299,13 +299,6 @@ fi
 echo -e $startDiv"Cleaning up outputs in branch zero $hucNumber"
 $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branch_zero_list -b $branch_zero_id
 
-
-# -------------------
-## Start the local csv branch list
-# This needs to be replaced lower with a system that can figure out the list after all
-# branches and branch 0 are finished.
-# $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branch_zero_id
-
 branch0=$(Calc_Time $branch0_start_time)
 branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
 
@@ -334,7 +327,8 @@ fi
 # when a branch failed and we have to do it as one check here that is not
 # in a branch iterator ???
 
-
+## Start the local csv branch list
+$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
 
 branches=$(Calc_Time $branch_processing_start_time)
 branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
@@ -350,14 +344,19 @@ fi
 
 echo "---- HUC $hucNumber - branches have now been processed"
 Calc_Duration "Duration for processing branches : " $branch_processing_start_time
-#echo
+echo
 total_branches=$(wc -l < $branch_list_csv_file)
+
 
 ## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit
+
+echo "Back from calibratation, checking return status"
 # Immediately capture the exit status of the last command (./script1.sh)
 RETURN_STATUS=$?
+echo "return status is $RETURN_STATUS"
+
 # Use the captured status in a conditional statement
 # If we don't catch the calibrate error, it will try to continue running
 # and likely will be successful handing the duration and final duration message
@@ -369,7 +368,7 @@ if [ $RETURN_STATUS -ne 0 ]; then
     # You can also exit the calling script with the same status
     exit $RETURN_STATUS
 fi
-
+echo "Just above duration"
 
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"

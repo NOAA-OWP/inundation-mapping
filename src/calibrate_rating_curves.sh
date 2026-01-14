@@ -1,4 +1,4 @@
-#!/bin/bash -e
+
 
 # Note: the line above is critical and is read and used as a special command
 # exactly as it is. The additon of the -e tells it to stop on fail.
