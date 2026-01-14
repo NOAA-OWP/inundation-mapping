@@ -46,6 +46,7 @@ HV_S3_ROOT_QA_DATASETS_PATH = (
 )
 HAND_VERSION = ""
 RELEASE_FIM_PUBLIC_VERSION = ""
+HAND_PREVIOUS_VERSION = ""
 
 
 # ============================
@@ -186,7 +187,7 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
             )
             time.sleep(5)  # allows the user time to react if required
 
-    print(f"--- Total number of files to be loaded to HV S3 is {len(files_to_upload)}")
+    logging.info(f"--- Total number of files to be loaded to HV S3 is {len(files_to_upload)}")
 
     sorted_files_to_upload = sorted(files_to_upload, key=lambda x: x["src_file"])
     logging.info("------------------------------------")
@@ -194,7 +195,8 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
     # Let's it do its own upload, instead of the generic parent deploy_to_hydrovis pattern.
     # This set is pretty big so pass it to s3_shared_functions.upload_large_files,
     # which has a form of a multi-proc inside of it. (no logging though)
-    s3_sf.upload_large_filesets(S3_CLIENT, HV_S3_BUCKET_NAME, sorted_files_to_upload, num_jobs)
+    logging.info("Downloading started")
+    s3_sf.upload_by_file_list(S3_CLIENT, HV_S3_BUCKET_NAME, sorted_files_to_upload, num_jobs)
 
     print("")
     end_time = datetime.now(timezone.utc)
@@ -274,6 +276,8 @@ def __load_qa_dataset(deploy_types, deploy_params_file):
 
     # -----------------------
     # Upload files as per arguments going to HV QA Dataset folders
+
+    # this is qa datasets and there are not many files, so we will just load them one at a time.
     if len(files_to_upload) > 0:
         logging.info("------------------------------------")
         logging.info("**** Begin loading misc HydroVIS QA dataset files into S3 ****")
@@ -310,6 +314,7 @@ def __get_env_variable_with_versions(env_var_name, deploy_params_file):
     # it is ok if both or neither of those values exist in then env arg
     env_value = sf.get_value_from_env(env_var_name, deploy_params_file)
     env_value = env_value.replace("{RELEASE_FIM_PUBLIC_VERSION}", RELEASE_FIM_PUBLIC_VERSION)
+    env_value = env_value.replace("{HAND_PREVIOUS_VERSION}", HAND_PREVIOUS_VERSION)
     env_value = env_value.replace("{HAND_VERSION}", HAND_VERSION)
     return env_value
 
@@ -335,7 +340,8 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
     This also sets up a bunch of key variables and paths.
     '''
 
-    global HV_S3_ROOT_HANDSET_PATH, HV_S3_ROOT_QA_DATASETS_PATH, RELEASE_FIM_PUBLIC_VERSION, HAND_VERSION
+    global HV_S3_ROOT_HANDSET_PATH, HV_S3_ROOT_QA_DATASETS_PATH, HV_S3_BUCKET_NAME
+    global RELEASE_FIM_PUBLIC_VERSION, HAND_VERSION, HAND_PREVIOUS_VERSION
 
     if not deploy_type:
         raise ValueError("The deploy type variable is None or empty")
@@ -356,6 +362,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
     # shorthand for the os.getenv
     HAND_VERSION = sf.get_value_from_env("HAND_VERSION", deploy_params_file)
     RELEASE_FIM_PUBLIC_VERSION = sf.get_value_from_env("RELEASE_FIM_PUBLIC_VERSION", deploy_params_file)
+    HAND_PREVIOUS_VERSION = sf.get_value_from_env("HAND_PREVIOUS_VERSION", deploy_params_file)
 
     # The bucket name / load is in the aws function
     HV_S3_ROOT_HANDSET_PATH = __get_env_variable_with_versions("HV_S3_ROOT_HANDSET_PATH", deploy_params_file)
@@ -374,13 +381,20 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
         print(msg)
         time.sleep(10)  # gives them time to abort if they want.
 
+    # we load the bucket name from the aws file to help with git security a little.
+    # We validate the bucket existance in __setup_aws
+    HV_S3_BUCKET_NAME = sf.get_value_from_env("HV_S3_BUCKET_NAME", deploy_params_file)
+    HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
+
     return deploy_types
 
 
 # ============================
 def __setup_aws(aws_creds_file):
 
-    global S3_CLIENT, HV_S3_BUCKET_NAME
+    # We validate the bucket existance in here and assume the deploy env file is alreayd loaded
+
+    global S3_CLIENT
 
     if not aws_creds_file:
         raise ValueError("aws credentials file argument is None or empty")
@@ -408,12 +422,9 @@ def __setup_aws(aws_creds_file):
     if not is_success:  # if it was not already thrown from asf
         raise Exception(return_msg)
 
-    # we load the bucket name from the aws file to help with git security a little.
-    HV_S3_BUCKET_NAME = sf.get_value_from_env("HV_S3_BUCKET_NAME", aws_creds_file)
-    HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
-
     # validate the bucket
     # may also throw an exception
+    # assumes the bucket name is already loaded when the deploy env was loaded
     is_success, return_msg = s3_sf.does_s3_bucket_exist(S3_CLIENT, HV_S3_BUCKET_NAME)
     if not is_success:
         logging.error(
@@ -462,8 +473,8 @@ if __name__ == '__main__':
          - fpp  (FIM Performance Points / Polys)
          - cffb (CatFIM Flow Based)
          - cffc (CatFIM Flow Based Compare files)
-         - csfc (CatFIM Stage Based)
-         - csfc (CatFIM Stage Based Compare files)
+         - cfsb (CatFIM Stage Based)
+         - cfsc (CatFIM Stage Based Compare files)
          - rcc  (Rating Curve Comparison Metrics (Sierra Tests))
          - urc  (USGS Rating Curve)
 
@@ -478,10 +489,6 @@ if __name__ == '__main__':
         - fim performance files
         - usgs files
         - etc
-
-    Reminder:
-        - CatFIM and FIM Points/Polys can only be done in OWP. (cffb, cffc, csfc, csfc, fpp)
-        - The rest need to be done in the EC2's.
     '''
 
     parser = argparse.ArgumentParser(
