@@ -143,7 +143,6 @@ RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_
 ENV PATH="$projectDir:${PATH}"
 ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
 
-
 ## install python 3 modules ##
 COPY Pipfile .
 COPY Pipfile.lock .
@@ -151,6 +150,8 @@ COPY Pipfile.lock .
 # Install dependencies into the system path, using the lock file for deterministic builds
 RUN pipenv install --deploy --system --verbose --ignore-pipfile
 
+# Creates a virtual enviro
+# RUN pipenv update --outdated
 
 ADD ./src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
