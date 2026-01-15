@@ -3,7 +3,6 @@
 ## ============================
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4 AS builder
 WORKDIR /opt/builder
-
 ARG dataDir=/data
 ARG projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -21,10 +20,9 @@ RUN apt-get update && \
 
 ## ============================
 ## Install dependencies for compilation
-RUN apt-get update && \
-    apt-get install -y \
-    git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev \
-    make gcc g++ && \
+RUN apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends \
+    git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev make gcc g++ && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
 ## ============================
@@ -76,6 +74,14 @@ ENV toolsDir=$projectDir/tools
 ENV workDir=/fim_temp
 ENV taudemDir=$depDir/taudem/bin
 ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
+
+## ADDING FIM GROUP ##
+## Skip for OWP Enviro
+# ARG GroupID=1370800235
+# ARG GroupName=fim
+# RUN addgroup --gid $GroupID $GroupName
+# ENV GID=$GroupID
+# ENV GN=$GroupName
 
 ## ============================
 ## Create working directories
