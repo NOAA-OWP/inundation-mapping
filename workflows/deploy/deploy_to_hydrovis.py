@@ -88,8 +88,7 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, deploy_params_file, log_path
 
     logging.info(
         f"Loading to s3://{HV_S3_BUCKET_NAME}{HV_S3_ROOT_HANDSET_PATH}"
-        f" and s3://{HV_S3_BUCKET_NAME}{HV_S3_ROOT_QA_DATASETS_PATH}."
-        " Depending on while deploy types were selected."
+        f" and/or s3://{HV_S3_BUCKET_NAME}{HV_S3_ROOT_QA_DATASETS_PATH} as applicable."
     )
     print("")
 
@@ -294,7 +293,9 @@ def __load_qa_dataset(deploy_types, deploy_params_file):
                 S3_CLIENT, HV_S3_BUCKET_NAME, file['src_file'], file['trg_file']
             )
             if not file_exists:
-                logging.info(f"-- Skipped uploading {file['src_file']}. File does not exist.")
+                print("")
+                logging.info(f"**** Skipped uploading {file['src_file']}. File does not exist in source path.")
+                print("")
 
         print("")
         end_time = datetime.now(timezone.utc)
