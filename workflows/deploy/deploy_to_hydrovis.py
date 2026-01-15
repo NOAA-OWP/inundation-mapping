@@ -294,7 +294,9 @@ def __load_qa_dataset(deploy_types, deploy_params_file):
             )
             if not file_exists:
                 print("")
-                logging.info(f"**** Skipped uploading {file['src_file']}. File does not exist in source path.")
+                logging.info(
+                    f"**** Skipped uploading {file['src_file']}. File does not exist in source path."
+                )
                 print("")
 
         print("")
