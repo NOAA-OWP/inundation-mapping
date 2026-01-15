@@ -161,19 +161,22 @@ fim_pipeline.sh -u <huc8> -n <name_your_run> -o
     - `-u` can be a single huc, a series passed in quotes space delimited, or a line-delimited (.lst) file. To run the entire domain of available data use one of the ```/data/inputs/included_huc8.lst``` files or a HUC list file of your choice.  Depending on the performance of your server, especially the number of CPU cores, running the full domain can take multiple days.
     - `-n` is a name of your run (only alphanumeric). This becomes the name of the folder in your `outputs` folder.
     - `-o` is an optional param but means "overwrite". Add this argument if you want to allow the command to overwrite the folder created as part of the `-n` (name) argument.
+    - `--debug` is another option which wil result in the code keeping all intermediates processing files. Leaving this argument off
+      will result in many intermediate processing files being removed at the end.
+
     - While not mandatory, if you override the `params_template.env` file, you may want to use the `-c` argument to point to your adjusted file.
+
 - Outputs can be found under ```/outputs/<name_your_run>```.
 
-Processing of HUCs in FIM4 occurs in three sections.
-You can run `fim_pipeline.sh` which automatically runs all of three major section,
-OR you can run each of the sections independently if you like.
+
+Processing of HUCs occurs in three sections.
+You can run `fim_pipeline.sh` which automatically runs all three sections which is the quickest option or you can run each of the sections independently if you like.
 
 The three sections are:
 1. `fim_pre_processing.sh` : This section must be run first as it creates the basic output folder for the run. It also creates a number of key files and folders for the next two sections.
 2. `fim_process_unit_wb.sh` : This script processes one and exactly one HUC8 plus all of it's related branches. While it can only process one, you can run this script multiple times, each with different HUC (or overwriting a HUC). When you run `fim_pipeline.sh`, it automatically iterates when more than one HUC number has been supplied either by command line arguments or via a HUC list. For each HUC provided, `fim_pipeline.sh` will run  `fim_process_unit_wb.sh`. Using the `fim_process_unit_wb.sh`  script allows for a run / rerun of a HUC, or running other HUCs at different times / days or even different docker containers.
-3. `fim_post_processing.sh` : This section takes all of the HUCs that have been processed, aggregates key information from each HUC directory and looks for errors across all HUC folders. It also processes the HUC group in sub-steps such as usgs guages processesing, rating curve adjustments and more. Naturally, running or re-running this script can only be done after running `fim_pre_processing.sh` and at least one run of `fim_process_unit_wb.sh`.
+3. `fim_post_processing.sh` : This section takes all of the HUCs that have been processed, aggregates key information from each HUC directory and looks for errors across all HUC folders. 
 
-Running the `fim_pipeline.sh` is a quicker process than running all three steps independently, but you can run some sections more than once if you like.
 
 ### Evaluating Inundation Map Performance
 After `fim_pipeline.sh` completes, or combinations of the three major steps described above, you can evaluate the model's skill. The evaluation benchmark datasets are available through ESIP in the `test_cases` directory.
@@ -182,10 +185,11 @@ To evaluate model skill, run the following:
 ```
 python /foss_fim/tools/synthesize_test_cases.py \
     -c DEV \
+    -l [included calibration data]
     -v <fim_run_name> \
     -m <path/to/output/metrics.csv> \
     -jh [num of jobs (cores and/or procs) per huc] \
-    -jb [num of jobs (cores and/or procs) per branch]
+    -tb [num of jobs (cores and/or procs) per branch]
 ```
 
 More information can be found by running:
@@ -204,9 +208,8 @@ While very rare, you may want to add more dependencies. You can follow the follo
 
 - From inside your docker container, run the following command from your root directory in your docker container :
     ```bash
-    pipenv install <your package name> --dev
+    pipenv install <your package name>
     ```
-    The `--dev` flag adds development dependencies, omit it if you want to add a production dependency.
 
     This will automatically update the Pipfile in the root of your docker container directory. If the environment looks goods after adding dependencies, lock it with:
 
@@ -214,7 +217,10 @@ While very rare, you may want to add more dependencies. You can follow the follo
     pipenv lock
     ```
 
-    This will update the `Pipfile.lock`. Copy the new updated `Pipfile` and `Pipfile.lock` in the FIM source directory and include both in your git commits. The docker image installs the environment from the lock file.
+    This will update the `Pipfile.lock`. Next, copy the new updated `Pipfile` and `Pipfile.lock` in the FIM source directory and include both in your git commits. The docker image installs the environment from the lock file.
+    ```
+    cp Pipfile* /foss_fim/
+    ```
 
 
 **Make sure you test it heavily including create new docker images and that it continues to work with the code.**
