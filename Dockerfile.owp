@@ -58,7 +58,7 @@ RUN cd taudem_accelerated_flowDirections/taudem/build/bin \
 
 ## ============================
 ## Fix permissions before copying to final stage
-RUN chown -R root:root $depDir && chmod -R 755 $depDir
+RUN chown -R root:root $depDir && chmod -R 777 $depDir
 
 ###################################################################################
 ##  FINAL IMAGE STAGE
@@ -85,33 +85,13 @@ ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 
 ## ============================
 ## Create working directories
-RUN mkdir -p $workDir $depDir
+RUN mkdir -p $workDir
+RUN mkdir -p $depDir
 
 ## ============================
 ## Fix COPY issue
 COPY --from=builder $depDir $depDir
-RUN chown -R root:root $depDir && chmod -R 755 $depDir
-
-## ============================
-## Install necessary packages
-
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update --fix-missing && \
-    apt-get install -y --no-install-recommends \
-    p7zip-full python3.10 python3-pip python3-dev time mpich libmpich-dev parallel libgeos-dev \
-    expect tmux rsync tzdata wget make gcc g++ && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
-
-RUN apt auto-remove
-
-# Ensure Python and Pipenv are installed  (pipenv version not managed)
-RUN python3 -m pip install --upgrade pip setuptools wheel
-RUN python3 -m pip install --no-cache-dir pipenv
-
-## adding AWS CLI (for bash) ##
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install
+RUN chown -R root:root $depDir && chmod -R 777 $depDir
 
 ## adding environment variables for numba and python ##
 ENV LC_ALL=C.UTF-8
@@ -123,18 +103,32 @@ ENV PIP_NO_CACHE_DIR=off
 ENV PIPENV_VENV_IN_PROJECT=1
 ENV PIPENV_NOSPIN=1
 
-# Copy Pipfile and Pipfile.lock
-COPY Pipfile .
-COPY Pipfile.lock .
+## ============================
+## Install necessary packages
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends \
+    p7zip-full python3.10 python3-pip python3-dev time parallel \
+    mpich libmpich-dev libgeos-dev libgeos-dev \
+    make gcc g++ expect rsync tzdata wget
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+RUN apt auto-remove
 
-# Try installing dependencies (with verbose logging)
-# TODO: what is this actually installing?
-RUN pipenv install --system --deploy --ignore-pipfile --verbose || pipenv install --system --verbose
+ENV TZ=UTC
 
-## ADD TO PATHS ##
-ENV PATH="$projectDir:${PATH}"
-ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+# Ensure Python and Pipenv are installed  (pipenv version not managed)
+RUN python3 -m pip install --no-cache-dir pipenv
 
+# These currently through errors as they are not yet installed
+# by this point, but continues with the fresh install. Leaving upgrade error
+# in place in case this order of installing changes later.
+RUN python3 -m pip install --upgrade pip setuptools wheel
+
+# adding AWS CLI (for bash) ##
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install && \
+    rm awscliv2.zip
 
 # ----------------------------------
 # Mar 2023 / Sep 2024
@@ -151,6 +145,18 @@ ENV WBT_PATH=/usr/local/lib/python3.10/dist-packages/whitebox/WBT
 RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
     unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
     cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
+# ----------------------------------
+
+## ADD TO PATHS ##
+ENV PATH="$projectDir:${PATH}"
+ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
+
+## install python 3 modules ##
+COPY Pipfile .
+COPY Pipfile.lock .
+
+# Install dependencies into the system path, using the lock file for deterministic builds
+RUN pipenv install --deploy --system --ignore-pipfile
 
 ## ============================
 ## Set default permissions

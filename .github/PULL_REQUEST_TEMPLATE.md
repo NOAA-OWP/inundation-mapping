@@ -63,6 +63,11 @@ You may update this checklist before and/or after creating the PR. If you're uns
 - [ ] Placeholder code is flagged / future todos are captured in comments
 - [ ] [CHANGELOG](/docs/CHANGELOG.md) updated with template version number, e.g. `4.x.x.x`
 - [ ] Add yourself as an [assignee](https://docs.github.com/en/issues/tracking-your-work-with-issues/assigning-issues-and-pull-requests-to-other-github-users) in the PR  as well as the FIM Technical Lead
+- [ ] Where applicable, has fim_pipeline been with muliple HUCs, including some other random HUCs?
+
+### Reviewer / Approver Checklist
+- [ ] Where applicable, has fim_pipeline been with muliple HUCs, including some other random HUCs?
+- [ ] If there are new inputs, have you confirmed that they have been copied to all enviroments?
 
 ---------------------------------------------------------------
 ### Merge Checklist (For Technical Lead use only)
