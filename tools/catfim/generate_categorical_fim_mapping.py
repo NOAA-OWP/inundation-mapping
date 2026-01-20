@@ -130,12 +130,12 @@ def catfim_mapping(huc, output_folder):
 # Main function for CatFIM mapping processing for a HUC
 def process_mapping(
     catfim_type,
-    huc_path,
-    output_mapping_dir,
+    huc_path, # huc path {fim_run_dir}/{huc}
+    output_mapping_dir, # dir where mapping outputs are stored - {huc_path}/mapping/
     output_temp_dir,  # TODO: decide, do we need this?
     sites_mapping_file_path,
-    library_pre_inun_file_path,  # the csv / df versoin before we add geometry
-    library_post_mapping_file_path,  # the gpkg version
+    library_pre_inun_file_path,  # the csv / df version before we add geometry
+    library_post_mapping_file_path,  # the gpkg version (once we've added geometry)
 ):
     
     """
