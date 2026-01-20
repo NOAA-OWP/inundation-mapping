@@ -5,15 +5,16 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 Fixes:
 - DepBot PR's
+    - PR: [1737](https://github.com/NOAA-OWP/inundation-mapping/pull/1737): Bump pyasn1 from 0.6.1 to 0.6.2
     - PR:  [1733](https://github.com/NOAA-OWP/inundation-mapping/pull/1733) : DepBot: Bump filelock from 3.18.0 to 3.20.3
     - PR:  [1732](https://github.com/NOAA-OWP/inundation-mapping/pull/1732) : DepBot: Bump virtualenv from 20.33.1 to 20.36.1
     - PR:  [1726](https://github.com/NOAA-OWP/inundation-mapping/pull/1726) : DepBot: Bump urllib3 from 2.5.0 to 2.6.3
     - PR:  [1724](https://github.com/NOAA-OWP/inundation-mapping/pull/1724) : DepBot: Bump aiohttp from 3.12.15 to 3.13.320.36.1
 - Other python package changes:
    - Add new scikit-image.
-   - Remove linting pages of : isort, black, flake8, flake8-project, and pre-commit.
-   - Remove the following unused packages:  monaco, rio-vrt, and certifi.
-   - Update the following packages: whitebox, boto3, jupyter and jupyter-lab.
+   - Remove linting packages of : isort, black, flake8, flake8-project, and pre-commit.
+   - Remove the following unused packages:  monaco, rio-vrt, psycopg2-binary, and certifi.
+   - Update the following packages: whitebox, boto3, gcsfs, py7zr, jupyter and jupyter-lab.
 -  Whitebox warnings. There were thousands of warnings issued based on whitebox being an older version and using deprecated packages in it.  Also change  some files that use Whitebox page declarations for mistake.
 - Various misc fixes or updates.
 - Linting
@@ -26,7 +27,7 @@ Fixes:
 - `CITATION.cff`: text updates.
 - `CONTRIBUTING.md`: text updates, remove info about linting within a docker container which never worked.
 - `Dockerfile.dev \ Dockerfile.owp`: Various updates to handle some new errors triggered by python package updates via Pipefile and Pipefile.lock, stop some warnings, and become consistent with the both the dev and owp versions.
-- `Pipfile \ Pipefile.lock`: Python packges changes as described above.
+- `Pipfile \ Pipefile.lock`: Python packages changes as described above.
 - `README.md`: Updates for new linting details, fixing some incorrect and deprecated instructions as well as incorrect text.
 - `config\hv_deploy_params.template`: Updates in preparation for the next FIM 6.1 release.
 - `data/bathymetry/preprocess_bathymetrics.py:  Whitebox header fix.
