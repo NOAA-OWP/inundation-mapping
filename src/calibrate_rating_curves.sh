@@ -1,5 +1,6 @@
-
-### !/bin/bash -e  (intentionally not added)
+#!/bin/bash
+set -euxo pipefail 
+# for details on codes see https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
 
 # ***************
 # IMPORTANT
@@ -193,6 +194,9 @@ l_echo $startDiv"Scanning logs ..."
 
 echo "Results will be saved inside log folder of each HUC."
 Tstart
+
+    # 
+
     if [ "${calibration_rerun,,}" = "true" ]; then
         error_log_filename="huc_${hucNumber}_errors_calib_rerun.log"
     else
@@ -200,8 +204,7 @@ Tstart
     fi
 
     error_log_path="$tempHucDataDir/logs/$error_log_filename"
-
-    # echo "calib - error_log_path is $error_log_path"
+    # echo "calib - "$error_log_path
 
     # Make sure NOT TO delete error_log_path, because it started logging from fim_process_huc.sh if an error occurs
     # [ -f "$error_log_path" ] && rm -f "$error_log_path"
@@ -209,13 +212,19 @@ Tstart
     # For rerun mode: Only scan src_calibrations subdirectory which is updated during rerun
     # For normal mode: Scan entire logs directory
 
+
+    # Rob: Maybe we can just always keep the original errors.log, but with a recalib 
+    # run, let it be called something like {huc}_recalib_errors.log and remove the .tmp system.
+
     # Run grep into a temporary file--saves the lines that contain the word “error”
     if [ "${calibration_rerun,,}" = "true" ]; then
         # echo "calib - here 1"
-        grep -H -R -i -n "error" --exclude="$error_log_filename" --exclude="$error_log_filename.tmp" "$tempHucDataDir/logs/src_calibrations" > "$error_log_path".tmp
+        grep -H -R -i -n "error" --exclude="$error_log_filename" \
+             --exclude="$error_log_filename.tmp" "$tempHucDataDir/logs/src_calibrations" > "$error_log_path".tmp
     else
         # echo "calib - here 2"
-        grep -H -R -i -n "error" --exclude="$error_log_filename" --exclude="$error_log_filename.tmp" "$tempHucDataDir/logs/" > "$error_log_path".tmp
+        grep -H -R -i -n "error" --exclude="$error_log_filename" \
+        --exclude="$error_log_filename.tmp" "$tempHucDataDir/logs/" > "$error_log_path".tmp
     fi
 
     # echo "calib - here 3"
@@ -232,7 +241,6 @@ Tstart
     fi
 
     # echo "calib - here 5"
-
     # repeat the workflow for warning files
     if [ "${calibration_rerun,,}" = "true" ]; then
         # echo "calib - here 6"
@@ -246,10 +254,12 @@ Tstart
     [ -f "$warning_log_path" ] && rm -f "$warning_log_path"
     if [ "${calibration_rerun,,}" = "true" ]; then
         # echo "calib - here 7"
-        grep -H -R -i -n "warning" --exclude="$warning_log_filename" --exclude="$warning_log_filename.tmp" "$tempHucDataDir/logs/src_calibrations" > "$warning_log_path".tmp
+        grep -H -R -i -n "warning" --exclude="$warning_log_filename" \
+             --exclude="$warning_log_filename.tmp" "$tempHucDataDir/logs/src_calibrations" > "$warning_log_path".tmp
     else
         # echo "calib - here 8"
-        grep -H -R -i -n "warning" --exclude="$warning_log_filename" --exclude="$warning_log_filename.tmp" "$tempHucDataDir/logs/" > "$warning_log_path".tmp
+        grep -H -R -i -n "warning" --exclude="$warning_log_filename" \
+             --exclude="$warning_log_filename.tmp" "$tempHucDataDir/logs/" > "$warning_log_path".tmp
     fi
 
     # echo "calib - here 9"

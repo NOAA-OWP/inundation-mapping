@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/bin/bash
+set -euxo pipefail 
 
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start

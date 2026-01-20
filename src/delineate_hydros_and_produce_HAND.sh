@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/bin/bash
+set -euxo pipefail 
 
 ## Level is equal to the parent script: 'unit' or 'branch'
 level=$1

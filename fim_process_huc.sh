@@ -1,6 +1,5 @@
 #!/bin/bash
-set -oE -pipefail
-# We do not want this script to abort, just log and return a zero
+set -ex  
 
 :
 usage ()
@@ -40,7 +39,6 @@ fi
 export runName=$1
 export hucNumber=$2
 
-
 # print usage if arguments empty
 if [ "$runName" = "" ]
 then
@@ -78,22 +76,22 @@ error_log_file_path="$tempHucDataDir/logs/$error_log_filename"
 hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 
 # Some simple error handling
-handle_error(){
+# handle_error(){
 
-    orig_fail_line_num=$1
-    echo "++++++++++++++++++++++++++++"
-    msg="Critical error in fim_process_huc.sh, line number:$orig_fail_line_num"
-    echo $msg
-    echo $msg >> $error_log_file_path
+#     orig_fail_line_num=$1
+#     echo "++++++++++++++++++++++++++++"
+#     msg="Critical error in fim_process_huc.sh, line number:$orig_fail_line_num"
+#     echo $msg
+#     echo $msg >> $error_log_file_path
 
-    msg="  Command submitted: $BASH_COMMAND"
-    echo $msg
-    echo $msg >> $error_log_file_path
-    echo "++++++++++++++++++++++++++++"
-    echo
-    move_output_files
-    exit 0
-}
+#     msg="  Command submitted: $BASH_COMMAND"
+#     echo $msg
+#     echo $msg >> $error_log_file_path
+#     echo "++++++++++++++++++++++++++++"
+#     echo
+#     move_output_files
+#     exit 0
+# }
 
 move_output_files() {
 
@@ -111,6 +109,8 @@ move_output_files() {
 }
 
 # In case there is a critical error with logic on this page.
+# hummm... how do we want to handle this without compromising
+# the error codes being returned from run_huc.sh ??
 # trap 'handle_error $LINENO' ERR
 
 ## huc data
@@ -130,14 +130,16 @@ chmod 777 $tempBranchDataDir
 rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
 rm -f $tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
 rm -f $tempHucDataDir/logs/branch/"$hucNumber"*.log
-rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
+# rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
 
 # Process the actual huc
 /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFileName
 
-#exit ${PIPESTATUS[0]} (and yes.. there can be more than one)
-# and yes.. we can not use the $? as we are messing with exit codes
 return_codes=( "${PIPESTATUS[@]}" )
+# return_codes=( "${PIPESTATUS[@]}" ) - yes, it is technically there can be more than one
+# depending how run_huc.sh is configured in its header declaration. But we will also
+# usually get just one return code.
+# and yes.. we can not use the $? as we are messing with exit codes
 
 # we do this way instead of working directly with stderr and stdout
 # as they were messing with output logs which we always want.
@@ -167,7 +169,7 @@ do
 done
 
 if [ "$err_exists" = "1" ]; then
-    err_msg="Error: "$hucNumber". Invalid return status code. Exit status: $return_codes"
+    err_msg="Error: "$hucNumber". Invalid return status code. Exit status(es): ${my_array[*]}"
     echo $err_msg >> $error_log_file_path
 fi
 
@@ -177,7 +179,12 @@ echo "Scanning for the phrase 'parallel'"
 # Test
 # echo "parallel: test" >> $tempHucDataDir/logs/${hucNumber}_unit.log
 
-find "$tempHucDataDir/logs" -path "*.log" -type f -not -name $error_log_filename -exec  grep -H -i -n "parallel:" {} +  >> ${error_log_file_path}
+# +++++++++++++++++++++++++++++
+# TODO:  Finish this.
+
+
+find "$tempHucDataDir/logs" -path "*.log" -type f -not -name $error_log_filename
+# -exec  grep -H -i -n "parallel:" {} +  >> $error_log_file_path
 
 # call function to move the files from temp
 move_output_files

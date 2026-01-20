@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/bin/bash
+set -euxo pipefail
 
 # It is strongly recommended that you do not call src/run_by_branch.sh directly.
 # Call this file instead, and let it call run_by_branch.sh.
@@ -11,15 +12,13 @@
 # This file also has no named command line arguments, only positional args.
 
 runName=$1
-hucNumber=$2
-branchId=$3
 
 # outputDestDir & tempHucDataDir come from fim_process_unit_wb.sh
 branchLogFileName=$tempHucDataDir/logs/branch/"$hucNumber"_branch_"$branchId".log
 
 /usr/bin/time -v $srcDir/run_by_branch.sh $hucNumber $branchId 2>&1 | tee $branchLogFileName
 
-#exit ${PIPESTATUS[0]}
+# See note in fim_process_huc.sh talking about PIPESTATUS info
 return_codes=( "${PIPESTATUS[@]}" )
 
 # we do this way instead of working directly with stderr and stdout
@@ -37,24 +36,33 @@ do
         echo
         err_exists=1
         echo "***** Branch has no valid flowlines *****"
+
+        # Later, we will change this to the "debug" system down the road to keep or rm this
+        # folder based on the debug flag being true or false.
         rm -rf $tempHucDataDir/branches/$branchId/
     elif [ $code -eq 64 ]; then
         echo
         err_exists=1
         echo "***** Branch has no crosswalks *****"
+
+        # Later, we will change this to the "debug" system down the road to keep or rm this
+        # folder based on the debug flag being true or false.
         rm -rf $tempHucDataDir/branches/$branchId/
     elif [ $code -eq 65 ]; then
         echo
         err_exists=1
         echo "***** Too many HydroIDs or a HydroID with more than 8 digits in gw catchments to convert to Int16 *****"
-        rm -rf $tempHucDataDir/branches/$branchId/
+
+        # Later, we will change this to the "debug" system down the road to keep or rm this
+        # folder based on the debug flag being true or false.        rm -rf $tempHucDataDir/branches/$branchId/
     # elif [ $code -ne 0 ]; then
     else # could it be anything else? Yes.. might be a null/none, so stick with the "else"
         echo
         err_exists=1
-        echo "***** An error has occurred while processing branch ${branchId} - Exit status is $code *****"
-        # cp $branchLogFileName $outputDestDir/branch_errors  No longer has value, but having the word
-        # having this show the code has value
+        echo "***** An error has occurred while processing branch ${hucNumber} : ${branchId} ; Exit status \
+        is $code *****"
+        # cp $branchLogFileName $outputDestDir/branch_errors -- removed from logging as no longer
+        # makes sense in the new logging system
     fi
 done
 

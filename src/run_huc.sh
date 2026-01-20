@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/bin/bash
+set -euxo pipefail
 
 # Note: the line above is critical and is read and used as a special command
 # exactly as it is. The additon of the -e tells it to stop on fail.
@@ -352,23 +353,23 @@ total_branches=$(wc -l < $branch_list_csv_file)
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit
 
-echo "Back from calibratation, checking return status"
-# Immediately capture the exit status of the last command (./script1.sh)
+echo "DEBUG: Back from calibration, checking return status"
+# # Immediately capture the exit status of the last command (./script1.sh)
 RETURN_STATUS=$?
 echo "return status is $RETURN_STATUS"
 
-# Use the captured status in a conditional statement
-# If we don't catch the calibrate error, it will try to continue running
-# and likely will be successful handing the duration and final duration message
-# but it will still return an non zero return to to process_huc.sh
-# By catching it here delibrately, we are getting helping find more details
-# of where it failed and why.
-if [ $RETURN_STATUS -ne 0 ]; then
-    echo "calibrate_rating_curves returned an error (Status: $RETURN_STATUS)"
-    # You can also exit the calling script with the same status
-    exit $RETURN_STATUS
-fi
-echo "Just above duration"
+# # Use the captured status in a conditional statement
+# # If we don't catch the calibrate error, it will try to continue running
+# # and likely will be successful handing the duration and final duration message
+# # but it will still return an non zero return to to process_huc.sh
+# # By catching it here delibrately, we are getting helping find more details
+# # of where it failed and why.
+# if [ $RETURN_STATUS -ne 0 ]; then
+#     echo "calibrate_rating_curves returned an error (Status: $RETURN_STATUS)"
+#     # You can also exit the calling script with the same status
+#     exit $RETURN_STATUS
+# fi
+# echo "Just above duration"
 
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"

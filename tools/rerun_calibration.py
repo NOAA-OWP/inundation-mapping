@@ -84,27 +84,66 @@ def run_shell_for_huc(
     try:
         cmd = ["bash", script_path, "True", str(branch_jobs)]
 
-        _ = subprocess.run(
-            cmd,
-            env=task_env,
-            capture_output=False,
-            text=True,
-            check=True,  # will raise CalledProcessError immediately when a calibration routine fails and the subsequent python code are not run
-        )
+        # The first line in the calibrate_rating_curves.sh must have a least
+        #   #!/bin/bash -e   (The -e means immeditely stop on error which is a feature
+        #   we absolutely have to have. Especially when that is script is called by
+        #   non re-calibrate scenarios such as run_by_branch.sh
+        # calibrate_rating_curves.sh might have it's second code line as
+        # set -e (with possibly more options that the shell script can use to manage
+        # errors, exit codes, error details, etd. If you have the "set" command as
+        # the second line, it shoudl always include the "-e" flag and have it removed
+        # in the top bin/bash line. ie) if a line of "setup" exists, it should have
+        # at least -e added here and removed from the top bin/bash line.
 
-        msg = f"[{task_id}] ✅ Rerunning calibration succeeded for HUC {huc}"
+        # This scenerio is slightly complicated that calibrate_rating_curves.sh is called
+        # in two places, once in python script and the other as a bash script and they
+        # both handle StdOut, StnErr, and exit code different by default.
+
+        # We have to catch three things from our .sh scripts
+        # 1) The exit code, which usually is 0 (success) or 1 (fail with unknown reasons)
+        #    There are other types of codes that can be retrieved, but we can just
+        #    worry about 0 or any other code treat as a fail.
+        # 2) StdOut:  Any messages that might be returned by the shell script. Normally
+        #    we don't have any but keep the door open and see we have anything.
+        # 3) StdErr:  If available, and it is not always available, is the reason that
+        #    the .sh failed.
+        sh_result = subprocess.run(cmd, env=task_env, capture_output=True, text=True, check=True)
+        # check=True above: When sett True to raise a CalledProcessError on non-zero exit which
+        # we do want so we know how to log it and handle it.
+        # without catching it here, we can lose the reason on why it failed inside
+        # calibrate_rating_curve.sh.
+
+        if sh_result.returncode != 0:
+            msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}."
+            msg += f"; Exit Code returned is {sh_result.returncode}"
+
+            if sh_result.stderr != "":
+                msg += f"; Details = {sh_result.stdout}"
+        else:  # returned exit code as success.
+            msg = f"[{task_id}] ✅ Rerunning calibration succeeded for HUC {huc}"
+
+        # Regardless what the return code, it can also return a stdout message such as
+        # a warnign issued by command inside the .sh scripts.
+        # If we have one, add it to msg
+        if sh_result.stdout != "":
+            msg += f"; Additional returned message from the subprocess: {sh_result.stdout}"
+
         screen_queue.put(msg)
         file_logger.info(msg)
-        return 1, [True]
+
+        # We are ok with return 1 (true/success) even if we picked up a non-zero
+        # exit code from the subprocess. If we got here, we handled it either way.
+        return 1, [True]  # Errors and outputs handled correctly as
 
     except subprocess.CalledProcessError as e:
-        msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}: {e}"
+        msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}: Exception: {e}."
+        msg += " Exit code, subprocess output or error messages not available."
         screen_queue.put(msg)
         file_logger.error(msg)
         return 0, [False]
 
     except Exception as ex:
-        msg = f"[{task_id}] ❌ Rerunning calibration failed with unexpected error for HUC {huc}: {ex}"
+        msg = f"[{task_id}] ❌ Rerunning calibration failed with unexpected error for HUC {huc}: Exception: {ex}."
         screen_queue.put(msg)
         file_logger.error(msg)
         return 0, [False]

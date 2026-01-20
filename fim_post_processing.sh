@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/bin/bash
+set -euxo pipefail
 
 :
 usage()
@@ -60,8 +61,25 @@ fi
 #                                                                                       #
 #########################################################################################
 
-# TODO what is below coming from?
-rm -f $log_file_name
+# Some simple error handling
+handle_error(){
+
+    post_processing_error_log_file_name=$outputDestDir/logs/post_processing_errors.sh
+
+    orig_fail_line_num=$1
+    echo "++++++++++++++++++++++++++++"
+    msg="Critical error in fim_post_processing.sh, line number:$orig_fail_line_num"
+    echo $msg
+    echo $msg >> $post_processing_error_log_file_name
+
+    msg="  Command submitted: $BASH_COMMAND"
+    echo $msg
+    echo $msg >> $post_processing_error_log_file_name
+    echo "++++++++++++++++++++++++++++"
+    echo
+    move_output_files
+    exit 0
+}
 
 # load up enviromental information
 args_file=$outputDestDir/runtime_args.env
@@ -74,7 +92,7 @@ source $srcDir/bash_variables.env
 
 # Tell the system the name and location of the post processing log
 log_file_name=$outputDestDir/logs/post_processing.log
-Set_log_file_path $log_file_name
+rm -f $log_file_name  # If it already exists
 
 l_echo ""
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -105,7 +123,7 @@ l_echo $startDiv"Start non-zero exit code checking"
 #find $outputDestDir/logs/branch -name "*_branch_*.log" -type f | \
 find $outputDestDir -path "*/logs/branch/*_branch_*.log" -type f | \
     xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > \
-    "$outputDestDir/branch_errors/non_zero_exit_codes.log" &
+    "$outputDestDir/logs/branch_non_zero_exit_codes.log" &
 
 
 l_echo $startDiv"Combining crosswalk tables"
