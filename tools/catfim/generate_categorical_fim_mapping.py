@@ -2,6 +2,8 @@
 
 import argparse
 import glob
+import shutil
+
 import logging
 import os
 import sys
@@ -40,42 +42,75 @@ Tenative notes:
       generate_categorical_fim_flows.py will be moved here if it is related to inundation,
       etc as mentioned above.
 
+This file should focus primarily on inunation and creating tifs and final gpkgs for this HUC.
+However, some logic processing is done here as well. We might move some of that later.
 
 """
-
-# This file should focus primarily on inunation and creating tifs and final gpkgs for this HUC.
-# However, some logic processing is done here as well. We might move some of that later.
-
 
 gpd.options.io_engine = "pyogrio"
 
 
 # This function is only called when the tool is being run by itself from command line
 def catfim_mapping(huc, output_folder):
-    # This is use by this tool from command line only.
-    # It just sets up a logger (its own?) hummmm
+    """
+    Run CatFIM mapping from the command line for a HUC.
+    
+    Args:
+        - huc (str) : 8-digit hydologic unit code
+        - output_folder (str) : Filepath to CatFIM outputs.
 
-    # and load runtime_args itself as it won't be from command line.
+    """
+    is_logging_loaded = False
 
-    print("Running mapping from command line, setting up the enviro and logging")
+    print(f"Running mapping from command line for huc {huc}.")
 
-    # start its own logging
-    # kill and rebuild its own fresh mapping folder
+    # ----------------------------
+    print("Setting up environment and logging.")
 
+    # Load CatFIM run arguments from the runtime_args.env file
     csf.load_runtime_args()
 
-    # Returns output_folder as it might be cleaned up a little such as slashes
+    # Validate input parameters and return normalized paths
     huc_path, output_folder = csf.validate_inputs(
         huc, output_folder
-    )  # also validates some bash_variables if it needs any.
+    )
+
+    # ----------------------------
+    # Set up logging
+
+
+    # It just sets up a logger (its own?) hummmm 
+    # TODO: Implement and test logging for command line run
+    # is_logging_loaded = True
+
+
+    # ----------------------------
+    # Create filepaths
 
     # Yes.. these are duplicate from catfim_process_huc.py but have to be in order to use
     # this script independently
     output_mapping_dir = os.path.join(huc_path, "mapping")
     output_temp_dir = os.path.join(huc_path, "temp")
+
     sites_mapping_file_path = os.path.join(output_mapping_dir, f"sites_mapping.gpkg")
     library_pre_inun_file_path = os.path.join(output_temp_dir, "library_pre_inundation.csv")
     library_post_mapping_file_path = os.path.join(output_mapping_dir, "library_post_mapping.gpkg")
+
+    # Remove and rebuild fresh new mapping and temp folders
+    shutil.rmtree(output_mapping_dir, ignore_errors=True)
+    os.mkdir(output_mapping_dir)
+
+    shutil.rmtree(output_temp_dir, ignore_errors=True)
+    os.mkdir(output_temp_dir)
+
+    # Remove pre-existing post-mapping library file
+    if os.path.isfile(library_post_mapping_file_path):
+        os.remove(library_post_mapping_file_path)
+    
+    # ----------------------------
+    # Process CatFIM mapping
+
+    print("Begin mapping") # TODO: replace prints with logging?
 
     process_mapping(
         os.getenv('CATFIM_TYPE'),
@@ -89,48 +124,67 @@ def catfim_mapping(huc, output_folder):
 
     print("Completed running mapping from command line")
 
+    # TODO: Wrap up logs?
 
-# Everything related to mapping starts here. SB and FB from catfim_process_huc or from
-# mapping command line via catfim_mapping function
 
-# at this point, you will need to load the sites gpkg that was copied as a workign version into
-# the mapping dir (if we want to use that idea), but you should not need any threshold data files
-# that has been loading, validated and some processing done and is now part of the library.csv (df)
-# We know some library recs will be rejected in here and sites.gpkg updated for the reason why as we progress.
-# We also know some mags or sites have been already rejected earlier and won't even have mag records
-# for it in the library df.
-# We can add temp columns to all df, .gpkgs, gdfs, etc at any time, we just have to clean them up later.
-# That option helps keep each processing of each site/mag more independent if it helps.
-# We also know SB will add some library interval recs.
-#
+# Main function for CatFIM mapping processing for a HUC
 def process_mapping(
     catfim_type,
-    huc_path,
-    output_mapping_dir,
-    output_temp_dir,  # do want need this?
+    huc_path, # huc path {fim_run_dir}/{huc}
+    output_mapping_dir, # dir where mapping outputs are stored - {huc_path}/mapping/
+    output_temp_dir,  # TODO: decide, do we need this?
     sites_mapping_file_path,
-    library_pre_inun_file_path,  # the csv / df versoin before we add geometry
-    library_post_mapping_file_path,  # the gpkg version
+    library_pre_inun_file_path,  # the csv / df version before we add geometry
+    library_post_mapping_file_path,  # the gpkg version (once we've added geometry)
 ):
+    
+    """
 
-    # Jan 7, 2026: I am now thinking we do not want/need a temp directory and jsut keep the intermediates
-    # and checkpoint files in the root. There won't be that many of them.
-    # We will continue to make subfolders and files inside the mappign folder with a similar structure
-    # to what we currently have. We may want to keep the subfodler structure as is as it is not too bad.
+    Handle the CatFIM mapping for a HUC.
 
-    # That being said.. we can also look for opportunites to keep stuff in memory whenever reasonable
-    # as reading/writing to disk slow things down a little.  But. ease of usages and understanding of
-    # how the code works is far more important than optimization.
+    TODO: Add docstring
 
 
-    # If it helps, we can always make temp dfs with filtered sites data
+    CatFIM Reorg Notes (Jan 26):
+
+    process_mapping is still heavily in progress as of 1/12/26
+
+
+
+    Everything related to mapping starts here. SB and FB from catfim_process_huc or from
+    mapping command line via catfim_mapping function
+
+    at this point, you will need to load the sites gpkg that was copied as a workign version into
+    the mapping dir (if we want to use that idea), but you should not need any threshold data files
+    that has been loading, validated and some processing done and is now part of the library.csv (df)
+    We know some library recs will be rejected in here and sites.gpkg updated for the reason why as we progress.
+    We also know some mags or sites have been already rejected earlier and won't even have mag records
+    for it in the library df.
+    We can add temp columns to all df, .gpkgs, gdfs, etc at any time, we just have to clean them up later.
+    That option helps keep each processing of each site/mag more independent if it helps.
+    We also know SB will add some library interval recs.
+
+    
+
+    Jan 7, 2026: I am now thinking we do not want/need a temp directory and jsut keep the intermediates
+    and checkpoint files in the root. There won't be that many of them. # TODO: Decide about temp file (i'm leaning towards remove too -E)
+    We will continue to make subfolders and files inside the mappign folder with a similar structure
+    to what we currently have. We may want to keep the subfodler structure as is as it is not too bad.
+
+    That being said.. we can also look for opportunites to keep stuff in memory whenever reasonable
+    as reading/writing to disk slow things down a little.  But. ease of usages and understanding of
+    how the code works is far more important than optimization.
+
+    If it helps, we can always make temp dfs with filtered sites data
+
+    """
 
     # Add its own duration system and section start and close messages
     section_start_dt = datetime.now(timezone.utc)
-    logging.info("Starting catfim mapping")
+    logging.info("Starting CatFIM mapping")
 
     # --------------------------
-    # Validation and pre-loading aplicable to both
+    # Load mapping data for HUC
 
     segments_file_path = os.path.join(huc_path, "features_segments.csv")
     sites_gdf, huc_library_df, huc_segments_df =  __load_mapping_data(
@@ -139,59 +193,94 @@ def process_mapping(
         library_pre_inun_file_path)
 
     # --------------------------
+    # Validate inputs # TODO: Fill in
+
     # When reasonable validate any inputs (such as branches maybe)
-    # so we can abort sooner than later.
-    # Not sure they is anything we can do
+    # so we can abort sooner than later. Not sure they is anything we can do
 
 
     # --------------------------
-    # Any mapping pre-procssing that is reasonble usable by both
-    # FB and SB. See what makes sense.
+    # Mapping pre-processing (processing used by both SB and FB)
+    #  TODO: Fill in (if needed)
 
     # --------------------------
-    # split to SB and FB specific processing.
-    # And looking for opportunites to create common functions that they both can use
+    # Split to SB- and FB-specific mapping processing
+
+    # TODO: looking for opportunites to create common functions that they both can use
     # when possible break stuff to smaller functions instead of giant hundreds of lines
     # long sections. Whatever makes sense of course.
+
+
     if catfim_type == "sb":
         print("coming")
 
-        # One things not yet done is using the __calc_stage_values but do we still even need it?
+        # TODO: Decide: One thing not yet done is using the __calc_stage_values but do we still even need it?
         # and if so.. where.  The library df already has the stage values so I think we
         # don't need it anymore
 
         # Go to new function to create the iterator for stage based.
         # Might be able, which then can calc intervals, adjust values,
         # create tifs, etc
-        # sites_gdf, huc_library_df = run_sb_mapping(sites_gdf,   (yes.. a new function)
-        #                                 huc_library_df,
-        #                                 huc_segments_df,
-        #                                 output_mapping_dir, 
-        #                                 sites_mapping_file_path
-        #                                 )
 
-    if catfim_type == "fb":
+        # Jan 26 - New function for SB mapping
+        sites_gdf, huc_library_df = run_sb_mapping(sites_gdf, # TODO: Finish writing function
+                                        huc_library_df,
+                                        huc_segments_df,
+                                        output_mapping_dir, 
+                                        sites_mapping_file_path
+                                        )
+
+    elif catfim_type == "fb":
         # discharge_file_path = os.path.join(huc_path, "flow_discharges.csv):
         # TODO: load it here and pass it in ??
-        # If this is FB only, shoudl this be renamed to run_fb_mapping?
-        sites_gdf, huc_library_df = run_catfim_inundation(sites_gdf,
+
+        # Jan 26 - Renamed run_catfim_inundation() to run_fb_mapping() 
+        sites_gdf, huc_library_df = run_fb_mapping(sites_gdf,
                                         huc_library_df,
                                         huc_segments_df,
                                         output_mapping_dir, 
                                         sites_mapping_file_path)
 
 
-    # -----------------------------
-    # For both FB and SB
-    # by now it is a gdf or still a df.. TBD
-    sites_gdf, huc_library_gdf = post_process_cat_fim_for_viz
+    # At this point, we will have the inundated tifs for each valid site/magnitude combination
+    # and the updated sites_gdf and huc_library_df. 
 
-    # see if there are any sites left that have some inundated files
+    # TODO: At this point, I think we just need to merge those inundated tifs into a single layer
+    # per magnitude and add that into the huc_library_df to make it into the huc_library_gdf... Right?
+
+    # -----------------------------
+    # HUC-level post-processing (for both FB and SB)
+
+    # sites_gdf, huc_library_gdf = post_process_cat_fim_for_viz 
+    # TODO: I think we can get rid of the post_process_cat_fim_for_viz function and just
+    # call post_process_huc() and merge_inundated_layers_huc() here (new function)
+
+    # Post-process HUC
+    
+    post_process_huc(  # TODO: Update inputs and code in post_process_huc
+                output_catfim_dir,
+                ahps_dir_list,
+                huc_dir,
+                gpkg_dir,
+                huc,
+                log_output_file,
+                child_log_file_prefix,
+                progress_stmt)
+
+    # by now it is a gdf or still a df.. TBD
+
+    # TODO: add check to see if there are any sites left that have some inundated files
     # If not, the sites_gdf should already have the recs updated to know why
 
 
-    # roll up to create final gpkg.
-    # Create the gpkg in this function, but save it here.
+     
+    # Merge all inundated layers to create final gpkg (for the HUC) 
+    # OR can this just be merged into post_process_huc?????
+    library_post_mapping = merge_inundated_layers_huc(catfim_type) # TODO: Write this function.... also check to make sure we even need it
+    # TODO: Are we creating inundated_library_gpkg and sites_gdf  here?
+
+    # Create the gpkg in this function, but save it here. # TODO: have the function just return the HUC-level GPKG (library_post_mapping) here?
+
     # Is this where we make a gdf based on the library df and adding geomtry?
     # inundated_library_gpkg, sites_gdf = post_process_cat_fim_for_viz()
 
@@ -200,7 +289,9 @@ def process_mapping(
 
 
     # -----------------------------
-    # Finalization ??
+    # Finalization of HUC-level mapping outputs ??
+
+    # TODO: Add final checks
 
     # if len(inundated_library_gpkg) == 0:
     #     # logging.warning (but not an error and that is ok)
@@ -213,46 +304,47 @@ def process_mapping(
     #     logging.info(f"Inundated library file saved to {library_post_mapping_file_path}")
 
 
-    logging.info("End of catfim mapping")
+    logging.info("End of CatFIM mapping")
     duration_msg = sf.calculate_duration_msg(section_start_dt)
     logging.info(duration_msg)
 
-# def run_catfim_inundation(
-# fim_run_dir, output_flows_dir, output_mapping_dir, job_number_huc, job_number_inundate, log_output_file
-# ):  Is this for SB only?
-# Maybe we can use the catfim_type for an if catfim_type = SB for small blocks?
-def run_catfim_inundation(sites_gdf,
+
+
+# Maybe we can use the catfim_type for an if catfim_type = SB for small blocks? and then we could use for both?
+# Otherwise we can just have run_fb_mapping and run_sb_mapping separately...? -> could combine in future work, keep separate for now?
+
+def run_fb_mapping(huc, sites_gdf,
                         huc_library_df,
-                        huc_segments_df,
+                        huc_segments_df, 
                         output_mapping_dir, 
-                        sites_mapping_file_path
+                        sites_mapping_file_path, # TODO: Remove unused inputs
+                        output_flows_dir,
 ):
-    
     '''
     Only used in flow-based CatFIM.
+    Runs for each HUC.
 
-    Executes the inundation and mosaicking process for CatFIM mapping across multiple HUCs and AHPS sites.
+    Processes:
+    - Gets a list of sites in HUC
+    - Loops through sites. For each site:
+        - Gets list of magnitudes
+        - Creates filepaths
+        - Runs run_fb_inundation() for each site/magnitude combination to create inundation tifs 
+            (using Inundate_gms, Mosaic_inundation, and mask_out_lakes)
 
-    This function coordinates the parallel execution of inundation mapping tasks using a process pool, handling
-    multiple HUCs and AHPS sites. It sets up logging, identifies valid HUC directories, and processes each AHPS site
-    and magnitude threshold within those HUCs. For each combination, it submits an inundation mapping job to the
-    process pool executor. Errors are logged and handled gracefully, and log files from child processes are merged
-    into the parent log file upon completion.
+    Analogous to run_sb_mapping() for stage-based CatFIM. Different from SB in that
+    this function iterates by site/magnitude whereas run_sb_mapping() iterates by site. (TODO: could fix this? not sure if it's worth it)
 
-    Args:
-        fim_run_dir (str): Path to the directory containing HAND FIM run outputs for HUCs.
-        output_flows_dir (str): Path to the directory containing flow outputs for valid HUCs.
-        output_mapping_dir (str): Path to the directory where inundation mapping results will be saved.
-        job_number_huc (int): Number of parallel jobs to run for HUC-level processing.
-        job_number_inundate (int): Number of parallel jobs to run for inundation mapping within each HUC.
-        log_output_file (str): Path to the log file for recording process output and errors.
 
-    Returns:
-        - sites_gdf which may or may not have be updated
-        - huc_library_df which may / may not be updated
 
-    Raises:
-        SystemExit: If a critical error occurs during processing, the function logs the error and exits the program.
+
+    CatFIM Reorg Notes (Jan 26):
+
+        This function was previously named run_catfim_inundation but was renamed to run_fb_mapping for clarity 
+        (because it is only used in flow-based CatFIM).
+
+   
+
     '''
 
     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
@@ -262,125 +354,131 @@ def run_catfim_inundation(sites_gdf,
 
     # Load the discharge file which has the flows
 
-    # The output_flows_dir will only have HUCs that were valid which means
-    # it will not include necessarily all hucs from the output run.
-    source_flow_huc_dir_list = [
-        x
-        for x in os.listdir(output_flows_dir)
-        if os.path.isdir(os.path.join(output_flows_dir, x)) and x[0] in ['0', '1', '2']
-    ]
-    fim_source_huc_dir_list = [
-        x
-        for x in os.listdir(fim_run_dir)
-        if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
-    ]
-    # Log missing hucs
-    # Depending on filtering, errors, and the valid_ahps_huc list at the start of the program
-    # this list could have only a few matches
-    missing_hucs = list(set(source_flow_huc_dir_list) - set(fim_source_huc_dir_list))
+    # HUC iterations - no longer needed for Jan 2026 reorg
+    # # The output_flows_dir will only have HUCs that were valid which means
+    # # it will not include necessarily all hucs from the output run.
+    # source_flow_huc_dir_list = [
+    #     x
+    #     for x in os.listdir(output_flows_dir)
+    #     if os.path.isdir(os.path.join(output_flows_dir, x)) and x[0] in ['0', '1', '2']
+    # ]
+    # fim_source_huc_dir_list = [
+    #     x
+    #     for x in os.listdir(fim_run_dir)
+    #     if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
+    # ]
+    # # Log missing hucs
+    # # Depending on filtering, errors, and the valid_ahps_huc list at the start of the program
+    # # this list could have only a few matches
+    # missing_hucs = list(set(source_flow_huc_dir_list) - set(fim_source_huc_dir_list))
 
-    missing_hucs = [huc for huc in missing_hucs if "." not in huc]
-    # Loop through matching huc directories in the source_flow directory
-    matching_hucs = list(set(fim_source_huc_dir_list) & set(source_flow_huc_dir_list))
-    matching_hucs.sort()
+    # missing_hucs = [huc for huc in missing_hucs if "." not in huc]
+    # # Loop through matching huc directories in the source_flow directory
+    # matching_hucs = list(set(fim_source_huc_dir_list) & set(source_flow_huc_dir_list))
+    # matching_hucs.sort()
 
 
     # loop through the library recs we do have? What about each lid?
     # Hummm.
 
-    # Jan 2026: We definatley want to take out multiprocessing, but maybe we can put in some multi-threading.
+    # TODO: Jan 2026: We definitely want to take out multiprocessing, but maybe we can put in some multi-threading.
     # we might have to do some benchmark tests without MP or MT and come back to it.
     # It won't take much to drop in MT. MT does not require managing seperate logging files and can
     # easily pass objects, such as dataframes, back and forth.
     # Not sure if there is enough file volume to worry about but a MT is an option. If we use an
     # MT, we have to figure out what to do about number of jobs
 
-    with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-        try:
-            for huc in matching_hucs:
+    # with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
+    #     try:
+    #         for huc in matching_hucs: # Jan 2026 CatFIM reorg: Remove HUC iteration
 
-                # Get list of AHPS site directories
-                huc_flows_dir = os.path.join(output_flows_dir, huc)
+    # -----------------------
+    # Get list of AHPS site directories
+    huc_flows_dir = os.path.join(output_flows_dir, huc)
 
-                # Map path to huc directory inside the mapping directory
-                huc_mapping_dir = os.path.join(output_mapping_dir, huc)
-                if not os.path.exists(huc_mapping_dir):
-                    os.makedirs(huc_mapping_dir, exist_ok=True)
+    # Map path to huc directory inside the mapping directory
+    huc_mapping_dir = os.path.join(output_mapping_dir, huc) # TODO: Doublecheck pathing here
+    if not os.path.exists(huc_mapping_dir):
+        os.makedirs(huc_mapping_dir, exist_ok=True)
 
-                # ahps_site_dir_list = os.listdir(ahps_site_dir)
-                ahps_site_dir_list = [
-                    x for x in os.listdir(huc_flows_dir) if os.path.isdir(os.path.join(huc_flows_dir, x))
-                ]  # ahps folder names under the huc folder
+    # ahps_site_dir_list = os.listdir(ahps_site_dir)
+    ahps_site_dir_list = [
+        x for x in os.listdir(huc_flows_dir) if os.path.isdir(os.path.join(huc_flows_dir, x))
+    ]  # ahps folder names under the huc folder
 
-                FLOG.trace(f"{huc} : ahps_site_dir_list is {ahps_site_dir_list}")
+    logging.info(f"{huc} : ahps_site_dir_list is {ahps_site_dir_list}")
 
-                # Loop through AHPS sites
-                for ahps_id in ahps_site_dir_list:
-                    # map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj)
-                    ahps_site_parent = os.path.join(huc_flows_dir, ahps_id)
 
-                    # thresholds_dir_list = os.listdir(ahps_site_parent)
-                    thresholds_dir_list = [
-                        x
-                        for x in os.listdir(ahps_site_parent)
-                        if os.path.isdir(os.path.join(ahps_site_parent, x))
-                    ]
+    # -----------------------
 
-                    # but we can just extract it from the csv files names which are
-                    # patterned as: 04130003/chrn6/moderate/chrn6_huc_04130003_flows_moderate.csv
+    # Loop through AHPS sites
+    for ahps_id in ahps_site_dir_list:
+        # map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj)
+        ahps_site_parent = os.path.join(huc_flows_dir, ahps_id)
 
-                    # Map parent directory for all inundation output files output files.
-                    huc_site_mapping_dir = os.path.join(huc_mapping_dir, ahps_id)
-                    if not os.path.exists(huc_site_mapping_dir):
-                        os.makedirs(huc_site_mapping_dir, exist_ok=True)
+        # thresholds_dir_list = os.listdir(ahps_site_parent)
+        thresholds_dir_list = [
+            x
+            for x in os.listdir(ahps_site_parent)
+            if os.path.isdir(os.path.join(ahps_site_parent, x))
+        ]
 
-                    # Loop through thresholds/magnitudes and define inundation output files paths
+        # but we can just extract it from the csv files names which are
+        # patterned as: 04130003/chrn6/moderate/chrn6_huc_04130003_flows_moderate.csv # TODO: Doublecheck pathing here (this has changed a bit)
 
-                    FLOG.trace(f"{huc}: {ahps_id} threshold dir list is {thresholds_dir_list}")
+        # Map parent directory for all inundation output files output files.
+        huc_site_mapping_dir = os.path.join(huc_mapping_dir, ahps_id)
+        if not os.path.exists(huc_site_mapping_dir):
+            os.makedirs(huc_site_mapping_dir, exist_ok=True)
 
-                    for magnitude in thresholds_dir_list:
-                        if "." in magnitude:
-                            continue
+        # Loop through thresholds/magnitudes and define inundation output files paths
 
-                        magnitude_flows_csv = os.path.join(
-                            ahps_site_parent,
-                            magnitude,
-                            ahps_id + '_huc_' + huc + '_flows_' + magnitude + '.csv',
-                        )
-                        # print(f"magnitude_flows_csv is {magnitude_flows_csv}")
-                        tif_name = ahps_id + '_' + magnitude + '_extent.tif'
-                        output_extent_tif = os.path.join(huc_site_mapping_dir, tif_name)
+        logging.info(f"{huc}: {ahps_id} threshold dir list is {thresholds_dir_list}")
 
-                        FLOG.trace(f"Begin inundation for {tif_name}")
-                        try:
-                            executor.submit(
-                                run_inundation,
-                                magnitude_flows_csv,
-                                huc,
-                                huc_site_mapping_dir,
-                                output_extent_tif,
-                                ahps_id,
-                                magnitude,
-                                fim_run_dir,
-                                job_number_inundate,
-                                log_output_file,
-                                child_log_file_prefix,
-                            )
+        for magnitude in thresholds_dir_list:
+            if "." in magnitude:
+                continue
 
-                        except Exception:
-                            FLOG.critical(
-                                "A critical error occured while attempting inundation"
-                                f" for {huc} - {ahps_id}-- {magnitude}"
-                            )
-                            FLOG.critical(traceback.format_exc())
-                            FLOG.merge_log_files(log_output_file, child_log_file_prefix)
-                            sys.exit(1)
+            magnitude_flows_csv = os.path.join(
+                ahps_site_parent,
+                magnitude,
+                ahps_id + '_huc_' + huc + '_flows_' + magnitude + '.csv',
+            )
+            # print(f"magnitude_flows_csv is {magnitude_flows_csv}") # TEMP DEBUG
 
-        except Exception:
-            FLOG.critical("A critical error occured while attempting all hucs inundation")
-            FLOG.critical(traceback.format_exc())
-            FLOG.merge_log_files(log_output_file, child_log_file_prefix)
-            sys.exit(1)
+            tif_name = ahps_id + '_' + magnitude + '_extent.tif'
+            output_extent_tif = os.path.join(huc_site_mapping_dir, tif_name)
+
+            logging.info(f"Begin inundation for {tif_name}")
+            try:
+                executor.submit( # TODO: decide about keeping MP here
+                    run_fb_inundation, # TODO: Update function inputs etc. as needed
+                    magnitude_flows_csv,
+                    huc,
+                    huc_site_mapping_dir,
+                    output_extent_tif,
+                    ahps_id,
+                    magnitude,
+                    fim_run_dir,
+                    job_number_inundate,
+                    log_output_file,
+                    child_log_file_prefix,
+                )
+
+            except Exception:
+                logging.critical(
+                    "A critical error occured while attempting inundation"
+                    f" for {huc} - {ahps_id}-- {magnitude}"
+                )
+                logging.critical(traceback.format_exc())
+                logging.merge_log_files(log_output_file, child_log_file_prefix)
+                sys.exit(1)
+
+        # except Exception: # Try statement was from the HUC loop which is now removed... do we want to add the try statement back?
+        #     FLOG.critical("A critical error occured while attempting all hucs inundation")
+        #     FLOG.critical(traceback.format_exc())
+        #     FLOG.merge_log_files(log_output_file, child_log_file_prefix)
+        #     sys.exit(1)
 
     # end of ProcessPoolExecutor
 
@@ -392,8 +490,9 @@ def run_catfim_inundation(sites_gdf,
 # This is for FB only but duplication of sections of code will be reviewed
 # to see if we can pull out shared smaller functions.
 
-# HUMMMM.... do we send in the site.gdf or jsut manage returning messages
-def run_inundation(
+# TODO: decide HUMMMM.... do we send in the site.gdf or jsut manage returning messages
+
+def run_fb_inundation( # renamed from run_inundation
     magnitude_flows_csv,  # is this the discharge data?
     huc,
     output_huc_site_mapping_dir,
@@ -408,13 +507,25 @@ def run_inundation(
     '''
     Only used in flow-based CatFIM.
 
+    Runs for each site/magnitude combination.
+
+    Processes:
+        - Inundate_gms()
+        - Mosaic_inundation()
+        - mask_out_lakes()
+
+        -> returns inundated site/mag tifs with lakes masked out
+
+
+
+
     Runs the inundation mapping workflow for a given HUC and magnitude, including logging,
     inundation raster generation, mosaicking, and lake masking.
 
     Inundates each set based on the ahps/mangnitude list and for each segment in the the branch hydrotable.
     Then each set is inundated per branch and mosiaked for the AHPS site.
 
-    Parameters:
+    Parameters: # TODO: Update docstring
         magnitude_flows_csv (str): Path to the CSV file containing magnitude flows for the forecast.
         huc (str): Hydrologic Unit Code (HUC) identifier for the region to process.
         output_huc_site_mapping_dir (str): Directory to store output HUC-site mapping files.
@@ -449,9 +560,11 @@ def run_inundation(
     # Why all high number for job_number_inundate? Inundate_gms has to create inundation for each
     # branch and merge them.
 
-    # HUMM.... How do we want to handle exceptions in here? Let them out? 
+    # TODO: decide... HUMM.... How do we want to handle exceptions in here? Let them out? 
     try:
         # MP_LOG.lprint(f"... Running Inundate_gms and mosiacking for {huc} : {ahps_site} : {magnitude}")
+        logging.info(f"... Running Inundate_gms and mosiacking for {ahps_site} : {magnitude}")
+
         map_file = Inundate_gms(
             hydrofabric_dir=fim_run_dir,
             forecast=magnitude_flows_csv,
@@ -466,8 +579,12 @@ def run_inundation(
             multi_process=True,
         )
 
+        # ---------------------
+        # Mosaic inundation tifs for lid/category
+
         # MP_LOG.trace(f"Mosaicking for {huc} : {ahps_site} : {magnitude}")
         logging.info(f"Mosaicking for  {ahps_site} : {magnitude}")
+
         Mosaic_inundation(
             map_file,
             mosaic_attribute='inundation_rasters',
@@ -484,6 +601,8 @@ def run_inundation(
         # MP_LOG.trace(f"Mosaicking complete for {huc} : {ahps_site} : {magnitude}")
         logging.info(f"Mosaicking complete for : {ahps_site} : {magnitude}")
 
+
+        # ---------------------
         # Mask out lakes from inundated tif and re-save tif
 
         # TODO: (fall 2026). Update to only run if lake detected? 
@@ -495,9 +614,9 @@ def run_inundation(
             output_extent_src.write(output_extent_array_masked, 1)
 
         # MP_LOG.trace(f"Lake masking complete for {huc} : {ahps_site} : {magnitude}")
-        logging.inf(f"Lake masking complete for {ahps_site} : {magnitude}")
+        logging.info(f"Lake masking complete for {ahps_site} : {magnitude}")
 
-    # humm... do we keep the try catch here? do we even want one?
+    # TODO: Decide humm... do we keep the try catch here? do we even want one?
     # what do we want to do if a site, mag fails... dump the entire tool or
     # just log this site/mag?
     except Exception:
@@ -526,20 +645,58 @@ def run_inundation(
     return
 
 
-# New... this is a wrapper for all things that SB needs do such
-# as figure out intervals, iterate sites and lids and build the tifs
 def run_sb_mapping(sites_gdf, huc_library_df,
                                         huc_segments_df,
                                         output_mapping_dir, 
                                         sites_mapping_file_path
                                         ):
+    """
+    
+    Only used in stage-based CatFIM.
+    Runs for each HUC.
 
-    print("begining SB mapping")
-    # Add duration system here
+    Processes:
+    - Gets a list of sites in HUC # TODO: Implement this 
+    - Loops through sites. For each site, runs: (TODO: Add for each site Get list of magnitudes, Create filepaths? )
+        - run_sb_inundation() (previously called produce_stage_based_lid_tifs)
+          which returns inundated site/mag tifs for each site      
+    
+          
+    CatFIM Reorg Notes (Jan 26):
+        New... this is a wrapper for all things that SB needs do such
+        as figure out intervals, iterate sites and lids and build the tifs
 
-    # create lid iterator ??
+        TODO: figure out intervals
 
-        # produce_stage_based_lid_tifs(
+    """
+
+    print("Beginning SB mapping")
+    # TODO: Add duration system here
+
+
+    # TODO: create lid iterator ??
+    for lid in lid_list:
+         
+        # Create the inundation tifs for each site/magnitude combination for the lid
+        run_sb_inundation( # Jan 26 was previously called produce_stage_based_lid_tifs( # TODO: update inputs
+            sites_gdf, 
+            huc_library_df,
+            stage_val,
+            datum_adj_ft,
+            branch_dir,
+            lid_usgs_elev,
+            lid_altitude,
+            fim_dir,
+            segments,
+            lid,
+            # huc,
+            lid_directory,
+            category,
+            category_key,  # ??
+            # number_of_jobs,
+            # mp_parent_log_file,
+            # child_log_file_prefix,
+    )
 
 
 
@@ -563,8 +720,10 @@ def run_sb_mapping(sites_gdf, huc_library_df,
 # We will be updateing the datum_adj_wse, datum_adj_wse_m and hand_stage to the
 # library df so we want to return it.
 # PS.. what is hand_stage? Is this just an update to the library df "stage" column?
-def produce_stage_based_lid_tifs(
-    sites_gdf, huc_library_df,
+
+def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_tifs
+    sites_gdf, 
+    huc_library_df,
     stage_val,
     datum_adj_ft,
     branch_dir,
@@ -573,7 +732,7 @@ def produce_stage_based_lid_tifs(
     fim_dir,
     segments,
     lid,
-    # huc,
+    huc,
     lid_directory,
     category,
     category_key,  # ??
@@ -584,51 +743,45 @@ def produce_stage_based_lid_tifs(
     '''
     Only used for stage-based CatFIM.
 
-    Generates stage-based inundation TIFF files for a given LID (Location ID) and category, mosaics branch-level inundation maps,
-    and removes intermediary files. Handles multi-processing across branches and logs progress and warnings.
+    Runs for each site/magnitude combination.
 
-    Parameters
+    Processes:
+        - calculate HAND stage
+        - get hydrotable/branches. for each branch:
+            - remove lake HydroIDs
+            - inundate_sb() to create branch-level inundation tifs
+        - mosaic_sb_inundation() to create lid/category-level inundation tif
+        - mask_out_lakes() 
+
+        -> returns inundated site/mag tifs with lakes masked out
+
+
+
+
+    Parameters # TODO: Update docstring
     ----------
-    stage_val : float
-        The stage value to use for inundation mapping.
-    datum_adj_ft : float
-        Datum adjustment in feet to be applied to the stage value.
-    branch_dir : str
-        Directory containing branch subdirectories for processing.
-    lid_usgs_elev : float
-        USGS elevation for the LID gage, used to calculate HAND stage.
-    lid_altitude : float
-        Altitude adjustment for the LID location.
-    fim_dir : str
-        Base directory for HAND FIM data.
-    segments : list
-        List of NWM segment feature IDs to process for inundation.
-    lid : str
-        Location ID string.
-    huc : str
-        Hydrologic Unit Code for the watershed.
-    lid_directory : str
-        Directory to store output TIFF files for the LID.
-    category : str
-        Category name for the inundation mapping (e.g., "action", "minor").
-    category_key : str
-        Key string representing the category and magnitude.
+    stage_val : float - The stage value to use for inundation mapping.
+    datum_adj_ft : float - Datum adjustment in feet to be applied to the stage value.
+    branch_dir : str - Directory containing branch subdirectories for processing.
+    lid_usgs_elev : float - USGS elevation for the LID gage, used to calculate HAND stage.
+    lid_altitude : float - Altitude adjustment for the LID location.
+    fim_dir : str - Base directory for HAND FIM data.
+    segments : list - List of NWM segment feature IDs to process for inundation.
+    lid : str - Location ID string.
+    # huc : str - Hydrologic Unit Code for the watershed.
+    lid_directory : str - Directory to store output TIFF files for the LID.
+    category : str - Category name for the inundation mapping (e.g., "action", "minor").
+    category_key : str - Key string representing the category and magnitude.
 
-        
     Returns
     -------
-    # messages : list
-    #     List of warning or status messages generated during processing.
-    # hand_stage : int
-    #     Computed HAND stage in millimeters.
-    # datum_adj_wse : float
-    #     Datum-adjusted water surface elevation in feet.
-    # datum_adj_wse_m : float
-    #     Datum-adjusted water surface elevation in meters.
+    messages : list - List of warning or status messages generated during processing.
+    hand_stage : int - Computed HAND stage in millimeters.
+    datum_adj_wse : float - Datum-adjusted water surface elevation in feet.
+    datum_adj_wse_m : float - Datum-adjusted water surface elevation in meters.
 
     Notes
     -----
-    - The function performs multi-processing across branches to generate inundation maps.
     - Branch-level TIFFs are mosaicked into a single extent TIFF for the LID and category.
     - Lakes are masked out from the final inundation array.
     - Intermediary branch TIFFs are deleted after merging to save space.
@@ -642,7 +795,11 @@ def produce_stage_based_lid_tifs(
     messages = []
 
     huc_lid_cat_id = f"{huc} : {lid} : {category_key}"
-    # MP_LOG.trace(f"{huc_lid_cat_id}: Starting to create tifs")
+    # MP_LOG.trace(f"{huc_lid_cat_id}: Starting to create tifs") # TODO: Update logging
+
+ 
+    # ---------------------
+    # Calculate HAND stage
 
     # Determine datum-offset water surface elevation (from above).
     datum_adj_wse = stage_val + datum_adj_ft + lid_altitude
@@ -658,7 +815,9 @@ def produce_stage_based_lid_tifs(
     if hand_stage < 0:
         msg = f": Negative hand stage ({hand_stage} mm) detected, no inundation possible"
         # messages.append(lid + msg)
-        MP_LOG.warning(huc_lid_cat_id + msg)
+        MP_LOG.warning(huc_lid_cat_id + msg) # TODO: Update logging
+        
+
         return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
 
     # If no segments, write message and exit out
@@ -666,22 +825,28 @@ def produce_stage_based_lid_tifs(
     if not segments or len(segments) == 0:
         msg = ':missing nwm segments'
         messages.append(lid + msg)
-        MP_LOG.warning(huc_lid_cat_id + msg)
+        MP_LOG.warning(huc_lid_cat_id + msg) # TODO: Update logging
         return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
 
-    # Produce extent tif hand_stage. Multiprocess across branches.
-    # branches = os.listdir(branch_dir)
-    # MP_LOG.trace(f"{huc_lid_cat_id} branch_dir is {branch_dir}")
 
+    # ---------------------
+    # Produce extent tif for hand_stage
+
+    # branches = os.listdir(branch_dir)
+    # MP_LOG.trace(f"{huc_lid_cat_id} branch_dir is {branch_dir}") # TODO: Update logging
+
+    # Get branch list 
     branches = [x for x in os.listdir(branch_dir) if os.path.isdir(os.path.join(branch_dir, x))]
     branches.sort()
-    # MP_LOG.trace(f"{huc_lid_cat_id} branches are {branches}")
+
+    # MP_LOG.trace(f"{huc_lid_cat_id} branches are {branches}") # TODO: Update logging
 
     # This is an MP in an MP. We want this set of mp's to roll up to the
     # parent MP file, and not the full catfim parent log. We roll this child MP into
     # it's parent mp and later that parent MP will rollup to the catfim file.
 
 
+    # TODO: Decide on and implement multithreading
     # Jan 2026: We definatley want to take out multiprocessing, but maybe we can put in some multi-threading.
     # we might have to do some benchmark tests without MP or MT and come back to it.
     # It won't take much to drop in MT. MT does not require managing seperate logging files and can
@@ -691,115 +856,349 @@ def produce_stage_based_lid_tifs(
 
     # Of course, we will need a branch iterator though
 
-    child_log_file_prefix = MP_LOG.MP_calc_prefix_name(MP_LOG.LOG_FILE_PATH, "MP_branch")
-    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-        for branch in branches:
-            msg_id_w_branch = f"{huc_lid_cat_id}: {branch}"
-            # MP_LOG.trace(f"{msg_id_w_branch} : inundating branch")
-            # Define paths to necessary files to produce inundation grids.
-            full_branch_path = os.path.join(branch_dir, branch)
-            rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
-            catchments_path = os.path.join(
-                fim_dir,
-                huc,
-                full_branch_path,
-                'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif',
-            )
-            hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
+    # For now (Jan 15 2026) we will just run it single threaded, can implmement MT later if needed.
 
-            # sometimes, these can fail to exist if a branchf initial failed during HAND generation
-            # Do any of these ultimately change the sites gdf status / mapping columns? 
-            # if so.. change it here (adjusting for the actual status message in the final library gpkg)
-            if not os.path.exists(rem_path):
-                msg = ":rem doesn't exist (could be bad branch)"
-                # messages.append(lid + msg)
-                MP_LOG.warning(msg_id_w_branch + msg)
-                continue
-            if not os.path.exists(catchments_path):
-                msg = ":catchments files don't exist (could be bad branch)"
-                # messages.append(lid + msg)
-                MP_LOG.warning(msg_id_w_branch + msg)
-                continue
-            if not os.path.exists(hydrotable_path):
-                msg = ":hydrotable doesn't exist (could be bad branch)"
-                # messages.append(lid + msg)
-                MP_LOG.warning(msg_id_w_branch + msg)
-                continue
+    # child_log_file_prefix = MP_LOG.MP_calc_prefix_name(MP_LOG.LOG_FILE_PATH, "MP_branch")
+    # with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
 
-            # Use hydroTable to determine hydroid_list from site_ms_segments.
-            hydrotable_df = pd.read_csv(
-                hydrotable_path, low_memory=False, dtype={'HUC': str, 'LakeID': float, 'subdiv_applied': int}
-            )
+    # Iterate through branches to produce the inundated branch tifs
+    for branch in branches:
 
-            # todo.. makes 
+        # ---------------------
+        # Prepare branch-specific file paths
 
-            hydroid_list, lake_hydroid_list, nolake_hydroid_list = [], [], []
+        msg_id_w_branch = f"{huc_lid_cat_id}: {branch}"
+        # MP_LOG.trace(f"{msg_id_w_branch} : inundating branch") # TODO: Update logging
 
-            # Determine hydroids at which to perform inundation
-            # segments here will need to be filtered to lid specific. the segments file
-            # now has more columns
-            for feature_id in segments:
+        # Define paths to necessary files to produce inundation grids.
+        full_branch_path = os.path.join(branch_dir, branch)
+        rem_path = os.path.join(fim_dir, huc, full_branch_path, 'rem_zeroed_masked_' + branch + '.tif')
+        catchments_path = os.path.join(
+            fim_dir,
+            huc,
+            full_branch_path,
+            'gw_catchments_reaches_filtered_addedAttributes_' + branch + '.tif',
+        )
+        hydrotable_path = os.path.join(fim_dir, huc, full_branch_path, 'hydroTable_' + branch + '.csv')
 
-                try:
-                    subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
+        # NOTE: Jan 26 sometimes, these can fail to exist if a branchf initial failed during HAND generation
+        # Do any of these ultimately change the sites gdf status / mapping columns? 
+        # if so.. change it here (adjusting for the actual status message in the final library gpkg)
 
-                    # List of HydroID's where the LakeID is greater than 0 (which shows that there's a lake)
-                    lake_hydroid_list = list(
-                        subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] > 0]['HydroID'].unique()
-                    )
+        if not os.path.exists(rem_path):
+            msg = ":rem doesn't exist (could be bad branch)"
+            # messages.append(lid + msg)
+            MP_LOG.warning(msg_id_w_branch + msg) # TODO: Update logging
+            continue
+        if not os.path.exists(catchments_path):
+            msg = ":catchments files don't exist (could be bad branch)"
+            # messages.append(lid + msg)
+            MP_LOG.warning(msg_id_w_branch + msg) # TODO: Update logging
+            continue
+        if not os.path.exists(hydrotable_path):
+            msg = ":hydrotable doesn't exist (could be bad branch)"
+            # messages.append(lid + msg)
+            MP_LOG.warning(msg_id_w_branch + msg) # TODO: Update logging
+            continue
 
-                    # If lakes are detected, add info to the log
-                    if len(lake_hydroid_list) > 0:
-                        MP_LOG.trace(
-                            f"HydroIDs {lake_hydroid_list} removed from processing because they contain lakes. FeatureId is {feature_id}."
-                        )
+        # Use hydroTable to determine hydroid_list from site_ms_segments.
+        hydrotable_df = pd.read_csv(
+            hydrotable_path, low_memory=False, dtype={'HUC': str, 'LakeID': float, 'subdiv_applied': int}
+        )
 
-                    # List of HydroID's where there the LakeID is less than 0 (no lake, so we can inundate)
-                    nolake_hydroid_list = list(
-                        subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] < 0]['HydroID'].unique()
-                    )
+        hydroid_list, lake_hydroid_list, nolake_hydroid_list = [], [], []
 
-                    # Add HydroIDs without lakes to the list to process
-                    hydroid_list += nolake_hydroid_list
+        # ---------------------
+        # Determine hydroids at which to perform inundation, filter out lakes
 
-                except IndexError:  # humm...
-                    MP_LOG.trace(
-                        f"Index Error for {msg_id_w_branch}. FeatureId is {feature_id} : Continuing on."
-                    )
-                    pass
+        # TODO: segments here will need to be filtered to lid specific. the segments file now has more columns
 
-            # Create inundation maps with branch and stage data
-            # only sites /categories that got this far are valid and can be inundated
+        for feature_id in segments:
+
             try:
-                # MP_LOG.trace(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM")
+                subset_hydrotable_df = hydrotable_df[hydrotable_df['feature_id'] == int(feature_id)]
 
-                executor.submit(
-                    produce_inundated_branch_tif,
-                    rem_path,
-                    catchments_path,
-                    hydroid_list,
-                    hand_stage,
-                    lid_directory,
-                    category_key,
-                    huc,
-                    lid,
-                    branch,
-                    # MP_LOG.LOG_FILE_PATH,
-                    # child_log_file_prefix,
+                # List of HydroID's where the LakeID is greater than 0 (which shows that there's a lake)
+                lake_hydroid_list = list(
+                    subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] > 0]['HydroID'].unique()
                 )
 
-            except Exception:
-                # update sites.gdf ?
-                msg = f':inundation failed at {category}'
-                messages.append(lid + msg)
-                MP_LOG.warning(msg_id_w_branch + msg)
-                MP_LOG.error(traceback.format_exc())
+                # If lakes are detected, add info to the log
+                if len(lake_hydroid_list) > 0:
+                    MP_LOG.trace( # TODO: Update logging
+                        f"HydroIDs {lake_hydroid_list} removed from processing because they contain lakes. FeatureId is {feature_id}."
+                    )
 
-    # Nov 2024: Fix this. The logs get out of order as it is can be a MP in MP
-    # hold on this
-    # MP_LOG.merge_log_files(mp_parent_log_file, child_log_file_prefix, True)
+                # List of HydroID's where there the LakeID is less than 0 (no lake, so we can inundate)
+                nolake_hydroid_list = list(
+                    subset_hydrotable_df.loc[subset_hydrotable_df['LakeID'] < 0]['HydroID'].unique()
+                )
 
-    # -- MOSAIC -- #
+                # Add HydroIDs without lakes to the list to process
+                hydroid_list += nolake_hydroid_list
+
+            except IndexError:  # humm...
+                MP_LOG.trace( # TODO: Update logging
+                    f"Index Error for {msg_id_w_branch}. FeatureId is {feature_id} : Continuing on."
+                )
+                pass
+
+        # Create inundation maps with branch and stage data
+        # only sites /categories that got this far are valid and can be inundated
+        try:
+            # MP_LOG.trace(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM")
+
+            # executor.submit( # TODO: decide about keeping MP here. took out for now Jan 2026
+                # inundate_sb,
+            inundate_sb( # Jan 26: was previously called produce_inundated_branch_tif
+                rem_path,
+                catchments_path,
+                hydroid_list,
+                hand_stage,
+                lid_directory,
+                category_key,
+                huc,
+                lid,
+                branch,
+                # MP_LOG.LOG_FILE_PATH,
+                # child_log_file_prefix,
+            )
+
+        except Exception:
+            # update sites.gdf ?
+            msg = f':inundation failed at {category}'
+            messages.append(lid + msg)
+            MP_LOG.warning(msg_id_w_branch + msg) # TODO: Decide about MP, update logging
+            MP_LOG.error(traceback.format_exc()) # TODO: Decide about MP, update logging
+
+    # end of previous MP (removed Jan 2026)
+    # end of branch loop
+
+    # ---------------------
+    # Mosaic inundation tifs for lid/category
+
+    # NOTE: This section is analogous to Mosaic_inundation() function in FB CatFIM
+    # Jan 2026 - moved mosaic code into a function called mosaic_sb_inundation() to match FB processing structure
+    
+    output_extent_tif = mosaic_sb_inundation(lid, lid_directory, category_key, huc_lid_cat_id)
+
+    # ---------------------
+    # Mask out lakes from inundated tif and re-save tif
+    # Jan 2026 - moved lake masking to outside the mosaic function to match the fb processing
+
+    with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
+        output_extent_array = output_extent_src.read(1)
+        output_extent_array_masked, mask_status = mask_out_lakes(
+            output_extent_array, huc, output_extent_src, fim_run_dir
+        )
+        output_extent_src.write(output_extent_array_masked, 1)
+
+        # TODO: log mask_status after masking out lakes
+
+    # else:
+    #     MP_LOG.warning(f"{huc}: {lid}: Merging {category_key} : no valid inundated branches")
+
+    return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+
+
+
+
+def inundate_sb( # formerly called produce_inundated_branch_tif
+    rem_path,
+    catchments_path,
+    hydroid_list,
+    hand_stage,  # same as the "stage" column in the library df?, or maybe it is easier to just pass the value here
+    lid_directory,
+    category_key,
+    huc,  # do we need this?
+    lid,
+    branch,
+    # parent_log_output_file,
+    # child_log_file_prefix,
+):
+    '''
+    Only used in stage-based CatFIM.
+
+    Creates an inundated tif for a given site/magnitude/branch combination.
+
+    Formerly called produce_inundated_branch_tif, updated Jan 2026 to match FB naming conventions.
+    Analogous to Inundate_gms() in FB CatFIM.
+
+
+
+    # Old docstring, needs to be simplified/clarified/updated # TODO: Update docstring
+    This function reads a REM (Raster Elevation Model) and catchments raster, applies
+    a stage threshold, and masks the result to catchments matching the provided hydroid
+    list. The output is a raster where inundated cells are marked as 1 and non-inundated
+    cells as 0.
+
+    This is a form of inundation which is specific to CatFIM because we only have one
+    flow value and the other FIM inundation tools are looking for flow files not single
+    values.
+
+    Parameters 
+    ----------
+    rem_path : str - Path to the REM raster file.
+    catchments_path : str - Path to the catchments raster file.
+    hydroid_list : list of int - List of hydroid identifiers to include in the mask.
+    hand_stage : float or int - Stage threshold value for inundation.
+    lid_directory : str - Directory where the output raster will be saved.
+    category_key : str - Category key used in the output file name.
+    huc : str - Hydrologic Unit Code for the region.
+    lid : str - Location identifier for the site.
+    branch : str - Branch identifier for the mapping.
+    # parent_log_output_file : str - Path to the parent log output file for logging.
+    # child_log_file_prefix : str - Prefix for child log files.
+
+    Returns
+    -------
+    None
+        The function saves the output raster to disk and does not return any value.
+
+    Notes
+    -----
+    - The output raster is only generated if at least one cell is inundated.
+    - Logging is set up for error and trace reporting.
+    - Handles hydroid values by clipping to the last 4 digits for matching.
+    - Both input rasters are expected to have a nodata value of 0.
+    - A category can have different formats, depending if it is an interval or not or int or float.
+        If it has a stage number it, it is an interval value, ie) action, action_24ft, action_24.6, or action_24.6ft
+
+   
+
+        
+
+    Jan 2026 Development Notes:
+    - need to update logging here and decide if we're returning messages or whatever
+    - need to check that this function makes the correct assumptions about filepaths and folder structure
+    
+    
+
+    '''
+
+    try:
+        # ---------------------
+        # Set up logging and filepaths
+
+        # This is setting up logging for this function to go up to the parent
+        MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix) # TODO: Update logging
+
+        file_name = lid + '_' + category_key + '_extent_' + huc + '_' + branch
+        output_tif = os.path.join(lid_directory, file_name + '.tif')
+
+        # ---------------------
+        # Inundate branch REM and mask out unwanted catchments
+
+        # Open the REM and Catchments rasters (both have a nodata value of 0)
+        rem_src = rasterio.open(rem_path)
+        catchments_src = rasterio.open(catchments_path)
+        rem_array = rem_src.read(1)
+        catchments_array = catchments_src.read(1)
+
+        # Adjust number dtype for output based on if Alaska or not
+        is_alaska = str(huc)[:2] == '19'
+        output_dtype = 'uint8' if is_alaska else 'int16'
+
+        # Reclassify REM array based on hand_stage (to get inundated vs non-inundated cells)
+        #   This creates an array where inundated cells are 1 and non-inundated cells are 0.
+        #   Inundated cells occur where the cell elevation (rem_array) is less than the river 
+        #   stage elevation (hand_stage).
+        reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
+            output_dtype
+        )
+
+        # Adjust hydroid values to mitigate differences in Alaska data structures.
+        #   In our Alaska data, the catchment_array has hydroids that have had the first four 
+        #   chars cut off, so we need to do the same for the hydroid's in the hydroid_list.
+        clipped_hydroid_list = []
+        for i in hydroid_list:
+            clipped_str = str(i) if is_alaska else str(i)[-4:]
+            clipped_hydroid_list.append(int(clipped_str))
+
+        # Create a mask of the catchments_array where the values are in the clipped_hydroid_list.
+        #   This mask will be used to remove lakes and catchments outside of the branch.
+        hydroid_mask = np.isin(catchments_array, clipped_hydroid_list)
+
+        # Use the hydroid_mask to create a new mask (target_catchments_array) containing cells that 
+        #   are not nodata and the where hydroid_mask is True.
+        #   This mask is identical to the hydroid_mask other than the fact that it also now removes
+        #   nodata values and data type has been adjusted.
+        target_catchments_array = np.where(
+            ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
+        ).astype(output_dtype)
+
+        # Mask the reclass_rem_array with the target_catchments_array
+        #   This creates an array where inundated cells are 1 and non-inundated cells are 0,
+        #   and irrelevant areas are masked out.
+        masked_reclass_rem_array = np.where(
+            ((reclass_rem_array >= 1) & (target_catchments_array >= 1)), 1, 0
+        ).astype(output_dtype)
+
+
+        # ---------------------
+        # Evaluate inundation result and save output tif if needed
+
+        ## Debugging: # TODO: Clean up?
+
+        # Change it all to either 1 or 0 (one being inundated)
+        # masked_reclass_rem_array[np.where(masked_reclass_rem_array <= 0)] = 0
+        # masked_reclass_rem_array[np.where(masked_reclass_rem_array > 0)] = 1
+
+        # Save resulting array to new tif with appropriate name. ie) brdc1_record_extent_18060005.tif
+        # to our mapping/huc/lid site
+
+        # MP_LOG.trace(f"min of reclass_rem_array (min is {np.min(reclass_rem_array)} and max is {np.max(reclass_rem_array)}")
+        # MP_LOG.trace(f"max of hydroid_mask {np.max(hydroid_mask)}")
+        # MP_LOG.trace(f"min of target_catchments_array (min is {np.min(target_catchments_array)} and max is {np.max(target_catchments_array)}")
+        # MP_LOG.trace(f"min of masked_reclass_rem_array (min is {np.min(masked_reclass_rem_array)} and max is {np.max(masked_reclass_rem_array)}")
+        # MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
+
+        # Check if no cells were inundated (branches don't inundate as they are out of the extent area)
+        is_all_zero = np.all(masked_reclass_rem_array == 0)
+
+        # TODO: Update library df and maybe the sites gdf?
+
+        if is_all_zero == False:
+            with rasterio.Env():
+                profile = rem_src.profile
+                profile.update(dtype=rasterio.uint8)
+                profile.update(nodata=0)
+
+                # Replace any existing nodata values with the new one
+                # masked_reclass_rem_array[masked_reclass_rem_array == profile["nodata"]] = 0
+
+                with rasterio.open(output_tif, 'w', **profile) as dst:
+                    dst.write(masked_reclass_rem_array, 1)
+
+    except Exception:
+        MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage") # TODO: Update logging
+        MP_LOG.error(traceback.format_exc()) # TODO: Update logging
+
+    return  # TODO: return the updated library df and possible the updated sites gdf? maybe more
+
+
+def mosaic_sb_inundation(lid, 
+                         lid_directory,
+                         category_key,
+                         huc_lid_cat_id,
+                        #  huc,   
+                         ):
+    """
+    Mosaics all branch inundation tifs for a given lid/magnitude combination into a single extent tif.
+
+
+    Jan 2026 - turned into a new function, previously was just loose code in run_sb_inundation
+
+    NOTE: This section is analogous to Mosaic_inundation() function in FB CatFIM
+
+    Jan 2026 Development Notes:
+    - need to update logging here and decide if we're returning messages or whatever
+    - need to check that this function makes the correct assumptions about filepaths and folder structure
+    - need to check that we are removing the correct intermediate files (and maybe decide if there's any change to that philolophy we want to make)
+    
+    
+    """
+
     # Merge all rasters in lid_directory that have the same magnitude/category.
     path_list = []
 
@@ -823,8 +1222,8 @@ def produce_stage_based_lid_tifs(
         zero_branch_array = zero_branch_src.read(1)
         summed_array = zero_branch_array  # Initialize it as the branch zero array
 
-        output_tif = os.path.join(lid_directory, lid + '_' + category_key + '_extent.tif')
-        MP_LOG.trace(f"{huc_lid_cat_id}: Merging all branches into output file to be saved as {output_tif}")
+        output_extent_tif = os.path.join(lid_directory, lid + '_' + category_key + '_extent.tif')
+        # MP_LOG.trace(f"{huc_lid_cat_id}: Merging all branches into output file to be saved as {output_extent_tif}") # TODO: Update logging
 
         # Loop through remaining items in list and sum them with summed_array
         for remaining_raster in path_list[1:]:
@@ -850,18 +1249,18 @@ def produce_stage_based_lid_tifs(
             # Sum rasters
             summed_array = summed_array + remaining_raster_array
 
-        # Mask out the lakes from the inundation array
-        summed_masked_array, mask_status = mask_out_lakes(summed_array, huc, zero_branch_src, fim_dir)
-        MP_LOG.trace(f"{huc_lid_cat_id}: {mask_status}")
+        # # Mask out the lakes from the inundation array 
+        # # Jan 2026 - Moved lake masking to outside the mosaic function to match the fb processing
+        # summed_masked_array, mask_status = mask_out_lakes(summed_array, huc, zero_branch_src, fim_dir)
 
-        del zero_branch_array, summed_array  # Clean up
+        # del zero_branch_array, summed_array  # Clean up
 
         # Define path to merged file, in same format as expected by post_process_cat_fim_for_viz function
         profile = zero_branch_src.profile
         summed_masked_array = summed_masked_array.astype('uint8')
-        with rasterio.open(output_tif, 'w', **profile) as dst:
+        with rasterio.open(output_extent_tif, 'w', **profile) as dst:
             dst.write(summed_masked_array, 1)
-            # MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_tif}")
+            # MP_LOG.lprint(f"{huc_lid_cat_id}: branch rollup extent file saved at {output_extent_tif}") # TODO: Update logging
 
         # For space reasons, we need to delete all of the intermediary files such as:
         #    Stage: grmn3_action_extent_0.tif, grmn3_action_extent_1933000003.tif. The give aways are a number before
@@ -871,169 +1270,15 @@ def produce_stage_based_lid_tifs(
         # The intermediatary are all inundated branch tifs.
 
         # The ones we want to keep end at _extent.tif and remove ones that have _extent_*.tif
-        # MP_LOG.lprint(f"{huc_lid_cat_id}: Removing interium inundated branch files")
+        # MP_LOG.lprint(f"{huc_lid_cat_id}: Removing interium inundated branch files") # TODO: Update logging
         branch_tifs = glob.glob(f"{lid_directory}/{lid}_{category_key}_extent_*.tif")
         for tif_file in branch_tifs:
             os.remove(tif_file)
 
-    # else:
-    #     MP_LOG.warning(f"{huc}: {lid}: Merging {category_key} : no valid inundated branches")
-
-    return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+        return output_extent_tif #, logs? # TODO: decide what to return, maybe logs?
 
 
-# humm.. I think this is SB only but shoudl it still be?
-# Does FB use branches too? likely for the at least loading REM. not sure. Mostly depends on what is easiest
-# and when is the best time to load it. probably in here is best. TBD
 
-def produce_inundated_branch_tif(
-    rem_path,
-    catchments_path,
-    hydroid_list,
-    hand_stage,  # same as the "stage" column in the library df?, or maybe it is easier to just pass the value here
-    lid_directory,
-    category_key,
-    huc,  # do we need this?
-    lid,
-    branch,
-    # parent_log_output_file,
-    # child_log_file_prefix,
-):
-    '''
-    Only used in stage-based CatFIM.
-
-    Generates a binary inundation raster (GeoTIFF) for a given branch and stage,
-    indicating inundated areas within specified catchments.
-
-    This function reads a REM (Raster Elevation Model) and catchments raster, applies
-    a stage threshold, and masks the result to catchments matching the provided hydroid
-    list. The output is a raster where inundated cells are marked as 1 and non-inundated
-    cells as 0.
-
-    This is a form of inundation which is specific to CatFIM because we only have one
-    flow value and the other FIM inundation tools are looking for flow files not single
-    values.
-
-    Parameters
-    ----------
-    rem_path : str
-        Path to the REM raster file.
-    catchments_path : str
-        Path to the catchments raster file.
-    hydroid_list : list of int
-        List of hydroid identifiers to include in the mask.
-    hand_stage : float or int
-        Stage threshold value for inundation.
-    lid_directory : str
-        Directory where the output raster will be saved.
-    category_key : str
-        Category key used in the output file name.
-    huc : str
-        Hydrologic Unit Code for the region.
-    lid : str
-        Location identifier for the site.
-    branch : str
-        Branch identifier for the mapping.
-    parent_log_output_file : str
-        Path to the parent log output file for logging.
-    child_log_file_prefix : str
-        Prefix for child log files.
-
-    Returns
-    -------
-    None
-        The function saves the output raster to disk and does not return any value.
-
-    Notes
-    -----
-    - The output raster is only generated if at least one cell is inundated.
-    - Logging is set up for error and trace reporting.
-    - Handles hydroid values by clipping to the last 4 digits for matching.
-    - Both input rasters are expected to have a nodata value of 0.
-    - A category can have different formats, depending if it is an interval or not or int or float.
-        If it has a stage number it, it is an interval value, ie) action, action_24ft, action_24.6, or action_24.6ft
-
-    '''
-
-    try:
-        # This is setting up logging for this function to go up to the parent
-        MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
-
-        file_name = lid + '_' + category_key + '_extent_' + huc + '_' + branch
-        output_tif = os.path.join(lid_directory, file_name + '.tif')
-
-        # Open the REM and Catchments rasters (both have a nodata value of 0)
-        rem_src = rasterio.open(rem_path)
-        catchments_src = rasterio.open(catchments_path)
-        rem_array = rem_src.read(1)
-        catchments_array = catchments_src.read(1)
-
-        # Use numpy.where operation to reclassify rem_path on the condition that the pixel values
-        #   are <= to hand_stage and the catchments value is in the hydroid_list.
-
-        is_alaska = str(huc)[:2] == '19'
-
-        output_dtype = 'uint8' if is_alaska else 'int16'
-
-        reclass_rem_array = np.where((rem_array <= hand_stage) & (rem_array != rem_src.nodata), 1, 0).astype(
-            output_dtype
-        )
-
-        # The catchment_array has hydroid that have had the first 4 chars cut off
-        # we need to the same for the hydroid's from the hydroid_list
-        clipped_hydroid_list = []
-        for i in hydroid_list:
-            clipped_str = str(i) if is_alaska else str(i)[-4:]
-            clipped_hydroid_list.append(int(clipped_str))
-
-        # Create a mask of the catchments_array where the values are in the clipped_hydroid_list
-        hydroid_mask = np.isin(catchments_array, clipped_hydroid_list)
-
-        # Create a target array where the catchments_array is not nodata and the hydroid_mask is True
-        target_catchments_array = np.where(
-            ((hydroid_mask == True) & (catchments_array != catchments_src.nodata)), 1, 0
-        ).astype(output_dtype)
-
-        # Mask the reclass_rem_array with the target_catchments_array
-        masked_reclass_rem_array = np.where(
-            ((reclass_rem_array >= 1) & (target_catchments_array >= 1)), 1, 0
-        ).astype(output_dtype)
-
-        ## Debugging:
-
-        # Change it all to either 1 or 0 (one being inundated)
-        # masked_reclass_rem_array[np.where(masked_reclass_rem_array <= 0)] = 0
-        # masked_reclass_rem_array[np.where(masked_reclass_rem_array > 0)] = 1
-
-        # Save resulting array to new tif with appropriate name. ie) brdc1_record_extent_18060005.tif
-        # to our mapping/huc/lid site
-
-        # MP_LOG.trace(f"min of reclass_rem_array (min is {np.min(reclass_rem_array)} and max is {np.max(reclass_rem_array)}")
-        # MP_LOG.trace(f"max of hydroid_mask {np.max(hydroid_mask)}")
-        # MP_LOG.trace(f"min of target_catchments_array (min is {np.min(target_catchments_array)} and max is {np.max(target_catchments_array)}")
-        # MP_LOG.trace(f"min of masked_reclass_rem_array (min is {np.min(masked_reclass_rem_array)} and max is {np.max(masked_reclass_rem_array)}")
-        # MP_LOG.lprint(f"{huc}: masked_reclass_rem_array, is_all_zero is {is_all_zero} for {rem_path}")
-
-        # Check if no cells were inundated (branches don't inundate as they are out of the extent area)
-        is_all_zero = np.all(masked_reclass_rem_array == 0)
-
-        if is_all_zero == False:
-            with rasterio.Env():
-                profile = rem_src.profile
-                profile.update(dtype=rasterio.uint8)
-                profile.update(nodata=0)
-
-                # Replace any existing nodata values with the new one
-                # masked_reclass_rem_array[masked_reclass_rem_array == profile["nodata"]] = 0
-
-                with rasterio.open(output_tif, 'w', **profile) as dst:
-                    dst.write(masked_reclass_rem_array, 1)
-
-    except Exception:
-        MP_LOG.error(f"{huc} : {lid} Error producing inundation maps with stage")
-        MP_LOG.error(traceback.format_exc())
-
-    return  # likely the updated libary df and possible the udpated sites gdf if not more
 
 # humm.. becuase we have the library.gpkg at this point and it knows which rec are
 # intervals versuses not.. is there an optimizaion option here?
@@ -1163,11 +1408,11 @@ def post_process_huc(
                             is_interval = True
                         except ValueError:
                             interval_stage = None
-                            MP_LOG.error(
+                            MP_LOG.error( # TODO:Update logging
                                 f"Value Error for {huc} - {ahps_lid} - magnitude {magnitude}"
                                 f" at {mapping_huc_lid_dir}"
                             )
-                            MP_LOG.error(traceback.format_exc())
+                            MP_LOG.error(traceback.format_exc()) # TODO: Update logging
 
                     # humm.. is there an optimization available here instead of processing each tif / mag at a time?
                     reformat_inundation_maps(
@@ -1181,10 +1426,10 @@ def post_process_huc(
                         is_interval,
                     )
                 except Exception:
-                    MP_LOG.error(
+                    MP_LOG.error( # TODO: Update logging
                         f"An ind reformat map error occured for {huc} - {ahps_lid} - magnitude {magnitude}"
                     )
-                    MP_LOG.error(traceback.format_exc())
+                    MP_LOG.error(traceback.format_exc()) # TODO: Update logging
 
             # rolls up logs from child MP processes into this parent_log_output_file
             # MP_LOG.merge_log_files(parent_log_output_file, child_log_file_prefix, True)
@@ -1193,10 +1438,13 @@ def post_process_huc(
         # all of the gkpgs we want will have the huc number in front of it
 
     except Exception:
-        MP_LOG.error(f"An error has occurred in post processing for {huc}")
-        MP_LOG.error(traceback.format_exc())
+        MP_LOG.error(f"An error has occurred in post processing for {huc}") # TODO: Update logging
+        MP_LOG.error(traceback.format_exc()) # TODO: Update logging
 
     return
+
+# TODO: Decide how to optimize (is post_process_cat_fim_for_viz even necessary? could we go right to running post_process_huc and then make a 
+# new function that dissolves the geometries? ->  merge_inundated_layers_huc
 
 # humm... this feels like it could be significally optimized considering that we have 
 # way less files to worry about.
@@ -1286,7 +1534,7 @@ def post_process_cat_fim_for_viz(
                 FLOG.warning(f"no mapping for {huc}")
                 continue
 
-            # hummm
+            # hummm # TODO: CatFIM reorg - I think everything above this line in this function could possibly be remove? decide
             huc_exector.submit(
                 post_process_huc,
                 output_catfim_dir,
@@ -1299,88 +1547,240 @@ def post_process_cat_fim_for_viz(
                 progress_stmt,
             )
 
-    # end of ProcessPoolExecutor
 
-    # rolls up logs from child MP processes into this parent_log_output_file
-    # FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
-
-    # Merge all layers
-    gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
-    FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
-
-    gpkg_files.sort()
-
-    merged_layers_gdf = None
-    ctr = 0
-    num_gpkg_files = len(gpkg_files)
-    for gpkg_file in gpkg_files:
-
-        # for ctr, layer in enumerate(gpkg_files):
-        # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
-        FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
-
-        # Concatenate each /gpkg/{huc}_{aphs}_{magnitude}_extent.gpkg
-        diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
-        diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
-
-        if 'interval_stage' in diss_extent_gdf.columns:
-            # Update the stage column value to be the interval value if an interval values exists
-
-            diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0, "stage"] = diss_extent_gdf[
-                "interval_stage"
-            ]
-
-        if ctr == 0:
-            merged_layers_gdf = diss_extent_gdf
-        else:
-            merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
-
-        del diss_extent_gdf
-        ctr += 1
-
-    if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
-        raise Exception(f"No gpkgs found in {gpkg_dir}")
-
-    # TODO: July 9, 2024: Consider deleting all of the interium .gpkg files in the gpkg folder.
-    # It will get very big quick. But not yet.
-    # shutil.rmtree(gpkg_dir)
-
-    # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
-    # Aug 2024: We guessed on what might need to be dissolved from 4.4.0.0. In 4.4.0.0 there
-    # are "_dissolved" versions of catfim files but no notes on why or how, but this script
-    # did not do it. We are going to guess on what the dissolving rules are.
-    if catfim_method == "flow_based":
-        FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
-        merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
-
-    if 'level_0' in merged_layers_gdf:
-        merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
-
-    if 'status' in merged_layers_gdf:
-        merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
-
-    if 'mapped' in merged_layers_gdf:
-        merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
-
-    output_file_name = f"{catfim_method}_catfim_library"
-
-    merged_layers_gdf["model_version"] = model_version
-    merged_layers_gdf["product_version"] = catfim_version
-
-    gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
-    FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
-    merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")
-
-    csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
-    FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
-    merged_layers_gdf.to_csv(csv_file_path)
-
-    FLOG.lprint("End post processing TIFs...")
-
-    return
+    # TODO: CatFIM reorg - could make this file merging into a new function (merge_inundated_layers_huc?)
+    # and then get rid of post_process_cat_fim_for_viz and instead just have
+    # this new merge_inundated_layers_huc function and the above post_process_huc function run 
 
 
-# hummmm. I don't think we need to reformat each file (or site) into gpkg on disk.
+   # end of ProcessPoolExecutor
+
+
+    # OLD CODE (before CatFIM reorg): =========================
+    # # end of ProcessPoolExecutor
+
+    # # rolls up logs from child MP processes into this parent_log_output_file
+    # # FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
+
+    # # Merge all layers
+    # gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
+    # FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
+
+    # gpkg_files.sort()
+
+    # merged_layers_gdf = None
+    # ctr = 0
+    # num_gpkg_files = len(gpkg_files)
+    # for gpkg_file in gpkg_files:
+
+    #     # for ctr, layer in enumerate(gpkg_files):
+    #     # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
+    #     FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
+
+    #     # Concatenate each /gpkg/{huc}_{aphs}_{magnitude}_extent.gpkg
+    #     diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
+    #     diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
+
+    #     if 'interval_stage' in diss_extent_gdf.columns:
+    #         # Update the stage column value to be the interval value if an interval values exists
+
+    #         diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0, "stage"] = diss_extent_gdf[
+    #             "interval_stage"
+    #         ]
+
+    #     if ctr == 0:
+    #         merged_layers_gdf = diss_extent_gdf
+    #     else:
+    #         merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
+
+    #     del diss_extent_gdf
+    #     ctr += 1
+
+    # if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
+    #     raise Exception(f"No gpkgs found in {gpkg_dir}")
+
+    # # TODO: July 9, 2024: Consider deleting all of the interium .gpkg files in the gpkg folder.
+    # # It will get very big quick. But not yet.
+    # # shutil.rmtree(gpkg_dir)
+
+    # # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
+    # # Aug 2024: We guessed on what might need to be dissolved from 4.4.0.0. In 4.4.0.0 there
+    # # are "_dissolved" versions of catfim files but no notes on why or how, but this script
+    # # did not do it. We are going to guess on what the dissolving rules are.
+    # if catfim_method == "flow_based":
+    #     FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
+    #     merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
+
+    # if 'level_0' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
+
+    # if 'status' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
+
+    # if 'mapped' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
+
+    # output_file_name = f"{catfim_method}_catfim_library"
+
+    # merged_layers_gdf["model_version"] = model_version
+    # merged_layers_gdf["product_version"] = catfim_version
+
+    # gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
+    # FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
+    # merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")
+
+    # csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
+    # FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
+    # merged_layers_gdf.to_csv(csv_file_path)
+
+    # FLOG.lprint("End post processing TIFs...")
+
+    # return
+    # =========================
+
+
+# New function that takes the HUC-level file merging from what was
+# previously post_process_cat_fim_for_viz. But does not merge between HUCs 
+# (because that now is happening in catfim_post_processing.py).
+def merge_inundated_layers_huc(
+        huc_path,
+        
+):
+    """
+    Should be for FB and SB
+
+    Dissolve all GPKGs from the HUC mapping directory to create:
+    - huc_sites_file (huc_folder_path/{huc}_sites.gpkg) (these are the filepath names I use in post processing, might be called something different here at the moment)
+    - huc_library_file (huc_folder_path/{huc}_library.gpkg) (these are the filepath names I use in post processing, might be called something different here at the moment)
+
+
+
+    Filepaths, for reference: 
+
+    - output_temp_dir : huc_folder_path/temp/ (TODO: decide if we're gonna even keep this)
+
+    - output_mapping_dir : huc_folder_path/mapping/ 
+
+    - sites_mapping_file_path: output_mapping_dir/sites_mapping.gpkg
+
+    - library_post_mapping_file_path: output_mapping_dir/library_post_mapping.gpkg   
+    TODO: Has this file been created by the time we get here? or is this file what this function should be creating?
+    I think this function can create this file......
+
+
+    
+
+    """
+
+    # Get a list of all available GPKGs in the HUC mapping directory
+    output_mapping_dir = os.path.join(huc_path, "mapping")
+    gpkg_files = [x for x in os.listdir(output_mapping_dir) if x.endswith('.gpkg')]
+
+
+    # Iterate through all GPKG files in the HUC mapping directory
+    for gpkg_file in gpkg_files: # TODO
+
+        # Merge GPKGs 
+
+
+
+    # TODO: Add section that dissolves flow based catfim_libary by ahps and magnitudes?
+    # Do we have to do something special so we can deal with the intervals?
+
+
+
+    # TODO: Folder cleanup - Consider deleting all of the interium .gpkg files in the gpkg folder
+
+
+
+    return library_post_mapping # Will be saved to a file later on
+
+    # ==========================================
+    # Old code that I want this function to replace: 
+
+    # # rolls up logs from child MP processes into this parent_log_output_file
+    # # FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
+
+    # # Merge all layers
+    # gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
+    # FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
+
+    # gpkg_files.sort()
+
+    # merged_layers_gdf = None
+    # ctr = 0
+    # num_gpkg_files = len(gpkg_files)
+    # for gpkg_file in gpkg_files: # iterates through all gpkg files
+
+    #     # for ctr, layer in enumerate(gpkg_files):
+    #     # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
+    #     FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
+
+    #     # Concatenate each /gpkg/{huc}_{aphs}_{magnitude}_extent.gpkg
+    #     diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
+    #     diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
+
+    #     if 'interval_stage' in diss_extent_gdf.columns:
+    #         # Update the stage column value to be the interval value if an interval values exists
+
+    #         diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0, "stage"] = diss_extent_gdf[
+    #             "interval_stage"
+    #         ]
+
+    #     if ctr == 0:
+    #         merged_layers_gdf = diss_extent_gdf
+    #     else:
+    #         merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
+
+    #     del diss_extent_gdf
+    #     ctr += 1
+
+    # if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
+    #     raise Exception(f"No gpkgs found in {gpkg_dir}")
+
+    # # TODO: July 9, 2024: Consider deleting all of the interium .gpkg files in the gpkg folder.
+    # # It will get very big quick. But not yet.
+    # # shutil.rmtree(gpkg_dir)
+
+    # # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
+    # # Aug 2024: We guessed on what might need to be dissolved from 4.4.0.0. In 4.4.0.0 there
+    # # are "_dissolved" versions of catfim files but no notes on why or how, but this script
+    # # did not do it. We are going to guess on what the dissolving rules are.
+    # if catfim_method == "flow_based":
+    #     FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
+    #     merged_layers_gdf = merged_layers_gdf.dissolve(by=['ahps_lid', 'magnitude'], as_index=False)
+
+    # if 'level_0' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
+
+    # if 'status' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
+
+    # if 'mapped' in merged_layers_gdf:
+    #     merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
+
+    # output_file_name = f"{catfim_method}_catfim_library"
+
+    # merged_layers_gdf["model_version"] = model_version
+    # merged_layers_gdf["product_version"] = catfim_version
+
+    # NOTE Jan 2026: will not save newly merged GPKGs in new merge_inundated_layers_huc() function
+    
+    # gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
+    # FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
+    # merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")
+
+    # csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
+    # FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
+    # merged_layers_gdf.to_csv(csv_file_path)
+
+    # FLOG.lprint("End post processing TIFs...")
+
+    # return
+    # ==========================================
+
+
+# TODO: Decide - hummmm. I don't think we need to reformat each file (or site) into gpkg on disk.
 # maybe just a new gdf that we can add to the collection.
 # at some point, we will use the incoming library_df (without geom) and start a 
 # library_gdf and this might be that spot.
@@ -1455,10 +1855,10 @@ def reformat_inundation_maps(
     # function start with the phrase will rollup to the master catfim logs
 
     # This is setting up logging for this function to go up to the parent
-    MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix)
+    MP_LOG.MP_Log_setup(parent_log_output_file, child_log_file_prefix) # TODO: Update logging
 
     try:
-        MP_LOG.trace(
+        MP_LOG.trace( # TODO: Update logging
             f"{huc} : {ahps_lid} : {magnitude} -- Start reformat_inundation_maps" " (tif extent to gpkg poly)"
         )
         # MP_LOG.trace(F"tif to process is {tif_to_process}")
@@ -1479,7 +1879,7 @@ def reformat_inundation_maps(
         # Check whether any shapes were found in the inundated tifs
         # If not, log a message and return
         if len(list_results) == 0:
-            MP_LOG.error(
+            MP_LOG.error( # TODO: Update logging
                 f"{huc} : {ahps_lid} : {magnitude} - No values above zero in inundated tif, "
                 "so zero inundated shapes were found. See GitHub issue #1491 for details."
             )
@@ -1536,19 +1936,19 @@ def reformat_inundation_maps(
             #    f" as {diss_extent_filename}"
             # )
         else:
-            MP_LOG.error(f"{huc} : {ahps_lid} : {magnitude} tif to gpkg, geodataframe is empty")
+            MP_LOG.error(f"{huc} : {ahps_lid} : {magnitude} tif to gpkg, geodataframe is empty") # TODO: Update logging
 
     except ValueError as ve:
         msg = f"{huc} : {ahps_lid} : {magnitude} - Reformatted inundation map"
         if "Assigning CRS to a GeoDataFrame without a geometry column is not supported" in ve:
-            MP_LOG.warning(f"{msg} - Warning: details: {ve}")
+            MP_LOG.warning(f"{msg} - Warning: details: {ve}") # TODO: Update logging
         else:
-            MP_LOG.error(f"{msg} - Exception")
-            MP_LOG.error(traceback.format_exc())
+            MP_LOG.error(f"{msg} - Exception") # TODO: Update logging
+            MP_LOG.error(traceback.format_exc()) # TODO: Update logging
 
     except Exception:
-        MP_LOG.error(f"{huc} : {ahps_lid} : {magnitude} - Reformatted inundation map - Exception")
-        MP_LOG.error(traceback.format_exc())
+        MP_LOG.error(f"{huc} : {ahps_lid} : {magnitude} - Reformatted inundation map - Exception") # TODO: Update logging
+        MP_LOG.error(traceback.format_exc()) # TODO: Update logging
 
     return
 
@@ -1561,7 +1961,7 @@ def reformat_inundation_maps(
 # This whole things needs to be re-evaluated or merged with the logic pattern of the new
 # process_mapping.
 
-# Step numbers no longer needed
+# Step numbers no longer needed - cleaned up 1/12/26
 def manage_catfim_mapping(
     fim_run_dir,
     output_flows_dir,
@@ -1585,28 +1985,26 @@ def manage_catfim_mapping(
         output_flows_dir (str): Directory where flow outputs are stored.
         output_catfim_dir (str): Directory for storing categorical FIM outputs.
         catfim_method (str): Method used for categorical FIM generation.
-        step_number (int, optional): Workflow step to execute. Defaults to 1.
 
     Returns:
         None
 
     Notes:
-        - Initializes logging and manages workflow steps.
-        - Runs inundation mapping if step_number <= 1.
+        - Initializes logging.
+        - Runs inundation mapping.
         - Performs post-processing for visualization using multiple jobs.
         - Logs the elapsed time for the mapping process.
     '''
 
-    # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
+    # TODO: Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
 
     logging.info('Begin mapping')
-    start = time.time()  # Should this be changed to our standard duration code pattern?
+    start = time.time()  # TODO: Should this be changed to our standard duration code pattern?
 
     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
     if not os.path.exists(output_mapping_dir):
         os.mkdir(output_mapping_dir)
 
-    # if step_number <= 1:
     run_catfim_inundation(
         fim_run_dir,
         output_flows_dir,
@@ -1615,11 +2013,11 @@ def manage_catfim_mapping(
         job_number_inundate,
         FLOG.LOG_FILE_PATH,
     )
-    # else:
-    #     FLOG.lprint("Skip running Inundation as Step > 1")
+
+
 
     # FLOG.lprint("Aggregating Categorical FIM")
-    # Step 2
+
     # TODO: Aug 2024, so we need to clean it up
     # This step does not need a job_number_inundate as it can't really use it.
     # It processes primarily hucs and ahps in multiproc
@@ -1638,9 +2036,17 @@ def manage_catfim_mapping(
     return
 
 
-# Jan 2026: This is new and needed
-# It does not load discharge here as only FB needs that
 def __load_mapping_data(sites_mapping_file_path, segments_file_path, library_pre_inun_file_path):
+    """
+
+    Load data needed for CatFIM mapping. 
+    Used for both SB and FB. 
+    It does not load discharge here as only FB needs that
+
+    Jan 2026: This is new and needed.
+
+    """
+
     # --------------------------
     # Load the temp sites_gdf. This is a copy for usage in mapping
     # It can be updated and later, catfim_process_huc.py will pick it up and reload it
@@ -1652,7 +2058,7 @@ def __load_mapping_data(sites_mapping_file_path, segments_file_path, library_pre
 
     # --------------------------
     # Load segments file.. they both need it
-    segments_file_path = os.path.join(huc_path, "features_segments.csv")
+    segments_file_path = os.path.join(huc_path, "features_segments.csv") # TODO: Fix path
     if not os.path.isfile(segments_file_path):
         raise Exception(f"Missing file, expected {segments_file_path}")
     huc_segments_df = pd.read_csv(segments_file_path)
@@ -1673,35 +2079,34 @@ def __load_mapping_data(sites_mapping_file_path, segments_file_path, library_pre
 
 
 if __name__ == '__main__':
+    """
+    TODO: Repair command line functionality
+    TODO: Clean up docstring
 
-    # TODO: Repair this as it can still be run from command line
-
-    '''
     Sample
     python /foss_fim/tools/catfim/generate_categorical_fim_mapping.py -u 12090301 -t /data/catfim/hand_4_8_7_2
-    '''
 
-    # All files shoudl be in place such as the sites_gdf, threshold data files
-    # and begining library data for this huc
+    All files shoudl be in place such as the sites_gdf, threshold data files
+    and begining library data for this huc
 
-    # Files required are:  __________________________ (list them here)
-    #     {huc}_sites.gdf
-    #     flow_discharge.csv  (if flow based)
-    #     {huc}_library_threshold.csv  (TODO: seems like a bad file name)
-    #     others?
+    Files required are:  __________________________ (list them here)
+        {huc}_sites.gdf
+        flow_discharge.csv  (if flow based)
+        {huc}_library_threshold.csv  (TODO: seems like a bad file name)
+        others?
+
+    Most args will be in the runtime_arg.env created in the generate_categorical_fim.py
+    This script will already know where to look for the runtime_args.env file
+
+    We need only the huc number and the output path for args
+
+    Note: We always want to overwrite.
+
+    """
 
     # Parse arguments
     parser = argparse.ArgumentParser(description='Categorical inundation mapping for FOSS FIM.')
-
-    # Most args will be in the runtime_arg.env created in the generate_categorical_fim.py
-    # This script will already know where to look for the runtime_args.env file
-
-    # We need only the huc number and the output path for args
-
-    # Note: We always want to overwrite.
-
     parser.add_argument("-u", "--huc", help="REQUIRED: HUC8 Number", required=True, type=str)
-
     parser.add_argument(
         '-t',
         '--output-folder',

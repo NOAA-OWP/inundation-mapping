@@ -82,12 +82,14 @@ def process_generate_categorical_fim(
     skip_processing,
     overwrite,
 ):
-    # Notes: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
 
     '''
 
-    # TODO: Docstrings Needs more updating
+    # TODO: Docstrings need more updating
 
+    Note: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
+
+    
 
     Orchestrates the generation of CatFIM products for a set of Hydrologic Unit Codes (HUCs),
     supporting both stage-based and flow-based methodologies. Handles validation, setup, filtering, and multi-step processing
@@ -184,7 +186,7 @@ def process_generate_categorical_fim(
         local_vals = locals()
         # this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir
-        # It has not yet been compared to meta data and sites
+        # It has not yet been compared to metadata and sites
         valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
 
         os.makedirs(output_folder, exist_ok=True)
@@ -197,8 +199,10 @@ def process_generate_categorical_fim(
         print("")
         print(f"... Logs will be saved to {log_file_path}")
 
-        # Needed even if we are skip_processes
+        # Make sites output filepath (Needed even if we choose skip_processing)
         nwm_sites_file = os.path.join(output_folder, "nwm_sites.parquet")
+
+        # Create the runtime args file to store CatFIM inputs
         __create_runtime_args_file(
             output_folder,
             env_file,
@@ -240,7 +244,7 @@ def process_generate_categorical_fim(
             nwm_meta_file, api_base_url, search, get_new_meta_data, list()
         )
 
-        # debugging
+        # debugging # TODO: Clean up
         # meta_json_to_text = os.path.join(output_folder, "metadata_json_list_text.json")
         # with open(meta_json_to_text, 'w') as f:
         #     json.dump(metadata_json_list, f, indent=4)
@@ -307,7 +311,7 @@ def process_generate_categorical_fim(
         nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona')
 
         # TODO: Should we get a threshold for all hucs like we do for meta? then the hucs can copy / filter
-        # like meta? probably..
+        # like meta? probably.. -> decide, eventual update to WRDS download workflow (downloading all would take more time though...) 
 
         # Change it to a simple string huc list.
         # All HUCs in this list are validated as having hand data, plus are not on the restricted list.
@@ -345,7 +349,7 @@ def process_generate_categorical_fim(
             f"Processing {len(valid_fim_hucs)} valid CatFIM HUCs. Note: not all HUCs may have ahps sites."
         )
 
-        # TODO: remove all content in huc folders, EXCEPT their log files.
+        # TODO: Cleaning old files: remove all content in huc folders, EXCEPT their log files. Discuss - is this referring to cleaing out files from previous runs?
         # With us later scanning for files and file extensions, we may not want to be pulling in old bad HUCs.
         # or... do we. maybe we had some good HUCs that were left behind. Do we just let it pull them in?
         # hummmm
@@ -437,6 +441,10 @@ def process_generate_categorical_fim(
 
 
 def __validate_inputs(received_locals_dict):
+    """
+    Validate CatFIM inputs. 
+
+    """
 
     # Let's check simple validation stuff.
     for name, value in received_locals_dict.items():
@@ -464,7 +472,7 @@ def __validate_inputs(received_locals_dict):
             # case _: we dont' care about any others for validation (other than the ones below)
 
     # -----------------
-    # check if incoming HUC (or HUC list) is valid and we have fim data for it.
+    # Check if incoming HUC (or HUC list) is valid and if we have fim data for it.
     fim_run_dir = received_locals_dict["fim_run_dir"]
     fim_hucs = [
         x
@@ -497,19 +505,22 @@ def __validate_inputs(received_locals_dict):
     valid_fim_hucs.sort()
 
     # -----------------
-    # Meta Data File
-    # Sort out flags and paths for getting the metadata
-    # Rule:
-    #    If they used the get flag, then we assign the nwm_meta_file path so it knows where to save
+    # Check metadata inputs - Sort out flags and paths for getting the metadata
+
+    # Rules:
+    #    - If they used the get flag, then we assign the nwm_meta_file path so it knows where to save
     #        the file when it makes it.
-    #    If they did not use the gmf and did add a mf path, it needs to exist.
-    #    If they did not use the gmf flag and did not use the mf args, we default to bash_variables
+    #    - If they did not use the gmf and did add a mf path, it needs to exist.
+    #    - If they did not use the gmf flag and did not use the mf args, we default to bash_variables
     #        which also needs to be validated for pathing.
+
     get_meta_file = received_locals_dict["get_new_meta_data"]
     nwm_meta_file = received_locals_dict["nwm_meta_file"]
+
     if get_meta_file is True:
         # Here is the meta file that needs to be saved
         nwm_meta_file = os.path.join(received_locals_dict["output_folder"], 'nwm_metadata.pkl')
+
     else:  # Then we are using either a provided path or the default from bash_variables
         default_meta_file = os.getenv("nwm_meta_file")
         if nwm_meta_file == "":
@@ -533,18 +544,20 @@ def __validate_inputs(received_locals_dict):
                 )
 
     # -----------------
-    # Threshold Data File
-    # Sort out flags and paths for getting the threshold
+    # Check threshold inputs - Sort out flags and paths for getting the threshold
 
-    # Yes.. this script does not actually use the threshold data, but let's validate it exists to
+    # Yes.. this script does not actually use the threshold data, but let's validate that it exists to
     #    help the catfim_process_huc.py so they have the correct path and a loaded file.
 
-    # Rule: Same as meta data above.
+    # Rules: Same as metadata above.
+
     get_threshold_file = received_locals_dict["get_new_threshold_data"]
     threshold_file = received_locals_dict["threshold_file"]
+
     if get_threshold_file is True:
         # Here is the meta file that needs to be saved
         threshold_file = os.path.join(received_locals_dict["output_folder"], 'thresholds.pkl')
+
     else:  # Then we are using either a provided path or the default from bash_variables
         default_threshold_file = os.getenv("nwm_threshold_file")
         if threshold_file == "":
@@ -583,6 +596,10 @@ def __create_runtime_args_file(
     fim_run_dir,
     past_major_interval_cap,
 ):
+    """
+    Create a runtime args environment file (saved as output_folder/runtime_args.env).
+    This simplifies what we have to read into each function.
+    """
 
     args_file_name = "runtime_args.env"
     args_file_path = os.path.join(output_folder, args_file_name)
@@ -652,6 +669,7 @@ if __name__ == '__main__':
         default="/data/config/fim_enviro_values.env",
         required=False,
     )
+
     parser.add_argument(
         '-j',
         '--number-jobs',

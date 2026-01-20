@@ -16,9 +16,9 @@ import data.wrds.download_process_wrds as dpw
 import src.utils.shared_functions as sf
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.tools_shared_functions import aggregate_wbd_hucs
+# TODO: Clean up unused imports
 
-
-# global vars, shared by all related py files.
+# Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
 
@@ -59,8 +59,6 @@ def get_metadata(huc, huc_path, output_folder):
         metadata_json_list (list): List of metadata JSON objects.
         return_msgs (list): List of messages from the metadata retrieval process.
 
-    TODO: Emily - go through and clear out unneeded comments and code fragments.
-
     """
 
     # If we are not getting new metadata, then we assume that the runtime args has the path
@@ -94,9 +92,9 @@ def get_metadata(huc, huc_path, output_folder):
         nwm_meta_file = os.path.join(huc_path, meta_file_name)  # Now using the new huc copy
         shutil.copyfile(src_nwm_meta_file, nwm_meta_file)
 
-    # either way, we should have a meta file by now, already validated
+    # Either way, we should have a meta file by now, already validated
     # TODO: see notes on load_nwm_metadata about missing sites related to huc value
-    #  we will get metaor all sites for now, not filtered.
+    #  we will get meta for all sites for now, not filtered.
     metadata_json_list, return_msgs = dpw.load_nwm_metadata(
         nwm_meta_file, api_base_url, os.getenv('SEARCH'), os.getenv('GET_NEW_META_DATA'), list()
     )
@@ -117,8 +115,10 @@ def get_metadata(huc, huc_path, output_folder):
             else:
                 logging.info(msg)
 
+    # TODO: Clean up temp code and comments below (once we no longer need the reference)
+
     # What does the metatable look like when flattened into a df considering its multiple layers
-    # test_df = pd.dataframe(metadata_json_list)
+    # test_df = pd.dataframe(metadata_json_list) # TODO: Clean up
     # test_df = pd.json_normalize(metadata_json_list)
     # test_df.to_csv(os.path.join(output_folder, "df_all_metadata.csv"))
 
@@ -132,7 +132,6 @@ def get_metadata(huc, huc_path, output_folder):
     # of HUCs to sites, we can filter this json down much easier.
 
     # In the meantime, we let generate_categorical_fim, talk to agg for all HUCs and put that into a
-    #
 
     # TODO: We need a faster answer
     # how do we handle not loading the entire WBD? Can't really use clips but maybe
@@ -196,12 +195,12 @@ def get_metadata(huc, huc_path, output_folder):
     if len(huc_sites_gdf) == 0:
         raise Exception(f"Error. The HUC of {huc} does not exist in the all sites dataset.")
 
+    # There appears to be actual column named "index" at this point, remove it
     huc_sites_gdf.reset_index(drop=True, inplace=True)
 
-    # There appears to be actual column named "index" at this point, remove it
-
     huc_sites_gdf.rename(columns={"identifiers_nws_lid": "nws_lid"}, inplace=True)
-    # Keep everyhing upper for processing as the json files are upper for that filed
+
+    # Keep everyhing uppercase for processing as the json files are uppercase for that file
     huc_sites_gdf['nws_lid'] = huc_sites_gdf['nws_lid'].str.upper()
 
     # TODO: now that we have a list of the sites applicable to this huc, filter the metadata_json
@@ -224,7 +223,7 @@ def get_metadata(huc, huc_path, output_folder):
     return huc_metadata_json_list, huc_sites_gdf
 
 
-def check_for_restricted_sites(sites_gdf, catfim_type, huc, sites_file_path):
+def check_for_restricted_sites(sites_gdf, catfim_type):
     """
     Checks for restricted sites and updates the sites GeoDataFrame accordingly.
 
@@ -238,10 +237,8 @@ def check_for_restricted_sites(sites_gdf, catfim_type, huc, sites_file_path):
         A GeoDataFrame containing site information with columns such as 'nws_lid'.
     catfim_type : str
         The type of CATFIM processing, 'sb' or 'fb'.
-    huc : str
-        The HUC number.
-    sites_file_path : str
-        The file path where the sites GeoDataFrame is stored.
+
+    Note: Previously had huc and sites_file_path also as inputs, removed 1/13/26 because they weren't used
 
     Returns
     -------
@@ -257,9 +254,6 @@ def check_for_restricted_sites(sites_gdf, catfim_type, huc, sites_file_path):
     meta_gdf is likely pretty small by now, only sites for this HUC
     Likely a smarter way to do this as well.. lambda? Could do a join but we have
     dup column names we would have to cleanup.
-
-
-    could possibly dump the code from load_restricted_sites in here as well?
 
     """
     # Load restricted sites for the given catfim_type
@@ -282,10 +276,21 @@ def check_for_restricted_sites(sites_gdf, catfim_type, huc, sites_file_path):
 
 def load_restricted_sites(catfim_type):
     """
-    The 'catfim_type' column can have three different values: 'stage', 'flow', and 'both'. This determines
-    whether the site should be filtered out for stage-based CatFIM, flow-based CatFIM, or both of them.
+    Reads and interprets the ahps_restricted_sites.csv (from the inundation_mapping repo) to
+    return a list of restricted sites specific to the given CatFIM type (SB or FB).
 
-    Returns: a dataframe for the restricted lid and the reason why:
+    The 'catfim_type' column in the CSV can have three different values: 'stage', 'flow', and 'both.' 
+    This determines whether the site should be filtered out for SB, FB, or both.
+
+    We used to require that the LID was 5 characters, but we removed that requirement in Fall 2025
+    because there actually are a few LIDs that might be valid but aren't 5 chars. And if they're 
+    invalid, we will filter elsewhere.
+
+    Args
+        catfim_type: (str) 'sb' or 'fb'
+
+    Returns
+       df_restricted_sites (DataFrame) containing the restricted lids and the reasons why: 
         'nws_lid', 'restricted_reason'
     """
 
@@ -312,7 +317,6 @@ def load_restricted_sites(catfim_type):
     # Filter df_restricted_sites by CatFIM type
     if catfim_type == 'sb':  # Keep rows where 'catfim_type' is either 'stage' or 'both'
         df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['stage', 'both'])]
-
     else:
         df_restricted_sites = df_restricted_sites[df_restricted_sites['catfim_type'].isin(['flow', 'both'])]
 
@@ -323,14 +327,12 @@ def load_restricted_sites(catfim_type):
         nws_lid = row['nws_lid']
         restricted_reason = row['restricted_reason']
 
-        # if len(nws_lid) != 5:
-        #     logging.warning(f"This lid value of '{nws_lid}' is invalid.")
         if restricted_reason == "":
             restricted_reason = "From the ahps_restricted_sites,"
             " the site will not be mapped, but a reason has not be provided."
             df_restricted_sites.at[ind, 'restricted_reason'] = "Restricted Site - " + restricted_reason
 
-            # FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
+            # FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'") # TODO: Update logging?
             # Humm.. how do we log this? screen is ok, but log isn't (MP versus non MP)
             # can we try just using the "logging" instance? Let's try it and see what happens
             logging.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
@@ -345,8 +347,13 @@ def load_restricted_sites(catfim_type):
 
 
 def load_runtime_args(output_folder):
-    '''
-    Variables loaded (example)
+    """
+    Loads CatFIM run arguments from the runtime_args.env file.
+
+    Args
+        output_folder: (str) CatFIM output folder filepath
+
+    Variables loaded into memory (example)
         CATFIM_TYPE=fb
         ENV_FILE="/data/config/fim_enviro_values.env"
         SEARCH=5
@@ -357,7 +364,7 @@ def load_runtime_args(output_folder):
         GET_NEW_THRESHOLD_DATA=False
         FIM_RUN_DIR="/data/previous_fim/hand_4_8_7_2"
         PAST_MAJOR_INTERVAL_CAP=5
-    '''
+    """
 
     args_file_name = "runtime_args.env"
     args_file = os.path.join(output_folder, args_file_name)
@@ -365,20 +372,20 @@ def load_runtime_args(output_folder):
     if not os.path.isfile(args_file):
         raise ValueError(f"Unable to find the runtime_args.env at {output_folder}")
 
-    # use load_env, and pull out just the variables it needs.
+    # Use load_env to pull out just the variables it needs.
     load_dotenv(args_file)
 
-    # Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans
+    # TODO: Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans 
 
 
 def validate_inputs(huc, output_folder):
-
-
     """
     Validate input parameters and return normalized paths.
 
-    Validates that the output_folder exists and the HUC data is available in FIM_RUN_DIR.
-    Ensures required directory structure (branches) exists for the HUC.
+    Checks that:
+        - output_folder exists
+        - HUC data is available in FIM_RUN_DIR
+        - required directory structure (branches) exists for the HUC
 
     Args:
         huc (str): HUC identifier for the hydrologic unit code.
@@ -395,19 +402,22 @@ def validate_inputs(huc, output_folder):
 
     """
     
-    # This validates some inputs but also copies key files around. TODO: does it actually?
+    # TODO: valdiate huc value (8 numeric maybe and starts with 0, 1, or 2)
 
-    # TODO: valdiate huc value (8 numeric maybe and starts with 0, 1, or 2) ????
-
+    # Check that the output folder was provided
     if not output_folder or output_folder == "":
         raise ValueError("output_folder argument can not be None or empty.")
+    
+    # If applicable, take slash off filepath end
     if output_folder.endswith("/"):  # strip it off the end
         output_folder = output_folder[:-1]
 
-    # does it already have the subfolder of "hucs"? strip it for now temporarily
+    # If applicable, strip HUCs subfolder off filepath end (for now, temporarily)
     if output_folder.endswith("hucs"):
         output_folder = output_folder[:-4]
+        # output_folder path goes from '/dir/output_path/hucs' to '/dir/output_path/'
 
+    # Check that the output folder exists
     if not os.path.exists(
         output_folder
     ):  # the hucs subfolder may/may not exist but the root output folder must
@@ -447,8 +457,7 @@ def validate_inputs(huc, output_folder):
     # TODO: Validate we have some folders in it.
 
     # do we validate other key files? branches exist? what if it was a bad huc in the first place?
-
-    # TODO: Validate key bash_variable values? path the meta adn threshold files?  Better yet, Emily's tool shoudl do that when we call her things
+    # TODO: Validate key bash_variable values? path the meta and threshold files?  Better yet, Emily's tool shoudl do that when we call her things
 
     # No need to validate any of the runtime_args as they were validated when it was created. (likely)
 

@@ -119,35 +119,26 @@ def catfim_post_processing(output_folder):
 
         for huc in huc_list:
             huc_folder = os.path.join(huc_path, huc)
-            missing_data = False # reset for each HUC
 
             # Sites
             huc_sites_file = os.path.join(huc_folder, f"{huc}_sites.gpkg")
             try:
                 with open(huc_sites_file, 'r') as f:
                     huc_sites_gdf = gpd.read_file(huc_sites_file, engine='fiona')
+                compiled_sites_gdf_list.append(huc_sites_gdf)
 
             except FileNotFoundError:
                 hucs_without_sites.append(huc)
-                missing_data = True
 
             # Library
             huc_library_file = os.path.join(huc_folder, f"{huc}_library.gpkg")
             try:
                 with open(huc_library_file, 'r') as f:
                     huc_library_gdf = gpd.read_file(huc_library_file, engine='fiona')
+                compiled_library_gdf_list.append(huc_library_gdf)
 
             except FileNotFoundError:
                 hucs_without_library.append(huc)
-                missing_data = True
-
-            # If both files were found, append to compiled lists (otherwise, add a note to the log)
-            if missing_data: # TODO: ACTUALLY WE SHOULD COMPILE WHATEVER WE HAVE BECAUSE IF WE DON"T HAVE LIBS BUT WE DO HAVE SITES THEN THAT"S NORMAL AND USEFUL
-                logging.info(f"{huc} - Skipped appending due to missing data.")
-            else:
-                logging.info(f"{huc} - Sites and library files found, appending data to output lists.")
-                compiled_sites_gdf_list.append(huc_sites_gdf)
-                compiled_library_gdf_list.append(huc_library_gdf)
         # End huc loop
 
         # ---------------------
