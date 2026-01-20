@@ -596,7 +596,7 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             # status message applied.
             raise Exception("Internal error: There should be at least one valid lid library rec by now")
 
-        
+        # EMILY START HERE
 
         # Make an "rfc_stage" column for better documentation which shows the original
         # TODO: rfc_stage, but final library calls this rfs_stage (typo?)
