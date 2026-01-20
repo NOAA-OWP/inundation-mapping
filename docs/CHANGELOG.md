@@ -5,21 +5,21 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 Fixes:
 - DepBot PR's
-    - PR: [1737](https://github.com/NOAA-OWP/inundation-mapping/pull/1737): Bump pyasn1 from 0.6.1 to 0.6.2
-    - PR:  [1733](https://github.com/NOAA-OWP/inundation-mapping/pull/1733) : DepBot: Bump filelock from 3.18.0 to 3.20.3
-    - PR:  [1732](https://github.com/NOAA-OWP/inundation-mapping/pull/1732) : DepBot: Bump virtualenv from 20.33.1 to 20.36.1
-    - PR:  [1726](https://github.com/NOAA-OWP/inundation-mapping/pull/1726) : DepBot: Bump urllib3 from 2.5.0 to 2.6.3
-    - PR:  [1724](https://github.com/NOAA-OWP/inundation-mapping/pull/1724) : DepBot: Bump aiohttp from 3.12.15 to 3.13.320.36.1
+	- PR: [1737](https://github.com/NOAA-OWP/inundation-mapping/pull/1737): Bump pyasn1 from 0.6.1 to 0.6.2
+	- PR:  [1733](https://github.com/NOAA-OWP/inundation-mapping/pull/1733) : DepBot: Bump filelock from 3.18.0 to 3.20.3
+	- PR:  [1732](https://github.com/NOAA-OWP/inundation-mapping/pull/1732) : DepBot: Bump virtualenv from 20.33.1 to 20.36.1
+	- PR:  [1726](https://github.com/NOAA-OWP/inundation-mapping/pull/1726) : DepBot: Bump urllib3 from 2.5.0 to 2.6.3
+	- PR:  [1724](https://github.com/NOAA-OWP/inundation-mapping/pull/1724) : DepBot: Bump aiohttp from 3.12.15 to 3.13.320.36.1
 - Other python package changes:
-   - Add new scikit-image.
-   - Remove linting packages of : isort, black, flake8, flake8-project, and pre-commit.
-   - Remove the following unused packages:  monaco, rio-vrt, psycopg2-binary, and certifi.
-   - Update the following packages: whitebox, boto3, gcsfs, py7zr, jupyter and jupyter-lab.
+	- Add new scikit-image.
+	- Remove linting packages of : isort, black, flake8, flake8-project, and pre-commit.
+	- Remove the following unused packages:  monaco, rio-vrt, psycopg2-binary, and certifi.
+	- Update the following packages: whitebox, boto3, gcsfs, py7zr, jupyter and jupyter-lab.
 -  Whitebox warnings. There were thousands of warnings issued based on whitebox being an older version and using deprecated packages in it.  Also change  some files that use Whitebox page declarations for mistake.
 - Various misc fixes or updates.
 - Linting
-    - Upgraded linting python packages for use by GitHUB when running linting checks.
-    - Remove linting tools that were available inside the Docker container but they never worked and were triggering package update requirements. Also updated some of our .md's to remove talking about linting inside the container, now emphasizing and clarifying linting info from the host server.
+	- Upgraded linting python packages for use by GitHUB when running linting checks.
+	- Remove linting tools that were available inside the Docker container but they never worked and were triggering package update requirements. Also updated some of our .md's to remove talking about linting inside the container, now emphasizing and clarifying linting info from the host server.
 
 ### Changes
 - `.github\PULL_REQUEST_TEMPLATE.md`:  Updated text.
@@ -45,7 +45,7 @@ Fixes:
 
 ### Files moved:
 - `workflows\hand_to_owp.py`:  Moved into deploy folder.
-<br/>
+<br><br>
 
 ## v4.9.5.1 - 2026-01-08 - [PR#1683](https://github.com/NOAA-OWP/inundation-mapping/pull/1683)
 
@@ -1912,9 +1912,8 @@ Implements a denylist for flow-based CatFIM (that uses the same conventions as t
 Contains files to generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for specified HUC(s) as well update code to generate pre-clip data so that WBD for Alaska contains only one layer. NOTE: this PR requires `wbd.gpkg` to be created by the updated `generate_pre_clip_fim_huc8.py` to be copied to the pre-clip HUC folders to remove a warning in `synthesize_test_case.py`.
 
 ### Usage
-```
-python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_fim/data/sample-data
-```
+> python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_fim/data/sample-data
+
 
 ### Additions
 
