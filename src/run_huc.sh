@@ -125,7 +125,8 @@ if [ ! -f $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg ]; then l
 ## ASSOCIATE LEVEL PATHS WITH LEVEES
 echo -e $startDiv"Associate level paths with levees"
 [ -f $tempHucDataDir/nld_subset_levees.gpkg ] && \
-python3 $srcDir/associate_levelpaths_with_levees.py -nld $tempHucDataDir/nld_subset_levees.gpkg \
+python3 $srcDir/associate_levelpaths_with_levees.py \
+    -nld $tempHucDataDir/nld_subset_levees.gpkg \
     -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
     -lpa $tempHucDataDir/LeveeProtectedAreas_subset.gpkg \
     -out $tempHucDataDir/levee_levelpaths.csv \

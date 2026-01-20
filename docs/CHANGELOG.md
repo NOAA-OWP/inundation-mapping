@@ -1,6 +1,169 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.5.1 - 2025-10-30 - [PR#1683](https://github.com/NOAA-OWP/inundation-mapping/pull/1683)
+
+---------------------
+### FOR NOAA/OWP usage only
+This tool is not for usage outside of the OWP / FIM team.
+---------------------
+
+This expands on the new workflow architecture and adds a new tool that pulls down the exact files CatFIM and FIM Performance points/points (eval_plots.py).  
+
+It follows the same usage of env files and this one now adds a new `workflow_params.env` file. It was decided to not keep most other uses of env args seperate from the original `hv_deploy_params.env` due to size and functionality focus.
+
+See the new `hand_to_owp.py` for usage information. This tool also relies on the original `aws_credentials.env` file previously used. The default versions are in the usual data/config path.
+
+
+### Architecture Notes:
+
+**The additions to architecture in this PR included:**
+- Updates to improve on the AWS Communication / credentials system.
+- Additions and upgrades to the new `Workflow` system. `Workflows` are long running script system where a single "wrapper workflow" script can run other scripts in sequential order. Examples include: (some coming soon)
+    - Copying correct filtered HAND dataset files from S3 to OWP servers, where they can be added to run generate CatFIM scripts, then validate its outputs and copy it's outputs to other enviros. This one is added here.
+    - Downloading Bridge Data which triggers new-preclips.  (coming soon)
+    - New DEMs which triggers new Bridge DEM difs", etc.  (coming soon)
+    - It also allows running scripts normally run during production runs only, including output data validation, copying different combinations of output data to various S3 buckets and/or EFS paths.
+    - Advanced needs from Ripple already work-in-progress, where filtered data is pulled down from RTX, meta data extracted, various files saved to different locations, some on EFS and some on S3.
+    - The ability to AWS to eventually take over some of the workflow tools via AWS tools such as step functions and batch processes.
+
+### Additions
+ - `config/workflows_params.template.env`: as described above.
+ - `workflows/hand_to_owp.py`: as described above.
+
+### Changes
+
+- `.gitignore`: adjusted for the new workflows_params.template.env to ensure it can be included in the repo.
+- `config`
+    - `aws_credentials.template.env`: Adjusted to move the bucket names into the other .env files.
+    - `fim_enviro_values.template.env`:  Found another unrelated variable that should have been in this file.
+    - `hv_deploy_params.template.env`:  Misc minor adjustments, primarily adding a new HAND_PREVIOUS_VERSION value.
+- `data`
+    - `aws/aws_shared_functions.py`:  minor adjustments to client_config for better threading and performance.
+    - `aws/s3_shared_functions.py`:
+        - Updated some of the functions and added new ones primarily based on finding / downloading files based on wildcard characters.
+        - Updated some existing functions for performance and usage flexibility.
+        - Added a new function to download files by pre-existing file lists.
+        - Added multi-threading to download functions.
+        - Added new function for deleting_s3_folder. Note: only partially tested and is not needed by any code yet.
+- `src/utils/shared_functions.py`:  fixed some permissions issues for new log folders created and misc items.
+- `workflows/deploy/deploy_to_hydrovis.py`:  Misc adjsutment to enviro variable usages, adding more logging, and tidbits.
+
+### Removals
+
+- `config\aws_s3_put_fim4_hydrovis_whitelist.lst`:  no longer applicable
+- `src\toDo.md`: A very old, non-applicable file.
+<br/>
+
+## v4.9.5.0 - 2026-01-08 - [PR#1716]([https://github.com/NOAA-OWP/inundation-mapping/pull/1716])
+
+This PR fixes issue #1700 .
+This PR resolves inconsistencies in Discharge (m3s-1) values in the `src_full_crossswalked` table observed when rerunning calibration scripts (`tools/rerun_calibration.py`)
+Initially, after running FIM pipeline and then rerunning the calibration, the slope values appear identical, but the Discharge (m3s-1) differs.
+
+- Root cause:
+After running FIM pipeline with all calibration steps off, each calibration script was then run separately. We identified that the `src/longitudinal_flow_adjustment.py` script was saving the `src_full_crossswalked` CSV by rounding all columns to 5 decimal places (line 323).
+
+- **The Impact:** This rounding altered the "default slope" value. When subsequent processes (like rerunning calibration or resetting hydrotable) reloaded this data, they used the rounded slope rather than the actual initial slope. This small delta propagated through the calculations, resulting in different final discharge outputs.
+### Changes
+- `src/longitudinal_flow_adjustment.py`: Ensure that slope values maintain precision when saving back to `src_full_crossswalked`.
+- `src/process_branch.sh`: Minor fix as it missed catching errors 65 due to syntax error.
+<br/>
+
+## v4.9.4.1 - 2026-01-08 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
+
+Fixes branch error code logging and updates formatting and a spelling error.
+
+### Changes
+
+- `src/`
+    - `process_branch.sh`: Added logic to write error log file if specific exit codes are returned
+    - `run_huc.sh`: reformat
+
+The following files had a spelling correction of "occured" to "occurred":
+- `data/bridges/make_dem_dif_for_bridges.py`
+- `fim_process_huc.sh`
+- `src/associate_levelpaths_with_leveese.py` - Some error handling cleanup
+- `src/process_branch.sh`
+- `tools/reformat_to_int16.py`
+<br/>
+
+## v4.9.4.0 - 2026-01-08 [PR#1712](https://github.com/NOAA-OWP/inundation-mapping/pull/1712)
+
+Fixes the condition where an error is thrown when clipping the NFHL `availability` mask by the branch polygon results in no geometry (i.e., an empty set).
+
+### Changes
+ - `src/`
+     - `adjust_floodplains.py`: Returns (exits) if the `availability` mask geometry clipped by the branch polygon is empty. Also fixes the `KeyError: 'ID'` that occurred when a levelpath was also a headwater with no upstream streams or catchments.
+     - `run_by_branch`: Adjust filename if `adjust_floodplains.py` is exited before completing.
+<br/>
+
+## v4.9.3.0 - 2026-01-08 [PR#1701](https://github.com/NOAA-OWP/inundation-mapping/pull/1701)
+
+This PR closes #1623 by updating the `data/pull_osm_roads.py` script to **exclude all OSM road segments tagged as bridges**. This change ensures that bridge features are not treated as normal road segments during FIMpact processing, which previously resulted in **unrealistically high flood-depth estimates** under bridge crossings.
+
+
+This PR includes the creation of an updated OSM roads dataset as well as a new pre-clipped dataset. The updated datasets are available at the following locations in FIM EFS, FIM S3, and ESIP:
+>
+> * `data/inputs/osm/roads/20251209/` — updated OSM roads dataset
+> * `data/inputs/pre_clip_huc8/20251209/` — updated pre-clipped dataset
+
+Bridge segments can cause issues when:
+
+1. The corresponding OSM bridge line is missing and therefore cannot heal the HAND raster, leaving a deep channel under the roadway; or
+2. The lidar and non-lidar bridge-healing workflows do not fully raise the HAND elevations beneath the bridge footprint.
+
+By excluding bridge geometries at the data-pull stage, these erroneous inundation signals are prevented entirely.
+
+### Changes
+- data/roads/pull_osm_roads.py
+- src/bash_variables.env
+<br/>
+
+## v4.9.2.2 - 2026-01-08 - [PR#1698](https://github.com/NOAA-OWP/inundation-mapping/pull/1698)
+
+This PR closes #1592 and introduces a new tool that computes flood depth for arbitrary input geometries (polygons, lines, or points) for a given flow file. This PR also adds `flood_depth_ft` column for road inundation tool. 
+
+
+### Workflow Overview:
+#### **Input**
+- A gpkg file containing desired geometries. 
+- The gpkg file can have any projection.
+
+#### **Processing Logic**
+1. **Identify intersecting HUCs.**
+   For each input geometry, the script first identifies all intersecting HUCs from the available HUCs in a given FIM run. Geometries that span multiple HUCs are then processed independently within each HUC, and the most conservative (maximum) flood depth across all relevant HUCs is ultimately retained.
+
+
+2. **Extract threshold HAND values.**
+   For each geometry segment within a HUC, the script identifies all branches that intersect that geometry. For each intersecting branch, it computes the minimum HAND value along the portion of the geometry that overlaps that branch, yielding one `threshold_hand` value per branch. All intersecting branches within the HUC are processed in this way. The output includes:
+
+   * `threshold_hand`: minimum HAND elevation (m) for that branch
+   * `HydroID`
+   * `feature_id`
+   * `branch`: branch identifier within the HUC
+
+3. **Interpolate threshold discharge.**
+   Using the branch-specific HydroTables, the script interpolates the discharge corresponding to each `threshold_hand`. This `threshold_discharge` represents the flow rate at which inundation begins. Records with `threshold_hand > 25 m` are excluded because they exceed the valid range of the HydroTables.
+
+4. **Determine inundation status.**
+   The `evaluated discharge` from the input flow file is compared to the `threshold_discharge`. A geometry is marked as inundated if `evaluated_discharge > threshold_discharge`.
+
+5. **Calculate flood depth.**
+The `evaluated stage` is obtained by interpolating within the branch-specific HydroTables using the corresponding `evaluated discharge` values.  Flood depth is computed as:
+   `flood_depth = evaluated_stage – threshold_hand`.
+At this time, any negative flood depths (which may occur due to non-monotonic SRC behavior) are set to zero.
+
+
+#### **Output**
+- A gpkg file containing the geometries annotated with flooding status (Y/N) and computed flood depth. 
+- For geometries intersecting multiple HUCs or branches, the flood depth reported is the maximum across all intersections. 
+- Geometries meeting any of the following conditions will contain `NULL` values for all output fields:
+  - They do not intersect any HUCs.
+  - They intersect only HAND grid cells with NoData values (e.g., levee-protected areas).
+  - They intersect only HAND grid cells with HAND values greater than 25 m.
+<br/>
+
 ## v4.9.2.1 - 2025-12-05 [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
 
 This update adds data predownload functionality to CatFIM so it can create categorical FIM maps for sites that don't have thresholds available in the WRDS API. There is also a new default behavior for CatFIM: instead of hitting the WRDS API for each run, the CatFIM code defaults to using pre-downloaded input thresholds and metadata. However, there is still the option to download the thresholds and metadata during the CatFIM run (which was previously the default).
@@ -241,6 +404,10 @@ reflect only the rerun attempt. Therefore, these logs may contain fewer records 
 ---
 
 ### Additions
+- tools/compute_flood_depth.py
+
+### Changes
+- tools/road_inundation.py
 - src/calibrate_rating_curves.sh   
 - tools/rerun_calibration.py
      
@@ -271,6 +438,9 @@ reflect only the rerun attempt. Therefore, these logs may contain fewer records 
 <br />
 
 ## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
+
+### FOR NOAA/OWP usage only
+This tool is not for usage outside of the OWP / FIM team.
 
 This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc
 
@@ -314,8 +484,7 @@ The architecture introduced in this PR includes and sets us up for:
 - `data\aws`:
     - `aws_base.py`,  `s3.py`, `aws_creds_template.env` and `.gitignore`:  No longer applicable
 
-### FOR NOAA/OWP usage only
-This tool is not for usage outside of the OWP / FIM team.
+
 <br />
 
 ## v4.8.15.0 - 2025-10-30 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
@@ -337,7 +506,7 @@ Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now t
 
 ## v4.8.14.3 - 2025-10-30 - [PR#1654](https://github.com/NOAA-OWP/inundation-mapping/pull/1654)
 
-This PR looks for the root cause of the 'Ghost' bug. The bug occured due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
+This PR looks for the root cause of the 'Ghost' bug. The bug occurred due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
 Some notes about the slope precision: The slope values in src_base represent TauDEM’s rise-over-run slopes. Because these values—and the slopes subsequently propagated through HFAB and SWORD—are extremely small (e.g., 9.99999974737875E-06), it is critical to preserve their numerical precision throughout all read/write operations in downstream scripts.
 When writing slope values to derived files (e.g., src_full, hydrotables), each value is rounded to three digits in scientific notation and then converted back to a float for continued numerical use.
 

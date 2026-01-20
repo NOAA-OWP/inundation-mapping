@@ -43,7 +43,7 @@ do
         err_exists=1
         echo "***** Branch has no crosswalks *****"
         rm -rf $tempHucDataDir/branches/$branchId/
-    elif [ $code -eq 65]; then
+    elif [ $code -eq 65 ]; then
         echo
         err_exists=1
         echo "***** Too many HydroIDs or a HydroID with more than 8 digits in gw catchments to convert to Int16 *****"
@@ -51,7 +51,7 @@ do
     elif [ $code -ne 0 ]; then
         echo
         err_exists=1
-        echo "***** An error has occured  *****"
+        echo "***** An error has occurred  *****"
         cp $branchLogFileName $outputDestDir/branch_errors
     fi
 done
@@ -61,6 +61,10 @@ done
 # Only add the huc and branch number to the csv if the branch was successful at processing
 if [ "$err_exists" = "0" ]; then
     $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber -b $branchId
+else
+    error_log_filename=$tempHucDataDir/logs/huc_"$hucNumber"_errors.log
+    err_msg="Error: ${hucNumber} / ${branchId}. Invalid return status code from branch. Exit status: $return_codes"
+    echo $err_msg >> $error_log_filename
 fi
 
 # We always return a success at this point (so we don't stop the loops / iterator)
