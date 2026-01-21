@@ -380,71 +380,10 @@ def run_fb_mapping(huc,
     logging.info(">>> Start Inundating and Mosaicking")
     print(">>> Start Inundating and Mosaicking") # TEMP DEBUG
 
-
-    # Load the discharge file which has the flows
-
-    # HUC iterations - no longer needed for Jan 2026 reorg
-    # # The output_flows_dir will only have HUCs that were valid which means
-    # # it will not include necessarily all hucs from the output run.
-    # source_flow_huc_dir_list = [
-    #     x
-    #     for x in os.listdir(output_flows_dir)
-    #     if os.path.isdir(os.path.join(output_flows_dir, x)) and x[0] in ['0', '1', '2']
-    # ]
-    # fim_source_huc_dir_list = [
-    #     x
-    #     for x in os.listdir(fim_run_dir)
-    #     if os.path.isdir(os.path.join(fim_run_dir, x)) and x[0] in ['0', '1', '2']
-    # ]
-    # # Log missing hucs
-    # # Depending on filtering, errors, and the valid_ahps_huc list at the start of the program
-    # # this list could have only a few matches
-    # missing_hucs = list(set(source_flow_huc_dir_list) - set(fim_source_huc_dir_list))
-
-    # missing_hucs = [huc for huc in missing_hucs if "." not in huc]
-    # # Loop through matching huc directories in the source_flow directory
-    # matching_hucs = list(set(fim_source_huc_dir_list) & set(source_flow_huc_dir_list))
-    # matching_hucs.sort()
-
-
-    # loop through the library recs we do have? What about each lid?
-    # Hummm.
-
-    # TODO: Jan 2026: We definitely want to take out multiprocessing, but maybe we can put in some multi-threading.
-    # we might have to do some benchmark tests without MP or MT and come back to it.
-    # It won't take much to drop in MT. MT does not require managing seperate logging files and can
-    # easily pass objects, such as dataframes, back and forth.
-    # Not sure if there is enough file volume to worry about but a MT is an option. If we use an
-    # MT, we have to figure out what to do about number of jobs
-
-    # with ProcessPoolExecutor(max_workers=job_number_huc) as executor:
-    #     try:
-    #         for huc in matching_hucs: # Jan 2026 CatFIM reorg: Remove HUC iteration
-
-    # -----------------------
-    # Get list of AHPS site directories
-        
-
-
-    # huc_flows_dir = os.path.join(output_flows_dir, huc) 
-
-    # # Map path to huc directory inside the mapping directory
-    # huc_mapping_dir = os.path.join(output_mapping_dir, huc) # TODO: Doublecheck pathing here
-    # if not os.path.exists(huc_mapping_dir):
-    #     os.makedirs(huc_mapping_dir, exist_ok=True)
-
-    # # ahps_site_dir_list = os.listdir(ahps_site_dir)
-    # ahps_site_dir_list = [
-    #     x for x in os.listdir(huc_flows_dir) if os.path.isdir(os.path.join(huc_flows_dir, x))
-    # ]  # ahps folder names under the huc folder
-
-
-
     # -----------------------
     # Get list of AHPS sites in HUC from the sites GDF
 
     ahps_sites_list = sites_gdf['nws_lid'].unique()
-
     print(f"{huc} : ahps_sites_list is {ahps_sites_list}")
 
     # -----------------------
@@ -470,23 +409,6 @@ def run_fb_mapping(huc,
 
     # Loop through AHPS sites
     for ahps_site in ahps_sites_list:
-        # map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj)
-        # ahps_site_parent = os.path.join(huc_flows_dir, ahps_site)
-
-        # thresholds_dir_list = os.listdir(ahps_site_parent)
-        # thresholds_dir_list = [
-        #     x
-        #     for x in os.listdir(ahps_site_parent)
-        #     if os.path.isdir(os.path.join(ahps_site_parent, x))
-        # ]
-
-        # but we can just extract it from the csv files names which are
-        # patterned as: 04130003/chrn6/moderate/chrn6_huc_04130003_flows_moderate.csv # TODO: Doublecheck pathing here (this has changed a bit)
-
-        # # Map parent directory for all inundation output files output files.
-        # huc_site_mapping_dir = os.path.join(huc_mapping_dir, ahps_site) # TODO: Decide, do we want to have subfolder per site? Probably not...
-        # if not os.path.exists(huc_site_mapping_dir):
-        #     os.makedirs(huc_site_mapping_dir, exist_ok=True)
 
         # Get a list of available magnitudes
         huc_thresholds_long_df_site = huc_thresholds_long_df[huc_thresholds_long_df['nws_lid'] == ahps_site]
@@ -512,19 +434,10 @@ def run_fb_mapping(huc,
             magnitude_flows_df_filtered = magnitude_flows_df_filtered.drop(columns=['lid', 'magnitude'])
 
             # Save filtered flows to CSV in the temp dir
-            # Note: the inundate() function can take a CSV or a df. In that case, is it maybe better to save as a temp CSV I think?
             magnitude_flows_csv_path = os.path.join(output_temp_dir, f"{ahps_site}_{magnitude}_flows.csv")
             magnitude_flows_df_filtered.to_csv(magnitude_flows_csv_path, index=False)
 
             print(f"Saved flows for {ahps_site} - {magnitude} to {magnitude_flows_csv_path}") # TEMP DEBUG
-
-            # magnitude_flows_csv = os.path.join( # old code that called in preexisting csv
-            #     ahps_site_parent,
-            #     magnitude,
-            #     ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv',
-            # # )
-            # magnitude_flows_csv = os.path.join(huc_path, 'flow_discharges.csv') # Moved to be higher up so we don't have to keep reading it
-            # print(f"magnitude_flows_csv is {magnitude_flows_csv}") # TEMP DEBUG
 
             # Define output inundation extent tif path # TODO: Decide if there's anything about the name I want to change
             tif_name = ahps_site + '_' + magnitude + '_extent.tif'
@@ -542,11 +455,7 @@ def run_fb_mapping(huc,
                     fim_run_dir,
                     magnitude_flows_csv_path,  # Can be a CSV path or a dataframe, using a csv path for now
                     output_extent_tif,
-                    job_number_inundate, 
-                    # huc_path,
-                    # output_mapping_dir, # was huc_site_mapping_dir,
-                    # log_output_file,
-                    # child_log_file_prefix,
+                    job_number_inundate,
                 )
 
             except Exception:
@@ -572,9 +481,6 @@ def run_fb_mapping(huc,
 
     return sites_gdf, huc_library_df
 
-# This is for FB only but duplication of sections of code will be reviewed
-# to see if we can pull out shared smaller functions.
-
 # TODO: decide HUMMMM.... do we send in the site.gdf or jsut manage returning messages
 
 def run_fb_inundation( # renamed from run_inundation
@@ -585,10 +491,6 @@ def run_fb_inundation( # renamed from run_inundation
         magnitude_flows_csv_path,
         output_extent_tif,
         job_number_inundate,
-        # huc_path,
-        # output_mapping_dir,
-        # parent_log_output_file,
-        # child_log_file_prefix,
 ):
     '''
     Only used in flow-based CatFIM.
@@ -634,15 +536,10 @@ def run_fb_inundation( # renamed from run_inundation
     '''
 
     # Note: child_log_file_prefix is "MP_run_ind", meaning all logs created by this function start
-    #  with the phrase "MP_run_ind"
+    #  with the phrase "MP_run_ind" # TODO: Update logging
     #  They will be rolled up into the parent_log_output_file
     # This is setting up logging for this function to go up to the parent
 
-    # MP_LOG.trace(locals())
-
-    # huc_dir = os.path.join(fim_run_dir, huc)
-    # Why all high number for job_number_inundate? Inundate_gms has to create inundation for each
-    # branch and merge them.
 
     # TODO: decide... HUMM.... How do we want to handle exceptions in here? Let them out? 
     try:
@@ -666,7 +563,6 @@ def run_fb_inundation( # renamed from run_inundation
         # ---------------------
         # Mosaic inundation tifs for lid/category
 
-        # MP_LOG.trace(f"Mosaicking for {huc} : {ahps_site} : {magnitude}")
         logging.info(f"Mosaicking for  {ahps_site} : {magnitude}")
 
         Mosaic_inundation(
@@ -682,7 +578,6 @@ def run_fb_inundation( # renamed from run_inundation
             verbose=False,
         )
 
-        # MP_LOG.trace(f"Mosaicking complete for {huc} : {ahps_site} : {magnitude}")
         logging.info(f"Mosaicking complete for : {ahps_site} : {magnitude}")
 
         # ---------------------
@@ -696,7 +591,6 @@ def run_fb_inundation( # renamed from run_inundation
             )
             output_extent_src.write(output_extent_array_masked, 1)
 
-        # MP_LOG.trace(f"Lake masking complete for {huc} : {ahps_site} : {magnitude}")
         logging.info(f"Lake masking complete for {ahps_site} : {magnitude}")
 
         if mask_status:
@@ -707,9 +601,8 @@ def run_fb_inundation( # renamed from run_inundation
     # just log this site/mag?
     except Exception:
         # Log errors and their tracebacks
-        # MP_LOG.error(f"Exception: running inundation for {huc}")
-        # MP_LOG.error(traceback.format_exc())
-        logging.info(f"Exception: running inundation for {ahps_site} : {magnitude}") # TODO: update so it has 'critical' somehow?
+
+        logging.info(f"Exception: running inundation for {ahps_site} : {magnitude}") # TODO: update so it has 'critical' or 'error' somehow?
         logging.info(traceback.format_exc())
         return
 
