@@ -1,25 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-01-xx - [PR#1727](https://github.com/NOAA-OWP/inundation-mapping/pull/1727)
+## v4.9.5.2 - 2026-01-21 - [PR#1727](https://github.com/NOAA-OWP/inundation-mapping/pull/1727)
 
 Fixes:
 - DepBot PR's
-	- PR: [1737](https://github.com/NOAA-OWP/inundation-mapping/pull/1737): Bump pyasn1 from 0.6.1 to 0.6.2
-	- PR:  [1733](https://github.com/NOAA-OWP/inundation-mapping/pull/1733) : DepBot: Bump filelock from 3.18.0 to 3.20.3
-	- PR:  [1732](https://github.com/NOAA-OWP/inundation-mapping/pull/1732) : DepBot: Bump virtualenv from 20.33.1 to 20.36.1
-	- PR:  [1726](https://github.com/NOAA-OWP/inundation-mapping/pull/1726) : DepBot: Bump urllib3 from 2.5.0 to 2.6.3
-	- PR:  [1724](https://github.com/NOAA-OWP/inundation-mapping/pull/1724) : DepBot: Bump aiohttp from 3.12.15 to 3.13.320.36.1
+    - PR: [1737](https://github.com/NOAA-OWP/inundation-mapping/pull/1737): Bump pyasn1 from 0.6.1 to 0.6.2
+    - PR: [1733](https://github.com/NOAA-OWP/inundation-mapping/pull/1733) : DepBot: Bump filelock from 3.18.0 to 3.20.3
+    - PR: [1732](https://github.com/NOAA-OWP/inundation-mapping/pull/1732) : DepBot: Bump virtualenv from 20.33.1 to 20.36.1
+    - PR: [1726](https://github.com/NOAA-OWP/inundation-mapping/pull/1726) : DepBot: Bump urllib3 from 2.5.0 to 2.6.3
+    - PR: [1724](https://github.com/NOAA-OWP/inundation-mapping/pull/1724) : DepBot: Bump aiohttp from 3.12.15 to 3.13.320.36.1
 - Other python package changes:
-	- Add new scikit-image.
-	- Remove linting packages of : isort, black, flake8, flake8-project, and pre-commit.
-	- Remove the following unused packages:  monaco, rio-vrt, psycopg2-binary, and certifi.
-	- Update the following packages: whitebox, boto3, gcsfs, py7zr, jupyter and jupyter-lab.
+   - Add new scikit-image.
+   - Remove linting packages of : isort, black, flake8, flake8-project, and pre-commit.
+   - Remove the following unused packages:  monaco, rio-vrt, psycopg2-binary, and certifi.
+   - Update the following packages: whitebox, boto3, gcsfs, py7zr, jupyter and jupyter-lab.
 -  Whitebox warnings. There were thousands of warnings issued based on whitebox being an older version and using deprecated packages in it.  Also change  some files that use Whitebox page declarations for mistake.
 - Various misc fixes or updates.
 - Linting
-	- Upgraded linting python packages for use by GitHUB when running linting checks.
-	- Remove linting tools that were available inside the Docker container but they never worked and were triggering package update requirements. Also updated some of our .md's to remove talking about linting inside the container, now emphasizing and clarifying linting info from the host server.
+    - Upgraded linting python packages for use by GitHUB when running linting checks.
+    - Remove linting tools that were available inside the Docker container but they never worked and were triggering package update requirements. Also updated some of our .md's to remove talking about linting inside the container, now emphasizing and clarifying linting info from the host server.
 
 ### Changes
 - `.github\PULL_REQUEST_TEMPLATE.md`:  Updated text.
@@ -30,9 +30,13 @@ Fixes:
 - `Pipfile \ Pipefile.lock`: Python packages changes as described above.
 - `README.md`: Updates for new linting details, fixing some incorrect and deprecated instructions as well as incorrect text.
 - `config\hv_deploy_params.template`: Updates in preparation for the next FIM 6.1 release.
-- `data/bathymetry/preprocess_bathymetrics.py:  Whitebox header fix.
+- `data`
+    - `bathymetry/preprocess_bathymetrics.py`:  Whitebox header fix.
+    - `ble/ble_benchmark.py`:   Text update.
+- `fim_pipeline.sh`:  Text update.
 - `fim_post_processing.sh`:  Fixes for permissions issues on some folders.
 - `fim_pre_processing.sh`: Removed unnecessary Whitebox line.
+- `fim_process_huc.sh`:  Fixes for permissions issues on some folders.
 - `pyproject.toml`: Upgraded linting core package.
 - `src`
     - `accumulate_headwaters.py`: Linting adjustments based on updated linting packages.
@@ -41,6 +45,7 @@ Fixes:
     - `agreedem.py`: Whitebox fixes and Linting adjustments based on updated linting packages.
     - `entrypoint.sh`: Added comment.
     - `unique_pixel_and_allocation.py`: Linting adjustments based on updated linting packages.
+- `tools\synthesize_test_cases.py`: Text updates, plus removed usages  notes for FIM 3.
 - `workflows\deploy_to_hydrovis.py`: Text adjustments.
 
 ### Files moved:
