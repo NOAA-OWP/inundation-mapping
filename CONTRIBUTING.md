@@ -74,7 +74,7 @@ If you would like to contribute, please follow these steps:
 
    **Note: These steps below are similar to another required critical step (pre-commit configuration) later in this document, which also needs to be run**.
 
-   For all commands, you may have to add the word "sudo" in front of your commands, often related to permissions issues.
+   **Important: For all commands, you may have to add the word "sudo" in front of your commands, often related to permissions issues.**
 
    If pre-commit is not already installed on your system:
    ```
@@ -99,9 +99,9 @@ If you would like to contribute, please follow these steps:
    ```
    To test that it installed correctly and is pathed correctly and check the version:
    ```
-   pre-commit --version  (you mentioned, you may need to add the word sudo in front)
+   pre-commit --version
    ```
-   It should respond with the phrase *pre-commit 4.5.1* (version may not be higher).
+   It should respond with the phrase *pre-commit 4.5.1* (or higher).
 
 
 2. pre-commit local branch configuration:
@@ -120,9 +120,8 @@ If you would like to contribute, please follow these steps:
 
     It is recommended that you run the linting commands before running 'git add' or 'git commit'.
 
-    ```
     There are multiple ways to run pre-commit tests. Here are three:
-
+    ```
     # Run only the isort, black, flake8 (in order).
     pre-commit run -a isort  (*** See the Tech-Tip on re-running isort and black a second time)
     pre-commit run -a black  (*** See the Tech-Tip on re-running isort and black a second time)
@@ -151,7 +150,7 @@ If you would like to contribute, please follow these steps:
 
 Run the typical 'git add' and 'git commit' commands.
     ```
-    'git add'  (with arguments as you normally would, such as ' -a' or others)
+    'git add -a'
     'git commit -m {<descriptive sentence or two of changes>}'
     ```
 Git push will automatically invoke pre-commit hooks mentioned in the linting section above 
