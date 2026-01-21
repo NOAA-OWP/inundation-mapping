@@ -31,7 +31,7 @@ def adjust_floodplains(
     branch_polygons: str,
     branch_id: str,
     fema_flood_zones_file: str,
-    fema_flood_zones_layer: str = 'combined',
+    fema_flood_zones_layer: str,
 ):
     """
     Adjusts the floodplains in a DEM based on the distance to a given input file.
@@ -115,10 +115,23 @@ def adjust_floodplains(
         # Use NFHL flood hazard zones
         if os.path.exists(fema_flood_zones_file):
             nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
+            # Initialize the variable as None so it always exists
+            fema_flood_zones_availability_mask = None
+            # Read combined layer if it exists
+            if 'combined' in nfhl_layers:
+                fema_flood_zones_availability_mask = gpd.read_file(fema_flood_zones_file, layer='combined')
 
             # Mask out areas inside the FEMA flood zone availability
             if 'availability' in nfhl_layers:
                 fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
+                if fema_flood_zones_availability_mask is not None:
+                    fema_flood_zones_availability_mask = (
+                        pd.concat([fema_flood_zones_availability_mask, fema_flood_zones_availability])
+                        .drop_duplicates(subset='geometry', keep=False)
+                        .dissolve()
+                    )
+                else:
+                    fema_flood_zones_availability_mask = fema_flood_zones_availability.copy()
 
             if fema_flood_zones_layer in nfhl_layers:
                 # Read the FEMA flood zones layer
@@ -128,8 +141,6 @@ def adjust_floodplains(
                 fema_flood_zones_availability_mask = gpd.overlay(
                     fema_flood_zones_availability, fema_flood_zones, how='difference'
                 )
-            else:
-                fema_flood_zones_availability_mask = fema_flood_zones_availability.copy()
 
             fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
 
