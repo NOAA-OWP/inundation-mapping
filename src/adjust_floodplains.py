@@ -139,7 +139,7 @@ def adjust_floodplains(
 
                 # Exclude fema_flood_zones from fema_flood_zones_availability_mask
                 fema_flood_zones_availability_mask = gpd.overlay(
-                    fema_flood_zones_availability, fema_flood_zones, how='difference'
+                    fema_flood_zones_availability_mask, fema_flood_zones, how='difference'
                 )
 
             fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
