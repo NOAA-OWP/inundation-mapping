@@ -70,11 +70,11 @@ If you would like to contribute, please follow these steps:
    It is a critical part of development and may be enforced at the 'git commit' step. If you intend to execute `flake8`, `black`
    or `isort` from the command, additional configuration and installation is required.
 
-   linting / pre-commit can not be done inside the docker container, it must be done on your host machine.
+   Linting / pre-commit can not be done inside the docker container and must be done on your host machine.
 
    **Note: These steps below are similar to another required critical step (pre-commit configuration) later in this document, which also needs to be run**.
 
-   For all commands based on permissions, you may have to add the word "sudo" in front of your commands.
+   For all commands, you may have to add the word "sudo" in front of your commands, often related to permissions issues.
 
    If pre-commit is not already installed on your system:
    ```
@@ -95,11 +95,11 @@ If you would like to contribute, please follow these steps:
    then you will need to do some additional configuration. You need to adjust your path.*
    
    (Adjusting the path to be exactly the path you see in the WARNING message above from your console output).
-   export PATH="/home/{your_user_name}/.local/bin:$PATH"
+       export PATH="/home/{your_user_name}/.local/bin:$PATH"
    ```
-   To test that it installed correctly, is pathed correctly and check the version:
+   To test that it installed correctly and is pathed correctly and check the version:
    ```
-   pre-commit --version  (you may need to add the word sudo in front, often seen as part of permissions issues)
+   pre-commit --version  (you mentioned, you may need to add the word sudo in front)
    ```
    It should respond with the phrase *pre-commit 4.5.1* (version may not be higher).
 
@@ -114,7 +114,7 @@ If you would like to contribute, please follow these steps:
     $ pre-commit install
     ```
     
-3. At this point, you should be set up with `pre-commit` on your host machine. When a commit is made it will run the pre-commit hooks defined in
+3. With `pre-commit` installed on your host machine and when the commit command is used, it will run the pre-commit hooks defined in
    [pre-commit-config.yaml`](.pre-commit-config.yaml) in the local branch folder.
    For reference, you may run any of the pre-commit hooks manually before issuing the `git commit` command (see below). 
 
@@ -128,14 +128,14 @@ If you would like to contribute, please follow these steps:
     pre-commit run -a black  (*** See the Tech-Tip on re-running isort and black a second time)
     pre-commit run -a flake8  (you will have to fix errors returned here to push your repo changes)
 
-    # Check only the staged changes
+    # Or, check only the staged changes
     pre-commit run
 
-    # Check all files in the repo
+    # Or, check all files in the repo
     pre-commit run -a
     ```
     ### Note:
-    ** Reminder: some environments may require add the word **sudo** in front commands due to permissions issues.
+    ** Reminder: some environments may require add the word **sudo** in front commands often due to permissions issues.
 
     ### Tech-Tip:
     If you run isort, black and flake8 one at a time as above in order, you can take advantage of a linting feature.
@@ -152,7 +152,7 @@ If you would like to contribute, please follow these steps:
 Run the typical 'git add' and 'git commit' commands.
     ```
     'git add'  (with arguments as you normally would, such as ' -a' or others)
-    'git commit -m "<descriptive sentence or two of changes>"'
+    'git commit -m {<descriptive sentence or two of changes>}'
     ```
 Git push will automatically invoke pre-commit hooks mentioned in the linting section above 
 but only if the commit is being submitted to a branch attached to a PR.
@@ -163,7 +163,7 @@ but only if the commit is being submitted to a branch attached to a PR.
     ```
     git push --set-upstream origin <your branch>
     ```
-    For subsquent pushs, you will simple run "git push".
+    For subsequent pushs, you will simple run "git push".
 
 
 2. Submit a pull request on [inundation-mapping's GitHub page](https://github.com/NOAA-OWP/inundation-mapping).

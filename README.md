@@ -189,7 +189,8 @@ python /foss_fim/tools/synthesize_test_cases.py \
     -v <fim_run_name> \
     -m <path/to/output/metrics.csv> \
     -jh [num of jobs (cores and/or procs) per huc] \
-    -tb [num of jobs (cores and/or procs) per branch]
+    -jb [num of jobs (cores and/or procs) per branch]
+Note: While an argument is available to synthesize_test_cases.py for -tb, please do not use it at this time.
 ```
 
 More information can be found by running:
