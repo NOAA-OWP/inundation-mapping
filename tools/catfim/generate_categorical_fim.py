@@ -172,25 +172,30 @@ def process_generate_categorical_fim(
                 " or sb (for stage based)."
             )
 
+        # Get CatFIM type
+        # Note: likely can merge this with the catfim_method above as nothing else should use catfim_method only catfim_type
         if catfim_type == "sb":
             catfim_type_name = "stage_based"
         else:  # fb
             catfim_type_name = "flow_based"
 
-        # likely can merge this with the catfim_method above as nothing else should use catfim_method only catfim_type
+        # Clean up output folder name
         if output_folder.endswith("/"):
             output_folder = output_folder[:-1]
         output_folder = output_folder + "_" + catfim_type_name
 
-        # NOTE: lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
-        local_vals = locals()
-        # this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
+
+        # Validate inputs and get back validated huc list and paths for meta and threshold files
+        local_vals = locals()  # lst_hucs argument is used but passed via locals() so VSCode thinks it is not in use.
+        valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
+        # Note: this will handle a huc list arg of "all". If valid_fim_hucs is empty, it will thrown an exception
         # valid_fim_hucs are hucs that have valid huc folders in the fim output dir
         # It has not yet been compared to metadata and sites
-        valid_fim_hucs, dropped_huc_lst, nwm_meta_file, threshold_file = __validate_inputs(local_vals)
 
+        # Make output folder
         os.makedirs(output_folder, exist_ok=True)
 
+        # Set up logging
         log_folder = os.path.join(output_folder, "logs")
         log_file_path = sf.setup_file_logger(log_folder, "gen_catfim")
         is_logging_loaded = True
@@ -199,7 +204,7 @@ def process_generate_categorical_fim(
         print("")
         print(f"... Logs will be saved to {log_file_path}")
 
-        # Make sites output filepath (Needed even if we choose skip_processing)
+        # Make sites output filepath (needed even if we choose skip_processing)
         nwm_sites_file = os.path.join(output_folder, "nwm_sites.parquet")
 
         # Create the runtime args file to store CatFIM inputs
@@ -217,29 +222,33 @@ def process_generate_categorical_fim(
             past_major_interval_cap,
         )
 
+        # Throw a warning if any listed HUCs are in our FIM outputs
         if len(dropped_huc_lst) > 0:
             logging.warning('Listed HUCs not available in FIM run directory:')
             logging.warning(dropped_huc_lst)
 
-        # We really only need to load this env if we are going to let the script call WRDS directly.
+        # Load the API url if we are going to to call WRDS APIs for meta or threshold data
         api_base_url = ""
-        if get_new_meta_data is True:
+        if get_new_meta_data is True or get_new_threshold_data is True:
             api_base_url = csf.load_fim_global_env_values(env_file)
 
         # ================================
+        # Load NWM metadata
 
         section_start_dt = datetime.now(timezone.utc)
 
         # TODO: This has duplicate headers, durations, etc from load_nwm_metadata
         # but those ones are prints. We want them logged.
 
-        logging.info("Loading meta data and huc dictionary")
+        logging.info("Loading metadata and HUC dictionary")
 
+        # Jan 2026 note: 
         # I don't think I need the meta_list in this particular script, just the huc dictionary,
         # but load_nwm_metadata loads the meta data list to calc the huc_dictionary.
         # Other scripts, do use the meta_data values.
 
-        # Do not pass in a huc list as it can miss some sites. See notes at load_nwm_metadata
+        # Load NWM metadata from pickle or WRDS
+        # Note: We do not pass in a huc list as it can miss some sites. See notes at load_nwm_metadata
         metadata_json_list, return_msgs = dpw.load_nwm_metadata(
             nwm_meta_file, api_base_url, search, get_new_meta_data, list()
         )
@@ -249,8 +258,9 @@ def process_generate_categorical_fim(
         # with open(meta_json_to_text, 'w') as f:
         #     json.dump(metadata_json_list, f, indent=4)
 
-        # return_msgs is a list and might have some warnings, some messages and/or errors
+        # Parse any messages returned from load_nwm_metadata
         if len(return_msgs) > 0:
+            # return_msgs is a list and might have some warnings, some messages and/or errors
             # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of
             # custom exceptions.
 
@@ -270,18 +280,19 @@ def process_generate_categorical_fim(
         logging.info(f"Completed loading metadata - Duration: {str(time_duration).split('.')[0]}")
         print("")
 
-        wbd_file = os.getenv("input_wbd_layer")
-        # wbd_file = '/data/inputs/wbd/WBD_National.gpkg'
+
+        # ================================
+        # Create HUC dictionary and NWM sites GeoDataFrame
+
+        wbd_file = os.getenv("input_wbd_layer")  # '/data/inputs/wbd/WBD_National.gpkg'
+
         huc_dictionary, nwm_sites_all_gdf = aggregate_wbd_hucs(
             metadata_json_list, wbd_file, retain_attributes=True
         )
         if len(huc_dictionary) == 0:
             raise Exception("The metadata pickle file does not have any appliable HUCs")
 
-        # These fields throw errors when saving from gdf to gpkg, throwing Skipping field because of invalid value
-        # but strangely not in all records.
-        # likely bad records or nulls in key which get filtered out later.
-        # nwm_sites_all_gdf = nwm_sites_all_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
+        # Specify column data types to avoid issues when saving to gpkg
         nwm_sites_all_gdf = nwm_sites_all_gdf.astype(
             {
                 'metadata_sources': str,
@@ -296,6 +307,10 @@ def process_generate_categorical_fim(
                 'nwm_feature_data_stream_order': str,
             }
         )
+        # NOTE: These fields throw errors when saving from gdf to gpkg, throwing Skipping field because of invalid value
+        # but strangely not in all records.
+        # likely bad records or nulls in key which get filtered out later.
+        # nwm_sites_all_gdf = nwm_sites_all_gdf.drop(['downstream_nwm_features', 'upstream_nwm_features'], axis=1, errors='ignore')
 
         # Save the nwm_sites_all_gdf for catfim_process_huc.py to pick up.
         # It has all sites and its huc number.
@@ -305,23 +320,21 @@ def process_generate_categorical_fim(
 
         nwm_sites_all_gdf = nwm_sites_all_gdf.to_crs(VIZ_PROJECTION)
 
-        # parquet version for quick loading in each HUC and 1/10th of the size
-        nwm_sites_all_gdf.to_parquet(nwm_sites_file)  # for quick loading in huc level
-        # for debugging and not shared with the HUCs
+        # Save a parquet version for quick loading in each HUC and 1/10th of the size
+        nwm_sites_all_gdf.to_parquet(nwm_sites_file) 
+
+        # Save a GPKG version for debugging (not shared with the HUCs)
         nwm_sites_all_gdf.to_file(nwm_sites_file.replace('.parquet', '.gpkg'), driver='GPKG', engine='fiona')
 
-        # TODO: Should we get a threshold for all hucs like we do for meta? then the hucs can copy / filter
-        # like meta? probably.. -> decide, eventual update to WRDS download workflow (downloading all would take more time though...) 
-
-        # Change it to a simple string huc list.
-        # All HUCs in this list are validated as having hand data, plus are not on the restricted list.
-        # Now I do not needs the aphs sites anymore, just unique huc list
-
+        # Change the HUC list to a simple string huc list # TODO: Clean up?
         # meta_huc_list = list(set(huc_dictionary.values()))
         # meta_huc_list = huc_dictionary.keys().sort()
+        # NOTE: All HUCs in this list are validated as having hand data, plus are not on the restricted list.
+        # Now I do not needs the aphs sites anymore, just unique huc list
+
         valid_fim_hucs.sort()
 
-        # AWS will need this list to know what HUCs to process and iterate
+        # Save the HUC list for this CatFIM run (AWS will need this list to know what HUCs to process and iterate)
         catfim_huc_list_file = os.path.join(output_folder, "catfim_huc_list.txt")
         with open(catfim_huc_list_file, "w") as f:
             for item in valid_fim_hucs:
@@ -332,6 +345,46 @@ def process_generate_categorical_fim(
         huc_dir = os.path.join(output_folder, 'hucs')
         os.makedirs(huc_dir, exist_ok=True)
         os.chmod(huc_dir, 0o777)  # 777 (rwxrwxrwx)
+
+        # ================================
+        # Download thresholds (if specified)
+
+        # TODO: Should we get a threshold for all hucs like we do for meta? then the hucs can copy / filter
+        # like meta? probably.. -> decide, eventual update to WRDS download workflow (downloading all would take more time though...) 
+
+        if get_new_threshold_data == True:
+            section_start_dt = datetime.now(timezone.utc)
+
+            logging.info("Downloading threshold data from WRDS")
+
+            threshold_url = f'{api_base_url}/nws_threshold'
+
+            # label = '' # TODO: decide on whether to keep date label
+            # label_with_date = dpw.label_data_file(label, lst_hucs)
+            # output_thresholds_filename = f'thresholds{label_with_date}.pkl'
+
+            output_thresholds_filename = f'thresholds.pkl'
+            thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
+
+            logging.info(f'Threshold data will be saved to {thresholds_filepath}')
+
+            dpw.download_all_thresholds(thresholds_filepath, threshold_url, huc_dictionary)
+
+            # Currently we download all thresholds, but we could filter the huc_dictionary to 
+            # only those hucs we are processing if we wanted to speed things up. TODO: Decide
+
+            end_dt = datetime.now(timezone.utc)
+            time_duration = end_dt - section_start_dt
+            logging.info(f"Completed downloading thresholds - Duration: {str(time_duration).split('.')[0]}")
+            print("")
+
+
+
+        # End of pre-processing ?
+
+
+        # ================================
+        # Finish up if skip_processing is True
 
         if skip_processing:
 
@@ -349,6 +402,10 @@ def process_generate_categorical_fim(
             f"Processing {len(valid_fim_hucs)} valid CatFIM HUCs. Note: not all HUCs may have ahps sites."
         )
 
+        # ================================
+        # Clean old files if overwrite is True # TODO: need to implement
+
+
         # TODO: Cleaning old files: remove all content in huc folders, EXCEPT their log files. Discuss - is this referring to cleaing out files from previous runs?
         # With us later scanning for files and file extensions, we may not want to be pulling in old bad HUCs.
         # or... do we. maybe we had some good HUCs that were left behind. Do we just let it pull them in?
@@ -362,42 +419,51 @@ def process_generate_categorical_fim(
         # someone could re-run a huc, then re-run post processing and it will pick it up from all folders
         # hummmm
 
-        task_args_list = []
-        for huc in valid_fim_hucs:
-            task_args_list.append({"huc": huc, "output_folder": output_folder})
 
-        # Emily.. for your testing let it stop here for testing gen_catfim
-        # also add a system to abort after saving a huclist so it does not continue to iterate
-        # or run post processing. In EC2's, we do not want an early (pre-processing) abort as we do want
-        # it to iterate and hit post  processing.
-        # BUT.... in AWS, Step Functions will take care of the huc ietartion and post processing.
-        print("stop here in gen catfim for now")
-        sys.exit(0)
 
-        # === Run jobs in parallel ===
+        # # Emily.. for your testing let it stop here for testing gen_catfim # TODO: Remove later
+        # # also add a system to abort after saving a huclist so it does not continue to iterate
+        # # or run post processing. In EC2's, we do not want an early (pre-processing) abort as we do want
+        # # it to iterate and hit post  processing.
+        # # BUT.... in AWS, Step Functions will take care of the huc ietartion and post processing.
+        # print("stop here in gen catfim for now")
+        # sys.exit(0)
+
+
+
+        # ================================
+        # Iterate over HUCs and process each one in parallel
+
+        # Jan 2026 Notes on MP processing of HUCs:
+        #
         # do we want a TQDM? depends on what we want to output to screen.
         # play with it a little. We recently figured out how to do both.
         # depending on what we choose to do, look at my new s3_shared_functions
         # even though it uses MT, but can be easily adjsuted to MP
-
+        #
         # With each process_huc handing it's own logging
         # and may/may not be handing it's screen output...
         #     we may not want to use run_with_mp. TBD
-
+        #
         #     We need to be able to have catfim_process_huc.py run completely independently in case it is
         #     running in AWS (hence.. its own log and log folder).
-
+        #
         # But maybe we do let it all right to a common one and use run_with_mp. If we do:
         #     can the mp call a seprate py file? (like through a process_by_huc function here or somethign)
         #     right now, run_with_mp assumes one logger for all mp's so this does not work for AWS
         #     unless we come up with something else.  Maybe a None logger that catfim_process_huc can detect?
         #     or let a function in that script setup its own logger if comign through AWS?
-
+        #
         # For now, due to debugging, just use our own process pool
 
-        # We do not need anythign back at this point, only to know catch a fail but never shut down the thread
-        # So we dont' even need a futures
-        # what about CTRL-C
+        task_args_list = []
+        for huc in valid_fim_hucs:
+            task_args_list.append({"huc": huc, "output_folder": output_folder})
+
+        logging.info(f"Starting multi-process CatFIM HUC processing with {number_jobs} jobs.")
+
+        # Jan 2026 Notes: We do not need anythign back at this point, only to know catch a fail but never shut down the thread
+        # So we dont' even need a futures. what about CTRL-C? 
         with ProcessPoolExecutor(max_workers=number_jobs) as executor:
 
             # Some mp functions might throw an exception, which means it may not get to as_completed
@@ -419,8 +485,15 @@ def process_generate_categorical_fim(
             # catestrophic errors where we want to shut down the MP
             # (inc CTRL-C which may be more than one)
 
+        logging.info("Completed multi-process CatFIM HUC processing.")
+
+        print("stop here in gen catfim - right before post processing - for now")
+        sys.exit(0)
+
         # End of mp huc processing
 
+        # ================================
+        # Run CatFIM post processing
         catfim_post_processing(output_folder)
 
         logging.info("End generate categorical fim processing")

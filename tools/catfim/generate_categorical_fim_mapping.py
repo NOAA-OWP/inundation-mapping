@@ -70,6 +70,7 @@ def catfim_mapping(huc, output_folder):
     # Load CatFIM run arguments from the runtime_args.env file
     csf.load_runtime_args()
 
+
     # Validate input parameters and return normalized paths
     huc_path, output_folder = csf.validate_inputs(
         huc, output_folder
@@ -130,6 +131,7 @@ def catfim_mapping(huc, output_folder):
 # Main function for CatFIM mapping processing for a HUC
 def process_mapping(
     catfim_type,
+    huc,
     huc_path, # huc path {fim_run_dir}/{huc}
     output_mapping_dir, # dir where mapping outputs are stored - {huc_path}/mapping/
     output_temp_dir,  # TODO: decide, do we need this?
@@ -186,8 +188,11 @@ def process_mapping(
     # --------------------------
     # Load mapping data for HUC
 
+    print("Loading mapping data for HUC") # TODO: replace prints with logging?
+
     segments_file_path = os.path.join(huc_path, "features_segments.csv")
     sites_gdf, huc_library_df, huc_segments_df =  __load_mapping_data(
+        huc_path,
         sites_mapping_file_path,
         segments_file_path,
         library_pre_inun_file_path)
@@ -203,6 +208,17 @@ def process_mapping(
     # Mapping pre-processing (processing used by both SB and FB)
     #  TODO: Fill in (if needed)
 
+    # Get FIM run dir from env file # TODO: check that this works
+
+    # csf.load_runtime_args(output_folder)
+
+    
+    fim_run_dir = os.getenv("FIM_RUN_DIR")
+
+    fim_run_dir = '/data/previous_fim/hand_4_8_7_2' # TEMP DEBUG just keeping this in for testing so I can run process_mapping() individually
+
+    print(f"FIM_RUN_DIR is {fim_run_dir}") # TEMP DEBUG
+
     # --------------------------
     # Split to SB- and FB-specific mapping processing
 
@@ -212,6 +228,9 @@ def process_mapping(
 
 
     if catfim_type == "sb":
+
+        print("Beginning SB mapping") # TODO: replace prints with logging?
+
         print("coming")
 
         # TODO: Decide: One thing not yet done is using the __calc_stage_values but do we still even need it?
@@ -231,19 +250,30 @@ def process_mapping(
                                         )
 
     elif catfim_type == "fb":
-        # discharge_file_path = os.path.join(huc_path, "flow_discharges.csv):
-        # TODO: load it here and pass it in ??
+
+        print("Beginning FB mapping") # TODO: replace prints with logging?
 
         # Jan 26 - Renamed run_catfim_inundation() to run_fb_mapping() 
-        sites_gdf, huc_library_df = run_fb_mapping(sites_gdf,
+        sites_gdf, huc_library_df = run_fb_mapping(
+                                        huc,
+                                        huc_path,
+                                        sites_gdf,
                                         huc_library_df,
-                                        huc_segments_df,
-                                        output_mapping_dir, 
-                                        sites_mapping_file_path)
+                                        output_mapping_dir,
+                                        fim_run_dir,
+                                        output_temp_dir,
+                                        )
+
 
 
     # At this point, we will have the inundated tifs for each valid site/magnitude combination
     # and the updated sites_gdf and huc_library_df. 
+
+
+    # CatFIM reorg: 1/21/26 as of now FB is working as expected up to here!
+    print("--------------") ## TEMP DEBUG
+    print("exit process_mapping rught before the HUC-level post-processing")
+    sys.exit(0)
 
     # TODO: At this point, I think we just need to merge those inundated tifs into a single layer
     # per magnitude and add that into the huc_library_df to make it into the huc_library_gdf... Right?
@@ -313,12 +343,13 @@ def process_mapping(
 # Maybe we can use the catfim_type for an if catfim_type = SB for small blocks? and then we could use for both?
 # Otherwise we can just have run_fb_mapping and run_sb_mapping separately...? -> could combine in future work, keep separate for now?
 
-def run_fb_mapping(huc, sites_gdf,
-                        huc_library_df,
-                        huc_segments_df, 
-                        output_mapping_dir, 
-                        sites_mapping_file_path, # TODO: Remove unused inputs
-                        output_flows_dir,
+def run_fb_mapping(huc, 
+                   huc_path,
+                   sites_gdf,
+                   huc_library_df,
+                   output_mapping_dir, 
+                   fim_run_dir,
+                   output_temp_dir,
 ):
     '''
     Only used in flow-based CatFIM.
@@ -336,21 +367,19 @@ def run_fb_mapping(huc, sites_gdf,
     this function iterates by site/magnitude whereas run_sb_mapping() iterates by site. (TODO: could fix this? not sure if it's worth it)
 
 
-
-
     CatFIM Reorg Notes (Jan 26):
 
         This function was previously named run_catfim_inundation but was renamed to run_fb_mapping for clarity 
         (because it is only used in flow-based CatFIM).
 
-   
-
     '''
 
-    # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
+    # TODO: Add a pointer in this file coming from generate_categorial_fim so they can share the same log file
     print()
 
     logging.info(">>> Start Inundating and Mosaicking")
+    print(">>> Start Inundating and Mosaicking") # TEMP DEBUG
+
 
     # Load the discharge file which has the flows
 
@@ -394,84 +423,140 @@ def run_fb_mapping(huc, sites_gdf,
 
     # -----------------------
     # Get list of AHPS site directories
-    huc_flows_dir = os.path.join(output_flows_dir, huc)
+        
 
-    # Map path to huc directory inside the mapping directory
-    huc_mapping_dir = os.path.join(output_mapping_dir, huc) # TODO: Doublecheck pathing here
-    if not os.path.exists(huc_mapping_dir):
-        os.makedirs(huc_mapping_dir, exist_ok=True)
 
-    # ahps_site_dir_list = os.listdir(ahps_site_dir)
-    ahps_site_dir_list = [
-        x for x in os.listdir(huc_flows_dir) if os.path.isdir(os.path.join(huc_flows_dir, x))
-    ]  # ahps folder names under the huc folder
+    # huc_flows_dir = os.path.join(output_flows_dir, huc) 
 
-    logging.info(f"{huc} : ahps_site_dir_list is {ahps_site_dir_list}")
+    # # Map path to huc directory inside the mapping directory
+    # huc_mapping_dir = os.path.join(output_mapping_dir, huc) # TODO: Doublecheck pathing here
+    # if not os.path.exists(huc_mapping_dir):
+    #     os.makedirs(huc_mapping_dir, exist_ok=True)
+
+    # # ahps_site_dir_list = os.listdir(ahps_site_dir)
+    # ahps_site_dir_list = [
+    #     x for x in os.listdir(huc_flows_dir) if os.path.isdir(os.path.join(huc_flows_dir, x))
+    # ]  # ahps folder names under the huc folder
+
 
 
     # -----------------------
+    # Get list of AHPS sites in HUC from the sites GDF
+
+    ahps_sites_list = sites_gdf['nws_lid'].unique()
+
+    print(f"{huc} : ahps_sites_list is {ahps_sites_list}")
+
+    # -----------------------
+
+    # Read thresholds CSV files to get list of magnitudes per site
+    huc_thresholds_csv_path = os.path.join(huc_path, f'{huc}_thresholds.csv')
+    huc_thresholds_df = pd.read_csv(huc_thresholds_csv_path)
+
+    # Filter out rows where threshold_type is not "flows"
+    huc_thresholds_df = huc_thresholds_df[huc_thresholds_df['threshold_type'] == 'flows']
+
+    # Use pd.melt to pivot the df to long format
+    huc_thresholds_long_df = pd.melt(
+        huc_thresholds_df,
+        id_vars=['nws_lid'],
+        value_vars=['action', 'minor', 'moderate', 'major', 'record'],
+        var_name='magnitude_type',
+        value_name='magnitude_value'
+    )
+
+    # Remove rows where magnitude_value is -1.0 # TODO: Update with a variable?
+    huc_thresholds_long_df = huc_thresholds_long_df[huc_thresholds_long_df['magnitude_value'] != -1.0]
 
     # Loop through AHPS sites
-    for ahps_id in ahps_site_dir_list:
+    for ahps_site in ahps_sites_list:
         # map parent directory for AHPS source data dir and list AHPS thresholds (act, min, mod, maj)
-        ahps_site_parent = os.path.join(huc_flows_dir, ahps_id)
+        # ahps_site_parent = os.path.join(huc_flows_dir, ahps_site)
 
         # thresholds_dir_list = os.listdir(ahps_site_parent)
-        thresholds_dir_list = [
-            x
-            for x in os.listdir(ahps_site_parent)
-            if os.path.isdir(os.path.join(ahps_site_parent, x))
-        ]
+        # thresholds_dir_list = [
+        #     x
+        #     for x in os.listdir(ahps_site_parent)
+        #     if os.path.isdir(os.path.join(ahps_site_parent, x))
+        # ]
 
         # but we can just extract it from the csv files names which are
         # patterned as: 04130003/chrn6/moderate/chrn6_huc_04130003_flows_moderate.csv # TODO: Doublecheck pathing here (this has changed a bit)
 
-        # Map parent directory for all inundation output files output files.
-        huc_site_mapping_dir = os.path.join(huc_mapping_dir, ahps_id)
-        if not os.path.exists(huc_site_mapping_dir):
-            os.makedirs(huc_site_mapping_dir, exist_ok=True)
+        # # Map parent directory for all inundation output files output files.
+        # huc_site_mapping_dir = os.path.join(huc_mapping_dir, ahps_site) # TODO: Decide, do we want to have subfolder per site? Probably not...
+        # if not os.path.exists(huc_site_mapping_dir):
+        #     os.makedirs(huc_site_mapping_dir, exist_ok=True)
+
+        # Get a list of available magnitudes
+        huc_thresholds_long_df_site = huc_thresholds_long_df[huc_thresholds_long_df['nws_lid'] == ahps_site]
+        magnitude_list = huc_thresholds_long_df_site['magnitude_type'].to_list()
+
+        # Load the magnitude flows CSV for the HUC
+        magnitude_flows_csv = os.path.join(huc_path, 'flow_discharges.csv')
+        magnitude_flows_df = pd.read_csv(magnitude_flows_csv)
+        # print(f"magnitude_flows_csv is {magnitude_flows_csv}") # TEMP DEBUG
 
         # Loop through thresholds/magnitudes and define inundation output files paths
+        print(f"{huc}: {ahps_site} threshold dir list is {magnitude_list}")
 
-        logging.info(f"{huc}: {ahps_id} threshold dir list is {thresholds_dir_list}")
-
-        for magnitude in thresholds_dir_list:
-            if "." in magnitude:
+        for magnitude in magnitude_list:
+            if "." in magnitude: # TODO: Do we need this check?
                 continue
 
-            magnitude_flows_csv = os.path.join(
-                ahps_site_parent,
-                magnitude,
-                ahps_id + '_huc_' + huc + '_flows_' + magnitude + '.csv',
-            )
+            # Create a site/magnitude specific flows csv and drop unnecessary colunmns
+            magnitude_flows_df_filtered = magnitude_flows_df[
+                (magnitude_flows_df['lid'] == ahps_site) &
+                (magnitude_flows_df['magnitude'] == magnitude)
+            ]
+            magnitude_flows_df_filtered = magnitude_flows_df_filtered.drop(columns=['lid', 'magnitude'])
+
+            # Save filtered flows to CSV in the temp dir
+            # Note: the inundate() function can take a CSV or a df. In that case, is it maybe better to save as a temp CSV I think?
+            magnitude_flows_csv_path = os.path.join(output_temp_dir, f"{ahps_site}_{magnitude}_flows.csv")
+            magnitude_flows_df_filtered.to_csv(magnitude_flows_csv_path, index=False)
+
+            print(f"Saved flows for {ahps_site} - {magnitude} to {magnitude_flows_csv_path}") # TEMP DEBUG
+
+            # magnitude_flows_csv = os.path.join( # old code that called in preexisting csv
+            #     ahps_site_parent,
+            #     magnitude,
+            #     ahps_site + '_huc_' + huc + '_flows_' + magnitude + '.csv',
+            # # )
+            # magnitude_flows_csv = os.path.join(huc_path, 'flow_discharges.csv') # Moved to be higher up so we don't have to keep reading it
             # print(f"magnitude_flows_csv is {magnitude_flows_csv}") # TEMP DEBUG
 
-            tif_name = ahps_id + '_' + magnitude + '_extent.tif'
-            output_extent_tif = os.path.join(huc_site_mapping_dir, tif_name)
+            # Define output inundation extent tif path # TODO: Decide if there's anything about the name I want to change
+            tif_name = ahps_site + '_' + magnitude + '_extent.tif'
+            output_extent_tif = os.path.join(output_mapping_dir, tif_name)
 
-            logging.info(f"Begin inundation for {tif_name}")
+            print(f"Begin inundation for {tif_name}")
             try:
-                executor.submit( # TODO: decide about keeping MP here
-                    run_fb_inundation, # TODO: Update function inputs etc. as needed
-                    magnitude_flows_csv,
+                # executor.submit( # TODO: decide about keeping MP here (removed for now)
+                job_number_inundate = 1 # TODO: Decide about keeping MP here? (added a placeholder for now)
+
+                run_fb_inundation(
                     huc,
-                    huc_site_mapping_dir,
-                    output_extent_tif,
-                    ahps_id,
+                    ahps_site,
                     magnitude,
                     fim_run_dir,
-                    job_number_inundate,
-                    log_output_file,
-                    child_log_file_prefix,
+                    magnitude_flows_csv_path,  # Can be a CSV path or a dataframe, using a csv path for now
+                    output_extent_tif,
+                    job_number_inundate, 
+                    # huc_path,
+                    # output_mapping_dir, # was huc_site_mapping_dir,
+                    # log_output_file,
+                    # child_log_file_prefix,
                 )
 
             except Exception:
                 logging.critical(
-                    "A critical error occured while attempting inundation"
-                    f" for {huc} - {ahps_id}-- {magnitude}"
+                    "A critical error occurred while attempting inundation"
+                    f" for {huc} - {ahps_site}-- {magnitude}"
                 )
+                print(traceback.format_exc())  # TEMP DEBUG
                 logging.critical(traceback.format_exc())
-                logging.merge_log_files(log_output_file, child_log_file_prefix)
+                # logging.merge_log_files(log_output_file, child_log_file_prefix) # TODO: Update logging here
                 sys.exit(1)
 
         # except Exception: # Try statement was from the HUC loop which is now removed... do we want to add the try statement back?
@@ -483,7 +568,7 @@ def run_fb_mapping(huc, sites_gdf,
     # end of ProcessPoolExecutor
 
     print()
-    logging.info(">>> End Inundating and Mosaicking")
+    print(">>> End Inundating and Mosaicking")
 
     return sites_gdf, huc_library_df
 
@@ -493,16 +578,17 @@ def run_fb_mapping(huc, sites_gdf,
 # TODO: decide HUMMMM.... do we send in the site.gdf or jsut manage returning messages
 
 def run_fb_inundation( # renamed from run_inundation
-    magnitude_flows_csv,  # is this the discharge data?
-    huc,
-    output_huc_site_mapping_dir,
-    output_extent_tif,
-    ahps_site,
-    magnitude,
-    fim_run_dir,
-    job_number_inundate,
-    # parent_log_output_file,
-    # child_log_file_prefix,
+        huc,
+        ahps_site,
+        magnitude,
+        fim_run_dir,
+        magnitude_flows_csv_path,
+        output_extent_tif,
+        job_number_inundate,
+        # huc_path,
+        # output_mapping_dir,
+        # parent_log_output_file,
+        # child_log_file_prefix,
 ):
     '''
     Only used in flow-based CatFIM.
@@ -515,8 +601,6 @@ def run_fb_inundation( # renamed from run_inundation
         - mask_out_lakes()
 
         -> returns inundated site/mag tifs with lakes masked out
-
-
 
 
     Runs the inundation mapping workflow for a given HUC and magnitude, including logging,
@@ -567,8 +651,8 @@ def run_fb_inundation( # renamed from run_inundation
 
         map_file = Inundate_gms(
             hydrofabric_dir=fim_run_dir,
-            forecast=magnitude_flows_csv,
-            num_workers=job_number_inundate,
+            forecast=magnitude_flows_csv_path,
+            num_workers=job_number_inundate, # TODO: keep multiproc? currently defaults to 1 
             hydro_table_df=None,
             hucs=huc,
             inundation_raster=output_extent_tif,
@@ -589,7 +673,7 @@ def run_fb_inundation( # renamed from run_inundation
             map_file,
             mosaic_attribute='inundation_rasters',
             mosaic_output=output_extent_tif,
-            mask=os.path.join(huc_dir, 'wbd.gpkg'),
+            mask=os.path.join(fim_run_dir, 'wbd.gpkg'),
             unit_attribute_name='huc8',
             nodata=-9999,
             workers=1,
@@ -600,7 +684,6 @@ def run_fb_inundation( # renamed from run_inundation
 
         # MP_LOG.trace(f"Mosaicking complete for {huc} : {ahps_site} : {magnitude}")
         logging.info(f"Mosaicking complete for : {ahps_site} : {magnitude}")
-
 
         # ---------------------
         # Mask out lakes from inundated tif and re-save tif
@@ -616,6 +699,9 @@ def run_fb_inundation( # renamed from run_inundation
         # MP_LOG.trace(f"Lake masking complete for {huc} : {ahps_site} : {magnitude}")
         logging.info(f"Lake masking complete for {ahps_site} : {magnitude}")
 
+        if mask_status:
+            logging.info(mask_status)
+
     # TODO: Decide humm... do we keep the try catch here? do we even want one?
     # what do we want to do if a site, mag fails... dump the entire tool or
     # just log this site/mag?
@@ -623,8 +709,8 @@ def run_fb_inundation( # renamed from run_inundation
         # Log errors and their tracebacks
         # MP_LOG.error(f"Exception: running inundation for {huc}")
         # MP_LOG.error(traceback.format_exc())
-        logging.critical(f"Exception: running inundation for {ahps_site} : {magnitude}")
-        logging.critcal(traceback.format_exc())
+        logging.info(f"Exception: running inundation for {ahps_site} : {magnitude}") # TODO: update so it has 'critical' somehow?
+        logging.info(traceback.format_exc())
         return
 
     # Inundation.py appends the huc code to the supplied output_extent_grid for stage-based.
@@ -636,7 +722,7 @@ def run_fb_inundation( # renamed from run_inundation
 
     # MP_LOG.trace(f"saved_extent_grid_filename is {saved_extent_grid_filename}")
 
-    if not os.path.exists(output_extent_tif):
+    if not os.path.exists(output_extent_tif): # TODO: Doublecheck that this is the way we want to check for success
         logging.error(f"FAILURE: {ahps_site} - {magnitude} map failed to create")
         # return
 
@@ -1678,7 +1764,7 @@ def merge_inundated_layers_huc(
 
 
     # Iterate through all GPKG files in the HUC mapping directory
-    for gpkg_file in gpkg_files: # TODO
+    # for gpkg_file in gpkg_files: # TODO
 
         # Merge GPKGs 
 
@@ -1693,7 +1779,7 @@ def merge_inundated_layers_huc(
 
 
 
-    return library_post_mapping # Will be saved to a file later on
+    # return library_post_mapping # Will be saved to a file later on
 
     # ==========================================
     # Old code that I want this function to replace: 
@@ -2036,7 +2122,7 @@ def manage_catfim_mapping(
     return
 
 
-def __load_mapping_data(sites_mapping_file_path, segments_file_path, library_pre_inun_file_path):
+def __load_mapping_data(huc_path, sites_mapping_file_path, segments_file_path, library_pre_inun_file_path):
     """
 
     Load data needed for CatFIM mapping. 
@@ -2058,7 +2144,7 @@ def __load_mapping_data(sites_mapping_file_path, segments_file_path, library_pre
 
     # --------------------------
     # Load segments file.. they both need it
-    segments_file_path = os.path.join(huc_path, "features_segments.csv") # TODO: Fix path
+    segments_file_path = os.path.join(huc_path, "features_segments.csv")
     if not os.path.isfile(segments_file_path):
         raise Exception(f"Missing file, expected {segments_file_path}")
     huc_segments_df = pd.read_csv(segments_file_path)

@@ -383,10 +383,25 @@ def process_huc(huc, output_folder):
         # If FB, load branch and HAND data? (rems and hydrotables), liekly all done via inundation scripts
         # hummmmm # TODO: Discuss?
 
+
+
         # Temp debugging # TODO: Clean up 
-        # print("--------------")
-        # print("Ok.. let's stop here for now")
-        # sys.exit(0)
+        sites_mapping_file_path = os.path.join(output_mapping_dir, f"sites_mapping.gpkg")
+        sites_gdf.to_file(
+            sites_mapping_file_path, driver='GPKG', crs=VIZ_PROJECTION, engine="fiona", index=False
+        )
+        print(f'catfim_type: {catfim_type}') # TEMP DEBUG
+        print(f'huc: {huc}') # TEMP DEBUG            
+        print(f'huc_path: {huc_path}') # TEMP DEBUG
+        print(f'output_mapping_dir: {output_mapping_dir}') # TEMP DEBUG
+        print(f'output_temp_dir: {output_temp_dir}') # TEMP DEBUG
+        print(f'sites_mapping_file_path: {sites_mapping_file_path}') # TEMP DEBUG
+        print(f'library_pre_inun_file_path: {library_pre_inun_file_path}') # TEMP DEBUG
+        print(f'library_post_mapping_file_path: {library_post_mapping_file_path}') # TEMP DEBUG
+
+        print("--------------")
+        print("exit CatFIM process HUC right before process_mapping()")
+        sys.exit(0)
 
         # Start CatFIM mapping for the HUC
         if continue_processing is True:
@@ -407,11 +422,11 @@ def process_huc(huc, output_folder):
             # and Yes... we will be reloading and replacing our sites_gdf from the mapping version
             # as it might have updated it.
             # Mapping will know the file names for the segments and discharge
-
+            
             # Process CatFIM mapping
             gcfm.process_mapping(
                 catfim_type,
-                huc,
+                # huc,
                 huc_path,
                 output_mapping_dir,
                 output_temp_dir,

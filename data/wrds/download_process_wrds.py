@@ -226,7 +226,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
 
     for huc, lids in huc_lid_dict.items():
         for lid in lids:
-            print(huc, lid)
+            # print(huc, lid) # TEMP DEBUG
 
             try:
                 stages, flows, status = get_thresholds(
