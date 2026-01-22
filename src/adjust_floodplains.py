@@ -64,8 +64,7 @@ def adjust_floodplains(
         The ID of the branch to adjust.
     fema_flood_zones_file : str
         The file containing the FEMA flood zones.
-    fema_flood_zones_layer : str, optional
-        The layer name of the FEMA flood zones, by default 'combined'.
+    fema_flood_zones_layer : str.
 
     Returns
     -------
@@ -206,9 +205,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--branch-polygons', help='Branch polygons file', type=str)
     parser.add_argument('-b', '--branch-id', help='Branch ID', type=str)
     parser.add_argument('-f', '--fema-flood-zones-file', help='FEMA flood zones file', type=str)
-    parser.add_argument(
-        '-l', '--fema-flood-zones-layer', help='FEMA flood zones layer', type=str, default='combined'
-    )
+    parser.add_argument('-l', '--fema-flood-zones-layer', help='FEMA flood zones layer', type=str)
     parser.add_argument('-c', '--nwm-catchments', help='NWM catchments file', type=str)
     parser.add_argument('-n', '--nwm-streams', help='NWM streams file', type=str)
     parser.add_argument('-lp', '--nwm-levelpaths', help='NWM levelpaths file', type=str)
