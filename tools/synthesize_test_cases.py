@@ -306,7 +306,7 @@ def progress_bar_handler(executor_dict, verbose, desc):
 if __name__ == '__main__':
     # Sample usage:
     '''
-     === FOR (FIM 4)
+
     python /foss_fim/tools/synthesize_test_cases.py
         -c DEV
         -v hand_4_6_1_2
@@ -321,40 +321,17 @@ if __name__ == '__main__':
        - the -vg param may not be working (will be assessed better on later releases).
        - Find a balance between -jh (number of jobs for hucs) versus -jb (number of jobs for branches)
          on quick tests on a 96 core machine, we tried [1 @ 80], [2 @ 40], and [3 @ 25] (and others).
-       -jh 9 -jb 5 in AWS was noticably better. You can likely go more jb cores with better success, just
-         experiment.  Start times, End Times and duration are now included.
        - The -m can be any path and any name.
        - Previous metric CSV (-pcsv) and the cycle previous files argument (-pfiles) will return an error
          if called at the same time. If neither are used, the alpha test metrics will only be compiled
-         for the provided dev version to compare.
+         for the provided dev version to compare. You will need a copy of a recent metrics file to use
+         the -pcsv argument.
 
      To see your outputs in the test_case folder (hard coded path), you can check for outputs using
          (cd .... to your test_case folder), then command becomes  find . -name gms_test_* -type d (Notice the
          the -name can be a wildcard for your -v param (or the whole -v value))
      If you want to delete the test outputs, test the outputs as suggest immediately above, but this time your
          command becomes:  find . -name gms_test_* -type d  -exec rm -rdf {} +
-    '''
-    '''
-     === FOR FIM 3
-    python /foss_fim/tools/synthesize_test_cases.py
-        -c DEV
-        -e MS
-        -v dev_fim_3_0_29_1_ms
-        -jh 4
-        -m /outputs/dev_fim_3_0_29_1_ms/alpha/alpha_master_metrics_fim_3_0_29_1_ms_src_adjust.csv
-        -vg -o
-
-     Notes:
-       - the -v param is the name in the folder in the "outputs/" directory where the test hucs are at.
-           It also becomes the folder names inside the test_case folders when done.
-       - the -vg param may not be working (will be assessed better on later releases).
-       - The -m can be any path and any name.
-
-     To see your outputs in the test_case folder (hard coded path), you can check for outputs using
-         (cd .... to your test_case folder), then command becomes  find . -name dev_fim_3_0_29_1_* -type d
-         (Notice the the -name can be a wildcard for your -v param (or the whole -v value))
-     If you want to delete the test outputs, test the outputs as suggest immediately above, but this time your
-         command becomes:  find . -name dev_fim_3_0_29_1_* -type d  -exec rm -rdf {} +
     '''
 
     # Parse arguments.

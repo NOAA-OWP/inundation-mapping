@@ -10,6 +10,12 @@ import whitebox
 from utils.fim_enums import FIM_exit_codes
 
 
+# Set wbt envs
+wbt = whitebox.WhiteboxTools()
+wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to setting verbose mode
+wbt.set_verbose_mode(False)
+
+
 def agreedem(
     rivers_raster,
     dem,
@@ -50,10 +56,6 @@ def agreedem(
     None.
 
     '''
-    # Set wbt envs
-    wbt = whitebox.WhiteboxTools()
-    wbt.set_verbose_mode(False)
-    wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
     # ------------------------------------------------------------------
     # 1. From Hellweger documentation: Compute the vector grid
@@ -209,9 +211,11 @@ def agreedem(
             assert os.path.exists(bufallo_grid), f'Buffer allocation grid not created: {bufallo_grid}'
 
             # Open distance, allocation, elevation grids.
-            with rasterio.open(bufdist_grid) as bufdist, rasterio.open(
-                bufallo_grid
-            ) as bufallo, rasterio.open(vectallo_grid) as vectallo:
+            with (
+                rasterio.open(bufdist_grid) as bufdist,
+                rasterio.open(bufallo_grid) as bufallo,
+                rasterio.open(vectallo_grid) as vectallo,
+            ):
                 # Define profile output file.
                 agree_output = output_raster
                 agree_profile = dem_profile.copy()
