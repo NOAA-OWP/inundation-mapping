@@ -9,7 +9,6 @@ Changes
 src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
 <br/>
 
-## v4.9.5.1 - 2025-10-30 - [PR#1683](https://github.com/NOAA-OWP/inundation-mapping/pull/1683)
 ## v4.9.5.2 - 2026-01-21 - [PR#1727](https://github.com/NOAA-OWP/inundation-mapping/pull/1727)
 
 Fixes:
