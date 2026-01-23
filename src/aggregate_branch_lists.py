@@ -4,16 +4,18 @@ import argparse
 import sys
 from glob import glob
 from os.path import join
-
+from pathlib import Path
 import pandas as pd
 
 
 def aggregate_branch_lists(output_dir, file_name, output_file_name):
+
     file_names = glob(join(output_dir, '*', file_name))
 
     if len(file_names) == 0:
-        print("Error: No Branches available to aggregate. Program terminated.", flush=True)
-        sys.exit(1)
+        msg = "Error: No Branches available to aggregate. Program terminated."
+        print(msg, flush=True)
+        raise Exception(msg)
 
     df_combined = pd.concat([pd.read_csv(f, header=None, dtype='str') for f in file_names], ignore_index=True)
 

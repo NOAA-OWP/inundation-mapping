@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euxo pipefail 
+set -eo pipefail
 
 ## Level is equal to the parent script: 'unit' or 'branch'
 level=$1
@@ -108,7 +108,9 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
 
 ## GAGE WATERSHED FOR REACHES ##
 echo -e $startDiv"Gage Watershed for Reaches $hucNumber $current_branch_id"
-mpiexec -n $ncores_gw $taudemDir/gagewatershed \
+# TODO: ncores_gw is not defined.
+# mpiexec -n $ncores_gw $taudemDir/gagewatershed
+mpiexec -q -n $ncores_gw $taudemDir/gagewatershed \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     -gw $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \

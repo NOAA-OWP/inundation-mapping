@@ -1,4 +1,5 @@
 #!/bin/bash -e
+umask 000
 
 :
 usage()
@@ -194,6 +195,10 @@ export jobHucLimit=$jobHucLimit
 num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
 echo
 echo "--- Number of HUCs to process is $num_hucs"
+
+if [ -d $tempRunDir ]; then
+    rm -rdf $tempRunDir/eval
+fi
 
 # make dirs
 if [ ! -d $outputDestDir ]; then

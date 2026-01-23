@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import errno
-import glob
 import os
 import re
+import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
 from timeit import default_timer as timer
-
-import geopandas as gpd
-import numpy as np
-import pandas as pd
 
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 
@@ -82,7 +78,17 @@ def run_shell_for_huc(
     #  therefore file_logger and  in this function only provide overall status of rerunning the calibration.
     file_logger.info(f"Rerunning calibration Started for {task_id}")
     try:
-        cmd = ["bash", script_path, "True", str(branch_jobs)]
+        # we are putting time and tee right the command so it can catch the echos and prints
+        # then we can have the error checking at the bottom of the script and it won't be out
+        # of order.  It is a better answer than trying to catch stdOut and StnError here
+        # as it means the standard log is not written, then checking for errors
+        # 
+        #  and the error checkign in 
+        # calibrate_rating_curves.sh is looking against data when the based
+
+        # The magic with logging is the relationship between exit codes, StdOut and StdErr
+        # and the timing of them.
+        cmd = ["bash", script_path, "True", str(branch_jobs), huc ]
 
         # The first line in the calibrate_rating_curves.sh must have a least
         #   #!/bin/bash -e   (The -e means immeditely stop on error which is a feature
@@ -107,33 +113,47 @@ def run_shell_for_huc(
         #    we don't have any but keep the door open and see we have anything.
         # 3) StdErr:  If available, and it is not always available, is the reason that
         #    the .sh failed.
-        sh_result = subprocess.run(cmd, env=task_env, capture_output=True, text=True, check=True)
+        sh_result = subprocess.run(
+            cmd,
+            env=task_env,
+            capture_output=False,
+            text=True,
+            check=True,  # will raise CalledProcessError immediately when a calibration routine fails and the subsequent python code are not run
+        )
         # check=True above: When sett True to raise a CalledProcessError on non-zero exit which
         # we do want so we know how to log it and handle it.
         # without catching it here, we can lose the reason on why it failed inside
         # calibrate_rating_curve.sh.
 
+        # Regardless what the return code, it can also return a stdout message such as
+        # a warning issued by command inside the .sh scripts.
+        # If we have one, add it to msg
+
+        # These are all of the echos and prints from the shell script
+        # if sh_result.stdout != "":
+        #     msg += f"; Additional returned message from the subprocess: {sh_result.stdout}"
+
+        
         if sh_result.returncode != 0:
             msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}."
             msg += f"; Exit Code returned is {sh_result.returncode}"
 
             if sh_result.stderr != "":
                 msg += f"; Details = {sh_result.stdout}"
+            is_successful = 0
         else:  # returned exit code as success.
             msg = f"[{task_id}] ✅ Rerunning calibration succeeded for HUC {huc}"
-
-        # Regardless what the return code, it can also return a stdout message such as
-        # a warnign issued by command inside the .sh scripts.
-        # If we have one, add it to msg
-        if sh_result.stdout != "":
-            msg += f"; Additional returned message from the subprocess: {sh_result.stdout}"
+            is_successful = 1
 
         screen_queue.put(msg)
         file_logger.info(msg)
 
-        # We are ok with return 1 (true/success) even if we picked up a non-zero
-        # exit code from the subprocess. If we got here, we handled it either way.
-        return 1, [True]  # Errors and outputs handled correctly as
+        if is_successful:
+            # We are ok with return 1 (true/success) even if we picked up a non-zero
+            # exit code from the subprocess. If we got here, we handled it either way.
+            return is_successful, [True]  # Errors and outputs handled correctly as
+        else:
+            return 0, [False]
 
     except subprocess.CalledProcessError as e:
         msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}: Exception: {e}."
@@ -179,8 +199,14 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
     env = os.environ.copy()
     env["outputDestDir"] = fim_run_dir
 
-    # create path to the target script (calibrate_rating_curves.sh)
-    script_path = str(Path(env.get("srcDir")) / "calibrate_rating_curves.sh")
+    # For the params.env file, when in re-run mode, we want to take a copy of the one from the code
+    # via the "projectDir" enviro value, and rename it as we process
+    proj_dir = os.getenv("projectDir")
+    proj_params_file = os.path.join(proj_dir, "config", "params_template.env")
+    rerun_params_files = os.path.join(fim_run_dir, "params_rerun.env")
+    shutil.copy2(proj_params_file, rerun_params_files)
+
+    script_path = str(Path(env.get("srcDir")) / "process_rerun_calibration_huc.sh")
 
     tasks_args_list = []
     for huc in sorted(hucs):
@@ -215,6 +241,7 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
     )
 
     print('multiprocessing tasks finished!')
+    print('')
     # only report if all succeeded or the failed ones
     failed_keys = [tid for tid, payload in mp_results.items() if not payload[0]]
 
