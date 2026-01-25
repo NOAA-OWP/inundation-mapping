@@ -76,7 +76,7 @@ $taudemDir/flowdircond -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_flo
 
 ## D8 SLOPES ##
 echo -e $startDiv"D8 Slopes from DEM $hucNumber $current_branch_id"
-mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
+mpiexec $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
     -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif
 
@@ -109,9 +109,7 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
 ## GAGE WATERSHED FOR REACHES ##
 echo -e $startDiv"Gage Watershed for Reaches $hucNumber $current_branch_id"
 # TODO: ncores_gw is not defined.
-# mpiexec -n $ncores_gw $taudemDir/gagewatershed
-mpiexec -q -n $ncores_gw $taudemDir/gagewatershed \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+mpiexec $taudemDir/gagewatershed -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     -gw $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
@@ -125,7 +123,7 @@ $srcDir/reachID_grid_to_vector_points.py \
 
 ## GAGE WATERSHED FOR PIXELS ##
 echo -e $startDiv"Gage Watershed for Pixels $hucNumber $current_branch_id"
-mpiexec -n $ncores_gw $taudemDir/gagewatershed \
+mpiexec $taudemDir/gagewatershed \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_"$current_branch_id".tif \
     -gw $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg \
