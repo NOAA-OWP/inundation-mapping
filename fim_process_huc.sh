@@ -80,8 +80,9 @@ mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
 mkdir -p $tempHucDataDir/logs
 mkdir -p $tempHucDataDir/logs/branch
-chmod 777 $tempHucDataDir
-chmod 777 $tempBranchDataDir
+chmod 777 -R $tempHucDataDir
+chmod 777 -R $tempBranchDataDir
+chmod 777 -R $tempHucDataDir/logs
 
 # Clean out previous unit logs and branch logs starting with this huc
 rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
@@ -131,10 +132,13 @@ if [ "$err_exists" = "1" ]; then
     echo $err_msg >> $error_log_filename
 fi
 
-
 # Move the contents of the temp directory into the outputs directory and update file permissions
-mv -f $tempHucDataDir $outputHucDataDir
-find $outputHucDataDir -type d -exec chmod -R 777 {} +
+# find $tempHucDataDir -type d -exec chmod -R 777 {} +
+# In the OWP enviros, the perms are different, we have to copy them using a special copy
+# flag which is not available in mv. We have to copy, then remove the temp version
+# mv -f $tempHucDataDir $outputHucDataDir
+cp -r --no-preserve=ownership $tempHucDataDir $outputHucDataDir
+rm -rdf $tempHucDataDir
 
 echo "============================================================================================="
 echo
