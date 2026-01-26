@@ -4,7 +4,7 @@
 usage()
 {
     echo "
-    Processing of HUC's in FIM4 comes in three sections. You can run 'fim_pipeline.sh' which will run
+    Processing of HUC's comes in three sections. You can run 'fim_pipeline.sh' which will run
         the three main scripts: 'fim_pre_processing.sh', 'fim_process_huc.sh' & 'fim_post_processing.sh'.
 
     Usage : fim_pipeline.sh -u <huc8> -n <name_of_your_run>
@@ -95,7 +95,10 @@ process_wb_file=$projectDir/fim_process_huc.sh
 pipeline_start_time=`date +%s`
 
 # PROCESS THE UNITS (And branches)
-# Why an if and else? watch the number of colons
+# Why an if and else? .. watch the number of colons.
+echo
+echo "---- Unit (HUC) processing is started"
+
 if [ -f "$hucList" ]; then
     if [ "$jobHucLimit" = "1" ]; then
         parallel --verbose --lb -j $jobHucLimit --colsep ',' --joblog $logFile -- $process_wb_file $runName :::: $hucList

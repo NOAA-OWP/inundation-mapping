@@ -260,6 +260,8 @@ def split_flows(
                 lake_id_column = 'newID'
             elif 'wb_id' in lakes.columns:
                 lake_id_column = 'wb_id'  # Alaska HUCs
+            elif 'LakeID' in lakes.columns:
+                lake_id_column = 'LakeID'  # Guam HUC
             else:
                 print("No 'newID' or 'wb_id' column found in lake file")
                 sys.exit(1)  # Exit with a generic error code

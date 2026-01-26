@@ -28,6 +28,20 @@ if [ $huc2Identifier -eq 19 ]; then
     dem_domain_filename=DEM_Domain.gpkg
     input_bridge_elev_diff=$input_bridge_elev_diff_alaska
 
+elif [ $hucNumber -eq 22010000 ]; then
+    huc_CRS=$GUAM_CRS
+    huc_input_DEM_domain=$input_DEM_domain_Guam
+    input_DEM=$input_DEM_Guam
+    dem_domain_filename=DEM_Domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff_guam
+
+elif [ $hucNumber -eq 22030001 ]; then
+    huc_CRS=$AMERICAN_SAMOA_CRS
+    huc_input_DEM_domain=$input_DEM_domain_AmericanSamoa
+    input_DEM=$input_DEM_AmericanSamoa
+    dem_domain_filename=DEM_Domain.gpkg
+    input_bridge_elev_diff=$input_bridge_elev_diff_americansamoa
+
 else
     huc_CRS=$DEFAULT_FIM_PROJECTION_CRS
     huc_input_DEM_domain=$input_DEM_domain
@@ -46,7 +60,7 @@ date -u
 
 ## Copy HUC's pre-clipped .gpkg files from $pre_clip_huc_dir (use -a & /. -- only copies folder's contents)
 echo -e $startDiv"Copying staged wbd and .gpkg files from $pre_clip_huc_dir/$hucNumber"
-cp -a $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
+cp -R $pre_clip_huc_dir/$hucNumber/. $tempHucDataDir
 
 # Copy necessary files from $inputsDir into $tempHucDataDir to avoid File System Collisions
 # For buffer_stream_branches.py
@@ -111,7 +125,8 @@ if [ ! -f $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg ]; then l
 ## ASSOCIATE LEVEL PATHS WITH LEVEES
 echo -e $startDiv"Associate level paths with levees"
 [ -f $tempHucDataDir/nld_subset_levees.gpkg ] && \
-python3 $srcDir/associate_levelpaths_with_levees.py -nld $tempHucDataDir/nld_subset_levees.gpkg \
+python3 $srcDir/associate_levelpaths_with_levees.py \
+    -nld $tempHucDataDir/nld_subset_levees.gpkg \
     -s $tempHucDataDir/nwm_subset_streams_levelPaths_dissolved.gpkg \
     -lpa $tempHucDataDir/LeveeProtectedAreas_subset.gpkg \
     -out $tempHucDataDir/levee_levelpaths.csv \
@@ -215,44 +230,16 @@ python3 $srcDir/agreedem.py \
     -sm 10 \
     -sh 1000
 
-## DEM Reconditioning - BRANCHES (NOT 0) (NWM levelpath streams) ##
-# Using AGREE methodology, hydroenforce the DEM so that it is consistent with the supplied stream network.
-# This allows for more realistic catchment delineation which is ultimately reflected in the output FIM mapping.
-# if [ "$levelpaths_exist" = "1" ]; then
-#     echo -e $startDiv"Creating AGREE DEM using $agree_DEM_buffer meter buffer $hucNumber (Branches)"
-#     python3 $srcDir/agreedem.py -r $tempHucDataDir/flows_grid_boolean.tif \
-#         -d $tempHucDataDir/dem_meters.tif \
-#         -w $tempHucDataDir \
-#         -o $tempHucDataDir/dem_burned.tif \
-#         -b $agree_DEM_buffer \
-#         -sm 10 \
-#         -sh 1000
-# fi
-
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
     $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
-
-# ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
-# if [ "$levelpaths_exist" = "1" ]; then
-#     echo -e $startDiv"Pit remove Burned DEM $hucNumber (Branches)"
-#     rd_depression_filling $tempHucDataDir/dem_burned.tif $tempHucDataDir/dem_burned_filled.tif
-# fi
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
-
-# ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
-# if [ "$levelpaths_exist" = "1" ]; then
-#     echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber (Branches)"
-#     mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-#         -fel $tempHucDataDir/dem_burned_filled.tif \
-#         -p $tempHucDataDir/flowdir_d8_burned_filled.tif
-# fi
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
@@ -277,7 +264,7 @@ export nrows=$nrows
 $srcDir/delineate_hydros_and_produce_HAND.sh "unit"
 
 ## CREATE USGS GAGES FILE
-## Note: the usgs_gages.gpkg was renamed during coping into the unit folder
+## Note: the usgs_gages.gpkg was renamed during copying into the unit folder
 if [ -f $tempHucDataDir/nwm_subset_streams_levelPaths.gpkg ]; then
     echo -e $startDiv"Assigning USGS gages to branches for $hucNumber"
     python3 $srcDir/usgs_gage_unit_setup.py \

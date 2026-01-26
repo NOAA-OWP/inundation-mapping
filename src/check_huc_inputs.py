@@ -5,18 +5,10 @@ import argparse
 import os
 import pathlib
 from glob import glob
-from logging import exception
 
 
-def __read_included_files(parent_dir_path):
-    # TODO: Oct25, 2023: Previously we had this test done against multiple huc lists.
-    # Now in FIM4 we only want it to check against the one file 'included_huc8.lst'.
-    # I have just replaced the pattern, but later we might want to clean this up.
-
-    # filename_patterns = glob(os.path.join(parent_dir_path, 'included_huc*.lst'))
-
-    included_huc_list = 'included_huc8_withAlaska.lst'  # previous: 'included_huc8.lst'
-    filename_patterns = glob(os.path.join(parent_dir_path, included_huc_list))
+def __read_acceptable_file_list(full_huc_list):
+    filename_patterns = glob(full_huc_list)
 
     accepted_hucs_set = set()
     for filename in filename_patterns:
@@ -58,34 +50,41 @@ def __clean_huc_value(huc):
     return huc
 
 
-def __check_for_membership(hucs, accepted_hucs_set):
+def __check_for_membership(hucs, accepted_hucs_set, full_huc_list):
     for huc in hucs:
         if (type(huc) is str) and (not huc.isnumeric()):
             msg = f"Huc value of {huc} does not appear to be a number. "
             msg += "It could be an incorrect value but also could be that the huc list "
-            msg += "(if you used one), is not unix encoded."
+            msg += "(if you used one) is incorrect or is not unix encoded."
             raise KeyError(msg)
 
         if huc not in accepted_hucs_set:
-            msg = f"HUC {huc} not found in available inputs. Edit HUC inputs or acquire datasets & try again."
+            msg = f"HUC {huc} not found in the acceptable HUC list at {full_huc_list}."
+            " Edit HUC inputs or acquire datasets & try again."
             raise KeyError(msg)
 
 
-def check_hucs(hucs, inputsDir):
-    huc_list_path = os.path.join(inputsDir, 'huc_lists')
-    accepted_hucs = __read_included_files(huc_list_path)
+def check_hucs(hucs, full_huc_list):
+    accepted_hucs = __read_acceptable_file_list(full_huc_list)
     list_hucs = __read_input_hucs(hucs)
-    __check_for_membership(list_hucs, accepted_hucs)
+    __check_for_membership(list_hucs, accepted_hucs, full_huc_list)
 
     # we need to return the number of hucs being used.
     # it is not easy to return a value to bash, except with standard out.
     # so we will just to a print line back (Note: This means there can be no other
     # print commands in this file, even for debugging, as bash will pick up the
     # very first "print"
+
+    # if you want to print, you can use flush. ie) print(f"number of hucs is {len(list_hucs)}", flush=True)
+
     print(len(list_hucs))
 
 
 if __name__ == '__main__':
+
+    # This script helps ensure that all hucs passed in to pipeline or pre-processing are valid HUCs
+    # and are in the full_huc_list.lst file as valid and approved HUCS.
+
     # parse arguments
     parser = argparse.ArgumentParser(description='Checks input hucs for availability within inputs')
     parser.add_argument(
@@ -95,7 +94,7 @@ if __name__ == '__main__':
         required=True,
         nargs='+',
     )
-    parser.add_argument('-i', '--inputsDir', help='Inputs directory', required=True)
+    parser.add_argument('-i', '--full-huc-list', help='Full HUC list file', required=True)
 
     # extract to dictionary
     args = vars(parser.parse_args())

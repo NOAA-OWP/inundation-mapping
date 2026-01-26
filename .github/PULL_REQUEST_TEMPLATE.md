@@ -28,15 +28,14 @@ Generally, you do not copy this part into the ChangeLog. These are some quick no
     - Require new or adjusted data inputs? Does it have a way to version (folder or file dates)?
        - [ ] No
        - [ ] Yes
-           -  Require new pre-clip set or any other data reloads, such as DEMS, osm, etc. ie.. pre-requisite re-data upstream of your input  changes.
+           -  Require new pre-clip set or any other data reloads, such as DEMS, osm, etc. ie.. pre-requisite re-data upstream of your input changes.
                 - [ ] Yes
                 - [ ] No
-           -  Has the inputs been copied/exist in all five enviros:
+           -  Has the inputs been copied/exist in all four enviros:
                  - [ ] FIM EFS  
                  - [ ] FIM S3
                  - [ ] ESIP
                  - [ ] Dev1
-                 - [ ] UCS2
             
 - Please use caution in removing older version unless it is at least two versions ago.  Confirm with DevOps if cleanup might be involved.
 
@@ -64,6 +63,11 @@ You may update this checklist before and/or after creating the PR. If you're uns
 - [ ] Placeholder code is flagged / future todos are captured in comments
 - [ ] [CHANGELOG](/docs/CHANGELOG.md) updated with template version number, e.g. `4.x.x.x`
 - [ ] Add yourself as an [assignee](https://docs.github.com/en/issues/tracking-your-work-with-issues/assigning-issues-and-pull-requests-to-other-github-users) in the PR  as well as the FIM Technical Lead
+- [ ] Where applicable, has fim_pipeline been tested with muliple HUCs, including some other unaffected HUCs?
+
+### Reviewer / Approver Checklist
+- [ ] Where applicable, has fim_pipeline been tested with muliple HUCs, including some other unaffected HUCs?
+- [ ] If there are new inputs, have you confirmed that they have been copied to all enviroments?
 
 ---------------------------------------------------------------
 ### Merge Checklist (For Technical Lead use only)

@@ -118,7 +118,6 @@ fi
 # outputsDir & workDir come from the Dockerfile
 outputDestDir=$outputsDir/$runName
 tempRunDir=$workDir/$runName
-# export WBT_PATH=${tempRunDir}/whitebox_temp
 
 # default values
 if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi
@@ -174,7 +173,7 @@ else
     has_deny_branch_zero_override=1 # it is the value of NONE and is overridden
 fi
 
-# Safety feature to avoid accidentaly overwrites
+# Safety feature to avoid accidental overwrites
 if [ -d $outputDestDir ] && [ $overwrite -eq 0 ]; then
     echo
     echo "ERROR: Output dir $outputDestDir exists. Use overwrite -o to run."
@@ -185,21 +184,22 @@ fi
 
 ## SOURCE ENV FILE AND FUNCTIONS ##
 source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
 
 # these export are for fim_pipeline only.
 export runName=$runName
 export jobHucLimit=$jobHucLimit
 
-num_hucs=$(python3 $srcDir/check_huc_inputs.py -u $hucList -i $inputsDir)
+num_hucs=$(python3 $srcDir/check_huc_inputs.py -u ${hucList} -i ${full_huc_list_file})
 echo
 echo "--- Number of HUCs to process is $num_hucs"
 
 # make dirs
 if [ ! -d $outputDestDir ]; then
     mkdir -p $outputDestDir
-    chmod 777 $outputDestDir
+    chmod 777 -R $outputDestDir
     mkdir -p $tempRunDir
-	chmod 777 $tempRunDir
+	chmod 777 -R $tempRunDir
 else
     # remove these directories and files on a new or overwrite run
     rm -rdf $outputDestDir/logs
@@ -209,7 +209,6 @@ else
     rm -f $outputDestDir/fim_inputs*
     rm -f $outputDestDir/*.env
 fi
-
 
 mkdir -p $outputDestDir/logs
 mkdir -p $outputDestDir/branch_errors
@@ -236,6 +235,8 @@ echo "export deny_branches_list=$deny_branches_list" >> $args_file
 echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
 echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
+
+chmod 777 $args_file
 
 echo "--- Pre-processing is complete"
 

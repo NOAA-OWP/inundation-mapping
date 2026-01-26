@@ -20,6 +20,7 @@ demDerived_streamPixels_ids_{}_allo.tif
 demDerived_streamPixels_ids_{}_dist.tif
 dem_adjusted_{}.tif
 dem_burned_{}.tif
+dem_burned_adjusted_{}.tif
 dem_burned_filled_{}.tif
 dem_lateral_thalweg_adj_{}.tif
 dem_meters_{}.tif

@@ -10,6 +10,12 @@ import whitebox
 from utils.fim_enums import FIM_exit_codes
 
 
+# Set wbt envs
+wbt = whitebox.WhiteboxTools()
+wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to setting verbose mode
+wbt.set_verbose_mode(False)
+
+
 def agreedem(
     rivers_raster,
     dem,
@@ -50,10 +56,6 @@ def agreedem(
     None.
 
     '''
-    # Set wbt envs
-    wbt = whitebox.WhiteboxTools()
-    wbt.set_verbose_mode(False)
-    wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
     # ------------------------------------------------------------------
     # 1. From Hellweger documentation: Compute the vector grid
@@ -64,6 +66,12 @@ def agreedem(
     # Import dem layer and river layer and get dem profile.
     with rasterio.open(dem) as elev, rasterio.open(rivers_raster) as rivers:
         dem_profile = elev.profile
+
+        # Define buffer distance and calculate adjustment to compute the
+        # bufgrid.
+        # half_res adjustment equal to half distance of one cell
+        half_res = elev.res[0] / 2
+        final_buffer = buffer_dist - half_res  # assume all units in meters.
 
         # Define smogrid profile and output file
         smo_profile = dem_profile.copy()
@@ -151,12 +159,6 @@ def agreedem(
                         vectdist_data_window = vectdist.read(1, window=window)
                         elev_data_window = elev.read(1, window=window)
 
-                        # Define buffer distance and calculate adjustment to compute the
-                        # bufgrid.
-                        # half_res adjustment equal to half distance of one cell
-                        half_res = elev.res[0] / 2
-                        final_buffer = buffer_dist - half_res  # assume all units in meters.
-
                         # Calculate bufgrid. Assign NODATA to areas where vectdist_data <=
                         # buffered value.
                         bufgrid_window = np.where(
@@ -209,9 +211,11 @@ def agreedem(
             assert os.path.exists(bufallo_grid), f'Buffer allocation grid not created: {bufallo_grid}'
 
             # Open distance, allocation, elevation grids.
-            with rasterio.open(bufdist_grid) as bufdist, rasterio.open(
-                bufallo_grid
-            ) as bufallo, rasterio.open(vectallo_grid) as vectallo:
+            with (
+                rasterio.open(bufdist_grid) as bufdist,
+                rasterio.open(bufallo_grid) as bufallo,
+                rasterio.open(vectallo_grid) as vectallo,
+            ):
                 # Define profile output file.
                 agree_output = output_raster
                 agree_profile = dem_profile.copy()

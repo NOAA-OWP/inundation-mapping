@@ -134,6 +134,7 @@ def road_risk_status(
 
         # for now, remove any record with negative flood depth. these may happen due to non-monotonic src especially in branch zero.
         fimpact_df = fimpact_df[fimpact_df['flood_depth'] >= 0]
+        fimpact_df['flood_depth_ft'] = fimpact_df['flood_depth'] * 3.28084
 
         # open roads geometry
         roads_gdf = gpd.read_file(roads_path)[['osmid_catchid', 'geometry']]
