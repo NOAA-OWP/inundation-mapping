@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4_____ - 2026-____ - [PR#1714](https://github.com/NOAA-OWP/inundation-mapping/pull/1714)
+## v4.9.5.3 - 2026-01-27 - [PR#1714](https://github.com/NOAA-OWP/inundation-mapping/pull/1714)
 
 Adding "G" and "U" as acceptable altitude methods, which could increase the number of USGS sites used in our CatFIM and calibration workflows.
 
@@ -11,7 +11,6 @@ Adding "G" and "U" as acceptable altitude methods, which could increase the numb
 <br/>
 
 
-## v4.9.5.1 - 2025-10-30 - [PR#1683](https://github.com/NOAA-OWP/inundation-mapping/pull/1683)
 ## v4.9.5.2 - 2026-01-21 - [PR#1727](https://github.com/NOAA-OWP/inundation-mapping/pull/1727)
 
 Fixes:
