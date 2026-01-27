@@ -1,7 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.5.4 - 2025-01-27 - [PR#1705](https://github.com/NOAA-OWP/inundation-mapping/pull/1705)
+## v4.9.5.5 - 2026-01-27 - [PR#1734]([https://github.com/NOAA-OWP/inundation-mapping/pull/1734])
+
+This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
+
+Changes
+src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
+<br/>
+
+## v4.9.5.4 - 2026-01-27 - [PR#1705](https://github.com/NOAA-OWP/inundation-mapping/pull/1705)
 
 Changes the threshold data source priority from USGS to NRLDB. This way, if rating curves from both USGS and NRLDB are available for a site, the NRLDB one will be used. 
 
