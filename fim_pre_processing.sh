@@ -119,7 +119,6 @@ fi
 # outputsDir & workDir come from the Dockerfile
 outputDestDir=$outputsDir/$runName
 tempRunDir=$workDir/$runName
-# export WBT_PATH=${tempRunDir}/whitebox_temp
 
 # default values
 if [ "$envFile" = "" ]; then envFile=/$projectDir/config/params_template.env; fi
@@ -203,9 +202,9 @@ fi
 # make dirs
 if [ ! -d $outputDestDir ]; then
     mkdir -p $outputDestDir
-    chmod 777 $outputDestDir
+    chmod 777 -R $outputDestDir
     mkdir -p $tempRunDir
-	chmod 777 $tempRunDir
+	chmod 777 -R $tempRunDir
 else
     # remove these directories and files on a new or overwrite run
     rm -rdf $outputDestDir/logs
@@ -215,7 +214,6 @@ else
     rm -f $outputDestDir/fim_inputs*
     rm -f $outputDestDir/*.env
 fi
-
 
 mkdir -p $outputDestDir/logs
 # mkdir -p $outputDestDir/branch_errors
@@ -242,6 +240,8 @@ echo "export deny_branches_list=$deny_branches_list" >> $args_file
 echo "export deny_branch_zero_list=$deny_branch_zero_list" >> $args_file
 echo "export has_deny_branch_zero_override=$has_deny_branch_zero_override" >> $args_file
 echo "export evaluateCrosswalk=$evaluateCrosswalk" >> $args_file
+
+chmod 777 $args_file
 
 echo "--- Pre-processing is complete"
 

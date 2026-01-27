@@ -12,9 +12,10 @@ from rasterio.mask import mask
 from shapely.geometry import mapping
 
 
+# Set wbt envs
 wbt = whitebox.WhiteboxTools()
+wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to setting verbose mode
 wbt.set_verbose_mode(False)
-wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
 
 def adjust_floodplains(

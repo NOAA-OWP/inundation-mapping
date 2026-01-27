@@ -156,10 +156,15 @@ fi
 
 # make outputs directory
 mkdir -p $tempHucDataDir
-chmod 777 -R $tempHucDataDir
 mkdir -p $tempBranchDataDir
 mkdir -p $tempHucDataDir/logs
 mkdir -p $tempHucDataDir/logs/branch
+chmod 777 -R $tempHucDataDir
+# These exist as OWP has tricky folder perms
+chmod 777 -R $tempBranchDataDir
+chmod 777 -R $tempHucDataDir/logs
+chmod 777 -R $tempHucDataDir/logs/branch
+
 
 # Tell the system the name and location of the log file
 # l_echo is echo to screen and log at the same time.
@@ -167,6 +172,14 @@ Set_log_file_path $hucLogFile
 
 echo "=========================================================================="
 l_echo "---- Start of huc processing for $hucNumber" $hucLogFile
+
+# Clean out previous unit logs and branch logs starting with this huc
+rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
+rm -f $tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
+rm -f $tempHucDataDir/logs/branch/"$hucNumber"*.log
+rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
+
+hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 
 # Process the actual huc
 # Note... while each branch has its own log, that log data is also
