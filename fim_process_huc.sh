@@ -112,7 +112,7 @@ check_for_huc_errors(){
         # Everything else including branch errors are already rolled up in the huc log file
         # and huc error file.
 
-        # Grep Tech Tip.. use the -e flag when you are not useing any wildcards or patterns
+        # Grep Tech Tip.. use the -e flag when you are not using any wildcards or patterns
         # just a word in a line. If you need a regex type patter, use -E instead.
         grep -H -i -n -e "error" $hucLogFile >> $errorLogFile
         grep -H -i -n -e "parallel" $hucLogFile >> $errorLogFile

@@ -36,6 +36,14 @@ in
     shift
 done
 
+# print usage if arguments empty
+if [ "$runName" = "" ]
+then
+    echo "ERROR: Missing -n run time name argument"
+    usage
+    exit 22
+fi
+
 outputDestDir=$outputsDir/$runName
 
 ## Check for output destination directory ##
@@ -49,6 +57,8 @@ fi
 args_file=$outputDestDir/runtime_args.env
 fim_inputs=$outputDestDir/fim_inputs.csv
 
+# scan_for_huc_errors_complete, and branch_error... helps stop for multiple scans
+#  as it is possible if there are multiple errors on this page.
 huc_error_check_complete="False"
 branch_error_check_complete="False"
 
@@ -63,14 +73,6 @@ rm -f $pp_log_file_name  # If it already exists
 
 pp_error_log_file_name=$outputDestDir/logs/post_processing_errors.log
 rm -f $pp_error_log_file_name  # If it already exists
-
-# print usage if arguments empty
-if [ "$runName" = "" ]
-then
-    echo "ERROR: Missing -n run time name argument"
-    usage
-    exit 22
-fi
 
 # Tell the system the name and location of the log file
 # l_echo is echo to screen and log at the same time.
@@ -111,6 +113,8 @@ allErrorsLog="$outputDestDir/logs/all_errors.log"
 find $outputDestDir -path "**/*/huc_*_errors.log" -type f -exec cat {} + >> $allErrorsLog
 
 ## ===============================
+# Grep Tech Tip.. use the -e flag when you are not using any wildcards or patterns
+# just a word in a line. If you need a regex type patter, use -E instead.
 l_echo $startDiv"Find all HUC branch non zero exit codes" $pp_log_file_name
 find $outputDestDir -path "**/*/logs/branch/*_branch*.log" -type f | \
     xargs grep -H -n -i -E "Exit status: ([1-9][0-9]{0,2})" >> "$outputDestDir/logs/branch_non_zero_exit_codes.log" &
