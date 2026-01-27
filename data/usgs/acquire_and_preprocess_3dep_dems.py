@@ -25,6 +25,7 @@ gpd.options.io_engine = "pyogrio"
 '''
 TODO:
     - Add input args for resolution size, which means URL and block size also have to be parameterized.
+
 '''
 
 # local constants (until changed to input param)
@@ -383,34 +384,31 @@ def download_usgs_dem_file(
     # was creating some issues. Run worked much better.
 
     try:
-        process = subprocess.run(
+        result = subprocess.run(
             cmd,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             check=True,
             universal_newlines=True,
         )
 
-        logging.info(process.stdout)
-
-        if process.stderr != "":
-            if "ERROR" in process.stderr.upper():
-                msg = f" - Downloading -- {target_file_name_raw}" f"  ERROR -- details: ({process.stderr})"
-                logging.error(msg)
-                os.remove(target_path_raw)
-                rtn_dic["success"] = "False"
-        else:
-            logging.info(f" - Downloading -- {target_file_name_raw} - Complete")
+        if result.returncode  == 0:
+            logging.info(f" - Downloading -- {target_file_name_raw} - Complete; Msg returned: {result.stdout}")
             rtn_dic["success"] = "True"
 
-    except Exception:
-        logging.critical("An exception occurred while downloading files.")
-        logging.critical(traceback.format_exc())
+        else:
+            logging.error(f"Error during download. Return code: {result.returncode}")
+            logging.error(f"Return msg: {result.stderr}")
 
-        # TODO: sys.exit from within an MP does not work. It stops this MP but not the parent
-        # thread. If we want to full shut down the program, return a differnt value.
-        sys.exit(1)
+            msg = f" - Downloading -- {target_file_name_raw}" f"  ERROR -- details: Return code = {result.returncode}"
+            f" ; Return Error Msg = {result.stderr}"
+            logging.error(msg)
+            os.remove(target_path_raw)
+            rtn_dic["success"] = "False"
+
+    except Exception as ex:
+        logging.critical(f"An exception occurred while downloading file {target_file_name_raw}.")
+        logging.critical(traceback.format_exc())
+        raise ex
 
     return rtn_dic
 
@@ -527,23 +525,27 @@ if __name__ == '__main__':
 
     or
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
-            -e /data/inputs/wbd/HUC6_5070/ -proj "EPSG:5070"
-            -t /data/inputs/dems/3dep_dems/10m_5070/20250301 -r -j 6
+            -e /data/inputs/wbd/HUC8_CONUS/ -proj "EPSG:5070"
+            -t /data/inputs/dems/3dep_dems/10m_5070/20260127 -j 10
+            (adding -rp if you are in repair mode)
 
     *** Keep the job number at 6 as the network can't handle anymore than that anyways ***
+
+    Make sure when you run the AK version, you set the arg for CRS as EPSG:3338. Guam is EPSG:6637 and 
+    American Somoa is EPSG:32702. 
+
 
     Notes:
       - There is alot to know, so read the notes in the functions above.
 
       - Keep the job numbers low, too many of them can result in incompleted downloads for a HUC.
-        Becuase of this.. it does not need to be run on a prod machine.
+        Run this on a Prod / Thor sized machine as network speed it they key element. 
+        You can watch your servers network guage in the top right of your screen to help sort out
+        what works best for throttling versus stability.
 
       - It is very common for not all DEMs to not all download correctly on each pass.
         Review the output files and the logs so you know which are missing. Delete the ones in the outputs
-        that are in error. Then run the tool again wihth the -r flag (repair) which will fill in the wholes
-
-        This is also why we run it at HUC6 as it is easier to trace for failed files. We get alot of
-        communication error during downloads.
+        that are in error. Then run the tool again wihth the -rp flag (repair) which will fill in the holes.
 
       - This is a very low use tool. So for now, this only can load 10m (1/3 arc second) and is using
         hardcoded paths for the wbd gpkg to be used for clipping (no buffer for now).
@@ -553,13 +555,13 @@ if __name__ == '__main__':
 
       - Each output file will be the name of the input poly plus "_dem.tif". ie) if the wbd gpkg
         is named named "HUC8_12090301", then the output file name will be "HUC8_12090301_dem.tif"
-        Or depends what file name you sent in for the boundary: ie) HUC6_120903 becomes HUC6_120903_dem.tif
+        Or depends what file name you sent in for the boundary:
 
 
     FIM uses vrt's primariy for DEMs but this tool only downloads and preps the DEMs but does
     not create the vrt. That is done using the create_vrt_file.py tool.
 
-    Make sure when you run the AK version, you set the arg for CRS as 3338.
+
 
     ++++++++++++++++++++++++++++++++++++++++++++
     SUPER IMPORTANT:

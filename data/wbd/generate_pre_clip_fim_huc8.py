@@ -25,24 +25,24 @@ from utils.shared_functions import FIM_Helpers as fh
       processing time for each HUC8. Using this script, we generate the necessary pre-clipped .gpkg files
       for the rest of the processing steps.
 
-      Read in environment variables from src/bash_variabls.env & config/params_template.env.
+      Read in environment variables from src/bash_variables.env & config/params_template.env.
       Parallelize the creation of .gpkg files per HUC:
         Get huc level WBD layer from National, call the subset_vector_layers function, and clip the wbd.
         A plethora gpkg files per huc are generated (see args to subset_vector_layers)
         and placed within the output directory specified as the <outputs_dir> argument.
 
+        
     Usage:
         generate_pre_clip_fim_huc8.py
-            -n /data/inputs/pre_clip_huc8/24_04_23
-            -u /data/inputs/huc_lists/included_huc8_withAlaska.lst
+            -n /data/inputs/pre_clip_huc8/202540423
+            -u /data/inputs/huc_lists/full_huc_list.lst
             -j 6
             -o
 
     Notes:
-      If running this script to generate new data, modify the pre_clip_huc_dir variable in
-      src/bash_variables.env to the corresponding outputs_dir argument after running and testing this script.
-      The newly generated data should be created in a new folder using the format <year_month_day>
-             (i.e. September 26, 2023 would be 23_09_26)
+      - If running this script to generate new data, modify the pre_clip_huc_dir variable in
+        src/bash_variables.env to the corresponding outputs_dir argument after running and testing this script.
+      - It can handle all hucs based on the huc list (-u) value passed in. ie) Conus, AK, GU and AS at one run.
 
     Don't worry about error logs saying "Failed to auto identify EPSG: 7"
 '''
@@ -542,12 +542,9 @@ if __name__ == '__main__':
     # Especially if you can a directory for a new data load.
     #     ie) DEMS at data/inputs/3dep_dems/10m_5070/20240916/
     #
-    # TODO below comment is not relevant anymore because especially after the May 2025 refactoring no need to run twice.
-    # You have to run this twice, once for Alaska and once for CONUS
-    # but make sure put both results the same folder
-    # and you will need to submit the two HUC lists
-    # SouthernAlaska_HUC8.lst
-    # included_huc8.lst
+
+    # This tool can be run just one for all 4 region types (CONUS, AK, GU and AS)
+    # as it relys on the HUC list submitted and likely will submit full_huc_list.lst
 
     '''
     Notes:
@@ -573,9 +570,11 @@ if __name__ == '__main__':
 
 
     Example 1:
-        simplest scenario where we preclip all vector data for requetsed HUCs (no copying):
+        simplest scenario where we preclip all vector data for requested HUCs (no copying):
 
-        python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py -u /data/inputs/huc_lists/included_huc8_withAlaska.lst -n outputs/preclips/test5/ -o
+        python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py \
+          -u /data/inputs/huc_lists/full_huc_list.lst \
+          -n /data/data/inputs/pre_clip_huc8/20250923/
 
     Example 2:
         if you need to skip preclipping (and instead copy from previous preclips),
@@ -583,7 +582,7 @@ if __name__ == '__main__':
         In addition, we can add one or multiple of above 8 arguments:
 
         python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py \
-            -u /data/inputs/huc_lists/included_huc8_withAlaska.lst \
+            -u /data/inputs/huc_lists/full_huc_lists.lst \
             -n outputs/preclips/test6_2/ \
             -o \
             --copy_from_dir data/inputs/pre_clip_huc8/20250218/ \
@@ -600,7 +599,7 @@ if __name__ == '__main__':
         usage='''
             ./generate_pre_clip_fim_huc8.py
                 -n /data/inputs/pre_clip_huc8/20240927
-                -u /data/inputs/huc_lists/included_huc8_withAlaska.lst
+                -u /data/inputs/huc_lists/full_huc_list.lst
                 -j 6
                 -o
                 --copy_from_dir data/inputs/pre_clip_huc8/20250218/
@@ -611,8 +610,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-n',
         '--outputs_dir',
-        help='Directory to output all of the HUC level .gpkg files. Use the format: '
-        '<year_month_day> (i.e. September 26, 2024 would be 20240926)',
+        help='Directory to output all of the HUC level .gpkg files',
     )
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
 
@@ -621,7 +619,7 @@ if __name__ == '__main__':
         '--number_of_jobs',
         help='OPTIONAL: Number of cores/processes (default=4). This is a memory intensive '
         'script, and the multiprocessing will crash if too many CPUs are used. It is recommended to provide '
-        'half the amount of available CPUs.',
+        'half the amount of available CPUs. The network speed of your EC2 is the primary factor.',
         type=int,
         required=False,
         default=4,

@@ -483,9 +483,16 @@ def __setup_logger(outputs_dir):
 if __name__ == "__main__":
 
     '''
+
+    This should be run 4 times, one for CONUS, AK, Guam and American Somoa.
+    Each has a WBD folder it needs and it needs to make a seperate bridge lines output file
+    for each of the four types.
+
     Sample usage (min params):
+
+        (For )
         python3 /foss_fim/data/bridges/pull_osm_bridges.py
-            -w /data/inputs/wbd/WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg
+            -w /data/inputs/wbd/WBD_National_HUC8_CONUS.gpkg
             -p /data/inputs/osm/bridges/bridge_lines/20250207/
             -j 10
             -lh '01010002 12090301'
@@ -497,14 +504,20 @@ if __name__ == "__main__":
            named HUC8 or HUC10 or mix/match with multiple runs of this tool. It will merge
            all successful output files into the final combined file(s)
 
-    Notes:
-        - Note: Jan 2025: use the -w flag as the WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg.
-          That file is the full HUC8 WBD layer, but removed all of the 22x, some of the 20x and 21x,
-          removed North Alaska, keeping just the South Alaska we need, plus some stray unneeded HUCs.
-          It has not been fully cleaned against our included_huc8_withAlaska.lst as this gpkg
-          has some extras but that is ok for now untili we clean it more.
-          Why the cleaned .gpkg file? we use it in ohter places and it keeps the
-          size and processing time down.
+    Note: Jan 2026.
+          This should be run 4 times, one for CONUS, AK, Guam and American Somoa.
+          Each has a WBD folder it needs and it needs to make a seperate bridge lines output file
+          for each of the four types.
+
+          Current WBD's for each of the 4 runs are:
+          - CONUS = /data/inputs/wbd/WBD_National_HUC8_CONUS.gpkg
+          - AK = /data/inputs/wbd/WBD_National_South_Alaska.gpkg
+          - GU = /data/inputs/wbd/WBD_Guam_6637.gpkg
+          - AS = /data/inputs/wbd/WBD_AmericanSamoa_32702.gpkg
+
+          There is a new WBD National in 5070 just for CONUS, HI and PR. This results in selected
+          HUCs in the 01x to 18x, but leaves out the 19x (Alaska). It does include some of the 
+          20x and 21x but not Guam (22010000) or American Samoa (22030001)
 
         - One HUC8 was too big for osmnx to handle adn kept timing out. So, we split that HUC8
           to HUC10's and feed it through this tool again.

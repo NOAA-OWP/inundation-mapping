@@ -298,6 +298,8 @@ if __name__ == "__main__":
     #    -o /data/inputs/osm/bridges/DEM_Diffs/20250617/conus/
     #    -j 20
 
+    # This tool needs to be run 4 times, once for Conus, AK, GU and AS
+
     ###############################
     #
     # If new OSM bridge data is pulled, it will trigger new bridge lidar date, which would trigger
