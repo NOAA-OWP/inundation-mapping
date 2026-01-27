@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/bin/bash
+###  Do not include -e as we want a fail to continue through
+###  stop other steps and processes.
 umask 000
 
 :
@@ -46,8 +48,6 @@ usage()
       -o                : Overwrite outputs if they already exist.
     "
 }
-
-set -e
 
 while [ "$1" != "" ]; do
 case $1

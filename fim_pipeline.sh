@@ -1,4 +1,5 @@
 #!/bin/bash -e
+umask 000
 
 :
 usage()
@@ -68,8 +69,6 @@ usage()
     exit
 }
 
-
-set -e
 
 # print usage if agrument is '-h' or '--help'
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then

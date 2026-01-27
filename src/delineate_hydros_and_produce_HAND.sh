@@ -1,5 +1,5 @@
-#!/bin/bash
-set -eo pipefail
+#!/bin/bash -e
+### set -eo pipefail  (debugging)
 
 ## Level is equal to the parent script: 'unit' or 'branch'
 level=$1
@@ -131,8 +131,6 @@ mpiexec $taudemDir/gagewatershed \
 
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
 echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
-date -u
-Tstart
 $srcDir/mitigate_branch_outlet_backpool.py \
     -b $tempCurrentBranchDataDir \
     -cp $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
@@ -144,7 +142,6 @@ $srcDir/mitigate_branch_outlet_backpool.py \
     -d $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
     -t $slope_min \
     --calculate-stats
-Tcount
 
 ## D8 REM ##
 echo -e $startDiv"D8 REM $hucNumber $current_branch_id"

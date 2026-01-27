@@ -23,26 +23,6 @@
 # otherwise we have two full seperate logging techniques and error trapping. Moreso, without this file, it woudl force
 # rerun_calibration.py to have so sort out exit codes, StdErr and StdOut BEFORE it reviews and builds error logs when applicable.
 
-# Some simple error handling
-# We add it to the log file then scan for the word "error" later down.
-# This will also handle errors in this script and not just calibrate_rating_curves.sh
-handle_error(){
-
-    orig_fail_line_num=$1
-    echo "++++++++++++++++++++++++++++"
-    msg="Critical error in process_rerun_calibration_huc.sh, line number:$orig_fail_line_num"
-    l_echo $msg
-    echo $msg >> $rerun_error_log_filename
-
-    msg="  Error Command submitted: $BASH_COMMAND"
-    l_echo $msg
-    echo $msg >> $rerun_error_log_filename
-
-    echo "++++++++++++++++++++++++++++"
-    echo
-    exit 1  # we do want to return a exit status of 1 to rerun_calibration.py if in failure
-}
-
 # outputDestDir and tempHucDataDir are setup as an enviro variable in rerun_calibration.py.
 # As always in multi-proc, it is ok to read files from here, but do not write to files or folders to a shared file.
 
@@ -59,6 +39,29 @@ rerun_error_log_filename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_err
 
 source $outputDestDir/params_rerun.env  # copied in from rerun_calibration.py
 source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
+
+
+# TODO: Jan 26: ROB !!!! finish this (baesd on fim_process_huc.sh)
+
+
+# Some simple error handling
+# We add it to the log file then scan for the word "error" later down.
+# This will also handle errors in this script and not just calibrate_rating_curves.sh
+handle_error(){
+
+    orig_fail_line_num=$1
+    echo "++++++++++++++++++++++++++++"
+    msg="Critical error in process_rerun_calibration_huc.sh, line number:$orig_fail_line_num"
+    l_echo $msg $rerun_error_log_filename
+
+    msg="Error Command Submitted: $BASH_COMMAND"
+    l_echo "$msg" $rerun_error_log_filename
+    echo "++++++++++++++++++++++++++++"
+    echo
+    exit 1  # we do want to return a exit status of 1 to rerun_calibration.py if in failure
+}
+
 
 # Tell the system the name and location of the log file
 # But don't allow calibrate_rating_curves.sh to do anything but echos and prints but not l_echo.
@@ -70,7 +73,7 @@ trap 'handle_error $LINENO' ERR
 
 # run the actual calibration script
 # Skip using the time command on this as it is very short
-$srcDir/calibrate_rating_curves.sh 2>&1 | tee $rerun_log_filename
+/usr/bin/time -f "$time_cmd_format" $srcDir/calibrate_rating_curves.sh 2>&1 | tee $rerun_log_filename
 return_code=$?
 
 err_exists=0
@@ -79,8 +82,7 @@ if [ $return_code -eq 0 ]; then
     # do nothing
 else
     err_msg+="***** An error has occurred - Code ("${code}") *****" + $"\n"
-    l_echo $err_msg
-    echo $err_msg >> $rerun_error_log_filename
+    l_echo $err_msg $rerun_log_filename
     err_exists=1
 fi
 
@@ -88,7 +90,7 @@ fi
 # We may end up with dup entries but that is ok.
 # Everything else including branch errors are already rolled up in the huc log file
 # and huc error file.
-l_echo "Scanning for the phrase 'error' or 'parallel' in the huc log file"
+l_echo "Scanning for the phrase 'error' or 'parallel' in the huc log file" $rerun_log_filename
 grep -H -i -n -e ".*error.*" -e ".*parallel.*" $rerun_log_filename >> $rerun_error_log_filename
 
 #  We will exit with just a 0 or 1 as rerun_calibration.py is looking for just exit codes

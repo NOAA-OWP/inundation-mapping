@@ -302,12 +302,19 @@ $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branch_zero_lis
 branch0=$(Calc_Time $branch0_start_time)
 branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
 
+## Start the local csv branch list
+echo "Generating Branch List"
+$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
+
 # -------------------
 ## Processing Branches ##
 echo
 echo "---- Start of branch processing for $hucNumber using $jobBranchLimit workers for branch processing"
 branch_processing_start_time=`date +%s`
 
+# We do not want a branch to shut down the huc, so process_branch.sh always sends
+# back an exit status of 0.
+# We don't have an answer for what if all branches failed at this time.
 if [ -f $branch_list_lst_file ]; then
     date -u
     Tstart
@@ -319,17 +326,6 @@ if [ -f $branch_list_lst_file ]; then
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
-
-# TODO: We need a new answer to genertae the branch_ids.csv and it HAS
-# to be here and cover branch 0 and other branches, figuring out a way to
-# only include ones that finished. Maybe search for the absolute final file
-# each in branch? ie.. the REM? or some other idea? aka.. how do we know
-# when a branch failed and we have to do it as one check here that is not
-# in a branch iterator ???
-
-## Start the local csv branch list
-echo "Generating Branch List"
-$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
 
 branches=$(Calc_Time $branch_processing_start_time)
 branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
@@ -350,7 +346,8 @@ total_branches=$(wc -l < $branch_list_csv_file)
 
 ## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
-$srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber 
+export calibration_rerun="false"
+$srcDir/calibrate_rating_curves.sh
 
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"

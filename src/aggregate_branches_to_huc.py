@@ -22,6 +22,16 @@ DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 
 
+# TODO: Jan 26, 2026. The log_error in here likely does not work
+# when in pipeline mode. Not sure about rerun mode.
+# Now that we have the new process_rerun_calibration, we likely
+# do not even need it. Need to look more at rerun_calibration
+# to see what it needs to pick up the errors.
+# Maybe we just pass back any exit and error message from process_rerun_calibraion.sh
+# and it the .py file work and log it.
+# Need to double check it.
+
+
 class HucDirectory(object):
     def __init__(self, huc_dir, limit_branches=[]):
         # self.fim_directory = fim_directory
@@ -419,7 +429,7 @@ class HucDirectory(object):
 
                     self.agg_road_fimpact.to_csv(roads_fimpact_file, index=False)
 
-        except Exception:
+        except Exception as ex:
             errMsg = (
                 "--------------------------------------"
                 f"\n huc_id {huc_id} has an error - outside multi proc\n"
@@ -437,6 +447,7 @@ class HucDirectory(object):
                 huc_id,
                 errMsg,
             )
+            raise ex
 
 
 # ==============================
@@ -516,6 +527,9 @@ def aggregate_by_huc(
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     print(f"started: {dt_string}")
 
+
+    raise Exception(" Oh no, Rob broke it")
+
     # get hucnumber
     huc_id = os.path.basename(os.path.normpath(huc_dir))
     try:
@@ -523,7 +537,7 @@ def aggregate_by_huc(
         huc_dir_obj.agg_function(
             usgs_elev_flag, hydro_table_flag, src_cross_flag, ras_elev_flag, bridge_flag, road_flag, huc_id
         )
-    except Exception:
+    except Exception as ex:
         errMsg = "--------------------------------------" f"\n huc_id {huc_id} has an error\n"
         errMsg = errMsg + traceback.format_exc()
         print(errMsg, flush=True)
@@ -538,6 +552,7 @@ def aggregate_by_huc(
             huc_id,
             errMsg,
         )
+        raise ex
 
     end_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
