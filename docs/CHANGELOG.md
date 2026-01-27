@@ -7,6 +7,16 @@ Changes the threshold data source priority from USGS to NRLDB. This way, if rati
 
 ### Changes
 - `/tools/tools_shared_functions.py`: Changes the threshold data source priority in `get_thresholds()` from USGS to NRLDB.
+## v4.9.5.3 - 2026-01-27 - [PR#1714](https://github.com/NOAA-OWP/inundation-mapping/pull/1714)
+
+Adding "G" and "U" as acceptable altitude methods, which could increase the number of USGS sites used in our CatFIM and calibration workflows.
+
+### Changes
+- `tools/tools_shared_variables.py`: Added codes "G" and "U" as acceptable altitude methods.
+
+<br/>
+
+
 ## v4.9.5.2 - 2026-01-21 - [PR#1727](https://github.com/NOAA-OWP/inundation-mapping/pull/1727)
 
 Fixes:
