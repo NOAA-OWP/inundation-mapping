@@ -73,6 +73,7 @@ export current_branch_id=0
 hucLogFile=$tempHucDataDir/logs/huc_"$hucNumber"_unit.log
 errorLogFile="$tempHucDataDir/logs/huc_${hucNumber}_errors.log"
 warningLogFile="$tempHucDataDir/logs/huc_${hucNumber}_warnings.log"
+branchNonZeroCodesLogFile="$tempHucDataDir/logs/huc_${hucNumber}_branch_non_zero_exit_codes.log"
 scan_for_huc_errors_complete="False"
 
 # Some simple error handling
@@ -114,10 +115,15 @@ check_for_huc_errors(){
 
         # Grep Tech Tip.. use the -e flag when you are not using any wildcards or patterns
         # just a word in a line. If you need a regex type patter, use -E instead.
-        grep -H -i -n -e "error" $hucLogFile >> $errorLogFile
-        grep -H -i -n -e "parallel" $hucLogFile >> $errorLogFile
+        # touch $errorLogFile
         # This helps with errors in this fim_process_huc.sh script
         grep -H -i -n -e "Command exited with non-zero status" $hucLogFile >> $errorLogFile
+        grep -H -i -n -e "error" $hucLogFile >> $errorLogFile
+        grep -H -i -n -e "parallel" $hucLogFile >> $errorLogFile
+
+        l_echo $startDiv"Find branch non zero exit codes for this huc" $hucLogFile
+        find $tempHucDataDir -path "*/logs/branch/*_branch*.log" -type f | \
+            xargs grep -H -n -i -E "Exit status: ([1-9][0-9]{0,2})" >> $branchNonZeroCodesLogFile
 
         # Scan for warnings too
         echo "Scanning for warnings"

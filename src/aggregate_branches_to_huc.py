@@ -527,9 +527,6 @@ def aggregate_by_huc(
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
     print(f"started: {dt_string}")
 
-
-    raise Exception(" Oh no, Rob broke it")
-
     # get hucnumber
     huc_id = os.path.basename(os.path.normpath(huc_dir))
     try:
