@@ -2,7 +2,6 @@ import argparse
 import datetime as dt
 import logging
 import os
-import sys
 import traceback
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -310,6 +309,8 @@ def combine_huc_features(output_dir):
 def process_osm_bridges(wbd_file, output_folder, number_of_jobs, lst_hucs):
     start_time = dt.datetime.now(dt.timezone.utc)
 
+    os.makedirs(output_folder, exist_ok=True)
+
     # TODO: plug in shared_functions version for logger setup
     __setup_logger(output_folder)
 
@@ -487,6 +488,9 @@ if __name__ == "__main__":
     This should be run 4 times, one for CONUS, AK, Guam and American Somoa.
     Each has a WBD folder it needs and it needs to make a seperate bridge lines output file
     for each of the four types.
+
+    You can also consider writing to a local EC2 dir which would be faster than copy it to
+    EFS.
 
     Sample usage (min params):
 
