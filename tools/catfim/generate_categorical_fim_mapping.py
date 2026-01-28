@@ -1569,36 +1569,13 @@ def reformat_inundation_maps(
         extent_poly_diss = extent_poly_diss.reset_index(drop=True)
         extent_poly_diss['nws_lid'] = nws_lid 
         extent_poly_diss['magnitude'] = magnitude
-        # extent_poly_diss['huc'] = huc
         # extent_poly_diss['interval_stage'] = interval_stage # TODO: Add back in for intervals
         # extent_poly_diss['is_interval'] = is_interval # TODO: Add back in for intervals
+        # extent_poly_diss['huc'] = huc # TODO: Clean up
 
         # Project to Web Mercator
         extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
 
-        # # CatFIM Reorg - I think we can just use the library GDF for these attributes (and could maybe do this all later?)
-        # # Join attributes
-        # nws_lid_attributes_table = pd.read_csv(nws_lid_attributes_filename, dtype={'huc': str})
-        # nws_lid_attributes_table = nws_lid_attributes_table.loc[
-        #     (nws_lid_attributes_table.magnitude == magnitude) & (nws_lid_attributes_table.nws_lid == nws_lid)
-        # ]
-        # extent_poly_diss = extent_poly_diss.merge(
-        #     nws_lid_attributes_table,
-        #     left_on=['nws_lid', 'magnitude', 'huc'],
-        #     right_on=['nws_lid', 'magnitude', 'huc'],
-        # )
-        # # already has an nws_lid column which we want and not the nws_lid column
-        # extent_poly_diss = extent_poly_diss.drop(columns='nws_lid') # TODO: Decide if we still wanna do this
-
-        # # Remove uncorrected stage from interval rows (to decrease potential for confusion)
-        # extent_poly_diss.loc[extent_poly_diss['is_interval'] == True, 'stage_uncorrected'] = None
-
-
-        # CatFIM reorg: we might not need to save the dissolved multipolygon, might just be able 
-        # to add it to the library gdf here?
-        # # Save dissolved multipolygon
-        # handle = os.path.split(tif_to_process)[1].replace('.tif', '')
-        # diss_extent_filename = os.path.join(gpkg_dir, f"{huc}_{handle}.gpkg")
 
         extent_poly_diss["geometry"] = [
             MultiPolygon([feature]) if type(feature) is Polygon else feature
@@ -1606,17 +1583,9 @@ def reformat_inundation_maps(
         ]
 
         # if not extent_poly_diss.empty:
-            # extent_poly_diss.to_file(
-            #     diss_extent_filename, driver=sf.getDriver(diss_extent_filename), index=False, engine='fiona'
-            # )
-            # MP_LOG.trace(
-            #    f"{huc} : {nws_lid} : {magnitude} - Reformatted inundation map saved"
-            #    f" as {diss_extent_filename}"
-            # )
-            # print(f"{huc} : {nws_lid} : {magnitude} Added geometry to library_df") # TODO: Update logging
+            # print(f"{huc} : {nws_lid} : {magnitude} Added geometry to library_df") # TODO: Update logging or clean up
         # else:
-            # print(f"{huc} : {nws_lid} : {magnitude} tif to gpkg, geodataframe is empty") # TODO: Update logging
-
+            # print(f"{huc} : {nws_lid} : {magnitude} tif to gpkg, geodataframe is empty") # TODO: Update logging or clean up
 
     except ValueError as ve:
         msg = f"{huc} : {nws_lid} : {magnitude} - Reformatted inundation map"
@@ -1633,7 +1602,7 @@ def reformat_inundation_maps(
     return extent_poly_diss
 
 
-def __calculate_category_key(category, stage_value, is_interval_stage): # TODO: Decide if we want to keep this?
+def __calculate_category_key(category, stage_value, is_interval_stage):
     '''
     Used in stage-based CatFIM.
 
@@ -1668,86 +1637,12 @@ def __calculate_category_key(category, stage_value, is_interval_stage): # TODO: 
 
     return category_key
 
-# Step numbers no longer needed - cleaned up 1/12/26
-def manage_catfim_mapping(
-    fim_run_dir,
-    output_flows_dir,
-    output_catfim_dir,
-    catfim_method,
-    # catfim_version,
-    # model_version,
-    # job_number_huc,
-    # job_number_inundate,
-    # log_output_file,
-    # step_number=1,
-):
-    '''
-    Only used in flow-based CatFIM.
-
-    Manages the workflow for generating categorical FIM (Flood Inundation Mapping) outputs,
-    including running inundation mapping and post-processing for visualization.
-
-    Parameters:
-        fim_run_dir (str): Directory containing the FIM run data.
-        output_flows_dir (str): Directory where flow outputs are stored.
-        output_catfim_dir (str): Directory for storing categorical FIM outputs.
-        catfim_method (str): Method used for categorical FIM generation.
-
-    Returns:
-        None
-
-    Notes:
-        - Initializes logging.
-        - Runs inundation mapping.
-        - Performs post-processing for visualization using multiple jobs.
-        - Logs the elapsed time for the mapping process.
-    '''
-
-    # TODO: Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
-
-    logging.info('Begin mapping')
-    start = time.time()  # TODO: Should this be changed to our standard duration code pattern?
-
-    output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
-    if not os.path.exists(output_mapping_dir):
-        os.mkdir(output_mapping_dir)
-
-    run_catfim_inundation(
-        fim_run_dir,
-        output_flows_dir,
-        output_mapping_dir,
-        job_number_huc,
-        job_number_inundate,
-        FLOG.LOG_FILE_PATH,
-    )
-
-
-
-    # FLOG.lprint("Aggregating Categorical FIM")
-
-    # TODO: Aug 2024, so we need to clean it up
-    # This step does not need a job_number_inundate as it can't really use it.
-    # It processes primarily hucs and ahps in multiproc
-    # for now, we will manually multiple the huc * 5 (max number of ahps types)
-    # ahps_jobs = job_number_huc * 5
-
-    post_process_cat_fim_for_viz(
-        catfim_method, output_catfim_dir, ahps_jobs, catfim_version, model_version, str(FLOG.LOG_FILE_PATH)
-    )
-
-    end = time.time()
-    elapsed_time = (end - start) / 60
-    # change to standard duration system as per other parts of code
-    FLOG.lprint(f"Finished mapping in {str(elapsed_time).split('.')[0]} minutes")
-
-    return
-
 
 def __load_mapping_data(huc_path, sites_mapping_file_path, segments_file_path, library_pre_inun_file_path):
     """
-
+    Used for both SB and FB.
+ 
     Load data needed for CatFIM mapping. 
-    Used for both SB and FB. 
     It does not load discharge here as only FB needs that
 
     Jan 2026: This is new and needed.
@@ -1783,48 +1678,49 @@ def __load_mapping_data(huc_path, sites_mapping_file_path, segments_file_path, l
     
     return sites_gdf, huc_library_df, huc_segments_df
 
+
 def __validate_mapping_data(huc, sites_gdf, huc_library_df, huc_segments_df):
-        """
-        validate any inputs (such as branches maybe) when reasonable 
-        so we can abort sooner than later. Not sure they is anything we can do
+    """
+    Used for both stage- and flow-based CatFIM.
 
-        """
+    validate any inputs (such as branches maybe) when reasonable 
+    so we can abort sooner than later. Not sure they is anything we can do
 
-        validation_pass = True
-        validation_messages = []
+    """
 
-        # Note sites where mapped = no
-        # (sites that are unmapped but mappable will have the value 'not yet' in their mapped column)
-        sites_no_mapping = sites_gdf.loc[sites_gdf['mapped'] == 'no']['nws_lid'].to_list()
-        sites_no_mapping_status = sites_gdf.loc[sites_gdf['mapped'] == 'no']['status'].to_list()
+    validation_pass = True
+    validation_messages = []
 
-        if len(sites_no_mapping) > 0:
-            msg = f'{huc} - Mapping - The following sites will not be mapped:'
+    # Note sites where mapped = no
+    # (sites that are unmapped but mappable will have the value 'not yet' in their mapped column)
+    sites_no_mapping = sites_gdf.loc[sites_gdf['mapped'] == 'no']['nws_lid'].to_list()
+    sites_no_mapping_status = sites_gdf.loc[sites_gdf['mapped'] == 'no']['status'].to_list()
+
+    if len(sites_no_mapping) > 0:
+        msg = f'{huc} - Mapping - The following sites will not be mapped:'
+        validation_messages.append(msg)
+
+        for index, site in enumerate(sites_no_mapping):
+            msg = f"{site} - {sites_no_mapping_status[index]}"
             validation_messages.append(msg)
 
-            for index, site in enumerate(sites_no_mapping):
-                msg = f"{site} - {sites_no_mapping_status[index]}"
-                validation_messages.append(msg)
+    # Give an error if important inputs are empty
+    if len(sites_gdf) == 0:
+        msg = f"{huc} - Mapping - WARNING: Sites GDF is empty."
+        validation_messages.append(msg)
+        validation_pass = False
 
+    if len(huc_library_df) == 0:
+        msg = f"{huc} - Mapping - WARNING: HUC library DF is empty."
+        validation_messages.append(msg)
+        validation_pass = False
 
-        # Give an error if sites_gdf is empty
-        if len(sites_gdf) == 0:
-            msg = f"{huc} - Mapping - WARNING: Sites GDF is empty."
-            validation_messages.append(msg)
-            validation_pass = False
+    if len(huc_segments_df) == 0:
+        msg = f"{huc} - Mapping - WARNING: HUC segments DF is empty."
+        validation_messages.append(msg)
+        validation_pass = False
 
-        if len(huc_library_df) == 0:
-            msg = f"{huc} - Mapping - WARNING: HUC library DF is empty."
-            validation_messages.append(msg)
-            validation_pass = False
-
-        if len(huc_segments_df) == 0:
-            msg = f"{huc} - Mapping - WARNING: HUC segments DF is empty."
-            validation_messages.append(msg)
-            validation_pass = False
-
-
-        return validation_pass, validation_messages
+    return validation_pass, validation_messages
 
 
 if __name__ == '__main__':
@@ -1874,6 +1770,79 @@ if __name__ == '__main__':
 
 # FUNCTION GRAVEYARD (remove eventually)
 
+# # Step numbers no longer needed - cleaned up 1/12/26
+# def manage_catfim_mapping(
+#     fim_run_dir,
+#     output_flows_dir,
+#     output_catfim_dir,
+#     catfim_method,
+#     # catfim_version,
+#     # model_version,
+#     # job_number_huc,
+#     # job_number_inundate,
+#     # log_output_file,
+#     # step_number=1,
+# ):
+#     '''
+#     Only used in flow-based CatFIM.
+
+#     Manages the workflow for generating categorical FIM (Flood Inundation Mapping) outputs,
+#     including running inundation mapping and post-processing for visualization.
+
+#     Parameters:
+#         fim_run_dir (str): Directory containing the FIM run data.
+#         output_flows_dir (str): Directory where flow outputs are stored.
+#         output_catfim_dir (str): Directory for storing categorical FIM outputs.
+#         catfim_method (str): Method used for categorical FIM generation.
+
+#     Returns:
+#         None
+
+#     Notes:
+#         - Initializes logging.
+#         - Runs inundation mapping.
+#         - Performs post-processing for visualization using multiple jobs.
+#         - Logs the elapsed time for the mapping process.
+#     '''
+
+#     # TODO: Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
+
+#     logging.info('Begin mapping')
+#     start = time.time()  # TODO: Should this be changed to our standard duration code pattern?
+
+#     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
+#     if not os.path.exists(output_mapping_dir):
+#         os.mkdir(output_mapping_dir)
+
+#     run_catfim_inundation(
+#         fim_run_dir,
+#         output_flows_dir,
+#         output_mapping_dir,
+#         job_number_huc,
+#         job_number_inundate,
+#         FLOG.LOG_FILE_PATH,
+#     )
+
+
+
+#     # FLOG.lprint("Aggregating Categorical FIM")
+
+#     # TODO: Aug 2024, so we need to clean it up
+#     # This step does not need a job_number_inundate as it can't really use it.
+#     # It processes primarily hucs and ahps in multiproc
+#     # for now, we will manually multiple the huc * 5 (max number of ahps types)
+#     # ahps_jobs = job_number_huc * 5
+
+#     post_process_cat_fim_for_viz(
+#         catfim_method, output_catfim_dir, ahps_jobs, catfim_version, model_version, str(FLOG.LOG_FILE_PATH)
+#     )
+
+#     end = time.time()
+#     elapsed_time = (end - start) / 60
+#     # change to standard duration system as per other parts of code
+#     FLOG.lprint(f"Finished mapping in {str(elapsed_time).split('.')[0]} minutes")
+
+#     return
 
 # CatFIM Reorg: removing post_process_cat_fim_for_viz function and just running post_process_huc(), because this function really just iterated HUCs
 # def post_process_cat_fim_for_viz(
