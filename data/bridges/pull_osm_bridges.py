@@ -516,7 +516,7 @@ if __name__ == "__main__":
           - AS = /data/inputs/wbd/WBD_AmericanSamoa_32702.gpkg
 
           There is a new WBD National in 5070 just for CONUS, HI and PR. This results in selected
-          HUCs in the 01x to 18x, but leaves out the 19x (Alaska). It does include some of the 
+          HUCs in the 01x to 18x, but leaves out the 19x (Alaska). It does include some of the
           20x and 21x but not Guam (22010000) or American Samoa (22030001)
 
         - One HUC8 was too big for osmnx to handle adn kept timing out. So, we split that HUC8

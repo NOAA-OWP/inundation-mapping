@@ -7,16 +7,17 @@ import os
 import subprocess
 import sys
 import traceback
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait
+
+# from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
 
 import geopandas as gpd
 import pandas as pd
 
-import utils.shared_functions as sf
-import utils.shared_validators as val
+import src.utils.shared_functions as sf
+import src.utils.shared_validators as val
 from data.create_vrt_file import create_vrt_file
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
 
 
 gpd.options.io_engine = "pyogrio"
@@ -25,6 +26,10 @@ gpd.options.io_engine = "pyogrio"
 '''
 TODO:
     - Add input args for resolution size, which means URL and block size also have to be parameterized.
+
+    - the -lf system needs testing.
+
+    - Add MP or MT to polygonize
 
 '''
 
@@ -45,7 +50,7 @@ def acquire_and_preprocess_3dep_dems(
     repair=False,
     skip_polygons=False,
     target_projection='EPSG:5070',
-    lst_hucs='all',
+    lst_file_names='all',
 ):
     '''
     Overview
@@ -64,24 +69,31 @@ def acquire_and_preprocess_3dep_dems(
         - As this is a very low use tool, most values such as the USGS vrt path, output
           file names, etc are all hardcoded
 
-        - Currently there is no tools to extract the WBD HUC8's that are applicable. You will want
-          a gkpg for each download extent (ie. HUC8, HUC6, whatever. Make a folder of each extent
-          file you want. ie) a folder of WBD HUC8's. One gkpg per HUC8 (or whatever size you like)
-
-        - When we originally used this tool for CONUS+, we loaded them in HUC6's, but now
-          with selected HUC8's for South Alaska, we will use input extent files as WBD HUC8.
-
-        - We run conus at HUC6 as there is often a number of download fails requiring our tool to run in -r (repair)
-          mode to fix it. HUC8's are more files and allow for more possible errors. (usually just communication fails)
-
         - We have a separate tool to create a VRT of any folder of rasters.
+
+    - Jan 2026: This tool wants one folder path (-e) which has a set of WBD polys per huc. When the tool starts
+        it looks at the -lh values which defaults to "all", which means load in each file name in that folder
+        as source file names for individual dem file. For each file name, it drops the extension and makes the
+        new DEM tif file as its original file names plus _dem.tif.
+            ie) HUC8_12090301.gpkg becomes HUC8_12090301_dem.tif.
+        While not manditory, our convention is HUC8_{huc number}.gpkg.  In the past we have used HUC6 wbd
+        gpkg and really any size we want, just noting that the larger the physical spatial size of the .gkpg
+        means a longer download and output file size natually.
+
+        When you explicitly use the -lh flag, it will use jsut that -lh value which is a file name in that source
+        directory, regardless how many files are in that folder.  ie) -lh HUC8_12090301.gpkg
+
+        While we could put Guam and AK in one folder in the wbd directories, it is easier to split them into
+        seperate folders for consistancy.
+
+    There is a README.txt file in the /data/inputs/WBDs_for_DEM_downloading which talks the four extent folders.
 
     Parameters
     ----------
         - extent_file_path (str):
             Location of where the extent files that are to be used as clip extent against
             the USGS 3Dep vrt url.
-            ie) /data/inputs/wbd/HUC6
+            ie) /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_CONUS/
 
         - target_output_folder_path (str):
             The output location of the new 3dep dem files.
@@ -103,9 +115,10 @@ def acquire_and_preprocess_3dep_dems(
         - target_projection (String)
              Projection of the output DEMS and polygons (if included)
 
-        - lst_hucs (string)
-             If the lst_hucs value is used, it will look for those HUCs in the loaded file list and
-             only process ones that match.
+        - lst_file_names (string)
+             If the lst_file_names value is used, it will look for those file names in the loaded source folder
+             and only process ones that match. If the -lf arg is not passed, this value becomes "all"
+             and it looks for all .gpkg files in the extent folder.
     '''
     # -------------------
     # Validation
@@ -164,65 +177,70 @@ def acquire_and_preprocess_3dep_dems(
     # setup logs
     overall_start_time = datetime.now(timezone.utc)
     fh.print_start_header('Acquire and process USGS DEM Started', overall_start_time)
-    __setup_logger(target_output_folder_path)
-    logging.info(f"Downloading to {target_output_folder_path}")
+    file_dt_string = overall_start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    log_file_name = f"3Dep_downloaded-{file_dt_string}.log"
+    log_file_path = os.path.join(target_output_folder_path, log_file_name)
+    file_logger = sf.setup_mp_file_logger(log_file_path, "3Dep_downloaded")
+
+    sf.l_print(f"Downloading to {target_output_folder_path}", file_logger, "info")
 
     # -------------------
     # processing
 
     # Get the WBD .gpkg files (or clip extent)
     extent_file_names_raw = fh.get_file_names(extent_file_path, 'gpkg')
-    logging.info(f"Extent files coming from {extent_file_path}")
+    sf.l_print(f"Extent files coming from {extent_file_path}", file_logger, "info")
 
-    # If a HUC list is specified, only keep the specified HUCs
-    lst_hucs = lst_hucs.split()
+    # If a file name list is specified, only keep the specified files
+    lst_file_names = lst_file_names.split()
     extent_file_names = []
-    if 'all' not in lst_hucs:
-        for huc in lst_hucs:
-            if len(huc) != 6 and len(huc) != 8:
-                raise ValueError("HUC values from the list should be 6 or 8 digits long")
-            extent_file_names.extend([x for x in extent_file_names_raw if huc in x])
+    if 'all' not in lst_file_names:
+        for file_name in extent_file_names_raw:
+            file_path = os.path.join(extent_file_path, file_name)
+            extent_file_names.extend(file_path)
 
         if len(extent_file_names) == 0:
-            raise ValueError(
-                "After applying the huc filter list, there are no files to process."
-                " All files were checked based on the pattern of _(huc number)"
-            )
+            raise ValueError("After applying the file name filter list, there are no files to process.")
     else:
         extent_file_names = extent_file_names_raw
 
     extent_file_names.sort()
 
     # download dems, setting projection, block size, etc
-    failed_paths = __download_usgs_dems(
-        extent_file_names, target_output_folder_path, number_of_jobs, repair, target_projection
+    failed_file_names = __download_usgs_dems(
+        extent_file_names, target_output_folder_path, number_of_jobs, repair, target_projection, file_logger
     )
 
     if skip_polygons is False:
-        if len(failed_paths) > 0:
+        if len(failed_file_names) > 0:
             msg = "Errors have occurred while downloading. Polygonizating can not be completed."
             " Program aborted."
-            logging.critical(msg)
+            file_logger.critical(msg)
+            sf.l_print(msg, file_logger, "critical")
         else:
-            polygonize(target_output_folder_path)
+            __polygonize(target_output_folder_path, file_logger)
     else:
-        logging.info("polygonize skipped")
+        file_logger.info("polygonize skipped")
 
-    logging.info("==========================================================")
+    sf.l_print("==========================================================", file_logger, "info")
     end_time = datetime.now(timezone.utc)
-    logging.info("-- Acquire and process USGS DEM Completed")
-    logging.info(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    logging.info(fh.print_date_time_duration(overall_start_time, end_time, False))
+    sf.l_print("-- Acquire and process USGS DEM Completed", file_logger, "info")
+    sf.l_print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
+    sf.l_print(fh.print_date_time_duration(overall_start_time, end_time, False), file_logger, "info")
 
     print()
     print(
         '---- NOTE: Remember to scan the log file for any failures. If you find errors in the'
-        ' log file, delete the output file and repair.'
+        ' log file, delete the output file and repair. When running in repair mode, it will scan for'
+        ' missing files and will also reload any file that is under 5 MiB as it will assume it'
+        ' failed on earlier attempts.'
     )
     print()
 
 
-def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repair, target_projection):
+def __download_usgs_dems(
+    extent_files, output_folder_path, number_of_jobs, repair, target_projection, file_logger
+):
     '''
     Process:
     ----------
@@ -243,11 +261,11 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
 
     '''
 
-    logging.info("==========================================================")
-    logging.info("-- Downloading USGS DEMs Starting")
+    sf.l_print("==========================================================", file_logger, "info")
+    sf.l_print("-- Downloading USGS DEMs Starting", file_logger, "info")
 
     start_time = datetime.now(timezone.utc)
-    logging.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    sf.l_print(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
 
     base_cmd = 'gdalwarp {0} {1}'
     base_cmd += ' -cutline {2} -crop_to_cutline -ot Float32 -r bilinear'
@@ -264,8 +282,24 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
        -co "TILED=YES" -co "COMPRESS=LZW" -co "BIGTIFF=YES" -tr 10 10 -tap -t_srs ESRI:102039 -cblend 6
     """
 
-    failed_paths = []
+    tasks_args_list = []
+    for extent_file in extent_files:
+        basic_file_name = os.path.basename(extent_file).split('.')[0]
+        tasks_args_list.append(
+            {
+                'basic_file_name': basic_file_name,
+                'extent_file': extent_file,
+                'output_folder_path': output_folder_path,
+                'download_url': __USGS_3DEP_10M_VRT_URL,
+                'target_projection': target_projection,
+                'base_cmd': base_cmd,
+                'repair': repair,
+            }
+        )
 
+    sf.l_print(f"Processing {len(tasks_args_list)} files with {number_of_jobs} workers", file_logger, "info")
+
+    """
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         executor_dict = {}
 
@@ -292,8 +326,8 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
 
             except Exception as ex:
                 summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-                logging.critical(f"*** {ex}")
-                logging.critical(''.join(summary.format()))
+                file_logger.critical(f"*** {ex}")
+                file_logger.critical(''.join(summary.format()))
 
                 # TODO: Check this. sys.exits inside MP may not work.
                 # Also decide if you want the HUC to fail and continue or shut the entire
@@ -303,22 +337,53 @@ def __download_usgs_dems(extent_files, output_folder_path, number_of_jobs, repai
         # Send the executor to the progress bar and wait for all tasks to finish
         # TODO: fix progress bar
         sf.progress_bar_handler(executor_dict, "Downloading USGG 3Dep Dems")
+    """
 
-    if len(failed_paths) > 0:
-        logging.info(
-            "Some dem downloads have failed. Here are files that need review for errors:" f" {failed_paths}"
+    # === Run jobs in parallel ===
+    mp_results = sf.run_with_mp(
+        task_function=__download_usgs_dem_file,
+        tasks_args_list=tasks_args_list,
+        file_logger=file_logger,
+        max_workers=number_of_jobs,
+        task_id_key="basic_file_name",  # used for task id---must be one of the keys from args dict
+        show_progress=False,
+    )
+
+    # the value for success could be "False", "True", or "Skipped"
+    # rtn_dic = {"success": "False", "basic_file_name": basic_file_name}
+    # basic_file_name is the file name without the extension
+    failed_file_names = []
+    for task_id, task_results in mp_results.items():
+        if task_results["success"] == "False":
+            failed_file_names.append(task_id)
+
+    if len(failed_file_names) > 0:
+        file_names = ', ' in (failed_file_names)
+        sf.l_print(
+            f"Some DEM downloads have failed. Here are files that need review for errors: {file_names}",
+            file_logger,
+            "info",
         )
 
     end_time = datetime.now(timezone.utc)
-    logging.info("-- Downloading USGS DEM Completed")
-    logging.info(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    logging.info(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False))
+    sf.l_print("-- Downloading USGS DEM Completed", file_logger, "info")
+    sf.l_print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
+    sf.l_print(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False), file_logger, "info")
 
-    return failed_paths
+    return failed_file_names
 
 
-def download_usgs_dem_file(
-    extent_file, output_folder_path, download_url, target_projection, base_cmd, repair
+def __download_usgs_dem_file(
+    basic_file_name,
+    extent_file,
+    output_folder_path,
+    download_url,
+    target_projection,
+    base_cmd,
+    repair,
+    file_logger,
+    screen_queue,
+    task_id,
 ):
     '''
         Process:
@@ -352,70 +417,94 @@ def download_usgs_dem_file(
     }
     '''
 
-    basic_file_name = os.path.basename(extent_file).split('.')[0]
+    sf.l_print(f"Processing {basic_file_name}", file_logger, "info", screen_queue)
+    # basic_file_name = os.path.basename(extent_file).split('.')[0]
     target_file_name_raw = f"{basic_file_name}_dem.tif"  # as downloaded
-    target_path_raw = os.path.join(output_folder_path, target_file_name_raw)
+    target_file = os.path.join(output_folder_path, target_file_name_raw)
 
     # Yes.. use string bool
+    # the value for success could be "False", "True", or "Skipped"
+    # basic_file_name is the file name without the extension
     rtn_dic = {"success": "False", "basic_file_name": basic_file_name}
+
+    # 1 means it was handled successfully
+    # 0 means if failed but do not shut down the mp
+    # -1 means catestrophic fail and shut down the mp
+    # This is part of the convention of using run_with_mp
+    processed_successfully = 1  # True
 
     # It does happen where the final output size can be very small (or all no-data)
     # which is related to to the spatial extents of the dem and the vrt combined.
     # so, super small .tifs are correct.
 
-    if (repair) and (os.path.exists(target_path_raw)):
-        if os.stat(target_path_raw).st_size < 1000000:
-            os.remove(target_path_raw)
+    # TODO: This is a bit goofy but when in repair mode, it sees if the file is smaller than 10 Mib
+    # and it if is, it assumes it is in error and attempts to reload it.
+    # We really could use something smarter.
+    # If the previous download failed, it is always ends up under 5 MiB
+
+    if (repair) and (os.path.exists(target_file)):
+        num_bytes = 5 * 100000  # 5 MiB
+        if os.path.getsize(target_file) < num_bytes:
+            os.remove(target_file)
         else:
             msg = f" - Downloading -- {target_file_name_raw} - Skipped (already exists (see retry flag))"
-            logging.info(msg)
+            sf.l_print(msg, file_logger, "info", screen_queue)
             rtn_dic["success"] = "Skipped"
-            return rtn_dic
+            return processed_successfully, rtn_dic
 
-    start_time = datetime.now(timezone.utc)
-    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
+    file_dt_string = datetime.now(timezone.utc).strftime("%Y_%m_%d-%H_%M_%S")
+    msg = f" - Downloading -- {target_file_name_raw} - Started: {file_dt_string}"
+    sf.l_print(msg, file_logger, "info", screen_queue)
 
-    logging.info(f" - Downloading -- {target_file_name_raw} - Started: {file_dt_string}")
-
-    cmd = base_cmd.format(download_url, target_path_raw, extent_file, target_projection)
+    cmd = base_cmd.format(download_url, target_file, extent_file, target_projection)
     # print(f"cmd is {cmd}")
 
     # didn't use Popen becuase of how it interacts with multi proc
     # was creating some issues. Run worked much better.
 
     try:
+
         result = subprocess.run(
             cmd,
-            capture_output=True,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             check=True,
             universal_newlines=True,
         )
 
-        if result.returncode  == 0:
-            logging.info(f" - Downloading -- {target_file_name_raw} - Complete; Msg returned: {result.stdout}")
+        if result.returncode == 0:
+            msg = f" - Downloading -- {target_file_name_raw} - Complete"
+            sf.l_print(msg, file_logger, "info", screen_queue)
             rtn_dic["success"] = "True"
 
         else:
-            logging.error(f"Error during download. Return code: {result.returncode}")
-            logging.error(f"Return msg: {result.stderr}")
-
-            msg = f" - Downloading -- {target_file_name_raw}" f"  ERROR -- details: Return code = {result.returncode}"
-            f" ; Return Error Msg = {result.stderr}"
-            logging.error(msg)
-            os.remove(target_path_raw)
+            msg = (
+                f" - Downloading -- {target_file_name_raw}"
+                f" -- ERROR -- Details: Return code = {result.returncode}"
+            )
+            f" ; Return Error Msg = {result.stderr}."
+            sf.l_print(msg, file_logger, "error", screen_queue)
+            if os.path.is_file(target_file):
+                msg = f"Deleting invalid file - {target_file}"
+            sf.l_print(msg, file_logger, "error", screen_queue)
+            os.remove(target_file)
             rtn_dic["success"] = "False"
+            processed_successfully = 0  # False
 
-    except Exception as ex:
-        logging.critical(f"An exception occurred while downloading file {target_file_name_raw}.")
-        logging.critical(traceback.format_exc())
-        raise ex
+    except Exception:
+        msg = f"An exception occurred while downloading file {target_file_name_raw}."
+        sf.l_print(msg, file_logger, "critical", screen_queue)
+        sf.l_print(traceback.format_exc(), file_logger, "critical", screen_queue)
+        processed_successfully = -1  # Critical fail, stop the MP
 
-    return rtn_dic
+    return processed_successfully, rtn_dic
 
 
-def polygonize(target_output_folder_path):
+def __polygonize(target_output_folder_path, file_logger):
 
-    # TODO: Jun 2025: Find a way to speed this up
+    # TODO: Jun 2025: Find a way to speed this up  (add MP or MT???)
+    # Can likely just send the mp/mt send back the gpkg, add it to an array, then concat, and dissolve
     """
     Create a polygon of 3DEP domain from individual HUC DEMS which are then dissolved into a single polygon
 
@@ -424,12 +513,11 @@ def polygonize(target_output_folder_path):
     """
     dem_domain_file = os.path.join(target_output_folder_path, 'DEM_Domain.gpkg')
 
-    logging.info("==========================================================")
     msg = f" - Polygonizing -- {dem_domain_file} - Started (be patient, it can take a while)"
-    logging.info(msg)
+    sf.l_print(msg, file_logger, "info")
 
     start_time = datetime.now(timezone.utc)
-    logging.info(f"Polygonation start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
+    sf.l_print(f"Polygonation start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
 
     dem_files = glob.glob(os.path.join(target_output_folder_path, '*_dem.tif'))
 
@@ -441,7 +529,7 @@ def polygonize(target_output_folder_path):
     dem_gpkgs = gpd.GeoDataFrame()
 
     for n, dem_file in enumerate(dem_files):
-        logging.info(f"Polygonizing: {dem_file}")
+        sf.l_print(f"Polygonizing: {dem_file}", file_logger, "info")
         edge_tif = f'{os.path.splitext(dem_file)[0]}_edge.tif'
         edge_gpkg = f'{os.path.splitext(edge_tif)[0]}.gpkg'
 
@@ -487,63 +575,47 @@ def polygonize(target_output_folder_path):
     dem_dissolved.to_file(dem_domain_file, driver='GPKG', engine='fiona')
 
     if not os.path.exists(dem_domain_file):
-        logging.error(f" - Polygonizing -- {dem_domain_file} - Failed")
+        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Failed", file_logger, "error")
     else:
-        logging.info(f" - Polygonizing -- {dem_domain_file} - Complete")
+        sf.l_print(f" - Polygonizing -- {dem_domain_file} - Complete", file_logger, "info")
 
     end_time = datetime.now(timezone.utc)
-    logging.info(f"Polygonization end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    logging.info(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False))
-    print("==========================================================")
-
-
-def __setup_logger(output_folder_path):
-    start_time = datetime.now(timezone.utc)
-    file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
-    log_file_name = f"3Dep_downloaded-{file_dt_string}.log"
-
-    log_file_path = os.path.join(output_folder_path, log_file_name)
-
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setLevel(logging.INFO)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
-
-    logger = logging.getLogger()
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
-    logger.setLevel(logging.DEBUG)
+    sf.l_print(f"Polygonization end time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}", file_logger, "info")
+    sf.l_print(fh.print_date_time_duration(start_time, end_time, print_dur_msg=False), file_logger, "info")
 
 
 if __name__ == '__main__':
     '''
-    sample usage (min params):
+    sample usage (min params): (AK)
         python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
-            -e /data/inputs/wbd/wbd/HUC8_South_Alaska/ -proj "EPSG:3338"
+            -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_South_Alaska/ -proj "EPSG:3338"
             -t /data/inputs/dems/3dep_dems/10m_South_Alaska/20250301
             -j 6
 
-    or
-        python3 /foss_fim/data/usgs/acquire_and_preprocess_3dep_dems.py
-            -e /data/inputs/wbd/HUC8_CONUS/ -proj "EPSG:5070"
-            -t /data/inputs/dems/3dep_dems/10m_5070/20260127 -j 10
-            (adding -rp if you are in repair mode)
+    Pathing and epsg for the regions are:
+
+    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_CONUS/ -proj "EPSG:5070"
+    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_South_Alaska/ -proj "EPSG:3338"
+    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_American_Samoa/ -proj "EPSG:32702"
+    -e /data/inputs/wbd/WBDs_for_DEM_downloading/HUC8_Guam/ -proj "EPSG:6637"
+
+
+    (adding -rp if you are in repair mode)
+
 
     *** Keep the job number at 6 as the network can't handle anymore than that anyways ***
 
-    Make sure when you run the AK version, you set the arg for CRS as EPSG:3338. Guam is EPSG:6637 and 
-    American Somoa is EPSG:32702. 
-
 
     Notes:
-      - There is alot to know, so read the notes in the functions above.
+      - There is alot to know, so read the notes in the functions and top of the page above.
+        Especailly about the -rp (repair) system.
 
       - Keep the job numbers low, too many of them can result in incompleted downloads for a HUC.
-        Run this on a Prod / Thor sized machine as network speed it they key element. 
+        Run this on a Prod / Thor sized machine as network speed it they key element.
         You can watch your servers network guage in the top right of your screen to help sort out
         what works best for throttling versus stability.
 
-      - It is very common for not all DEMs to not all download correctly on each pass.
+      - It is not un-common for some DEMs to not all download correctly on each pass.
         Review the output files and the logs so you know which are missing. Delete the ones in the outputs
         that are in error. Then run the tool again wihth the -rp flag (repair) which will fill in the holes.
 
@@ -557,18 +629,16 @@ if __name__ == '__main__':
         is named named "HUC8_12090301", then the output file name will be "HUC8_12090301_dem.tif"
         Or depends what file name you sent in for the boundary:
 
-
     FIM uses vrt's primariy for DEMs but this tool only downloads and preps the DEMs but does
     not create the vrt. That is done using the create_vrt_file.py tool.
 
 
-
     ++++++++++++++++++++++++++++++++++++++++++++
     SUPER IMPORTANT:
-        - Make sure you run this twice, one for CONUS, then again for AK.
-        - Then create the two new matching VRTs. create_vrt_file.py
+        - Make sure you run this tool for each of the 4 regions.
+        - Then create the four new matching VRTs. create_vrt_file.py
         - There is a downstream tool that re-run when we get new DEMs
-             - make_dem_dif_for_bridges.py (which also needs CONUS and an AK run)
+             - make_dem_dif_for_bridges.py (which also needs the four regions run)
     ++++++++++++++++++++++++++++++++++++++++++++
     '''
 
@@ -597,6 +667,10 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
+        '-proj', '--target_projection', help='REQUIRED: Desired output CRS. ie) EPSG:5070', required=True
+    )
+
+    parser.add_argument(
         '-j',
         '--number_of_jobs',
         help='OPTIONAL: Number of (jobs) cores/processes to used.',
@@ -608,8 +682,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '-rp',
         '--repair',
-        help='OPTIONAL: If included, it process only HUCs missing output DEMs or if the output DEM'
-        ' is too small (under 10 MB), which does happen. Read all inline notes about this feature',
+        help='OPTIONAL: If included, it process only file names missing output DEMs or if the output DEM'
+        ' is too small (under 5 MB), which does happen. Read all inline notes about this feature',
         required=False,
         action='store_true',
         default=False,
@@ -625,19 +699,10 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-proj',
-        '--target_projection',
-        help='OPTIONAL: Desired output CRS. Defaults to EPSG:5070',
-        required=False,
-        default='EPSG:5070',
-    )
-
-    parser.add_argument(
-        '-lh',
-        '--lst_hucs',
-        help='OPTIONAL: Space-delimited list of HUCs to do acquire for.'
-        ' If a value exists, it will check the file names of the extent dir for files that have'
-        ' have that huc number in it. Careful using HUC6 versus HUC8 values. Defaults to all HUCs',
+        '-lf',
+        '--lst_file_names',
+        help='OPTIONAL: Space-delimited list of files names in the source directory to do acquire for.'
+        ' Defaults to all gpkg file names in the extent folder',
         required=False,
         default='all',
     )
