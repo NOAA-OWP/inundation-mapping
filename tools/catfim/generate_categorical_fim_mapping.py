@@ -3,6 +3,7 @@
 import argparse
 import glob
 import shutil
+import math
 
 import logging
 import os
@@ -355,13 +356,14 @@ def process_mapping(
     return
 
 
-def run_fb_mapping(huc, 
-                   huc_path,
-                   sites_gdf,
-                   huc_library_df,
-                   output_mapping_dir, 
-                   fim_run_dir,
-                   output_temp_dir,
+def run_fb_mapping(
+    huc, 
+    huc_path,
+    sites_gdf,
+    huc_library_df,
+    output_mapping_dir, 
+    fim_run_dir,
+    output_temp_dir,
 ):
     '''
     Only used in flow-based CatFIM.
@@ -489,13 +491,13 @@ def run_fb_mapping(huc,
 
 
 def run_fb_inundation( # renamed from run_inundation
-        huc,
-        ahps_site,
-        magnitude,
-        fim_run_dir,
-        magnitude_flows_csv_path,
-        output_extent_tif,
-        job_number_inundate,
+    huc,
+    ahps_site,
+    magnitude,
+    fim_run_dir,
+    magnitude_flows_csv_path,
+    output_extent_tif,
+    job_number_inundate,
 ):
     '''
     Only used in flow-based CatFIM.
@@ -610,15 +612,16 @@ def run_fb_inundation( # renamed from run_inundation
     return
 
 
-def run_sb_mapping(huc,
-                    huc_path,
-                    sites_gdf,
-                    huc_library_df,
-                    output_mapping_dir,
-                    fim_run_dir,
-                    output_temp_dir,
-                    huc_segments_df,
-                   ):
+def run_sb_mapping(
+    huc,
+    huc_path,
+    sites_gdf,
+    huc_library_df,
+    output_mapping_dir,
+    fim_run_dir,
+    output_temp_dir,
+    huc_segments_df,
+):
     """
     
     Only used in stage-based CatFIM.
@@ -671,6 +674,9 @@ def run_sb_mapping(huc,
 
     # Loop through AHPS sites
     for ahps_site in ahps_sites_list:
+
+        # -----------------------
+        # Inundate site using available stage magnitudes
     
         # Get a list of available magnitudes
         huc_thresholds_long_df_site = huc_thresholds_long_df[huc_thresholds_long_df['nws_lid'] == ahps_site]
@@ -687,6 +693,7 @@ def run_sb_mapping(huc,
         # Make the feature_id column into a list
         segments = site_segments_df['feature_id'].tolist()
 
+        # Iterate magnitudes to run inundation
         for magnitude in magnitude_list:
             if "." in magnitude: # TODO: Do we need this check? Is this where we check for intervals? 
                 continue
@@ -701,12 +708,13 @@ def run_sb_mapping(huc,
             lid_usgs_elev = site_mag_library_df['lid_usgs_elev'].iloc[0]
             lid_altitude = site_mag_library_df['lid_alt_ft'].iloc[0] # TODO: Double check that this is correct variable
 
-            # TODO: Decide if we want to change how we handle this
+            # Calculate a portion of the file name which includes the category and
+            # a formatted stage value (would include "i" if it were an interval file)
             category_key = __calculate_category_key(magnitude, stage_val, False)  # False = not an interval
 
             print(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {category_key}")
 
-            # Create the inundation tifs for each site/magnitude combination for the lid (was previously called produce_stage_based_lid_tifs)
+            # Create the inundation tifs for each site/mag combo for the lid (previously called produce_stage_based_lid_tifs)
             run_sb_inundation(
                 huc,
                 sites_gdf, 
@@ -723,13 +731,105 @@ def run_sb_mapping(huc,
                 category_key,
         )
 
+        # -----------------------
+        # Inundate site using additional stage intervals
+
+        # Get non-record stages for the site and sort them by stage value
+        non_rec_thresholds_df_unsorted_site = huc_thresholds_long_df_site[huc_thresholds_long_df_site["stage_name"] != 'record']
+        non_rec_thresholds_df_site = non_rec_thresholds_df_unsorted_site.sort_values(
+            by='stage_value'
+        ).reset_index()
+
+        # We already inundated and created files for the specific stages just not the intervals
+        # Make list of interval recs to be created
+        interval_list = []  # might stay empty
+
+        huc_lid_id = f"{huc} : {ahps_site}" # TODO: take this out? or apply everywhere? it's just a label for logging
+
+        # TODO: where should we get past_major_interval_cap from? do we even need this to be something we can change...?
+        # because I honestly think we could just hard code it in...
+        past_major_interval_cap = 5 # TODO: decide if this hard coding is ok
+
+        if len(non_rec_thresholds_df_site) > 0:
+
+            # Calculate intervals for the site
+            interval_list = __calc_sb_intervals(
+                non_rec_thresholds_df_site, past_major_interval_cap, huc_lid_id
+            )
+
+            # tif_child_log_file_prefix = MP_LOG.MP_calc_prefix_name( # TODO: Clean up
+            #     parent_log_output_file, "MP_sb_interval_tifs"
+            # )
+            # Now we add the interval tifs but no interval tifs for the "record" stage if there is one.
+            # with ProcessPoolExecutor(max_workers=job_number_intervals) as executor:
+            #     try:
+
+
+            # Iterate intervals to run inundation
+            for interval_rec in interval_list:  # list of lists
+
+                magnitude = interval_rec[0]  # stage name, was category
+                interval_stage_val = interval_rec[1]
+
+                # Calculate a portion of the file name which includes the category,
+                # a formatted stage value, and a "i" to show it is an interval file
+                category_key = __calculate_category_key(magnitude, interval_stage_val, True)
+
+                print(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {category_key} (interval)")
+
+                # Create the inundation tifs for each site/mag combo for the lid (previously called produce_stage_based_lid_tifs)
+                run_sb_inundation(
+                    huc,
+                    sites_gdf,
+                    huc_library_df,
+                    interval_stage_val,
+                    datum_adj_ft,
+                    lid_usgs_elev,
+                    lid_altitude,
+                    fim_run_dir,
+                    segments,
+                    ahps_site,
+                    output_mapping_dir,
+                    magnitude,
+                    category_key,
+            )
+                
+                # TODO: Put run_sb_inundation back into a Try / Except statement?
+                
+                # except TypeError:  # sometimes the thresholds are Nonetypes # TODO: Implement or clean up
+                #     MP_LOG.error(
+                #         f"{huc_lid_id}: ERROR: type error in ProcessPool,"
+                #         " likely in the interval code"
+                #     )
+                #     MP_LOG.error(traceback.format_exc())
+                #     continue
+
+                # except Exception:
+                #     MP_LOG.critical(f"{huc_lid_id}: ERROR: ProcessPool has an error")
+                #     MP_LOG.critical(traceback.format_exc())
+                #     # merge MP Logs (Yes)
+                #     MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix, True)
+                #     sys.exit(1)
+
+            # # merge MP Logs (merging MP into an MP (proc_pool in a proc_pool))
+            # MP_LOG.merge_log_files(parent_log_output_file, tif_child_log_file_prefix, True)
+
+        else:
+            print(
+                f"{huc_lid_id}: Skipping intervals as there are not any 'non-record' stages"
+            )
+
     print()
-    # logging.info(f"{huc} - Mapping -  End inundating and mosaicking")
-    print(f"{huc} - Mapping -  End inundating and mosaicking") # TEMP DEBUG
+    # logging.info(f"{huc} - Mapping - End inundating and mosaicking")
+    print(f"{huc} - Mapping - End inundating and mosaicking") # TEMP DEBUG
 
     return sites_gdf, huc_library_df,
     # # TODO: return crit message (aka somethign to say abort it?) as well?
     # aka.. maybe somethign to say skip_making_final_library files? TBD
+
+
+
+
 
 
 
@@ -1236,12 +1336,13 @@ def inundate_sb( # formerly called produce_inundated_branch_tif
     return
 
 
-def mosaic_sb_inundation(lid, 
-                         output_mapping_dir,
-                         category_key,
-                         huc_lid_cat_id,
-                         huc,
-                         ):
+def mosaic_sb_inundation(
+    lid, 
+    output_mapping_dir,
+    category_key,
+    huc_lid_cat_id,
+    huc,
+):
     """
     Mosaics all branch inundation tifs for a given lid/magnitude combination into a single extent tif.
 
@@ -1638,7 +1739,116 @@ def __calculate_category_key(category, stage_value, is_interval_stage):
     return category_key
 
 
-def __load_mapping_data(huc_path, sites_mapping_file_path, segments_file_path, library_pre_inun_file_path):
+def __calc_sb_intervals( # Was __calc_stage_intervals()
+    non_rec_thresholds_df_site, # was non_rec_stage_values_df, 
+    past_major_interval_cap, 
+    huc_lid_id
+): 
+    '''
+    Used in stage-based CatFIM.
+
+    Calculate stage intervals for inundation mapping based on non-recurrent stage values.
+    This function generates a list of intervals between stage values, rounding up to the next whole number
+    where necessary, and ensures that intervals are unique and in order. For each stage, it determines the
+    range of integer depths to be used for inundation calculations, up to the next stage or a specified cap
+    for the last stage.
+
+    Args:
+        non_rec_thresholds_df_site (pd.DataFrame): DataFrame containing stage names and their corresponding stage values.
+            Must have columns "magnitude_type" and "magnitude_value".
+        past_major_interval_cap (int): The number of intervals to add beyond the last stage value.
+        huc_lid_id (str): Identifier used for logging and tracing.
+
+    Returns:
+        list: A list of lists, where each sublist contains a stage name and an integer interval value,
+              e.g., [["action", 21], ["action", 22], ...]. This represents the stage names and depths
+              to be used for inundation mapping.
+
+    TODO: Would be good to rethink how we calculate intervals and improve.
+    
+    '''
+    interval_recs, stage_values_claimed = [], []
+
+    print( # TODO: Update logging
+        f"{huc_lid_id}: Calculating intervals for {non_rec_thresholds_df_site}"
+    )
+
+    num_stage_value_recs = len(non_rec_thresholds_df_site)
+    print(f"{huc_lid_id}: num_stage_value_recs is {num_stage_value_recs}") # TODO: Update logging
+
+    # Calculate the intervals for each magnitude in the df
+    # Note: Records will be in order by stage value. We calculate intervals one magnitude at a time
+    # so we can keep track of the magnitude name associated with the interval.
+    for idx in non_rec_thresholds_df_site.index:
+
+        row = non_rec_thresholds_df_site.loc[idx]
+        cur_magnitude_name = row["magnitude_type"] # was cur_stage_name
+        cur_stage_val = row["magnitude_value"]
+
+        # MP_LOG.trace(f"{huc_lid_id}: interval calcs - non_rec_stage_value is idx: {idx}; {row}")
+
+        # Calculate the intervals betwen the current and the next stage value.
+        # For the current val, we need to round up because it is possible for stages to be decimals
+        # (for example, if action is 2.4, and mod is 4.6, we want intervals at 3 and 4).
+        # The highest value of the interval_list is not included # TODO: double check/reprase... I think what we mean here is that the max interval isn't included?
+
+        # Create the minimum interval value
+        # Note: We check whether the current stage val is an integer (i.e. 12.0) or a decimal (12.6)
+        # because the intervals are integers and this helps us avoid duplicates.
+        if float(cur_stage_val) % 1 == 0:
+            # If it IS an integer, mark value as "claimed" and add 1 to create the minimum interval value
+            # (Example: 3 -> 3 + 1 -> 4) 
+            cur_stage_val = int(cur_stage_val)
+            stage_values_claimed.append(cur_stage_val)
+            min_interval_val = int(cur_stage_val) + 1
+        else:
+            # If it IS NOT an integer, round up to next whole number and add 1 to create the minimum interval value
+            # (Example: 3.14 -> 4 + 1 -> 5)
+            min_interval_val = math.ceil(cur_stage_val) + 1
+
+        # Create the maximum interval value
+        if idx < len(non_rec_thresholds_df_site) - 1:
+            # If the record IS NOT the last stage value in the list, use the next stage value
+            # as the maximum interval value here.
+            next_stage_val = non_rec_thresholds_df_site.iloc[idx + 1]["stage_value"]
+            max_interval_val = int(next_stage_val)
+            # MP_LOG.trace(f"{huc_lid_id}: Next stage value is {max_interval_val}")
+
+        else:
+            # If the record IS the last record for the site, calculate the maximum interval 
+            # value as the minimum interval value + the interval cap (default is 5).
+            max_interval_val = int(min_interval_val) + past_major_interval_cap
+            # MP_LOG.trace(f"{huc_lid_id}: Last rec and max_in is {max_interval_val}")
+
+            # + 1 as the last interval is not included # TODO: Is this +1 actually implemented anywhere?
+
+        # MP_LOG.lprint(f"{huc_lid_id}: {cur_magnitude_name} is {cur_stage_val} and"
+        #               f"  min_interval_val is {min_interval_val} ; max interval value is {max_interval_val}")
+
+        # Take the minimum and maximum interval values and get a list of the whole nummbers that
+        # occur between them (Example: np.arange(1, 5) -> [1, 2, 3, 4]).
+        interval_list = np.arange(min_interval_val, max_interval_val)
+
+        # Add intervals to the output list (if they are not already claimed)
+        # Previously some duplicate values would slip throguh, the stage_values_claimed
+        # functionality mitigates that problem. 
+        for int_val in interval_list:
+            if int_val not in stage_values_claimed:
+                interval_recs.append([cur_magnitude_name, int_val])
+                # MP_LOG.trace(f"{huc_lid_id}: Added interval value of {int_val}")
+                stage_values_claimed.append(int_val)
+
+    # MP_LOG.lprint(f"{huc_lid_id} interval recs are {interval_recs}")
+
+    return interval_recs
+
+
+def __load_mapping_data(
+    huc_path,
+    sites_mapping_file_path,
+    segments_file_path,
+    library_pre_inun_file_path
+):
     """
     Used for both SB and FB.
  
@@ -1765,413 +1975,3 @@ if __name__ == '__main__':
     catfim_mapping(**args)
 
 
-
-
-
-# FUNCTION GRAVEYARD (remove eventually)
-
-# # Step numbers no longer needed - cleaned up 1/12/26
-# def manage_catfim_mapping(
-#     fim_run_dir,
-#     output_flows_dir,
-#     output_catfim_dir,
-#     catfim_method,
-#     # catfim_version,
-#     # model_version,
-#     # job_number_huc,
-#     # job_number_inundate,
-#     # log_output_file,
-#     # step_number=1,
-# ):
-#     '''
-#     Only used in flow-based CatFIM.
-
-#     Manages the workflow for generating categorical FIM (Flood Inundation Mapping) outputs,
-#     including running inundation mapping and post-processing for visualization.
-
-#     Parameters:
-#         fim_run_dir (str): Directory containing the FIM run data.
-#         output_flows_dir (str): Directory where flow outputs are stored.
-#         output_catfim_dir (str): Directory for storing categorical FIM outputs.
-#         catfim_method (str): Method used for categorical FIM generation.
-
-#     Returns:
-#         None
-
-#     Notes:
-#         - Initializes logging.
-#         - Runs inundation mapping.
-#         - Performs post-processing for visualization using multiple jobs.
-#         - Logs the elapsed time for the mapping process.
-#     '''
-
-#     # TODO: Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
-
-#     logging.info('Begin mapping')
-#     start = time.time()  # TODO: Should this be changed to our standard duration code pattern?
-
-#     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
-#     if not os.path.exists(output_mapping_dir):
-#         os.mkdir(output_mapping_dir)
-
-#     run_catfim_inundation(
-#         fim_run_dir,
-#         output_flows_dir,
-#         output_mapping_dir,
-#         job_number_huc,
-#         job_number_inundate,
-#         FLOG.LOG_FILE_PATH,
-#     )
-
-
-
-#     # FLOG.lprint("Aggregating Categorical FIM")
-
-#     # TODO: Aug 2024, so we need to clean it up
-#     # This step does not need a job_number_inundate as it can't really use it.
-#     # It processes primarily hucs and ahps in multiproc
-#     # for now, we will manually multiple the huc * 5 (max number of ahps types)
-#     # ahps_jobs = job_number_huc * 5
-
-#     post_process_cat_fim_for_viz(
-#         catfim_method, output_catfim_dir, ahps_jobs, catfim_version, model_version, str(FLOG.LOG_FILE_PATH)
-#     )
-
-#     end = time.time()
-#     elapsed_time = (end - start) / 60
-#     # change to standard duration system as per other parts of code
-#     FLOG.lprint(f"Finished mapping in {str(elapsed_time).split('.')[0]} minutes")
-
-#     return
-
-# CatFIM Reorg: removing post_process_cat_fim_for_viz function and just running post_process_huc(), because this function really just iterated HUCs
-# def post_process_cat_fim_for_viz(
-#     catfim_method, output_catfim_dir, job_huc_ahps
-# ):
-#     '''
-#     Used in both flow-based and stage-based CatFIM.
-
-#     Post-processes CatFIM outputs for visualization.
-
-#     This function performs the following steps:
-#     1. Sets up logging and prepares output directories.
-#     2. Identifies HUC/AHPS directories to process.
-#     3. Uses a process pool to post-process each HUC directory in parallel, converting TIF extents to polygons and saving as GeoPackage files.
-#     4. Merges all generated GeoPackage layers into a single GeoDataFrame.
-#     5. Optionally dissolves merged layers by AHPS and magnitude for flow-based methods.
-#     6. Cleans up unnecessary columns from the merged data.
-#     7. Adds model and product version metadata.
-#     8. Saves the final merged layer as both GeoPackage and CSV files for visualization.
-#     9. Rolls up logs from child processes into the main log file.
-
-#     Args:
-#         catfim_method (str): The method used for Categorical FIM (e.g., "flow_based").
-#         output_catfim_dir (str): Directory where Categorical FIM outputs are stored.
-#         job_huc_ahps (int): Number of parallel jobs for processing HUC/AHPS directories.
-
-#     Raises:
-#         Exception: If no HUC/AHPS directories are found or if no GeoPackage files are generated.
-
-#     Returns:
-#         None
-#     '''
-
-#     # Adding a pointer in this file coming from generate_categorial_fim so they can share the same log file
-
-#     FLOG.lprint("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-#     FLOG.lprint("Start post processing TIFs (TIF extents into poly into gpkg)...")
-#     output_mapping_dir = os.path.join(output_catfim_dir, 'mapping')
-#     gpkg_dir = os.path.join(output_mapping_dir, 'gpkg')
-#     os.makedirs(gpkg_dir, exist_ok=True)
-
-#     # hummmmm
-
-#     huc_ahps_dir_list = [
-#         x
-#         for x in os.listdir(output_mapping_dir)
-#         if os.path.isdir(os.path.join(output_mapping_dir, x)) and x[0] in ['0', '1', '2', '9']
-#     ]
-
-#     # if we don't have a huc_ahps_dir_list, something went catestrophically bad
-#     if len(huc_ahps_dir_list) == 0:
-#         raise Exception("Critical Error: Not possible to be here with no huc/ahps list")
-
-#     num_hucs = len(huc_ahps_dir_list)
-#     huc_index = 0
-#     FLOG.lprint(f"Number of hucs to post process is {num_hucs}")
-
-
-#     # Jan 2026: We definatley want to take out multiprocessing, but maybe we can put in some multi-threading.
-#     # we might have to do some benchmark tests without MP or MT and come back to it.
-#     # It won't take much to drop in MT. MT does not require managing seperate logging files and can
-#     # easily pass objects, such as dataframes, back and forth.
-#     # Might be a great option here. But is there even enough files to worry about for MT?
-
-#     # child_log_file_prefix = MP_LOG.MP_calc_prefix_name(log_output_file, "MP_post_process")
-
-#     with ProcessPoolExecutor(max_workers=job_huc_ahps) as huc_exector:
-#         for huc in huc_ahps_dir_list:
-#             FLOG.lprint(f"TIF post processing for {huc}")
-
-#             huc_dir = os.path.join(output_mapping_dir, huc)
-#             progress_stmt = f"index {huc_index + 1} of {num_hucs}"
-#             huc_index += 1
-
-#             try:
-#                 ahps_dir_list = [x for x in os.listdir(huc_dir) if os.path.isdir(os.path.join(huc_dir, x))]
-#                 # ahps_dir_list = os.listdir(huc_dir)
-#             except NotADirectoryError:
-#                 FLOG.warning(f"{huc_dir} directory missing. Continuing on")
-#                 continue
-
-#             # If there's no mapping for a HUC, delete the HUC directory.
-#             if len(ahps_dir_list) == 0:
-#                 os.rmdir(huc_dir)
-#                 FLOG.warning(f"no mapping for {huc}")
-#                 continue
-
-#             # hummm # TODO: CatFIM reorg - I think everything above this line in this function could possibly be remove? decide
-#             huc_exector.submit(
-#                 post_process_huc,
-#                 output_catfim_dir,
-#                 ahps_dir_list,
-#                 huc_dir,
-#                 gpkg_dir,
-#                 huc,
-#                 log_output_file,
-#                 child_log_file_prefix,
-#                 progress_stmt,
-#             )
-
-
-#     # TODO: CatFIM reorg - could make this file merging into a new function (merge_inundated_layers_huc?)
-#     # and then get rid of post_process_cat_fim_for_viz and instead just have
-#     # this new merge_inundated_layers_huc function and the above post_process_huc function run 
-
-
-#    # end of ProcessPoolExecutor
-
-    # OLD CODE (before CatFIM reorg): ========================= -> moved to be in the new merge_inundated_layers_huc() function
-    # # end of ProcessPoolExecutor
-
-    # # rolls up logs from child MP processes into this parent_log_output_file
-    # # FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
-
-    # # Merge all layers
-    # gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
-    # FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
-
-    # gpkg_files.sort()
-
-    # merged_layers_gdf = None
-    # ctr = 0
-    # num_gpkg_files = len(gpkg_files)
-    # for gpkg_file in gpkg_files:
-
-    #     # for ctr, layer in enumerate(gpkg_files):
-    #     # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
-    #     FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
-
-    #     # Concatenate each /gpkg/{huc}_{aphs}_{magnitude}_extent.gpkg
-    #     diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
-    #     diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
-
-    #     if 'interval_stage' in diss_extent_gdf.columns:
-    #         # Update the stage column value to be the interval value if an interval values exists
-
-    #         diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0, "stage"] = diss_extent_gdf[
-    #             "interval_stage"
-    #         ]
-
-    #     if ctr == 0:
-    #         merged_layers_gdf = diss_extent_gdf
-    #     else:
-    #         merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
-
-    #     del diss_extent_gdf
-    #     ctr += 1
-
-    # if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
-    #     raise Exception(f"No gpkgs found in {gpkg_dir}")
-
-    # # TODO: July 9, 2024: Consider deleting all of the interium .gpkg files in the gpkg folder.
-    # # It will get very big quick. But not yet.
-    # # shutil.rmtree(gpkg_dir)
-
-    # # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
-    # # Aug 2024: We guessed on what might need to be dissolved from 4.4.0.0. In 4.4.0.0 there
-    # # are "_dissolved" versions of catfim files but no notes on why or how, but this script
-    # # did not do it. We are going to guess on what the dissolving rules are.
-    # if catfim_method == "flow_based":
-    #     FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
-    #     merged_layers_gdf = merged_layers_gdf.dissolve(by=['nws_lid', 'magnitude'], as_index=False)
-
-    # if 'level_0' in merged_layers_gdf:
-    #     merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
-
-    # if 'status' in merged_layers_gdf:
-    #     merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
-
-    # if 'mapped' in merged_layers_gdf:
-    #     merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
-
-    # output_file_name = f"{catfim_method}_catfim_library"
-
-    # merged_layers_gdf["model_version"] = model_version
-    # merged_layers_gdf["product_version"] = catfim_version
-
-    # gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
-    # FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
-    # merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")
-
-    # csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
-    # FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
-    # merged_layers_gdf.to_csv(csv_file_path)
-
-    # FLOG.lprint("End post processing TIFs...")
-
-    # return
-    # =========================
-
-
-
-# NOTES as of 1/27/26 - because we aren't saving the individual GPKGs, I don't think we actually need this function?
-# # New function that takes the HUC-level file merging from what was
-# # previously post_process_cat_fim_for_viz. But does not merge between HUCs 
-# # (because that now is happening in catfim_post_processing.py).
-# def merge_inundated_layers_huc(
-#         huc_path,
-        
-# ):
-#     """
-#     Should be for FB and SB
-
-#     Dissolve all GPKGs from the HUC mapping directory to create:
-#     - huc_sites_file (huc_folder_path/{huc}_sites.gpkg) (these are the filepath names I use in post processing, might be called something different here at the moment)
-#     - huc_library_file (huc_folder_path/{huc}_library.gpkg) (these are the filepath names I use in post processing, might be called something different here at the moment)
-
-
-
-#     Filepaths, for reference: 
-
-#     - output_temp_dir : huc_folder_path/temp/ (TODO: decide if we're gonna even keep this)
-
-#     - output_mapping_dir : huc_folder_path/mapping/ 
-
-#     - sites_mapping_file_path: output_mapping_dir/sites_mapping.gpkg
-
-#     - library_post_mapping_file_path: output_mapping_dir/library_post_mapping.gpkg   
-#     TODO: Has this file been created by the time we get here? or is this file what this function should be creating?
-#     I think this function can create this file......
-
-
-    
-
-#     """
-
-#     # Get a list of all available GPKGs in the HUC mapping directory
-#     output_mapping_dir = os.path.join(huc_path, "mapping")
-#     gpkg_files = [x for x in os.listdir(output_mapping_dir) if x.endswith('.gpkg')]
-
-
-    # Iterate through all GPKG files in the HUC mapping directory
-    # for gpkg_file in gpkg_files: # TODO
-
-        # Merge GPKGs 
-
-
-
-    # TODO: Add section that dissolves flow based catfim_libary by ahps and magnitudes?
-    # Do we have to do something special so we can deal with the intervals?
-
-
-
-    # TODO: Folder cleanup - Consider deleting all of the interium .gpkg files in the gpkg folder
-
-
-
-    # return library_post_mapping # Will be saved to a file later on
-
-    # ==========================================
-    # Old code that I want this function to replace: 
-
-    # # rolls up logs from child MP processes into this parent_log_output_file
-    # # FLOG.merge_log_files(FLOG.LOG_FILE_PATH, child_log_file_prefix, True)
-
-    # # Merge all layers
-    # gpkg_files = [x for x in os.listdir(gpkg_dir) if x.endswith('.gpkg')]
-    # FLOG.lprint(f"Merging {len(gpkg_files)} from layers in {gpkg_dir}")
-
-    # gpkg_files.sort()
-
-    # merged_layers_gdf = None
-    # ctr = 0
-    # num_gpkg_files = len(gpkg_files)
-    # for gpkg_file in gpkg_files: # iterates through all gpkg files
-
-    #     # for ctr, layer in enumerate(gpkg_files):
-    #     # FLOG.lprint(f"Merging gpkg ({ctr+1} of {len(gpkg_files)} - {}")
-    #     FLOG.trace(f"Merging gpkg ({ctr+1} of {num_gpkg_files} : {gpkg_file}")
-
-    #     # Concatenate each /gpkg/{huc}_{aphs}_{magnitude}_extent.gpkg
-    #     diss_extent_filename = os.path.join(gpkg_dir, gpkg_file)
-    #     diss_extent_gdf = gpd.read_file(diss_extent_filename, engine='fiona')
-
-    #     if 'interval_stage' in diss_extent_gdf.columns:
-    #         # Update the stage column value to be the interval value if an interval values exists
-
-    #         diss_extent_gdf.loc[diss_extent_gdf["interval_stage"] > 0, "stage"] = diss_extent_gdf[
-    #             "interval_stage"
-    #         ]
-
-    #     if ctr == 0:
-    #         merged_layers_gdf = diss_extent_gdf
-    #     else:
-    #         merged_layers_gdf = pd.concat([merged_layers_gdf, diss_extent_gdf])
-
-    #     del diss_extent_gdf
-    #     ctr += 1
-
-    # if merged_layers_gdf is None or len(merged_layers_gdf) == 0:
-    #     raise Exception(f"No gpkgs found in {gpkg_dir}")
-
-    # # TODO: July 9, 2024: Consider deleting all of the interium .gpkg files in the gpkg folder.
-    # # It will get very big quick. But not yet.
-    # # shutil.rmtree(gpkg_dir)
-
-    # # Now dissolve based on ahps and magnitude (we no longer saved non dissolved versrons)
-    # # Aug 2024: We guessed on what might need to be dissolved from 4.4.0.0. In 4.4.0.0 there
-    # # are "_dissolved" versions of catfim files but no notes on why or how, but this script
-    # # did not do it. We are going to guess on what the dissolving rules are.
-    # if catfim_method == "flow_based":
-    #     FLOG.lprint("Dissolving flow based catfim_libary by ahps and magnitudes")
-    #     merged_layers_gdf = merged_layers_gdf.dissolve(by=['nws_lid', 'magnitude'], as_index=False)
-
-    # if 'level_0' in merged_layers_gdf:
-    #     merged_layers_gdf = merged_layers_gdf.drop(['level_0'], axis=1)
-
-    # if 'status' in merged_layers_gdf:
-    #     merged_layers_gdf = merged_layers_gdf.drop(['status'], axis=1)
-
-    # if 'mapped' in merged_layers_gdf:
-    #     merged_layers_gdf = merged_layers_gdf.drop(['mapped'], axis=1)
-
-    # output_file_name = f"{catfim_method}_catfim_library"
-
-    # merged_layers_gdf["model_version"] = model_version
-    # merged_layers_gdf["product_version"] = catfim_version
-
-    # NOTE Jan 2026: will not save newly merged GPKGs in new merge_inundated_layers_huc() function
-    
-    # gpkg_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.gpkg')
-    # FLOG.lprint(f"Saving catfim library gpkg version to {gpkg_file_path}")
-    # merged_layers_gdf.to_file(gpkg_file_path, driver='GPKG', engine="fiona")
-
-    # csv_file_path = os.path.join(output_mapping_dir, f'{output_file_name}.csv')
-    # FLOG.lprint(f"Saving catfim library csv version to {csv_file_path}")
-    # merged_layers_gdf.to_csv(csv_file_path)
-
-    # FLOG.lprint("End post processing TIFs...")
-
-    # return
-    # ==========================================
