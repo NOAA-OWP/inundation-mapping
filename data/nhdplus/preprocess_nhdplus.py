@@ -11,7 +11,7 @@ from osgeo import gdal
 
 from data.create_vrt_file import create_vrt_file
 from data.nfhl.download_fema_nfhl import download_nfhl_wrapper
-from data.usgs.acquire_and_preprocess_3dep_dems import polygonize
+from data.usgs.acquire_and_preprocess_3dep_dems import __polygonize
 from src.derive_headwaters import findHeadWaterPoints
 
 
@@ -191,7 +191,7 @@ def preprocess_region(
     create_vrt_file(target_dem_folder, 'hand_seamless_3dep_dems.vrt')
 
     # Create DEM_Domain.gpkg
-    polygonize(target_dem_folder)
+    __polygonize(target_dem_folder)
 
     # Extract and reproject NHDPlus streams
     nhd_flowline = os.path.join(nhd_path, 'NHDFlowline.shp')

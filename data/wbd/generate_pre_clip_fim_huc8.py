@@ -15,7 +15,7 @@ import geopandas as gpd
 from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
 
 
 '''
@@ -31,7 +31,7 @@ from utils.shared_functions import FIM_Helpers as fh
         A plethora gpkg files per huc are generated (see args to subset_vector_layers)
         and placed within the output directory specified as the <outputs_dir> argument.
 
-        
+
     Usage:
         generate_pre_clip_fim_huc8.py
             -n /data/inputs/pre_clip_huc8/202540423
@@ -607,11 +607,7 @@ if __name__ == '__main__':
         ''',
     )
 
-    parser.add_argument(
-        '-n',
-        '--outputs_dir',
-        help='Directory to output all of the HUC level .gpkg files',
-    )
+    parser.add_argument('-n', '--outputs_dir', help='Directory to output all of the HUC level .gpkg files')
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
 
     parser.add_argument(
