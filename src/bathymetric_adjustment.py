@@ -111,7 +111,7 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
             #     'Bathymetry_source'
             # ].first()
             src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
-
+            
         # # Exit if there are no recalculations to be made
         # if ~src_df['Bathymetry_source'].any(axis=None):
         #     log_text += '    No matching feature_ids in this branch\n'
@@ -420,15 +420,18 @@ def apply_src_adjustment_for_bathymetry(
         else:
             print(f'Bathymetry file does not exist for huc: {huc}')
 
-    except Exception:
+    except Exception as ex:
         log_text += f"An error has occurred while processing ehydro bathy for huc {huc}"
         log_text += traceback.format_exc()
+        # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
+        # If yes, we need to raise ex, make sure to write your log_text if you need to.
 
     try:
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:
         print(f"Error trying to write to the log file of {log_file_path}")
+        # ok.. don't need to re-raise this.
 
     if ai_toggle == 1:
         try:
@@ -443,9 +446,11 @@ def apply_src_adjustment_for_bathymetry(
             else:
                 print(f'AI-based bathymetry file does not exist for huc : {huc}')
 
-        except Exception:
+        except Exception as ex:
             log_text += f"An error has occurred while processing AI-based bathy for huc {huc}"
             log_text += traceback.format_exc()
+            # re raise ex  ? # TODO: Do we want to stop processing the huc if we get an error here?
+            # If yes, we need to raise ex, make sure to write your log_text if you need to.
 
     with open(log_file_path, "a") as log_file:
         log_file.write(log_text + '\n')

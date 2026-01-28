@@ -121,6 +121,11 @@ check_for_huc_errors(){
         grep -H -i -n -e "error" $hucLogFile >> $errorLogFile
         grep -H -i -n -e "parallel" $hucLogFile >> $errorLogFile
 
+        # we need to also check the files in the src_calibration files for errors and exceptions valuise
+
+
+        
+
         l_echo $startDiv"Find branch non zero exit codes for this huc" $hucLogFile
         find $tempHucDataDir -path "*/logs/branch/*_branch*.log" -type f | \
             xargs grep -H -n -i -E "Exit status: ([1-9][0-9]{0,2})" >> $branchNonZeroCodesLogFile

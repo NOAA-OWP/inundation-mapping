@@ -273,6 +273,8 @@ def apply_nonmonotonic_src_adjustment(huc_dir, huc, strm_order, log_file_path): 
     except Exception:
         log_text += f"An error has occurred while processing nonmonotonic SRC for huc {huc}\n"
         log_text += traceback.format_exc()
+        # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
+        # If yes, we need to raise ex, make sure to write your log_text if you need to.
 
     try:
         with open(log_file_path, "a") as log_file:

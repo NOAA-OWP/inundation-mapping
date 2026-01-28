@@ -447,7 +447,7 @@ class HucDirectory(object):
                 huc_id,
                 errMsg,
             )
-            raise ex
+            raise ex  # we need to re-raise here to abort the scripts above it.
 
 
 # ==============================
@@ -549,7 +549,7 @@ def aggregate_by_huc(
             huc_id,
             errMsg,
         )
-        raise ex
+        raise ex  # We need to re-raise
 
     end_time = datetime.now()
     dt_string = datetime.now().strftime("%m/%d/%Y %H:%M:%S")

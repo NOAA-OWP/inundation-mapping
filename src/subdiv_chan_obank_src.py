@@ -217,6 +217,8 @@ def variable_mannings_calc(args):
             + (''.join(summary.format()))
             + '\n'
         )
+        # re raise ex  ? # TODO: Do we want to stop processing the huc if we get an error here?
+        # If yes, we need to raise ex, make sure to write your log_text if you need to.
 
     return log_text
 
