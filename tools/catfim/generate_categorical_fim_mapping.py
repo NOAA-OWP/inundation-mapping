@@ -234,10 +234,6 @@ def process_mapping(
         # and if so.. where.  The library df already has the stage values so I think we
         # don't need it anymore
 
-        # Go to new function to create the iterator for stage based.
-        # Might be able, which then can calc intervals, adjust values,
-        # create tifs, etc
-
         # Jan 26 - New function
         sites_gdf, huc_library_df = run_sb_mapping(
                                         huc,
@@ -269,13 +265,12 @@ def process_mapping(
 
     # -----------------------------
     # HUC-level post-processing (for both FB and SB)
-    # NOTE: Got rid of the post_process_cat_fim_for_viz function and just call post_process_huc() here
+    # Note: Got rid of the post_process_cat_fim_for_viz function and just call post_process_huc() here
 
     # Post-process HUC
-    huc_library_undissolved_gdf, huc_library_gdf = post_process_huc( # TODO: can remove undissolved as an outuput after development/debugging is done
+    huc_library_undissolved_gdf, huc_library_gdf = post_process_huc( # TODO: can remove undissolved as an output after development/debugging is done
         huc,
         huc_library_df,
-        sites_gdf,
         output_mapping_dir,
         catfim_type,
     )
@@ -306,6 +301,20 @@ def process_mapping(
         on='nws_lid', 
         how='left'
     )
+
+    # TODO: if catfim_type == fb, remove interval stuff from the output dfs and csvs
+    # do we need to remove from sites gdf too?
+    if catfim_type == 'fb':
+        if 'interval_stage' in huc_library_gdf.columns:
+            huc_library_gdf.drop('interval_stage', axis=1, inplace=True)
+
+            print('Dropped interval_stage col from HUC library GDF') ## TEMP DEBUG
+
+        if 'is_interval' in huc_library_gdf.columns:
+            huc_library_gdf.drop('is_interval', axis=1, inplace=True)
+
+            print('Dropped is_interval col from HUC library GDF') ## TEMP DEBUG
+
 
     # -----------------------------
     # Save the HUC-level mapping outputs
@@ -1444,12 +1453,9 @@ def mosaic_sb_inundation(
         return output_extent_tif #, logs? # TODO: decide what to return, maybe logs?
 
 
-# humm.. becuase we have the library.gpkg at this point and it knows which rec are
-# intervals versuses not.. is there an optimizaion option here?
 def post_process_huc(
     huc,
     huc_library_df,
-    sites_gdf,
     output_mapping_dir,
     catfim_type,
 ):
@@ -1459,6 +1465,8 @@ def post_process_huc(
     Post-processes inundation mapping results for a given HUC.
 
     # TODO: Update docstrings
+    # TODO: humm.. becuase we have the library.gpkg at this point and it knows which rec are
+    # intervals versuses not.. is there an optimizaion option here?
 
     '''
 
@@ -1470,10 +1478,7 @@ def post_process_huc(
     try:
 
         # -----------------------
-        # Get list of AHPS sites in HUC from the sites GDF (excluding sites where mapped = no, we only
-        # want to map sites where mapped = not yet)
-        ahps_sites_list = sites_gdf[sites_gdf['mapped'] != 'no']['nws_lid'].tolist()
-        print(f"{huc} : ahps_sites_list is {ahps_sites_list}")
+        # Iterate through tifs
 
         # Get a list of tifs (files ending with "extent.tif" means it is a rolled up version)
         tif_list = [x for x in os.listdir(output_mapping_dir) if ('extent.tif') in x]
@@ -1488,10 +1493,7 @@ def post_process_huc(
 
             return None # TODO: What do we return in this case?
 
-
-        # -----------------------
-        # Iterate through the saved tifs to make a list of inundated multipolygon DFs
-
+        # Iterate through the saved tifs to make a list of inundated multipolygons
         reformatted_geom_list = []
 
         for tif_to_process in tifs_to_reformat_list:
@@ -1499,100 +1501,96 @@ def post_process_huc(
             #    continue
 
             # If stage based, the file names looks like this:
-            #      masm1_major_extent.tif  (non-interval, whole number)
+            #      masm1_major_extent.tif  (non-interval, whole number) # TODO: Double check that this is still true
             #      masm1_major_20.6_extent.tif  (non-interval, float)
-            #      masm1_major_20.0ft_extent.tif (interval)
-            # If flow based, the file name looks like this: masm1_action_extent.tif
+            #      masm1_major_20.0fti_extent.tif (interval)
+            #
+            # If flow based, the file name looks like this: 
+            #      masm1_action_extent.tif
+
             # MP_LOG.trace(f".. Tif to Process = {tif_to_process}")
             try:
 
+                # Get site, magnitude, and interval data from the tif name
                 tif_file_name = os.path.basename(tif_to_process)
                 file_name_parts = tif_file_name.split("_")
-
                 nws_lid = file_name_parts[0]
-                magnitude = file_name_parts[1]  # part 0 is the lid
+                magnitude = file_name_parts[1]
 
-                # but if it doesn't have "fti" at the end it is not an interval
-
-                # careful. ft can be part of the site name, so only check part 3
+                # Check whether the tif is an interval (indicated by "fti" in the file name)
+                # (carefully, we only check part 3 because "ft" can be part of the site name)
                 interval_stage = None
                 is_interval = False
                 if len(file_name_parts) >= 3 and "fti" in file_name_parts[2]:
                     try:
                         stage_val = file_name_parts[2].replace("fti", "")
-                        interval_stage = float(stage_val)
+                        interval_stage = float(stage_val) # TODO: make these two lines into one line? -> interval_stage = float(file_name_parts[2].replace("fti", ""))
                         is_interval = True
+
                     except ValueError:
                         interval_stage = None
                         # MP_LOG.error( # TODO:Update logging
-                        print( # TODO: Update logging 
-                            f"Value Error for {huc} - {nws_lid} - magnitude {magnitude}"
-                            f" at {output_mapping_dir}"
+                        print(
+                            f"Error differentiating intervals from non-interval values for tif {tif_file_name}"
                         )
                         # MP_LOG.error(traceback.format_exc()) # TODO: Update logging
-                        print(traceback.format_exc()) # TODO: Update logging
+                        print(traceback.format_exc()) 
 
 
-                # humm.. is there an optimization available here instead of processing each tif / mag at a time?
+                # Convert the inundation raster tif into a dissolved inundation multipolygon
+                # TODO: humm.. is there an optimization available here instead of processing each tif / mag at a time?
                 extent_poly_diss = reformat_inundation_maps(
-                        nws_lid,
-                        tif_to_process,
                         huc,
+                        nws_lid,
                         magnitude,
+                        tif_to_process,
                         interval_stage,
                         is_interval,
                 )
 
-                # Append the dictionary to the list # TODO: in progress
+                # Append the inundation multipolygon to the list
                 reformatted_geom_list.append(extent_poly_diss)
                 
             except Exception:
                 # MP_LOG.error( # TODO: Update logging
-                print( # TODO: Update logging
+                print(
                     f"An ind reformat map error occured for {huc} - {nws_lid} - magnitude {magnitude}"
                 )
                 # MP_LOG.error(traceback.format_exc()) # TODO: Update logging
-                print(traceback.format_exc()) # TODO: Update logging
+                print(traceback.format_exc())
 
-        # Make the list of inundated multipolygon DFs into one dataframe
+        # Make inundated multipolygon list into a dataframe
         reformatted_geom_list_df = pd.concat(reformatted_geom_list, ignore_index=True)
 
-        # Join the inundated multipolgyon DFs to the HUC library
-        huc_library_df = huc_library_df.merge(reformatted_geom_list_df, on=['nws_lid', 'magnitude'], how='left')
-        # huc_library_df = huc_library_df.merge(reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'interval_stage'], how='left') # TODO: Will need to add update so intervals also works
+        # Join the inundated multipolgyon dataframe to the HUC library dataframe
+        huc_library_df = huc_library_df.merge(reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'interval_stage'], how='left') # TODO: test that this works for FB and SB
 
         # Make the HUC library df into a gdf
         huc_library_gdf = gpd.GeoDataFrame(huc_library_df, geometry='geometry', crs=VIZ_PROJECTION)
 
         # -----------------------
-        # Dissolve based on site and magnitude
-        print(f"{huc} - Post-Process HUC - Dissolving flow based catfim_libary by ahps and magnitudes") # TODO: Update logging
+        # Dissolve based on site and magnitude (and interval stage?? TODO)
+        # TODO: I'm not convinced that dissolving will change things in most cases... but maybe worth 
+        # keeping for now? 
+
+        print(f"{huc} - Post-Process HUC - Dissolving CatFIM library") # TODO: Update logging
 
         huc_library_undissolved_gdf = huc_library_gdf # TODO: might not need to output this after development, saving it just for now  TEMP DEBUG 
 
+        # TODO: Decide if we need to differentiate by CatFIM type here or if we can just process all as one
+        # Previous methods only had dissolving for flow-based, probably because the intervals could make
+        # things confusing...
         if catfim_type == "fb":
             huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude'], as_index=False)
 
-        elif catfim_type == "sb":
-            huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude'], as_index=False)
-            # huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude', 'interval_stage'], as_index=False)
-            # TODO: Need to test that it properly dissolves intervals vs non-intervals
+        elif catfim_type == "sb": # prev versions did not dissolve SB... for good reason? or no?
+            huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude', 'interval_stage'], as_index=False)
 
         if len(huc_library_gdf) == 0:
             print(f"{huc} - Post-Process HUC - WARNING: Dissolved library empty") # TODO: Update logging
 
-        
-        if 'level_0' in huc_library_gdf: 
+        if 'level_0' in huc_library_gdf: # TODO: Decide if we wanna keep this
             huc_library_gdf = huc_library_gdf.drop(['level_0'], axis=1)
-
-        ## from old code:  # TODO: Clean up if not needed
-        # if 'status' in huc_library_gdf: 
-        #     huc_library_gdf = huc_library_gdf.drop(['status'], axis=1)
-        # if 'mapped' in huc_library_gdf:
-        #     huc_library_gdf = huc_library_gdf.drop(['mapped'], axis=1)
-        # output_file_name = f"{catfim_method}_catfim_library"
-        # huc_library_gdf["model_version"] = model_version
-        # huc_library_gdf["product_version"] = catfim_version
 
     except Exception:
         # MP_LOG.error(f"An error has occurred in post processing for {huc}") # TODO: Update logging
@@ -1604,21 +1602,17 @@ def post_process_huc(
 
 
 def reformat_inundation_maps(
-    nws_lid,
-    tif_to_process,
     huc,
+    nws_lid,
     magnitude,
+    tif_to_process,
     interval_stage,
     is_interval,
 ):
     '''
     Used in both flow- and stage-based CatFIM.
 
-    Converts an inundation raster (GeoTIFF) to a dissolved polygon GeoPackage with enriched attributes.
-
-    This function reads an inundation raster file, extracts inundated areas as polygons, dissolves them into a single multipolygon,
-    and joins additional attributes from a CSV file. The resulting GeoDataFrame is projected to Web Mercator and saved as a GeoPackage.
-    Logging is performed throughout the process, and special handling is included for interval stages and empty rasters.
+    Convert the inundation raster tif into a dissolved inundation multipolygon.
 
     # TODO: Update docstring
 
@@ -1635,7 +1629,6 @@ def reformat_inundation_maps(
         print(
             f"{huc} : {nws_lid} : {magnitude} - Converting inundated tif to multipolygon"
         )
-        # MP_LOG.trace(F"tif to process is {tif_to_process}")
 
         # Convert raster to shapes
         with rasterio.open(tif_to_process) as src:
@@ -1648,15 +1641,13 @@ def reformat_inundation_maps(
             for i, (s, v) in enumerate(shapes(image, mask=mask, transform=src.transform))
         )
 
+        # If no inundated shapes were created from the tifs, log a message and return
         list_results = list(results)
-
-        # Check whether any shapes were found in the inundated tifs
-        # If not, log a message and return
         if len(list_results) == 0:
             # MP_LOG.error( # TODO: Update logging
             print(
                 f"{huc} : {nws_lid} : {magnitude} - No values above zero in inundated tif, "
-                "so zero inundated shapes were found. See GitHub issue #1491 for details."
+                "so zero inundated shapes were found. See GitHub issue #1491 for details." # TODO: Is this GitHub issue still active? make sure error msg is up-to-date
             )
             return
 
@@ -1670,14 +1661,14 @@ def reformat_inundation_maps(
         extent_poly_diss = extent_poly_diss.reset_index(drop=True)
         extent_poly_diss['nws_lid'] = nws_lid 
         extent_poly_diss['magnitude'] = magnitude
-        # extent_poly_diss['interval_stage'] = interval_stage # TODO: Add back in for intervals
-        # extent_poly_diss['is_interval'] = is_interval # TODO: Add back in for intervals
-        # extent_poly_diss['huc'] = huc # TODO: Clean up
+        extent_poly_diss['interval_stage'] = interval_stage
+        extent_poly_diss['is_interval'] = is_interval
+        # extent_poly_diss['huc'] = huc # TODO: Clean up if I decide it's not needed
 
         # Project to Web Mercator
         extent_poly_diss = extent_poly_diss.to_crs(VIZ_PROJECTION)
 
-
+        # Convert the features to multipolygon if needed
         extent_poly_diss["geometry"] = [
             MultiPolygon([feature]) if type(feature) is Polygon else feature
             for feature in extent_poly_diss["geometry"]
