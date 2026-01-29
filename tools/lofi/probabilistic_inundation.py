@@ -374,6 +374,7 @@ def get_subdivided_src(
     df_htable['LakeID'] = -999
     df_htable['HydroID'] = df_htable['HydroID'].astype(str)
     df_htable['feature_id'] = df_htable['feature_id'].astype(str)
+    df_htable['precalb_discharge_cms'] = 0
 
     output_table = os.path.join(htable_directory, htable_output.format(branch))
     df_htable.to_feather(output_table)
@@ -639,8 +640,8 @@ def inundate_probabilistic(
         os.remove(out_rast)
 
     # Remove SRC path and flow path
-    shutil.rmtree(src_output_path, ignore_errors=True)
-    shutil.rmtree(flow_path, ignore_errors=True)
+    shutil.rmtree(src_output_path)
+    shutil.rmtree(flow_path)
 
 
 def progress_bar_handler(executor_dict, verbose, desc) -> list:
