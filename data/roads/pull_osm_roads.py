@@ -125,7 +125,8 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
     for attempt in range(1, max_attempts + 1):
         try:
-            result = api.query(query_template.format(bbox=bbox_query))
+            # timeout at 5 mins, which can happen depending on the network speed and jobs (network volume)
+            result = api.query(query_template.format(bbox=bbox_query), timeout=500)
             break  # success
         except (overpy.exception.OverpassTooManyRequests, overpy.exception.OverpassGatewayTimeout) as e:
             wait_time = 5 * attempt + random.uniform(0, 2)

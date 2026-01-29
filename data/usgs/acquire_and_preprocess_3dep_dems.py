@@ -77,7 +77,7 @@ def acquire_and_preprocess_3dep_dems(
         new DEM tif file as its original file names plus _dem.tif.
             ie) HUC8_12090301.gpkg becomes HUC8_12090301_dem.tif.
         While not manditory, our convention is HUC8_{huc number}.gpkg.  In the past we have used HUC6 wbd
-        gpkg and really any size we want, just noting that the larger the physical spatial size of the .gkpg
+        gpkg and really any size we want, just noting that the larger the physical spatial size of the .gpkg
         means a longer download and output file size natually.
 
         When you explicitly use the -lh flag, it will use jsut that -lh value which is a file name in that source
@@ -110,7 +110,7 @@ def acquire_and_preprocess_3dep_dems(
         - skip_polygons (bool)
              If True, then we will not attempt to create polygon files for each dem file. If false,
              an domain gpkg which covers the extent of all included features merged. It will automatically
-             be named DEM_Domain.gkpg and saved in the same folderd as the target_output_folder_path.
+             be named DEM_Domain.gpkg and saved in the same folderd as the target_output_folder_path.
 
         - target_projection (String)
              Projection of the output DEMS and polygons (if included)
@@ -299,46 +299,6 @@ def __download_usgs_dems(
 
     sf.l_print(f"Processing {len(tasks_args_list)} files with {number_of_jobs} workers", file_logger, "info")
 
-    """
-    with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
-        executor_dict = {}
-
-        for idx, extent_file in enumerate(extent_files):
-            download_dem_args = {
-                'extent_file': extent_file,
-                'output_folder_path': output_folder_path,
-                'download_url': __USGS_3DEP_10M_VRT_URL,
-                'target_projection': target_projection,
-                'base_cmd': base_cmd,
-                'repair': repair,
-            }
-
-            try:
-                future = executor.submit(download_usgs_dem_file, **download_dem_args)
-                executor_dict[future] = extent_file
-
-                for future in as_completed(executor_dict):
-                    if future is not None:
-                        if not future.exception():
-                            rtn_dic = future.result()
-                            if rtn_dic["success"] == "False":
-                                failed_paths.append(rtn_dic["basic_file_name"])
-
-            except Exception as ex:
-                summary = traceback.StackSummary.extract(traceback.walk_stack(None))
-                file_logger.critical(f"*** {ex}")
-                file_logger.critical(''.join(summary.format()))
-
-                # TODO: Check this. sys.exits inside MP may not work.
-                # Also decide if you want the HUC to fail and continue or shut the entire
-                # system down.
-                sys.exit(1)
-
-        # Send the executor to the progress bar and wait for all tasks to finish
-        # TODO: fix progress bar
-        sf.progress_bar_handler(executor_dict, "Downloading USGG 3Dep Dems")
-    """
-
     # === Run jobs in parallel ===
     mp_results = sf.run_with_mp(
         task_function=__download_usgs_dem_file,
@@ -395,7 +355,7 @@ def __download_usgs_dem_file(
         Parameters:
         ----------
             - extent_file (str)
-                 When the dem is downloaded, it is clipped against this extent (.gkpg) file.
+                 When the dem is downloaded, it is clipped against this extent (.gpkg) file.
             - output_folder_path (str)
                  Location of where the output file will be stored
             - download_url (str)

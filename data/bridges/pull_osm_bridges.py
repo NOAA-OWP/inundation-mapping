@@ -16,12 +16,15 @@ from dotenv import load_dotenv
 from networkx import Graph, connected_components
 from shapely.geometry import LineString, shape
 
-# Set the timeout to 800 seconds (8 minutes)
-ox.config(requests_timeout=800, log_console=True)
+# Set the timeout to 500 seconds (5 minutes), which is possible depending on network speed
+# and network volume (number of jobs)
+ox.settings.request_timeout = 500
 
 """
 TODO:  Make the huc level osm files in a working dir
 but then save the "final" ones in the output_dir
+
+    MP might not be working, plug in Ali's
 """
 
 
@@ -109,7 +112,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             # remove it
             os.remove(huc_bridge_file)
 
-        logging.info(f" ** Creating gkpg for {huc_num}")
+        logging.info(f" ** Creating gpkg for {huc_num}")
 
         gdf = ox.features_from_polygon(shape(huc_geom), {"bridge": True})
 
@@ -572,7 +575,7 @@ if __name__ == "__main__":
         timeouts.
 
         Now, the successfully processed HUCs gpkgs stay in the folder. We no longer remove them. The ones
-        that failed first time, we renamed to have the word "bad.gkpg". That convention means the "bad" ones
+        that failed first time, we renamed to have the word "bad.gpkg". That convention means the "bad" ones
         fall out and are not included in the final HUC rollup gpkg.
 
         Now, with the ability to an new input arg for just specific HUCs to be processed, you can
