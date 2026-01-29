@@ -315,6 +315,9 @@ def process_mapping(
 
             print('Dropped is_interval col from HUC library GDF') ## TEMP DEBUG
 
+    # -----------------------------
+    # TODO: Add final checks
+
 
     # -----------------------------
     # Save the HUC-level mapping outputs
@@ -324,11 +327,11 @@ def process_mapping(
     # For debugging purposes, save undissolved library TODO: TEMP DEBUG, Remove later?
     library_post_mapping_undissolved_file_path = os.path.join(output_temp_dir, f'library_post_mapping_undissolved_{huc}.gpkg')
     print(f"{huc} - Mapping - Saving undissolved library to {library_post_mapping_undissolved_file_path}") # TODO: Update logging
-    huc_library_undissolved_gdf.to_file(library_post_mapping_undissolved_file_path, driver='GPKG', engine="fiona")
+    huc_library_undissolved_gdf.to_file(library_post_mapping_undissolved_file_path, driver='GPKG', engine="fiona", index=False)
 
     # Save HUC library GPKG
     print(f"{huc} - Mapping - Saving HUC library to {library_post_mapping_file_path}") # TODO: Update logging
-    huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona")
+    huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
 
     # Save HUC library CSV
     library_post_mapping_csv_file_path = library_post_mapping_file_path.lower().replace("gpkg", "csv")
@@ -341,7 +344,7 @@ def process_mapping(
 
     # Save HUC sites GPKG
     print(f"{huc} - Mapping - Saving HUC sites GDF to {sites_mapping_file_path}") # TODO: Update logging
-    sites_gdf.to_file(sites_mapping_file_path, driver='GPKG', engine="fiona")
+    sites_gdf.to_file(sites_mapping_file_path, driver='GPKG', engine="fiona", index=False)
 
     # Save HUC sites CSV
     sites_mapping_csv_file_path = sites_mapping_file_path.lower().replace("gpkg", "csv")
@@ -353,7 +356,6 @@ def process_mapping(
     sites_gdf.to_csv(library_post_mapping_csv_file_path)
 
     # -----------------------------
-    # TODO: Add final checks
 
 
 
@@ -744,9 +746,9 @@ def run_sb_mapping(
         # Inundate site using additional stage intervals
 
         # Get non-record stages for the site and sort them by stage value
-        non_rec_thresholds_df_unsorted_site = huc_thresholds_long_df_site[huc_thresholds_long_df_site["stage_name"] != 'record']
+        non_rec_thresholds_df_unsorted_site = huc_thresholds_long_df_site[huc_thresholds_long_df_site["magnitude_type"] != 'record']
         non_rec_thresholds_df_site = non_rec_thresholds_df_unsorted_site.sort_values(
-            by='stage_value'
+            by='magnitude_value'
         ).reset_index()
 
         # We already inundated and created files for the specific stages just not the intervals
@@ -974,7 +976,7 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
     branches.sort()
 
     # MP_LOG.trace(f"{huc_lid_cat_id} - Branches are {branches}") # TODO: Update logging
-    print(f"{huc_lid_cat_id} - Branches are {branches}") # TODO: Update logging
+    # print(f"{huc_lid_cat_id} - Branches are {branches}") # TODO: Update logging
 
     # ---------------------
     # Notes from previous MP
@@ -1091,7 +1093,7 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
             # MP_LOG.trace(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM")
             # print(f"{huc_lid_cat_id} : branch = {branch} :  Generating stage-based FIM (running inundate_sb)") # TODO: implement logging
 
-            print(f"{huc_lid_cat_id} : {branch} - Producing inundated branch tifs")
+            # print(f"{huc_lid_cat_id} : {branch} - Producing inundated branch tifs")
 
             # executor.submit( # TODO: decide about keeping MP here. took out for now Jan 2026
                 # inundate_sb,
@@ -1103,6 +1105,7 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
             inundate_sb( # Jan 26: was previously called produce_inundated_branch_tif
                 huc,
                 ahps_site, # called lid inside function # TODO fix?
+                category_key,
                 hand_stage,
                 rem_path,
                 catchments_path,
@@ -1176,6 +1179,7 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
 def inundate_sb( # formerly called produce_inundated_branch_tif
     huc,
     lid,
+    category_key,
     hand_stage,  # same as the "stage" column in the library df?, or maybe it is easier to just pass the value here
     rem_path,
     catchments_path,
@@ -1331,7 +1335,7 @@ def inundate_sb( # formerly called produce_inundated_branch_tif
                 with rasterio.open(output_branch_tif, 'w', **profile) as dst:
                     dst.write(masked_reclass_rem_array, 1)
 
-                print(f'{huc} : {lid} - inundate_sb - Saving tif to {output_branch_tif}')
+                print(f'{huc} : {lid} : {category_key} - Saving tif to {output_branch_tif}')
 
         # else: # is_all_zero = True:
                 # print(f'inundate_sb - not saving tif because masked array was all zero') # Update logging
@@ -1562,8 +1566,62 @@ def post_process_huc(
         # Make inundated multipolygon list into a dataframe
         reformatted_geom_list_df = pd.concat(reformatted_geom_list, ignore_index=True)
 
+        print('reformatted_geom_list_df') ## TEMP DEBUG
+        print(reformatted_geom_list_df) ## TEMP DEBUG
+
+        # Get a list of intervals and add them to the HUC library
+        mapped_intervals_df = reformatted_geom_list_df[reformatted_geom_list_df['is_interval']]
+
+        # Add interval lid, magnitude, and interval_stage values to the HUC library and copy the data from the correct lid/mag combo
+        num_intervals = len(mapped_intervals_df)
+        if num_intervals > 0:
+
+            print(f"{huc} - Post-Process HUC - Updating HUC library to include {num_intervals} intervals")
+
+            # Initialize output df
+            # huc_library_intervals_df = pd.DataFrame(columns=huc_library_df.columns)
+            huc_library_interval_data_list = []
+
+
+            for index, row in mapped_intervals_df.iterrows():
+                print(f"nws_lid: {nws_lid}, magnitude: {magnitude}, interval_stage: {interval_stage} ") ## TEMP DEBUG
+
+                nws_lid = row['nws_lid']
+                magnitude = row['magnitude']
+                interval_stage = row['interval_stage']
+
+                # Find the equivalent row in huc_library_df
+                # Shouldn't be more than one line but iloc[0] selects the first entry just in case
+                huc_library_df_subset = huc_library_df[(huc_library_df['nws_lid'] == nws_lid) & (huc_library_df['magnitude'] == magnitude)].iloc[0]
+
+
+
+                # print('huc_library_df_subset, before updating the data') ## TEMP DEBUG
+                # print(huc_library_df_subset) ## TEMP DEBUG
+
+                # Add the interval information
+                huc_library_df_subset['interval_stage'] = interval_stage
+                huc_library_df_subset['is_interval'] = True
+
+                # print('huc_library_df_subset, AFTER updating the data') ## TEMP DEBUG
+                # print(huc_library_df_subset) ## TEMP DEBUG
+                # print()
+
+                huc_library_interval_data_list.append(huc_library_df_subset)
+
+                # huc_library_intervals_df = pd.concat([huc_library_intervals_df, huc_library_df_subset], ignore_index=True)
+                # huc_library_interval_data_list.append(huc_library_df_subset)
+
+            # Make the new interval data into a DF and append it to the huc_library_df
+            huc_library_interval_df = pd.DataFrame(huc_library_interval_data_list)
+
+            huc_library_df = pd.concat([huc_library_df, huc_library_interval_df], ignore_index=True)
+
+            print(huc_library_df) ## TEMP DEBUG
+
+
         # Join the inundated multipolgyon dataframe to the HUC library dataframe
-        huc_library_df = huc_library_df.merge(reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'interval_stage'], how='left') # TODO: test that this works for FB and SB
+        huc_library_df = huc_library_df.merge(reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'interval_stage', 'is_interval'], how='left') # TODO: test that this works for FB and SB
 
         # Make the HUC library df into a gdf
         huc_library_gdf = gpd.GeoDataFrame(huc_library_df, geometry='geometry', crs=VIZ_PROJECTION)
@@ -1573,18 +1631,20 @@ def post_process_huc(
         # TODO: I'm not convinced that dissolving will change things in most cases... but maybe worth 
         # keeping for now? 
 
-        print(f"{huc} - Post-Process HUC - Dissolving CatFIM library") # TODO: Update logging
 
         huc_library_undissolved_gdf = huc_library_gdf # TODO: might not need to output this after development, saving it just for now  TEMP DEBUG 
 
         # TODO: Decide if we need to differentiate by CatFIM type here or if we can just process all as one
         # Previous methods only had dissolving for flow-based, probably because the intervals could make
         # things confusing...
+
         if catfim_type == "fb":
+            print(f"{huc} - Dissolving CatFIM library for flow-based CatFIM") # TODO: Update logging
             huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude'], as_index=False)
 
         elif catfim_type == "sb": # prev versions did not dissolve SB... for good reason? or no?
-            huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude', 'interval_stage'], as_index=False)
+            print(f"{huc} - Not dissolving CatFIM library for stage-based CatFIM") # TODO: Update logging
+            # huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude', 'interval_stage'], as_index=False) 
 
         if len(huc_library_gdf) == 0:
             print(f"{huc} - Post-Process HUC - WARNING: Dissolved library empty") # TODO: Update logging
@@ -1761,7 +1821,7 @@ def __calc_sb_intervals( # Was __calc_stage_intervals()
     interval_recs, stage_values_claimed = [], []
 
     print( # TODO: Update logging
-        f"{huc_lid_id}: Calculating intervals for {non_rec_thresholds_df_site}"
+        f"{huc_lid_id}: Calculating intervals"
     )
 
     num_stage_value_recs = len(non_rec_thresholds_df_site)
@@ -1801,7 +1861,7 @@ def __calc_sb_intervals( # Was __calc_stage_intervals()
         if idx < len(non_rec_thresholds_df_site) - 1:
             # If the record IS NOT the last stage value in the list, use the next stage value
             # as the maximum interval value here.
-            next_stage_val = non_rec_thresholds_df_site.iloc[idx + 1]["stage_value"]
+            next_stage_val = non_rec_thresholds_df_site.iloc[idx + 1]["magnitude_value"]
             max_interval_val = int(next_stage_val)
             # MP_LOG.trace(f"{huc_lid_id}: Next stage value is {max_interval_val}")
 
