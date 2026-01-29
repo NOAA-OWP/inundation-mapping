@@ -19,6 +19,7 @@ from botocore.client import Config
 
 
 # -------------------------------------------------
+# TODO: Oct 2025: Change this to a dictionary as input
 def create_aws_session(
     aws_access_key_id: str = None,
     aws_secret_access_key: str = None,
@@ -121,7 +122,7 @@ def create_aws_session(
     except Exception as ex:
         # the aws will handle many messages and what it can not, it will
         # re-raise, which we can further re-raise
-        error_msg, type_known = aws_exception_handler(ex)
+        error_msg, _ = aws_exception_handler(ex)
         return False, error_msg, None
 
     # True/False (success), no error_msg, s3_client object
@@ -129,6 +130,7 @@ def create_aws_session(
 
 
 # -------------------------------------------------
+# TODO: Oct 2025: Change this to a dictionary as input
 def create_aws_client(
     aws_service_type_name: str,
     aws_access_key_id: str = None,
@@ -144,6 +146,12 @@ def create_aws_client(
     started based on one session. See more notes about sessions in the create_aws_session function.
 
     If you want to make your own session and use it to make multiple clients, use other functions.
+
+    Boto3 with managing our own multi-thread is pretty much the fastest option also recognizing
+    that are usually using filtered lists with mostly small files, high volume. We can only go
+    as fast as our network pip (speed) can handle, but we want it maxed out.
+
+    We also do not use s3 config 'use_accelerate_endpoint': True as the bucket has to have it enabled.
 
     Inputs:
         - aws_service_type_names: What type of client are you creating. This code currently
@@ -192,12 +200,15 @@ def create_aws_client(
 
         # TODO: fix this... needs some tweaks
         # Setup Config to manage timeouts on initial connection
-        # shorter timeout means quicker response
+        # The read_timeout has been overridden to higher than default
+        # in case it is pulling down a large file.
+        # And a very high max_pool_connections for multi-thread and clients that are open a long
+        # time and re-used. Likely will be more than the network speed can handle but lets leave it higher anyways.
         client_config = Config(
             connect_timeout=20,
-            read_timeout=900,
-            max_pool_connections=50,
-            retries={"mode": "standard", 'max_attempts': 10},
+            read_timeout=(60 * 5),
+            max_pool_connections=100,
+            retries={"mode": "standard", 'max_attempts': 5},
         )
 
         # -------------------
@@ -218,9 +229,9 @@ def create_aws_client(
     except Exception as ex:
         # the aws will handle many messages and what it can not, it will
         # re-raise, which we can further re-raise
-        error_msg, type_known = aws_exception_handler(ex)
-        if type_known is False:
-            raise Exception(error_msg)
+        error_msg, _ = aws_exception_handler(ex)
+        # if type_known is False:
+        #     raise Exception(error_msg)
 
         return False, error_msg, None
 

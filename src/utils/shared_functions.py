@@ -4,6 +4,7 @@ import glob
 import inspect
 import logging
 import os
+import pathlib
 import re
 import shutil
 import sys
@@ -62,11 +63,19 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     Returns the name/path of the new log file.
     """
 
-    if log_file_dir is None or log_file_dir == "":
+    if not log_file_dir:
         raise ValueError("log directory path can not be None or empty")
 
-    if log_file_name_prefix is None or log_file_name_prefix == "":
+    if not log_file_name_prefix:
         raise ValueError("log file name prefix can not be None or empty")
+
+    # Example with a different permission (e.g., full access for everyone)
+    permissions_code = 0o664
+    os.makedirs(log_file_dir, mode=permissions_code, exist_ok=True)
+    # even though we used os.makedirs, it does not mean it had permission to make the dir
+    # the mode is for permissions of the folder once is created.
+    if not os.path.isdir(log_file_dir):
+        raise Exception("This script likely does have permission to add a log folder")
 
     file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
@@ -142,7 +151,13 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         raise Exception("log file name must end with .log")
 
     abs_path = os.path.abspath(log_file_path)
-    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    permissions_code = 0o664
+    log_folder = os.path.dirname(abs_path)
+    os.makedirs(log_folder, mode=permissions_code, exist_ok=True)
+    # even though we used os.makedirs, it does not mean it had permission to make the dir
+    # the mode is for permissions of the folder once is created.
+    if not os.path.isdir(log_folder):
+        raise OSError("This script likely does have permission to add a log folder")
 
     # Check name -> path
     if logger_name in _LOGGER_REGISTRY and _LOGGER_REGISTRY[logger_name] != abs_path:
@@ -377,8 +392,6 @@ def run_with_mp(
                         # print("task bar being updated")
                         pbar.update(1)  # ✅ Progress update for each completed task
 
-                results[task_id] = rtn_value
-
                 if pbar:  # All mp tasks are done.
                     pbar.close()
 
@@ -415,20 +428,31 @@ def run_with_mp(
                 # But it helps force shut down other objects like manual logging and a
                 # a queue.
                 pbar.close()  # aborts the progress bar
-                screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-                screen_queue_thread.join()  # official closure of thread
+
+                if screen_queue_thread:
+                    screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+                    screen_queue_thread.join()  # official closure of thread
                 # re raising instead of sys.exit to help ensure all objects are cleaned up correctly
                 raise Exception("Shutting down. Cleaning up caches and objects....")
 
         # if the pool finished correctly, shut down the remaining queue.
-        screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-        screen_queue_thread.join()  # official closure of thread
+        if screen_queue_thread:
+            screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+            screen_queue_thread.join()  # official closure of thread
 
     # This is primarily used when using CTRL-C to which can leave orphaned processes
     except Exception as ex2:
         print("Still shutting down, hang in there", flush=True)
         print(ex2, flush=True)
-        sys.exit(1)
+        if screen_queue_thread:
+            screen_queue.put("DONE")  # sends the stop SIGNAL to thread
+            screen_queue_thread.join()  # official closure of thread
+
+        # This hanging in some scenarios such as a bug in this function. Triggered by a mp child
+        # function not returning values correctly.
+        # sys.exit(1)
+        # need to rethrow
+        raise ex2
 
     return results
 
@@ -466,6 +490,7 @@ def getDriver(fileName):
 def get_value_from_env(arg_key, env_file_path):
     '''
     Notes:
+        - This assumes the env has already been loaded. The env_file_path is for error messages only.
         - we don't actually load the file here as we could be loading more than once.
     Params:
         - arg_key is the variables in the loaded environment object
@@ -473,7 +498,8 @@ def get_value_from_env(arg_key, env_file_path):
              Note: not all uses of this tool will be for file paths
              ** Only work on S3 paths at this time
     Returns
-        - The arg_key value
+        - The arg_key value. The return value may also have placeholders such as "mypath/{some version}/",
+          which can be subsituted somewhere else.
     '''
 
     env_file_name = ""
@@ -483,12 +509,12 @@ def get_value_from_env(arg_key, env_file_path):
 
     arg_value = os.environ[arg_key]
 
-    if arg_value is None or arg_value == "":
-        if env_file_path is None or env_file_path == "":
+    if arg_value is None or arg_value.strip() == "":
+        if env_file_path is None or env_file_path.strip() == "":
             env_file_name = "Undefined"
         raise ValueError(f"Env file of {env_file_name} : {arg_key} variable does not exist or empty")
 
-    return arg_value
+    return arg_value.strip()
 
 
 # Adds a starting and ending slash if not already there
@@ -635,6 +661,72 @@ def s3_or_local_glob(path: str) -> list:
     """
     fs, pth = url_to_fs(path)
     return fs.glob(pth)
+
+
+def read_huc_file_list_or_array_of_hucs(hucs):
+    """
+    This function can be used for things other than just HUCS, but is being
+    tested for list of HUCs or a path to a HUC list file.
+
+    Some code reads in either a huc list file path or a list of hucs.
+    ie) /data/inputs/huc_list/mylist.huc
+    or 12090301 05020305
+    Sometimes using nargs="+" can treat the incoming argument as one big or a bunch of hucs.
+    ie) -u 12090301 05030105 (without quotes around the two become two items in a huc list)
+    BUT
+        -u '12090301 05030105' becomes jsut one large sting in the single list. ie) hucs[0] = '12090301 05030105'
+
+    This function can handle all three to result in a valid huc list array.
+    """
+
+    if isinstance(hucs, list) and len(hucs) == 0:
+        raise ValueError("HUC or item list can not be empty")
+
+    huc_list = set()
+
+    if isinstance(hucs, list) and len(hucs) == 1:
+        # can be a path to a file or a single item huc
+        # but also could be one item with more than one huc in the string
+        # ie: hucs[0] = '12090301 05030104' which we need to break apart
+        if hucs[0].endswith(".lst"):
+            if not os.path.isfile(hucs[0]):
+                raise FileNotFoundError(f"Huc list file not found at {hucs[0]}")
+
+            with open(hucs[0], 'r') as hucs_file:
+                file_lines = hucs_file.readlines()
+                f_list = [clean_huc_value(fl) for fl in file_lines]
+                huc_list.update(f_list)
+        else:
+            raw_huc_list = hucs[0].split(" ")
+            for huc in raw_huc_list:
+                huc_list.add(clean_huc_value(huc))
+
+    elif isinstance(hucs, list) and len(hucs) > 1:
+        for huc in hucs:
+            huc_list.add(clean_huc_value(huc))
+    else:  # assume it is a string but it could have more than one huc value in it
+        hucs = hucs.strip()
+        if hucs == "":
+            raise ValueError("HUC list is empty")
+
+        if " " in hucs:  # we have something like '12090301 05030104'
+            raw_huc_list = hucs.split(" ")
+            for huc in raw_huc_list:
+                huc_list.add(clean_huc_value(huc))
+        else:
+            huc_list.add(clean_huc_value(hucs))
+
+    return huc_list
+
+
+# Sometimes value in HUC list files can have extra spaces or line break problems
+# Mostly has to do with file encoding.
+def clean_huc_value(huc):
+    # Strips the newline character plus
+    # single or double quotes (which sometimes happens)
+    huc = huc.strip().replace("\"", "")
+    huc = huc.replace("\'", "")
+    return huc
 
 
 ########################################################################
