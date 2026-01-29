@@ -14,6 +14,8 @@ elif [ "$level" = "unit" ]; then
     z_arg=$tempHucDataDir/nwm_catchments_proj_subset.gpkg
 fi
 
+# invalid command Rob testing invalid bash line that should abort becuase of the -e flag
+
 
 ## MASK LEVEE-PROTECTED AREAS FROM DEM ##
 if [ "$mask_leveed_area_toggle" = "True" ] && [ -f $tempHucDataDir/LeveeProtectedAreas_subset.gpkg ]; then

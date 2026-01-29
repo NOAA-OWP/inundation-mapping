@@ -83,7 +83,7 @@ def run_shell_for_huc(
         # of order.  It is a better answer than trying to catch stdOut and StnError here
         # as it means the standard log is not written, then checking for errors
         # 
-        #  and the error checkign in 
+        #  and the error checking in 
         # calibrate_rating_curves.sh is looking against data when the based
 
         # The magic with logging is the relationship between exit codes, StdOut and StdErr
@@ -116,7 +116,7 @@ def run_shell_for_huc(
         sh_result = subprocess.run(
             cmd,
             env=task_env,
-            capture_output=False,
+            capture_output=True,
             text=True,
             check=True,  # will raise CalledProcessError immediately when a calibration routine fails and the subsequent python code are not run
         )
@@ -133,7 +133,10 @@ def run_shell_for_huc(
         # if sh_result.stdout != "":
         #     msg += f"; Additional returned message from the subprocess: {sh_result.stdout}"
 
-        
+        msg = f"StdOut value is {sh_result.stdout}"
+        screen_queue.put(msg)
+        file_logger.info(msg)
+
         if sh_result.returncode != 0:
             msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}."
             msg += f"; Exit Code returned is {sh_result.returncode}"
@@ -193,6 +196,15 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
     if limit_hucs:
         hucs = [h for h in limit_hucs if h in hucs]
 
+    # Create the logger
+    start_time = datetime.now()
+    timestamp = start_time.strftime("%Y%m%d_%H%M")
+    log_file_path = os.path.join(fim_run_dir, 'logs', f"calib_rerun_{timestamp}.log")
+    print(f"logs will be saved to {log_file_path}")
+    file_logger = setup_mp_file_logger(log_file_path, logger_name='rerunning_calibration')
+    print('started rerunning calibration...')
+    file_logger.info(f'started rerunning calibration at: {timestamp}')
+
     # as env variables, pass fim run directory and src directory into calibrate_rating_curves.sh
     # Note: calibrate_rating_curves.sh will create and source params_rerun.env (from params_template.env)
     # instead of sourcing params.env when running in rerun mode
@@ -222,13 +234,6 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
             }
         )
 
-    # Create the logger
-    start_time = datetime.now()
-    timestamp = start_time.strftime("%Y%m%d_%H%M")
-    log_file_path = os.path.join(fim_run_dir, 'logs', f"calib_rerun_{timestamp}.log")
-    file_logger = setup_mp_file_logger(log_file_path, logger_name='rerunning_calibration')
-    print('started rerunning calibration...')
-    file_logger.info(f'started rerunning calibration at: {timestamp}')
 
     # Run multiprocessing
     mp_results = run_with_mp(
@@ -269,13 +274,13 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
 if __name__ == "__main__":
     # notes
     # - this tool will read an existing FIM run (with mmultiple HUC results) and will overwrite the hyrotable (and src table)
-    # - accordingly, the log files are overwrtten to be consistent with updated hyrtables.
+    # - accordingly, the log files are overwrtten to be consistent with updated hydrotables.
     # - The flags to activate/deactivate each calibration script is still manage from config/params_template.env of the code
     # A new params_rerun.env will be created (from config/params_template.env) and is used for rerun.
 
     # sample usage
     # python foss_fim/tools/rerun_calibration.py
-    # -i /outputs/fim_dir -jh 6 -jb 2
+    # -i /outputs/hand_4_9_5_8_test/ -jh 6 -jb 2
 
     # Parse arguments
     parser = argparse.ArgumentParser(description="Rerun calibrating rating curves (after a fim pipeline run)")

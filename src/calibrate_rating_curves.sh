@@ -41,6 +41,7 @@ fi
 echo "---- Started: `date -u`"
 echo ""
 
+# invalid command Rob testing invalid bash line that should abort becuase of the -e flag
 
 # Check if it is a calibration rerun or not
 if [ "$calibration_rerun" = "true" ]; then

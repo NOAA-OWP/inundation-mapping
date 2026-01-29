@@ -263,6 +263,7 @@ def apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path
         msg = f"Correcting rating curve for thalweg notches for HUC : {huc}\n"
         log_text += msg
         print(msg)
+        # raise Exception("Rob is tesing an exception before correct_thalweg (sort of)")
         log_text += correct_thalweg_notches(huc_dir, huc, stage_interval)  # bankfull_flows_file
 
     except Exception as ex:
@@ -270,8 +271,10 @@ def apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path
         log_text += traceback.format_exc()
         # re raise ex ?  # TODO: Do we want to stop processing the huc if we get an error here?
         # If yes, we need to raise ex, make sure to write your log_text if you need to.
+        # raise Exception("Rob is tesing an exception reraise (sort of ) in thalweg")
 
     try:
+        # print('Rob is testing an error test here')
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:

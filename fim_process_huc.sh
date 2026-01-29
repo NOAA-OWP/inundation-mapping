@@ -4,6 +4,12 @@
 ### set -o pipefail  (debugging line)
 umask 000
 
+#####################################
+## Note:
+##   This eror handling might seem like overkill but it absolutely necessary, expecially in AWS
+##   enviros. These parent scripts themselves can have errors and it would result in uncaptured errors
+##   that are lost in all logs, even when not in AWS mode.
+#####################################
 :
 usage ()
 {
@@ -97,15 +103,12 @@ handle_error(){
 # and will do warnings as well.
 check_for_huc_errors(){
 
-    # Note: We do not need to scan any src_optimization or subfolders
-    # as all warnings and errors roll up here to the hucLogFile when in
-    # pipeline mode.
-
     # scan_for_huc_errors_complete helps stop for multiple scans as it is possible if
     # there are multiple errors on this page.
     if [ "$scan_for_huc_errors_complete" = "False" ]; then
+        echo "++++++++++++++++++++++++++"
         #l_echo $startDiv"Scanning for errors and exceptions in the HUC unit file" $hucLogFile
-        l_echo $startDiv"Scanning for err..ors and exceptions in the HUC unit file" $hucLogFile
+        l_echo "Scanning for err..ors and excep..tions in the HUC unit file" $hucLogFile
         # No.. the line above is not a mistype.
         # Can't put the word "error" as as a header in the log file as it finds itself in the log files
         # Scan for the word error in the log file. Exit codes were already managed above.
@@ -114,27 +117,32 @@ check_for_huc_errors(){
         # and huc error file.
 
         # Grep Tech Tip.. use the -e flag when you are not using any wildcards or patterns
-        # just a word in a line. If you need a regex type patter, use -E instead.
+        # just a word in a line. If you need a regex type pattern, use -E instead.
         # touch $errorLogFile
         # This helps with errors in this fim_process_huc.sh script
         grep -H -i -n -e "Command exited with non-zero status" $hucLogFile >> $errorLogFile
         grep -H -i -n -e "error" $hucLogFile >> $errorLogFile
         grep -H -i -n -e "parallel" $hucLogFile >> $errorLogFile
 
-        # we need to also check the files in the src_calibration files for errors and exceptions valuise
-
-
-        
-
-        l_echo $startDiv"Find branch non zero exit codes for this huc" $hucLogFile
-        find $tempHucDataDir -path "*/logs/branch/*_branch*.log" -type f | \
-            xargs grep -H -n -i -E "Exit status: ([1-9][0-9]{0,2})" >> $branchNonZeroCodesLogFile
+        # we need to also check the files in the src_calibration files for errors and exceptions values
+        # Some of the py files using src_calibration log folder may have incomplete logs and not
+        # re-raising exception if applicable and most won't actualy complete the write of an error to
+        # a log file so it never really gets logged. Look at some of the src...py files, then look for
+        # the word "except", the watch what is happening on logs or log variables. 
+        # Let's scan that dir to see if we cand find anythign but could be lots missing.
+        echo "Scanning for err..ors and issues in the src_calibration folder."
+ 
+        find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f | \
+            xargs grep -H -n -i -e "error" >> $errorLogFile &
+        find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f | \
+            xargs grep -H -n -i -e "exception" >> $errorLogFile &            
 
         # Scan for warnings too
         echo "Scanning for warnings"
         # warningLogFile
         grep -H -i -n -e "warning" $hucLogFile > $warningLogFile
 
+        echo "++++++++++++++++++++++++++"
         # agg_by_huc_errors
     fi
     scan_for_huc_errors_complete="True"
@@ -176,19 +184,12 @@ chmod 777 -R $tempBranchDataDir
 chmod 777 -R $tempHucDataDir/logs
 chmod 777 -R $tempHucDataDir/logs/branch
 
-
 # Tell the system the name and location of the log file
 # l_echo is echo to screen and log at the same time.
 Set_log_file_path $hucLogFile
 
 echo "=========================================================================="
 l_echo "---- Start of huc processing for $hucNumber" $hucLogFile
-
-# Clean out previous unit logs and branch logs starting with this huc
-rm -f $tempHucDataDir/logs/"$hucNumber"_unit.log
-rm -f $tempHucDataDir/logs/branch/"$hucNumber"_summary_branch.log
-rm -f $tempHucDataDir/logs/branch/"$hucNumber"*.log
-rm -f $outputDestDir/branch_errors/"$hucNumber"*.log
 
 hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 
@@ -221,9 +222,11 @@ do
         echo
         # do nothing
     elif [ $code -eq 60 ]; then
+        # Yes.. this is an error, and we know why
         err_msg="***** Unit has no valid branches *****"
         err_exists="1"
     elif [ $code -eq 61 ]; then
+        # Yes.. this is an error, and we know why
         err_msg="***** Unit has no remaining valid flowlines *****"
         err_exists="1"
     else  # could be an exit status of 1 but can be other codes as well.
@@ -241,10 +244,10 @@ fi
 
 # Rob_test_fail  # function call 
 
-# In case there is a critical error with logic on this page.
+# This is here versus higher, in case there is a critical error with logic on this page.
 # Most errors are caught via Time and Tee, then the return status codes
-# but errors can occur on this page itself. This helps trap those types of errors
-# as well
+# but errors can occur on this page itself. This helps trap those types of errors as well.
+# ie. a fail in log scans with the greps
 trap 'handle_error $LINENO' ERR
 
 # These are now in functions as page level errors and exceptions can occur anywhere
