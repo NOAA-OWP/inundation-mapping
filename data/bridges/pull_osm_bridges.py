@@ -16,6 +16,8 @@ from dotenv import load_dotenv
 from networkx import Graph, connected_components
 from shapely.geometry import LineString, shape
 
+# Set the timeout to 800 seconds (8 minutes)
+ox.config(requests_timeout=800, log_console=True)
 
 """
 TODO:  Make the huc level osm files in a working dir
@@ -388,6 +390,22 @@ def process_osm_bridges(wbd_file, output_folder, file_name_prepend, number_of_jo
     reproj_hucs = hucs.to_crs(pyproj.CRS.from_string("epsg:4326"))
     section_time = dt.datetime.now(dt.timezone.utc)
     logging.info(f"Reprojection done: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
+
+    tasks_args_list = []
+    for row in reproj_hucs.iterrows():
+        huc_row = row[1]
+
+        if str(huc_row[huc_column_name]) in BAD_HUCS:
+            logging.info(f"Skipping {huc_row[huc_column_name]} as it is on the bad huc list")
+            continue
+
+        huc_bridge_file = os.path.join(output_folder, f"huc_{huc_row[huc_column_name]}_osm_bridges.gpkg")
+        args = {
+            "huc_num": huc_row[huc_column_name],
+            "huc_bridge_file": huc_bridge_file,
+            "huc_geom": huc_row['geometry'],
+        }
+        tasks_args_list.append(args)
 
     failed_HUCs_list = []
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
