@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from networkx import Graph, connected_components
 from shapely.geometry import LineString, shape
 
+
 # Set the timeout to 500 seconds (5 minutes), which is possible depending on network speed
 # and network volume (number of jobs)
 ox.settings.request_timeout = 500
@@ -275,8 +276,8 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 def combine_huc_features(output_dir, file_name_prepend):
 
     # Becuase we send in an input of the WBD and we have seperate ones for all 4 regions
-    # we need to run this 4 times. 
-    
+    # we need to run this 4 times.
+
     # only save out a subset of columns, because many hucs have different column names
     # and data, so you could end up with thousands of columns if you keep them all!
 
@@ -293,7 +294,7 @@ def combine_huc_features(output_dir, file_name_prepend):
 
     if len(huc_files_paths) == 0:
         raise Exception("No intermediate files using the pattern of huc_*_osm_bridges.gpkg found")
-    
+
     gdf = pd.concat((gpd.read_file(f) for f in huc_files_paths), ignore_index=True)[cols_to_keep]
     if "osmid" in gdf.columns:
         gdf["osmid"] = gdf["osmid"].astype(str)
@@ -304,8 +305,9 @@ def combine_huc_features(output_dir, file_name_prepend):
 
     # remove the intermediates from run as it can interfere with next runs as the tools combines
     # all files in that directory starting with huc_*_osm_bridges.gpkg
-    logging.info(".. Removing intermediate files from previous runs, if any,"
-                 " as it can interfere with future runs.")        
+    logging.info(
+        ".. Removing intermediate files from previous runs, if any," " as it can interfere with future runs."
+    )
     for file_path in huc_files_paths:
         os.remove(file_path)
 
@@ -351,8 +353,10 @@ def process_osm_bridges(wbd_file, output_folder, file_name_prepend, number_of_jo
     else:
         # remove the intermediates from past run as it can interfere with next runs as the tools combines
         # all files in that directory starting with huc_*_osm_bridges.gpkg
-        logging.info(".. Removing intermediate files from previous runs, if any,"
-                     " as it can interfere with future runs.")        
+        logging.info(
+            ".. Removing intermediate files from previous runs, if any,"
+            " as it can interfere with future runs."
+        )
         for file in Path(output_folder).glob("huc_*_osm_bridges.gpkg"):
             os.remove(file)
 
@@ -628,7 +632,7 @@ if __name__ == "__main__":
         ' Whatever value that is prepended is add to format *_osm_bridges.gpkg,'
         ' such as conus_osm_bridges,gpkg',
         required=True,
-    )    
+    )
 
     parser.add_argument(
         '-j',

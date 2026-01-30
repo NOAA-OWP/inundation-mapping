@@ -27,6 +27,8 @@ gpd.options.io_engine = "pyogrio"
 TODO:
     - Add input args for resolution size, which means URL and block size also have to be parameterized.
 
+    - Add an arg to skip straight to polygonize as we had a conus run that failed after dems but in polygonize.
+
     - the -lf system needs testing.
 
     - Add MP or MT to polygonize
@@ -187,6 +189,8 @@ def acquire_and_preprocess_3dep_dems(
     # -------------------
     # processing
 
+    failed_file_names = []
+
     # Get the WBD .gpkg files (or clip extent)
     extent_file_names_raw = fh.get_file_names(extent_file_path, 'gpkg')
     sf.l_print(f"Extent files coming from {extent_file_path}", file_logger, "info")
@@ -211,6 +215,9 @@ def acquire_and_preprocess_3dep_dems(
         extent_file_names, target_output_folder_path, number_of_jobs, repair, target_projection, file_logger
     )
 
+    # TODO: Jan 28, 2026: Something failed in a conus run of polygonize, but all of the dems
+    # above were just fine.
+    # Manually hacked code to skip to polygonize. Put in an argument later to do this, polygonize only.
     if skip_polygons is False:
         if len(failed_file_names) > 0:
             msg = "Errors have occurred while downloading. Polygonizating can not be completed."
