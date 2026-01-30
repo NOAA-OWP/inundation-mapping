@@ -557,17 +557,21 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
             # Set nans to 0
             src_df.loc[src_df['Stage'] == 0, 'Discharge (m3s-1)'] = 0
 
-            # TODO: Redefine Longitudinal_adjustment_applied True/False
             src_df2 = src_df.copy()
             discharge_longitudinal = src_df2['Discharge (m3s-1)']
             src_df['Discharge (m3s-1)_longitudinalAdjusted'] = discharge_longitudinal
 
             src_df['Longitudinal_adjustment_applied'] = False
-            long_col = abs(
-                src_df['Discharge (m3s-1)_thalwegAdjusted'] - src_df['Discharge (m3s-1)_longitudinalAdjusted']
-            )
-            cond_thalweg_rows = long_col > 0
-            src_df.loc[cond_thalweg_rows, 'Longitudinal_adjustment_applied'] = True
+            if 'Discharge (m3s-1)_thalwegAdjusted' in src_df.columns:
+                long_col = abs(
+                    src_df['Discharge (m3s-1)_thalwegAdjusted']
+                    - src_df['Discharge (m3s-1)_longitudinalAdjusted']
+                )
+                cond_thalweg_rows = long_col > 0
+                src_df.loc[cond_thalweg_rows, 'Longitudinal_adjustment_applied'] = True
+            else:
+                print('Warning: thalweg_noches_adjustment routine has not been completed')
+                log_text += f'Thalweg_noches_adjustment routine has not been completed for HUC {huc} Branch: {branch}\n'
 
             # Drop intermediate columns
             src_df = src_df.drop(columns=['SurfaceArea-1', 'volume_stage', 'a_coef', 'b_coef'])
