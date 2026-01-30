@@ -81,6 +81,6 @@ acceptable_coord_method_code_list = ["C", "D", "W", "X", "Y", "Z", "N", "M", "L"
 # https://help.waterdata.usgs.gov/codes-and-parameters/codes#SI
 acceptable_alt_acc_thresh = 1.0
 # https://help.waterdata.usgs.gov/code/alt_meth_cd_query?fmt=html
-acceptable_alt_meth_code_list = ["A", "D", "F", "I", "J", "L", "N", "R", "W", "X", "Y", "Z"]
+acceptable_alt_meth_code_list = ["A", "D", "F", "G", "I", "J", "L", "N", "R", "U", "W", "X", "Y", "Z"]
 # https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
 acceptable_site_type_list = ["ST"]
