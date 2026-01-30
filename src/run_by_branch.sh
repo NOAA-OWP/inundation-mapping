@@ -117,12 +117,13 @@ python3 $srcDir/adjust_floodplains.py \
 ## PIT REMOVE BURNED DEM - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $current_branch_id"
 if [ -f $tempCurrentBranchDataDir/dem_burned_adjusted_$current_branch_id.tif ]; then
-    rd_depression_filling $tempCurrentBranchDataDir/dem_burned_adjusted_$current_branch_id.tif \
-        $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif
+    dem_burned=$tempCurrentBranchDataDir/dem_burned_adjusted_$current_branch_id.tif
 else
-    rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif \
-        $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif
+    dem_burned=$tempCurrentBranchDataDir/dem_burned_$current_branch_id.tif
 fi
+python3 $srcDir/depression_filling.py \
+    -i $dem_burned \
+    -o $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif
 
 ## D8 FLOW DIR - BRANCHES (NOT 0) (NWM levelpath streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
