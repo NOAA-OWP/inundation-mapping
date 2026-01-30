@@ -72,6 +72,8 @@ def add_crosswalk(
 
     slope_pitts_df = pd.concat([slope_mono_df, slope_all_df, slope_ohio_df], ignore_index=True)
     slope_pitts_df = slope_pitts_df.set_index('feature_id')
+
+    # Replace slope in df1 wherever the ID exists in df2
     iris_df = iris_df.set_index('feature_id')
 
     # this will replace slope in df1 wherever the ID exists in df2
