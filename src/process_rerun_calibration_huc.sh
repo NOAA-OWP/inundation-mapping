@@ -2,7 +2,8 @@
 
 #####################################
 ## Note:
-##   This error handling might seem like overkill but it very helpful with rerun_calibration.py.
+##   This error handling might seem like overkill but it very helpful with rerun_calibration.py
+##   and it is critial to how this can work in both AWS mode, EC2 re-run mode and EC2 pipeline mode.
 ##   These parent scripts themselves can have errors and while rerun_calibration.py can and does
 ##   catch all exit the details to rerun_calibration.py.
 #####################################
@@ -15,29 +16,45 @@
 #      a) It catches StdErr and StdOut and passes it to "tee" which makes sure it gets logged.
 #      b) It also catch the exit status in case the something catestropihic fails anywhere under the .sh and .py
 #        scripts below it, such as ruc_huc.sh, calibrate_rating_curve.sh, process_branch.sh and run_branch.sh
-#    All of those scripts roll up their StnErr and StdOut to fim_process_huc.sh
+#    All of those scripts roll up their StnErr and StdOut to fim_process_huc.sh. This system works well
+#    for both processing in EC2 pipeline mode, and AWS Step Function mode.
 
 # 2: As part of this process_rerun_calibration_huc.sh which is never called anywhere in the fim_process_huc.sh chain
 #    Instead this does the same basic job as fim_process_huc.sh but only at a smaller scale and only when it is being
-#    called as part of rerun_calibration.py. This also catches StdErro, StdOut and passes it to "tee". It also
+#    called as part of rerun_calibration.py. This also catches StdErr, StdOut and passes it to "tee". It also
 #    can catch exit codes and covers any catestrophic errors (such as .sh script file errors)
 
-# Either way calibrate_rating_curve.sh only uses echos which are caught in the "tee" commands.
+# Either way calibrate_rating_curve.sh only uses echos, versus l_echo, which are caught in the "tee" commands.
 
-# Note: While rerun_calibration.py also can use its subprocess to catch StdErr, StdOut and exit codes, one additional
-# job that both fim_process_huc.sh and this file does, is scanning for errors via logs and exit codes and add them to error
-# files. This is a critical feature needed especially for AWS. Not so for rerun_calibration.py when it is run on an EC2 but
-# otherwise we have two full seperate logging techniques and error trapping. Moreso, without this file, it would force
-# rerun_calibration.py to have so sort out exit codes, StdErr and StdOut BEFORE it reviews and builds error logs when applicable.
+# Note: While rerun_calibration.py also can use its subprocess to catch StdErr, StdOut and exit codes, is th
+# ability for the wrapper script to manage most of its own bash command error without compromising
+# log. This is a critical feature needed especially for AWS. Not so for rerun_calibration.py when it
+# is run on an EC2 but ....
 
-# outputDestDir and tempHucDataDir are setup as an enviro variable in rerun_calibration.py.
+## otherwise we have two full seperate logging techniques and error trapping. Moreso, without this file, it would force
+# rerun_calibration.py to have so sort out exit codes, StdErr and StdOut BEFORE it reviews and builds
+# error logs when applicable.
+
+# 'tempHucDataDir' is created as an enviro variable in rerun_calibration.py when in the rerun mode,
+# but by fim_process_huc.sh in the pipeline mode.
+# When in pipeline mode, 'tempHucDataDir' actually points to the 'fim-temp' directory and calibrate_rating_curve.sh.
+# When in rerun mode, it sets that same variable name in the rerun_calibration.py code but it actually points
+# to the true huc folder in the "outputs", "previous_fim" or equiv pathing. We also do not want calibrate_rating_curve.sh
+# ever talkin the docker enviro to any variables of outputDestDir because AWS works with the "outputs" directory
+# in a different way then EC2 pipeline mode.
+
+# However, process_rerun_calibration_huc.sh is never called anywhere via pipeline process, EC2 or AWS Step functions.
+# This means process_rerun_calibration_huc.sh can talk to anyone it wants.
+
 # As always in multi-proc, it is ok to read files from here, but do not write to files or folders to a shared file.
-# It can and already has happened in BED large scale runs.
+# It can and already has happened in BED large scale runs. This is a rule that we have to makes sure does not happen
+# somehow via rerun_calibraion.py in its MP mode.
 
-# The variable tempHucDataDir which is used throughout calibrate_rating_curve.sh.
-# When calibrate_rating_curves.sh is run as part of the fim_process_huc.sh chain it is
-# actualy done in the fim-temp directories. But when we run rerun_calibation.py, it is done in the output directory.
+# We can and want to use l_echo here, just not in child  .sh scripts.
 
+# We need to finish getting rerun_calibration.py to pass these variables in. Likely just needs single
+# quotes all on variables otherwise datatypes can create problems (maybe ???)
+# but we do need them here for processing flow reasons.
 export calibration_rerun=$1
 export jobBranchLimit=$2 # should allow new values for rerun_calibrate_rating_curves.py
 export hucNumber=$3
@@ -56,6 +73,8 @@ if [ "$tempHucDataDir" = "" ] ; then
     echo "Error: tempHucDataDir is an empty" >&2; exit 1
 fi
 
+# As originally designed, it seems much better to keep its own logging seperate from the
+# original logs.
 rerunlogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun.log"
 rerunErrorLogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun_errors.log"
 rerunWarningLogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun_warnings.log"
@@ -63,7 +82,7 @@ rerunWarningLogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_cali
 # We need remove earlier versions from previous recalibration runs.
 rm -f $rerunlogFilename
 rm -f $rerunErrorLogFilename
-rm -f rerunWarningLogFilename
+rm -f rerunWarningLogFilename  # do we want a warning system here?
 rm -rdf $tempHucDataDir/logs/src_calibrations
 
 source $outputDestDir/params_rerun.env  # copied in from rerun_calibration.py
@@ -94,6 +113,22 @@ scan_logs_for_errors(){
     # No.. the line above is not a mistype.
     # Can't put the word "error" as as a header in the log file as it finds itself in the log files
 
+    # Note sure why, but grep seems to like a & at the end when using find and grep together.
+    # We have seen this for years but no idea why. Sometimes, as these three
+    # do, without the &, the script themselves fail. Worse yet, it can fail and we don't
+    # even know it. Hence the "process" wrappers and "traps". Maybe we can find better
+    # ways to do it. A critical part is that grep itself can fail and can fail saying
+    # it is trying to search a file that is part of its own search. Even though we had
+    # code in there to make currently existing log or error log files, grep would fail
+    # and we didn't know it and we lost our critcal error log file or errog log files additions.
+    # The only safe way appears to be using the "find" and the grep together as we have found
+    # countless times over the years, but again, no idea why.
+
+    # Note !!!!
+    # The problem above was the exact problem that was exposed in the AWS step function run
+    # were we lost some critical error log information, which is why we change calibrate_rating_curve.sh
+    # to the "process_rerun_calibraion_huc.sh" pattern same as process_huc and process_branch.sh
+
     # Scan for the word error in the log file. Exit codes were already managed above.
     # We may end up with dup entries but that is ok.
     # Everything else including errors in calibrate_rating_curves.sh and its children
@@ -101,7 +136,10 @@ scan_logs_for_errors(){
 
     # Grep Tech Tip.. use the -e flag when you are not using any wildcards or patterns
     # just a word in a line. If you need a regex type pattern, use -E instead.
-    # This helps with errors in this fim_process_huc.sh script
+    # This helps with errors in this fim_process_huc.sh script.
+    # Grep is happy here becuase it is writing to a completely differnt file.
+    # like we did when we recently use the "tmp" file system but was a tad confusing and a tad
+    # unreliable.
     grep -H -i -n -e "Command exited with non-zero status" $rerunlogFilename >> $rerunErrorLogFilename
     grep -H -i -n -e "error" $rerunlogFilename >> $rerunErrorLogFilename
     grep -H -i -n -e "parallel" $rerunlogFilename >> $rerunErrorLogFilename
@@ -134,6 +172,10 @@ scan_logs_for_errors(){
 Set_log_file_path $rerunlogFilename
 
 # In case there is a critical error with logic on this page.
+# Test.. is this ok that the "trap" command is above the "tee" and return_codes
+# code?  In process_huc.sh, we had to put the trap lower was messing with StdErr
+# which we HAVE to let "tee" catch.
+# We need to test it here as part of recalib and see if it needs to be moved.
 trap 'handle_error $LINENO' ERR
 
 echo "=========================================================================="
@@ -158,7 +200,12 @@ do
     else
         err_msg+="***** An error has occurred - Code ("${code}") *****" + $"\n"
         l_echo "$err_msg" $rerunlogFilename
-        exit code  # fundamentally re-raising the error and let rerun_calibration.py manage it
+
+        # We are re-raising the error and let rerun_calibration.py manage.
+        # in the process_huc mode for both standard pipeline and AWS mode, we must
+        # have process_huc alwasy return a zero, as if it was alway successfull
+        exit $code
+
     fi
 done
 
@@ -170,4 +217,4 @@ trap 'handle_error $LINENO' ERR
 scan_logs_for_errors
 l_echo "---- End of recalibration for $hucNumber" $rerunlogFilename
 
-exit 0
+exit 0   # between trap and tee, this will only be a zero when it gets here.

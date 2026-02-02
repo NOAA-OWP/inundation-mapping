@@ -47,13 +47,13 @@ def compile_error_logs(fim_run_dir, hucs):
 
     # Collect existing HUC error logs
     for huc in hucs:
-        huc_log_file = os.path.join(fim_run_dir, huc, "logs", f"huc_{huc}_errors_calib_rerun.log")
+        huc_log_file = os.path.join(fim_run_dir, huc, "logs", f"huc_{huc}_calib_rerun_errors.log")
         if os.path.isfile(huc_log_file):
             error_logs.append(huc_log_file)
 
     # Exit early if none found
     if not error_logs:
-        print("No 'huc_errors_calib_rerun.log' files found — no combined log created.")
+        print("No 'huc_calib_rerun_error.log' files found — no combined log created.")
         return
 
     # Create output file with timestamp
@@ -79,15 +79,15 @@ def run_shell_for_huc(
     file_logger.info(f"Rerunning calibration Started for {task_id}")
     try:
         # we are putting time and tee right the command so it can catch the echos and prints
-        # then we can have the error checking at the bottom of the script and it won't be out
-        # of order.  It is a better answer than trying to catch stdOut and StnError here
-        # as it means the standard log is not written, then checking for errors
-        # 
-        #  and the error checking in 
-        # calibrate_rating_curves.sh is looking against data when the based
+        # as the bash level, like our other part of pipeline processing.
+        # Then we can have the error checking at the bottom of the script and it won't be out
+        # of order.  
+        
+        # The magic with logging, bash and how we use our shell scripts
+        # is the relationship between exit codes, StdOut and StdErr and the timing of them.
 
-        # The magic with logging is the relationship between exit codes, StdOut and StdErr
-        # and the timing of them.
+        # This needs to be fixed a bit and may need some single quotes to let calibrate_rating_curves.sh
+        # pick up the variables as ?
         cmd = ["bash", script_path, "True", str(branch_jobs), huc ]
 
         # The first line in the calibrate_rating_curves.sh must have a least
@@ -101,7 +101,7 @@ def run_shell_for_huc(
         # in the top bin/bash line. ie) if a line of "setup" exists, it should have
         # at least -e added here and removed from the top bin/bash line.
 
-        # This scenerio is slightly complicated that calibrate_rating_curves.sh is called
+        # This scenario is slightly complicated that calibrate_rating_curves.sh is called
         # in two places, once in python script and the other as a bash script and they
         # both handle StdOut, StnErr, and exit code different by default.
 
@@ -113,6 +113,15 @@ def run_shell_for_huc(
         #    we don't have any but keep the door open and see we have anything.
         # 3) StdErr:  If available, and it is not always available, is the reason that
         #    the .sh failed.
+
+        # Rob: Finish this as you created process_run_calibraitn.sh since you last messed
+        # with this. With process_run_calibration.sh now handling all logs, maybe just 
+        # let this handle the Sys exit code it did before and decide if it wants to just
+        # stop the huc or the entire MP. Maybe based on the code??? not sure
+
+        # This .py might already have the full re-run erro
+        # We will always get a code. now with the addition of preprocess_rerun_calibration.sh.
+        # we shouldn't ever get a value for StdErr or StdOut, and probably don't want too.
         sh_result = subprocess.run(
             cmd,
             env=task_env,
@@ -120,29 +129,26 @@ def run_shell_for_huc(
             text=True,
             check=True,  # will raise CalledProcessError immediately when a calibration routine fails and the subsequent python code are not run
         )
-        # check=True above: When sett True to raise a CalledProcessError on non-zero exit which
-        # we do want so we know how to log it and handle it.
-        # without catching it here, we can lose the reason on why it failed inside
-        # calibrate_rating_curve.sh.
 
-        # Regardless what the return code, it can also return a stdout message such as
-        # a warning issued by command inside the .sh scripts.
-        # If we have one, add it to msg
+        # TODO: Rob: See note above, I need to update or change these notes or code below.
 
-        # These are all of the echos and prints from the shell script
+        # check=True above: When sett True to raise a
+        # These are all of the echos and prints are now handled in process_rerun_calibration.sh
         # if sh_result.stdout != "":
         #     msg += f"; Additional returned message from the subprocess: {sh_result.stdout}"
 
-        msg = f"StdOut value is {sh_result.stdout}"
-        screen_queue.put(msg)
-        file_logger.info(msg)
+        # msg = f"StdOut value is {sh_result.stdout}"
+        # screen_queue.put(msg)
+        # file_logger.info(msg)
 
         if sh_result.returncode != 0:
             msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}."
             msg += f"; Exit Code returned is {sh_result.returncode}"
 
-            if sh_result.stderr != "":
-                msg += f"; Details = {sh_result.stdout}"
+            # hummm.. might not ever get antyhing with process_rerun_calibration.sh as it is
+            # is handing its own errors.
+            # if sh_result.stderr != "":
+            #     msg += f"; Details = {sh_result.stdout}"
             is_successful = 0
         else:  # returned exit code as success.
             msg = f"[{task_id}] ✅ Rerunning calibration succeeded for HUC {huc}"
