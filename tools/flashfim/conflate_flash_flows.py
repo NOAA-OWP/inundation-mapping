@@ -1,6 +1,6 @@
 import argparse
 import os
-from timeit import default_timer as timer
+from time import perf_counter as timer
 
 import geopandas as gpd
 import numpy as np
