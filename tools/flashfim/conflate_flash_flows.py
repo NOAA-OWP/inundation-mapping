@@ -81,14 +81,14 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
     ranges = [[10000, 100000], [1000, 10000], [100, 1000], [10, 100], [1, 10], [0, 1]]
     huc_flows_rs = huc_flows_buffer
 
-    for r_min, r_max in ranges:
-        with rasterio.open(flash_raster_url) as src:
-            band = src.read(1)
-            reclass = np.where(np.logical_and(band > r_min, band < r_max), band, np.nan)
-            affine = src.transform
+    with rasterio.open(flash_raster_url) as src:
+        band = src.read(1)
+        affine = src.transform
+        src_crs = src.crs
+        huc_flows_buffer = huc_flows_buffer.to_crs(src_crs)
 
-            src_crs = src.crs
-            huc_flows_buffer = huc_flows_buffer.to_crs(src_crs)
+        for r_min, r_max in ranges:
+            reclass = np.where(np.logical_and(band > r_min, band < r_max), band, np.nan)
 
             # Raster Stats Using all touched cells within the buffer
             raster_stats_buf = zonal_stats(
