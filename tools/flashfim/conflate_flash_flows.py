@@ -84,26 +84,25 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
     with rasterio.open(flash_raster_url) as src:
         band = src.read(1)
         affine = src.transform
-        src_crs = src.crs
-        huc_flows_buffer = huc_flows_buffer.to_crs(src_crs)
+        huc_flows_buffer = huc_flows_buffer.to_crs(src.crs)
 
-        for r_min, r_max in ranges:
-            reclass = np.where(np.logical_and(band > r_min, band < r_max), band, np.nan)
+    for r_min, r_max in ranges:
+        reclass = np.where(np.logical_and(band > r_min, band < r_max), band, np.nan)
 
-            # Raster Stats Using all touched cells within the buffer
-            raster_stats_buf = zonal_stats(
-                huc_flows_buffer,
-                reclass,
-                affine=affine,
-                stats=["mean", "sum", "count"],
-                all_touched=True,
-                geojson_out=True,
-            )
+        # Raster Stats Using all touched cells within the buffer
+        raster_stats_buf = zonal_stats(
+            huc_flows_buffer,
+            reclass,
+            affine=affine,
+            stats=["mean", "sum", "count"],
+            all_touched=True,
+            geojson_out=True,
+        )
 
-            rsb_df = gpd.GeoDataFrame.from_features(raster_stats_buf)[
-                ["flowpath_id", "mean", "count"]
-            ].astype(float)
-            huc_flows_rs = pd.merge(huc_flows_rs, rsb_df, on="flowpath_id", suffixes=("", f"_{r_min}"))
+        rsb_df = gpd.GeoDataFrame.from_features(raster_stats_buf)[
+            ["flowpath_id", "mean", "count"]
+        ].astype(float)
+        huc_flows_rs = pd.merge(huc_flows_rs, rsb_df, on="flowpath_id", suffixes=("", f"_{r_min}"))
     huc_flows_rs = huc_flows_rs.rename(columns={"mean": "mean_10000", "count": "count_10000"}).drop(
         columns="geometry"
     )
