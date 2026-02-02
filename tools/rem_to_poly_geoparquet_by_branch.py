@@ -57,11 +57,13 @@ def interpolate_discharge(rem_value, hydro_id, htable_df):
     if len(src_data) > 1:
         discharge = np.interp(rem_value, src_data['stage'], src_data['discharge_cms'])
         volume_m3 = np.interp(rem_value, src_data['stage'], src_data['Volume (m3)'])
+        velocity_ms = np.interp(rem_value, src_data['stage'], src_data['velocity_ms'])
     else:
         discharge = np.nan
         volume_m3 = np.nan
+        velocity_ms = np.nan
 
-    return discharge, volume_m3
+    return discharge, volume_m3, velocity_ms
 
 
 # Function to generate polygons from the combined elevation and catchment data below the threshold
@@ -122,7 +124,9 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
                 geom_shape = shape(geom)
 
                 catchment_id = int(value)
-                discharge_cms, volume_m3 = interpolate_discharge(true_rem, catchment_id, htable_df)
+                discharge_cms, volume_m3, velocity_ms = interpolate_discharge(
+                    true_rem, catchment_id, htable_df
+                )
 
                 features.append(
                     {
@@ -132,6 +136,7 @@ def polygonize_combined_rasters(elevation, catchment_ids, transform, threshold, 
                             'catchment_id': catchment_id,
                             'discharge_cms': discharge_cms,
                             'volume_m3': volume_m3,
+                            'velocity_ms': velocity_ms,
                             'branch_id': branch_id,
                         },
                     }
@@ -219,14 +224,19 @@ def process_branch(branch_path, branch_id, log_dir, huc_id):
         high_range = np.arange(12.192, 25.0, 0.1524)  # 0.5ft for 40-82ft (uncommon extreme inundation)
         thresholds = (np.concatenate((low_range, mid_range, high_range)) * SCALE_FACTOR).astype(np.uint16)
 
-        foot_range = np.arange(0.6096, 25.0, 0.3048) * SCALE_FACTOR
-        thresholds = foot_range.astype(np.uint16)
+        # foot_range = np.arange(0.6096, 25.0, 0.3048) * SCALE_FACTOR
+        # thresholds = foot_range.astype(np.uint16)
+
+        # Add SRC velocity calc
+        htable_df['velocity_ms'] = np.where(
+            htable_df['WetArea (m2)'] == 0, 0, htable_df['discharge_cms'] / htable_df['WetArea (m2)']
+        )
 
         if catchment_ids.dtype == 'int16':
             htable_df["HydroID_join"] = htable_df["HydroID"].astype(str).str[-4:].astype(np.int16)
         else:
             htable_df["HydroID_join"] = htable_df["HydroID"]
-        htable_df_interp = htable_df[['HydroID_join', 'stage', 'discharge_cms', 'Volume (m3)']]
+        htable_df_interp = htable_df[['HydroID_join', 'stage', 'discharge_cms', 'Volume (m3)', 'velocity_ms']]
 
         all_features = []
         with ThreadPoolExecutor() as executor:
