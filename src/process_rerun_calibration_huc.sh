@@ -171,12 +171,6 @@ scan_logs_for_errors(){
 # Echos and prints are caught here via the "tee" command
 Set_log_file_path $rerunlogFilename
 
-# In case there is a critical error with logic on this page.
-# Test.. is this ok that the "trap" command is above the "tee" and return_codes
-# code?  In process_huc.sh, we had to put the trap lower was messing with StdErr
-# which we HAVE to let "tee" catch.
-# We need to test it here as part of recalib and see if it needs to be moved.
-trap 'handle_error $LINENO' ERR
 
 echo "=========================================================================="
 l_echo "---- Start of recalibration for $hucNumber" $rerunlogFilename
@@ -190,6 +184,13 @@ l_echo "---- Start of recalibration for $hucNumber" $rerunlogFilename
 # log it in the error file, then reraise the exit code and let rerun_calibration.py
 # figure out what it wants to do with it (log it or abort it's full huc iterator)
 return_codes=( "${PIPESTATUS[@]}" )
+
+# In case there is a critical error with logic on this page.
+# Test.. is this ok that the "trap" command is above the "tee" and return_codes
+# code?  In process_huc.sh, we had to put the trap lower was messing with StdErr
+# which we HAVE to let "tee" catch.
+# We need to test it here as part of recalib and see if it needs to be moved.
+trap 'handle_error $LINENO' ERR
 
 # Yes... we can get more than one returned code, it is possible but very rare
 for code in "${return_codes[@]}"
