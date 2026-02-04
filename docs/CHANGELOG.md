@@ -1,11 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-02-04 - [PR#1747]([https://github.com/NOAA-OWP/inundation-mapping/pull/1747])
+
+Upgrades `geopandas` to v1.1.2. This required some additional changes to the codebase because the `geopandas` methods started being used in priority over the `StreamNetwork` class methods (particularly `from_file`, `set_index`, and `reset_index`), so they were returning `geopandas` objects rather than `StreamNetwork` objects. To overcome this, those`StreamNetwork` class method names were appended with `_fim` and replaced in the codebase.
+
+<br/>
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Upgraded `geopandas` to v1.1.2.
+- `src/`
+    - `stream_branches.py`: Appended `_fim` to `from_file`, `set_index`, and `reset_index` class methods and explicitly added attributes to the `__init__` constructor method.
+    - `buffer_stream_branches.py`, `clip_rasters_to_branches.py`, `crosswalk_nwm_demDerived.py`, `derive_level_paths.py`, `generate_branch_list.py`, `query_vectors_by_branch_polygons.py`, `subset_catch_list_by_branch_id.py`: Updated class methods to use the new `_fim` name.
+<br/>
+
 ## v4.9.5.5 - 2026-01-27 - [PR#1734]([https://github.com/NOAA-OWP/inundation-mapping/pull/1734])
 
 This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
 
-Changes
+### Changes
 src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
 <br/>
 
