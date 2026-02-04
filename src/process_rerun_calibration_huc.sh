@@ -73,21 +73,6 @@ if [ "$tempHucDataDir" = "" ] ; then
     echo "Error: tempHucDataDir is an empty" >&2; exit 1
 fi
 
-# As originally designed, it seems much better to keep its own logging seperate from the
-# original logs.
-rerunlogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun.log"
-rerunErrorLogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun_errors.log"
-rerunWarningLogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun_warnings.log"
-
-# We need remove earlier versions from previous recalibration runs.
-rm -f $rerunlogFilename
-rm -f $rerunErrorLogFilename
-rm -f rerunWarningLogFilename  # do we want a warning system here?
-rm -rdf $tempHucDataDir/logs/src_calibrations
-
-source $outputDestDir/params_rerun.env  # copied in from rerun_calibration.py
-source $srcDir/bash_functions.env
-source $srcDir/bash_variables.env
 
 # Some simple error handling
 # We add it to the log file then scan for the word "error" later down.
@@ -166,6 +151,25 @@ scan_logs_for_errors(){
     echo "++++++++++++++++++++++++++"
 }
 
+# turn trap error handling on
+trap 'handle_error $LINENO' ERR
+
+# As originally designed, it seems much better to keep its own logging seperate from the
+# original logs.
+rerunlogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun.log"
+rerunErrorLogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun_errors.log"
+rerunWarningLogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun_warnings.log"
+
+# We need remove earlier versions from previous recalibration runs.
+rm -f $rerunlogFilename
+rm -f $rerunErrorLogFilename
+rm -f rerunWarningLogFilename  # do we want a warning system here?
+rm -rdf $tempHucDataDir/logs/src_calibrations
+
+source $outputDestDir/params_rerun.env  # copied in from rerun_calibration.py
+source $srcDir/bash_functions.env
+source $srcDir/bash_variables.env
+
 # Tell the system the name and location of the log file
 # But don't allow calibrate_rating_curves.sh to do l_echos, only echos and prints.
 # Echos and prints are caught here via the "tee" command
@@ -177,6 +181,10 @@ l_echo "---- Start of recalibration for $hucNumber" $rerunlogFilename
 
 # Clean out previous src_calibration logs.
 
+# turn trap error handling on
+
+# Turn trapping off for tee and return_codes only
+trap - SIGINT
 # run the actual calibration script
 /usr/bin/time -v $srcDir/calibrate_rating_curves.sh 2>&1 | tee $rerunlogFilename
 
@@ -185,11 +193,7 @@ l_echo "---- Start of recalibration for $hucNumber" $rerunlogFilename
 # figure out what it wants to do with it (log it or abort it's full huc iterator)
 return_codes=( "${PIPESTATUS[@]}" )
 
-# In case there is a critical error with logic on this page.
-# Test.. is this ok that the "trap" command is above the "tee" and return_codes
-# code?  In process_huc.sh, we had to put the trap lower was messing with StdErr
-# which we HAVE to let "tee" catch.
-# We need to test it here as part of recalib and see if it needs to be moved.
+# turn trapping back on
 trap 'handle_error $LINENO' ERR
 
 # Yes... we can get more than one returned code, it is possible but very rare
