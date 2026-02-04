@@ -258,7 +258,7 @@ if [ "$err_exists" = "1" ]; then
     l_echo "$err_msg" $errorLogFile
 fi
 
-Rob_test_fail  # function call # Note
+# Rob_test_fail  # function call # Note
 
 
 
