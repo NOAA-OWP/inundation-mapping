@@ -266,7 +266,8 @@ def apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path
         # raise Exception("Rob is tesing an exception before correct_thalweg (sort of)")
         log_text += correct_thalweg_notches(huc_dir, huc, stage_interval)  # bankfull_flows_file
 
-    except Exception as ex:
+    # except Exception as ex:
+    except Exception:
         log_text += f"An error has occurred while processing thalweg notches for huc {huc}\n"
         log_text += traceback.format_exc()
         # re raise ex ?  # TODO: Do we want to stop processing the huc if we get an error here?

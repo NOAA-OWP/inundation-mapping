@@ -111,7 +111,7 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
             #     'Bathymetry_source'
             # ].first()
             src_df = src_df.merge(reconciled_bathy_data, on='feature_id', how='left', validate='many_to_one')
-            
+
         # # Exit if there are no recalculations to be made
         # if ~src_df['Bathymetry_source'].any(axis=None):
         #     log_text += '    No matching feature_ids in this branch\n'
@@ -420,7 +420,8 @@ def apply_src_adjustment_for_bathymetry(
         else:
             print(f'Bathymetry file does not exist for huc: {huc}')
 
-    except Exception as ex:
+    # except Exception as ex:
+    except Exception:
         log_text += f"An error has occurred while processing ehydro bathy for huc {huc}"
         log_text += traceback.format_exc()
         # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
@@ -446,7 +447,8 @@ def apply_src_adjustment_for_bathymetry(
             else:
                 print(f'AI-based bathymetry file does not exist for huc : {huc}')
 
-        except Exception as ex:
+        # except Exception as ex:
+        except Exception:
             log_text += f"An error has occurred while processing AI-based bathy for huc {huc}"
             log_text += traceback.format_exc()
             # re raise ex  ? # TODO: Do we want to stop processing the huc if we get an error here?

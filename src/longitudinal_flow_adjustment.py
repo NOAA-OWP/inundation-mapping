@@ -437,12 +437,12 @@ def apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path):  # bank
         print(msg)
         log_text += filter_longitudinal_discharge_jitters(huc_dir, huc)  # bankfull_flows_file
 
-    except Exception as ex:
+    # except Exception as ex:
+    except Exception:
         log_text += f"An error has occurred while processing longitudinal adjustment for huc {huc}\n"
         log_text += traceback.format_exc()
         # re raise ex ? # TODO: Do we want to stop processing the huc if we get an error here?
         # If yes, we need to raise ex, make sure to write your log_text if you need to.
-
 
     try:
         with open(log_file_path, "a") as log_file:

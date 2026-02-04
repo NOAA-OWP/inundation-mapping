@@ -81,14 +81,14 @@ def run_shell_for_huc(
         # we are putting time and tee right the command so it can catch the echos and prints
         # as the bash level, like our other part of pipeline processing.
         # Then we can have the error checking at the bottom of the script and it won't be out
-        # of order.  
-        
+        # of order.
+
         # The magic with logging, bash and how we use our shell scripts
         # is the relationship between exit codes, StdOut and StdErr and the timing of them.
 
         # This needs to be fixed a bit and may need some single quotes to let calibrate_rating_curves.sh
         # pick up the variables as ?
-        cmd = ["bash", script_path, "True", str(branch_jobs), huc ]
+        cmd = ["bash", script_path, "True", str(branch_jobs), huc]
 
         # The first line in the calibrate_rating_curves.sh must have a least
         #   #!/bin/bash -e   (The -e means immeditely stop on error which is a feature
@@ -115,7 +115,7 @@ def run_shell_for_huc(
         #    the .sh failed.
 
         # Rob: Finish this as you created process_run_calibraitn.sh since you last messed
-        # with this. With process_run_calibration.sh now handling all logs, maybe just 
+        # with this. With process_run_calibration.sh now handling all logs, maybe just
         # let this handle the Sys exit code it did before and decide if it wants to just
         # stop the huc or the entire MP. Maybe based on the code??? not sure
 
@@ -239,7 +239,6 @@ def rerun_calibration(fim_run_dir: str, limit_hucs: list = [], huc_jobs: int = 6
                 "branch_jobs": branch_jobs,
             }
         )
-
 
     # Run multiprocessing
     mp_results = run_with_mp(
