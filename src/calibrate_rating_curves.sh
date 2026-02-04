@@ -43,6 +43,7 @@ echo ""
 
 # invalid command Rob testing invalid bash line that should abort becuase of the -e flag
 
+
 # Check if it is a calibration rerun or not
 if [ "$calibration_rerun" = "true" ]; then
     echo -e $startDiv"Reseting hydroTable & scr_full_crosswalked for branches"
@@ -137,6 +138,8 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     python3 $srcDir/src_adjust_spatial_obs.py -huc_dir $tempHucDataDir -jb $jobBranchLimit 
 fi
 
+#sys.exit(2)
+# exit 12
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then

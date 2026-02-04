@@ -53,6 +53,29 @@ if [ ! -d "$outputDestDir" ]; then
     exit 1
 fi
 
+# Some simple error handling
+# We add it to the log file then scan for the word "error" later down.
+# This will also handle errors in this script
+# and is deliberately below the data input validation above.
+handle_error(){
+
+    l_echo "++++++++++++++++++++++++++++" $pp_error_log_file_name
+    msg="Critical error in fim_post_processing.sh itself, line number: $1"
+    l_echo "$msg" $pp_error_log_file_name
+
+    msg="Error Command Submitted: $BASH_COMMAND"
+    l_echo "$msg" $pp_error_log_file_name
+    echo "++++++++++++++++++++++++++++"
+    echo ""
+    exit 0  # we always return 0 (success) as we are fully handling error and logging
+}
+
+# In case there is a critical error with logic on this page.
+# Most errors are caught via Time and Tee, then the return status codes
+# but errors can occur on this page itself. This helps trap those types of errors
+# as well
+trap 'handle_error $LINENO' ERR
+
 # load up enviromental information
 args_file=$outputDestDir/runtime_args.env
 fim_inputs=$outputDestDir/fim_inputs.csv
@@ -78,27 +101,7 @@ rm -f $pp_error_log_file_name  # If it already exists
 # l_echo is echo to screen and log at the same time.
 Set_log_file_path $pp_log_file_name
 
-# Some simple error handling
-# We add it to the log file then scan for the word "error" later down.
-# This will also handle errors in this script and not just run_huc.sh
-handle_error(){
 
-    l_echo "++++++++++++++++++++++++++++" $pp_error_log_file_name
-    msg="Critical error in fim_post_processing.sh itself, line number: $1"
-    l_echo "$msg" $pp_error_log_file_name
-
-    msg="Error Command Submitted: $BASH_COMMAND"
-    l_echo "$msg" $pp_error_log_file_name
-    echo "++++++++++++++++++++++++++++"
-    echo ""
-    exit 0  # we always return 0 (success) as we are fully handling error and logging
-}
-
-# In case there is a critical error with logic on this page.
-# Most errors are caught via Time and Tee, then the return status codes
-# but errors can occur on this page itself. This helps trap those types of errors
-# as well
-trap 'handle_error $LINENO' ERR
 
 echo ""
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"

@@ -95,9 +95,9 @@ handle_error(){
     echo "++++++++++++++++++++++++++++"
     check_for_huc_errors
     scan_for_huc_errors_complete="False"
-    # move_output_files
+    move_output_files
     echo ""
-    # exit 0  # we always return 0 (success) as we are fully handling error and logging
+    exit 0  # we always return 0 (success) as we are fully handling error and logging
 }
 
 # and will do warnings as well.
@@ -142,6 +142,12 @@ check_for_huc_errors(){
         # warningLogFile
         grep -H -i -n -e "warning" $hucLogFile > $warningLogFile
 
+        # Feb 2, 2026: For unknown reasons some log files are adding a list of many file names
+        # such as Pipfile, aws, etc.
+        # This is a temp work around, which will look for the following phases in any
+        # line in the error log and remove the entire line.
+        sed -i '/Pipfile Pipfile.lock aws bin boot data dependencies/d' $errorLogFile
+
         echo "++++++++++++++++++++++++++"
         # agg_by_huc_errors
     fi
@@ -152,7 +158,7 @@ move_output_files() {
 
     # Move the contents of the temp directory into the outputs directory and update file permissions
     # The dir should be moved no matter what, except or not.
-    l_echo "Moving temp directory for $hucNumber" $hucLogFile
+    l_echo "Moving temp directory" $hucLogFile
     mv -f $tempHucDataDir $outputHucDataDir
     find $outputHucDataDir -type d -exec chmod -R 777 {} +
 
@@ -172,6 +178,9 @@ fi
 if [ -d "$tempHucDataDir" ]; then
     rm -rdf $tempHucDataDir
 fi
+
+# Turn trapping on
+trap 'handle_error $LINENO' ERR
 
 # make outputs directory
 mkdir -p $tempHucDataDir
@@ -198,7 +207,10 @@ hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 # part of the hucLogFile as well (duplicate). We do not need to
 # scan any logs in the logs/branch folder, just for exit codes and specific words (error, parallel)
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
-# l_echo "----- Exit status: $?" $hucLogFile
+# l_echo "----- Exit status: $?" $
+
+# Turn trapping off for tee and return_codes only
+trap - SIGINT
 /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
 
 return_codes=( "${PIPESTATUS[@]}" )
@@ -206,6 +218,10 @@ return_codes=( "${PIPESTATUS[@]}" )
 # depending how run_huc.sh is configured in its header declaration. But we will also
 # usually get just one return code.
 # and yes.. we can not use the $? here as we are messing with exit codes as it is PIPESTATUS
+
+# turn trapping back on
+trap 'handle_error $LINENO' ERR
+
 
 # We do this way instead of working directly with stderr and stdout
 # as they were messing with output logs which we always want.
@@ -242,13 +258,9 @@ if [ "$err_exists" = "1" ]; then
     l_echo "$err_msg" $errorLogFile
 fi
 
-# Rob_test_fail  # function call 
+Rob_test_fail  # function call # Note
 
-# This is here versus higher, in case there is a critical error with logic on this page.
-# Most errors are caught via Time and Tee, then the return status codes
-# but errors can occur on this page itself. This helps trap those types of errors as well.
-# ie. a fail in log scans with the greps
-trap 'handle_error $LINENO' ERR
+
 
 # These are now in functions as page level errors and exceptions can occur anywhere
 # within this fim_process_huc.sh script itself. It script fails earlier then here

@@ -6,7 +6,8 @@ umask 000
 # and any exceptions from run_by_branch.sh.
 # This is a key part to handling .sh exceptions.
 
-# NOTE: Do not use l_echo here
+# NOTE: Do not use l_echo here, just echo
+# This script does not need a "trap" or handle_errors as it is caught in upstream scripts
 
 # Any actual script errors here including from process_branch.sh
 # will bubble up to run_huc.sh and fim_process_huc.sh
