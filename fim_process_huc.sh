@@ -179,9 +179,6 @@ if [ -d "$tempHucDataDir" ]; then
     rm -rdf $tempHucDataDir
 fi
 
-# Turn trapping on
-trap 'handle_error $LINENO' ERR
-
 # make outputs directory
 mkdir -p $tempHucDataDir
 mkdir -p $tempBranchDataDir
@@ -209,8 +206,6 @@ hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 # /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
 # l_echo "----- Exit status: $?" $
 
-# Turn trapping off for tee and return_codes only
-trap - SIGINT
 /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
 
 return_codes=( "${PIPESTATUS[@]}" )
@@ -219,7 +214,9 @@ return_codes=( "${PIPESTATUS[@]}" )
 # usually get just one return code.
 # and yes.. we can not use the $? here as we are messing with exit codes as it is PIPESTATUS
 
-# turn trapping back on
+# turn trapping on for just here down. We can not use a trap above the "tee"
+# line unless we detected and build variables for logging files / folders.
+# Maybe for another day. Yes.. for now this has to be an acceptable hole.
 trap 'handle_error $LINENO' ERR
 
 
@@ -257,10 +254,6 @@ done
 if [ "$err_exists" = "1" ]; then
     l_echo "$err_msg" $errorLogFile
 fi
-
-# Rob_test_fail  # function call # Note
-
-
 
 # These are now in functions as page level errors and exceptions can occur anywhere
 # within this fim_process_huc.sh script itself. It script fails earlier then here

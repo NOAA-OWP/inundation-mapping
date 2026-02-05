@@ -151,8 +151,6 @@ scan_logs_for_errors(){
     echo "++++++++++++++++++++++++++"
 }
 
-# turn trap error handling on
-trap 'handle_error $LINENO' ERR
 
 # As originally designed, it seems much better to keep its own logging seperate from the
 # original logs.
@@ -181,10 +179,6 @@ l_echo "---- Start of recalibration for $hucNumber" $rerunlogFilename
 
 # Clean out previous src_calibration logs.
 
-# turn trap error handling on
-
-# Turn trapping off for tee and return_codes only
-trap - SIGINT
 # run the actual calibration script
 /usr/bin/time -v $srcDir/calibrate_rating_curves.sh 2>&1 | tee $rerunlogFilename
 
@@ -193,7 +187,9 @@ trap - SIGINT
 # figure out what it wants to do with it (log it or abort it's full huc iterator)
 return_codes=( "${PIPESTATUS[@]}" )
 
-# turn trapping back on
+# turn trapping on for just here down. We can not use a trap above the "tee"
+# line unless we detected and build variables for logging files / folders.
+# Maybe for another day. Yes.. for now this has to be an acceptable hole.
 trap 'handle_error $LINENO' ERR
 
 # Yes... we can get more than one returned code, it is possible but very rare
