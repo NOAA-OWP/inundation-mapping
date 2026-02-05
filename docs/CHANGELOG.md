@@ -1,15 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-02-05 - [PR#1721]([https://github.com/NOAA-OWP/inundation-mapping/pull/1721])
+## v4.9.6.0 - 2026-02-05 - [PR#1721]([https://github.com/NOAA-OWP/inundation-mapping/pull/1721])
 
 This PR aims to longitudinally refine the discharge values in the rating curve by filtering the surface area values and recalculating discharge and the rest of Manning equations' variables, including bed area and volume. You can find the details of the framework here:
 
 https://docs.google.com/presentation/d/1rbOWHimHTTb9xpMBdSRu1YLxgDw21GNmXb9OE5tkquI/edit?slide=id.g10245655793_2_0#slide=id.g10245655793_2_0
 
 Changes
-/src/longitudinal_flow_adjudtment.py
-/src/add_crosswalk.py
+- /src/longitudinal_flow_adjustment.py
+- /src/add_crosswalk.py
 <br/>
 
 ## v4.9.5.5 - 2026-01-27 - [PR#1734]([https://github.com/NOAA-OWP/inundation-mapping/pull/1734])
