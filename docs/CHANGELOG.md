@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.6.0 - 2026-02-05 - [PR#1721]([https://github.com/NOAA-OWP/inundation-mapping/pull/1721])
+
+This PR aims to longitudinally refine the discharge values in the rating curve by filtering the surface area values and recalculating discharge and the rest of Manning equations' variables, including bed area and volume. You can find the details of the framework here:
+
+See PR for more details.
+
+Changes
+- /src/longitudinal_flow_adjustment.py
+- /src/add_crosswalk.py
+<br/>
+
 ## v4.9.5.5 - 2026-01-27 - [PR#1734]([https://github.com/NOAA-OWP/inundation-mapping/pull/1734])
 
 This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
