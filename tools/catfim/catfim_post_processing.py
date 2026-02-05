@@ -121,7 +121,7 @@ def catfim_post_processing(output_folder):
             huc_folder = os.path.join(huc_path, huc)
 
             # Sites
-            huc_sites_file = os.path.join(huc_folder, f"{huc}_sites.gpkg")
+            huc_sites_file = os.path.join(huc_folder, f"{huc}_sites.gpkg")  # TODO: Update (will add CatFIM type to this name)
             try:
                 with open(huc_sites_file, 'r') as f:
                     huc_sites_gdf = gpd.read_file(huc_sites_file, engine='fiona')
@@ -131,7 +131,7 @@ def catfim_post_processing(output_folder):
                 hucs_without_sites.append(huc)
 
             # Library
-            huc_library_file = os.path.join(huc_folder, f"{huc}_library.gpkg")
+            huc_library_file = os.path.join(huc_folder, f"{huc}_library.gpkg")  # TODO: Update (will add CatFIM type to this name)
             try:
                 with open(huc_library_file, 'r') as f:
                     huc_library_gdf = gpd.read_file(huc_library_file, engine='fiona')
@@ -139,7 +139,14 @@ def catfim_post_processing(output_folder):
 
             except FileNotFoundError:
                 hucs_without_library.append(huc)
+
+
         # End huc loop
+        # ---------------------
+        # TODO: Roll up HUC logs
+
+        # . 
+
 
         # ---------------------
         # Summarize HUC processing
@@ -197,15 +204,6 @@ def catfim_post_processing(output_folder):
         logging.info(f"Saved library CSV to {library_csv_path}")
 
         # ---------------------
-        # Rollup logs? TODO
-        # Rollup huc Logs? Likely not.. just rollup error and warning logs.
-        #   (humm. how to use only each HUCs latest one as it might have more than one if the HUC was run again)
-        #   or maybe all? not sure what is smart here.
-        #   search for files in each huc level for file names with _errors or _warnings
-
-
-
-        # ---------------------
         # Complete
 
         logging.info("")
@@ -215,6 +213,9 @@ def catfim_post_processing(output_folder):
         logging.info("")
         print("================================")
         print("")
+
+
+
 
 
     except Exception:

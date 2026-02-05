@@ -502,7 +502,7 @@ def process_generate_categorical_fim(
 
     except Exception as ex:
         trace_error = traceback.format_exc()
-        err_msg = f"A critical error has occurred performing post processing. Detail: {trace_error}"
+        err_msg = f"A critical error has occurred performing post processing. Detail: {trace_error}" # TODO: should we change post processing to regular processing here?
 
         if is_logging_loaded:
             logging.critical(err_msg)
@@ -511,6 +511,14 @@ def process_generate_categorical_fim(
 
         # re-raise the exception, mostly for AWS
         raise ex
+    
+    finally:
+        # TODO: combine this file's logs, compiled HUC logs, and post-processing logs into log file here
+        # - all errors file
+        # - all warnings file
+
+        print("Rolling up logs for process_generate_categorical_fim, HUCs, and multiproc")
+
 
 
 def __validate_inputs(received_locals_dict):
