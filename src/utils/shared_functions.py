@@ -212,16 +212,18 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
         screen_queue.put(msg)
 
     match log_level:
+        case "trace":
+            file_logger.debug(msg)  # TODO: most of our logging tools need to be fixed to handle trace.
         case "debug":
             file_logger.debug(msg)
         case "info":
             file_logger.info(msg)
         case "warning":
-            file_logger.info(msg)
+            file_logger.warning(msg)
         case "error":
-            file_logger.info(msg)
+            file_logger.error(msg)
         case "critical":
-            file_logger.info(msg)
+            file_logger.critical(msg)
         case _:
             raise Exception("Invalid log level value. Options are debug, info, warning, error and critical")
 
