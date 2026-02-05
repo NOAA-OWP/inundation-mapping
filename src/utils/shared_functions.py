@@ -200,6 +200,34 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
     return logger
 
 
+# This saves the msg to a log file, but also either a standard "print" or a "screen queue"
+# Note: the screen queue is really just a Manager.queue and we are usign a "put"
+# If the screen_queue is None, it defaults to "print"
+# TODO: Does debug work in the loggers?
+def l_print(msg, file_logger, log_level="info", screen_queue=None):
+
+    if screen_queue is None:
+        print(msg)
+    else:
+        screen_queue.put(msg)
+
+    match log_level:
+        case "trace":
+            file_logger.debug(msg)  # TODO: most of our logging tools need to be fixed to handle trace.
+        case "debug":
+            file_logger.debug(msg)
+        case "info":
+            file_logger.info(msg)
+        case "warning":
+            file_logger.warning(msg)
+        case "error":
+            file_logger.error(msg)
+        case "critical":
+            file_logger.critical(msg)
+        case _:
+            raise Exception("Invalid log level value. Options are debug, info, warning, error and critical")
+
+
 # #################################
 # Multi proc tools
 def run_with_mp(
@@ -281,11 +309,11 @@ def run_with_mp(
                     break
                 tqdm.write(msg)
 
-        screen_queue_thread = threading.Thread(
+        console_queue_thread = threading.Thread(
             target=log_worker, args=(screen_queue,)
         )  # this (from the main process)) reads screen_queues and prints on screen.
         # screen_queue_thread.daemon = True
-        screen_queue_thread.start()
+        console_queue_thread.start()
 
         # There are a wide number of ways a mp can die. It might be programatically
         #   - code level exception explicity thrown
@@ -429,24 +457,24 @@ def run_with_mp(
                 # a queue.
                 pbar.close()  # aborts the progress bar
 
-                if screen_queue_thread:
+                if console_queue_thread:
                     screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-                    screen_queue_thread.join()  # official closure of thread
+                    console_queue_thread.join()  # official closure of thread
                 # re raising instead of sys.exit to help ensure all objects are cleaned up correctly
                 raise Exception("Shutting down. Cleaning up caches and objects....")
 
         # if the pool finished correctly, shut down the remaining queue.
-        if screen_queue_thread:
+        if console_queue_thread:
             screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-            screen_queue_thread.join()  # official closure of thread
+            console_queue_thread.join()  # official closure of thread
 
     # This is primarily used when using CTRL-C to which can leave orphaned processes
     except Exception as ex2:
         print("Still shutting down, hang in there", flush=True)
         print(ex2, flush=True)
-        if screen_queue_thread:
+        if console_queue_thread:
             screen_queue.put("DONE")  # sends the stop SIGNAL to thread
-            screen_queue_thread.join()  # official closure of thread
+            console_queue_thread.join()  # official closure of thread
 
         # This hanging in some scenarios such as a bug in this function. Triggered by a mp child
         # function not returning values correctly.

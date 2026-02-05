@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from osgeo import gdal
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
 
 
 def create_vrt_file(src_directory, vrt_file_name):
@@ -94,8 +94,8 @@ def __setup_logger(output_folder_path):
 if __name__ == '__main__':
     # Sample Usage:
     #    python3 /foss_fim/data/create_vrt_file.py
-    #    -s /data/inputs/3dep_dems/10m_5070/
-    #    -n "fim_seamless_3dep_dem_10m_5070.vrt"
+    #    -s /data/inputs/dems/3dep_dems/10m_5070/20260128/
+    #    -n "hand_seamless_3dep_dems.vrt"
 
     parser = argparse.ArgumentParser(description='Create a vrt using all tifs in a given directory')
 
