@@ -38,6 +38,12 @@ Note: All files in GIT retain the permissions of the files on the users local ma
      - `bash_variables.env`: Updated paths for new DEMs, bridges data including bridge DEM diffs and pre-clips to reflect the input datasets. Also made slight reorg changes to variable names to be more region based. ie) a CONUS dem domain file name, then its related VRT on the next line.
 
 Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
+## v4.9.7.0 - 2026-02-05 - [PR#1752]([https://github.com/NOAA-OWP/inundation-mapping/pull/1752])
+
+This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
+
+Changes
+- /src/bash_variables.env
 <br/>
 
 ## v4.9.6.0 - 2026-02-05 - [PR#1721]([https://github.com/NOAA-OWP/inundation-mapping/pull/1721])
