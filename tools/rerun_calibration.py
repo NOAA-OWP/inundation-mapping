@@ -119,7 +119,7 @@ def run_shell_for_huc(
         # let this handle the Sys exit code it did before and decide if it wants to just
         # stop the huc or the entire MP. Maybe based on the code??? not sure
 
-         # Use Popen for real-time output streaming while also capturing for error logging
+        # Use Popen for real-time output streaming while also capturing for error logging
         process = subprocess.Popen(
             cmd,
             env=task_env,
