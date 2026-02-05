@@ -4,9 +4,11 @@ import argparse
 import datetime as dt
 import logging
 import os
+import random
 import shutil
 import subprocess
 import sys
+import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -17,6 +19,13 @@ from dotenv import load_dotenv
 
 from src.utils.shared_functions import FIM_Helpers as fh
 
+
+"""
+TODO: Feb 4. 2026:
+    - Update to add new shared_functions mp and logging. We may or may not need the mp log merging.
+      We never fully testing MP' all logging to a single parent file. Likely won't work, but TBD.
+    - This appears to be an "include"
+"""
 
 '''
     Overview:
@@ -187,6 +196,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
             f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -2: '
             f'{total_cpus_available - 2} will be used instead.'
         )
+        number_of_jobs = total_cpus_available
 
     # Read in huc_list file and turn into a list data structure
     if os.path.exists(huc_list):
@@ -238,6 +248,8 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
         )
         sys.exit(0)
 
+    hucs_to_pre_clip_list.sort()
+
     # Iterate over the huc_list argument and create a directory for each huc.
     for huc in hucs_to_pre_clip_list:
         if os.path.isdir(os.path.join(outputs_dir, huc)):
@@ -263,6 +275,8 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
     # likely eventually drop in ras2fim's logging system.
     # The log files for each multi proc has tons and tons of duplicate lines crossing mp log
     # processes, but does always log correctly back to the parent log
+
+    # TODO; Feb 2026: Bolt in alis MP and logging from shared_functions.
 
     failed_HUCs_list = []  # On return from the MP, if it returns a HUC number, that is a failed huc
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
@@ -348,9 +362,15 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
     - .If successful, then it returns the word sudcess. If it fails, return the huc number.
     '''
 
+    # small random time stagger to help MP not all hitting the the WBD at the same.
+    # random between 0 and 30 seconds
+    time.sleep(random.randint(0, 40))
+
     in_error = False
     huc_processing_start = dt.datetime.now(dt.timezone.utc)
-    # with this in Multi-proc, it needs it's own logger and unique logging file.
+
+    # with this in Multi-proc, it needs it's own logger and unique logging file. rethink. see todo above.
+
     __setup_logger(outputs_dir, huc, True)
     logging.info(f"Start Processing {huc}")
 
