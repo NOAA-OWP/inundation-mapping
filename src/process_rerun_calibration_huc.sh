@@ -148,20 +148,21 @@ scan_logs_for_errors(){
     find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f | \
         xargs grep -H -n -i -e "warning" >> $rerunWarningLogFilename &
 
+    wait # wait for all background grep jobs to complete
+    
     echo "++++++++++++++++++++++++++"
 }
 
-
 # As originally designed, it seems much better to keep its own logging seperate from the
 # original logs.
-rerunlogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun.log"
-rerunErrorLogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun_errors.log"
-rerunWarningLogFilename="$tempHucDataDir/logs/${hucNumber}/huc_${hucNumber}_calib_rerun_warnings.log"
+rerunlogFilename="$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun.log"
+rerunErrorLogFilename="$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_errors.log"
+rerunWarningLogFilename="$tempHucDataDir/logs/huc_${hucNumber}_calib_rerun_warnings.log"
 
 # We need remove earlier versions from previous recalibration runs.
 rm -f $rerunlogFilename
 rm -f $rerunErrorLogFilename
-rm -f rerunWarningLogFilename  # do we want a warning system here?
+rm -f $rerunWarningLogFilename  # do we want a warning system here?
 rm -rdf $tempHucDataDir/logs/src_calibrations
 
 source $outputDestDir/params_rerun.env  # copied in from rerun_calibration.py
@@ -195,7 +196,7 @@ trap 'handle_error $LINENO' ERR
 # Yes... we can get more than one returned code, it is possible but very rare
 for code in "${return_codes[@]}"
 do
-    if [ $return_code -eq 0 ]; then
+    if [ $code -eq 0 ]; then
         echo
         # do nothing
     else
@@ -205,16 +206,16 @@ do
         # We are re-raising the error and let rerun_calibration.py manage.
         # in the process_huc mode for both standard pipeline and AWS mode, we must
         # have process_huc alwasy return a zero, as if it was alway successfull
+
+        # Scan logs before exiting so errors are captured
+        scan_logs_for_errors
+
         exit $code
 
     fi
 done
 
-# This is here versus higher, in case there is a critical error with logic on this page.
-# Most errors are caught via Time and Tee, then the return status codes
-# but errors can occur on this page itself. This helps trap those types of errors as well.
-# ie. a fail in scan_logs_for_errors with the greps
-trap 'handle_error $LINENO' ERR
+
 scan_logs_for_errors
 l_echo "---- End of recalibration for $hucNumber" $rerunlogFilename
 

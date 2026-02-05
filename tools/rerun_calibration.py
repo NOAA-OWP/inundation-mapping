@@ -119,57 +119,37 @@ def run_shell_for_huc(
         # let this handle the Sys exit code it did before and decide if it wants to just
         # stop the huc or the entire MP. Maybe based on the code??? not sure
 
-        # This .py might already have the full re-run erro
-        # We will always get a code. now with the addition of preprocess_rerun_calibration.sh.
-        # we shouldn't ever get a value for StdErr or StdOut, and probably don't want too.
-        sh_result = subprocess.run(
+         # Use Popen for real-time output streaming while also capturing for error logging
+        process = subprocess.Popen(
             cmd,
             env=task_env,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout
             text=True,
-            check=True,  # will raise CalledProcessError immediately when a calibration routine fails and the subsequent python code are not run
         )
 
-        # TODO: Rob: See note above, I need to update or change these notes or code below.
+        # Stream output in real-time and capture it
+        output_lines = []
+        for line in process.stdout:
+            screen_queue.put(f"[{task_id}] {line.rstrip()}")  # Real-time display
+            output_lines.append(line)  # Also capture for error logging
 
-        # check=True above: When sett True to raise a
-        # These are all of the echos and prints are now handled in process_rerun_calibration.sh
-        # if sh_result.stdout != "":
-        #     msg += f"; Additional returned message from the subprocess: {sh_result.stdout}"
+        process.wait()  # Wait for process to complete
+        captured_output = ''.join(output_lines)
+        returncode = process.returncode
 
-        # msg = f"StdOut value is {sh_result.stdout}"
-        # screen_queue.put(msg)
-        # file_logger.info(msg)
-
-        if sh_result.returncode != 0:
+        if returncode != 0:
             msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}."
-            msg += f"; Exit Code returned is {sh_result.returncode}"
-
-            # hummm.. might not ever get antyhing with process_rerun_calibration.sh as it is
-            # is handing its own errors.
-            # if sh_result.stderr != "":
-            #     msg += f"; Details = {sh_result.stdout}"
-            is_successful = 0
-        else:  # returned exit code as success.
-            msg = f"[{task_id}] ✅ Rerunning calibration succeeded for HUC {huc}"
-            is_successful = 1
-
-        screen_queue.put(msg)
-        file_logger.info(msg)
-
-        if is_successful:
-            # We are ok with return 1 (true/success) even if we picked up a non-zero
-            # exit code from the subprocess. If we got here, we handled it either way.
-            return is_successful, [True]  # Errors and outputs handled correctly as
-        else:
+            msg += f" Exit code: {returncode}"
+            msg += f"\n--- OUTPUT ---\n{captured_output}"
+            screen_queue.put(msg)
+            file_logger.error(msg)
             return 0, [False]
-
-    except subprocess.CalledProcessError as e:
-        msg = f"[{task_id}] ❌ Rerunning calibration failed for HUC {huc}: Exception: {e}."
-        msg += " Exit code, subprocess output or error messages not available."
-        screen_queue.put(msg)
-        file_logger.error(msg)
-        return 0, [False]
+        else:
+            msg = f"[{task_id}] ✅ Rerunning calibration succeeded for HUC {huc}"
+            screen_queue.put(msg)
+            file_logger.info(msg)
+            return 1, [True]
 
     except Exception as ex:
         msg = f"[{task_id}] ❌ Rerunning calibration failed with unexpected error for HUC {huc}: Exception: {ex}."
