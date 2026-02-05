@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
+## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
 
 A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
 
@@ -38,6 +38,8 @@ Note: All files in GIT retain the permissions of the files on the users local ma
      - `bash_variables.env`: Updated paths for new DEMs, bridges data including bridge DEM diffs and pre-clips to reflect the input datasets. Also made slight reorg changes to variable names to be more region based. ie) a CONUS dem domain file name, then its related VRT on the next line.
 
 Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
+<br/>
+
 ## v4.9.7.0 - 2026-02-05 - [PR#1752]([https://github.com/NOAA-OWP/inundation-mapping/pull/1752])
 
 This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
