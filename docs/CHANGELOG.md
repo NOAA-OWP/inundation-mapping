@@ -5,7 +5,7 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 This PR aims to longitudinally refine the discharge values in the rating curve by filtering the surface area values and recalculating discharge and the rest of Manning equations' variables, including bed area and volume. You can find the details of the framework here:
 
-https://docs.google.com/presentation/d/1rbOWHimHTTb9xpMBdSRu1YLxgDw21GNmXb9OE5tkquI/edit?slide=id.g10245655793_2_0#slide=id.g10245655793_2_0
+See PR for more details.
 
 Changes
 - /src/longitudinal_flow_adjustment.py
