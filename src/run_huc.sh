@@ -346,8 +346,7 @@ total_branches=$(wc -l < $branch_list_csv_file)
 
 ## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
-export calibration_rerun="false"
-$srcDir/calibrate_rating_curves.sh
+$srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
 
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"

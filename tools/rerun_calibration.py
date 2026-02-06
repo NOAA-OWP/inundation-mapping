@@ -88,7 +88,7 @@ def run_shell_for_huc(
 
         # This needs to be fixed a bit and may need some single quotes to let calibrate_rating_curves.sh
         # pick up the variables as ?
-        cmd = ["bash", script_path, "True", str(branch_jobs), huc]
+        cmd = ["bash", script_path, "true", str(branch_jobs), huc]
 
         # The first line in the calibrate_rating_curves.sh must have a least
         #   #!/bin/bash -e   (The -e means immeditely stop on error which is a feature

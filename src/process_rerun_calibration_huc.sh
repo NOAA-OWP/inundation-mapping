@@ -52,12 +52,10 @@
 
 # We can and want to use l_echo here, just not in child  .sh scripts.
 
-# We need to finish getting rerun_calibration.py to pass these variables in. Likely just needs single
-# quotes all on variables otherwise datatypes can create problems (maybe ???)
-# but we do need them here for processing flow reasons.
-export calibration_rerun=$1
-export jobBranchLimit=$2 # should allow new values for rerun_calibrate_rating_curves.py
-export hucNumber=$3
+# Store arguments in local variables (not exported, will be passed explicitly to child scripts)
+calibration_rerun=$1
+jobBranchLimit=$2
+export hucNumber=$3  # hucNumber is still exported as it's used by sourced files
 
 if [ "$hucNumber" = "" ] ; then
     # putting the echo to &2 (stdError) which rerun_calibration.py as StdErr
@@ -180,8 +178,8 @@ l_echo "---- Start of recalibration for $hucNumber" $rerunlogFilename
 
 # Clean out previous src_calibration logs.
 
-# run the actual calibration script
-/usr/bin/time -v $srcDir/calibrate_rating_curves.sh 2>&1 | tee $rerunlogFilename
+# run the actual calibration script (passing arguments explicitly since source commands may overwrite them)
+/usr/bin/time -v $srcDir/calibrate_rating_curves.sh "$calibration_rerun" "$jobBranchLimit" "$hucNumber" 2>&1 | tee $rerunlogFilename
 
 # We will check the actual exit status codes. If we find a non-zero, we will
 # log it in the error file, then reraise the exit code and let rerun_calibration.py
@@ -200,7 +198,7 @@ do
         echo
         # do nothing
     else
-        err_msg+="***** An error has occurred - Code ("${code}") *****" + $"\n"
+        err_msg="***** An error has occurred - Code (${code}) *****"
         l_echo "$err_msg" $rerunlogFilename
 
         # We are re-raising the error and let rerun_calibration.py manage.
