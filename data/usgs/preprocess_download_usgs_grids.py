@@ -11,6 +11,13 @@ import requests
 from dotenv import load_dotenv
 
 
+##############################
+
+######  Jan 2026,  This might be deprecated
+#                   It is very old and has very old conventions
+##############################
+
+
 load_dotenv()
 USGS_DOWNLOAD_URL = os.getenv("USGS_DOWNLOAD_URL")
 USGS_METADATA_URL = os.getenv("USGS_METADATA_URL")
