@@ -377,6 +377,36 @@ def load_runtime_args(output_folder):
 
     # TODO: Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans 
 
+def make_huc_mapping_filepaths(huc, catfim_type, huc_path):
+    '''
+    Used for both flow- and stage-based CatFIM.
+
+    Used in catfim_process_huc.py and in the command line functioning of
+    generate_categorical_fim_mapping.py.
+
+    '''
+    # Make the CatFIM type label
+    catfim_type_label = None
+    if catfim_type == 'fb':
+        catfim_type_label = 'flow_based'
+    elif catfim_type == 'sb':
+        catfim_type_label = 'stage_based'
+
+    # Create filepaths for mapping and temp folders
+    output_mapping_dir = os.path.join(huc_path, "mapping")
+    output_temp_dir = os.path.join(huc_path, "temp")
+    log_file_dir = os.path.join(huc_path, "logs")
+
+    # Create filepaths for the sites and library Geopackages
+    sites_pre_mapping_file_path = os.path.join(output_temp_dir, f"{catfim_type_label}_sites_pre_mapping_{huc}.gpkg")
+    sites_post_mapping_file_path = os.path.join(output_mapping_dir, f"{catfim_type_label}_sites_{huc}.gpkg")
+
+    # library_pre_inun_file_path changed to library_pre_mapping_file_path
+    library_pre_mapping_file_path = os.path.join(output_temp_dir, f"{catfim_type_label}_library_pre_mapping_{huc}.csv")
+    library_post_mapping_file_path = os.path.join(output_mapping_dir, f"{catfim_type_label}_library_{huc}.gpkg")
+
+    return output_mapping_dir, output_temp_dir, log_file_dir, sites_pre_mapping_file_path, sites_post_mapping_file_path, library_pre_mapping_file_path, library_post_mapping_file_path
+
 def update_sites_mapping_status(
     huc,
     catfim_type,

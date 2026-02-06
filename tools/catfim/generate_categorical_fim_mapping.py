@@ -53,9 +53,8 @@ Tenative notes:
 
 gpd.options.io_engine = "pyogrio"
 
-
 # This function is only called when the tool is being run by itself from command line
-def catfim_mapping(huc, output_folder):
+def main(huc, output_folder):
     """
     Run CatFIM mapping from the command line for a HUC.
     
@@ -73,11 +72,25 @@ def catfim_mapping(huc, output_folder):
         print("")
 
         # ----------------------------
+        # Create filepaths
+
+        catfim_type = os.getenv('CATFIM_TYPE')
+
+        # Create filepath variables
+        (
+            output_mapping_dir,
+            output_temp_dir,
+            output_log_dir,
+            sites_pre_mapping_file_path,
+            sites_post_mapping_file_path,
+            library_pre_mapping_file_path,
+            library_post_mapping_file_path,
+        ) = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
+
+        # ----------------------------
         # Set up logging
 
-
-        log_folder = os.path.join(output_folder, "logs")
-        log_file_path = sf.setup_file_logger(log_folder, f"map_{huc}_catfim")
+        log_file_path = sf.setup_file_logger(output_log_dir, f"map_{huc}_catfim")
 
         logging.info(f"Mapping command-line wrapper - Start catfim mapping for {huc} ; (UTC): {dt_string}")
         print(f"Mapping command-line wrapper - Logs will be saved to {log_file_path}")
@@ -92,31 +105,6 @@ def catfim_mapping(huc, output_folder):
         huc_path, output_folder = csf.validate_inputs(
             huc, output_folder
         )
-
-        # ----------------------------
-        # Create filepaths
-
-        # Yes.. these are duplicate from catfim_process_huc.py but have to be in order to use
-        # this script independently
-        output_mapping_dir = os.path.join(huc_path, "mapping")
-        output_temp_dir = os.path.join(huc_path, "temp")
-
-        catfim_type = os.getenv('CATFIM_TYPE')
-
-        catfim_type_label = None
-        if catfim_type == 'fb':
-            catfim_type_label = 'flow_based'
-        elif catfim_type == 'sb':
-            catfim_type_label = 'stage_based'
-
-        # Create filepaths for the sites and library Geopackages
-        sites_pre_mapping_file_path = os.path.join(output_temp_dir, f"{catfim_type_label}_sites_pre_mapping_{huc}.gpkg")
-        sites_post_mapping_file_path = os.path.join(output_mapping_dir, f"{catfim_type_label}_sites_{huc}.gpkg")
-        # TODO: sites_post_mapping... isn't used anywhere... do I need to copy this around?
-
-        # library_pre_inun_file_path changed to library_pre_mapping_file_path
-        library_pre_mapping_file_path = os.path.join(output_temp_dir, f"{catfim_type_label}_library_pre_mapping_{huc}.csv")
-        library_post_mapping_file_path = os.path.join(output_mapping_dir, f"{catfim_type_label}_library_{huc}.gpkg")
 
         # ----------------------------
         # Validate inputs and remove previous outputs
@@ -191,6 +179,7 @@ def catfim_mapping(huc, output_folder):
 
         duration_msg = sf.calculate_duration_msg(overall_start_time)
         logging.info(duration_msg)
+        print(" ")
         print("===================================================")
 
 
@@ -2165,6 +2154,6 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    catfim_mapping(**args)
+    main(**args)
 
 

@@ -126,29 +126,34 @@ def process_huc(huc, output_folder):
         overall_start_time = datetime.now(timezone.utc)
         dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
 
-        catfim_type_name = ""
         catfim_type = os.getenv('CATFIM_TYPE')
-        if catfim_type == 'sb':
-            catfim_type_label = "stage_based"
-        else:
-            catfim_type_label = "flow_based"
 
         # =========================================
         # Setup logging and output folders
+
+        # Create filepath variables
+        (
+            output_mapping_dir,
+            output_temp_dir,
+            output_log_dir,
+            sites_pre_mapping_file_path,
+            sites_post_mapping_file_path,
+            library_pre_mapping_file_path,
+            library_post_mapping_file_path,
+        ) = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
 
         # Logger should make its own huc log folder inside the parent "logs" folder
 
         # TODO: AWS BUG Jan 2026 - Why are my logs read only for all but the owner? other apps don't I think.
         # I can not delete them to cleanup if I want too. huh? Better check other apps that use setup_file_logger
 
-        log_file_dir = os.path.join(huc_path, "logs")
-        log_file_path = sf.setup_file_logger(log_file_dir, f"process_huc_{huc}")
+        log_file_path = sf.setup_file_logger(output_log_dir, f"process_huc_{huc}") # was 
         is_logging_loaded = True
 
         print("")
-        logging.info(f"Processing {catfim_type_name} CatFIM for HUC: {huc} ;  {dt_string} (UTC)")
-        print("")
+        logging.info(f"Processing {catfim_type} CatFIM for HUC: {huc} ;  {dt_string} (UTC)")
         print(f"... Logs for this HUC will be saved to {log_file_path}")
+        print("")
 
 
         # Notes on cleaning up previous files: 
@@ -170,21 +175,12 @@ def process_huc(huc, output_folder):
         #   Don't let any intermediates folow that convention exactly in this root huc dir.
         #   Always add something after _sites and _library
 
-        # Yes.. Some of these variables are duplicated in gen..mapping.py to keep it independent
-
-        # Create mapping and temp folders if they do not exist
-        output_mapping_dir = os.path.join(huc_path, "mapping")
-        output_temp_dir = os.path.join(huc_path, "temp")
-
-        # Create file path variables
-        sites_pre_mapping_file_path = os.path.join(output_temp_dir, f"{catfim_type_label}_sites_pre_mapping_{huc}.gpkg")
-        sites_post_mapping_file_path = os.path.join(output_mapping_dir, f"{catfim_type_label}_sites_{huc}.gpkg")
-
-        library_pre_mapping_file_path = os.path.join(output_temp_dir, f"{catfim_type_label}_library_pre_mapping_{huc}.csv")
-        library_post_mapping_file_path = os.path.join(output_mapping_dir, f"{catfim_type_label}_library_{huc}.gpkg")
 
         # Remove some preexisting files and folders from prior runs
-        __clean_up_previous_outputs(output_mapping_dir, output_temp_dir, sites_pre_mapping_file_path, library_pre_mapping_file_path)
+        __clean_up_previous_outputs(output_mapping_dir,
+                                    output_temp_dir,
+                                    sites_pre_mapping_file_path,
+                                    library_pre_mapping_file_path)
 
 
         # =========================================
