@@ -24,6 +24,7 @@ from shapely.geometry.polygon import Polygon
 import src.utils.shared_functions as sf
 import tools.catfim.catfim_shared_functions as csf
 
+
 from src.utils.shared_variables import VIZ_PROJECTION
 from tools.inundate_gms import Inundate_gms
 from tools.mosaic_inundation import Mosaic_inundation
@@ -69,16 +70,17 @@ def catfim_mapping(huc, output_folder):
         overall_start_time = datetime.now(timezone.utc)
         dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
         print("===================================================")
+        print("")
 
         # ----------------------------
         # Set up logging
 
+
         log_folder = os.path.join(output_folder, "logs")
         log_file_path = sf.setup_file_logger(log_folder, f"map_{huc}_catfim")
 
-        logging.info(f"Start catfim mapping for {huc} ; (UTC): {dt_string}")
-        print("")
-        print(f"... Logs will be saved to {log_file_path}")
+        logging.info(f"Mapping command-line wrapper - Start catfim mapping for {huc} ; (UTC): {dt_string}")
+        print(f"Mapping command-line wrapper - Logs will be saved to {log_file_path}")
         print("")
         is_logging_loaded = True
 
@@ -121,12 +123,12 @@ def catfim_mapping(huc, output_folder):
 
         # Confirm that sites pre-mapping and library pre-mapping files exist
         if not os.path.exists(sites_pre_mapping_file_path):
-            msg = f"Missing file at sites_pre_mapping_file_path - {sites_pre_mapping_file_path}"
+            msg = f"Mapping command-line wrapper - Missing file at sites_pre_mapping_file_path - {sites_pre_mapping_file_path}"
             logging.critical(msg)
             raise FileNotFoundError(msg)
     
         if not os.path.exists(library_pre_mapping_file_path):
-            msg = f"Missing file at library_pre_mapping_file_path - {library_pre_mapping_file_path}"
+            msg = f"Mapping command-line wrapper - Missing file at library_pre_mapping_file_path - {library_pre_mapping_file_path}"
             logging.critical(msg)
             raise FileNotFoundError(msg)
 
@@ -134,23 +136,25 @@ def catfim_mapping(huc, output_folder):
         # We do NOT want to remove the /{huc}/temp folder because that's where pre-mapping files are
         preexisting_mapping_files = len(os.listdir(output_mapping_dir))
         if preexisting_mapping_files > 0:
-            logging.info(f'Removing {preexisting_mapping_files} pre-existing files from {output_mapping_dir}')
+            logging.info(f'Mapping command-line wrapper - Removing {preexisting_mapping_files} pre-existing files from {output_mapping_dir}')
             shutil.rmtree(output_mapping_dir, ignore_errors=True)
             os.mkdir(output_mapping_dir)
 
         # Remove pre-existing post-mapping library and sites files
         if os.path.isfile(library_post_mapping_file_path):
             os.remove(library_post_mapping_file_path)
-            logging.info('Removed pre-existing library post-mapping file')
+            logging.info('Mapping command-line wrapper - Removed pre-existing library post-mapping file')
         
         if os.path.isfile(sites_post_mapping_file_path):
             os.remove(sites_post_mapping_file_path)
-            logging.info('Removed pre-existing sites post-mapping file')
+            logging.info('Mapping command-line wrapper - Removed pre-existing sites post-mapping file')
 
         # ----------------------------
         # Process CatFIM mapping
 
-        logging.info("Begin mapping")
+        logging.info(" ")
+        logging.info("Mapping command-line wrapper - Starting process_mapping()")
+        logging.info(" ")
 
         process_mapping(
             huc,
@@ -164,7 +168,24 @@ def catfim_mapping(huc, output_folder):
             library_post_mapping_file_path,
         )
 
-        logging.info("Completed running mapping from command line")
+        # ----------------------------
+        # Finalize sites and library GDF
+
+        logging.info(" ")
+        logging.info("Mapping command-line wrapper - Starting update_sites_mapping_status()")
+        logging.info(" ")
+
+        csf.update_sites_mapping_status( 
+            huc, 
+            catfim_type, 
+            sites_post_mapping_file_path,  # Output path
+            library_post_mapping_file_path,  # Output path
+            sites_post_mapping_file_path,  # Data to finalize
+            library_post_mapping_file_path,  # Data to finalize
+        )
+
+        logging.info(" ")
+        logging.info("Mapping command-line wrapper - Completed running mapping! ")
         
         # TODO: Wrap up logs?
 
@@ -175,7 +196,7 @@ def catfim_mapping(huc, output_folder):
 
     except Exception as ex:
         trace_error = traceback.format_exc()
-        err_msg = f"A critical error has occurred during CatFIM mapping. Detail: {trace_error}"
+        err_msg = f"Mapping command-line wrapper - A critical error has occurred during CatFIM mapping. Detail: {trace_error}"
 
         if is_logging_loaded:
             logging.critical(err_msg)
@@ -192,9 +213,9 @@ def process_mapping(
     huc_path, # huc path {fim_run_dir}/{huc}
     catfim_type,
     output_mapping_dir, # dir where mapping outputs are stored - {huc_path}/mapping/
-    output_temp_dir,  # TODO: decide, do we need this?
+    output_temp_dir,
     sites_pre_mapping_file_path,
-    sites_post_mapping_file_path, # TODO: Decide if we need to copy this around?
+    sites_post_mapping_file_path,
     library_pre_mapping_file_path,  # the csv / df version before we add geometry
     library_post_mapping_file_path,  # the gpkg version (once we've added geometry)
 ):
@@ -203,13 +224,23 @@ def process_mapping(
 
     Handle the CatFIM mapping for a HUC.
 
-    TODO: Add docstring
+    Parameters
+    -----
+        huc : (str) 
+        huc_path : (str) Path to HUC-specific directory. {fim_run_dir}/{huc}
+        catfim_type : (str) Stage- or flow-based indicator. 'sb' or 'fb'
+        output_mapping_dir : (str) Path to HUC-specific mapping directory. {huc_path}/mapping/
+        output_temp_dir : (str) Path to HUC-specific mapping directory. {huc_path}/temp/
+        sites_pre_mapping_file_path : (str) 
+        sites_post_mapping_file_path : (str) 
+        library_pre_mapping_file_path : (str) Path to the the csv / df version of the library before we add geometry
+        library_post_mapping_file_path : (str) Path to the the gpkg version of the library (once we've added geometry)
 
+    TODO: Update docstring below: 
 
     CatFIM Reorg Notes (Jan 26):
 
     process_mapping is still heavily in progress as of 1/12/26
-
 
 
     Everything related to mapping starts here. SB and FB from catfim_process_huc or from
@@ -248,17 +279,14 @@ def process_mapping(
     # Load and validate mapping data
 
     try:
+        logging.info(" ")
         logging.info(f"{huc} - Mapping - Loading mapping data for HUC")
 
-        sites_gdf, huc_library_df, huc_segments_df, fim_run_dir, validation_msgs =  __load_validate_mapping_data(
+        sites_gdf, huc_library_df, huc_segments_df, fim_run_dir =  __load_validate_mapping_data(
             huc,
             huc_path,
             sites_pre_mapping_file_path, # was sites_file_path,
             library_pre_mapping_file_path)
-
-        # Log any validation messages that aren't exceptions
-        for msg in validation_msgs:
-            logging.info(msg)
 
     except Exception:
         logging.critical(f"A critical error occurred while loading HUC mapping inputs for {huc}") 
@@ -276,6 +304,7 @@ def process_mapping(
     # Split to SB- and FB-specific mapping
 
     try:
+        logging.info(" ")
         if catfim_type == "sb":
             logging.info(f"{huc} - Mapping - Beginning stage-based mapping")
 
@@ -322,9 +351,12 @@ def process_mapping(
     # Note: Got rid of the post_process_cat_fim_for_viz function and just call post_process_huc() here
 
     try:
+        logging.info(" ")
+        logging.info(f"{huc} - Mapping - Post-processing HUC mapping")
         huc_library_gdf = post_process_huc(
             huc,
             catfim_type,
+            sites_gdf,
             huc_library_df,
             output_mapping_dir,
         )
@@ -343,6 +375,9 @@ def process_mapping(
     # -----------------------------
     # Save the HUC-level mapping outputs
     try:
+        logging.info(" ")
+        logging.info(f"{huc} - Mapping - Saving HUC outputs post-mapping")
+
         __save_huc_outputs_post_mapping(
             huc,
             sites_gdf,
@@ -355,11 +390,11 @@ def process_mapping(
         logging.critical(traceback.format_exc())
 
     # -----------------------------
-
+    logging.info(" ")
     logging.info(f"{huc} - Mapping - End of CatFIM HUC-level mapping")
     duration_msg = sf.calculate_duration_msg(section_start_dt)
     logging.info(duration_msg)
-
+    logging.info(" ")
     # TODO: Is there anything we need to do to wrap up logs here?
 
     return
@@ -398,7 +433,7 @@ def run_fb_mapping(
     '''
 
     # TODO: Add a pointer in this file coming from generate_categorial_fim so they can share the same log file?
-    print()
+    logging.info(" ")
     logging.info(f"{huc} - Mapping -  Start inundating and mosaicking")
 
 
@@ -432,6 +467,9 @@ def run_fb_mapping(
     # Loop through AHPS sites
     for ahps_site in ahps_sites_list:
 
+        logging.info(" ")
+        logging.info(f"{huc} : {ahps_site}")
+
         # Get a list of available magnitudes
         huc_thresholds_long_df_site = huc_thresholds_long_df[huc_thresholds_long_df['nws_lid'] == ahps_site]
         magnitude_list = huc_thresholds_long_df_site['magnitude_type'].to_list()
@@ -446,6 +484,9 @@ def run_fb_mapping(
         for magnitude in magnitude_list:
             if "." in magnitude: # TODO: Do we need this check?
                 continue
+
+            logging.info(" ")
+            logging.info(f"{huc} : {ahps_site} - {magnitude}")
 
             # Create a site/magnitude specific flows csv and drop unnecessary colunmns
             magnitude_flows_df_filtered = magnitude_flows_df[
@@ -488,7 +529,7 @@ def run_fb_mapping(
                 # logging.merge_log_files(log_output_file, child_log_file_prefix) # TODO: Update logging here
                 sys.exit(1)
 
-    print()
+    logging.info(" ")
     logging.info(f"{huc} - Mapping -  End inundating and mosaicking")
 
 
@@ -575,7 +616,7 @@ def run_fb_inundation( # renamed from run_inundation
         # ---------------------
         # Mask out lakes from inundated tif and re-save tif
 
-        logging.info(f"{huc} : {ahps_site} : {magnitude} - Masking out lakes from {output_extent_tif}")
+        logging.info(f"{huc} : {ahps_site} : {magnitude} - Masking out lakes from {os.path.basename(output_extent_tif)}")
 
         # TODO: (fall 2026). Update to only run if lake detected? 
         with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
@@ -703,6 +744,9 @@ def run_sb_mapping(
     # Loop through AHPS sites
     for ahps_site in ahps_sites_list:
 
+        logging.info(" ")
+        logging.info(f"{huc} : {ahps_site}")
+        
         # -----------------------
         # Inundate site using available stage magnitudes
     
@@ -725,6 +769,9 @@ def run_sb_mapping(
         for magnitude in magnitude_list:
             if "." in magnitude: # TODO: Do we need this check? Is this where we check for intervals? 
                 continue
+
+            logging.info(" ")
+            logging.info(f"{huc} : {ahps_site} : {magnitude}")
 
             # Subset library df for site/magnitude and get the stage and other values
             site_mag_library_df = huc_library_df[
@@ -788,11 +835,14 @@ def run_sb_mapping(
                 magnitude = interval_rec[0]  # stage name, was category
                 interval_stage_val = interval_rec[1]
 
+                logging.info("  ")
+                logging.info(f"{huc} : {ahps_site} : {magnitude} - interval {interval_stage_val} ft")
+
                 # Calculate a portion of the file name which includes the category,
                 # a formatted stage value, and a "i" to show it is an interval file
                 category_key = __calculate_category_key(magnitude, interval_stage_val, True)
 
-                logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {category_key} (interval)")
+                logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {category_key}")
 
                 # Create the inundation tifs for each site/mag combo for the lid (previously called produce_stage_based_lid_tifs)
                 # TODO: Put run_sb_inundation back into a Try / Except statement?
@@ -822,7 +872,6 @@ def run_sb_mapping(
                 f"{huc_lid_id}: Skipping intervals as there are not any 'non-record' stages"
             )
 
-    logging.info()
     logging.info(f"{huc} - Mapping - End inundating and mosaicking")
 
     return sites_gdf, huc_library_df
@@ -1063,7 +1112,7 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
         # Create inundation maps with branch and stage data
         # Only sites /categories that got this far are valid and can be inundated
         try:
-            logging.info(f"{huc_lid_cat_id} : {branch} - Producing inundated branch tifs")
+            # logging.info(f"{huc_lid_cat_id} : {branch} - Producing inundated branch tifs") # Mainly for debug, makes a LOT of prints
 
             # CatFIM Reorg (Jan 2026): Previously we had executor.submit(inundate_sb, etc. ) here.
             # Took out MP for now, but can reimplement in the future if we want to optimize.
@@ -1122,7 +1171,7 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
     # Mask out lakes from inundated tif and re-save tif
     # Jan 2026 - Moved lake masking to outside the mosaic function to match fb processing
 
-    logging.info(f'{huc_lid_cat_id} - Masking out lakes from {output_extent_tif}') ## TEMP DEBUG
+    logging.info(f'{huc_lid_cat_id} - Masking out lakes from {os.path.basename(output_extent_tif)}') ## TEMP DEBUG
 
     with rasterio.open(output_extent_tif, 'r+') as output_extent_src:
         output_extent_array = output_extent_src.read(1)
@@ -1297,7 +1346,7 @@ def inundate_sb( # formerly called produce_inundated_branch_tif
                 with rasterio.open(output_branch_tif, 'w', **profile) as dst:
                     dst.write(masked_reclass_rem_array, 1)
 
-                logging.info(f'{huc} : {lid} : {category_key} - Saving tif to {output_branch_tif}')
+                logging.info(f'{huc} : {lid} : {category_key} - Saving tif to {os.path.basename(output_branch_tif)}')
 
         # else: # is_all_zero = True:
                 # logging.info(f'inundate_sb - not saving tif because masked array was all zero')
@@ -1341,8 +1390,7 @@ def mosaic_sb_inundation(
     for f in lid_dir_list:
         path_list.append(os.path.join(output_mapping_dir, f)) # TODO: Could these 4 lines be simplified?
 
-    logging.info(f"{huc_lid_cat_id} - Merging branch files")
-    logging.info(f"{huc_lid_cat_id} - LID dir list is: {lid_dir_list}")
+    logging.info(f"{huc_lid_cat_id} - Merging branch files: {lid_dir_list}")
 
     # Exit function if there aren't any tifs to mosaic
     if len(lid_dir_list) == 0:
@@ -1390,7 +1438,7 @@ def mosaic_sb_inundation(
     with rasterio.open(output_extent_tif, 'w', **profile) as dst:
         dst.write(summed_array, 1)
 
-        logging.info(f"{huc_lid_cat_id} - Branch rollup extent file saved at {output_extent_tif}")
+        logging.info(f"{huc_lid_cat_id} - Branch rollup extent file saved at {os.path.basename(output_extent_tif)}")
 
     # # Mask out the lakes from the inundation array 
     # # Jan 2026 - Moved lake masking to outside the mosaic function to match the fb processing
@@ -1421,6 +1469,7 @@ def mosaic_sb_inundation(
 def post_process_huc(
     huc,
     catfim_type,
+    sites_gdf,
     huc_library_df,
     output_mapping_dir,
 ):
@@ -1530,9 +1579,11 @@ def post_process_huc(
         num_intervals = len(mapped_intervals_df)
 
         if num_intervals == 0:
+            logging.info("  ")
             logging.info(f"{huc} - Post-Process HUC - Stage-based - No intervals mapped")
 
         elif num_intervals > 0:
+            logging.info("  ")
             logging.info(f"{huc} - Post-Process HUC - Stage-based - Updating HUC library to include {num_intervals} intervals")
 
             # Get the lid, mag, and interval stage vals from the intervals DF so we can add the new interval records to the HUC library
@@ -1561,7 +1612,7 @@ def post_process_huc(
             huc_library_interval_df = pd.DataFrame(huc_library_interval_data_list)
             huc_library_df = pd.concat([huc_library_df, huc_library_interval_df], ignore_index=True)
 
-            print(huc_library_df) ## TEMP DEBUG
+            # print(huc_library_df) ## TEMP DEBUG
 
         # Join the inundated multipolgyon dataframe to the HUC library dataframe
         huc_library_df = huc_library_df.merge(
@@ -1591,7 +1642,7 @@ def post_process_huc(
 
     # For debugging purposes, save undissolved library TODO: TEMP DEBUG, Remove later?
     huc_library_undissolved_gdf = huc_library_gdf
-    library_post_mapping_undissolved_file_path = os.path.join(output_temp_dir, f'library_post_mapping_undissolved_{huc}.gpkg')
+    library_post_mapping_undissolved_file_path = os.path.join(output_mapping_dir, f'library_post_mapping_undissolved_{huc}.gpkg')
     logging.info(f"{huc} - Mapping - TEMP DEBUG Saving undissolved library to {library_post_mapping_undissolved_file_path}")
     huc_library_undissolved_gdf.to_file(library_post_mapping_undissolved_file_path, driver='GPKG', engine="fiona", index=False)
 
@@ -1634,7 +1685,7 @@ def post_process_huc(
         lid = row["nws_lid"]
         lid_mapped = row["mapped"]
         lid_status = row["status"]
-        lid_warning = row["warning"]
+        lid_warning = row["warnings"]
 
         # Exit if lid is not mapped
         if lid_mapped == "no":
@@ -1684,7 +1735,7 @@ def post_process_huc(
                     # or do we want to leave that status? or append msg + status (+ warning)? might be overkill...
                     # For now, maybe we do the overkill option (append all three) and just see how crazy that ends up being?
 
-    # TODO: Should the rest of this go into update_sites_mapping_status ?
+    # TODO: Should the rest of this go into csf.update_sites_mapping_status ?
 
     # # Add metadata columns from the sites GDF to the library GDF
     # huc_library_gdf = huc_library_gdf.merge(
@@ -1868,6 +1919,7 @@ def __calc_sb_intervals( # Was __calc_stage_intervals()
     '''
     interval_recs, stage_values_claimed = [], []
 
+    logging.info("  ")
     logging.info(
         f"{huc_lid_id}: Calculating intervals"
     )
@@ -1960,7 +2012,6 @@ def __load_validate_mapping_data(
     so we can abort sooner than later
     
     """
-    validation_msgs = []
     msg = ''
 
     # --------------------------
@@ -1968,7 +2019,7 @@ def __load_validate_mapping_data(
     # csf.load_runtime_args(output_folder)
     fim_run_dir = os.getenv("FIM_RUN_DIR")
     msg = f"{huc} - Mapping - FIM_RUN_DIR is {fim_run_dir}"
-    validation_msgs.append(msg)
+    logging.info(msg)
     if not os.path.isdir(fim_run_dir):
         raise Exception(f"FIM run dir not found at {fim_run_dir}")
 
@@ -2007,13 +2058,13 @@ def __load_validate_mapping_data(
 
     if len(sites_no_mapping) > 0:
         msg = f'{huc} - Mapping - The following sites will not be mapped:'
-        validation_msgs.append(msg)
+        logging.info(msg)
 
         for index, site in enumerate(sites_no_mapping):
-            msg = f"{site} - {sites_no_mapping_status[index]}"
-            validation_msgs.append(msg)
+            msg = f"{huc} - Mapping -   * {site} - {sites_no_mapping_status[index]}"
+            logging.info(msg)
 
-    return sites_gdf, huc_library_df, huc_segments_df, fim_run_dir, validation_msgs
+    return sites_gdf, huc_library_df, huc_segments_df, fim_run_dir
 
 
 
@@ -2025,7 +2076,7 @@ def __save_huc_outputs_post_mapping(
     library_post_mapping_file_path, 
 ):
 
-    print()
+    logging.info(" ")
 
     # ---------------------------
     # Save HUC library GDF if it exists, otherwise log its absense 

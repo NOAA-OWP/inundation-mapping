@@ -377,6 +377,281 @@ def load_runtime_args(output_folder):
 
     # TODO: Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans 
 
+def update_sites_mapping_status(
+    huc,
+    catfim_type,
+    sites_post_mapping_file_path,
+    library_post_mapping_file_path,
+    sites_input,
+    library_input,
+):
+    '''
+    Used in both stage- and flow-based CatFIM.
+
+    This update the sites mapping but also cleans up the library gpkg if applicable.
+
+    Updates the mapping status and status messages for CatFIM sites based on the presence of valid inundation GeoPackage files.
+
+    Usage
+    -------
+        Syntax when it is used BEFORE mapping:
+            update_sites_mapping_status(
+                huc,
+                catfim_type,
+                sites_post_mapping_file_path,
+                library_post_mapping_file_path,
+                sites_gdf,
+                None,
+            )
+
+        Syntax when it is used AFTER mapping:
+            update_sites_mapping_status(
+                huc,
+                catfim_type,
+                sites_post_mapping_file_path,
+                library_post_mapping_file_path,
+                sites_post_mapping_file_path,
+                library_post_mapping_file_path,
+            )
+
+    Arguments
+    -------
+        huc :  (str)
+        catfim_type :  (str) 'sb' or 'fb'
+        sites_post_mapping_file_path : (str) final huc-level filepath (if mapping was completed, will be the same path variable as sites_input)
+        library_post_mapping_file_path : (str) final huc-level filepath (if mapping was completed, will be the same path variable as library_input)
+        sites_input : (str or GDF) Either sites_gdf or the sites post mapping filepath (str)
+        library_input : (str or None) either None or library_post_mapping_file_path
+
+
+    TODO: Update docstring and notes below:
+
+    Raises:
+        SystemExit: If the input sites file does not exist, is empty, or no valid inundation files are found.
+
+    Notes:
+        - We should have only two values for mapped, either no, or "not set"
+        - If we have a value in the warning column and the mapped is 'not set', then copy messages
+          to status, then mapped becomes 'Good'.
+          If no value in warning, and mapped is 'not set', then status becomes 'Good'.
+
+    CatFIM Reorg Jan 2026:
+
+    This needs to be rethought.
+
+      - Any time we deliminate all needs to make it to mapping, update the sites file.
+      - What do we want to do if we have a catestrophic fail? do we rename the {huc}_sites.gpkg so
+        it is not included in the final catfim post processing?
+      - When we start mapping, a copy of the sites file will be made calling it someting like
+        sites_pre_mapping.gpkg. While mapping is processing, it will never update the
+        sites_pre_mapping so the mapping code can be run multiple time. However, when mapping
+        is done, it will finish with a sites_post_mapping. It will contain any updated statuses.
+      - When we come back from mapping, we check to see if the sites_post_mapping.gkpg and load it in
+        which becomes our new final {huc}_sites.gpkg
+      - Regardless when we hit __updated_sites.. (or a similar) function, we need to update that
+        file only once for column renamed, status updates, etc.
+      - But.. how do we handle it while go through all processing?  Do we have a different WIP
+        sites file that we keep building on as the master?  Then when we get here we look figure
+        out if we aborted / stopped prior to mapping, then use the most recent temp sites.gpkg
+        as a starting point for the final?  Do we look for the post procesing version of it?
+      - Do we try to do that all in this function? or do we break it up for something like a function
+        called __sites_finalization?
+      - Do we make sure mapping updates the sites_post_processing to update the "mapped" = yes
+        and status = good?  Do we let it update the status column from the warnings column?
+        Come to think of it.. that might be good. That way, in theory if we get here and we find
+        some that are "not set", that might indicate a code fail.. .humm.... moo-ha-ha (lol)
+        That is probably better than looking for the existiance of a library file.
+
+    At a min... we need to plug in the mapping code to make it's own sites_post_mapping so this
+    function can decide what to do with it.
+
+    Note: We do have some last minute library finalization we will need. Humm... how does that
+    work if we re-run mapping.  What about the last minute case change for the nws_lid column and
+    rerun of mapping? hummm.
+
+    Note: the nws_lid column will never get renamed here. Let catfim_post_processing rename
+      those columns to ahps_lid when it gets there.
+        
+    '''
+
+    logging.info(f"{huc} - Begin updating sites mapping status")
+
+    # ------------------------------------
+    # Validate site_inputs (can be a filepath or a GDF)
+
+    if isinstance(sites_input, str):
+
+        if not os.path.exists(sites_input):
+            msg = f'Unable to finalize huc {huc}, no file exists at sites filepath: {sites_input}'
+            logging.critical(msg)
+            raise Exception(msg)
+
+        # Read in sites_input as a gdf
+        logging.info(f"Finalizing sites_input from path {sites_input}") # TEMP DEBUG
+        sites_gdf = gpd.read_file(sites_input, engine='fiona')
+
+    elif isinstance(sites_input, gpd.GeoDataFrame):
+        logging.info("sites_input is a GeoDataFrame") # TEMP DEBUG
+        sites_gdf = sites_input
+
+    else:
+        # Error out if sites_input is not string or a gdf
+        msg = f"Unable to finalize huc {huc}, sites_input is not a GDF or string."
+        logging.error(msg)
+        raise Exception(msg) # TODO: make sure this actually errors out
+
+    
+    # Once sites_gdf has been created, check that it has stuff in it
+    if len(sites_gdf) == 0:
+        msg = f"Unable to finalize huc {huc}, sites_gdf is empty."
+        logging.error(msg)
+        raise Exception(msg) # TODO: make sure this actually errors out
+
+    # ------------------------------------
+    # Update mapping status in sites_gdf
+
+    for index, row in sites_gdf.iterrows():
+        lid = row["nws_lid"]
+        lid_mapped = row["mapped"]
+        lid_status = row["status"]
+        lid_warning = row["warnings"]
+
+        # Exit if lid is mapped, because we already updated the status etc. inside the mapping script
+        if lid_mapped == "yes":
+            continue
+
+        # Exit if lid is not mapped
+        elif lid_mapped == "no":
+            # Should already have a status here if mapped = no, log an error if that isn't the case
+            if lid_status == "not set":
+                sites_gdf.at[index, "status"] = "ERROR: Status not set, review logs."
+                logging.error(f"{huc} - {lid} - ERROR: Mapped val is 'no' but status is 'not set' which shouldn't be possible at this stage. Check logs.")
+            continue
+        
+        # If lid mapping is "not set," change that to "no" and update the status
+        elif lid_mapped == "not set":
+            # We are past the point that mapping could occur, so change 'not set' to 'no'
+            sites_gdf.at[index, "mapped"] = "no"
+
+            # Update status
+            lid_status_new = ""
+            if lid_status == "not set":
+                if lid_warning == "":
+                    # No status val or warning val available
+                    # This is unlikely and probably indicates an error
+                    lid_status_new = "WARNING: No status or warnings created for site"
+                else:
+                    # No status val available, set warning val as status
+                    lid_status_new = lid_warning
+
+            else: # Status already available
+                if lid_warning == "":
+                    # Status val available but no warning val
+                    lid_status_new = lid_status
+                else:
+                    # Both vals available
+                    lid_status_new = f'{lid_status} - {lid_warning}'                
+
+            # Update the site status
+            sites_gdf.at[index, "status"] = lid_status_new
+            continue
+
+        # If status is not 'not set' 'no' or 'yes' at this stage then something weird happened
+        else: # Unlikely, implicates an error
+            sites_gdf.at[index, "mapped"] = "no"
+            logging.error(f"{huc} - {lid} - ERROR: Expected to see a value of 'not set,' 'no,' or 'yes' in the mapped col but value was {lid_mapped}, which shouldn't be possible at this stage. Check logs.")
+            continue
+
+    # At this point, we should have a sites_gdf that has updated values for the 'mapped' and 'status' columns  
+
+    # ------------------------------------
+    # Update any other sites columns that are needed
+
+    # TODO: do we want lower case lid values the entire way through? I went with Upper at this point
+    # Same for the library data?
+    sites_gdf['nws_lid'] = sites_gdf['nws_lid'].str.lower()
+
+    # FB and SB sites and library outputs call it ahps_lid instead of nws_lid. why?
+    # well.. we process throughout as nws_lid
+    # don't rename that column here. Leave that for post processing
+    # sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+    sites_gdf.rename(
+        columns={'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_usgs_site_code': 'usgs_gage'},
+        inplace=True,
+    )
+
+    sites_gdf = sites_gdf.drop(columns=['warnings'], errors='ignore')
+
+
+    # Save updated sites GDF
+    logging.info(f"{huc} - Saving updated HUC sites GDF to {sites_post_mapping_file_path}")
+    sites_gdf.to_file(sites_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
+
+    # ------------------------------------
+    # Process HUC library if needed
+
+    if library_input == None:
+        logging.info(f"{huc} - No library input available, no final library gdf will be saved to {library_post_mapping_file_path}")
+
+    else:
+        logging.info(f"{huc} - Processing library path {library_input}")
+
+        if not os.path.exists(library_input):
+            msg = f'Unable to finalize huc {huc}, no file exists at library filepath: {library_input}'
+            logging.critical(msg)
+            raise Exception(msg) # TODO: continue? error? or what?
+
+        # Read in the HUC library
+        huc_library_gdf = gpd.read_file(library_input, engine='fiona')
+
+        if len(huc_library_gdf) == 0:
+            logging.warning(
+                f"The working library file of {library_input} is empty and"
+                " a finalized copy will not be created."
+            ) # TODO: continue? error? or what?
+
+        # If a final library was created, join the updated sites GDF to the library, update any columns, and re-save the library gdf
+
+        # Add metadata columns from the sites GDF to the library GDF
+        huc_library_gdf = huc_library_gdf.merge(
+            sites_gdf.drop(columns=['geometry']), 
+            on='nws_lid', 
+            how='left'
+        )
+
+        # TODO: if catfim_type == fb, remove interval stuff from the output dfs and csvs # TODO: check if redundant?
+        # do we need to remove from sites gdf too?
+        if catfim_type == 'fb':
+            if 'interval_stage' in huc_library_gdf.columns:
+                huc_library_gdf.drop('interval_stage', axis=1, inplace=True)
+                logging.info('Dropped interval_stage col from HUC library GDF') ## TEMP DEBUG
+
+            if 'is_interval' in huc_library_gdf.columns:
+                huc_library_gdf.drop('is_interval', axis=1, inplace=True)
+                logging.info('Dropped is_interval col from HUC library GDF') ## TEMP DEBUG
+
+        elif catfim_type == 'sb':
+            huc_library_gdf.rename(
+                columns={
+                    'datum_adj_ft': 'dtm_adj_ft',
+                    'dadj_w_ft': 'datum_adj_wse_ft',
+                    'dadj_w_m': 'dadj_w_m',
+                },
+                inplace=True,
+            )
+
+            # TODO: any changes to interval columns?
+
+
+        # TODO: Any other checks we should do on the library?
+
+
+        # Save updated library gdf here
+        logging.info(f"{huc} - Saving updated HUC library to {library_post_mapping_file_path}")
+        huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
+        
+
+    return
 
 def validate_inputs(huc, output_folder):
     """
