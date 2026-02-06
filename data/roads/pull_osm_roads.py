@@ -125,7 +125,8 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
     for attempt in range(1, max_attempts + 1):
         try:
-            result = api.query(query_template.format(bbox=bbox_query))
+            # timeout at 5 mins, which can happen depending on the network speed and jobs (network volume)
+            result = api.query(query_template.format(bbox=bbox_query), timeout=500)
             break  # success
         except (overpy.exception.OverpassTooManyRequests, overpy.exception.OverpassGatewayTimeout) as e:
             wait_time = 5 * attempt + random.uniform(0, 2)
@@ -300,9 +301,20 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
 
     # -------------------
     # Validation
-    if number_jobs > 3:
-        print("Overpy does not seem to like more than 3 jobs. Adjusting job number down to 3.")
-        number_jobs = 3
+    # Feb 2026: Removing this test as we are continuing to get even bigger EC2's with
+    # larger network speeds which allows for more jobs.
+    # if number_jobs > 10:
+    #     print("Overpy does not seem to like more than 10 jobs. Adjusting job number down to 10.")
+    #     print("Do not run on a dev EC2. Please run on bigger machien with larger network speeds.")
+    #     number_jobs = 10
+
+    total_cpus_available = os.cpu_count() - 2
+    if number_jobs > total_cpus_available:
+        raise ValueError(
+            f'The number of jobs provided: {number_jobs} ,'
+            ' exceeds your machine\'s available CPU count minus two.'
+            ' Please lower the number of jobs value accordingly.'
+        )
 
     if not os.path.exists(preclip_dir):
         raise ValueError("preclip directory not found")
