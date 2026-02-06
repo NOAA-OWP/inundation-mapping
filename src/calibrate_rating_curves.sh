@@ -2,6 +2,12 @@
 ### Must have the -e flag as it auto aborts on page error. See more details
 ### below about error handling for it.
 
+# Receive arguments passed from process_rerun_calibration_huc.sh
+# (passed explicitly because source commands in the parent script can overwrite exported variables)
+calibration_rerun=$1
+jobBranchLimit=$2
+hucNumber=$3
+
 
 # ***************
 # IMPORTANT NOTES:
