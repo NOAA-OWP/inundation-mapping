@@ -464,6 +464,7 @@ def process_generate_categorical_fim(
 
         # Jan 2026 Notes: We do not need anythign back at this point, only to know catch a fail but never shut down the thread
         # So we dont' even need a futures. what about CTRL-C? 
+        failed_HUCs_list = []
         with ProcessPoolExecutor(max_workers=number_jobs) as executor:
 
             # Some mp functions might throw an exception, which means it may not get to as_completed
@@ -473,19 +474,27 @@ def process_generate_categorical_fim(
             # Need Try, except but need some combinations of exceptions, controlled errors and CTRL-C (aborts)
             # or do we?
 
-            # for future in as_completed(futures_dict):
-            #    if future is not None:  # we don't have anything to return at this time.
-            # if not future.exception():
-            #     failed_huc = future.result()
-            #     if failed_huc != "":
-            #         failed_HUCs_list.append(failed_huc)
-            # else:
-            #     raise future.exception()
+            for future in as_completed(futures_dict):
+                # if future is not None:  # we don't have anything to return at this time.
+                
+                if not future.exception():
+                    huc, is_success = future.result()
+                    if is_success is False:
+                        failed_HUCs_list.append(huc)
+                        logging.error(f"huc {huc} failed")
+                    else:
+                        logging.print(f"huc {huc} success")
+                else:
+                    raise future.exception()
+                
             # TODO: At a min.. use as_completed to catch
             # catestrophic errors where we want to shut down the MP
             # (inc CTRL-C which may be more than one)
 
         logging.info("Completed multi-process CatFIM HUC processing.")
+        
+        if len(failed_HUCs_list) > 0:
+            logging.error("show a list or someting of what failed.")  #failed_HUCs_list
 
         print("stop here in gen catfim - right before post processing - for now")
         sys.exit(0)
