@@ -1,4 +1,5 @@
 #!/bin/bash -e
+umask 000
 
 #####################################
 ## Note:
@@ -96,36 +97,14 @@ scan_logs_for_errors(){
     # No.. the line above is not a mistype.
     # Can't put the word "error" as as a header in the log file as it finds itself in the log files
 
-    # Note sure why, but grep seems to like a & at the end when using find and grep together.
-    # We have seen this for years but no idea why. Sometimes, as these three
-    # do, without the &, the script themselves fail. Worse yet, it can fail and we don't
-    # even know it. Hence the "process" wrappers and "traps". Maybe we can find better
-    # ways to do it. A critical part is that grep itself can fail and can fail saying
-    # it is trying to search a file that is part of its own search. Even though we had
-    # code in there to make currently existing log or error log files, grep would fail
-    # and we didn't know it and we lost our critcal error log file or errog log files additions.
-    # The only safe way appears to be using the "find" and the grep together as we have found
-    # countless times over the years, but again, no idea why.
-
-    # Note !!!!
-    # The problem above was the exact problem that was exposed in the AWS step function run
-    # were we lost some critical error log information, which is why we change calibrate_rating_curve.sh
-    # to the "process_rerun_calibraion_huc.sh" pattern same as process_huc and process_branch.sh
-
     # Scan for the word error in the log file. Exit codes were already managed above.
     # We may end up with dup entries but that is ok.
     # Everything else including errors in calibrate_rating_curves.sh and its children
     # are already rolled up in the calib log file and calib error file.
 
-    # Grep Tech Tip.. use the -e flag when you are not using any wildcards or patterns
-    # just a word in a line. If you need a regex type pattern, use -E instead.
-    # This helps with errors in this fim_process_huc.sh script.
-    # Grep is happy here becuase it is writing to a completely differnt file.
-    # like we did when we recently use the "tmp" file system but was a tad confusing and a tad
-    # unreliable.
-    grep -H -i -n -e "Command exited with non-zero status" $rerunlogFilename >> $rerunErrorLogFilename
-    grep -H -i -n -e "error" $rerunlogFilename >> $rerunErrorLogFilename
-    grep -H -i -n -e "parallel" $rerunlogFilename >> $rerunErrorLogFilename
+    grep -Hine "Command exited with non-zero status" $rerunlogFilename >> $rerunErrorLogFilename
+    grep -Hine "error" $rerunlogFilename >> $rerunErrorLogFilename
+    grep -Hine "parallel" $rerunlogFilename >> $rerunErrorLogFilename
 
     # we need to also check the files in the src_calibration files for errors and exceptions values
     # Some of the py files using src_calibration log folder may have incomplete logs and not
@@ -135,16 +114,16 @@ scan_logs_for_errors(){
     # Let's scan that dir to see if we cand find anythign but could be lots missing.
     echo "Scanning for err..ors and issues in the src_calibration folder."
 
-    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f | \
-        xargs grep -H -n -i -e "error" >> $rerunErrorLogFilename &
-    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f | \
-        xargs grep -H -n -i -e "exception" >> $rerunErrorLogFilename &
-    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f | \
-        xargs grep -H -n -i -e "parallel" >> $rerunErrorLogFilename &            
+    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f -print0 | \
+        xargs -0 grep -Hnie "error" >> $rerunErrorLogFilename || true
+    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f -print0 | \
+        xargs -0 grep -H -n -i -e "exception" >> $rerunErrorLogFilename || true
+    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f -print0 | \
+        xargs -0 grep -H -n -i -e "parallel" >> $rerunErrorLogFilename || true 
 
-    # Look for warenings in the calibration folder
-    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f | \
-        xargs grep -H -n -i -e "warning" >> $rerunWarningLogFilename &
+    # Look for warnings in the calibration folder
+    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f -print0 | \
+        xargs -0 grep -H -n -i -e "warning" >> $rerunWarningLogFilename || true
 
     wait # wait for all background grep jobs to complete
     

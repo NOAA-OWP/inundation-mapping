@@ -1,4 +1,5 @@
 #!/bin/bash -e
+umask 000
 
 # Note: the line above is critical and is read and used as a special command
 # exactly as it is. The additon of the -e tells it to stop on fail.
@@ -302,10 +303,6 @@ $srcDir/outputs_cleanup.py -d $tempCurrentBranchDataDir -l $deny_branch_zero_lis
 branch0=$(Calc_Time $branch0_start_time)
 branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
 
-## Start the local csv branch list
-echo "Generating Branch List"
-$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
-
 # -------------------
 ## Processing Branches ##
 echo
@@ -326,6 +323,11 @@ if [ -f $branch_list_lst_file ]; then
 else
     echo "No level paths exist with this HUC. Processing branch zero only."
 fi
+
+## Start the local csv branch list
+echo "Generating Branch List"
+$srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
+
 
 branches=$(Calc_Time $branch_processing_start_time)
 branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
@@ -348,9 +350,14 @@ total_branches=$(wc -l < $branch_list_csv_file)
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
 
+
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
 echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
+
+
+echo "Rob Parallel test"
+echo "rob warning test"
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"

@@ -1,4 +1,6 @@
 #!/bin/bash -e
+umask 000
+
 ### Must have the -e flag as it auto aborts on page error. See more details
 ### below about error handling for it.
 
@@ -37,7 +39,6 @@ hucNumber=$3
 # we will fake out what the value of tempHucDataDir.
 
 
-echo ""
 echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 if [ "$calibration_rerun" = "true" ]; then
     echo "---- Rerunning Calibration for HUC $hucNumber"

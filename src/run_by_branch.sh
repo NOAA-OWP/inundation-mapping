@@ -1,4 +1,5 @@
 #!/bin/bash -e
+umask 000
 
 ## INITIALIZE TOTAL TIME TIMER ##
 T_total_start

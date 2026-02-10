@@ -91,7 +91,6 @@ pipeline_start_time=`date +%s`
 
 # PROCESS THE UNITS (And branches)
 # Why an if and else? .. watch the number of colons.
-echo
 echo "---- Unit (HUC) processing is started"
 
 if [ -f "$hucList" ]; then

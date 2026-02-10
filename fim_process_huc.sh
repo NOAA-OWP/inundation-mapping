@@ -1,15 +1,9 @@
 #!/bin/bash
-### set -e  # We explicitly do not want -e as that woudl early abort and we want
+### set -e  # We explicitly do not want -e as that would early abort and we want
 ###           the files to copy from temp to outputs
-### set -o pipefail  (debugging line)
+set -Eeuo pipefail
 umask 000
 
-#####################################
-## Note:
-##   This eror handling might seem like overkill but it absolutely necessary, expecially in AWS
-##   enviros. These parent scripts themselves can have errors and it would result in uncaptured errors
-##   that are lost in all logs, even when not in AWS mode.
-#####################################
 :
 usage ()
 {
@@ -77,97 +71,49 @@ export tempBranchDataDir=$tempHucDataDir/branches
 export current_branch_id=0
 
 hucLogFile=$tempHucDataDir/logs/huc_"$hucNumber"_unit.log
-errorLogFile="$tempHucDataDir/logs/huc_${hucNumber}_errors.log"
 warningLogFile="$tempHucDataDir/logs/huc_${hucNumber}_warnings.log"
-branchNonZeroCodesLogFile="$tempHucDataDir/logs/huc_${hucNumber}_branch_non_zero_exit_codes.log"
-scan_for_huc_errors_complete="False"
 
 # Some simple error handling
-# We add it to the log file then scan for the word "error" later down.
-# This will also handle errors in this script and not just run_huc.sh
+# This helps ensure we always copy the temp dir to outputs dir
 handle_error(){
 
+    echo "+++++++++++++++++  Script ERROR   +++++++++++"
+    local msg="Critical error in fim_process_huc.sh script itself"
+    msg="${msg} : Command Submitted: $BASH_COMMAND - HUC $hucNumber"
+    echo -e "$msg" ; echo -e "$msg" >> "$hucLogFile"   
     echo "++++++++++++++++++++++++++++"
-    msg="Critical error in fim_process_huc.sh script itself, line number: $1"
-    l_echo "$msg" $errorLogFile
-    msg="Error Command Submitted: $BASH_COMMAND"
-    l_echo "$msg" $errorLogFile
-    echo "++++++++++++++++++++++++++++"
-    check_for_huc_errors
-    scan_for_huc_errors_complete="False"
     move_output_files
     echo ""
     exit 0  # we always return 0 (success) as we are fully handling error and logging
 }
 
-# and will do warnings as well.
-check_for_huc_errors(){
-
-    # scan_for_huc_errors_complete helps stop for multiple scans as it is possible if
-    # there are multiple errors on this page.
-    if [ "$scan_for_huc_errors_complete" = "False" ]; then
-        echo "++++++++++++++++++++++++++"
-        #l_echo $startDiv"Scanning for errors and exceptions in the HUC unit file" $hucLogFile
-        l_echo "Scanning for err..ors and excep..tions in the HUC unit file" $hucLogFile
-        # No.. the line above is not a mistype.
-        # Can't put the word "error" as as a header in the log file as it finds itself in the log files
-        # Scan for the word error in the log file. Exit codes were already managed above.
-        # We may end up with dup entries but that is ok.
-        # Everything else including branch errors are already rolled up in the huc log file
-        # and huc error file.
-
-        # Grep Tech Tip.. use the -e flag when you are not using any wildcards or patterns
-        # just a word in a line. If you need a regex type pattern, use -E instead.
-        # touch $errorLogFile
-        # This helps with errors in this fim_process_huc.sh script
-        grep -H -i -n -e "Command exited with non-zero status" $hucLogFile >> $errorLogFile
-        grep -H -i -n -e "error" $hucLogFile >> $errorLogFile
-        grep -H -i -n -e "parallel" $hucLogFile >> $errorLogFile
-
-        # we need to also check the files in the src_calibration files for errors and exceptions values
-        # Some of the py files using src_calibration log folder may have incomplete logs and not
-        # re-raising exception if applicable and most won't actualy complete the write of an error to
-        # a log file so it never really gets logged. Look at some of the src...py files, then look for
-        # the word "except", the watch what is happening on logs or log variables. 
-        # Let's scan that dir to see if we cand find anythign but could be lots missing.
-        echo "Scanning for err..ors and issues in the src_calibration folder."
- 
-        find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f | \
-            xargs grep -H -n -i -e "error" >> $errorLogFile &
-        find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f | \
-            xargs grep -H -n -i -e "exception" >> $errorLogFile &            
-
-        # Scan for warnings too
-        echo "Scanning for warnings"
-        # warningLogFile
-        grep -H -i -n -e "warning" $hucLogFile > $warningLogFile
-
-        # Feb 2, 2026: For unknown reasons some log files are adding a list of many file names
-        # such as Pipfile, aws, etc.
-        # This is a temp work around, which will look for the following phases in any
-        # line in the error log and remove the entire line.
-        sed -i '/Pipfile Pipfile.lock aws bin boot data dependencies/d' $errorLogFile
-
-        echo "++++++++++++++++++++++++++"
-        # agg_by_huc_errors
-    fi
-    scan_for_huc_errors_complete="True"
-}
-
 move_output_files() {
+
+    # TODO: wow...  what if this throws an error (OwP maybe?) perms.  hummmmm..
 
     # Move the contents of the temp directory into the outputs directory and update file permissions
     # The dir should be moved no matter what, except or not.
+    echo ""
     l_echo "Moving temp directory" $hucLogFile
-    mv -f $tempHucDataDir $outputHucDataDir
-    find $outputHucDataDir -type d -exec chmod -R 777 {} +
+    echo "***** Moving temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
 
-    echo "============================================================================================="
-    echo
-    echo "***** Moved temp directory: $tempHucDataDir to output directory: $outputHucDataDir  *****"
-    echo
+    # Feb 2026, We can not use the "mv" command in OWP servers, so we have to do cp and rm
+    # This is related to permissions in the OWP servers.
+    # mv -f $tempHucDataDir $outputHucDataDir
+
+    find $tempHucDataDir -type d -exec chmod -R 777 {} + 
+    cp -R --no-preserve=all $tempHucDataDir $outputHucDataDir
+    # cp -R $tempHucDataDir $outputHucDataDir
+    # find $outputHucDataDir -type d -exec chmod -R 777 {} +
+   
+    rm -rdf $tempHucDataDir
+
+    echo ""
     echo "============================================================================================="
 }
+
+# will catch errors from here down.
+trap 'handle_error $LINENO' ERR
 
 ## huc data
 if [ -d "$outputHucDataDir" ]; then
@@ -194,6 +140,16 @@ chmod 777 -R $tempHucDataDir/logs/branch
 # l_echo is echo to screen and log at the same time.
 Set_log_file_path $hucLogFile
 
+# Debugging tests
+# Exit status: ([1-9][0-9]{0,2})
+# l_echo "Exit status: 0"  $hucLogFile
+# l_echo "Exit status: 1"  $hucLogFile
+# l_echo "Exit status: 7" $hucLogFile
+# l_echo "Exit status: 127" $hucLogFile
+# l_echo "Exit status: 60" $hucLogFile
+# l_echo "parallel" $hucLogFile
+# robbbbb error here now
+
 echo "=========================================================================="
 l_echo "---- Start of huc processing for $hucNumber" $hucLogFile
 
@@ -202,11 +158,10 @@ hucLogFileName=$tempHucDataDir/logs/"$hucNumber"_unit.log
 # Process the actual huc
 # Note... while each branch has its own log, that log data is also
 # part of the hucLogFile as well (duplicate). We do not need to
-# scan any logs in the logs/branch folder, just for exit codes and specific words (error, parallel)
-# /usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
-# l_echo "----- Exit status: $?" $
+# scan any logs in the logs/branch folder as they will come back into "tee"
 
-/usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
+# /usr/bin/time -v $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
+/usr/bin/time -f "$time_cmd_format" $srcDir/run_huc.sh 2>&1 | tee $hucLogFile
 
 return_codes=( "${PIPESTATUS[@]}" )
 # return_codes=( "${PIPESTATUS[@]}" ) - yes, it is technically there can be more than one
@@ -214,53 +169,60 @@ return_codes=( "${PIPESTATUS[@]}" )
 # usually get just one return code.
 # and yes.. we can not use the $? here as we are messing with exit codes as it is PIPESTATUS
 
-# turn trapping on for just here down. We can not use a trap above the "tee"
-# line unless we detected and build variables for logging files / folders.
-# Maybe for another day. Yes.. for now this has to be an acceptable hole.
-trap 'handle_error $LINENO' ERR
-
-
 # We do this way instead of working directly with stderr and stdout
 # as they were messing with output logs which we always want.
-err_exists=0
-err_msg=""
-# Exit codes of 60 and 61 are true errors, but the code helps show the reason why it failed.
+
+echo ""
+does_error_exist="False"
+# Exit codes of 60 and 61 are still true errors, but the code helps show the reason why it failed.
+# The return_codes array can result in more than one loop below.
+# Let each "code" print its own messages. We can get more than one exit code of 0 but we only want to
+# honor it and use it if no other code has appeared
 for code in "${return_codes[@]}"
 do
-    # Make an extra copy of the unit log into a new folder.
-
     # Note: It was tricky to load in the fim_enum into bash, so we will just
     # go with the exit code for now
     if [ $code -eq 0 ]; then
-        echo
+        #echo ""
         # do nothing
+
     elif [ $code -eq 60 ]; then
         # Yes.. this is an error, and we know why
-        err_msg="***** Unit has no valid branches *****"
-        err_exists="1"
+        err_msg="***** Exit status: $code - Unit has no valid branches *****"
+        l_echo "$err_msg" $errorLogFile
+        does_error_exist="True"
+
     elif [ $code -eq 61 ]; then
         # Yes.. this is an error, and we know why
-        err_msg="***** Unit has no remaining valid flowlines *****"
-        err_exists="1"
+        err_msg="***** Exit status: $code - Unit has no remaining valid flowlines *****"
+        l_echo "$err_msg" $errorLogFile
+        does_error_exist="True"
+
     else  # could be an exit status of 1 but can be other codes as well.
-        # It is possible that some errors may not show up huc log file depeding
+        # It is possible that some errors may not show up huc log file depending
         # how catastrophic the error was. It is possible that an exception
         # could show up in our error log file twice and that is ok.
-        err_msg="***** An Error has occurred - Exit Code is ${code} *****"
-        err_exists="1"
+        err_msg="***** Exit status: ${code}  *****"
+        l_echo "$err_msg" $errorLogFile
+        does_error_exist="True"
     fi
 done
 
-if [ "$err_exists" = "1" ]; then
-    l_echo "$err_msg" $errorLogFile
+# This is here are it is possible to have more than one code in the for loop above
+# This way.. we only ever get one success message if even applicable.
+if [ "$does_error_exist" = "False" ]; then
+    l_echo "***** Exit status: 0 - Success *****" $hucLogFile
 fi
 
-# These are now in functions as page level errors and exceptions can occur anywhere
-# within this fim_process_huc.sh script itself. It script fails earlier then here
-# we are still covered.
-check_for_huc_errors
+echo ""
+# Debug test
+# rrob broke it again
+
+# Scan for warnings too
+echo "Scanning for warnings"
+grep -Hine "warning" $hucLogFile > $warningLogFile
+
 l_echo "---- End of huc processing for $hucNumber" $hucLogFile
-# call function to move the files from temp
 move_output_files
 # we always return a success at this point (so we don't stop the loops / iterator)
 exit 0

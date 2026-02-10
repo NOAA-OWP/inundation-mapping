@@ -59,22 +59,30 @@ fi
 # and is deliberately below the data input validation above.
 handle_error(){
 
+    local line_num=$1
+    local err_msg=$2
+    local exit_code=$3
+
     l_echo "++++++++++++++++++++++++++++" $pp_error_log_file_name
-    msg="Critical error in fim_post_processing.sh itself, line number: $1"
+    msg="Critical error in fim_post_processing.sh itself, line number: $line_num"
     l_echo "$msg" $pp_error_log_file_name
 
     msg="Error Command Submitted: $BASH_COMMAND"
     l_echo "$msg" $pp_error_log_file_name
+
+    msg="Exit Code: $exit_code : $err_msg"
+    l_echo "$msg" $pp_error_log_file_name
+
     echo "++++++++++++++++++++++++++++"
     echo ""
-    exit 0  # we always return 0 (success) as we are fully handling error and logging
+    exit 1  # we always return 0 (success) as we are fully handling error and logging
 }
 
 # In case there is a critical error with logic on this page.
 # Most errors are caught via Time and Tee, then the return status codes
 # but errors can occur on this page itself. This helps trap those types of errors
 # as well
-trap 'handle_error $LINENO' ERR
+trap 'handle_error $LINENO' ERR INT
 
 # load up enviromental information
 args_file=$outputDestDir/runtime_args.env
@@ -101,8 +109,6 @@ rm -f $pp_error_log_file_name  # If it already exists
 # l_echo is echo to screen and log at the same time.
 Set_log_file_path $pp_log_file_name
 
-
-
 echo ""
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 l_echo "---- Start of fim_post_processing" $pp_log_file_name
@@ -111,16 +117,32 @@ T_total_start
 post_proc_start_time=`date +%s`
 
 ## ===============================
-l_echo $startDiv"Concatenate all HUCs error files" $pp_log_file_name
-allErrorsLog="$outputDestDir/logs/all_errors.log"    
-find $outputDestDir -path "**/*/huc_*_errors.log" -type f -exec cat {} + >> $allErrorsLog
+all_errors_log="$outputDestDir/logs/all_errors.log" 
+branch_non_zero_log="$outputDestDir/logs/branch_non_zero_exit_codes.log"
+
+## GET NON ZERO EXIT CODES FOR HUCS ##
+l_echo $startDiv"Start various types of errors and invalid exit codes"
+find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -print0 | \
+   xargs -0 grep -HniE "Exit status: ([1-9][0-9]{0,2})" >> $all_errors_log || true
+
+find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -exec grep -ni "error" {} + >> $all_errors_log  || true
+find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f  -exec grep -ni "parallel" {} + >> $all_errors_log  || true
+# find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f \
+#   -exec grep -ni "Command exited with non-zero status" {} +  >> $all_errors_log || true
 
 ## ===============================
-# Grep Tech Tip.. use the -e flag when you are not using any wildcards or patterns
-# just a word in a line. If you need a regex type patter, use -E instead.
 l_echo $startDiv"Find all HUC branch non zero exit codes" $pp_log_file_name
-find $outputDestDir -path "**/*/logs/branch/*_branch*.log" -type f | \
-    xargs grep -H -n -i -E "Exit status: ([1-9][0-9]{0,2})" >> "$outputDestDir/logs/branch_non_zero_exit_codes.log" &
+find $outputDestDir -path "**/*/logs/branch/*_branch*.log" -type f -print0 | \
+  xargs -0 grep -HniE "Exit status: ([1-9][0-9]{0,2})" >> $branch_non_zero_log || true
+
+# TODO: Get this working.
+# Remove dup entries for acceptable branches from the all_errors as it will be in the branch errors file
+# branch codes of 61, 64, 65 are acceptable branch error codes
+# sed -i '/Exit status: 61 /d' $errorLogFile
+# sed -i '/Exit status: 64 /d' $errorLogFile
+# sed -i '/Exit status: 65 /d' $errorLogFile
+# sed -i 'Exit status: ([6][0-9]{1,2})/d' $errorLogFile
+sed -i '/Exit status: ([6][0-9]{1,2})/d' $errorLogFile
 
 ## ===============================
 l_echo $startDiv"Concatenate all processing time files into a CSV file" $pp_log_file_name
@@ -152,9 +174,9 @@ python3 $toolsDir/combine_crosswalk_tables.py \
 # Grep Tech Tip.. use the -e flag when you are not useing any wildcards or patterns
 # just a word in a line. If you need a regex type patter, use -E instead.
 l_echo $startDiv"Searching for error and invalid exit codes from the post processing script"
-grep -H -n -i -e "Command exited with non-zero status" $pp_log_file_name >> $pp_error_log_file_name &
-grep -H -n -i -e "Exception" $pp_log_file_name >> $pp_error_log_file_name &
-grep -H -n -i -E "Exit status: ([1-9][0-9]{0,2})" $pp_log_file_name >> $pp_error_log_file_name &
+grep -Hnie "Command exited with non-zero status" $pp_log_file_name >> $pp_error_log_file_name || true
+grep -Hnie "Exception" $pp_log_file_name >> $pp_error_log_file_name || true
+grep -HniE "Exit status: ([1-9][0-9]{0,2})" $pp_log_file_name >> $pp_error_log_file_name || true
 echo ""
 ## ===============================
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" $pp_log_file_name

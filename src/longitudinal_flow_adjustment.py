@@ -619,7 +619,7 @@ def apply_longitudinal_dischage_adjustment(huc_dir, huc, log_file_path):  # bank
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:
-        print(f"Error trying to write to the log file of {log_file_path}\n")
+        print(f"Error trying to write to the log file of {log_file_path}\n", flush=True)
         # ok. maybe not re-raise here
 
 

@@ -15,8 +15,8 @@ def generate_branch_list_csv(huc_id, output_branch_csv):
 
         There likely is a better way to do this, but we need to know which branches completed
         successfully. We could look through the branch logs, but I wonder if that would be too loose.
-        Iterate through all branches looking for the usgs_elev_table.csv file which is the very
-        last file created by a branch and it won't be there if the branch failed or aborted.
+        Iterate through all branches looking for the branch hydrotables fileas 
+        it won't be there if the branch failed or aborted.
 
     Params:
         - huc_id
@@ -37,7 +37,7 @@ def generate_branch_list_csv(huc_id, output_branch_csv):
     # figure out the huc folder pathing
     huc_folder = os.path.dirname(output_branch_csv)
 
-    pattern = "**/branches/*/usgs_elev_table.csv"
+    pattern = "**/branches/*/hydroTable_*.csv"
     branch_elev_files = glob.glob(os.path.join(huc_folder, pattern), recursive=True)
 
     branch_dfs_list = []
@@ -49,11 +49,11 @@ def generate_branch_list_csv(huc_id, output_branch_csv):
 
     if len(branch_dfs_list) > 0:
         df_branches = pd.concat(branch_dfs_list, ignore_index=True)
-        print(f"There are {len(branch_dfs_list)} successful branches")
+        print(f"There are {len(branch_dfs_list)} successful branches", flush=True)
 
         # Save the csv even if it is empty
         df_branches.to_csv(output_branch_csv, index=False, header=False)
-
+    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create branch list')

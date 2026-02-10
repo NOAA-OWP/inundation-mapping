@@ -527,7 +527,7 @@ def process_bathy_adjustment(
     if ai_toggle == 1:
         msg = f"AI-Based bathymetry data is applied on streams with order {strm_order} or higher\n"
         log_text += msg
-        print(msg)
+        print(msg, flush=True)
 
     # get hucnumber
     huc = os.path.basename(os.path.normpath(huc_dir))
