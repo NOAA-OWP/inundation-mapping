@@ -1498,11 +1498,24 @@ def __clean_up_previous_outputs(output_mapping_dir, output_temp_dir, sites_pre_m
     """
 
     # Removes these dirs if they already exist (will have gpkg's and tif's for this HUC in it)
-    # TODO: sometimes this still doesn't remove the file... what should we do in that case? return a note to manually clear the files and restart?
     shutil.rmtree(output_mapping_dir, ignore_errors=True)
-    os.mkdir(output_mapping_dir)
-
     shutil.rmtree(output_temp_dir, ignore_errors=True) 
+
+    # TODO: sometimes this still doesn't remove the file... what should we do in that case? return a note to manually clear the files and restart?
+    if os.path.isdir(output_mapping_dir) or os.path.isdir(output_temp_dir):
+
+        err_msg = ( # TODO: Test this and make sure this is the behavior we want to happen here
+            f"Unable to remove {output_mapping_dir} and/or {output_temp_dir}."
+            "This could be because of permissions or because the files are open somewhere."
+            "Please manually remove the folders and re-run CatFIM."
+            )
+
+        logging.critical(err_msg)
+
+        raise Exception(err_msg)
+
+
+    os.mkdir(output_mapping_dir)
     os.mkdir(output_temp_dir)
 
     # # Remove these intermediate files if they already exist 
