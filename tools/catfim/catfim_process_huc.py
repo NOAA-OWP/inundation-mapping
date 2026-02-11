@@ -142,17 +142,18 @@ def process_huc(huc, output_folder):
             library_post_mapping_file_path,
         ) = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
 
-        # Logger should make its own huc log folder inside the parent "logs" folder
 
         # TODO: AWS BUG Jan 2026 - Why are my logs read only for all but the owner? other apps don't I think.
         # I can not delete them to cleanup if I want too. huh? Better check other apps that use setup_file_logger
-
-        log_file_path = sf.setup_file_logger(output_log_dir, f"process_huc_{huc}") # was 
+    
+        # HUC level logs will be initially saved in the temp dir and then they will be copied into the HUC/logs folder
+        # at the end of processing (which will help us ensure that the logs we compile up are from the current run) 
+        log_file_path = sf.setup_file_logger(output_temp_dir, f"process_huc_{huc}") 
         is_logging_loaded = True
 
         print("")
         logging.info(f"Processing {catfim_type} CatFIM for HUC: {huc} ;  {dt_string} (UTC)")
-        print(f"... Logs for this HUC will be saved to {log_file_path}")
+        print(f"... Logs for this HUC will be saved to {log_file_path} for now, but copied over to {huc}/logs later")
         print("")
 
 
@@ -420,8 +421,8 @@ def process_huc(huc, output_folder):
             else:
                 logging.info(f"Continue processing is False, bypassing stage-based elevation data processing.")
 
-        logging.info('TEMP DEBUG exit before mapping')
-        sys.exit()
+        # logging.info('TEMP DEBUG exit before mapping') # TODO: Clean up
+        # sys.exit()
 
 
         # =========================================

@@ -5,9 +5,11 @@ import glob
 import json
 import logging
 import os
+import re
 import pickle
 import sys
 import traceback
+import shutil
 from concurrent.futures import ProcessPoolExecutor, as_completed, wait
 from datetime import datetime, timezone
 
@@ -517,9 +519,199 @@ def process_generate_categorical_fim(
         # - all errors file
         # - all warnings file
 
-        print("Rolling up logs for process_generate_categorical_fim, HUCs, and multiproc")
+
+        if is_logging_loaded:
+
+            # Put the following into a function? # TODO:
+            # 
+
+            print("Rolling up logs for process_generate_categorical_fim, HUCs, and multiproc")
+
+            huc_list_rollup = [a['huc'] for a in task_args_list]
 
 
+            roll_up_status = __roll_up_final_logs(log_file_path, huc_list_rollup, output_folder)
+
+
+            print(roll_up_status)
+
+        else:
+            print('Logging not loaded, skipping logs roll-up.')
+
+
+
+def __roll_up_final_logs(gen_log_file_path, huc_list_rollup, output_folder): 
+    '''
+    Append HUC and post processing logs to final output logs.
+    
+    '''
+    try:
+        msgs = []
+
+        # Get filepaths for the generate categorical fim output logs and check that they exist
+        gen_warnings_log_file_path = gen_log_file_path.replace(".log", "-warnings.log")
+        gen_errors_log_file_path = gen_log_file_path.replace(".log", "-errors.log")
+
+        gen_logs_path_list = [gen_log_file_path, gen_warnings_log_file_path, gen_errors_log_file_path]        
+
+        for path in gen_logs_path_list:
+            if not os.path.exists(path):
+                msgs.append(f'ERROR: Missing output log file at path {path}.')
+
+        if 'ERROR' in msgs:
+            msgs.append('Aborting logs roll-up. HUC and multiproc logs will not be rolled up.')
+            return msgs
+
+        # Make the final log filepath
+        final_log_file_name = "ALL_LOGS_" + os.path.basename(gen_log_file_path)
+        gen_catfim_log_folder = os.path.dirname(gen_log_file_path)
+        final_log_file_path = os.path.join(gen_catfim_log_folder, final_log_file_name)
+
+        # Make the final errors and warnings log filepaths
+        final_warnings_log_file_path = final_log_file_path.replace(".log", "-warnings.log")
+        final_errors_log_file_path = final_log_file_path.replace(".log", "-errors.log")
+
+        final_logs_path_list = [final_log_file_path, final_warnings_log_file_path, final_errors_log_file_path]
+
+        # Copy the generate categorical fim output logs into files with "ALL_LOGS_" in the name
+        shutil.copyfile(gen_log_file_path, final_log_file_path)
+        shutil.copyfile(gen_warnings_log_file_path, final_warnings_log_file_path)
+        shutil.copyfile(gen_errors_log_file_path, final_errors_log_file_path)
+
+        # Clean these paths from the memory to make sure we don't touch these files further
+        del gen_log_file_path, gen_warnings_log_file_path, gen_errors_log_file_path
+
+        msgs.append(f"Rolling up final logs into {final_log_file_path}")
+        
+        # ----------
+        # Add HUC logs to the output logs
+
+        # Iterate through HUCs and append the logs into the output log file (and copy the huc log file to from huc/temp to huc/logs)
+        for huc in huc_list_rollup:
+
+            # Confirm that HUC folder exists
+            huc_folder = os.path.join(output_folder, "hucs", huc)
+            if not os.path.exists(huc_folder):                
+                msgs.append(f"{huc} - HUC folder not found at {huc_folder}, skipping adding HUC logs to final logs.")
+                # Unlikely - This would mean that the HUC was in the args list but we never got far enough to
+                # make a folder for it. 
+                continue
+
+            # Get the HUC temp and log filepaths
+            huc_temp_folder = os.path.join(huc_folder, "temp")
+            huc_log_folder = os.path.join(huc_folder, "logs")
+
+            # Get the most recent log file in the folder
+            huc_log_file_name, num_log_files_avail = get_most_recent_log_file(huc_temp_folder, "process_huc") 
+
+            if huc_log_file_name == None:
+                msgs.append(f"{huc} - No logs found for HUC, skipping adding HUC logs to final logs.")
+                # Unlikely - This means no logs found for huc. This would only happen if the code got into the 
+                # process_huc() function for the HUC but it didn't get far enough to set up the log file.
+                continue
+
+            if num_log_files_avail > 1:
+                msgs.append(f"{num_log_files_avail} logs available for {huc}. Using most recent log: {huc_log_file_name}")
+
+            huc_log_file_path = os.path.join(huc_temp_folder, huc_log_file_name)
+
+            if not os.path.exists(huc_log_file_path):
+                msgs.append(f"{huc} - HUC log not found at {huc_log_file_path}, skipping adding HUC logs (if they exist) to final logs.")
+                continue
+
+            # Get the other two filepaths just by replacing the extension
+            huc_warnings_log_file_path = huc_log_file_path.replace(".log", "-warnings.log")
+            huc_errors_log_file_path = huc_log_file_path.replace(".log", "-errors.log")
+
+            huc_log_paths_list = [huc_log_file_path, huc_warnings_log_file_path, huc_errors_log_file_path]
+
+            # Iterate through log types
+            for huc_log_path, final_log_path in zip(huc_log_paths_list, final_logs_path_list):
+                
+                msgs.append(f'Appending {os.path.basename(huc_log_path)} to {os.path.basename(final_log_path)}') # TEMP DEBUG
+
+                # Copy HUC log from from {huc}/temp to {huc}/logs
+                huc_log_path_new = os.path.join(huc_log_folder, os.path.basename(huc_log_path))
+                shutil.copyfile(huc_log_path, huc_log_path_new)
+
+                # Append HUC .log file to gen .log file
+                log_concat_success = sf.concat_files(huc_log_path, final_log_path, remove_old_src_file=False)
+                if not log_concat_success:
+                    msgs.append(f'Unable to concat to final log (file might not exist): {huc_log_path}')
+
+        # ----------
+        # Add post-processing logs to the main log
+
+        # Get the most recent log file in the folder
+        log_folder = os.path.join(output_folder, "logs")
+        post_p_log_file_path, num_log_files_avail = get_most_recent_log_file(log_folder, "catfim_post_processing")
+
+        if post_p_log_file_path == None:
+            msgs.append(f'Postprocessing log file not found in {log_folder}. Skipping appending post-processing logs to final logs.')
+
+        else:
+
+            # Get the other two filepaths just by replacing the extension
+            post_p_warnings_log_file_path = post_p_log_file_path.replace(".log", "-warnings.log")
+            post_p_errors_log_file_path = post_p_log_file_path.replace(".log", "-errors.log")
+            post_p_log_paths_list = [post_p_log_file_path, post_p_warnings_log_file_path, post_p_errors_log_file_path]
+
+            # Iterate through log types
+            for post_p_log_path, final_log_path in zip(post_p_log_paths_list, final_logs_path_list):
+                
+                msgs.append(f'Appending {post_p_log_path} to {final_log_path}') # TEMP DEBUG
+
+                # Append HUC .log file to gen .log file
+                log_concat_success = sf.concat_files(post_p_log_path, final_log_path, remove_old_src_file=False)
+                if not log_concat_success:
+                    msgs.append(f'Unable to concat to final log: {post_p_log_path}')
+
+        msgs.append('Completed rolling up logs!')
+
+    except Exception:
+        trace_error = traceback.format_exc()
+        err_msg = f"A critical error has occurred while compiling logs. Detail: {trace_error}"
+        msgs.append(err_msg)
+
+
+    finally: # TEMP DEBUG (helpful when running function in command line)
+        for msg in msgs:
+            print(msg)
+
+    return msgs
+
+
+
+
+def get_most_recent_log_file(folder, log_file_name_prefix):
+
+    # Get files that match the prefix
+    log_files_with_prefix = [f for f in os.listdir(folder) if log_file_name_prefix in f]
+
+    # Get a list of available .log files (must not have warnings or errors)
+    log_files = sorted([f for f in log_files_with_prefix if f.endswith(".log") and "-warnings.log" not in f and "-errors.log" not in f])
+
+    num_log_files_avail = len(log_files)
+
+    if num_log_files_avail > 1:
+
+        # Get most recent log file
+        datetimes = {}
+        for file_name in log_files:
+            match = re.search(r'(\d{8}-\d{4})', file_name)
+            if match:
+                datetimes[match.group(1)] = file_name
+
+        most_recent_datetime = sorted(datetimes.keys())[-1]
+        huc_log_file_path = datetimes[most_recent_datetime]
+
+    elif num_log_files_avail == 0:
+        huc_log_file_path = None
+
+    else: # only one log file, which is what we expect
+        huc_log_file_path = log_files[0]
+
+    return huc_log_file_path, num_log_files_avail
 
 def __validate_inputs(received_locals_dict):
     """

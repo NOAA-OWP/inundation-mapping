@@ -199,14 +199,14 @@ def main(huc, output_folder):
 # Main function for CatFIM mapping processing for a HUC
 def process_mapping(
     huc,
-    huc_path, # huc path {fim_run_dir}/{huc}
+    huc_path,
     catfim_type,
-    output_mapping_dir, # dir where mapping outputs are stored - {huc_path}/mapping/
+    output_mapping_dir,
     output_temp_dir,
     sites_pre_mapping_file_path,
     sites_post_mapping_file_path,
-    library_pre_mapping_file_path,  # the csv / df version before we add geometry
-    library_post_mapping_file_path,  # the gpkg version (once we've added geometry)
+    library_pre_mapping_file_path,
+    library_post_mapping_file_path,
 ):
     
     """
@@ -331,18 +331,17 @@ def process_mapping(
         logging.critical(f"A critical error occurred during mapping for {huc}") 
         logging.critical(traceback.format_exc())
 
-
     # At this point, we will have the inundated tifs for each valid site/magnitude combination
     # and the updated sites_gdf and huc_library_df. 
 
     # -----------------------------
     # Post-process HUC
-    # Note: Got rid of the post_process_cat_fim_for_viz function and just call post_process_huc() here
+    # Note: Got rid of the post_process_cat_fim_for_viz function and just call post_process_huc_mapping() here
 
     try:
         logging.info(" ")
         logging.info(f"{huc} - Mapping - Post-processing HUC mapping")
-        huc_library_gdf = post_process_huc(
+        sites_gdf, huc_library_gdf = post_process_huc_mapping(
             huc,
             catfim_type,
             sites_gdf,
@@ -352,14 +351,6 @@ def process_mapping(
     except Exception:
         logging.critical(f"A critical error occurred during mapping post-processing for {huc}") 
         logging.critical(traceback.format_exc())
-
-    # -----------------------------
-    # TODO: Add final checks
-
-    # TODO: add check to see if there are any sites left that have some inundated files
-    # If not, the sites_gdf should already have the recs updated to know why
-
-
 
     # -----------------------------
     # Save the HUC-level mapping outputs
@@ -377,6 +368,13 @@ def process_mapping(
     except Exception:
         logging.critical(f"A critical error occurred while saving mapping outputs for {huc}")
         logging.critical(traceback.format_exc())
+
+
+    # -----------------------------
+    # TODO: Add final checks
+
+    # TODO: add check to see if there are any sites left that have some inundated files
+    # If not, the sites_gdf should already have the recs updated to know why
 
     # -----------------------------
     logging.info(" ")
@@ -1455,7 +1453,7 @@ def mosaic_sb_inundation(
     return output_extent_tif #, logs? # TODO: decide what to return, maybe logs?
 
 
-def post_process_huc(
+def post_process_huc_mapping(
     huc,
     catfim_type,
     sites_gdf,
@@ -1579,7 +1577,7 @@ def post_process_huc(
             huc_library_interval_data_list = []
 
             for index, row in mapped_intervals_df.iterrows():
-                logging.info(f"nws_lid: {nws_lid}, magnitude: {magnitude}, interval_stage: {interval_stage} ") ## TEMP DEBUG
+                # logging.info(f"nws_lid: {nws_lid}, magnitude: {magnitude}, interval_stage: {interval_stage} ") ## TEMP DEBUG
 
                 nws_lid = row['nws_lid']
                 magnitude = row['magnitude']
@@ -1661,7 +1659,7 @@ def post_process_huc(
 
     # TODO: We could update the mapping status here but I think instead we want to update the mapping
     # status at the very end of mapping... right? Although it might make sense to do it here because that saves us the effort of having to 
-    # read the GDF back in... or at least doing it somewhere in process_mapping(), maybe right outside of post_process_huc()
+    # read the GDF back in... or at least doing it somewhere in process_mapping(), maybe right outside of post_process_huc_mapping()
 
     # Get a list of sites that have at least one mapped geometry   
     sites_with_valid_geoms_gdf = huc_library_gdf[~huc_library_gdf.geometry.is_empty & huc_library_gdf.geometry.notna()]
@@ -1724,7 +1722,7 @@ def post_process_huc(
                     # or do we want to leave that status? or append msg + status (+ warning)? might be overkill...
                     # For now, maybe we do the overkill option (append all three) and just see how crazy that ends up being?
 
-    # TODO: Should the rest of this go into csf.update_sites_mapping_status ?
+    # TODO: Should the rest of this go into csf.update_sites_mapping_status ? -> yes
 
     # # Add metadata columns from the sites GDF to the library GDF
     # huc_library_gdf = huc_library_gdf.merge(
@@ -1748,7 +1746,7 @@ def post_process_huc(
     #     # TODO: any changes to interval columns?
 
 
-    return huc_library_gdf
+    return sites_gdf, huc_library_gdf
 
 
 def reformat_inundation_maps(
