@@ -95,6 +95,7 @@ def process_huc(huc, output_folder):
 
     # Setup for HUC processing
     is_logging_loaded = False
+    is_success = True
 
     # Random timer to stagger file pulls
     # TODO: Put in random timer (can find info elsewhere in inundation mapping)
@@ -492,7 +493,8 @@ def process_huc(huc, output_folder):
         duration_msg = sf.calculate_duration_msg(overall_start_time)
         logging.info(duration_msg)
 
-    except Exception:
+    except Exception as ex:
+        is_success = False
         trace_error = traceback.format_exc()
 
         err_msg = f"A critical error has occurred while processing {huc}. Detail: {trace_error}"
@@ -502,6 +504,8 @@ def process_huc(huc, output_folder):
             print(err_msg)
 
         # do we re-throw the error? gcf, aws, or cmd line? hummm # TODO: Decide
+        
+        # raise ex
 
     # CatFIM reorg notes: 
     # nothing to return as of now
@@ -511,7 +515,7 @@ def process_huc(huc, output_folder):
     # if we add one, keep it a simple data type (str, int, float)
     #  hummm
 
-    return huc
+    return huc, is_success
 
 
 def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_dir, library_pre_mapping_file_path):

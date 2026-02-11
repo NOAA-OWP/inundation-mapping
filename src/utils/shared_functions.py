@@ -44,7 +44,12 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     ie) setup_file_logger("/ouputs/mylogs", "pull_osm_bridges")
     The log name becomes "/outputs/mylogs/pull_osm_bridges_20250925_1842.log
 
-    This one is not meant to be used for MP's.
+    This one is generally not meant to be used for MP's but this needs to be confirmed.
+    The problem with loggers being used inside some MP's is that each MP process can potentially
+    be writing to the same file at the same time.  If you have a process even if it is in an
+    MP, as long as it has its own unique MP log file names, you can use this one.
+    ie)  huc_12090301_inundate_20260217.log
+    
     It prints to file and screen at the same time.
 
     This one is very similar to 'setup_mp_file_logger' but has a few critical differences.
