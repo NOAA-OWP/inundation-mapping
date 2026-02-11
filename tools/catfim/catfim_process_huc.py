@@ -1498,10 +1498,11 @@ def __clean_up_previous_outputs(output_mapping_dir, output_temp_dir, sites_pre_m
     """
 
     # Removes these dirs if they already exist (will have gpkg's and tif's for this HUC in it)
+    # TODO: sometimes this still doesn't remove the file... what should we do in that case? return a note to manually clear the files and restart?
     shutil.rmtree(output_mapping_dir, ignore_errors=True)
     os.mkdir(output_mapping_dir)
 
-    shutil.rmtree(output_temp_dir, ignore_errors=True)
+    shutil.rmtree(output_temp_dir, ignore_errors=True) 
     os.mkdir(output_temp_dir)
 
     # # Remove these intermediate files if they already exist 

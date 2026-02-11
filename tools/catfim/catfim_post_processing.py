@@ -10,6 +10,7 @@ import pandas as pd
 from dotenv import load_dotenv
 
 import src.utils.shared_functions as sf
+import tools.catfim.catfim_shared_functions as csf
 
 
 """_summary_
@@ -91,16 +92,16 @@ def catfim_post_processing(output_folder):
 
         # ---------------------
         # Validate that we have some huc sites / library data
-        huc_path = os.path.join(output_folder, "hucs")
-        if not os.path.exists(huc_path):
+        huc_parent_folder_path = os.path.join(output_folder, "hucs")
+        if not os.path.exists(huc_parent_folder_path):
             raise Exception("CatFIM output huc folder does not exist. Post-processing aborted.")
 
         # Gets a list of huc numbers by finding folder names from /data/catfim/hand_4_8_7_2_stage_based/hucs
         # Note for the future: Never use the catfim_huc_list.txt as it might be invalid after initial processing
         huc_list = [
             x
-            for x in os.listdir(huc_path)
-            if os.path.isdir(os.path.join(huc_path, x)) and x[0] in ['0', '1', '2', '9']
+            for x in os.listdir(huc_parent_folder_path)
+            if os.path.isdir(os.path.join(huc_parent_folder_path, x)) and x[0] in ['0', '1', '2', '9']
         ]
 
         if len(huc_list) == 0:
@@ -118,35 +119,31 @@ def catfim_post_processing(output_folder):
         compiled_sites_gdf_list, compiled_library_gdf_list = [], []
 
         for huc in huc_list:
-            huc_folder = os.path.join(huc_path, huc)
+            huc_path = os.path.join(huc_parent_folder_path, huc)
+
+            # Create filepath variables
+            __, __, __, __, sites_post_mapping_file_path, __, library_post_mapping_file_path = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
+            # TODO: There's probably a better way to do this without returning all the __'s,
 
             # Sites
-            huc_sites_file = os.path.join(huc_folder, f"{huc}_sites.gpkg")  # TODO: Update (will add CatFIM type to this name)
             try:
-                with open(huc_sites_file, 'r') as f:
-                    huc_sites_gdf = gpd.read_file(huc_sites_file, engine='fiona')
+                with open(sites_post_mapping_file_path, 'r') as f:
+                    huc_sites_gdf = gpd.read_file(sites_post_mapping_file_path, engine='fiona')
                 compiled_sites_gdf_list.append(huc_sites_gdf)
 
             except FileNotFoundError:
                 hucs_without_sites.append(huc)
 
             # Library
-            huc_library_file = os.path.join(huc_folder, f"{huc}_library.gpkg")  # TODO: Update (will add CatFIM type to this name)
             try:
-                with open(huc_library_file, 'r') as f:
-                    huc_library_gdf = gpd.read_file(huc_library_file, engine='fiona')
+                with open(library_post_mapping_file_path, 'r') as f:
+                    huc_library_gdf = gpd.read_file(library_post_mapping_file_path, engine='fiona')
                 compiled_library_gdf_list.append(huc_library_gdf)
 
             except FileNotFoundError:
                 hucs_without_library.append(huc)
 
-
         # End huc loop
-        # ---------------------
-        # TODO: Roll up HUC logs
-
-        # . 
-
 
         # ---------------------
         # Summarize HUC processing
@@ -213,10 +210,6 @@ def catfim_post_processing(output_folder):
         logging.info("")
         print("================================")
         print("")
-
-
-
-
 
     except Exception:
         trace_error = traceback.format_exc()

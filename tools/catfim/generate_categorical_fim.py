@@ -498,8 +498,8 @@ def process_generate_categorical_fim(
         if len(failed_HUCs_list) > 0:
             logging.error("show a list or someting of what failed.")  #failed_HUCs_list
 
-        print("stop here in gen catfim - right before post processing - for now")
-        sys.exit(0)
+        # print("stop here in gen catfim - right before post processing - for now")
+        # sys.exit(0)
 
         # End of mp huc processing
 
