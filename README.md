@@ -1,3 +1,5 @@
+[![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/NOAA-OWP/inundation-mapping)
+
 ## Inundation Mapping: Flood Inundation Mapping for U.S. National Water Model
 
 This repository includes flood inundation mapping software configured to work with the U.S. National Water Model operated and maintained by the National Oceanic and Atmospheric Administration (NOAA) National Water Center (NWC).
