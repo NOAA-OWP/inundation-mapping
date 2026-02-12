@@ -105,6 +105,7 @@ scan_logs_for_errors(){
     grep -Hine "Command exited with non-zero status" $rerunlogFilename >> $rerunErrorLogFilename
     grep -Hine "error" $rerunlogFilename >> $rerunErrorLogFilename
     grep -Hine "parallel" $rerunlogFilename >> $rerunErrorLogFilename
+    grep -Hine "Exception" {} + >> $all_errors_log
 
     # we need to also check the files in the src_calibration files for errors and exceptions values
     # Some of the py files using src_calibration log folder may have incomplete logs and not

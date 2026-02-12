@@ -122,13 +122,41 @@ branch_non_zero_log="$outputDestDir/logs/branch_non_zero_exit_codes.log"
 
 ## GET NON ZERO EXIT CODES FOR HUCS ##
 l_echo $startDiv"Start various types of errors and invalid exit codes"
-find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -print0 | \
-   xargs -0 grep -HniE "Exit status: ([1-9][0-9]{0,2})" >> $all_errors_log || true
+echo "There will be lots of duplication of related errors and we will clean this up later.
 
-find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -exec grep -ni "error" {} + >> $all_errors_log  || true
-find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f  -exec grep -ni "parallel" {} + >> $all_errors_log  || true
-# find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f \
-#   -exec grep -ni "Command exited with non-zero status" {} +  >> $all_errors_log || true
+# -------------------------
+# TODO: July the commands for find and grep with regex fail if it can not find at least one file with a exit
+# status that is not zero. Lets leave it for another day as we will always get a list a branch acceptable
+# exit status of 62 - 65, so it won't fail for now. Split the commands to get an array of files.
+# if there are files, send them to grep for word search and put to a variable or find a way to see
+# if it returned any results. Grep has been failing for some reason when it can't find one.
+# if that passes, then send the output to logs.
+# The reason is has been so tough is the chain... find -> grep -> error trap -> logs
+
+# work in progress experiments
+# declare -a unit_log_file_array
+
+# Use mapfile and process substitution to populate the array
+# mapfile -d '' -t unit_log_file_array < <(find /path/to/search -type f -name "*.txt" -print0)
+
+# Explanation:
+# -d '': Specifies the null character as the delimiter for mapfile.
+# -t: Removes the trailing delimiter from each element read (not needed with -d ''), but good practice.
+# < <(...): Uses process substitution to feed the output of the find command as stdin to mapfile.
+# find ... -print0: Generates a list of matching files, separated by null characters.
+
+find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -print0 | xargs -0 grep -HniE "Exit status: ([1-9][0-9]{0,2})" >> $all_errors_log 
+
+# find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -print0 | \
+#    xargs -0 grep -HniE "Exit status: ([1-9][0-9]{0,2})" || true >> $all_errors_log
+
+# -------------------------
+
+find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -exec grep -Hni "error" {} + >> $all_errors_log  || true
+find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f  -exec grep -Hni "parallel" {} + >> $all_errors_log  || true
+find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f  -exec grep -Hni "Exception" {} + >> $all_errors_log  || true
+find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f \
+  -exec grep -Hni "Command exited with non-zero status" {} +  >> $all_errors_log || true
 
 ## ===============================
 l_echo $startDiv"Find all HUC branch non zero exit codes" $pp_log_file_name
@@ -142,7 +170,7 @@ find $outputDestDir -path "**/*/logs/branch/*_branch*.log" -type f -print0 | \
 # sed -i '/Exit status: 64 /d' $errorLogFile
 # sed -i '/Exit status: 65 /d' $errorLogFile
 # sed -i 'Exit status: ([6][0-9]{1,2})/d' $errorLogFile
-sed -i '/Exit status: ([6][0-9]{1,2})/d' $errorLogFile
+# sed -i '/Exit status: ([6][0-9]{1,2})/d' $errorLogFile
 
 ## ===============================
 l_echo $startDiv"Concatenate all processing time files into a CSV file" $pp_log_file_name

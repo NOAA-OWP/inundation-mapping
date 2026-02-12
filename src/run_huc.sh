@@ -305,7 +305,7 @@ branch0_percent=$(Calc_Time_Minutes_in_Percent $branch0_start_time)
 
 # -------------------
 ## Processing Branches ##
-echo
+echo "+++++++++++++++++++++++++++++++++++++++++++++++++"
 echo "---- Start of branch processing for $hucNumber using $jobBranchLimit workers for branch processing"
 branch_processing_start_time=`date +%s`
 
@@ -346,6 +346,11 @@ Calc_Duration "Duration for processing branches : " $branch_processing_start_tim
 echo
 total_branches=$(wc -l < $branch_list_csv_file)
 
+# echo "rob error"
+# echo "rob parallel"
+
+# robbb broke at the end of run_huc
+
 ## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
@@ -355,9 +360,6 @@ $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
 echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
 
-
-echo "Rob Parallel test"
-echo "rob warning test"
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"

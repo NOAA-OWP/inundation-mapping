@@ -32,10 +32,8 @@ hucNumber=$3
 
 #       Details coming
 
-
-
-# In re-run mode, we are workign against the actual outputs_temp directory, but 
-# when we are not, we are workign against the outputs directory. As a result,
+# In re-run mode, we are working against the actual outputs_temp directory, but 
+# when we are not, we are working against the outputs directory. As a result,
 # we will fake out what the value of tempHucDataDir.
 
 
@@ -47,9 +45,6 @@ else
 fi
 echo "---- Started: `date -u`"
 echo ""
-
-# invalid command Rob testing invalid bash line that should abort becuase of the -e flag
-
 
 # Check if it is a calibration rerun or not
 if [ "$calibration_rerun" = "true" ]; then
@@ -145,8 +140,8 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     python3 $srcDir/src_adjust_spatial_obs.py -huc_dir $tempHucDataDir -jb $jobBranchLimit 
 fi
 
-#sys.exit(2)
-# exit 12
+#sys.exit(2) Robb test
+# exit 12  Robb test
 
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
@@ -155,6 +150,8 @@ if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
         -huc_dir $tempHucDataDir \
         -calb_file $man_calb_file
 fi
+
+robbb-crc broke it test in calib rating curve
 
 
 ## AGGREGATE BRANCH TABLES ##

@@ -94,12 +94,8 @@ def run_shell_for_huc(
         #   #!/bin/bash -e   (The -e means immeditely stop on error which is a feature
         #   we absolutely have to have. Especially when that is script is called by
         #   non re-calibrate scenarios such as run_by_branch.sh
-        # calibrate_rating_curves.sh might have it's second code line as
-        # set -e (with possibly more options that the shell script can use to manage
-        # errors, exit codes, error details, etd. If you have the "set" command as
-        # the second line, it shoudl always include the "-e" flag and have it removed
-        # in the top bin/bash line. ie) if a line of "setup" exists, it should have
-        # at least -e added here and removed from the top bin/bash line.
+        # calibrate_rating_curves.sh now has, and must have, #!/bin/bash -e as it's top line (with the -e)
+        # the -e command (or at least set -e in a bash file means exit on fail)
 
         # This scenario is slightly complicated that calibrate_rating_curves.sh is called
         # in two places, once in python script and the other as a bash script and they
@@ -113,11 +109,6 @@ def run_shell_for_huc(
         #    we don't have any but keep the door open and see we have anything.
         # 3) StdErr:  If available, and it is not always available, is the reason that
         #    the .sh failed.
-
-        # Rob: Finish this as you created process_run_calibraitn.sh since you last messed
-        # with this. With process_run_calibration.sh now handling all logs, maybe just
-        # let this handle the Sys exit code it did before and decide if it wants to just
-        # stop the huc or the entire MP. Maybe based on the code??? not sure
 
         # Use Popen for real-time output streaming while also capturing for error logging
         process = subprocess.Popen(

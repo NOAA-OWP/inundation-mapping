@@ -620,4 +620,6 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
+    raise Exception("Robb broke this in agg branches to huc")
+
     aggregate_by_huc(**args)

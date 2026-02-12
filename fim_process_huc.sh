@@ -1,7 +1,7 @@
 #!/bin/bash
 ### set -e  # We explicitly do not want -e as that would early abort and we want
 ###           the files to copy from temp to outputs
-set -Eeuo pipefail
+# set -Eeuo pipefail
 umask 000
 
 :
@@ -75,17 +75,17 @@ warningLogFile="$tempHucDataDir/logs/huc_${hucNumber}_warnings.log"
 
 # Some simple error handling
 # This helps ensure we always copy the temp dir to outputs dir
-handle_error(){
+# handle_error(){
 
-    echo "+++++++++++++++++  Script ERROR   +++++++++++"
-    local msg="Critical error in fim_process_huc.sh script itself"
-    msg="${msg} : Command Submitted: $BASH_COMMAND - HUC $hucNumber"
-    echo -e "$msg" ; echo -e "$msg" >> "$hucLogFile"   
-    echo "++++++++++++++++++++++++++++"
-    move_output_files
-    echo ""
-    exit 0  # we always return 0 (success) as we are fully handling error and logging
-}
+#     echo "+++++++++++++++++  Script ERROR   +++++++++++"
+#     local msg="Critical error in fim_process_huc.sh script itself"
+#     msg="${msg} : Command Submitted: $BASH_COMMAND - HUC $hucNumber"
+#     echo -e "$msg" ; echo -e "$msg" >> "$hucLogFile"   
+#     echo "++++++++++++++++++++++++++++"
+#     move_output_files
+#     echo ""
+#     exit 0  # we always return 0 (success) as we are fully handling error and logging
+# }
 
 move_output_files() {
 
@@ -107,13 +107,11 @@ move_output_files() {
     # find $outputHucDataDir -type d -exec chmod -R 777 {} +
    
     rm -rdf $tempHucDataDir
-
     echo ""
-    echo "============================================================================================="
 }
 
 # will catch errors from here down.
-trap 'handle_error $LINENO' ERR
+# trap 'handle_error $LINENO' ERR
 
 ## huc data
 if [ -d "$outputHucDataDir" ]; then
@@ -173,7 +171,7 @@ return_codes=( "${PIPESTATUS[@]}" )
 # as they were messing with output logs which we always want.
 
 echo ""
-does_error_exist="False"
+does_error_exist="false"
 # Exit codes of 60 and 61 are still true errors, but the code helps show the reason why it failed.
 # The return_codes array can result in more than one loop below.
 # Let each "code" print its own messages. We can get more than one exit code of 0 but we only want to
@@ -183,40 +181,41 @@ do
     # Note: It was tricky to load in the fim_enum into bash, so we will just
     # go with the exit code for now
     if [ $code -eq 0 ]; then
-        #echo ""
+        echo ""
         # do nothing
 
     elif [ $code -eq 60 ]; then
         # Yes.. this is an error, and we know why
         err_msg="***** Exit status: $code - Unit has no valid branches *****"
         l_echo "$err_msg" $errorLogFile
-        does_error_exist="True"
+        does_error_exist="true"
 
     elif [ $code -eq 61 ]; then
         # Yes.. this is an error, and we know why
         err_msg="***** Exit status: $code - Unit has no remaining valid flowlines *****"
         l_echo "$err_msg" $errorLogFile
-        does_error_exist="True"
+        does_error_exist="true"
 
     else  # could be an exit status of 1 but can be other codes as well.
         # It is possible that some errors may not show up huc log file depending
         # how catastrophic the error was. It is possible that an exception
         # could show up in our error log file twice and that is ok.
-        err_msg="***** Exit status: ${code}  *****"
+        err_msg="***** Exit status: ${code} detected *****"
         l_echo "$err_msg" $errorLogFile
-        does_error_exist="True"
+        does_error_exist="true"
     fi
 done
 
-# This is here are it is possible to have more than one code in the for loop above
-# This way.. we only ever get one success message if even applicable.
-if [ "$does_error_exist" = "False" ]; then
-    l_echo "***** Exit status: 0 - Success *****" $hucLogFile
-fi
+# +++++++++++++++++++
+# TODO: Feb 2025. If a py file throws an error, it can return Command exited with non-zero status 1
+# but we will get an exit code of 0 so we show success. Good enough for now as post processing logs
+# catch it
 
-echo ""
-# Debug test
-# rrob broke it again
+if [[ "$does_error_exist" == "false" ]]; then
+    l_echo "***** Exit status: 0 - Success *****" $hucLogFile
+    echo "Note: A temp bug may show this as success but python bugs often show up in the logs as " \
+        "Command exited with non-zero status 1. Good enough for now as post processing logs catch it."
+fi
 
 # Scan for warnings too
 echo "Scanning for warnings"
