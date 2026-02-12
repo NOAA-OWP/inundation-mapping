@@ -1,6 +1,64 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
+
+A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
+
+Note: All files in GIT retain the permissions of the files on the users local machine. Some of the files included in here had the permissions set for that file upgraded.  ie) from 644 to 755 (allowing for more read/write/execute) on some files.
+
+### Changes
+- `data`
+    - `bridges`
+        - `conda_fim_bridges_enviro.yml`:  file permissions changed.
+        - `make_dem_dif_for_bridges.py`:  comments and sample notes updated.
+        - `make_rasters_using_lidar.py`:  file permissions changed.
+        - `pull_osm_bridges.py`:
+            - added osm argument to extend timeout duration.
+            - remove intermediate files which compromised aborted tests. Forces key files and directories to be clean on a rerun. Also slight changes to the intermediate file names.
+            - Added a new argument to add a file_name prepend to all intermediate and output files. This makes for easier debugging, plus managing errors where one region (ie.. Guam), is accidently run in the same folder as a previous run with a different region. (ie. Conus).
+            - increased error handling, notes and sample text.
+         - `setup_conda_for_make_rasters.txt`: file permissions changed.
+   - `nhdplus/preprocess_nhdplus.py`:  changed a local function name to add two underscores in front.
+   - `roads/pull_osm_roads.py`:  Increased the default osm timeout and fixed the system to allow for more than 3 jobs to be processed at one time.  The previous setting of "3" was a calculated based on a non production sized machine with much higher network capacity. Increasing the timeout also allows for high job numbers and faster downloading.
+   - `usgs/acquire_and_preprocess_3dep_dems.py`: Changes include:
+        - Updated the MP, multi-processing, system to our newer and better optimized MP system from the shared_functions.py file. Along with this and some related changes, download performance was significantly improved.
+        - Updates to a few variable names,  comments and sample text.
+        - Improved the logging naming system and changed it to the new standard from our shared_functions.py file.
+        - Improved error handling and logging.
+        - Added a new argument specifically to set the target projection of output files to be more flexible for all four regions types of CONUS, AK, Guam and American Somoa.
+    - `usgs/preprocess_download_usgs_grids.py`:  Added note. Possibly a deprecated file. TBD
+    - `wbd/generate_pre_clip_fim_huc8.py`. Changes include:
+          - Add a new random time.sleep feature as all iterations of processing a HUC hit the single shared large WBD file at the same time. This will help with file collisions. We may want to revisit usage of key variables such as loading the WBD so each HUC does not necessarily have to hit the file at the same type. ie) load the entire WBD and share it to each HUC iteration for filtering. Quicker to load and use that way.
+          - Updated some comments and sample text.
+          - Fixed a bug with maximum number of jobs being requested as an argument.
+     - `create_vrt_file.py`:  Fixed an import pathing syntax plus updated the sample text.
+ - `src`
+     - `utils/shared_functions.py`: Added a new utility to simplify when a user wants screen output plus various forms of file logging. This will work for both MP, multi-processing, systems and non MP's. Changed a few variable names.
+     - `bash_variables.env`: Updated paths for new DEMs, bridges data including bridge DEM diffs and pre-clips to reflect the input datasets. Also made slight reorg changes to variable names to be more region based. ie) a CONUS dem domain file name, then its related VRT on the next line.
+
+Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
+<br/>
+
+## v4.9.7.0 - 2026-02-05 - [PR#1752]([https://github.com/NOAA-OWP/inundation-mapping/pull/1752])
+
+This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
+
+Changes
+- /src/bash_variables.env
+<br/>
+
+## v4.9.6.0 - 2026-02-05 - [PR#1721]([https://github.com/NOAA-OWP/inundation-mapping/pull/1721])
+
+This PR aims to longitudinally refine the discharge values in the rating curve by filtering the surface area values and recalculating discharge and the rest of Manning equations' variables, including bed area and volume. You can find the details of the framework here:
+
+See PR for more details.
+
+Changes
+- /src/longitudinal_flow_adjustment.py
+- /src/add_crosswalk.py
+<br/>
+
 ## v4.9.5.5 - 2026-01-27 - [PR#1734]([https://github.com/NOAA-OWP/inundation-mapping/pull/1734])
 
 This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
