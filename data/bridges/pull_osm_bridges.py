@@ -21,11 +21,6 @@ from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
 # and network volume (number of jobs)
 ox.settings.request_timeout = 500
 
-"""
-TODO:  Make the huc level osm files in a working dir
-but then save the "final" ones in the output_dir
-"""
-
 
 # ox.settings.requests_timeout = 1200  # Set timeout to 20 minutes
 srcDir = os.getenv('srcDir')
