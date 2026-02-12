@@ -79,6 +79,7 @@ def adjust_floodplains(
     streams = gpd.read_file(nwm_streams)
     levelpaths = gpd.read_file(nwm_levelpaths)
     branch_polys = gpd.read_file(branch_polygons)
+
     branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 
     # Filter levelpaths by branch
@@ -90,15 +91,28 @@ def adjust_floodplains(
 
     # Get all upstream streams
     def get_upstream_streams(hydro_ids, streams_df):
-        upstream_streams = streams_df[streams_df['ID'].isin(hydro_ids)]
-        for hydro_id in hydro_ids:
-            direct_upstream = streams_df[streams_df['to'] == hydro_id]
-            if not direct_upstream.empty:
-                upstream_streams = pd.concat([upstream_streams, direct_upstream])
-                upstream_streams = pd.concat(
-                    [upstream_streams, get_upstream_streams(direct_upstream['ID'].tolist(), streams_df)]
-                )
-        return upstream_streams.drop_duplicates()
+        """Get all upstream streams efficiently using iterative approach with visited set."""
+        # Create a lookup dictionary for faster access to upstream relationships
+        to_lookup = streams_df.groupby('to')['ID'].apply(list).to_dict()
+
+        visited = set()
+        result_ids = set(hydro_ids)  # Start with the input IDs
+        queue = list(hydro_ids)
+
+        while queue:
+            current_id = queue.pop()
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+
+            # Find all streams that flow to this stream
+            upstream_ids = to_lookup.get(current_id, [])
+            for upstream_id in upstream_ids:
+                if upstream_id not in visited:
+                    result_ids.add(upstream_id)
+                    queue.append(upstream_id)
+
+        return streams_df[streams_df['ID'].isin(result_ids)]
 
     upstream_streams = get_upstream_streams(ids, streams)
 
