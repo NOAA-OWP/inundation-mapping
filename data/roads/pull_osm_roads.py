@@ -103,6 +103,8 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
     unrealistic flood depth calculations in FIMpact analyses. Bridges are handled
     separately via pull_osm_bridges.py and the bridge-healing workflow.
     """
+    road_data = pd.DataFrame()
+
     minx, miny, maxx, maxy = huc_geom.bounds
     bbox_query = f"({miny},{minx},{maxy},{maxx})"
 
@@ -125,8 +127,7 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
     for attempt in range(1, max_attempts + 1):
         try:
-            # timeout at 5 mins, which can happen depending on the network speed and jobs (network volume)
-            result = api.query(query_template.format(bbox=bbox_query), timeout=500)
+            result = api.query(query_template.format(bbox=bbox_query))
             break  # success
         except (overpy.exception.OverpassTooManyRequests, overpy.exception.OverpassGatewayTimeout) as e:
             wait_time = 5 * attempt + random.uniform(0, 2)
@@ -299,22 +300,9 @@ def single_huc_job(
 
 def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
 
-    # -------------------
-    # Validation
-    # Feb 2026: Removing this test as we are continuing to get even bigger EC2's with
-    # larger network speeds which allows for more jobs.
-    # if number_jobs > 10:
-    #     print("Overpy does not seem to like more than 10 jobs. Adjusting job number down to 10.")
-    #     print("Do not run on a dev EC2. Please run on bigger machien with larger network speeds.")
-    #     number_jobs = 10
-
-    total_cpus_available = os.cpu_count() - 2
-    if number_jobs > total_cpus_available:
-        raise ValueError(
-            f'The number of jobs provided: {number_jobs} ,'
-            ' exceeds your machine\'s available CPU count minus two.'
-            ' Please lower the number of jobs value accordingly.'
-        )
+    if number_jobs > 3:
+        print("Overpy does not seem to like more than 3 jobs. Adjusting job number down to 3.")
+        number_jobs = 3
 
     if not os.path.exists(preclip_dir):
         raise ValueError("preclip directory not found")
@@ -425,8 +413,7 @@ if __name__ == "__main__":
     # +++++++++++++++++++++++++
     # Note: Overpass API has a system at their servers that manages the number of calls coming in from
     # all locations, not just this script. At busier times, that threshold can be lower.
-    # Exact number varies. If you submit more than 4 jobs, we will adjust it down, but
-    # also have code to do re-tries. It seems to like 3 jobs most of the time.
+    # If you submit more than 3 jobs, the code will adjust it down to 3.
     # +++++++++++++++++++++++++
 
     parser = argparse.ArgumentParser(description='Download OSM roads for all HUCs')
@@ -443,7 +430,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-j',
         '--number_jobs',
-        help='OPTIONAL: Number of (jobs) cores/processes for downloading HUC roads, default is 3. ',
+        help='OPTIONAL: Number of parallel API calls for downloading HUC roads. Default = 3, max = 3; values > 3 are reset to 3',
         required=False,
         default=3,
         type=int,
