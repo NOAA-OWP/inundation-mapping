@@ -116,13 +116,6 @@ python3 $toolsDir/combine_crosswalk_tables.py \
 Tcount
 
 
-l_echo $startDiv"Resetting Permissions"
-Tstart
-    # super slow to change chmod on the log folder. Not really manditory anyways
-    find $outputDestDir -maxdepth 1 -type f -exec chmod 777 {} +  # just root level files
-Tcount
-
-
 l_echo $startDiv"Compile all HUCs error files"
 echo "Results will be saved in log folder."
 Tstart
@@ -131,6 +124,15 @@ Tstart
     find "$outputDestDir" -type f -name "huc_*_errors.log" \
        -exec sh -c 'for f; do echo "=== $f ==="; cat "$f"; done' _ {} + > "$outfile"
     echo "Collected errors into: $outfile"
+Tcount
+
+l_echo $startDiv"Resetting Permissions"
+Tstart
+    # HUC folders took care of their own perms, but the other folders such as 
+    # logs and branch_errors did not
+    find $outputDestDir/branch_errors -type d -exec chmod -R 777 {} +
+    find $outputDestDir/logs -type d -exec chmod -R 777 {} +
+    find $outputDestDir -maxdepth 1 -type f -exec chmod 777 {} +  # just root level files
 Tcount
 
 echo

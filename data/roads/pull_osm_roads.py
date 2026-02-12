@@ -1,3 +1,15 @@
+"""
+Download road segments from OpenStreetMap (OSM) for FIM analysis.
+
+This script queries the Overpass API to download major road segments (motorway, trunk,
+primary, secondary, tertiary) for each HUC boundary. Road segments are then split by
+NWM catchment boundaries for use in flood impact (FIMpact) calculations.
+
+Important: Bridge segments (tagged with bridge=*) are explicitly EXCLUDED from the road
+downloads to prevent unrealistic flood depth calculations. Bridge segments are handled
+separately via pull_osm_bridges.py and the bridge-healing workflow.
+"""
+
 import argparse
 import http.client
 import os
@@ -84,13 +96,22 @@ def split_bbox(minx, miny, maxx, maxy, num_splits=4):
 
 
 def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
+    """
+    Pull road segments from OpenStreetMap for a given HUC boundary.
+
+    Note: Bridge segments (tagged with bridge=*) are explicitly excluded to prevent
+    unrealistic flood depth calculations in FIMpact analyses. Bridges are handled
+    separately via pull_osm_bridges.py and the bridge-healing workflow.
+    """
     minx, miny, maxx, maxy = huc_geom.bounds
     bbox_query = f"({miny},{minx},{maxy},{maxx})"
 
+    # Exclude bridge segments to prevent unrealistic flood depth calculations
+    # Bridge segments are pulled separately via pull_osm_bridges.py and handled differently
     query_template = """
     [out:json];
     (
-    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$"]{bbox};
+    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$"][!"bridge"]{bbox};
     );
     out body;
     >;
@@ -104,7 +125,8 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
     for attempt in range(1, max_attempts + 1):
         try:
-            result = api.query(query_template.format(bbox=bbox_query))
+            # timeout at 5 mins, which can happen depending on the network speed and jobs (network volume)
+            result = api.query(query_template.format(bbox=bbox_query), timeout=500)
             break  # success
         except (overpy.exception.OverpassTooManyRequests, overpy.exception.OverpassGatewayTimeout) as e:
             wait_time = 5 * attempt + random.uniform(0, 2)
@@ -279,9 +301,20 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
 
     # -------------------
     # Validation
-    if number_jobs > 3:
-        print("Overpy does not seem to like more than 3 jobs. Adjusting job number down to 3.")
-        number_jobs = 3
+    # Feb 2026: Removing this test as we are continuing to get even bigger EC2's with
+    # larger network speeds which allows for more jobs.
+    # if number_jobs > 10:
+    #     print("Overpy does not seem to like more than 10 jobs. Adjusting job number down to 10.")
+    #     print("Do not run on a dev EC2. Please run on bigger machien with larger network speeds.")
+    #     number_jobs = 10
+
+    total_cpus_available = os.cpu_count() - 2
+    if number_jobs > total_cpus_available:
+        raise ValueError(
+            f'The number of jobs provided: {number_jobs} ,'
+            ' exceeds your machine\'s available CPU count minus two.'
+            ' Please lower the number of jobs value accordingly.'
+        )
 
     if not os.path.exists(preclip_dir):
         raise ValueError("preclip directory not found")
