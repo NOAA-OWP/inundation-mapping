@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-02-13 - [PR#1762]([https://github.com/NOAA-OWP/inundation-mapping/pull/1762])
+## v4.9.9.0 - 2026-02-13 - [PR#1762]([https://github.com/NOAA-OWP/inundation-mapping/pull/1762])
 
 This PR updates the global optimized roughness N as an input file in the bash_variables.env for FIM6.1.
 
