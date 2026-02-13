@@ -44,7 +44,7 @@ else
     echo "---- Start of Calibration for HUC $hucNumber"
 fi
 echo "---- Started: `date -u`"
-echo ""
+echo
 
 # Check if it is a calibration rerun or not
 if [ "$calibration_rerun" = "true" ]; then
@@ -140,9 +140,6 @@ if [ "$src_adjust_spatial" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; then
     python3 $srcDir/src_adjust_spatial_obs.py -huc_dir $tempHucDataDir -jb $jobBranchLimit 
 fi
 
-#sys.exit(2) Robb test
-# exit 12  Robb test
-
 ## PERFORM MANUAL CALIBRATION
 if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
     echo -e $startDiv"Performing manual calibration"
@@ -150,9 +147,6 @@ if [ "$manual_calb_toggle" = "True" ] && [ -f $man_calb_file ]; then
         -huc_dir $tempHucDataDir \
         -calb_file $man_calb_file
 fi
-
-robbb-crc broke it test in calib rating curve
-
 
 ## AGGREGATE BRANCH TABLES ##
 echo -e $startDiv"Aggregating branch hydrotables"
@@ -164,6 +158,4 @@ python3 $srcDir/aggregate_branches_to_huc.py \
 
 echo "---- End of Calibration for HUC $hucNumber"
 echo "---- Ended: `date -u`"
-echo ""
-
-exit 0  # yes.. the default
+echo

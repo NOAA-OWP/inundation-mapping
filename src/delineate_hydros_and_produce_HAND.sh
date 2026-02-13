@@ -110,7 +110,6 @@ $srcDir/split_flows.py -f $tempCurrentBranchDataDir/demDerived_reaches_$current_
 
 ## GAGE WATERSHED FOR REACHES ##
 echo -e $startDiv"Gage Watershed for Reaches $hucNumber $current_branch_id"
-# TODO: ncores_gw is not defined.
 mpiexec $taudemDir/gagewatershed -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     -gw $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \

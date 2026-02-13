@@ -34,8 +34,6 @@ if __name__ == '__main__':
     # extract to dictionary
     args = vars(parser.parse_args())
 
-    # raise Exception("Rob broke this in clip rasters")
-
     stream_polygons_file, branch_id, branch_id_attribute, rasters, clipped_rasters, verbose = (
         args["branches"],
         args["branch_id"],

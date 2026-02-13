@@ -86,14 +86,14 @@ handle_error(){
     echo "++++++++++++++++++++++++++++"
     scan_logs_for_errors
     # logFileScanComplete="True"
-    echo ""
+    echo
     exit 1  # we DO want to return a exit status of 1 to rerun_calibration.py if in failure.
 }
 
 scan_logs_for_errors(){
 
     echo "++++++++++++++++++++++++++"
-    l_echo "Scanning for err..ors and excep..tions in the logs"
+    l_echo "Scanning for issues in the logs"
     # No.. the line above is not a mistype.
     # Can't put the word "error" as as a header in the log file as it finds itself in the log files
 
@@ -113,18 +113,17 @@ scan_logs_for_errors(){
     # a log file so it never really gets logged. Look at some of the src...py files, then look for
     # the word "except", the watch what is happening on logs or log variables. 
     # Let's scan that dir to see if we cand find anythign but could be lots missing.
-    echo "Scanning for err..ors and issues in the src_calibration folder."
+    echo "Scanning issues in the src_calibration folder."
 
-    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f -print0 | \
-        xargs -0 grep -Hnie "error" >> $rerunErrorLogFilename || true
-    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f -print0 | \
-        xargs -0 grep -H -n -i -e "exception" >> $rerunErrorLogFilename || true
-    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f -print0 | \
-        xargs -0 grep -H -n -i -e "parallel" >> $rerunErrorLogFilename || true 
+    # Yes... there will be some duplication of errors in logs but good enough for now until we can make it smarter
+    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "error" {} + >> $rerunErrorLogFilename  || true
+    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "exception" {} + >> $rerunErrorLogFilename  || true
+    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "parallel" {} + >> $rerunErrorLogFilename  || true
+    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "Command exited with non-zero status" {} + >> $rerunErrorLogFilename  || true
+
 
     # Look for warnings in the calibration folder
-    find $tempHucDataDir -path "*/logs/src_calibrations/*.log" -type f -print0 | \
-        xargs -0 grep -H -n -i -e "warning" >> $rerunWarningLogFilename || true
+    find $tempHucDataDir -path "*/*/logs/src_calibrations/*.log" -type f -exec grep -Hni "warning" {} + >> $rerunErrorLogFilename  || true    
 
     wait # wait for all background grep jobs to complete
     
@@ -189,12 +188,8 @@ do
         scan_logs_for_errors
 
         exit $code
-
-    fi
+        fi
 done
-
 
 scan_logs_for_errors
 l_echo "---- End of recalibration for $hucNumber" $rerunlogFilename
-
-exit 0   # between trap and tee, this will only be a zero when it gets here.

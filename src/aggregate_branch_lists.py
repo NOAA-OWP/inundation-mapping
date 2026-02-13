@@ -15,7 +15,7 @@ def aggregate_branch_lists(output_dir, file_name, output_file_name):
 
     if len(file_names) == 0:
         msg = "Error: No Branches available to aggregate. Program terminated."
-        print(msg, flush=True)
+        # print(msg, flush=True)
         raise Exception(msg)
 
     df_combined = pd.concat([pd.read_csv(f, header=None, dtype='str') for f in file_names], ignore_index=True)

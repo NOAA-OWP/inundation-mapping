@@ -275,7 +275,6 @@ def apply_thalweg_notches_adjustment(huc_dir, huc, stage_interval, log_file_path
         # raise Exception("Rob is tesing an exception reraise (sort of ) in thalweg")
 
     try:
-        # print('Rob is testing an error test here')
         with open(log_file_path, "a") as log_file:
             log_file.write(log_text + '\n')
     except Exception:

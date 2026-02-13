@@ -74,7 +74,7 @@ handle_error(){
     l_echo "$msg" $pp_error_log_file_name
 
     echo "++++++++++++++++++++++++++++"
-    echo ""
+    echo
     exit 1  # we always return 0 (success) as we are fully handling error and logging
 }
 
@@ -109,7 +109,7 @@ rm -f $pp_error_log_file_name  # If it already exists
 # l_echo is echo to screen and log at the same time.
 Set_log_file_path $pp_log_file_name
 
-echo ""
+echo
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 l_echo "---- Start of fim_post_processing" $pp_log_file_name
 l_echo "---- Started: `date -u`" $pp_log_file_name
@@ -123,18 +123,24 @@ branch_non_zero_log="$outputDestDir/logs/branch_non_zero_exit_codes.log"
 ## GET NON ZERO EXIT CODES FOR HUCS ##
 l_echo $startDiv"Start various types of errors and invalid exit codes"
 echo "There will be lots of duplication of related errors and we will clean this up later."
-find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -print0
-find $outputDestDir -path "**/*/logs/*_unit.log" -type f -print0 | \
-   xargs -0 grep -HniE "Exit status: ([1-9][0-9]{0,2})" >> $all_errors_log &
+find $outputDestDir -type f -name "huc_**_unit.log" -print0 | \
+    xargs -0 grep -HinE "Exit status: ([1-9][0-9]{0,2}).*" >> $all_errors_log &
 
-find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -exec grep -Hni "error" {} + >> $all_errors_log  || true
-find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -exec grep -Hni "parallel" {} + >> $all_errors_log  || true
-find $outputDestDir -path "**/*/logs/huc_*_unit.log" -type f -exec grep -Hni "Exception" {} + >> $all_errors_log  || true
+find $outputDestDir -type f -name "huc_*_unit.log" -exec grep -Hni "error" {} + >> $all_errors_log  || true
+find $outputDestDir -type f -name "huc_*_unit.log" -exec grep -Hni "parallel" {} + >> $all_errors_log  || true
+find $outputDestDir -type f -name "huc_*_unit.log" -exec grep -Hni "Exception" {} + >> $all_errors_log  || true
+find $outputDestDir -type f -name "huc_*_unit.log" -exec grep -Hni "Command exited with non-zero status" {} + >> $all_errors_log  || true
 
 ## ===============================
 l_echo $startDiv"Find all HUC branch non zero exit codes" $pp_log_file_name
-find $outputDestDir -path "**/*/logs/branch/*_branch*.log" -type f -print0 | \
-   xargs -0 grep -HniE "Exit status: ([1-9][0-9]{0,2})" >> $branch_non_zero_log &
+find $outputDestDir -path "*/logs/branch/*_branch_*.log" -type f | \
+    xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > \
+    "$branch_non_zero_log" &
+
+# why is this no longer working
+find $outputDestDir -path "*/logs/branch/*_branch_*.log" -type f | \
+    xargs grep -E "Exit status: ([1-9][0-9]{0,2})" > \
+    "$branch_non_zero_log" &
 
 
 # find $outputDestDir -path "**/*/logs/branch/*_branch*.log" -type f -print0 | \
@@ -181,8 +187,15 @@ python3 $toolsDir/combine_crosswalk_tables.py \
 l_echo $startDiv"Searching for error and invalid exit codes from the post processing script"
 grep -Hnie "Command exited with non-zero status" $pp_log_file_name >> $pp_error_log_file_name || true
 grep -Hnie "Exception" $pp_log_file_name >> $pp_error_log_file_name || true
-grep -HniE "Exit status: ([1-9][0-9]{0,2})" $pp_log_file_name >> $pp_error_log_file_name || true
-echo ""
+grep -HniE "Exit status: ([1-9][0-9]{0,2})" $pp_log_file_name >> $pp_error_log_file_name &
+echo
+
+# TODO:
+# Add a tool that can check if any HUCs completely disappeared. ie) failed to move from temp to 
+# outputs. It is possible so we need a double check tool some how.  Low priority
+# If we can find an easy way to do it as is a very low possibility but moreso in AWS where
+# it does have a shared "fim-temp" that would leave a HUC folder in it if something catestrophically happens
+
 ## ===============================
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" $pp_log_file_name
 l_echo "---- End of fim_post_processing" $pp_log_file_name

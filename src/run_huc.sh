@@ -58,7 +58,7 @@ fi
 echo -e $startDiv"Using CRS: $huc_CRS" ## debug
 
 ## INITIALIZE TOTAL TIME TIMER ##
-# T_total_start
+T_total_start
 huc_start_time=`date +%s`
 date -u
 
@@ -325,9 +325,9 @@ else
 fi
 
 ## Start the local csv branch list
-echo "Generating Branch List"
+echo
+echo -e $startDiv"Generating Branch List"
 $srcDir/generate_branch_list_csv.py -o $branch_list_csv_file -u $hucNumber
-
 
 branches=$(Calc_Time $branch_processing_start_time)
 branches_percent=$(Calc_Time_Minutes_in_Percent $branch_processing_start_time)
@@ -346,11 +346,6 @@ Calc_Duration "Duration for processing branches : " $branch_processing_start_tim
 echo
 total_branches=$(wc -l < $branch_list_csv_file)
 
-# echo "rob error"
-# echo "rob parallel"
-# robbb broke at the end of run_huc
-exit 133  # rob test
-
 ## ADJUST CALIBRATION
 ## call src adjustments..Pass False as an argument to flag it is not a rerun of calibration. 
 $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
@@ -359,7 +354,6 @@ $srcDir/calibrate_rating_curves.sh "False" $jobBranchLimit $hucNumber
 # WRITE TO LOG FILE CONTAINING ALL HUC PROCESSING TIMES
 total_duration_display="$hucNumber,$(Calc_Time $huc_start_time),$(Calc_Time_Minutes_in_Percent $huc_start_time),$total_branches,$branch0,$branch0_percent,$branches,$branches_percent"
 echo "$total_duration_display" >> "$tempHucDataDir/processing_time_$hucNumber.txt"
-
 
 date -u
 echo "---- HUC processing for $hucNumber is complete"
