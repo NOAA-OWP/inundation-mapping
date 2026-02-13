@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.7.0 - 2026-02-05 - [PR#1752]([https://github.com/NOAA-OWP/inundation-mapping/pull/1752])
+
+This PR updates the global optimized roughness N as an input file in the bash_variables.env for FIM6.1.
+
+### Changes
+- `src`
+   - bash_variables.env: `vmann_input_file=${inputsDir}/rating_curve/variable_roughnessoptz_mannings_v6_1.csv`
+
+<br/>
+
 ## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
 
 A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
