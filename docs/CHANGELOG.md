@@ -7,7 +7,7 @@ This PR updates the global optimized roughness N as an input file in the bash_va
 
 ### Changes
 - `src`
-   - bash_variables.env: `vmann_input_file=${inputsDir}/rating_curve/variable_roughnessoptz_mannings_v6_1.csv`
+   - bash_variables.env: `vmann_input_file=${inputsDir}/rating_curve/optz_mannings_v6_1.csv`
 
 <br/>
 
