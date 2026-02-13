@@ -14,6 +14,7 @@ import argparse
 import http.client
 import os
 import random
+import re
 import time
 import traceback
 from datetime import datetime, timezone
@@ -38,6 +39,22 @@ DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 GUAM_CRS = os.getenv('GUAM_CRS')
 AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
+
+
+def report_road_download_status(huc_numbers, output_dir):
+    files = list(Path(output_dir).glob("roads_*.gpkg"))
+    pattern = re.compile(r"roads_(\d{8})\.gpkg")
+
+    downloaded_hucs = [pattern.match(f.name).group(1) for f in files if pattern.match(f.name)]
+
+    missing_hucs = sorted(set(downloaded_hucs) - set(huc_numbers))
+
+    if missing_hucs:
+        print("❌ Road data was not downloaded for the following HUCs:")
+        for huc in missing_hucs:
+            print(huc)
+    else:
+        print("✅ All requested HUCs have their road data downloaded.")
 
 
 def combine_hucs(output_dir):
@@ -268,7 +285,7 @@ def single_huc_job(
     HUC_no, huc_boundary_path, split_boundary_path, output_dir, file_logger, screen_queue, task_id
 ):
     # this is basically the task function that is passed into mp run
-    file_logger.debug(f"started the process for {task_id}")
+    file_logger.info(f"started the process for {task_id}")
     try:
         huc_gpd = gpd.read_file(huc_boundary_path)
         huc_gpd_projected = huc_gpd.to_crs(pyproj.CRS.from_string("EPSG:4326"))
@@ -385,7 +402,10 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
             file_logger.info(f"  - {k}")
             print(f"  - {k}")
 
-    # now combine all hucs into dedicated files for CONUS,  Alaska, Guam, and Samoa roads
+    # also report which HUCs did not have any roads doanloaded for them (regardless of the reason)
+    report_road_download_status(huc_numbers, output_dir)
+
+    # now combine all downloaded hucs into dedicated files for CONUS,  Alaska, Guam, and Samoa roads
     combine_hucs(output_dir)
 
     # Record run time
