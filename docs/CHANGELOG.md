@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-02-13 - [PR#1759](https://github.com/NOAA-OWP/inundation-mapping/pull/1759)
+## v4.9.8.2 - 2026-02-13 - [PR#1759](https://github.com/NOAA-OWP/inundation-mapping/pull/1759)
 
 Refactors upstream search to prevent memory-related issues in `adjust_floodplains.py`.
 
@@ -11,7 +11,6 @@ Refactors upstream search to prevent memory-related issues in `adjust_floodplain
 
 <br/>
 
-## v4.9.8.0 - 2026-02-05 - [PR#1741](https://github.com/NOAA-OWP/inundation-mapping/pull/1741)
 ## v4.9.8.1 - 2026-02-13 - [PR#1761]([https://github.com/NOAA-OWP/inundation-mapping/pull/1761])
 
 This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
