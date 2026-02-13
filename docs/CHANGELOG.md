@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-02-12 - [PR#1761]([https://github.com/NOAA-OWP/inundation-mapping/pull/1761])
+## v4.9.8.1 - 2026-02-13 - [PR#1761]([https://github.com/NOAA-OWP/inundation-mapping/pull/1761])
 
 This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
 
