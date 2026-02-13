@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.8.2 - 2026-02-13 - [PR#1759](https://github.com/NOAA-OWP/inundation-mapping/pull/1759)
+
+Refactors upstream search to prevent memory-related issues in `adjust_floodplains.py`.
+
+### Changes
+
+- `src/adjust_floodplains.py`: refactored `get_upstream_streams()`
+
+<br/>
+
 ## v4.9.8.1 - 2026-02-13 - [PR#1761]([https://github.com/NOAA-OWP/inundation-mapping/pull/1761])
 
 This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
@@ -51,7 +61,7 @@ Note: All files in GIT retain the permissions of the files on the users local ma
 Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
 <br/>
 
-## v4.9.7.0 - 2026-02-05 - [PR#1752]([https://github.com/NOAA-OWP/inundation-mapping/pull/1752])
+## v4.9.7.0 - 2026-02-05 - [PR#1752](https://github.com/NOAA-OWP/inundation-mapping/pull/1752)
 
 This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
 
@@ -59,7 +69,7 @@ Changes
 - /src/bash_variables.env
 <br/>
 
-## v4.9.6.0 - 2026-02-05 - [PR#1721]([https://github.com/NOAA-OWP/inundation-mapping/pull/1721])
+## v4.9.6.0 - 2026-02-05 - [PR#1721](https://github.com/NOAA-OWP/inundation-mapping/pull/1721)
 
 This PR aims to longitudinally refine the discharge values in the rating curve by filtering the surface area values and recalculating discharge and the rest of Manning equations' variables, including bed area and volume. You can find the details of the framework here:
 
@@ -70,12 +80,12 @@ Changes
 - /src/add_crosswalk.py
 <br/>
 
-## v4.9.5.5 - 2026-01-27 - [PR#1734]([https://github.com/NOAA-OWP/inundation-mapping/pull/1734])
+## v4.9.5.5 - 2026-01-27 - [PR#1734](https://github.com/NOAA-OWP/inundation-mapping/pull/1734)
 
 This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
 
-Changes
-src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
+### Changes
+- src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
 <br/>
 
 ## v4.9.5.4 - 2026-01-27 - [PR#1705](https://github.com/NOAA-OWP/inundation-mapping/pull/1705)
