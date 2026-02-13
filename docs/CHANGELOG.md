@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-02-13 - [PR#1759]([https://github.com/NOAA-OWP/inundation-mapping/pull/1759])
+
+Refactors upstream search to prevent memory-related issues in `adjust_floodplains.py`.
+
+### Changes
+
+- `src/adjust_floodplains.py`: refactored `get_upstream_streams()`
+
+<br/>
+
 ## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
 
 A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
