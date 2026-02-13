@@ -47,7 +47,7 @@ def report_road_download_status(huc_numbers, output_dir):
 
     downloaded_hucs = [pattern.match(f.name).group(1) for f in files if pattern.match(f.name)]
 
-    missing_hucs = sorted(set(downloaded_hucs) - set(huc_numbers))
+    missing_hucs = sorted(set(huc_numbers) - set(downloaded_hucs))
 
     if missing_hucs:
         print("❌ Road data was not downloaded for the following HUCs:")
