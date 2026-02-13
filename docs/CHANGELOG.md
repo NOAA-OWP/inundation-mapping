@@ -6,8 +6,10 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
 
 Changes
-	- `data/slope/sword_slope_create_parquet_qc.py`: Updated the max gap length parameter to 15km (previously 10km)
-	- `src/bash_variables.env`: Updated the iris_sword_slope file to use the new 20260209 parquet
+
+- `data/slope/sword_slope_create_parquet_qc.py`: Updated the max gap length parameter to 15km (previously 10km)
+- `src/bash_variables.env`: Updated the iris_sword_slope file to use the new 20260209 parquet
+	
 <br/>
 
 ## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
