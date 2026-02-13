@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.8.1 - 2026-02-13 - [PR#1761]([https://github.com/NOAA-OWP/inundation-mapping/pull/1761])
+
+This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
+
+Changes
+
+- `data/slope/sword_slope_create_parquet_qc.py`: Updated the max gap length parameter to 15km (previously 10km)
+- `src/bash_variables.env`: Updated the iris_sword_slope file to use the new 20260209 parquet
+	
+<br/>
+
 ## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
 
 A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
