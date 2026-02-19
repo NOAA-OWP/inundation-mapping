@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "35f1cda5afc6a46ec478cc99e6ed1fa9d0d5f18bcb41749b58b0e386a0048286"
+            "sha256": "61301a109cd060db6ef3a7df628aa1f8efd84b6f5475ca49a39f69cb26ab0414"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -4268,6 +4268,15 @@
             ],
             "markers": "python_version >= '3.8'",
             "version": "==4.0.0"
+        },
+        "rio-vrt": {
+            "hashes": [
+                "sha256:c4273baa756341364e2cff2815e8730761f2989728a6871e14de07d6fb9107dc",
+                "sha256:e6dd8d483b748b0b800ebd1109c9d5be121185833aa4c061e7cbeda41c23ad40"
+            ],
+            "index": "pypi",
+            "markers": "python_full_version >= '3.6.9'",
+            "version": "==0.3.1"
         },
         "rioxarray": {
             "hashes": [
