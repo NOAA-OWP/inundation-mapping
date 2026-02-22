@@ -3,16 +3,17 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.9.x.x - 2026-02-04 - [PR#1747]([https://github.com/NOAA-OWP/inundation-mapping/pull/1747])
 
-Upgrades `geopandas` to v1.1.2. This required some additional changes to the codebase because the `geopandas` methods started being used in priority over the `StreamNetwork` class methods (particularly `from_file`, `set_index`, and `reset_index`), so they were returning `geopandas` objects rather than `StreamNetwork` objects. To overcome this, those`StreamNetwork` class method names were appended with `_fim` and replaced in the codebase.
-
-<br/>
+Upgrades `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0; in addition, `rio-vrt` v0.31.1 was added back. This required some additional changes to the codebase because the `geopandas` methods started being used in priority over the `StreamNetwork` class methods (particularly `from_file`, `set_index`, and `reset_index`), so they were returning `geopandas` objects rather than `StreamNetwork` objects. To overcome this, those`StreamNetwork` class method names were appended with `_fim` and replaced in the codebase.
 
 ### Changes
 
-- `Pipfile` and `Pipfile.lock`: Upgraded `geopandas` to v1.1.2.
+- `Pipfile` and `Pipfile.lock`: Upgraded `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0. Added `rio-vrt` v0.31.1.
 - `src/`
     - `stream_branches.py`: Appended `_fim` to `from_file`, `set_index`, and `reset_index` class methods and explicitly added attributes to the `__init__` constructor method.
     - `buffer_stream_branches.py`, `clip_rasters_to_branches.py`, `crosswalk_nwm_demDerived.py`, `derive_level_paths.py`, `generate_branch_list.py`, `query_vectors_by_branch_polygons.py`, `subset_catch_list_by_branch_id.py`: Updated class methods to use the new `_fim` name.
+
+<br/>
+
 ## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
 
 A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
@@ -56,7 +57,7 @@ Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed 
 
 This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
 
-Changes
+### Changes
 - /src/bash_variables.env
 <br/>
 
@@ -66,7 +67,7 @@ This PR aims to longitudinally refine the discharge values in the rating curve b
 
 See PR for more details.
 
-Changes
+### Changes
 - /src/longitudinal_flow_adjustment.py
 - /src/add_crosswalk.py
 <br/>
