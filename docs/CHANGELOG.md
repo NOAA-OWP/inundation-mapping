@@ -14,6 +14,37 @@ Upgrades `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and 
 
 <br/>
 
+## v4.9.9.0 - 2026-02-13 - [PR#1762]([https://github.com/NOAA-OWP/inundation-mapping/pull/1762])
+
+This PR updates the global optimized roughness N as an input file in the bash_variables.env for FIM6.1.
+
+### Changes
+- `src`
+   - bash_variables.env: `vmann_input_file=${inputsDir}/rating_curve/optz_mannings_v6_1.csv`
+
+<br/>
+
+## v4.9.8.2 - 2026-02-13 - [PR#1759](https://github.com/NOAA-OWP/inundation-mapping/pull/1759)
+
+Refactors upstream search to prevent memory-related issues in `adjust_floodplains.py`.
+
+### Changes
+
+- `src/adjust_floodplains.py`: refactored `get_upstream_streams()`
+
+<br/>
+
+## v4.9.8.1 - 2026-02-13 - [PR#1761]([https://github.com/NOAA-OWP/inundation-mapping/pull/1761])
+
+This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
+
+Changes
+
+- `data/slope/sword_slope_create_parquet_qc.py`: Updated the max gap length parameter to 15km (previously 10km)
+- `src/bash_variables.env`: Updated the iris_sword_slope file to use the new 20260209 parquet
+	
+<br/>
+
 ## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
 
 A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
@@ -53,7 +84,7 @@ Note: All files in GIT retain the permissions of the files on the users local ma
 Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
 <br/>
 
-## v4.9.7.0 - 2026-02-05 - [PR#1752]([https://github.com/NOAA-OWP/inundation-mapping/pull/1752])
+## v4.9.7.0 - 2026-02-05 - [PR#1752](https://github.com/NOAA-OWP/inundation-mapping/pull/1752)
 
 This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
 
@@ -61,7 +92,7 @@ This PR updates optimized roughness values across the USA to be aligned with the
 - /src/bash_variables.env
 <br/>
 
-## v4.9.6.0 - 2026-02-05 - [PR#1721]([https://github.com/NOAA-OWP/inundation-mapping/pull/1721])
+## v4.9.6.0 - 2026-02-05 - [PR#1721](https://github.com/NOAA-OWP/inundation-mapping/pull/1721)
 
 This PR aims to longitudinally refine the discharge values in the rating curve by filtering the surface area values and recalculating discharge and the rest of Manning equations' variables, including bed area and volume. You can find the details of the framework here:
 
@@ -72,12 +103,13 @@ See PR for more details.
 - /src/add_crosswalk.py
 <br/>
 
-## v4.9.5.5 - 2026-01-27 - [PR#1734]([https://github.com/NOAA-OWP/inundation-mapping/pull/1734])
+## v4.9.5.5 - 2026-01-27 - [PR#1734](https://github.com/NOAA-OWP/inundation-mapping/pull/1734)
 
 This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
 
 ### Changes
 src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
+- src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
 <br/>
 
 ## v4.9.5.4 - 2026-01-27 - [PR#1705](https://github.com/NOAA-OWP/inundation-mapping/pull/1705)

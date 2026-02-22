@@ -38,7 +38,7 @@ Usage Example:
 lower_threshold = 9.999e-7
 upper_threshold = 0.5
 max_extra_segments = 30  # max number of intermediate (missing) segments allowed
-max_gap_length_m = 10000  # stop filling if gap > 10 km
+max_gap_length_m = 15000  # stop filling if gap > 15 km
 
 
 def is_valid_slope(value):
