@@ -1,6 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.9.X - 2026-02-23 - [PR#1767]([https://github.com/NOAA-OWP/inundation-mapping/pull/1767])
+
+This PR updates the `inundate_nation.py` inundation mosaic raster generation process to output Cloud Optimized GeoTIFF. This change addresses performance bottlenecks when working with the CONUS mosaic file (200GB+) in QGIS.
+
+### Changes
+`tools/inundate_nation.py`: updated the geotiff profile for new tiling, compression, and overviews
+
+<br/>
+
 ## v4.9.9.0 - 2026-02-13 - [PR#1762]([https://github.com/NOAA-OWP/inundation-mapping/pull/1762])
 
 This PR updates the global optimized roughness N as an input file in the bash_variables.env for FIM6.1.
