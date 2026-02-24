@@ -448,12 +448,12 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
             if landsea.empty:
                 logging.info(f"Landsea file provided but no landsea area found within wbd_buffer for {huc}")
-                landsea = False
+                landsea = None
             else:
                 logging.info(f"Clipping NWM Streams for {huc} to land areas")
         else:
             logging.info(f"No landsea file provided, using all NWM streams for {huc}")
-            landsea = False
+            landsea = None
 
         nwm_streams, errors = extend_outlet_streams(nwm_streams, wbd_buffer, wbd, landsea)
 
@@ -476,7 +476,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             logging.warning("No streams intersect the WBD. Cannot extend outlet streams.")
             return nwm_streams
 
-        if os.path.exists(input_LANDSEA):
+        if landsea is not None:
             logging.info(f"Clipping NWM Streams for {huc} to land areas")
             nwm_streams = nwm_streams.overlay(landsea, how='difference')
 
@@ -530,6 +530,11 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             nwm_streams_nonoutlets = nwm_streams_nonoutlets.drop(columns=['level_1_max'])
 
             nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
+
+            nwm_streams = nwm_streams.drop(
+                columns=['fimid', 'HUC8', 'fimid_left', 'HUC8_left', 'fimid_right', 'HUC8_right'],
+                errors='ignore',
+            )
 
             nwm_streams.to_file(
                 os.path.join(huc_directory, output_filenames['nwm_streams']),
