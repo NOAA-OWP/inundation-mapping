@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-xx-xx - [PR#1768]([https://github.com/NOAA-OWP/inundation-mapping/pull/1768])
+## v4.9.9.1 - 2026-02-25 - [PR#1768]([https://github.com/NOAA-OWP/inundation-mapping/pull/1768])
 
 This PR focuses on updating the roughness N for Monongahela River in the bash_variables.env for FIM6.1.
 
