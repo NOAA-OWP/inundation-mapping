@@ -1,6 +1,25 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
+
+ixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
+
+### Changes
+- `data/wbd/clip_vectors_to_wbd.py`: Updates `to` attribute of downstream-most segments to 0 and extends these segments to the `landsea` border and/or the HUC boundary depending on the availability of the `landsea` data.
+
+<br/>
+
+## v4.9.9.1 - 2026-02-25 - [PR#1768]([https://github.com/NOAA-OWP/inundation-mapping/pull/1768])
+
+This PR focuses on updating the roughness N for Monongahela River in the bash_variables.env for FIM6.1.
+
+### Changes
+- `src`
+   - bash_variables.env: `vmann_input_file=${inputsDir}/rating_curve/optz_mannings_v6_1_1.csv`
+
+<br/>
+
 ## v4.9.9.0 - 2026-02-13 - [PR#1762]([https://github.com/NOAA-OWP/inundation-mapping/pull/1762])
 
 This PR updates the global optimized roughness N as an input file in the bash_variables.env for FIM6.1.
@@ -25,7 +44,7 @@ Refactors upstream search to prevent memory-related issues in `adjust_floodplain
 
 This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
 
-Changes
+### Changes
 
 - `data/slope/sword_slope_create_parquet_qc.py`: Updated the max gap length parameter to 15km (previously 10km)
 - `src/bash_variables.env`: Updated the iris_sword_slope file to use the new 20260209 parquet
@@ -75,7 +94,7 @@ Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed 
 
 This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
 
-Changes
+### Changes
 - /src/bash_variables.env
 <br/>
 
@@ -85,7 +104,7 @@ This PR aims to longitudinally refine the discharge values in the rating curve b
 
 See PR for more details.
 
-Changes
+### Changes
 - /src/longitudinal_flow_adjustment.py
 - /src/add_crosswalk.py
 <br/>
