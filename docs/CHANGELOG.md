@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-02-25 - [PR#1771]([https://github.com/NOAA-OWP/inundation-mapping/pull/1771])
+## v4.x.x.x - 2026-02-25 - [PR#1771](https://github.com/NOAA-OWP/inundation-mapping/pull/1771)
 
 This is a quick tool that can remove selected folders from an s3 bucket using a provided list.
 
@@ -13,7 +13,7 @@ This is a quick tool that can remove selected folders from an s3 bucket using a 
     - `hecras_processing.ipynb`, `ripple_shared_tools.sh`, `terrain_agreement_metrics_analysis.py`: Updated file permissions.
 <br/>
 
-## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
+## v4.9.10.0 - 2026-02-25 - [PR#1769](https://github.com/NOAA-OWP/inundation-mapping/pull/1769)
 
 Fixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
 
@@ -22,7 +22,7 @@ Fixes NWM streams missing in preclip due to the base NWM streams layer having st
 
 <br/>
 
-## v4.9.9.1 - 2026-02-25 - [PR#1768]([https://github.com/NOAA-OWP/inundation-mapping/pull/1768])
+## v4.9.9.1 - 2026-02-25 - [PR#1768](https://github.com/NOAA-OWP/inundation-mapping/pull/1768)
 
 This PR focuses on updating the roughness N for Monongahela River in the bash_variables.env for FIM6.1.
 
@@ -32,7 +32,7 @@ This PR focuses on updating the roughness N for Monongahela River in the bash_va
 
 <br/>
 
-## v4.9.9.0 - 2026-02-13 - [PR#1762]([https://github.com/NOAA-OWP/inundation-mapping/pull/1762])
+## v4.9.9.0 - 2026-02-13 - [PR#1762](https://github.com/NOAA-OWP/inundation-mapping/pull/1762)
 
 This PR updates the global optimized roughness N as an input file in the bash_variables.env for FIM6.1.
 
@@ -52,7 +52,7 @@ Refactors upstream search to prevent memory-related issues in `adjust_floodplain
 
 <br/>
 
-## v4.9.8.1 - 2026-02-13 - [PR#1761]([https://github.com/NOAA-OWP/inundation-mapping/pull/1761])
+## v4.9.8.1 - 2026-02-13 - [PR#1761](https://github.com/NOAA-OWP/inundation-mapping/pull/1761)
 
 This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
 
@@ -63,7 +63,7 @@ This PR updates data processing for the SWORD-derived reach slope input dataset 
 	
 <br/>
 
-## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
+## v4.9.8.0 - 2026-02-05 - [PR#1741](https://github.com/NOAA-OWP/inundation-mapping/pull/1741)
 
 A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
 
@@ -101,7 +101,6 @@ Note: All files in GIT retain the permissions of the files on the users local ma
 
 Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
 <br/>
-
 ## v4.9.7.0 - 2026-02-05 - [PR#1752](https://github.com/NOAA-OWP/inundation-mapping/pull/1752)
 
 This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
