@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-xx-xx - [PR#1770]([https://github.com/NOAA-OWP/inundation-mapping/pull/1770])
+
+This PR fixes the non-convergence of SVD in the longitudinal adjustment script for three HUCs of 04030110, 11030008, 17040203.
+
+### Changes
+- `src`
+   - `longitudinal_flow_adjustment.py`
+
+<br/>
+
 ## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
 
 ixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
