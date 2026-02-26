@@ -1,9 +1,21 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.x.x.x - 2026-02-25 - [PR#1771]([https://github.com/NOAA-OWP/inundation-mapping/pull/1771])
+
+This is a quick tool that can remove selected folders from an s3 bucket using a provided list.
+
+### Additions
+- `data/ripple/ripple-s3-bucket-remove-updated-folders.sh` : as described above
+
+### Changes
+- `data/ripple`
+    - `hecras_processing.ipynb`, `ripple_shared_tools.sh`, `terrain_agreement_metrics_analysis.py`: Updated file permissions.
+<br/>
+
 ## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
 
-ixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
+Fixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
 
 ### Changes
 - `data/wbd/clip_vectors_to_wbd.py`: Updates `to` attribute of downstream-most segments to 0 and extends these segments to the `landsea` border and/or the HUC boundary depending on the availability of the `landsea` data.
