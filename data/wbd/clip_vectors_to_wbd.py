@@ -159,7 +159,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     """
 
     # Define the landsea water body mask using either Great Lakes or Ocean polygon input #
-    buildings_parts_path=os.getenv('buildings_parts_path') #one path is used for all regions
+    buildings_parts_path = os.getenv('buildings_parts_path')  # one path is used for all regions
     if huc[:2] == '19':
         nwm_lakes = os.getenv('input_nwm_lakes_Alaska')
         nwm_catchments = os.getenv('input_nwm_catchments_Alaska')
@@ -415,7 +415,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         else:
             logging.warning(f"Missing file: buildings for {huc} not found at {src}.")
     else:
-        
+
         logging.info(f"compiling buildings for {huc}")
         huc_parts_path = Path(buildings_parts_path) / f"huc8_{huc}"
         parquet_parts = huc_parts_path.glob("*.parquet")
@@ -424,13 +424,12 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             merged = pd.concat(gdfs, ignore_index=True)
             merged = gpd.GeoDataFrame(merged, geometry="geometry", crs=gdfs[0].crs)
 
-            dst =os.path.join(huc_directory, output_filenames['buildings'])
-            merged.to_file(dst, driver="GPKG",engine="fiona")
+            dst = os.path.join(huc_directory, output_filenames['buildings'])
+            merged.to_file(dst, driver="GPKG", engine="fiona")
 
         else:
             print("-- No building parquet files for this HUC")
             logging.info("-- No building parquet files for this HUC")
-
 
     if copying_flags['copy_nwm_streams_headwater']:
         for vector_item in ['wbd_streams_buffer', 'nwm_streams', 'nwm_headwaters']:

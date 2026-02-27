@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-import re
-import os
-import shutil
 import argparse
-from pathlib import Path
+import os
+import re
+import shutil
 import traceback
+from pathlib import Path
 from typing import Dict, List, Optional
-from dotenv import load_dotenv
 
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
 import pyarrow.parquet as pq
+from dotenv import load_dotenv
 from shapely.geometry import box
 
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
+
 
 # Your required building attributes (geometry always will be included)
 BUILDING_COLUMNS = ["UUID", "HEIGHT", "OCC_CLS", "SOURCE", "VAL_METHOD"]
@@ -51,8 +52,7 @@ def make_building_parts_per_huc(
     hucs_by_crs = load_hucs_by_crs(current_preclip_directory)
     print("Loaded HUC8 sets by CRS:", {k: len(v) for k, v in hucs_by_crs.items()})
 
-
-    print(f'start reading states parquest files...')
+    print('start reading states parquest files...')
     building_files = sorted(p for p in states_buildings_dir.glob("*.parquet") if p.is_file())
 
     if not building_files:
@@ -63,12 +63,9 @@ def make_building_parts_per_huc(
         state = bp.stem.split("_")[0].upper()
         if selected_states and state not in selected_states:
             continue
-        tasks_args_list.append({
-            "state": state,
-            "buildings_parquet": bp,
-            "hucs_by_crs": hucs_by_crs,
-            "tmp_dir": out_dir
-        })
+        tasks_args_list.append(
+            {"state": state, "buildings_parquet": bp, "hucs_by_crs": hucs_by_crs, "tmp_dir": out_dir}
+        )
 
     if not tasks_args_list:
         if selected_states:
@@ -83,7 +80,7 @@ def make_building_parts_per_huc(
         file_logger=file_logger,
         max_workers=number_jobs,
         task_id_key="state",
-        show_progress=True
+        show_progress=True,
     )
 
     print('multiprocessing tasks finished!')
@@ -99,7 +96,6 @@ def make_building_parts_per_huc(
             file_logger.info(f"  - {tid}")
             print(f"  - {tid}")
 
-
     print("✅ Done.")
     print("Outputs:", out_dir.resolve())
 
@@ -114,7 +110,6 @@ def get_crs_of_state(state: str) -> str:
         return AMERICAN_SAMOA_CRS
     else:
         return DEFAULT_FIM_PROJECTION_CRS
-
 
 
 def load_hucs_by_crs(current_preclip_directory: Path) -> Dict[str, gpd.GeoDataFrame]:
@@ -135,9 +130,7 @@ def load_hucs_by_crs(current_preclip_directory: Path) -> Dict[str, gpd.GeoDataFr
         raise RuntimeError(f"Prclip directory does not exist: {current_preclip_directory}")
 
     huc_dirs = sorted(
-        p for p in current_preclip_directory.iterdir()
-        if p.is_dir()
-        and re.compile(r"^\d{8}$").match(p.name)
+        p for p in current_preclip_directory.iterdir() if p.is_dir() and re.compile(r"^\d{8}$").match(p.name)
     )
 
     if not huc_dirs:
@@ -175,18 +168,18 @@ def load_hucs_by_crs(current_preclip_directory: Path) -> Dict[str, gpd.GeoDataFr
 
         crs_to_hucs_dict[crs_key].append({"huc8": huc8, "geometry": geom})
 
-
     # Convert each bucket to a GeoDataFrame and build its spatial index
     hucs_by_crs: Dict[str, gpd.GeoDataFrame] = {}
     for crs_key, hucs_items in crs_to_hucs_dict.items():
         if not hucs_items:
             continue
         gdf = gpd.GeoDataFrame(hucs_items, geometry="geometry", crs=crs_key)
-        _ = gdf.sindex # force GeoPandas to pre-build an STRtree spatial index, to avoid repeated construction
+        _ = (
+            gdf.sindex
+        )  # force GeoPandas to pre-build an STRtree spatial index, to avoid repeated construction
         hucs_by_crs[crs_key] = gdf
 
     return hucs_by_crs
-
 
 
 def arrow_rowgroup_to_gdf(table, crs: str) -> gpd.GeoDataFrame:
@@ -194,22 +187,32 @@ def arrow_rowgroup_to_gdf(table, crs: str) -> gpd.GeoDataFrame:
     if "geometry" not in df:
         raise RuntimeError("Expected 'geometry' column in GeoParquet row group, but it was not found.")
     return gpd.GeoDataFrame(
-        df.drop(columns="geometry"),
-        geometry=gpd.GeoSeries.from_wkb(df["geometry"]),
-        crs=crs,
+        df.drop(columns="geometry"), geometry=gpd.GeoSeries.from_wkb(df["geometry"]), crs=crs
     )
 
 
-def process_one_state(state: str, buildings_parquet: Path, hucs_by_crs: Dict[str, gpd.GeoDataFrame], tmp_dir: Path,  file_logger, screen_queue, task_id) -> None:
+def process_one_state(
+    state: str,
+    buildings_parquet: Path,
+    hucs_by_crs: Dict[str, gpd.GeoDataFrame],
+    tmp_dir: Path,
+    file_logger,
+    screen_queue,
+    task_id,
+) -> None:
     try:
         state_crs = get_crs_of_state(state)
         # hucs = get_hucs_with_same_crs_as_state(hucs_by_crs, state)
-        hucs= hucs_by_crs[state_crs]
+        hucs = hucs_by_crs[state_crs]
 
         pf = pq.ParquetFile(str(buildings_parquet))
 
-        screen_queue.put(f"[{state}] {buildings_parquet.name} | CRS={state_crs} | row_groups={pf.num_row_groups}")
-        file_logger.info(f"[{state}] {buildings_parquet.name} | CRS={state_crs} | row_groups={pf.num_row_groups}")
+        screen_queue.put(
+            f"[{state}] {buildings_parquet.name} | CRS={state_crs} | row_groups={pf.num_row_groups}"
+        )
+        file_logger.info(
+            f"[{state}] {buildings_parquet.name} | CRS={state_crs} | row_groups={pf.num_row_groups}"
+        )
 
         if "geometry" not in BUILDING_COLUMNS:
             BUILDING_COLUMNS.append("geometry")
@@ -225,7 +228,7 @@ def process_one_state(state: str, buildings_parquet: Path, hucs_by_crs: Dict[str
             # Cheap bbox gate: limit intersected hucs for this chunk
             minx, miny, maxx, maxy = bg.total_bounds
             intersected_idx = hucs.sindex.query(box(minx, miny, maxx, maxy), predicate="intersects")
-            if len(intersected_idx) == 0: #if this row-group does not intersect any hucs
+            if len(intersected_idx) == 0:  # if this row-group does not intersect any hucs
                 screen_queue.put(f'No HUCs intersected row_group: {rg} of {state} ')
                 file_logger.info(f'No HUCs intersected row_group: {rg} of {state} ')
                 continue
@@ -233,7 +236,9 @@ def process_one_state(state: str, buildings_parquet: Path, hucs_by_crs: Dict[str
             intersected_hucs = hucs.iloc[intersected_idx][["huc8", "geometry"]]
 
             # now do the accurate sjoin only for the intersected hucs
-            joined = gpd.sjoin(bg, intersected_hucs, how="inner", predicate="intersects") # keep buildings touching a HUC boundary (use within if needed)
+            joined = gpd.sjoin(
+                bg, intersected_hucs, how="inner", predicate="intersects"
+            )  # keep buildings touching a HUC boundary (use within if needed)
             if joined.empty:
                 continue
 
@@ -257,18 +262,17 @@ def process_one_state(state: str, buildings_parquet: Path, hucs_by_crs: Dict[str
                 )
 
         return 1, [True]
-    
+
     except Exception as e:
         file_logger.error(f"❌ Exception in {task_id}: {str(e)}")
         file_logger.error(traceback.format_exc())
         return 0, [False]
 
 
-
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create per-HUC8 parquet parts from state-level building parquet files.")
+    parser = argparse.ArgumentParser(
+        description="Create per-HUC8 parquet parts from state-level building parquet files."
+    )
     parser.add_argument(
         "-b",
         "--states_buildings_dir",

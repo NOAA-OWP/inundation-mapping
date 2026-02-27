@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import argparse
-import re
 import os
+import re
 import zipfile
 from pathlib import Path
 
 import geopandas as gpd
 import requests
 from dotenv import load_dotenv
+
 
 # Website that shows the official "latest per state"
 PAGE_URL = "https://disasters.geoplatform.gov/USA_Structures/"
@@ -33,7 +34,7 @@ def target_crs_for_state(state: str) -> str:
     return DEFAULT_FIM_PROJECTION_CRS
 
 
-def pull_gdb_files(gdb_dir):
+def pull_gdb_files(gdb_dir, selected_states):
     gdb_dir.mkdir(parents=True, exist_ok=True)
 
     print("Fetching webpage...")
@@ -44,6 +45,14 @@ def pull_gdb_files(gdb_dir):
 
     for url in zip_urls:
         fname = url.split("/")[-1]
+        match = re.search(r"([A-Z]{2})\.zip$", fname, flags=re.IGNORECASE)
+        if not match:
+            print(f"Skipping unrecognized ZIP naming pattern: {fname}")
+            continue
+        state = match.group(1).upper()
+        if selected_states and state not in selected_states:
+            continue
+
         zip_path = gdb_dir / fname
 
         print(f"Downloading: {fname}")
@@ -67,8 +76,8 @@ def pull_gdb_files(gdb_dir):
     print(f"FEMA buildings GDB files saved in: {gdb_dir.resolve()}")
 
 
-def convert_gdb_to_parquet(gdb_dir, parquet_dir):
-    print(f"Started converting states gdb files into parquet files...")
+def convert_gdb_to_parquet(gdb_dir, parquet_dir, selected_states):
+    print("Started converting states gdb files into parquet files...")
     parquet_dir.mkdir(parents=True, exist_ok=True)
 
     gdb_paths = sorted(p for p in gdb_dir.rglob("*.gdb") if p.is_dir() and "__MACOSX" not in p.parts)
@@ -79,6 +88,8 @@ def convert_gdb_to_parquet(gdb_dir, parquet_dir):
 
     for gdb in gdb_paths:
         state = gdb.stem.split("_")[0].upper()
+        if selected_states and state not in selected_states:
+            continue
         print(f"\n[{state}] {gdb}")
 
         layers = gpd.list_layers(gdb)
@@ -101,25 +112,34 @@ def convert_gdb_to_parquet(gdb_dir, parquet_dir):
         print(f"[{state}] Writing -> {out_path}  (CRS={tgt_crs})")
         gdf.to_parquet(out_path, index=False, compression="zstd", row_group_size=250_000)
 
-
     print("\nDone. Outputs in:", parquet_dir.resolve())
 
 
-def get_fema_buildings(output_dir: str) -> None:
+def get_fema_buildings(output_dir: str, state: str = "") -> None:
     gdb_dir = Path(output_dir) / "states_gdb"
     parquet_dir = Path(output_dir) / "states_parquet"
+    selected_states = {s.upper() for s in state.split()} if state else None
 
-    pull_gdb_files(gdb_dir)
-    convert_gdb_to_parquet(gdb_dir, parquet_dir)
+    pull_gdb_files(gdb_dir, selected_states)
+    convert_gdb_to_parquet(gdb_dir, parquet_dir, selected_states)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Download FEMA building GDBs and convert to per-state parquet.")
+    parser = argparse.ArgumentParser(
+        description="Download FEMA building GDBs and convert to per-state parquet."
+    )
     parser.add_argument(
         "-o",
         "--output_dir",
         help="REQUIRED: root output folder. Uses states_gdb/ and states_parquet/ subfolders.",
         required=True,
+    )
+    parser.add_argument(
+        "-s",
+        "--state",
+        help="OPTIONAL: space-delimited list of states/territories in quotes (e.g., 'TX CA').",
+        required=False,
+        default="",
     )
 
     args = vars(parser.parse_args())
