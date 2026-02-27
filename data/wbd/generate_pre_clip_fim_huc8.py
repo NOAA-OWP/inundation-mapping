@@ -100,6 +100,7 @@ args_copy_options = [
     "copy_levee_protected_areas",
     "copy_osm_bridges",
     "copy_osm_roads",
+    "copy_buildings",
 ]
 
 
