@@ -135,15 +135,14 @@ echo "Total folder names listed: $list_length"
 
 read -p "Press Enter to continue..."
 
-s3_base_cmd="aws s3 rm ${s3_path}"
-# s3_cmd_args=" --recursive --dryrun"
-s3_cmd_args=" --recursive"
+echo ""
 
 # Loop through each element of the array
-for line in "${upd_folder_names[@]}"; do
-    echo "Folder being removed in the S3 merged folder: $line"
-    s3_cmd="${s3_base_cmd}/${line}/ ${s3_cmd_args}"
-    # echo "$s3_cmd"
+for folder_name in "${upd_folder_names[@]}"; do
+    
+    # Removes trailing spaces if any
+    stripped_folder_name="${folder_name%?}"
+    s3_cmd="aws s3 rm '$s3_path/$stripped_folder_name' --recursive "
     l_echo "$s3_cmd" ${log_file}
     eval $s3_cmd
 done
