@@ -31,7 +31,7 @@ usage_msg()
     Sample Usage:   (yes.. .bash  and not just ./)
          bash ripple-s3-bucket-remove-updated-folders.sh
             -s 's3://{some bucket or path}/fim/ripple/20260211_merged/collections'
-            -f '/efs-drives/{some path}/ripple/ripple_20260211_merged'
+            -f '/efs-drives/{some path}/ripple/ripple_20260211_merged/s3_folder_remove_list.lst''
 
     REQUIRED:
       -s/--s3-path           : The root s3 path that will have the folders to be removed
