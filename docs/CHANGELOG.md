@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.x.x - 2026-03-02 - [PR#1774]([https://github.com/NOAA-OWP/inundation-mapping/pull/1774])
+## v4.9.10.1 - 2026-03-02 - [PR#1774]([https://github.com/NOAA-OWP/inundation-mapping/pull/1774])
 
 Updates pre_clip_huc_dir date in bash_variables.env
 
