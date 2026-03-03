@@ -33,7 +33,6 @@ gp.options.io_engine = "pyogrio"
 # #################################
 # log file tools
 
-
 # This one is a standard Python logger, NOT MEANT for multi-proc
 # def setup_file_logger(log_file_path):
 def setup_file_logger(log_file_dir, log_file_name_prefix):
@@ -81,6 +80,11 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
     print(f"Logs saved to: {log_file_path}")
+        
+    # even though we used os.makedirs, it does not mean it had permission to make the dir
+    # the mode is for permissions of the folder once is created.
+    if not os.path.isdir(log_file_dir):
+        raise Exception("This script likely does have permission to add a log folder")
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -100,15 +104,25 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
+    os.chmod(error_file_name, mode=permissions_code)
+
+    # warning file handler
+    warning_file_name = log_file_path.replace(".log", "-warnings.log")
+    warning_file_handler = logging.FileHandler(warning_file_name)
+    warning_file_handler.setLevel(logging.WARNING)
+    warning_file_handler.setFormatter(formatter)
+    os.chmod(warning_file_name, mode=permissions_code)
 
     # # basic file handler
     file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.DEBUG)    
     file_handler.setFormatter(formatter)
-    file_handler.setLevel(logging.DEBUG)
+    os.chmod(log_file_path, mode=permissions_code)
 
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
     logger.addHandler(err_file_handler)
+    logger.addHandler(warning_file_handler)
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
 
@@ -190,11 +204,21 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         err_file_handler.setLevel(logging.ERROR)
         err_file_handler.setFormatter(formatter)
         logger.addHandler(err_file_handler)
+        os.chmod(error_file_name, mode=permissions_code)
+
+        # warning file handler
+        warning_file_name = log_file_path.replace(".log", "-warnings.log")
+        warning_file_handler = logging.FileHandler(warning_file_name)
+        warning_file_handler.setLevel(logging.WARNING)
+        warning_file_handler.setFormatter(formatter)
+        logger.addHandler(warning_file_handler)
+        os.chmod(warning_file_name, mode=permissions_code)
 
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
+        os.chmod(log_file_path, mode=permissions_code)
         logger.propagate = False  # avoid logging to root logger too
 
     return logger
@@ -204,6 +228,8 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
 # Note: the screen queue is really just a Manager.queue and we are usign a "put"
 # If the screen_queue is None, it defaults to "print"
 # TODO: Does debug work in the loggers?
+# This is generally to simplify MP loggers so it does need to have two lines
+# one for file.logger and one for screen_queue.put
 def l_print(msg, file_logger, log_level="info", screen_queue=None):
 
     if screen_queue is None:
@@ -226,6 +252,52 @@ def l_print(msg, file_logger, log_level="info", screen_queue=None):
             file_logger.critical(msg)
         case _:
             raise Exception("Invalid log level value. Options are debug, info, warning, error and critical")
+
+
+def rollup_log_files(src_file, trg_file, remove_old_src_file=True):
+    # Sometimes we want to append log file onto another file.
+    # For example, a temp mp log file into the parent log.
+
+    # This will not error out if the files do not exist
+    # only send back a True / False (successful)
+    
+    # this will also look for rollups automatically for -warning and -error files
+
+    if not os.path.exists(src_file) or not os.path.exists(trg_file):
+        return False
+
+    with open(src_file, 'r') as src:
+        with open(trg_file, 'a') as trg:
+            shutil.copyfileobj(src, trg)
+
+    if remove_old_src_file:
+        os.remove(src_file)
+
+    # ----------------
+    # This will auto rollup warning files if they exist
+    warning_src_file_name = src_file.replace(".log", "-warnings.log")
+    warning_trg_file_name = trg_file.replace(".log", "-warnings.log")
+    if os.path.exists(warning_src_file_name) and os.path.exists(warning_trg_file_name):
+        with open(warning_src_file_name, 'r') as src:
+            with open(warning_trg_file_name, 'a') as trg:
+                shutil.copyfileobj(src, trg)
+
+        if remove_old_src_file:
+            os.remove(warning_src_file_name)
+    
+    # ----------------
+    # This will auto rollup errors files if they exist
+    error_src_file_name = src_file.replace(".log", "-errors.log")
+    error_trg_file_name = trg_file.replace(".log", "-errors.log")
+    if os.path.exists(error_src_file_name) and os.path.exists(error_trg_file_name):
+        with open(error_src_file_name, 'r') as src:
+            with open(error_trg_file_name, 'a') as trg:
+                shutil.copyfileobj(src, trg)
+
+        if remove_old_src_file:
+            os.remove(error_src_file_name)
+
+    return True
 
 
 # #################################
@@ -487,24 +559,6 @@ def run_with_mp(
 
 # #################################
 # Misc tools#
-def concat_files(src_file, trg_file, remove_old_src_file=True):
-    # Sometimes we want to append log file onto another file.
-    # For example, a temp mp log file into the parent log.
-
-    # This will not error out if the files do not exist
-    # only send back a True / False (successful)
-
-    if not os.path.exists(src_file) or not os.path.exists(trg_file):
-        return False
-
-    with open(src_file, 'r') as src:
-        with open(trg_file, 'a') as trg:
-            shutil.copyfileobj(src, trg)
-
-    if remove_old_src_file:
-        os.remove(src_file)
-
-    return True
 
 
 def getDriver(fileName):

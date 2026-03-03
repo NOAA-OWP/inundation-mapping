@@ -1733,7 +1733,10 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     if datum_data.get('vcs') in ['NGVD29', 'NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD']:
         # Get the datum adjustment to convert NGVD to NAVD.
         try:
-            datum_adj_ft = ngvd_to_navd_ft(datum_info=datum_data)
+            datum_adj_ft, err_msg = ngvd_to_navd_ft(datum_info=datum_data)
+            if err_msg != "":
+                raise Exception(err_msg)
+            
         except Exception as ex:
             MP_LOG.error(f"ERROR: {huc_lid_id}: ngvd_to_navd_ft")
             MP_LOG.error(traceback.format_exc())

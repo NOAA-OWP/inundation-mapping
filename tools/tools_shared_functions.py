@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
-import csv
+# import csv
 import datetime as dt
 import gc
-import glob
 import json
 import logging
 import os
 import pathlib
-import pickle
-import traceback
+import sys
+# import traceback
 from pathlib import Path
 
 import geopandas as gpd
@@ -28,6 +27,7 @@ from rasterio import features
 from rasterio.features import geometry_mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 from requests.adapters import HTTPAdapter
+from requests.exceptions import HTTPError
 from shapely.geometry import MultiPolygon, Polygon, shape
 from tools_shared_variables import (
     acceptable_alt_acc_thresh,
@@ -708,6 +708,9 @@ def get_stats_table_from_binary_rasters(
 ########################################################################
 # Functions related to categorical fim and ahps evaluation
 ########################################################################
+
+# Feb 24, 2026: TODO: The call to the api, should have a "with" and proper try/catch added.
+# See run_vdatum_for_region for an example
 def get_metadata(
     metadata_url,
     select_by,
@@ -793,7 +796,8 @@ def get_metadata(
         metadata_dataframe.columns = metadata_dataframe.columns.astype(str).str.replace('.', '_')
     else:
         # if request was not succesful, print error message.
-        # TODO: Output this as a status string because the print is getting suppressed
+        # TODO: Output this as a status string because the print is getting suppressed.
+        # Shouldn't this be an exception?
         print(f'Code: {response.status_code}\nMessage: {response.reason}\nURL: {response.url}')
         # Return empty outputs
         metadata_list = []
@@ -834,8 +838,9 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     '''
     # Import huc8 layer as geodataframe and retain necessary columns
     print("Reading WBD...")
+    # logging.info("Reading WBD..."), not all apps such as eval_plots have logging yet
     huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
-    print("WBD read.")
+    # print("WBD read.")
     huc8 = huc8_all[['HUC8', 'name', 'states', 'geometry']]
 
     if len(huc_list) > 0:
@@ -850,19 +855,28 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     metadata_gdf = gpd.GeoDataFrame()
     # Iterate through each site
     print("Iterating through metadata list...")
+    # logging.info("Iterating through metadata list...")
+
     for metadata in metadata_list:
         # Convert metadata to json
+        # print("temp 1 into meta")
+        # print(metadata)
         df = pd.json_normalize(metadata)
+        # print("temp 2 into meta")       
+        # print(df.info)   # this is showing the schema
+        # print(f"len of df is {len(df)} ... 1")        
         # Columns have periods due to nested dictionaries
         df.columns = df.columns.str.replace('.', '_')
+        # print(f"len of df is {len(df)} ... 2")
         # Drop any metadata sites that don't have lat/lon populated
         df.dropna(
             subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
             inplace=True,
         )
+       
         # If dataframe still has data
         if not df.empty:
-            #            print(df[:5])
+            # print(df[:5])
             # Get horizontal datum
             h_datum = df['usgs_preferred_latlon_datum_name'].item()
             # Look up EPSG code, if not returned Assume NAD83 as default.
@@ -882,6 +896,15 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             site_gdf = site_gdf.to_crs(huc8.crs)
             # Append site geodataframe to metadata geodataframe
             metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index=True)
+        # else:
+        #     logging.warning("This site (what site) does have values for key data")
+            # df.dropna(
+            #    subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
+            # inplace=True,
+            # means a site can be dropped. Hummm... what if we want usgs data but it is missing the nws_lid.
+                        
+    if metadata_gdf.empty:
+        return None, gpd.GeoDataFrame()
 
     # Trim metadata to only have certain fields.
     if not retain_attributes:
@@ -892,6 +915,8 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     #    elif isinstance(retain_attributes,list):
     #        metadata_gdf = metadata_gdf[retain_attributes]
     print("Performing spatial and tabular operations on geodataframe...")
+    # logging.info("Performing spatial and tabular operations on geodataframe...")
+    
     # Perform a spatial join to get the WBD HUC 8 assigned to each AHPS
     joined_gdf = gpd.sjoin(
         metadata_gdf, huc8, how='inner', predicate='intersects', lsuffix='ahps', rsuffix='wbd'
@@ -1046,6 +1071,9 @@ def get_nwm_segs(metadata):
 #######################################################################
 # Thresholds
 #######################################################################
+
+# Feb 24, 2026: TODO: The call to the api, should have a "with" and proper try/catch added.
+# See run_vdatum_for_region for an example
 def get_thresholds(threshold_url, select_by, selector, threshold='all'):
     '''
     Get nws_lid threshold stages and flows (i.e. bankfull, action, minor,
@@ -1305,6 +1333,11 @@ def ngvd_to_navd_ft(datum_info):
         Vertical adjustment in feet, from NGVD29 to NAVD88, and rounded to nearest hundredth.
 
     '''
+    
+    # Feb 2026: All print commands are getting lost in MP, so we need to return the message
+    # They do show in the console but not the logs without returning the message
+    err_msg = ""
+    
     # If crs is not NAD 27, convert crs to NAD27 and get adjusted lat lon
     if datum_info['crs'] != 'NAD27':
         lat, lon = convert_latlon_datum(datum_info['lat'], datum_info['lon'], datum_info['crs'], 'NAD27')
@@ -1329,25 +1362,64 @@ def ngvd_to_navd_ft(datum_info):
 
     # Run API for a given region
     def run_vdatum_for_region(params, region):
+        
+        # print("+++++++++++++")
+        # print("inside run_vdatum_for_region")
+        # print(params)
+        # print(region)
+        # print("----------------")
+        
         params['region'] = region
 
         # Suppress Insecure Request Warning
         requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-        # Call the API
-        session = requests.Session()
-        retry = Retry(connect=3, backoff_factor=0.5)
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount('http://', adapter)
+        success = False
+        response = "Internal Error: response message not set"
 
-        response = session.get(datum_url, params=params, verify=False)
+        try:
+            # Call the API
+            retry = Retry(connect=5,
+                            backoff_factor=5,
+                            total=4,
+                            status_forcelist=[429, 500, 502, 503, 504])
+            adapter = HTTPAdapter(max_retries=retry)
+            
+#             with requests.Session() as session:
+            session = requests.Session()
+            session.mount('https://', adapter)                
+            session.mount('http://', adapter)
 
-        # Check whether API call was successfull
-        if response.status_code == 200:
-            results = response.json()
-            success = 't_z' in results
-        else:
-            success = False
+            response = session.get(datum_url, params=params, verify=False, timeout=5)
+
+    #        print(f"success is {success}")
+            # print(f"response code is {response.status_code}")
+
+            # Check whether API call was successfull
+            if response.status_code == 200:
+                results = response.json()
+                
+                # Feb 24, 2026: It is possible for the response header to return a 200, but their could
+                # be a controlled message from the API, such as 
+                # {'errorCode': 412, 'message': 'Uncaught error, please contact NOAA VDatum Program Support team.'}
+                # Should this be an exception?
+                if "errorCode" in results:
+                    # raise Exception(f"Error returned from NOAA Api: {results}")
+                    success = False
+                else:
+                    success = 't_z' in results
+            else:
+                response.raise_for_status()
+                               
+        except HTTPError as http_err:
+            # These are for catastropic errors calling NOAA
+            print(f"HTTP error occurred while calling NOAA vDatum service: {http_err}")
+            raise http_err
+        except requests.exceptions.RequestException as err:
+            # These are for catastropic errors calling NOAA
+            print(f"Other error occurred while calling NOAA vDatum service: {err}")      
+            raise err
+            
         return response, success
 
     # Run Vdatum with region-specific parameters
@@ -1356,7 +1428,6 @@ def ngvd_to_navd_ft(datum_info):
         params['t_v_geoid'] = 'geoid12b'  # Target geoid (AK-specific)
 
         response, success = run_vdatum_for_region(params, 'AK')
-
         if success == False:  # If AK region fails, try running calling API with SEAK region
             response, success = run_vdatum_for_region(params, 'SEAK')
 
@@ -1374,13 +1445,17 @@ def ngvd_to_navd_ft(datum_info):
     else:
         if response is not None:
             results = response.json()
-            message = results['message']
+            # message = results['message']
+            # we want the full results not the message. We saw some error
+            message = results
         else:
             message = "An unknown internal error has occurred."
+        # This message gets lost in MP and logging
         print(f'VDatum error occurred: {message}')
+        err_msg=message
         adjustment_ft = None
 
-    return adjustment_ft
+    return adjustment_ft, err_msg
 
 
 #######################################################################
