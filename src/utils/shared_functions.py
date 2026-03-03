@@ -515,22 +515,15 @@ def getDriver(fileName):
 
 
 # Assumes the env file has been loaded into the os.environ objects
-def get_value_from_env(arg_key, env_file_path):
+def get_value_from_env(arg_key):
     '''
     Notes:
         - This assumes the env has already been loaded. The env_file_path is for error messages only.
         - we don't actually load the file here as we could be loading more than once.
-    Params:
-        - arg_key is the variables in the loaded environment object
-        - validate_local_file_exists: if False, do not validate that the file exists
-             Note: not all uses of this tool will be for file paths
-             ** Only work on S3 paths at this time
     Returns
         - The arg_key value. The return value may also have placeholders such as "mypath/{some version}/",
           which can be subsituted somewhere else.
     '''
-
-    env_file_name = ""
 
     if arg_key is None or arg_key == "":
         raise Exception("arg key is missing or empty")
@@ -538,9 +531,7 @@ def get_value_from_env(arg_key, env_file_path):
     arg_value = os.environ[arg_key]
 
     if arg_value is None or arg_value.strip() == "":
-        if env_file_path is None or env_file_path.strip() == "":
-            env_file_name = "Undefined"
-        raise ValueError(f"Env file of {env_file_name} : {arg_key} variable does not exist or empty")
+        raise ValueError(f"Env variable of {arg_key} does not exist or empty")
 
     return arg_value.strip()
 

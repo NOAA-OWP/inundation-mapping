@@ -95,10 +95,10 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, deploy_params_file, log_path
     try:
 
         # We will send all to qa datasets and it can pick out what it needs.
-        __load_qa_dataset(deploy_types, deploy_params_file)
+        __load_qa_dataset(deploy_types)
 
         if 'hand' in deploy_type:
-            __load_hand_dataset(deploy_params_file, num_jobs)
+            __load_hand_dataset(num_jobs)
 
     except Exception:
         print("********************************")
@@ -114,7 +114,7 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, deploy_params_file, log_path
 
 
 # ============================
-def __load_hand_dataset(deploy_params_file, num_jobs):
+def __load_hand_dataset(num_jobs):
 
     # We filter to keep only the files we specifically want
     # We will build up a list of files for upload as AWS can only
@@ -128,9 +128,7 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
     print(f"Section start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
 
     # Probably from previous_fim
-    hand_local_dataset_path = __get_env_variable_with_versions(
-        'FIM_HAND_DATASET_LOCAL_PATH', deploy_params_file
-    )
+    hand_local_dataset_path = __get_env_value('FIM_HAND_DATASET_LOCAL_PATH')
     if not os.path.exists(hand_local_dataset_path):
         raise ValueError(f"FIM_HAND_DATASET_LOCAL_PATH of {hand_local_dataset_path} does not exist")
     hand_local_dataset_path = sf.add_slashes_to_path(hand_local_dataset_path)
@@ -138,12 +136,6 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
     # ----------------
     # as each search_key needs to be used one at a time to figure out which are to be included
     # or maybe we use MT here?
-    file_patterns = []
-
-    file_pattern_key = "HV_HAND_LOAD_PATTERN"
-    for name, value in os.environ.items():
-        if file_pattern_key in name:
-            file_patterns.append({"env_var_name": name, "env_var_value": value})
 
     # Load each cmd one at a time from the enviro, then feed it to grep to get the files we
     # want. Remember.. AWS can only download/upload one file at a time (AWS Keys versus actual
@@ -153,6 +145,13 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
     time.sleep(5)  # gives the a min to read this.
     print("")
 
+    file_patterns = []
+    file_pattern_key = "HV_HAND_LOAD_PATTERN"
+    for name, value in os.environ.items():
+        if file_pattern_key in name:
+            file_patterns.append({"env_var_name": name, "env_var_value": value})
+
+    # Yes.. techically I can do the two "for" loops at one time. Just split it for debugging purposes
     for file_pattern in file_patterns:
         pattern_name = file_pattern["env_var_name"]
         pattern = file_pattern["env_var_value"]
@@ -194,7 +193,7 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
     # Let's it do its own upload, instead of the generic parent deploy_to_hydrovis pattern.
     # This set is pretty big so pass it to s3_shared_functions.upload_large_files,
     # which has a form of a multi-proc inside of it. (no logging though)
-    logging.info("Downloading started")
+    logging.info("Uploading started")
     s3_sf.upload_by_file_list(S3_CLIENT, HV_S3_BUCKET_NAME, sorted_files_to_upload, num_jobs)
 
     print("")
@@ -206,71 +205,71 @@ def __load_hand_dataset(deploy_params_file, num_jobs):
 
 
 # ============================
-def __load_qa_dataset(deploy_types, deploy_params_file):
+def __load_qa_dataset(deploy_types):
 
     files_to_upload = []
 
     # catchments
     if 'fpc' in deploy_types:
-        upload_item = __get_file_to_upload_item('HV_FIM_PERF_CATCHMENTS_FILE', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_FIM_PERF_CATCHMENTS_FILE')
         files_to_upload.append(upload_item)
 
     # Points and Polys are loaded together and are very quick
     if 'fpp' in deploy_types:
         # Polys first
-        upload_item = __get_file_to_upload_item('HV_FIM_PERF_POLYS_FILES', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_FIM_PERF_POLYS_FILES')
         files_to_upload.append(upload_item)
 
         # Points first
-        upload_item = __get_file_to_upload_item('HV_FIM_PERF_POINTS_FILES', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_FIM_PERF_POINTS_FILES')
         files_to_upload.append(upload_item)
 
     # rating curve comparison (Sierra test)
     if 'rcc' in deploy_types:
-        upload_item = __get_file_to_upload_item('HV_RCC_NWM_RECURR_FLOW_FILE', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_RCC_NWM_RECURR_FLOW_FILE')
         files_to_upload.append(upload_item)
 
     # Latest usgs rating curve
     if 'urc' in deploy_types:
-        upload_item = __get_file_to_upload_item('HV_URC_RATING_CURVE_FILE', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_URC_RATING_CURVE_FILE')
         files_to_upload.append(upload_item)
 
     # CatFIM Flow (sites and library)
     if 'cffb' in deploy_types:
-        upload_item = __get_file_to_upload_item('HV_CAT_FLOW_SITES', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_FLOW_SITES')
         files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_FLOW_LIBRARY', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_FLOW_LIBRARY')
         files_to_upload.append(upload_item)
 
     # CatFIM Flow Compare files
     if 'cffc' in deploy_types:
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_SITES', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_SITES')
         files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_GAINED_COVERAGE', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_GAINED_COVERAGE')
         files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_LOST_COVERAGE', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_FLOW_LOST_COVERAGE')
         files_to_upload.append(upload_item)
 
     # CatFIM Stage (sites and library)
     if 'cfsb' in deploy_types:
-        upload_item = __get_file_to_upload_item('HV_CAT_STAGE_SITES', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_STAGE_SITES')
         files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_STAGE_LIBRARY', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_STAGE_LIBRARY')
         files_to_upload.append(upload_item)
 
     # CatFIM Stage Compare files
     if 'cfsc' in deploy_types:
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_SITES', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_SITES')
         files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_GAINED_COVERAGE', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_GAINED_COVERAGE')
         files_to_upload.append(upload_item)
 
-        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_LOST_COVERAGE', deploy_params_file)
+        upload_item = __get_file_to_upload_item('HV_CAT_COMPARE_STAGE_LOST_COVERAGE')
         files_to_upload.append(upload_item)
 
     # -----------------------
@@ -310,22 +309,61 @@ def __load_qa_dataset(deploy_types, deploy_params_file):
 
 
 # ============================
-def __get_env_variable_with_versions(env_var_name, deploy_params_file):
-    # This will load an enviro variable, raising an exception if it does not exist
-    # if it does exist, see if it needs subsitution in the value for either the
-    # HAND_VERSION or RELEASE_FIM_PUBLIC_VERSION as many paths have one or more of these in the value
-    # it is ok if both or neither of those values exist in then env arg
-    env_value = sf.get_value_from_env(env_var_name, deploy_params_file)
-    env_value = env_value.replace("{RELEASE_FIM_PUBLIC_VERSION}", RELEASE_FIM_PUBLIC_VERSION)
-    env_value = env_value.replace("{HAND_PREVIOUS_VERSION}", HAND_PREVIOUS_VERSION)
-    env_value = env_value.replace("{HAND_VERSION}", HAND_VERSION)
+def __get_env_value(env_var_name):
+    """
+    This function can load a variable value from the enviro.
+    If the enviro value has {} in it, it can auto use recursive subsitution
+    to fill out the entire return value.
+
+    ie) looking to load HV_PUSH_HAND_CMD:
+       First pass it comes back with  =
+         "aws s3 sync {FIM_HAND_DATASET_LOCAL_PATH} s3://{HV_S3_BUCKET_NAME}/{HV_S3_ROOT_HANDSET_PATH}..."
+       It will iterate up to 3 more times to fill in those values. Note: Some of those values
+       require additional subsitution.
+       ie) FIM_HAND_DATASET_LOCAL_PATH returned with {} above and needs to be further subsitution.
+           FIM_HAND_DATASET_LOCAL_PATH = "/data/previous_fim/hand_{HAND_VERSION}"
+       It will iterate again to subsitute {HAND_VERSION}
+
+    This can do three levels of embedded subsitution
+
+    Note: While not pretty, it knows variable names that could be used in recursion.
+    TODO: think up something smarter. likely just use recursion to call this function.
+    """
+
+    # get the intial env value
+    env_value = sf.get_value_from_env(env_var_name)
+
+    if "{" not in env_value and "}" not in env_value:
+        return env_value
+
+    # had trouble getting recursion working, so just loop through it up to ten times
+    value_adj_done = False  # helps manage when we know there are no more subsitutions required
+    for i in range(10):
+        if value_adj_done:
+            break
+
+        # extract sub_key
+        # Find the indices of the start and end characters
+        start_index = env_value.find("{")
+        end_index = env_value.find("}")
+
+        # Check if both characters are found
+        if start_index != -1 and end_index != -1:
+            extracted_key = env_value[start_index + len("{") : end_index]
+            extracted_value = sf.get_value_from_env(extracted_key)
+            env_value = env_value.replace("{" + extracted_key + "}", extracted_value)
+
+        if "{" not in env_value and "}" not in env_value:
+            value_adj_done
+            break
+
     return env_value
 
 
 # ============================
-def __get_file_to_upload_item(env_var_name, deploy_params_file):
+def __get_file_to_upload_item(env_var_name):
 
-    file_path = __get_env_variable_with_versions(env_var_name, deploy_params_file)
+    file_path = __get_env_value(env_var_name)
     if not file_path.startswith("/"):
         file_path = "/" + file_path
     file_name = os.path.basename(file_path)
@@ -363,17 +401,15 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
     load_dotenv(deploy_params_file)
 
     # shorthand for the os.getenv
-    HAND_VERSION = sf.get_value_from_env("HAND_VERSION", deploy_params_file)
-    RELEASE_FIM_PUBLIC_VERSION = sf.get_value_from_env("RELEASE_FIM_PUBLIC_VERSION", deploy_params_file)
-    HAND_PREVIOUS_VERSION = sf.get_value_from_env("HAND_PREVIOUS_VERSION", deploy_params_file)
+    HAND_VERSION = __get_env_value("HAND_VERSION")
+    RELEASE_FIM_PUBLIC_VERSION = __get_env_value("RELEASE_FIM_PUBLIC_VERSION")
+    HAND_PREVIOUS_VERSION = __get_env_value("HAND_PREVIOUS_VERSION")
 
-    # The bucket name / load is in the aws function
-    HV_S3_ROOT_HANDSET_PATH = __get_env_variable_with_versions("HV_S3_ROOT_HANDSET_PATH", deploy_params_file)
+    # The bucket name / load is in the aws function. This variables use subsitution in the values
+    HV_S3_ROOT_HANDSET_PATH = __get_env_value("HV_S3_ROOT_HANDSET_PATH")
     HV_S3_ROOT_HANDSET_PATH = sf.add_slashes_to_path(HV_S3_ROOT_HANDSET_PATH)
 
-    HV_S3_ROOT_QA_DATASETS_PATH = __get_env_variable_with_versions(
-        "HV_S3_ROOT_QA_DATASETS_PATH", deploy_params_file
-    )
+    HV_S3_ROOT_QA_DATASETS_PATH = __get_env_value("HV_S3_ROOT_QA_DATASETS_PATH")
     HV_S3_ROOT_QA_DATASETS_PATH = sf.add_slashes_to_path(HV_S3_ROOT_QA_DATASETS_PATH)
 
     if num_jobs > 20:
@@ -386,7 +422,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
 
     # we load the bucket name from the aws file to help with git security a little.
     # We validate the bucket existance in __setup_aws
-    HV_S3_BUCKET_NAME = sf.get_value_from_env("HV_S3_BUCKET_NAME", deploy_params_file)
+    HV_S3_BUCKET_NAME = __get_env_value("HV_S3_BUCKET_NAME")
     HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
 
     return deploy_types
@@ -395,7 +431,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
 # ============================
 def __setup_aws(aws_creds_file):
 
-    # We validate the bucket existance in here and assume the deploy env file is alreayd loaded
+    # We validate the bucket existance in here and assume the deploy env file is already loaded
 
     global S3_CLIENT
 
@@ -411,9 +447,9 @@ def __setup_aws(aws_creds_file):
     load_dotenv(aws_creds_file)
 
     # setup the client and validate the bucket
-    hv_aws_access_key = sf.get_value_from_env("HV_AWS_ACCESS_KEY_ID", aws_creds_file)
-    hv_aws_secret_key = sf.get_value_from_env("HV_AWS_SECRET_ACCESS_KEY", aws_creds_file)
-    hv_aws_region = sf.get_value_from_env("HV_AWS_REGION_NAME", aws_creds_file)
+    hv_aws_access_key = sf.get_value_from_env("HV_AWS_ACCESS_KEY_ID")
+    hv_aws_secret_key = sf.get_value_from_env("HV_AWS_SECRET_ACCESS_KEY")
+    hv_aws_region = sf.get_value_from_env("HV_AWS_REGION_NAME")
 
     is_success, return_msg, S3_CLIENT = asf.create_aws_client(
         aws_service_type_name='s3',
