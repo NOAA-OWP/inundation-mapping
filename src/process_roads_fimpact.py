@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     '''
 
-    parser = argparse.ArgumentParser(description='Heals HAND for osm bridges')
+    parser = argparse.ArgumentParser(description='Process roads FIMpacts')
 
     parser.add_argument(
         '-g', '--hand_grid_raster', help='REQUIRED: Path for HAND grid raster file', required=True
