@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import traceback
+from itertools import zip_longest
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -35,8 +36,11 @@ def make_building_parts_per_huc(
     out_dir: Path,
     states: Optional[List[str]] = None,
     number_jobs: int = 8,
+    row_group_chunk_size: int = 3,
 ):
     selected_states = {s.upper() for s in (states or [])}
+    if row_group_chunk_size < 1:
+        raise ValueError("row_group_chunk_size must be >= 1.")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     log_file_path = os.path.join(out_dir, "create_building_parts.log")
@@ -49,7 +53,9 @@ def make_building_parts_per_huc(
             shutil.rmtree(p)
 
     print("Loading HUC8 buffered polygons from preclipping directory...")
-    hucs_by_crs = load_hucs_by_crs(current_preclip_directory)
+    hucs_by_crs = load_hucs_by_crs(
+        current_preclip_directory=current_preclip_directory, file_logger=file_logger, number_jobs=number_jobs
+    )
     print("Loaded HUC8 sets by CRS:", {k: len(v) for k, v in hucs_by_crs.items()})
 
     print('start reading states parquest files...')
@@ -58,28 +64,29 @@ def make_building_parts_per_huc(
     if not building_files:
         raise RuntimeError(f"No building parquet files found in {states_buildings_dir}")
 
-    tasks_args_list = []
-    for bp in building_files:
-        state = bp.stem.split("_")[0].upper()
-        if selected_states and state not in selected_states:
-            continue
-        tasks_args_list.append(
-            {"state": state, "buildings_parquet": bp, "hucs_by_crs": hucs_by_crs, "tmp_dir": out_dir}
-        )
+    tasks_args_list = build_mixed_row_group_tasks(
+        building_files=building_files,
+        selected_states=selected_states,
+        hucs_by_crs=hucs_by_crs,
+        out_dir=out_dir,
+        row_group_chunk_size=row_group_chunk_size,
+    )
 
     if not tasks_args_list:
         if selected_states:
             raise RuntimeError(
                 f"No building parquet files matched requested states {sorted(selected_states)} in {states_buildings_dir}"
             )
-        raise RuntimeError(f"No state tasks were created from parquet files in {states_buildings_dir}")
+        raise RuntimeError(f"No row-group tasks were created from parquet files in {states_buildings_dir}")
+
+    print(f"Created {len(tasks_args_list)} mixed row-group tasks (chunk size={row_group_chunk_size}).")
 
     mp_results = run_with_mp(
-        task_function=process_one_state,
+        task_function=process_row_group_chunk,
         tasks_args_list=tasks_args_list,
         file_logger=file_logger,
         max_workers=number_jobs,
-        task_id_key="state",
+        task_id_key="task_id",
         show_progress=True,
     )
 
@@ -112,7 +119,33 @@ def get_crs_of_state(state: str) -> str:
         return DEFAULT_FIM_PROJECTION_CRS
 
 
-def load_hucs_by_crs(current_preclip_directory: Path) -> Dict[str, gpd.GeoDataFrame]:
+def load_single_huc_for_crs(huc8: str, huc_dir: Path, file_logger, screen_queue, task_id):
+    try:
+        gpkg = huc_dir / "wbd_buffered.gpkg"
+        if not gpkg.exists():
+            raise RuntimeError(f"Missing wbd_buffered.gpkg file for HUC8_{huc8}.")
+
+        if huc8.startswith("19"):
+            crs_key = ALASKA_CRS
+        elif huc8.startswith("22010000"):
+            crs_key = GUAM_CRS
+        elif huc8.startswith("22030001"):
+            crs_key = AMERICAN_SAMOA_CRS
+        else:
+            crs_key = DEFAULT_FIM_PROJECTION_CRS
+
+        h = gpd.read_file(gpkg)
+        geom = h.geometry.union_all()
+        return 1, [{"huc8": huc8, "crs_key": crs_key, "geometry": geom}]
+    except Exception as e:
+        file_logger.error(f"❌ Exception in {task_id}: {str(e)}")
+        file_logger.error(traceback.format_exc())
+        return -1, [None]
+
+
+def load_hucs_by_crs(
+    current_preclip_directory: Path, file_logger, number_jobs: int
+) -> Dict[str, gpd.GeoDataFrame]:
     """
     Loads all HUC8 buffered polygons into memory, grouped by CRS (as strings),
     but assigns bucket/CRS purely from HUC8 directory name patterns (no CRS inspection).
@@ -144,29 +177,24 @@ def load_hucs_by_crs(current_preclip_directory: Path) -> Dict[str, gpd.GeoDataFr
         AMERICAN_SAMOA_CRS: [],
     }
 
-    for i, d in enumerate(huc_dirs):
-        huc8 = d.name
-        print(f'{i}/{len(huc_dirs)}')
-        gpkg = d / "wbd_buffered.gpkg"
-        if not gpkg.exists():
-            raise RuntimeError(f"Missing wbd_buffered.gpkg file for HUC8_{huc8}.")
+    huc_tasks = [{"huc8": d.name, "huc_dir": d} for d in huc_dirs]
+    huc_load_number_jobs = max(1, number_jobs // 2)  # to reduce MP overhead because each task is light
+    huc_results = run_with_mp(
+        task_function=load_single_huc_for_crs,
+        tasks_args_list=huc_tasks,
+        file_logger=file_logger,
+        max_workers=huc_load_number_jobs,
+        task_id_key="huc8",
+        show_progress=True,
+    )
 
-        # Assign CRS bucket using HUC id rule
-        if huc8.startswith("19"):
-            crs_key = ALASKA_CRS
-        elif huc8.startswith("22010000"):
-            crs_key = GUAM_CRS
-        elif huc8.startswith("22030001"):
-            crs_key = AMERICAN_SAMOA_CRS
-        else:
-            crs_key = DEFAULT_FIM_PROJECTION_CRS
-
-        h = gpd.read_file(gpkg)
-
-        # Dissolve to single geometry
-        geom = h.geometry.union_all()
-
-        crs_to_hucs_dict[crs_key].append({"huc8": huc8, "geometry": geom})
+    for huc8, payload in huc_results.items():
+        if not payload:
+            raise RuntimeError(f"No payload returned for HUC8_{huc8}.")
+        row = payload[0]
+        if not row:
+            raise RuntimeError(f"Invalid payload returned for HUC8_{huc8}.")
+        crs_to_hucs_dict[row["crs_key"]].append({"huc8": row["huc8"], "geometry": row["geometry"]})
 
     # Convert each bucket to a GeoDataFrame and build its spatial index
     hucs_by_crs: Dict[str, gpd.GeoDataFrame] = {}
@@ -191,35 +219,69 @@ def arrow_rowgroup_to_gdf(table, crs: str) -> gpd.GeoDataFrame:
     )
 
 
-def process_one_state(
-    state: str,
-    buildings_parquet: Path,
+def build_mixed_row_group_tasks(
+    building_files: List[Path],
+    selected_states: set[str],
     hucs_by_crs: Dict[str, gpd.GeoDataFrame],
-    tmp_dir: Path,
+    out_dir: Path,
+    row_group_chunk_size: int,
+) -> List[dict]:
+    per_state_row_groups: List[List[dict]] = []
+    for bp in building_files:
+        state = bp.stem.split("_")[0].upper()
+        if selected_states and state not in selected_states:
+            continue
+        pf = pq.ParquetFile(str(bp))
+        rows = [{"state": state, "buildings_parquet": bp, "row_group": rg} for rg in range(pf.num_row_groups)]
+        if rows:
+            per_state_row_groups.append(rows)
+
+    interleaved_items: List[dict] = []
+    for row in zip_longest(*per_state_row_groups, fillvalue=None):
+        for item in row:
+            if item is not None:
+                interleaved_items.append(item)
+
+    tasks_args_list: List[dict] = []
+    for i in range(0, len(interleaved_items), row_group_chunk_size):
+        chunk = interleaved_items[i : i + row_group_chunk_size]
+        tasks_args_list.append(
+            {
+                "task_id": f"chunk_{i // row_group_chunk_size:05d}",
+                "items": chunk,
+                "hucs_by_crs": hucs_by_crs,
+                "out_dir": out_dir,
+            }
+        )
+    return tasks_args_list
+
+
+def process_row_group_chunk(
+    items: List[dict],
+    hucs_by_crs: Dict[str, gpd.GeoDataFrame],
+    out_dir: Path,
     file_logger,
     screen_queue,
     task_id,
 ) -> None:
     try:
-        state_crs = get_crs_of_state(state)
-        # hucs = get_hucs_with_same_crs_as_state(hucs_by_crs, state)
-        hucs = hucs_by_crs[state_crs]
-
-        pf = pq.ParquetFile(str(buildings_parquet))
-
-        screen_queue.put(
-            f"[{state}] {buildings_parquet.name} | CRS={state_crs} | row_groups={pf.num_row_groups}"
-        )
-        file_logger.info(
-            f"[{state}] {buildings_parquet.name} | CRS={state_crs} | row_groups={pf.num_row_groups}"
-        )
-
+        pf_cache = {}
         if "geometry" not in BUILDING_COLUMNS:
             BUILDING_COLUMNS.append("geometry")
 
-        # make a for loop to read each row-group in each parquet file
-        for rg in range(pf.num_row_groups):
-            screen_queue.put(f"working on {state}, row_group: {rg}")
+        for item in items:
+            state = item["state"]
+            buildings_parquet = item["buildings_parquet"]
+            rg = item["row_group"]
+            state_crs = get_crs_of_state(state)
+            hucs = hucs_by_crs[state_crs]
+
+            bp_key = str(buildings_parquet)
+            if bp_key not in pf_cache:
+                pf_cache[bp_key] = pq.ParquetFile(bp_key)
+            pf = pf_cache[bp_key]
+
+            screen_queue.put(f"[{task_id}] {state} | {buildings_parquet.name} | row_group={rg}")
             table = pf.read_row_group(rg, columns=BUILDING_COLUMNS)
             bg = arrow_rowgroup_to_gdf(table, crs=state_crs)
             if bg.empty:
@@ -229,8 +291,8 @@ def process_one_state(
             minx, miny, maxx, maxy = bg.total_bounds
             intersected_idx = hucs.sindex.query(box(minx, miny, maxx, maxy), predicate="intersects")
             if len(intersected_idx) == 0:  # if this row-group does not intersect any hucs
-                screen_queue.put(f'No HUCs intersected row_group: {rg} of {state} ')
-                file_logger.info(f'No HUCs intersected row_group: {rg} of {state} ')
+                screen_queue.put(f'No HUCs intersected row_group: {rg} of {state}')
+                file_logger.info(f'No HUCs intersected row_group: {rg} of {state}')
                 continue
 
             intersected_hucs = hucs.iloc[intersected_idx][["huc8", "geometry"]]
@@ -250,7 +312,7 @@ def process_one_state(
                 sub = sub.copy()
                 sub["huc8"] = sub["huc8"].astype("string")  # pandas StringDtype (not categorical)
 
-                part_dir = tmp_dir / f"huc8_{huc8}"
+                part_dir = out_dir / f"huc8_{huc8}"
                 part_dir.mkdir(parents=True, exist_ok=True)
                 part_path = part_dir / f"{state}_rg{rg:05d}.parquet"
 
@@ -306,6 +368,13 @@ if __name__ == "__main__":
         default=8,
         type=int,
     )
+    parser.add_argument(
+        "--row_group_chunk_size",
+        help="OPTIONAL: Number of mixed row-groups per multiprocessing task. Default is 3.",
+        required=False,
+        default=3,
+        type=int,
+    )
 
     args = parser.parse_args()
     make_building_parts_per_huc(
@@ -314,4 +383,5 @@ if __name__ == "__main__":
         out_dir=Path(args.out_dir),
         states=args.state.split() if args.state else None,
         number_jobs=args.number_jobs,
+        row_group_chunk_size=args.row_group_chunk_size,
     )
