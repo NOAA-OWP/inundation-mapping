@@ -49,6 +49,10 @@ def process_buildings_fimpact(
     # read catchments to get the HYDROID for each building
     catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'geometry'])
 
+    # possible that feature id and hydro id be as type float. first make them int and then str
+    catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
+    catchments_df['HydroID'] = catchments_df['HydroID'].astype(int).astype(str)
+
     joined = gpd.sjoin(buildings_gdf, catchments_df, how="left", predicate="intersects")
 
     # keep only one match per building (first intersect found)
@@ -83,6 +87,10 @@ def process_buildings_fimpact(
         # group by UUID, and report the min of threshold hand
         min_idx = buildings_gdf.groupby(['UUID', 'HydroID'])['threshold_hand'].idxmin()
         buildings_gdf = buildings_gdf.loc[min_idx]
+
+        # make sure to record ids as str for csv output file
+        cols_to_str = ['huc8', 'HydroID', 'feature_id', 'branch']
+        buildings_gdf[cols_to_str] = buildings_gdf[cols_to_str].astype(str)
 
         buildings_gdf.to_csv(output_path, index=False)
     else:
