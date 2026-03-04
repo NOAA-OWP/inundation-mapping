@@ -128,7 +128,7 @@ def __load_hand_dataset(num_jobs):
     print(f"Section start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
 
     # Probably from previous_fim
-    hand_local_dataset_path = __get_env_value('FIM_HAND_DATASET_LOCAL_PATH')
+    hand_local_dataset_path = sf.get_env_value('FIM_HAND_DATASET_LOCAL_PATH')
     if not os.path.exists(hand_local_dataset_path):
         raise ValueError(f"FIM_HAND_DATASET_LOCAL_PATH of {hand_local_dataset_path} does not exist")
     hand_local_dataset_path = sf.add_slashes_to_path(hand_local_dataset_path)
@@ -309,61 +309,9 @@ def __load_qa_dataset(deploy_types):
 
 
 # ============================
-def __get_env_value(env_var_name):
-    """
-    This function can load a variable value from the enviro.
-    If the enviro value has {} in it, it can auto use recursive subsitution
-    to fill out the entire return value.
-
-    ie) looking to load HV_PUSH_HAND_CMD:
-       First pass it comes back with  =
-         "aws s3 sync {FIM_HAND_DATASET_LOCAL_PATH} s3://{HV_S3_BUCKET_NAME}/{HV_S3_ROOT_HANDSET_PATH}..."
-       It will iterate up to 3 more times to fill in those values. Note: Some of those values
-       require additional subsitution.
-       ie) FIM_HAND_DATASET_LOCAL_PATH returned with {} above and needs to be further subsitution.
-           FIM_HAND_DATASET_LOCAL_PATH = "/data/previous_fim/hand_{HAND_VERSION}"
-       It will iterate again to subsitute {HAND_VERSION}
-
-    This can do three levels of embedded subsitution
-
-    Note: While not pretty, it knows variable names that could be used in recursion.
-    TODO: think up something smarter. likely just use recursion to call this function.
-    """
-
-    # get the intial env value
-    env_value = sf.get_value_from_env(env_var_name)
-
-    if "{" not in env_value and "}" not in env_value:
-        return env_value
-
-    # had trouble getting recursion working, so just loop through it up to ten times
-    value_adj_done = False  # helps manage when we know there are no more subsitutions required
-    for i in range(10):
-        if value_adj_done:
-            break
-
-        # extract sub_key
-        # Find the indices of the start and end characters
-        start_index = env_value.find("{")
-        end_index = env_value.find("}")
-
-        # Check if both characters are found
-        if start_index != -1 and end_index != -1:
-            extracted_key = env_value[start_index + len("{") : end_index]
-            extracted_value = sf.get_value_from_env(extracted_key)
-            env_value = env_value.replace("{" + extracted_key + "}", extracted_value)
-
-        if "{" not in env_value and "}" not in env_value:
-            value_adj_done
-            break
-
-    return env_value
-
-
-# ============================
 def __get_file_to_upload_item(env_var_name):
 
-    file_path = __get_env_value(env_var_name)
+    file_path = sf.get_env_value(env_var_name)
     if not file_path.startswith("/"):
         file_path = "/" + file_path
     file_name = os.path.basename(file_path)
@@ -401,15 +349,15 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
     load_dotenv(deploy_params_file)
 
     # shorthand for the os.getenv
-    HAND_VERSION = __get_env_value("HAND_VERSION")
-    RELEASE_FIM_PUBLIC_VERSION = __get_env_value("RELEASE_FIM_PUBLIC_VERSION")
-    HAND_PREVIOUS_VERSION = __get_env_value("HAND_PREVIOUS_VERSION")
+    HAND_VERSION = sf.get_env_value("HAND_VERSION")
+    RELEASE_FIM_PUBLIC_VERSION = sf.get_env_value("RELEASE_FIM_PUBLIC_VERSION")
+    HAND_PREVIOUS_VERSION = sf.get_env_value("HAND_PREVIOUS_VERSION")
 
     # The bucket name / load is in the aws function. This variables use subsitution in the values
-    HV_S3_ROOT_HANDSET_PATH = __get_env_value("HV_S3_ROOT_HANDSET_PATH")
+    HV_S3_ROOT_HANDSET_PATH = sf.get_env_value("HV_S3_ROOT_HANDSET_PATH")
     HV_S3_ROOT_HANDSET_PATH = sf.add_slashes_to_path(HV_S3_ROOT_HANDSET_PATH)
 
-    HV_S3_ROOT_QA_DATASETS_PATH = __get_env_value("HV_S3_ROOT_QA_DATASETS_PATH")
+    HV_S3_ROOT_QA_DATASETS_PATH = sf.get_env_value("HV_S3_ROOT_QA_DATASETS_PATH")
     HV_S3_ROOT_QA_DATASETS_PATH = sf.add_slashes_to_path(HV_S3_ROOT_QA_DATASETS_PATH)
 
     if num_jobs > 20:
@@ -422,7 +370,7 @@ def __validate_input(deploy_type, all_valid_types, deploy_params_file, num_jobs)
 
     # we load the bucket name from the aws file to help with git security a little.
     # We validate the bucket existance in __setup_aws
-    HV_S3_BUCKET_NAME = __get_env_value("HV_S3_BUCKET_NAME")
+    HV_S3_BUCKET_NAME = sf.get_env_value("HV_S3_BUCKET_NAME")
     HV_S3_BUCKET_NAME = HV_S3_BUCKET_NAME.strip('/')
 
     return deploy_types
@@ -447,9 +395,9 @@ def __setup_aws(aws_creds_file):
     load_dotenv(aws_creds_file)
 
     # setup the client and validate the bucket
-    hv_aws_access_key = sf.get_value_from_env("HV_AWS_ACCESS_KEY_ID")
-    hv_aws_secret_key = sf.get_value_from_env("HV_AWS_SECRET_ACCESS_KEY")
-    hv_aws_region = sf.get_value_from_env("HV_AWS_REGION_NAME")
+    hv_aws_access_key = sf.get_env_value("HV_AWS_ACCESS_KEY_ID")
+    hv_aws_secret_key = sf.get_env_value("HV_AWS_SECRET_ACCESS_KEY")
+    hv_aws_region = sf.get_env_value("HV_AWS_REGION_NAME")
 
     is_success, return_msg, S3_CLIENT = asf.create_aws_client(
         aws_service_type_name='s3',
