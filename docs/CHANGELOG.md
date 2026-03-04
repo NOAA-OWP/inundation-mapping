@@ -1,6 +1,28 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.9.x.x - 2026-03-02 - [PR#1775]([https://github.com/NOAA-OWP/inundation-mapping/pull/1775])
+
+This PR covers minor adjustments to tools for pushing data from FIM to HV as well as pulling FIM Hand datasets down to OWP.
+
+### Changes
+- `config`
+    - `hv_deploy_params.template.env` and `workflows_params.template.env`:  Minor adjustments pattern changes.
+- `data/aws/s3_shared_functions.py`: Added better threading exception handling.
+- `src/utils/shared_functions.py`:
+    - Adjustments for file log file permissions (mostly for OWP files).
+    - Simplified function to get values from a enviro file.
+    - Added a function that can use values from an enviro file and recursive use substitution for embedded other enviro values.  This new get_env_value function can get any enviro value AND auto fill values from the enviro if required.  ie)  FIM_BUCKET_NAME ="our-fim-bucket-name" ;  FIM_S3_ROOT='s3://{FIM_BUCKET_NAME}/foss_fim'.  get_env_value("FIM_S3_ROOT") will return s3://{our-fim-bucket-name}/foss_fim.
+ - `workflows/deploy`
+     - `deploy_to_hydrovis.py`: 
+          - Added a feature to have the user confirm the S3 target paths before continuing.
+          - Simplification of function calls to get enviro values, sometimes with embedded string substitution (see new shared_function.get_env_value.
+     - `hand_to_owp.py`: Added simplified get enviro values calls.
+  - `citation.cff`:  Updated to show the recent full HAND production release of 4.9.9.0
+ 
+<br/>
+
 ## v4.9.10.1 - 2026-03-02 - [PR#1774]([https://github.com/NOAA-OWP/inundation-mapping/pull/1774])
 
 Updates pre_clip_huc_dir date in bash_variables.env
