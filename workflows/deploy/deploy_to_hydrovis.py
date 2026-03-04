@@ -86,11 +86,17 @@ def deploy_to_hydrovis(deploy_type, aws_creds_file, deploy_params_file, log_path
     logging.info(f"Start time: {overall_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
     logging.info(f"Deploy types to upload: {deploy_type}")
 
+    print("")
     logging.info(
         f"Loading to s3://{HV_S3_BUCKET_NAME}{HV_S3_ROOT_HANDSET_PATH}"
         f" and/or s3://{HV_S3_BUCKET_NAME}{HV_S3_ROOT_QA_DATASETS_PATH} as applicable."
     )
     print("")
+    print("To confirm target s3 pathing and continue, please type 'y'")
+    resp = input(">> ").lower()
+    if resp != "y":
+        logging.info("Program aborted")
+        sys.exit(1)
 
     try:
 

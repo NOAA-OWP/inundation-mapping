@@ -319,17 +319,15 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
         # boto3 clients are thread-safe, sessions and resources are not.
-        
+
         # Create an event to signal tasks to stop
-        stop_event = threading.Event()        
+        stop_event = threading.Event()
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures_dict = [executor.submit(merged_partial_get_file_by_key, **arg) for arg in tasks_args_list]
 
             # adding the min intervals speeds it up so it doesn't try to repaint every tqdm loop
             for future in tqdm(
-                futures.as_completed(futures_dict),
-                total=len(tasks_args_list),
-                desc="Retrieving file paths",
+                futures.as_completed(futures_dict), total=len(tasks_args_list), desc="Retrieving file paths"
             ):
                 try:
                     if future.cancelled():
@@ -348,10 +346,10 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
                 except Exception as fex:
                     print(f"Error returned by future. Details: {fex}")
                     logging.info(f"Error returned by future. Details: {fex}")
-                    
-                    stop_event.set() # Signal running tasks to stop
+
+                    stop_event.set()  # Signal running tasks to stop
                     executor.shutdown(wait=False, cancel_futures=True)
-                    
+
         return full_list_files
 
     except Exception as ex:
@@ -546,7 +544,7 @@ def download_files_by_file_list(s3_client, bucket_name, file_list, num_workers=1
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
         # boto3 clients are thread-safe, sessions and resources are not.
-        
+
         # Create an event to signal tasks to stop
         stop_event = threading.Event()
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -574,10 +572,10 @@ def download_files_by_file_list(s3_client, bucket_name, file_list, num_workers=1
                 except Exception as fex:
                     print(f"Error returned by future. Details: {fex}")
                     logging.info(f"Error returned by future. Details: {fex}")
-                    
-                    stop_event.set() # Signal running tasks to stop
+
+                    stop_event.set()  # Signal running tasks to stop
                     executor.shutdown(wait=False, cancel_futures=True)
-                    
+
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
         # if it finds it, it returns a nice user friendly message
@@ -709,8 +707,8 @@ def download_folders(
                 except Exception as fex:
                     print(f"Error returned by future. Details: {fex}")
                     logging.info(f"Error returned by future. Details: {fex}")
-                    
-                    stop_event.set() # Signal running tasks to stop
+
+                    stop_event.set()  # Signal running tasks to stop
                     executor.shutdown(wait=False, cancel_futures=True)
 
     except Exception as ex:
@@ -995,8 +993,8 @@ def upload_by_file_list(s3_client, bucket_name, file_list, num_workers=10):
                 except Exception as fex:
                     print(f"Error returned by future. Details: {fex}")
                     logging.info(f"Error returned by future. Details: {fex}")
-                    
-                    stop_event.set() # Signal running tasks to stop
+
+                    stop_event.set()  # Signal running tasks to stop
                     executor.shutdown(wait=False, cancel_futures=True)
 
     except Exception as ex:

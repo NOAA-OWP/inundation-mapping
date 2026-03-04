@@ -179,7 +179,7 @@ def __validate_input(source_path, target_path, workflows_params_file, num_jobs):
 
     # We load the bucket here and the src path above, but validate them in the __set_aws function
     FIM_S3_BUCKET_NAME = sf.get_env_value("FIM_S3_BUCKET_NAME")
-    
+
     # Premake the target dir to set permissions
     os.makedirs(target_path, mode=0o775, exist_ok=True)
 

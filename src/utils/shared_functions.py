@@ -536,7 +536,7 @@ def get_value_from_env(arg_key):
         raise ValueError(f"Env variable of {arg_key} does not exist or empty")
 
     return env_value.strip()
-    
+
 
 # ============================
 def get_env_value(env_var_name):
@@ -586,6 +586,7 @@ def get_env_value(env_var_name):
             break
 
     return env_value
+
 
 # ============================
 # Adds a starting and ending slash if not already there
