@@ -332,7 +332,10 @@ def process_generate_categorical_fim(
         nwm_meta_file, API_BASE_URL, search, get_new_meta_data, lst_hucs
     )
     FLOG.lprint(messages)
+    FLOG.lprint('huc_lid_dict: ')  # TEMP DEBUG
+    FLOG.lprint(huc_lid_dict)  # TEMP DEBUG
 
+    
     if not huc_lid_dict:
         sys.exit('Error occurred in metadata download.')
 
