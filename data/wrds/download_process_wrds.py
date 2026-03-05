@@ -10,7 +10,7 @@ import requests
 import urllib3
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
-from tools_shared_functions import get_metadata, get_thresholds
+from tools_shared_functions import get_metadata, get_thresholds, aggregate_wbd_hucs
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
@@ -344,18 +344,33 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         print(f"NWM metadata file loaded from {metadata_filepath}.")  # TEMP DEBUG
 
     # Get the HUC dictionary
-    huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
+    wbd_file = '/data/inputs/wbd/WBD_National.gpkg'  # TODO: Replace with os.getenv("input_wbd_layer")?
+    huc_lid_dict, nwm_sites_all_gdf = aggregate_wbd_hucs(output_meta_list, wbd_file, retain_attributes=True)
 
-    # Check if huc_lid_dict is empty and log message (unlikely but possible)
-    if not huc_lid_dict:
-        if "all" not in lst_hucs:
-            msg = "WARNING: No valid HUC/LID pairs found in the metadata for the specified HUC list."
-        else:
-            msg = "WARNING: No valid HUC/LID pairs found in the metadata."
-        messages.append(msg)
-        print(msg)
+    # Filter huc_lid_dict to only include HUCs in huc_lst
+    if 'all' not in lst_hucs:
+        # huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
 
-    print()
+        keep = set(lst_hucs)
+        for huc in list(huc_lid_dict):
+            if huc not in keep:
+                del huc_lid_dict[huc]
+
+    print(f"Number of sites to download thresholds for: {len(huc_lid_dict)}")  # TEMP DEBUG
+    
+    # # Get the HUC dictionary
+    # huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
+
+    # # Check if huc_lid_dict is empty and log message (unlikely but possible)
+    # if not huc_lid_dict:
+    #     if "all" not in lst_hucs:
+    #         msg = "WARNING: No valid HUC/LID pairs found in the metadata for the specified HUC list."
+    #     else:
+    #         msg = "WARNING: No valid HUC/LID pairs found in the metadata."
+    #     messages.append(msg)
+    #     print(msg)
+
+    # print()
 
     return output_meta_list, huc_lid_dict, messages
 
