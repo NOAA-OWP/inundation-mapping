@@ -515,7 +515,7 @@ if __name__ == "__main__":
           - CONUS = /data/inputs/wbd/WBD_National_HUC8_CONUS.gpkg
           - AK = /data/inputs/wbd/WBD_National_South_Alaska.gpkg
           - GU = /data/inputs/wbd/WBD_Guam_6637.gpkg
-          - AS = /data/inputs/wbd/WBD_AmericanSamoa_32702.gpkg
+          - AS = /data/inputs/wbd/WBD_National_AmericanSamoa.gpkg
 
           There is a new WBD National in 5070 just for CONUS, HI and PR. This results in selected
           HUCs in the 01x to 18x, but leaves out the 19x (Alaska). It does include some of the
