@@ -338,6 +338,7 @@ def process_generate_categorical_fim(
 
     # Load thresholds if specified
     if get_new_threshold_data == True:
+        FLOG.lprint('Getting new threshold data.')  # TEMP DEBUG
         threshold_url = f'{API_BASE_URL}/nws_threshold'
 
         # label = ''
@@ -348,6 +349,8 @@ def process_generate_categorical_fim(
         # Download thresholds
         messages = download_all_thresholds(threshold_file, threshold_url, huc_lid_dict)
         FLOG.lprint(messages)
+        FLOG.lprint('Finished downloading thresholds for the following HUC/LID dict: ')  # TEMP DEBUG
+        FLOG.lprint(huc_lid_dict)  # TEMP DEBUG
 
     ## ===== END SECTION OF CODE COPIED FROM download_process_wrds.py =====
 
