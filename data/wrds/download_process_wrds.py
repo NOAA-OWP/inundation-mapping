@@ -207,6 +207,8 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
             stages, flows, status = get_thresholds(
                 threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
             )
+            messages.append(f'LID: {lid}: ')  # TEMP DEBUG
+            messages.append(status)  # TEMP DEBUG
         except Exception as e:
             msg = f"Error retrieving thresholds for LID {lid}: {e}"
             # TODO: Could change phrasing (to remove 'Error')... or just have CatFIM handle by not
