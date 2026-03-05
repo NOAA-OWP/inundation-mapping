@@ -56,31 +56,31 @@ def label_data_file(label, lst_hucs):
     return label_with_date
 
 
-def get_huc_dictionary(metadata_list, lst_hucs):
-    '''
-    Example usage:
-    huc_lid_dict, lid_list = get_huc_dictionary(metadata_list, lst_hucs)
-    '''
-    lid_list = []
-    huc_lid_dict = {}
+# def get_huc_dictionary(metadata_list, lst_hucs):
+#     '''
+#     Example usage:
+#     huc_lid_dict, lid_list = get_huc_dictionary(metadata_list, lst_hucs)
+#     '''
+#     lid_list = []
+#     huc_lid_dict = {}
 
-    # Iterate through the metadata to get a list of LIDs and HUCs
-    for site_entry in metadata_list:
-        lid_i = site_entry['identifiers']['nws_lid']
-        huc_nws_i = site_entry['nws_preferred']['huc']
-        huc_usgs_i = site_entry['usgs_preferred']['huc']
+#     # Iterate through the metadata to get a list of LIDs and HUCs
+#     for site_entry in metadata_list:
+#         lid_i = site_entry['identifiers']['nws_lid']
+#         huc_nws_i = site_entry['nws_preferred']['huc']
+#         huc_usgs_i = site_entry['usgs_preferred']['huc']
 
-        huc_i = huc_usgs_i if huc_nws_i is None else huc_nws_i
+#         huc_i = huc_usgs_i if huc_nws_i is None else huc_nws_i
 
-        lid_list.append(lid_i)
-        huc_lid_dict[lid_i] = huc_i
+#         lid_list.append(lid_i)
+#         huc_lid_dict[lid_i] = huc_i
 
-    if 'all' not in lst_hucs:
-        # Filter huc_lid_dict to only include HUCs in huc_lst
-        huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
-        lid_list = list(huc_lid_dict.keys())
+#     if 'all' not in lst_hucs:
+#         # Filter huc_lid_dict to only include HUCs in huc_lst
+#         huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
+#         lid_list = list(huc_lid_dict.keys())
 
-    return huc_lid_dict
+#     return huc_lid_dict
 
 
 # -----
@@ -363,6 +363,8 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
                 del huc_lid_dict[huc]
 
     print(f"Number of sites to download thresholds for: {len(huc_lid_dict)}")  # TEMP DEBUG
+
+    
     
     # # Get the HUC dictionary
     # huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
