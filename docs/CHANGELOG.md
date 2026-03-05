@@ -11,9 +11,19 @@ Upgrades `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and 
 - `src/`
     - `stream_branches.py`: Appended `_fim` to `from_file`, `set_index`, and `reset_index` class methods and explicitly added attributes to the `__init__` constructor method.
     - `buffer_stream_branches.py`, `clip_rasters_to_branches.py`, `crosswalk_nwm_demDerived.py`, `derive_level_paths.py`, `generate_branch_list.py`, `query_vectors_by_branch_polygons.py`, `subset_catch_list_by_branch_id.py`: Updated class methods to use the new `_fim` name.
+## v4.9.10.1 - 2026-03-02 - [PR#1774]([https://github.com/NOAA-OWP/inundation-mapping/pull/1774])
+
+Updates pre_clip_huc_dir date in bash_variables.env
+
+### Changes
+
+- `src/bash_variables.env`: Reverts preclip date to 20260205.
+
+<br/>
+
 ## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
 
-ixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
+Fixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
 
 ### Changes
 - `data/wbd/clip_vectors_to_wbd.py`: Updates `to` attribute of downstream-most segments to 0 and extends these segments to the `landsea` border and/or the HUC boundary depending on the availability of the `landsea` data.
