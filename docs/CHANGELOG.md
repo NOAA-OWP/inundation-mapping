@@ -11,6 +11,22 @@ Upgrades `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and 
 - `src/`
     - `stream_branches.py`: Appended `_fim` to `from_file`, `set_index`, and `reset_index` class methods and explicitly added attributes to the `__init__` constructor method.
     - `buffer_stream_branches.py`, `clip_rasters_to_branches.py`, `crosswalk_nwm_demDerived.py`, `derive_level_paths.py`, `generate_branch_list.py`, `query_vectors_by_branch_polygons.py`, `subset_catch_list_by_branch_id.py`: Updated class methods to use the new `_fim` name.
+## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
+
+ixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
+
+### Changes
+- `data/wbd/clip_vectors_to_wbd.py`: Updates `to` attribute of downstream-most segments to 0 and extends these segments to the `landsea` border and/or the HUC boundary depending on the availability of the `landsea` data.
+
+<br/>
+
+## v4.9.9.1 - 2026-02-25 - [PR#1768]([https://github.com/NOAA-OWP/inundation-mapping/pull/1768])
+
+This PR focuses on updating the roughness N for Monongahela River in the bash_variables.env for FIM6.1.
+
+### Changes
+- `src`
+   - bash_variables.env: `vmann_input_file=${inputsDir}/rating_curve/optz_mannings_v6_1_1.csv`
 
 <br/>
 
@@ -38,7 +54,7 @@ Refactors upstream search to prevent memory-related issues in `adjust_floodplain
 
 This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
 
-Changes
+### Changes
 
 - `data/slope/sword_slope_create_parquet_qc.py`: Updated the max gap length parameter to 15km (previously 10km)
 - `src/bash_variables.env`: Updated the iris_sword_slope file to use the new 20260209 parquet
