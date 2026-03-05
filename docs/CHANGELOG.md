@@ -1,6 +1,32 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## vx.x.x.x - 2026-xx-xx - [PR#1720]([https://github.com/NOAA-OWP/inundation-mapping/pull/1720])
+
+This PR uses Ripple1D dataset, including discharge to calibrate HAND rating curves for HUC8s where the dataset exist. It uses the same approach that has been used for rating curves calibration using RAS2FIM. 
+
+### Additions
+- `src`
+   - src_adjust_ripple1d_rating.py : This is the main script that uses src_roughness_optimization.py to calibrate HAND SRC tables using Ripple1D rating curves.
+
+### Changes
+- `src`
+    - bash_variable.env
+    - calibrate_rating_curves.sh
+    - run_huc.sh
+    - add_crosswalk.py
+    - aggregate_branches_to_huc.py
+    - src_roughness_optimization.py
+    - usgs_gage_crosswalk.py
+    - usgs_gage_unit_setup.py
+
+- `config`
+    - deny_branches.lst
+    - deny_unit.lst
+    - params_template.env
+
+<br/>
+
 ## v4.9.10.1 - 2026-03-02 - [PR#1774]([https://github.com/NOAA-OWP/inundation-mapping/pull/1774])
 
 Updates pre_clip_huc_dir date in bash_variables.env
