@@ -332,7 +332,8 @@ def process_generate_categorical_fim(
     output_meta_list, messages = load_nwm_metadata(
         nwm_meta_file, API_BASE_URL, search, get_new_meta_data, lst_hucs
     )
-    FLOG.lprint(messages)
+    for message in messages:
+        FLOG.lprint(message)
 
     # Get the HUC dictionary
     wbd_file = '/data/inputs/wbd/WBD_National.gpkg'  # TODO: Replace with os.getenv("input_wbd_layer")?
@@ -362,7 +363,9 @@ def process_generate_categorical_fim(
 
         # Download thresholds
         messages = download_all_thresholds(threshold_file, threshold_url, huc_lid_dict)
-        FLOG.lprint(messages)
+
+        for message in messages:
+            FLOG.lprint(message)
 
     ## ===== END SECTION OF CODE COPIED FROM download_process_wrds.py =====
 
