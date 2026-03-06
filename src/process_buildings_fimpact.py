@@ -46,21 +46,16 @@ def process_buildings_fimpact(
     # read buildings data
     buildings_gdf = gpd.read_file(buildings_polygons)
 
-    # read catchments to get the HYDROID for each building
+    # read catchments to split the building polygons for each intersected HYDROID/feature_id.
     catchments_df = gpd.read_file(catchments_path, columns=['HydroID', 'feature_id', 'geometry'])
 
     # possible that feature id and hydro id be as type float. first make them int and then str
     catchments_df['feature_id'] = catchments_df['feature_id'].astype(int).astype(str)
     catchments_df['HydroID'] = catchments_df['HydroID'].astype(int).astype(str)
 
-    joined = gpd.sjoin(buildings_gdf, catchments_df, how="left", predicate="intersects")
-
-    # keep only one match per building (first intersect found)
-    one = joined.loc[~joined.index.duplicated(keep="first")]
-
-    # assign columns back to original dataframe
-    buildings_gdf["HydroID"] = one["HydroID"]
-    buildings_gdf["feature_id"] = one["feature_id"]
+    # split buildings by HAND catchment boundaries so each piece has the correct HydroID
+    buildings_gdf = gpd.overlay(buildings_gdf, catchments_df, how="intersection")
+    buildings_gdf = buildings_gdf.explode(index_parts=True).reset_index(drop=True)
 
     if not buildings_gdf.empty:
         buildings_gdf['branch'] = branch_id
@@ -84,7 +79,7 @@ def process_buildings_fimpact(
         # no need to save geometry --helpful to save disc size
         buildings_gdf = buildings_gdf.drop(columns='geometry')
 
-        # group by UUID, and report the min of threshold hand
+        # keep the minimum HAND threshold per UUID/HydroID after geometric splitting
         min_idx = buildings_gdf.groupby(['UUID', 'HydroID'])['threshold_hand'].idxmin()
         buildings_gdf = buildings_gdf.loc[min_idx]
 
@@ -94,7 +89,8 @@ def process_buildings_fimpact(
 
         buildings_gdf.to_csv(output_path, index=False)
     else:
-        print('no building polygons to process FIMpacts')
+        print(f'no split buildings for {branch_id}')
+    del catchments_df
 
 
 if __name__ == "__main__":
