@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.10.2 - 2026-02-04 - [PR#1747](https://github.com/NOAA-OWP/inundation-mapping/pull/1747)
+## v4.9.10.2 - 2026-02-04 - [PR#1753](https://github.com/NOAA-OWP/inundation-mapping/pull/1753)
 
 Upgrades `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0; in addition, `rio-vrt` v0.31.1 was added back. This required some additional changes to the codebase because the `geopandas` methods started being used in priority over the `StreamNetwork` class methods (particularly `from_file`, `set_index`, and `reset_index`), so they were returning `geopandas` objects rather than `StreamNetwork` objects. To overcome this, those`StreamNetwork` class method names were appended with `_fim` and replaced in the codebase.
 
