@@ -25,7 +25,7 @@ def generate_branch_list(stream_network_dissolved, branch_id_attribute, output_b
 
     if os.path.exists(stream_network_dissolved):
         # load stream network
-        stream_network_dissolved = StreamNetwork.from_file(
+        stream_network_dissolved = StreamNetwork.from_file_fim(
             stream_network_dissolved, branch_id_attribute=branch_id_attribute
         )
         # reduce to branch id attribute and convert to pandas df

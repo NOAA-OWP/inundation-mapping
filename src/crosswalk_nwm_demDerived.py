@@ -30,7 +30,7 @@ def Crosswalk_nwm_demDerived(
     if isinstance(nwm_streams, sb.StreamNetwork):
         pass
     elif isinstance(nwm_streams, str):
-        nwm_streams = sb.StreamNetwork.from_file(nwm_streams)
+        nwm_streams = sb.StreamNetwork.from_file_fim(nwm_streams)
     else:
         raise TypeError("For nwm_streams pass file path string or GeoDataFrame object")
 
@@ -38,7 +38,7 @@ def Crosswalk_nwm_demDerived(
     if isinstance(demDerived, sb.StreamNetwork):
         pass
     elif isinstance(demDerived, str):
-        demDerived = sb.StreamNetwork.from_file(demDerived)
+        demDerived = sb.StreamNetwork.from_file_fim(demDerived)
     else:
         raise TypeError("demDerived pass file path string or GeoDataFrame object")
 
@@ -84,7 +84,7 @@ def Add_traversal_to_NWM(nwm_streams, node_prefix=None, outfile=None, verbose=Fa
     if isinstance(nwm_streams, sb.StreamNetwork):
         pass
     elif isinstance(nwm_streams, str):
-        nwm_streams = sb.StreamNetwork.from_file(nwm_streams)
+        nwm_streams = sb.StreamNetwork.from_file_fim(nwm_streams)
     else:
         raise TypeError("nwm_streams_file pass file path string or GeoDataFrame object")
 
