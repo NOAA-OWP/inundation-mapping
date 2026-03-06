@@ -23,6 +23,7 @@ from generate_categorical_fim_mapping import (
     produce_stage_based_lid_tifs,
 )
 from tools_shared_functions import (
+    aggregate_wbd_hucs,
     filter_nwm_segments_by_stream_order,
     get_datum,
     get_nwm_segs,
@@ -328,10 +329,29 @@ def process_generate_categorical_fim(
 
     # Load NWM metadata (either by downloading it or pulling it from WRDS)
     # Note: This is the function that we will put into CatFIM code
-    output_meta_list, huc_lid_dict, messages = load_nwm_metadata(
+    output_meta_list, messages = load_nwm_metadata(
         nwm_meta_file, API_BASE_URL, search, get_new_meta_data, lst_hucs
     )
     FLOG.lprint(messages)
+
+    # Get the HUC dictionary
+    wbd_file = '/data/inputs/wbd/WBD_National.gpkg'  # TODO: Replace with os.getenv("input_wbd_layer")?
+    huc_lid_dict, nwm_sites_all_gdf = aggregate_wbd_hucs(output_meta_list, wbd_file, retain_attributes=True)
+
+    # Filter huc_lid_dict to only include HUCs in huc_lst
+    if 'all' not in lst_hucs:
+        # huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
+
+        keep = set(lst_hucs)
+        for huc in list(huc_lid_dict):
+            if huc not in keep:
+                del huc_lid_dict[huc]
+
+    FLOG.lprint(f"Number of sites to download thresholds for: {len(huc_lid_dict)}")  # TEMP DEBUG
+
+    if len(huc_lid_dict) == 0:
+        raise Exception("The metadata pickle file does not have any applicable HUCs")
+
 
     if not huc_lid_dict:
         sys.exit('Error occurred in metadata download.')
@@ -339,11 +359,6 @@ def process_generate_categorical_fim(
     # Load thresholds if specified
     if get_new_threshold_data == True:
         threshold_url = f'{API_BASE_URL}/nws_threshold'
-
-        # label = ''
-        # label_with_date = label_data_file(label, lst_hucs)
-        # output_thresholds_filename = f'thresholds{label_with_date}.pkl'
-        # thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
         # Download thresholds
         messages = download_all_thresholds(threshold_file, threshold_url, huc_lid_dict)
