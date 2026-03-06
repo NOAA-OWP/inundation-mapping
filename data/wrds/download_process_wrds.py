@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import pickle
 import sys
@@ -10,9 +11,16 @@ import requests
 import urllib3
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
-from tools_shared_functions import get_metadata, get_thresholds
+from tools_shared_functions import aggregate_wbd_hucs, get_metadata, get_thresholds
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
+
+
+# TODO: We have both prints and msgs added to the messages list. We need to rethink this
+# as catfim needs to iterate all messages coming back and log them. With prints
+# and messages, they screen shows everythign twice.
+# Check all functions for this problem. And how do we handle this for runnign this tool
+# at command line versus CatFIM. Maybe an arg for show pritns or create messages?
 
 
 def label_data_file(label, lst_hucs):
@@ -42,6 +50,10 @@ def label_data_file(label, lst_hucs):
     label_data_file("survey", ["HUC1"])  -> "_survey_subset_20251206"
     label_data_file("", ["all"])        -> "_20251206"
 
+
+    Rob: maybe a few more notes what this is function is doing. :)
+    Maybe some output examples?
+
     '''
 
     # If a list of HUCs is provided, add 'subset' to the label
@@ -56,34 +68,43 @@ def label_data_file(label, lst_hucs):
     return label_with_date
 
 
-def get_huc_dictionary(metadata_list, lst_hucs):
-    '''
-    Example usage:
-    huc_lid_dict, lid_list = get_huc_dictionary(metadata_list, lst_hucs)
-    '''
-    lid_list = []
-    huc_lid_dict = {}
+# # TODO: As is, this does not work as it assumes a huc is in the meta data but is rarely true
+# # To get a huc dictionary, we have to call tools_shared_functions.aggregate_wbd_hucs which
+# # pickes up poit co-ordinates from the metadata_json_list, plots then and overlays them
+# # against the WBD. Probably to just remove this for now. TBD
+# def get_huc_dictionary(metadata_list, lst_hucs):
+#     '''
+#     Example usage:
+#     huc_lid_dict, lid_list = get_huc_dictionary(metadata_list, lst_hucs)
 
-    # Iterate through the metadata to get a list of LIDs and HUCs
-    for site_entry in metadata_list:
-        lid_i = site_entry['identifiers']['nws_lid']
-        huc_nws_i = site_entry['nws_preferred']['huc']
-        huc_usgs_i = site_entry['usgs_preferred']['huc']
+#     returns: a dictionary [('00BRD', '18060005'), ('AANG1', '03130001'), ...]
+#        - sorted by upper case site ids.
+#        - May contain test or invalid sites at this point. Calling code can sort that out.
+#     '''
+#     lid_list = []
+#     huc_lid_dict = {}
 
-        huc_i = huc_usgs_i if huc_nws_i is None else huc_nws_i
+#     # Iterate through the metadata to get a list of LIDs and HUCs
+#     for site_entry in metadata_list:
+#         lid_i = site_entry['identifiers']['nws_lid']
+#         huc_nws_i = site_entry['nws_preferred']['huc']
+#         huc_usgs_i = site_entry['usgs_preferred']['huc']
 
-        lid_list.append(lid_i)
-        huc_lid_dict[lid_i] = huc_i
+#         huc_i = huc_usgs_i if huc_nws_i is None else huc_nws_i
 
-    if 'all' not in lst_hucs:
-        # Filter huc_lid_dict to only include HUCs in huc_lst
-        huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
-        lid_list = list(huc_lid_dict.keys())
+#         lid_list.append(lid_i)
+#         huc_lid_dict[lid_i] = huc_i
 
-    return huc_lid_dict
+#     if 'all' not in lst_hucs:
+#         # Filter huc_lid_dict to only include HUCs in huc_lst
+#         huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
+#         lid_list = list(huc_lid_dict.keys())
 
+#     # Todo: Might not be used for thresholds, maybe just getting a Huc list?
 
-# -----
+#     print(f'Number of sites to download thresholds for: {len(lid_list)}')
+
+#     return huc_lid_dict
 
 
 def download_all_metadata(metadata_filepath, metadata_url, search):
@@ -157,12 +178,12 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
         with open(metadata_filepath, "wb") as p_handle:
             pickle.dump(output_meta_list, p_handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        msg = f"Metadata saved at {metadata_filepath}"
+        msg = f"New metadata file saved at {metadata_filepath}"
         messages.append(msg)
         print(msg)
 
     except Exception as e:
-        msg = f"Error saving pickle file {metadata_filepath}: {e}"
+        msg = f"Error saving meta data pickle file {metadata_filepath}: {e}"
         messages.append(msg)
         print(msg)
         raise (e)
@@ -202,31 +223,35 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
 
     # Iterate through LIDs in huc_lid_dict and get thresholds from the WRDS API
     list_threshold_dfs = []
-    for lid, huc in huc_lid_dict.items():
-        try:
-            stages, flows, status = get_thresholds(
-                threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
-            )
-        except Exception as e:
-            msg = f"Error retrieving thresholds for LID {lid}: {e}"
-            # TODO: Could change phrasing (to remove 'Error')... or just have CatFIM handle by not
-            # throwing this as a critical error
-            messages.append(msg)
-            print(msg)
 
-            messages.append(status)
-            print(status)
-            continue
+    for huc, lids in huc_lid_dict.items():
+        for lid in lids:
+            # print(huc, lid) # TEMP DEBUG
 
-        # Combine and label thresholds
-        thresholds_dict = [
-            {'threshold_type': 'stages', 'huc': huc, **stages},
-            {'threshold_type': 'flows', 'huc': huc, **flows},
-        ]
+            try:
+                stages, flows, status = get_thresholds(
+                    threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+                )
+            except Exception as e:
+                msg = f"Error retrieving thresholds for LID {lid}: {e}"
+                # TODO: Could change phrasing (to remove 'Error')... or just have CatFIM handle by not
+                # throwing this as a critical error
+                messages.append(msg)
+                print(msg)
 
-        # Format into a dataframe and add to the df list
-        thresholds_df = pd.DataFrame(thresholds_dict)
-        list_threshold_dfs.append(thresholds_df)
+                messages.append(status)
+                print(status)
+                continue
+
+            # Combine and label thresholds
+            thresholds_dict = [
+                {'threshold_type': 'stages', 'huc': huc, **stages},
+                {'threshold_type': 'flows', 'huc': huc, **flows},
+            ]
+
+            # Format into a dataframe and add to the df list
+            thresholds_df = pd.DataFrame(thresholds_dict)
+            list_threshold_dfs.append(thresholds_df)
 
     # Combine all the DataFrames in the list into a single, final DataFrame
     all_thresholds_df = pd.concat(list_threshold_dfs, ignore_index=True)
@@ -236,7 +261,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
         with open(thresholds_filepath, 'wb') as f:
             pickle.dump(all_thresholds_df, f)
 
-        msg = f"Thresholds saved at {thresholds_filepath}"
+        msg = f"Thresholds file saved at {thresholds_filepath}"
         messages.append(msg)
         print(msg)
 
@@ -251,9 +276,14 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
     print(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
     print()
 
+    # TODO: Why not return the dataset as well?
     return messages
 
 
+# TODO: We likely want to drop the lst_hucs arg as it only looks for sites that have
+# a value in either nws_preferred.huc node or the nws_preferred.huc node and lots of sites
+# do not have that value. Later we use the lat/longs intersecting the WBD to sort out
+# the applicable huc per site. (aggregate_wbd_hucs)
 def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download, lst_hucs):
     '''
     Downloads or reads in the NWM metadata and then returns the data as a list and a HUC dictionary.
@@ -277,26 +307,45 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         lst_hucs (list of string) : List of HUCs to process or a list containing the value 'all' to process all HUCs.
 
     Returns:
-        output_meta_list (list) : Filtered list of metadata dictionaries, each representing a unique NWS LID site.
-        huc_lid_dict (dict) : dictionary mapping LIDs to HUCs.
-        messages (list of string) : Logging (because print statements won't show up in CatFIM.)
+        - output_meta_list (list) : Filtered list of metadata dictionaries, each representing a unique NWS LID site.
+        - huc_lid_dict (dict) : dictionary mapping LIDs to HUCs.
+            ie) a dictionary [('00BRD', '18060005'), ('AANG1', '03130001'), ...]
+                - Sorted by upper case site ids.
+                - May contain test or invalid sites at this point. Calling code can sort that out.
+        - messages (list of string) : Logging (because print statements won't show up in CatFIM.)
 
     Example usage:
 
     output_meta_list, huc_lid_dict, messages = load_nwm_metadata(
         metadata_filepath, API_BASE_URL, search, metadata_download, lst_hucs
     )
+
+    NOTES:
+       - If this function finds warning data, it will include the phrase (case-senstive) "WARNING"
+         and same is true for "ERROR". Error means that the calling script can decide if it wants to shut down
+         log it, continue, etc.
+         It is also possible that you might get multiple messages returned in the "messages" list and some
+         may be warnings, others just messages. Could be a mix and match returned.
+         If something catestrophic happens, this function will thrown an exception.
+
     '''
+
+    # TODO: We have both prints and msgs added to the messages list. We need to rethink this
+    # as catfim needs to iterate all messages coming back and log them. With prints
+    # and messages, they screen shows everythign twice.
+    # Check all functions for this problem. And how do we handle this for runnign this tool
+    # at command line versus CatFIM. Maybe an arg for show pritns or create messages?
+
     output_meta_list = []
     messages = []
-    huc_lid_dict = {}
 
     if metadata_download == True:
         metadata_url = f'{API_BASE_URL}/metadata'
 
         # Give a warning if the file will be overwritten
         if os.path.isfile(metadata_filepath):
-            msg = f"WARNING: NWM metadata file already exists at {metadata_filepath}, but metadata_download is set to True. File will be overwritten."
+            msg = f"WARNING: NWM metadata file already exists at {metadata_filepath}, but metadata_download"
+            " is set to True. File will be overwritten."
             messages.append(msg)
             print(msg)
         else:
@@ -315,7 +364,7 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         print()
 
     else:
-        msg = f"Not downloading metadata, looking for NWM metadata file at {metadata_filepath}."
+        msg = f"Loading NWM metadata from {metadata_filepath}."
         messages.append(msg)
         print(msg)
 
@@ -329,36 +378,31 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
         messages.append(msg)
         print(msg)
 
-        return (
-            output_meta_list,
-            huc_lid_dict,
-            messages,
-        )  # HUC lid dict will be empty, so we can use that to indicate an error
-        # TODO: handle error in CatFIM if empty huc lid dict is returned? or raise exception here?
+        return (output_meta_list, messages)
 
     # Open metadata file (either the one we just downloaded or pre-existing)
     with open(metadata_filepath, "rb") as p_handle:
         output_meta_list = pickle.load(p_handle)
         print(f"NWM metadata file loaded from {metadata_filepath}.")  # TEMP DEBUG
 
-    # Get the HUC dictionary
-    huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
+    # huc_lid_dict = get_huc_dictionary(output_meta_list, lst_hucs)
 
-    # Check if huc_lid_dict is empty and log message (unlikely but possible)
-    if not huc_lid_dict:
-        if "all" not in lst_hucs:
-            msg = "WARNING: No valid HUC/LID pairs found in the metadata for the specified HUC list."
-        else:
-            msg = "WARNING: No valid HUC/LID pairs found in the metadata."
-        messages.append(msg)
-        print(msg)
+    # # Check if huc_lid_dict is empty and log message (unlikely but possible)
+    # if not huc_lid_dict:
+    #     if "all" not in lst_hucs:
+    #         msg = "WARNING: No valid HUC/LID pairs found in the metadata for the specified HUC list."
+    #     else:
+    #         msg = "WARNING: No valid HUC/LID pairs found in the metadata."
+    #     messages.append(msg)
+    #     print(msg)
 
     print()
 
-    return output_meta_list, huc_lid_dict, messages
+    return output_meta_list, messages
 
 
 # TODO: THIS SHOULD BE MOVED TO A CATFIM-SPECIFIC SCRIPT
+# Rob: maybe not.. TBD...
 def load_site_thresholds(threshold_file, lid):
     '''
     Loads threshold stage and flow data for a given site (LID) from a local pickle file.
@@ -476,20 +520,35 @@ def main(
         output_metadata_filename = f'metadata{label_with_date}.pkl'
         metadata_filepath = os.path.join(output_folder, output_metadata_filename)
 
+        # Rob: Tell the user the name and location of the file
+
     # If metadata filepath is provided, use it
     else:
         metadata_filepath = input_metadata_file
 
-    ## ===== START SECTION OF CODE TO COPY INTO CATFIM PREPROCESSING =====
-
     # Load NWM metadata (either by downloading it or pulling it from WRDS)
     # Note: This is the function that we will put into CatFIM code
-    __, huc_lid_dict, __ = load_nwm_metadata(
+    output_meta_list, messages = load_nwm_metadata(
         metadata_filepath, API_BASE_URL, search, metadata_download, lst_hucs
     )
 
-    if not huc_lid_dict:
-        sys.exit('Error occurred in metadata download.')
+    # Get the HUC dictionary
+    wbd_file = '/data/inputs/wbd/WBD_National.gpkg'  # TODO: Replace with os.getenv("input_wbd_layer")?
+    huc_lid_dict, nwm_sites_all_gdf = aggregate_wbd_hucs(output_meta_list, wbd_file, retain_attributes=True)
+
+    # Filter huc_lid_dict to only include HUCs in huc_lst
+    if 'all' not in lst_hucs:
+        # huc_lid_dict = {lid: huc for lid, huc in huc_lid_dict.items() if huc in lst_hucs}
+
+        keep = set(lst_hucs)
+        for huc in list(huc_lid_dict):
+            if huc not in keep:
+                del huc_lid_dict[huc]
+
+    print(f"Number of sites to download thresholds for: {len(huc_lid_dict)}")  # TEMP DEBUG
+
+    if len(huc_lid_dict) == 0:
+        raise Exception("The metadata pickle file does not have any applicable HUCs")
 
     # Load thresholds if specified
     if threshold_download == True:
@@ -499,10 +558,12 @@ def main(
         output_thresholds_filename = f'thresholds{label_with_date}.pkl'
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
+        # Rob: Tell the user the name and location of the file
+
         # Download thresholds
         download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
 
-    ## ===== END SECTION OF CODE TO COPY INTO CATFIM PREPROCESSING =====
+    # TODO: Should there be an "else"?
 
     overall_end_time = datetime.now(timezone.utc)
     dt_string = overall_end_time.strftime("%m/%d/%Y %H:%M:%S")
@@ -548,7 +609,6 @@ if __name__ == '__main__':
         required=False,
         default='/data/config/fim_enviro_values.env',
     )
-
     parser.add_argument(
         '-w',
         '--output-folder',
