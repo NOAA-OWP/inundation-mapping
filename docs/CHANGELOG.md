@@ -11,6 +11,25 @@ This is a quick tool that can remove selected folders from an s3 bucket using a 
 ### Changes
 - `data/ripple`
     - `hecras_processing.ipynb`, `ripple_shared_tools.sh`, `terrain_agreement_metrics_analysis.py`: Updated file permissions.
+## v4.9.10.2 - 2026-02-04 - [PR#1753](https://github.com/NOAA-OWP/inundation-mapping/pull/1753)
+
+Upgrades `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0; in addition, `rio-vrt` v0.31.1 was added back. This required some additional changes to the codebase because the `geopandas` methods started being used in priority over the `StreamNetwork` class methods (particularly `from_file`, `set_index`, and `reset_index`), so they were returning `geopandas` objects rather than `StreamNetwork` objects. To overcome this, those`StreamNetwork` class method names were appended with `_fim` and replaced in the codebase.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Upgraded `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0. Added `rio-vrt` v0.31.1.
+- `src/`
+    - `stream_branches.py`: Appended `_fim` to `from_file`, `set_index`, and `reset_index` class methods and explicitly added attributes to the `__init__` constructor method.
+    - `buffer_stream_branches.py`, `clip_rasters_to_branches.py`, `crosswalk_nwm_demDerived.py`, `derive_level_paths.py`, `generate_branch_list.py`, `query_vectors_by_branch_polygons.py`, `subset_catch_list_by_branch_id.py`: Updated class methods to use the new `_fim` name.
+<br/>
+
+## v4.9.10.1 - 2026-03-02 - [PR#1774](https://github.com/NOAA-OWP/inundation-mapping/pull/1774)
+
+Updates pre_clip_huc_dir date in bash_variables.env
+
+### Changes
+
+- `src/bash_variables.env`: Reverts preclip date to 20260205.
 <br/>
 
 ## v4.9.10.0 - 2026-02-25 - [PR#1769](https://github.com/NOAA-OWP/inundation-mapping/pull/1769)
@@ -125,6 +144,7 @@ See PR for more details.
 This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
 
 ### Changes
+src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
 - src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
 <br/>
 
