@@ -130,7 +130,9 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
     return streams, errors
 
 
-def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, copy_from_dir, copying_flags):
+def subset_vector_layers(
+    huc, wbd_filename, wbd_buffer_filename, huc_directory, copy_from_dir, preclipping_flags
+):
     """
     Subsets vector layers for a given HUC region by either copying from pre-clipped data
     or generating new clipped layers based on flags.
@@ -141,18 +143,8 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         wbd_buffer_filename (str): Path to the GeoPackage file containing the buffered HUC boundary.
         huc_directory (str): Output directory for saving the resulting vector layers.
         copy_from_dir (str): Directory containing pre-clipped vector data to copy from (if applicable).
-        copying_flags (dict): Dictionary with 8 boolean flags indicating which vector layers to copy
-                              vs. clip. Example:
-            {
-                'copy_nwm_lakes': True,
-                'copy_nwm_streams_headwater': True,
-                'copy_nwm_catchments': False,
-                'copy_levee_lines': False,
-                'copy_levee_lines_burned': False,
-                'copy_levee_protected_areas': False,
-                'copy_osm_bridges': False,
-                'copy_osm_roads': False
-            }
+        preclipping_flags (dict): Dictionary with boolean flags indicating which vector layers to preclip
+                              vs. copy.
 
     Returns:
         None. Saves the subsetted vector layers to the specified `huc_directory`.
@@ -223,31 +215,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
     #     wbd = wbd.drop(columns=['shape_Length', 'areasqkm'])
 
     # for copying, use shutil.copy2 to preserve the orignal files timestamps
-    if copying_flags['copy_levee_protected_areas']:
-        src = os.path.join(copy_from_dir, huc, output_filenames['levee_protected_areas'])
-        dst = os.path.join(huc_directory, output_filenames['levee_protected_areas'])
-
-        if os.path.exists(src):
-            logging.info(f"Copying levee-protected areas for {huc} (from previous output).")
-            shutil.copy2(src, dst)
-        else:
-            logging.warning(f"Missing file: levee-protected areas for {huc} not found at {src}.")
-    else:
-        # TODO investigate this old comment : Clip levee-protected areas polygons for future masking ocean areas (where applicable)
-        logging.info(f"Clipping levee-protected areas for {huc}")
-        if levee_protected_areas and os.path.exists(levee_protected_areas):
-            levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
-            if not levee_protected_areas.empty:
-                levee_protected_areas.to_file(
-                    os.path.join(huc_directory, output_filenames['levee_protected_areas']),
-                    driver='GPKG',
-                    index=False,
-                    crs=huc_CRS,
-                    engine="fiona",
-                )
-            del levee_protected_areas
-
-    if copying_flags['copy_nwm_lakes']:
+    if not preclipping_flags['nwm_lakes']:
         src = os.path.join(copy_from_dir, huc, output_filenames['nwm_lakes'])
         dst = os.path.join(huc_directory, output_filenames['nwm_lakes'])
         if os.path.exists(src):
@@ -279,37 +247,15 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             )
         del nwm_lakes
 
-    if copying_flags['copy_levee_lines']:
-        src = os.path.join(copy_from_dir, huc, output_filenames['levee_lines'])
-        dst = os.path.join(huc_directory, output_filenames['levee_lines'])
-        if os.path.exists(src):
-            logging.info(f"Copying NLD levee_lines for {huc} (from previous output).")
-            shutil.copy2(src, dst)
-        else:
-            logging.warning(f"Missing file: levee_lines for {huc} not found at {src}.")
-    else:
-        # Find intersecting levee lines
-        logging.info(f"Clipping NLD levee lines for {huc}")
-        if nld_lines and os.path.exists(nld_lines):
-            nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
-            if not nld_lines.empty:
-                nld_lines.to_file(
-                    os.path.join(huc_directory, output_filenames['levee_lines']),
-                    driver='GPKG',
-                    index=False,
-                    crs=huc_CRS,
-                    engine="fiona",
-                )
-            del nld_lines
-
-    if copying_flags['copy_levee_lines_burned']:
-        src = os.path.join(copy_from_dir, huc, output_filenames['levee_lines_burned'])
-        dst = os.path.join(huc_directory, output_filenames['levee_lines_burned'])
-        if os.path.exists(src):
-            logging.info(f"Copying levee_lines_burned for {huc} (from previous output).")
-            shutil.copy2(src, dst)
-        else:
-            logging.warning(f"Missing file: levee_lines_burned for {huc} not found at {src}.")
+    if not preclipping_flags['levees']:
+        for vector_item in ['levee_lines', 'levee_lines_burned', 'levee_protected_areas']:
+            src = os.path.join(copy_from_dir, huc, output_filenames[vector_item])
+            dst = os.path.join(huc_directory, output_filenames[vector_item])
+            if os.path.exists(src):
+                logging.info(f"Copying {vector_item} for {huc} (from previous output).")
+                shutil.copy2(src, dst)
+            else:
+                logging.warning(f"Missing file: {vector_item} for {huc} not found at {src}.")
     else:
         # Preprocessed levee lines for burning
         logging.info(f"Clipping levee_lines_burned for {huc}.")
@@ -325,7 +271,33 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
                 )
             del nld_lines_preprocessed
 
-    if copying_flags['copy_nwm_catchments']:
+        logging.info(f"Clipping NLD levee lines for {huc}")
+        if nld_lines and os.path.exists(nld_lines):
+            nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
+            if not nld_lines.empty:
+                nld_lines.to_file(
+                    os.path.join(huc_directory, output_filenames['levee_lines']),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
+            del nld_lines
+
+        logging.info(f"Clipping levee-protected areas for {huc}")
+        if levee_protected_areas and os.path.exists(levee_protected_areas):
+            levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
+            if not levee_protected_areas.empty:
+                levee_protected_areas.to_file(
+                    os.path.join(huc_directory, output_filenames['levee_protected_areas']),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
+            del levee_protected_areas
+
+    if not preclipping_flags['nwm_catchments']:
         src = os.path.join(copy_from_dir, huc, output_filenames['nwm_catchments'])
         dst = os.path.join(huc_directory, output_filenames['nwm_catchments'])
         if os.path.exists(src):
@@ -353,7 +325,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
             del nwm_catchments
 
-    if copying_flags['copy_osm_bridges']:
+    if not preclipping_flags['osm_bridges']:
         src = os.path.join(copy_from_dir, huc, output_filenames['osm_bridges'])
         dst = os.path.join(huc_directory, output_filenames['osm_bridges'])
         if os.path.exists(src):
@@ -380,7 +352,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
             del subset_osm_bridges_gdb
 
-    if copying_flags['copy_osm_roads']:
+    if not preclipping_flags['osm_roads']:
         src = os.path.join(copy_from_dir, huc, output_filenames['osm_roads'])
         dst = os.path.join(huc_directory, output_filenames['osm_roads'])
         if os.path.exists(src):
@@ -407,7 +379,7 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
 
             del subset_osm_roads_gdb
 
-    if copying_flags['copy_buildings']:
+    if not preclipping_flags['buildings']:
         src = os.path.join(copy_from_dir, huc, output_filenames['buildings'])
         dst = os.path.join(huc_directory, output_filenames['buildings'])
         if os.path.exists(src):
@@ -432,8 +404,8 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             print("-- No building parquet files for this HUC")
             logging.info("-- No building parquet files for this HUC")
 
-    if copying_flags['copy_nwm_streams_headwater']:
-        for vector_item in ['wbd_streams_buffer', 'nwm_streams', 'nwm_headwaters']:
+    if not preclipping_flags['nwm_streams_headwater']:
+        for vector_item in ['nwm_streams', 'nwm_headwaters']:
             src = os.path.join(copy_from_dir, huc, output_filenames[vector_item])
             dst = os.path.join(huc_directory, output_filenames[vector_item])
 
@@ -607,14 +579,13 @@ if __name__ == '__main__':
     --wbd_buffer_filename wbd_buffered.gpkg \
     --huc_directory outputs/preclips/test3/21020001/ \
     --copy_from_dir data/inputs/pre_clip_huc8/20250218/ \
-    --copying_flags '{"copy_nwm_lakes": true,
-        "copy_nwm_streams_headwater": true,
-        "copy_nwm_catchments": false,
-            "copy_levee_lines": false,
-            "copy_levee_lines_burned": false,
-            "copy_levee_protected_areas": false,
-            "copy_osm_bridges": false,
-                "copy_osm_roads": false}'
+    --preclipping_flags '{"nwm_lakes": true,
+        "nwm_streams_headwater": true,
+        "nwm_catchments": false,
+            "levees": false,
+            "osm_bridges": false,
+            "osm_roads": false,
+            "buildings": false}'
     '''
 
     parser = argparse.ArgumentParser(description='Subset vector layers')
@@ -634,10 +605,10 @@ if __name__ == '__main__':
         '--copy_from_dir', type=str, required=True, help='Directory with pre-clipped data for copying'
     )
     parser.add_argument(
-        '--copying_flags',
+        '--preclipping_flags',
         type=json.loads,
         required=True,
-        help='A dictionary with 8 itesm indicating which layers to copy vs. clip (e.g., \'{"copy_nwm_lakes": true, ...}\')',
+        help='A dictionary with 8 items indicating which layers to preclip vs. copy (e.g., \'{"nwm_lakes": true, ...}\')',
     )
 
     args = vars(parser.parse_args())

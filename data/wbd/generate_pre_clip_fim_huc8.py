@@ -90,17 +90,16 @@ wbd_buffer_distance = float(os.getenv('wbd_buffer'))
 
 LOG_FILE_PATH = ""
 
-# need this for definingparse arguments
-args_copy_options = [
-    "copy_nwm_lakes",
-    "copy_nwm_streams_headwater",
-    "copy_nwm_catchments",
-    "copy_levee_lines",
-    "copy_levee_lines_burned",
-    "copy_levee_protected_areas",
-    "copy_osm_bridges",
-    "copy_osm_roads",
-    "copy_buildings",
+# CLI options: user selects layers to preclip; all others default to copy.
+args_preclip_options = [
+    "boundaries",
+    "nwm_lakes",
+    "nwm_streams_headwater",
+    "nwm_catchments",
+    "levees",
+    "osm_bridges",
+    "osm_roads",
+    "buildings",
 ]
 
 
@@ -162,7 +161,9 @@ def __merge_mp_logs(log_dir, parent_log_file):
             os.remove(temp_log_file)
 
 
-def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, copying_flags, copy_from_dir):
+def pre_clip_hucs_from_wbd(
+    outputs_dir, huc_list, number_of_jobs, overwrite, preclipping_flags, copy_from_dir
+):
     '''
     The function is the main driver of the program to iterate and parallelize writing/copying
     pre-clipped HUC8 vector files.
@@ -172,7 +173,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
     - huc_list:                       List of Hucs to generate pre-clipped .gpkg files.
     - number_of_jobs:                 Amount of cpus used for parallelization.
     - overwrite:                      Overwrite existing HUC directories containing stage vectors.
-    - copying_flags                   A dictionary indicating which vector data to copy vs. clip
+    - preclipping_flags               A dictionary indicating which vector data to preclip vs. copy
     - copy_from_dir                   directory with pre-clipped data to copy instead of re-clipping
 
 
@@ -183,7 +184,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
     - If HUC level output directory is existant, delete it, if not, create a new directory.
     - Parallelize the processing of .gpkg creation of the hucs_to_pre_clip_list using multiprocessing.Pool.
         (call to huc_level_clip_vectors_to_wbd)
-    - For each HUC in the list, use copying_flags to either clip new vector data or copy from existing data
+    - For each HUC in the list, use preclipping_flags to either preclip new vector data or copy from existing data
 
     Outputs:
     - New directory for each HUC, which contains 10-12 .gpkg files
@@ -221,13 +222,9 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
     logging.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
     logging.info("")
 
-    # report which vector data are being copied instead of a new clipping
-    copied_layers = [
-        layer.replace('copy_', '') for layer, copy_status in copying_flags.items() if copy_status
-    ]
-    clipped_layers = [
-        layer.replace('copy_', '') for layer, copy_status in copying_flags.items() if not copy_status
-    ]
+    # report which vector data are being copied instead of pre-clipping
+    copied_layers = [layer for layer, preclip_status in preclipping_flags.items() if not preclip_status]
+    clipped_layers = [layer for layer, preclip_status in preclipping_flags.items() if preclip_status]
 
     if copied_layers:
         logging.info("The following layers will be copied instead of clipping:")
@@ -267,7 +264,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
     # Build arguments (procs_list) for each process to execute (huc_level_clip_vectors_to_wbd)
     procs_list = []
     for huc in hucs_to_pre_clip_list:
-        procs_list.append([huc, outputs_dir, copying_flags, copy_from_dir])
+        procs_list.append([huc, outputs_dir, preclipping_flags, copy_from_dir])
 
     # Parallelize each huc in hucs_to_parquet_list
     logging.info('Parallelizing HUC level wbd pre-clip vector creation. ')
@@ -287,7 +284,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
                 "huc": huc,
                 "outputs_dir": outputs_dir,
                 "copy_from_dir": copy_from_dir,
-                "copying_flags": copying_flags,
+                "preclipping_flags": preclipping_flags,
             }
             future = executor.submit(huc_level_clip_vectors_to_wbd, **args)
             futures[future] = future
@@ -336,7 +333,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
     logging.info('==========================================================================')
 
 
-def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags):
+def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_flags):
     '''
     TODO a limitation of this additional function is that we cannot use subset_vector_layers() by itself
     because some parts of the preclipped data are created in this function before calling subset_vector_layers().
@@ -349,7 +346,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
     - huc:                           Individual HUC to generate vector files for.
     - outputs_dir:                   Output directory to stage pre-clipped vectors.
     - copy_from_dir (str): Directory containing pre-clipped vector data to copy from (if applicable).
-    - copying_flags (dict): Dictionary with 8 boolean flags indicating which vector layers to copy vs. clip.
+    - preclipping_flags (dict): Dictionary with 8 boolean flags indicating which vector layers to preclip vs. copy.
 
     Processing:
 
@@ -415,77 +412,135 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
 
         logging.info(f"-- {huc} : Get WBD")
 
-        # Read the input layer from the input WBD file using sql to be more efficient
-        sql = f"SELECT * FROM \"{input_NHD_WBHD_layer}\" WHERE HUC8 = '{huc}'"
-        wbd = gpd.read_file(input_WBD_filename, sql=sql, columns=['HUC8', 'fimid', 'fossid', 'geometry'])
+        wbd_filename = "wbd.gpkg"
+        wbd_buffer_filename = "wbd_buffered.gpkg"
 
-        wbd = wbd.to_crs(huc_CRS)
+        if not preclipping_flags['boundaries']:
+            output_filenames = {
+                "wbd": "wbd.gpkg",
+                "wbd_buffered": "wbd_buffered.gpkg",
+                "wbd8_clp": "wbd8_clp.gpkg",
+                "wbd_buffered_streams": "wbd_buffered_streams.gpkg",
+                "LandSea_subset": "LandSea_subset.gpkg",
+            }
+            for vector_item in ['wbd', 'wbd_buffered', 'wbd8_clp', 'wbd_buffered_streams', 'LandSea_subset']:
+                src = os.path.join(copy_from_dir, huc, output_filenames[vector_item])
+                dst = os.path.join(huc_directory, output_filenames[vector_item])
+                if os.path.exists(src):
+                    logging.info(f"Copying {vector_item} for {huc} (from previous output).")
+                    shutil.copy2(src, dst)
+                else:
+                    logging.warning(f"Missing file: {vector_item} for {huc} not found at {src}.")
+        else:
+            # Read the input layer from the input WBD file using sql to be more efficient
+            sql = f"SELECT * FROM \"{input_NHD_WBHD_layer}\" WHERE HUC8 = '{huc}'"
+            wbd = gpd.read_file(input_WBD_filename, sql=sql, columns=['HUC8', 'fimid', 'fossid', 'geometry'])
+            wbd = wbd.to_crs(huc_CRS)
 
-        logging.info(f"Create wbd buffer for {huc}")
-        wbd_buffer = wbd.copy()
-        wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
+            # make sure the HUC boundary does not extend beyond DEM
+            dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+            wbd = gpd.clip(wbd, dem_domain_gdf)
 
-        dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+            logging.info(f"Create wbd buffer for {huc}")
+            wbd_buffer = wbd.copy()
+            wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
 
-        wbd = gpd.clip(wbd, dem_domain_gdf)
-        wbd_buffer = gpd.clip(wbd_buffer, dem_domain_gdf)
+            wbd_buffer = gpd.clip(wbd_buffer, dem_domain_gdf)
 
-        # first Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
-        logging.info(f"Create stream buffer for {huc}")
-        wbd_streams_buffer = wbd_buffer.copy()
-        wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(
-            -8 * float(os.getenv('res')), resolution=32
-        )
+            # first Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
+            logging.info(f"Create stream buffer for {huc}")
+            wbd_streams_buffer = wbd_buffer.copy()
+            wbd_streams_buffer.geometry = wbd_streams_buffer.geometry.buffer(
+                -8 * float(os.getenv('res')), resolution=32
+            )
 
-        wbd_streams_buffer = wbd_streams_buffer[['geometry']]
-        wbd_streams_buffer.to_file(
-            os.path.join(huc_directory, 'wbd_buffered_streams.gpkg'),
-            driver='GPKG',
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
-
-        # Clip landsea before saving wbd and wbd_buffer
-        logging.info(f"Clip ocean water polygon for {huc}")
-        landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
-
-        # some hucs do not have landsea
-        if not landsea.empty:
-            landsea.to_file(
-                os.path.join(huc_directory, "LandSea_subset.gpkg"),
+            wbd_streams_buffer = wbd_streams_buffer[['geometry']]
+            wbd_streams_buffer.to_file(
+                os.path.join(huc_directory, 'wbd_buffered_streams.gpkg'),
                 driver='GPKG',
                 index=False,
                 crs=huc_CRS,
                 engine="fiona",
             )
 
-            # Exclude landsea area from WBD and wbd_buffer
-            wbd = wbd.overlay(landsea, how='difference')
-            wbd_buffer = wbd_buffer.overlay(landsea, how='difference')
+            # Clip landsea before saving wbd and wbd_buffer
+            logging.info(f"Clip ocean water polygon for {huc}")
+            landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
 
-        del landsea
+            # some hucs do not have landsea
+            if not landsea.empty:
+                landsea.to_file(
+                    os.path.join(huc_directory, "LandSea_subset.gpkg"),
+                    driver='GPKG',
+                    index=False,
+                    crs=huc_CRS,
+                    engine="fiona",
+                )
 
-        wbd_filename = "wbd.gpkg"
-        wbd.to_file(
-            os.path.join(huc_directory, wbd_filename),
-            layer='WBDHU8',
-            driver='GPKG',
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
+                # Exclude landsea area from WBD and wbd_buffer
+                wbd = wbd.overlay(landsea, how='difference')
+                wbd_buffer = wbd_buffer.overlay(landsea, how='difference')
 
-        wbd_buffer = wbd_buffer[['geometry']]
+            del landsea
 
-        wbd_buffer_filename = "wbd_buffered.gpkg"
-        wbd_buffer.to_file(
-            os.path.join(huc_directory, wbd_buffer_filename),
-            driver='GPKG',
-            index=False,
-            crs=huc_CRS,
-            engine="fiona",
-        )
+            wbd.to_file(
+                os.path.join(huc_directory, wbd_filename),
+                layer='WBDHU8',
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+
+            wbd_buffer = wbd_buffer[['geometry']]
+
+            wbd_buffer.to_file(
+                os.path.join(huc_directory, wbd_buffer_filename),
+                driver='GPKG',
+                index=False,
+                crs=huc_CRS,
+                engine="fiona",
+            )
+
+            # Clip WBD8 ##
+            logging.info(f"-- {huc} : Creating WBD buffer and clip version")
+
+            clip_wbd8_subprocess = subprocess.run(
+                [
+                    'ogr2ogr',
+                    '-f',
+                    'GPKG',
+                    '-t_srs',
+                    huc_CRS,
+                    '-clipsrc',
+                    f'{huc_directory}/wbd_buffered.gpkg',
+                    '-nlt',
+                    'PROMOTE_TO_MULTI',
+                    f'{huc_directory}/wbd8_clp.gpkg',
+                    input_WBD_filename,
+                    input_NHD_WBHD_layer,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                universal_newlines=True,
+            )
+
+            sub_proc_stdout = clip_wbd8_subprocess.stdout
+            sub_proc_stderror = clip_wbd8_subprocess.stderr
+            if sub_proc_stderror.lower().startswith("warning") is True:
+                logging.info(f"Warning from ogr clip: {sub_proc_stderror}")
+            elif sub_proc_stderror != "":
+                raise Exception(
+                    f"*** {huc} : Error WBD buffer and clip version from ogr for {huc}:"
+                    f" Details: {sub_proc_stderror}\n"
+                )
+            else:
+                msg = f"-- {huc} : Creating WBD buffer and clip version - Complete"
+                if sub_proc_stdout != "":  # warnings?
+                    msg += f": {sub_proc_stdout}"
+
+                logging.info(msg)
 
         subset_vector_layers(
             huc=huc,
@@ -493,48 +548,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
             wbd_buffer_filename=wbd_buffer_filename,
             huc_directory=huc_directory,
             copy_from_dir=copy_from_dir,
-            copying_flags=copying_flags,
+            preclipping_flags=preclipping_flags,
         )
-
-        # Clip WBD8 ##
-        logging.info(f"-- {huc} : Creating WBD buffer and clip version")
-
-        clip_wbd8_subprocess = subprocess.run(
-            [
-                'ogr2ogr',
-                '-f',
-                'GPKG',
-                '-t_srs',
-                huc_CRS,
-                '-clipsrc',
-                f'{huc_directory}/wbd_buffered.gpkg',
-                '-nlt',
-                'PROMOTE_TO_MULTI',
-                f'{huc_directory}/wbd8_clp.gpkg',
-                input_WBD_filename,
-                input_NHD_WBHD_layer,
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-            universal_newlines=True,
-        )
-
-        sub_proc_stdout = clip_wbd8_subprocess.stdout
-        sub_proc_stderror = clip_wbd8_subprocess.stderr
-        if sub_proc_stderror.lower().startswith("warning") is True:
-            logging.info(f"Warning from ogr clip: {sub_proc_stderror}")
-        elif sub_proc_stderror != "":
-            raise Exception(
-                f"*** {huc} : Error WBD buffer and clip version from ogr for {huc}:"
-                f" Details: {sub_proc_stderror}\n"
-            )
-        else:
-            msg = f"-- {huc} : Creating WBD buffer and clip version - Complete"
-            if sub_proc_stdout != "":  # warnings?
-                msg += f": {sub_proc_stdout}"
-
-            logging.info(msg)
 
         logging.info(f"-- {huc} : Completing Get Vector Layers and Subset:\n")
 
@@ -569,49 +584,49 @@ if __name__ == '__main__':
 
     '''
     Notes:
-    This tool always create the below four boundary coverage files. So no args is used for them.
+    Five boundary coverage files are managed using one args of -> --boundaries.
         - wbd.gpkg
         - wbd_buffered.gpkg
         - wbd8_clp.gpkg
-        - LandSea_subset.gpkg ...this is used to further refine above ? clarify this
-
-    Three stream-related files below are managed using one args of -> --copy_nwm_streams_headwater
+        - LandSea_subset.gpkg
         - wbd_buffered_streams.gpkg
+
+    Two stream-related files below are managed using one args of -> --nwm_streams_headwater
         - nwm_subset_streams.gpkg
         - nwm_headwater_points_subset.gpkg
 
-    The following 7 files are managed independently. So, we will have 8 args for copy vs pre-clipping.
-            - "nwm_lakes_proj_subset.gpkg"       ->  --copy_nwm_lakes
-            - "nwm_catchments_proj_subset.gpkg"  ->  --copy_nwm_catchments
-            - "nld_subset_levees.gpkg"           ->  --copy_levee_lines
-            - "3d_nld_subset_levees_burned.gpkg" ->  --copy_levee_lines_burned
-            - "LeveeProtectedAreas_subset.gpkg"  ->  --copy_levee_protected_areas
-            - "osm_bridges_subset.gpkg"          ->  --copy_osm_bridges
-            - "osm_roads_subset.gpkg"            ->  --copy_osm_roads
+    The following files are managed with 6 args for pre-clipping vs copying.
+    If preclip args are omitted, copy is used by default.
+            - "nwm_lakes_proj_subset.gpkg"        ->  --nwm_lakes
+            - "nwm_catchments_proj_subset.gpkg"   ->  --nwm_catchments
+            - levee files (3 files)               ->  --levees
+            - "osm_bridges_subset.gpkg"           ->  --osm_bridges
+            - "osm_roads_subset.gpkg"             ->  --osm_roads
+            - "buildings_subset.gpkg"             ->  --buildings
 
 
     Example 1:
-        simplest scenario where we preclip all vector data for requested HUCs (no copying):
+        where we preclip all vector data for requested HUCs (no copying):
 
         python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py \
           -u /data/inputs/huc_lists/full_huc_list.lst \
-          -n /data/data/inputs/pre_clip_huc8/20250923/
+          -n /data/data/inputs/pre_clip_huc8/20250923/ \
+          --boundaries --nwm_lakes --nwm_streams_headwater \
+          --nwm_catchments --levees --osm_bridges \
+          --osm_roads --buildings
 
     Example 2:
-        if you need to skip preclipping (and instead copy from previous preclips),
-        Always we need to add --copy_from_dir followed by path to the previous preclips results
-        In addition, we can add one or multiple of above 8 arguments:
+        if you want to preclip only a subset and copy the rest from previous preclips:
+        Always add --copy_from_dir followed by path to the previous preclips results.
+        Then provide one or multiple preclip args.
 
         python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py \
             -u /data/inputs/huc_lists/full_huc_lists.lst \
             -n outputs/preclips/test6_2/ \
             -o \
             --copy_from_dir data/inputs/pre_clip_huc8/20250218/ \
-            --copy_nwm_catchments \
-            --copy_levee_lines_burned \
-            --copy_levee_lines \
-            --copy_nwm_streams_headwater
-    '''
+            --osm_roads \
+            --buildings    '''
 
     parser = argparse.ArgumentParser(
         description='This script gets WBD layer, calls the clip_vectors_to_wbd.py script, and clips the wbd. '
@@ -624,7 +639,7 @@ if __name__ == '__main__':
                 -j 6
                 -o
                 --copy_from_dir data/inputs/pre_clip_huc8/20250218/
-                --copy_nwm_catchments --copy_levee_lines_burned --copy_levee_lines --copy_nwm_streams_headwater
+                --nwm_catchments --levees
         ''',
     )
 
@@ -652,11 +667,10 @@ if __name__ == '__main__':
         "--copy_from_dir", help="Directory to copy files from (enables selective copying)", default=None
     )
 
-    # for any of the entered argument, arg var value is set to True.
-    # If not provided for a layer name, no key-value is created so need to handle it later
-    for copy_arg_option in args_copy_options:
+    # For any provided layer argument, that layer is newly clipped. Missing args default to copy.
+    for arg_option in args_preclip_options:
         parser.add_argument(
-            f"--{copy_arg_option}", action="store_true", help=f"{copy_arg_option} instead of clipping"
+            f"--{arg_option}", action="store_true", help=f"preclip {arg_option} instead of copying"
         )
 
     args = vars(parser.parse_args())
@@ -665,20 +679,19 @@ if __name__ == '__main__':
         print(f"Error: HUC list file {args['huc_list']} does not exist.")
         exit(0)
 
-    if args['copy_from_dir']:
-        # if copy argument is not provided, set it to false (so no-copying mode)
-        copying_flags = {
-            copy_arg_option: args.get(f"{copy_arg_option}", False) for copy_arg_option in args_copy_options
-        }
-    else:
-        # No copy mode, nothing is copied
-        copying_flags = {copy_arg_option: False for copy_arg_option in args_copy_options}
+    # Build internal preclip flags (True means preclip, False means copy).
+    # New CLI semantics: layer args opt-in to clipping; missing args default to copy.
+    preclipping_flags = {}
+    for arg_option in args_preclip_options:
+        preclipping_flags[arg_option] = args.get(arg_option, False)
 
-        # report if user entered one of the copy arg but not the main switch which is copy_from_dir
-        for copy_arg_option in args_copy_options:
-            if args.get(f"{copy_arg_option}", False):
-                print(f"you entered {copy_arg_option} but forgot to provide copy_from_dir. Try again.")
-                exit(0)
+    # copy_from_dir is required whenever at least one layer will be copied.
+    if not all(preclipping_flags.values()) and not args['copy_from_dir']:
+        print(
+            "Error: one or more layers are set to copy by default, but --copy_from_dir was not provided.\n"
+            "Provide --copy_from_dir or set all 8 layer options."
+        )
+        exit(0)
 
     try:
         pre_clip_hucs_from_wbd(
@@ -686,7 +699,7 @@ if __name__ == '__main__':
             huc_list=args["huc_list"],
             number_of_jobs=args["number_of_jobs"],
             overwrite=args["overwrite"],
-            copying_flags=copying_flags,
+            preclipping_flags=preclipping_flags,
             copy_from_dir=args["copy_from_dir"],
         )
     except Exception:
