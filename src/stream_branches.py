@@ -33,7 +33,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         - Many of the methods support two attributes called branch_id_attribute and values_excluded.
           This can be used to filter out records.
             ie) When calling the nwm_subset_streams.gpkg, you can filter some records like this:
-                StreamNetwork.from_file(filename=outputs/<some huc>/nwm_subset_streams.gpkg,
+                StreamNetwork.from_file_fim(filename=outputs/<some huc>/nwm_subset_streams.gpkg,
                                                  branch_id_attribute="order_",
                                                  values_excluded=[1,2]
                 (which means drop all records that have an order_ of 1 or 2.
@@ -48,6 +48,11 @@ class StreamNetwork(gpd.GeoDataFrame):
     attribute_excluded = None
 
     def __init__(self, *args, **kwargs):
+        geom_name = "geometry"  # geometry attribute name
+        branch_id_attribute = None  # branch id attribute name
+        values_excluded = None
+        attribute_excluded = None
+
         if kwargs:
             branch_id_attribute = kwargs.pop("branch_id_attribute", None)
             values_excluded = kwargs.pop("values_excluded", None)
@@ -58,9 +63,10 @@ class StreamNetwork(gpd.GeoDataFrame):
         self.branch_id_attribute = branch_id_attribute
         self.values_excluded = values_excluded
         self.attribute_excluded = attribute_excluded
+        self.geom_name = geom_name
 
     @classmethod
-    def from_file(
+    def from_file_fim(
         cls,
         filename,
         branch_id_attribute=None,
@@ -138,7 +144,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         self.to_file(fileName, driver=driver, layer=layer, index=index, engine='fiona')
 
-    def set_index(self, reach_id_attribute, drop=True):
+    def set_index_fim(self, reach_id_attribute, drop=True):
         branch_id_attribute = self.branch_id_attribute
         attribute_excluded = self.attribute_excluded
         values_excluded = self.values_excluded
@@ -156,7 +162,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         )
         return self
 
-    def reset_index(self, drop=True):
+    def reset_index_fim(self, drop=True):
         branch_id_attribute = self.branch_id_attribute
         attribute_excluded = self.attribute_excluded
         values_excluded = self.values_excluded
@@ -368,7 +374,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # sets index of stream branches as reach id attribute
         # if self.index.name != reach_id_attribute:
-        # self = self.set_index(reach_id_attribute,drop=True)
+        # self = self.set_index_fim(reach_id_attribute,drop=True)
 
         # inlet_coordinates, outlet_coordinates = dict(), dict()
         node_coordinates = dict()
@@ -567,7 +573,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         unique_catchments = set(catchments.loc[:, reach_id_attribute_in_catchments].unique())
 
         current_index_name = self.index.name
-        self = self.set_index(branch_id_attribute, drop=False)
+        self = self.set_index_fim(branch_id_attribute, drop=False)
 
         for usb in unique_stream_branches:
             try:
@@ -580,9 +586,9 @@ class StreamNetwork(gpd.GeoDataFrame):
                 self = self.drop(usb)
 
         if current_index_name is None:
-            self = self.reset_index(drop=True)
+            self = self.reset_index_fim(drop=True)
         else:
-            self = self.set_index(current_index_name, drop=True)
+            self = self.set_index_fim(current_index_name, drop=True)
 
         return self
 
@@ -778,7 +784,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         # sets index of stream branches as reach id attribute
         reset_index = False
         if self.index.name != reach_id_attribute:
-            self = self.set_index(reach_id_attribute, drop=True)
+            self = self.set_index_fim(reach_id_attribute, drop=True)
             reset_index = True
 
         # make upstream and downstream dictionaries if none are passed
@@ -885,7 +891,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         progress.close()
 
         if reset_index:
-            self = self.reset_index(drop=False)
+            self = self.reset_index_fim(drop=False)
 
         return self
 
@@ -894,7 +900,7 @@ class StreamNetwork(gpd.GeoDataFrame):
     ):
         # sets index of stream branches as reach id attribute
         # if self.index.name != reach_id_attribute:
-        #    self = self.set_index(reach_id_attribute,drop=True)
+        #    self = self.set_index_fim(reach_id_attribute,drop=True)
 
         # find upstream and downstream dictionaries
         upstreams, downstreams = dict(), dict()
@@ -930,7 +936,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         # sets index of stream branches as reach id attribute
         reset_index = False
         if self.index.name != reach_id_attribute:
-            self = self.set_index(reach_id_attribute, drop=True)
+            self = self.set_index_fim(reach_id_attribute, drop=True)
             reset_index = True
 
         # make upstream and downstream dictionaries if none are passed
@@ -985,7 +991,7 @@ class StreamNetwork(gpd.GeoDataFrame):
         progress.close()
 
         if reset_index:
-            self = self.reset_index(drop=False)
+            self = self.reset_index_fim(drop=False)
 
         return self
 
@@ -1358,7 +1364,7 @@ class StreamNetwork(gpd.GeoDataFrame):
 
         # make the crosswalk id attribute and set index
         self.loc[:, crosswalk_attribute] = [None] * len(self)
-        self = self.set_index(branch_id_attribute_left)
+        self = self.set_index_fim(branch_id_attribute_left)
 
         # loop through rows of self
         for idx, row in tqdm(
@@ -1381,7 +1387,7 @@ class StreamNetwork(gpd.GeoDataFrame):
             self.loc[left_branch_id, crosswalk_attribute] = right_branch_id
 
         # reset indices
-        self = self.reset_index(drop=False)
+        self = self.reset_index_fim(drop=False)
 
         return self
 
