@@ -5,22 +5,25 @@ import os
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import rasterio as rio
-import rasterio.features as features
 import whitebox
+from rasterio.mask import mask
+from shapely.geometry import mapping
 
 
-# from rasterstats import zonal_stats
-
-
+# Set wbt envs
 wbt = whitebox.WhiteboxTools()
+wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to setting verbose mode
 wbt.set_verbose_mode(False)
-wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
 
 def adjust_floodplains(
     input_file: str,
     dem_file: str,
+    nwm_catchments: str,
+    nwm_streams: str,
+    nwm_levelpaths: str,
     distance_file: str,
     output_file: str,
     distance_threshold: float,
@@ -29,6 +32,7 @@ def adjust_floodplains(
     branch_polygons: str,
     branch_id: str,
     fema_flood_zones_file: str,
+    fema_flood_zones_layer: str,
 ):
     """
     Adjusts the floodplains in a DEM based on the distance to a given input file.
@@ -39,6 +43,12 @@ def adjust_floodplains(
         The input raster file to calculate the distance from.
     dem_file : str
         The DEM file to adjust.dataset file.
+    nwm_catchments : str
+        The file containing the NWM catchments.
+    nwm_streams : str
+        The file containing the NWM streams.
+    nwm_levelpaths : str
+        The file containing the NWM levelpaths.
     distance_file : str
         The output distance file.
     output_file : str
@@ -55,6 +65,8 @@ def adjust_floodplains(
         The ID of the branch to adjust.
     fema_flood_zones_file : str
         The file containing the FEMA flood zones.
+    fema_flood_zones_layer : str
+        The layer name of the FEMA flood zones.
 
     Returns
     -------
@@ -63,52 +75,98 @@ def adjust_floodplains(
 
     wbt.euclidean_distance(input_file, distance_file)
 
+    catchments = gpd.read_file(nwm_catchments)
+    streams = gpd.read_file(nwm_streams)
+    levelpaths = gpd.read_file(nwm_levelpaths)
+    branch_polys = gpd.read_file(branch_polygons)
+    branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
+
+    # Filter levelpaths by branch
+    levelpaths['ID'] = levelpaths['ID'].astype(int)
+    levelpaths = levelpaths[levelpaths['levpa_id'] == branch_id]
+
+    # Find streams that flow to the levelpaths
+    ids = levelpaths['ID'].tolist()
+
+    # Get all upstream streams
+    def get_upstream_streams(hydro_ids, streams_df):
+        upstream_streams = streams_df[streams_df['ID'].isin(hydro_ids)]
+        for hydro_id in hydro_ids:
+            direct_upstream = streams_df[streams_df['to'] == hydro_id]
+            if not direct_upstream.empty:
+                upstream_streams = pd.concat([upstream_streams, direct_upstream])
+                upstream_streams = pd.concat(
+                    [upstream_streams, get_upstream_streams(direct_upstream['ID'].tolist(), streams_df)]
+                )
+        return upstream_streams.drop_duplicates()
+
+    upstream_streams = get_upstream_streams(ids, streams)
+
+    # Filter catchments by upstream streams
+    upstream_catchments = catchments[catchments['ID'].isin(upstream_streams['ID'].tolist())].dissolve()
+
     with rio.open(distance_file) as src, rio.open(dem_file) as dem_src:
         profile = src.profile
         distance = src.read(1)
         dem = dem_src.read(1)
         dem_nodata = dem_src.nodata
 
-    branch_polys = gpd.read_file(branch_polygons)
-    branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
+        distance_mask = np.zeros_like(distance)
 
-    distance_grid = distance.copy()
-
-    # Use NFHL flood hazard zones only if availability layer is present
-    if os.path.exists(fema_flood_zones_file):
-        nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
-
-        if 'availability' in nfhl_layers:
-            distance_mask = np.zeros_like(distance)
-
+        # Use NFHL flood hazard zones
+        if os.path.exists(fema_flood_zones_file):
+            nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
+            # Initialize the variable as None so it always exists
+            fema_flood_zones_availability_mask = None
+            # Read combined layer if it exists
             if 'combined' in nfhl_layers:
-                # Read the FEMA flood zones layer
-                fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer='combined')
+                fema_flood_zones_availability_mask = gpd.read_file(fema_flood_zones_file, layer='combined')
 
-                # Clip the FEMA flood zones to the branch polygon
-                fema_flood_zones_clipped = gpd.clip(fema_flood_zones, branch_poly)
-
-                # Mask the distance raster with fema_flood_zones_clipped
-                for geom in fema_flood_zones_clipped.geometry:
-                    mask = features.geometry_mask(
-                        [geom], out_shape=distance.shape, transform=src.transform, invert=True
+            # Mask out areas inside the FEMA flood zone availability
+            if 'availability' in nfhl_layers:
+                fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
+                if fema_flood_zones_availability_mask is not None:
+                    fema_flood_zones_availability_mask = (
+                        pd.concat([fema_flood_zones_availability_mask, fema_flood_zones_availability])
+                        .drop_duplicates(subset='geometry', keep=False)
+                        .dissolve()
                     )
-                    distance_mask[mask] = 1
+                else:
+                    fema_flood_zones_availability_mask = fema_flood_zones_availability.copy()
 
-            distance_grid = np.where(distance_mask == 1, distance, np.nan)
+            if fema_flood_zones_layer in nfhl_layers:
+                # Read the FEMA flood zones layer
+                fema_flood_zones = gpd.read_file(fema_flood_zones_file, layer=fema_flood_zones_layer)
 
-            # Fill in areas outside the FEMA flood zone availability
-            fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
-            fema_flood_zones_availability_clipped = gpd.clip(fema_flood_zones_availability, branch_poly)
-            for geom in fema_flood_zones_availability_clipped.geometry:
-                mask = features.geometry_mask(
-                    [geom], out_shape=distance.shape, transform=src.transform, invert=False
+                # Exclude fema_flood_zones from fema_flood_zones_availability_mask
+                fema_flood_zones_availability_mask = gpd.overlay(
+                    fema_flood_zones_availability_mask, fema_flood_zones, how='difference'
                 )
-                distance_mask[mask] = 1
-            distance_grid = np.where(distance_mask == 1, distance, distance_grid)
 
-    # Limit the distance to the distance threshold
-    distance = np.where(distance_grid <= distance_threshold, distance_grid, np.nan)
+            fema_flood_zones_availability_mask = gpd.clip(fema_flood_zones_availability_mask, branch_poly)
+
+            if fema_flood_zones_availability_mask.empty:
+                return  # No flood zones to process, exit the function
+
+            # Extract the polygon geometry (as a list of GeoJSON-like dicts)
+            # If you have multiple polygons in gdf, this will create a list of them
+            geometries = [mapping(geom) for geom in fema_flood_zones_availability_mask.geometry]
+
+            # Perform the masking
+            distance_mask, out_transform = mask(src, geometries, crop=False, nodata=np.nan, invert=True)
+            distance_mask = distance_mask[0]  # Extract the first band
+
+        else:
+            distance_mask = distance
+
+        # Clip to the upstream catchment polygon
+        geometries = [mapping(geom) for geom in upstream_catchments.geometry]
+        distance_clipped, out_transform = mask(src, geometries, crop=False, nodata=np.nan)
+        distance_clipped = distance_clipped[0]  # Extract the first band
+
+    distance = np.where(
+        ~np.isnan(distance_clipped) & (distance_mask <= distance_threshold), distance_mask, np.nan
+    )
 
     # Save distance raster
     with rio.open(distance_file, 'w', **profile) as dst:
@@ -149,6 +207,10 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--branch-polygons', help='Branch polygons file', type=str)
     parser.add_argument('-b', '--branch-id', help='Branch ID', type=str)
     parser.add_argument('-f', '--fema-flood-zones-file', help='FEMA flood zones file', type=str)
+    parser.add_argument('-l', '--fema-flood-zones-layer', help='FEMA flood zones layer', type=str)
+    parser.add_argument('-c', '--nwm-catchments', help='NWM catchments file', type=str)
+    parser.add_argument('-n', '--nwm-streams', help='NWM streams file', type=str)
+    parser.add_argument('-lp', '--nwm-levelpaths', help='NWM levelpaths file', type=str)
 
     args = parser.parse_args()
 

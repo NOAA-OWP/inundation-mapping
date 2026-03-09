@@ -4,9 +4,11 @@ import argparse
 import datetime as dt
 import logging
 import os
+import random
 import shutil
 import subprocess
 import sys
+import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -15,34 +17,41 @@ import geopandas as gpd
 from clip_vectors_to_wbd import subset_vector_layers
 from dotenv import load_dotenv
 
-from utils.shared_functions import FIM_Helpers as fh
+from src.utils.shared_functions import FIM_Helpers as fh
 
+
+"""
+TODO: Feb 4. 2026:
+    - Update to add new shared_functions mp and logging. We may or may not need the mp log merging.
+      We never fully testing MP' all logging to a single parent file. Likely won't work, but TBD.
+    - This appears to be an "include"
+"""
 
 '''
     Overview:
-      This script was created to absolve run_unit_wb.sh from getting the huc level WBD layer, calling
+      This script was created to absolve run_huc.sh from getting the huc level WBD layer, calling
       clip_vectors_to_wbd.py, and clipping the WBD for every run, which added a significant amount of
       processing time for each HUC8. Using this script, we generate the necessary pre-clipped .gpkg files
       for the rest of the processing steps.
 
-      Read in environment variables from src/bash_variabls.env & config/params_template.env.
+      Read in environment variables from src/bash_variables.env & config/params_template.env.
       Parallelize the creation of .gpkg files per HUC:
         Get huc level WBD layer from National, call the subset_vector_layers function, and clip the wbd.
         A plethora gpkg files per huc are generated (see args to subset_vector_layers)
         and placed within the output directory specified as the <outputs_dir> argument.
 
+
     Usage:
         generate_pre_clip_fim_huc8.py
-            -n /data/inputs/pre_clip_huc8/24_04_23
-            -u /data/inputs/huc_lists/included_huc8_withAlaska.lst
+            -n /data/inputs/pre_clip_huc8/202540423
+            -u /data/inputs/huc_lists/full_huc_list.lst
             -j 6
             -o
 
     Notes:
-      If running this script to generate new data, modify the pre_clip_huc_dir variable in
-      src/bash_variables.env to the corresponding outputs_dir argument after running and testing this script.
-      The newly generated data should be created in a new folder using the format <year_month_day>
-             (i.e. September 26, 2023 would be 23_09_26)
+      - If running this script to generate new data, modify the pre_clip_huc_dir variable in
+        src/bash_variables.env to the corresponding outputs_dir argument after running and testing this script.
+      - It can handle all hucs based on the huc list (-u) value passed in. ie) Conus, AK, GU and AS at one run.
 
     Don't worry about error logs saying "Failed to auto identify EPSG: 7"
 '''
@@ -55,17 +64,24 @@ load_dotenv(f'{projectDir}/config/params_template.env')
 
 # Variables from src/bash_variables.env
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
-ALASKA_CRS = os.getenv('ALASKA_CRS')  # alaska
+ALASKA_CRS = os.getenv('ALASKA_CRS')  # Alaska
+GUAM_CRS = os.getenv('GUAM_CRS')  # Guam
+AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')  # American Samoa
 
 input_WBD_gdb = os.getenv('input_WBD_gdb')
-input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # alaska
+input_WBD_gdb_Alaska = os.getenv('input_WBD_gdb_Alaska')  # Alaska
+input_WBD_gdb_Guam = os.getenv('input_WBD_gdb_Guam')  # Guam
+input_WBD_gdb_AmericanSamoa = os.getenv('input_WBD_gdb_AmericanSamoa')  # American Samoa
 
 input_DEM_domain = os.getenv('input_DEM_domain')
-input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # alaska
+input_DEM_domain_Alaska = os.getenv('input_DEM_domain_Alaska')  # Alaska
+input_DEM_domain_Guam = os.getenv('input_DEM_domain_Guam')  # Guam
+input_DEM_domain_AmericanSamoa = os.getenv('input_DEM_domain_AmericanSamoa')  # American Samoa
 
 input_landsea = os.getenv('input_landsea')
-input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # alaska
-
+input_landsea_Alaska = os.getenv('input_landsea_Alaska')  # Alaska
+input_landsea_Guam = os.getenv('input_landsea_Guam')  # Guam
+input_landsea_AmericanSamoa = os.getenv('input_landsea_AmericanSamoa')  # American Samoa
 
 input_GL_boundaries = os.getenv('input_GL_boundaries')
 
@@ -180,6 +196,7 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
             f'Provided: -j {number_of_jobs}, which is greater than than amount of available cpus -2: '
             f'{total_cpus_available - 2} will be used instead.'
         )
+        number_of_jobs = total_cpus_available
 
     # Read in huc_list file and turn into a list data structure
     if os.path.exists(huc_list):
@@ -231,6 +248,8 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
         )
         sys.exit(0)
 
+    hucs_to_pre_clip_list.sort()
+
     # Iterate over the huc_list argument and create a directory for each huc.
     for huc in hucs_to_pre_clip_list:
         if os.path.isdir(os.path.join(outputs_dir, huc)):
@@ -256,6 +275,8 @@ def pre_clip_hucs_from_wbd(outputs_dir, huc_list, number_of_jobs, overwrite, cop
     # likely eventually drop in ras2fim's logging system.
     # The log files for each multi proc has tons and tons of duplicate lines crossing mp log
     # processes, but does always log correctly back to the parent log
+
+    # TODO; Feb 2026: Bolt in alis MP and logging from shared_functions.
 
     failed_HUCs_list = []  # On return from the MP, if it returns a HUC number, that is a failed huc
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
@@ -341,9 +362,15 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
     - .If successful, then it returns the word sudcess. If it fails, return the huc number.
     '''
 
+    # small random time stagger to help MP not all hitting the the WBD at the same.
+    # random between 0 and 30 seconds
+    time.sleep(random.randint(0, 40))
+
     in_error = False
     huc_processing_start = dt.datetime.now(dt.timezone.utc)
-    # with this in Multi-proc, it needs it's own logger and unique logging file.
+
+    # with this in Multi-proc, it needs it's own logger and unique logging file. rethink. see todo above.
+
     __setup_logger(outputs_dir, huc, True)
     logging.info(f"Start Processing {huc}")
 
@@ -360,6 +387,14 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
             huc_CRS = ALASKA_CRS
             input_WBD_filename = input_WBD_gdb_Alaska
             dem_domain = input_DEM_domain_Alaska
+        elif huc == '22010000':  # Guam
+            huc_CRS = GUAM_CRS
+            input_WBD_filename = input_WBD_gdb_Guam
+            dem_domain = input_DEM_domain_Guam
+        elif huc == '22030001':  # American Samoa
+            huc_CRS = AMERICAN_SAMOA_CRS
+            input_WBD_filename = input_WBD_gdb_AmericanSamoa
+            dem_domain = input_DEM_domain_AmericanSamoa
         else:
             huc_CRS = DEFAULT_FIM_PROJECTION_CRS
             input_WBD_filename = input_WBD_gdb
@@ -370,6 +405,10 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
             input_LANDSEA = f"{input_GL_boundaries}"
         elif huc2Identifier == "19":
             input_LANDSEA = input_landsea_Alaska
+        elif huc == '22010000':
+            input_LANDSEA = input_landsea_Guam
+        elif huc == '22030001':
+            input_LANDSEA = input_landsea_AmericanSamoa
         else:
             input_LANDSEA = input_landsea
 
@@ -386,6 +425,8 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, copying_flags
         wbd_buffer.geometry = wbd_buffer.geometry.buffer(wbd_buffer_distance, resolution=32)
 
         dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
+
+        wbd = gpd.clip(wbd, dem_domain_gdf)
         wbd_buffer = gpd.clip(wbd_buffer, dem_domain_gdf)
 
         # first Make the streams buffer smaller than the wbd_buffer so streams don't reach the edge of the DEM
@@ -521,12 +562,9 @@ if __name__ == '__main__':
     # Especially if you can a directory for a new data load.
     #     ie) DEMS at data/inputs/3dep_dems/10m_5070/20240916/
     #
-    # TODO below comment is not relevant anymore because especially after the May 2025 refactoring no need to run twice.
-    # You have to run this twice, once for Alaska and once for CONUS
-    # but make sure put both results the same folder
-    # and you will need to submit the two HUC lists
-    # SouthernAlaska_HUC8.lst
-    # included_huc8.lst
+
+    # This tool can be run just one for all 4 region types (CONUS, AK, GU and AS)
+    # as it relys on the HUC list submitted and likely will submit full_huc_list.lst
 
     '''
     Notes:
@@ -552,9 +590,11 @@ if __name__ == '__main__':
 
 
     Example 1:
-        simplest scenario where we preclip all vector data for requetsed HUCs (no copying):
+        simplest scenario where we preclip all vector data for requested HUCs (no copying):
 
-        python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py -u /data/inputs/huc_lists/included_huc8_withAlaska.lst -n outputs/preclips/test5/ -o
+        python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py \
+          -u /data/inputs/huc_lists/full_huc_list.lst \
+          -n /data/data/inputs/pre_clip_huc8/20250923/
 
     Example 2:
         if you need to skip preclipping (and instead copy from previous preclips),
@@ -562,7 +602,7 @@ if __name__ == '__main__':
         In addition, we can add one or multiple of above 8 arguments:
 
         python foss_fim/data/wbd/generate_pre_clip_fim_huc8.py \
-            -u /data/inputs/huc_lists/included_huc8_withAlaska.lst \
+            -u /data/inputs/huc_lists/full_huc_lists.lst \
             -n outputs/preclips/test6_2/ \
             -o \
             --copy_from_dir data/inputs/pre_clip_huc8/20250218/ \
@@ -579,7 +619,7 @@ if __name__ == '__main__':
         usage='''
             ./generate_pre_clip_fim_huc8.py
                 -n /data/inputs/pre_clip_huc8/20240927
-                -u /data/inputs/huc_lists/included_huc8_withAlaska.lst
+                -u /data/inputs/huc_lists/full_huc_list.lst
                 -j 6
                 -o
                 --copy_from_dir data/inputs/pre_clip_huc8/20250218/
@@ -587,12 +627,7 @@ if __name__ == '__main__':
         ''',
     )
 
-    parser.add_argument(
-        '-n',
-        '--outputs_dir',
-        help='Directory to output all of the HUC level .gpkg files. Use the format: '
-        '<year_month_day> (i.e. September 26, 2024 would be 20240926)',
-    )
+    parser.add_argument('-n', '--outputs_dir', help='Directory to output all of the HUC level .gpkg files')
     parser.add_argument('-u', '--huc_list', help='List of HUCs to genereate pre-clipped vectors for.')
 
     parser.add_argument(
@@ -600,7 +635,7 @@ if __name__ == '__main__':
         '--number_of_jobs',
         help='OPTIONAL: Number of cores/processes (default=4). This is a memory intensive '
         'script, and the multiprocessing will crash if too many CPUs are used. It is recommended to provide '
-        'half the amount of available CPUs.',
+        'half the amount of available CPUs. The network speed of your EC2 is the primary factor.',
         type=int,
         required=False,
         default=4,

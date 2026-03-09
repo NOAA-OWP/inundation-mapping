@@ -1,8 +1,8 @@
 import argparse
 import datetime as dt
+import glob
 import logging
 import os
-import sys
 import traceback
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -17,9 +17,15 @@ from networkx import Graph, connected_components
 from shapely.geometry import LineString, shape
 
 
+# Set the timeout to 500 seconds (5 minutes), which is possible depending on network speed
+# and network volume (number of jobs)
+ox.settings.request_timeout = 500
+
 """
 TODO:  Make the huc level osm files in a working dir
 but then save the "final" ones in the output_dir
+
+    MP might not be working, plug in Ali's
 """
 
 
@@ -28,6 +34,8 @@ srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
+GUAM_CRS = os.getenv('GUAM_CRS')
+AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
 
 # Save all OSM bridge features by HUC8 to a specified folder location.
@@ -105,7 +113,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
             # remove it
             os.remove(huc_bridge_file)
 
-        logging.info(f" ** Creating gkpg for {huc_num}")
+        logging.info(f" ** Creating gpkg for {huc_num}")
 
         gdf = ox.features_from_polygon(shape(huc_geom), {"bridge": True})
 
@@ -200,6 +208,10 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 
         if str(huc_num).startswith('19'):
             gdf1 = gdf1.to_crs(ALASKA_CRS)
+        elif str(huc_num) == '22010000':
+            gdf1 = gdf1.to_crs(GUAM_CRS)
+        elif str(huc_num) == '22030001':
+            gdf1 = gdf1.to_crs(AMERICAN_SAMOA_CRS)
         else:
             gdf1 = gdf1.to_crs(DEFAULT_FIM_PROJECTION_CRS)
 
@@ -261,9 +273,11 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom):
 #
 # Combine all HUC-based OSM bridges from specified folder
 #
-def combine_huc_features(output_dir):
+def combine_huc_features(output_dir, file_name_prepend):
 
-    # make two separate files for alaska and non-alaska (conus)
+    # Becuase we send in an input of the WBD and we have seperate ones for all 4 regions
+    # we need to run this 4 times.
+
     # only save out a subset of columns, because many hucs have different column names
     # and data, so you could end up with thousands of columns if you keep them all!
 
@@ -274,45 +288,34 @@ def combine_huc_features(output_dir):
     # halves of the same bridge (in each huc) will have the same osmid. So.. don't change.
 
     # huc8 will always have the huc8 value but huc10 might be empty
+    logging.info("Combining intermediate files using pattern of huc_*_osm_bridges.gpkg")
     cols_to_keep = ['osmid', 'name', 'bridge_type', 'huc8', 'huc10', 'geometry']
+    huc_files_paths = glob.glob(f"{output_dir}/huc_*_osm_bridges.gpkg")
 
-    # Alaska
-    alaska_bridge_file_names = list(Path(output_dir).glob("huc_19*_osm_bridges.gpkg"))
-    if alaska_bridge_file_names:
-        alaska_all_bridges_gdf_raw = pd.concat(
-            [gpd.read_file(gpkg) for gpkg in alaska_bridge_file_names], ignore_index=True
-        )
-        alaska_all_bridges_gdf = alaska_all_bridges_gdf_raw[cols_to_keep]
-        alaska_all_bridges_gdf["osmid"] = alaska_all_bridges_gdf["osmid"].astype(str)
+    if len(huc_files_paths) == 0:
+        raise Exception("No intermediate files using the pattern of huc_*_osm_bridges.gpkg found")
 
-        alaska_osm_bridge_file = os.path.join(output_dir, "alaska_osm_bridges.gpkg")
+    gdf = pd.concat((gpd.read_file(f) for f in huc_files_paths), ignore_index=True)[cols_to_keep]
+    if "osmid" in gdf.columns:
+        gdf["osmid"] = gdf["osmid"].astype(str)
 
-        logging.info(f"Writing Alaska bridge lines: {alaska_osm_bridge_file}")
+    out_path = os.path.join(output_dir, f"{file_name_prepend}_osm_bridges.gpkg")
+    logging.info(f"Writing final output bridge lines file to {out_path}")
+    gdf.to_file(out_path, driver="GPKG", engine="fiona")
 
-        alaska_all_bridges_gdf.to_file(alaska_osm_bridge_file, driver="GPKG", engine='fiona')
-
-    # Rest of Conus
-    conus_bridge_file_names = list(Path(output_dir).glob("huc_*_osm_bridges.gpkg"))
-    conus_bridge_file_names = [file for file in conus_bridge_file_names if not file.name.startswith("huc_19")]
-    if conus_bridge_file_names:
-        conus_all_bridges_gdf_raw = pd.concat(
-            [gpd.read_file(gpkg) for gpkg in conus_bridge_file_names], ignore_index=True
-        )
-
-        conus_all_bridges_gdf = conus_all_bridges_gdf_raw[cols_to_keep]
-        conus_all_bridges_gdf["osmid"] = conus_all_bridges_gdf["osmid"].astype(str)
-
-        conus_osm_bridge_file = os.path.join(output_dir, "conus_osm_bridges.gpkg")
-
-        logging.info(f"Writing CONUS bridge lines: {conus_osm_bridge_file}")
-
-        conus_all_bridges_gdf.to_file(conus_osm_bridge_file, driver="GPKG", engine='fiona')
-
-    return
+    # remove the intermediates from run as it can interfere with next runs as the tools combines
+    # all files in that directory starting with huc_*_osm_bridges.gpkg
+    logging.info(
+        ".. Removing intermediate files from previous runs, if any," " as it can interfere with future runs."
+    )
+    for file_path in huc_files_paths:
+        os.remove(file_path)
 
 
-def process_osm_bridges(wbd_file, output_folder, number_of_jobs, lst_hucs):
+def process_osm_bridges(wbd_file, output_folder, file_name_prepend, number_of_jobs, lst_hucs):
     start_time = dt.datetime.now(dt.timezone.utc)
+
+    os.makedirs(output_folder, exist_ok=True)
 
     # TODO: plug in shared_functions version for logger setup
     __setup_logger(output_folder)
@@ -347,6 +350,15 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs, lst_hucs):
     # --------------------------
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
+    else:
+        # remove the intermediates from past run as it can interfere with next runs as the tools combines
+        # all files in that directory starting with huc_*_osm_bridges.gpkg
+        logging.info(
+            ".. Removing intermediate files from previous runs, if any,"
+            " as it can interfere with future runs."
+        )
+        for file in Path(output_folder).glob("huc_*_osm_bridges.gpkg"):
+            os.remove(file)
 
     logging.info("*** Reading in and reprojecting the WBD HUC8 file")
 
@@ -386,6 +398,22 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs, lst_hucs):
     section_time = dt.datetime.now(dt.timezone.utc)
     logging.info(f"Reprojection done: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
+    tasks_args_list = []
+    for row in reproj_hucs.iterrows():
+        huc_row = row[1]
+
+        if str(huc_row[huc_column_name]) in BAD_HUCS:
+            logging.info(f"Skipping {huc_row[huc_column_name]} as it is on the bad huc list")
+            continue
+
+        huc_bridge_file = os.path.join(output_folder, f"huc_{huc_row[huc_column_name]}_osm_bridges.gpkg")
+        args = {
+            "huc_num": huc_row[huc_column_name],
+            "huc_bridge_file": huc_bridge_file,
+            "huc_geom": huc_row['geometry'],
+        }
+        tasks_args_list.append(args)
+
     failed_HUCs_list = []
     with ProcessPoolExecutor(max_workers=number_of_jobs) as executor:
         futures = {}
@@ -419,7 +447,7 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs, lst_hucs):
     logging.info(f"Combining huc feature files started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
 
     # all huc8 processing must be completed before this function call
-    combine_huc_features(output_folder)
+    combine_huc_features(output_folder, file_name_prepend)
 
     if len(failed_HUCs_list) > 0:
         logging.info("\n+++++++++++++++++++")
@@ -487,10 +515,21 @@ def __setup_logger(outputs_dir):
 if __name__ == "__main__":
 
     '''
+
+    This should be run 4 times, one for CONUS, AK, Guam and American Somoa.
+    Each has a WBD folder it needs and it needs to make a seperate bridge lines output file
+    for each of the four types.
+
+    You can also consider writing to a local EC2 dir which would be faster than copy it to
+    EFS.
+
     Sample usage (min params):
+
+        (For )
         python3 /foss_fim/data/bridges/pull_osm_bridges.py
-            -w /data/inputs/wbd/WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg
+            -w /data/inputs/wbd/WBD_National_HUC8_CONUS.gpkg
             -p /data/inputs/osm/bridges/bridge_lines/20250207/
+            -fp "conus"
             -j 10
             -lh '01010002 12090301'
 
@@ -501,14 +540,25 @@ if __name__ == "__main__":
            named HUC8 or HUC10 or mix/match with multiple runs of this tool. It will merge
            all successful output files into the final combined file(s)
 
-    Notes:
-        - Note: Jan 2025: use the -w flag as the WBD_National_HUC8_EPSG_5070_HAND_domain.gpkg.
-          That file is the full HUC8 WBD layer, but removed all of the 22x, some of the 20x and 21x,
-          removed North Alaska, keeping just the South Alaska we need, plus some stray unneeded HUCs.
-          It has not been fully cleaned against our included_huc8_withAlaska.lst as this gpkg
-          has some extras but that is ok for now untili we clean it more.
-          Why the cleaned .gpkg file? we use it in ohter places and it keeps the
-          size and processing time down.
+        ** -fp is file_prepend and is added to the output file name.
+           -fp "conus" becomes an output files of conus_osm_bridges.gpkg
+            We generally us the phrases of "conus", "alaska", "guam", "samoa"
+
+
+    Note: Jan 2026.
+          This should be run 4 times, one for CONUS, AK, Guam and American Somoa.
+          Each has a WBD folder it needs and it needs to make a seperate bridge lines output file
+          for each of the four types.
+
+          Current WBD's for each of the 4 runs are:
+          - CONUS = /data/inputs/wbd/WBD_National_HUC8_CONUS.gpkg
+          - AK = /data/inputs/wbd/WBD_National_South_Alaska.gpkg
+          - GU = /data/inputs/wbd/WBD_Guam_6637.gpkg
+          - AS = /data/inputs/wbd/WBD_AmericanSamoa_32702.gpkg
+
+          There is a new WBD National in 5070 just for CONUS, HI and PR. This results in selected
+          HUCs in the 01x to 18x, but leaves out the 19x (Alaska). It does include some of the
+          20x and 21x but not Guam (22010000) or American Samoa (22030001)
 
         - One HUC8 was too big for osmnx to handle adn kept timing out. So, we split that HUC8
           to HUC10's and feed it through this tool again.
@@ -529,7 +579,7 @@ if __name__ == "__main__":
         timeouts.
 
         Now, the successfully processed HUCs gpkgs stay in the folder. We no longer remove them. The ones
-        that failed first time, we renamed to have the word "bad.gkpg". That convention means the "bad" ones
+        that failed first time, we renamed to have the word "bad.gpkg". That convention means the "bad" ones
         fall out and are not included in the final HUC rollup gpkg.
 
         Now, with the ability to an new input arg for just specific HUCs to be processed, you can
@@ -572,6 +622,15 @@ if __name__ == "__main__":
         ' will be saved to after being downloaded from OSM.'
         ' File names are hardcoded to format hucxxxxxxxx_osm_bridges.gpkg,'
         ' with xxxxxxxx as the HUC8 value',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-fp',
+        '--file_name_prepend',
+        help='REQUIRED: generally use values as conus, ak, guam or samoa.'
+        ' Whatever value that is prepended is add to format *_osm_bridges.gpkg,'
+        ' such as conus_osm_bridges,gpkg',
         required=True,
     )
 

@@ -33,7 +33,6 @@ def buffer_stream_branches(
         stream_polys = StreamBranchPolygons.buffer_stream_branches(
             stream_network, buffer_distance=buffer_distance, verbose=verbose
         )
-
         # Clip to WBD
         if os.path.exists(wbd):
             wbd = gpd.read_file(wbd)

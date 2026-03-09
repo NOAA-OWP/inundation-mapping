@@ -1,3 +1,15 @@
+"""
+Download road segments from OpenStreetMap (OSM) for FIM analysis.
+
+This script queries the Overpass API to download major road segments (motorway, trunk,
+primary, secondary, tertiary) for each HUC boundary. Road segments are then split by
+NWM catchment boundaries for use in flood impact (FIMpact) calculations.
+
+Important: Bridge segments (tagged with bridge=*) are explicitly EXCLUDED from the road
+downloads to prevent unrealistic flood depth calculations. Bridge segments are handled
+separately via pull_osm_bridges.py and the bridge-healing workflow.
+"""
+
 import argparse
 import http.client
 import os
@@ -24,39 +36,37 @@ srcDir = os.getenv('srcDir')
 load_dotenv(f'{srcDir}/bash_variables.env')
 DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
+GUAM_CRS = os.getenv('GUAM_CRS')
+AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 
 
 def combine_hucs(output_dir):
-    # identify Alaska vs CONUS HUCs
-    all_files = list(Path(output_dir).glob("roads_*.gpkg"))
-    alaska_files = [f for f in all_files if f.name.startswith("roads_19")]
-    conus_files = [f for f in all_files if not f.name.startswith("roads_19")]
+    # identify Alaska vs CONUS vs Guam vs Samoa HUCs
+    files = list(Path(output_dir).glob("roads_*.gpkg"))
 
-    # Alaska
-    if alaska_files:
-        alaska_all_roads_gdf = pd.concat([gpd.read_file(gpkg) for gpkg in alaska_files], ignore_index=True)
-        alaska_all_roads_gdf["osmid"] = alaska_all_roads_gdf["osmid"].astype(str)
-        alaska_all_roads_gdf.to_file(
-            os.path.join(output_dir, "alaska_osm_roads.gpkg"), driver="GPKG", engine='fiona'
-        )
-        print("Compiled Alaska road lines!")
+    regions = {
+        "alaska": [f for f in files if f.name.startswith("roads_19")],
+        "guam": [f for f in files if f.name.startswith("roads_22010000")],
+        "samoa": [f for f in files if f.name.startswith("roads_22030001")],
+        "conus": [
+            f
+            for f in files
+            if not (
+                f.name.startswith("roads_19")
+                or f.name.startswith("roads_22010000")
+                or f.name.startswith("roads_22030001")
+            )
+        ],
+    }
 
-        # remove individual huc files
-        for file in alaska_files:
-            file.unlink()
-
-    # conus
-    if conus_files:
-        conus_all_roads_gdf = pd.concat([gpd.read_file(gpkg) for gpkg in conus_files], ignore_index=True)
-        conus_all_roads_gdf["osmid"] = conus_all_roads_gdf["osmid"].astype(str)
-        conus_all_roads_gdf.to_file(
-            os.path.join(output_dir, "conus_osm_roads.gpkg"), driver="GPKG", engine='fiona'
-        )
-        print("Compiled conus road lines!")
-
-        # remove individual huc files
-        for file in conus_files:
-            file.unlink()
+    for region, flist in regions.items():
+        if not flist:
+            continue
+        gdf = pd.concat([gpd.read_file(f) for f in flist], ignore_index=True)
+        gdf["osmid"] = gdf["osmid"].astype(str)
+        gdf.to_file(os.path.join(output_dir, f"{region}_osm_roads.gpkg"), driver="GPKG", engine="fiona")
+        print(f"Compiled {region.title()} road lines!")
+        [f.unlink() for f in flist]
 
 
 def split_bbox(minx, miny, maxx, maxy, num_splits=4):
@@ -86,13 +96,22 @@ def split_bbox(minx, miny, maxx, maxy, num_splits=4):
 
 
 def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
+    """
+    Pull road segments from OpenStreetMap for a given HUC boundary.
+
+    Note: Bridge segments (tagged with bridge=*) are explicitly excluded to prevent
+    unrealistic flood depth calculations in FIMpact analyses. Bridges are handled
+    separately via pull_osm_bridges.py and the bridge-healing workflow.
+    """
     minx, miny, maxx, maxy = huc_geom.bounds
     bbox_query = f"({miny},{minx},{maxy},{maxx})"
 
+    # Exclude bridge segments to prevent unrealistic flood depth calculations
+    # Bridge segments are pulled separately via pull_osm_bridges.py and handled differently
     query_template = """
     [out:json];
     (
-    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$"]{bbox};
+    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$"][!"bridge"]{bbox};
     );
     out body;
     >;
@@ -106,7 +125,8 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
     for attempt in range(1, max_attempts + 1):
         try:
-            result = api.query(query_template.format(bbox=bbox_query))
+            # timeout at 5 mins, which can happen depending on the network speed and jobs (network volume)
+            result = api.query(query_template.format(bbox=bbox_query), timeout=500)
             break  # success
         except (overpy.exception.OverpassTooManyRequests, overpy.exception.OverpassGatewayTimeout) as e:
             wait_time = 5 * attempt + random.uniform(0, 2)
@@ -187,6 +207,13 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
         if str(HUC_no).startswith('19'):
             gdf_roads = gdf_roads.to_crs(ALASKA_CRS)
+
+        elif str(HUC_no) == '22010000':
+            gdf_roads = gdf_roads.to_crs(GUAM_CRS)
+
+        elif str(HUC_no) == '22030001':
+            gdf_roads = gdf_roads.to_crs(AMERICAN_SAMOA_CRS)
+
         else:
             gdf_roads = gdf_roads.to_crs(DEFAULT_FIM_PROJECTION_CRS)
 
@@ -274,9 +301,20 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
 
     # -------------------
     # Validation
-    if number_jobs > 3:
-        print("Overpy does not seem to like more than 3 jobs. Adjusting job number down to 3.")
-        number_jobs = 3
+    # Feb 2026: Removing this test as we are continuing to get even bigger EC2's with
+    # larger network speeds which allows for more jobs.
+    # if number_jobs > 10:
+    #     print("Overpy does not seem to like more than 10 jobs. Adjusting job number down to 10.")
+    #     print("Do not run on a dev EC2. Please run on bigger machien with larger network speeds.")
+    #     number_jobs = 10
+
+    total_cpus_available = os.cpu_count() - 2
+    if number_jobs > total_cpus_available:
+        raise ValueError(
+            f'The number of jobs provided: {number_jobs} ,'
+            ' exceeds your machine\'s available CPU count minus two.'
+            ' Please lower the number of jobs value accordingly.'
+        )
 
     if not os.path.exists(preclip_dir):
         raise ValueError("preclip directory not found")
@@ -319,11 +357,19 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
 
     tasks_args_list = []
     for HUC_no in huc_numbers:
+        if HUC_no in (
+            '22010000',
+            '22030001',
+        ):  # for guam and samoa it is possible that does not exist and generally not needed
+            split_boundary_path = ""
+        else:
+            split_boundary_path = os.path.join(preclip_dir, HUC_no, "nwm_catchments_proj_subset.gpkg")
+
         tasks_args_list.append(
             {
                 "HUC_no": HUC_no,
                 "huc_boundary_path": os.path.join(preclip_dir, HUC_no, 'wbd.gpkg'),
-                "split_boundary_path": os.path.join(preclip_dir, HUC_no, "nwm_catchments_proj_subset.gpkg"),
+                "split_boundary_path": split_boundary_path,
                 "output_dir": output_dir,
             }
         )
@@ -351,7 +397,7 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
             file_logger.info(f"  - {k}")
             print(f"  - {k}")
 
-    # now combine all hucs into two files one for CONUS and one for Alaska roads
+    # now combine all hucs into dedicated files for CONUS,  Alaska, Guam, and Samoa roads
     combine_hucs(output_dir)
 
     # Record run time

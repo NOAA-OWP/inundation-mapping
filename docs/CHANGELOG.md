@@ -1,7 +1,579 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
+
+A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
+
+Note: All files in GIT retain the permissions of the files on the users local machine. Some of the files included in here had the permissions set for that file upgraded.  ie) from 644 to 755 (allowing for more read/write/execute) on some files.
+
+### Changes
+- `data`
+    - `bridges`
+        - `conda_fim_bridges_enviro.yml`:  file permissions changed.
+        - `make_dem_dif_for_bridges.py`:  comments and sample notes updated.
+        - `make_rasters_using_lidar.py`:  file permissions changed.
+        - `pull_osm_bridges.py`:
+            - added osm argument to extend timeout duration.
+            - remove intermediate files which compromised aborted tests. Forces key files and directories to be clean on a rerun. Also slight changes to the intermediate file names.
+            - Added a new argument to add a file_name prepend to all intermediate and output files. This makes for easier debugging, plus managing errors where one region (ie.. Guam), is accidently run in the same folder as a previous run with a different region. (ie. Conus).
+            - increased error handling, notes and sample text.
+         - `setup_conda_for_make_rasters.txt`: file permissions changed.
+   - `nhdplus/preprocess_nhdplus.py`:  changed a local function name to add two underscores in front.
+   - `roads/pull_osm_roads.py`:  Increased the default osm timeout and fixed the system to allow for more than 3 jobs to be processed at one time.  The previous setting of "3" was a calculated based on a non production sized machine with much higher network capacity. Increasing the timeout also allows for high job numbers and faster downloading.
+   - `usgs/acquire_and_preprocess_3dep_dems.py`: Changes include:
+        - Updated the MP, multi-processing, system to our newer and better optimized MP system from the shared_functions.py file. Along with this and some related changes, download performance was significantly improved.
+        - Updates to a few variable names,  comments and sample text.
+        - Improved the logging naming system and changed it to the new standard from our shared_functions.py file.
+        - Improved error handling and logging.
+        - Added a new argument specifically to set the target projection of output files to be more flexible for all four regions types of CONUS, AK, Guam and American Somoa.
+    - `usgs/preprocess_download_usgs_grids.py`:  Added note. Possibly a deprecated file. TBD
+    - `wbd/generate_pre_clip_fim_huc8.py`. Changes include:
+          - Add a new random time.sleep feature as all iterations of processing a HUC hit the single shared large WBD file at the same time. This will help with file collisions. We may want to revisit usage of key variables such as loading the WBD so each HUC does not necessarily have to hit the file at the same type. ie) load the entire WBD and share it to each HUC iteration for filtering. Quicker to load and use that way.
+          - Updated some comments and sample text.
+          - Fixed a bug with maximum number of jobs being requested as an argument.
+     - `create_vrt_file.py`:  Fixed an import pathing syntax plus updated the sample text.
+ - `src`
+     - `utils/shared_functions.py`: Added a new utility to simplify when a user wants screen output plus various forms of file logging. This will work for both MP, multi-processing, systems and non MP's. Changed a few variable names.
+     - `bash_variables.env`: Updated paths for new DEMs, bridges data including bridge DEM diffs and pre-clips to reflect the input datasets. Also made slight reorg changes to variable names to be more region based. ie) a CONUS dem domain file name, then its related VRT on the next line.
+
+Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
+<br/>
+
+## v4.9.7.0 - 2026-02-05 - [PR#1752]([https://github.com/NOAA-OWP/inundation-mapping/pull/1752])
+
+This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
+
+Changes
+- /src/bash_variables.env
+<br/>
+
+## v4.9.6.0 - 2026-02-05 - [PR#1721]([https://github.com/NOAA-OWP/inundation-mapping/pull/1721])
+
+This PR aims to longitudinally refine the discharge values in the rating curve by filtering the surface area values and recalculating discharge and the rest of Manning equations' variables, including bed area and volume. You can find the details of the framework here:
+
+See PR for more details.
+
+Changes
+- /src/longitudinal_flow_adjustment.py
+- /src/add_crosswalk.py
+<br/>
+
+## v4.9.5.5 - 2026-01-27 - [PR#1734]([https://github.com/NOAA-OWP/inundation-mapping/pull/1734])
+
+This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
+
+Changes
+src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
+<br/>
+
+## v4.9.5.4 - 2026-01-27 - [PR#1705](https://github.com/NOAA-OWP/inundation-mapping/pull/1705)
+
+Changes the threshold data source priority from USGS to NRLDB. This way, if rating curves from both USGS and NRLDB are available for a site, the NRLDB one will be used. 
+
+### Changes
+- `/tools/tools_shared_functions.py`: Changes the threshold data source priority in `get_thresholds()` from USGS to NRLDB.
+<br/>
+
+## v4.9.5.3 - 2026-01-27 - [PR#1714](https://github.com/NOAA-OWP/inundation-mapping/pull/1714)
+
+Adding "G" and "U" as acceptable altitude methods, which could increase the number of USGS sites used in our CatFIM and calibration workflows.
+
+### Changes
+- `tools/tools_shared_variables.py`: Added codes "G" and "U" as acceptable altitude methods.
+<br/>
+
+## v4.9.5.2 - 2026-01-21 - [PR#1727](https://github.com/NOAA-OWP/inundation-mapping/pull/1727)
+
+Fixes:
+- DepBot PR's
+    - PR: [1737](https://github.com/NOAA-OWP/inundation-mapping/pull/1737): Bump pyasn1 from 0.6.1 to 0.6.2
+    - PR: [1733](https://github.com/NOAA-OWP/inundation-mapping/pull/1733) : DepBot: Bump filelock from 3.18.0 to 3.20.3
+    - PR: [1732](https://github.com/NOAA-OWP/inundation-mapping/pull/1732) : DepBot: Bump virtualenv from 20.33.1 to 20.36.1
+    - PR: [1726](https://github.com/NOAA-OWP/inundation-mapping/pull/1726) : DepBot: Bump urllib3 from 2.5.0 to 2.6.3
+    - PR: [1724](https://github.com/NOAA-OWP/inundation-mapping/pull/1724) : DepBot: Bump aiohttp from 3.12.15 to 3.13.320.36.1
+- Other python package changes:
+   - Add new scikit-image.
+   - Remove linting packages of : isort, black, flake8, flake8-project, and pre-commit.
+   - Remove the following unused packages:  monaco, rio-vrt, psycopg2-binary, and certifi.
+   - Update the following packages: whitebox, boto3, gcsfs, py7zr, jupyter and jupyter-lab.
+-  Whitebox warnings. There were thousands of warnings issued based on whitebox being an older version and using deprecated packages in it.  Also change  some files that use Whitebox page declarations for mistake.
+- Various misc fixes or updates.
+- Linting
+    - Upgraded linting python packages for use by GitHUB when running linting checks.
+    - Remove linting tools that were available inside the Docker container but they never worked and were triggering package update requirements. Also updated some of our .md's to remove talking about linting inside the container, now emphasizing and clarifying linting info from the host server.
+
+### Changes
+- `.github\PULL_REQUEST_TEMPLATE.md`:  Updated text.
+- `.pre-commit-config.yaml`: Update linting packages references / loading.
+- `CITATION.cff`: text updates.
+- `CONTRIBUTING.md`: text updates, remove info about linting within a docker container which never worked.
+- `Dockerfile.dev \ Dockerfile.owp`: Various updates to handle some new errors triggered by python package updates via Pipefile and Pipefile.lock, stop some warnings, and become consistent with the both the dev and owp versions.
+- `Pipfile \ Pipefile.lock`: Python packages changes as described above.
+- `README.md`: Updates for new linting details, fixing some incorrect and deprecated instructions as well as incorrect text.
+- `config\hv_deploy_params.template`: Updates in preparation for the next FIM 6.1 release.
+- `data`
+    - `bathymetry/preprocess_bathymetrics.py`:  Whitebox header fix.
+    - `ble/ble_benchmark.py`:   Text update.
+- `fim_pipeline.sh`:  Text update.
+- `fim_post_processing.sh`:  Fixes for permissions issues on some folders.
+- `fim_pre_processing.sh`: Removed unnecessary Whitebox line.
+- `fim_process_huc.sh`:  Fixes for permissions issues on some folders.
+- `pyproject.toml`: Upgraded linting core package.
+- `src`
+    - `accumulate_headwaters.py`: Linting adjustments based on updated linting packages.
+    - `adjust_floodplains.py`: Whitebox fixes.
+    - `adjust_thalweg_lateral.py`: Linting adjustments based on updated linting packages.
+    - `agreedem.py`: Whitebox fixes and Linting adjustments based on updated linting packages.
+    - `entrypoint.sh`: Added comment.
+    - `unique_pixel_and_allocation.py`: Linting adjustments based on updated linting packages.
+- `tools\synthesize_test_cases.py`: Text updates, plus removed usages  notes for FIM 3.
+- `workflows\deploy_to_hydrovis.py`: Text adjustments.
+
+### Files moved:
+- `workflows\hand_to_owp.py`:  Moved into deploy folder.
+<br><br>
+
+## v4.9.5.1 - 2026-01-08 - [PR#1683](https://github.com/NOAA-OWP/inundation-mapping/pull/1683)
+
+---------------------
+### FOR NOAA/OWP usage only
+This tool is not for usage outside of the OWP / FIM team.
+---------------------
+
+This expands on the new workflow architecture and adds a new tool that pulls down the exact files CatFIM and FIM Performance points/points (eval_plots.py).  
+
+It follows the same usage of env files and this one now adds a new `workflow_params.env` file. It was decided to not keep most other uses of env args seperate from the original `hv_deploy_params.env` due to size and functionality focus.
+
+See the new `hand_to_owp.py` for usage information. This tool also relies on the original `aws_credentials.env` file previously used. The default versions are in the usual data/config path.
+
+
+### Architecture Notes:
+
+**The additions to architecture in this PR included:**
+- Updates to improve on the AWS Communication / credentials system.
+- Additions and upgrades to the new `Workflow` system. `Workflows` are long running script system where a single "wrapper workflow" script can run other scripts in sequential order. Examples include: (some coming soon)
+    - Copying correct filtered HAND dataset files from S3 to OWP servers, where they can be added to run generate CatFIM scripts, then validate its outputs and copy it's outputs to other enviros. This one is added here.
+    - Downloading Bridge Data which triggers new-preclips.  (coming soon)
+    - New DEMs which triggers new Bridge DEM difs", etc.  (coming soon)
+    - It also allows running scripts normally run during production runs only, including output data validation, copying different combinations of output data to various S3 buckets and/or EFS paths.
+    - Advanced needs from Ripple already work-in-progress, where filtered data is pulled down from RTX, meta data extracted, various files saved to different locations, some on EFS and some on S3.
+    - The ability to AWS to eventually take over some of the workflow tools via AWS tools such as step functions and batch processes.
+
+### Additions
+ - `config/workflows_params.template.env`: as described above.
+ - `workflows/hand_to_owp.py`: as described above.
+
+### Changes
+
+- `.gitignore`: adjusted for the new workflows_params.template.env to ensure it can be included in the repo.
+- `config`
+    - `aws_credentials.template.env`: Adjusted to move the bucket names into the other .env files.
+    - `fim_enviro_values.template.env`:  Found another unrelated variable that should have been in this file.
+    - `hv_deploy_params.template.env`:  Misc minor adjustments, primarily adding a new HAND_PREVIOUS_VERSION value.
+- `data`
+    - `aws/aws_shared_functions.py`:  minor adjustments to client_config for better threading and performance.
+    - `aws/s3_shared_functions.py`:
+        - Updated some of the functions and added new ones primarily based on finding / downloading files based on wildcard characters.
+        - Updated some existing functions for performance and usage flexibility.
+        - Added a new function to download files by pre-existing file lists.
+        - Added multi-threading to download functions.
+        - Added new function for deleting_s3_folder. Note: only partially tested and is not needed by any code yet.
+- `src/utils/shared_functions.py`:  fixed some permissions issues for new log folders created and misc items.
+- `workflows/deploy/deploy_to_hydrovis.py`:  Misc adjsutment to enviro variable usages, adding more logging, and tidbits.
+
+### Removals
+
+- `config\aws_s3_put_fim4_hydrovis_whitelist.lst`:  no longer applicable
+- `src\toDo.md`: A very old, non-applicable file.
+<br/>
+
+## v4.9.5.0 - 2026-01-08 - [PR#1716]([https://github.com/NOAA-OWP/inundation-mapping/pull/1716])
+
+This PR fixes issue #1700 .
+This PR resolves inconsistencies in Discharge (m3s-1) values in the `src_full_crossswalked` table observed when rerunning calibration scripts (`tools/rerun_calibration.py`)
+Initially, after running FIM pipeline and then rerunning the calibration, the slope values appear identical, but the Discharge (m3s-1) differs.
+
+- Root cause:
+After running FIM pipeline with all calibration steps off, each calibration script was then run separately. We identified that the `src/longitudinal_flow_adjustment.py` script was saving the `src_full_crossswalked` CSV by rounding all columns to 5 decimal places (line 323).
+
+- **The Impact:** This rounding altered the "default slope" value. When subsequent processes (like rerunning calibration or resetting hydrotable) reloaded this data, they used the rounded slope rather than the actual initial slope. This small delta propagated through the calculations, resulting in different final discharge outputs.
+### Changes
+- `src/longitudinal_flow_adjustment.py`: Ensure that slope values maintain precision when saving back to `src_full_crossswalked`.
+- `src/process_branch.sh`: Minor fix as it missed catching errors 65 due to syntax error.
+<br/>
+
+## v4.9.4.1 - 2026-01-08 [PR#1723](https://github.com/NOAA-OWP/inundation-mapping/pull/1723)
+
+Fixes branch error code logging and updates formatting and a spelling error.
+
+### Changes
+
+- `src/`
+    - `process_branch.sh`: Added logic to write error log file if specific exit codes are returned
+    - `run_huc.sh`: reformat
+
+The following files had a spelling correction of "occured" to "occurred":
+- `data/bridges/make_dem_dif_for_bridges.py`
+- `fim_process_huc.sh`
+- `src/associate_levelpaths_with_leveese.py` - Some error handling cleanup
+- `src/process_branch.sh`
+- `tools/reformat_to_int16.py`
+<br/>
+
+## v4.9.4.0 - 2026-01-08 [PR#1712](https://github.com/NOAA-OWP/inundation-mapping/pull/1712)
+
+Fixes the condition where an error is thrown when clipping the NFHL `availability` mask by the branch polygon results in no geometry (i.e., an empty set).
+
+### Changes
+ - `src/`
+     - `adjust_floodplains.py`: Returns (exits) if the `availability` mask geometry clipped by the branch polygon is empty. Also fixes the `KeyError: 'ID'` that occurred when a levelpath was also a headwater with no upstream streams or catchments.
+     - `run_by_branch`: Adjust filename if `adjust_floodplains.py` is exited before completing.
+<br/>
+
+## v4.9.3.0 - 2026-01-08 [PR#1701](https://github.com/NOAA-OWP/inundation-mapping/pull/1701)
+
+This PR closes #1623 by updating the `data/pull_osm_roads.py` script to **exclude all OSM road segments tagged as bridges**. This change ensures that bridge features are not treated as normal road segments during FIMpact processing, which previously resulted in **unrealistically high flood-depth estimates** under bridge crossings.
+
+
+This PR includes the creation of an updated OSM roads dataset as well as a new pre-clipped dataset. The updated datasets are available at the following locations in FIM EFS, FIM S3, and ESIP:
+>
+> * `data/inputs/osm/roads/20251209/` — updated OSM roads dataset
+> * `data/inputs/pre_clip_huc8/20251209/` — updated pre-clipped dataset
+
+Bridge segments can cause issues when:
+
+1. The corresponding OSM bridge line is missing and therefore cannot heal the HAND raster, leaving a deep channel under the roadway; or
+2. The lidar and non-lidar bridge-healing workflows do not fully raise the HAND elevations beneath the bridge footprint.
+
+By excluding bridge geometries at the data-pull stage, these erroneous inundation signals are prevented entirely.
+
+### Changes
+- data/roads/pull_osm_roads.py
+- src/bash_variables.env
+<br/>
+
+## v4.9.2.2 - 2026-01-08 - [PR#1698](https://github.com/NOAA-OWP/inundation-mapping/pull/1698)
+
+This PR closes #1592 and introduces a new tool that computes flood depth for arbitrary input geometries (polygons, lines, or points) for a given flow file. This PR also adds `flood_depth_ft` column for road inundation tool. 
+
+
+### Workflow Overview:
+#### **Input**
+- A gpkg file containing desired geometries. 
+- The gpkg file can have any projection.
+
+#### **Processing Logic**
+1. **Identify intersecting HUCs.**
+   For each input geometry, the script first identifies all intersecting HUCs from the available HUCs in a given FIM run. Geometries that span multiple HUCs are then processed independently within each HUC, and the most conservative (maximum) flood depth across all relevant HUCs is ultimately retained.
+
+
+2. **Extract threshold HAND values.**
+   For each geometry segment within a HUC, the script identifies all branches that intersect that geometry. For each intersecting branch, it computes the minimum HAND value along the portion of the geometry that overlaps that branch, yielding one `threshold_hand` value per branch. All intersecting branches within the HUC are processed in this way. The output includes:
+
+   * `threshold_hand`: minimum HAND elevation (m) for that branch
+   * `HydroID`
+   * `feature_id`
+   * `branch`: branch identifier within the HUC
+
+3. **Interpolate threshold discharge.**
+   Using the branch-specific HydroTables, the script interpolates the discharge corresponding to each `threshold_hand`. This `threshold_discharge` represents the flow rate at which inundation begins. Records with `threshold_hand > 25 m` are excluded because they exceed the valid range of the HydroTables.
+
+4. **Determine inundation status.**
+   The `evaluated discharge` from the input flow file is compared to the `threshold_discharge`. A geometry is marked as inundated if `evaluated_discharge > threshold_discharge`.
+
+5. **Calculate flood depth.**
+The `evaluated stage` is obtained by interpolating within the branch-specific HydroTables using the corresponding `evaluated discharge` values.  Flood depth is computed as:
+   `flood_depth = evaluated_stage – threshold_hand`.
+At this time, any negative flood depths (which may occur due to non-monotonic SRC behavior) are set to zero.
+
+
+#### **Output**
+- A gpkg file containing the geometries annotated with flooding status (Y/N) and computed flood depth. 
+- For geometries intersecting multiple HUCs or branches, the flood depth reported is the maximum across all intersections. 
+- Geometries meeting any of the following conditions will contain `NULL` values for all output fields:
+  - They do not intersect any HUCs.
+  - They intersect only HAND grid cells with NoData values (e.g., levee-protected areas).
+  - They intersect only HAND grid cells with HAND values greater than 25 m.
+<br/>
+
+## v4.9.2.1 - 2025-12-05 [PR#1663](https://github.com/NOAA-OWP/inundation-mapping/pull/1663)
+
+This update adds data predownload functionality to CatFIM so it can create categorical FIM maps for sites that don't have thresholds available in the WRDS API. There is also a new default behavior for CatFIM: instead of hitting the WRDS API for each run, the CatFIM code defaults to using pre-downloaded input thresholds and metadata. However, there is still the option to download the thresholds and metadata during the CatFIM run (which was previously the default).
+
+There are two new scripts in this update.
+- `download_process_wrds.py` handles the predownloading of thresholds and metadata from the WRDS API for CatFIM. It can be run as a standalone script or it can be called from within the CatFIM processing.
+- `mimic_wrds_data.py` creates metadata and thresholds data files for sites that do not have thresholds available on WRDS. This is how the data for Guam CatFIM was pre-processed. The data outputs of this script is designed to run seamlessly in CatFIM (and trigger processing choices specific to Manual Inputs within CatFIM). 
+
+### Additions
+- `data/wrds/download_process_wrds.py`: Downloads, formats, and saves metadata and thresholds data from the WRDS API. Can be used with a HUC list or can download all available data.
+- `data/wrds/mimic_wrds_data.py`: Creates metadata and thresholds pickle files from a thresholds input CSV. Outputs match the structure of `download_process_wrds.py` and can be used as inputs to CatFIM.
+
+### Changes
+- `tools/catfim/generate_categorical_fim.py`: Added the option to provide an input thresholds file (rather than hitting the WRDS API). Added functionality to skip elevation adjustment for manual inputs. Added functionality to process two additional regional input files. Added docstrings for all functions. 
+- `tools/catfim/generate_categorical_fim_flows.py`: Added functionality to process two additional regional input files. Created the `__load_thresholds()` function to manage getting the thresholds from the WRDS API or the input thresholds file. Added docstrings for all functions. 
+- `tools/catfim/generate_categorical_fim_mapping.py`: Added docstrings for all functions. 
+- `tools/tools_shared_functions.py`: Updated the `get_thresholds()` function to produce a status message (and took out the `threshold_count` output).
+- `data/nws/preprocess_ahps_nws.py`: Changed output to `get_thresholds()` function.
+- `data/usgs/preprocess_ahps_usgs.py`: Changed output to `get_thresholds()` function.
+<br/>
+
+## v4.9.2.0 - 2025-12-05 - [PR#1658](https://github.com/NOAA-OWP/inundation-mapping/pull/1658)
+
+Adds capability to generate HAND FIM for Guam and American Samoa using data from NHDPlus. Guam uses CRS EPSG:6637 and American Samoa uses EPSG:32702. Note that there are no levees for American Samoa. Also relocates the UAT and full HUC lists into the config/huc_lists/ folder.
+
+### Additions
+
+- `config/huc_lists/`
+    - `full_huc_list.lst`: Adds complete HUC list including Guam and American Samoa (formerly `/data/inputs/huc_lists/included_huc8_withAlaska+Guam+AmericanSamoa.lst`)
+    - `uat_and_alpha_domain_huc_list.lst`: Adds UAT HUC list (formerly `/data/inputs/huc_lists/uat_and_alpha_domain_huc_list_all_alaska.lst`)
+- `data/nhdplus/preprocess_nhdplus.py`: Processes NHDPlus data including filtering and reprojecting
+
+### Changes
+
+- `.gitignore`: Allows new `config/huc_lists` folder and files
+- `fim_pre_processing.sh`: Reads `src/bash_variables.env` to get `huc_list_file` environment variable
+- `fim_pipeline.sh`: Added a comment line
+- `data/`
+    - `bridges/make_rasters_using_lidar.py`: Updates and saves list of classification results
+    - `bridges/pull_osm_bridges.py`, `get_sample_data.py`, `nfhl/download_fema_nfhl.py`, `roads/pull_osm_roads.py`, `wbd/clip_vectors_to_wbd.py`, `wbd/generate_pre_clip_fim_huc8.py`: Adds processing for Guam and American Samoa to existing scripts
+- `data/usgs/acquire_and_preprocess_3dep_dems.py` and `src/agreedem.py`: minor cleanup
+- `src/`
+    - `bash_variables.env`: Update preclip date and add paths for Guam and American Samoa files as well as `huc_list_file` variable
+    - `buffer_stream_branches.py`: Clip branch polygons to WBD instead of DEM domain
+    - `check_huc_inputs.py`: Reads HUC list from environment variable instead of hardcoded file
+    - `run_by_branch.sh`, `run_unit_wb.sh`: Add Guam and American Samoa HUCs
+    - `split_flows.py`: Add NHDPlus Lake field name
+    - `stream_branches.py`: Drop text metadata columns if they exist
+<br />
+    
+## v4.9.1.3 - 2025-12-05 - [PR#1603]([https://github.com/NOAA-OWP/inundation-mapping/pull/1603])
+
+This PR fixes issue with box plot generation and introduces a new function to compare two FIM outputs.
+
+### Changes
+`tools/rating_curve_comparison.py` : changes as described above.
+`tools/tools_shared_function.py`: Quick fix to fix a pandas warning: PerformanceWarning: DataFrame is highly fragmented
+<br/>
+
+## v4.9.1.2 - 2025-12-05 - [PR#1628]([https://github.com/NOAA-OWP/inundation-mapping/pull/1628])
+
+This PR updates the catchment boundary issue tool to be more efficient in the processing of each individual HUC for identifying catchment boundary issues and adds multiprocessing by HUC for better scalability to large HUC inputs.
+
+### Changes
+
+- Updates to `/tools/identify_catchment_boundary.py` to improve computational efficiency.
+
+<br/>
+
+## v.4.9.1.1 - 2025-12-05 - [PR#1697](https://github.com/NOAA-OWP/inundation-mapping/pull/1697)
+
+During some testing of the new PR 1620 :Redesign Calibration workflow, a branch error occurred. During a alpha test against a small huc sample set with a branch error, it exposed a bug in eval_plots.py.  The bug is normally not seen as in order to see the error, you have to have a huc list what errors out on one HUC but no other HUCs in that test run with a valid benchmark source. 
+
+Note: This bug is not related to PR 1620 and has existed for a long time.
+
+## This PR should not be merged until 1620 is merged with dev.
+
+eval_plots.py assume there would be some metrics data a given benchmark type for a given pipeline run and it could end up as an empty dataset. 
+
+### Changes
+
+- `tools`
+    -  `eval_plots.py`: Changes include:
+        - Added more prints to help sort out progress and more context clues when something fails. 
+        - Adjusted a few variable names to be more initiative.
+        - Added a bit of input validation code.
+        - Added some inline validation code to ensure some datasets are not empty in key places.
+        - Fixed a bug when the tool is being used for spatial data, creating the FIM Performance points and poly files. A previous merge accidently changed a key variable name which would have resulted in the two FIM Performance files never being created.
+        - Add more doc strings.
+    - `synthesize_test_cases.py`:   Added a few warning message and upgrade a bit of the wording on an error message.
+    - `run_test_case.py`: Found a bug where shutil.rmtree could fail with directory not empty during race conditions of the python GC. Could have been MP cleaning overlapping or subdirectories at the same times. Added the "ignore_error=True" tag to shutil.rmtree.
+    - `probabilitic_inundation.py`: Added the "ignore_error=True" tag to shutil.rmtree.
+<br />
+
+## v4.9.1.0 - 2025-12-05 - [PR#1689](https://github.com/NOAA-OWP/inundation-mapping/pull/1689)
+
+Uses 100-year FEMA NFHL data as the extent for floodplain adjustment where the data exist. This is primarily to fix the situation around Phoenix AZ where the 500-year floodplain data allow extensive erroneous overflooding even though the 500-year data were confirmed to be correct. Additionally, there is no NFHL availability layer coverage for the area even though there is coverage by the 100- and 500-year layers, so the 100- and 500-year extents are added to the availability layer mask to exclude inundation in those areas beyond the distance threshold. The distance threshold for floodplain adjustment is also reduced from 3000 meters to 1500 meters and confined to the catchment for the current levelpath.
+
+### Changes
+
+- `config/`
+    - `deny_branches.lst`: Adds `dem_burned_adjusted_{}.tif` to deny list
+    - `params_template.env`: Adds a variable to select NFHL layer and changes the floodplain adjustment distance threshold from 3000 m to 1500 m
+- `data/nfhl/download_fema_nfhl.py`: Removes unused import
+- `src/`
+    - `adjust_floodplains.py`: Uses specified NFHL layer in floodplain adjustment and adds combined 100- and 500-year floodplains to availability mask
+    - `run_by_branch.sh`: Adds an intermediate file (`dem_burned_adjusted_{}.tif`) for debugging.
+    - `run_unit_wb.sh`: Miscellaneous cleanup (deleted commented lines and fix misspelling).
+
+<br />
+
+## v4.9.0.0 - 2025-12-01 - [PR#1620](https://github.com/NOAA-OWP/inundation-mapping/pull/1620)
+## Summary
+This PR closes #1593  and introduces a **redesigned calibration workflow**, enabling each HUC processor to perform calibration independently after generating its own REM. Therefore, each HUC is self-contained and fully processed before moving to the next.  It also reorganizes log files to be stored within each HUC directory and introduces clear separation between full pipeline runs and calibration reruns.
+
+**Key Changes:**
+- Calibration now runs per-HUC instead of across all HUCs
+- Logs are stored in HUC-specific directories
+- A new `tools/rerun_calibration.py` tool for calibration reruns instead of using `fim_post_processing.sh`
+
+
+<pre>
+╔══════════════════════════════════════════════════╗
+  ❌ OLD: Parallel Calibration Across All HUCs   
+╚══════════════════════════════════════════════════╝
+fim_pipeline.sh
+  ├─> Generate REMs for ALL HUCs
+  │
+  └─> fim_post_processing.sh
+        └─> Calibration (parallel across ALL HUCs & branches)
+
+╔═════════════════════════════════════════════════╗
+   ✅ NEW: Calibration Per-HUC                    
+╚═════════════════════════════════════════════════╝
+fim_pipeline.sh
+  └─> For each HUC:
+        ├─> Generate REM
+        ├─> calibrate_rating_curves.sh
+        │     ├─> Bathymetry adjustment
+        │     ├─> Thalweg notches
+        │     ├─> USGS rating curve calibration
+        │     └─> ... (10 calibration steps)
+        │         (branch-level parallelization)
+        └─> HUC fully processed
+</pre>
+
+
+### 1- Terminology Clarification — Calibration vs. Post-Processing
+
+Starting with this PR, **calibration** refers to all scripts involved in refining or improving synthetic rating curves, whether using observed data (e.g., USGS gages) or alternative techniques (e.g., bathymetric adjustments).
+
+The term **post-processing** is reserved exclusively for the software design components that manage FIM code closure tasks—such as organizing log files and recording execution times.
+
+---
+
+### 2- Calibration Redesign
+Below are the **calibration scripts** that are executed in the specific order by the new `src/calibrate_rating_curves.sh` script:
+
+<img width="278" height="550" alt="image" src="https://github.com/user-attachments/assets/83074a63-8fa4-423f-bd0a-e6125da919aa" />
+
+
+**2-1 Workflow Redesign**
+
+* **Previous design:** After generating hydro-conditioned REMs for all HUCs, the scripts above were executed in parallel across all HUCs/branches through former `fim_post_processing.sh`.
+* **New design:** Each HUC processor is now responsible for both REM generation **and** sequential execution of all calibration routines through the new `src/calibrate_rating_curves.sh` script. Two job numbers remain: one for HUCs and one for branches within a HUC.
+
+
+**2-2 Scripts Inputs**
+
+* **Previous:** Each calibration script accepted a FIM directory containing multiple HUCs and processed all HUCs and their branches in parallel.
+* **New:** Each calibration script now accepts a single HUC directory and processes only that HUC’s branches. Multiprocessing is applied (or can be applied) to parallelize branch-level runs within that HUC.
+
+
+**2-3 Calibration Rerun**
+
+* A new tool, `tools/rerun_calibration.py`, now handles calibration reruns. It executes the same set of scripts in order, but begins by resetting hydrotables and SRC full tables using `reset_htable_src.py` (formerly `update_htable_src.py`). Also, a new `params_rerun.env` file is created (from config/params_template.env) and sourced instead of the original `params.env`, enabling clean separation between initial run and reruns with customizable settings.
+
+**2-4 Updated `fim_post_processing.sh`**
+
+* The script no longer calls any of the calibration scripts. It now only manages pipeline closure.
+
+---
+
+
+### 3- Reorganizing Log Files
+
+With the new redesign, each HUC’s log files are now stored within its respective HUC directory. The overall logging structure has also been updated to clearly separate outputs between the two run modes below:
+
+- **Full FIM pipeline run**
+- **Calibration rerun mode**
+
+
+#### **3-1. FIM Pipeline Run**
+
+*(No timestamp needed for files since they are generated only once)*
+
+`huc_dir/logs/`
+
+* `huc_<HUC>_unit.log`
+* `branch/` — Contains branch summary files.
+* `src_calibrations/` — Stores calibration logs.
+* `huc_<HUC>_errors.log` — Created in `src/calibrate_rating_curves.sh`; scans all log files in the `logs/` folder for lines containing “error.”
+* `huc_<HUC>_warnings.log` — Created in `src/calibrate_rating_curves.sh`; scans all log files in the `logs/` folder for lines containing “warning.”
+
+
+`fim/logs/`
+
+* `all_errors.log` — Created in `fim_post_processing.sh`; searches the entire FIM directory for files matching `huc_*_errors.log` and concatenates their contents.
+* `post_processing.log` — Log output from `fim_post_processing.sh`.
+
+`fim/branch_errors/`  (located in the parent fim directory)
+
+
+#### **3-2. Calibration Rerun Mode**
+**Key Difference:** When rerunning calibration, we only scan `logs/src_calibrations/` 
+to avoid capturing errors from the original pipeline run. This ensures the error logs 
+reflect only the rerun attempt. Therefore, these logs may contain fewer records than the full FIM pipeline logs.
+
+`huc_dir/logs/`
+
+* `src_calibrations/` — Contains updated logs after the calibration rerun.
+* `huc_<HUC>_warnings_calib_rerun.log` — Created in `src/calibrate_rating_curves.sh`; scans all files in `logs/src_calibrations/` for lines containing “warning.”
+* `huc_<HUC>_errors_calib_rerun.log` — Created in `src/calibrate_rating_curves.sh`; scans all files in `logs/src_calibrations/` for lines containing “error.”
+
+`fim/logs/`
+* `calib_rerun_<timestamp>.log` — Created in `tools/rerun_calibration.py`
+* `all_errors_calib_rerun_<timestamp>.log` — Created in `tools/rerun_calibration.py`; concatenates all `huc_<HUC>_errors_calib_rerun.log` files from every HUC directory.
+
+---
+
+### 4- Other Minor Updates
+
+* Removed the redundant `skipcal` argument from the FIM pipeline (each calibration step already has its own Boolean toggle).
+* Removed the counter file previously used to distinguish between calibration rerun vs. pipeline calibration, as it is no longer needed.
+* Removed the `unit_errors` logging folder from the parent FIM directory because its functionality is now covered by other logging already in the codebase. Accordingly, the `src/check_unit_errors.py` file is also removed.
+* Eliminated the need to define and pass `jobMaxLimit=$(( $jobHucLimit * $jobBranchLimit ))` since each HUC now controls its own calibration sequence (with branch-level multiprocessing).
+
+---
+
+### Additions
+- tools/compute_flood_depth.py
+
+### Changes
+- tools/road_inundation.py
+- src/calibrate_rating_curves.sh   
+- tools/rerun_calibration.py
+     
+### Changes
+- fim_pipeline.sh
+- fim_post_processing.sh
+- fim_pre_processing.sh
+- src/process_branch.sh
+- src/bathymetric_adjustment.py
+- src/thalweg_notches_adjustment.py
+- src/identify_src_bankfull.py
+- src/longitudinal_flow_adjustment.py
+- src/nonmonotonic_src_adjustment.py
+- src/src_adjust_ras2fim_rating.py
+- src/src_adjust_spatial_obs.py
+- src/src_adjust_usgs_rating_trace.py
+- src/src_manual_calibration.py
+- src/subdiv_chan_obank_src.py
+- Renamed `fim_process_unit_wb.sh` → `fim_process_huc.sh`
+- Renamed `src/run_unit_wb.sh` → `src/run_huc.sh`
+- Renamed `src_aggregate_by_huc.py` →  `src/aggregate_branches_to_huc.py`
+- Renamed `src/update_htable_src.py` → `src/reset_htable_src.py`
+
+### Removals
+- src/check_unit_errors.py
+- src/bathy_src_adjust_topwidth.py
+
+<br />
+
 ## v4.8.16.0 - 2025-10-30 - [PR#1657](https://github.com/NOAA-OWP/inundation-mapping/pull/1657)
+
+### FOR NOAA/OWP usage only
+This tool is not for usage outside of the OWP / FIM team.
 
 This tool is for uploading production files to HV for HAND and the QA dataset files such as the HAND full BED dataset, all catfim files, usgs_rating_curve, etc
 
@@ -45,8 +617,7 @@ The architecture introduced in this PR includes and sets us up for:
 - `data\aws`:
     - `aws_base.py`,  `s3.py`, `aws_creds_template.env` and `.gitignore`:  No longer applicable
 
-### FOR NOAA/OWP usage only
-This tool is not for usage outside of the OWP / FIM team.
+
 <br />
 
 ## v4.8.15.0 - 2025-10-30 - [PR#1666](https://github.com/NOAA-OWP/inundation-mapping/pull/1666)
@@ -68,7 +639,7 @@ Updated site classifications from 'stage' to 'both' for NY CatFIM sites so now t
 
 ## v4.8.14.3 - 2025-10-30 - [PR#1654](https://github.com/NOAA-OWP/inundation-mapping/pull/1654)
 
-This PR looks for the root cause of the 'Ghost' bug. The bug occured due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
+This PR looks for the root cause of the 'Ghost' bug. The bug occurred due to two underlying issues: 1. Logic error in `src/update_htable_src.py` – caused by an incorrect procedure for resetting the hydrotable and src_full files. 2. Precision issue in `src/add_crosswalk.py` – related to numerical precision when storing slope values.
 Some notes about the slope precision: The slope values in src_base represent TauDEM’s rise-over-run slopes. Because these values—and the slopes subsequently propagated through HFAB and SWORD—are extremely small (e.g., 9.99999974737875E-06), it is critical to preserve their numerical precision throughout all read/write operations in downstream scripts.
 When writing slope values to derived files (e.g., src_full, hydrotables), each value is rounded to three digits in scientific notation and then converted back to a float for continued numerical use.
 
@@ -1428,9 +1999,8 @@ Implements a denylist for flow-based CatFIM (that uses the same conventions as t
 Contains files to generate data to run and evaluate FIM (`fim_pipeline.sh` and `synthesize_test_cases.py`) for specified HUC(s) as well update code to generate pre-clip data so that WBD for Alaska contains only one layer. NOTE: this PR requires `wbd.gpkg` to be created by the updated `generate_pre_clip_fim_huc8.py` to be copied to the pre-clip HUC folders to remove a warning in `synthesize_test_case.py`.
 
 ### Usage
-```
-python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_fim/data/sample-data
-```
+> python /foss_fim/data/sandbox/get_sample_data.py -u 03100204 -i /data -o /foss_fim/data/sample-data
+
 
 ### Additions
 
