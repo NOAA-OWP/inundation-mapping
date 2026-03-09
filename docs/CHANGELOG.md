@@ -1,5 +1,10 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
+PR [15pt]: Update LoFI Processing for HydrioVis
+
+## v4.9.10.3 - 2026-03-09 - [PR##1779](https://github.com/NOAA-OWP/inundation-mapping/pull/1779)
+
+Optimizes LoFI processing in HydroVis.
 
 ## v4.9.10.2 - 2026-02-04 - [PR#1753](https://github.com/NOAA-OWP/inundation-mapping/pull/1753)
 
