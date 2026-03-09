@@ -1,6 +1,36 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.9.10.0 - 2026-03-09 - [PR#1777]([https://github.com/NOAA-OWP/inundation-mapping/pull/1777])
+
+This PR closes the issue #1739 and includes the following enhancements to address buildings Fimpacts:
+
+- Ingests FEMA buildings as a new input data for FIM. 
+
+- Derives the threshold discharge required for buildings inundation. To achieve this, the minimum non-zero HAND value within each building is extracted as the inundation threshold stage. The corresponding threshold discharge values are then interpolated from the HydroTables.
+
+- Enhances `tools/fimpacts_flood_depth.py` (formerly `road_inundation.py`) to identify inundated buildings and calculate corresponding flood depths for specific events.
+
+In addition to introducing building pre-clipping in the `data/wbd/generate_pre_clip_fim_huc8.py` script, this PR refactors the interface from `--copy_*` arguments (e.g., `--copy_osm_roads`) to direct layer arguments (e.g., `--osm_roads`). Listed layers are pre-clipped by default, while unlisted layers are copied, simplifying the interface and making layer selection more intuitive.
+
+### Additions
+- data/buildings/get_fema_buildings.py  
+- data/buildings/make_buildings_parts_per_huc.py  
+- src/process_buildings_fimpact.py
+         
+
+### Changes
+- **Renamed** `tools/road_inundation.py` to `tools/fimpacts_inundation.py` and extended the script to support **building** inundation processing in addition to roads.
+- data/wbd/clip_vectors_to_wbd.py -> Updated to enable pre-clipping of buildings dataset
+- data/wbd/generate_pre_clip_fim_huc8.py -> Updated to enable pre-clipping of buildings dataset. Also refactored the CLI to switch from copy-first arguments to preclip-first arguments (as described above). 
+- src/aggregate_branches_to_huc.py  -> Aggregates branch-level building FIMpact results by HUC
+- src/delineate_hydros_and_produce_HAND.sh  -> Calls the new `src/process_buildings_fimpact.py` script
+- src/bash_variables.env    -> Updated the reference to the new pre-clipped dataset and added a reference to the building parts dataset required for pre-clipping
+- src/calibrate_rating_curves.sh   -> Enables aggregating buildings FIMpact results by HUC
+
+<br/>
+
 ## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
 
 ixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).

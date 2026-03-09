@@ -685,11 +685,19 @@ if __name__ == '__main__':
     for arg_option in args_preclip_options:
         preclipping_flags[arg_option] = args.get(arg_option, False)
 
+    # If nothing is selected for preclipping, this becomes a full-copy operation.
+    # This tool is intended for preclipping workflows, not copy-only runs.
+    if not any(preclipping_flags.values()):
+        print(
+            "No preclip layer args were provided. This would copy all vectors, which does not make sense for this tool."
+        )
+        exit(0)
+
     # copy_from_dir is required whenever at least one layer will be copied.
     if not all(preclipping_flags.values()) and not args['copy_from_dir']:
         print(
-            "Error: one or more layers are set to copy by default, but --copy_from_dir was not provided.\n"
-            "Provide --copy_from_dir or set all 8 layer options."
+            "Error: one or more layer args were not provided, so those layers would be copied by default.\n"
+            "Provide --copy_from_dir for those copied layers, or provide all 8 layer args to preclip everything."
         )
         exit(0)
 
