@@ -21,7 +21,7 @@ def buffer_stream_branches(
 ):
     if os.path.exists(streams_file):
         # load file
-        stream_network = StreamNetwork.from_file(
+        stream_network = StreamNetwork.from_file_fim(
             filename=streams_file,
             branch_id_attribute=branch_id_attribute,
             values_excluded=None,

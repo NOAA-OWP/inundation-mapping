@@ -41,7 +41,9 @@ def Derive_level_paths(
         print("Loading stream network ...")
 
     if os.path.exists(in_stream_network):
-        stream_network = StreamNetwork.from_file(filename=in_stream_network)
+        stream_network = StreamNetwork.from_file_fim(
+            filename=in_stream_network, branch_id_attribute=branch_id_attribute
+        )
     else:
         print("Sorry, no branches exist and processing can not continue. This could be an empty file.")
         sys.exit(FIM_exit_codes.UNIT_NO_BRANCHES.value)  # will send a 60 back
