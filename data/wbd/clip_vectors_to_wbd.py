@@ -391,7 +391,7 @@ def subset_vector_layers(
 
         logging.info(f"compiling buildings for {huc}")
         huc_parts_path = Path(buildings_parts_path) / f"huc8_{huc}"
-        parquet_parts = huc_parts_path.glob("*.parquet")
+        parquet_parts = list(huc_parts_path.glob("*.parquet")) if huc_parts_path.exists() else []
         if parquet_parts:
             gdfs = [gpd.read_parquet(p) for p in parquet_parts]
             merged = pd.concat(gdfs, ignore_index=True)
