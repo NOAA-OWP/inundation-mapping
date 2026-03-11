@@ -137,17 +137,38 @@ def does_s3_folder_exist(s3_client, bucket_name, s3_prefix_folder_path):
     if not s3_prefix_folder_path.endswith("/"):
         s3_prefix_folder_path += "/"
 
+    # print(f"just before list_obj is {s3_prefix_folder_path}")
+
+    # s3://hydrovis-ti-deployment-us-east-1/fim/ripple/20260211_merged/collections/mip_05130101/library_extent/10188596/
+    #                                       fim/ripple/2026011_merged/collections/mip_05130101/library_extent/10188304/
+
     # If the bucket is incorrect, it will throw an exception that already makes sense
     # Don't need pagination as MaxKeys = 2 as prefix will likely won't trigger more than 1000 rec
     s3_objs = s3_client.list_objects_v2(
-        Bucket=bucket_name, Prefix=s3_prefix_folder_path, MaxKeys=2, Delimiter="/"
+        Bucket=bucket_name, Prefix=s3_prefix_folder_path, MaxKeys=2, Delimiter='/'
     )
 
-    # print(s3_objs)
+    # if s3_prefix_folder_path == "fim/ripple/2026011_merged/collections/mip_05130101/library_extent/10188596/":
+    #     print("found our guys")
+    #     print(s3_objs)
+
+    # if 'Contents' in s3_objs:
+    #     for obj in s3_objs['Contents']:
+    #         print(obj['Key'])
+
     if s3_objs["KeyCount"] == 0:
+        # print(f"{s3_prefix_folder_path} was not found")
         is_success = False
     else:
+        # print(f"{s3_prefix_folder_path} was found")
         is_success = True
+
+    # if was_found is True:
+    #     print(f"{s3_prefix_folder_path} was found")
+    #     is_success = False
+    # else:
+    #     print(f"{s3_prefix_folder_path} was not found")
+    #     is_success = True
 
     # other exceptions can be passed through
     return is_success
