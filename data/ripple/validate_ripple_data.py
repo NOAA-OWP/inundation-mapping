@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 import numpy
 import pandas as pd
 import tqdm
-
 from dotenv import load_dotenv
 
 import data.aws.aws_shared_functions as asf
@@ -21,15 +20,13 @@ import src.utils.shared_functions as sf
 from src.utils.shared_functions import FIM_Helpers as fh
 
 
-def validate_ripple_data(s3_ripple_root_path,
-                         ripple_version,
-                         terrain_whitelist_file_path,
-                         output_folder,
-                         aws_creds_file):
+def validate_ripple_data(
+    s3_ripple_root_path, ripple_version, terrain_whitelist_file_path, output_folder, aws_creds_file
+):
 
     print("")
     print("****  Validate Ripple data  ****")
-    print("")    
+    print("")
 
     # TODO: validate inputs
 
@@ -65,21 +62,17 @@ def validate_ripple_data(s3_ripple_root_path,
         df_features = __create_ripple_file_df(terrain_whitelist_file_path, ripple_version)
 
         # validate if the feature s3 columns exist
-        df_features = __validate_s3_paths(df_features,
-                                          s3_client,
-                                          s3_bucket_name,
-                                          s3_root_path)
+        df_features = __validate_s3_paths(df_features, s3_client, s3_bucket_name, s3_root_path)
 
         if df_features.empty:
             raise Exception("features dataframe has not records")
-        
+
         file_dt_string = datetime.now(timezone.utc).strftime("%Y%m%d")
         validation_file_path = os.path.join(output_folder, f"ripple_feature_list_{file_dt_string}.csv")
 
         # save new csv
         logging.info(f"Saving feature file as {validation_file_path}")
         df_features.to_csv(validation_file_path, index=False)
-
 
     except Exception:
         print("********************************")
@@ -123,23 +116,22 @@ def __validate_s3_paths(df_features, s3_client, s3_bucket_name, s3_root_path):
 
     return df
 
+
 # ============================
 def __create_ripple_file_df(terrain_whitelist_file_path, ripple_version):
 
     # Using the incoming terrain file, make a simplified version for HV purposes.
 
     logging.info(f"Loading the terrain file: {terrain_whitelist_file_path}")
-    columns_to_load = ['feature_id', 'collection_id','model_id', 'is_blacklisted', 'huc']
+    columns_to_load = ['feature_id', 'collection_id', 'model_id', 'is_blacklisted', 'huc']
     dtype_mapping = {
         'feature_id': numpy.int32,
         'collection_id': str,
         'model_id': str,
         'is_blacklisted': str,
-        'huc': str
-    }    
-    df = pd.read_csv(terrain_whitelist_file_path,
-                     usecols=columns_to_load,
-                     dtype=dtype_mapping)
+        'huc': str,
+    }
+    df = pd.read_csv(terrain_whitelist_file_path, usecols=columns_to_load, dtype=dtype_mapping)
     # df = terrain_df[['feature_id', 'collection_id', 'is_blacklisted', 'huc']].copy().astype(str)
     df['huc'] = df['huc'].astype(int).astype(str).str.zfill(8)
 
@@ -154,11 +146,14 @@ def __create_ripple_file_df(terrain_whitelist_file_path, ripple_version):
     for idx, row in df.iterrows():
         # ie) 20260211_merged/collections/mip_1209301/library_extent/1234455
         # Yes.. without the root s3 path.
-        library_path = f"{ripple_version}/collections/{row['collection_id']}/library_extent/{row['feature_id']}"
+        library_path = (
+            f"{ripple_version}/collections/{row['collection_id']}/library_extent/{row['feature_id']}"
+        )
         # print(library_path)
         df.loc[idx, "library_path"] = library_path
-    
+
     return df
+
 
 # ============================
 def __setup_aws(aws_creds_file, s3_bucket_name, s3_file_path):
@@ -197,8 +192,8 @@ def __setup_aws(aws_creds_file, s3_bucket_name, s3_file_path):
     if not is_success:
         logging.error(
             f"s3 bucket name of {s3_bucket_name} appears to not exist. It was extracted from the"
-             " -sr (s3-ripple-root-path) input argument. Check the input arg or your aws credentials"
-             " file data."
+            " -sr (s3-ripple-root-path) input argument. Check the input arg or your aws credentials"
+            " file data."
         )
         logging.error(return_msg)
         print("Program aborted")
@@ -207,9 +202,11 @@ def __setup_aws(aws_creds_file, s3_bucket_name, s3_file_path):
     # Make sure the S3 source folder exists
     does_exists = s3_sf.does_s3_folder_exist(s3_client, s3_bucket_name, s3_file_path)
     if not does_exists:
-        logging.error(f"S3 source folder of {s3_file_path} appears to not exist. It was calculated by"
-                      " extracted from the -sr (s3-ripple-root-path) input argument and adding the"
-                      " -rv (ripple version) value. Check the input args")
+        logging.error(
+            f"S3 source folder of {s3_file_path} appears to not exist. It was calculated by"
+            " extracted from the -sr (s3-ripple-root-path) input argument and adding the"
+            " -rv (ripple version) value. Check the input args"
+        )
         logging.error(return_msg)
         print("Program aborted")
         sys.exit(1)
@@ -236,16 +233,14 @@ if __name__ == '__main__':
       -n /data/ripple/ripple_20260211_merged/data_validation/
     '''
 
-    parser = argparse.ArgumentParser(
-        description='validate ripple data including s3 library feature pathing'
-    )
+    parser = argparse.ArgumentParser(description='validate ripple data including s3 library feature pathing')
 
     parser.add_argument(
         '-sr',
         '--s3-ripple-root-path',
         help='REQUIRED: s3 pathing to the root ripple folder, but not the versioned subfolder.'
         ' Not s3://somebucket/fim/ripple/2026011_merged/collections, but just the root'
-         ' before the versioned folder. ie) s3://somebucket/fim/ripple',
+        ' before the versioned folder. ie) s3://somebucket/fim/ripple',
         required=True,
         type=str,
     )
@@ -255,8 +250,8 @@ if __name__ == '__main__':
         '--ripple-version',
         help='REQUIRED: pathing from where the latest S3 root ripple path to the model folders.'
         ' Not: s3://( somebucket)/fim/ripple/2026011_merged/collections, but just the version'
-         ' path to the model collections.. ie 20260211_merged. '
-         ' Did you notice how this path is the second part of the s3-ripple-root-path above?',
+        ' path to the model collections.. ie 20260211_merged. '
+        ' Did you notice how this path is the second part of the s3-ripple-root-path above?',
         required=True,
         type=str,
     )
