@@ -121,22 +121,6 @@ def generate_streamflow_percentiles(
 
     dkeys = ['90', '75', '50', '25', '10']
 
-    # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
-    if 'nbm' in ensemble_forecast.coords['ensemble']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'nbm'})['streamflow']))
-        rv['feature_id'] = feature
-        return rv
-
-    if 'noda' in ensemble_forecast.coords['ensemble']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'noda'})['streamflow']))
-        rv['feature_id'] = feature
-        return rv
-
-    if 'short' in ensemble_forecast.coords['ensemble']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': 'short'})['streamflow']))
-        rv['feature_id'] = feature
-        return rv
-
     # If there is no feature in the NWM parameters file
     if feature not in params_weibull.index:
         rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})['streamflow']))
@@ -169,9 +153,9 @@ def generate_streamflow_percentiles(
 
     # Check to see if all values are the same, if so grab the first, otherwise get their point percent functions
     if not np.allclose(streamflow_expon_values, streamflow_expon_values[0]):
-        streamflow_list = [(value, index) for index, value in enumerate(ef_values)]
+        streamflow_list = [(value, index) for index, value in enumerate(np.squeeze(ef_values))]
         streamflow_list.sort()
-        x_points = [item[0] for item in streamflow_list]
+        x_points = np.squeeze([item[0] for item in streamflow_list])
         x_indices = [item[1] for item in streamflow_list]
         cumsum = np.cumsum(scaled_likelihoods[x_indices] / 1e4)
         cdf_points = np.interp(cumsum, [np.min(cumsum), np.max(cumsum)], [0.05, 0.95])
@@ -433,7 +417,6 @@ def inundate_probabilistic(
     output_raster: Optional[bool] = False,
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
-    aggregate_forecasts: Optional[str] = None,
     output_vector: Optional[bool] = True,
 ):
     """
@@ -473,12 +456,6 @@ def inundate_probabilistic(
         Quiet output
     log_file: Optional[str], default = None
         Filepath of log file
-    aggregate_forecasts: Optional[str], default = None
-        Method to aggregate forecasts.  Options are "max_to_forecast", "timeslice_max_of_any_feature_id",
-        "timeslice_max_sum".
-        Get max forecast for each feature id of all time up to day and hour after reference time
-        Get a timeslice of the time of max streamflow for any feature ids
-        Get a timeslice of the time of max of summed streamflow in the feature ids
     output_vector: Optional[bool], default = True
         Whether to create vector output
 
@@ -693,7 +670,6 @@ def inundate_hucs(
     output_raster: Optional[bool] = False,
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
-    aggregate_forecasts: Optional[str] = None,
     output_vector: Optional[bool] = True,
 ):
     """
@@ -733,12 +709,6 @@ def inundate_hucs(
         Whether to be verbose or not
     log_file: Optional[str], default = None
         Filepath of log file
-    aggregate_forecasts: Optional[str], default = None
-        Method to aggregate forecasts.  Options are "max_to_forecast", "timeslice_max_of_any_feature_id",
-        "timeslice_max_sum".
-        Get max forecast for each feature id of all time up to day and hour after reference time
-        Get a timeslice of the time of max streamflow for any feature ids
-        Get a timeslice of the time of max of summed streamflow in the feature ids
     output_vector: Optional[bool], default = True
         Whether to create vector output
 
@@ -762,7 +732,6 @@ def inundate_hucs(
             output_raster=output_raster,
             quiet=quiet,
             log_file=log_file,
-            aggregate_forecasts=aggregate_forecasts,
             output_vector=output_vector,
         )
 
@@ -878,16 +847,6 @@ if __name__ == '__main__':
     )
 
     parser.add_argument("-l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
-
-    parser.add_argument(
-        "-a",
-        "--aggregate_forecasts",
-        type=str,
-        help=(
-            'OPTIONAL: Method to aggregate forecasts.  Options are max_to_forecast, '
-            'timeslice_max_of_any_feature_id, timeslice_max_sum'
-        ),
-    )
 
     args = vars(parser.parse_args())
 
