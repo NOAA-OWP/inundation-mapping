@@ -372,7 +372,7 @@ def process_generate_categorical_fim(
     # Get the source (important for differentiating processing for manual input vs wrds)
     with open(threshold_file, "rb") as p_handle:
         thresh_list = pickle.load(p_handle)
-        source_list = thresh_list['source']
+        source_list = list(thresh_list['source'])
 
         # If manual input is in source list, set data source to manual input
         # Assumes that if one is manual input, then all are manual input
@@ -393,7 +393,7 @@ def process_generate_categorical_fim(
             # data_source = ', '.join(data_source)
 
             # temp workaround
-            data_source = 'TEST'
+            data_source = 'WRDS'
 
     # End of Validation and setup
     # ================================
