@@ -12,6 +12,7 @@ from multiprocessing import Pool
 
 import rasterio
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
+from rasterio.enums import Resampling
 from rasterio.shutil import copy
 from rio_vrt import build_vrt
 
@@ -205,12 +206,16 @@ def create_bool_rasters(args):
         driver="GTiff",
         height=array.shape[1],
         width=array.shape[2],
+        count=1,
         tiled=True,
         nodata=0,
         blockxsize=512,
         blockysize=512,
         dtype="uint8",
-        compress="lzw",
+        compress="deflate",  # Switched to Deflate for better compression on large binary masks
+        zlevel=9,  # Maximum compression level
+        predictor=2,  # Horizontal differencing (great for 0/1 data)
+        BIGTIFF="YES",
     )
     with rasterio.open(
         output_bool_dir + os.sep + rasfile[:-4] + '_' + fim_version + '.tif', "w", **profile
@@ -240,6 +245,18 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
         output_mosaic_name = f"{fim_version_tag}_EPSG{epsg_code}_mosaic.tif"
         output_mosaic_raster = os.path.join(output_dir, output_mosaic_name)
 
+        # Define COG creation options for the FINAL mosaic
+        creation_options = {
+            "driver": "GTiff",
+            "tiled": True,
+            "blockxsize": 512,
+            "blockysize": 512,
+            "compress": "deflate",
+            "predictor": 2,
+            "zlevel": 6,  # level 9 is too slow for a 200GB mosaic; 6 is the sweet spot
+            "BIGTIFF": "YES",  # ABSOLUTELY REQUIRED for 200GB
+        }
+
         if len(raster_list) == 1:
             # Just copy the raster
             logging.info(f"Only one raster found for EPSG:{epsg_code}, skipping VRT creation.")
@@ -252,7 +269,16 @@ def vrt_raster_mosaic(output_bool_dir, output_dir, fim_version_tag, threads):
 
             logging.info(f"Building raster mosaic: {output_mosaic_raster}")
             logging.info(f"Using {threads} threads for parallelizing")
-            copy(vrt_file, output_mosaic_raster)
+            # Use rasterio.shutil.copy to apply the COG profile during the merge
+            rasterio.shutil.copy(vrt_file, output_mosaic_raster, **creation_options)
+
+            # build overviews on the final mosaic file
+            logging.info("Building overviews for the final mosaic...")
+            with rasterio.open(output_mosaic_raster, "r+") as dst:
+                factors = [2, 4, 8, 16, 32, 64, 128]
+                dst.build_overviews(factors, Resampling.nearest)
+                dst.update_tags(ns='rio_overview', resampling='nearest')
+
             logging.info(f"Mosaic for EPSG:{epsg_code} completed and saved to {output_mosaic_raster}")
             vrt_file = None
 

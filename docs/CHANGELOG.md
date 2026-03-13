@@ -4,6 +4,14 @@ We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 ## v4.9.10.3 - 2026-03-09 - [PR#1779](https://github.com/NOAA-OWP/inundation-mapping/pull/1779)
 
 Optimize LoFI processing in HydroVis for LoFI V1.
+## v4.9.10.3 - 2026-03-13 - [PR#1767](https://github.com/NOAA-OWP/inundation-mapping/pull/1767)
+
+This PR updates the `inundate_nation.py` inundation mosaic raster generation process to output Cloud Optimized GeoTIFF. This change addresses performance bottlenecks when working with the CONUS mosaic file (200GB+) in QGIS.
+
+### Changes
+`tools/inundate_nation.py`: updated the geotiff profile for new tiling, compression, and overviews
+
+<br/>
 
 ## v4.9.10.2 - 2026-02-04 - [PR#1753](https://github.com/NOAA-OWP/inundation-mapping/pull/1753)
 
