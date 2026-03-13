@@ -24,6 +24,46 @@ This PR covers minor adjustments to tools for pushing data from FIM to HV as wel
 <br/>
 
 ## v4.9.10.2 - 2026-03-06 - [PR#1753](https://github.com/NOAA-OWP/inundation-mapping/pull/1753)
+## v.4.9.10.5 - 2026-03-13 - [PR#1760]([https://github.com/NOAA-OWP/inundation-mapping/pull/1760])
+
+This PR closes issues #1755  and #1746.
+
+### Updates to `data/roads/pull_osm_roads.py`
+
+1. **Fixed runtime failure** by removing an invalid `timeout` argument that was being passed to a function that does not accept it.
+2. **Improved robustness** to properly handle HUCs where no road data is returned, ensuring graceful continuation.
+3. **Enforced Overpass API concurrency limits** by capping parallel requests at three, regardless of available CPUs. Public Overpass servers impose strict per-client rate and load limits, and exceeding this threshold can result in timeouts or throttling.
+
+---
+
+### Updates to `data/bridges/pull_osm_bridges.py`
+
+1. **Restored automatic region prefix logic** (conus, alaska, guam, samoa) based on HUC number, removing the need for the `fp` argument. This ensures correct file naming even when HUCs from different regions are stored within a single WBD GeoPackage file-- It removes the need to run the tool separately by region, as the code now automatically handles mixed-region HUCs contained in the same WBD file
+2. **Integrated the standard MP utility and logging framework** to align with the project’s parallel execution and logging conventions.
+
+
+### Changes
+- `data/roads/pull_osm_roads.py`
+- `data/bridges/pull_osm_bridges.py`
+
+<br/>
+
+## v4.9.10.4 - 2026-03-13 - [PR#1779](https://github.com/NOAA-OWP/inundation-mapping/pull/1779)
+
+Optimize LoFI processing in HydroVis for LoFI V1.
+
+<br/>
+
+## v4.9.10.3 - 2026-03-13 - [PR#1767](https://github.com/NOAA-OWP/inundation-mapping/pull/1767)
+
+This PR updates the `inundate_nation.py` inundation mosaic raster generation process to output Cloud Optimized GeoTIFF. This change addresses performance bottlenecks when working with the CONUS mosaic file (200GB+) in QGIS.
+
+### Changes
+`tools/inundate_nation.py`: updated the geotiff profile for new tiling, compression, and overviews
+
+<br/>
+
+## v4.9.10.2 - 2026-02-04 - [PR#1753](https://github.com/NOAA-OWP/inundation-mapping/pull/1753)
 
 Upgrades `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0; in addition, `rio-vrt` v0.31.1 was added back. This required some additional changes to the codebase because the `geopandas` methods started being used in priority over the `StreamNetwork` class methods (particularly `from_file`, `set_index`, and `reset_index`), so they were returning `geopandas` objects rather than `StreamNetwork` objects. To overcome this, those`StreamNetwork` class method names were appended with `_fim` and replaced in the codebase.
 
