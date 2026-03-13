@@ -11,7 +11,7 @@ import requests
 import urllib3
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
-from tools_shared_functions import aggregate_wbd_hucs, get_metadata, get_thresholds
+from tools_shared_functions import aggregate_wbd_hucs, get_metadata, get_thresholds, get_datum
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
@@ -191,7 +191,7 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
     return messages
 
 
-def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
+def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict):
     '''
     Download all thresholds from the WRDS API for a list of LIDs and save them as CSV files.
     Combine all CSV files into a single pickle file.
@@ -226,12 +226,18 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict):
 
     for huc, lids in huc_lid_dict.items():
         for lid in lids:
-            # print(huc, lid) # TEMP DEBUG
 
             try:
+                source_crs_availability = lid_source_dict[lid.upper()]
+
+                # print(huc, lid) # TEMP DEBUG
+                # print('source_crs_availability: ') ## TEMP DEBUG
+                # print(source_crs_availability) ## TEMP DEBUG
+
                 stages, flows, status = get_thresholds(
-                    threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all'
+                    threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all', source_crs_availability = source_crs_availability,
                 )
+
             except Exception as e:
                 msg = f"Error retrieving thresholds for LID {lid}: {e}"
                 # TODO: Could change phrasing (to remove 'Error')... or just have CatFIM handle by not
@@ -462,6 +468,64 @@ def load_site_thresholds(threshold_file, lid):
     return stages, flows, messages
 
 
+def check_metadata_CRS_availability(output_meta_list):
+    '''
+    Iterate down the output meta list to see what projections are available for each site
+    and create an output dictionary that has the NWS LID as the key and the preferred data 
+    source (NRLDB or USGS) as the value. This will be used to create a source preference list
+    for the get_thresholds function.
+
+    Parameters:
+    ----------
+        output_meta_list - list of dictionaries containing metadata for each NWM site. This is the output of the get_metadata function.
+
+
+    Returns:
+    ----------
+        lid_source_dict - dictionary with NWS LID as key and list of available data sources (NRLDB, USGS Rating Depot) as value.
+                          if there is no projection available for either source, the value will be an empty list.
+
+    lid_source_dict = check_metadata_CRS_availability(output_meta_list)
+
+    '''
+
+    # This list also includes the misspellings that the code knows how to handle # TODO: Add to a shared variables file?
+    correct_spellings = ['NAD27', 'NAD83', 'LMSL']
+    nad27_misspellings = ['NGVD 1929', 'NAD 1927', 'NAD 1929', 'NAD-27', '1929', 'NAD1927', 'NGVD29',
+                            '1927', 'NGVD', 'NVGD', 'NAD 27', 'NGDV 1929', 'NGVD1929', 'NAAD27', 'NAD29',
+                            '1927 NGVD', '1929', 'NVD 1929', 'NAD1929', 'NGVD1927', '1929 NGV', '1929 NGVD',
+                            'NA 1927', 'NAVD27']
+    nad83_misspellings = ['NAD 1983', 'NAVD88', 'NAD 83', 'NAD1983', 'WGS84', 'NADA 1983', 'NAV83', 'NAVD 1988',
+                            '1988', 'NAD 88', 'NAVD 88', 'nad83', 'NAV-88', 'NAVD83', 'NGVD1988', 'NAD84',
+                            'NAD 1988', '1988', 'NAV83', 'NAVD-88', 'NAD88', 'NAD87', 'NAD893']
+
+    acceptable_horizontal_projections = correct_spellings + nad27_misspellings + nad83_misspellings
+
+    lid_source_dict = {}
+
+    for output_meta_i in output_meta_list:
+
+        projections_available_i = []
+        nws_lid = output_meta_i['identifiers']['nws_lid']
+        nws_datum_info, usgs_datum_info = get_datum(output_meta_i)
+
+        if nws_datum_info['crs'] in acceptable_horizontal_projections:
+            projections_available_i.append('NRLDB')
+        if usgs_datum_info['crs'] in acceptable_horizontal_projections:
+            projections_available_i.append('USGS Rating Depot')
+
+        lid_source_dict[nws_lid] = projections_available_i
+
+        # print(f'nws_lid: {nws_lid}')  ## TEMP DEBUG
+        # print(f'nws CRS:           {nws_datum_info["crs"]}')  ## TEMP DEBUG
+        # print(f'usgs CRS:           {usgs_datum_info["crs"]}')  ## TEMP DEBUG
+        # print(f'projections available:            {projections_available_i}')  ## TEMP DEBUG
+        # print()  ## TEMP DEBUG
+
+    return lid_source_dict
+
+
+
 def main(
     env_file,
     output_folder,
@@ -550,6 +614,9 @@ def main(
     if len(huc_lid_dict) == 0:
         raise Exception("The metadata pickle file does not have any applicable HUCs")
 
+    # Get a dictionary of which sources have valid CRS's for each site
+    lid_source_dict = check_metadata_CRS_availability(output_meta_list)
+
     # Load thresholds if specified
     if threshold_download == True:
         threshold_url = f'{API_BASE_URL}/nws_threshold'
@@ -561,7 +628,7 @@ def main(
         # Rob: Tell the user the name and location of the file
 
         # Download thresholds
-        download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
+        download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, lid_source_dict)
 
     # TODO: Should there be an "else"?
 

@@ -43,6 +43,7 @@ from data.wrds.download_process_wrds import (
     label_data_file,
     load_nwm_metadata,
     load_site_thresholds,
+    check_metadata_CRS_availability,
 )
 from utils.shared_variables import VIZ_PROJECTION
 
@@ -353,16 +354,18 @@ def process_generate_categorical_fim(
     if len(huc_lid_dict) == 0:
         raise Exception("The metadata pickle file does not have any applicable HUCs")
 
-
     if not huc_lid_dict:
         sys.exit('Error occurred in metadata download.')
+
+    # Get a dictionary of which sources have valid CRS's for each site
+    lid_source_dict = check_metadata_CRS_availability(output_meta_list)
 
     # Load thresholds if specified
     if get_new_threshold_data == True:
         threshold_url = f'{API_BASE_URL}/nws_threshold'
 
         # Download thresholds
-        messages = download_all_thresholds(threshold_file, threshold_url, huc_lid_dict)
+        messages = download_all_thresholds(threshold_file, threshold_url, huc_lid_dict, lid_source_dict)
 
         for message in messages:
             FLOG.lprint(message)
@@ -1677,7 +1680,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 
     # If datum not supplied, skip to new site
     datum = datum_data.get('datum', None)
-    if datum is None:
+    if datum is None: # TODO: Could add "if datum info is UNK" as well, since that seems common..
         msg = ':Datum info unavailable'
         all_messages.append(lid + msg)
         MP_LOG.warning(huc_lid_id + msg)

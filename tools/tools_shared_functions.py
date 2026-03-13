@@ -1046,7 +1046,7 @@ def get_nwm_segs(metadata):
 #######################################################################
 # Thresholds
 #######################################################################
-def get_thresholds(threshold_url, select_by, selector, threshold='all'):
+def get_thresholds(threshold_url, select_by, selector, threshold='all', source_crs_availability = None):
     '''
     Get nws_lid threshold stages and flows (i.e. bankfull, action, minor,
     moderate, major). Returns a dictionary for stages and one for flows.
@@ -1061,6 +1061,10 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         Site for selection. Must be a single site.
     threshold : STR, optional
         Threshold option. The default is 'all'.
+    source_crs_availability : list or None (the default is None), optional
+        List of sources where the CRS is available. This is used to determine 
+        which source to pull threshold data from if multiple sources are available. 
+        The default is None (source CRS availability is not considered).
 
     Returns
     -------
@@ -1072,6 +1076,9 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         Status of API call and data availability.
 
     '''
+    if source_crs_availability == None:
+        source_crs_availability = []
+
     params = {}
     params['threshold'] = threshold
     url = f'{threshold_url}/{select_by}/{selector}'
@@ -1110,15 +1117,38 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 i.get('calc_flow_values').get('rating_curve').get('source'): index
                 for index, i in enumerate(thresholds_info)
             }
-            # Get threshold data by source
-            # Use NRLDB if available (priority), otherwise USGS Rating Depot (switched Dec '25)
-            if 'NRLDB' in rating_sources:
-                threshold_data = thresholds_info[rating_sources['NRLDB']]
-            elif 'USGS Rating Depot' in rating_sources:
-                threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
-            # If neither USGS or NRLDB is available use first dictionary to get stage values.
+            
+            # If projection source info isn't provided (or no valid projections were found so the list is blank), 
+            # just pick the threshold data based on threshold availability
+            if len(source_crs_availability) == 0:
+
+                # Get threshold data by source
+                # Use NRLDB if available (priority), otherwise USGS Rating Depot (switched Dec '25)
+                if 'NRLDB' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['NRLDB']]
+                elif 'USGS Rating Depot' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
+                # If neither USGS or NRLDB is available, use first dictionary to get stage values.
+                else:
+                    threshold_data = thresholds_info[0]
+            
+            # If projection source info IS provided, use that alongside threshold availability to get threshold data
             else:
-                threshold_data = thresholds_info[0]
+                if 'NRLDB' in source_crs_availability and 'NRLDB' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['NRLDB']]
+                elif 'USGS Rating Depot' in source_crs_availability and 'USGS Rating Depot' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
+
+                # If there isn't a match between source_crs_availability and rating_sources, just get threshold data
+                # based on availability with NRLDB as priority over USGS (same as above logic). 
+                # The site will probably error out down the line. 
+                elif 'NRLDB' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['NRLDB']]
+
+                # If neither USGS or NRLDB is available, use first dictionary to get stage values.
+                else:
+                    threshold_data = thresholds_info[0]
+
             # Get stages and flows for each threshold
             if threshold_data:
                 status_msg += "Thresholds available. "
