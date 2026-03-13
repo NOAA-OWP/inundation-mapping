@@ -1,6 +1,30 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v.4.9.10.5 - 2026-03-13 - [PR#1760]([https://github.com/NOAA-OWP/inundation-mapping/pull/1760])
+
+This PR closes issues #1755  and #1746.
+
+### Updates to `data/roads/pull_osm_roads.py`
+
+1. **Fixed runtime failure** by removing an invalid `timeout` argument that was being passed to a function that does not accept it.
+2. **Improved robustness** to properly handle HUCs where no road data is returned, ensuring graceful continuation.
+3. **Enforced Overpass API concurrency limits** by capping parallel requests at three, regardless of available CPUs. Public Overpass servers impose strict per-client rate and load limits, and exceeding this threshold can result in timeouts or throttling.
+
+---
+
+### Updates to `data/bridges/pull_osm_bridges.py`
+
+1. **Restored automatic region prefix logic** (conus, alaska, guam, samoa) based on HUC number, removing the need for the `fp` argument. This ensures correct file naming even when HUCs from different regions are stored within a single WBD GeoPackage file-- It removes the need to run the tool separately by region, as the code now automatically handles mixed-region HUCs contained in the same WBD file
+2. **Integrated the standard MP utility and logging framework** to align with the project’s parallel execution and logging conventions.
+
+
+### Changes
+- `data/roads/pull_osm_roads.py`
+- `data/bridges/pull_osm_bridges.py`
+
+<br/>
+
 ## v4.9.10.4 - 2026-03-13 - [PR#1779](https://github.com/NOAA-OWP/inundation-mapping/pull/1779)
 
 Optimize LoFI processing in HydroVis for LoFI V1.
