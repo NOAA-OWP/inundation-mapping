@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.9.x.x - 2026-03-02 - [PR#1775]([https://github.com/NOAA-OWP/inundation-mapping/pull/1775])
+## v4.9.10.6 - 2026-03-13 - [PR#1775](https://github.com/NOAA-OWP/inundation-mapping/pull/1775)
 
 This PR covers minor adjustments to tools for pushing data from FIM to HV as well as pulling FIM Hand datasets down to OWP.
 
@@ -23,8 +23,7 @@ This PR covers minor adjustments to tools for pushing data from FIM to HV as wel
  
 <br/>
 
-## v4.9.10.2 - 2026-03-06 - [PR#1753](https://github.com/NOAA-OWP/inundation-mapping/pull/1753)
-## v.4.9.10.5 - 2026-03-13 - [PR#1760]([https://github.com/NOAA-OWP/inundation-mapping/pull/1760])
+## v.4.9.10.5 - 2026-03-13 - [PR#1760](https://github.com/NOAA-OWP/inundation-mapping/pull/1760)
 
 This PR closes issues #1755  and #1746.
 
