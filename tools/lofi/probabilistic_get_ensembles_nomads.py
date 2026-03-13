@@ -1,227 +1,354 @@
-import gc
 import io
 import os
 import ssl
-import time
 import warnings
-from datetime import datetime
-from typing import List
+from datetime import datetime, timedelta
+from typing import List, Union
 
 import geopandas as gpd
+import numpy as np
 import requests
 import xarray as xr
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 
-gfs_url = (
+warnings.filterwarnings("ignore")
+ssl.SSLContext.verify_mode = property(lambda self: ssl.CERT_NONE, lambda self, newval: None)
+
+
+GFS_URL = (
     'https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwm/v3.0/nwm.{0}'
-    '/medium_range_mem{1}/nwm.t00z.medium_range.channel_rt_{1}.f{2}.conus.nc'
+    '/medium_range_mem{1}/nwm.t{2}z.medium_range.channel_rt_{1}.f{3}.conus.nc'
 )
 
-noda_url = (
+NBM_URL = (
     'https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwm/prod/nwm.{0}'
-    '/medium_range_no_da/nwm.t00z.medium_range_no_da.channel_rt.f{1}.conus.nc'
+    '/medium_range_blend/nwm.t{1}z.medium_range_blend.channel_rt.f{2}.conus.nc'
 )
 
-
-nbm_url = (
+SHORT_URL = (
     'https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwm/prod/nwm.{0}'
-    + '/medium_range_blend/nwm.t00z.medium_range_blend.channel_rt.f{1}.conus.nc'
+    '/short_range/nwm.t{1}z.short_range.channel_rt.f{2}.conus.nc'
 )
 
 
-short_url = (
-    'https://nomads.ncep.noaa.gov/pub/data/nccf/com/nwm/prod/nwm.{0}'
-    + '/short_range/nwm.t00z.short_range.channel_rt.f{1}.conus.nc'
-)
-
-
-def try_again(url: str, tries: int = 0) -> xr.Dataset:
-    """
-    Utility to attempt a download recursively until max tries are exceeded
+def try_again(url, tries=0) -> Union[xr.Dataset, None]:
+    """Recursive method to try URL up to 5 times
 
     Parameters
     ----------
     url : str
-        Url to NOMADS service.
+        Url to try and retrieve forecast data
     tries : int
-        Number of attempts to download files.
+        Number of time to try getting forecast data
 
     Returns
     -------
-    Union xr.Dataset
-        A forecast file from NOMADS service.
+    Union[xr.Dataset, None]
+        Either the xr.Dataset if successful or None
 
     """
-    ssl.SSLContext.verify_mode = property(lambda self: ssl.CERT_NONE, lambda self, newval: None)
 
     if tries < 5:
         try:
             content = requests.get(url)
-            ds = xr.open_dataset(io.BytesIO(content.content), engine="h5netcdf")
+            ds = xr.open_dataset(io.BytesIO(content.content))
             return ds
-
-        except (ValueError, OSError):
+        except (requests.exceptions.Timeout, ValueError, EOFError):
             tries = tries + 1
             try_again(url, tries)
     else:
-        raise ValueError("Max tries to download exceeded")
+        return None
 
 
-def get_nomads_ensembles(dt: str, ens_type: str, feature_ids: List[int], output_path: str, output_name: str):
-    """
-    Method to collect ensembles for NOMADS service
+def concatenate_datasets(datasets: List[xr.Dataset]) -> xr.Dataset:
+    """Concatenate forecast datasets by member
 
     Parameters
     ----------
-    dt : str
-        Date time string to get nomad forecast data, needs to be today's date or yesterday's date.
-    ens_type : str
-        An ensemble type from the following list, "gfs", "nbm", "short", "noda".
-    feature_ids : List[int]
-        Feature IDs to get from the ensemble files.
-    output_path : str
-        Path to save ensemble files.
-    output_name : str
-        Name of final processed ensemble file.
+    datasets : List[xr.Dataset]
 
+    Returns
+    -------
+    xr.Dataset
+        Dataset concatenated by the member dimension
     """
 
-    print("Process initialized:", time.localtime())
-    master_lists = []
+    tots = []
+    for x, ds in zip(['1', '2', '3', '4', '5', '6'], datasets):
+        tmp = ds.assign_coords({'ensemble': x})
+        tmp = tmp.drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff', 'nudge', 'velocity'])
+        tmp.expand_dims(dim={'ensemble': 1})
+        tots.append(tmp)
 
-    os.makedirs(output_path, exist_ok=True)
+    return xr.concat(tots, dim="ensemble")
 
+
+def aggregate_forecasts(
+    ensembles: xr.Dataset, aggregate_forecast_method: str = "max_to_forecast", day: int = 5, hour: int = 0
+) -> xr.Dataset:
+    """
+    Aggregate ensemble metrics based
+
+    Parameters
+    ----------
+    ensembles : xr.Dataset
+        Dataset of medium range or short range forecasts
+    aggregate_forecast_method : str, default = "max_to_forecast"
+        Method to aggregate ensembles.  Options ["max_to_forecast". "timeslice_max_of_any_feature_id",
+        "timeslice_max_sum", "timeslice"]
+    day : int, default = 5
+        How many days in the future to use in aggregation
+    hour: int, default = 0
+        How many hours in addition to days to use in aggregation
+
+    Returns
+    -------
+    xr.Dataset
+        Time aggregated ensemble forecasts
+
+    """
+    reference_time = ensembles.coords['reference_time'].values[-1]
+    forecast_time = reference_time + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
+
+    # For each feature in the provided ensembles
+
+    # Get max streamflow for every feature up to forecast time
+    if aggregate_forecast_method == "max_to_forecast":
+        sel_forecast = ensembles.sel({'time': slice(reference_time, forecast_time)}).max('time')
+
+    # Timeslice representing the max streamflow for any feature id in time up to forecast time
+    elif aggregate_forecast_method == "timeslice_max_of_any_feature_id":
+        sel_forecast = ensembles.isel(
+            {
+                'time': ensembles.sel({'time': slice(reference_time, forecast_time)})
+                .max(['feature_id', 'ensemble'], skipna=True)
+                .argmax()
+            }
+        )
+
+    # Timeslice representing the max sum of streamflow for all feature ids in time up to forecast time
+    elif aggregate_forecast_method == "timeslice_max_sum":
+        sel_forecast = ensembles.isel(
+            {
+                'time': ensembles.sel({'time': slice(reference_time, forecast_time)})
+                .sum(['feature_id', 'ensemble'], skipna=True)
+                .argmax()
+            }
+        )
+
+    # Timeslice at forecast time
+    else:
+        sel_forecast = ensembles.sel({'time': forecast_time})
+
+    return sel_forecast
+
+
+def get_nomad_ensembles(
+    temp_download_path: str,
+    dt: str,
+    hr: str,
+    feature_ids: List[int],
+    ensemble_type: str,
+    output_path: str,
+    aggregate_forecast_method: str = "max_to_forecast",
+    days_ahead: int = 5,
+    hours_ahead: int = 0,
+    delete_temp_files: bool = True,
+    overwrite: bool = True,
+):
+    """Get Ensembles From NOMAD service
+
+    Parameters
+    ----------
+    temp_download_path: str
+        Directory to store temporary files in case of service outage
+    dt: str
+        Datetime string of reference time of interest (must be today or yesterday)
+    hr: str
+        Hour of reference time of interest
+    feature_ids: List[int]
+        Feature IDs to use
+    ensemble_type: str
+        Type of ensemble forecast to generate
+    output_path: str
+        Path to save ensemble forecast NetCDF
+    aggregate_forecast_method: str, default = "max_to_forecast"
+         Method to aggregate ensembles.  Options ["max_to_forecast". "timeslice_max_of_any_feature_id",
+        "timeslice_max_sum", "timeslice"]
+    days_ahead: int, default = 5
+        How many days ahead to calculate time aggregate of foreacast
+    hours_ahead: int, default = 0
+        How many hours ahead to calculate time aggregate of forecast
+    delete_temp_files: bool = True
+        Whether to delete temporary files or not
+    overwrite: bool = True
+        Whether to overwrite temporary files that exist or use them
+    """
+
+    temp_files = []
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
 
-        if ens_type == "noda":
-            ds_lists = []
-            for x in tqdm(range(3, 241, 3)):
-                url = noda_url.format(dt, ('00' + str(x))[-3:])
-                ds = try_again(url)
-                if ds is not None:
-                    ds = (
-                        ds.sel({'feature_id': feature_ids})
-                        .drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff', 'nudge', 'velocity'])
-                        .copy()
-                    )
-                    ds_lists.append(ds)
-            master_lists.append(ds_lists)
-
-            final_list = [xr.concat(master_lists[0], dim="time")]
-
-        elif ens_type == "nbm":
-            ds_lists = []
-            for x in tqdm(range(1, 241)):
-                url = nbm_url.format(dt, ('00' + str(x))[-3:])
-                ds = try_again(url)
-                if ds is not None:
-                    ds = (
-                        ds.sel({'feature_id': feature_ids})
-                        .drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff', 'nudge', 'velocity'])
-                        .copy()
-                    )
-                    ds_lists.append(ds)
-            master_lists.append(ds_lists)
-
-            final_list = [xr.concat(master_lists[0], dim="time")]
-
-        elif ens_type == "short":
-            ds_lists = []
-            for x in tqdm(range(1, 19)):
-                url = short_url.format(dt, ('00' + str(x))[-3:])
-                ds = try_again(url)
-                if ds is not None:
-                    ds = (
-                        ds.sel({'feature_id': feature_ids})
-                        .drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff', 'nudge', 'velocity'])
-                        .copy()
-                    )
-                    ds_lists.append(ds)
-            master_lists.append(ds_lists)
-
-            final_list = [xr.concat(master_lists[8], dim="time")]
-
-        elif ens_type == "gfs":
+        if ensemble_type == "nbm":
             for idx in tqdm(range(1, 7)):
+
+                ds_lists = []
+                if dt != datetime.now().strftime('%Y%m%d') or int(hr) < 6:
+                    raise (
+                        "Not enough time samples to get six ensembles for nbm.  Pick at least today at 6 AM"
+                    )
+
+                temp_dt = datetime.strptime(dt + f' {hr}', '%Y%m%d %H') - timedelta(hours=(idx - 1) * 6)
+                temp_dt_str, temp_hr = temp_dt.strftime('%Y%m%d'), temp_dt.strftime('%H')
+
+                for x in tqdm(range(1, 241)):
+                    temp_file_name = os.path.join(temp_download_path, f'nbm_{idx}_{x}.nc')
+                    temp_files.append(temp_file_name)
+                    if overwrite or not os.path.exists(temp_file_name):
+                        url = NBM_URL.format(temp_dt_str, temp_hr.zfill(2), str(x).zfill(3))
+                        ds = try_again(url)
+                        if ds is not None:
+                            ds = ds.sel({'feature_id': feature_ids})
+                            ds.to_netcdf(temp_file_name)
+                            ds_lists.append(ds)
+                    else:
+                        ds = xr.open_dataset(temp_file_name)
+                        ds_lists.append(ds)
+
+            concat_ds = concatenate_datasets(ds_lists)
+            concat_ds = aggregate_forecasts(
+                concat_ds,
+                aggregate_forecast_method=aggregate_forecast_method,
+                day=days_ahead,
+                hour=hours_ahead,
+            )
+            concat_ds = concat_ds.dropna('feature_id')
+            concat_ds.to_netcdf(output_path)
+
+        if ensemble_type == "srf":
+            for idx in tqdm(range(1, 7)):
+
+                ds_lists = []
+                if dt != datetime.now().strftime('%Y%m%d') and int(hr) < 6:
+                    raise "Not enough time samples to get six ensembles for srf.  Pick at least yesterday at 6 AM"
+
+                if days_ahead != 0 and hours_ahead > 13:
+                    raise """SRF forecast with 6 ensembles can only forecast 13 hours ahead. Chosen:
+                    \n days_ahead: {days_ahead} \n hours_ahead: {hours_ahead}"""
+
+                temp_dt = datetime.strptime(dt + f' {hr}', '%Y%m%d %H') - timedelta(hours=(idx - 1) * 1)
+                temp_dt_str, temp_hr = temp_dt.strftime('%Y%m%d'), temp_dt.strftime('%H')
+
+                for x in tqdm(range(1, 19)):
+                    temp_file_name = os.path.join(temp_download_path, f'srf_{idx}_{x}.nc')
+                    temp_files.append(temp_file_name)
+                    if overwrite or not os.path.exists(temp_file_name):
+                        url = SHORT_URL.format(temp_dt_str, temp_hr.zfill(2), str(x).zfill(3))
+                        ds = try_again(url)
+                        if ds is not None:
+                            ds = ds.sel({'feature_id': feature_ids})
+                            ds.to_netcdf(temp_file_name)
+                            ds_lists.append(ds)
+                    else:
+                        ds = xr.open_dataset(temp_file_name)
+                        ds_lists.append(ds)
+
+            concat_ds = concatenate_datasets(ds_lists)
+            concat_ds = aggregate_forecasts(
+                concat_ds,
+                aggregate_forecast_method=aggregate_forecast_method,
+                day=days_ahead,
+                hour=hours_ahead,
+            )
+            concat_ds = concat_ds.dropna('feature_id')
+            concat_ds.to_netcdf(output_path)
+
+        if ensemble_type == "gfs":
+            for idx in tqdm(range(1, 7)):
+
                 ds_lists = []
                 for x in tqdm(range(1, 205)):
-                    url = gfs_url.format(dt, idx, ('00' + str(x))[-3:])
-                    ds = try_again(url)
-                    if ds is not None:
-                        ds = (
-                            ds.sel({'feature_id': feature_ids})
-                            .drop_vars(['qSfcLatRunoff', 'qBucket', 'qBtmVertRunoff', 'nudge', 'velocity'])
-                            .copy()
-                        )
+                    temp_file_name = os.path.join(temp_download_path, f'gfs_{idx}_{x}.nc')
+                    temp_files.append(temp_file_name)
+                    if overwrite or not os.path.exists(temp_file_name):
+                        url = GFS_URL.format(dt, idx, hr.zfill(2), str(x).zfill(3))
+                        ds = try_again(url)
+                        if ds is not None:
+                            ds = ds.sel({'feature_id': feature_ids})
+                            ds.to_netcdf(temp_file_name)
+                            ds_lists.append(ds)
+                    else:
+                        ds = xr.open_dataset(temp_file_name)
                         ds_lists.append(ds)
-                master_lists.append(ds_lists)
 
-            concat1 = xr.concat(master_lists[0], dim="time")
-            concat2 = xr.concat(master_lists[1], dim="time")
-            concat3 = xr.concat(master_lists[2], dim="time")
-            concat4 = xr.concat(master_lists[3], dim="time")
-            concat5 = xr.concat(master_lists[4], dim="time")
-            concat6 = xr.concat(master_lists[5], dim="time")
-            final_list = [concat1, concat2, concat3, concat4, concat5, concat6]
+            concat_ds = concatenate_datasets(ds_lists)
+            concat_ds = aggregate_forecasts(
+                concat_ds,
+                aggregate_forecast_method=aggregate_forecast_method,
+                day=days_ahead,
+                hour=hours_ahead,
+            )
+            concat_ds = concat_ds.dropna('feature_id')
+            concat_ds.to_netcdf(output_path)
 
-        else:
-            raise ValueError(f"Ensemble type {ens_type} not supported")
-
-        concat_datasets(final_list, ens_type, output_path, output_name)
-
-        print("Process complete:", time.localtime())
-
-
-def concat_datasets(ds_list: List[xr.Dataset], ens_type: str, output_path: str, output_name: str):
-    """
-    Expand dimensions for members and output final concatenated dataset.
-
-    Parameters
-    ----------
-    ds_list : List[xr.Dataset]
-       Datasets to process and concatenate to final dataset.
-    ens_type : str
-       An ensemble type from the following list, "gfs", "nbm", "short", "noda"
-    output_path : str
-       Path to save ensemble files.
-    output_name : str
-       Name of final processed ensemble file.
-
-    """
-    tots = []
-
-    if ens_type == "gfs":
-
-        for x, ds in zip(['1', '2', '3', '4', '5', '6'], ds_list):
-            tmp = ds.assign_coords({'member': x})
-
-            tots.append(tmp.expand_dims(dim={'member': 1}))
-
-    else:
-        ds = ds_list[0]
-        tmp = ds.assign_coords({'member': ens_type})
-
-        tots.append(tmp.expand_dims(dim={'member': 1}))
-
-    concat_tot = xr.concat(tots, dim="member")
-    concat_tot = concat_tot.drop_vars('crs').interpolate_na(dim='time')
-
-    concat_tot.to_netcdf(f'{output_path}/{output_name}')
+        if delete_temp_files:
+            for f in temp_files:
+                os.remove(f)
 
 
 if __name__ == '__main__':
-
-    huc = "05110005"
+    d_path = '../../ensembles/test/nomads/'
+    output_paths = [
+        os.path.join(d_path, 'nbm_final.nc'),
+        os.path.join(d_path, 'gfs_final.nc'),
+        os.path.join(d_path, 'srf_final.nc'),
+    ]
+    huc08 = "05110005"
+    gdf = gpd.read_file(f'../../outputs/outputs/{huc08}/nwm_subset_streams.gpkg')
     dt = datetime.now().strftime('%Y%m%d')
-    # Getting feature ids from hydrofabric stream network
-    streams = gpd.read_file(f'../../outputs/fim_outputs_test/{huc}/nwm_subset_streams.gpkg')
+    hr = '6'
+    overwrite = False
+    delete_temp_files = False
 
-    get_nomads_ensembles(
+    get_nomad_ensembles(
+        temp_download_path=d_path,
         dt=dt,
-        ens_type='gfs',
-        feature_ids=streams['ID'].unique(),
-        output_path="../../ensembles",
-        output_name=f"{huc}_ensembles_nomads_gfs.nc",
+        hr=hr,
+        feature_ids=gdf['ID'].unique(),
+        ensemble_type="nbm",
+        output_path=output_paths[0],
+        aggregate_forecast_method="max_to_forecast",
+        days_ahead=5,
+        hours_ahead=0,
+        delete_temp_files=delete_temp_files,
+        overwrite=overwrite,
+    )
+
+    get_nomad_ensembles(
+        temp_download_path=d_path,
+        dt=dt,
+        hr=hr,
+        feature_ids=gdf['ID'].unique(),
+        ensemble_type="gfs",
+        output_path=output_paths[1],
+        aggregate_forecast_method="max_to_forecast",
+        days_ahead=5,
+        hours_ahead=0,
+        delete_temp_files=delete_temp_files,
+        overwrite=overwrite,
+    )
+
+    get_nomad_ensembles(
+        temp_download_path=d_path,
+        dt=dt,
+        hr=hr,
+        feature_ids=gdf['ID'].unique(),
+        ensemble_type="srf",
+        output_path=output_paths[2],
+        aggregate_forecast_method="max_to_forecast",
+        days_ahead=0,
+        hours_ahead=13,
+        delete_temp_files=delete_temp_files,
+        overwrite=overwrite,
     )

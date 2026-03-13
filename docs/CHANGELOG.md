@@ -25,6 +25,93 @@ This PR closes issues #1755  and #1746.
 <br/>
 
 ## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
+## v4.9.10.4 - 2026-03-13 - [PR#1779](https://github.com/NOAA-OWP/inundation-mapping/pull/1779)
+
+Optimize LoFI processing in HydroVis for LoFI V1.
+
+<br/>
+
+## v4.9.10.3 - 2026-03-13 - [PR#1767](https://github.com/NOAA-OWP/inundation-mapping/pull/1767)
+
+This PR updates the `inundate_nation.py` inundation mosaic raster generation process to output Cloud Optimized GeoTIFF. This change addresses performance bottlenecks when working with the CONUS mosaic file (200GB+) in QGIS.
+
+### Changes
+`tools/inundate_nation.py`: updated the geotiff profile for new tiling, compression, and overviews
+
+<br/>
+
+## v4.9.10.2 - 2026-02-04 - [PR#1753](https://github.com/NOAA-OWP/inundation-mapping/pull/1753)
+
+Upgrades `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0; in addition, `rio-vrt` v0.31.1 was added back. This required some additional changes to the codebase because the `geopandas` methods started being used in priority over the `StreamNetwork` class methods (particularly `from_file`, `set_index`, and `reset_index`), so they were returning `geopandas` objects rather than `StreamNetwork` objects. To overcome this, those`StreamNetwork` class method names were appended with `_fim` and replaced in the codebase.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Upgraded `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0. Added `rio-vrt` v0.31.1.
+- `src/`
+    - `stream_branches.py`: Appended `_fim` to `from_file`, `set_index`, and `reset_index` class methods and explicitly added attributes to the `__init__` constructor method.
+    - `buffer_stream_branches.py`, `clip_rasters_to_branches.py`, `crosswalk_nwm_demDerived.py`, `derive_level_paths.py`, `generate_branch_list.py`, `query_vectors_by_branch_polygons.py`, `subset_catch_list_by_branch_id.py`: Updated class methods to use the new `_fim` name.
+<br/>
+
+## v4.9.10.1 - 2026-03-02 - [PR#1774](https://github.com/NOAA-OWP/inundation-mapping/pull/1774)
+
+Updates pre_clip_huc_dir date in bash_variables.env
+
+### Changes
+
+- `src/bash_variables.env`: Reverts preclip date to 20260205.
+<br/>
+
+## v4.9.10.0 - 2026-02-25 - [PR#1769](https://github.com/NOAA-OWP/inundation-mapping/pull/1769)
+
+Fixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
+
+### Changes
+- `data/wbd/clip_vectors_to_wbd.py`: Updates `to` attribute of downstream-most segments to 0 and extends these segments to the `landsea` border and/or the HUC boundary depending on the availability of the `landsea` data.
+
+<br/>
+
+## v4.9.9.1 - 2026-02-25 - [PR#1768](https://github.com/NOAA-OWP/inundation-mapping/pull/1768)
+
+This PR focuses on updating the roughness N for Monongahela River in the bash_variables.env for FIM6.1.
+
+### Changes
+- `src`
+   - bash_variables.env: `vmann_input_file=${inputsDir}/rating_curve/optz_mannings_v6_1_1.csv`
+
+<br/>
+
+## v4.9.9.0 - 2026-02-13 - [PR#1762](https://github.com/NOAA-OWP/inundation-mapping/pull/1762)
+
+This PR updates the global optimized roughness N as an input file in the bash_variables.env for FIM6.1.
+
+### Changes
+- `src`
+   - bash_variables.env: `vmann_input_file=${inputsDir}/rating_curve/optz_mannings_v6_1.csv`
+
+<br/>
+
+## v4.9.8.2 - 2026-02-13 - [PR#1759](https://github.com/NOAA-OWP/inundation-mapping/pull/1759)
+
+Refactors upstream search to prevent memory-related issues in `adjust_floodplains.py`.
+
+### Changes
+
+- `src/adjust_floodplains.py`: refactored `get_upstream_streams()`
+
+<br/>
+
+## v4.9.8.1 - 2026-02-13 - [PR#1761](https://github.com/NOAA-OWP/inundation-mapping/pull/1761)
+
+This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
+
+### Changes
+
+- `data/slope/sword_slope_create_parquet_qc.py`: Updated the max gap length parameter to 15km (previously 10km)
+- `src/bash_variables.env`: Updated the iris_sword_slope file to use the new 20260209 parquet
+	
+<br/>
+
+## v4.9.8.0 - 2026-02-05 - [PR#1741](https://github.com/NOAA-OWP/inundation-mapping/pull/1741)
 
 A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
 
@@ -63,31 +150,32 @@ Note: All files in GIT retain the permissions of the files on the users local ma
 Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
 <br/>
 
-## v4.9.7.0 - 2026-02-05 - [PR#1752]([https://github.com/NOAA-OWP/inundation-mapping/pull/1752])
+## v4.9.7.0 - 2026-02-05 - [PR#1752](https://github.com/NOAA-OWP/inundation-mapping/pull/1752)
 
 This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
 
-Changes
+### Changes
 - /src/bash_variables.env
 <br/>
 
-## v4.9.6.0 - 2026-02-05 - [PR#1721]([https://github.com/NOAA-OWP/inundation-mapping/pull/1721])
+## v4.9.6.0 - 2026-02-05 - [PR#1721](https://github.com/NOAA-OWP/inundation-mapping/pull/1721)
 
 This PR aims to longitudinally refine the discharge values in the rating curve by filtering the surface area values and recalculating discharge and the rest of Manning equations' variables, including bed area and volume. You can find the details of the framework here:
 
 See PR for more details.
 
-Changes
+### Changes
 - /src/longitudinal_flow_adjustment.py
 - /src/add_crosswalk.py
 <br/>
 
-## v4.9.5.5 - 2026-01-27 - [PR#1734]([https://github.com/NOAA-OWP/inundation-mapping/pull/1734])
+## v4.9.5.5 - 2026-01-27 - [PR#1734](https://github.com/NOAA-OWP/inundation-mapping/pull/1734)
 
 This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
 
-Changes
+### Changes
 src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
+- src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
 <br/>
 
 ## v4.9.5.4 - 2026-01-27 - [PR#1705](https://github.com/NOAA-OWP/inundation-mapping/pull/1705)
