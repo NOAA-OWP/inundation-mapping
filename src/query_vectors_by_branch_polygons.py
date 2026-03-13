@@ -49,7 +49,7 @@ if __name__ == '__main__':
     )
 
     # load file
-    # stream_polys = StreamBranchPolygons.from_file(
+    # stream_polys = StreamBranchPolygons.from_file_fim(
     #     filename=attributes_vector_file,
     #     branch_id_attribute=attribute,
     #     values_excluded=None,

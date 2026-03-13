@@ -44,7 +44,7 @@ if __name__ == '__main__':
     )
 
     # load file
-    stream_polys = StreamBranchPolygons.from_file(
+    stream_polys = StreamBranchPolygons.from_file_fim(
         filename=stream_polygons_file,
         branch_id_attribute=branch_id_attribute,
         values_excluded=None,
