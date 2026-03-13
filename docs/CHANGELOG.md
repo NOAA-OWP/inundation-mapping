@@ -1,7 +1,7 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.x.x.x - 2026-02-25 - [PR#1771](https://github.com/NOAA-OWP/inundation-mapping/pull/1771)
+## v4.9.10.8 - 2026-03-13 - [PR#1771](https://github.com/NOAA-OWP/inundation-mapping/pull/1771)
 
 This is a quick tool that can remove selected folders from an s3 bucket using a provided list.
 
@@ -11,6 +11,8 @@ This is a quick tool that can remove selected folders from an s3 bucket using a 
 ### Changes
 - `data/ripple`
     - `hecras_processing.ipynb`, `ripple_shared_tools.sh`, `terrain_agreement_metrics_analysis.py`: Updated file permissions.
+<br/>
+
 ## v4.9.10.7 - 2026-03-13 - [PR#1770](https://github.com/NOAA-OWP/inundation-mapping/pull/1770)
 
 This PR fixes the non-convergence of SVD in the longitudinal adjustment script for three HUCs of 04030110, 11030008, 17040203.
@@ -20,7 +22,6 @@ This PR fixes the non-convergence of SVD in the longitudinal adjustment script f
    - `longitudinal_flow_adjustment.py`
 
 <br/>
-
 
 ## v4.9.10.6 - 2026-03-13 - [PR#1775](https://github.com/NOAA-OWP/inundation-mapping/pull/1775)
 
