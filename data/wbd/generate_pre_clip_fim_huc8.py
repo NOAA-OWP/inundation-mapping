@@ -5,6 +5,7 @@ import datetime as dt
 import logging
 import os
 import random
+import shlex
 import shutil
 import subprocess
 import sys
@@ -162,7 +163,7 @@ def __merge_mp_logs(log_dir, parent_log_file):
 
 
 def pre_clip_hucs_from_wbd(
-    outputs_dir, huc_list, number_of_jobs, overwrite, preclipping_flags, copy_from_dir
+    outputs_dir, huc_list, number_of_jobs, overwrite, preclipping_flags, copy_from_dir, cli_args=None
 ):
     '''
     The function is the main driver of the program to iterate and parallelize writing/copying
@@ -218,6 +219,8 @@ def pre_clip_hucs_from_wbd(
     start_time = dt.datetime.now(dt.timezone.utc)
 
     logging.info("==================================")
+    if cli_args:
+        logging.info(f"CLI invocation: {cli_args}")
     logging.info(f"Starting Pre-clip based on huc list of\n    {huc_list}")
     logging.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
     logging.info("")
@@ -434,10 +437,12 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
         else:
             # Read the input layer from the input WBD file using sql to be more efficient
             sql = f"SELECT * FROM \"{input_NHD_WBHD_layer}\" WHERE HUC8 = '{huc}'"
+            logging.info(f"Using WBD source for {huc}: {input_WBD_filename}")
             wbd = gpd.read_file(input_WBD_filename, sql=sql, columns=['HUC8', 'fimid', 'fossid', 'geometry'])
             wbd = wbd.to_crs(huc_CRS)
 
             # make sure the HUC boundary does not extend beyond DEM
+            logging.info(f"Using DEM domain source for {huc}: {dem_domain}")
             dem_domain_gdf = gpd.read_file(dem_domain, engine="pyogrio", use_arrow=True)
             wbd = gpd.clip(wbd, dem_domain_gdf)
 
@@ -465,6 +470,7 @@ def huc_level_clip_vectors_to_wbd(huc, outputs_dir, copy_from_dir, preclipping_f
 
             # Clip landsea before saving wbd and wbd_buffer
             logging.info(f"Clip ocean water polygon for {huc}")
+            logging.info(f"Using landsea source for {huc}: {input_LANDSEA}")
             landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
 
             # some hucs do not have landsea
@@ -709,6 +715,7 @@ if __name__ == '__main__':
             overwrite=args["overwrite"],
             preclipping_flags=preclipping_flags,
             copy_from_dir=args["copy_from_dir"],
+            cli_args=shlex.join(sys.argv),
         )
     except Exception:
         logging.info(traceback.format_exc())

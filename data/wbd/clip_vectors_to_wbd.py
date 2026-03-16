@@ -226,6 +226,7 @@ def subset_vector_layers(
     else:
         # Find intersecting lakes and writeout
         logging.info(f"clipping NWM Lakes for {huc}")
+        logging.info(f"Using nwm_lakes source for {huc}: {nwm_lakes}")
         nwm_lakes = gpd.read_file(nwm_lakes, mask=wbd_buffer, engine="fiona")
         nwm_lakes = nwm_lakes.loc[nwm_lakes.geometry.area < 18990454000.0]
 
@@ -260,6 +261,7 @@ def subset_vector_layers(
         # Preprocessed levee lines for burning
         logging.info(f"Clipping levee_lines_burned for {huc}.")
         if nld_lines_preprocessed and os.path.exists(nld_lines_preprocessed):
+            logging.info(f"Using levee_lines_burned source for {huc}: {nld_lines_preprocessed}")
             nld_lines_preprocessed = gpd.read_file(nld_lines_preprocessed, mask=wbd_buffer, engine="fiona")
             if not nld_lines_preprocessed.empty:
                 nld_lines_preprocessed.to_file(
@@ -273,6 +275,7 @@ def subset_vector_layers(
 
         logging.info(f"Clipping NLD levee lines for {huc}")
         if nld_lines and os.path.exists(nld_lines):
+            logging.info(f"Using levee_lines source for {huc}: {nld_lines}")
             nld_lines = gpd.read_file(nld_lines, mask=wbd_buffer, engine="fiona")
             if not nld_lines.empty:
                 nld_lines.to_file(
@@ -286,6 +289,7 @@ def subset_vector_layers(
 
         logging.info(f"Clipping levee-protected areas for {huc}")
         if levee_protected_areas and os.path.exists(levee_protected_areas):
+            logging.info(f"Using levee_protected_areas source for {huc}: {levee_protected_areas}")
             levee_protected_areas = gpd.read_file(levee_protected_areas, mask=wbd_buffer, engine="fiona")
             if not levee_protected_areas.empty:
                 levee_protected_areas.to_file(
@@ -309,6 +313,7 @@ def subset_vector_layers(
         # Find intersecting nwm_catchments
         logging.info(f"Clipping nwm_catchments for {huc}.")
         if os.path.exists(nwm_catchments):
+            logging.info(f"Using nwm_catchments source for {huc}: {nwm_catchments}")
             nwm_catchments = gpd.read_file(nwm_catchments, mask=wbd_buffer, engine="fiona")
 
             if len(nwm_catchments) > 0:
@@ -337,6 +342,7 @@ def subset_vector_layers(
         # Subset OSM (Open Street Map) bridges
         logging.info(f"Clipping OSM Bridges for {huc}")
         if os.path.exists(osm_bridges):
+            logging.info(f"Using osm_bridges source for {huc}: {osm_bridges}")
             subset_osm_bridges_gdb = gpd.read_file(osm_bridges, mask=wbd_buffer, engine="fiona")
             if subset_osm_bridges_gdb.empty:
                 print("-- No applicable bridges for this HUC")
@@ -364,6 +370,7 @@ def subset_vector_layers(
         # Subset OSM (Open Street Map) roads
         logging.info(f"Clipping OSM roads for {huc}")
         if os.path.exists(osm_roads):
+            logging.info(f"Using osm_roads source for {huc}: {osm_roads}")
             subset_osm_roads_gdb = gpd.read_file(osm_roads, mask=wbd_buffer, engine="fiona")
             if subset_osm_roads_gdb.empty:
                 print("-- No applicable roads for this HUC")
@@ -391,6 +398,7 @@ def subset_vector_layers(
 
         logging.info(f"compiling buildings for {huc}")
         huc_parts_path = Path(buildings_parts_path) / f"huc8_{huc}"
+        logging.info(f"Using buildings source directory for {huc}: {huc_parts_path}")
         parquet_parts = list(huc_parts_path.glob("*.parquet")) if huc_parts_path.exists() else []
         if parquet_parts:
             gdfs = [gpd.read_parquet(p) for p in parquet_parts]
@@ -401,8 +409,7 @@ def subset_vector_layers(
             merged.to_file(dst, driver="GPKG", engine="fiona")
 
         else:
-            print("-- No building parquet files for this HUC")
-            logging.info("-- No building parquet files for this HUC")
+            logging.info(f"-- No building parquet files for huc {huc}")
 
     if not preclipping_flags['nwm_streams_headwater']:
         for vector_item in ['nwm_streams', 'nwm_headwaters']:
@@ -422,6 +429,7 @@ def subset_vector_layers(
 
         # Subset nwm streams
         logging.info(f"Clipping NWM Streams for {huc}")
+        logging.info(f"Using nwm_streams source for {huc}: {nwm_streams}")
         nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
 
         if nwm_streams[nwm_streams['to'] == 0].empty:
@@ -445,6 +453,7 @@ def subset_vector_layers(
             streams_in_wbd = streams_in_wbd.drop(columns=['index_right'])
 
         if os.path.exists(input_LANDSEA):
+            logging.info(f"Using landsea source for stream processing {huc}: {input_LANDSEA}")
             landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
             if landsea.empty:
                 logging.info(f"Landsea file provided but no landsea area found within wbd_buffer for {huc}")
@@ -551,6 +560,7 @@ def subset_vector_layers(
 
         # Subset NWM headwaters
         logging.info(f"Clipping NWM Headwater Points for {huc}")
+        logging.info(f"Using nwm_headwaters source for {huc}: {nwm_headwaters}")
         nwm_headwaters = gpd.read_file(nwm_headwaters, mask=wbd_streams_buffer, engine="fiona")
 
         if len(nwm_headwaters) > 0:
