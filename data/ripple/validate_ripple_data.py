@@ -19,6 +19,15 @@ import data.aws.s3_shared_functions as s3_sf
 import src.utils.shared_functions as sf
 from src.utils.shared_functions import FIM_Helpers as fh
 
+# TODO: Mar 2026: For future releases:
+#     - Add a column named "ripple_type", which currently woudl be the values of 'mip' or 'ble'. This helps
+#       Hydrovis with precedence of a feature record that has an mip AND a ble record.
+#     - Currently, it is possible for one feature to be in more than one model_collection folder, past
+#       even mip or ble ripple_type. ie) (not a real example): 250404 showing up in mip_11050002 and mip_11050003.
+#       Calcuate if one is valid and one is not? if both valid, adjsut records so HV has only one rec to pick
+#     - Likely more validation can be performed (Heidi did some by hand). Maybe code look inside ripple.gpkg
+#       or validate that the S3 paths have at least some tifs or maybe even the right tifs?
+
 
 def validate_ripple_data(
     s3_ripple_root_path, ripple_version, terrain_whitelist_file_path, output_folder, aws_creds_file
