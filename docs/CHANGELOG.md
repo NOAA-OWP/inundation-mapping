@@ -2,9 +2,22 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.9.x.x - 2026-03-02 - [PR#1775](https://github.com/NOAA-OWP/inundation-mapping/pull/1775)
+## v4.9.x.x - 2026-03-02 - [PR#1780](https://github.com/NOAA-OWP/inundation-mapping/pull/1780)
 
+This tool takes in the ripple  feature list created by the terrain metrics / validation tools and performs additional validation and data re-organization to it.  Some of the key tasks for the tool are:
+- Calculates the reference S3 path of where a feature's tif's are located available for inundation and processing. This is becomes a column named "library_path".
+- Using each calculated feature's "library_path", go to the HV deployment s3 folders and ensure that feature path does actually exist, via the ripple dataset version name, model collection name, library extent and feature id folder names. In the new "ripple_features_list.csv" list, adds a new True/False column validating if the library path exists.
+ - create a new ripple feature list with a key "is_valid" column. Using the original incoming "is_blacklisted" column  and the new "library_path_exists" column, roll those up to a single "is_valid" column for HV usage.
 
+- Some unrelated files had their implicit file permissions changed.
+ 
+### Additions
+- `data/ripple/validate_ripple_data.py`: As described above.
+
+### Changes
+- `config/workflows_params.template.env`: Minor corrections on behalf of the workflows/deploy/hand_to_owp.py file.
+- `data/aws/s3_shared_functions.py`: 
+<br/>
 
 ## v4.9.10.8 - 2026-03-13 - [PR#1771](https://github.com/NOAA-OWP/inundation-mapping/pull/1771)
 
