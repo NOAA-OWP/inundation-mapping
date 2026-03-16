@@ -648,13 +648,15 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
     sites_gdf = gpd.read_file(catfim_sites_file_path, engine='fiona')
 
     if len(sites_gdf) == 0:
-        FLOG.critical(f"flows_gdf is empty. Path is {catfim_sites_file_path}. Program aborted.")
+        FLOG.critical(
+            f"flows_gdf is empty. Path is {catfim_sites_file_path}. Program aborted.")
         sys.exit(1)
 
     try:
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
         if len(valid_ahps_ids) == 0:
-            FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
+            FLOG.critical(
+                f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
             sys.exit(1)
 
         # we could have used lambda but the if/else logic got messy and unstable
@@ -664,8 +666,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
             # If the ahps_id is not in the valid list, then mapped should be "no" and status updated
             if ahps_id not in valid_ahps_ids:
                 sites_gdf.at[ind, 'mapped'] = 'no'
-                FLOG.warning(
-                    f"{ahps_id} : Mapped status was changed to no because no inundation GPKGs found."
+                print(f"{ahps_id} : Mapped status was changed to no because no inundation GPKGs found."
                 )
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
@@ -678,7 +679,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
 
             sites_gdf.at[ind, 'mapped'] = 'yes'
             # Mapped should be "yes", and "Good",
-            if status_val == "":
+            if status_val is None or status_val == "":
                 sites_gdf.at[ind, 'status'] = 'Good'
             elif status_val.startswith("---") == True:  # warning not an error
                 sites_gdf.at[ind, 'mapped'] = 'yes'
@@ -702,7 +703,8 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
         sites_gdf.to_csv(nws_lid_csv_file_path)
 
     except Exception as e:
-        FLOG.critical(f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
+        FLOG.critical(
+            f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
         FLOG.critical(traceback.format_exc())
     return
 
