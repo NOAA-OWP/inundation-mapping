@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-03-17 - [PR#1785](https://github.com/NOAA-OWP/inundation-mapping/pull/1785)
+
+Replaces `richdem` with `richdem2` to avoid using deprecated `pkg_resources` in depression filling. Both packages use `rd_depression_filling` so no changes in code were needed.
+
+Also updates `tornado` to v6.5.5.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Updated Python packages.
+
+<br/>
+
 ## v4.9.10.8 - 2026-03-13 - [PR#1771](https://github.com/NOAA-OWP/inundation-mapping/pull/1771)
 
 This is a quick tool that can remove selected folders from an s3 bucket using a provided list.
