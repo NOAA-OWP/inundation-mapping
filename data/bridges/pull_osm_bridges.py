@@ -12,6 +12,7 @@ import pandas as pd
 import pyproj
 from dotenv import load_dotenv
 from networkx import Graph, connected_components
+from osmnx._errors import InsufficientResponseError
 from shapely.geometry import LineString, shape
 
 from src.utils.shared_functions import run_with_mp, setup_mp_file_logger
@@ -34,38 +35,6 @@ AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 # Save all OSM bridge features by HUC8 to a specified folder location.
 # Bridges will have point geometry converted to linestrings if needed
 
-"""
-Feb 4, 2025: There are a good handful of HUCs that return no data.
-Those HUC8s in the BAD_HUCS list
-
-
-NOTE: 02060006 is a weird one and times out even after 10 mins. Split that one to HUC10's
-"""
-
-BAD_HUCS = [
-    '04160001',
-    '12110102',
-    '13020206',
-    '13020210',
-    '15010006',
-    '16020303',
-    '16020302',
-    '16060003',
-    '16060004',
-    '16060005',
-    '16060006',
-    '16060009',
-    '16060010',
-    '16060011',
-    '16060013',
-    '16060014',
-    '17050109',
-    '18090201',
-    '19020203',
-    '19020800',
-    '20030000',
-    '02060006',
-]
 
 
 # Dissolve touching lines
@@ -104,20 +73,25 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
         file_logger.info(f" ** Creating gpkg for {huc_num}")
         screen_queue.put(f" ** Creating gpkg for {huc_num}")
 
-        gdf = ox.features_from_polygon(shape(huc_geom), {"bridge": True})
+        try:
+            gdf = ox.features_from_polygon(shape(huc_geom), {"bridge": True})
+        except InsufficientResponseError:
+            file_logger.warning(f"osmnx pull for {huc_num} came back with no matching bridge features")
+            screen_queue.put(f"osmnx pull for {huc_num} came back with no matching bridge features")
+            return 1, [True]
 
         if gdf is None or len(gdf) == 0:
             file_logger.warning(f"osmnx pull for {huc_num} came back with no records")
             screen_queue.put(f"osmnx pull for {huc_num} came back with no records")
-            return huc_num
+            return 1, [True]
 
-        # Note: Jan 31, 2025: Despite osmnx saying that it sends back a multi-index and the osmid, the field
-        # return is just named "id". The multi-index column names are "element" and "id"
-        # We just drop the "element" index level, then make a copy of of the id (index) column as the osmid.
+        # OSMnx returns a MultiIndex for feature downloads. For this bridge pull, the index levels are
+        # typically "element" and "id", where "id" is the original OSM feature identifier.
+        # Drop the "element" level and copy the remaining index into an explicit "osmid" column so the
+        # source OSM ID is preserved after index resets and when writing to file.
         gdf = gdf.droplevel('element')
 
-        # we need to put this to a temp index file and make a string column version of it
-        # as the true "index (not really)" value from OSM is a bit unstable
+        # Preserve the OSM feature ID as a regular column instead of relying on the GeoDataFrame index.
         gdf["osmid"] = gdf.index
 
         # we will always have a huc8 value but may not have a huc10, depending on what was submitted
@@ -182,6 +156,8 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
             "REF",
             "fixme:maxspeed",
             "LAYER",
+            "OBJECTID",
+            "objectid",
             "unsigned_ref",
             "Fut_Ref",
             "Ref",
@@ -191,10 +167,26 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
             if bad_cn in gdf.columns:
                 cols_to_drop.append(bad_cn)
 
-        if len(cols_to_drop) > 0:
-            gdf = gdf.drop(columns=cols_to_drop, axis=1)
+        # OSM "fixme*" tags are editorial metadata and can arrive with mixed casing
+        # (for example, "fixme:bicycle" and "FIXME:bicycle"), which can cause
+        # duplicate-column failures when writing to GeoPackage/SQLite.
+        for col in gdf.columns:
+            if str(col).lower().startswith("fixme"):
+                cols_to_drop.append(col)
 
-        gdf1 = gdf[gdf.geometry.apply(lambda x: x.geom_type == 'LineString')]
+        if len(cols_to_drop) > 0:
+            gdf = gdf.drop(columns=list(set(cols_to_drop)), axis=1)
+
+        # Keep only linear bridge geometries and rebuild as a GeoDataFrame so geometry ops remain available.
+        linear_geom_types = {'LineString', 'MultiLineString'}
+        gdf1 = gpd.GeoDataFrame(
+            gdf.loc[gdf.geometry.geom_type.isin(linear_geom_types)].copy(), geometry='geometry', crs=gdf.crs
+        )
+
+        if gdf1.empty:
+            file_logger.warning(f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering")
+            screen_queue.put(f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering")
+            return 1, [True]
 
         if str(huc_num).startswith('19'):
             gdf1 = gdf1.to_crs(ALASKA_CRS)
@@ -392,7 +384,7 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs, lst_hucs, file_
     else:
         huc_column_name = 'huc10'
 
-    # If filtering hucs coming in, use it, if not ocntinue
+    # If filtering hucs coming in, use it, if not continue.
     if lst_hucs == '':  # process all
         hucs = hucs_all
     else:
@@ -413,11 +405,6 @@ def process_osm_bridges(wbd_file, output_folder, number_of_jobs, lst_hucs, file_
     tasks_args_list = []
     for row in reproj_hucs.iterrows():
         huc_row = row[1]
-
-        if str(huc_row[huc_column_name]) in BAD_HUCS:
-            file_logger.info(f"Skipping {huc_row[huc_column_name]} as it is on the bad huc list")
-            print(f"Skipping {huc_row[huc_column_name]} as it is on the bad huc list")
-            continue
 
         huc_bridge_file = os.path.join(output_folder, f"huc_{huc_row[huc_column_name]}_osm_bridges.gpkg")
         args = {
@@ -589,7 +576,7 @@ if __name__ == "__main__":
         '--number-of-jobs',
         help='OPTIONAL: Number of (jobs) cores/processes to used.',
         required=False,
-        default=1,
+        default=4,
         type=int,
     )
 
