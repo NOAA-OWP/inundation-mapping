@@ -39,11 +39,10 @@ from tools_shared_variables import (
 
 import utils.fim_logger as fl
 from data.wrds.download_process_wrds import (
+    check_metadata_CRS_availability,
     download_all_thresholds,
-    label_data_file,
     load_nwm_metadata,
     load_site_thresholds,
-    check_metadata_CRS_availability,
 )
 from utils.shared_variables import VIZ_PROJECTION
 
@@ -648,15 +647,13 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
     sites_gdf = gpd.read_file(catfim_sites_file_path, engine='fiona')
 
     if len(sites_gdf) == 0:
-        FLOG.critical(
-            f"flows_gdf is empty. Path is {catfim_sites_file_path}. Program aborted.")
+        FLOG.critical(f"flows_gdf is empty. Path is {catfim_sites_file_path}. Program aborted.")
         sys.exit(1)
 
     try:
         valid_ahps_ids = get_list_ahps_with_library_gpkgs(output_mapping_dir)
         if len(valid_ahps_ids) == 0:
-            FLOG.critical(
-                f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
+            FLOG.critical(f"No valid ahps gpkg files found in {output_mapping_dir}/gpkg")
             sys.exit(1)
 
         # we could have used lambda but the if/else logic got messy and unstable
@@ -666,8 +663,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
             # If the ahps_id is not in the valid list, then mapped should be "no" and status updated
             if ahps_id not in valid_ahps_ids:
                 sites_gdf.at[ind, 'mapped'] = 'no'
-                print(f"{ahps_id} : Mapped status was changed to no because no inundation GPKGs found."
-                )
+                FLOG.lprint(f"{ahps_id} : Mapped status was changed to no because no inundation GPKGs found.")
                 if status_val is None or status_val == "" or status_val == "Good":
                     sites_gdf.at[ind, 'status'] = 'Site resulted with no valid inundated files'
                 else:
@@ -703,8 +699,7 @@ def update_sites_mapping_status(output_mapping_dir, catfim_sites_file_path, catf
         sites_gdf.to_csv(nws_lid_csv_file_path)
 
     except Exception as e:
-        FLOG.critical(
-            f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
+        FLOG.critical(f"{output_mapping_dir} : No LIDs, \n Exception: \n {repr(e)} \n")
         FLOG.critical(traceback.format_exc())
     return
 
@@ -1682,7 +1677,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 
     # If datum not supplied, skip to new site
     datum = datum_data.get('datum', None)
-    if datum is None: # TODO: Could add "if datum info is UNK" as well, since that seems common..
+    if datum is None:  # TODO: Could add "if datum info is UNK" as well, since that seems common..
         msg = ':Datum info unavailable'
         all_messages.append(lid + msg)
         MP_LOG.warning(huc_lid_id + msg)
@@ -1692,22 +1687,73 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
     # Check for typos in the horizontal datum data
     # Temp workaround to handle incorrect WRDS horizontal datum entries. TODO: Remove once WRDS error is corrected?
 
-    # These rules were developed by looking at the various ways that the horizontal datum was misspelled in the WRDS data 
+    # These rules were developed by looking at the various ways that the horizontal datum was misspelled in the WRDS data
     # in March 2026. Should be periodically updated to make sure we capture additional "creative" spellings.
 
-    nad27_misspellings = ['NGVD 1929', 'NAD 1927', 'NAD 1929', 'NAD-27', '1929', 'NAD1927', 'NGVD29',
-                           '1927', 'NGVD', 'NVGD', 'NAD 27', 'NGDV 1929', 'NGVD1929', 'NAAD27', 'NAD29',
-                           '1927 NGVD', '1929', 'NVD 1929', 'NAD1929', 'NGVD1927', '1929 NGV', '1929 NGVD',
-                           'NA 1927', 'NAVD27']
+    nad27_misspellings = [
+        'NGVD 1929',
+        'NAD 1927',
+        'NAD 1929',
+        'NAD-27',
+        '1929',
+        'NAD1927',
+        'NGVD29',
+        '1927',
+        'NGVD',
+        'NVGD',
+        'NAD 27',
+        'NGDV 1929',
+        'NGVD1929',
+        'NAAD27',
+        'NAD29',
+        '1927 NGVD',
+        '1929',
+        'NVD 1929',
+        'NAD1929',
+        'NGVD1927',
+        '1929 NGV',
+        '1929 NGVD',
+        'NA 1927',
+        'NAVD27'
+    ]
 
-    nad83_misspellings = ['NAD 1983', 'NAVD88', 'NAD 83', 'NAD1983', 'WGS84', 'NADA 1983', 'NAV83', 'NAVD 1988',
-                          '1988', 'NAD 88', 'NAVD 88', 'nad83', 'NAV-88', 'NAVD83', 'NGVD1988', 'NAD84',
-                          'NAD 1988', '1988', 'NAV83', 'NAVD-88', 'NAD88', 'NAD87', 'NAD893']
+    nad83_misspellings = [
+        'NAD 1983',
+        'NAVD88',
+        'NAD 83',
+        'NAD1983',
+        'WGS84',
+        'NADA 1983',
+        'NAV83',
+        'NAVD 1988',
+        '1988',
+        'NAD 88',
+        'NAVD 88',
+        'nad83',
+        'NAV-88',
+        'NAVD83',
+        'NGVD1988',
+        'NAD84',
+        'NAD 1988',
+        '1988',
+        'NAV83',
+        'NAVD-88',
+        'NAD88',
+        'NAD87',
+        'NAD893'
+    ]
 
-    ngvd29_misspellings = ['NGVD 1929', 'NGVD,1929', 'NGVD OF 1929', 'NGVD', 'USGS NAD 1929', 'NGVD1929', 'NGVD 29']
+    ngvd29_misspellings = [
+        'NGVD 1929',
+        'NGVD,1929',
+        'NGVD OF 1929', 'NGVD',
+        'USGS NAD 1929',
+        'NGVD1929',
+        'NGVD 29'
+    ]
 
     # Fix misspelled CRSs that are actually NAD27
-    if datum_data['crs'] in nad27_misspellings:        
+    if datum_data['crs'] in nad27_misspellings:
         MP_LOG.warning(f"{huc_lid_id}: Typo found in horizontal CRS, changing {datum_data['crs']} to NAD27")  
         datum_data.update(crs='NAD27')
 
@@ -1729,10 +1775,10 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
         MP_LOG.warning(f"{huc_lid_id}: Typo found in vertical CRS, changing {datum_data['vcs']} to NGVD29")
         datum_data.update(vcs='NGVD29')
 
-    # Possible typos that we aren't currently accepting: 
+    # Possible typos that we aren't currently accepting:
     # - 'NGVD83' (because it mixes up NGVD29 and NAD83, so I'm not sure what it means)
-    # - 'NADVD88', 'NAD983', 'NAC83' - they're just a bit far off from the correct values such that 
-    #   we aren't sure if they are typos or just something else. We can add them if we see them more 
+    # - 'NADVD88', 'NAD983', 'NAC83' - they're just a bit far off from the correct values such that
+    #   we aren't sure if they are typos or just something else. We can add them if we see them more
     #   in the future.
 
     # ___________________________________________________________________________________________________#

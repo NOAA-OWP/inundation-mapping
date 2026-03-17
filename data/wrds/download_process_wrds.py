@@ -235,7 +235,11 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
                 # print(source_crs_availability) ## TEMP DEBUG
 
                 stages, flows, status = get_thresholds(
-                    threshold_url=threshold_url, select_by='nws_lid', selector=lid, threshold='all', source_crs_availability = source_crs_availability,
+                    threshold_url=threshold_url,
+                    select_by='nws_lid',
+                    selector=lid,
+                    threshold='all',
+                    source_crs_availability=source_crs_availability,
                 )
 
             except Exception as e:
@@ -491,13 +495,57 @@ def check_metadata_CRS_availability(output_meta_list):
 
     # This list also includes the misspellings that the code knows how to handle # TODO: Add to a shared variables file?
     correct_spellings = ['NAD27', 'NAD83', 'LMSL']
-    nad27_misspellings = ['NGVD 1929', 'NAD 1927', 'NAD 1929', 'NAD-27', '1929', 'NAD1927', 'NGVD29',
-                            '1927', 'NGVD', 'NVGD', 'NAD 27', 'NGDV 1929', 'NGVD1929', 'NAAD27', 'NAD29',
-                            '1927 NGVD', '1929', 'NVD 1929', 'NAD1929', 'NGVD1927', '1929 NGV', '1929 NGVD',
-                            'NA 1927', 'NAVD27']
-    nad83_misspellings = ['NAD 1983', 'NAVD88', 'NAD 83', 'NAD1983', 'WGS84', 'NADA 1983', 'NAV83', 'NAVD 1988',
-                            '1988', 'NAD 88', 'NAVD 88', 'nad83', 'NAV-88', 'NAVD83', 'NGVD1988', 'NAD84',
-                            'NAD 1988', '1988', 'NAV83', 'NAVD-88', 'NAD88', 'NAD87', 'NAD893']
+    nad27_misspellings = [
+        'NGVD 1929',
+        'NAD 1927',
+        'NAD 1929',
+        'NAD-27',
+        '1929',
+        'NAD1927',
+        'NGVD29',
+        '1927',
+        'NGVD',
+        'NVGD',
+        'NAD 27',
+        'NGDV 1929',
+        'NGVD1929',
+        'NAAD27',
+        'NAD29',
+        '1927 NGVD',
+        '1929',
+        'NVD 1929',
+        'NAD1929',
+        'NGVD1927',
+        '1929 NGV',
+        '1929 NGVD',
+        'NA 1927',
+        'NAVD27'
+    ]
+    nad83_misspellings = [
+        'NAD 1983',
+        'NAVD88',
+        'NAD 83',
+        'NAD1983',
+        'WGS84',
+        'NADA 1983',
+        'NAV83',
+        'NAVD 1988',
+        '1988',
+        'NAD 88',
+        'NAVD 88',
+        'nad83',
+        'NAV-88',
+        'NAVD83',
+        'NGVD1988',
+        'NAD84',
+        'NAD 1988',
+        '1988',
+        'NAV83',
+        'NAVD-88',
+        'NAD88',
+        'NAD87',
+        'NAD893'
+    ]
 
     acceptable_horizontal_projections = correct_spellings + nad27_misspellings + nad83_misspellings
 

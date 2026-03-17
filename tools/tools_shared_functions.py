@@ -1046,7 +1046,7 @@ def get_nwm_segs(metadata):
 #######################################################################
 # Thresholds
 #######################################################################
-def get_thresholds(threshold_url, select_by, selector, threshold='all', source_crs_availability = None):
+def get_thresholds(threshold_url, select_by, selector, threshold='all', source_crs_availability=None):
     '''
     Get nws_lid threshold stages and flows (i.e. bankfull, action, minor,
     moderate, major). Returns a dictionary for stages and one for flows.
@@ -1062,8 +1062,8 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all', source_c
     threshold : STR, optional
         Threshold option. The default is 'all'.
     source_crs_availability : list or None (the default is None), optional
-        List of sources where the CRS is available. This is used to determine 
-        which source to pull threshold data from if multiple sources are available. 
+        List of sources where the CRS is available. This is used to determine
+        which source to pull threshold data from if multiple sources are available.
         The default is None (source CRS availability is not considered).
 
     Returns
@@ -1118,7 +1118,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all', source_c
                 for index, i in enumerate(thresholds_info)
             }
             
-            # If projection source info isn't provided (or no valid projections were found so the list is blank), 
+            # If projection source info isn't provided (or no valid projections were found so the list is blank),
             # just pick the threshold data based on threshold availability
             if len(source_crs_availability) == 0:
 
@@ -1140,8 +1140,8 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all', source_c
                     threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
 
                 # If there isn't a match between source_crs_availability and rating_sources, just get threshold data
-                # based on availability with NRLDB as priority over USGS (same as above logic). 
-                # The site will probably error out down the line. 
+                # based on availability with NRLDB as priority over USGS (same as above logic).
+                # The site will probably error out down the line.
                 elif 'NRLDB' in rating_sources:
                     threshold_data = thresholds_info[rating_sources['NRLDB']]
 
