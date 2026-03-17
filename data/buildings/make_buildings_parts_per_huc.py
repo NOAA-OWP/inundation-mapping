@@ -4,6 +4,7 @@ import argparse
 import os
 import re
 import shutil
+import time
 import traceback
 from itertools import zip_longest
 from pathlib import Path
@@ -38,6 +39,7 @@ def make_building_parts_per_huc(
     number_jobs: int = 8,
     row_group_chunk_size: int = 3,
 ):
+    start_time = time.perf_counter()
     selected_states = {s.upper() for s in (states or [])}
     if row_group_chunk_size < 1:
         raise ValueError("row_group_chunk_size must be >= 1.")
@@ -105,6 +107,12 @@ def make_building_parts_per_huc(
 
     print("✅ Done.")
     print("Outputs:", out_dir.resolve())
+    total_seconds = int(round(time.perf_counter() - start_time))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    elapsed_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    file_logger.info(f"Total runtime: {elapsed_time}")
+    print(f"Total runtime: {elapsed_time}")
 
 
 def get_crs_of_state(state: str) -> str:
@@ -160,7 +168,7 @@ def load_hucs_by_crs(
       huc_root/<HUC8>/wbd_buffered.gpkg
     """
     if not current_preclip_directory.exists():
-        raise RuntimeError(f"Prclip directory does not exist: {current_preclip_directory}")
+        raise RuntimeError(f"Preclip directory does not exist: {current_preclip_directory}")
 
     huc_dirs = sorted(
         p for p in current_preclip_directory.iterdir() if p.is_dir() and re.compile(r"^\d{8}$").match(p.name)
