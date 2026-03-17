@@ -11,7 +11,7 @@ import requests
 import urllib3
 from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
-from tools_shared_functions import aggregate_wbd_hucs, get_metadata, get_thresholds, get_datum
+from tools_shared_functions import aggregate_wbd_hucs, get_datum, get_metadata, get_thresholds
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3.util.retry import Retry
 
@@ -475,7 +475,7 @@ def load_site_thresholds(threshold_file, lid):
 def check_metadata_CRS_availability(output_meta_list):
     '''
     Iterate down the output meta list to see what projections are available for each site
-    and create an output dictionary that has the NWS LID as the key and the preferred data 
+    and create an output dictionary that has the NWS LID as the key and the preferred data
     source (NRLDB or USGS) as the value. This will be used to create a source preference list
     for the get_thresholds function.
 
@@ -519,7 +519,7 @@ def check_metadata_CRS_availability(output_meta_list):
         '1929 NGV',
         '1929 NGVD',
         'NA 1927',
-        'NAVD27'
+        'NAVD27',
     ]
     nad83_misspellings = [
         'NAD 1983',
@@ -544,7 +544,7 @@ def check_metadata_CRS_availability(output_meta_list):
         'NAVD-88',
         'NAD88',
         'NAD87',
-        'NAD893'
+        'NAD893',
     ]
 
     acceptable_horizontal_projections = correct_spellings + nad27_misspellings + nad83_misspellings
@@ -571,7 +571,6 @@ def check_metadata_CRS_availability(output_meta_list):
         # print()  ## TEMP DEBUG
 
     return lid_source_dict
-
 
 
 def main(

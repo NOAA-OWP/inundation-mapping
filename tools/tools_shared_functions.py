@@ -1117,7 +1117,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all', source_c
                 i.get('calc_flow_values').get('rating_curve').get('source'): index
                 for index, i in enumerate(thresholds_info)
             }
-            
+
             # If projection source info isn't provided (or no valid projections were found so the list is blank),
             # just pick the threshold data based on threshold availability
             if len(source_crs_availability) == 0:
@@ -1131,7 +1131,7 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all', source_c
                 # If neither USGS or NRLDB is available, use first dictionary to get stage values.
                 else:
                     threshold_data = thresholds_info[0]
-            
+
             # If projection source info IS provided, use that alongside threshold availability to get threshold data
             else:
                 if 'NRLDB' in source_crs_availability and 'NRLDB' in rating_sources:

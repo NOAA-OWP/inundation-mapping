@@ -1714,7 +1714,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
         '1929 NGV',
         '1929 NGVD',
         'NA 1927',
-        'NAVD27'
+        'NAVD27',
     ]
 
     nad83_misspellings = [
@@ -1740,21 +1740,22 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
         'NAVD-88',
         'NAD88',
         'NAD87',
-        'NAD893'
+        'NAD893',
     ]
 
     ngvd29_misspellings = [
         'NGVD 1929',
         'NGVD,1929',
-        'NGVD OF 1929', 'NGVD',
+        'NGVD OF 1929',
+        'NGVD',
         'USGS NAD 1929',
         'NGVD1929',
-        'NGVD 29'
+        'NGVD 29',
     ]
 
     # Fix misspelled CRSs that are actually NAD27
     if datum_data['crs'] in nad27_misspellings:
-        MP_LOG.warning(f"{huc_lid_id}: Typo found in horizontal CRS, changing {datum_data['crs']} to NAD27")  
+        MP_LOG.warning(f"{huc_lid_id}: Typo found in horizontal CRS, changing {datum_data['crs']} to NAD27")
         datum_data.update(crs='NAD27')
 
         if datum_data['vcs'] != 'NGVD29':
