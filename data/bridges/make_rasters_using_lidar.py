@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import traceback
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
 from multiprocessing import Pool
@@ -33,10 +34,10 @@ def progress_bar_handler(executor_dict, desc):
             print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
 
 
-def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs):
+def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs,url_name):
     try:
         poly_wkt = poly_geo.wkt
-        las_file_path = os.path.join(output_dir, 'point_files', '%s.las' % str(osmid))
+        las_file_path = os.path.join(output_dir, 'point_files', '%s_%s.las' % (str(osmid),url_name))
 
         # based on pdal documentation, The polygon wkt can be followed by a slash ("/") and a spatial reference specification to apply to the polygon.
         my_pipe = {
@@ -105,31 +106,81 @@ def las_to_gpkg(osmid, las_path, bridges_crs):
     #  Also, 'point_source_id' are usually not reliable.  So, the only way to assign return numbers is by comparing return number and 'number of returns' as pdal is doing:
     # https://pdal.io/en/latest/stages/filters.returns.html
 
+
+    return points_gdf
+
+
+def summarize_classification_counts(points_gdf, osmid):
     classification_counts = points_gdf.groupby('classification').size().reset_index()
     classification_counts.columns = ['class_code', 'count']
-
     classification_counts['count_Percent'] = 100 * classification_counts['count'] / len(points_gdf)
     classification_counts['osmid'] = osmid
+    return classification_counts
 
-    return points_gdf, classification_counts
 
-
-def handle_noises(points_gdf):
-    # Replace non-bridge point values with the average of the nearest two bridge points (with classification codes 13 or 17_).
-
+def handle_noises(points_gdf, osmid, threshold_m=10, bridge_classes=(13, 17)):
     points_gdf.loc[:, 'x'] = points_gdf.geometry.x
     points_gdf.loc[:, 'y'] = points_gdf.geometry.y
 
     # save the original z
     points_gdf.loc[:, 'origi_z'] = points_gdf['z'].values
 
-    noise_bool = ~points_gdf['classification'].isin([17, 13])
-    points_gdf.loc[:, 'noise'] = np.where(noise_bool, 'y', 'n')
+    bridge_points = points_gdf[points_gdf['classification'].isin(bridge_classes)].copy()
+
+    if bridge_points.empty:
+        summary = pd.DataFrame(
+            [
+                {
+                    'osmid': osmid,
+                    'median_bridge_z': np.nan,
+                    'min_bridge_z': np.nan,
+                    'max_bridge_z': np.nan,
+                    'pct_bridge_points_below_threshold_removed': 0.0,
+                    'pct_bridge_points_above_threshold_removed': 0.0,
+                }
+            ]
+        )
+        return None, summary
+
+    median_bridge_z = bridge_points['origi_z'].median()
+    min_bridge_z = bridge_points['origi_z'].min()
+    max_bridge_z = bridge_points['origi_z'].max()
+    total_bridge_points = len(bridge_points)
+    lower_threshold = median_bridge_z - threshold_m 
+    upper_threshold = median_bridge_z + threshold_m 
+
+    below_threshold_mask = bridge_points['origi_z'] < lower_threshold
+    above_threshold_mask = bridge_points['origi_z'] > upper_threshold
+    is_approved_bridge = (
+        points_gdf['classification'].isin(bridge_classes)
+        & (points_gdf['origi_z'] >= lower_threshold)
+        & (points_gdf['origi_z'] <= upper_threshold)
+    )
+
+    summary = pd.DataFrame(
+        [
+            {
+                'osmid': osmid,
+                'median_bridge_z': median_bridge_z,
+                'min_bridge_z': min_bridge_z,
+                'max_bridge_z': max_bridge_z,
+                'pct_bridge_points_below_threshold_removed': 100
+                * float(below_threshold_mask.sum())
+                / total_bridge_points,
+                'pct_bridge_points_above_threshold_removed': 100
+                * float(above_threshold_mask.sum())
+                / total_bridge_points,
+            }
+        ]
+    )
+
+    points_gdf.loc[:, 'noise'] = np.where(is_approved_bridge, 'n', 'y')
+
 
     non_noises = points_gdf[points_gdf['noise'] == 'n']
     noises = points_gdf[(points_gdf['noise'] == 'y')]
     if len(non_noises) / len(points_gdf) < 0.05:  # if there is few class 13 and 17
-        return None
+        return None, summary
 
     # # Create KDTree using x and y coordinates of non-noise points across all classes
     tree = KDTree(non_noises[['x', 'y']])
@@ -143,7 +194,7 @@ def handle_noises(points_gdf):
 
     modified_points_gdf = pd.concat([noises, non_noises])
 
-    return modified_points_gdf
+    return modified_points_gdf, summary
 
 
 def make_local_tifs(modified_las_path, raster_resolution, bridges_crs, tif_path):
@@ -196,16 +247,38 @@ def make_lidar_footprints(bridges_crs):
     return entwine_footprints_gdf
 
 
-def make_rasters_in_parallel(osmid, points_path, output_dir, raster_resolution, bridges_crs):
+def make_rasters_in_parallel(osmid, points_paths, output_dir, raster_resolution, bridges_crs):
     try:
+        all_points_gdfs = []
+        for points_path in points_paths:
+            points_gdf = las_to_gpkg(osmid, points_path, bridges_crs)
+            if not points_gdf.empty:
+                points_gdf = points_gdf.copy()
+                points_gdf['source_las'] = os.path.basename(points_path)
+                all_points_gdfs.append(points_gdf)
 
-        # #make a gpkg file from points
-        points_gdf, classification_counts = las_to_gpkg(osmid, points_path, bridges_crs)
+        if not all_points_gdfs:
+            logging.info("No points available for osmid: %s" % str(osmid))
+            print("No points available for osmid: %s" % str(osmid))
+            return
+
+        points_gdf = gpd.GeoDataFrame(
+            pd.concat(all_points_gdfs, ignore_index=True), crs=bridges_crs
+        )
+        classification_counts = summarize_classification_counts(points_gdf, osmid)
+        modified_points_gdf, elevation_filter_summary = handle_noises(points_gdf, osmid)
+
+        merged_points_path = os.path.join(output_dir, 'point_files', '%s.gpkg' % osmid)
+        points_gdf.to_file(merged_points_path, driver='GPKG')
 
         if not points_gdf.empty:
-            modified_points_gdf = handle_noises(points_gdf)
             if modified_points_gdf is None:
-                return
+                logging.info("No approved for osmid: %s" % str(osmid))
+                print("No No approved for osmid: %s" % str(osmid))
+                return {
+                    'classification_counts': classification_counts,
+                    'elevation_filter_summary': elevation_filter_summary,
+                }
 
             # make a las file for subsequent pdal pipeline
             modified_las_path = os.path.join(output_dir, 'point_files', '%s_modified.las' % osmid)
@@ -221,7 +294,7 @@ def make_rasters_in_parallel(osmid, points_path, output_dir, raster_resolution, 
             logging.info("No points available for osmid: %s" % str(osmid))
             print("No points available for osmid: %s" % str(osmid))
 
-        return classification_counts
+        return {'classification_counts': classification_counts, 'elevation_filter_summary': elevation_filter_summary}
 
     except Exception as e:
         error_message = f"Error processing {osmid}: {str(e)}"
@@ -293,6 +366,7 @@ def process_bridges_lidar_data(
         print(text)
         logging.info(text)
         entwine_footprints_gdf = make_lidar_footprints(bridges_crs)
+        entwine_footprints_gdf.to_file(os.path.join(output_dir, 'entwine_footprints.gpkg'))
 
         # intersect with lidar urls
         text = 'Identify USGS/Entwine lidar URLs for intersecting with each bridge polygon'
@@ -302,9 +376,6 @@ def process_bridges_lidar_data(
 
         OSM_polygons_gdf.to_file(os.path.join(output_dir, 'buffered_bridges.gpkg'))
 
-        # filter if there are multiple urls for a bridge, keep the url with highest count
-        OSM_polygons_gdf = OSM_polygons_gdf.loc[OSM_polygons_gdf.groupby('osmid')['count'].idxmax()]
-        OSM_polygons_gdf = OSM_polygons_gdf.reset_index(drop=True)
 
         text = f'download last-return lidar points within each bridge polygon from the identified URLs using {job_number_lidar} processors'
         print(text)
@@ -316,7 +387,7 @@ def process_bridges_lidar_data(
 
         with ProcessPoolExecutor(max_workers=job_number_lidar) as executor:
             for i, row in OSM_polygons_gdf.iterrows():
-                osmid, poly_geo, lidar_url = row.osmid, row.geometry, row.url
+                osmid, poly_geo, lidar_url, url_name = row.osmid, row.geometry, row.url, row['name']
 
                 download_lidar_args = {
                     'osmid': osmid,
@@ -324,6 +395,7 @@ def process_bridges_lidar_data(
                     'lidar_url': lidar_url,
                     'output_dir': output_dir,
                     'bridges_crs': bridges_crs,
+                    'url_name':url_name
                 }
 
                 try:
@@ -344,16 +416,21 @@ def process_bridges_lidar_data(
         print(text)
         logging.info(text)
         downloaded_points_files = glob.glob(os.path.join(output_dir, 'point_files', '*.las'))
+        osmid_to_points_paths = defaultdict(list)
+
+        for points_path in downloaded_points_files:
+            points_file_name = os.path.basename(points_path)
+            osmid = points_file_name.split('_', 1)[0]
+            osmid_to_points_paths[osmid].append(points_path)
 
         executor_dict = {}
 
         with ProcessPoolExecutor(max_workers=job_number_raster) as executor:
-            for points_path in downloaded_points_files:
-                osmid = os.path.basename(points_path).split('.las')[0]
+            for osmid, points_paths in osmid_to_points_paths.items():
 
                 make_rasters_args = {
                     'osmid': osmid,
-                    'points_path': points_path,
+                    'points_paths': sorted(points_paths),
                     'output_dir': output_dir,
                     'raster_resolution': raster_resolution,
                     'bridges_crs': bridges_crs,
@@ -361,7 +438,7 @@ def process_bridges_lidar_data(
 
                 try:
                     future = executor.submit(make_rasters_in_parallel, **make_rasters_args)
-                    executor_dict[future] = points_path  # Store task association
+                    executor_dict[future] = osmid  # Store task association
                 except Exception as ex:
                     summary = traceback.StackSummary.extract(traceback.walk_stack(None))
                     print(f"*** {ex}")
@@ -374,10 +451,13 @@ def process_bridges_lidar_data(
             progress_bar_handler(executor_dict, "Processing Rasters")
 
         # Collect results
-        list_of_classification_results = [future.result() for future in executor_dict]
+        raster_results = [future.result() for future in executor_dict]
 
         # filter None which are for the cases when no raster is created
-        list_of_classification_results = [df for df in list_of_classification_results if df is not None]
+        raster_results = [result for result in raster_results if result is not None]
+
+        list_of_classification_results = [result['classification_counts'] for result in raster_results]
+        elevation_filter_summaries = [result['elevation_filter_summary'] for result in raster_results]
 
         if list_of_classification_results:
             # Combine results into a DataFrame
@@ -389,6 +469,12 @@ def process_bridges_lidar_data(
         else:
             logging.info('No Raster file was created.')
             print('No Raster file was created.')
+
+        if elevation_filter_summaries:
+            elevation_filter_summary_df = pd.concat(elevation_filter_summaries, ignore_index=True)
+            elevation_filter_summary_df.to_csv(
+                os.path.join(output_dir, 'bridge_elevation_filter_summary.csv'), index=False
+            )
 
         # Record run time
         end_time = datetime.now(timezone.utc)
