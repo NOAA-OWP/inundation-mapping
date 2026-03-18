@@ -37,8 +37,6 @@ AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
 # Revisit with an alternative acquisition method.
 
 
-
-
 # Dissolve touching lines
 def find_touching_groups(gdf, file_logger, screen_queue, task_id):
     # Create a graph
@@ -190,7 +188,9 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
         )
 
         if gdf1.empty:
-            file_logger.warning(f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering")
+            file_logger.warning(
+                f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering"
+            )
             screen_queue.put(f"osmnx pull for {huc_num} returned no linear bridge geometries after filtering")
             return 1, [True]
 
@@ -330,7 +330,9 @@ def single_huc_job(huc_num, huc_boundary_path, output_folder, file_logger, scree
         huc_gpd_projected = huc_gpd.to_crs(pyproj.CRS.from_string("EPSG:4326"))
         huc_geom = huc_gpd_projected.iloc[0]["geometry"]
         huc_bridge_file = os.path.join(output_folder, f"huc_{huc_num}_osm_bridges.gpkg")
-        return pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, screen_queue, task_id)
+        return pull_osm_features_by_huc(
+            huc_bridge_file, huc_num, huc_geom, file_logger, screen_queue, task_id
+        )
 
     except Exception:
         screen_queue.put("---------------")
