@@ -36,10 +36,6 @@ def label_data_file(label, lst_hucs):
     label_data_file("survey", ["HUC1"])  -> "_survey_subset_20251206"
     label_data_file("", ["all"])        -> "_20251206"
 
-
-    Rob: maybe a few more notes what this is function is doing. :)
-    Maybe some output examples?
-
     '''
 
     # If a list of HUCs is provided, add 'subset' to the label
@@ -161,35 +157,36 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
 
     Parameters
     ----------
-    thresholds_filepath - str
+    thresholds_filepath - STR
         filepath where output files will be saved
-    threshold_url - str
+    threshold_url - STR
         URL of the WRDS API endpoint for thresholds
-    huc_lid_dict - dict
+    huc_lid_dict - DICT
         dictionary mapping LIDs to HUCs
-    lid_source_dict - dict
+    lid_source_dict - DICT
         dictionary with NWS LID as key and list of available data sources (NRLDB, USGS Rating Depot)
         as value. This is used to create a source preference list for the get_thresholds function.
         If there is no projection available for either source, the value will be an empty list.
 
     Returns
     -------
-    messages - list
+    messages - LIST OF STRING
         List of messages indicating the progress and results of the download
 
     Outputs
     -------
     Saves a combined pickle file 'all_thresholds.pkl' containing all thresholds.
 
-    Notes 
+    Notes
     -----
     The output is saved as a pickle file instead of CSV becuase that is the file type we
     chose for saving the metadata. The metadata is a list of dictionaries, which is not easily
     saved as a CSV file. To keep the file types consistent, we are saving the thresholds
     as a pickle file as well.
 
-    Example usage:
-        messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
+    Example
+    -------
+    messages = download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict)
 
     '''
     messages = []
@@ -254,7 +251,6 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
     return messages
 
 
-
 def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download):
     '''
     Downloads or reads in the NWM metadata and then returns the data as a list and a HUC dictionary.
@@ -269,40 +265,50 @@ def load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download
 
     2. Uses the NWM metadata to create a huc/lid dictionary.
 
-    Args:
-        metadata_filepath (str) : Filepath where the metadata pickle is or will be stored. If it does not exist,
-                                it will be created. If it does exist and metadata_download is True, it will be overwritten.
-        API_BASE_URL (str) : WRDS API URL for retrieving NWM metadata.
-        search (int) : Distance for upstream and downstream metadata search.
-        metadata_download (bool) : Whether metadata should be downloaded (True) or not (False)
+    Parameters
+    -----------
+    metadata_filepath - STR
+        Filepath where the metadata pickle is or will be stored. If it does not exist,
+        it will be created. If it does exist and metadata_download is True, it will be overwritten.
+    API_BASE_URL - STR
+        WRDS API URL for retrieving NWM metadata.
+    search - INT
+        Distance for upstream and downstream metadata search.
+    metadata_download - BOOL
+        Whether metadata should be downloaded (True) or not (False)
 
-    Returns:
-        - output_meta_list (list) : Filtered list of metadata dictionaries, each representing a unique NWS LID site.
-        - huc_lid_dict (dict) : dictionary mapping LIDs to HUCs.
+    Returns
+    --------
+    output_meta_list - LIST of DICT
+        Filtered list of metadata dictionaries, each representing a unique NWS LID site.
+    huc_lid_dict - DICT
+        dictionary mapping LIDs to HUCs.
             ie) a dictionary [('00BRD', '18060005'), ('AANG1', '03130001'), ...]
                 - Sorted by upper case site ids.
                 - May contain test or invalid sites at this point. Calling code can sort that out.
-        - messages (list of string) : Logging (because print statements won't show up in CatFIM.)
+    messages - LIST of STRING
+         List of messages indicating the progress and results of the metadata loading process.
 
-    Example usage:
-
+    Example
+    --------
     output_meta_list, huc_lid_dict, messages = load_nwm_metadata(
         metadata_filepath, API_BASE_URL, search, metadata_download
     )
 
-    NOTES:
-       - If this function finds warning data, it will include the phrase (case-senstive) "WARNING"
-         and same is true for "ERROR". Error means that the calling script can decide if it wants to shut down
-         log it, continue, etc.
-         It is also possible that you might get multiple messages returned in the "messages" list and some
-         may be warnings, others just messages. Could be a mix and match returned.
-         If something catestrophic happens, this function will thrown an exception.
+    NOTES
+    ------
+    - If this function finds warning data, it will include the phrase (case-senstive) "WARNING"
+        and same is true for "ERROR". Error means that the calling script can decide if it wants to shut down
+        log it, continue, etc.
+        It is also possible that you might get multiple messages returned in the "messages" list and some
+        may be warnings, others just messages. Could be a mix and match returned.
+        If something catestrophic happens, this function will thrown an exception.
 
-        - This function does not filter by HUC list because the HUC information in the metadata is not
-         complete and we get more sites by pulling all metadata and then filtering by lat/long intersection
-         with the WBD later (aggregate_wbd_hucs). If we filter by HUC list here, we will miss a lot of sites
-         that do not have the HUC information in the metadata but are still in the WBD polygons for the HUCs
-         we want to process.
+    - This function does not filter by HUC list because the HUC information in the metadata is not
+        complete and we get more sites by pulling all metadata and then filtering by lat/long intersection
+        with the WBD later (aggregate_wbd_hucs). If we filter by HUC list here, we will miss a lot of sites
+        that do not have the HUC information in the metadata but are still in the WBD polygons for the HUCs
+        we want to process.
 
     '''
     output_meta_list = []
@@ -360,24 +366,24 @@ def load_site_thresholds(threshold_file, lid):
     '''
     Loads threshold stage and flow data for a given site (LID) from a local pickle file.
 
-    Parameters:
+    Parameters
     ----------
-        threshold_file -  STR 
-            Path to the local pickle file containing threshold data.
-        lid -  STR 
-            NWS site ID (LID) for which to load thresholds.
+    threshold_file -  STR
+        Path to the local pickle file containing threshold data.
+    lid -  STR
+        NWS site ID (LID) for which to load thresholds.
 
-    Returns:
+    Returns
     --------
-        stages -  DICT or None
-            Dictionary of stage thresholds for the site, or None if not found.
-        flows -  DICT or None
-            Dictionary of flow thresholds for the site, or None if not found.
-        messages -  LIST OF STRING 
-            Status print messages.
+    stages -  DICT or None
+        Dictionary of stage thresholds for the site, or None if not found.
+    flows -  DICT or None
+        Dictionary of flow thresholds for the site, or None if not found.
+    messages -  LIST of STRING
+        Status print messages.
 
-    Example:
-    -------------
+    Example
+    -------
     stages, flows, messages = load_site_thresholds('path/to/thresholds.pkl', 'FLOX1')
 
     '''
@@ -432,13 +438,14 @@ def check_metadata_CRS_availability(output_meta_list):
         List of dictionaries containing metadata for each NWM site. (From get_metadata function.)
 
     Returns
-    ----------
-    lid_source_dict - DICT     
+    --------
+    lid_source_dict - DICT
         Dictionary with NWS LID as key and list of available data sources (NRLDB, USGS Rating Depot) as value.
         If there is no projection available for either source, the value will be an empty list.
 
 
-    Example usage:
+    Example
+    --------
     lid_source_dict = check_metadata_CRS_availability(output_meta_list)
 
     '''
@@ -533,6 +540,13 @@ def main(
     threshold_download,
     input_metadata_file,
 ):
+    '''
+    Run download_process_wrds.py independently. This function will becalled by the
+    command line interface at the bottom of this script.
+
+
+
+    '''
 
     overall_start_time = datetime.now(timezone.utc)
     dt_string = overall_start_time.strftime("%m/%d/%Y %H:%M:%S")
@@ -548,9 +562,7 @@ def main(
     WBD_LAYER = os.getenv("WBD_LAYER")
 
     if API_BASE_URL is None:
-        raise ValueError(
-            f'API base url not found. Ensure the .env file ({env_file}) has the API_BASE_URL.'
-        )
+        raise ValueError(f'API base url not found. Ensure the .env file ({env_file}) has the API_BASE_URL.')
     
     if WBD_LAYER is None and threshold_download == True:
         raise ValueError(
@@ -571,7 +583,7 @@ def main(
     elif metadata_download == True and threshold_download == False:
         print('Only metadata will be saved.')
     elif threshold_download == True and metadata_download == False:
-        print('Only threshold data will be saved.') 
+        print('Only threshold data will be saved.')
         # For this setup, a valid metadata pkl file must be provided (check will occur for this later on)
 
     # Format HUC list
@@ -594,16 +606,14 @@ def main(
     # If metadata filepath is provided, use it
     else:
         metadata_filepath = input_metadata_file
-    
+
     print("Begin loading metadata...")
     if metadata_download == True:
         print("Metadata will be downloaded from WRDS, could take around 10 minutes.")
     print(f"Metadata filepath: {metadata_filepath}.")
 
     # Load NWM metadata (either by loading file or downloading from WRDS)
-    output_meta_list, messages = load_nwm_metadata(
-        metadata_filepath, API_BASE_URL, search, metadata_download
-    )
+    output_meta_list, messages = load_nwm_metadata(metadata_filepath, API_BASE_URL, search, metadata_download)
 
     for msg in messages:
         print(msg)
@@ -613,10 +623,12 @@ def main(
 
     # Load thresholds if specified
     if threshold_download == True:
-    
+
         # Get the HUC dictionary
         print('Getting HUC information from the metadata using the WBD layer...')
-        huc_lid_dict, nwm_sites_all_gdf = aggregate_wbd_hucs(output_meta_list, WBD_LAYER, retain_attributes=True)
+        huc_lid_dict, nwm_sites_all_gdf = aggregate_wbd_hucs(
+            output_meta_list, WBD_LAYER, retain_attributes=True
+        )
 
         # Filter huc_lid_dict to only include HUCs in huc_lst
         if 'all' not in lst_hucs:
@@ -635,7 +647,7 @@ def main(
         thresholds_filepath = os.path.join(output_folder, output_thresholds_filename)
 
         print(f"Thresholds will be downloaded for sites in {len(huc_lid_dict)} HUCs")
-    
+
         # Get a dictionary of which sources have valid CRS's for each site
         lid_source_dict = check_metadata_CRS_availability(output_meta_list)
 
@@ -664,55 +676,50 @@ def main(
 if __name__ == '__main__':
     '''
 
-    Arguments:
-    -----------
-    -m, --metadata-download (Optional) - Whether to create the metadata.pkl file.
-                                Must have at least one of -m or -t provided.
+    Arguments
+    ---------
+    -m, --metadata-download (Optional)
+        Whether to create the metadata.pkl file. Must have at least one of -m or -t provided.
 
-    -t, --threshold-download (Optional) - Whether to create the thresholds.pkl file.
-                                Must have at least one of -m or -t provided.
+    -t, --threshold-download (Optional)
+        Whether to create the thresholds.pkl file. Must have at least one of -m or -t provided.
 
-    -lh, --lst-hucs (Optional) - Space-delimited list of HUCs for which to download
-                                thresholds (e.g. '12090301 19020301').
-                                Defaults to all HUCs if no list is provided.
-                                Note: Only limits the thresholds downloaded, all
-                                metadata will stil be downloaded.
-    
-    -mf, --input-metadata-file (Optional) - Input metadata file to use for pulling
-                                thresholds. Will error if -m flag is also used (must
-                                be used with -t flag).
+    -lh, --lst-hucs (Optional)
+        Space-delimited list of HUCs for which to download thresholds (e.g. '12090301 19020301').
+        Defaults to all HUCs if no list is provided.
+        Note: Only limits the thresholds downloaded, all metadata will stil be downloaded.
 
-    -e, --env-file (Optional) - Docker mount filepath to the environment file.
-                                Default is /data/config/fim_enviro_values.env
+    -mf, --input-metadata-file (Optional)
+        Input metadata file to use for retrieving thresholds. If -metadata-download is also set to
+        True, the metadata will be downloaded and saved to this filepath.
 
-    -w, --output-folder (Optional) - Folder where all outputs will be saved.
-                                Default is /data/inputs/wrds/
+    -e, --env-file (Optional)
+        Docker mount filepath to the environment file. Default is /data/config/fim_enviro_values.env
 
-    -l, --label (Optional) - Label for to add additional info to filenames.
-                                Stucture will be metadata_<label>_yyyymmdd.pkl
-                                and thresholds_<label>_yyyymmdd.pkl).
-                                Default is empty string, which will just give you
-                                metadata_yyyymmdd.pkl and thresholds_yyyymmdd.pkl.
+    -w, --output-folder (Optional)
+        Folder where all outputs will be saved. Default is /data/inputs/wrds/
 
-    -s, --search (Optional) - Upstream and downstream search in miles.
-                                Defaults to 5 if no number is provided.
+    -l, --label (Optional)
+        Label for to add additional info to filenames. Stucture will be metadata_<label>_yyyymmdd.pkl
+        and thresholds_<label>_yyyymmdd.pkl). Default is empty string, which will just give you
+        metadata_yyyymmdd.pkl and thresholds_yyyymmdd.pkl.
 
-    Run examples:
+    -s, --search (Optional)
+        Upstream and downstream search in miles. Defaults to 5 if no number is provided.
 
-    - Download BOTH metadata and thresholds for specific HUCs and a custom output folder
+    Examples
+    --------
 
+    Download BOTH metadata and thresholds for specific HUCs and a custom output folder
         python /foss_fim/data/wrds/download_process_wrds.py -m -t -lh "12090301 19020301" -w '/data/catfim/emily_test'
 
-    - Download metadata ONLY for specific HUCs
-
+    Download metadata ONLY for specific HUCs
         python /foss_fim/data/wrds/download_process_wrds.py -m
 
-    - Download thresholds ONLY (must use an existing metadata file
-
+    Download thresholds ONLY (must use an existing metadata file)
         python /foss_fim/data/wrds/download_process_wrds.py -t -mf "path/to/metadata.pkl"
 
-    - Download BOTH thresholds and metadata and specify a custom output folder, label, search distance, and HUC list
-
+    Download BOTH thresholds and metadata and specify a custom output folder, label, search distance, and HUC list
         python /foss_fim/data/wrds/download_process_wrds.py -m -t -w "/custom/output/folder" -l "my_label" -s 10 -lh "12090301 19020301"
 
     '''
@@ -784,7 +791,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-mf',
         '--input-metadata-file',
-        help="OPTIONAL: Input metadata file to use for pulling thresholds. Will error if -m flag is also used.",
+        help="OPTIONAL: Input metadata file to use for pulling thresholds.",
         required=False,
         default='',
     )

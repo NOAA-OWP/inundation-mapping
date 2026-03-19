@@ -329,9 +329,8 @@ def process_generate_categorical_fim(
 
     # Load NWM metadata (either by downloading it or pulling it from WRDS)
     # Note: This is the function that we will put into CatFIM code
-    output_meta_list, messages = load_nwm_metadata(
-        nwm_meta_file, API_BASE_URL, search, get_new_meta_data
-    )
+    output_meta_list, messages = load_nwm_metadata(nwm_meta_file, API_BASE_URL, search, get_new_meta_data)
+
     for message in messages:
         FLOG.lprint(message)
 
