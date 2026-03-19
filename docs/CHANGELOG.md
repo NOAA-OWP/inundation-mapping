@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+
+## v4.x.x.x - 2026-xx-xx - [PR#1694](https://github.com/NOAA-OWP/inundation-mapping/pull/1694)
+
+This PR fixes the AREASQKM issue in HydroTables and SRC tables. 
+
+### Changes
+
+- `/src/make_stages_and_catchlist.py` : Merging issue was fixed in the make_stages_and_catchlist function. 
+
+<br/>
+
 ## v4.9.10.8 - 2026-03-13 - [PR#1771](https://github.com/NOAA-OWP/inundation-mapping/pull/1771)
 
 This is a quick tool that can remove selected folders from an s3 bucket using a provided list.
