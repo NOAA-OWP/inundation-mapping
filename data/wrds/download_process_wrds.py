@@ -1,26 +1,12 @@
 #!/usr/bin/env python3
 import argparse
-import json
 import os
 import pickle
-import sys
 from datetime import date, datetime, timezone
-
 import pandas as pd
-import requests
-import urllib3
 from dotenv import load_dotenv
-from requests.adapters import HTTPAdapter
 from tools_shared_functions import aggregate_wbd_hucs, get_datum, get_metadata, get_thresholds
-from urllib3.exceptions import InsecureRequestWarning
-from urllib3.util.retry import Retry
 
-
-# TODO: We have both prints and msgs added to the messages list. We need to rethink this
-# as catfim needs to iterate all messages coming back and log them. With prints
-# and messages, they screen shows everythign twice.
-# Check all functions for this problem. And how do we handle this for runnign this tool
-# at command line versus CatFIM. Maybe an arg for show pritns or create messages?
 
 
 def label_data_file(label, lst_hucs):
@@ -149,7 +135,6 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
 
     msg = f'Total number of unique LIDs: {len(unique_lids_list)}'
     messages.append(msg)
-    # print(msg)
 
     try:
         with open(metadata_filepath, "wb") as p_handle:
@@ -157,12 +142,10 @@ def download_all_metadata(metadata_filepath, metadata_url, search):
 
         msg = f"New metadata file saved at {metadata_filepath}"
         messages.append(msg)
-        # print(msg)
 
     except Exception as e:
         msg = f"Error saving meta data pickle file {metadata_filepath}: {e}"
         messages.append(msg)
-        # print(msg)
         raise (e)
 
     return messages
@@ -234,10 +217,7 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
             except Exception as e:
                 msg = f"Unable to retrieve thresholds for LID {lid}, exception occurred: {e}"
                 messages.append(msg)
-                # print(msg)
-
                 messages.append(status)
-                # print(status)
                 continue
 
             # Combine and label thresholds
@@ -260,18 +240,15 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
 
         msg = f"Thresholds file saved at {thresholds_filepath}"
         messages.append(msg)
-        # print(msg)
 
     except Exception as e:
         msg = f"Error saving pickle file {thresholds_filepath}: {e}"
         messages.append(msg)
-        # print(msg)
         raise (e)
 
     thresholds_end_time = datetime.now(timezone.utc)
     thresholds_duration = thresholds_end_time - thresholds_start_time
     messages.append(f"Finished downloading thresholds - Duration: {str(thresholds_duration).split('.')[0]}")
-    # print()
 
     # TODO: Why not return the dataset as well?
     return messages
@@ -385,16 +362,21 @@ def load_site_thresholds(threshold_file, lid):
 
     Parameters:
     ----------
-        threshold_file (str): Path to the local pickle file containing threshold data.
-        lid (str): NWS Location Identifier (LID) for the site.
+        threshold_file -  STR 
+            Path to the local pickle file containing threshold data.
+        lid -  STR 
+            NWS site ID (LID) for which to load thresholds.
 
     Returns:
     --------
-        stages (dict): Dictionary of stage thresholds for the site, or None if not found.
-        flows (dict): Dictionary of flow thresholds for the site, or None if not found.
-        messages (list of string): Status print messages.
+        stages -  DICT or None
+            Dictionary of stage thresholds for the site, or None if not found.
+        flows -  DICT or None
+            Dictionary of flow thresholds for the site, or None if not found.
+        messages -  LIST OF STRING 
+            Status print messages.
 
-    Example usage:
+    Example:
     -------------
     stages, flows, messages = load_site_thresholds('path/to/thresholds.pkl', 'FLOX1')
 
@@ -412,7 +394,6 @@ def load_site_thresholds(threshold_file, lid):
         if site_data.empty:
             msg = f"No threshold data found for LID {lid} in the provided threshold file."
             messages.append(msg)
-            print(msg)
             return stages, flows, messages
 
         # Make output dictionaries for stages and flows
@@ -429,12 +410,11 @@ def load_site_thresholds(threshold_file, lid):
         # msg = f"Stages for LID {lid}: {stages}; Flows for LID {lid}: {flows}"  # DEBUG
         # messages.append(msg)  # DEBUG
         # print(msg)  # DEBUG
-        print('Thresholds loaded from .pkl file.')  # TODO: maybe print the number of thresholds avail?
+        # print('Thresholds loaded from .pkl file.')  # TODO: maybe print the number of thresholds avail?
 
     else:
         msg = f'Threshold file not found at {threshold_file}, unable to load thresholds for site {lid}.'
         messages.append(msg)
-        print(msg)
 
     return stages, flows, messages
 
