@@ -4,6 +4,7 @@ import argparse
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 
 
 gpd.options.io_engine = "pyogrio"
@@ -28,18 +29,31 @@ def make_stages_and_catchlist(
     stages_max = stages_max + stages_interval
     stages = np.round(np.arange(stages_min, stages_max, stages_interval), 4)
 
-    hydroIDs = flows['HydroID'].tolist()
+    try:
+        # areasqkm = catchments['areasqkm'].tolist()
+        mergedflows_catchments = flows.merge(
+            catchments[['HydroID', 'areasqkm']],
+            on='HydroID',
+            how='left',  # or 'inner' depending on what you want
+        )
+    except KeyError:
+        areasqkm = (catchments['geometry'].area / 10**6).tolist()
+        hydroIDs = catchments['HydroID'].tolist()
+        areasqkm_df = pd.DataFrame([hydroIDs, areasqkm], columns=['HydroID', 'areasqkm'])
+        mergedflows_catchments = flows.merge(areasqkm_df[['HydroID', 'areasqkm']], on='HydroID', how='left')
+
+    hydroIDs = mergedflows_catchments['HydroID'].tolist()
     len_of_hydroIDs = len(hydroIDs)
-    slopes = flows['S0'].tolist()
-    lengthkm = flows['LengthKm'].tolist()
+    slopes = mergedflows_catchments['S0'].tolist()
+    lengthkm = mergedflows_catchments['LengthKm'].tolist()
+    areasqkm = mergedflows_catchments['areasqkm'].tolist()
+
+    # hydroIDs = flows['HydroID'].tolist()
+    # len_of_hydroIDs = len(hydroIDs)
+    # slopes = flows['S0'].tolist()
+    # lengthkm = flows['LengthKm'].tolist()
 
     del flows
-
-    try:
-        areasqkm = catchments['areasqkm'].tolist()
-    except KeyError:
-        areasqkm = catchments['geometry'].area / 10**6
-
     del catchments
 
     with open(stages_filename, 'w') as f:
