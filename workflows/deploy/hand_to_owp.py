@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+
+from dotenv import load_dotenv
+
 import os
 import sys
 import time
 import traceback
 from datetime import datetime, timezone
 
-from dotenv import load_dotenv
+
 
 import data.aws.aws_shared_functions as asf
 import data.aws.s3_shared_functions as s3_sf
@@ -111,10 +114,11 @@ def __load_hand_dataset(num_jobs):
     print("")
 
     if len(search_keys) == 0:
-        logging.Error(
-            "No search patterns were found. Check the env and ensure that all variable names"
-            " for loading hand to owp files start with OWP_HAND_LOAD_PATTERN"
-        )
+        logging.Error("No search patterns were found. Check the env and ensure that all variable names for loading hand to owp files start with OWP_HAND_LOAD_PATTERN")
+
+
+    
+
 
     file_paths = s3_sf.get_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, search_keys)
     for file_path in file_paths:
