@@ -252,7 +252,7 @@ def process_generate_categorical_fim(
         # Load NWM metadata from pickle or WRDS
         # Note: We do not pass in a huc list as it can miss some sites. See notes at load_nwm_metadata
         metadata_json_list, return_msgs = dpw.load_nwm_metadata(
-            nwm_meta_file, api_base_url, search, get_new_meta_data, list()
+            nwm_meta_file, api_base_url, search, get_new_meta_data
         )
 
         # debugging # TODO: Clean up
@@ -359,6 +359,9 @@ def process_generate_categorical_fim(
 
             logging.info("Downloading threshold data from WRDS")
 
+            # Get a dictionary of which sources have valid CRS's for each site
+            lid_source_dict = dpw.check_metadata_CRS_availability(metadata_json_list)
+
             threshold_url = f'{api_base_url}/nws_threshold'
 
             # label = '' # TODO: decide on whether to keep date label
@@ -370,7 +373,7 @@ def process_generate_categorical_fim(
 
             logging.info(f'Threshold data will be saved to {thresholds_filepath}')
 
-            dpw.download_all_thresholds(thresholds_filepath, threshold_url, huc_dictionary)
+            dpw.download_all_thresholds(thresholds_filepath, threshold_url, huc_dictionary, lid_source_dict)
 
             # Currently we download all thresholds, but we could filter the huc_dictionary to 
             # only those hucs we are processing if we wanted to speed things up. TODO: Decide

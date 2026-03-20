@@ -69,10 +69,8 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     """
 
     if not log_file_dir:
-    if not log_file_dir:
         raise ValueError("log directory path can not be None or empty")
 
-    if not log_file_name_prefix:
     if not log_file_name_prefix:
         raise ValueError("log file name prefix can not be None or empty")
 
