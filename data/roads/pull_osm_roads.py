@@ -1,7 +1,20 @@
+"""
+Download road segments from OpenStreetMap (OSM) for FIM analysis.
+
+This script queries the Overpass API to download major road segments (motorway, trunk,
+primary, secondary, tertiary) for each HUC boundary. Road segments are then split by
+NWM catchment boundaries for use in flood impact (FIMpact) calculations.
+
+Important: Bridge segments (tagged with bridge=*) are explicitly EXCLUDED from the road
+downloads to prevent unrealistic flood depth calculations. Bridge segments are handled
+separately via pull_osm_bridges.py and the bridge-healing workflow.
+"""
+
 import argparse
 import http.client
 import os
 import random
+import re
 import time
 import traceback
 from datetime import datetime, timezone
@@ -26,6 +39,22 @@ DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 GUAM_CRS = os.getenv('GUAM_CRS')
 AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
+
+
+def report_road_download_status(huc_numbers, output_dir):
+    files = list(Path(output_dir).glob("roads_*.gpkg"))
+    pattern = re.compile(r"roads_(\d{8})\.gpkg")
+
+    downloaded_hucs = [pattern.match(f.name).group(1) for f in files if pattern.match(f.name)]
+
+    missing_hucs = sorted(set(huc_numbers) - set(downloaded_hucs))
+
+    if missing_hucs:
+        print("❌ Road data was not downloaded for the following HUCs:")
+        for huc in missing_hucs:
+            print(huc)
+    else:
+        print("✅ All requested HUCs have their road data downloaded.")
 
 
 def combine_hucs(output_dir):
@@ -84,13 +113,24 @@ def split_bbox(minx, miny, maxx, maxy, num_splits=4):
 
 
 def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
+    """
+    Pull road segments from OpenStreetMap for a given HUC boundary.
+
+    Note: Bridge segments (tagged with bridge=*) are explicitly excluded to prevent
+    unrealistic flood depth calculations in FIMpact analyses. Bridges are handled
+    separately via pull_osm_bridges.py and the bridge-healing workflow.
+    """
+    road_data = pd.DataFrame()
+
     minx, miny, maxx, maxy = huc_geom.bounds
     bbox_query = f"({miny},{minx},{maxy},{maxx})"
 
+    # Exclude bridge segments to prevent unrealistic flood depth calculations
+    # Bridge segments are pulled separately via pull_osm_bridges.py and handled differently
     query_template = """
     [out:json];
     (
-    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$"]{bbox};
+    way["highway"~"^motorway$|^trunk$|^primary$|^secondary$|^tertiary$"][!"bridge"]{bbox};
     );
     out body;
     >;
@@ -245,7 +285,7 @@ def single_huc_job(
     HUC_no, huc_boundary_path, split_boundary_path, output_dir, file_logger, screen_queue, task_id
 ):
     # this is basically the task function that is passed into mp run
-    file_logger.debug(f"started the process for {task_id}")
+    file_logger.info(f"started the process for {task_id}")
     try:
         huc_gpd = gpd.read_file(huc_boundary_path)
         huc_gpd_projected = huc_gpd.to_crs(pyproj.CRS.from_string("EPSG:4326"))
@@ -277,8 +317,6 @@ def single_huc_job(
 
 def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
 
-    # -------------------
-    # Validation
     if number_jobs > 3:
         print("Overpy does not seem to like more than 3 jobs. Adjusting job number down to 3.")
         number_jobs = 3
@@ -364,7 +402,10 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
             file_logger.info(f"  - {k}")
             print(f"  - {k}")
 
-    # now combine all hucs into dedicated files for CONUS,  Alaska, Guam, and Samoa roads
+    # also report which HUCs did not have any roads doanloaded for them (regardless of the reason)
+    report_road_download_status(huc_numbers, output_dir)
+
+    # now combine all downloaded hucs into dedicated files for CONUS,  Alaska, Guam, and Samoa roads
     combine_hucs(output_dir)
 
     # Record run time
@@ -392,8 +433,7 @@ if __name__ == "__main__":
     # +++++++++++++++++++++++++
     # Note: Overpass API has a system at their servers that manages the number of calls coming in from
     # all locations, not just this script. At busier times, that threshold can be lower.
-    # Exact number varies. If you submit more than 4 jobs, we will adjust it down, but
-    # also have code to do re-tries. It seems to like 3 jobs most of the time.
+    # If you submit more than 3 jobs, the code will adjust it down to 3.
     # +++++++++++++++++++++++++
 
     parser = argparse.ArgumentParser(description='Download OSM roads for all HUCs')
@@ -410,7 +450,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-j',
         '--number_jobs',
-        help='OPTIONAL: Number of (jobs) cores/processes for downloading HUC roads, default is 3. ',
+        help='OPTIONAL: Number of parallel API calls for downloading HUC roads. Default = 3, max = 3; values > 3 are reset to 3',
         required=False,
         default=3,
         type=int,

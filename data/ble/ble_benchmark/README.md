@@ -14,7 +14,7 @@ been run for the HUCs being processed.
 1. The Docker image can be run using the following command:
 ```
 docker run --rm -it -v ~/git/inundation-mapping:/foss_fim -v ~/efs/fim_data/:/data \
--v ~/efs/fim_data/fim_4_4_x_x/outputs:/outputs --name ble_benchmark dev:ble_benchmark {your docker image name}
+-v ~/efs/fim_data/hand_4_9_x_x/outputs:/outputs --name ble_benchmark dev:ble_benchmark {your docker image name}
 ```
 
 ## Usage
@@ -47,7 +47,7 @@ options:
 python /foss_fim/data/ble/ble_benchmark/create_ble_benchmark.py \
 -i /data/inputs/ble/ble_benchmark/EBFE_urls_20230608.xlsx \
 -s /data/temp/ble_benchmark \
--r /data/outputs/fim_4_3_12_0 \
+-r /data/outputs/hand_4_9_1_0 \
 -o /data/test_cases/ble_test_cases/validation_data_ble \
 -n /data/inputs/nwm_hydrofabric/nwm_flows.gpkg \
 -l nwm_streams \

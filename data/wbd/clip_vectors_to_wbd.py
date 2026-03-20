@@ -75,8 +75,9 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
         coords = [(coords) for coords in list(row['geometry'].coords)]
         levelpath_outlets.at[index, 'last'] = Point(coords[-1])
 
-    wbd_buffered['geometry'] = wbd_buffered.geometry.boundary
-    wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
+    if not wbd_buffered.geometry.boundary.explode().empty:
+        wbd_buffered['geometry'] = wbd_buffered.geometry.boundary
+        wbd_buffered = gpd.GeoDataFrame(data=wbd_buffered, geometry='geometry')
 
     errors = 0
     for index, row in levelpath_outlets.iterrows():
@@ -124,7 +125,7 @@ def extend_outlet_streams(streams, wbd_buffered, wbd, landsea=None):
     streams = streams[~streams['ID'].isin(levelpath_outlets['ID'])]
     streams = pd.concat([streams, levelpath_outlets], ignore_index=True)
 
-    return streams
+    return streams, errors
 
 
 def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, copy_from_dir, copying_flags):
@@ -422,13 +423,14 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         # Subset nwm streams
         logging.info(f"Clipping NWM Streams for {huc}")
         nwm_streams = gpd.read_file(nwm_streams, mask=wbd_buffer, engine="fiona")
-        # if 'index_right' in nwm_streams.columns:
-        #     nwm_streams = nwm_streams.drop(columns=['index_right'])
+
+        if nwm_streams[nwm_streams['to'] == 0].empty:
+            nwm_streams.loc[~nwm_streams['to'].isin(nwm_streams['ID']), 'to'] = 0
 
         # NWM can have duplicate records, but appear to always be identical duplicates
         nwm_streams = nwm_streams.drop_duplicates(subset="ID", keep="first")
 
-        nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
+        nwm_streams, errors = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
 
         # Select only the streams that are outlet
         if 'index_right' in nwm_streams.columns:
@@ -446,13 +448,14 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             landsea = gpd.read_file(input_LANDSEA, mask=wbd_buffer, engine="fiona")
             if landsea.empty:
                 logging.info(f"Landsea file provided but no landsea area found within wbd_buffer for {huc}")
-                nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
+                landsea = None
             else:
                 logging.info(f"Clipping NWM Streams for {huc} to land areas")
-                nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd, landsea)
         else:
             logging.info(f"No landsea file provided, using all NWM streams for {huc}")
-            nwm_streams = extend_outlet_streams(nwm_streams, wbd_buffer, wbd)
+            landsea = None
+
+        nwm_streams, errors = extend_outlet_streams(nwm_streams, wbd_buffer, wbd, landsea)
 
         if nwm_streams.empty:
             print("No NWM stream segments within HUC " + str(huc) + " boundaries.")
@@ -467,13 +470,13 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
         outlet_ids = set(outlets['ID'].to_list() + nwm_streams[nwm_streams['to'] == 0]['ID'].to_list())
         outlets = nwm_streams[nwm_streams['ID'].isin(outlet_ids)]
 
-        outlets = outlets[~outlets['to'].isin(streams_in_wbd['ID'])]
+        outlets_temp = outlets[~outlets['to'].isin(streams_in_wbd['ID'])]
 
-        if outlets.empty:
+        if outlets_temp.empty:
             logging.warning("No streams intersect the WBD. Cannot extend outlet streams.")
             return nwm_streams
 
-        if os.path.exists(input_LANDSEA):
+        if landsea is not None:
             logging.info(f"Clipping NWM Streams for {huc} to land areas")
             nwm_streams = nwm_streams.overlay(landsea, how='difference')
 
@@ -527,6 +530,11 @@ def subset_vector_layers(huc, wbd_filename, wbd_buffer_filename, huc_directory, 
             nwm_streams_nonoutlets = nwm_streams_nonoutlets.drop(columns=['level_1_max'])
 
             nwm_streams = pd.concat([nwm_streams_nonoutlets, nwm_streams_outlets])
+
+            nwm_streams = nwm_streams.drop(
+                columns=['fimid', 'HUC8', 'fimid_left', 'HUC8_left', 'fimid_right', 'HUC8_right'],
+                errors='ignore',
+            )
 
             nwm_streams.to_file(
                 os.path.join(huc_directory, output_filenames['nwm_streams']),
