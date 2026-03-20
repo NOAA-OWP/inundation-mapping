@@ -3,7 +3,9 @@ import glob
 import json
 import logging
 import os
+import subprocess
 import sys
+import tempfile
 import traceback
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -16,14 +18,14 @@ import laspy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pdal
 import xarray as xr
 from scipy.spatial import KDTree
 from shapely.geometry import MultiPoint, Point
 from tqdm import tqdm
 
 
-osm_lidar_bad_sites = ['229091666']
+PDAL_CLI_PATH = os.environ.get("PDAL_CLI_PATH", "pdal")
+PDAL_ENV_ROOT = os.environ.get("PDAL_ENV_ROOT")
 
 
 def progress_bar_handler(executor_dict, desc):
@@ -34,10 +36,54 @@ def progress_bar_handler(executor_dict, desc):
             print('{}, {}, {}'.format(executor_dict[future], exc.__class__.__name__, exc))
 
 
-def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs,url_name):
+def run_pdal_pipeline(my_pipe):
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+        json.dump(my_pipe, temp_file)
+        temp_path = temp_file.name
+
+    try:
+        pdal_env = os.environ.copy()
+        if PDAL_ENV_ROOT:
+            pdal_env["PROJ_LIB"] = os.path.join(PDAL_ENV_ROOT, "share", "proj")
+            pdal_env["PROJ_DATA"] = os.path.join(PDAL_ENV_ROOT, "share", "proj")
+            pdal_env["GDAL_DATA"] = os.path.join(PDAL_ENV_ROOT, "share", "gdal")
+
+        result = subprocess.run(
+            [PDAL_CLI_PATH, "pipeline", temp_path], check=False, capture_output=True, text=True, env=pdal_env
+        )
+        if result.returncode != 0:
+            pipeline_summary = {
+                "stages": [stage.get("type") for stage in my_pipe.get("pipeline", [])],
+                "filename": next(
+                    (
+                        stage.get("filename")
+                        for stage in my_pipe.get("pipeline", [])
+                        if stage.get("type") == "readers.ept"
+                    ),
+                    None,
+                ),
+                "output": next(
+                    (
+                        stage.get("filename")
+                        for stage in my_pipe.get("pipeline", [])
+                        if str(stage.get("type", "")).startswith("writers.")
+                    ),
+                    None,
+                ),
+            }
+            raise RuntimeError(
+                f"PDAL pipeline failed with exit code {result.returncode}. "
+                f"stdout={result.stdout.strip()!r} stderr={result.stderr.strip()!r} "
+                f"pipeline_file={temp_path!r} pipeline_summary={json.dumps(pipeline_summary)}"
+            )
+    finally:
+        os.remove(temp_path)
+
+
+def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs, url_name):
     try:
         poly_wkt = poly_geo.wkt
-        las_file_path = os.path.join(output_dir, 'point_files', '%s_%s.las' % (str(osmid),url_name))
+        las_file_path = os.path.join(output_dir, 'point_files', '%s_%s.las' % (str(osmid), url_name))
 
         # based on pdal documentation, The polygon wkt can be followed by a slash ("/") and a spatial reference specification to apply to the polygon.
         my_pipe = {
@@ -62,11 +108,7 @@ def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs,ur
             ]
         }
 
-        # Create a PDAL pipeline object
-        pipeline = pdal.Pipeline(json.dumps(my_pipe))
-
-        # Execute the pipeline
-        pipeline.execute()
+        run_pdal_pipeline(my_pipe)
 
     except Exception as e:
         error_message = f"Error processing {osmid}: {str(e)}"
@@ -105,7 +147,6 @@ def las_to_gpkg(osmid, las_path, bridges_crs):
     # expect to have multiple points at a exact x, y with different return numbers.
     #  Also, 'point_source_id' are usually not reliable.  So, the only way to assign return numbers is by comparing return number and 'number of returns' as pdal is doing:
     # https://pdal.io/en/latest/stages/filters.returns.html
-
 
     return points_gdf
 
@@ -146,8 +187,8 @@ def handle_noises(points_gdf, osmid, threshold_m=10, bridge_classes=(13, 17)):
     min_bridge_z = bridge_points['origi_z'].min()
     max_bridge_z = bridge_points['origi_z'].max()
     total_bridge_points = len(bridge_points)
-    lower_threshold = median_bridge_z - threshold_m 
-    upper_threshold = median_bridge_z + threshold_m 
+    lower_threshold = median_bridge_z - threshold_m
+    upper_threshold = median_bridge_z + threshold_m
 
     below_threshold_mask = bridge_points['origi_z'] < lower_threshold
     above_threshold_mask = bridge_points['origi_z'] > upper_threshold
@@ -175,7 +216,6 @@ def handle_noises(points_gdf, osmid, threshold_m=10, bridge_classes=(13, 17)):
     )
 
     points_gdf.loc[:, 'noise'] = np.where(is_approved_bridge, 'n', 'y')
-
 
     non_noises = points_gdf[points_gdf['noise'] == 'n']
     noises = points_gdf[(points_gdf['noise'] == 'y')]
@@ -213,11 +253,7 @@ def make_local_tifs(modified_las_path, raster_resolution, bridges_crs, tif_path)
         ]
     }
 
-    # Create a PDAL pipeline object
-    pipeline = pdal.Pipeline(json.dumps(my_pipe))
-
-    # Execute the pipeline
-    pipeline.execute()
+    run_pdal_pipeline(my_pipe)
 
 
 def gpkg_to_las(points_gdf):
@@ -262,14 +298,9 @@ def make_rasters_in_parallel(osmid, points_paths, output_dir, raster_resolution,
             print("No points available for osmid: %s" % str(osmid))
             return
 
-        points_gdf = gpd.GeoDataFrame(
-            pd.concat(all_points_gdfs, ignore_index=True), crs=bridges_crs
-        )
+        points_gdf = gpd.GeoDataFrame(pd.concat(all_points_gdfs, ignore_index=True), crs=bridges_crs)
         classification_counts = summarize_classification_counts(points_gdf, osmid)
         modified_points_gdf, elevation_filter_summary = handle_noises(points_gdf, osmid)
-
-        merged_points_path = os.path.join(output_dir, 'point_files', '%s.gpkg' % osmid)
-        points_gdf.to_file(merged_points_path, driver='GPKG')
 
         if not points_gdf.empty:
             if modified_points_gdf is None:
@@ -294,7 +325,10 @@ def make_rasters_in_parallel(osmid, points_paths, output_dir, raster_resolution,
             logging.info("No points available for osmid: %s" % str(osmid))
             print("No points available for osmid: %s" % str(osmid))
 
-        return {'classification_counts': classification_counts, 'elevation_filter_summary': elevation_filter_summary}
+        return {
+            'classification_counts': classification_counts,
+            'elevation_filter_summary': elevation_filter_summary,
+        }
 
     except Exception as e:
         error_message = f"Error processing {osmid}: {str(e)}"
@@ -343,11 +377,8 @@ def process_bridges_lidar_data(
         logging.info(text)
         OSM_bridge_lines_gdf = gpd.read_file(OSM_bridge_file)
 
-        # make sure osmid is string to make sure it captures bad sites
+        # make sure osmid is string
         OSM_bridge_lines_gdf["osmid"] = OSM_bridge_lines_gdf["osmid"].astype(str)
-
-        # remove bad sites that can get will stuck in downloading lidar
-        OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[~OSM_bridge_lines_gdf['osmid'].isin(osm_lidar_bad_sites)]
 
         # osm file must contain osmid field
         if 'osmid' not in OSM_bridge_lines_gdf.columns:
@@ -376,7 +407,6 @@ def process_bridges_lidar_data(
 
         OSM_polygons_gdf.to_file(os.path.join(output_dir, 'buffered_bridges.gpkg'))
 
-
         text = f'download last-return lidar points within each bridge polygon from the identified URLs using {job_number_lidar} processors'
         print(text)
         logging.info(text)
@@ -395,7 +425,7 @@ def process_bridges_lidar_data(
                     'lidar_url': lidar_url,
                     'output_dir': output_dir,
                     'bridges_crs': bridges_crs,
-                    'url_name':url_name
+                    'url_name': url_name,
                 }
 
                 try:
