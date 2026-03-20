@@ -813,13 +813,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     HUC 08 layer to the GeoDataFrame. Sites that are not assigned a HUC
     code removed as well as sites in Alaska and Canada.
 
-    Note: When json is saved into a gdf and some fields have list value in the json node, geopandas, will
-    convert it to a string value which is great.  ie) 'downstream_nwm_features', value=['3763134', '3763132']
-    But sometimes when you save the gdf to gpkg it can through random errors saying: Skipping field because of invalid value.
-    ie) Skipping field because of invalid value: key='downstream_nwm_features', value=['3763134', '3763132'].
-    This is a problem in gdf.to_file and is being researched.
-
-
     Parameters
     ----------
     metadata_list: List of Dictionaries
@@ -843,24 +836,11 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     print("Reading WBD...")
     huc8_all = gpd.read_file(wbd_huc8_path, layer='WBDHU8')
     print("WBD read.")
-
-    # Some WBD's submitted came from pre-clip HUCs and do not have a name or states column
-    # Not sure anyone needs it but for now, we will just add it if we need it
-    if 'name' not in huc8_all.columns:
-        huc8_all['name'] = ""
-
-    if 'states' not in huc8_all.columns:
-        huc8_all['states'] = ""
-
     huc8 = huc8_all[['HUC8', 'name', 'states', 'geometry']]
 
     if len(huc_list) > 0:
         # filter by hucs we are using
         huc8 = huc8[huc8['HUC8'].isin(huc_list)]
-
-    # Means HUC did not exist in the WBD which is possible if someone used a huc arg.
-    if len(huc8) == 0:
-        return [], gpd.GeoDataFrame()  # empty dataframe
 
     huc8 = huc8.sort_values(by='HUC8', ascending=True)
 
@@ -870,7 +850,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     metadata_gdf = gpd.GeoDataFrame()
     # Iterate through each site
     print("Iterating through metadata list...")
-    print(f"..{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     for metadata in metadata_list:
         # Convert metadata to json
         df = pd.json_normalize(metadata)
@@ -881,17 +860,8 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             subset=['identifiers_nws_lid', 'usgs_preferred_latitude', 'usgs_preferred_longitude'],
             inplace=True,
         )
-
         # If dataframe still has data
         if not df.empty:
-
-            # nws_lid = df.iloc[0]['identifiers_nws_lid']
-
-            # if nws_lid != 'VERP4':
-            #     continue
-
-            # logging.info(f"... iterating in aggregate for nws_lid {nws_lid}")
-
             #            print(df[:5])
             # Get horizontal datum
             h_datum = df['usgs_preferred_latlon_datum_name'].item()
@@ -913,7 +883,6 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
             # Append site geodataframe to metadata geodataframe
             metadata_gdf = pd.concat([metadata_gdf, site_gdf], ignore_index=True)
 
-    print(f"..{dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     # Trim metadata to only have certain fields.
     if not retain_attributes:
         metadata_gdf = metadata_gdf[
@@ -929,7 +898,7 @@ def aggregate_wbd_hucs(metadata_list, wbd_huc8_path, retain_attributes=False, hu
     )
     joined_gdf = joined_gdf.drop(columns='index_wbd')
 
-    # Create a dictionary of HUC8[key] and nws_lid[value];  ie 12090301, blat2
+    # Create a dictionary of huc [key] and nws_lid[value]
     dictionary = joined_gdf.groupby('HUC8')['identifiers_nws_lid'].apply(list).to_dict()
 
     return dictionary, joined_gdf
@@ -1077,7 +1046,7 @@ def get_nwm_segs(metadata):
 #######################################################################
 # Thresholds
 #######################################################################
-def get_thresholds(threshold_url, select_by, selector, threshold='all'):
+def get_thresholds(threshold_url, select_by, selector, threshold='all', source_crs_availability=None):
     '''
     Get nws_lid threshold stages and flows (i.e. bankfull, action, minor,
     moderate, major). Returns a dictionary for stages and one for flows.
@@ -1092,6 +1061,10 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         Site for selection. Must be a single site.
     threshold : STR, optional
         Threshold option. The default is 'all'.
+    source_crs_availability : list or None (the default is None), optional
+        List of sources where the CRS is available. This is used to determine
+        which source to pull threshold data from if multiple sources are available.
+        The default is None (source CRS availability is not considered).
 
     Returns
     -------
@@ -1103,6 +1076,9 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
         Status of API call and data availability.
 
     '''
+    if source_crs_availability == None:
+        source_crs_availability = []
+
     params = {}
     params['threshold'] = threshold
     url = f'{threshold_url}/{select_by}/{selector}'
@@ -1141,15 +1117,38 @@ def get_thresholds(threshold_url, select_by, selector, threshold='all'):
                 i.get('calc_flow_values').get('rating_curve').get('source'): index
                 for index, i in enumerate(thresholds_info)
             }
-            # Get threshold data by source
-            # Use NRLDB if available (priority), otherwise USGS Rating Depot (switched Dec '25)
-            if 'NRLDB' in rating_sources:
-                threshold_data = thresholds_info[rating_sources['NRLDB']]
-            elif 'USGS Rating Depot' in rating_sources:
-                threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
-            # If neither USGS or NRLDB is available use first dictionary to get stage values.
+
+            # If projection source info isn't provided (or no valid projections were found so the list is blank),
+            # just pick the threshold data based on threshold availability
+            if len(source_crs_availability) == 0:
+
+                # Get threshold data by source
+                # Use NRLDB if available (priority), otherwise USGS Rating Depot (switched Dec '25)
+                if 'NRLDB' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['NRLDB']]
+                elif 'USGS Rating Depot' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
+                # If neither USGS or NRLDB is available, use first dictionary to get stage values.
+                else:
+                    threshold_data = thresholds_info[0]
+
+            # If projection source info IS provided, use that alongside threshold availability to get threshold data
             else:
-                threshold_data = thresholds_info[0]
+                if 'NRLDB' in source_crs_availability and 'NRLDB' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['NRLDB']]
+                elif 'USGS Rating Depot' in source_crs_availability and 'USGS Rating Depot' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['USGS Rating Depot']]
+
+                # If there isn't a match between source_crs_availability and rating_sources, just get threshold data
+                # based on availability with NRLDB as priority over USGS (same as above logic).
+                # The site will probably error out down the line.
+                elif 'NRLDB' in rating_sources:
+                    threshold_data = thresholds_info[rating_sources['NRLDB']]
+
+                # If neither USGS or NRLDB is available, use first dictionary to get stage values.
+                else:
+                    threshold_data = thresholds_info[0]
+
             # Get stages and flows for each threshold
             if threshold_data:
                 status_msg += "Thresholds available. "
