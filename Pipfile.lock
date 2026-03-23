@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "a55d2e01db87f858e549ad1c14c3d021e45b2863f070bb2b761aec80886f0256"
+            "sha256": "205da3d2ba6cc803c9b8b3b38f7aae6d20217b8a7d4d04dbf3ed96265047a260"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -2081,6 +2081,15 @@
             ],
             "markers": "python_version >= '3.8'",
             "version": "==1.3.1"
+        },
+        "laspy": {
+            "hashes": [
+                "sha256:5fc37a8a1a5e22c98bad4123281b55e5e41784943ca251828d72c932b167583e",
+                "sha256:eebdbf3379afbc0b24e7e4812fac567bff880d1e851f70175d22375aaecdf7e1"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.8'",
+            "version": "==2.5.4"
         },
         "lazy-loader": {
             "hashes": [
