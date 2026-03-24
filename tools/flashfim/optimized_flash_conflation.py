@@ -26,7 +26,11 @@ def optimized_flash_flow_conflation(lookup_table, timestep, output):
 
     """
 
-    lookup_table = pd.read_csv(lookup_table)
+    if isinstance(lookup_table, (str, os.PathLike)):
+        lookup_table = pd.read_csv(lookup_table)
+    elif not isinstance(lookup_table, pd.DataFrame):
+        raise ValueError("The lookup_table must be a pandas DataFrame or the path to a CSV file that can be opened as a pandas DataFrame.")
+
     lookup_table = lookup_table.dropna(subset=["coordinates"])
 
     for model in ["CREST", "SAC", "HP"]:
