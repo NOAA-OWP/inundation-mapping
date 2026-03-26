@@ -26,6 +26,7 @@ from tqdm import tqdm
 
 PDAL_CLI_PATH = os.environ.get("PDAL_CLI_PATH", "pdal")
 PDAL_ENV_ROOT = os.environ.get("PDAL_ENV_ROOT")
+PDAL_PIPELINE_TIMEOUT_SECONDS = 20 * 60
 
 
 def progress_bar_handler(executor_dict, desc):
@@ -49,7 +50,12 @@ def run_pdal_pipeline(my_pipe):
             pdal_env["GDAL_DATA"] = os.path.join(PDAL_ENV_ROOT, "share", "gdal")
 
         result = subprocess.run(
-            [PDAL_CLI_PATH, "pipeline", temp_path], check=False, capture_output=True, text=True, env=pdal_env
+            [PDAL_CLI_PATH, "pipeline", temp_path],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=pdal_env,
+            timeout=PDAL_PIPELINE_TIMEOUT_SECONDS,
         )
         if result.returncode != 0:
             pipeline_summary = {
@@ -111,7 +117,7 @@ def download_lidar_points(osmid, poly_geo, lidar_url, output_dir, bridges_crs, u
         run_pdal_pipeline(my_pipe)
 
     except Exception as e:
-        error_message = f"Error processing {osmid}: {str(e)}"
+        error_message = f"Error processing osmid={osmid}, url_name={url_name}: {str(e)}"
         print(error_message)
         logging.error(error_message)
         traceback.print_exc()
@@ -283,11 +289,21 @@ def make_lidar_footprints(bridges_crs):
     return entwine_footprints_gdf
 
 
-def make_rasters_in_parallel(osmid, points_paths, output_dir, raster_resolution, bridges_crs):
+def make_rasters_in_parallel(
+    osmid, points_paths, output_dir, raster_resolution, bridges_crs, remove_las_files=True
+):
     try:
         all_points_gdfs = []
         for points_path in points_paths:
-            points_gdf = las_to_gpkg(osmid, points_path, bridges_crs)
+            try:
+                points_gdf = las_to_gpkg(osmid, points_path, bridges_crs)
+            finally:
+                if remove_las_files:
+                    try:
+                        os.remove(points_path)
+                    except FileNotFoundError:
+                        pass
+
             if not points_gdf.empty:
                 points_gdf = points_gdf.copy()
                 points_gdf['source_las'] = os.path.basename(points_path)
@@ -295,7 +311,6 @@ def make_rasters_in_parallel(osmid, points_paths, output_dir, raster_resolution,
 
         if not all_points_gdfs:
             logging.info("No points available for osmid: %s" % str(osmid))
-            print("No points available for osmid: %s" % str(osmid))
             return
 
         points_gdf = gpd.GeoDataFrame(pd.concat(all_points_gdfs, ignore_index=True), crs=bridges_crs)
@@ -305,7 +320,6 @@ def make_rasters_in_parallel(osmid, points_paths, output_dir, raster_resolution,
         if not points_gdf.empty:
             if modified_points_gdf is None:
                 logging.info("No approved for osmid: %s" % str(osmid))
-                print("No No approved for osmid: %s" % str(osmid))
                 return {
                     'classification_counts': classification_counts,
                     'elevation_filter_summary': elevation_filter_summary,
@@ -323,7 +337,6 @@ def make_rasters_in_parallel(osmid, points_paths, output_dir, raster_resolution,
 
         else:
             logging.info("No points available for osmid: %s" % str(osmid))
-            print("No points available for osmid: %s" % str(osmid))
 
         return {
             'classification_counts': classification_counts,
@@ -338,7 +351,13 @@ def make_rasters_in_parallel(osmid, points_paths, output_dir, raster_resolution,
 
 
 def process_bridges_lidar_data(
-    OSM_bridge_file, buffer_width, raster_resolution, output_dir, job_number_lidar, job_number_raster
+    OSM_bridge_file,
+    buffer_width,
+    raster_resolution,
+    output_dir,
+    job_number_lidar,
+    job_number_raster,
+    remove_las_files=True,
 ):
     # start time and setup logs
     start_time = datetime.now(timezone.utc)
@@ -346,6 +365,7 @@ def process_bridges_lidar_data(
     # check existence of output directory
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
     else:
         non_log_files = [f for f in os.listdir(output_dir) if not f.endswith(".log")]
         if non_log_files:  # if output directory has any file exepting previous log files, stop the code.
@@ -464,6 +484,7 @@ def process_bridges_lidar_data(
                     'output_dir': output_dir,
                     'raster_resolution': raster_resolution,
                     'bridges_crs': bridges_crs,
+                    'remove_las_files': remove_las_files,
                 }
 
                 try:
@@ -611,6 +632,15 @@ if __name__ == "__main__":
         default=10,
         type=int,
     )
+
+    parser.add_argument(
+        '--keep_las_files',
+        help='OPTIONAL: If included, downloaded LAS files will be kept after reading.',
+        required=False,
+        action='store_false',
+        dest='remove_las_files',
+    )
+    parser.set_defaults(remove_las_files=True)
 
     args = vars(parser.parse_args())
 
