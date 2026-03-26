@@ -16,6 +16,7 @@ This tool takes in the ripple  feature list created by the terrain metrics / val
 
 ### Changes
 - `config/workflows_params.template.env`: Minor corrections on behalf of the workflows/deploy/hand_to_owp.py file.
+- `config/hv_deploy_params.template.env`: Added new files to transfer to HV
 - `data/aws/s3_shared_functions.py`: 
 <br/>
 
