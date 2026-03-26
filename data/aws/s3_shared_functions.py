@@ -148,27 +148,12 @@ def does_s3_folder_exist(s3_client, bucket_name, s3_prefix_folder_path):
         Bucket=bucket_name, Prefix=s3_prefix_folder_path, MaxKeys=2, Delimiter='/'
     )
 
-    # if s3_prefix_folder_path == "fim/ripple/2026011_merged/collections/mip_05130101/library_extent/10188596/":
-    #     print("found our guys")
-    #     print(s3_objs)
-
-    # if 'Contents' in s3_objs:
-    #     for obj in s3_objs['Contents']:
-    #         print(obj['Key'])
-
     if s3_objs["KeyCount"] == 0:
         # print(f"{s3_prefix_folder_path} was not found")
         is_success = False
     else:
         # print(f"{s3_prefix_folder_path} was found")
         is_success = True
-
-    # if was_found is True:
-    #     print(f"{s3_prefix_folder_path} was found")
-    #     is_success = False
-    # else:
-    #     print(f"{s3_prefix_folder_path} was not found")
-    #     is_success = True
 
     # other exceptions can be passed through
     return is_success
