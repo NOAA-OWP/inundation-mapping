@@ -60,6 +60,7 @@ def run_pdal_pipeline(my_pipe):
         )
         if result.returncode != 0:
             pipeline_summary = {
+                # list the types of all PDAL pipeline steps that were involved in the failed run
                 "stages": [stage.get("type") for stage in my_pipe.get("pipeline", [])],
                 "filename": next(
                     (
@@ -69,19 +70,13 @@ def run_pdal_pipeline(my_pipe):
                     ),
                     None,
                 ),
-                "output": next(
-                    (
-                        stage.get("filename")
-                        for stage in my_pipe.get("pipeline", [])
-                        if str(stage.get("type", "")).startswith("writers.")
-                    ),
-                    None,
-                ),
             }
+            # This detailed error string is later captured by the exception handler in
+            # download_lidar_points(), where it is printed and written to the log.
             raise RuntimeError(
                 f"PDAL pipeline failed with exit code {result.returncode}. "
                 f"stdout={result.stdout.strip()!r} stderr={result.stderr.strip()!r} "
-                f"pipeline_file={temp_path!r} pipeline_summary={json.dumps(pipeline_summary)}"
+                f"pipeline_summary={json.dumps(pipeline_summary)}"
             )
     finally:
         os.remove(temp_path)
