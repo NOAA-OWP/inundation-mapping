@@ -1,12 +1,10 @@
 import argparse
 import logging
 import os
-import shutil
 import traceback
 from datetime import datetime, timezone
 
 import geopandas as gpd
-import pandas as pd
 from dotenv import load_dotenv
 
 import src.utils.shared_functions as sf
@@ -72,8 +70,15 @@ def catfim_post_processing(output_folder):
         else:
             catfim_type_name = "flow_based"
 
-        print(f"Starting post-processing for {catfim_type_name} at {dt_string} (UTC)")
-        print("")
+        # ---------------------
+        # Create a post-processing logger (Log folder may be shared with pre-processing)
+        log_file_dir = os.path.join(output_folder, "logs")
+        log_file_path = sf.setup_file_logger(log_file_dir, "catfim_post_processing")
+        is_logging_loaded = True
+
+        logging.info(f"Begin CatIFM post-processing for {catfim_type_name} at {dt_string} (UTC)")
+        logging.info("")
+        print(f"Logs will be saved to {log_file_path}")
 
         # Create filepath names and delete any pre-existing output files
         sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count = __set_start_files_folders(
@@ -81,14 +86,7 @@ def catfim_post_processing(output_folder):
         )
 
         if deleted_file_count > 0:
-            print(f"Removed {deleted_file_count} pre-existing output file(s).")
-
-        # ---------------------
-        # Create a post-processing logger (Log folder may be shared with pre-processing)
-        log_file_dir = os.path.join(output_folder, "logs")
-        log_file_path = sf.setup_file_logger(log_file_dir, "catfim_post_processing")
-        is_logging_loaded = True
-        print(f"Logs will be saved to {log_file_path}")
+            logging.info(f"Removed {deleted_file_count} pre-existing output file(s).")
 
         # ---------------------
         # Validate that we have some huc sites / library data
@@ -113,7 +111,6 @@ def catfim_post_processing(output_folder):
         logging.info("")
         logging.info(f"Found {len(huc_list)} HUC folder(s) to process.")
         logging.info("Beginning iteration through HUC folders...")
-        logging.info("")
 
         hucs_without_sites, hucs_without_library = [], []
         compiled_sites_gdf_list, compiled_library_gdf_list = [], []
@@ -142,20 +139,23 @@ def catfim_post_processing(output_folder):
 
             except FileNotFoundError:
                 hucs_without_library.append(huc)
-
         # End huc loop
 
-        # ---------------------
-        # Summarize HUC processing
+        # If there's no data to compile, then we should just error out here
+        if len(compiled_sites_gdf_list) == 0 and len(compiled_library_gdf_list) == 0:
+            logging.error("ERROR: No HUC-level sites or library files to concatenate. Aborting post-processing.")
+            return
 
-        logging.info("")
+        # ---------------------
+        # If files were found, summarize HUC processing
+
         logging.info("Done iterating through HUC folders.")
-        logging.info(f"Compiled data from {len(compiled_sites_gdf_list)} out of {len(huc_list)} HUC folders.")
+        logging.info(f"Sucessfully compiled data from {len(compiled_sites_gdf_list)}/{len(huc_list)} HUC folders.")
 
         # Print HUCs that had neither sites nor library file
         hucs_without_library_and_sites = list(set(hucs_without_sites) & set(hucs_without_library))
         if len(hucs_without_library_and_sites) > 0:
-            logging.warning(f"WARNING: {len(hucs_without_library_and_sites)} HUC(s) skipped due to missing sites AND library files:")
+            logging.warning(f"WARNING: {len(hucs_without_library_and_sites)} HUC(s) skipped due to missing sites AND library results:")
             logging.warning(hucs_without_library_and_sites)
 
         # Print HUCs that had library but no sites (unlikely might indicate a bug)
@@ -201,7 +201,7 @@ def catfim_post_processing(output_folder):
         logging.info(f"Saved library CSV to {library_csv_path}")
 
         # ---------------------
-        # Complete
+        # Completed post-processing
 
         logging.info("")
         logging.info("End CatFIM post-processing")
@@ -211,7 +211,7 @@ def catfim_post_processing(output_folder):
         print("================================")
         print("")
 
-    except Exception:
+    except Exception as ex:
         trace_error = traceback.format_exc()
         err_msg = f"A critical error has occurred performing post-processing. Detail: {trace_error}"
 
@@ -220,29 +220,49 @@ def catfim_post_processing(output_folder):
         else:
             print(err_msg)
 
-        # do we re-throw the error? gcf, aws, or cmd line? hummm TODO
+        # re-raise the exception, mostly for AWS
+        raise ex
 
 
 def __load_runtime_args(output_folder):
+    '''
+    Loads the necessary variables from the runtime args file. 
+    '''
 
     args_file_name = "runtime_args.env"
     args_file = os.path.join(output_folder, args_file_name)
 
-    # use load_env, and pull out just the variables it needs.
+    # Use load_env to just pull outthe variables it needs
     load_dotenv(args_file)
 
     return os.getenv('CATFIM_TYPE')
 
 
 def __set_start_files_folders(output_folder, catfim_type_name):
+    '''
+    Removes pre-existing output files / folders except anything in the log folder.
+    We should always keep the logs folder
 
-    # Note: all key other variables have already been validated
-
-    # ================================
-    # CLEANUP
-    # Remove pre-existing output files / folders except anything in the log folder.
-    # We should always keep the logs folder
-
+    Arguments
+    ----------
+    output_folder - STR
+        Filepath to CatFIM run output folder
+    catfim_type_name - STR
+        Type of CatFIM we are running ('flow_based' or 'stage_based')
+    
+    Returns
+    -------
+    sites_gpkg_path - STR
+        Filepath for final sites GPKG.
+    sites_csv_path - STR
+        Filepath for final sites CSV.
+    library_gpkg_path - STR
+        Filepath for final library GPKG.
+    library_csv_path - STR
+        Filepath for final library CSV.
+    deleted_file_count - INT?
+        Number of files that the function deletes.
+    '''
     deleted_file_count = 0
 
     sites_gpkg_path = os.path.join(output_folder, f"{catfim_type_name}_catfim_sites.gpkg")

@@ -211,10 +211,14 @@ def download_all_thresholds(thresholds_filepath, threshold_url, huc_lid_dict, li
                     source_crs_availability=source_crs_availability,
                 )
 
+                # Currently we don't do anything with the 'status' output, just
+                # because I think it would be way too much information in the logs.
+                # However, it could be useful in the future to compile status information
+                # for all sites and save it to a file or something, TBD. - E, 3/20/26
+
             except Exception as e:
                 msg = f"Unable to retrieve thresholds for LID {lid}, exception occurred: {e}"
                 messages.append(msg)
-                messages.append(status)
                 continue
 
             # Combine and label thresholds

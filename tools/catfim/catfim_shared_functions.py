@@ -2,21 +2,15 @@
 
 import logging
 import os
-import pickle
 import random
 import shutil
 import time
-from datetime import datetime, timezone
 
 import geopandas as gpd
 import pandas as pd
 from dotenv import load_dotenv
 
 import data.wrds.download_process_wrds as dpw
-import src.utils.shared_functions as sf
-from src.utils.shared_variables import VIZ_PROJECTION
-from tools.tools_shared_functions import aggregate_wbd_hucs
-# TODO: Clean up unused imports
 
 # Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
@@ -27,10 +21,15 @@ def load_fim_global_env_values(env_file):
     Loads environment variables from a .env file.
     Expects the .env file to contain API_BASE_URL
 
-    Parameters
-    ----------
-        env_file (str): Path to the .env file.
+    Arguments
+    ---------
+    env_file - STR
+        Path to the .env file.
 
+    Returns
+    -------
+    api_base_url - STR
+        Base URL for the WRDS API.
     '''
     if os.path.exists(env_file) == False:
         raise Exception(f"The environment file of {env_file} does not seem to exist")
@@ -45,21 +44,25 @@ def load_fim_global_env_values(env_file):
 
 # TODO: This should probably be moved into flows.py  ??
 def get_metadata(huc, huc_path, output_folder):
-    """
+    '''
     Get metadata for a specific HUC.
 
-    Parameters
-    ----------
-        huc (str): The HUC number.
-        huc_path (str): The path to the HUC directory.
-        output_folder (str): The output folder path.
+    Arguments
+    ---------
+    huc - STR
+        The HUC number.
+    huc_path - STR
+        The path to the HUC directory.
+    output_folder - STR
+        The output folder path.
 
     Returns
     -------
-        metadata_json_list (list): List of metadata JSON objects.
-        return_msgs (list): List of messages from the metadata retrieval process.
-
-    """
+    metadata_json_list - LIST
+        List of metadata JSON objects.
+    return_msgs - LIST
+        List of messages from the metadata retrieval process.
+    '''
 
     # If we are not getting new metadata, then we assume that the runtime args has the path
     # to a valid pkl file. We just need to copy it over to this dir and load it so we don't
@@ -93,19 +96,16 @@ def get_metadata(huc, huc_path, output_folder):
         shutil.copyfile(src_nwm_meta_file, nwm_meta_file)
 
     # Either way, we should have a meta file by now, already validated
-    # TODO: see notes on load_nwm_metadata about missing sites related to huc value
-    #  we will get meta for all sites for now, not filtered.
+
+    # Get metadata all sites for now, not filtered (we can't filter the metadata by HUC
+    # because the HUC column often has incomplete data)
     metadata_json_list, return_msgs = dpw.load_nwm_metadata(
-        nwm_meta_file, api_base_url, os.getenv('SEARCH'), os.getenv('GET_NEW_META_DATA'), list()
+        nwm_meta_file, api_base_url, os.getenv('SEARCH'), os.getenv('GET_NEW_META_DATA')
     )
 
     # return_msgs is a list and might have some warnings, some messages and/or errors
     if len(return_msgs) > 0:
-        # TODO: This seems a bit bumpy but good enough for now. No idea on a better answer short of
-        # custom exceptions.
-
-        # also.. we get duplicate info to the script as download_process_wrds.py has both prints
-        # and returns as a message.  Hummmm. See notes in download_process_wrds.py
+        # TODO: Test that the warnings get through to the final logs as desired
 
         for msg in return_msgs:
             if "warning" in msg.lower():
@@ -115,28 +115,13 @@ def get_metadata(huc, huc_path, output_folder):
             else:
                 logging.info(msg)
 
-    # TODO: Clean up temp code and comments below (once we no longer need the reference)
 
-    # What does the metatable look like when flattened into a df considering its multiple layers
-    # test_df = pd.dataframe(metadata_json_list) # TODO: Clean up
-    # test_df = pd.json_normalize(metadata_json_list)
-    # test_df.to_csv(os.path.join(output_folder, "df_all_metadata.csv"))
 
-    # Note:
-    # aggregate_wbd_hucs takes in a meta json and a list of hucs.
-    # DO NOT attempt to run aggregate_wbd_hucs it does not seem to work with a clipped huc wbd,
-    # not sure why. And if we try to run aggreg for every huc, the full size WBD takes anywhere
-    # from 6 to 20 mins to come back from agg. agg uses the points from each json site, then
-    # adds them overtop of the WBD to figure out the HUCs, but the huc values do not come in
-    # reliably enough from WRDS. Ultimately, if we generate our own (or get a list)
-    # of HUCs to sites, we can filter this json down much easier.
-
-    # In the meantime, we let generate_categorical_fim, talk to agg for all HUCs and put that into a
-
-    # TODO: We need a faster answer
+    # TODO: We need a faster answer to aggregate_wbd_
     # how do we handle not loading the entire WBD? Can't really use clips but maybe
     # it is ok to fully load it (well.. a smaller filtered HUC8 (102739 ???  - check crs inside aggre)
     # wbd_file = os.getenv("input_wbd_layer")
+
     # NOTE: If we stick with the shared one, we need to make very quick copy of to a huc path before
     # loading as there will be a data collision if all HUCs are tryign to open the same file
 
@@ -224,38 +209,37 @@ def get_metadata(huc, huc_path, output_folder):
 
 
 def check_for_restricted_sites(sites_gdf, catfim_type):
-    """
+    '''
     Checks for restricted sites and updates the sites GeoDataFrame accordingly.
 
     Compares the provided sites GeoDataFrame against a list of restricted sites
     loaded from a CSV file. It updates the 'status' and 'mapped' columns of
     the GeoDataFrame for any restricted sites and returns a list of valid NWM LIDs.
 
-    Parameters
+    Arguments
     ----------
-    sites_gdf : geopandas.GeoDataFrame
+    sites_gdf - geopandas.GeoDataFrame
         A GeoDataFrame containing site information with columns such as 'nws_lid'.
-    catfim_type : str
+    catfim_type - str
         The type of CATFIM processing, 'sb' or 'fb'.
 
     Note: Previously had huc and sites_file_path also as inputs, removed 1/13/26 because they weren't used
 
     Returns
     -------
-    valid_nwm_lids : list
+    valid_nwm_lids - list
         A list of valid NWM LIDs after excluding restricted sites.
-    sites_gdf : geopandas.GeoDataFrame  
+    sites_gdf - geopandas.GeoDataFrame
         The updated GeoDataFrame with restricted sites marked accordingly.
 
-
-    Notes:
+    Notes
     -----
 
     meta_gdf is likely pretty small by now, only sites for this HUC
     Likely a smarter way to do this as well.. lambda? Could do a join but we have
     dup column names we would have to cleanup.
 
-    """
+    '''
     # Load restricted sites for the given catfim_type
     df_restricted_sites = load_restricted_sites(catfim_type)
 
@@ -275,24 +259,27 @@ def check_for_restricted_sites(sites_gdf, catfim_type):
 
 
 def load_restricted_sites(catfim_type):
-    """
+    '''
     Reads and interprets the ahps_restricted_sites.csv (from the inundation_mapping repo) to
     return a list of restricted sites specific to the given CatFIM type (SB or FB).
 
-    The 'catfim_type' column in the CSV can have three different values: 'stage', 'flow', and 'both.' 
+    The 'catfim_type' column in the CSV can have three different values: 'stage', 'flow', and 'both.'
     This determines whether the site should be filtered out for SB, FB, or both.
 
     We used to require that the LID was 5 characters, but we removed that requirement in Fall 2025
-    because there actually are a few LIDs that might be valid but aren't 5 chars. And if they're 
+    because there actually are a few LIDs that might be valid but aren't 5 chars. And if they're
     invalid, we will filter elsewhere.
 
-    Args
-        catfim_type: (str) 'sb' or 'fb'
+    Arguments
+    ---------
+    catfim_type - STR
+        'sb' or 'fb'
 
     Returns
-       df_restricted_sites (DataFrame) containing the restricted lids and the reasons why: 
-        'nws_lid', 'restricted_reason'
-    """
+    -------
+    df_restricted_sites - Pandas DataFrame
+        Dataframe containing the restricted lids and the reasons why (columns are 'nws_lid', 'restricted_reason')
+    '''
 
     file_name = "ahps_restricted_sites.csv"
     current_script_folder = os.path.dirname(__file__)
@@ -304,7 +291,7 @@ def load_restricted_sites(catfim_type):
     df_restricted_sites['restricted_reason'].fillna("", inplace=True)
     df_restricted_sites['catfim_type'].fillna("", inplace=True)
 
-    # remove extra empty spaces on either side of all cellls
+    # Remove extra empty spaces on either side of all cellls
     df_restricted_sites['nws_lid'] = df_restricted_sites['nws_lid'].str.strip()
     df_restricted_sites['restricted_reason'] = df_restricted_sites['restricted_reason'].str.strip()
     df_restricted_sites['catfim_type'] = df_restricted_sites['catfim_type'].str.strip()
@@ -332,13 +319,9 @@ def load_restricted_sites(catfim_type):
             " the site will not be mapped, but a reason has not be provided."
             df_restricted_sites.at[ind, 'restricted_reason'] = "Restricted Site - " + restricted_reason
 
-            # FLOG.warning(f"{restricted_reason}. Lid is '{nws_lid}'") # TODO: Update logging?
-            # Humm.. how do we log this? screen is ok, but log isn't (MP versus non MP)
-            # can we try just using the "logging" instance? Let's try it and see what happens
             logging.warning(f"{restricted_reason}. Lid is '{nws_lid}'")
-
+            # TODO: Test that this actually makes it into the warnings log
         continue
-    # end loop
 
     # Remove catfim_type column
     df_restricted_sites = df_restricted_sites.drop('catfim_type', axis=1)
@@ -347,13 +330,10 @@ def load_restricted_sites(catfim_type):
 
 
 def load_runtime_args(output_folder):
-    """
+    '''
     Loads CatFIM run arguments from the runtime_args.env file.
 
-    Args
-        output_folder: (str) CatFIM output folder filepath
-
-    Variables loaded into memory (example)
+    Variables loaded into memory (example):
         CATFIM_TYPE=fb
         ENV_FILE="/data/config/fim_enviro_values.env"
         SEARCH=5
@@ -364,8 +344,14 @@ def load_runtime_args(output_folder):
         GET_NEW_THRESHOLD_DATA=False
         FIM_RUN_DIR="/data/previous_fim/hand_4_8_7_2"
         PAST_MAJOR_INTERVAL_CAP=5
-    """
 
+    Arguments
+    ---------
+    output_folder - STR
+        CatFIM output folder filepath.
+
+    TODO: Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans
+    '''
     args_file_name = "runtime_args.env"
     args_file = os.path.join(output_folder, args_file_name)
 
@@ -375,7 +361,8 @@ def load_runtime_args(output_folder):
     # Use load_env to pull out just the variables it needs.
     load_dotenv(args_file)
 
-    # TODO: Let's change GET_NEW_META_DATA and GET_NEW_THRESHOLD_DATA to true booleans 
+    return
+
 
 def make_huc_mapping_filepaths(huc, catfim_type, huc_path):
     '''
@@ -383,6 +370,32 @@ def make_huc_mapping_filepaths(huc, catfim_type, huc_path):
 
     Used in catfim_process_huc.py and in the command line functioning of
     generate_categorical_fim_mapping.py.
+
+    Arguments
+    ---------
+    huc - STR
+        Hydrologic Unit Code (i.e. '12090301').
+    catfim_type - STR
+        'FB' or 'SB'
+    huc_path - STR
+        Filepath to the HUC-specific CatFIM outputs.
+
+    Returns
+    -------
+    output_mapping_dir - STR
+        Filepath to the HUC-specific CatFIM mapping directory.
+    output_temp_dir - STR
+        Filepath to the HUC-specific CatFIM temp directory.
+    log_file_dir - STR
+        Filepath to the HUC-specific CatFIM log directory.
+    sites_pre_mapping_file_path - STR
+        Filepath to the pre-mapping sites file.
+    sites_post_mapping_file_path - STR
+        Filepath to the post-mapping sites file.
+    library_pre_mapping_file_path - STR
+        Filepath to the pre-mapping library file.
+    library_post_mapping_file_path - STR
+        Filepath to filepath to the post-mapping library file.
 
     '''
     # Make the CatFIM type label
@@ -417,55 +430,51 @@ def update_sites_mapping_status(
 ):
     '''
     Used in both stage- and flow-based CatFIM.
-
-    This update the sites mapping but also cleans up the library gpkg if applicable.
-
     Updates the mapping status and status messages for CatFIM sites based on the presence of valid inundation GeoPackage files.
 
-    Usage
-    -------
-        Syntax when it is used BEFORE mapping:
-            update_sites_mapping_status(
-                huc,
-                catfim_type,
-                sites_post_mapping_file_path,
-                library_post_mapping_file_path,
-                sites_gdf,
-                None,
-            )
+    Function assumes that we should have only two values for mapped, either no, or "not set."
 
-        Syntax when it is used AFTER mapping:
-            update_sites_mapping_status(
-                huc,
-                catfim_type,
-                sites_post_mapping_file_path,
-                library_post_mapping_file_path,
-                sites_post_mapping_file_path,
-                library_post_mapping_file_path,
-            )
+    If we have a value in the warning column and the mapped is 'not set', then copy messages to status, then mapped becomes 'Good'.
+    If no value in warning, and mapped is 'not set', then status becomes 'Good'. # TODO: Confirm logic
 
     Arguments
+    ---------
+    huc - ST
+        Hydrologic Unit Code (i.e. '12090301')
+    catfim_type - STR
+        'sb' or 'fb'
+    sites_post_mapping_file_path - STR
+        final huc-level filepath (if mapping was completed, will be the same path variable as sites_input)
+    library_post_mapping_file_path - STR
+        final huc-level filepath (if mapping was completed, will be the same path variable as library_input)
+    sites_input - STR  GDF
+        Either sites_gdf or the sites post mapping filepath (str)
+    library_input - STR  None
+        either None or library_post_mapping_file_path
+
+    Example
     -------
-        huc :  (str)
-        catfim_type :  (str) 'sb' or 'fb'
-        sites_post_mapping_file_path : (str) final huc-level filepath (if mapping was completed, will be the same path variable as sites_input)
-        library_post_mapping_file_path : (str) final huc-level filepath (if mapping was completed, will be the same path variable as library_input)
-        sites_input : (str or GDF) Either sites_gdf or the sites post mapping filepath (str)
-        library_input : (str or None) either None or library_post_mapping_file_path
+    Syntax when it is used BEFORE mapping has completed:
+        update_sites_mapping_status(
+            huc,
+            catfim_type,
+            sites_post_mapping_file_path,
+            library_post_mapping_file_path,
+            sites_gdf,
+            None,
+        )
 
+    Syntax when it is used AFTER mapping has completed:
+        update_sites_mapping_status(
+            huc,
+            catfim_type,
+            sites_post_mapping_file_path,
+            library_post_mapping_file_path,
+            sites_post_mapping_file_path,
+            library_post_mapping_file_path,
+        )
 
-    TODO: Update docstring and notes below:
-
-    Raises:
-        SystemExit: If the input sites file does not exist, is empty, or no valid inundation files are found.
-
-    Notes:
-        - We should have only two values for mapped, either no, or "not set"
-        - If we have a value in the warning column and the mapped is 'not set', then copy messages
-          to status, then mapped becomes 'Good'.
-          If no value in warning, and mapped is 'not set', then status becomes 'Good'.
-
-    CatFIM Reorg Jan 2026:
+    CatFIM Reorg Jan 2026: TODO: Clean up
 
     This needs to be rethought.
 
@@ -506,34 +515,36 @@ def update_sites_mapping_status(
 
     logging.info(f"{huc} - Begin updating sites mapping status")
 
+    huc_function_tag = f"{huc} - Update Sites Mapping Status -"
+
     # ------------------------------------
     # Validate site_inputs (can be a filepath or a GDF)
 
     if isinstance(sites_input, str):
 
         if not os.path.exists(sites_input):
-            msg = f'Unable to finalize huc {huc}, no file exists at sites filepath: {sites_input}'
+            msg = f'{huc_function_tag} Unable to finalize HUC, no file exists at sites filepath: {sites_input}'
             logging.critical(msg)
             raise Exception(msg)
 
         # Read in sites_input as a gdf
-        logging.info(f"Finalizing sites_input from path {sites_input}") # TEMP DEBUG
+        logging.info(f"{huc_function_tag} Update Sites Mapping Status - Finalizing sites_input from path {sites_input}") # TEMP DEBUG
         sites_gdf = gpd.read_file(sites_input, engine='fiona')
 
     elif isinstance(sites_input, gpd.GeoDataFrame):
-        logging.info("sites_input is a GeoDataFrame") # TEMP DEBUG
+        logging.info(f"{huc_function_tag} Update Sites Mapping Status - sites_input is a GeoDataFrame") # TEMP DEBUG
         sites_gdf = sites_input
 
     else:
         # Error out if sites_input is not string or a gdf
-        msg = f"Unable to finalize huc {huc}, sites_input is not a GDF or string."
+        msg = f"{huc_function_tag} Update Sites Mapping Status - Unable to finalize HUC, sites_input is not a GDF or string."
         logging.error(msg)
         raise Exception(msg) # TODO: make sure this actually errors out
 
     
     # Once sites_gdf has been created, check that it has stuff in it
     if len(sites_gdf) == 0:
-        msg = f"Unable to finalize huc {huc}, sites_gdf is empty."
+        msg = f"{huc_function_tag} Unable to finalize HUC, sites_gdf is empty."
         logging.error(msg)
         raise Exception(msg) # TODO: make sure this actually errors out
 
@@ -555,10 +566,10 @@ def update_sites_mapping_status(
             # Should already have a status here if mapped = no, log an error if that isn't the case
             if lid_status == "not set":
                 sites_gdf.at[index, "status"] = "ERROR: Status not set, review logs."
-                logging.error(f"{huc} - {lid} - ERROR: Mapped val is 'no' but status is 'not set' which shouldn't be possible at this stage. Check logs.")
+                logging.error(f"{huc_function_tag} {lid} - ERROR: Mapped val is 'no' but status is 'not set' which shouldn't be possible at this stage. Check logs.")
             continue
         
-        # If lid mapping is "not set," change that to "no" and update the status
+        # If lid mapping is "not set", change that to "no" and update the status
         elif lid_mapped == "not set":
             # We are past the point that mapping could occur, so change 'not set' to 'no'
             sites_gdf.at[index, "mapped"] = "no"
@@ -589,7 +600,7 @@ def update_sites_mapping_status(
         # If status is not 'not set' 'no' or 'yes' at this stage then something weird happened
         else: # Unlikely, implicates an error
             sites_gdf.at[index, "mapped"] = "no"
-            logging.error(f"{huc} - {lid} - ERROR: Expected to see a value of 'not set,' 'no,' or 'yes' in the mapped col but value was {lid_mapped}, which shouldn't be possible at this stage. Check logs.")
+            logging.error(f"{huc_function_tag} {lid} - ERROR: Expected to see a value of 'not set,' 'no,' or 'yes' in the mapped col but value was {lid_mapped}, which shouldn't be possible at this stage. Check logs.")
             continue
 
     # At this point, we should have a sites_gdf that has updated values for the 'mapped' and 'status' columns  
@@ -612,22 +623,21 @@ def update_sites_mapping_status(
 
     sites_gdf = sites_gdf.drop(columns=['warnings'], errors='ignore')
 
-
     # Save updated sites GDF
-    logging.info(f"{huc} - Saving updated HUC sites GDF to {sites_post_mapping_file_path}")
+    logging.info(f"{huc_function_tag} Saving updated HUC sites GDF to {sites_post_mapping_file_path}")
     sites_gdf.to_file(sites_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
 
     # ------------------------------------
     # Process HUC library if needed
 
     if library_input == None:
-        logging.info(f"{huc} - No library input available, no final library gdf will be saved to {library_post_mapping_file_path}")
+        logging.info(f"{huc_function_tag} No library input available, no final library gdf will be saved to {library_post_mapping_file_path}")
 
     else:
-        logging.info(f"{huc} - Processing library path {library_input}")
+        logging.info(f"{huc_function_tag} Processing library path {library_input}")
 
         if not os.path.exists(library_input):
-            msg = f'Unable to finalize huc {huc}, no file exists at library filepath: {library_input}'
+            msg = f'{huc_function_tag} Unable to finalize HUC, no file exists at library filepath: {library_input}'
             logging.critical(msg)
             raise Exception(msg) # TODO: continue? error? or what?
 
@@ -636,8 +646,7 @@ def update_sites_mapping_status(
 
         if len(huc_library_gdf) == 0:
             logging.warning(
-                f"The working library file of {library_input} is empty and"
-                " a finalized copy will not be created."
+                f"{huc_function_tag} The working library file of {library_input} is empty and a finalized copy will not be created."
             ) # TODO: continue? error? or what?
 
         # If a final library was created, join the updated sites GDF to the library, update any columns, and re-save the library gdf
@@ -654,11 +663,11 @@ def update_sites_mapping_status(
         if catfim_type == 'fb':
             if 'interval_stage' in huc_library_gdf.columns:
                 huc_library_gdf.drop('interval_stage', axis=1, inplace=True)
-                logging.info('Dropped interval_stage col from HUC library GDF') ## TEMP DEBUG
+                logging.info(f'{huc_function_tag} Dropped interval_stage col from HUC library GDF') ## TEMP DEBUG
 
             if 'is_interval' in huc_library_gdf.columns:
                 huc_library_gdf.drop('is_interval', axis=1, inplace=True)
-                logging.info('Dropped is_interval col from HUC library GDF') ## TEMP DEBUG
+                logging.info(f'{huc_function_tag} Dropped is_interval col from HUC library GDF') ## TEMP DEBUG
 
         elif catfim_type == 'sb':
             huc_library_gdf.rename(
@@ -669,22 +678,19 @@ def update_sites_mapping_status(
                 },
                 inplace=True,
             )
-
             # TODO: any changes to interval columns?
-
 
         # TODO: Any other checks we should do on the library?
 
-
         # Save updated library gdf here
-        logging.info(f"{huc} - Saving updated HUC library to {library_post_mapping_file_path}")
+        logging.info(f"{huc_function_tag} - Saving updated HUC library to {library_post_mapping_file_path}")
         huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
-        
 
     return
 
+
 def validate_inputs(huc, output_folder):
-    """
+    '''
     Validate input parameters and return normalized paths.
 
     Checks that:
@@ -692,22 +698,29 @@ def validate_inputs(huc, output_folder):
         - HUC data is available in FIM_RUN_DIR
         - required directory structure (branches) exists for the HUC
 
-    Args:
-        huc (str): HUC identifier for the hydrologic unit code.
-        output_folder (str): Root output folder path where HUC subdirectories are stored.
+    Arguments
+    ---------
+    huc - STR
+        HUC identifier for the hydrologic unit code.
+    output_folder - STR
+        Root output folder path where HUC subdirectories are stored.
 
-    Returns:
-        tuple: (huc_path, output_folder)
-            - huc_path (str): Full path to the HUC subfolder in output directory.
-            - output_folder (str): Normalized output folder path (trailing slashes removed).
+    Returns
+    -------
+    huc_path - STR
+        Full path to the HUC subfolder in output directory.
+    output_folder - STR
+        Normalized output folder path (trailing slashes removed).
 
-    Raises:
-        ValueError: If output_folder is None/empty or doesn't exist, or if FIM_RUN_DIR environment variable is not set.
-        FileNotFoundError: If HUC path or branches directory doesn't exist in FIM_RUN_DIR.
+    Raises
+    ------
+    ValueError: If output_folder is None/empty or doesn't exist, or if FIM_RUN_DIR environment variable is not set.
+    FileNotFoundError: If HUC path or branches directory doesn't exist in FIM_RUN_DIR.
+    '''
 
-    """
-    
-    # TODO: valdiate huc value (8 numeric maybe and starts with 0, 1, or 2)
+    # Valdiate HUC value (must be a string with 8 numeric digits and start with 0, 1, or 2)
+    if not (isinstance(huc, str) and len(huc) == 8 and huc.isdigit() and huc[0] in ['0', '1', '2']):
+        raise ValueError(f"HUC must be an 8-digit string starting with 0, 1, or 2. Received: {huc}")
 
     # Check that the output folder was provided
     if not output_folder or output_folder == "":
@@ -743,6 +756,7 @@ def validate_inputs(huc, output_folder):
             " and included in the runtime_arg enviro file. Check pathing and variables."
         )
 
+    # Validate that the FIM run path exists for the HUC
     fim_run_huc_path = os.path.join(fim_run_dir, huc)
     if not os.path.exists(fim_run_huc_path):
         raise FileNotFoundError(
@@ -751,6 +765,7 @@ def validate_inputs(huc, output_folder):
             " error logs or huc list."
         )
 
+    # Validate that the branch dir exists and is not empty
     branch_dir = os.path.join(fim_run_huc_path, 'branches')
     if not os.path.exists(branch_dir):
         raise FileNotFoundError(
@@ -759,14 +774,15 @@ def validate_inputs(huc, output_folder):
             " it's error logs."
         )
 
-    # TODO: Validate we have some folders in it.
-
-    # do we validate other key files? branches exist? what if it was a bad huc in the first place?
-    # TODO: Validate key bash_variable values? path the meta and threshold files?  Better yet, Emily's tool shoudl do that when we call her things
+    if not os.listdir(branch_dir):
+        raise FileNotFoundError(
+            f"The branches directory at {branch_dir} is empty. "
+            "Please check that FIM data has been properly generated for this HUC."
+        )
 
     # No need to validate any of the runtime_args as they were validated when it was created. (likely)
 
-    # ie: /data/catfim/hand_4_8_7_2_stage_based/hucs/12090301
+    # Make HUC path (ie: /data/catfim/hand_4_8_7_2_stage_based/hucs/12090301)
     huc_path = os.path.join(output_folder, "hucs", huc)
 
     return huc_path, output_folder
