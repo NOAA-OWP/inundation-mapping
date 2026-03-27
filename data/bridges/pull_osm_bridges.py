@@ -2,6 +2,8 @@ import argparse
 import datetime as dt
 import glob
 import os
+import shlex
+import sys
 import traceback
 import warnings
 from pathlib import Path
@@ -342,11 +344,13 @@ def single_huc_job(huc_num, huc_boundary_path, output_folder, file_logger, scree
         return 0, [False]
 
 
-def process_osm_bridges(preclip_dir, output_folder, number_of_jobs, lst_hucs, file_logger):
+def process_osm_bridges(preclip_dir, output_folder, number_of_jobs, lst_hucs, file_logger, cli_args=None):
     start_time = dt.datetime.now(dt.timezone.utc)
 
     print("==================================")
     file_logger.info("Starting load of OSM bridge data")
+    if cli_args:
+        file_logger.info(f"CLI invocation: {cli_args}")
     print("Starting load of OSM bridge data")
     file_logger.info(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
     print(f"Start time: {start_time.strftime('%m/%d/%Y %H:%M:%S')}")
@@ -543,6 +547,7 @@ if __name__ == "__main__":
     )
 
     args = vars(parser.parse_args())
+    args["cli_args"] = shlex.join(sys.argv)
 
     file_logger = make_logger(args["output_folder"])
 

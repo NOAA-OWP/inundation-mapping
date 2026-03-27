@@ -3,6 +3,7 @@ import glob
 import json
 import logging
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -358,6 +359,7 @@ def process_bridges_lidar_data(
     job_number_lidar,
     job_number_raster,
     remove_las_files=True,
+    cli_args=None,
 ):
     # start time and setup logs
     start_time = datetime.now(timezone.utc)
@@ -375,6 +377,8 @@ def process_bridges_lidar_data(
 
     __setup_logger(output_dir)
     logging.info(f"Making elevation raster files for osm bridges {start_time}")
+    if cli_args:
+        logging.info(f"CLI invocation: {cli_args}")
 
     logging.info(f"Saving results in {output_dir}")
 
@@ -643,5 +647,6 @@ if __name__ == "__main__":
     parser.set_defaults(remove_las_files=True)
 
     args = vars(parser.parse_args())
+    args['cli_args'] = shlex.join(sys.argv)
 
     process_bridges_lidar_data(**args)

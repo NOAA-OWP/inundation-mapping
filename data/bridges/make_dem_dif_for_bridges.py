@@ -2,6 +2,7 @@ import argparse
 import glob
 import logging
 import os
+import shlex
 import sys
 
 # import time
@@ -173,7 +174,7 @@ def make_one_diff(
         return 0, [False]
 
 
-def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number_jobs):
+def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number_jobs, cli_args=None):
     start_time = datetime.now(timezone.utc)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -181,6 +182,8 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
     file_dt_string = start_time.strftime("%Y_%m_%d-%H_%M_%S")
     log_file_path = os.path.join(output_dir, f"DEM_diff_rasters-{file_dt_string}.log")
     file_logger = setup_mp_file_logger(log_file_path, "DEM_diff_raster")
+    if cli_args:
+        file_logger.info(f"CLI invocation: {cli_args}")
 
     try:
         print('Reading osm bridge lines...')
@@ -351,4 +354,5 @@ if __name__ == "__main__":
     )
 
     args = vars(parser.parse_args())
+    args['cli_args'] = shlex.join(sys.argv)
     make_dif_rasters(**args)
