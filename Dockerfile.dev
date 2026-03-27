@@ -1,5 +1,5 @@
 ## Temporary image to build the libraries and only save the needed artifacts
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4 AS builder
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS builder
 WORKDIR /opt/builder
 ARG dataDir=/data
 ARG projectDir=/foss_fim
@@ -61,7 +61,7 @@ RUN chown -R root:root $depDir && chmod -R 777 $depDir
 
 ###############################################################################################
 # Base Image that has GDAL, PROJ, etc
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3
 ARG dataDir=/data
 ENV projectDir=/foss_fim
 ARG depDir=/dependencies
@@ -76,7 +76,7 @@ ENV taudemDir2=$depDir/taudem_accelerated_flowDirections/taudem/build/bin
 ## ADDING FIM GROUP ##
 ARG GroupID=1370800235
 ARG GroupName=fim
-RUN addgroup --gid $GroupID $GroupName
+RUN groupadd --gid $GroupID $GroupName
 ENV GID=$GroupID
 ENV GN=$GroupName
 
@@ -105,7 +105,8 @@ ENV PIPENV_NOSPIN=1
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update --fix-missing && \
     apt-get install -y --no-install-recommends \
-    p7zip-full python3.10 python3-pip python3-dev time parallel \
+    p7zip-full python3.12 python3-pip python3-dev python3-venv \
+    time parallel \
     mpich libmpich-dev libgeos-dev libgeos-dev \
     make gcc g++ expect rsync tzdata wget
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
@@ -114,7 +115,23 @@ RUN apt auto-remove
 ENV TZ=UTC
 
 # Ensure Python and Pipenv are installed  (pipenv version not managed)
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
 RUN python3 -m pip install --no-cache-dir pipenv
+
+# # Create a dedicated venv for pipenv
+# $ RUN python3 -m venv ~/.pipenv-venv
+
+# # Install pipenv in this venv
+# $ RUN ~/.pipenv-venv/bin/pip install pipenv
+
+# # Add to your shell configuration (~/.bashrc, ~/.zshrc, or ~/.profile)
+# $ RUN echo 'export PIPENV_IGNORE_VIRTUALENVS=1' >> ~/.bashrc
+# $ RUN echo 'export PATH="$HOME/.pipenv-venv/bin:$PATH"' >> ~/.bashrc
+
+# # Reload your shell
+# $ RUN source ~/.bashrc
 
 # These currently through errors as they are not yet installed
 # by this point, but continues with the fresh install. Leaving upgrade error
