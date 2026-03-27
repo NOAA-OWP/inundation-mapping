@@ -8,7 +8,7 @@ ipython = "*==9.11.0"
 
 [packages]
 boto3 = "==1.42.76"
-dask = "*==2026.3.0
+dask = "*==2026.3.0"
 dask-expr = "==2.0.0"
 distributed = "==2026.3.0"
 fiona = "==1.10.1"
