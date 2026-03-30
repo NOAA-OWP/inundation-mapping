@@ -105,39 +105,18 @@ ENV PIPENV_NOSPIN=1
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update --fix-missing && \
     apt-get install -y --no-install-recommends \
-    p7zip-full python3.12 python3-pip python3-dev python3-venv \
-    time parallel \
-    mpich libmpich-dev libgeos-dev libgeos-dev \
-    make gcc g++ expect rsync tzdata wget bzip2
+    p7zip-full python3.12 python3-pip python3-dev time parallel \
+    mpich libmpich-dev libgeos-dev \
+    make gcc g++ expect rsync tzdata wget bzip2 \
+    unzip curl pipenv
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 RUN apt auto-remove
 
 ENV TZ=UTC
 ENV MAMBA_ROOT_PREFIX=/opt/micromamba
 
-# Ensure Python and Pipenv are installed  (pipenv version not managed)
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-RUN python3 -m pip install --no-cache-dir pipenv
-
-# # Create a dedicated venv for pipenv
-# $ RUN python3 -m venv ~/.pipenv-venv
-
-# # Install pipenv in this venv
-# $ RUN ~/.pipenv-venv/bin/pip install pipenv
-
-# # Add to your shell configuration (~/.bashrc, ~/.zshrc, or ~/.profile)
-# $ RUN echo 'export PIPENV_IGNORE_VIRTUALENVS=1' >> ~/.bashrc
-# $ RUN echo 'export PATH="$HOME/.pipenv-venv/bin:$PATH"' >> ~/.bashrc
-
-# # Reload your shell
-# $ RUN source ~/.bashrc
-
-# These currently through errors as they are not yet installed
-# by this point, but continues with the fresh install. Leaving upgrade error
-# in place in case this order of installing changes later.
-RUN python3 -m pip install --upgrade pip setuptools wheel
+# RUN python3 -m pip install --upgrade pip setuptools wheel --break-system-packages
+# RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
 
 # Install a newer PDAL runtime than the Ubuntu package currently provides.
 RUN wget -qO- https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
@@ -161,7 +140,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
 # We download and unzip it to the same file folder that pip deployed the whitebox library.
 # Whitebox also attempts to always download a folder called testdata regardless of use.
 # We added an empty folder to fake out whitebox_tools.py so it doesn't try to download the folder
-ENV WBT_PATH=/usr/local/lib/python3.10/dist-packages/whitebox/WBT
+ENV WBT_PATH=/usr/local/lib/python3.12/dist-packages/whitebox/WBT
 RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_musl.zip && \
     unzip -o $WBT_PATH/WhiteboxTools_linux_musl.zip -d $WBT_PATH && \
     cp $WBT_PATH/WhiteboxTools_linux_amd64/WBT/whitebox_tools $WBT_PATH
@@ -175,15 +154,14 @@ ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${too
 COPY Pipfile .
 COPY Pipfile.lock .
 
+# Use the environment variable to bypass PEP 668 restrictions
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
 # Install dependencies into the system path, using the lock file for deterministic builds
-RUN pipenv install --deploy --system --ignore-pipfile
+RUN pipenv install --deploy --ignore-pipfile
 
 ENV PDAL_CLI_PATH="/opt/pdal-env/bin/pdal"
 ENV PDAL_ENV_ROOT="/opt/pdal-env"
 
-# Creates a virtual enviro
-# RUN pipenv update --outdated
-
 ADD ./src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
-
