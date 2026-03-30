@@ -4,7 +4,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-ipython = "*==9.11.0"
+ipython = "==9.11.0"
 
 [packages]
 boto3 = "==1.42.76"
