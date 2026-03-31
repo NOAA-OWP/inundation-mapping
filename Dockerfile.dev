@@ -1,8 +1,6 @@
 ## Temporary image to build the libraries and only save the needed artifacts
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3 AS builder
 WORKDIR /opt/builder
-ARG dataDir=/data
-ARG projectDir=/foss_fim
 ARG depDir=/dependencies
 ARG taudemVersion=98137bb6541a0d0077a9c95becfed4e56d0aa0ac
 ARG taudemVersion2=81f7a07cdd3721617a30ee4e087804fddbcffa88
@@ -18,10 +16,9 @@ RUN apt-get update && \
 
 ## ============================
 ## Install dependencies for compilation
-RUN apt-get update --fix-missing && \
-    apt-get install -y --no-install-recommends \
-    git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev make gcc g++ && \
-    apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git cmake mpich libmpich-dev libgtest-dev libboost-test-dev libnetcdf-dev make gcc g++ \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ## ============================
 ## Clone repositories
@@ -90,38 +87,42 @@ RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 RUN chown -R root:root $depDir && chmod -R 777 $depDir
 
+
 ## adding environment variables for numba and python ##
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 ENV PYTHONUNBUFFERED=TRUE
 
 # Set environment variables for stability
-ENV PIP_NO_CACHE_DIR=1
-ENV PIPENV_VENV_IN_PROJECT=1
-ENV PIPENV_NOSPIN=1
+# ENV PIP_NO_CACHE_DIR=1
+# ENV PIPENV_VENV_IN_PROJECT=1
+# ENV PIPENV_NOSPIN=1
 
 ## ============================
 ## Install necessary packages
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update --fix-missing && \
-    apt-get install -y --no-install-recommends \
-    p7zip-full python3-pip python3-dev time parallel \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    p7zip-full python3.12 python3-pip python3-dev time parallel \
     mpich libmpich-dev libgeos-dev \
-    make gcc g++ expect rsync tzdata wget bzip2 \
-    unzip curl pipenv
-RUN apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
+    make gcc g++ expect rsync tzdata wget curl unzip \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN apt auto-remove
 
+## Python Environment Bypass (Required for Ubuntu 24.04/Python 3.12) ##
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+ENV PIP_IGNORE_INSTALLED=1
+ENV PIPENV_SYSTEM=1
+ENV PIP_NO_CACHE_DIR=1
+
 ENV TZ=UTC
-ENV MAMBA_ROOT_PREFIX=/opt/micromamba
 
-# RUN python3 -m pip install --upgrade pip setuptools wheel --break-system-packages
-# RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
+# Install Pipenv with the break flag 
+RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
 
-# Install a newer PDAL runtime than the Ubuntu package currently provides.
-RUN wget -qO- https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
-    micromamba create -y -p /opt/pdal-env -c conda-forge pdal=2.9.3 gdal proj proj-data && \
-    micromamba clean --all --yes
+# These currently throw errors as they are not yet installed
+# by this point, but continues with the fresh install. Leaving upgrade error
+# in place in case this order of installing changes later.
+RUN python3 -m pip install --upgrade pip setuptools wheel
 
 # adding AWS CLI (for bash) ##
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
@@ -150,29 +151,14 @@ RUN wget -P $WBT_PATH https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_
 ENV PATH="$projectDir:${PATH}"
 ENV PYTHONPATH="${projectDir}:${srcDir}:${srcDir}/utils:${projectDir}/data:${toolsDir}"
 
-## install python 3 modules ##
-COPY Pipfile .
-COPY Pipfile.lock .
-
-# 1. Force Pip to override system package locks
-ENV PIP_BREAK_SYSTEM_PACKAGES=1
-
-# 2. CRITICAL: Tell Pip to ignore packages already installed by Debian/APT
-# This prevents the "Cannot uninstall... RECORD file not found" error
-ENV PIP_IGNORE_INSTALLED=1
-
-# 3. Ensure Pipenv doesn't try to create a virtualenv
-ENV PIPENV_SYSTEM=1
-ENV PIPENV_VENV_IN_PROJECT=0
-
-# 4. Run the install
+# ## install python 3 modules ##
+COPY Pipfile Pipfile.lock ./
 RUN pipenv install --deploy --system --ignore-pipfile
 
-# 5. Verify IMMEDIATELY
-RUN python3 -c "import pandas; print('Pandas found at:', pandas.__file__)"
-
-ENV PDAL_CLI_PATH="/opt/pdal-env/bin/pdal"
-ENV PDAL_ENV_ROOT="/opt/pdal-env"
+# CRITICAL: Reinstall Legacy Stack to prevent NumPy 2.x from breaking GDAL 
+RUN python3 -m pip install --force-reinstall --break-system-packages \
+    "numpy<2.0.0" \
+    "scipy==1.13.1"
 
 ADD ./src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
