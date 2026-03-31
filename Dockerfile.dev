@@ -104,7 +104,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     p7zip-full python3.12 python3-pip python3-dev time parallel \
     mpich libmpich-dev libgeos-dev \
-    make gcc g++ expect rsync tzdata wget curl unzip \
+    make gcc g++ expect rsync tzdata wget bzip2 curl unzip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN apt auto-remove
 
@@ -115,6 +115,7 @@ ENV PIPENV_SYSTEM=1
 ENV PIP_NO_CACHE_DIR=1
 
 ENV TZ=UTC
+ENV MAMBA_ROOT_PREFIX=/opt/micromamba
 
 # Install Pipenv with the break flag 
 RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
@@ -123,6 +124,11 @@ RUN python3 -m pip install --no-cache-dir pipenv --break-system-packages
 # by this point, but continues with the fresh install. Leaving upgrade error
 # in place in case this order of installing changes later.
 RUN python3 -m pip install --upgrade pip setuptools wheel
+
+# Install a newer PDAL runtime than the Ubuntu package currently provides.
+RUN wget -qO- https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba && \
+    micromamba create -y -p /opt/pdal-env -c conda-forge pdal=2.9.3 gdal proj proj-data && \
+    micromamba clean --all --yes
 
 # adding AWS CLI (for bash) ##
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
@@ -159,6 +165,9 @@ RUN pipenv install --deploy --system --ignore-pipfile
 RUN python3 -m pip install --force-reinstall --break-system-packages \
     "numpy<2.0.0" \
     "scipy==1.13.1"
+
+ENV PDAL_CLI_PATH="/opt/pdal-env/bin/pdal"
+ENV PDAL_ENV_ROOT="/opt/pdal-env"
 
 ADD ./src/entrypoint.sh /
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
