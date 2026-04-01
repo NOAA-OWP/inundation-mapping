@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "205da3d2ba6cc803c9b8b3b38f7aae6d20217b8a7d4d04dbf3ed96265047a260"
+            "sha256": "f5ec2723ff5747acb17a7774424ded074aafe61c8e67f6a4264d6b6671d35c09"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -4075,6 +4075,15 @@
             "index": "pypi",
             "markers": "python_full_version >= '3.6.9'",
             "version": "==0.3.1"
+        },
+        "rioxarray": {
+            "hashes": [
+                "sha256:494ee4fff1781072d55ee5276f5d07b63d93b05093cb33b926a12186ba5bb8ef",
+                "sha256:7819a0036fd874c8c8e280447cbbe43d8dc72fc4a14ac7852a665b1bdb7d4b04"
+            ],
+            "index": "pypi",
+            "markers": "python_version >= '3.10'",
+            "version": "==0.19.0"
         },
         "rpds-py": {
             "hashes": [
