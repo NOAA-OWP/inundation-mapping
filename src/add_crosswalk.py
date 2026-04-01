@@ -51,37 +51,67 @@ def add_crosswalk(
         columns={'slope_iris_sword': 'SLOPE_IRIS_SWORD', 'id': 'feature_id'}
     )
 
-    # Changing the slope for select feature-ids in the greater Pittsburgh area
-    # Monongahela River
-    feature_ids_mono = pd.DataFrame([3785857, 3785847, 3785863, 3785867], columns=['feature_id'])
-    slope_mono = 0.00004
-    slope_mono_df = feature_ids_mono.copy()
-    slope_mono_df['SLOPE_IRIS_SWORD'] = slope_mono
+    ## Manual IRIS-SWORD slope removal and overrides in dictionary
+    manual_removal_map = {
+        "Auglaize River south of Defiance, OH": [
+            15650331,
+            15650337,
+            15650345,
+            15650355,
+            15650359,
+            15650465,
+            15650361,
+            15650371,
+            15650365,
+            15650383,
+            15650377,
+            15650387,
+            15650399,
+            15650393,
+            15656727,
+            15656685,
+            15650367,
+            15650463,
+        ]
+    }
 
-    # Allegheney River
-    feature_ids_all = pd.DataFrame([11050846, 11050716, 11050712, 11050700, 11050708], columns=['feature_id'])
-    slope_all = 0.00004
-    slope_all_df = feature_ids_all.copy()
-    slope_all_df['SLOPE_IRIS_SWORD'] = slope_all
+    all_removal_ids = [item for sublist in manual_removal_map.values() for item in sublist]
+    iris_df = iris_df[~iris_df['feature_id'].isin(all_removal_ids)]
 
-    # Ohio River
-    feature_ids_ohio = pd.DataFrame([11050844, 3824135, 3824131, 3821269], columns=['feature_id'])
-    slope_ohio = 0.00003
-    slope_ohio_df = feature_ids_ohio.copy()
-    slope_ohio_df['SLOPE_IRIS_SWORD'] = slope_ohio
+    manual_slope_map = {
+        # Ohio River group
+        0.00003: [11050844, 3824135, 3824131, 3821269],
+        # Monongahela & Allegheny River groups (Greater Pittsburgh)
+        0.00004: [
+            3785857,
+            3785847,
+            3785863,
+            3785867,  # Monongahela IDs
+            11050846,
+            11050716,
+            11050712,
+            11050700,
+            11050708,  # Allegheny IDs
+        ],
+    }
 
-    slope_pitts_df = pd.concat([slope_mono_df, slope_all_df, slope_ohio_df], ignore_index=True)
-    slope_pitts_df = slope_pitts_df.set_index('feature_id')
+    # This unpacks the dictionary into the format for merge
+    override_data = []
+    for slope, ids in manual_slope_map.items():
+        for feat_id in ids:
+            override_data.append({'feature_id': feat_id, 'SLOPE_IRIS_SWORD': slope})
 
-    # Replace slope in df1 wherever the ID exists in df2
+    slope_replace_df = pd.DataFrame(override_data).set_index('feature_id')
+
+    # Apply the update to your main dataframe
     iris_df = iris_df.set_index('feature_id')
 
-    # this will replace slope in df1 wherever the ID exists in df2
-    iris_df.update(slope_pitts_df[['SLOPE_IRIS_SWORD']])
+    # Overwrites only the rows where the feature_id exists in slope_replace_df
+    iris_df.update(slope_replace_df[['SLOPE_IRIS_SWORD']])
 
+    # Reset index to return to original structure
     iris_df = iris_df.reset_index()
-    slope_pitts_df = slope_pitts_df.reset_index()
-    # iris_df[iris_df["feature_id"].isin(slope_pitts_df["feature_id"])]
+    slope_replace_df = slope_replace_df.reset_index()
 
     min_catchment_area = float(min_catchment_area)  # 0.25#
     min_stream_length = float(min_stream_length)  # 0.5#
