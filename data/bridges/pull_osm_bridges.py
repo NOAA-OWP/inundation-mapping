@@ -234,6 +234,7 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
         )
         # Reconstruct the GeoDataFrame to remove fragmentation
         final_gdf = final_gdf.copy()
+        final_gdf["osmid"] = final_gdf["osmid"].astype(str)
 
         final_gdf.to_file(huc_bridge_file, driver="GPKG", index=True, engine='fiona')
 
@@ -261,51 +262,6 @@ def pull_osm_features_by_huc(huc_bridge_file, huc_num, huc_geom, file_logger, sc
             )
 
         return 0, [False]
-
-
-#
-# Combine all HUC-based OSM bridges from specified folder
-#
-def combine_huc_features(output_dir, file_logger):
-
-    # only save out a subset of columns, because many hucs have different column names
-    # and data, so you could end up with thousands of columns if you keep them all!
-
-    # Note... files in error have been renamed to {xxxx}_bad.gpkg and will be skipped. To debug later
-
-    # It is ok that we have dup osmid's at this as each point as one bridge can cross a huc boundary
-    # so each huc can add the same osmid. When it gets to the final... it will be clipped and both
-    # halves of the same bridge (in each huc) will have the same osmid. So.. don't change.
-
-    # huc8 will always have the huc8 value but huc10 might be empty
-    file_logger.info("Combining intermediate files...")
-    print("Combining intermediate files...")
-    cols_to_keep = ['osmid', 'name', 'bridge_type', 'huc8', 'huc10', 'geometry']
-
-    # Bucket files by region
-    buckets = {"alaska": [], "guam": [], "samoa": [], "conus": []}
-    for f in Path(output_dir).glob("huc_*_osm_bridges.gpkg"):
-        n = f.name
-        if n.startswith("huc_19"):
-            buckets["alaska"].append(f)
-        elif n.startswith("huc_22010000"):
-            buckets["guam"].append(f)
-        elif n.startswith("huc_22030001"):
-            buckets["samoa"].append(f)
-        else:
-            buckets["conus"].append(f)
-
-    # Process each bucket
-    for region, flist in buckets.items():
-        if not flist:
-            continue
-        gdf = pd.concat((gpd.read_file(f) for f in flist), ignore_index=True)[cols_to_keep]
-        if "osmid" in gdf.columns:
-            gdf["osmid"] = gdf["osmid"].astype(str)
-        out_path = os.path.join(output_dir, f"{region}_osm_bridges.gpkg")
-        file_logger.info(f"Writing {region.title()} bridge lines: {out_path}")
-        print(f"Writing {region.title()} bridge lines: {out_path}")
-        gdf.to_file(out_path, driver="GPKG", engine="fiona")
 
 
 def make_logger(output_folder):
@@ -431,14 +387,6 @@ def process_osm_bridges(preclip_dir, output_folder, number_of_jobs, lst_hucs, fi
             file_logger.info(f"  - {tid}")
             print(f"  - {tid}")
 
-    file_logger.info("")
-    section_time = dt.datetime.now(dt.timezone.utc)
-    file_logger.info(f"Combining huc feature files started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
-    print(f"Combining huc feature files started: {section_time.strftime('%m/%d/%Y %H:%M:%S')}")
-
-    # all huc8 processing must be completed before this function call
-    combine_huc_features(output_folder, file_logger)
-
     # Get time metrics
     end_time = dt.datetime.now(dt.timezone.utc)
     file_logger.info("")
@@ -479,7 +427,7 @@ if __name__ == "__main__":
 
     Code Usage
     This tool follows the same HUC discovery method used by pull_osm_roads.py.
-    It reads HUC folders from the preclip directory, so one run can process all regions
+    It reads HUC folders from the preclip directory, so one run can process all HUCs
     present in that folder layout, including CONUS, Alaska, Guam, and American Samoa.
 
         - One HUC8 was too big for osmnx to handle adn kept timing out. So, we split that HUC8
