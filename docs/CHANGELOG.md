@@ -9,6 +9,85 @@ Resolves an issue causing stream outlet lines extending outside of the buffered 
 
 - `data/wbd/clip_vectors_to_wbd.py`: Ignores `linegeom` assignment if already assigned
 - `src/bash_variables.env`: Updates preclip date
+## v4.9.10.8 - 2026-03-13 - [PR#1771](https://github.com/NOAA-OWP/inundation-mapping/pull/1771)
+
+This is a quick tool that can remove selected folders from an s3 bucket using a provided list.
+
+### Additions
+- `data/ripple/ripple-s3-bucket-remove-updated-folders.sh` : as described above
+
+### Changes
+- `data/ripple`
+    - `hecras_processing.ipynb`, `ripple_shared_tools.sh`, `terrain_agreement_metrics_analysis.py`: Updated file permissions.
+<br/>
+
+## v4.9.10.7 - 2026-03-13 - [PR#1770](https://github.com/NOAA-OWP/inundation-mapping/pull/1770)
+
+This PR fixes the non-convergence of SVD in the longitudinal adjustment script for three HUCs of 04030110, 11030008, 17040203.
+
+### Changes
+- `src`
+   - `longitudinal_flow_adjustment.py`
+
+<br/>
+
+## v4.9.10.6 - 2026-03-13 - [PR#1775](https://github.com/NOAA-OWP/inundation-mapping/pull/1775)
+
+This PR covers minor adjustments to tools for pushing data from FIM to HV as well as pulling FIM Hand datasets down to OWP.
+
+### Changes
+- `config`
+    - `hv_deploy_params.template.env` and `workflows_params.template.env`:  Minor adjustments pattern changes.
+- `data/aws/s3_shared_functions.py`: Added better threading exception handling.
+- `src/utils/shared_functions.py`:
+    - Adjustments for file log file permissions (mostly for OWP files).
+    - Simplified function to get values from a enviro file.
+    - Added a function that can use values from an enviro file and recursive use substitution for embedded other enviro values.  This new get_env_value function can get any enviro value AND auto fill values from the enviro if required.  ie)  FIM_BUCKET_NAME ="our-fim-bucket-name" ;  FIM_S3_ROOT='s3://{FIM_BUCKET_NAME}/foss_fim'.  get_env_value("FIM_S3_ROOT") will return s3://{our-fim-bucket-name}/foss_fim.
+ - `workflows/deploy`
+     - `deploy_to_hydrovis.py`: 
+          - Added a feature to have the user confirm the S3 target paths before continuing.
+          - Simplification of function calls to get enviro values, sometimes with embedded string substitution (see new shared_function.get_env_value.
+     - `hand_to_owp.py`: Added simplified get enviro values calls.
+  - `citation.cff`:  Updated to show the recent full HAND production release of 4.9.9.0
+ 
+<br/>
+
+## v.4.9.10.5 - 2026-03-13 - [PR#1760](https://github.com/NOAA-OWP/inundation-mapping/pull/1760)
+
+This PR closes issues #1755  and #1746.
+
+### Updates to `data/roads/pull_osm_roads.py`
+
+1. **Fixed runtime failure** by removing an invalid `timeout` argument that was being passed to a function that does not accept it.
+2. **Improved robustness** to properly handle HUCs where no road data is returned, ensuring graceful continuation.
+3. **Enforced Overpass API concurrency limits** by capping parallel requests at three, regardless of available CPUs. Public Overpass servers impose strict per-client rate and load limits, and exceeding this threshold can result in timeouts or throttling.
+
+---
+
+### Updates to `data/bridges/pull_osm_bridges.py`
+
+1. **Restored automatic region prefix logic** (conus, alaska, guam, samoa) based on HUC number, removing the need for the `fp` argument. This ensures correct file naming even when HUCs from different regions are stored within a single WBD GeoPackage file-- It removes the need to run the tool separately by region, as the code now automatically handles mixed-region HUCs contained in the same WBD file
+2. **Integrated the standard MP utility and logging framework** to align with the project’s parallel execution and logging conventions.
+
+
+### Changes
+- `data/roads/pull_osm_roads.py`
+- `data/bridges/pull_osm_bridges.py`
+
+<br/>
+
+## v4.9.10.4 - 2026-03-13 - [PR#1779](https://github.com/NOAA-OWP/inundation-mapping/pull/1779)
+
+Optimize LoFI processing in HydroVis for LoFI V1.
+
+<br/>
+
+## v4.9.10.3 - 2026-03-13 - [PR#1767](https://github.com/NOAA-OWP/inundation-mapping/pull/1767)
+
+This PR updates the `inundate_nation.py` inundation mosaic raster generation process to output Cloud Optimized GeoTIFF. This change addresses performance bottlenecks when working with the CONUS mosaic file (200GB+) in QGIS.
+
+### Changes
+`tools/inundate_nation.py`: updated the geotiff profile for new tiling, compression, and overviews
 
 <br/>
 
@@ -121,7 +200,6 @@ Note: All files in GIT retain the permissions of the files on the users local ma
 
 Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
 <br/>
-
 ## v4.9.7.0 - 2026-02-05 - [PR#1752](https://github.com/NOAA-OWP/inundation-mapping/pull/1752)
 
 This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.

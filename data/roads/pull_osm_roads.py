@@ -14,6 +14,7 @@ import argparse
 import http.client
 import os
 import random
+import re
 import time
 import traceback
 from datetime import datetime, timezone
@@ -38,6 +39,22 @@ DEFAULT_FIM_PROJECTION_CRS = os.getenv('DEFAULT_FIM_PROJECTION_CRS')
 ALASKA_CRS = os.getenv('ALASKA_CRS')
 GUAM_CRS = os.getenv('GUAM_CRS')
 AMERICAN_SAMOA_CRS = os.getenv('AMERICAN_SAMOA_CRS')
+
+
+def report_road_download_status(huc_numbers, output_dir):
+    files = list(Path(output_dir).glob("roads_*.gpkg"))
+    pattern = re.compile(r"roads_(\d{8})\.gpkg")
+
+    downloaded_hucs = [pattern.match(f.name).group(1) for f in files if pattern.match(f.name)]
+
+    missing_hucs = sorted(set(huc_numbers) - set(downloaded_hucs))
+
+    if missing_hucs:
+        print("❌ Road data was not downloaded for the following HUCs:")
+        for huc in missing_hucs:
+            print(huc)
+    else:
+        print("✅ All requested HUCs have their road data downloaded.")
 
 
 def combine_hucs(output_dir):
@@ -103,6 +120,8 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
     unrealistic flood depth calculations in FIMpact analyses. Bridges are handled
     separately via pull_osm_bridges.py and the bridge-healing workflow.
     """
+    road_data = pd.DataFrame()
+
     minx, miny, maxx, maxy = huc_geom.bounds
     bbox_query = f"({miny},{minx},{maxy},{maxx})"
 
@@ -125,8 +144,7 @@ def pull_roads(HUC_no, huc_geom, file_logger, screen_queue, task_id):
 
     for attempt in range(1, max_attempts + 1):
         try:
-            # timeout at 5 mins, which can happen depending on the network speed and jobs (network volume)
-            result = api.query(query_template.format(bbox=bbox_query), timeout=500)
+            result = api.query(query_template.format(bbox=bbox_query))
             break  # success
         except (overpy.exception.OverpassTooManyRequests, overpy.exception.OverpassGatewayTimeout) as e:
             wait_time = 5 * attempt + random.uniform(0, 2)
@@ -267,7 +285,7 @@ def single_huc_job(
     HUC_no, huc_boundary_path, split_boundary_path, output_dir, file_logger, screen_queue, task_id
 ):
     # this is basically the task function that is passed into mp run
-    file_logger.debug(f"started the process for {task_id}")
+    file_logger.info(f"started the process for {task_id}")
     try:
         huc_gpd = gpd.read_file(huc_boundary_path)
         huc_gpd_projected = huc_gpd.to_crs(pyproj.CRS.from_string("EPSG:4326"))
@@ -299,22 +317,9 @@ def single_huc_job(
 
 def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
 
-    # -------------------
-    # Validation
-    # Feb 2026: Removing this test as we are continuing to get even bigger EC2's with
-    # larger network speeds which allows for more jobs.
-    # if number_jobs > 10:
-    #     print("Overpy does not seem to like more than 10 jobs. Adjusting job number down to 10.")
-    #     print("Do not run on a dev EC2. Please run on bigger machien with larger network speeds.")
-    #     number_jobs = 10
-
-    total_cpus_available = os.cpu_count() - 2
-    if number_jobs > total_cpus_available:
-        raise ValueError(
-            f'The number of jobs provided: {number_jobs} ,'
-            ' exceeds your machine\'s available CPU count minus two.'
-            ' Please lower the number of jobs value accordingly.'
-        )
+    if number_jobs > 3:
+        print("Overpy does not seem to like more than 3 jobs. Adjusting job number down to 3.")
+        number_jobs = 3
 
     if not os.path.exists(preclip_dir):
         raise ValueError("preclip directory not found")
@@ -397,7 +402,10 @@ def pull_osm_roads(preclip_dir, output_dir, number_jobs, lst_hucs):
             file_logger.info(f"  - {k}")
             print(f"  - {k}")
 
-    # now combine all hucs into dedicated files for CONUS,  Alaska, Guam, and Samoa roads
+    # also report which HUCs did not have any roads doanloaded for them (regardless of the reason)
+    report_road_download_status(huc_numbers, output_dir)
+
+    # now combine all downloaded hucs into dedicated files for CONUS,  Alaska, Guam, and Samoa roads
     combine_hucs(output_dir)
 
     # Record run time
@@ -425,8 +433,7 @@ if __name__ == "__main__":
     # +++++++++++++++++++++++++
     # Note: Overpass API has a system at their servers that manages the number of calls coming in from
     # all locations, not just this script. At busier times, that threshold can be lower.
-    # Exact number varies. If you submit more than 4 jobs, we will adjust it down, but
-    # also have code to do re-tries. It seems to like 3 jobs most of the time.
+    # If you submit more than 3 jobs, the code will adjust it down to 3.
     # +++++++++++++++++++++++++
 
     parser = argparse.ArgumentParser(description='Download OSM roads for all HUCs')
@@ -443,7 +450,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-j',
         '--number_jobs',
-        help='OPTIONAL: Number of (jobs) cores/processes for downloading HUC roads, default is 3. ',
+        help='OPTIONAL: Number of parallel API calls for downloading HUC roads. Default = 3, max = 3; values > 3 are reset to 3',
         required=False,
         default=3,
         type=int,
