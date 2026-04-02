@@ -83,22 +83,27 @@ def make_one_diff(
 
     try:
         screen_queue.put(f"Start processing {task_id}")
+        OSM_bridge_lines_gdf = None
+        HUC_lidar_tif_osmids = []
+
         if not os.path.exists(huc_bridge_file):
             file_logger.info(f"No HUC8 bridge gpkg found for {HUC} at {huc_bridge_file}")
             screen_queue.put(f"No HUC8 bridge gpkg found for {HUC} at {huc_bridge_file}")
-            return 1, [True]
+        else:
+            OSM_bridge_lines_gdf = gpd.read_file(huc_bridge_file)
+            if 'name' not in OSM_bridge_lines_gdf.columns:
+                OSM_bridge_lines_gdf['name'] = None
 
-        OSM_bridge_lines_gdf = gpd.read_file(huc_bridge_file)
-        cols_to_keep = ['osmid', 'bridge_type', 'huc8', 'geometry']
-        OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[cols_to_keep]
-        OSM_bridge_lines_gdf['osmid'] = OSM_bridge_lines_gdf['osmid'].astype(str)
-        OSM_bridge_lines_gdf['huc8'] = OSM_bridge_lines_gdf['huc8'].astype(str)
-        OSM_bridge_lines_gdf = identify_bridges_with_lidar(OSM_bridge_lines_gdf, tif_ids)
-        OSM_bridge_lines_gdf.to_file(output_bridge_path)
+            cols_to_keep = ['osmid', 'name', 'bridge_type', 'huc8', 'geometry']
+            OSM_bridge_lines_gdf = OSM_bridge_lines_gdf[cols_to_keep]
+            OSM_bridge_lines_gdf['osmid'] = OSM_bridge_lines_gdf['osmid'].astype(str)
+            OSM_bridge_lines_gdf['huc8'] = OSM_bridge_lines_gdf['huc8'].astype(str)
+            OSM_bridge_lines_gdf = identify_bridges_with_lidar(OSM_bridge_lines_gdf, tif_ids)
+            OSM_bridge_lines_gdf.to_file(output_bridge_path)
 
-        HUC_lidar_tif_osmids = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y'][
-            'osmid'
-        ].values.tolist()
+            HUC_lidar_tif_osmids = OSM_bridge_lines_gdf[OSM_bridge_lines_gdf['has_lidar_tif'] == 'Y'][
+                'osmid'
+            ].values.tolist()
         HUC_lidar_tif_paths = [os.path.join(lidar_tif_dir, f"{osmid}.tif") for osmid in HUC_lidar_tif_osmids]
 
         if HUC_lidar_tif_paths:
