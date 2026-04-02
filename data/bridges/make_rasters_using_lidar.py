@@ -561,9 +561,6 @@ def __setup_logger(output_folder_path):
 
 
 if __name__ == "__main__":
-
-    # This tool must be run in a conda enviro. See the 'setup_conda_for_make_rasters.txt'
-    #    for more details. Other steps can be run in our standard docker enviros.
     #
     # Sample usage:  (using a the conda enviro specifically for this step)
     # python make_rasters_using_lidar.py
