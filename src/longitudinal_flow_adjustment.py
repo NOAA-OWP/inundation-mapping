@@ -319,6 +319,31 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
         # Find the BedArea and SurfaceArea relation
         sa0_mask = src_df['SurfaceArea (m2)'] == 0
         src_df.loc[sa0_mask, 'BedArea (m2)'] = 0
+
+        # Clean data
+        # clean = src_df.replace([np.inf, -np.inf], np.nan).dropna(
+        #     subset=['SurfaceArea (m2)', 'BedArea (m2)']
+        # )
+
+        # x = clean['SurfaceArea (m2)'].to_numpy()
+        # y = clean['BedArea (m2)'].to_numpy()
+
+        # # Skip degenerate cases
+        # if len(clean) < 2:
+        #     print(f"Skipping HUC {huc}: not enough points")
+        #     continue
+
+        if np.all(src_df['SurfaceArea (m2)'] == 0) or np.all(src_df['BedArea (m2)'] == 0):
+            print(f"Skipping branch {branch}: all zero data in Surface/Bed area")
+            log_text += f'Skipping branch {branch}: all zero data in Surface/Bed area\n'
+            continue
+
+        if np.unique(src_df['SurfaceArea (m2)']).size < 2:
+            print(f"branch {branch}: SurfaceArea has no variation")
+            log_text += f'branch {branch}: SurfaceArea has no variation\n'
+            continue
+
+        # Safe to fit
         a_coef, b_coef = np.polyfit(src_df['SurfaceArea (m2)'], src_df['BedArea (m2)'], 1)
         src_df.loc[:, 'a_coef'] = a_coef
         src_df.loc[:, 'b_coef'] = b_coef

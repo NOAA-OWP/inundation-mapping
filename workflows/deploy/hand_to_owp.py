@@ -35,7 +35,8 @@ TRG_DATA_HAND_PATH = ""  # Comes partialy from the workflows env file and part i
 # ============================
 def hand_to_owp(source_path, target_path, aws_creds_file, workflows_params_file, num_jobs):
 
-    print("****  Downloading FIM S3 HAND to OWP Started   ****")
+    print("")
+    logging.info("****  Downloading FIM S3 HAND to OWP Started   ****")
     print("Note: This tool has been known to take up to 5 hours to run based on multiple factors")
     print("")
 
@@ -56,6 +57,7 @@ def hand_to_owp(source_path, target_path, aws_creds_file, workflows_params_file,
     logging.info(f"Start time: {overall_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
 
     logging.info(f"Loading from s3://{FIM_S3_BUCKET_NAME}{SRC_S3_HAND_PATH} to {TRG_DATA_HAND_PATH}.")
+    time.sleep(5)  # gives the a min to read this.
     print("")
 
     try:
@@ -68,7 +70,7 @@ def hand_to_owp(source_path, target_path, aws_creds_file, workflows_params_file,
     finally:
         logging.info("==========================================================")
         end_time = datetime.now(timezone.utc)
-        print("****  Completed downloading all applicable files   ****")
+        print("****  Completed running tool  ****")
         print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
         logging.info(fh.print_date_time_duration(overall_start_dt, end_time, False))
         print("")
@@ -137,16 +139,13 @@ def __load_hand_dataset(num_jobs):
         print(f"  Start time: {section_start_dt.strftime('%m/%d/%Y %H:%M:%S')} UTC")
         sorted_files_to_download = sorted(files_to_download, key=lambda x: x["src_file"])
         s3_sf.download_files_by_file_list(S3_CLIENT, FIM_S3_BUCKET_NAME, sorted_files_to_download, num_jobs)
-        # def download_large_filesets(s3_client, bucket_name, s3_src_path, trg_folder_path, list_of_search_key, num_workers=10):
-        #     num_files_downloaded = s3_sf.download_large_filesets(S3_CLIENT, FIM_S3_BUCKET_NAME, SRC_S3_HAND_PATH, TRG_DATA_HAND_PATH,
-        # search_keys, len(search_keys))
         print()
         logging.info(f"Number of files downloaded: {len(files_to_download)}")
         end_time = datetime.now(timezone.utc)
         logging.info("**** Completed downloading files ****")
         print(f"End time: {end_time.strftime('%m/%d/%Y %H:%M:%S')}")
         logging.info(fh.print_date_time_duration(section_start_dt, datetime.now(timezone.utc), False))
-        logging.info("------------------------------------")
+        print("")
 
 
 # ============================
@@ -167,7 +166,7 @@ def __validate_input(source_path, target_path, workflows_params_file, num_jobs):
     if not os.path.isfile(workflows_params_file):
         raise ValueError(f"params file of {workflows_params_file} can not be found. Check path and/or case.")
 
-    logging.info(f"loading working params file ({workflows_params_file})")
+    print(f"loading working params file ({workflows_params_file})")
     load_dotenv(workflows_params_file)
 
     if num_jobs > 20:
@@ -179,8 +178,10 @@ def __validate_input(source_path, target_path, workflows_params_file, num_jobs):
         time.sleep(10)  # gives them time to abort if they want.
 
     # We load the bucket here and the src path above, but validate them in the __set_aws function
-    FIM_S3_BUCKET_NAME = sf.get_value_from_env("FIM_S3_BUCKET_NAME", workflows_params_file)
-    FIM_S3_BUCKET_NAME = FIM_S3_BUCKET_NAME.strip('/')
+    FIM_S3_BUCKET_NAME = sf.get_env_value("FIM_S3_BUCKET_NAME")
+
+    # Premake the target dir to set permissions
+    os.makedirs(target_path, mode=0o775, exist_ok=True)
 
 
 # ============================
@@ -202,9 +203,9 @@ def __setup_aws(aws_creds_file):
     load_dotenv(aws_creds_file)
 
     # setup the client and validate the bucket
-    aws_access_key = sf.get_value_from_env("FIM_AWS_ACCESS_KEY_ID", aws_creds_file)
-    aws_secret_key = sf.get_value_from_env("FIM_AWS_SECRET_ACCESS_KEY", aws_creds_file)
-    aws_region = sf.get_value_from_env("FIM_AWS_REGION_NAME", aws_creds_file)
+    aws_access_key = sf.get_env_value("FIM_AWS_ACCESS_KEY_ID")
+    aws_secret_key = sf.get_env_value("FIM_AWS_SECRET_ACCESS_KEY")
+    aws_region = sf.get_env_value("FIM_AWS_REGION_NAME")
 
     is_success, return_msg, S3_CLIENT = asf.create_aws_client(
         aws_service_type_name='s3',
@@ -246,9 +247,11 @@ if __name__ == '__main__':
          variables for copying files from FIM S3 to OWP servers.
 
     Sample Usages
-        python ./foss_fim/workflows/hand_to_owp.py -sp '/foss_fim/previous_fim/hand_4_8_7_2' -tp '/data/previous_fim/hand_4_8_7_2'
+        python /foss_fim/workflows/deploy/hand_to_owp.py -sp '/foss_fim/previous_fim/hand_4_8_7_2' -tp '/data/previous_fim/hand_4_8_7_2'
 
-        python ./foss_fim/workflows/hand_to_owp.py -sp '/foss_fim/previous_fim/hand_4_8_7_2' \
+            (note: -j defaults to 5)
+
+        python /foss_fim/workflows/deploy/hand_to_owp.py -sp '/foss_fim/previous_fim/hand_4_8_7_2' \
             -tp '/data/previous_fim/hand_4_8_7_2' \
             -wp '/data/config/workflow_test_params.env'
 
@@ -299,7 +302,7 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-j', "--num-jobs", help="OPTIONAL: Number of processes (defaults to 10)", type=int, default=10
+        '-j', "--num-jobs", help="OPTIONAL: Number of processes (defaults to 5)", type=int, default=5
     )
 
     args = parser.parse_args()
