@@ -1,6 +1,17 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.10.10 - 2026-04-03 - [PR#1785](https://github.com/NOAA-OWP/inundation-mapping/pull/1785)
+
+Replaces `richdem` with `richdem2` to avoid using deprecated `pkg_resources` in depression filling. Both packages use `rd_depression_filling` so no changes in code were needed.
+
+Also updates `tornado` to v6.5.5, `gval` to v0.2.12, `dask` to v2026.1.1, `dask-expr` to v2.0.0, `distributed` to v2026.1.1, and `pyasn1` to v0.6.3; adds `laspy` (v2.5.4) and `s5cmd` (v0.3.3); and downgrades `py7zr` to v1.1.0.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Updated Python packages.
+<br/>
+
 
 ## v4.9.10.9 - 2026-04-03 - [PR#1780](https://github.com/NOAA-OWP/inundation-mapping/pull/1780)
 
