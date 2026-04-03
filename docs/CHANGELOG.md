@@ -2,7 +2,7 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 
-## v4.9.x.x - 2026-03-02 - [PR#1780](https://github.com/NOAA-OWP/inundation-mapping/pull/1780)
+## v4.9.10.9 - 2026-04-03 - [PR#1780](https://github.com/NOAA-OWP/inundation-mapping/pull/1780)
 
 This tool takes in the ripple  feature list created by the terrain metrics / validation tools and performs additional validation and data re-organization to it.  Some of the key tasks for the tool are:
 - Calculates the reference S3 path of where a feature's tif's are located available for inundation and processing. This is becomes a column named "library_path".
