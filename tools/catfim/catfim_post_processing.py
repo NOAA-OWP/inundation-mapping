@@ -71,14 +71,14 @@ def catfim_post_processing(output_folder):
             catfim_type_name = "flow_based"
 
         # ---------------------
-        # Create a post-processing logger (Log folder may be shared with pre-processing)
-        log_file_dir = os.path.join(output_folder, "logs")
-        log_file_path = sf.setup_file_logger(log_file_dir, "catfim_post_processing")
+        # Create a post-processing logger (temp folder may be shared with pre-processing)
+        temp_folder = os.path.join(output_folder, "temp")
+        log_file_path = sf.setup_file_logger(temp_folder, "catfim_post_processing")
         is_logging_loaded = True
 
-        logging.info(f"Begin CatIFM post-processing for {catfim_type_name} at {dt_string} (UTC)")
+        logging.info(f"Begin CatFIM post-processing for {catfim_type_name} at {dt_string} (UTC)")
         logging.info("")
-        print(f"Logs will be saved to {log_file_path}")
+        print(f"Logs will be saved to {log_file_path} initially and later copied over to {output_folder}/logs")
 
         # Create filepath names and delete any pre-existing output files
         sites_gpkg_path, sites_csv_path, library_gpkg_path, library_csv_path, deleted_file_count = __set_start_files_folders(
@@ -126,6 +126,13 @@ def catfim_post_processing(output_folder):
             try:
                 with open(sites_post_mapping_file_path, 'r') as f:
                     huc_sites_gdf = gpd.read_file(sites_post_mapping_file_path, engine='fiona')
+
+                # Rename output columns if needed (should already be renamed, but just in case)
+                huc_sites_gdf = csf.rename_output_columns(huc_sites_gdf)
+
+                # Drop unnecessary columns if needed (should already be done, but just in case)
+                huc_sites_gdf = csf.drop_output_columns(huc_sites_gdf, catfim_type)
+
                 compiled_sites_gdf_list.append(huc_sites_gdf)
 
             except FileNotFoundError:
@@ -135,6 +142,13 @@ def catfim_post_processing(output_folder):
             try:
                 with open(library_post_mapping_file_path, 'r') as f:
                     huc_library_gdf = gpd.read_file(library_post_mapping_file_path, engine='fiona')
+
+                # Rename output columns if needed (should already be renamed, but just in case)
+                huc_library_gdf = csf.rename_output_columns(huc_library_gdf)
+
+                # Drop unnecessary columns if needed (should already be done, but just in case)
+                huc_library_gdf = csf.drop_output_columns(huc_library_gdf, catfim_type)
+
                 compiled_library_gdf_list.append(huc_library_gdf)
 
             except FileNotFoundError:
@@ -185,10 +199,10 @@ def catfim_post_processing(output_folder):
         compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
         # Save the compiled GeoDataFrames to GeoPackage files
-        compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona')
+        compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona', index=False)
         logging.info(f"Saved sites GeoPackage to {sites_gpkg_path}")
 
-        compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona')
+        compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona', index=False)
         logging.info(f"Saved library GeoPackage to {library_gpkg_path}")
 
         # Drop geometry column and save the csv versions
@@ -197,16 +211,15 @@ def catfim_post_processing(output_folder):
         logging.info(f"Saved sites CSV to {sites_csv_path}")
 
         compiled_library_df = compiled_library_gdf.drop(columns=['geometry'])
-        compiled_library_df.to_csv(library_csv_path)
+        compiled_library_df.to_csv(library_csv_path, index=False)
         logging.info(f"Saved library CSV to {library_csv_path}")
 
         # ---------------------
         # Completed post-processing
 
         logging.info("")
-        logging.info("End CatFIM post-processing")
         duration_msg = sf.calculate_duration_msg(overall_start_time)
-        logging.info(duration_msg)
+        logging.info(f"End CatFIM post-processing - {duration_msg}")
         logging.info("")
         print("================================")
         print("")

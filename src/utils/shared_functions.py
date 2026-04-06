@@ -86,11 +86,16 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     log_file_name = f"{log_file_name_prefix}_{file_dt_string}.log"
     log_file_path = os.path.join(log_file_dir, log_file_name)
 
-    access_rights = 0o777
+    permissions_code = 0o777
 
     # we will assume the parent folder already exists
-    os.makedirs(log_file_dir, exist_ok=True, mode=access_rights)
-    # print(f"Logs saved to: {log_file_path}")
+    os.makedirs(log_file_dir, exist_ok=True, mode=permissions_code)
+    print(f"Logs saved to: {log_file_path}")
+
+    # even though we used os.makedirs, it does not mean it had permission to make the dir
+    # the mode is for permissions of the folder once is created.
+    if not os.path.isdir(log_file_dir):
+        raise Exception("This script likely does have permission to add a log folder")
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -110,19 +115,35 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
-    # os.chmod(error_file_name, 0o776)
+    os.chmod(error_file_name, mode = permissions_code)
+
+    # warning file handler
+    warning_file_name = log_file_path.replace(".log", "-warnings.log")
+    warn_file_handler = logging.FileHandler(warning_file_name)
+    warn_file_handler.setLevel(logging.WARNING)
+    warn_file_handler.setFormatter(formatter)
+    # Filter to exclude ERROR and CRITICAL from warnings file
+    warn_file_handler.addFilter(lambda record: record.levelno < logging.ERROR)
+    os.chmod(warning_file_name, mode = permissions_code)
 
     # # basic file handler
     file_handler = logging.FileHandler(log_file_path)
-    file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
-    # os.chmod(file_handler, 0o776)
-
+    file_handler.setFormatter(formatter)
+    os.chmod(log_file_path, mode = permissions_code)
+    
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
     logger.addHandler(err_file_handler)
+    logger.addHandler(warn_file_handler)
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
+
+    # Current functionality:
+    # .log file will get: INFO, WARNING, ERROR, CRITICAL
+    # -warnings.log file will get: WARNING (but not ERROR or CRITICAL)
+    # -errors.log file will get: ERROR and CRITICAL
+    # DEBUG will not end up in any of them
 
     return log_file_path
 
@@ -161,8 +182,6 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
 
     if not log_file_path.endswith(".log"):
         raise Exception("log file name must end with .log")
-
-    access_rights = 0o777
 
     abs_path = os.path.abspath(log_file_path)
     permissions_code = 0o776
@@ -203,13 +222,22 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         err_file_handler = logging.FileHandler(error_file_name)
         err_file_handler.setLevel(logging.ERROR)
         err_file_handler.setFormatter(formatter)
-        os.chmod(error_file_name, mode=access_rights)
+        os.chmod(error_file_name, mode=permissions_code)
         logger.addHandler(err_file_handler)
+        os.chmod(error_file_name, mode=permissions_code)
+
+        # warning file handler
+        warning_file_name = log_file_path.replace(".log", "-warnings.log")
+        warning_file_handler = logging.FileHandler(warning_file_name)
+        warning_file_handler.setLevel(logging.WARNING)
+        warning_file_handler.setFormatter(formatter)
+        logger.addHandler(warning_file_handler)
+        os.chmod(warning_file_name, mode=permissions_code)
 
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
-        os.chmod(log_file_path, mode=access_rights)
+        os.chmod(log_file_path, mode=permissions_code)
         logger.addHandler(file_handler)
         logger.propagate = False  # avoid logging to root logger too
 

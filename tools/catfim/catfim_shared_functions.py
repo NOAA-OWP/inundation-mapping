@@ -5,6 +5,7 @@ import os
 import random
 import shutil
 import time
+import pickle
 
 import geopandas as gpd
 import pandas as pd
@@ -43,9 +44,10 @@ def load_fim_global_env_values(env_file):
 
 
 # TODO: This should probably be moved into flows.py  ??
-def get_metadata(huc, huc_path, output_folder):
+# def get_metadata(huc, huc_path, output_folder): # Was named get_metadata() but needed to change because that's another function
+def get_huc_metadata(huc, huc_path, output_folder):
     '''
-    Get metadata for a specific HUC.
+    Load already-downloaded metadata for a specific HUC.
 
     Arguments
     ---------
@@ -62,118 +64,52 @@ def get_metadata(huc, huc_path, output_folder):
         List of metadata JSON objects.
     return_msgs - LIST
         List of messages from the metadata retrieval process.
+
+    Notes
+    -----
+
+     # TODO: Take out metadata download stuff because that is done by load_nwm_metadata()
+
     '''
 
-    # If we are not getting new metadata, then we assume that the runtime args has the path
-    # to a valid pkl file. We just need to copy it over to this dir and load it so we don't
-    # have a file collision.
-    nwm_meta_file = os.getenv('NWM_METAFILE_PATH')
+    # nwm_meta_file = '/data/catfim/emily_test/test4_datums_stage_based/hucs/16020102/nwm_metadata.pkl' # TODO: TEMP DEBUG
+    # nwm_sites_path = '/data/catfim/emily_test/test4_datums_stage_based/nwm_sites.parquet'# TEMP DEBUG added for testing # TEMP DEBUG
 
-    # We really only need to load this env if we are going to let the script call WRDS directly.
-    api_base_url = ""
-    if os.getenv('GET_NEW_META_DATA') is True:
-        api_base_url = load_fim_global_env_values(os.getenv('ENV_FILE'))
+    nwm_meta_file = os.getenv('NWM_METAFILE_PATH') # TODO: remove and just feed in the value?
+    nwm_sites_path = os.getenv('NWM_SITES_PATH') # TEMP DEBUG removed for testing?
 
-        # Figure out pathing for the new file to be created, but we need it to be saved in this huc dir
-        # If we load our own, add the huc number in front.
-        nwm_meta_file = os.path.join(huc_path, f'{huc}_nwm_metadata.pkl')
-    else:
-        # We need to make a copy of it and put it into the local dir temporaily
-        # to save against MP file collisions.
-        # then pass that into
-        if os.path.isfile(nwm_meta_file) is False:
-            raise FileNotFoundError(f"Error: Expected metafile at {nwm_meta_file}")
+    # Check input filepaths
+    if not os.path.isfile(nwm_meta_file):
+        raise FileNotFoundError(f"Error: Expected metafile at {nwm_meta_file}")
 
-        # Make a copy of it and put it in our local dir, but give it a few second random delay to help
-        # with MP and all of the first set of hucs grabbing a copy at the exact same time.
+    if not os.path.isfile(nwm_sites_path):
+        raise FileNotFoundError(f"Error: Expected NWM sites parquet at {nwm_sites_path}")
 
-        # A bit of start staggering to help not overload the MP (0.1 milliseconds to 2 secs)
-        time_delay_mms = random.randint(100, 2000) / 1000
-        time.sleep(time_delay_mms)
-        src_nwm_meta_file = os.path.join(output_folder, nwm_meta_file)
-        meta_file_name = os.path.basename(nwm_meta_file)
-        nwm_meta_file = os.path.join(huc_path, meta_file_name)  # Now using the new huc copy
+    # A bit of start staggering to help not overload the MP (0.1 milliseconds to 2 secs)
+    time_delay_mms = random.randint(100, 2000) / 1000
+    time.sleep(time_delay_mms)
+
+    # Set source metadata file and HUC metadata file # TODO: Clean up naming?
+    src_nwm_meta_file = nwm_meta_file  #os.path.join(output_folder, nwm_meta_file)
+    meta_file_name = os.path.basename(nwm_meta_file)
+    nwm_meta_file = os.path.join(huc_path, meta_file_name)  # Now using the new huc copy
+
+    # Copy metadata file into the local dir temporaily to save against MP file collisions (if it's not already there)
+    if not os.path.isfile(nwm_meta_file):
         shutil.copyfile(src_nwm_meta_file, nwm_meta_file)
+    else: # debug
+        print(f'file already exists in HUC folder {nwm_meta_file}') # debug
 
-    # Either way, we should have a meta file by now, already validated
+    # Read metadata file
+    with open(nwm_meta_file, "rb") as p_handle:
+        metadata_json_list = pickle.load(p_handle)
 
-    # Get metadata all sites for now, not filtered (we can't filter the metadata by HUC
-    # because the HUC column often has incomplete data)
-    metadata_json_list, return_msgs = dpw.load_nwm_metadata(
-        nwm_meta_file, api_base_url, os.getenv('SEARCH'), os.getenv('GET_NEW_META_DATA')
-    )
+        print(f"NWM metadata file loaded from {nwm_meta_file}.") # debug (or make logging info)
 
-    # return_msgs is a list and might have some warnings, some messages and/or errors
-    if len(return_msgs) > 0:
-        # TODO: Test that the warnings get through to the final logs as desired
-
-        for msg in return_msgs:
-            if "warning" in msg.lower():
-                logging.warning(msg)
-            elif "error" in msg.lower():
-                raise Exception(msg)
-            else:
-                logging.info(msg)
+    # Read NWM sites file and filter to the given HUC
 
 
-
-    # TODO: We need a faster answer to aggregate_wbd_
-    # how do we handle not loading the entire WBD? Can't really use clips but maybe
-    # it is ok to fully load it (well.. a smaller filtered HUC8 (102739 ???  - check crs inside aggre)
-    # wbd_file = os.getenv("input_wbd_layer")
-
-    # NOTE: If we stick with the shared one, we need to make very quick copy of to a huc path before
-    # loading as there will be a data collision if all HUCs are tryign to open the same file
-
-    # wbd_file = '/data/inputs/wbd/WBD_National_CatFIM_tests.gpkg'  # a small one with just a few hucs
-    # wbd_file = f"{os.getenv('pre_clip_huc_dir')}/{huc}/wbd8_clp.gpkg"
-    # how can we speed this up? change crs somehow?
-    # also.. when I tried a huc pre-clip wbd, it lost a point on one of the HUCS (buffer)? 01050004
-
-    # A bit of start staggering to help not overload the MP (0.1 milliseconds to 10 secs)
-    # Its big and might take a few seconds to copy over
-
-    # TODO: update... they delay is not the loading of the wbd, but the iterating of it.
-
-    # but I only need the time delay if I am copying a shared wbd
-    # time_delay_mms = random.randint(100, 10000) / 1000
-    # time.sleep(time_delay_mms)
-    # wbd_file_name = os.path.basename(wbd_file)
-    # # huc_wbd_file = os.path.join(huc_path, wbd_file_name)  # Now using the new huc copy
-    # shutil.copyfile(wbd_file, huc_wbd_file)
-
-    # huc_dictionary, sites_gdf = aggregate_wbd_hucs(meta_json_list, huc_wbd_file, True, [huc])
-    # huc_dictionary, sites_gdf = aggrgate_wbd_hucs(meta_json_list, wbd_file, True, [huc])
-    # if len(huc_dictionary) == 0:
-    #     raise Exception(f"Error: {huc} does not appears to have any nwm sites")
-
-    # # Drop list fields if invalid
-    # sites_gdf = sites_gdf.drop(['downstream_nwm_features'], axis=1, errors='ignore')
-    # sites_gdf = sites_gdf.drop(['upstream_nwm_features'], axis=1, errors='ignore')
-
-    # if 'metadata_sources' in sites_gdf.columns:  # TODO: Is this column needed/used? Changed to accomodate Guam?
-    #     sites_gdf = sites_gdf.astype({'metadata_sources': str})
-
-    # viz_sites_gdf = sites_gdf.to_crs(VIZ_PROJECTION)
-
-    # Debug Temp. Lets make a copy as a checkpoint
-    # raw_sites_file = os.path.join(huc_path, "raw_sites.gpkg")
-    # viz_sites_gdf.to_file(raw_sites_file, driver='GPKG', crs=VIZ_PROJECTION, engine='fiona')
-
-    # Filter the meta_json to just the HUC we want. meta_json_list still has the full list (ie.. not filtered)
-    # the list of dictionary items are {huc, [multiple lids]}
-    # nwm_lids = []
-    # # nwm_list = nwm_lids.extendlist(huc_dictionary.values())  # the "value" column is a list of nwm_lists
-    # for val in huc_dictionary:
-    #     nwm_lids = nwm_lids.extend(val)
-
-    # filtered_meta_list = []
-    # for site_entry in meta_json_list:
-    #     lid = site_entry['identifiers']['nws_lid']
-    #     if lid in nwm_lids:
-    #         filtered_meta_list.append(site_entry)
-
-    all_sites_gdf = gpd.read_parquet(os.getenv('NWM_SITES_PATH'))
+    all_sites_gdf = gpd.read_parquet(nwm_sites_path)
 
     huc_sites_gdf = all_sites_gdf[all_sites_gdf['HUC8'] == huc].copy()
 
@@ -182,7 +118,6 @@ def get_metadata(huc, huc_path, output_folder):
 
     # There appears to be actual column named "index" at this point, remove it
     huc_sites_gdf.reset_index(drop=True, inplace=True)
-
     huc_sites_gdf.rename(columns={"identifiers_nws_lid": "nws_lid"}, inplace=True)
 
     # Keep everyhing uppercase for processing as the json files are uppercase for that file
@@ -201,6 +136,12 @@ def get_metadata(huc, huc_path, output_folder):
         lid = lid_site_data['identifiers']['nws_lid']
         if lid in nwm_lids:
             huc_metadata_json_list.append(lid_site_data)
+
+    # print('len(huc_metadata_json_list)') ## TEMP DEBUG
+    # print(len(huc_metadata_json_list)) ## TEMP DEBUG
+
+    print('huc_sites_gdf') # TEMP DEBUG
+    print(huc_sites_gdf) # TEMP DEBUG
 
     # what do we do if the huc_site_gdf and/or huc_metadata_list is empty
     # TODO: Error if no data found
@@ -528,7 +469,7 @@ def update_sites_mapping_status(
             raise Exception(msg)
 
         # Read in sites_input as a gdf
-        logging.info(f"{huc_function_tag} Update Sites Mapping Status - Finalizing sites_input from path {sites_input}") # TEMP DEBUG
+        logging.info(f"{huc_function_tag} Finalizing sites_input from path {sites_input}") # TEMP DEBUG
         sites_gdf = gpd.read_file(sites_input, engine='fiona')
 
     elif isinstance(sites_input, gpd.GeoDataFrame):
@@ -549,79 +490,129 @@ def update_sites_mapping_status(
         raise Exception(msg) # TODO: make sure this actually errors out
 
     # ------------------------------------
-    # Update mapping status in sites_gdf
+    # Update mapping status in sites_gdf (the only sites that should be updated here are the unmapped sites,
+    # the mapped sites should have an updated status from the end of post_process_huc_mapping)
 
+    if library_input == None:
+        # If we didn't get far enough to have a library input, we will assume there are zero mapped sites and set the mapped sites list to empty
+        mapped_sites_list = []
+        mapping_completed = False
+    
+    elif not os.path.exists(library_input):
+        # If no file exists at the library path, an error probably occurred and we will assume there are zero mapped sites and set the mapped sites list to empty
+        mapped_sites_list = []
+        mapping_completed = False
+    
+    else:
+        # Read in the HUC library and get a list of sites that have at least one mapped geometry
+        huc_library_gdf = gpd.read_file(library_input, engine='fiona') 
+        huc_library_gdf['nws_lid'] = huc_library_gdf['nws_lid'].str.lower() # TODO: Make this consistent earlier in the process?
+        sites_with_valid_geoms_gdf = huc_library_gdf[~huc_library_gdf.geometry.is_empty & huc_library_gdf.geometry.notna()]
+        mapped_sites_list = sites_with_valid_geoms_gdf['nws_lid'].unique().tolist()
+        mapping_completed = True
+
+    logging.info(f"{huc} - Mapping completed: {mapping_completed}, Mapped sites list: {mapped_sites_list}") ## TEMP DEBUG
+
+    # Add info about whether mapping completed for the status messages
+    if mapping_completed:
+        mapping_msg = 'HUC mapping finished'
+    else:
+        mapping_msg = 'HUC mapping may not have completed'
+
+    # Make sure the lid columns are the same case for the comparison (lowercase in both)
+    sites_gdf['nws_lid'] = sites_gdf['nws_lid'].str.lower() # TODO: Make this consistent earlier in the process?
+
+    # Update mapping status in the sites gdf
     for index, row in sites_gdf.iterrows():
         lid = row["nws_lid"]
         lid_mapped = row["mapped"]
         lid_status = row["status"]
         lid_warning = row["warnings"]
 
-        # Exit if lid is mapped, because we already updated the status etc. inside the mapping script
-        if lid_mapped == "yes":
-            continue
+        logging.info(f"{huc_function_tag} Processing site {lid}, current mapped value: {lid_mapped}, current status: {lid_status}, current warning: {lid_warning}") ## TEMP DEBUG
 
-        # Exit if lid is not mapped
-        elif lid_mapped == "no":
-            # Should already have a status here if mapped = no, log an error if that isn't the case
-            if lid_status == "not set":
-                sites_gdf.at[index, "status"] = "ERROR: Status not set, review logs."
-                logging.error(f"{huc_function_tag} {lid} - ERROR: Mapped val is 'no' but status is 'not set' which shouldn't be possible at this stage. Check logs.")
-            continue
-        
-        # If lid mapping is "not set", change that to "no" and update the status
-        elif lid_mapped == "not set":
-            # We are past the point that mapping could occur, so change 'not set' to 'no'
-            sites_gdf.at[index, "mapped"] = "no"
+        lid_status_new, lid_mapped_new = None, None
 
-            # Update status
-            lid_status_new = ""
-            if lid_status == "not set":
+        # Create the new mapped and status values for this site based on whether it is in the mapped sites list
+        if lid in mapped_sites_list:  # If site is in mapped list, update mapped to "yes" and update status if it is not already 
+            if lid_status == "not set": # No status available, so we will use the warning value if it exists, otherwise just say "Good"
                 if lid_warning == "":
-                    # No status val or warning val available
-                    # This is unlikely and probably indicates an error
-                    lid_status_new = "WARNING: No status or warnings created for site"
+                    lid_mapped_new = "yes"
+                    lid_status_new = "Good"
                 else:
-                    # No status val available, set warning val as status
+                    lid_mapped_new = "yes"
                     lid_status_new = lid_warning
+            else: # Status already exists, so just update mapped to "yes"
+                lid_mapped_new = "yes"
+                lid_status_new = lid_status
 
-            else: # Status already available
-                if lid_warning == "":
-                    # Status val available but no warning val
+        else: # If site is not in mapped list,update mapped to "no" if it is not already and update status
+            # If lid_mapped = no, it SHOULD already have a status, so throw an error if that's not the case
+            if lid_mapped == "no":
+                if lid_status == "not set":  # Update status
+                    lid_status_new = f'Site resulted with no valid inundated file, {mapping_msg}'
+                    lid_mapped_new = lid_mapped
+                    logging.error(f"{huc_function_tag} {lid} - ERROR: Site has mapped value of 'no' but status is 'not set,' which shouldn't be possible. Check logs.")
+
+                else:  # No changes needed
                     lid_status_new = lid_status
-                else:
-                    # Both vals available
-                    lid_status_new = f'{lid_status} - {lid_warning}'                
+                    lid_mapped_new = lid_mapped
+                    logging.info(f"{huc_function_tag} {lid} - Site has mapped value of 'no' and status of '{lid_status}', which is expected. No update needed.")
 
-            # Update the site status
-            sites_gdf.at[index, "status"] = lid_status_new
-            continue
+            # If lid mapping is "not set", change that to "no" and update the status
+            elif lid_mapped == "not set":
+                if lid_status == "not set":
+                    if lid_warning == "":
+                        # No status val or warning val available for an unmapped site, this is unlikely and probably indicates an error
+                        lid_status_new = f"WARNING: No status or warnings created for site, {mapping_msg}"
+                        lid_mapped_new = "no"
+                    else:
+                        # No status val available, set warning val as status
+                        lid_status_new = f"{lid_warning}, {mapping_msg}"
+                        lid_mapped_new = "no"
 
-        # If status is not 'not set' 'no' or 'yes' at this stage then something weird happened
-        else: # Unlikely, implicates an error
-            sites_gdf.at[index, "mapped"] = "no"
-            logging.error(f"{huc_function_tag} {lid} - ERROR: Expected to see a value of 'not set,' 'no,' or 'yes' in the mapped col but value was {lid_mapped}, which shouldn't be possible at this stage. Check logs.")
-            continue
+                else: # Status already available
+                    if lid_warning == "":
+                        # Status val available but no warning val
+                        lid_status_new = f"{lid_status}, {mapping_msg}"
+                        lid_mapped_new = "no"
+                    else:
+                        # Both vals available
+                        lid_status_new = f'{lid_status} - {lid_warning}, {mapping_msg}'
+                        lid_mapped_new = "no"
+
+            # If status is not 'not set' 'no' or 'yes' at this stage then something weird happened
+            else: # Unlikely, implicates an error
+                lid_status_new = f"ERROR: Site has unexpected value of {lid_mapped} in the mapped column, which shouldn't be possible at this stage."
+                lid_mapped_new = "no"
+                logging.error(f"{huc_function_tag} {lid} - ERROR: Expected to see a value of 'not set,' 'no,' or 'yes' in the mapped col but value was {lid_mapped}, which shouldn't be possible at this stage. Check logs.")
+
+        if lid_status_new is None or lid_status_new == "":
+            logging.error(f"{huc_function_tag} {lid} - ERROR: lid_status_new is None or empty at the end of the mapping status update logic, which shouldn't be possible. Check logs.")
+        if lid_mapped_new is None or lid_mapped_new == "":
+            logging.error(f"{huc_function_tag} {lid} - ERROR: lid_mapped_new is None at the end of the mapping status update logic, which shouldn't be possible. Check logs.")
+
+        logging.info(f"{huc_function_tag} Processing site {lid}, lid_mapped_new: {lid_mapped_new}, lid_status_new: {lid_status_new}") ## TEMP DEBUG
+
+        # Update the sites gdf with the new mapped and status values for this site
+        sites_gdf.at[index, "status"] = lid_status_new
+        sites_gdf.at[index, "mapped"] = lid_mapped_new
+    # End of literating sites gdf loop
 
     # At this point, we should have a sites_gdf that has updated values for the 'mapped' and 'status' columns  
 
     # ------------------------------------
     # Update any other sites columns that are needed
 
-    # TODO: do we want lower case lid values the entire way through? I went with Upper at this point
-    # Same for the library data?
-    sites_gdf['nws_lid'] = sites_gdf['nws_lid'].str.lower()
+    # Drop any unnecessary or confusing columns
+    sites_gdf = drop_output_columns(sites_gdf, catfim_type)
 
-    # FB and SB sites and library outputs call it ahps_lid instead of nws_lid. why?
-    # well.. we process throughout as nws_lid
-    # don't rename that column here. Leave that for post processing
-    # sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
-    sites_gdf.rename(
-        columns={'identifiers_nwm_feature_id': 'nwm_seg', 'identifiers_usgs_site_code': 'usgs_gage'},
-        inplace=True,
-    )
+    # Put the geometry column last
+    geom = sites_gdf.pop(sites_gdf.geometry.name)
+    sites_gdf[geom.name] = geom
 
-    sites_gdf = sites_gdf.drop(columns=['warnings'], errors='ignore')
+    # Rename columns in the sites GDF
+    sites_gdf = rename_output_columns(sites_gdf) # TODO: Should this be here or in post processing?
 
     # Save updated sites GDF
     logging.info(f"{huc_function_tag} Saving updated HUC sites GDF to {sites_post_mapping_file_path}")
@@ -636,67 +627,50 @@ def update_sites_mapping_status(
     else:
         logging.info(f"{huc_function_tag} Processing library path {library_input}")
 
-        if not os.path.exists(library_input):
-            msg = f'{huc_function_tag} Unable to finalize HUC, no file exists at library filepath: {library_input}'
-            logging.critical(msg)
-            raise Exception(msg) # TODO: continue? error? or what?
-
-        # Read in the HUC library
-        huc_library_gdf = gpd.read_file(library_input, engine='fiona')
-
         if len(huc_library_gdf) == 0:
-            logging.warning(
-                f"{huc_function_tag} The working library file of {library_input} is empty and a finalized copy will not be created."
-            ) # TODO: continue? error? or what?
+            msg = f"{huc_function_tag} Unable to finalize HUC library, library table is empty at {library_input}"
+            logging.error(msg)
+            return
 
-        # If a final library was created, join the updated sites GDF to the library, update any columns, and re-save the library gdf
+        if not os.path.exists(library_input):
+            msg = f"{huc_function_tag} Unable to finalize HUC library, no file exists at library filepath: {library_input}"
+            logging.error(msg)
+            return
 
-        # Add metadata columns from the sites GDF to the library GDF
-        huc_library_gdf = huc_library_gdf.merge(
-            sites_gdf.drop(columns=['geometry']), 
+        # Otherwise, HUC library should already be read in as huc_library_gdf
+
+        # Library needs the following metadata from the sites GDF: wfo, rfc, state, county, and status
+        huc_library_gdf = pd.merge(
+            huc_library_gdf, 
+            sites_gdf[['nws_lid', 'nws_data_wfo', 'nws_data_rfc', 'nws_data_state', 'nws_data_county', 'status']], 
             on='nws_lid', 
             how='left'
         )
 
-        # TODO: if catfim_type == fb, remove interval stuff from the output dfs and csvs # TODO: check if redundant?
-        # do we need to remove from sites gdf too?
-        if catfim_type == 'fb':
-            if 'interval_stage' in huc_library_gdf.columns:
-                huc_library_gdf.drop('interval_stage', axis=1, inplace=True)
-                logging.info(f'{huc_function_tag} Dropped interval_stage col from HUC library GDF') ## TEMP DEBUG
+        # TODO: For stage-based, do we want to specify what the data source was? I think yes.... like elevation source?
 
-            if 'is_interval' in huc_library_gdf.columns:
-                huc_library_gdf.drop('is_interval', axis=1, inplace=True)
-                logging.info(f'{huc_function_tag} Dropped is_interval col from HUC library GDF') ## TEMP DEBUG
+        # TODO: Add a section that reorders the columns? or no? maybe also put this in the post-processing script
+        # Reorder columns
 
-        elif catfim_type == 'sb':
-            huc_library_gdf.rename(
-                columns={
-                    'datum_adj_ft': 'dtm_adj_ft',
-                    'dadj_w_ft': 'datum_adj_wse_ft',
-                    'dadj_w_m': 'dadj_w_m',
-                },
-                inplace=True,
-            )
-            # TODO: any changes to interval columns?
+        # Drop any unnecessary or confusing columns
+        huc_library_gdf = drop_output_columns(huc_library_gdf, catfim_type)
 
-        # TODO: Any other checks we should do on the library?
+        # Put the geometry column last
+        geom = huc_library_gdf.pop(huc_library_gdf.geometry.name)
+        huc_library_gdf[geom.name] = geom
+
+        # Rename columns in the library GDF # TODO: Or move to post-processing? Or make a wrapper function with colname rename, update sites mapping, reorder cols, etc.?
+        huc_library_gdf = rename_output_columns(huc_library_gdf)
 
         # Save updated library gdf here
-        logging.info(f"{huc_function_tag} - Saving updated HUC library to {library_post_mapping_file_path}")
+        logging.info(f"{huc_function_tag} Saving updated HUC library to {library_post_mapping_file_path}")
         huc_library_gdf.to_file(library_post_mapping_file_path, driver='GPKG', engine="fiona", index=False)
 
     return
 
-
-def validate_inputs(huc, output_folder):
+def get_huc_output_folder(huc, output_folder):
     '''
-    Validate input parameters and return normalized paths.
-
-    Checks that:
-        - output_folder exists
-        - HUC data is available in FIM_RUN_DIR
-        - required directory structure (branches) exists for the HUC
+    Validates the output folder path and returns the normalized output folder path.
 
     Arguments
     ---------
@@ -712,10 +686,6 @@ def validate_inputs(huc, output_folder):
     output_folder - STR
         Normalized output folder path (trailing slashes removed).
 
-    Raises
-    ------
-    ValueError: If output_folder is None/empty or doesn't exist, or if FIM_RUN_DIR environment variable is not set.
-    FileNotFoundError: If HUC path or branches directory doesn't exist in FIM_RUN_DIR.
     '''
 
     # Valdiate HUC value (must be a string with 8 numeric digits and start with 0, 1, or 2)
@@ -743,13 +713,170 @@ def validate_inputs(huc, output_folder):
             f"output_folder of {output_folder} does not exist. Please check pathing including case."
         )
 
+    # No need to validate any of the runtime_args as they were validated when it was created. (likely)
+
+    # Make HUC path (ie: /data/catfim/hand_4_8_7_2_stage_based/hucs/12090301)
+    huc_path = os.path.join(output_folder, "hucs", huc)
+
+    return huc_path, output_folder
+
+
+def drop_output_columns(df, catfim_type):
+    '''
+    Rename the CatFIM output column names.
+
+    Arguments
+    ---------
+    df - Pandas Dataframe
+        Dataframe or geodataframe that potentially needs column renaming.
+    catfim_type - STR
+        'sb' or 'fb'
+
+    Returns
+    -------
+    df_new - Pandas DataFrame or GeoDataFrame
+        Dataframe or geodataframe with removed columns.
+    
+    '''
+    df_new = df.copy()
+
+    # List of columns to remove for both stage-based AND flow-based CatFIM
+    cols_to_remove = [ # TODO: Decide what columns should be removed
+        'warnings',
+        'env_can_gage_data_name',	
+        'env_can_gage_data_latitude',	
+        'env_can_gage_data_longitude',	
+        'env_can_gage_data_map_link',
+        'env_can_gage_data_drainage_area',
+        'env_can_gage_data_contrib_drainage_area',
+        'env_can_gage_data_water_course',
+        'level_0'
+    ]
+
+    # List of columns to only remove for fb or sb CatFIM
+    fb_specific_cols_to_remove = ['interval_stage', 'is_interval']
+    sb_specific_cols_to_remove = []
+
+    # Assemble column list
+    if catfim_type == 'fb':
+        cols_to_remove += fb_specific_cols_to_remove
+    elif catfim_type == 'sb':
+        cols_to_remove += sb_specific_cols_to_remove
+    else:
+        logging.error(f'Expected value of sb or fb for catfim_type. Received value of {catfim_type} instead. Unable to drop columns.')
+        return df_new
+
+    # Remove listed columns if they are found
+    for colname in cols_to_remove:
+        if colname in df_new.columns:
+            df_new.drop(columns=[colname], errors='ignore', inplace=True)
+
+            print(f"Dropped column '{colname}' from the output dataframe.")  # TEMP DEBUG
+            # logging.info(f"Dropped column '{colname}' from the output dataframe.")  # TEMP DEBUG
+
+
+    return df_new
+
+def rename_output_columns(df):
+    '''
+    Rename the CatFIM output column names.
+
+    Arguments
+    ---------
+    df - Pandas Dataframe
+        Dataframe or geodataframe that potentially needs column renaming.
+
+    Returns
+    -------
+    df_new - Pandas DataFrame or GeoDataFrame
+        Dataframe or geodataframe with renamed columns.
+    
+    '''
+
+    df_new = df.copy()
+
+    # TODO: Decide if we want to have uniform column names between sites and library 
+    # or if we want to keep with previous patterns of having different colnames
+
+    # Dictionary of old name and new names for the final outputs
+    column_rename_dictionary = {
+        # 'old_name': 'new_name',
+        # 'identifiers_nwm_feature_id': 'nwm_seg', # TODO: Decide if we want these renamed?
+        # 'identifiers_usgs_site_code': 'usgs_gage',
+        'nws_lid': 'ahps_lid',
+        'huc': 'huc8',
+        'HUC8': 'huc8',
+        'nws_data_wfo': 'wfo',
+        'nws_data_rfc': 'rfc',
+        'nws_data_state': 'state',
+        'nws_data_county': 'county',
+        'wrds_timestamp': 'wrds_time',
+        'nrldb_timestamp': 'nrldb_time',
+        'nwis_timestamp': 'nwis_time',
+        # 'rfc_stage': '', # TODO: Decide which of these SB library columns I want to rename
+        # 'datum_adj_ft': '',
+        # 'datum_adj_wse_ft':'',
+        # 'datum_adj_wse_m': '',
+        # 'lid_alt_ft': '',
+        # 'lid_alt_m': '',
+        # 'is_interval': '',
+        # 'interval_stage': '',
+        # 'lid_usgs_elev': '',
+        # 'datum_adj_ft': 'dtm_adj_ft', # TODO: Decide. Removed the SB column name change for now because they're out of date and less clear than the current output names
+                                        # These will be the col names if we don't make this change: datum_adj_ft, datum_adj_wse_ft, datum_adj_wse_m
+        # 'dadj_w_ft': 'datum_adj_wse_ft',
+        # 'dadj_w_m': 'dadj_w_m',
+        # TODO: Fill in the new column names after they've been decided on
+    }
+
+    # Iterate down the colname dictionary and rename whichever ones are there
+    for old_name, new_name in column_rename_dictionary.items():
+        if old_name in df_new.columns:
+            df_new.rename(columns={old_name: new_name}, inplace=True)
+
+            print(f"Renamed column '{old_name}' to '{new_name}' in the output dataframe.")  # TEMP DEBUG
+            # logging.info(f"Renamed column '{old_name}' to '{new_name}' in the output dataframe.")  # TEMP DEBUG
+
+    return df_new
+
+
+def validate_huc_inputs(huc, output_folder):
+    '''
+    Validate HUC input parameters and return normalized paths.
+
+    Checks that:
+        - HUC data is available in FIM_RUN_DIR
+        - required directory structure (branches) exists for the HUC
+
+    Arguments
+    ---------
+    huc - STR
+        HUC identifier for the hydrologic unit code.
+    output_folder - STR
+        Root output folder path where HUC subdirectories are stored.
+
+    Returns
+    -------
+    huc_path - STR
+        Full path to the HUC subfolder in output directory.
+    output_folder - STR
+        Normalized output folder path (trailing slashes removed).
+
+    Raises
+    ------
+    ValueError: If output_folder is None/empty or doesn't exist, or if FIM_RUN_DIR environment variable is not set.
+    FileNotFoundError: If HUC path or branches directory doesn't exist in FIM_RUN_DIR.
+    '''
+
+    huc_path, output_folder = get_huc_output_folder(huc, output_folder)
+
     # Validate data exists in the fim_run_dir and it includes this HUC.
     # This may seem reduntant as it was checked (sort of) in generate_categorical_fim.py.
     # However, this one is HUC specific and it is possible that a HUC
     # can be run after generate_categorical_fim.py was run and add more HUC on the fly.
     # If this HUC did not previous exist or failed, you can re-run this script independantly
     # then run post processing again.
-    fim_run_dir = os.getenv("FIM_RUN_DIR")
+    fim_run_dir = os.getenv("FIM_RUN_DIR")  # Only works if you run from within catfim_process_huc.py
     if not fim_run_dir:
         raise ValueError(
             "The enviro value for FIM_RUN_DIR does not exist or is empty. It was loaded"

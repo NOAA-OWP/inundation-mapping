@@ -28,7 +28,6 @@ from src.utils.shared_variables import VIZ_PROJECTION
 from tools.inundate_gms import Inundate_gms
 from tools.mosaic_inundation import Mosaic_inundation
 from tools.tools_shared_functions import mask_out_lakes
-import src.utils.shared_functions as sf
 
 
 """
@@ -82,31 +81,6 @@ def process_mapping(
     library_post_mapping_file_path - STR
         Path to the the gpkg version of the library (once we've added geometry).
 
-        
-    CatFIM Reorg Notes (Jan 26) TODO: Update and/or clean up
-    ---------------------------
-
-    at this point, you will need to load the sites gpkg that was copied as a workign version into
-    the mapping dir (if we want to use that idea), but you should not need any threshold data files
-    that has been loading, validated and some processing done and is now part of the library.csv (df)
-    We know some library recs will be rejected in here and sites.gpkg updated for the reason why as we progress.
-    We also know some mags or sites have been already rejected earlier and won't even have mag records
-    for it in the library df.
-    We can add temp columns to all df, .gpkgs, gdfs, etc at any time, we just have to clean them up later.
-    That option helps keep each processing of each site/mag more independent if it helps.
-    We also know SB will add some library interval recs.
-
-    Jan 7, 2026: I am now thinking we do not want/need a temp directory and jsut keep the intermediates
-    and checkpoint files in the root. There won't be that many of them. # TODO: Decide about temp file (i'm leaning towards remove too -E)
-    We will continue to make subfolders and files inside the mappign folder with a similar structure
-    to what we currently have. We may want to keep the subfodler structure as is as it is not too bad.
-
-    That being said.. we can also look for opportunites to keep stuff in memory whenever reasonable
-    as reading/writing to disk slow things down a little.  But. ease of usages and understanding of
-    how the code works is far more important than optimization.
-
-    If it helps, we can always make temp dfs with filtered sites data
-
     '''
 
     # Add its own duration system and section start and close messages
@@ -126,11 +100,9 @@ def process_mapping(
             sites_pre_mapping_file_path,  # was sites_file_path
             library_pre_mapping_file_path)
 
-    except Exception:
-        logging.critical(f"{huc} - Mapping - A critical error occurred while loading HUC mapping inputs")
+    except Exception as ex: # TODO: Make sure exceptions are consistent throughout
+        logging.critical(f"{huc} - Mapping - A critical error occurred while loading HUC mapping inputs: {ex}")
         logging.critical(traceback.format_exc())
-
-    # TODO: Test that the exceptions work here as expected
 
     # TODO: Make sure the sites mapping is updated outside of process_mapping()
     # If we're running this in the command line, it doesn't really matter... If we're running
@@ -145,10 +117,6 @@ def process_mapping(
         logging.info("")
         if catfim_type == "sb":
             logging.info(f"{huc} - Mapping - Beginning stage-based mapping")
-
-            # TODO: Decide: One thing not yet done is using the __calc_stage_values but do we still even need it?
-            # and if so.. where.  The library df already has the stage values so I think we
-            # don't need it anymore
 
             # Jan 26 - New function
             sites_gdf, huc_library_df = run_sb_mapping(
@@ -176,8 +144,8 @@ def process_mapping(
                                             output_temp_dir,
                                             )
 
-    except Exception:
-        logging.critical(f"{huc} - Mapping - A critical error occurred while running mapping")
+    except Exception as ex:
+        logging.critical(f"{huc} - Mapping - A critical error occurred while running mapping: {ex}")
         logging.critical(traceback.format_exc())
 
     # At this point, we will have the inundated tifs for each valid site/magnitude combination
@@ -198,8 +166,8 @@ def process_mapping(
             output_mapping_dir,
         )
 
-    except Exception:
-        logging.critical(f"{huc} - Mapping - A critical error occurred during mapping post-processing")
+    except Exception as ex:
+        logging.critical(f"{huc} - Mapping - A critical error occurred during mapping post-processing: {ex}")
         logging.critical(traceback.format_exc())
 
     # -----------------------------
@@ -216,15 +184,9 @@ def process_mapping(
             library_post_mapping_file_path,
         )
 
-    except Exception:
-        logging.critical(f"A critical error occurred while saving mapping outputs for {huc}")
+    except Exception as ex:
+        logging.critical(f"{huc} - Mapping - A critical error occurred while saving mapping outputs: {ex}")
         logging.critical(traceback.format_exc())
-
-    # -----------------------------
-    # TODO: Add final checks?
-
-    # TODO: add check to see if there are any sites left that have some inundated files
-    # If not, the sites_gdf should already have the recs updated to know why
 
     # -----------------------------
     logging.info(" ")
@@ -258,7 +220,8 @@ def run_fb_mapping(
             (using Inundate_gms, Mosaic_inundation, and mask_out_lakes)
 
     Analogous to run_sb_mapping() for stage-based CatFIM. Different from SB in that
-    this function iterates by site/magnitude whereas run_sb_mapping() iterates by site. (TODO: could fix this? not sure if it's worth it)
+    this function iterates by site/magnitude whereas run_sb_mapping() iterates by site.
+    (TODO: could fix this? not sure if it's worth it)
 
     Arguments
     ---------
@@ -318,7 +281,7 @@ def run_fb_mapping(
         value_name='magnitude_value'
     )
 
-    # Remove rows where magnitude_value is -1.0 # TODO: Update with a variable? TODO: Also, do we have to worry about the -9999 nodata val?
+    # Remove rows where magnitude_value is -1.0 # TODO: Update with a variable?
     huc_thresholds_long_df = huc_thresholds_long_df[huc_thresholds_long_df['magnitude_value'] != -1.0]
 
     # Loop through AHPS sites
@@ -464,7 +427,7 @@ def run_fb_inundation( # renamed from run_inundation
             mosaic_output=output_extent_tif,
             mask=os.path.join(fim_run_dir, huc, 'wbd.gpkg'),
             unit_attribute_name='huc8',
-            nodata=-9999,
+            nodata=-9999, # TODO: Mapping nodata val
             workers=1,
             remove_inputs=False,
             subset=None,
@@ -649,10 +612,15 @@ def run_sb_mapping(
         # Make the feature_id column into a list
         segments = site_segments_df['feature_id'].tolist()
 
+        negative_stage_detected = False # placeholder for now, will update within the loop if we detect a negative stage
+
         # Iterate magnitudes to run inundation
         for magnitude in magnitude_list:
             if "." in magnitude:
                 continue
+
+            if negative_stage_detected:
+                continue # skip the rest of the magnitudes if a negative stage was detected in a previous magnitude
 
             logging.info("")
             logging.info(f"{huc} : {ahps_site} : {magnitude}")
@@ -674,7 +642,7 @@ def run_sb_mapping(
             logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {category_key}")
 
             # Create the inundation tifs for each site/mag combo for the lid (previously called produce_stage_based_lid_tifs)
-            run_sb_inundation(
+            messages, hand_stage, datum_adj_wse, datum_adj_wse_m = run_sb_inundation(
                 huc,
                 stage_val,
                 datum_adj_ft,
@@ -686,7 +654,27 @@ def run_sb_mapping(
                 output_mapping_dir,
                 magnitude,
                 category_key,
-        )
+            )
+
+            # Update the huc_library_df with the new info from run_sb_inundation (datum_adj_wse, datum_adj_wse_m)
+            huc_library_df.loc[(huc_library_df['nws_lid'] == ahps_site) & (huc_library_df['magnitude'] == magnitude), 'datum_adj_wse_ft'] = datum_adj_wse
+            huc_library_df.loc[(huc_library_df['nws_lid'] == ahps_site) & (huc_library_df['magnitude'] == magnitude), 'datum_adj_wse_m'] = datum_adj_wse_m
+            # We aren't updating sites df with this info because I don't think it is needed? Add here if needed.
+
+            # Check if the HAND stage is negative, and if so, log a warning and skip the rest of the magnitudes for this site
+            if hand_stage < 0:
+                negative_stage_detected = True
+    
+        # End magnitude loop
+
+        # If a negative HAND stage is detected, cease with processing the rest of the magnitudes
+        # because if the HAND stage is negative at the lower stage magnitudes, then it will be
+        # misleadingly under-inundating for the higher stage magnitudes.
+        if negative_stage_detected:
+            logging.warning(
+                f"{huc} : {ahps_site} - Negative HAND stage found. Skipping mapping higher stages and intervals for this site to avoid misleading under-inundation."
+            )
+            continue
 
         # -----------------------
         # Inundate site using additional stage intervals
@@ -856,13 +844,17 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
     hand_stage_m = datum_adj_wse_m - lid_usgs_elev
     hand_stage = (
         hand_stage_m if str(huc)[:2] == '19' else round(hand_stage_m * 1000)
-    )  # convert to mm to match HAND
+    )  # convert to mm to match HAND if it's NOT Alaska (HUC starts with 19)
+
+    # Round the datum_adj_wse and datum_adj_wse_m values
+    datum_adj_wse = round(datum_adj_wse, 2)
+    datum_adj_wse_m = round(datum_adj_wse_m, 2)
 
     # If hand_stage is negative, write message and exit out
     if hand_stage < 0:
         msg = f": Negative hand stage ({hand_stage} mm) detected, no inundation possible"
         messages.append(ahps_site + msg)
-        logging.info(huc_lid_cat_id + msg) # TODO: Update logging - logging .warning?
+        logging.warning(huc_lid_cat_id + msg) # TODO: Update logging - logging .warning?
 
         return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
 
@@ -871,7 +863,7 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
     if not segments or len(segments) == 0:
         msg = ':missing nwm segments'
         messages.append(ahps_site + msg)
-        logging.info(huc_lid_cat_id + msg) # TODO: Update logging - logging .warning?
+        logging.warning(huc_lid_cat_id + msg) # TODO: Update logging - logging .warning?
 
         return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
 
@@ -962,7 +954,7 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
                 # If lakes are detected, add info to the log
                 if len(lake_hydroid_list) > 0:
                     logging.info(
-                        f"HydroIDs {lake_hydroid_list} removed from processing because they contain lakes. FeatureId is {feature_id}."
+                        f"{msg_id_w_branch} : {feature_id} - Removed HydroIDs w/ lakes: {lake_hydroid_list}"
                     )
 
                 # List of HydroID's where there the LakeID is less than 0 (no lake, so we can inundate)
@@ -1163,8 +1155,6 @@ def inundate_sb( # formerly called produce_inundated_branch_tif
         # Check if no cells were inundated (branches don't inundate as they are out of the extent area)
         is_all_zero = np.all(masked_reclass_rem_array == 0)
 
-        # TODO: Update library df and maybe the sites gdf? I think no, because we do that at the end anyways
-
         if is_all_zero == False:
             with rasterio.Env():
                 profile = rem_src.profile
@@ -1236,7 +1226,7 @@ def mosaic_sb_inundation(
     for f in lid_dir_list:
         path_list.append(os.path.join(output_mapping_dir, f))
 
-    logging.info(f"{huc_lid_cat_id} - Merging branch files: {lid_dir_list}")
+    logging.info(f"{huc_lid_cat_id} - Merging {len(lid_dir_list)} branch files")
 
     # Exit function if there aren't any tifs to mosaic
     if len(lid_dir_list) == 0:
@@ -1475,7 +1465,6 @@ def post_process_huc_mapping(
             huc_library_interval_df = pd.DataFrame(huc_library_interval_data_list)
             huc_library_df = pd.concat([huc_library_df, huc_library_interval_df], ignore_index=True)
 
-            # print(huc_library_df) ## TEMP DEBUG
 
         # Join the inundated multipolgyon dataframe to the HUC library dataframe
         huc_library_df = huc_library_df.merge(
@@ -1483,14 +1472,6 @@ def post_process_huc_mapping(
         )
 
     elif catfim_type == 'fb':
-
-        # Take interval columns out of reformatted_geom_list_df
-        if 'is_interval' in reformatted_geom_list_df.columns:
-            reformatted_geom_list_df.drop('is_interval', axis=1, inplace=True)
-        if 'interval_stage' in reformatted_geom_list_df.columns:
-            reformatted_geom_list_df.drop('interval_stage', axis=1, inplace=True)
-
-        # Shouldn't need to drop these columns from the HUC library df...    
         
         # Join the inundated multipolgyon dataframe to the HUC library dataframe
         huc_library_df = huc_library_df.merge(reformatted_geom_list_df, on=['nws_lid', 'magnitude'], how='left')
@@ -1502,12 +1483,6 @@ def post_process_huc_mapping(
     # Dissolve based on site and magnitude
     # TODO: I'm not convinced that dissolving will change things in most cases... but maybe worth 
     # keeping for now? 
-
-    # # For debugging purposes, save undissolved library TODO: TEMP DEBUG, Remove later?
-    # huc_library_undissolved_gdf = huc_library_gdf
-    # library_post_mapping_undissolved_file_path = os.path.join(output_mapping_dir, f'library_post_mapping_undissolved_{huc}.gpkg')
-    # logging.info(f"{huc} - Mapping - TEMP DEBUG Saving undissolved library to {library_post_mapping_undissolved_file_path}")
-    # huc_library_undissolved_gdf.to_file(library_post_mapping_undissolved_file_path, driver='GPKG', engine="fiona", index=False)
 
     # Previous methods only had dissolving for flow-based, probably because the intervals could make
     # things confusing...
@@ -1521,84 +1496,11 @@ def post_process_huc_mapping(
         # Exit post process HUC early if the library GDF is empty after dissolving (if it was previously not empty)
         if not huc_library_gdf and len(huc_library_undissolved_gdf) > 0:
             logging.critical(f"{huc} - Post-Process HUC Mapping - Library was not empty before dissolving but is empty after dissolving... likely a critical code error")
-            # TODO: Was warning, switched to critical. Double check that this classification makes sense during testing.
-            return None # Returns library_gdf = None
+            return sites_gdf, None
 
     elif catfim_type == "sb": # prev versions did not dissolve SB... for good reason? or no?
         logging.info(f"{huc} - Post-Process HUC Mapping - Not dissolving CatFIM library for stage-based CatFIM")
         # huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude', 'interval_stage'], as_index=False)
-
-    if 'level_0' in huc_library_gdf: # TODO: Decide if we wanna keep this
-        huc_library_gdf = huc_library_gdf.drop(['level_0'], axis=1)
-
-    # -----------------------------
-    # Create final sites and library GDF
-    # Update mapped status # TODO: Decide whether we should remove this site mapping status change code? I think yes because it exists elsewhere
-
-    # TODO: We could update the mapping status here but I think instead we want to update the mapping
-    # status at the very end of mapping... right? Although it might make sense to do it here because that saves us the effort of having to 
-    # read the GDF back in... or at least doing it somewhere in process_mapping(), maybe right outside of post_process_huc_mapping()
-
-    # # Get a list of sites that have at least one mapped geometry   
-    # sites_with_valid_geoms_gdf = huc_library_gdf[~huc_library_gdf.geometry.is_empty & huc_library_gdf.geometry.notna()]
-    # mapped_sites_list = sites_with_valid_geoms_gdf['nws_lid'].unique().tolist()
-
-    # logging.info(f"{huc} - Mapping - Mapped sites list: {mapped_sites_list}") ## TEMP DEBUG
-
-    # # Update mapping status in the sites gdf
-    # for index, row in sites_gdf.iterrows():
-    #     lid = row["nws_lid"]
-    #     lid_mapped = row["mapped"]
-    #     lid_status = row["status"]
-    #     lid_warning = row["warnings"]
-
-    #     # Exit if lid is not mapped
-    #     if lid_mapped == "no":
-    #         # Should already have a status here if mapped = no, log an error if that isn't the case
-    #         if lid_status == "not set":
-    #             sites_gdf.at[index, "status"] = "ERROR: Status not set, review logs."
-    #             logging.error(f"{huc} - {lid} - ERROR: Mapped val is 'no' but status is 'not set' which shouldn't be possible. Check logs.")
-    #         continue
-        
-    #     # Update mapped and status column if the lid is mapped
-    #     if lid in mapped_sites_list:
-    #         sites_gdf.at[index, "mapped"] = "yes"
-
-    #         if lid_status == "not set":
-    #             if lid_warning != "":
-    #                 sites_gdf.at[index, "status"] = "Good"
-    #             else:
-    #                 sites_gdf.at[index, "status"] = lid_warning
-
-    #     else: # lid_mapped is "not set" but site is not in mapped list
-
-    #         # This means that we didn't run into any issues for this site before
-    #         # mapping, but that something happened during mapping that prevented 
-    #         # us from creating any inudated multipolgyons for it.
-
-    #         # In general, it is worth looking into the logs when a site has this
-    #         # error message because it is possible that some error in CatFIM is 
-    #         # preventing the mapping (or preventing us from catching that the site
-    #         # is unmappable earlier in the code).
-
-    #         sites_gdf.at[index, "mapped"] = "no"
-
-    #         msg = "Site resulted with no valid inundated files"
-
-    #         if lid_status == "not set":
-    #             if lid_warning != "":
-    #                 sites_gdf.at[index, "status"] = msg
-    #             else:
-    #                 sites_gdf.at[index, "status"] = f"{msg} - {lid_warning}"
-
-    #         else: # There is already a lid status
-    #             if lid_warning != "":
-    #                 sites_gdf.at[index, "status"] =  f"{msg} - {lid_status}" 
-    #             else:
-    #                 sites_gdf.at[index, "status"] = f"{msg} - {lid_status} - {lid_warning}" # TODO: Decide if this is overkill     
-    #                 # TODO: If there is a preexisting status, do we still want to overwrite it with this msg?
-    #                 # or do we want to leave that status? or append msg + status (+ warning)? might be overkill...
-    #                 # For now, maybe we do the overkill option (append all three) and just see how crazy that ends up being?
 
     return sites_gdf, huc_library_gdf
 
@@ -2124,13 +2026,12 @@ def main(huc, output_folder):
             library_post_mapping_file_path,  # Data to finalize
         )
 
-        logging.info("")
-        logging.info("Mapping command-line wrapper - Completed running mapping!")
 
         # TODO: Wrap up logs?
 
         duration_msg = sf.calculate_duration_msg(overall_start_time)
-        logging.info(duration_msg)
+        logging.info("")
+        logging.info(f"Mapping command-line wrapper - Completed running mapping! - {duration_msg}")
         print("")
         print("===================================================")
 

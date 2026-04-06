@@ -229,7 +229,6 @@ def get_threshold_data(huc, huc_path, valid_nwm_lids):
     return threshold_huc_df, data_source
 
 
-# TODO: this function is only used in catfim_process_huc.py... should we move it there?
 def process_threshold_data(
     catfim_type, valid_lids, sites_gdf, huc, huc_path, output_temp_dir, threshold_huc_df, metadata_json
 ):
@@ -508,6 +507,7 @@ def __create_sb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
         # it was handled and exists
 
         # Create a library of all available threshold data for each site/magnitude combination for this LID
+        # At this point, the lid, interval, and elevation data is all nodata values (-9999.0)
         sites_gdf, lid_library_df = __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data)
 
         # Add LID library data to the output huc_libary_df
@@ -613,9 +613,8 @@ def __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data):
             # Get stage value (will be float type, rounded to 2 decimal points)
             stage_value = stages[magnitude_type]
 
-            # Exit if stage value is invalid (Value of -1 or nodata, -9999.0?) 
-            # TODO: What about nodata value? We changed that above to -9999 so change here? 
-            if stage_value == -1 or stage_value == 0: # or -9999.0 ? TODO
+            # Exit if stage value is invalid (Value of -1 or nodata)
+            if stage_value == -1 or stage_value == 0:
                 logging.warning(f"{huc} : {lid} : {magnitude_type} - has an invalid or n/a stage value of {stage_value}")
                 invalid_stages.append(magnitude_type)
                 continue
@@ -1114,7 +1113,7 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
 
         line_df["is_interval"] = False
         line_df["interval_stage"] = None
-        line_df["lid_usgs_elev"] = -9999.0  # This is a temp processing colum
+        line_df["lid_usgs_elev"] = -9999.0  # This is a temp processing column
 
     return line_df
 
