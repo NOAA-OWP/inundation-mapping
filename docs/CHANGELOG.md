@@ -1,15 +1,15 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
-## v4.9.10.11 - 2026-04-06 - [PR#](https://github.com/NOAA-OWP/inundation-mapping/pull/
+## v4.9.10.11 - 2026-04-06 - [PR#1803](https://github.com/NOAA-OWP/inundation-mapping/pull/1803)
 
 This PR updates the FLASH FIM workflow to make it more efficient for development of a rapidly updating service.
 
 ### Additions
-- `tools/flashfim/optimized_flash_conflation.py`: Added new script to look up FLASH flows via a loookup table rather than using zonal stats to optimize service efficiency.
+- `tools/flashfim/optimized_flash_conflation.py`: Added new script to look up FLASH flows via a lookup table rather than using zonal stats to optimize service efficiency.
 
 ### Changes
-- `tools/flashfim/conflate_flash_flows.py`: Restrucutred reading of FLASH grib file for efficienty.
+- `tools/flashfim/conflate_flash_flows.py`: Restructured reading of FLASH grib file for efficiency.
 
 <br/>
 

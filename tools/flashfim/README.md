@@ -1,7 +1,7 @@
 ## About FLASH FIM
-FLASH FIM is a product that uses flow values from the MRMS Flooded Locations And Simulated Hydrographs (FLASH) streamflow products as the input flows to generate HAND Inundation. The use of FLASH flow forecasts to generate FIM in contrast to the National Water Model (NWM) flow forecasts provide two main benefits:
-- **More frequent update times:** FLASH updates every 10 minutes compared to the NWM short range forecast's 1 hour update frequency. 
-- **Reduced forecast latency:** Shorter delay from model initialization to product availability. From a little under 2 hours for the NWM to 30 minutes or less for FLASH.
+FLASH FIM is a product that uses flow values from the MRMS Flooded Locations And Simulated Hydrographs (FLASH) streamflow products as the input flow forcing to generate HAND Inundation. While a rapidly updating configuration of the National Water Model (NWM) is currently under development, it cannot yet be implemented, so the use of FLASH flow forecasts to generate FIM can provide two main benefits over the current NWM short range forecast:
+- **More frequent update times:** FLASH updates every 10 minutes compared to the current NWM short range forecast's 1 hour update frequency. 
+- **Reduced forecast latency:** Shorter delay from model initialization to product availability. From a little under 2 hours for the current NWM to 15 minutes for FLASH FIM.
 
 ## About FLASH Services
 FLASH forecasts are derived using the current radar-only MRMS precipitation values to force three hydrologic models:

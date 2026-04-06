@@ -14,14 +14,15 @@ def optimized_flash_flow_conflation(lookup_table, timestep, output):
     of the index of pixels related to each feature_id and a timestep.
 
     Args:
-        lookup_table (str): Lookup table defining FLASH pixel index for each feature_id.
+        lookup_table (str): Lookup table defining FLASH pixel index for each feature_id. Available in the FIM S3 bucket
+                        ~/inputs/flash_fim/flash_lookup_table_final.csv
         timestep (str): Timestep to pull data from. Pulls either "latest" or archived data using a specific timestep
                         with the format YYYYMMDD-HHMMSS. Ex. 20250704-083000
         output (str): Path and base name to output flow files. Ex. "/user/Documents/flow_file.csv"
 
 
     Example Usage:
-    python /foss_fim/tools/flashfim/optimized_flash_conflation.py -l /user/Documents/flash_lookup_table_final.csv
+    python /foss_fim/tools/flashfim/optimized_flash_conflation.py -l /inputs/flash_fim/flash_lookup_table_final.csv
     -o /user/Documents/latest_flow.csv -t 20250704-083000
 
     """
