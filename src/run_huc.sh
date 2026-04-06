@@ -12,6 +12,9 @@ source $outputDestDir/params.env
 source $srcDir/bash_functions.env
 source $srcDir/bash_variables.env
 
+export HYDRA_LAUNCHER=fork
+export DISPLAY=:0
+
 branch_list_csv_file=$tempHucDataDir/branch_ids.csv
 branch_list_lst_file=$tempHucDataDir/branch_ids.lst
 
@@ -199,21 +202,24 @@ python3 $srcDir/burn_in_levees.py \
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $branch_zero_id"
-gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+gdal_rasterize -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+    -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
-    $tempHucDataDir/nwm_subset_streams.gpkg $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
+    $tempHucDataDir/nwm_subset_streams.gpkg \
+    $tempCurrentBranchDataDir/flows_grid_boolean_$branch_zero_id.tif
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) - BRANCHES (Not 0) (NWM levelpath streams) ##
 if [ "$levelpaths_exist" = "1" ]; then
     echo -e $startDiv"Rasterize Reach Boolean $hucNumber (Branches)"
-    gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+    gdal_rasterize -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+        -co "BIGTIFF=YES" -co "TILED=YES" \
         -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
         $tempHucDataDir/nwm_subset_streams_levelPaths_extended.gpkg $tempHucDataDir/flows_grid_boolean.tif
 fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $branch_zero_id"
-gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
     $tempHucDataDir/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
 
