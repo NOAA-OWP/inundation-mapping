@@ -90,7 +90,7 @@ def detect_anomalies(df, factor_thresh):
 def estimated_from_neighbors(df_sa, df_q):
     """Expected SA by weighted interpolation between upstream and downstream SA and Q."""
     n_reach, n_stage = df_sa.shape
-    est_sa_df = df_sa.copy()
+    est_sa_df = df_sa.copy().astype(float)
 
     for i in range(1, n_reach - 1):
         us_sa = df_sa.iloc[i - 1]
@@ -113,11 +113,11 @@ def smooth_multi_stage(df_sa, df_q):
     anomalies_mask = detect_anomalies(df_sa, factor_thresh)
     expected_sa_df = estimated_from_neighbors(df_sa, df_q)
 
-    smoothed_df = df_sa.copy()
+    smoothed_df = df_sa.copy().astype(float)
     n_reach, n_stage = df_sa.shape
 
     for i in range(1, n_reach - 1):
-        cur = df_sa.iloc[i].copy()
+        cur = df_sa.iloc[i].copy().astype(float)
         exp = expected_sa_df.iloc[i]
         mask_row = anomalies_mask.iloc[i]
 
@@ -319,6 +319,31 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
         # Find the BedArea and SurfaceArea relation
         sa0_mask = src_df['SurfaceArea (m2)'] == 0
         src_df.loc[sa0_mask, 'BedArea (m2)'] = 0
+
+        # Clean data
+        # clean = src_df.replace([np.inf, -np.inf], np.nan).dropna(
+        #     subset=['SurfaceArea (m2)', 'BedArea (m2)']
+        # )
+
+        # x = clean['SurfaceArea (m2)'].to_numpy()
+        # y = clean['BedArea (m2)'].to_numpy()
+
+        # # Skip degenerate cases
+        # if len(clean) < 2:
+        #     print(f"Skipping HUC {huc}: not enough points")
+        #     continue
+
+        if np.all(src_df['SurfaceArea (m2)'] == 0) or np.all(src_df['BedArea (m2)'] == 0):
+            print(f"Skipping branch {branch}: all zero data in Surface/Bed area")
+            log_text += f'Skipping branch {branch}: all zero data in Surface/Bed area\n'
+            continue
+
+        if np.unique(src_df['SurfaceArea (m2)']).size < 2:
+            print(f"branch {branch}: SurfaceArea has no variation")
+            log_text += f'branch {branch}: SurfaceArea has no variation\n'
+            continue
+
+        # Safe to fit
         a_coef, b_coef = np.polyfit(src_df['SurfaceArea (m2)'], src_df['BedArea (m2)'], 1)
         src_df.loc[:, 'a_coef'] = a_coef
         src_df.loc[:, 'b_coef'] = b_coef
@@ -447,6 +472,7 @@ def filter_longitudinal_discharge_jitters(huc_dir, huc, stage_interval):
                 on=['HydroID', 'Stage'],
                 how='left',
             )
+            src_df['SurfaceArea (m2)'] = src_df['SurfaceArea (m2)'].astype(float)
             # Force increased SA back to default
             # Compute mean(SurfaceArea (m2)_longitudinalAdjusted - default) per HydroID
             mean_diff = src_df.groupby('HydroID').apply(
