@@ -99,9 +99,9 @@ def flash_flow_conflation(model, huc_flows, output, timestep, min_order):
             geojson_out=True,
         )
 
-        rsb_df = gpd.GeoDataFrame.from_features(raster_stats_buf)[
-            ["flowpath_id", "mean", "count"]
-        ].astype(float)
+        rsb_df = gpd.GeoDataFrame.from_features(raster_stats_buf)[["flowpath_id", "mean", "count"]].astype(
+            float
+        )
         huc_flows_rs = pd.merge(huc_flows_rs, rsb_df, on="flowpath_id", suffixes=("", f"_{r_min}"))
     huc_flows_rs = huc_flows_rs.rename(columns={"mean": "mean_10000", "count": "count_10000"}).drop(
         columns="geometry"
