@@ -132,8 +132,9 @@ mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
-echo -e $startDiv"Rasterize NHD Headwaters $hucNumber $current_branch_id"
-gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $current_branch_id"
+gdal_rasterize -q -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+     -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax \
     -ts $ncols $nrows \
     $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_dissolved_headwaters_$current_branch_id.gpkg \

@@ -219,7 +219,7 @@ fi
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $branch_zero_id"
-gdal_rasterize -q -at -ot Int32 -burn 1 -init 0 \
+gdal_rasterize -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
     -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
     -te $xmin $ymin $xmax $ymax -ts $ncols $nrows \
     $tempHucDataDir/nwm_headwater_points_subset.gpkg $tempCurrentBranchDataDir/headwaters_$branch_zero_id.tif
@@ -240,20 +240,13 @@ python3 $srcDir/agreedem.py \
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
-    $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
+   $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 
-## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
+# Run TauDEM on the stripped file
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
-# env -u DISPLAY HYDRA_LAUNCHER=fork mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-#     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
-#     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
-# xvfb-run --auto-servernum --server-num=1 \
-#     mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
-#     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
-#     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
