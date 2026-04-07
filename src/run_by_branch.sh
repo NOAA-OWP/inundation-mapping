@@ -80,7 +80,8 @@ read ncols nrows ndv xmin ymin xmax ymax cellsize_resx cellsize_resy\
 
 ## RASTERIZE REACH BOOLEAN (1 & 0) ##
 echo -e $startDiv"Rasterize Reach Boolean $hucNumber $current_branch_id"
-gdal_rasterize -q -ot Int32 -burn 1 -init 0 -co "COMPRESS=LZW" -co "BIGTIFF=YES" -co "TILED=YES" \
+gdal_rasterize -q -at -ot Int32 -burn 1 -init 0 -a_nodata -9999 \
+    -co "BIGTIFF=YES" \
     -te $xmin $ymin $xmax $ymax \
     -ts $ncols $nrows $tempCurrentBranchDataDir/nwm_subset_streams_levelPaths_extended_$current_branch_id.gpkg \
     $tempCurrentBranchDataDir/flows_grid_boolean_$current_branch_id.tif
