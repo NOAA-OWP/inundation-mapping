@@ -87,7 +87,6 @@ RUN mkdir -p $depDir
 COPY --from=builder $depDir $depDir
 RUN chown -R root:root $depDir && chmod -R 777 $depDir
 
-
 ## adding environment variables for numba and python ##
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8

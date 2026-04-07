@@ -242,7 +242,7 @@ echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
    $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 
-# Run TauDEM on the stripped file
+## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
