@@ -592,6 +592,7 @@ def clean_up_previous_huc_outputs(
         sites_post_mapping_file_path,
         library_pre_mapping_file_path,
         library_post_mapping_file_path,
+        huc_messages_file_path,
     ):
     '''
     Clean up specific output folders leftover from previous CatFIM runs.
@@ -648,6 +649,7 @@ def check_for_previous_huc_outputs(
         sites_post_mapping_file_path,
         library_pre_mapping_file_path,
         library_post_mapping_file_path,
+        huc_messages_file_path,
     ):
     '''
     Checks whether certain HUC-level folders and files exists.

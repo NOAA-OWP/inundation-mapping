@@ -119,7 +119,7 @@ def catfim_post_processing(output_folder):
             huc_path = os.path.join(huc_parent_folder_path, huc)
 
             # Create filepath variables
-            __, __, __, __, sites_post_mapping_file_path, __, library_post_mapping_file_path = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
+            __, __, __, __, sites_post_mapping_file_path, __, library_post_mapping_file_path, __ = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
             # TODO: There's probably a better way to do this without returning all the __'s,
 
             # Sites

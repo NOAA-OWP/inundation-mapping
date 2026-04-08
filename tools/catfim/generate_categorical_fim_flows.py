@@ -451,6 +451,8 @@ def __create_sb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
     TODO: Rob, do we mean that SB will NOT use the segments file? typo?
     '''
 
+    # messages = [] # TODO: Decide on messages system, clean up if needed 
+
     # Initialize output dataframes
     huc_library_df = pd.DataFrame()
     huc_segments_df = pd.DataFrame()
@@ -469,8 +471,17 @@ def __create_sb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
         if lid_threshold_data.empty:
             msg = 'No thresholds for required categories found on WRDS API'
             logging.warning(f"{huc} : {lid} - {msg}")
-            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
+
+            # messages.append(f"{lid}:{msg}")  # TODO: Decide on messages system, clean up if needed... 
+            # OR make below line into a function that enforces the rule where it's a status only if you're chanigng the mapped to no... otherwise its a warning?
+
+            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
+
             continue
+    
+
+
 
         # TODO: Does this make sense? for FB, we say just:  'Missing all flow data'
         # msg FB version = 'No thresholds for required categories found on WRDS API'
@@ -488,14 +499,17 @@ def __create_sb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
 
         # ---------------------------
         # Get the stream segments for the site
-        segments_lst, err_msg = __get_segments(huc, lid, lid_metadata, nwm_flows_region_df)
+        segments_lst = __get_segments(lid_metadata, nwm_flows_region_df)
 
-        # Update the mapped and status columns of the sites_gdf if needed
-        if err_msg != "":
-            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
+        # Update the mapped and status columns of the sites_gdf if we are missing NWM stream segments
+        if not segments_lst or len(segments_lst) == 0:
+            err_msg = 'Missing nwm stream segments'
+            logging.warning(f'{huc} : {lid} - {err_msg}')
+            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg] # TODO: Clean up once we've tested below
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
             continue
 
-        if len(segments_lst) > 0:
+        elif len(segments_lst) > 0:
             # Turn segments_lst from a simple list of feature IDs into a dataframe and add a lid column
             lid_seg_df = pd.DataFrame(data=segments_lst, columns=["feature_id"])
             lid_seg_df["lid"] = lid
@@ -503,8 +517,6 @@ def __create_sb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
             # Add the HUC segments for this site to the output huc_segments_df
             huc_segments_df = pd.concat([huc_segments_df, lid_seg_df], ignore_index=True)
 
-        # else: if we did not get a err_msg from __get_segments, we should be able to assume
-        # it was handled and exists
 
         # Create a library of all available threshold data for each site/magnitude combination for this LID
         # At this point, the lid, interval, and elevation data is all nodata values (-9999.0)
@@ -648,23 +660,28 @@ def __get_sb_library_data_per_lid(huc, lid, sites_gdf, lid_threshold_data):
         # msg = 'No valid flow values are available' # This is the message version in FB
         msg = 'No thresholds for required categories found on WRDS API'
         logging.warning(f"{huc} : {lid} - {msg}")
-        sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
-        return sites_gdf, pd.DataFrame()
+        # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+        sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
+
+        return sites_gdf, pd.DataFrame() #, messages
 
     elif len(invalid_stages) > 0:
         warning_mags = '; '.join(invalid_stages)
         warning_message = f"Missing stage data for {warning_mags}"
-
-        # Might have been a warning from something else by this point. TODO: What does this comment mean?
-        prev_warning = sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'].item()
-        if prev_warning != "":
-            warning_message = f"{prev_warning}; {warning_message}"
-
         logging.warning(f"{huc} : {lid} - {warning_message}")
-        sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'] = warning_message
+
+        sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, warning_message, set_mapped_to_no = False)
+
+        # # Might have been a warning from something else by this point. TODO: Currently we are using the below logic to append multiple messages...
+        # prev_warning = sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'].item()
+        # if prev_warning != "":
+        #     warning_message = f"{prev_warning}; {warning_message}"
+
+        # sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'] = warning_message
+
 
     # Note: It is ok if lid_library_df goes back empty.
-    return sites_gdf, lid_library_df
+    return sites_gdf, lid_library_df #, messages
 
 
 # We are still talking about raw threshold data at this point
@@ -745,7 +762,8 @@ def __create_fb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
         if lid_threshold_data.empty:
             msg = 'Missing all flow data'
             logging.warning(f"{huc} : {lid} - {msg}")
-            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
+            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
             continue
 
         # -------------------------
@@ -762,7 +780,8 @@ def __create_fb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
         if all(stages.get(magnitude_type, None) is None for magnitude_type in csf.MAGNITUDES_TYPES):
             msg = 'Error getting flows values from WRDS API'
             logging.warning(f"{huc} : {lid} - {msg}")
-            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
+            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
             continue
 
         # -------------------------
@@ -775,7 +794,9 @@ def __create_fb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
         if all(flows.get(magnitude_type, None) is None for magnitude_type in csf.MAGNITUDES_TYPES):
             msg = "Missing all calculated flows for all stages"
             logging.warning(f"{huc} : {lid} - {msg}")
-            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
+            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
+
             continue
 
         # -------------------------
@@ -787,23 +808,24 @@ def __create_fb_huc_library_data(huc, valid_lids, sites_gdf, threshold_huc_df, m
 
         # ---------------------------       
         # Get the stream segments for the site
-        segments_lst, err_msg = __get_segments(huc, lid, lid_metadata, nwm_flows_region_df)
-        
-        # Update the mapped and status columns of the sites_gdf if needed
-        if err_msg != "":
-            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
+        segments_lst = __get_segments(lid_metadata, nwm_flows_region_df)
+
+        # Update the mapped and status columns of the sites_gdf if we are missing NWM stream segments
+        if not segments_lst or len(segments_lst) == 0:
+            logging.warning(f'{huc} : {lid} - {err_msg}')
+            err_msg = 'No NWM stream segments affiliated with site' # previously said: 'Missing nwm stream segments'
+            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg] # TODO: Clean up after testing
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
+
             continue
 
-        if len(segments_lst) > 0:
+        elif len(segments_lst) > 0:
             # Turn segments_lst from a simple list of feature IDs into a dataframe and add a lid column
             lid_seg_df = pd.DataFrame(data=segments_lst, columns=["feature_id"])
             lid_seg_df["lid"] = lid
 
             # Add the HUC segments for this site to the output huc_segments_df
             huc_segments_df = pd.concat([huc_segments_df, lid_seg_df], ignore_index=True)
-
-        # else: if we did not get a err_msg from __get_segments, we should be able to assume
-        # it was handled and exists
 
         # Only tests left to do are the magnitude-specific tests (all others are done)
         # It will append data to the fb library csv as it goes along. 
@@ -996,20 +1018,25 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
     if len(invalid_flows) == 5:
         msg = 'No valid flow values are available'
         logging.warning(f"{lid}: {msg}")
-        sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
+        # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+        sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
+
+        
         return sites_gdf, pd.DataFrame, []
 
     elif len(invalid_flows) > 0:
         warning_mags = ', '.join(invalid_flows)
         warning_message = f"Missing or invalid flow data for {warning_mags}"
-
-        # Might have been a warning from something else by this point. TODO: What does this comment mean?
-        prev_warning = sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'].item()
-        if prev_warning != "":
-            warning_message = f"{prev_warning}; {warning_message}"
-
         logging.warning(f"{lid}: {warning_message}")
-        sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'] = warning_message
+
+        sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, warning_message, set_mapped_to_no = False)
+
+        # # Might have been a warning from something else by this point. # TODO: Clean up after testing
+        # prev_warning = sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'].item()
+        # if prev_warning != "":
+        #     warning_message = f"{prev_warning}; {warning_message}"
+
+        # sites_gdf.loc[sites_gdf["nws_lid"] == lid, 'warnings'] = warning_message
 
     # Note: It is ok if lid_library_df and/or lid_discharges_df goes back empty.
     return sites_gdf, lid_library_df, lid_discharges_df
@@ -1118,7 +1145,7 @@ def __create_lid_mag_library_rec(catfim_type, lid, lid_sites_gdf, magnitude_type
     return line_df
 
 
-def __get_segments(huc, lid, lid_metadata, nwm_flows_region_df):
+def __get_segments(lid_metadata, nwm_flows_region_df):
     '''
     Create a simple list of feature IDs for the stream segments
     relevant to the site. (Just a list, no other columns.)
@@ -1136,10 +1163,6 @@ def __get_segments(huc, lid, lid_metadata, nwm_flows_region_df):
     
     Arguments
     ---------
-    huc - STR
-        Hydrologic Unit Code.
-    lid - STR
-        Site ID. 
     lid_metadata - DataFrame
         Metadata for site
     nwm_flows_region_df - DataFrame
@@ -1149,11 +1172,8 @@ def __get_segments(huc, lid, lid_metadata, nwm_flows_region_df):
     -------
     segments_lst - LIST
         List of feature IDs for the stream segments relevant to the site
-    err_msg - STR
-        Any errors that occurred.
 
     '''
-    err_msg = ""
 
     # --------------
     # Get mainstem segments of LID by intersecting LID segments with known mainstem segments.
@@ -1167,12 +1187,7 @@ def __get_segments(huc, lid, lid_metadata, nwm_flows_region_df):
     )
     # Previous input was nwm_flows_df, but now it is region specific df (9/25/25)
 
-    # If there are no segments, write message and exit out
-    if not segments_lst or len(segments_lst) == 0:
-        err_msg = 'Missing nwm stream segments'
-        logging.warning(f'{huc} : {lid} - {err_msg}') # TODO: Check that reformatting this away from {lid}: {err_msg} didn't mess up our logging
-
-    return segments_lst, err_msg
+    return segments_lst
 
 
 # generate_categorical_fim_flows.py cannot be called from command line at this time.

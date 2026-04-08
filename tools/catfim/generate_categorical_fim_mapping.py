@@ -917,17 +917,17 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
         if not os.path.exists(rem_path):
             msg = ":rem doesn't exist (could be bad branch)"
             # messages.append(ahps_site + msg)
-            logging.info(msg_id_w_branch + msg) # TODO: Update logging logging.warning?
+            logging.info(msg_id_w_branch + msg) # TODO: Update logging logging.warning? Decide if these need to end up in the sites_gdf table?
             continue
         if not os.path.exists(catchments_path):
             msg = ":catchments files don't exist (could be bad branch)"
             # messages.append(ahps_site + msg)
-            logging.info(msg_id_w_branch + msg) # TODO: Update logging logging.warning?
+            logging.info(msg_id_w_branch + msg) # TODO: Update logging logging.warning? Decide if these need to end up in the sites_gdf table?
             continue
         if not os.path.exists(hydrotable_path):
             msg = ":hydrotable doesn't exist (could be bad branch)"
             # messages.append(ahps_site + msg)
-            logging.info(msg_id_w_branch + msg) # TODO: Update logging logging.warning?
+            logging.info(msg_id_w_branch + msg) # TODO: Update logging logging.warning? Decide if these need to end up in the sites_gdf table?
             continue
 
         # Use hydroTable to determine hydroid_list from site_ms_segments.
@@ -1939,6 +1939,7 @@ def main(huc, output_folder):
             sites_post_mapping_file_path,
             library_pre_mapping_file_path,
             library_post_mapping_file_path,
+            huc_messages_file_path,
         ) = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
 
         # ----------------------------
@@ -2014,10 +2015,10 @@ def main(huc, output_folder):
         # Finalize sites and library GDF
 
         logging.info("")
-        logging.info("Mapping command-line wrapper - Starting update_sites_mapping_status()")
+        logging.info("Mapping command-line wrapper - Starting finalize_sites_mapping_status()")
         logging.info("")
 
-        csf.update_sites_mapping_status(
+        csf.finalize_sites_mapping_status(
             huc,
             catfim_type,
             sites_post_mapping_file_path,  # Output path

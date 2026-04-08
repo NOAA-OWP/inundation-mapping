@@ -130,6 +130,7 @@ def process_huc(huc, output_folder):
             sites_post_mapping_file_path,
             library_pre_mapping_file_path,
             library_post_mapping_file_path,
+            huc_messages_file_path,
         ) = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
 
         # Remove some preexisting files and folders from prior runs
@@ -150,6 +151,16 @@ def process_huc(huc, output_folder):
         logging.info(f"Starting HUC-level CatFIM for HUC {huc} ;  {dt_string} (UTC)")
         print(f"... Logs for this HUC will be saved to {log_file_path} for now, but copied over to {huc}/logs later")
         print("")
+
+        # Make the huc_messages.txt file
+        # This will save some of the same information as the logs file, but
+        # is kept separate because this information is what we will use to
+        # update the site status messages later on (messages should be shorter)
+        with open(huc_messages_file_path, 'w') as f:
+            pass
+
+
+        # ---
 
         # Notes on cleaning up previous files: 
         # - Cleaning up some previous files and folders for new runs. By being specific we can keep debugging files
@@ -178,31 +189,30 @@ def process_huc(huc, output_folder):
         logging.info(f"{huc} - Loading sites metadata...")
 
         # Get HUC-level metadata and save it as a GeoDataFrame
-        metadata_json, sites_gdf = csf.get_huc_metadata(huc, huc_path, output_folder)
+        metadata_json, sites_gdf = csf.get_huc_metadata(huc, huc_path)
         sites_gdf = __setup_sites_gdf(sites_gdf, os.getenv('CATFIM_TYPE'))
 
         # Check for restricted sites and updates the sites GeoDataFrame accordingly
         valid_nwm_lids, sites_gdf = csf.check_for_restricted_sites(sites_gdf, os.getenv('CATFIM_TYPE'))
         # TODO: Test that restricted sites are being removed as expected
 
+        # csf.append_messages_to_message_file(messages, huc_messages_file_path)
+        # TODO: Clean up all references to messages file, we are using update_line_status_or_warning() now
+
         # If no valid sites remain, save the meta file we have with the new error messages, then abort.
         if len(valid_nwm_lids) == 0:
             logging.info(f"All sites associated to HUC {huc} are restricted. No more processing will continue.")
 
             # Update mapping status and save the final sites file
-            csf.update_sites_mapping_status( 
-                huc, 
-                catfim_type, 
-                sites_post_mapping_file_path, 
-                library_post_mapping_file_path, 
-                sites_gdf, 
+            csf.finalize_sites_mapping_status(
+                huc,
+                catfim_type,
+                sites_post_mapping_file_path,
+                library_post_mapping_file_path,
+                sites_gdf,
                 None,
             )
             continue_processing = False
-
-            # Notes: 
-            # - graceful exit is fine here. We don't need to crash it or through an exception. # TODO: Decide
-            # sys.exit(0)  # humm.. or do we let this throw the exception for MP?
 
         # =========================================
         # Retrieve and process threshold data if valid sites remain for HUC
@@ -296,7 +306,7 @@ def process_huc(huc, output_folder):
                 logging.warning(f"{huc} - There are no valid huc_library recs at this point. Skipping to finalization")
 
                 # Update mapping status and save the final sites file
-                csf.update_sites_mapping_status( 
+                csf.finalize_sites_mapping_status( 
                     huc, 
                     catfim_type, 
                     sites_post_mapping_file_path, 
@@ -315,7 +325,7 @@ def process_huc(huc, output_folder):
                 logging.info(f"{huc} - There are no remaining sites to process. Skipping to finalization.")
 
                 # Update mapping status and save the final sites file
-                csf.update_sites_mapping_status( 
+                csf.finalize_sites_mapping_status( 
                     huc, 
                     catfim_type, 
                     sites_post_mapping_file_path, 
@@ -355,7 +365,7 @@ def process_huc(huc, output_folder):
                     )
 
                     # Update mapping status and save the final sites file
-                    csf.update_sites_mapping_status( 
+                    csf.finalize_sites_mapping_status( 
                         huc, 
                         catfim_type, 
                         sites_post_mapping_file_path, 
@@ -386,7 +396,7 @@ def process_huc(huc, output_folder):
                         )
 
                         # Update mapping status and save the final sites file
-                        csf.update_sites_mapping_status( 
+                        csf.finalize_sites_mapping_status( 
                             huc, 
                             catfim_type, 
                             sites_post_mapping_file_path, 
@@ -444,7 +454,7 @@ def process_huc(huc, output_folder):
             # for this code to pick up later in our finalization.
             # For now, we do NOT have a separate final HUC filepath.
 
-            csf.update_sites_mapping_status( 
+            csf.finalize_sites_mapping_status( 
                 huc, 
                 catfim_type, 
                 sites_post_mapping_file_path,  # Output path
@@ -584,9 +594,13 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         if len(usgs_elev_df) == 0:
             msg = "USGS elevation table (from FIM outputs) empty for HUC."
             logging.error(f"{huc} - {msg}")
+
+            # sites_gdf["mapped"] = 'no'
+            # sites_gdf["status"] = msg # TODO: Clean up after testing
+
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
-            sites_gdf["mapped"] = 'no'
-            sites_gdf["status"] = msg
+            sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no = True)
+            
             has_critical_error = True
 
             return sites_gdf, [], has_critical_error  # This will stop further processing downstream
@@ -608,9 +622,13 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
         if len(acceptable_usgs_elev_df) == 0:
             msg = "USGS elevation table empty for HUC after processing exclusion criteria."
             logging.error(f"{huc} - {msg}")
+            # sites_gdf["mapped"] = 'no'
+            # sites_gdf["status"] = msg # TODO: Clean up after testing
+
             # If this happens, all sites in this HUC will fail and have this same message, so we can update them all
-            sites_gdf["mapped"] = 'no'
-            sites_gdf["status"] = msg
+            sites_gdf = csf.update_line_status_or_warning("all", sites_gdf, msg, set_mapped_to_no = True)
+
+            
             has_critical_error = True
             return sites_gdf, [], has_critical_error  # This will stop further processing downstream
         # else: continue on
