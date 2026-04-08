@@ -196,6 +196,15 @@ echo
 # If we can find an easy way to do it as is a very low possibility but moreso in AWS where
 # it does have a shared "fim-temp" that would leave a HUC folder in it if something catestrophically happens
 
+l_echo $startDiv"Compiling error report"
+Tstart
+error_report=$(
+    python3 $srcDir/utils/post_process_error_report.py \
+        -o $csvFile 2>&1 \
+)
+Tcount
+
+
 ## ===============================
 l_echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" $pp_log_file_name
 l_echo "---- End of fim_post_processing" $pp_log_file_name
