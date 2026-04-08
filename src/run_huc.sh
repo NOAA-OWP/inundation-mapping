@@ -246,7 +246,8 @@ rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif \
+    2>/dev/null
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"

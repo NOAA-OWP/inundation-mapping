@@ -71,13 +71,15 @@ gdal_calc.py --quiet --type=Int32 --overwrite --co "COMPRESS=LZW" --co "BIGTIFF=
 echo -e $startDiv"Flow Condition Thalweg $hucNumber $current_branch_id"
 $taudemDir/flowdircond -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_flows_$current_branch_id.tif \
     -z $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
-    -zfdc $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif
+    -zfdc $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
+    2>/dev/null
 
 ## D8 SLOPES ##
 echo -e $startDiv"D8 Slopes from DEM $hucNumber $current_branch_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
-    -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif
+    -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif \
+    2>/dev/null
 
 ## STREAMNET FOR REACHES ##
 echo -e $startDiv"Stream Net for Reaches $hucNumber $current_branch_id"
@@ -90,7 +92,8 @@ $taudemDir/streamnet \
     -tree $tempCurrentBranchDataDir/treeFile_$current_branch_id.txt \
     -coord $tempCurrentBranchDataDir/coordFile_$current_branch_id.txt \
     -w $tempCurrentBranchDataDir/sn_catchments_reaches_$current_branch_id.tif \
-    -net $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp
+    -net $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp \
+    2>/dev/null
 
 ## SPLIT DERIVED REACHES ##
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"
@@ -111,7 +114,8 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
     -gw $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
-    -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
+    -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt \
+    2>/dev/null
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $current_branch_id"
@@ -126,7 +130,8 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_"$current_branch_id".tif \
     -gw $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg \
-    -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt
+    -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt \
+    2>/dev/null
 
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
 echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
@@ -237,7 +242,8 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
     -catchlist $tempCurrentBranchDataDir/catch_list_$current_branch_id.txt \
     -slp $tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif \
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
-    -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv
+    -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv \
+    2>/dev/null
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"

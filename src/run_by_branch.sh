@@ -129,7 +129,8 @@ fi
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
-    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif
+    -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
+    2>/dev/null
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $current_branch_id"
