@@ -72,14 +72,32 @@ echo -e $startDiv"Flow Condition Thalweg $hucNumber $current_branch_id"
 $taudemDir/flowdircond -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_flows_$current_branch_id.tif \
     -z $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
     -zfdc $tempCurrentBranchDataDir/dem_thalwegCond_$current_branch_id.tif \
-    2>/dev/null
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
 
 ## D8 SLOPES ##
 echo -e $startDiv"D8 Slopes from DEM $hucNumber $current_branch_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
     -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif \
-    2>/dev/null
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
 
 ## STREAMNET FOR REACHES ##
 echo -e $startDiv"Stream Net for Reaches $hucNumber $current_branch_id"
@@ -93,7 +111,16 @@ $taudemDir/streamnet \
     -coord $tempCurrentBranchDataDir/coordFile_$current_branch_id.txt \
     -w $tempCurrentBranchDataDir/sn_catchments_reaches_$current_branch_id.tif \
     -net $tempCurrentBranchDataDir/demDerived_reaches_$current_branch_id.shp \
-    2>/dev/null
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
 
 ## SPLIT DERIVED REACHES ##
 echo -e $startDiv"Split Derived Reaches $hucNumber $current_branch_id"
@@ -115,7 +142,16 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -gw $tempCurrentBranchDataDir/gw_catchments_reaches_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/demDerived_reaches_split_points_$current_branch_id.gpkg \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt \
-    2>/dev/null
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
 
 ## VECTORIZE FEATURE ID CENTROIDS ##
 echo -e $startDiv"Vectorize Pixel Centroids $hucNumber $current_branch_id"
@@ -131,7 +167,16 @@ mpiexec -n $ncores_gw $taudemDir/gagewatershed \
     -gw $tempCurrentBranchDataDir/gw_catchments_pixels_$current_branch_id.tif \
     -o $tempCurrentBranchDataDir/flows_points_pixels_$current_branch_id.gpkg \
     -id $tempCurrentBranchDataDir/idFile_$current_branch_id.txt \
-    2>/dev/null
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
 
 ## CATCH AND MITIGATE BRANCH OUTLET BACKPOOL ERROR ##
 echo -e $startDiv"Catching and mitigating branch outlet backpool issue $hucNumber $current_branch_id"
@@ -243,7 +288,16 @@ $taudemDir/catchhydrogeo -hand $tempCurrentBranchDataDir/rem_zeroed_masked_$curr
     -slp $tempCurrentBranchDataDir/slopes_d8_dem_meters_masked_$current_branch_id.tif \
     -h $tempCurrentBranchDataDir/stage_$current_branch_id.txt \
     -table $tempCurrentBranchDataDir/src_base_$current_branch_id.csv \
-    2>/dev/null
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
 
 ## FINALIZE CATCHMENTS AND MODEL STREAMS ##
 echo -e $startDiv"Finalize catchments and model streams $hucNumber $current_branch_id"

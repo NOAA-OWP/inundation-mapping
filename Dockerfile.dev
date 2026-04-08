@@ -92,11 +92,6 @@ ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 ENV PYTHONUNBUFFERED=TRUE
 
-# Set environment variables for stability
-# ENV PIP_NO_CACHE_DIR=1
-# ENV PIPENV_VENV_IN_PROJECT=1
-# ENV PIPENV_NOSPIN=1
-
 ## ============================
 ## Install necessary packages
 ENV DEBIAN_FRONTEND=noninteractive

@@ -130,7 +130,16 @@ echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $current_branch_id
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$current_branch_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$current_branch_id.tif \
-    2>/dev/null
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
 
 ## RASTERIZE NWM Levelpath HEADWATERS (1 & 0) ##
 echo -e $startDiv"Rasterize NWM Headwaters $hucNumber $current_branch_id"

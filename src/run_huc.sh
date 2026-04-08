@@ -240,14 +240,23 @@ python3 $srcDir/agreedem.py \
 ## PIT REMOVE BURNED DEM - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"Pit remove Burned DEM $hucNumber $branch_zero_id"
 rd_depression_filling $tempCurrentBranchDataDir/dem_burned_$branch_zero_id.tif \
-   $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
+    $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif
 
 ## D8 FLOW DIR - BRANCH 0 (include all NWM streams) ##
 echo -e $startDiv"D8 Flow Directions on Burned DEM $hucNumber $branch_zero_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_burned_filled_$branch_zero_id.tif \
     -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_$branch_zero_id.tif \
-    2>/dev/null
+    2> >(while read -r line; do
+        # Check if BOTH strings are present in the error line
+        if [[ "$line" == *"ERROR 6:"* && "$line" == *"Dataset does not support the AddBand() method."* ]]; then
+            # Do nothing (ignore the error)
+            :
+        else
+            # Print the line to the standard error stream (screen)
+            echo "$line" >&2
+        fi
+    done)
 
 ## MAKE A COPY OF THE DEM and DEM DIFF FOR BRANCH 0
 echo -e $startDiv"Copying DEM to Branch 0"
