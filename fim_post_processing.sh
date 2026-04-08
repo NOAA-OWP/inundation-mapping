@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/bin/bash
+### set -e
+umask 000
 
 :
 usage()
@@ -116,14 +118,12 @@ python3 $toolsDir/combine_crosswalk_tables.py \
 Tcount
 
 
-l_echo $startDiv"Compile all HUCs error files"
-echo "Results will be saved in log folder."
+l_echo $startDiv"Compiling error report"
 Tstart
-    outfile="$outputDestDir/logs/all_errors.log"
-    # Collect all matching files into new output
-    find "$outputDestDir" -type f -name "huc_*_errors.log" \
-       -exec sh -c 'for f; do echo "=== $f ==="; cat "$f"; done' _ {} + > "$outfile"
-    echo "Collected errors into: $outfile"
+error_report=$(
+    python3 $srcDir/utils/post_process_error_report.py \
+        -o $csvFile 2>&1 \
+)
 Tcount
 
 l_echo $startDiv"Resetting Permissions"
