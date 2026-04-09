@@ -2,15 +2,18 @@ import argparse
 import ast
 import os
 import shutil
+import warnings
 from concurrent.futures import as_completed
 from typing import Dict, Optional, Tuple, Union
 
+import fsspec
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
 import xarray as xr
 from inundate_mosaic_wrapper import produce_mosaicked_inundation
+from scipy.interpolate import PchipInterpolator
 from scipy.stats import (
     expon,
     gamma,
@@ -20,7 +23,7 @@ from scipy.stats import (
     kappa4,
     norm,
     pearson3,
-    truncexpon,
+    rv_continuous,
     weibull_min,
 )
 from shapely.geometry import shape
@@ -118,25 +121,9 @@ def generate_streamflow_percentiles(
 
     dkeys = ['90', '75', '50', '25', '10']
 
-    # Check for deterministic products (currently NBM, Short Range, and Data Assimilated)
-    if 'nbm' in ensemble_forecast.coords['member']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'nbm'})))
-        rv['feature_id'] = feature
-        return rv
-
-    if 'noda' in ensemble_forecast.coords['member']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'noda'})))
-        rv['feature_id'] = feature
-        return rv
-
-    if 'short' in ensemble_forecast.coords['member']:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': 'short'})))
-        rv['feature_id'] = feature
-        return rv
-
     # If there is no feature in the NWM parameters file
     if feature not in params_weibull.index:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})['streamflow']))
         rv['feature_id'] = feature
         return rv
     else:
@@ -149,33 +136,61 @@ def generate_streamflow_percentiles(
         r = dist_dict[parameters['distribution_name']](**params)
 
     except Exception:
-        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'member': '1'})))
+        rv = dict.fromkeys(dkeys, float(ensemble_forecast.sel({'ensemble': '1'})['streamflow']))
         rv['feature_id'] = feature
         return rv
 
-    likelihoods = 1 - r.cdf(ensemble_forecast.values)
+    streamflow_values = ensemble_forecast['streamflow'].values
+    likelihoods = 1 - r.cdf(streamflow_values)
 
     # Scale the likelihoods to equal 1 and then generate a dataset given their likelihood
     scaled_likelihoods = np.squeeze(likelihoods / np.sum(likelihoods)) * np.linspace(1, 0.9, 6) * 10000
 
     # Create data to fit truncated exponential distribution
-    ef_values = np.where(np.isnan(ensemble_forecast.values), 0, ensemble_forecast.values)
+    ef_values = np.where(np.isnan(streamflow_values), 0, streamflow_values)
     sl_values = np.where(np.isnan(scaled_likelihoods), 1, scaled_likelihoods).astype(int)
     streamflow_expon_values = np.repeat(ef_values.ravel(), sl_values.ravel())
 
     # Check to see if all values are the same, if so grab the first, otherwise get their point percent functions
     if not np.allclose(streamflow_expon_values, streamflow_expon_values[0]):
-        # Generate 10000 random values from distribution
-        trunc_expon = truncexpon(
-            *truncexpon.fit(streamflow_expon_values, loc=np.min(streamflow_expon_values))
-        )
+        streamflow_list = [(value, index) for index, value in enumerate(np.squeeze(ef_values))]
+        streamflow_list.sort()
+        x_points = np.squeeze([item[0] for item in streamflow_list])
+        x_indices = [item[1] for item in streamflow_list]
+        cumsum = np.cumsum(scaled_likelihoods[x_indices] / 1e4)
+        cdf_points = np.interp(cumsum, [np.min(cumsum), np.max(cumsum)], [0.05, 0.95])
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            coefficientsx = np.polyfit(x_points, cdf_points, 2)
+            coefficientsy = np.polyfit(cdf_points, x_points, 2)
+
+        polynomial_functionx = np.poly1d(coefficientsx)
+        polynomial_functiony = np.poly1d(coefficientsy)
+        x_fitx = np.linspace(min(x_points), max(x_points), 100)  # Generate more points for a smooth curve
+        y_fity = polynomial_functionx(x_fitx)
+
+        y_fitx = np.linspace(min(cdf_points), max(cdf_points), 100)  # Generate more points for a smooth curve
+        x_fity = polynomial_functiony(y_fitx)
+
+        custom_cdf_func = PchipInterpolator(x_fitx, y_fity, extrapolate=True)
+        custom_ppf_func = PchipInterpolator(y_fitx, x_fity, extrapolate=True)
+
+        class CustomInterpDist(rv_continuous):
+            def _cdf(self, x):
+                return custom_cdf_func(x)
+
+            def _ppf(self, q):
+                return custom_ppf_func(q)
+
+        custom_dist = CustomInterpDist(a=min(x_points), b=max(x_points), name="CustomInterpDist")
 
         return {
-            '90': max(0, trunc_expon.ppf(0.1)),
-            '75': max(0, trunc_expon.ppf(0.25)),
-            '50': max(0, trunc_expon.ppf(0.5)),
-            '25': max(0, trunc_expon.ppf(0.75)),
-            '10': max(0, trunc_expon.ppf(0.9)),
+            '90': max(0, custom_dist.ppf(0.1)),
+            '75': max(0, custom_dist.ppf(0.25)),
+            '50': max(0, custom_dist.ppf(0.5)),
+            '25': max(0, custom_dist.ppf(0.75)),
+            '10': max(0, custom_dist.ppf(0.9)),
             'feature_id': feature,
         }
 
@@ -218,9 +233,13 @@ def get_subdivided_src(
         To get synthetic rating curve
 
     """
-    df_src = pd.read_csv(
-        os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv")
-    )
+
+    with fsspec.open(
+        os.path.join(hydrofabric_dir, huc, 'branches', branch, f"src_full_crosswalked_{branch}.csv"),
+        mode='rt',
+        encoding='utf-8',
+    ) as f:  # Use 'rt' for text mode, and specify encoding
+        df_src = pd.read_csv(f)
 
     df_src = df_src.drop(
         [
@@ -239,9 +258,10 @@ def get_subdivided_src(
         errors='ignore',
     )
 
-    df_htable = pd.read_parquet(
-        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"), filters=[('branch_id', '==', int(branch))]
-    )
+    with fsspec.open(
+        os.path.join(hydrofabric_dir, huc, "hydrotable.parquet"), mode='rb'
+    ) as f:  # Use 'rt' for text mode, and specify encoding
+        df_htable = pd.read_parquet(f, filters=[('branch_id', '==', int(branch))])
     df_htable = df_htable.reset_index()
     df_htable = df_htable.astype({'HUC': str, 'HydroID': int})
 
@@ -374,6 +394,7 @@ def get_subdivided_src(
     df_htable['LakeID'] = -999
     df_htable['HydroID'] = df_htable['HydroID'].astype(str)
     df_htable['feature_id'] = df_htable['feature_id'].astype(str)
+    df_htable['precalb_discharge_cms'] = 0
 
     output_table = os.path.join(htable_directory, htable_output.format(branch))
     df_htable.to_feather(output_table)
@@ -396,7 +417,6 @@ def inundate_probabilistic(
     output_raster: Optional[bool] = False,
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
-    aggregate_forecasts: Optional[str] = None,
     output_vector: Optional[bool] = True,
 ):
     """
@@ -436,12 +456,6 @@ def inundate_probabilistic(
         Quiet output
     log_file: Optional[str], default = None
         Filepath of log file
-    aggregate_forecasts: Optional[str], default = None
-        Method to aggregate forecasts.  Options are "max_to_forecast", "timeslice_max_of_any_feature_id",
-        "timeslice_max_sum".
-        Get max forecast for each feature id of all time up to day and hour after reference time
-        Get a timeslice of the time of max streamflow for any feature ids
-        Get a timeslice of the time of max of summed streamflow in the feature ids
     output_vector: Optional[bool], default = True
         Whether to create vector output
 
@@ -463,10 +477,6 @@ def inundate_probabilistic(
     # Masks for HUC Domain
     mask_path = os.path.join(hydrofabric_dir, huc, 'wbd.gpkg')
 
-    # Slice of time in forecast
-    reference_time = ensembles.coords['reference_time'].values[-1]
-    forecast_time = reference_time + np.timedelta64(day, 'D') + np.timedelta64(hour, 'h')
-
     # Percentiles and data to add
     percentiles = {'90': 10, '75': 25, '50': 50, '25': 75, '10': 90}
     percentile_values = {'feature_id': [], '90': [], '75': [], '50': [], '25': [], '10': []}
@@ -475,39 +485,9 @@ def inundate_probabilistic(
 
     # For each feature in the provided ensembles
 
-    # Get max streamflow for every feature up to forecast time
-    if aggregate_forecasts == "max_to_forecast":
-        sel_forecast = ensembles.sel({'time': slice(reference_time, forecast_time)}).max('time')['streamflow']
-
-    # Timeslice representing the max streamflow for any feature id in time up to forecast time
-    elif aggregate_forecasts == "timeslice_max_of_any_feature_id":
-        sel_forecast = ensembles['streamflow'].isel(
-            {
-                'time': ensembles['streamflow']
-                .sel({'time': slice(reference_time, forecast_time)})
-                .max(['feature_id', 'member'], skipna=True)
-                .argmax()
-            }
-        )
-
-    # Timeslice representing the max sum of streamflow for all feature ids in time up to forecast time
-    elif aggregate_forecasts == "timeslice_max_sum":
-        sel_forecast = ensembles['streamflow'].isel(
-            {
-                'time': ensembles['streamflow']
-                .sel({'time': slice(reference_time, forecast_time)})
-                .sum(['feature_id', 'member'], skipna=True)
-                .argmax()
-            }
-        )
-
-    # Timeslice at forecast time
-    else:
-        sel_forecast = ensembles.sel({'time': forecast_time})['streamflow']
-
     # Generate streamflow likelihoods for each feature
     for feat in map(int, features):
-        ensemble_forecast = sel_forecast.sel({'feature_id': feat})
+        ensemble_forecast = ensembles.sel({'feature_id': feat})
 
         res = generate_streamflow_percentiles(
             feature=feat, ensemble_forecast=ensemble_forecast, params_weibull=params_weibull
@@ -639,8 +619,8 @@ def inundate_probabilistic(
         os.remove(out_rast)
 
     # Remove SRC path and flow path
-    shutil.rmtree(src_output_path, ignore_errors=True)
-    shutil.rmtree(flow_path, ignore_errors=True)
+    shutil.rmtree(src_output_path)
+    shutil.rmtree(flow_path)
 
 
 def progress_bar_handler(executor_dict, verbose, desc) -> list:
@@ -690,7 +670,6 @@ def inundate_hucs(
     output_raster: Optional[bool] = False,
     quiet: Optional[bool] = True,
     log_file: Optional[str] = None,
-    aggregate_forecasts: Optional[str] = None,
     output_vector: Optional[bool] = True,
 ):
     """
@@ -730,12 +709,6 @@ def inundate_hucs(
         Whether to be verbose or not
     log_file: Optional[str], default = None
         Filepath of log file
-    aggregate_forecasts: Optional[str], default = None
-        Method to aggregate forecasts.  Options are "max_to_forecast", "timeslice_max_of_any_feature_id",
-        "timeslice_max_sum".
-        Get max forecast for each feature id of all time up to day and hour after reference time
-        Get a timeslice of the time of max streamflow for any feature ids
-        Get a timeslice of the time of max of summed streamflow in the feature ids
     output_vector: Optional[bool], default = True
         Whether to create vector output
 
@@ -759,7 +732,6 @@ def inundate_hucs(
             output_raster=output_raster,
             quiet=quiet,
             log_file=log_file,
-            aggregate_forecasts=aggregate_forecasts,
             output_vector=output_vector,
         )
 
@@ -875,16 +847,6 @@ if __name__ == '__main__':
     )
 
     parser.add_argument("-l", "--log_file", type=str, help="OPTIONAL: Filepath for log file", required=False)
-
-    parser.add_argument(
-        "-a",
-        "--aggregate_forecasts",
-        type=str,
-        help=(
-            'OPTIONAL: Method to aggregate forecasts.  Options are max_to_forecast, '
-            'timeslice_max_of_any_feature_id, timeslice_max_sum'
-        ),
-    )
 
     args = vars(parser.parse_args())
 

@@ -12,9 +12,10 @@ from rasterio.mask import mask
 from shapely.geometry import mapping
 
 
+# Set wbt envs
 wbt = whitebox.WhiteboxTools()
+wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to setting verbose mode
 wbt.set_verbose_mode(False)
-wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
 
 def adjust_floodplains(
@@ -31,7 +32,7 @@ def adjust_floodplains(
     branch_polygons: str,
     branch_id: str,
     fema_flood_zones_file: str,
-    fema_flood_zones_layer: str = 'combined',
+    fema_flood_zones_layer: str,
 ):
     """
     Adjusts the floodplains in a DEM based on the distance to a given input file.
@@ -64,8 +65,8 @@ def adjust_floodplains(
         The ID of the branch to adjust.
     fema_flood_zones_file : str
         The file containing the FEMA flood zones.
-    fema_flood_zones_layer : str, optional
-        The layer name of the FEMA flood zones, by default 'combined'.
+    fema_flood_zones_layer : str
+        The layer name of the FEMA flood zones.
 
     Returns
     -------
@@ -78,9 +79,11 @@ def adjust_floodplains(
     streams = gpd.read_file(nwm_streams)
     levelpaths = gpd.read_file(nwm_levelpaths)
     branch_polys = gpd.read_file(branch_polygons)
+
     branch_poly = branch_polys[branch_polys['levpa_id'] == branch_id]
 
     # Filter levelpaths by branch
+    levelpaths['ID'] = levelpaths['ID'].astype(int)
     levelpaths = levelpaths[levelpaths['levpa_id'] == branch_id]
 
     # Find streams that flow to the levelpaths
@@ -88,15 +91,28 @@ def adjust_floodplains(
 
     # Get all upstream streams
     def get_upstream_streams(hydro_ids, streams_df):
-        upstream_streams = pd.DataFrame()
-        for hydro_id in hydro_ids:
-            direct_upstream = streams_df[streams_df['to'] == hydro_id]
-            if not direct_upstream.empty:
-                upstream_streams = pd.concat([upstream_streams, direct_upstream])
-                upstream_streams = pd.concat(
-                    [upstream_streams, get_upstream_streams(direct_upstream['ID'].tolist(), streams_df)]
-                )
-        return upstream_streams.drop_duplicates()
+        """Get all upstream streams efficiently using iterative approach with visited set."""
+        # Create a lookup dictionary for faster access to upstream relationships
+        to_lookup = streams_df.groupby('to')['ID'].apply(list).to_dict()
+
+        visited = set()
+        result_ids = set(hydro_ids)  # Start with the input IDs
+        queue = list(hydro_ids)
+
+        while queue:
+            current_id = queue.pop()
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+
+            # Find all streams that flow to this stream
+            upstream_ids = to_lookup.get(current_id, [])
+            for upstream_id in upstream_ids:
+                if upstream_id not in visited:
+                    result_ids.add(upstream_id)
+                    queue.append(upstream_id)
+
+        return streams_df[streams_df['ID'].isin(result_ids)]
 
     upstream_streams = get_upstream_streams(ids, streams)
 
@@ -114,16 +130,23 @@ def adjust_floodplains(
         # Use NFHL flood hazard zones
         if os.path.exists(fema_flood_zones_file):
             nfhl_layers = gpd.list_layers(fema_flood_zones_file)['name'].tolist()
-            fema_flood_zones_availability_mask = gpd.read_file(fema_flood_zones_file, layer='combined')
+            # Initialize the variable as None so it always exists
+            fema_flood_zones_availability_mask = None
+            # Read combined layer if it exists
+            if 'combined' in nfhl_layers:
+                fema_flood_zones_availability_mask = gpd.read_file(fema_flood_zones_file, layer='combined')
 
             # Mask out areas inside the FEMA flood zone availability
             if 'availability' in nfhl_layers:
                 fema_flood_zones_availability = gpd.read_file(fema_flood_zones_file, layer='availability')
-                fema_flood_zones_availability_mask = (
-                    pd.concat([fema_flood_zones_availability_mask, fema_flood_zones_availability])
-                    .drop_duplicates(subset='geometry', keep=False)
-                    .dissolve()
-                )
+                if fema_flood_zones_availability_mask is not None:
+                    fema_flood_zones_availability_mask = (
+                        pd.concat([fema_flood_zones_availability_mask, fema_flood_zones_availability])
+                        .drop_duplicates(subset='geometry', keep=False)
+                        .dissolve()
+                    )
+                else:
+                    fema_flood_zones_availability_mask = fema_flood_zones_availability.copy()
 
             if fema_flood_zones_layer in nfhl_layers:
                 # Read the FEMA flood zones layer
@@ -198,9 +221,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--branch-polygons', help='Branch polygons file', type=str)
     parser.add_argument('-b', '--branch-id', help='Branch ID', type=str)
     parser.add_argument('-f', '--fema-flood-zones-file', help='FEMA flood zones file', type=str)
-    parser.add_argument(
-        '-l', '--fema-flood-zones-layer', help='FEMA flood zones layer', type=str, default='combined'
-    )
+    parser.add_argument('-l', '--fema-flood-zones-layer', help='FEMA flood zones layer', type=str)
     parser.add_argument('-c', '--nwm-catchments', help='NWM catchments file', type=str)
     parser.add_argument('-n', '--nwm-streams', help='NWM streams file', type=str)
     parser.add_argument('-lp', '--nwm-levelpaths', help='NWM levelpaths file', type=str)

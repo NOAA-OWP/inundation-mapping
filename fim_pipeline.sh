@@ -4,7 +4,7 @@
 usage()
 {
     echo "
-    Processing of HUC's in FIM4 comes in three sections. You can run 'fim_pipeline.sh' which will run
+    Processing of HUC's comes in three sections. You can run 'fim_pipeline.sh' which will run
         the three main scripts: 'fim_pre_processing.sh', 'fim_process_huc.sh' & 'fim_post_processing.sh'.
 
     Usage : fim_pipeline.sh -u <huc8> -n <name_of_your_run>

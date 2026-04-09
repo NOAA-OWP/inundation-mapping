@@ -8,6 +8,12 @@ import rasterio
 import whitebox
 
 
+# Set wbt envs
+wbt = whitebox.WhiteboxTools()
+wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))  # need to set path prior to setting verbose mode
+wbt.set_verbose_mode(False)
+
+
 def stream_pixel_zones(stream_pixels, unique_stream_pixels):
     '''
     This function will assign a unique ID for each stream pixel and writes to file. It then uses this raster to run GRASS r.grow.distance tool to create the allocation and proximity rasters required to complete the lateral thalweg conditioning.
@@ -27,10 +33,6 @@ def stream_pixel_zones(stream_pixels, unique_stream_pixels):
         Path to output allocation raster.
 
     '''
-    # Set wbt envs
-    wbt = whitebox.WhiteboxTools()
-    wbt.set_verbose_mode(False)
-    wbt.set_whitebox_dir(os.environ.get("WBT_PATH"))
 
     workspace = os.path.dirname(unique_stream_pixels)
     base = os.path.basename(unique_stream_pixels)

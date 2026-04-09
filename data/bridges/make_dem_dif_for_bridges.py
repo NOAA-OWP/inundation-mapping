@@ -271,7 +271,7 @@ def make_dif_rasters(OSM_bridge_file, dem_dir, lidar_tif_dir, output_dir, number
         file_logger.info('TOTAL RUN TIME: ' + str(tot_run_time))
 
     except Exception as ex:
-        msg = f"*** An error occured while making dem diffs : Details: {ex}"
+        msg = f"*** An error occurred while making dem diffs : Details: {ex}"
         print(msg)
         file_logger.critical(msg)
         print(traceback.format_exc())
@@ -284,19 +284,23 @@ if __name__ == "__main__":
     #   because pre-clipped osm data must have "has_lidar_tif" field showing existence of lidar or not
     #   This code needs to be run twice: once for conus and once for Alaska :
 
-    #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/bridge_data/20250207/alaska_osm_bridges.gpkg
-    #    -l /data/inputs/osm/bridges/lidar_data/20250323/alaska_osm_lidar_rasters/lidar_osm_rasters/
-    #    -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20250616/
-    #    -o /data/inputs/osm/bridges/DEM_Diffs/20250617/alaska/
-    #    -j 20
+    # python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
+    #  -i data/inputs/osm/bridges/bridge_lines/20260128/conus_osm_bridges.gpkg \
+    #  -l /data/inputs/osm/bridges/lidar_data/20250323/conus_osm_lidar_rasters/lidar_osm_rasters/ \
+    #  -d /data/inputs/dems/3dep_dems/10m_5070/20260128/ \
+    #  -o /data/inputs/osm/bridges/DEM_Diffs/20260203/conus/ \
+    #  -j 10
 
-    #    python /foss_fim/data/bridges/make_dem_dif_for_bridges.py
-    #    -i /data/inputs/osm/bridges/bridge_data/20250207/conus_osm_bridges.gpkg
-    #    -l /data/inputs/osm/bridges/lidar_data/20250323/conus_osm_lidar_rasters/lidar_osm_rasters/
-    #    -d /data/inputs/dems/3dep_dems/10m_5070/20250616/
-    #    -o /data/inputs/osm/bridges/DEM_Diffs/20250617/conus/
-    #    -j 20
+    #  python /foss_fim/data/bridges/make_dem_dif_for_bridges.py \
+    #  -i data/inputs/osm/bridges/bridge_lines/20260128/alaska_osm_bridges.gpkg \
+    #  -l /data/inputs/osm/bridges/lidar_data/20250323/alaska_osm_lidar_rasters/lidar_osm_rasters/ \
+    #  -d /data/inputs/dems/3dep_dems/10m_South_Alaska/20260128/ \
+    #  -o /data/inputs/osm/bridges/DEM_Diffs/20260203/alaska/ \
+    #  -j 10
+    # runs in under 1 min
+
+    # This tool needs to be run 4 times, once for Conus, AK, GU and AS
+    # Note: TBD: Guam and AS might not have any lidar data.
 
     ###############################
     #
@@ -308,9 +312,9 @@ if __name__ == "__main__":
     #    new OSM data is run.
     #
     #  After running this tool, you will get a new "modified" bridge files.
-    #    ie) conus_osm_bridges_modified.gpkg and ak_osm_bridges_modified.
+    #    ie) conus_osm_bridges_modified.gpkg,  ak_osm_bridges_modified, etc
     #
-    #  You will also get two new DEM Diff VRT's. ie) bridge_elev_diff.vrt (one for AK, one for CONUS)
+    #  You will also get new DEM Diff VRT's each time you run it. ie) bridge_elev_diff.vrt
     #
     #  Bash Variables will need to be updated for all four of these files and copied to all 5 enviros.
     #
