@@ -40,6 +40,166 @@ upper_threshold = 0.5
 max_extra_segments = 30  # max number of intermediate (missing) segments allowed
 max_gap_length_m = 15000  # stop filling if gap > 15 km
 
+# --- MANUAL ADJUSTMENT PARAMETERS ---
+manual_slope_map = {
+    # Ohio River group
+    0.00003: [11050844, 3824135, 3824131, 3821269],
+    # Monongahela & Allegheny River groups (Greater Pittsburgh)
+    0.00004: [
+        3785857,
+        3785847,
+        3785863,
+        3785867,  # Monongahela IDs
+        11050846,
+        11050716,
+        11050712,
+        11050700,
+        11050708,  # Allegheny IDs
+    ],
+}
+manual_removal_map = {
+    "Auglaize River south of Defiance, OH": [
+        15650287,
+        15650297,
+        15650293,
+        15650299,
+        15650311,
+        15650307,
+        15650303,
+        15650317,
+        15650319,
+        15650331,
+        15650337,
+        15650345,
+        15650355,
+        15650359,
+        15650465,
+        15650361,
+        15650371,
+        15650365,
+        15650383,
+        15650377,
+        15650387,
+        15650399,
+        15650401,
+        15650405,
+        15649473,
+        15650407,
+        15650411,
+        15650413,
+        15650419,
+        15650423,
+        15650449,
+        15650445,
+        15650427,
+        15650431,
+        15650435,
+        15650451,
+        15650441,
+        15653013,
+        15651901,
+        15651919,
+        15652005,
+        15652039,
+        15652245,
+        15652311,
+        15652325,
+        15652457,
+        15652475,
+        15652477,
+        15652491,
+        15653099,
+        15652501,
+        15652527,
+        15652553,
+        15652603,
+        15652607,
+        15652635,
+        15652633,
+        15652627,
+        15652647,
+        15652671,
+        15652757,
+        15651611,
+        15651637,
+        15651659,
+        15651699,
+        15651717,
+        15651777,
+        15651827,
+        15651953,
+        15651959,
+        15651995,
+        15652009,
+        15652065,
+        15652081,
+        15652095,
+        15652193,
+        15652229,
+        15652237,
+        15652289,
+        15652319,
+        15650453,
+        15649837,
+        15649865,
+        15649917,
+        15649933,
+        15649939,
+        15649963,
+        15650045,
+        15650073,
+        15650075,
+        15651601,
+        15650071,
+        15650069,
+        15653001,
+        15652611,
+        15652473,
+        15651917,
+        15651881,
+        15651789,
+        15651813,
+        15651805,
+        15649961,
+        15649773,
+        15650443,
+        15656725,
+        15656723,
+        15650393,
+        15651851,
+        15656727,
+        15656685,
+        15651833,
+        15649077,
+        15650295,
+        15651603,
+        15653095,
+        15650367,
+        15650463,
+        15644876,
+        15644768,
+        15644418,
+        15644392,
+        15644402,
+        15644412,
+        15644416,
+        15644414,
+        15644408,
+        15644400,
+        15644382,
+        15644396,
+        15644398,
+        15644386,
+        15644378,
+        15644362,
+        15644300,
+        15644314,
+        15644410,
+        15644266,
+        15644302,
+    ]
+}
+
 
 def is_valid_slope(value):
     if value is None or pd.isna(value):
@@ -255,6 +415,33 @@ def process_network(csv_file, nwm_streams_gpkg_file, output_dir, gpkg_output):
             )
         if new_rows:
             df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
+
+    # --- MANUAL OVERRIDES AND REMOVALS ---
+
+    # 1. Apply Slope Overrides
+    override_ids = []
+    for slope_val, ids in manual_slope_map.items():
+        # Update slope and status for any matching IDs in the dataframe
+        df.loc[df["id"].isin(ids), "slope_iris_sword"] = slope_val
+        df.loc[df["id"].isin(ids), "status"] = "manual_override"
+        override_ids.extend(ids)
+
+    # 2. Mark and Remove Manual IDs
+    all_removal_ids = [item for sublist in manual_removal_map.values() for item in sublist]
+
+    # Mark status before dropping (for internal logging if needed,
+    # though they will be removed from the final df)
+    df.loc[df["id"].isin(all_removal_ids), "status"] = "manual_removal"
+
+    # Track how many actually existed in our set before dropping
+    actual_removals = df[df["id"].isin(all_removal_ids)]["id"].tolist()
+
+    # Perform the drop
+    df = df[~df["id"].isin(all_removal_ids)]
+
+    log_lines.append(f"MANUAL: Overrote slopes for {len(override_ids)} features.")
+    log_lines.append(f"MANUAL: Removed {len(actual_removals)} features specified in removal map.")
+    # --- END MANUAL SECTION ---
 
     # Final counts and summary
     summary_lines = [
