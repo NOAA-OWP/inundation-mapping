@@ -417,8 +417,7 @@ def process_network(csv_file, nwm_streams_gpkg_file, output_dir, gpkg_output):
             df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
 
     # --- MANUAL OVERRIDES AND REMOVALS ---
-
-    # 1. Apply Slope Overrides
+    # Apply Slope Overrides
     override_ids = []
     for slope_val, ids in manual_slope_map.items():
         # Update slope and status for any matching IDs in the dataframe
@@ -426,7 +425,7 @@ def process_network(csv_file, nwm_streams_gpkg_file, output_dir, gpkg_output):
         df.loc[df["id"].isin(ids), "status"] = "manual_override"
         override_ids.extend(ids)
 
-    # 2. Mark and Remove Manual IDs
+    # Mark and Remove Manual IDs
     all_removal_ids = [item for sublist in manual_removal_map.values() for item in sublist]
 
     # Mark status before dropping (for internal logging if needed,
@@ -436,7 +435,7 @@ def process_network(csv_file, nwm_streams_gpkg_file, output_dir, gpkg_output):
     # Track how many actually existed in our set before dropping
     actual_removals = df[df["id"].isin(all_removal_ids)]["id"].tolist()
 
-    # Perform the drop
+    # Perform drop
     df = df[~df["id"].isin(all_removal_ids)]
 
     log_lines.append(f"MANUAL: Overrote slopes for {len(override_ids)} features.")
