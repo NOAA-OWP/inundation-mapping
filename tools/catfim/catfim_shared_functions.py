@@ -14,33 +14,6 @@ from dotenv import load_dotenv
 # Global vars, shared by all related py files.
 MAGNITUDES_TYPES = ['action', 'minor', 'moderate', 'major', 'record']
 
-# def append_messages_to_message_file(messages_list, huc_messages_file_path):
-#     '''
-#     Adds messages from a list to the messages textfile. Each item in the list gets a new line.
-
-#     Arguments
-#     ---------
-#     messages_list - list of string
-#         List of site-specific messages (format should be: {lid}:{message}) # TODO: or {lid}:{INFO/WARNING/ERROR}:{message}?
-#     huc_messages_file_path - str
-#         Filepath to the HUC-specific messages textfile path.
-
-#     '''
-
-#     # Make sure the file exists
-#     if os.path.isfile(huc_messages_file_path):
-#         msg = f"No file found at {huc_messages_file_path}"
-#         logging.ERROR(msg)
-#         raise Exception(msg)
-
-#     # Append messages to the messages file
-#     if len(messages_list) > 0:
-#         with open(huc_messages_file_path, 'a') as file:
-#             for message in messages_list:
-#                 file.write(message + '\n')
-
-#     return
-
 
 def load_fim_global_env_values(env_file):
     '''
@@ -168,8 +141,8 @@ def get_huc_metadata(huc, huc_path):
     # -----
     # Clean up: Remove the copied-over files once we've read this data in
 
-    os.remove(src_nwm_meta_file)
-    os.remove(src_nwm_sites_path)
+    os.remove(nwm_meta_file)
+    os.remove(nwm_sites_path)
 
     return huc_metadata_json_list, huc_sites_gdf
 
@@ -369,8 +342,6 @@ def make_huc_mapping_filepaths(huc, catfim_type, huc_path):
         Filepath to the pre-mapping library file.
     library_post_mapping_file_path - STR
         Filepath to the post-mapping library file.
-    huc_messages_file_path - STR
-        Filepath to the HUC messages textfile.
 
     '''
     # Make the CatFIM type label
@@ -393,9 +364,7 @@ def make_huc_mapping_filepaths(huc, catfim_type, huc_path):
     library_pre_mapping_file_path = os.path.join(output_temp_dir, f"{catfim_type_label}_library_pre_mapping_{huc}.csv")
     library_post_mapping_file_path = os.path.join(output_mapping_dir, f"{catfim_type_label}_library_{huc}.gpkg")
 
-    huc_messages_file_path = os.path.join(output_temp_dir, f"{huc}_site_messages.txt")
-
-    return output_mapping_dir, output_temp_dir, log_file_dir, sites_pre_mapping_file_path, sites_post_mapping_file_path, library_pre_mapping_file_path, library_post_mapping_file_path, huc_messages_file_path
+    return output_mapping_dir, output_temp_dir, log_file_dir, sites_pre_mapping_file_path, sites_post_mapping_file_path, library_pre_mapping_file_path, library_post_mapping_file_path
 
 def finalize_sites_mapping_status(
     huc,
@@ -501,7 +470,7 @@ def finalize_sites_mapping_status(
 
         if not os.path.exists(sites_input):
             msg = f'{huc_function_tag} Unable to finalize HUC, no file exists at sites filepath: {sites_input}'
-            logging.critical(msg)
+            logging.error(msg)  # TODO: Is critical + exception correct here? maybe not... since other HUCs still might've been sucessful
             raise Exception(msg)
 
         # Read in sites_input as a gdf
@@ -528,29 +497,23 @@ def finalize_sites_mapping_status(
     # Update mapping status in sites_gdf (the only sites that should be updated here are the unmapped sites,
     # the mapped sites should have an updated status from the end of post_process_huc_mapping)
 
-    if library_input == None:
-        # If we didn't get far enough to have a library input, we will assume there are zero mapped sites and set the mapped sites list to empty
-        mapped_sites_list = []
-        mapping_completed = False
-    
-    elif not os.path.exists(library_input):
-        # If no file exists at the library path, an error probably occurred and we will assume there are zero mapped sites and set the mapped sites list to empty
-        mapped_sites_list = []
-        mapping_completed = False
-    
-    else:
+    # Initialize values
+    if library_input == None: library_input = '' # change none to an empty string 
+    mapped_sites_list, huc_library_gdf = [], []
+    mapping_completed = False
+
+    if os.path.exists(library_input):
         # Read in the HUC library and get a list of sites that have at least one mapped geometry
         huc_library_gdf = gpd.read_file(library_input, engine='fiona') 
         huc_library_gdf['nws_lid'] = huc_library_gdf['nws_lid'].str.lower() # TODO: Make this consistent earlier in the process?
         sites_with_valid_geoms_gdf = huc_library_gdf[~huc_library_gdf.geometry.is_empty & huc_library_gdf.geometry.notna()]
         mapped_sites_list = sites_with_valid_geoms_gdf['nws_lid'].unique().tolist()
 
-        if len(mapped_sites_list) == 0:
-            mapping_completed = False
-        else:
+        if len(mapped_sites_list) != 0:
             mapping_completed = True
 
-    logging.info(f"{huc} - Mapping completed: {mapping_completed}, Mapped sites list: {mapped_sites_list}") ## TEMP DEBUG
+    if not mapping_completed:
+        logging.warning(f"{huc} has no mapped sites. It is possible that a HUC-level error occurred that prevented mapping from finishing processing.")
 
     # Set a consistent site status error message
     site_status_error_message = 'Possible site status error occurred during processing.'
@@ -658,14 +621,13 @@ def finalize_sites_mapping_status(
 
     # At this point, we should have a sites_gdf that has updated values for the 'mapped' and 'status' columns
 
-
-
     # ------------------------------------
     # Update any other sites columns that are needed
 
-    # Put the geometry column last
+    # Re-insert the geometry column at the end
     geom = sites_gdf.pop(sites_gdf.geometry.name)
     sites_gdf[geom.name] = geom
+    sites_gdf = sites_gdf.set_geometry(geom.name)
 
     # Rename columns in the sites GDF, then drop any unnecessary or confusing columns
     sites_gdf = rename_output_columns(sites_gdf)
@@ -679,25 +641,26 @@ def finalize_sites_mapping_status(
     # Process HUC library if it is available
 
     # Exit the function here if there is no library input, if the library GDF is empty, or if the path is faulty
-    if library_input == None:
+    if len(huc_library_gdf) == 0:
         logging.info(f"{huc_function_tag} No library input available, no final library gdf will be saved to {library_post_mapping_file_path}")
         return
 
-    if len(huc_library_gdf) == 0:
-        msg = f"{huc_function_tag} Unable to finalize HUC library, library table is empty at {library_input}"
-        logging.error(msg)
-        return
+    # if library_input == None: # TODO: Clean up
+    # if len(huc_library_gdf) == 0:
+    #     msg = f"{huc_function_tag} Unable to finalize HUC library, library table is empty at {library_input}"
+    #     logging.error(msg)
+    #     return
 
-    if not os.path.exists(library_input):
-        msg = f"{huc_function_tag} Unable to finalize HUC library, no file exists at: {library_input}"
-        logging.error(msg)
-        return
+    # if not os.path.exists(library_input):
+    #     msg = f"{huc_function_tag} Unable to finalize HUC library, no file exists at: {library_input}"
+    #     logging.error(msg)
+    #     return
 
     # Otherwise, HUC library should already be read in as huc_library_gdf
     logging.info(f"{huc_function_tag} Processing library path {library_input}")
 
     # Rename columns in the library GDF, then drop any unnecessary or confusing columns
-    huc_library_gdf = rename_output_columns(huc_library_gdf)
+    huc_library_gdf = rename_output_columns(huc_library_gdf)  # nws_lid is now ahps_lid
     huc_library_gdf = drop_output_columns(huc_library_gdf, catfim_type)
 
     # Library needs the following metadata from the sites GDF: wfo, rfc, state, county, and status
@@ -705,16 +668,17 @@ def finalize_sites_mapping_status(
     huc_library_gdf = pd.merge(
         huc_library_gdf,
         sites_gdf[['ahps_lid', 'wfo', 'rfc', 'state', 'county', 'status']],
-        on='nws_lid',
+        on='ahps_lid',
         how='left'
     )
 
     # TODO: For stage-based, do we want to specify what the elevation source was?
     # -> that exists already, it's s_src (can rename if needed)
 
-    # Reorder columns - Put the geometry column last # TODO: Make a function that reorders the columns?
+    # Re-insert the geometry column at the end
     geom = huc_library_gdf.pop(huc_library_gdf.geometry.name)
     huc_library_gdf[geom.name] = geom
+    huc_library_gdf = huc_library_gdf.set_geometry(geom.name)
 
     # Save updated library gdf here
     logging.info(f"{huc_function_tag} Saving updated HUC library to {library_post_mapping_file_path}")
@@ -834,7 +798,7 @@ def rename_output_columns(df):
 
     Arguments
     ---------
-    df - Pandas Dataframe
+    df - Pandas Dataframe or Geopandas GeoDataFrame
         Dataframe or geodataframe that potentially needs column renaming.
 
     Returns
@@ -917,32 +881,42 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
 
     
     '''
+
+    all_huc_sites = sites_gdf["nws_lid"].tolist()
+
+    logging.info(f"Updating site(s): {site} with message: {message}")  # TEMP DEBUG? Verbose
+    logging.info(f"All sites in HUC: {all_huc_sites}")  # TEMP DEBUG? Verbose
+
     if site == "all":
-        site_list = sites_gdf["nws_lid"].tolist()
+        site_list = all_huc_sites
     else:
         site_list = [site]
 
     # Iterate sites and update the columns as needed
     for site_i in site_list:
 
-        site_i = site_i.lower()  # Make sure site is in lowercase
+        site_i = site_i.upper()  # Before post-processing, sites are uppercase
+
+        if site_i not in all_huc_sites:
+            logging.error(f"{site} -  - Updating sites table, site not in sites_gdf... unable to update table")
+            return sites_gdf
 
         # Get initial values and print value changes
-        mapped_i = sites_gdf.loc[sites_gdf["nws_lid"] == site_i]["mapped"]
-        status_i = sites_gdf.loc[sites_gdf["nws_lid"] == site_i]["status"]
-        warnings_i = sites_gdf.loc[sites_gdf["nws_lid"] == site_i]["warnings"]
+        mapped_i = sites_gdf.loc[sites_gdf["nws_lid"] == site_i, "mapped"].iloc[0]
+        status_i = sites_gdf.loc[sites_gdf["nws_lid"] == site_i, "status"].iloc[0]
+        warnings_i = sites_gdf.loc[sites_gdf["nws_lid"] == site_i, "warnings"].iloc[0]
 
         # Give a warning if mapped is already 'no', because that could indicate an error
         # Because we don't keep processing sites after mapped is 'no'
         if mapped_i == "no":
-            logging.warning(f"{site} - Updating sites table, 'Mapped' value is already 'no' for this site")
+            logging.warning(f"{site} - Updating sites table, 'mapped' value is already 'no' for this site")
 
         if set_mapped_to_no is True:
             # We are unmapping the site, so the message gets put in the "status" column
             sites_gdf.loc[sites_gdf["nws_lid"] == site_i, ['mapped', 'status']] = ['no', message]
 
-            logging.info(f"{site} - Updating sites table, changed mapped from {mapped_i} to no")  # Verbose, maybe debug?
-            logging.info(f"{site} - Updating sites table, changed status from {status_i} to {message}")  # Verbose, maybe debug?
+            logging.info(f"{site} - Updating sites table, changed mapped from '{mapped_i}' to 'no'")  # Verbose, maybe debug?
+            logging.info(f"{site} - Updating sites table, changed status from '{status_i}' to '{message}'")  # Verbose, maybe debug?
 
         elif set_mapped_to_no is False:
             # We are NOT yet unmapping the site, so the messages gets put in the "warnings" column
@@ -962,7 +936,7 @@ def update_line_status_or_warning(site, sites_gdf, message, set_mapped_to_no):
             # (but we are NOT changing the mapped column here)
             sites_gdf.loc[sites_gdf["nws_lid"] == site_i, 'warnings'] = warning_message
 
-            logging.info(f"{site} - Updating sites table, changed status from {warnings_i} to {warning_message}")  # Verbose, maybe debug?
+            logging.info(f"{site} - Updating sites table, changed status from '{warnings_i}' to '{warning_message}'")  # Verbose, maybe debug?
 
         else:
             logging.error(f"Updating sites table, error updating line status/warnings. Invalid value for set_mapped_to_no: {set_mapped_to_no}")

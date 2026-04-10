@@ -1020,9 +1020,7 @@ def __get_fb_discharge_and_library_data_per_lid(huc, lid, sites_gdf, lid_thresho
         logging.warning(f"{lid}: {msg}")
         # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
         sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
-
-        
-        return sites_gdf, pd.DataFrame, []
+        return  sites_gdf, lid_library_df, lid_discharges_df
 
     elif len(invalid_flows) > 0:
         warning_mags = ', '.join(invalid_flows)

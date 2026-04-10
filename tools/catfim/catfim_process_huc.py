@@ -130,7 +130,6 @@ def process_huc(huc, output_folder):
             sites_post_mapping_file_path,
             library_pre_mapping_file_path,
             library_post_mapping_file_path,
-            huc_messages_file_path,
         ) = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
 
         # Remove some preexisting files and folders from prior runs
@@ -151,14 +150,6 @@ def process_huc(huc, output_folder):
         logging.info(f"Starting HUC-level CatFIM for HUC {huc} ;  {dt_string} (UTC)")
         print(f"... Logs for this HUC will be saved to {log_file_path} for now, but copied over to {huc}/logs later")
         print("")
-
-        # Make the huc_messages.txt file
-        # This will save some of the same information as the logs file, but
-        # is kept separate because this information is what we will use to
-        # update the site status messages later on (messages should be shorter)
-        with open(huc_messages_file_path, 'w') as f:
-            pass
-
 
         # ---
 
@@ -195,9 +186,6 @@ def process_huc(huc, output_folder):
         # Check for restricted sites and updates the sites GeoDataFrame accordingly
         valid_nwm_lids, sites_gdf = csf.check_for_restricted_sites(sites_gdf, os.getenv('CATFIM_TYPE'))
         # TODO: Test that restricted sites are being removed as expected
-
-        # csf.append_messages_to_message_file(messages, huc_messages_file_path)
-        # TODO: Clean up all references to messages file, we are using update_line_status_or_warning() now
 
         # If no valid sites remain, save the meta file we have with the new error messages, then abort.
         if len(valid_nwm_lids) == 0:
@@ -707,7 +695,8 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             # some continued on and ultimatly failed down the road.
             msg = 'AHPS site altitude value is invalid'
             logging.warning(f"{huc} - {lid}: {msg}")
-            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
+            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
             continue
 
         # Note from Rob: From previous code, there was flaws in this code as far as what data was created or available at the end
@@ -719,7 +708,10 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             # Get the DEM-adjusted elevation value (prioritize the val that isn't from branch 0)
             lid_usgs_elev, err_msg = __adj_dem_elevation_val(acceptable_usgs_elev_df, lid)
             if err_msg != "":
-                sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
+                
+                # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg] # TODO: Clean up after testing
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
+
                 continue
 
             # Jan 2026: Previously we ran __filter_bad_usgs_gage_data() here but we took 
@@ -733,7 +725,8 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
 
             if err_msg != "":
                 # Logging was already done in __adjust_datum_ft - some are logged as warnings and some as errors
-                sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
+                # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg] # TODO: Clean up after testing
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
                 continue
 
             # If an error wasn't returned but the datum adjustment value is equal to the nodata value,
@@ -741,7 +734,8 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             if datum_adj_ft == datum_adj_nodata_value:
                 msg = "Unable to determine datum adjustment for site, error occurred during datum adjustment calculation"
                 logging.error(f"{huc} - {lid}: {msg}")
-                sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg]
+                # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', msg] # TODO: Clean up after testing
+                sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, msg, set_mapped_to_no = True)
                 continue
 
         else:  # If source is manual input, skip the above elevation filtering
@@ -793,7 +787,9 @@ def __process_elevations(sites_gdf, huc_library_df, huc, huc_path, output_temp_d
             logging.warning(f"{huc} - {lid}: {err_msg}")
 
             # We will clean up the huc_library folder shortly
-            sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]
+            # sites_gdf.loc[sites_gdf["nws_lid"] == lid, ['mapped', 'status']] = ['no', err_msg]  # TODO: Clean up after testing
+            sites_gdf = csf.update_line_status_or_warning(lid, sites_gdf, err_msg, set_mapped_to_no = True)
+
             continue
 
         # Log a warning for elevation differences of 5-10 meters (but continue on)
@@ -1227,7 +1223,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
             logging.info(f"{lid}: Datum adjustment from NGVD29 to NAVD88 is {datum_adj_ft} ft")
 
         except Exception as ex:
-            err_msg = f"ERROR: {lid}: ngvd_to_navd_ft"
+            err_msg = f"{lid}: Exception occurred during vertical datum conversion (ngvd_to_navd_ft)"
             logging.error(err_msg)
 
             if crs is None: # TODO: Should we check for this earlier? Any reason to wait until here?
@@ -1237,7 +1233,7 @@ def __adjust_datum_ft(lid_sites_gdf, lid_library_df, lid, datum_adj_nodata_value
                 # These errors indicate that the input WRDS data is incomplete
 
             elif crs in unknown_list:
-                err_msg = f'NOAA VDatum adjustment error, CRS is unknown: crs={crs}'
+                err_msg = f'NOAA VDatum adjustment error, CRS is invalid (crs: {crs})'
                 logging.error(f"{lid}: {err_msg}")
                 # Skip traceback message because we know what went wrong
                 # These errors indicate that the input WRDS data is incomplete

@@ -119,7 +119,7 @@ def catfim_post_processing(output_folder):
             huc_path = os.path.join(huc_parent_folder_path, huc)
 
             # Create filepath variables
-            __, __, __, __, sites_post_mapping_file_path, __, library_post_mapping_file_path, __ = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
+            __, __, __, __, sites_post_mapping_file_path, __, library_post_mapping_file_path = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
             # TODO: There's probably a better way to do this without returning all the __'s,
 
             # Sites
@@ -190,29 +190,40 @@ def catfim_post_processing(output_folder):
         logging.info("")
         logging.info("Saving compiled sites and library files...")
 
-        # Concatenate sites GeoDataFrames into one GDF and update LID column name
-        compiled_sites_gdf = gpd.pd.concat(compiled_sites_gdf_list, ignore_index=True)
-        compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+        if len(compiled_sites_gdf_list) > 0:
 
-        # Concatenate library GeoDataFrames into one GDF and update LID column name
-        compiled_library_gdf = gpd.pd.concat(compiled_library_gdf_list, ignore_index=True)
-        compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+            # Concatenate sites GeoDataFrames into one GDF and update LID column name
+            compiled_sites_gdf = gpd.pd.concat(compiled_sites_gdf_list, ignore_index=True)
+            compiled_sites_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
 
-        # Save the compiled GeoDataFrames to GeoPackage files
-        compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona', index=False)
-        logging.info(f"Saved sites GeoPackage to {sites_gpkg_path}")
+            # Save the compiled GeoDataFrames to GeoPackage files
+            compiled_sites_gdf.to_file(sites_gpkg_path, driver='GPKG', engine='fiona', index=False)
+            logging.info(f"Saved sites GeoPackage to {sites_gpkg_path}")
 
-        compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona', index=False)
-        logging.info(f"Saved library GeoPackage to {library_gpkg_path}")
+            # Drop geometry column and save the csv versions
+            compiled_sites_df = compiled_sites_gdf.drop(columns=['geometry'])
+            compiled_sites_df.to_csv(sites_csv_path, index = False)
+            logging.info(f"Saved sites CSV to {sites_csv_path}")
 
-        # Drop geometry column and save the csv versions
-        compiled_sites_df = compiled_sites_gdf.drop(columns=['geometry'])
-        compiled_sites_df.to_csv(sites_csv_path, index = False)
-        logging.info(f"Saved sites CSV to {sites_csv_path}")
+        else:
+            logging.info(f"No sites info to save, not saving sites GPKG or CSV")
 
-        compiled_library_df = compiled_library_gdf.drop(columns=['geometry'])
-        compiled_library_df.to_csv(library_csv_path, index=False)
-        logging.info(f"Saved library CSV to {library_csv_path}")
+
+        if len(compiled_library_gdf_list) > 0:
+
+            # Concatenate library GeoDataFrames into one GDF and update LID column name
+            compiled_library_gdf = gpd.pd.concat(compiled_library_gdf_list, ignore_index=True)
+            compiled_library_gdf.rename(columns={'nws_lid': 'ahps_lid'}, inplace=True)
+
+            compiled_library_gdf.to_file(library_gpkg_path, driver='GPKG', engine='fiona', index=False)
+            logging.info(f"Saved library GeoPackage to {library_gpkg_path}")
+
+            compiled_library_df = compiled_library_gdf.drop(columns=['geometry'])
+            compiled_library_df.to_csv(library_csv_path, index=False)
+            logging.info(f"Saved library CSV to {library_csv_path}")
+
+        else:
+            logging.info(f"No library info to save, not saving library GPKG or CSV")
 
         # ---------------------
         # Completed post-processing

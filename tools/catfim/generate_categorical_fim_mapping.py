@@ -40,6 +40,11 @@ appropriate NWM reaches.
 
 gpd.options.io_engine = "pyogrio"
 
+# import warnings
+# # Suppress the "skipping source" warning for FB inundation
+# warnings.filterwarnings('ignore', message='.*Skipping source.*')
+# warnings.filterwarnings('ignore', message='.*CPLE_NotSupported*')
+
 
 
 # Main function for CatFIM mapping processing for a HUC
@@ -448,10 +453,7 @@ def run_fb_inundation( # renamed from run_inundation
             )
             output_extent_src.write(output_extent_array_masked, 1)
 
-        logging.info(f"{huc} : {ahps_site} : {magnitude} - Lake masking complete")
-
-        if mask_status:
-            logging.info(f'{huc} : {ahps_site} : {magnitude} - Masking status: {mask_status}')
+        logging.info(f'{huc} : {ahps_site} : {magnitude} - {mask_status}')
 
         # -----------------------
         # Clean up old branch tifs
@@ -612,6 +614,13 @@ def run_sb_mapping(
         # Make the feature_id column into a list
         segments = site_segments_df['feature_id'].tolist()
 
+        # If no segments, write message and exit out
+        if not segments or len(segments) == 0:
+            msg = 'Missing NWM stream segments for site'
+            logging.warning(f"{huc} : {ahps_site} - msg")
+            sites_gdf = csf.update_line_status_or_warning(ahps_site, sites_gdf, msg, set_mapped_to_no = True)
+            continue
+
         negative_stage_detected = False # placeholder for now, will update within the loop if we detect a negative stage
 
         # Iterate magnitudes to run inundation
@@ -642,7 +651,7 @@ def run_sb_mapping(
             logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {category_key}")
 
             # Create the inundation tifs for each site/mag combo for the lid (previously called produce_stage_based_lid_tifs)
-            messages, hand_stage, datum_adj_wse, datum_adj_wse_m = run_sb_inundation(
+            hand_stage, datum_adj_wse, datum_adj_wse_m = run_sb_inundation(
                 huc,
                 stage_val,
                 datum_adj_ft,
@@ -671,9 +680,11 @@ def run_sb_mapping(
         # because if the HAND stage is negative at the lower stage magnitudes, then it will be
         # misleadingly under-inundating for the higher stage magnitudes.
         if negative_stage_detected:
+            msg = "Negative HAND stage detected during processing, likely due to elevation data issues"
             logging.warning(
-                f"{huc} : {ahps_site} - Negative HAND stage found. Skipping mapping higher stages and intervals for this site to avoid misleading under-inundation."
+                f"{huc} : {ahps_site} - {msg}; Skipping mapping higher stages and intervals for this site to avoid misleading under-inundation."
             )
+            sites_gdf = csf.update_line_status_or_warning(ahps_site, sites_gdf, msg, set_mapped_to_no = True)
             continue
 
         # -----------------------
@@ -717,7 +728,6 @@ def run_sb_mapping(
                 logging.info(f"{huc} : {ahps_site} : {magnitude} - Begin inundation for {category_key}")
 
                 # Create the inundation tifs for each site/mag combo for the lid (previously called produce_stage_based_lid_tifs)
-                # TODO: Put run_sb_inundation back into a Try / Except statement?
                 run_sb_inundation(
                     huc,
                     interval_stage_val,
@@ -732,12 +742,6 @@ def run_sb_mapping(
                     category_key,
             )
 
-                # except TypeError:  # sometimes the thresholds are Nonetypes # TODO: Reinstate Try statement or clean up
-                #     logging.error(
-                #         f"{huc_lid_id}: ERROR: type error in ProcessPool"
-                #     )
-                #     continue
-
         else:
             logging.info(
                 f"{huc_lid_id}: Skipping intervals as there are not any 'non-record' stages"
@@ -745,12 +749,10 @@ def run_sb_mapping(
 
     logging.info(f"{huc} - Mapping - End inundating and mosaicing")
 
-    # TODO: Do we want to add a check for whether mapping was sucessful? Or will checks down the line do that for us?
-
     return sites_gdf, huc_library_df
 
 
-def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_tifs
+def run_sb_inundation(
     huc,
     stage_val,
     datum_adj_ft,
@@ -806,8 +808,6 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
 
     Returns
     -------
-    messages - list
-        List of warning or status messages generated during processing.
     hand_stage - int
         Computed HAND stage in millimeters.
     datum_adj_wse - float
@@ -824,9 +824,9 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
     - Logging is performed throughout for traceability and error handling.
     - If negative HAND stage or missing segments are detected, processing is skipped for those cases.
 
+    # Jan 26: was previously called produce_stage_based_lid_tifs
+    
     '''
-
-    messages = [] # TODO: Decide if we're keeping the messages system -> yes for now?
 
     # TODO: Decide if we want to implement this ID to FB CatFIM too?
     huc_lid_cat_id = f"{huc} : {ahps_site} : {magnitude}"
@@ -852,20 +852,9 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
 
     # If hand_stage is negative, write message and exit out
     if hand_stage < 0:
-        msg = f": Negative hand stage ({hand_stage} mm) detected, no inundation possible"
-        messages.append(ahps_site + msg)
-        logging.warning(huc_lid_cat_id + msg) # TODO: Update logging - logging .warning?
-
-        return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
-
-    # If no segments, write message and exit out
-    # This has already been validated for records, not need to keep redoing it
-    if not segments or len(segments) == 0:
-        msg = ':missing nwm segments'
-        messages.append(ahps_site + msg)
-        logging.warning(huc_lid_cat_id + msg) # TODO: Update logging - logging .warning?
-
-        return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+        msg = f"Negative hand stage ({hand_stage} mm) detected, no inundation possible"
+        logging.warning(f"{huc_lid_cat_id} - {msg}")
+        return hand_stage, datum_adj_wse, datum_adj_wse_m
 
     # ---------------------
     # Get branches from FIM outputs
@@ -915,19 +904,16 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
         # if so.. change it here (adjusting for the actual status message in the final library gpkg) # TODO: Test this contingency?
 
         if not os.path.exists(rem_path):
-            msg = ":rem doesn't exist (could be bad branch)"
-            # messages.append(ahps_site + msg)
-            logging.info(msg_id_w_branch + msg) # TODO: Update logging logging.warning? Decide if these need to end up in the sites_gdf table?
+            msg = "Branch REM doesn't exist (could be bad branch)"
+            logging.warnings(f'{msg_id_w_branch} - {msg}')
             continue
         if not os.path.exists(catchments_path):
-            msg = ":catchments files don't exist (could be bad branch)"
-            # messages.append(ahps_site + msg)
-            logging.info(msg_id_w_branch + msg) # TODO: Update logging logging.warning? Decide if these need to end up in the sites_gdf table?
+            msg = "Branch catchments files don't exist (could be bad branch)"
+            logging.warnings(f'{msg_id_w_branch} - {msg}')
             continue
         if not os.path.exists(hydrotable_path):
-            msg = ":hydrotable doesn't exist (could be bad branch)"
-            # messages.append(ahps_site + msg)
-            logging.info(msg_id_w_branch + msg) # TODO: Update logging logging.warning? Decide if these need to end up in the sites_gdf table?
+            msg = "Branch hydrotable doesn't exist (could be bad branch)"
+            logging.warnings(f'{msg_id_w_branch} - {msg}')
             continue
 
         # Use hydroTable to determine hydroid_list from site_ms_segments.
@@ -939,8 +925,6 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
 
         # ---------------------
         # Determine hydroids at which to perform inundation, filter out lakes
-
-        # TODO: Check wether the segments table also needs to be filtered to the ahps site?
 
         for feature_id in segments:
             try:
@@ -974,8 +958,6 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
         # Create inundation maps with branch and stage data
         # Only sites /categories that got this far are valid and can be inundated
         try:
-            # logging.info(f"{huc_lid_cat_id} : {branch} - Producing inundated branch tifs")  # Mainly for debug, makes a LOT of prints
-
             # CatFIM Reorg (Jan 2026): Previously we had executor.submit(inundate_sb, etc. ) here.
             # Took out MP for now, but can reimplement in the future if we want to optimize.
 
@@ -995,12 +977,9 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
             )
 
         except Exception:
-            # TODO: update sites.gdf ?
-            msg = f':inundation failed at {magnitude} for branch'
-            messages.append(ahps_site + msg)
-
-            logging.critical(msg_id_w_branch + msg) # TODO: update logging ... critical or warning? - We can check on whether this is right after a larger test
-            logging.critical(traceback.format_exc()) # TODO: update logging ... critical or warning? - We can check on whether this is right after a larger test
+            msg = f'Inundation failed for {category_key}'
+            logging.error(f'{msg_id_w_branch} - {msg}')
+            logging.error(traceback.format_exc())
 
     # end of previous MP (removed Jan 2026)
     # end of branch loop
@@ -1021,9 +1000,8 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
 
     # Exit early if no output extent tif was created
     if output_extent_tif is None or not os.path.exists(output_extent_tif):
-        logging.critical(f"{huc_lid_cat_id} - Failed to create output extent tif, skipping lake masking")
-        # TODO: Double check that critical is the correct choice here
-        return # TODO: What to return here? Do we need to return anything?
+        logging.error(f"{huc_lid_cat_id} - Failed to create output extent tif, skipping lake masking")
+        return hand_stage, datum_adj_wse, datum_adj_wse_m
 
     else:
         logging.info(f"{huc_lid_cat_id} - Mosaic inundation completed")
@@ -1041,11 +1019,10 @@ def run_sb_inundation( # Jan 26: was previously called produce_stage_based_lid_t
         )
         output_extent_src.write(output_extent_array_masked, 1)
 
-    logging.info(f"{huc_lid_cat_id} - Lake masking complete")
     if mask_status:
         logging.info(f'{huc_lid_cat_id} - Masking status: {mask_status}')
 
-    return messages, hand_stage, datum_adj_wse, datum_adj_wse_m
+    return hand_stage, datum_adj_wse, datum_adj_wse_m
 
 
 def inundate_sb( # formerly called produce_inundated_branch_tif
@@ -1093,10 +1070,6 @@ def inundate_sb( # formerly called produce_inundated_branch_tif
         List of hydroid identifiers to include in the mask.
     output_branch_tif - str
         Filepath for the eventual inundated branch tif.
-   
-    Jan 2026 Development Notes: TODO:
-    - need to decide if we're returning messages or whatever
-    - need to check that this function makes the correct assumptions about filepaths and folder structure
     
     '''
 
@@ -1173,7 +1146,7 @@ def inundate_sb( # formerly called produce_inundated_branch_tif
                 # logging.info(f'inundate_sb - not saving tif because masked array was all zero')
 
     except Exception:
-        logging.critical(f"{huc} : {lid} Error producing inundation maps with stage")
+        logging.critical(f"{huc} : {lid} : {category_key} - Error producing inundation maps with stage")
         logging.critical(traceback.format_exc())
 
     return
@@ -1208,11 +1181,6 @@ def mosaic_sb_inundation(
     output_extent_tif - str
         Filepath of newly mosaiced and saved output extent tif.
 
-    Jan 2026 Development Notes: TODO
-    --------------------------------
-    - need to update logging here and decide if we're returning messages or whatever
-    - need to check that this function makes the correct assumptions about filepaths and folder structure
-    - need to check that we are removing the correct intermediate files (and maybe decide if there's any change to that philolophy we want to make)
     '''
 
     # Merge all rasters in output_mapping_dir that have the same magnitude/category.
@@ -1352,7 +1320,7 @@ def post_process_huc_mapping(
 
     if len(tifs_to_reformat_list) == 0:
         logging.warning(f"{huc} - Post-Process HUC Mapping  - No tifs found at {output_mapping_dir}")
-        return None # Returns library_gdf = None
+        return sites_gdf, None
 
     # Iterate through the saved tifs to make a list of inundated multipolygons
     reformatted_geom_list = []
@@ -1424,7 +1392,7 @@ def post_process_huc_mapping(
     # (pretty unlikely, should only happen if something has gone wrong while reformatting inundation maps)
     if len(reformatted_geom_list_df) == 0:
         logging.warning(f"{huc} - Post-Process HUC Mapping - TIFFs found but no reformatted geom created at {output_mapping_dir}")
-        return None # Returns library_gdf = None
+        return sites_gdf, None
 
     # Handle intervals if CatFIM type is stage-based
     if catfim_type == 'sb':
@@ -1465,7 +1433,6 @@ def post_process_huc_mapping(
             huc_library_interval_df = pd.DataFrame(huc_library_interval_data_list)
             huc_library_df = pd.concat([huc_library_df, huc_library_interval_df], ignore_index=True)
 
-
         # Join the inundated multipolgyon dataframe to the HUC library dataframe
         huc_library_df = huc_library_df.merge(
             reformatted_geom_list_df, on=['nws_lid', 'magnitude', 'interval_stage', 'is_interval'], how='left'
@@ -1494,7 +1461,7 @@ def post_process_huc_mapping(
         huc_library_gdf = huc_library_gdf.dissolve(by=['nws_lid', 'magnitude'], as_index=False)
 
         # Exit post process HUC early if the library GDF is empty after dissolving (if it was previously not empty)
-        if not huc_library_gdf and len(huc_library_undissolved_gdf) > 0:
+        if len(huc_library_gdf) == 0 and len(huc_library_undissolved_gdf) > 0:
             logging.critical(f"{huc} - Post-Process HUC Mapping - Library was not empty before dissolving but is empty after dissolving... likely a critical code error")
             return sites_gdf, None
 
@@ -1881,8 +1848,7 @@ def __save_huc_outputs_post_mapping(
 
     if huc_library_gdf is None:
         # Skip saving if there's no library gdf to save
-        logging.warning(f"No HUC libary GDF to save for {huc}")
-        # TODO: Was critical, changed to warning. Confirm that this classification is correct during testing.
+        logging.warning(f"{huc} - Mapping - No HUC libary GDF to save")
     else:
         # Save HUC library as GPKG (CSV will be saved later, so we don't have to update both down the line)
         logging.info(f"{huc} - Mapping - Saving HUC library to {library_post_mapping_file_path}")
@@ -1894,7 +1860,7 @@ def __save_huc_outputs_post_mapping(
     if sites_gdf is None:
         # Skip saving if there's no sites gdf to save
         # (this is really unlikely, so if it happens then you should definitely look into it)
-        logging.critical(f"No HUC sites GDF to save for {huc}") # TODO: is critical correct here?
+        logging.error(f"{huc} - Mapping - No HUC sites GDF to save, table should exist even if no sites got mapped")
 
     else:
         # Save HUC sites as GPKG (CSV will be saved later, so we don't have to update both down the line)
@@ -1939,7 +1905,6 @@ def main(huc, output_folder):
             sites_post_mapping_file_path,
             library_pre_mapping_file_path,
             library_post_mapping_file_path,
-            huc_messages_file_path,
         ) = csf.make_huc_mapping_filepaths(huc, catfim_type, huc_path)
 
         # ----------------------------
