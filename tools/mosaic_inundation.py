@@ -10,6 +10,7 @@ from typing import Optional, Union
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import logging
 import rasterio
 import rioxarray as rxr
 import xarray as xr
@@ -26,6 +27,10 @@ from utils.shared_variables import elev_raster_ndv
 
 
 gpd.options.io_engine = "pyogrio"
+
+
+# Set rasterio logger to only show errors, not warnings
+logging.getLogger('rasterio').setLevel(logging.ERROR)
 
 
 def Mosaic_inundation(
