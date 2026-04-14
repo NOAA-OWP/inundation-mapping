@@ -156,6 +156,7 @@ if [ "$src_adjust_ripple1d" = "True" ] && [ "$src_subdiv_toggle" = "True" ]; the
         -huc_dir $tempHucDataDir \
         -ripple1d_rc $ripple1d_rating_curve_filename \
         -nwm_recur $nwm_recur_file \
+        -r1d_wl $ripple1d_whitelist_csvfile \
         -jb $jobBranchLimit
         # -huc_level $huc_level \
         # -ripple1d_input $ripple1d_input_dir \

@@ -174,6 +174,9 @@ class GageCrosswalk(object):
                 "ras_xs_station",
             ]
         ]
+        ripple1d_elev_table = ripple1d_elev_table.drop_duplicates(
+            subset=['location_id', 'levpa_id'], keep='first', ignore_index=True
+        )
 
         if not ripple1d_elev_table.empty:
             ripple1d_elev_table.to_csv(join(output_directory, 'ripple1d_elev_table.csv'), index=False)

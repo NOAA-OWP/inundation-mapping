@@ -46,9 +46,41 @@ Outputs
                         'discharge_cms','nwm_recur_flow_cms','nwm_recur','layer'
 '''
 
+# ripple1d_whitelist_csvfile = '/efs-drives/fim-dev-efs/fim-data/ripple/ripple_20260211_merged/data_validation/ripple_feature_list_20260310_huc_considered_delivered.csv'
+# col_whitelist = ['feature_id', 'is_blacklisted', 'is_valid_huc_considered'] # 'huc',
+# ripple_whitelist_df = pd.read_csv(ripple1d_whitelist_csvfile, dtype={'feature_id': int}, usecols=col_whitelist) #
+# ripple_blacklist_df = ripple_whitelist_df[col_whitelist][ripple_whitelist_df['is_valid_huc_considered']==False]
+# ripple_blacklist_df.reset_index(inplace=True)
+
+# huc_ripple1d_input_file = '/efs-drives/fim-dev-efs/fim-data/inputs/rating_curve/ripple1d/huc8/02020005/ripple1d_rating_curve.parquet'
+# col_filter = ["reach_id", "flow_cfs", "wse_m", "ras_xs_station"]
+# ras_rc_df = pd.read_parquet(huc_ripple1d_input_file, columns=col_filter)
+
+# ripple1d_elev_path = '/efs-drives/fim-dev-efs/fim-home/heidi.safa/Thor3/heidi_hand_calibration_with_ripple/outputs/fim6.2_uat_hand_calibration_with_ripple/02020005/ripple1d_elev_table.csv'
+# ripple1d_elev_df = pd.read_csv(
+#         ripple1d_elev_path,
+#         dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
+#     )
+
+# ras_rc_df2 = ras_rc_df.merge(ripple_whitelist_df, how='left', on='feature_id')
+# valid_cond = ras_rc_df2['is_valid_huc_considered']==True
+# ras_rc_df3 = ras_rc_df2[valid_cond]
+# ras_rc_df3.reset_index(inplace=True)
+
+# ripple1d_whitelist_csvfile = '/efs-drives/fim-dev-efs/fim-data/ripple/ripple_20260211_merged/data_validation/ripple_feature_list_20260310_huc_considered_delivered.csv'
+# huc_ripple1d_input_file = '/efs-drives/fim-dev-efs/fim-data/inputs/rating_curve/ripple1d/huc8/02020005/ripple1d_rating_curve.parquet'
+# ripple1d_elev_path = '/efs-drives/fim-dev-efs/fim-home/heidi.safa/Thor3/heidi_hand_calibration_with_ripple/outputs/fim6.2_uat_hand_calibration_with_ripple/02020005/ripple1d_elev_table.csv'
+# col_filter = ["reach_id", "flow_cfs", "wse_m", "ras_xs_station"]
+# ras_rc_df = pd.read_parquet(huc_ripple1d_input_file, columns=col_filter)
+# ripple1d_elev_df = pd.read_csv(
+#         ripple1d_elev_path,
+#         dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
+#     )
+# ripple1d_elev_df = ripple1d_elev_df.drop_duplicates(subset = ['location_id', 'levpa_id'], keep = 'first', ignore_index = True)
+
 
 def create_ripple1d_rating_database(
-    huc_ripple1d_input_file, ripple1d_elev_df, nwm_recurr_filepath, log_dir
+    huc_ripple1d_input_file, ripple1d_elev_df, nwm_recurr_filepath, ripple1d_whitelist_csvfile, log_dir
 ):  # , huc_level
     start_time = dt.datetime.now()
     print('Reading ripple1d rating curves from parquet...')
@@ -109,6 +141,20 @@ def create_ripple1d_rating_database(
     ]
 
     ras_rc_df['feature_id'] = ras_rc_df['reach_id'].astype(int)
+
+    # read ripple whitelist
+    col_whitelist = ['feature_id', 'is_valid_huc_considered']  # 'huc','is_blacklisted',
+    ripple1d_whitelist_df = pd.read_csv(
+        ripple1d_whitelist_csvfile, dtype={'feature_id': int}, usecols=col_whitelist
+    )  #
+
+    # merge ripple1d whitelist with ras_rc_df
+    ras_rc_df = ras_rc_df.merge(ripple1d_whitelist_df, how='left', on='feature_id')
+    valid_cond = ras_rc_df['is_valid_huc_considered'] == True
+    ras_rc_df = ras_rc_df[valid_cond]
+    ras_rc_df.reset_index(inplace=True)
+    if 'index' in ras_rc_df.columns:
+        ras_rc_df = ras_rc_df.drop(columns=['index'])
 
     # read in the NWM recurr csv file
     nwm_recur_df = pd.read_csv(nwm_recurr_filepath, dtype={'feature_id': int})
@@ -326,6 +372,7 @@ def run_prep(
     ripple_rc_filename,
     nwm_recurr_filepath,
     debug_outputs_option,
+    ripple1d_whitelist_csvfile,
     branch_jobs,  # huc_level, ripple_input_dir,
 ):
     ## Check input args are valid
@@ -352,68 +399,6 @@ def run_prep(
     log_file = open(os.path.join(log_dir, 'log_ripple1d_rc_src_adjust.log'), "w")
     log_file.write('START TIME: ' + str(begin_time) + '\n')
     log_file.write('#########################################################\n\n')
-
-    # hucs_with_data = find_matching_subdirectories(huc_dir, ripple_input_dir)
-    # if len(hucs_with_data) == 0:
-    #     print('ALERT: Did not find any HUCs with ripple1d data to perform adjustments')
-    #     log_file.write('ALERT: Did not find any HUCs with ripple1d data to perform adjustments\n')
-    #     return
-
-    # log_file.write('ripple1d data available and will perform SRC adjustments for hucs:\n')
-    # log_file.write(str(hucs_with_data))
-    # log_file.write('\n#########################################################\n\n')
-
-    # for huc in hucs_with_data:
-    #     huc_huc_dir = os.path.join(huc_dir, huc)
-    #     huc_ripple1d_input_file = os.path.join(huc_huc_dir, ripple_rc_filepath)
-
-    #     ## Create an aggregate dataframe with all ripple1d_elev_table.csv entries for hucs in fim_dir
-    #     print(f'\n Reading ripple1d point loc HAND elevation from {huc} ripple1d_elev_table.csv files...')
-    #     csv_elev = (
-    #         'ripple1d_elev_table.csv'  # file name to search ripple1d location data (in the huc/branch dirs)
-    #     )
-    #     # ripple1d_elev_df = concat_huc_csv(huc_huc_dir, huc_level, csv_elev)
-    #     if os.path.isfile(os.path.join(huc_huc_dir, csv_elev)):
-    #         ripple1d_elev_df = pd.read_csv(
-    #             os.path.join(huc_huc_dir, csv_elev),
-    #             dtype={
-    #                 f'HUC{huc_level}': object,
-    #                 'location_id': object,
-    #                 'feature_id': int,
-    #                 'levpa_id': object,
-    #             },
-    #         )
-    #     else:
-    #         print(f" Processing errors for HUC : {huc}, it does not have the necessary {csv_elev} file. \n")
-    #         ripple1d_elev_df = None
-
-    #     ## Create an aggregate dataframe with all ripple1d rating curve csv files
-    #     # print('Reading ripple1d rating curves csv files from the input directory...')
-    #     # ras_rating_df = concat_huc_csv(ripple_input_dir, huc_level, ripple_rc_filepath)
-
-    #     if ripple1d_elev_df is None:
-    #         warn_err = (
-    #             'WARNING: ripple1d_elev_df not created - check that ' + csv_elev + ' files exist in fim_dir!'
-    #         )
-    #         print(warn_err)
-    #         log_file.write(warn_err)
-
-    #     elif ripple1d_elev_df.empty:
-    #         warn_err = (
-    #             'WARNING: ripple1d_elev_df is empty - check that ' + csv_elev + ' files exist in fim_dir!'
-    #         )
-    #         print(warn_err)
-    #         log_file.write(warn_err)
-
-    #     else:
-    #         print('This may take a few minutes...')
-    #         log_file.write("Starting create ripple1d rating db")
-    #         ripple1d_df = create_ripple1d_rating_database(
-    #             huc_ripple1d_input_file, ripple1d_elev_df, nwm_recurr_filepath, log_dir # , huc_level
-    #         )
-
-    #         ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
-    #         branch_proc_list(ripple1d_df, huc_huc_dir, debug_outputs_option, log_file)
 
     # since we already copied the Ripple1D data, if it's available inside tempHucDataDir,
     # we can just check for its availablity to do the job
@@ -451,7 +436,11 @@ def run_prep(
         print('This may take a few minutes...')
         log_file.write("starting create Ripple1D rating db")
         ras_df = create_ripple1d_rating_database(
-            huc_ripple1d_input_file, ripple1d_elev_df, nwm_recurr_filepath, log_dir
+            huc_ripple1d_input_file,
+            ripple1d_elev_df,
+            nwm_recurr_filepath,
+            ripple1d_whitelist_csvfile,
+            log_dir,
         )
 
         ## Create huc proc_list for multiprocessing and execute the update_rating_curve function
@@ -492,6 +481,9 @@ if __name__ == '__main__':
         help='Path to NWM recur file (multiple NWM flow intervals). NOTE: assumes flow units are cfs!!',
         required=True,
     )
+    parser.add_argument(
+        '-r1d_wl', '--ripple1d_whitelist_csvfile', help='CSV file path for ripple1d whitelist', required=True
+    )
     # parser.add_argument(
     #     '-huc_level',
     #     '--huc-level',
@@ -517,6 +509,7 @@ if __name__ == '__main__':
     nwm_recurr_filepath = args['nwm_recur']
     # huc_level = args['huc_level']
     debug_outputs_option = args['extra_outputs']
+    ripple1d_whitelist_csvfile = args['ripple1d_whitelist_csvfile']
     branch_jobs = int(args['branch_jobs'])
 
     ## Prepare/check inputs, create log file, and spin up the proc list
@@ -525,5 +518,6 @@ if __name__ == '__main__':
         ripple_rc_filename,
         nwm_recurr_filepath,
         debug_outputs_option,
+        ripple1d_whitelist_csvfile,
         branch_jobs,  # huc_level, ripple_input_dir,
     )
