@@ -2,6 +2,17 @@ All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
 ## v4.x.x.x - 2025-12-08 [PR#1712](https://github.com/NOAA-OWP/inundation-mapping/pull/1712)
+## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
+
+Resolves an issue causing stream outlet lines extending outside of the buffered WBD to be snapped back to the buffered WBD.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Ignores `linegeom` assignment if already assigned
+- `src/bash_variables.env`: Updates preclip date
+
+<br/>
+
 ## v4.9.10.10 - 2026-04-03 - [PR#1785](https://github.com/NOAA-OWP/inundation-mapping/pull/1785)
 
 Replaces `richdem` with `richdem2` to avoid using deprecated `pkg_resources` in depression filling. Both packages use `rd_depression_filling` so no changes in code were needed.
@@ -11,8 +22,8 @@ Also updates `tornado` to v6.5.5, `gval` to v0.2.12, `dask` to v2026.1.1, `dask-
 ### Changes
 
 - `Pipfile` and `Pipfile.lock`: Updated Python packages.
-<br/>
 
+<br/>
 
 ## v4.9.10.9 - 2026-04-03 - [PR#1780](https://github.com/NOAA-OWP/inundation-mapping/pull/1780)
 
