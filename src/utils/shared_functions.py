@@ -70,7 +70,7 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
         raise ValueError("log file name prefix can not be None or empty")
 
     # Example with a different permission (e.g., full access for everyone)
-    permissions_code = 0o664
+    permissions_code = 0o776
     os.makedirs(log_file_dir, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
     # the mode is for permissions of the folder once is created.
@@ -100,11 +100,13 @@ def setup_file_logger(log_file_dir, log_file_name_prefix):
     err_file_handler = logging.FileHandler(error_file_name)
     err_file_handler.setLevel(logging.ERROR)
     err_file_handler.setFormatter(formatter)
+    # os.chmod(error_file_name, 0o776)
 
     # # basic file handler
     file_handler = logging.FileHandler(log_file_path)
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
+    # os.chmod(file_handler, 0o776)
 
     logger.handlers.clear()  # reset the custom logger settings below
     # order matters here
@@ -151,7 +153,7 @@ def setup_mp_file_logger(log_file_path: str, logger_name: str, level=logging.DEB
         raise Exception("log file name must end with .log")
 
     abs_path = os.path.abspath(log_file_path)
-    permissions_code = 0o664
+    permissions_code = 0o776
     log_folder = os.path.dirname(abs_path)
     os.makedirs(log_folder, mode=permissions_code, exist_ok=True)
     # even though we used os.makedirs, it does not mean it had permission to make the dir
@@ -514,37 +516,79 @@ def getDriver(fileName):
     return driver
 
 
+# ============================
 # Assumes the env file has been loaded into the os.environ objects
-def get_value_from_env(arg_key, env_file_path):
+def get_value_from_env(arg_key):
     '''
     Notes:
         - This assumes the env has already been loaded. The env_file_path is for error messages only.
         - we don't actually load the file here as we could be loading more than once.
-    Params:
-        - arg_key is the variables in the loaded environment object
-        - validate_local_file_exists: if False, do not validate that the file exists
-             Note: not all uses of this tool will be for file paths
-             ** Only work on S3 paths at this time
     Returns
         - The arg_key value. The return value may also have placeholders such as "mypath/{some version}/",
           which can be subsituted somewhere else.
     '''
-
-    env_file_name = ""
-
     if arg_key is None or arg_key == "":
-        raise Exception("arg key is missing or empty")
+        raise Exception("env_var_name key is missing or empty")
 
-    arg_value = os.environ[arg_key]
+    env_value = os.environ[arg_key]
 
-    if arg_value is None or arg_value.strip() == "":
-        if env_file_path is None or env_file_path.strip() == "":
-            env_file_name = "Undefined"
-        raise ValueError(f"Env file of {env_file_name} : {arg_key} variable does not exist or empty")
+    if env_value is None or env_value.strip() == "":
+        raise ValueError(f"Env variable of {arg_key} does not exist or empty")
 
-    return arg_value.strip()
+    return env_value.strip()
 
 
+# ============================
+def get_env_value(env_var_name):
+    """
+    This function can load a variable value from the enviro.
+    If the enviro value has {} in it, it can auto use recursive subsitution
+    to fill out the entire return value.
+
+    ie) looking to load HV_PUSH_HAND_CMD:
+       First pass it comes back with  =
+         "aws s3 sync {FIM_HAND_DATASET_LOCAL_PATH} s3://{HV_S3_BUCKET_NAME}/{HV_S3_ROOT_HANDSET_PATH}..."
+       It will iterate up to 3 more times to fill in those values. Note: Some of those values
+       require additional subsitution.
+       ie) FIM_HAND_DATASET_LOCAL_PATH returned with {} above and needs to be further subsitution.
+           FIM_HAND_DATASET_LOCAL_PATH = "/data/previous_fim/hand_{HAND_VERSION}"
+       It will iterate again to subsitute {HAND_VERSION}
+
+    This can do three levels of embedded subsitution
+
+    Note: While not pretty, it knows variable names that could be used in recursion.
+    TODO: think up something smarter. likely just use recursion to call this function.
+    """
+
+    env_value = get_value_from_env(env_var_name)
+    if "{" not in env_value and "}" not in env_value:
+        return env_value
+
+    # had trouble getting recursion working, so just loop through it up to ten times
+    value_adj_done = False  # helps manage when we know there are no more subsitutions required
+    for i in range(10):
+        if value_adj_done:
+            break
+
+        # extract sub_key
+        # Find the indices of the start and end characters
+        start_index = env_value.find("{")
+        end_index = env_value.find("}")
+
+        # Check if both characters are found
+        if start_index != -1 and end_index != -1:
+            extracted_key = env_value[start_index + len("{") : end_index]
+            extracted_value = get_env_value(extracted_key)
+            env_value = env_value.replace("{" + extracted_key + "}", extracted_value)
+
+        if "{" not in env_value and "}" not in env_value:
+            value_adj_done
+            break
+
+    return env_value
+
+
+# ============================
 # Adds a starting and ending slash if not already there
 def add_slashes_to_path(file_path):
     if not file_path.endswith("/"):

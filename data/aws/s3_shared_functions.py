@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import fnmatch
+import logging
 import os
 import random
+import threading
 import time
 from concurrent import futures
 from functools import partial
@@ -138,13 +140,14 @@ def does_s3_folder_exist(s3_client, bucket_name, s3_prefix_folder_path):
     # If the bucket is incorrect, it will throw an exception that already makes sense
     # Don't need pagination as MaxKeys = 2 as prefix will likely won't trigger more than 1000 rec
     s3_objs = s3_client.list_objects_v2(
-        Bucket=bucket_name, Prefix=s3_prefix_folder_path, MaxKeys=2, Delimiter="/"
+        Bucket=bucket_name, Prefix=s3_prefix_folder_path, MaxKeys=2, Delimiter='/'
     )
 
-    # print(s3_objs)
     if s3_objs["KeyCount"] == 0:
+        # print(f"{s3_prefix_folder_path} was not found")
         is_success = False
     else:
+        # print(f"{s3_prefix_folder_path} was found")
         is_success = True
 
     # other exceptions can be passed through
@@ -317,29 +320,37 @@ def get_file_list(s3_client, bucket_name, s3_parent_src_folder_path, list_of_sea
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
         # boto3 clients are thread-safe, sessions and resources are not.
+
+        # Create an event to signal tasks to stop
+        stop_event = threading.Event()
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures_dict = [executor.submit(merged_partial_get_file_by_key, **arg) for arg in tasks_args_list]
 
             # adding the min intervals speeds it up so it doesn't try to repaint every tqdm loop
             for future in tqdm(
-                futures.as_completed(futures_dict),
-                total=len(tasks_args_list),
-                desc="Retrieving file paths",
-                miniters=10,
+                futures.as_completed(futures_dict), total=len(tasks_args_list), desc="Retrieving file paths"
             ):
-                if future.cancelled():
-                    continue
-                if future is not None:
-                    future_exception = future.exception()
-                    # These are exceptions from withing the function being executed
-                    if future_exception:
-                        # reraise it
-                        raise Exception(f"zooks: future item has an exception {future_exception}")
-                    else:
-                        result = future.result()
-                        full_list_files.extend(result)
-                # else:
-                #     print("looks good, future item is None though, how is that possible?")
+                try:
+                    if future.cancelled():
+                        continue
+                    if future is not None:
+                        future_exception = future.exception()
+                        # These are exceptions from withing the function being executed
+                        if future_exception:
+                            # reraise it
+                            raise Exception(f"zooiks: future item has an exception {future_exception}")
+                        else:
+                            result = future.result()
+                            full_list_files.extend(result)
+                    # else:
+                    #     print("looks good, future item is None though, how is that possible?")
+                except Exception as fex:
+                    print(f"Error returned by future. Details: {fex}")
+                    logging.info(f"Error returned by future. Details: {fex}")
+
+                    stop_event.set()  # Signal running tasks to stop
+                    executor.shutdown(wait=False, cancel_futures=True)
+
         return full_list_files
 
     except Exception as ex:
@@ -459,8 +470,7 @@ def download_s3_file(s3_client, bucket_name, s3_file_key, target_file_path, test
     # The target folder must pre-exist
     trg_dir = os.path.dirname(target_file_path)
     if not os.path.exists(trg_dir):
-        permissions_code = 0o664
-        os.makedirs(trg_dir, mode=permissions_code, exist_ok=True)
+        os.makedirs(trg_dir, mode=0o776, exist_ok=True)
 
     # Configure multipart  settings. Speeds up large files
     # TODO: test to play with chunking sizes
@@ -535,6 +545,9 @@ def download_files_by_file_list(s3_client, bucket_name, file_list, num_workers=1
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
         # boto3 clients are thread-safe, sessions and resources are not.
+
+        # Create an event to signal tasks to stop
+        stop_event = threading.Event()
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures_dict = [executor.submit(merged_partial_download_file, **arg) for arg in tasks_args_list]
 
@@ -543,21 +556,26 @@ def download_files_by_file_list(s3_client, bucket_name, file_list, num_workers=1
                 futures.as_completed(futures_dict),
                 total=len(tasks_args_list),
                 desc="downloading files",
-                miniters=100,
+                miniters=10,
             ):
-                if future.cancelled():
-                    continue
-                if future is not None:
-                    future_exception = future.exception()
-                    # These are exceptions from withing the function being executed
-                    if future_exception:
-                        # reraise it
-                        raise Exception(f"zooks: future item has an exception {future_exception}")
-                    # else:  # we don't care about the result at this time.
-                    #     result = future.result()
-                    #     print(result)
-                # else:
-                #     print("looks good, future item is None though, how is that possible?")
+                try:
+                    if future.cancelled():
+                        continue
+                    if future is not None:
+                        future_exception = future.exception()
+                        # These are exceptions from withing the function being executed
+                        if future_exception:
+                            # reraise it
+                            raise Exception(f"zooiks: future item has an exception {future_exception}")
+                        # else:  # we don't care about the result at this time.
+                        #     result = future.result()
+                        #     print(result)
+                except Exception as fex:
+                    print(f"Error returned by future. Details: {fex}")
+                    logging.info(f"Error returned by future. Details: {fex}")
+
+                    stop_event.set()  # Signal running tasks to stop
+                    executor.shutdown(wait=False, cancel_futures=True)
 
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
@@ -670,20 +688,29 @@ def download_folders(
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
         # boto3 clients are thread-safe, sessions and resources are not.
+        # Create an event to signal tasks to stop
+        stop_event = threading.Event()
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             # with futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
 
             futures_dict = [executor.submit(merged_partial_download_file, **arg) for arg in tasks_args_list]
 
             for future in futures.as_completed(futures_dict):
-                if future is not None:
-                    if future.cancelled():
-                        continue
-                    if not future.exception():
-                        num_files_downloaded = future.result()
-                        total_files_downloads += num_files_downloaded
-                    else:
-                        raise future.exception()  # re-raise it
+                try:
+                    if future is not None:
+                        if future.cancelled():
+                            continue
+                        if not future.exception():
+                            num_files_downloaded = future.result()
+                            total_files_downloads += num_files_downloaded
+                        else:
+                            raise future.exception()  # re-raise it
+                except Exception as fex:
+                    print(f"Error returned by future. Details: {fex}")
+                    logging.info(f"Error returned by future. Details: {fex}")
+
+                    stop_event.set()  # Signal running tasks to stop
+                    executor.shutdown(wait=False, cancel_futures=True)
 
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.
@@ -769,7 +796,7 @@ def download_files_by_search_key(
                             rel_path = os.path.relpath(s3_key, s3_src_path)
                             local_file_path = "/" + os.path.join(trg_folder_path, rel_path)
 
-                            os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+                            os.makedirs(os.path.dirname(local_file_path), mode=0o776, exist_ok=True)
                             s3_client.download_file(bucket_name, s3_key, local_file_path)
                             num_files_downloaded += 1
                 time.sleep(0.1)  # needed for via an inner loop allows time for print queue
@@ -937,6 +964,9 @@ def upload_by_file_list(s3_client, bucket_name, file_list, num_workers=10):
         # Dispatch work tasks with our s3_client
         # Need to use a thread and not an mp here (sharing usage of the s3 client)
         # boto3 clients are thread-safe, sessions and resources are not.
+
+        # Create an event to signal tasks to stop
+        stop_event = threading.Event()
         with futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures_dict = [executor.submit(merged_partial_upload_file, **arg) for arg in tasks_args_list]
 
@@ -947,19 +977,26 @@ def upload_by_file_list(s3_client, bucket_name, file_list, num_workers=10):
                 desc="uploading files",
                 miniters=10,
             ):
-                if future.cancelled():
-                    continue
-                if future is not None:
-                    future_exception = future.exception()
-                    # These are exceptions from withing the function being executed
-                    if future_exception:
-                        # reraise it
-                        raise Exception(f"zooks: future item has an exception {future_exception}")
-                    # else:  # we don't care about the result at this time.
-                    #     result = future.result()
-                    #     print(result)
-                # else:
-                #     print("looks good, future item is None though, how is that possible?")
+                try:
+                    if future.cancelled():
+                        continue
+                    if future is not None:
+                        future_exception = future.exception()
+                        # These are exceptions from withing the function being executed
+                        if future_exception:
+                            # reraise it
+                            raise Exception(f"zooiks: future item has an exception {future_exception}")
+                        # else:  # we don't care about the result at this time.
+                        #     result = future.result()
+                        #     print(result)
+                    # else:
+                    #     print("looks good, future item is None though, how is that possible?")
+                except Exception as fex:
+                    print(f"Error returned by future. Details: {fex}")
+                    logging.info(f"Error returned by future. Details: {fex}")
+
+                    stop_event.set()  # Signal running tasks to stop
+                    executor.shutdown(wait=False, cancel_futures=True)
 
     except Exception as ex:
         # Check if our aws_exception_handler knows what it is.

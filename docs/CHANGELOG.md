@@ -28,16 +28,151 @@ This PR uses Ripple1D dataset, including discharge to calibrate HAND rating curv
 <br/>
 
 ## v4.9.10.1 - 2026-03-02 - [PR#1774]([https://github.com/NOAA-OWP/inundation-mapping/pull/1774])
+## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
+
+Resolves an issue causing stream outlet lines extending outside of the buffered WBD to be snapped back to the buffered WBD.
+
+### Changes
+
+- `data/wbd/clip_vectors_to_wbd.py`: Ignores `linegeom` assignment if already assigned
+- `src/bash_variables.env`: Updates preclip date
+
+<br/>
+
+## v4.9.10.10 - 2026-04-03 - [PR#1785](https://github.com/NOAA-OWP/inundation-mapping/pull/1785)
+
+Replaces `richdem` with `richdem2` to avoid using deprecated `pkg_resources` in depression filling. Both packages use `rd_depression_filling` so no changes in code were needed.
+
+Also updates `tornado` to v6.5.5, `gval` to v0.2.12, `dask` to v2026.1.1, `dask-expr` to v2.0.0, `distributed` to v2026.1.1, and `pyasn1` to v0.6.3; adds `laspy` (v2.5.4) and `s5cmd` (v0.3.3); and downgrades `py7zr` to v1.1.0.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Updated Python packages.
+
+<br/>
+
+## v4.9.10.9 - 2026-04-03 - [PR#1780](https://github.com/NOAA-OWP/inundation-mapping/pull/1780)
+
+This tool takes in the ripple  feature list created by the terrain metrics / validation tools and performs additional validation and data re-organization to it.  Some of the key tasks for the tool are:
+- Calculates the reference S3 path of where a feature's tif's are located available for inundation and processing. This is becomes a column named "library_path".
+- Using each calculated feature's "library_path", go to the HV deployment s3 folders and ensure that feature path does actually exist, via the ripple dataset version name, model collection name, library extent and feature id folder names. In the new "ripple_features_list.csv" list, adds a new True/False column validating if the library path exists.
+ - create a new ripple feature list with a key "is_valid" column. Using the original incoming "is_blacklisted" column  and the new "library_path_exists" column, roll those up to a single "is_valid" column for HV usage.
+
+- Some unrelated files had their implicit file permissions changed.
+ 
+### Additions
+- `data/ripple/validate_ripple_data.py`: As described above.
+
+### Changes
+- `config/workflows_params.template.env`: Minor corrections on behalf of the workflows/deploy/hand_to_owp.py file.
+- `config/hv_deploy_params.template.env`: Added new files to transfer to HV
+- `data/aws/s3_shared_functions.py`: 
+<br/>
+
+## v4.9.10.8 - 2026-03-13 - [PR#1771](https://github.com/NOAA-OWP/inundation-mapping/pull/1771)
+
+This is a quick tool that can remove selected folders from an s3 bucket using a provided list.
+
+### Additions
+- `data/ripple/ripple-s3-bucket-remove-updated-folders.sh` : as described above
+
+### Changes
+- `data/ripple`
+    - `hecras_processing.ipynb`, `ripple_shared_tools.sh`, `terrain_agreement_metrics_analysis.py`: Updated file permissions.
+<br/>
+
+## v4.9.10.7 - 2026-03-13 - [PR#1770](https://github.com/NOAA-OWP/inundation-mapping/pull/1770)
+
+This PR fixes the non-convergence of SVD in the longitudinal adjustment script for three HUCs of 04030110, 11030008, 17040203.
+
+### Changes
+- `src`
+   - `longitudinal_flow_adjustment.py`
+
+<br/>
+
+## v4.9.10.6 - 2026-03-13 - [PR#1775](https://github.com/NOAA-OWP/inundation-mapping/pull/1775)
+
+This PR covers minor adjustments to tools for pushing data from FIM to HV as well as pulling FIM Hand datasets down to OWP.
+
+### Changes
+- `config`
+    - `hv_deploy_params.template.env` and `workflows_params.template.env`:  Minor adjustments pattern changes.
+- `data/aws/s3_shared_functions.py`: Added better threading exception handling.
+- `src/utils/shared_functions.py`:
+    - Adjustments for file log file permissions (mostly for OWP files).
+    - Simplified function to get values from a enviro file.
+    - Added a function that can use values from an enviro file and recursive use substitution for embedded other enviro values.  This new get_env_value function can get any enviro value AND auto fill values from the enviro if required.  ie)  FIM_BUCKET_NAME ="our-fim-bucket-name" ;  FIM_S3_ROOT='s3://{FIM_BUCKET_NAME}/foss_fim'.  get_env_value("FIM_S3_ROOT") will return s3://{our-fim-bucket-name}/foss_fim.
+ - `workflows/deploy`
+     - `deploy_to_hydrovis.py`: 
+          - Added a feature to have the user confirm the S3 target paths before continuing.
+          - Simplification of function calls to get enviro values, sometimes with embedded string substitution (see new shared_function.get_env_value.
+     - `hand_to_owp.py`: Added simplified get enviro values calls.
+  - `citation.cff`:  Updated to show the recent full HAND production release of 4.9.9.0
+ 
+<br/>
+
+## v.4.9.10.5 - 2026-03-13 - [PR#1760](https://github.com/NOAA-OWP/inundation-mapping/pull/1760)
+
+This PR closes issues #1755  and #1746.
+
+### Updates to `data/roads/pull_osm_roads.py`
+
+1. **Fixed runtime failure** by removing an invalid `timeout` argument that was being passed to a function that does not accept it.
+2. **Improved robustness** to properly handle HUCs where no road data is returned, ensuring graceful continuation.
+3. **Enforced Overpass API concurrency limits** by capping parallel requests at three, regardless of available CPUs. Public Overpass servers impose strict per-client rate and load limits, and exceeding this threshold can result in timeouts or throttling.
+
+---
+
+### Updates to `data/bridges/pull_osm_bridges.py`
+
+1. **Restored automatic region prefix logic** (conus, alaska, guam, samoa) based on HUC number, removing the need for the `fp` argument. This ensures correct file naming even when HUCs from different regions are stored within a single WBD GeoPackage file-- It removes the need to run the tool separately by region, as the code now automatically handles mixed-region HUCs contained in the same WBD file
+2. **Integrated the standard MP utility and logging framework** to align with the project’s parallel execution and logging conventions.
+
+
+### Changes
+- `data/roads/pull_osm_roads.py`
+- `data/bridges/pull_osm_bridges.py`
+
+<br/>
+
+## v4.9.10.4 - 2026-03-13 - [PR#1779](https://github.com/NOAA-OWP/inundation-mapping/pull/1779)
+
+Optimize LoFI processing in HydroVis for LoFI V1.
+
+<br/>
+
+## v4.9.10.3 - 2026-03-13 - [PR#1767](https://github.com/NOAA-OWP/inundation-mapping/pull/1767)
+
+This PR updates the `inundate_nation.py` inundation mosaic raster generation process to output Cloud Optimized GeoTIFF. This change addresses performance bottlenecks when working with the CONUS mosaic file (200GB+) in QGIS.
+
+### Changes
+`tools/inundate_nation.py`: updated the geotiff profile for new tiling, compression, and overviews
+
+<br/>
+
+## v4.9.10.2 - 2026-02-04 - [PR#1753](https://github.com/NOAA-OWP/inundation-mapping/pull/1753)
+
+Upgrades `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0; in addition, `rio-vrt` v0.31.1 was added back. This required some additional changes to the codebase because the `geopandas` methods started being used in priority over the `StreamNetwork` class methods (particularly `from_file`, `set_index`, and `reset_index`), so they were returning `geopandas` objects rather than `StreamNetwork` objects. To overcome this, those`StreamNetwork` class method names were appended with `_fim` and replaced in the codebase.
+
+### Changes
+
+- `Pipfile` and `Pipfile.lock`: Upgraded `geopandas` to v1.1.2, `pillow` to v12.1.1, `protobuf` to v6.33.5, and `nbconvert` to v7.17.0. Added `rio-vrt` v0.31.1.
+- `src/`
+    - `stream_branches.py`: Appended `_fim` to `from_file`, `set_index`, and `reset_index` class methods and explicitly added attributes to the `__init__` constructor method.
+    - `buffer_stream_branches.py`, `clip_rasters_to_branches.py`, `crosswalk_nwm_demDerived.py`, `derive_level_paths.py`, `generate_branch_list.py`, `query_vectors_by_branch_polygons.py`, `subset_catch_list_by_branch_id.py`: Updated class methods to use the new `_fim` name.
+<br/>
+
+## v4.9.10.1 - 2026-03-02 - [PR#1774](https://github.com/NOAA-OWP/inundation-mapping/pull/1774)
 
 Updates pre_clip_huc_dir date in bash_variables.env
 
 ### Changes
 
 - `src/bash_variables.env`: Reverts preclip date to 20260205.
-
 <br/>
 
-## v4.9.10.0 - 2026-02-25 - [PR#1769]([https://github.com/NOAA-OWP/inundation-mapping/pull/1769])
+## v4.9.10.0 - 2026-02-25 - [PR#1769](https://github.com/NOAA-OWP/inundation-mapping/pull/1769)
 
 Fixes NWM streams missing in preclip due to the base NWM streams layer having streams with the downstream-most segments that do not extend to the WBD HUC8 boundary and also have incorrect `to` attribute (the `to` attribute for these terminal segments should be 0).
 
@@ -46,7 +181,7 @@ Fixes NWM streams missing in preclip due to the base NWM streams layer having st
 
 <br/>
 
-## v4.9.9.1 - 2026-02-25 - [PR#1768]([https://github.com/NOAA-OWP/inundation-mapping/pull/1768])
+## v4.9.9.1 - 2026-02-25 - [PR#1768](https://github.com/NOAA-OWP/inundation-mapping/pull/1768)
 
 This PR focuses on updating the roughness N for Monongahela River in the bash_variables.env for FIM6.1.
 
@@ -56,7 +191,7 @@ This PR focuses on updating the roughness N for Monongahela River in the bash_va
 
 <br/>
 
-## v4.9.9.0 - 2026-02-13 - [PR#1762]([https://github.com/NOAA-OWP/inundation-mapping/pull/1762])
+## v4.9.9.0 - 2026-02-13 - [PR#1762](https://github.com/NOAA-OWP/inundation-mapping/pull/1762)
 
 This PR updates the global optimized roughness N as an input file in the bash_variables.env for FIM6.1.
 
@@ -76,7 +211,7 @@ Refactors upstream search to prevent memory-related issues in `adjust_floodplain
 
 <br/>
 
-## v4.9.8.1 - 2026-02-13 - [PR#1761]([https://github.com/NOAA-OWP/inundation-mapping/pull/1761])
+## v4.9.8.1 - 2026-02-13 - [PR#1761](https://github.com/NOAA-OWP/inundation-mapping/pull/1761)
 
 This PR updates data processing for the SWORD-derived reach slope input dataset to extend the gap filling algorithm. This intends to address some scenarios where the gap size was greater than 10km of river length. New filling limit is 15km.
 
@@ -87,7 +222,7 @@ This PR updates data processing for the SWORD-derived reach slope input dataset 
 	
 <br/>
 
-## v4.9.8.0 - 2026-02-05 - [PR#1741]([https://github.com/NOAA-OWP/inundation-mapping/pull/1741])
+## v4.9.8.0 - 2026-02-05 - [PR#1741](https://github.com/NOAA-OWP/inundation-mapping/pull/1741)
 
 A new set of DEMs, OSM bridge data, make dems difs from bridges and pre-clips has been made.  In that process, some changes were made and a few things fixed. Many files had comment changes made as well. Most changes are listed in by the file name in the "changes" section".
 
@@ -125,7 +260,6 @@ Note: All files in GIT retain the permissions of the files on the users local ma
 
 Note: Previous WBD for CONUS were in HUC6 format. CONUS files have been changed to HUC8 to increase the stability of DEM data downloads.  Adjusted pathing in the input/wbd folder we also added to help with versioning and file usage.
 <br/>
-
 ## v4.9.7.0 - 2026-02-05 - [PR#1752](https://github.com/NOAA-OWP/inundation-mapping/pull/1752)
 
 This PR updates optimized roughness values across the USA to be aligned with the new SRC calibration framework.
@@ -150,6 +284,7 @@ See PR for more details.
 This PR makes FEMA NFHL flood zones handling in adjust_floodplains.py by preventing failure when the 'combined' layer is missing.
 
 ### Changes
+src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
 - src/adjust_floodplains.py: Ensure FEMA 'combined' layer exists before reading.
 <br/>
 
