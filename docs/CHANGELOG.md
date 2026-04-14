@@ -11,7 +11,7 @@ This PR uses Ripple1D dataset, including discharge to calibrate HAND rating curv
 
 ### Changes
 - `src`
-    - bash_variable.env
+    - bash_variable.env: 2 new input files have been added to this, including: `ripple_feature_list_20260310_huc_considered_delivered.csv` and `ripple1d_rating_curve.parquet`, both saved in `ripple1d_input_dir`
     - calibrate_rating_curves.sh
     - run_huc.sh
     - add_crosswalk.py
