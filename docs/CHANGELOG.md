@@ -1,6 +1,27 @@
 All notable changes to this project will be documented in this file.
 We follow the [Semantic Versioning 2.0.0](http://semver.org/) format.
 
+## v4.9.x.x - 2026-04-14 - [PR#1805](https://github.com/NOAA-OWP/inundation-mapping/pull/1805)
+
+Upgrades GDAL base image to v3.12.3 (ghcr.io/osgeo/gdal:ubuntu-small-3.12.3) and upgrades Python dependencies. There were a few major hurdles in upgrading beyond the previous GDAL v.3.8.4 primarily due to the fact that v3.8.4 was the last version to use Python 3.10 and GDAL v3.12.3 uses Python 3.12, including:
+- Numerous Python dependency conflicts
+- `numpy` versions >= 2.0.0 are incompatible with the GDAL v3.12.3 Docker image. `numpy` and `scipy` were forced to downgrade after the Python packages were installed via Pipfile.
+- Python 3.12 manages packages in a virtual environment which made them unable to be found.
+- A change in `gdal_rasterize` caused 0s to be written as nodata which tripped up `fim_pipeline.sh`.
+- Incompatibility between TauDEM v5.3 and GDAL v3.12.3 resulted in an Error message. The outputs are still valid so the error message was suppressed.
+
+In addition, an upgraded `pdal` was added to the Dockerfile and `pillow` was upgraded to v12.2.0.
+
+### Changes
+
+- `Dockerfile.dev` and `Dockerfile.owp`: Upgrade GDAL base image to v3.12.3; adds system break flag for installing Python packages in an unmanaged environment; upgrades `pdal`; downgrades `numpy` and `scipy`
+- `Pipfile` and `Pipfile.lock`: Upgrade and resolve Python dependencies and conflicts
+- `src/`
+    - `delineate_hydros_and_produce_HAND.sh`: Suppress GDAL Error message
+    - `run_by_branch.sh` and `run_huc.sh` Suppress GDAL Error message and fix `gdal_rasterize` nodata issue
+
+<br/>
+
 ## v4.9.11.0 - 2026-04-10 - [PR#1783](https://github.com/NOAA-OWP/inundation-mapping/pull/1783)
 
 Resolves an issue causing stream outlet lines extending outside of the buffered WBD to be snapped back to the buffered WBD.
