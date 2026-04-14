@@ -46,38 +46,6 @@ Outputs
                         'discharge_cms','nwm_recur_flow_cms','nwm_recur','layer'
 '''
 
-# ripple1d_whitelist_csvfile = '/efs-drives/fim-dev-efs/fim-data/ripple/ripple_20260211_merged/data_validation/ripple_feature_list_20260310_huc_considered_delivered.csv'
-# col_whitelist = ['feature_id', 'is_blacklisted', 'is_valid_huc_considered'] # 'huc',
-# ripple_whitelist_df = pd.read_csv(ripple1d_whitelist_csvfile, dtype={'feature_id': int}, usecols=col_whitelist) #
-# ripple_blacklist_df = ripple_whitelist_df[col_whitelist][ripple_whitelist_df['is_valid_huc_considered']==False]
-# ripple_blacklist_df.reset_index(inplace=True)
-
-# huc_ripple1d_input_file = '/efs-drives/fim-dev-efs/fim-data/inputs/rating_curve/ripple1d/huc8/02020005/ripple1d_rating_curve.parquet'
-# col_filter = ["reach_id", "flow_cfs", "wse_m", "ras_xs_station"]
-# ras_rc_df = pd.read_parquet(huc_ripple1d_input_file, columns=col_filter)
-
-# ripple1d_elev_path = '/efs-drives/fim-dev-efs/fim-home/heidi.safa/Thor3/heidi_hand_calibration_with_ripple/outputs/fim6.2_uat_hand_calibration_with_ripple/02020005/ripple1d_elev_table.csv'
-# ripple1d_elev_df = pd.read_csv(
-#         ripple1d_elev_path,
-#         dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
-#     )
-
-# ras_rc_df2 = ras_rc_df.merge(ripple_whitelist_df, how='left', on='feature_id')
-# valid_cond = ras_rc_df2['is_valid_huc_considered']==True
-# ras_rc_df3 = ras_rc_df2[valid_cond]
-# ras_rc_df3.reset_index(inplace=True)
-
-# ripple1d_whitelist_csvfile = '/efs-drives/fim-dev-efs/fim-data/ripple/ripple_20260211_merged/data_validation/ripple_feature_list_20260310_huc_considered_delivered.csv'
-# huc_ripple1d_input_file = '/efs-drives/fim-dev-efs/fim-data/inputs/rating_curve/ripple1d/huc8/02020005/ripple1d_rating_curve.parquet'
-# ripple1d_elev_path = '/efs-drives/fim-dev-efs/fim-home/heidi.safa/Thor3/heidi_hand_calibration_with_ripple/outputs/fim6.2_uat_hand_calibration_with_ripple/02020005/ripple1d_elev_table.csv'
-# col_filter = ["reach_id", "flow_cfs", "wse_m", "ras_xs_station"]
-# ras_rc_df = pd.read_parquet(huc_ripple1d_input_file, columns=col_filter)
-# ripple1d_elev_df = pd.read_csv(
-#         ripple1d_elev_path,
-#         dtype={'HUC8': object, 'location_id': object, 'feature_id': int, 'levpa_id': object},
-#     )
-# ripple1d_elev_df = ripple1d_elev_df.drop_duplicates(subset = ['location_id', 'levpa_id'], keep = 'first', ignore_index = True)
-
 
 def create_ripple1d_rating_database(
     huc_ripple1d_input_file, ripple1d_elev_df, nwm_recurr_filepath, ripple1d_whitelist_csvfile, log_dir
