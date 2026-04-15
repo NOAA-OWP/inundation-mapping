@@ -43,25 +43,24 @@ def iterate_spillover(dem_tif, rem_tif, flow_direction_tif, max_iterations=20, p
         rem_mask = rem[rem != np.nan]
 
     rem_change = []
-    previous_rem = None
+    previous_rem = rem
     for i in range(max_iterations):
-        print(f"Iteration {i+1} of {max_iterations}")
+        print(f"Iteration {i} of {max_iterations}")
         rem = catchment_spillover(dem, rem, rem_mask, flow_direction_tif, crs, rem_transform)
 
-        if i > 0:
-            change_in_rem = rem - previous_rem
-            percent_change = -(np.nanmean(change_in_rem) / np.nanmean(previous_rem)) * 100.0
-            rem_change.append(percent_change)
-            print(f"Percent change in REM: {percent_change:.2f}%")
+        change_in_rem = rem - previous_rem
+        percent_change = -(np.nanmean(change_in_rem) / np.nanmean(previous_rem)) * 100.0
+        rem_change.append(percent_change)
+        print(f"Percent change in REM: {percent_change:.2f}%")
 
-            # Stop if percent change is less than the specified threshold or max iterations reached
-            if percent_change < pct_change_threshold:
-                break
+        # Stop if percent change is less than the specified threshold or max iterations reached
+        if percent_change < pct_change_threshold:
+            break
 
         previous_rem = rem
 
     print("Final iteration completed. Saving final REM.")
-    save_raster(rem, rem_tif, crs, rem_transform)
+    save_raster(previous_rem, rem_tif, crs, rem_transform)
 
     # Save rem_change as a pandas DataFrame csv
     rem_change_df = pd.DataFrame(rem_change, columns=['percent_change'])
