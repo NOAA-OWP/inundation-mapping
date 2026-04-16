@@ -33,11 +33,9 @@ MAX_PIXELS = 8000
 MIN_MED_DEPTH = 8.0
 MIN_CIRCULARITY = 0.75
 MIN_MEDIAN_RATIO = 0.6  # mean_depth / max_depth
+# ==========================================
 
 
-# ==========================================
-# Processing Functions
-# ==========================================
 def process_single_dem(dem_path, output_dir, osm_path):
     filename = os.path.basename(dem_path)
     start_time = time.time()
@@ -45,7 +43,7 @@ def process_single_dem(dem_path, output_dir, osm_path):
     pit_logs = []
 
     try:
-        # 1. Load Original DEM and get metadata
+        # Load Original DEM and get metadata
         with rasterio.open(dem_path) as src:
             orig = src.read(1)
             profile = src.profile
@@ -55,8 +53,8 @@ def process_single_dem(dem_path, output_dir, osm_path):
             shape = orig.shape
             dem_crs = src.crs  # Grab the DEM's coordinate system
 
-        # 2. Rasterize OSM Polygons for this DEM's extent
-        # Peek at the OSM file to get its CRS without loading the whole file into memory
+        # Rasterize OSM Polygons for this DEM's extent
+        # Use the OSM file to get its CRS without loading the whole file into memory
         with fiona.open(osm_path) as f:
             osm_crs = f.crs
 
@@ -67,7 +65,7 @@ def process_single_dem(dem_path, output_dir, osm_path):
         osm_gdf = gpd.read_file(osm_path, bbox=osm_bounds)
 
         if not osm_gdf.empty:
-            # Reproject the loaded polygons to match the DEM so they align perfectly on the grid
+            # Reproject the loaded polygons to match the DEM so they align
             osm_gdf = osm_gdf.to_crs(dem_crs)
 
             # Create a generator of (geometry, 1) to burn into the raster
@@ -79,13 +77,13 @@ def process_single_dem(dem_path, output_dir, osm_path):
         else:
             osm_mask = np.zeros(shape, dtype=bool)
 
-        # 3. Perform Depression Filling (In-Memory)
+        # Perform Depression Filling w/ RichDEM (In-Memory)
         rd_orig = rd.rdarray(orig, no_data=nodata_val)
         rd_filled = rd_orig.copy()
         rd.FillDepressions(rd_filled, epsilon=False, in_place=True)
         filled = np.array(rd_filled)
 
-        # 4. Calculate Difference Mask
+        # Calculate Difference Mask (needed for pit detection)
         diff = filled - orig
         diff[diff < 0] = 0
 
@@ -93,13 +91,13 @@ def process_single_dem(dem_path, output_dir, osm_path):
             nodata_mask = orig == nodata_val
             diff[nodata_mask] = 0
 
-        # Morphological Opening to trim stream arms
+        # Use morphological opening to trim stream arms included in the depression fill
         struct = generate_binary_structure(2, 2)
         initial_fill_mask = diff > 0
         cleaned_mask = binary_opening(initial_fill_mask, structure=struct, iterations=1)
         diff[~cleaned_mask] = 0
 
-        # Label regions
+        # Label distinct pit candidate regions
         labeled, num = label(diff > 0, structure=struct)
         props = regionprops(labeled, intensity_image=diff)
 
@@ -112,19 +110,16 @@ def process_single_dem(dem_path, output_dir, osm_path):
             perim = prop.perimeter if prop.perimeter > 0 else 1e-9
             circularity = (4 * math.pi * pixel_count) / (perim**2)
 
-            # --------------------------------------------------
-            # NEW: Calculate Median Depth
-            # --------------------------------------------------
-            # 1. Get the rectangular bounding box of the pit from the main diff array
+            # Get the rectangular bounding box of the pit from the main diff array
             local_diff = diff[prop.slice]
 
-            # 2. prop.image is a boolean mask of the exact pit shape within that box
+            # prop.image is a boolean mask of the exact pit shape within that box
             local_region = prop.image
 
-            # 3. Extract only the depth values that belong to this specific pit
+            # Extract only the depth values that belong to this specific pit
             pit_pixels = local_diff[local_region]
 
-            # 4. Calculate the median using NumPy
+            # Calculate the median using NumPy
             median_depth = np.median(pit_pixels)
 
             # Calculate ratios (handle division by zero)
@@ -134,7 +129,7 @@ def process_single_dem(dem_path, output_dir, osm_path):
             # --------------------------------------------------
             # TIER 1: OSM Overlap Check
             # --------------------------------------------------
-            # We slice the OSM mask to the bounding box of the current depression
+            # slice the OSM mask to the bounding box of the current depression
             local_osm = osm_mask[prop.slice]
             local_region = prop.image  # Boolean mask of the current depression shape
 
@@ -167,8 +162,7 @@ def process_single_dem(dem_path, output_dir, osm_path):
 
                 match_type = "OSM" if osm_match else "TERRAIN"
 
-                # I added the Overlap Ratio to the log so you can see exactly how
-                # much of the pit fell inside the polygon!
+                # write pit metrics to the log file for awareness/ingsights
                 pit_logs.append(
                     f"    -> Pit {pits_detected} [{match_type}]: "
                     f"Pixels={pixel_count}, MaxD={max_depth:.1f}, "
@@ -176,12 +170,12 @@ def process_single_dem(dem_path, output_dir, osm_path):
                     f"Ratio={median_ratio:.2f}, OSM_Overlap={overlap_ratio:.2f}"
                 )
 
-        # 5. Create Lean Output DEM Array
+        # Create Output DEM for pit fill only pixels
         lean_output = np.full_like(orig, nodata_val)
         is_pit = pit_mask == 1
         lean_output[is_pit] = filled[is_pit]
 
-        # 6. Save the Lean DEM
+        # Save new pit-filled DEM
         out_path = os.path.join(output_dir, filename.replace(".tif", "_pit_fills.tif"))
         profile.update(compress='deflate', tiled=True, blockxsize=256, blockysize=256, predictor=2)
 
