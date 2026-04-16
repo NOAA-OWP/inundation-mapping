@@ -28,6 +28,7 @@ from tools_shared_functions import (
     get_datum,
     get_nwm_segs,
     ngvd_to_navd_ft,
+    correct_datum_typos,
 )
 from tools_shared_variables import (
     acceptable_alt_acc_thresh,
@@ -1676,7 +1677,7 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 
     # If datum not supplied, skip to new site
     datum = datum_data.get('datum', None)
-    if datum is None:  # TODO: Could add "if datum info is UNK" as well, since that seems common..
+    if datum is None:
         msg = ':Datum info unavailable'
         all_messages.append(lid + msg)
         MP_LOG.warning(huc_lid_id + msg)
@@ -1684,102 +1685,31 @@ def __adjust_datum_ft(flows, metadata, lid, huc_lid_id):
 
     # ___________________________________________________________________________________________________#
     # Check for typos in the horizontal datum data
-    # Temp workaround to handle incorrect WRDS horizontal datum entries. TODO: Remove once WRDS error is corrected?
 
-    # These rules were developed by looking at the various ways that the horizontal datum was misspelled in the WRDS data
-    # in March 2026. Should be periodically updated to make sure we capture additional "creative" spellings.
+    crs = datum_data.get('crs')
+    vcs = datum_data.get('vcs')
 
-    nad27_misspellings = [
-        'NGVD 1929',
-        'NAD 1927',
-        'NAD 1929',
-        'NAD-27',
-        '1929',
-        'NAD1927',
-        'NGVD29',
-        '1927',
-        'NGVD',
-        'NVGD',
-        'NAD 27',
-        'NGDV 1929',
-        'NGVD1929',
-        'NAAD27',
-        'NAD29',
-        '1927 NGVD',
-        '1929',
-        'NVD 1929',
-        'NAD1929',
-        'NGVD1927',
-        '1929 NGV',
-        '1929 NGVD',
-        'NA 1927',
-        'NAVD27',
-    ]
+    crs_corrected, vcs_corrected, uncorrected_crs_error, uncorrected_vcs_error, datum_corr_msgs = correct_datum_typos(crs, vcs)
 
-    nad83_misspellings = [
-        'NAD 1983',
-        'NAVD88',
-        'NAD 83',
-        'NAD1983',
-        'WGS84',
-        'NADA 1983',
-        'NAV83',
-        'NAVD 1988',
-        '1988',
-        'NAD 88',
-        'NAVD 88',
-        'nad83',
-        'NAV-88',
-        'NAVD83',
-        'NGVD1988',
-        'NAD84',
-        'NAD 1988',
-        '1988',
-        'NAV83',
-        'NAVD-88',
-        'NAD88',
-        'NAD87',
-        'NAD893',
-    ]
+    # Update the datum data with the corrected CRS and VCS if needed
+    if crs_corrected is not None:
+        datum_data.update(crs=crs_corrected)
+    if vcs_corrected is not None:
+        datum_data.update(vcs=vcs_corrected)
 
-    ngvd29_misspellings = [
-        'NGVD 1929',
-        'NGVD,1929',
-        'NGVD OF 1929',
-        'NGVD',
-        'USGS NAD 1929',
-        'NGVD1929',
-        'NGVD 29',
-    ]
+    # Log output messages from datum typo correction
+    for msg in datum_corr_msgs:
+        all_messages.append(lid + msg)
+        MP_LOG.warning(huc_lid_id + msg)
 
-    # Fix misspelled CRSs that are actually NAD27
-    if datum_data['crs'] in nad27_misspellings:
-        MP_LOG.warning(f"{huc_lid_id}: Typo found in horizontal CRS, changing {datum_data['crs']} to NAD27")
-        datum_data.update(crs='NAD27')
-
-        if datum_data['vcs'] != 'NGVD29':
-            MP_LOG.warning(f"{huc_lid_id}: Changing {datum_data['vcs']} to NGVD29")
-            datum_data.update(vcs='NGVD29')
-
-    # Fix misspelled CRSs that are actually NAD83
-    if datum_data['crs'] in nad83_misspellings:
-        MP_LOG.warning(f"{huc_lid_id}: Typo found in horizontal CRS, changing {datum_data['crs']} to NAD83")
-        datum_data.update(crs='NAD83')
-
-        if datum_data['vcs'] != 'NAVD88':
-            MP_LOG.warning(f"{huc_lid_id}: Changing {datum_data['vcs']} to NAVD88")
-            datum_data.update(vcs='NAVD88')
-
-    # Fix misspelled vertical datums that are actually NGVD29
-    if datum_data['vcs'] in ngvd29_misspellings:
-        MP_LOG.warning(f"{huc_lid_id}: Typo found in vertical CRS, changing {datum_data['vcs']} to NGVD29")
-        datum_data.update(vcs='NGVD29')
-
-    # Possible typos that we aren't currently accepting:
-    # - 'NGVD83' (because it mixes up NGVD29 and NAD83, so I'm not sure what it means)
-    # - 'NADVD88', 'NAD983', 'NAC83' - they're just a bit far off from the correct values such that
-    #   we aren't sure if they are typos or just something else. We can add them if we see them more
-    #   in the future.
+    if uncorrected_crs_error:
+        msg = ':CRS value is unrecognized and could not be corrected'
+        all_messages.append(lid + msg)
+        MP_LOG.warning(huc_lid_id + msg)
+    if uncorrected_vcs_error:
+        msg = ':VCS value is unrecognized and could not be corrected'
+        all_messages.append(lid + msg)
+        MP_LOG.warning(huc_lid_id + msg)
 
     # ___________________________________________________________________________________________________#
     # NOTE: !!!!

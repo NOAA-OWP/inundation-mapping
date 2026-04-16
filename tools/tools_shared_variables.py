@@ -84,3 +84,74 @@ acceptable_alt_acc_thresh = 1.0
 acceptable_alt_meth_code_list = ["A", "D", "F", "G", "I", "J", "L", "N", "R", "U", "W", "X", "Y", "Z"]
 # https://help.waterdata.usgs.gov/code/site_tp_query?fmt=html
 acceptable_site_type_list = ["ST"]
+
+
+# Lists of acceptable spellings for CRSs and VCSs, for use in tools_shared_functions.py when checking for typos in CRSs and VCSs.
+# These lists are not exhaustive, but are based on the most common typos found in the test cases.
+
+UNKNOWN_DATUM_SPELLINGS = ['UNKNOWN', 'UNK', 'UNKN', 'NONE', '', 'UN']
+
+ACCEPTED_NAD27_SPELLINGS = [
+    '1927',
+    'NAD27',
+    'NAAD27',
+    'NAD 27',
+    'NAD-27',
+    'NA 1927',
+    'NAD1927',
+    'NAD 1927',
+    'NAD29',  # NAD + wrong year
+    'NAD1929',
+    'NAD 1929',
+    '4267',  # References to EPSG:4267, which means NAD27
+    'EPSG:4267',
+]
+
+ACCEPTED_NGVD29_SPELLINGS = [
+    '1929',
+    'NVGD',
+    'NGVD',
+    'NGVD 29',
+    'NGVD29',
+    'NVD 1929',
+    'NGVD1929',
+    'NGVD1927',
+    '1929 NGV',
+    '1929 NGVD',
+    'NGDV 1929',
+    'NGVD 1929',
+    '1927 NGVD',
+    'NGVD 1929',
+    'NGVD,1929',
+    'NGVD OF 1929',
+    'USGS NAD 1929',
+]
+
+
+ACCEPTED_NAD83_SPELLINGS = [
+    '1983',
+    'NAD83',
+    'NAD 83',
+    'NAD1983',
+    'NAD 1983',
+    'NADA 1983',
+    'NAD88',  # NAD + wrong year
+    'NAD87',
+    'NAD893',
+    'NAD 88',
+    'NAD 1988',
+    '4269',  # References to EPSG:4269, which means NAD83
+    'EPSG:4269',
+]
+
+ACCEPTED_NAVD88_SPELLINGS = [
+    '1988',
+    'NAD88',
+    'NAV83',
+    'NAV-88',
+    'NAVD83',
+    'NAVD88',
+    'NAVD 88',
+    'NAVD-88',
+    'NAVD 1988',
+]
