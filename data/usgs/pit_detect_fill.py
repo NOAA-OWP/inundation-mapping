@@ -24,12 +24,12 @@ from skimage.measure import regionprops
 # ==========================================
 # TIER 1: OSM Guided Detection
 OSM_MIN_PIXELS = 40
-OSM_MIN_MED_DEPTH = 5.0
+OSM_MIN_MED_DEPTH = 4.0
 OSM_MIN_OVERLAP_RATIO = 0.50  # 50% or more of the pit must be inside the OSM polygon
 
 # TIER 2: Restrictive Terrain Fallback
 MIN_PIXELS = 50
-MAX_PIXELS = 8000
+MAX_PIXELS = 6000
 MIN_MED_DEPTH = 8.0
 MIN_CIRCULARITY = 0.75
 MIN_MEDIAN_RATIO = 0.6  # mean_depth / max_depth
@@ -207,7 +207,12 @@ def process_single_dem(dem_path, output_dir, osm_path):
 def main(args=None):
     parser = argparse.ArgumentParser(description="Batch process DEMs for pit detection and filling.")
     parser.add_argument("-i", "--input", required=True, help="Path to input DEM directory.")
-    parser.add_argument("-o", "--output", required=True, help="Path to output DEM directory.")
+    parser.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        help="Path to output pit filled DEM directory (suggest subdir of input DEM dir).",
+    )
     parser.add_argument(
         "-p", "--polygons", required=True, help="Path to OSM polygons file (e.g. .gpkg or .shp)."
     )
@@ -216,7 +221,17 @@ def main(args=None):
     parsed_args = parser.parse_args(args)
 
     if not os.path.exists(parsed_args.output):
-        os.makedirs(parsed_args.output)
+        user_input = (
+            input(f"Output directory '{parsed_args.output}' does not exist. Create it? (Y/N): ")
+            .strip()
+            .lower()
+        )
+        if user_input in ['y', 'yes']:
+            os.makedirs(parsed_args.output)
+            print(f"Created directory: {parsed_args.output}")
+        else:
+            print("Operation cancelled. Please provide an existing output directory.")
+            sys.exit(1)  # Exits the script safely
 
     log_file = os.path.join(parsed_args.output, "processing_run.log")
     logging.basicConfig(
