@@ -99,8 +99,8 @@ def correct_rating_for_ehydro_bathymetry(huc_dir, huc, bathy_file_ehydro):
                 bathy_data[
                     ['feature_id', 'missing_xs_area_m2', 'missing_wet_perimeter_m', 'Bathymetry_source']
                 ]
-                .groupby('feature_id')
-                .apply(ohrfc_bathy_precedence)  # , include_groups=False)
+                .groupby('feature_id', include_groups=False)
+                .apply(ohrfc_bathy_precedence)
                 .reset_index(drop=True)
             )
 

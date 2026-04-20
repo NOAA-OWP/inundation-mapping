@@ -167,7 +167,7 @@ def correct_nonmonotonic_src(huc_dir, huc, strm_order):  # , bankfull_flows_file
         prenonmono_discharge = src_df3['Discharge (m3s-1)']
 
         # Adjusting src tables for nonmonotonic SRCs
-        src_df4 = src_df2.groupby('HydroID', group_keys=False).apply(
+        src_df4 = src_df2.groupby('HydroID', group_keys=False, include_groups=False).apply(
             analyze_nonmonotonic_src, strm_order=strm_order
         )
 

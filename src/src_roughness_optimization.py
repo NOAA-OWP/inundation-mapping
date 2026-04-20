@@ -461,7 +461,7 @@ def update_rating_curve(
                             how='left',
                             on='HydroID',
                         )
-                        output_catchments['src_calibrated'].fillna('False', inplace=True)
+                        output_catchments['src_calibrated'] = output_catchments['src_calibrated'].fillna('False')
 
                         try:
                             output_catchments.to_file(
@@ -556,9 +556,9 @@ def update_rating_curve(
 
                 ## Replace discharge_cms with 0 or -999 if present in the original discharge
                 # (carried over from thalweg notch workaround in SRC post-processing)
-                df_htable['discharge_cms'].mask(df_htable['precalb_discharge_cms'] == 0.0, 0.0, inplace=True)
-                df_htable['discharge_cms'].mask(
-                    df_htable['precalb_discharge_cms'] == -999, -999, inplace=True
+                df_htable['discharge_cms'] = df_htable['discharge_cms'].mask(df_htable['precalb_discharge_cms'] == 0.0, 0.0)
+                df_htable['discharge_cms'] = df_htable['discharge_cms'].mask(
+                    df_htable['precalb_discharge_cms'] == -999, -999
                 )
 
                 ## Export a new hydroTable.csv and overwrite the previous version
