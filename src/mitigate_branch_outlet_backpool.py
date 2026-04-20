@@ -298,7 +298,7 @@ def mitigate_branch_outlet_backpool(
         split_points_geom = gpd.read_file(split_points_filename, engine='fiona')
 
         # Subset the split flows to get the last one
-        split_flows_last_geom = split_flows_geom[split_flows_geom['NextDownID'] == '-1']
+        split_flows_last_geom = split_flows_geom[split_flows_geom['NextDownID'] == '-1'].copy()
 
         # Check whether there are multiple NextDownID's of -1
         if len(split_flows_last_geom.index) == 1:

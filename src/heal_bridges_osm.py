@@ -36,7 +36,7 @@ def process_non_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, non_lidar
         all_touched=True,
     )
     # pull the values out of the geopandas columns so we can use them as floats
-    non_lidar_osm_gdf.loc[:, 'threshold_hand'] = [x.get('max') for x in stats]
+    non_lidar_osm_gdf.loc[:, 'threshold_hand'] = pd.to_numeric([x.get('max') for x in stats], errors='coerce')
     # sort in case of overlaps; display theshold hand value at any given location
     non_lidar_osm_gdf = non_lidar_osm_gdf.sort_values(by="threshold_hand", ascending=False)
 
@@ -99,7 +99,7 @@ def process_lidar_osm(osm_gdf, hand_grid_array, hand_grid_profile, lidar_buffer,
         nodata=hand_grid_profile["nodata"],
         all_touched=True,
     )
-    lidar_osm_gdf.loc[:, 'threshold_hand'] = [x.get('median') for x in stats]
+    lidar_osm_gdf.loc[:, 'threshold_hand'] = pd.to_numeric([x.get('median') for x in stats], errors='coerce')
 
     return lidar_osm_gdf, updated_hand_grid_array
 

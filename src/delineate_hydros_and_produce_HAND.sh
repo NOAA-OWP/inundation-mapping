@@ -77,7 +77,9 @@ $taudemDir/flowdircond -p $tempCurrentBranchDataDir/flowdir_d8_burned_filled_flo
 echo -e $startDiv"D8 Slopes from DEM $hucNumber $current_branch_id"
 mpiexec -n $ncores_fd $taudemDir2/d8flowdir \
     -fel $tempCurrentBranchDataDir/dem_lateral_thalweg_adj_$current_branch_id.tif \
-    -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif
+    -sd8 $tempCurrentBranchDataDir/slopes_d8_dem_meters_$current_branch_id.tif \
+    2>&1 | sed -e 's/.*no output sd8 file specified.*/INFO: TauDEM d8flowdir running without optional p flowdir output./I' \
+               -e 's/.*no output p file specified.*/INFO: TauDEM d8flowdir running without optional p flowdir output./I'
 
 ## STREAMNET FOR REACHES ##
 echo -e $startDiv"Stream Net for Reaches $hucNumber $current_branch_id"
