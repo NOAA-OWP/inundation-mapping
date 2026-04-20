@@ -144,7 +144,11 @@ def process_bridges_in_huc(
     # either of non_lidar_osm_gdf or lidar_osm_gdf can be None (if there are no lidar or non-lidar bridges)-- so handle it
     valid_osm_gdfs = [gdf for gdf in [non_lidar_osm_gdf, lidar_osm_gdf] if gdf is not None]
 
-    osm_gdf = pd.concat(valid_osm_gdfs, ignore_index=True)
+    if valid_osm_gdfs:
+        osm_gdf = pd.concat(valid_osm_gdfs, ignore_index=True)
+    else:
+        # Return empty GeoDataFrame if no valid bridges found
+        osm_gdf = gpd.GeoDataFrame()
 
     # # Write the new HAND grid
     with rasterio.open(source_hand_raster, 'w', **hand_grid_profile) as new_hand_grid:

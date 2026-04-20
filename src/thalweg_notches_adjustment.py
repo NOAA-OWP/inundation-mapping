@@ -167,7 +167,7 @@ def correct_thalweg_notches(huc_dir, huc, stage_interval):
         if cond_ThalwegNRows.sum() > 0:
             src_df_skipTwNRows = src_df2[~cond_ThalwegNRows].copy()
             src_df_skipTwNRows_gb = (
-                src_df_skipTwNRows.groupby('HydroID', group_keys=False)
+                src_df_skipTwNRows.groupby('HydroID', group_keys=False, include_groups=False)
                 .apply(reset_stage)
                 .reset_index(drop=True)
             )
@@ -182,7 +182,7 @@ def correct_thalweg_notches(huc_dir, huc, stage_interval):
 
             # Apply extend_src_linear_extrapolation to each src_df
             src_df3 = (
-                src_df3.groupby('HydroID', group_keys=False)
+                src_df3.groupby('HydroID', group_keys=False, include_groups=False)
                 .apply(lambda src_g: extend_src_linear_extrapolation(src_g, stages_full))
                 .sort_values(['HydroID', 'Stage'])
                 .reset_index(drop=True)
